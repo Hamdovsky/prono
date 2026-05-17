@@ -56,6 +56,10 @@ coverage/
 *.pdb
 *.log
 *.png
+!/src/**/*.png
+!/src/**/*.jpg
+!/src/**/*.jpeg
+!/src/**/*.svg
 *.html
 !index.html
 dist/

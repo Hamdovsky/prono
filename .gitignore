@@ -57,5 +57,6 @@ coverage/
 *.log
 *.png
 *.html
+!index.html
 dist/
 .github/

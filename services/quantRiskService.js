@@ -1,4 +1,11 @@
-const db = require('better-sqlite3')('data/tactical.db');
+const fs = require('fs');
+const path = require('path');
+const dbPath = path.resolve(__dirname, '../data/tactical.db');
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+}
+const db = require('better-sqlite3')(dbPath);
 const logger = require('../core/logger');
 
 class QuantRiskService {

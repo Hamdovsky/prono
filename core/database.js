@@ -4,6 +4,10 @@ const fs = require('fs');
 const logger = require('./logger');
 
 const dbPath = path.resolve(__dirname, '../data/tactical.db');
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+}
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('busy_timeout = 30000'); // 30 seconds for Windows I/O safety

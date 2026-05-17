@@ -319,10 +319,13 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
 
     try {
       const { redis } = require('./core/redisClient');
-      await redis.ping();
-      console.log('✅ [STARTUP] Redis connection confirmed.');
+      if (redis) {
+        redis.ping()
+          .then(() => console.log('✅ [STARTUP] Redis connection confirmed.'))
+          .catch(() => console.warn('⚠️ [STARTUP] Redis not reachable. Caching will degrade to fallback.'));
+      }
     } catch (redisErr) {
-      console.warn('⚠️ [STARTUP] Redis not reachable. Caching will degrade to fallback. Start Redis for full performance.');
+      console.warn('⚠️ [STARTUP] Redis client check failed.');
     }
 
     const startServer = (retries = 5) => {

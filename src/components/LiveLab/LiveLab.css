@@ -1,0 +1,437 @@
+/* ═══════════════════════════════════════════════════════════════
+   TITANIUM LIVE LAB V36 — Real-Time WebSocket Design
+   ═══════════════════════════════════════════════════════════════ */
+
+.ll-wrap {
+    padding: 24px;
+    background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 50%, #0f172a 100%);
+    min-height: 100vh;
+    color: #e2e8f0;
+}
+
+/* ─── Header ───────────────────────────────────────────────── */
+.ll-header { text-align: center; margin-bottom: 32px; }
+.ll-header h1 {
+    font-size: 2.2rem; font-weight: 900; color: #f8fafc;
+    text-shadow: 0 0 20px rgba(239,68,68,0.4);
+}
+.ll-version { color: #ef4444; font-size: 1rem; vertical-align: super; }
+.ll-header p { color: #94a3b8; margin-top: 6px; }
+.ll-header-meta {
+    display: flex; justify-content: center; align-items: center;
+    gap: 12px; margin-top: 10px; flex-wrap: wrap;
+}
+.ll-badge-count {
+    display: inline-block; padding: 4px 16px;
+    background: rgba(239,68,68,0.1); border: 1px solid #ef4444;
+    border-radius: 20px; color: #ef4444; font-weight: 800; font-size: 0.85rem;
+}
+.ll-socket-status {
+    display: inline-block; padding: 4px 14px; border-radius: 20px;
+    font-weight: 800; font-size: 0.8rem; letter-spacing: 0.5px;
+}
+.ll-socket-status.online  { background: rgba(16,185,129,0.12); border: 1px solid #10b981; color: #10b981; }
+.ll-socket-status.offline { background: rgba(239,68,68,0.1);  border: 1px solid #ef4444; color: #ef4444; animation: llpulse 1.5s infinite; }
+.ll-last-push { font-size: 0.75rem; color: #64748b; }
+
+/* ─── Grid ─────────────────────────────────────────────────── */
+.ll-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(370px, 1fr));
+    gap: 20px;
+}
+
+/* ─── Card ─────────────────────────────────────────────────── */
+.ll-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 18px;
+    backdrop-filter: blur(12px);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.ll-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+}
+
+/* Card top */
+.ll-card-top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #1e293b;
+}
+.ll-league { color: #94a3b8; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.ll-cat {
+    font-size: 0.7rem; font-weight: 800; padding: 2px 10px; border-radius: 20px;
+    border: 1px solid; letter-spacing: 0.3px;
+}
+
+/* Teams */
+.ll-teams { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.ll-team { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.ll-team-name { font-weight: 800; font-size: 1rem; text-align: center; margin-bottom: 4px; }
+.ll-score {
+    font-size: 2.2rem; font-weight: 900; color: #f8fafc;
+    background: #0c1222; padding: 2px 14px; border-radius: 8px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+}
+.ll-vs { display: flex; flex-direction: column; align-items: center; gap: 2px; color: #475569; font-size: 0.8rem; }
+.ll-min { color: #ef4444; font-weight: 900; font-size: 1.1rem; }
+
+/* ─── AI Prediction Strip ──────────────────────────────────── */
+.ll-ai-strip {
+    display: flex; justify-content: space-between; gap: 6px; margin-bottom: 10px;
+}
+.ll-ai-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+}
+/* V38: Arabic & Pro Visualization Styles */
+.live-lab-container[dir="rtl"] {
+    text-align: right;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.ll-filters {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.ll-filters button {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(71, 85, 105, 0.4);
+    color: #94a3b8;
+    padding: 0.5rem 1.25rem;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ll-filters button:hover {
+    background: rgba(51, 65, 85, 0.8);
+    color: #f8fafc;
+}
+
+.ll-filters button.active {
+    background: #3b82f6;
+    color: white;
+    border-color: #60a5fa;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+}
+
+/* Momentum Waveform */
+.ll-momentum-wave {
+    margin: 1.25rem 0;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ll-wave-label {
+    font-size: 0.7rem;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.ll-wave-container {
+    height: 40px;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 0 5px;
+}
+
+.ll-wave-bar {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    min-width: 8px;
+    transition: height 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ll-wave-bar.home {
+    background: linear-gradient(to top, rgba(59, 130, 246, 0.8), #60a5fa);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+}
+
+.ll-wave-bar.away {
+    background: linear-gradient(to top, rgba(167, 139, 250, 0.8), #c084fc);
+    box-shadow: 0 0 10px rgba(167, 139, 250, 0.2);
+}
+
+/* Pronostics Adjustments for RTL */
+.ll-prono-item {
+    padding-right: 1rem;
+    padding-left: 0.5rem;
+}
+
+.ll-prono-status.elite {
+    background: rgba(234, 179, 8, 0.15);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    animation: gold-pulse 2s infinite;
+}
+
+@keyframes gold-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+}
+
+.ll-freshness .fresh { color: #10b981; font-weight: bold; }
+.ll-freshness .warm { color: #f59e0b; }
+.ll-freshness .stale { color: #ef4444; }
+
+/* AI Strip labels */
+.ll-ai-lbl {
+    font-size: 0.65rem;
+    opacity: 0.8;
+}
+
+.ll-ai-val {
+    font-weight: 700;
+}
+
+/* V39: DNA Insight Style */
+.ll-dna-insight {
+    margin: 10px 0;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(139, 92, 246, 0.1));
+    border: 1px dashed rgba(139, 92, 246, 0.4);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: #c4b5fd;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: dna-glow 3s infinite ease-in-out;
+}
+
+@keyframes dna-glow {
+    0%, 100% { border-color: rgba(139, 92, 246, 0.3); box-shadow: 0 0 5px rgba(139, 92, 246, 0.1); }
+    50% { border-color: rgba(139, 92, 246, 0.7); box-shadow: 0 0 12px rgba(139, 92, 246, 0.2); }
+}
+
+.ll-ai-lbl { font-size: 0.65rem; color: #94a3b8; margin-bottom: 2px; }
+.ll-ai-val { font-size: 1rem; font-weight: 900; color: #f8fafc; }
+
+/* ─── Probability Bar ──────────────────────────────────────── */
+.ll-prob-bar {
+    display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 14px;
+    background: #1e293b;
+}
+.ll-prob-fill.home { background: #10b981; }
+.ll-prob-fill.draw { background: #f59e0b; }
+.ll-prob-fill.away { background: #a78bfa; }
+
+/* ─── Live Stats ───────────────────────────────────────────── */
+.ll-stats {
+    background: rgba(0,0,0,0.2); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px;
+}
+.ll-stat-row {
+    display: flex; justify-content: space-between; padding: 4px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.04);
+}
+.ll-stat-row:last-child { border-bottom: none; }
+.ll-sv { font-weight: 800; min-width: 28px; text-align: center; }
+.ll-sv.home { color: #38bdf8; }
+.ll-sv.away { color: #f59e0b; }
+.ll-sl { font-size: 0.75rem; color: #94a3b8; }
+
+/* Momentum */
+.ll-momentum { margin-top: 8px; }
+.ll-mom-bar {
+    height: 6px; background: #334155; border-radius: 3px; overflow: hidden;
+}
+.ll-mom-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #ef4444); transition: width 0.5s; }
+.ll-mom-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: #94a3b8; margin-top: 3px; }
+
+/* ─── ★ PRONOSTICS ★ ───────────────────────────────────────── */
+.ll-pronostics {
+    background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.6));
+    border: 1px solid rgba(234,179,8,0.2);
+    border-radius: 10px; padding: 12px; margin-bottom: 12px;
+}
+.ll-prono-title {
+    font-size: 0.8rem; font-weight: 900; color: #eab308; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 10px; text-align: center;
+}
+.ll-prono-item {
+    background: rgba(0,0,0,0.2); border-left: 3px solid #475569;
+    border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;
+}
+.ll-prono-item:last-child { margin-bottom: 0; }
+.ll-prono-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.ll-prono-icon { font-size: 1.1rem; }
+.ll-prono-market { font-weight: 800; font-size: 0.9rem; color: #f8fafc; flex: 1; }
+.ll-prono-prob { font-weight: 900; font-size: 1.1rem; }
+.ll-prono-reason { font-size: 0.78rem; color: #94a3b8; line-height: 1.4; }
+.ll-prono-odds { font-size: 0.75rem; color: #64748b; margin-top: 4px; }
+.ll-ev-pos { color: #10b981; font-weight: 800; }
+
+/* ─── Odds Strip ───────────────────────────────────────────── */
+.ll-odds-strip {
+    display: flex; justify-content: space-around; padding: 8px;
+    background: rgba(0,0,0,0.15); border-radius: 8px;
+    color: #94a3b8; font-size: 0.8rem; font-weight: 700;
+}
+
+/* ─── Loading / Empty ──────────────────────────────────────── */
+.ll-center {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 50vh; color: #94a3b8; text-align: center;
+}
+.ll-spinner {
+    width: 50px; height: 50px;
+    border: 4px solid rgba(239,68,68,0.2); border-top-color: #ef4444;
+    border-radius: 50%; animation: llspin 0.8s linear infinite; margin-bottom: 16px;
+}
+@keyframes llspin { to { transform: rotate(360deg); } }
+
+/* Pulse for LIVE */
+.pulse { animation: llpulse 2s infinite; }
+@keyframes llpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* ─── V37 Elite Quant Additions ────────────────────────────── */
+.xg-row { border-top: 1px solid rgba(234,179,8,0.1); margin-top: 4px; padding-top: 8px !important; }
+.xg-row .ll-sl { color: #eab308; font-weight: 800; font-size: 0.7rem; }
+.xg-row .ll-sv { color: #f8fafc; font-family: 'Courier New', monospace; }
+
+.ll-prono-market-group { display: flex; flex-direction: column; flex: 1; }
+.ll-prono-status { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-top: 1px; }
+
+/* Luxury Glow for ELITE & VALUE */
+.ll-prono-status.elite { 
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 900;
+    text-shadow: 0 0 10px rgba(234, 179, 8, 0.4);
+    animation: eliteGlow 2s infinite ease-in-out;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    padding: 1px 6px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+@keyframes eliteGlow { 
+    0%, 100% { filter: brightness(1) drop-shadow(0 0 2px rgba(234, 179, 8, 0.5)); } 
+    50% { filter: brightness(1.5) drop-shadow(0 0 8px rgba(234, 179, 8, 0.8)); transform: scale(1.02); } 
+}
+
+.ll-prono-status.value {
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(16, 185, 129, 0.05);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .ll-grid { grid-template-columns: 1fr; }
+    .ll-header h1 { font-size: 1.5rem; }
+}
+
+/* ─── V39 Real-Time Animations ────────────────────────────── */
+@keyframes flash-green { 
+    0% { background-color: rgba(16, 185, 129, 0.8); color: white; transform: scale(1.05); } 
+    100% { background-color: transparent; transform: scale(1); } 
+}
+@keyframes flash-red { 
+    0% { background-color: rgba(239, 68, 68, 0.8); color: white; transform: scale(1.05); } 
+    100% { background-color: transparent; transform: scale(1); } 
+}
+@keyframes flash-gold { 
+    0% { background-color: rgba(234, 179, 8, 0.8); color: white; transform: scale(1.1); box-shadow: 0 0 15px rgba(234, 179, 8, 0.5); } 
+    100% { background-color: transparent; color: inherit; transform: scale(1); box-shadow: none; } 
+}
+.flash-up { animation: flash-green 1.5s ease-out; border-radius: 4px; padding: 0 2px; }
+.flash-down { animation: flash-red 1.5s ease-out; border-radius: 4px; padding: 0 2px; }
+.flash-score { animation: flash-gold 2s ease-out; border-radius: 8px; }
+
+
+/* V7 Quantitative Engine Styles */
+.ll-prono-tags { display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+.ll-prono-state { font-size: 0.7rem; font-weight: 600; background: rgba(59, 130, 246, 0.15); color: #60a5fa; padding: 2px 6px; border-radius: 4px; border: 1px dashed rgba(59, 130, 246, 0.3); }
+.ll-critical-alert { margin-top: 10px; padding: 10px 12px; font-size: 0.8rem; background: rgba(239, 68, 68, 0.08); border-right: 3px solid #ef4444; border-radius: 6px; color: #fca5a5; line-height: 1.5; animation: flash-red-subtle 4s infinite alternate; }
+@keyframes flash-red-subtle { 0% { background: rgba(239, 68, 68, 0.05); } 100% { background: rgba(239, 68, 68, 0.15); } }
+/* ─── V26 6-Layer TI Styles ────────────────────────────────── */
+.ll-6layer-header {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: 15px;
+    padding-top: 10px;
+}
+
+.ll-ti-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.ll-ti-box {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+}
+
+.ll-ti-label {
+    display: block;
+    font-size: 0.65rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.ll-ti-value {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.ll-ti-value.recovery { color: #a78bfa; }
+.ll-ti-value.deviation { color: #38bdf8; }
+
+.ll-orient-table {
+    width: 100%;
+    background: rgba(15, 23, 42, 0.8);
+    border-radius: 10px;
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    overflow: hidden;
+    margin-top: 12px;
+    font-size: 0.8rem;
+}
+
+.ll-orient-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ll-orient-row:last-child { border-bottom: none; }
+
+.ll-orient-key { color: #94a3b8; }
+.ll-orient-val { font-weight: 800; color: #f8fafc; }
+.ll-orient-val.low { color: #10b981; }
+.ll-orient-val.medium { color: #f59e0b; }
+.ll-orient-val.high { color: #ef4444; }
+
+.luck-indicator {
+    font-size: 0.6rem;
+    font-weight: bold;
+    margin-top: 2px;
+    text-transform: uppercase;
+}
+.luck-indicator.luck { color: #f59e0b; }
+.luck-indicator.unluck { color: #ef4444; }
+.luck-indicator.normal { color: #10b981; }

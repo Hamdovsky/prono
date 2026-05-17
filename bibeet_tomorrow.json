@@ -1,0 +1,41 @@
+{
+  "scrapedAt": "2026-04-25T10:45:25.641Z",
+  "forDate": "26/04",
+  "bookingCode": "KX26R",
+  "totalMatches": 3,
+  "matches": [
+    {
+      "home": "Arsenal (W)",
+      "away": "Olympique Lyon (W)",
+      "time": "26/04 • 15:30",
+      "date": "",
+      "odds": {
+        "1": "2.54",
+        "2": "2.50",
+        "X": "3.60"
+      }
+    },
+    {
+      "home": "Coventry City",
+      "away": "Wrexham",
+      "time": "26/04 • 12:00",
+      "date": "",
+      "odds": {
+        "1": "2.08",
+        "2": "3.25",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "Chelsea",
+      "away": "Leeds",
+      "time": "26/04 • 15:00",
+      "date": "",
+      "odds": {
+        "1": "2.05",
+        "2": "3.50",
+        "X": "3.60"
+      }
+    }
+  ]
+}

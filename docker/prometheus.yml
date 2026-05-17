@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'titanium-node'
+    static_configs:
+      - targets: ['node-api:3001']
+    metrics_path: '/metrics'
+
+  - job_name: 'titanium-ml'
+    static_configs:
+      - targets: ['fastapi-ml:8000']
+    metrics_path: '/metrics'
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']

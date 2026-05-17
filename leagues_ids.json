@@ -1,0 +1,297 @@
+[
+  {
+    "tournament_name": "International Friendly Games",
+    "tournament_id": "10643",
+    "category_name": "World"
+  },
+  {
+    "tournament_name": "Club Friendly Games",
+    "tournament_id": "10398",
+    "category_name": "World"
+  },
+  {
+    "tournament_name": "Algerian Ligue 1",
+    "tournament_id": "841",
+    "category_name": "Algeria"
+  },
+  {
+    "tournament_name": "Liga Profesional de Fútbol",
+    "tournament_id": "155",
+    "category_name": "Argentina"
+  },
+  {
+    "tournament_name": "AFC Champions League Elite",
+    "tournament_id": "463",
+    "category_name": "Asia"
+  },
+  {
+    "tournament_name": "AFC Champions League Two",
+    "tournament_id": "668",
+    "category_name": "Asia"
+  },
+  {
+    "tournament_name": "AFC Women's Asian Cup",
+    "tournament_id": "1692",
+    "category_name": "Asia"
+  },
+  {
+    "tournament_name": "Austrian Bundesliga",
+    "tournament_id": "45",
+    "category_name": "Austria"
+  },
+  {
+    "tournament_name": "Misli Premier League",
+    "tournament_id": "709",
+    "category_name": "Azerbaijan"
+  },
+  {
+    "tournament_name": "Bahraini Premier League",
+    "tournament_id": "846",
+    "category_name": "Bahrain"
+  },
+  {
+    "tournament_name": "Chinese Super League",
+    "tournament_id": "649",
+    "category_name": "China"
+  },
+  {
+    "tournament_name": "LigaPro Serie A",
+    "tournament_id": "240",
+    "category_name": "Ecuador"
+  },
+  {
+    "tournament_name": "Egyptian Premier League",
+    "tournament_id": "808",
+    "category_name": "Egypt"
+  },
+  {
+    "tournament_name": "Championship",
+    "tournament_id": "18",
+    "category_name": "England"
+  },
+  {
+    "tournament_name": "League One",
+    "tournament_id": "44",
+    "category_name": "England"
+  },
+  {
+    "tournament_name": "National League",
+    "tournament_id": "173",
+    "category_name": "England"
+  },
+  {
+    "tournament_name": "UEFA Champions League",
+    "tournament_id": "7",
+    "category_name": "Europe"
+  },
+  {
+    "tournament_name": "Ligue 1",
+    "tournament_id": "34",
+    "category_name": "France"
+  },
+  {
+    "tournament_name": "Ligue 2",
+    "tournament_id": "182",
+    "category_name": "France"
+  },
+  {
+    "tournament_name": "2. Bundesliga",
+    "tournament_id": "44",
+    "category_name": "Germany"
+  },
+  {
+    "tournament_name": "Bundesliga",
+    "tournament_id": "35",
+    "category_name": "Germany"
+  },
+  {
+    "tournament_name": "Ghana Premier League",
+    "tournament_id": "1191",
+    "category_name": "Ghana"
+  },
+  {
+    "tournament_name": "Stoiximan Super League",
+    "tournament_id": "185",
+    "category_name": "Greece"
+  },
+  {
+    "tournament_name": "Super League 2",
+    "tournament_id": "186",
+    "category_name": "Greece"
+  },
+  {
+    "tournament_name": "Indian Super League",
+    "tournament_id": "1900",
+    "category_name": "India"
+  },
+  {
+    "tournament_name": "Indonesia Super League",
+    "tournament_id": "1015",
+    "category_name": "Indonesia"
+  },
+  {
+    "tournament_name": "Israeli Premier League",
+    "tournament_id": "266",
+    "category_name": "Israel"
+  },
+  {
+    "tournament_name": "Serie A",
+    "tournament_id": "23",
+    "category_name": "Italy"
+  },
+  {
+    "tournament_name": "Serie B",
+    "tournament_id": "53",
+    "category_name": "Italy"
+  },
+  {
+    "tournament_name": "Kazakhstan Premier League",
+    "tournament_id": "682",
+    "category_name": "Kazakhstan"
+  },
+  {
+    "tournament_name": "Moldovan Super Liga",
+    "tournament_id": "685",
+    "category_name": "Moldova"
+  },
+  {
+    "tournament_name": "Botola Pro",
+    "tournament_id": "937",
+    "category_name": "Morocco"
+  },
+  {
+    "tournament_name": "VriendenLoterij Eredivisie",
+    "tournament_id": "37",
+    "category_name": "Netherlands"
+  },
+  {
+    "tournament_name": "Campeonato de Portugal",
+    "tournament_id": "10093",
+    "category_name": "Portugal"
+  },
+  {
+    "tournament_name": "Liga Portugal 2",
+    "tournament_id": "239",
+    "category_name": "Portugal"
+  },
+  {
+    "tournament_name": "Liga Portugal Betclic",
+    "tournament_id": "238",
+    "category_name": "Portugal"
+  },
+  {
+    "tournament_name": "Russian Premier League",
+    "tournament_id": "203",
+    "category_name": "Russia"
+  },
+  {
+    "tournament_name": "Scottish Championship",
+    "tournament_id": "206",
+    "category_name": "Scotland"
+  },
+  {
+    "tournament_name": "Singapore Premier League",
+    "tournament_id": "634",
+    "category_name": "Singapore"
+  },
+  {
+    "tournament_name": "South African Premier Division",
+    "tournament_id": "358",
+    "category_name": "South Africa"
+  },
+  {
+    "tournament_name": "LaLiga",
+    "tournament_id": "8",
+    "category_name": "Spain"
+  },
+  {
+    "tournament_name": "LaLiga 2",
+    "tournament_id": "54",
+    "category_name": "Spain"
+  },
+  {
+    "tournament_name": "Swiss Super League",
+    "tournament_id": "215",
+    "category_name": "Switzerland"
+  },
+  {
+    "tournament_name": "Tunisian Ligue Professionnelle 1",
+    "tournament_id": "984",
+    "category_name": "Tunisia"
+  },
+  {
+    "tournament_name": "MLS",
+    "tournament_id": "242",
+    "category_name": "USA"
+  },
+  {
+    "tournament_name": "MLS Next Pro",
+    "tournament_id": "18641",
+    "category_name": "USA"
+  },
+  {
+    "tournament_name": "USL Championship",
+    "tournament_id": "13363",
+    "category_name": "USA"
+  },
+  {
+    "tournament_name": "USL Super League",
+    "tournament_id": "28384",
+    "category_name": "USA"
+  },
+  {
+    "tournament_name": "Ukrainian Premier League",
+    "tournament_id": "218",
+    "category_name": "Ukraine"
+  },
+  {
+    "tournament_name": "Saudi Pro League",
+    "tournament_id": "955",
+    "category_name": "Saudi Arabia"
+  },
+  {
+    "tournament_name": "UAE Pro League",
+    "tournament_id": "981",
+    "category_name": "United Arab Emirates"
+  },
+  {
+    "tournament_name": "Stars League",
+    "tournament_id": "978",
+    "category_name": "Qatar"
+  },
+  {
+    "tournament_name": "Kuwait League",
+    "tournament_id": "980",
+    "category_name": "Kuwait"
+  },
+  {
+    "tournament_name": "Iraq Stars League",
+    "tournament_id": "11261",
+    "category_name": "Iraq"
+  },
+  {
+    "tournament_name": "Jordan Pro League",
+    "tournament_id": "410",
+    "category_name": "Jordan"
+  },
+  {
+    "tournament_name": "Oman Professional League",
+    "tournament_id": "3043",
+    "category_name": "Oman"
+  },
+  {
+    "tournament_name": "Libyan Premier League",
+    "tournament_id": "3047",
+    "category_name": "Libya"
+  },
+  {
+    "tournament_name": "Lebanese Premier League",
+    "tournament_id": "3831",
+    "category_name": "Lebanon"
+  },
+  {
+    "tournament_name": "Syrian Premier League",
+    "tournament_id": "1243",
+    "category_name": "Syria"
+  }
+]

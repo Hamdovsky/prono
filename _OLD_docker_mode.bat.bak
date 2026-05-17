@@ -1,0 +1,12 @@
+@echo off
+echo 🚀 STARTING TITANIUM V4 SURGICAL (DOCKER MODE)
+echo ----------------------------------------------
+docker-compose up -d
+echo ----------------------------------------------
+echo ✅ SYSTEM IS RUNNING IN BACKGROUND
+echo 🌐 Dashboard: http://localhost:5173
+echo 📡 API: http://localhost:3001
+echo 🧠 AI Engine: http://localhost:8000
+echo 📊 DS Lab: http://localhost:8501
+echo ----------------------------------------------
+pause

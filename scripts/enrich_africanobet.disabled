@@ -1,0 +1,125 @@
+const fs = require('fs');
+const path = require('path');
+const { SofaAPI } = require('../SofascoreScraping/src/apiClient');
+const AliasResolver = require('../SofascoreScraping/src/AliasResolver');
+const persistence = require('../SofascoreScraping/src/Persistence');
+const Extractor = require('../SofascoreScraping/src/Extractor');
+const AdvancedAnalyticsEngine = require('../src/services/AdvancedAnalyticsEngine');
+
+async function enrichMatches() {
+    console.log('🚀 Démarrage de l\'enrichissement des matchs Africanobet avec Sofascore...');
+
+    // 1. Charger les matchs Africanobet
+    const africanobetPath = path.join(__dirname, '../data/africanobet_matches.json');
+    if (!fs.existsSync(africanobetPath)) {
+        console.error('❌ Fichier africanobet_matches.json non trouvé. Veuillez d\'abord lancer le scraper.');
+        return;
+    }
+    const afMatches = JSON.parse(fs.readFileSync(africanobetPath, 'utf8'));
+    console.log(`📊 ${afMatches.length} matchs chargés depuis Africanobet.`);
+
+    // 2. Initialiser la persistance et le résolveur d'alias
+    await persistence.init();
+    const resolver = new AliasResolver(persistence.db);
+
+    // 3. Récupérer les événements du jour sur Sofascore
+    const today = new Date().toISOString().split('T')[0];
+    console.log(`📡 Récupération des événements Sofascore pour le ${today}...`);
+    const sofaData = await SofaAPI.getEvents(today);
+    const sofaEvents = sofaData.events || [];
+    console.log(`✅ ${sofaEvents.length} événements trouvés sur Sofascore.`);
+
+    const enrichedMatches = [];
+
+    // 4. Mapper et enrichir chaque match
+    for (const afMatch of afMatches) {
+        const afHome = afMatch.home_team || afMatch.homeTeam || "";
+        const afAway = afMatch.away_team || afMatch.awayTeam || "";
+        console.log(`🔍 Recherche de correspondance pour : ${afHome} vs ${afAway}`);
+        
+        // Trouver le match correspondant sur Sofascore
+        const sofaMatch = sofaEvents.find(event => {
+            const sofaHome = event.homeTeam.name;
+            const sofaAway = event.awayTeam.name;
+            
+            const afHome = afMatch.home_team || afMatch.homeTeam || "";
+            const afAway = afMatch.away_team || afMatch.awayTeam || "";
+
+            const homeSim = resolver.getSimilarity(afHome.toLowerCase(), sofaHome.toLowerCase());
+            const awaySim = resolver.getSimilarity(afAway.toLowerCase(), sofaAway.toLowerCase());
+            
+            const threshold = 0.6; // Slightly lower threshold for Africanobet aliases
+            const isMatch = (homeSim > threshold && awaySim > threshold) || 
+                            (afHome.toLowerCase().includes(sofaHome.toLowerCase()) && afAway.toLowerCase().includes(sofaAway.toLowerCase())) ||
+                            (sofaHome.toLowerCase().includes(afHome.toLowerCase()) && sofaAway.toLowerCase().includes(afAway.toLowerCase()));
+            
+            return isMatch;
+        });
+
+        if (sofaMatch) {
+            console.log(`✨ Match trouvé sur Sofascore : ${sofaMatch.homeTeam.name} vs ${sofaMatch.awayTeam.name} (ID: ${sofaMatch.id})`);
+            
+            try {
+                const matchId = sofaMatch.id;
+                const homeId = sofaMatch.homeTeam.id;
+                const awayId = sofaMatch.awayTeam.id;
+                const tournamentId = sofaMatch.tournament.uniqueTournament?.id;
+                const seasonId = sofaMatch.season?.id;
+
+                // Récupérer les statistiques profondes
+                console.log(`   📡 Récupération des stats détaillées...`);
+                const [homeStats, awayStats, h2h, homeForm, awayForm, standings, details] = await Promise.all([
+                    tournamentId && seasonId ? SofaAPI.getTeamStats(homeId, tournamentId, seasonId) : Promise.resolve(null),
+                    tournamentId && seasonId ? SofaAPI.getTeamStats(awayId, tournamentId, seasonId) : Promise.resolve(null),
+                    SofaAPI.getH2H(matchId),
+                    tournamentId && seasonId ? SofaAPI.getTeamForm(homeId, tournamentId, seasonId) : Promise.resolve(null),
+                    tournamentId && seasonId ? SofaAPI.getTeamForm(awayId, tournamentId, seasonId) : Promise.resolve(null),
+                    tournamentId && seasonId ? SofaAPI.getStandings(tournamentId, seasonId) : Promise.resolve(null),
+                    SofaAPI.getMatchDetails(matchId)
+                ]);
+
+                // Injecter les données
+                const enriched = {
+                    ...afMatch,
+                    sofascore_id: matchId,
+                    tournament: sofaMatch.tournament.name,
+                    category: sofaMatch.tournament.category.name,
+                    status: sofaMatch.status.type,
+                    stats: {
+                        home: homeStats?.statistics || null,
+                        away: awayStats?.statistics || null
+                    },
+                    h2h: h2h?.events?.slice(0, 5) || [],
+                    form: {
+                        home: homeForm?.events || [],
+                        away: awayForm?.events || []
+                    },
+                    standings: standings?.standings?.[0]?.rows?.filter(r => r.team.id === homeId || r.team.id === awayId) || [],
+                    details: {
+                        venue: details?.event?.venue?.name || null,
+                        referee: details?.event?.referee?.name || null,
+                        attendance: details?.event?.attendance || null
+                    }
+                };
+
+                enrichedMatches.push(enriched);
+            } catch (err) {
+                console.error(`   ❌ Erreur lors de l'enrichissement du match ${matchId}:`, err.message);
+                enrichedMatches.push(afMatch); // Garder le match original sans stats
+            }
+        } else {
+            console.log(`   ⚠️ Aucun match correspondant trouvé sur Sofascore.`);
+            enrichedMatches.push(afMatch);
+        }
+    }
+
+    // 5. Sauvegarder les données enrichies
+    const outputPath = path.join(__dirname, '../data/enriched_africanobet_matches.json');
+    fs.writeFileSync(outputPath, JSON.stringify(enrichedMatches, null, 2));
+    console.log(`✅ Enrichissement terminé. ${enrichedMatches.length} matchs traités.`);
+    console.log(`💾 Données sauvegardées dans: ${outputPath}`);
+
+    process.exit(0);
+}
+
+enrichMatches();

@@ -1,0 +1,241 @@
+.market-lab {
+    padding: 24px;
+    background: #0f172a;
+    min-height: 100vh;
+    color: #f8fafc;
+    direction: rtl;
+}
+
+.market-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    padding: 30px;
+    border-radius: 20px;
+    border: 1px solid rgba(251, 191, 36, 0.1);
+    margin-bottom: 30px;
+}
+
+.market-badge {
+    background: rgba(251, 191, 36, 0.1);
+    color: #fbbf24;
+    padding: 5px 15px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    display: inline-block;
+    margin-bottom: 12px;
+}
+
+.market-info h1 {
+    font-size: 2rem;
+    margin: 0;
+    color: #f8fafc;
+}
+
+.market-info p {
+    color: #94a3b8;
+    margin: 8px 0 0;
+}
+
+.bankroll-manager {
+    background: rgba(0,0,0,0.3);
+    padding: 15px 25px;
+    border-radius: 15px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.bankroll-manager label {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.bankroll-manager input {
+    background: transparent;
+    border: none;
+    color: #fbbf24;
+    font-size: 1.8rem;
+    font-weight: 900;
+    width: 150px;
+    outline: none;
+    font-family: 'Outfit', sans-serif;
+}
+
+.market-filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 30px;
+}
+
+.market-filters button {
+    background: #1e293b;
+    border: 1px solid rgba(255,255,255,0.05);
+    color: #94a3b8;
+    padding: 10px 20px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.market-filters button.active {
+    background: #fbbf24;
+    color: #0f172a;
+    border-color: #fbbf24;
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.2);
+}
+
+.opportunities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 20px;
+}
+
+.deal-card {
+    background: #1e293b;
+    border-radius: 18px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.deal-card.green { border-right: 5px solid #10b981; }
+.deal-card.yellow { border-right: 5px solid #f59e0b; }
+.deal-card.red { border-right: 5px solid #ef4444; }
+
+.deal-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.league {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 700;
+}
+
+.integrity-tag {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 800;
+}
+
+.integrity-tag.GREEN { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+.integrity-tag.YELLOW { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.integrity-tag.RED { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+.deal-match {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+}
+
+.deal-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.metric {
+    background: rgba(15, 23, 42, 0.5);
+    padding: 12px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.metric .label {
+    display: block;
+    font-size: 0.65rem;
+    color: #64748b;
+    margin-bottom: 5px;
+}
+
+.metric .val {
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.metric .val.highlight {
+    color: #10b981;
+}
+
+.kelly-box {
+    background: rgba(251, 191, 36, 0.05);
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid rgba(251, 191, 36, 0.1);
+    margin-bottom: 15px;
+}
+
+.kelly-stake {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.kelly-stake .l { font-size: 0.8rem; color: #94a3b8; }
+.kelly-stake .v { font-size: 1.3rem; font-weight: 900; color: #fbbf24; }
+.kelly-stake .p { font-size: 0.75rem; color: #64748b; }
+
+.kelly-bar-container {
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.kelly-bar {
+    height: 100%;
+    background: #fbbf24;
+    border-radius: 3px;
+}
+
+.integrity-recom {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+
+.tags {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.tag {
+    background: rgba(255,255,255,0.05);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    color: #64748b;
+}
+
+.market-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+}
+
+.market-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(251, 191, 36, 0.1);
+    border-top: 4px solid #fbbf24;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }

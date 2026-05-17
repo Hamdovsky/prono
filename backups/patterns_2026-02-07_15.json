@@ -1,0 +1,788 @@
+[
+  {
+    "timestamp": "2026-02-07T11:03:16.041605",
+    "matchId": "mock-match-0",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 70,
+        "away": 30
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 88,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T10:03:16.041605",
+    "matchId": "mock-match-1",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 71,
+        "away": 29
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 89,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T09:03:16.041605",
+    "matchId": "mock-match-2",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 72,
+        "away": 28
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 90,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T08:03:16.041605",
+    "matchId": "mock-match-3",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 73,
+        "away": 27
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 91,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T07:03:16.041605",
+    "matchId": "mock-match-4",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 74,
+        "away": 26
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 92,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T06:03:16.041605",
+    "matchId": "mock-match-5",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 75,
+        "away": 25
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 88,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T05:03:16.041605",
+    "matchId": "mock-match-6",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 76,
+        "away": 24
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 89,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T04:03:16.043027",
+    "matchId": "mock-match-7",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 77,
+        "away": 23
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 90,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T03:03:16.043027",
+    "matchId": "mock-match-8",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 78,
+        "away": 22
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 91,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T02:03:16.043027",
+    "matchId": "mock-match-9",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 79,
+        "away": 21
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 92,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T01:03:16.043027",
+    "matchId": "mock-match-10",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 70,
+        "away": 30
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 88,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T00:03:16.043027",
+    "matchId": "mock-match-11",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 71,
+        "away": 29
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 89,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-06T23:03:16.043027",
+    "matchId": "mock-match-12",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 72,
+        "away": 28
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 90,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-06T22:03:16.043027",
+    "matchId": "mock-match-13",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 73,
+        "away": 27
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 91,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-06T21:03:16.043027",
+    "matchId": "mock-match-14",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 74,
+        "away": 26
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 92,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-06T20:03:16.043027",
+    "matchId": "mock-match-15",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 75,
+        "away": 25
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 88,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-06T19:03:16.043027",
+    "matchId": "mock-match-16",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 76,
+        "away": 24
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 89,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-06T18:03:16.043027",
+    "matchId": "mock-match-17",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 77,
+        "away": 23
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 90,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-06T17:03:16.043027",
+    "matchId": "mock-match-18",
+    "league": "Premier League",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 78,
+        "away": 22
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 91,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-06T16:03:16.043027",
+    "matchId": "mock-match-19",
+    "league": "La Liga",
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 79,
+        "away": 21
+      },
+      "possession": {
+        "home": 65,
+        "away": 35
+      },
+      "corners": {
+        "home": 6,
+        "away": 2
+      },
+      "cards": {
+        "home": 1,
+        "away": 2
+      }
+    },
+    "winProb": 92,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T10:50:58.454Z",
+    "matchId": "15502348",
+    "league": "Club Friendly Games",
+    "score": {
+      "home": 6,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 46,
+        "away": 51
+      },
+      "possession": {
+        "home": 50,
+        "away": 50
+      },
+      "corners": {
+        "home": 0,
+        "away": 0
+      },
+      "cards": {
+        "home": 0,
+        "away": 0
+      }
+    },
+    "winProb": 99,
+    "momentum": "home"
+  },
+  {
+    "timestamp": "2026-02-07T11:02:33.873Z",
+    "matchId": "15491420",
+    "league": "Club Friendly Games",
+    "score": {
+      "home": 1,
+      "away": 1
+    },
+    "stats": {
+      "pressure": {
+        "home": 48,
+        "away": 53
+      },
+      "possession": {
+        "home": 50,
+        "away": 50
+      },
+      "corners": {
+        "home": 0,
+        "away": 0
+      },
+      "cards": {
+        "home": 0,
+        "away": 0
+      },
+      "xG": {
+        "home": 0,
+        "away": 0
+      }
+    },
+    "winProb": 50,
+    "momentum": "neutral"
+  },
+  {
+    "timestamp": "2026-02-07T11:08:11.287Z",
+    "matchId": "15502348",
+    "league": "Club Friendly Games",
+    "scoreState": "7-1",
+    "timePeriod": "2nd_half",
+    "score": {
+      "home": 7,
+      "away": 1
+    },
+    "stats": {
+      "pressure": {
+        "home": 20,
+        "away": 16
+      },
+      "possession": {
+        "home": 50,
+        "away": 50
+      },
+      "corners": {
+        "home": 7,
+        "away": 3
+      },
+      "cards": {
+        "home": 0,
+        "away": 0
+      },
+      "xG": {
+        "home": 0,
+        "away": 0
+      }
+    },
+    "winProb": 99,
+    "momentum": "home",
+    "hasDeepStats": true
+  },
+  {
+    "timestamp": "2026-02-07T11:16:43.195Z",
+    "matchId": "15491486",
+    "league": "Club Friendly Games",
+    "scoreState": "0-0",
+    "timePeriod": "2nd_half",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 45,
+        "away": 50
+      },
+      "possession": {
+        "home": 50,
+        "away": 50
+      },
+      "corners": {
+        "home": 0,
+        "away": 0
+      },
+      "cards": {
+        "home": 0,
+        "away": 0
+      },
+      "xG": {
+        "home": 0,
+        "away": 0
+      }
+    },
+    "winProb": 50,
+    "momentum": "neutral",
+    "hasDeepStats": false
+  },
+  {
+    "timestamp": "2026-02-07T11:26:10.392Z",
+    "matchId": "15491532",
+    "league": "Club Friendly Games",
+    "scoreState": "2-0",
+    "timePeriod": "2nd_half",
+    "score": {
+      "home": 2,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 45,
+        "away": 50
+      },
+      "possession": {
+        "home": 50,
+        "away": 50
+      },
+      "corners": {
+        "home": 0,
+        "away": 0
+      },
+      "cards": {
+        "home": 0,
+        "away": 0
+      },
+      "xG": {
+        "home": 0,
+        "away": 0
+      }
+    },
+    "winProb": 90,
+    "momentum": "home",
+    "hasDeepStats": false
+  },
+  {
+    "timestamp": "2026-02-07T11:28:10.947Z",
+    "matchId": "15491532",
+    "league": "Club Friendly Games",
+    "scoreState": "2-0",
+    "timePeriod": "2nd_half",
+    "score": {
+      "home": 2,
+      "away": 0
+    },
+    "stats": {
+      "pressure": {
+        "home": 45,
+        "away": 50
+      },
+      "possession": {
+        "home": 50,
+        "away": 50
+      },
+      "corners": {
+        "home": 0,
+        "away": 0
+      },
+      "cards": {
+        "home": 0,
+        "away": 0
+      },
+      "xG": {
+        "home": 0,
+        "away": 0
+      }
+    },
+    "winProb": 90,
+    "momentum": "home",
+    "hasDeepStats": false
+  }
+]

@@ -1,0 +1,951 @@
+{
+  "timestamp": "2026-04-24T23:47:34.799Z",
+  "bookingCode": "AR4YC",
+  "matches": [
+    {
+      "home": "Lanus",
+      "away": "Central Cordoba",
+      "odds": {
+        "1": "2.95",
+        "2": "12.00",
+        "X": "1.54"
+      }
+    },
+    {
+      "home": "Unión La Calera",
+      "away": "Coquimbo",
+      "odds": {
+        "1": "70.00",
+        "2": "1.08",
+        "X": "7.50"
+      }
+    },
+    {
+      "home": "Arsenal FC",
+      "away": "Newcastle United",
+      "odds": {
+        "1": "1.44",
+        "2": "6.33",
+        "X": "5.00"
+      }
+    },
+    {
+      "home": "Liverpool FC",
+      "away": "Crystal Palace",
+      "odds": {
+        "1": "1.54",
+        "2": "6.00",
+        "X": "4.25"
+      }
+    },
+    {
+      "home": "Getafe CF",
+      "away": "FC Barcelona",
+      "odds": {
+        "1": "5.00",
+        "2": "1.66",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "Angers",
+      "away": "Paris Saint-Germain",
+      "odds": {
+        "1": "11.00",
+        "2": "1.27",
+        "X": "5.75"
+      }
+    },
+    {
+      "home": "Olympique Lyon",
+      "away": "Auxerre",
+      "odds": {
+        "1": "1.63",
+        "2": "5.33",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "1. FSV Mainz 05",
+      "away": "Bayern München",
+      "odds": {
+        "1": "4.50",
+        "2": "1.64",
+        "X": "4.50"
+      }
+    },
+    {
+      "home": "Manchester City",
+      "away": "Southampton",
+      "odds": {
+        "1": "1.22",
+        "2": "12.00",
+        "X": "6.66"
+      }
+    },
+    {
+      "home": "Wolverhampton Wanderers",
+      "away": "Tottenham Hotspur",
+      "odds": {
+        "1": "4.33",
+        "2": "1.71",
+        "X": "4.25"
+      }
+    },
+    {
+      "home": "Atletico Madrid",
+      "away": "Athletic Bilbao",
+      "odds": {
+        "1": "2.00",
+        "2": "3.50",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "SL Benfica FC",
+      "away": "Moreirense",
+      "odds": {
+        "1": "1.13",
+        "2": "17.00",
+        "X": "8.00"
+      }
+    },
+    {
+      "home": "Celtic FC",
+      "away": "Falkirk",
+      "odds": {
+        "1": "1.38",
+        "2": "7.00",
+        "X": "5.00"
+      }
+    },
+    {
+      "home": "Fulham",
+      "away": "Aston Villa FC",
+      "odds": {
+        "1": "2.62",
+        "2": "2.54",
+        "X": "3.60"
+      }
+    },
+    {
+      "home": "Cologne",
+      "away": "Bayer 04 Leverkusen",
+      "odds": {
+        "1": "3.66",
+        "2": "1.90",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "Lanus",
+      "away": "Central Cordoba",
+      "odds": {
+        "1": "2.95",
+        "2": "12.00",
+        "X": "1.54"
+      }
+    },
+    {
+      "home": "Lanus",
+      "away": "Central Cordoba",
+      "odds": {
+        "1": "2.95",
+        "2": "12.00",
+        "X": "1.54"
+      }
+    },
+    {
+      "home": "Lanus",
+      "away": "Central Cordoba",
+      "odds": {
+        "1": "2.95",
+        "2": "12.00",
+        "X": "1.54"
+      }
+    },
+    {
+      "home": "Estudiantes Rio Cuarto",
+      "away": "Rosario Central",
+      "odds": {
+        "1": "-",
+        "2": "-",
+        "X": "-"
+      }
+    },
+    {
+      "home": "Estudiantes Rio Cuarto",
+      "away": "Rosario Central",
+      "odds": {
+        "1": "-",
+        "2": "-",
+        "X": "-"
+      }
+    },
+    {
+      "home": "Estudiantes Rio Cuarto",
+      "away": "Rosario Central",
+      "odds": {
+        "1": "-",
+        "2": "-",
+        "X": "-"
+      }
+    },
+    {
+      "home": "Ponte Preta",
+      "away": "América-MG",
+      "odds": {
+        "1": "1.51",
+        "2": "8.00",
+        "X": "3.50"
+      }
+    },
+    {
+      "home": "Ponte Preta",
+      "away": "América-MG",
+      "odds": {
+        "1": "1.51",
+        "2": "8.00",
+        "X": "3.50"
+      }
+    },
+    {
+      "home": "Ponte Preta",
+      "away": "América-MG",
+      "odds": {
+        "1": "1.51",
+        "2": "8.00",
+        "X": "3.50"
+      }
+    },
+    {
+      "home": "Assisense U23",
+      "away": "Tupa FC U23",
+      "odds": {
+        "1": "1.40",
+        "2": "7.50",
+        "X": "3.60"
+      }
+    },
+    {
+      "home": "Assisense U23",
+      "away": "Tupa FC U23",
+      "odds": {
+        "1": "1.40",
+        "2": "7.50",
+        "X": "3.60"
+      }
+    },
+    {
+      "home": "Assisense U23",
+      "away": "Tupa FC U23",
+      "odds": {
+        "1": "1.40",
+        "2": "7.50",
+        "X": "3.60"
+      }
+    },
+    {
+      "home": "Pinheiros FC ES U20",
+      "away": "Rio Branco AC U20",
+      "odds": {
+        "1": "19.00",
+        "2": "1.06",
+        "X": "9.00"
+      }
+    },
+    {
+      "home": "Pinheiros FC ES U20",
+      "away": "Rio Branco AC U20",
+      "odds": {
+        "1": "19.00",
+        "2": "1.06",
+        "X": "9.00"
+      }
+    },
+    {
+      "home": "Pinheiros FC ES U20",
+      "away": "Rio Branco AC U20",
+      "odds": {
+        "1": "19.00",
+        "2": "1.06",
+        "X": "9.00"
+      }
+    },
+    {
+      "home": "FC Supra Du Quebec",
+      "away": "HFX Wanderers FC",
+      "odds": {
+        "1": "2.40",
+        "2": "2.90",
+        "X": "2.80"
+      }
+    },
+    {
+      "home": "FC Supra Du Quebec",
+      "away": "HFX Wanderers FC",
+      "odds": {
+        "1": "2.40",
+        "2": "2.90",
+        "X": "2.80"
+      }
+    },
+    {
+      "home": "FC Supra Du Quebec",
+      "away": "HFX Wanderers FC",
+      "odds": {
+        "1": "2.40",
+        "2": "2.90",
+        "X": "2.80"
+      }
+    },
+    {
+      "home": "Unión La Calera",
+      "away": "Coquimbo",
+      "odds": {
+        "1": "70.00",
+        "2": "1.08",
+        "X": "7.50"
+      }
+    },
+    {
+      "home": "Unión La Calera",
+      "away": "Coquimbo",
+      "odds": {
+        "1": "70.00",
+        "2": "1.08",
+        "X": "7.50"
+      }
+    },
+    {
+      "home": "Unión La Calera",
+      "away": "Coquimbo",
+      "odds": {
+        "1": "70.00",
+        "2": "1.08",
+        "X": "7.50"
+      }
+    },
+    {
+      "home": "Tigres FC",
+      "away": "Internacional de Palmira",
+      "odds": {
+        "1": "3.70",
+        "2": "2.45",
+        "X": "2.45"
+      }
+    },
+    {
+      "home": "Tigres FC",
+      "away": "Internacional de Palmira",
+      "odds": {
+        "1": "3.70",
+        "2": "2.45",
+        "X": "2.45"
+      }
+    },
+    {
+      "home": "Tigres FC",
+      "away": "Internacional de Palmira",
+      "odds": {
+        "1": "3.70",
+        "2": "2.45",
+        "X": "2.45"
+      }
+    },
+    {
+      "home": "Club Leon (W)",
+      "away": "Atletico San Luis (W)",
+      "odds": {
+        "1": "11.00",
+        "2": "1.22",
+        "X": "5.70"
+      }
+    },
+    {
+      "home": "Club Leon (W)",
+      "away": "Atletico San Luis (W)",
+      "odds": {
+        "1": "11.00",
+        "2": "1.22",
+        "X": "5.70"
+      }
+    },
+    {
+      "home": "Club Leon (W)",
+      "away": "Atletico San Luis (W)",
+      "odds": {
+        "1": "11.00",
+        "2": "1.22",
+        "X": "5.70"
+      }
+    },
+    {
+      "home": "Cerro Porteno",
+      "away": "Ameliano",
+      "odds": {
+        "1": "1.28",
+        "2": "13.00",
+        "X": "4.40"
+      }
+    },
+    {
+      "home": "Cerro Porteno",
+      "away": "Ameliano",
+      "odds": {
+        "1": "1.28",
+        "2": "13.00",
+        "X": "4.40"
+      }
+    },
+    {
+      "home": "Cerro Porteno",
+      "away": "Ameliano",
+      "odds": {
+        "1": "1.28",
+        "2": "13.00",
+        "X": "4.40"
+      }
+    },
+    {
+      "home": "Arsenal FC",
+      "away": "Newcastle United",
+      "odds": {
+        "1": "1.44",
+        "2": "6.33",
+        "X": "5.00"
+      }
+    },
+    {
+      "home": "Arsenal FC",
+      "away": "Newcastle United",
+      "odds": {
+        "1": "1.44",
+        "2": "6.33",
+        "X": "5.00"
+      }
+    },
+    {
+      "home": "Arsenal FC",
+      "away": "Newcastle United",
+      "odds": {
+        "1": "1.44",
+        "2": "6.33",
+        "X": "5.00"
+      }
+    },
+    {
+      "home": "Liverpool FC",
+      "away": "Crystal Palace",
+      "odds": {
+        "1": "1.54",
+        "2": "6.00",
+        "X": "4.25"
+      }
+    },
+    {
+      "home": "Liverpool FC",
+      "away": "Crystal Palace",
+      "odds": {
+        "1": "1.54",
+        "2": "6.00",
+        "X": "4.25"
+      }
+    },
+    {
+      "home": "Liverpool FC",
+      "away": "Crystal Palace",
+      "odds": {
+        "1": "1.54",
+        "2": "6.00",
+        "X": "4.25"
+      }
+    },
+    {
+      "home": "Getafe CF",
+      "away": "FC Barcelona",
+      "odds": {
+        "1": "5.00",
+        "2": "1.66",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "Getafe CF",
+      "away": "FC Barcelona",
+      "odds": {
+        "1": "5.00",
+        "2": "1.66",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "Getafe CF",
+      "away": "FC Barcelona",
+      "odds": {
+        "1": "5.00",
+        "2": "1.66",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "Angers",
+      "away": "Paris Saint-Germain",
+      "odds": {
+        "1": "11.00",
+        "2": "1.27",
+        "X": "5.75"
+      }
+    },
+    {
+      "home": "Angers",
+      "away": "Paris Saint-Germain",
+      "odds": {
+        "1": "11.00",
+        "2": "1.27",
+        "X": "5.75"
+      }
+    },
+    {
+      "home": "Angers",
+      "away": "Paris Saint-Germain",
+      "odds": {
+        "1": "11.00",
+        "2": "1.27",
+        "X": "5.75"
+      }
+    },
+    {
+      "home": "Olympique Lyon",
+      "away": "Auxerre",
+      "odds": {
+        "1": "1.63",
+        "2": "5.33",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "Olympique Lyon",
+      "away": "Auxerre",
+      "odds": {
+        "1": "1.63",
+        "2": "5.33",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "Olympique Lyon",
+      "away": "Auxerre",
+      "odds": {
+        "1": "1.63",
+        "2": "5.33",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "1. FSV Mainz 05",
+      "away": "Bayern München",
+      "odds": {
+        "1": "4.50",
+        "2": "1.64",
+        "X": "4.50"
+      }
+    },
+    {
+      "home": "1. FSV Mainz 05",
+      "away": "Bayern München",
+      "odds": {
+        "1": "4.50",
+        "2": "1.64",
+        "X": "4.50"
+      }
+    },
+    {
+      "home": "1. FSV Mainz 05",
+      "away": "Bayern München",
+      "odds": {
+        "1": "4.50",
+        "2": "1.64",
+        "X": "4.50"
+      }
+    },
+    {
+      "home": "Manchester City",
+      "away": "Southampton",
+      "odds": {
+        "1": "1.22",
+        "2": "12.00",
+        "X": "6.66"
+      }
+    },
+    {
+      "home": "Manchester City",
+      "away": "Southampton",
+      "odds": {
+        "1": "1.22",
+        "2": "12.00",
+        "X": "6.66"
+      }
+    },
+    {
+      "home": "Manchester City",
+      "away": "Southampton",
+      "odds": {
+        "1": "1.22",
+        "2": "12.00",
+        "X": "6.66"
+      }
+    },
+    {
+      "home": "Wolverhampton Wanderers",
+      "away": "Tottenham Hotspur",
+      "odds": {
+        "1": "4.33",
+        "2": "1.71",
+        "X": "4.25"
+      }
+    },
+    {
+      "home": "Wolverhampton Wanderers",
+      "away": "Tottenham Hotspur",
+      "odds": {
+        "1": "4.33",
+        "2": "1.71",
+        "X": "4.25"
+      }
+    },
+    {
+      "home": "Wolverhampton Wanderers",
+      "away": "Tottenham Hotspur",
+      "odds": {
+        "1": "4.33",
+        "2": "1.71",
+        "X": "4.25"
+      }
+    },
+    {
+      "home": "Atletico Madrid",
+      "away": "Athletic Bilbao",
+      "odds": {
+        "1": "2.00",
+        "2": "3.50",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "Atletico Madrid",
+      "away": "Athletic Bilbao",
+      "odds": {
+        "1": "2.00",
+        "2": "3.50",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "Atletico Madrid",
+      "away": "Athletic Bilbao",
+      "odds": {
+        "1": "2.00",
+        "2": "3.50",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "SL Benfica FC",
+      "away": "Moreirense",
+      "odds": {
+        "1": "1.13",
+        "2": "17.00",
+        "X": "8.00"
+      }
+    },
+    {
+      "home": "SL Benfica FC",
+      "away": "Moreirense",
+      "odds": {
+        "1": "1.13",
+        "2": "17.00",
+        "X": "8.00"
+      }
+    },
+    {
+      "home": "SL Benfica FC",
+      "away": "Moreirense",
+      "odds": {
+        "1": "1.13",
+        "2": "17.00",
+        "X": "8.00"
+      }
+    },
+    {
+      "home": "Washington Spirit (W)",
+      "away": "Kansas City Current (W)",
+      "odds": {
+        "1": "2.00",
+        "2": "3.20",
+        "X": "3.60"
+      }
+    },
+    {
+      "home": "Washington Spirit (W)",
+      "away": "Kansas City Current (W)",
+      "odds": {
+        "1": "2.00",
+        "2": "3.20",
+        "X": "3.60"
+      }
+    },
+    {
+      "home": "Washington Spirit (W)",
+      "away": "Kansas City Current (W)",
+      "odds": {
+        "1": "2.00",
+        "2": "3.20",
+        "X": "3.60"
+      }
+    },
+    {
+      "home": "CD Santo Domingo",
+      "away": "San Antonio FC",
+      "odds": {
+        "1": "1.87",
+        "2": "4.33",
+        "X": "2.90"
+      }
+    },
+    {
+      "home": "CD Santo Domingo",
+      "away": "San Antonio FC",
+      "odds": {
+        "1": "1.87",
+        "2": "4.33",
+        "X": "2.90"
+      }
+    },
+    {
+      "home": "CD Santo Domingo",
+      "away": "San Antonio FC",
+      "odds": {
+        "1": "1.87",
+        "2": "4.33",
+        "X": "2.90"
+      }
+    },
+    {
+      "home": "Independiente Petrolero",
+      "away": "Universitario de Vinto",
+      "odds": {
+        "1": "2.25",
+        "2": "2.62",
+        "X": "3.66"
+      }
+    },
+    {
+      "home": "Independiente Petrolero",
+      "away": "Universitario de Vinto",
+      "odds": {
+        "1": "2.25",
+        "2": "2.62",
+        "X": "3.66"
+      }
+    },
+    {
+      "home": "Independiente Petrolero",
+      "away": "Universitario de Vinto",
+      "odds": {
+        "1": "2.25",
+        "2": "2.62",
+        "X": "3.66"
+      }
+    },
+    {
+      "home": "Sport Club Corinthians Paulista (W)",
+      "away": "Ferroviaria SAF (W)",
+      "odds": {
+        "1": "1.53",
+        "2": "5.66",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "Sport Club Corinthians Paulista (W)",
+      "away": "Ferroviaria SAF (W)",
+      "odds": {
+        "1": "1.53",
+        "2": "5.66",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "Sport Club Corinthians Paulista (W)",
+      "away": "Ferroviaria SAF (W)",
+      "odds": {
+        "1": "1.53",
+        "2": "5.66",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "Municipal Puente Alto",
+      "away": "Deportes Naval de Talcahuano",
+      "odds": {
+        "1": "3.00",
+        "2": "2.20",
+        "X": "3.10"
+      }
+    },
+    {
+      "home": "Municipal Puente Alto",
+      "away": "Deportes Naval de Talcahuano",
+      "odds": {
+        "1": "3.00",
+        "2": "2.20",
+        "X": "3.10"
+      }
+    },
+    {
+      "home": "Municipal Puente Alto",
+      "away": "Deportes Naval de Talcahuano",
+      "odds": {
+        "1": "3.00",
+        "2": "2.20",
+        "X": "3.10"
+      }
+    },
+    {
+      "home": "A. Italiano",
+      "away": "Deportes Limache",
+      "odds": {
+        "1": "2.71",
+        "2": "2.50",
+        "X": "3.40"
+      }
+    },
+    {
+      "home": "A. Italiano",
+      "away": "Deportes Limache",
+      "odds": {
+        "1": "2.71",
+        "2": "2.50",
+        "X": "3.40"
+      }
+    },
+    {
+      "home": "A. Italiano",
+      "away": "Deportes Limache",
+      "odds": {
+        "1": "2.71",
+        "2": "2.50",
+        "X": "3.40"
+      }
+    },
+    {
+      "home": "Platense",
+      "away": "San Lorenzo",
+      "odds": {
+        "1": "2.36",
+        "2": "3.66",
+        "X": "2.75"
+      }
+    },
+    {
+      "home": "Platense",
+      "away": "San Lorenzo",
+      "odds": {
+        "1": "2.36",
+        "2": "3.66",
+        "X": "2.75"
+      }
+    },
+    {
+      "home": "Platense",
+      "away": "San Lorenzo",
+      "odds": {
+        "1": "2.36",
+        "2": "3.66",
+        "X": "2.75"
+      }
+    },
+    {
+      "home": "Racing Club Avellaneda",
+      "away": "Barracas Central",
+      "odds": {
+        "1": "1.50",
+        "2": "7.50",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "Racing Club Avellaneda",
+      "away": "Barracas Central",
+      "odds": {
+        "1": "1.50",
+        "2": "7.50",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "Racing Club Avellaneda",
+      "away": "Barracas Central",
+      "odds": {
+        "1": "1.50",
+        "2": "7.50",
+        "X": "3.80"
+      }
+    },
+    {
+      "home": "Club America (W)",
+      "away": "Pachuca (W)",
+      "odds": {
+        "1": "1.66",
+        "2": "4.20",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "Club America (W)",
+      "away": "Pachuca (W)",
+      "odds": {
+        "1": "1.66",
+        "2": "4.20",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "Club America (W)",
+      "away": "Pachuca (W)",
+      "odds": {
+        "1": "1.66",
+        "2": "4.20",
+        "X": "4.00"
+      }
+    },
+    {
+      "home": "San Francisco FC B",
+      "away": "Atletico Nacional",
+      "odds": {
+        "1": "3.14",
+        "2": "2.05",
+        "X": "3.10"
+      }
+    },
+    {
+      "home": "San Francisco FC B",
+      "away": "Atletico Nacional",
+      "odds": {
+        "1": "3.14",
+        "2": "2.05",
+        "X": "3.10"
+      }
+    },
+    {
+      "home": "San Francisco FC B",
+      "away": "Atletico Nacional",
+      "odds": {
+        "1": "3.14",
+        "2": "2.05",
+        "X": "3.10"
+      }
+    }
+  ]
+}

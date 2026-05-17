@@ -1,0 +1,102 @@
+.flash-sidebar {
+    width: 190px; /* Reduced from 280px to save space */
+    height: 100%;
+    background-color: #020617;
+    border-right: 1px solid #1e293b;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    color: #94a3b8;
+}
+
+/* Scrollbar styling for sidebar */
+.flash-sidebar::-webkit-scrollbar {
+    width: 3px;
+}
+.flash-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.flash-sidebar::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 4px;
+}
+
+.flash-sidebar-header {
+    padding: 12px 10px;
+    border-bottom: 1px solid #1e293b;
+    background-color: #000;
+}
+
+.flash-sidebar-header h2 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 900;
+    color: #f8fafc;
+    letter-spacing: 0.5px;
+}
+
+.flash-nav-section {
+    padding: 8px 0;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    flex-direction: column;
+}
+
+.flash-section-title {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #475569;
+    margin: 10px 0 5px 12px;
+    letter-spacing: 1px;
+}
+
+.flash-nav-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    color: #cbd5e1;
+}
+
+.flash-nav-item:hover {
+    background-color: #1e293b;
+    color: #f8fafc;
+}
+
+.flash-nav-item.active {
+    background-color: #0284c7;
+    color: #ffffff;
+}
+
+.flash-icon {
+    font-size: 0.85rem;
+    width: 20px;
+    text-align: center;
+    margin-right: 8px;
+}
+
+.flash-label {
+    flex: 1;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.flash-count {
+    font-size: 10px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.flash-nav-item:hover .flash-count,
+.flash-nav-item.active .flash-count {
+    color: inherit;
+}

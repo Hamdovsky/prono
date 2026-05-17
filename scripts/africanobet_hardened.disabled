@@ -1,0 +1,91 @@
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const fs = require('fs');
+const path = require('path');
+
+puppeteer.use(StealthPlugin());
+
+async function scrape() {
+    console.log('🚀 Démarrage du scraper Africanobet Ultra-Hardened...');
+    const browser = await puppeteer.launch({
+        headless: "new",
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1920,1080']
+    });
+    const page = await browser.newPage();
+    
+    // Set a realistic User-Agent
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+    try {
+        console.log('🌐 Navigation vers Africanobet (Live Calendar)...');
+        await page.goto('https://www.africanobet.com/fr/sports/live-calendar', { waitUntil: 'networkidle2', timeout: 90000 });
+        
+        // Wait for any initial splash screen to disappear
+        await new Promise(r => setTimeout(r, 15000));
+
+        // Attempt to find matches by various methods
+        const matches = await page.evaluate(async () => {
+            const results = [];
+            
+            // 1. Check for live calendar rows (Current structure)
+            document.querySelectorAll('.c-row-bc.bordered').forEach(row => {
+                const time = row.querySelector('.c-info-time-bc')?.innerText || '';
+                const teams = Array.from(row.querySelectorAll('.c-team-info-team-bc.team'));
+                const odds = Array.from(row.querySelectorAll('.market-odd-bc'));
+
+                if (teams.length >= 2) {
+                    results.push({
+                        home_team: teams[0].innerText.trim(),
+                        away_team: teams[1].innerText.trim(),
+                        time: time.trim(),
+                        odds_1: odds[0]?.innerText.trim() || 'N/A',
+                        odds_x: odds[1]?.innerText.trim() || 'N/A',
+                        odds_2: odds[2]?.innerText.trim() || 'N/A'
+                    });
+                }
+            });
+
+            // 2. Fallback to generic extraction if needed (for home page)
+            if (results.length === 0) {
+                const extractFromRow = (row) => {
+                    const text = row.innerText.split('\n').filter(t => t.trim().length > 0);
+                    if (text.length >= 5) {
+                        const odds = text.filter(t => !isNaN(parseFloat(t)) && t.includes('.'));
+                        const teams = text.filter(t => t.length > 3 && !t.includes(':') && isNaN(parseFloat(t)));
+                        if (teams.length >= 2 && odds.length >= 3) {
+                            return {
+                                home_team: teams[0],
+                                away_team: teams[1],
+                                time: text.find(t => t.includes(':')) || '',
+                                odds_1: odds[0],
+                                odds_x: odds[1],
+                                odds_2: odds[2]
+                            };
+                        }
+                    }
+                    return null;
+                };
+
+                document.querySelectorAll('.popular-matches-bc > div, [class*="match-card"], .event-row-bc, [class*="event-row"]').forEach(row => {
+                    const m = extractFromRow(row);
+                    if (m) results.push(m);
+                });
+            }
+
+            return results;
+        });
+
+        console.log(`✅ ${matches.length} matchs trouvés via Ultra-Hardened logic.`);
+        
+        const outputPath = path.join(__dirname, '../data/africanobet_matches.json');
+        fs.writeFileSync(outputPath, JSON.stringify(matches, null, 2));
+        
+        return matches;
+    } catch (e) {
+        console.error('❌ Erreur:', e.message);
+    } finally {
+        await browser.close();
+    }
+}
+
+scrape();

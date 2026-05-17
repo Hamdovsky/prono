@@ -1,0 +1,63 @@
+const fs = require('fs');
+const path = require('path');
+const database = require('../core/database');
+const logger = require('../core/logger');
+
+async function importAfricanobet() {
+    console.log('🚀 Démarrage de l\'importation des matchs Africanobet dans la base de données...');
+
+    const enrichedPath = path.join(__dirname, '../data/enriched_africanobet_matches.json');
+    if (!fs.existsSync(enrichedPath)) {
+        console.error('❌ Fichier enriched_africanobet_matches.json non trouvé.');
+        return;
+    }
+
+    const matches = JSON.parse(fs.readFileSync(enrichedPath, 'utf8'));
+    console.log(`📊 ${matches.length} matchs à importer.`);
+
+    let importedCount = 0;
+
+    for (const m of matches) {
+        try {
+            const home = (m.home_team || m.homeTeam || "").trim();
+            const away = (m.away_team || m.awayTeam || "").trim();
+            
+            if (!home || !away) continue;
+
+            // Stable ID based on team names if sofascore_id is missing
+            const stableId = m.sofascore_id ? `sofa_${m.sofascore_id}` : `af_${Buffer.from(`${home}_${away}`).toString('hex').substring(0, 12)}`;
+
+            // Adapter l'objet pour database.insertMatch
+            const matchToInsert = {
+                id: stableId,
+                homeTeam: home,
+                awayTeam: away,
+                league: m.tournament || m.category || 'Africanobet',
+                status: 'scheduled',
+                source: 'africanobet',
+                odds_home: parseFloat(m.odds_1) || null,
+                odds_draw: parseFloat(m.odds_x) || null,
+                odds_away: parseFloat(m.odds_2) || null,
+                home_win_probability: m.home_win_probability ? m.home_win_probability / 100 : 0.33,
+                draw_probability: m.draw_probability ? m.draw_probability / 100 : 0.33,
+                away_win_probability: m.away_win_probability ? m.away_win_probability / 100 : 0.33,
+                expected_score: m.expected_score || '1 - 1',
+                timestamp: m.time || new Date().toISOString(),
+                // Stats
+                weather_temp: m.details?.weather_temp || null,
+                referee: m.details?.referee || null,
+                fullData: JSON.stringify(m)
+            };
+
+            await database.insertMatch(matchToInsert);
+            importedCount++;
+        } catch (err) {
+            console.error(`❌ Erreur d'insertion pour ${m.home_team || m.homeTeam}:`, err.message);
+        }
+    }
+
+    console.log(`✅ Importation terminée. ${importedCount} matchs insérés.`);
+    process.exit(0);
+}
+
+importAfricanobet();

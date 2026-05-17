@@ -1,0 +1,10 @@
+{
+    "id": "test_leverkusen_arsenal",
+    "homeTeam": "Bayer 04 Leverkusen",
+    "awayTeam": "Arsenal",
+    "league": "UEFA Champions League",
+    "startTimestamp": 1773351600,
+    "news_data": "{\"injuries\": {\"home\": [\"Wirtz\"], \"away\": [\"Saka\"]}}",
+    "historical_context": "{\"winRateHome\": \"45%\", \"totalGames\": 10}",
+    "form_context": "{\"home\": {\"standing\": {\"position\": 1, \"matches\": 25}}, \"away\": {\"standing\": {\"position\": 2, \"matches\": 25}}}"
+}

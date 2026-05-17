@@ -1,0 +1,14 @@
+Match: Lazio vs Sassuolo
+Score: 1 - 1
+Pred: {"label": "\ud83c\udfc6 Win Prob", "val": "Host (7.6%)", "confidence": 7, "color": "#2ecc71"}
+Home/Draw/Away Probs: 7.6 84.8 7.6
+Raw xG: 1.35 - 1.35
+Fallback/Source: Hybrid-Ultra-V11
+
+Match: Espanyol vs Real Oviedo
+Score: 1 - 1
+Pred: {"label": "\ud83c\udfc6 Win Prob", "val": "Visitor (8.5%)", "confidence": 8, "color": "#2ecc71"}
+Home/Draw/Away Probs: 6.6 85.0 8.5
+Raw xG: 1.15 - 1.35
+Fallback/Source: Hybrid-Ultra-V11
+

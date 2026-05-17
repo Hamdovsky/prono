@@ -1,0 +1,360 @@
+import sqlite3
+import json
+import pandas as pd
+import numpy as np
+import os
+import math
+import datetime
+from flask import Flask, request, jsonify
+
+# Unified ML Extractor
+try:
+    from ml_features import extract_ml_features, FEATURE_NAMES
+except ImportError:
+    pass # Managed internally if missing
+
+app = Flask(__name__)
+
+# --- Paths ---
+DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'historical_archive.sqlite')
+ACCURACY_LOG_PATH = os.path.join(os.path.dirname(__file__), 'data', 'accuracy_log.json')
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'models', 'stitch_v3.json')
+
+# --- Globals ---
+booster = None
+if os.path.exists(MODEL_PATH):
+    try:
+        import xgboost as xgb
+        booster = xgb.XGBClassifier()
+        booster.load_model(MODEL_PATH)
+        # print(f"[AI] Loaded True ML Model: {MODEL_PATH}")
+    except Exception as e:
+        # print(f"[AI] Model found but failed to load: {e}")
+        pass
+
+# --- DB & Utilities ---
+
+def get_db_connection():
+    if not os.path.exists(DB_PATH):
+        return None
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def extract_features_from_stats(stats_json):
+    if not stats_json: return {}
+    try:
+        stats = json.loads(stats_json)
+        features = {}
+        for item in stats:
+            cat = item.get('category', 'Unknown')
+            features[f"{cat}_home"] = float(str(item.get('homeValue', '0')).replace('%','').split('/')[0] or 0)
+            features[f"{cat}_away"] = float(str(item.get('awayValue', '0')).replace('%','').split('/')[0] or 0)
+        return features
+    except: return {}
+
+def get_team_history(team_name, limit=12):
+    conn = get_db_connection()
+    if not conn: return []
+    try:
+        clean_name = team_name.strip()
+        query = """
+        SELECT stats_blob, homeTeam, awayTeam, scoreHome, scoreAway 
+        FROM archive_matches 
+        WHERE (homeTeam = ? OR awayTeam = ? OR homeTeam LIKE ? OR awayTeam LIKE ?) 
+        AND stats_blob IS NOT NULL
+        ORDER BY id DESC LIMIT ?
+        """
+        like_name = f"%{clean_name}%"
+        rows = conn.execute(query, (clean_name, clean_name, like_name, like_name, limit)).fetchall()
+        conn.close()
+        
+        history = []
+        for r in rows:
+            feats = extract_features_from_stats(r['stats_blob'])
+            is_home = (r['homeTeam'].lower() == clean_name.lower())
+            norm = {}
+            for k, v in feats.items():
+                if is_home: norm[k] = v
+                else:
+                    if '_home' in k: norm[k.replace('_home', '_away')] = v
+                    elif '_away' in k: norm[k.replace('_away', '_home')] = v
+            norm['score_for'] = r['scoreHome'] if is_home else r['scoreAway']
+            norm['score_against'] = r['scoreAway'] if is_home else r['scoreHome']
+            history.append(norm)
+        return history
+    except Exception as e: 
+        return []
+
+def calculate_motivation(standing):
+    if not standing: return 1.0, 0
+    try:
+        pos = int(standing.get('position', 10))
+        matches = int(standing.get('matches', 0))
+        if matches > 12:
+            if pos <= 3 or pos >= 17: return 1.10, 0 
+            if 8 <= pos <= 13: return 0.95, 15
+    except: pass
+    return 1.0, 0
+
+def poisson_prob(lam, k):
+    if k < 0: return 0
+    if lam <= 0: return 1.0 if k == 0 else 0.0
+    return (math.exp(-lam) * (lam**k)) / math.factorial(k)
+
+def calculate_exact_score_aggressive(xg_h: float, xg_a: float, p_home: float, p_away: float, h_vol: float = 1.0, a_vol: float = 1.0, h_def_mod: float = 1.0, a_def_mod: float = 1.0) -> str:
+    xg_h_eff = xg_h * h_vol
+    xg_a_eff = xg_a * a_vol
+    
+    if xg_h_eff > xg_a_eff + 1.5:
+        h_final, a_final = math.ceil(xg_h_eff), math.floor(xg_a_eff)
+    elif xg_a_eff > xg_h_eff + 1.5:
+        a_final, h_final = math.ceil(xg_a_eff), math.floor(xg_h_eff)
+    else:
+        h_final, a_final = int(round(xg_h_eff)), int(round(xg_a_eff))
+        
+    if (a_def_mod < 0.85 or xg_a_eff < 0.65) and xg_a_eff < 1.0: a_final = 0
+    if (h_def_mod < 0.85 or xg_h_eff < 0.65) and xg_h_eff < 1.0: h_final = 0
+    
+    if p_home > 45 and h_final <= a_final: h_final = a_final + 1
+    elif p_away > 45 and a_final <= h_final: a_final = h_final + 1
+    
+    return f"{max(0, min(7, h_final))} - {max(0, min(7, a_final))}"
+
+def apply_gap_learning_weight(prob_dict, league_name):
+    """
+    Dynamic Weighting: Reads accuracy_log.json to look for recent 'Market Inefficiency' failures.
+    If public votes (implied by odds) were misleading, we penalty the favorite and boost the mathematical underdogs over AI logic.
+    """
+    if not os.path.exists(ACCURACY_LOG_PATH):
+        return prob_dict
+    
+    try:
+        with open(ACCURACY_LOG_PATH, 'r', encoding='utf-8') as f:
+            log_data = json.load(f)
+            
+        league_log = log_data.get(str(league_name), [])
+        consecutive_failures = sum(1 for m in league_log[-5:] if m.get('vote_was_misleading'))
+        
+        # If community was wrong multiple times recently, reduce the favorite's weight by up to 15%
+        if consecutive_failures >= 3:
+            penalty = 0.15 * (consecutive_failures / 5.0)
+            max_key = max(prob_dict, key=prob_dict.get)
+            min_key = min(prob_dict, key=prob_dict.get)
+            
+            discount = prob_dict[max_key] * penalty
+            prob_dict[max_key] -= discount
+            prob_dict[min_key] += discount
+            
+    except Exception as e:
+        pass
+    
+    return prob_dict
+
+def get_historical_patterns(home_team, away_team, match_month):
+    """Time Machine Engine: Detects 3-year Month Curses or Peaks."""
+    tac_path = os.path.join(os.path.dirname(__file__), 'data', 'tactical.db')
+    if not os.path.exists(tac_path): return None, None
+    conn = sqlite3.connect(tac_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        query = "SELECT * FROM historical_patterns WHERE is_active = 1 AND (team_name = ? OR team_name = ?)"
+        rows = conn.execute(query, (home_team, away_team)).fetchall()
+        conn.close()
+        
+        home_pattern, away_pattern = None, None
+        
+        for r in rows:
+            name, ptype = r['team_name'], r['pattern_type']
+            # Safely check if this is a month pattern corresponding to our match month integer
+            is_valid = False
+            if ptype.startswith("MONTH_"):
+                try:
+                    pat_month = int(ptype.split('_')[-1])
+                    if pat_month == int(match_month):
+                        is_valid = True
+                except: pass
+            else:
+                is_valid = True # Generic DNA rule
+                
+            if is_valid:
+                if name == home_team: home_pattern = dict(r)
+                elif name == away_team: away_pattern = dict(r)
+                
+        return home_pattern, away_pattern
+    except sqlite3.Error as e:
+        print("[Time Machine SQL ERR]", e)
+        return None, None
+
+def process_prediction(data):
+    home_team = data.get('homeTeam', 'Home')
+    away_team = data.get('awayTeam', 'Away')
+    
+    # Extract Real Month for Time Machine trigger
+    try:
+        ts = int(data.get('startTimestamp', 0))
+        if ts > 0:
+            match_month = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).month
+        else:
+            match_month = datetime.datetime.now(tz=datetime.timezone.utc).month
+    except Exception as e:
+        print("[Time Machine Parsing Error]", e)
+        match_month = datetime.datetime.now().month
+    
+    # 1. Base Mathematical Engine (Poisson Fallback)
+    h_hist = get_team_history(home_team)
+    a_hist = get_team_history(away_team)
+    
+    h_avg_scored, a_avg_scored = 1.45, 1.25
+    h_avg_conceded, a_avg_conceded = 1.25, 1.45
+    if h_hist:
+        h_avg_scored = sum(m.get('score_for', 1.45) for m in h_hist) / len(h_hist)
+        h_avg_conceded = sum(m.get('score_against', 1.25) for m in h_hist) / len(h_hist)
+    if a_hist:
+        a_avg_scored = sum(m.get('score_for', 1.25) for m in a_hist) / len(a_hist)
+        a_avg_conceded = sum(m.get('score_against', 1.45) for m in a_hist) / len(a_hist)
+
+    m_h, r_h = calculate_motivation(data.get('standing_home'))
+    m_a, r_a = calculate_motivation(data.get('standing_away'))
+    
+    h_xg = (h_avg_scored * a_avg_conceded / 1.1) * m_h
+    a_xg = (a_avg_scored * h_avg_conceded / 1.1) * m_a
+    
+    s_impact = data.get('squad_impact', {'home_attack_mod': 1.0, 'away_attack_mod': 1.0, 'home_defense_mod': 1.0, 'away_defense_mod': 1.0})
+    h_xg *= s_impact.get('home_attack_mod', 1.0) * (s_impact.get('away_defense_mod', 1.1) * 0.6 + 0.4)
+    a_xg *= s_impact.get('away_attack_mod', 1.0) * (s_impact.get('home_defense_mod', 1.1) * 0.6 + 0.4)
+
+    h_xg = max(0.85, h_xg)
+    a_xg = max(0.85, a_xg)
+
+    sentiment = float(data.get('news_sentiment', 0))
+    if sentiment > 0.4: h_xg *= 1.15; a_xg *= 0.9
+    elif sentiment < -0.4: h_xg *= 0.9; a_xg *= 1.15
+
+    h_vol = 1.15 if sentiment > 0.3 else 1.0
+    a_vol = 1.15 if sentiment < -0.3 else 1.0
+
+    prob_h_math, prob_d_math, prob_a_math = 0, 0, 0
+    for h in range(8):
+        for a in range(8):
+            p = poisson_prob(h_xg, h) * poisson_prob(a_xg, a)
+            if h > a: prob_h_math += p
+            elif h < a: prob_a_math += p
+            else: prob_d_math += p
+            
+    math_total = prob_h_math + prob_d_math + prob_a_math
+    if math_total > 0:
+        prob_h_math, prob_d_math, prob_a_math = prob_h_math/math_total, prob_d_math/math_total, prob_a_math/math_total
+
+    # 2. XGBoost ML Inference Engine (V3)
+    ml_prob_h, ml_prob_d, ml_prob_a = prob_h_math, prob_d_math, prob_a_math
+    ai_source = "XGBoost-Fallback"
+    
+    if booster is not None:
+        try:
+            # Reconstruct historical and extracted ML features dynamically
+            ml_feats = extract_ml_features(data, fetch_history=True)
+            df_inf = pd.DataFrame([ml_feats]).fillna(0)
+            for missing_col in FEATURE_NAMES:
+                if missing_col not in df_inf:
+                    df_inf[missing_col] = 0.0
+            df_inf = df_inf[FEATURE_NAMES] # Strict ordering
+            
+            # Predict
+            probs = booster.predict_proba(df_inf)[0]
+            ml_prob_a, ml_prob_d, ml_prob_h = float(probs[0]), float(probs[1]), float(probs[2])
+            
+            # Blend ML predictions (70%) with Math (30%) to smooth out anomalies
+            prob_h_math = (ml_prob_h * 0.7) + (prob_h_math * 0.3)
+            prob_d_math = (ml_prob_d * 0.7) + (prob_d_math * 0.3)
+            prob_a_math = (ml_prob_a * 0.7) + (prob_a_math * 0.3)
+            ai_source = "Stitch-V3-ML"
+            
+            # Pure Score Goal: Professional Override (Market Inefficiency, Squad Rotation, Tactical Shift)
+            if ml_feats.get('market_inefficiency_h', 0) > 2.5: h_xg *= 1.15
+            if ml_feats.get('market_inefficiency_a', 0) > 2.5: a_xg *= 1.15
+            if ml_feats.get('squad_rotation_impact', 0) < -1: h_xg *= 0.85
+            if ml_feats.get('tactical_shift_volatility', 0) > 1: a_xg *= 1.1
+            
+        except Exception as e:
+            print(f"[ML INFERENCE ERROR]: {e}")
+            pass
+
+    # 3. Dynamic Weighting (Gap Learning adjustments based on accuracy_log json)
+    final_probs = {"home": prob_h_math, "draw": prob_d_math, "away": prob_a_math}
+    final_probs = apply_gap_learning_weight(final_probs, data.get('league', 'Unknown'))
+    
+    prob_h_f = final_probs['home']
+    prob_d_f = final_probs['draw']
+    prob_a_f = final_probs['away']
+    
+    # 4. Time Machine (Historical Patterns)
+    pattern_h, pattern_a = get_historical_patterns(home_team, away_team, match_month)
+    conf_mod = 0.0
+    active_patterns = []
+    
+    if pattern_h:
+        conf_mod += float(pattern_h.get('confidence_modifier', 0))
+        h_xg *= float(pattern_h.get('xg_modifier', 1.0))
+        active_patterns.append(f"[{home_team}] {pattern_h.get('description')}")
+    if pattern_a:
+        conf_mod -= float(pattern_a.get('confidence_modifier', 0)) # Negative because away boost hurts home confidence overall mapping
+        a_xg *= float(pattern_a.get('xg_modifier', 1.0))
+        active_patterns.append(f"[{away_team}] {pattern_a.get('description')}")
+
+    exact_score = calculate_exact_score_aggressive(h_xg, a_xg, prob_h_f*100, prob_a_f*100, h_vol, a_vol)
+    o25 = 1.0 - sum(poisson_prob(h_xg+a_xg, k) for k in range(3))
+    
+    base_confidence = round(0.5 + (len(h_hist)+len(a_hist))*0.02 + (prob_h_f if prob_h_f > prob_a_f else prob_a_f), 2)
+    final_confidence = round(base_confidence + (conf_mod / 100.0), 2)
+    final_confidence = max(0.1, min(0.99, final_confidence)) # clamp limits
+    
+    return {
+        "success": True,
+        "version": "1.4-TimeMachine",
+        "ai_source": ai_source,
+        "probabilities": {"home": round(prob_h_f*100,1), "draw": round(prob_d_f*100,1), "away": round(prob_a_f*100,1)},
+        "metrics": {
+            "home_win_probability": round(prob_h_f * 100, 1),
+            "away_win_probability": round(prob_a_f * 100, 1),
+            "draw_probability": round(prob_d_f * 100, 1),
+            "xgboost_confidence": final_confidence,
+            "expected_score": exact_score,
+            "ou_25_prob": round(o25*100,1),
+            "btts_prob": round((1-poisson_prob(h_xg,0))*(1-poisson_prob(a_xg,0))*100,1),
+            "chaos_level": round(max(r_h, r_a, (100-len(h_hist)*10)), 1),
+            "is_trap": False, 
+            "is_bogie": False,
+            "insufficient_data": len(h_hist) < 2 and len(a_hist) < 2
+        },
+        "modifiers": {
+            "motivation": {"home": m_h, "away": m_a},
+            "squad": s_impact,
+            "sentiment": sentiment,
+            "historical_patterns_active": active_patterns
+        }
+    }
+
+@app.route('/predict', methods=['POST'])
+def predict_route():
+    try:
+        data = request.json
+        if not data: return jsonify({"error": "No data provided"}), 400
+        return jsonify(process_prediction(data))
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+if __name__ == '__main__':
+    import sys
+    if not sys.stdin.isatty():
+        try:
+            input_data = sys.stdin.read()
+            if input_data.strip():
+                print(json.dumps(process_prediction(json.loads(input_data))))
+            sys.exit(0)
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}))
+            sys.exit(1)
+            
+    print("[XGBOOST] Analytical Engine v1.3 starting on port 5005...")
+    app.run(host='0.0.0.0', port=5005)

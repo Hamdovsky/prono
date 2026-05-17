@@ -1,0 +1,419 @@
+/**
+ * ⚡ AFRICANOBET SCRAPER — TITANIUM V5 (Cookie Session)
+ * ──────────────────────────────────────────────────────
+ * Modes:
+ *   node africanobet_scraper.js            → headless prod (utilise cookies sauvegardés)
+ *   node africanobet_scraper.js --login    → ouvre le navigateur pour se connecter + sauvegarde cookies
+ *   node africanobet_scraper.js --debug    → headless=false sans login
+ */
+
+const puppeteer = require('puppeteer-extra');
+const Stealth   = require('puppeteer-extra-plugin-stealth');
+const Database  = require('better-sqlite3');
+const fs        = require('fs');
+const path      = require('path');
+
+puppeteer.use(Stealth());
+
+const IS_LOGIN  = process.argv.includes('--login');
+const IS_DEBUG  = process.argv.includes('--debug');
+
+const COOKIES_PATH = path.resolve(__dirname, '../data/africanobet_cookies.json');
+const OUTPUT_JSON  = path.resolve(__dirname, '../data/africanobet_matches.json');
+const DB_PATH      = path.resolve(__dirname, '../data/tactical.db');
+
+const BASE_URL  = 'https://www.africanobet.com';
+const TARGETS   = [
+    { url: `${BASE_URL}/fr/sports/live-calendar`, wait: 8000 },
+    { url: `${BASE_URL}/fr/sports/football`,      wait: 12000 },
+];
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function parseOdd(v) {
+    if (!v) return null;
+    const n = parseFloat(String(v).replace(',', '.'));
+    return (isNaN(n) || n <= 1.0) ? null : +n.toFixed(2);
+}
+
+// ── Cookie persistence ────────────────────────────────────────────────────────
+function loadCookies() {
+    try {
+        if (fs.existsSync(COOKIES_PATH)) {
+            const cookies = JSON.parse(fs.readFileSync(COOKIES_PATH, 'utf8'));
+            if (Array.isArray(cookies) && cookies.length > 0) {
+                console.log(`   🍪 ${cookies.length} cookies chargés depuis ${COOKIES_PATH}`);
+                return cookies;
+            }
+        }
+    } catch(_) {}
+    return null;
+}
+
+function saveCookies(cookies) {
+    fs.mkdirSync(path.dirname(COOKIES_PATH), { recursive: true });
+    fs.writeFileSync(COOKIES_PATH, JSON.stringify(cookies, null, 2));
+    console.log(`   💾 ${cookies.length} cookies sauvegardés → ${COOKIES_PATH}`);
+}
+
+// ── DOM extraction ────────────────────────────────────────────────────────────
+async function extractDOM(page) {
+    return page.evaluate(() => {
+        const results = [];
+        let league = 'Unknown';
+
+        // V1 — live-calendar
+        document.querySelectorAll('.c-row-bc.bordered').forEach(row => {
+            const lg = row.querySelector('.c-league-title-bc');
+            if (lg) { league = lg.innerText.trim(); return; }
+            const teams = row.querySelectorAll('.c-team-info-team-bc.team');
+            const odds  = row.querySelectorAll('.market-odd-bc');
+            if (teams.length < 2) return;
+            results.push({
+                home_team: teams[0].innerText.trim(),
+                away_team: teams[1].innerText.trim(),
+                time:      row.querySelector('.c-info-time-bc')?.innerText?.trim() || '',
+                league,
+                odds_1:  odds[0]?.innerText?.trim() || null,
+                odds_x:  odds[1]?.innerText?.trim() || null,
+                odds_2:  odds[2]?.innerText?.trim() || null,
+                source:  'DOM-V1'
+            });
+        });
+        if (results.length > 0) return results;
+
+        // V2 — generic SPA
+        document.querySelectorAll(
+            '[class*="event-row"],[class*="match-row"],[class*="sport-event"],[class*="game-row"],[class*="event-item"]'
+        ).forEach(row => {
+            try {
+                const teamEls = row.querySelectorAll('[class*="team"],[class*="participant"],[class*="competitor"]');
+                const oddEls  = row.querySelectorAll('[class*="odd"],[class*="price"],[class*="coeff"]');
+                const timeEl  = row.querySelector('[class*="time"],[class*="start"]');
+                const lgEl    = row.querySelector('[class*="league"],[class*="competition"],[class*="tournament"]');
+                if (teamEls.length < 2) return;
+                const oddsArr = Array.from(oddEls).map(e => e.innerText.trim()).filter(Boolean);
+                results.push({
+                    home_team: teamEls[0].innerText.trim(),
+                    away_team: teamEls[1].innerText.trim(),
+                    time:      timeEl?.innerText?.trim() || '',
+                    league:    lgEl?.innerText?.trim()  || 'Unknown',
+                    odds_1:    oddsArr[0] || null,
+                    odds_x:    oddsArr[1] || null,
+                    odds_2:    oddsArr[2] || null,
+                    source:    'DOM-V2'
+                });
+            } catch(_) {}
+        });
+        return results;
+    });
+}
+
+// ── API/WS payload parser ─────────────────────────────────────────────────────
+function parsePayload(raw) {
+    const results = [];
+    let data;
+    try { data = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(_) { return results; }
+
+    function dig(obj, depth = 0) {
+        if (depth > 6 || !obj) return;
+        if (Array.isArray(obj)) {
+            obj.forEach(item => {
+                const home = item?.homeTeam || item?.home_team || item?.homeTeamName
+                          || item?.teams?.[0]?.name || item?.competitors?.[0]?.name;
+                const away = item?.awayTeam || item?.away_team || item?.awayTeamName
+                          || item?.teams?.[1]?.name || item?.competitors?.[1]?.name;
+                if (home && away) {
+                    results.push({
+                        home_team: String(home).trim(),
+                        away_team: String(away).trim(),
+                        time:      String(item.startTime || item.date || '').trim(),
+                        league:    String(item.leagueName || item.league?.name || item.tournament?.name || 'Football').trim(),
+                        odds_1:    parseOdd(item.odds1 || item['1']),
+                        odds_x:    parseOdd(item.oddsX || item['X']),
+                        odds_2:    parseOdd(item.odds2 || item['2']),
+                        source:    'API'
+                    });
+                } else {
+                    dig(item, depth + 1);
+                }
+            });
+        } else if (typeof obj === 'object') {
+            Object.values(obj).forEach(v => dig(v, depth + 1));
+        }
+    }
+    dig(data);
+    return results;
+}
+
+// ── Save to SQLite ─────────────────────────────────────────────────────────────
+function saveToDb(matches) {
+    try {
+        const db = new Database(DB_PATH);
+        db.exec(`CREATE TABLE IF NOT EXISTS africanobet_matches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            home_team TEXT, away_team TEXT, time TEXT, league TEXT,
+            odds_1 REAL, odds_x REAL, odds_2 REAL, source TEXT, scraped_at INTEGER
+        )`);
+        const now = Math.floor(Date.now() / 1000);
+        db.exec(`DELETE FROM africanobet_matches WHERE scraped_at >= ${now - 7200}`);
+        const ins = db.prepare(
+            `INSERT INTO africanobet_matches (home_team,away_team,time,league,odds_1,odds_x,odds_2,source,scraped_at) VALUES (?,?,?,?,?,?,?,?,?)`
+        );
+        db.transaction(rows => rows.forEach(m =>
+            ins.run(m.home_team, m.away_team, m.time, m.league,
+                parseOdd(m.odds_1), parseOdd(m.odds_x), parseOdd(m.odds_2), m.source, now)
+        ))(matches);
+        db.close();
+        console.log(`   💾 ${matches.length} matchs sauvegardés en base`);
+    } catch(e) { console.warn(`   ⚠️ DB: ${e.message}`); }
+}
+
+// ── LOGIN MODE — ouvre le navigateur, attend login, sauvegarde cookies ────────
+async function loginAndSaveCookies() {
+    console.log('\n' + '═'.repeat(58));
+    console.log('🔐 MODE LOGIN — AFRICANOBET SESSION CAPTURE');
+    console.log('═'.repeat(58));
+
+    // Real Chrome profile path (Windows)
+    const chromeProfile = path.join(
+        process.env.LOCALAPPDATA || 'C:\\Users\\' + process.env.USERNAME + '\\AppData\\Local',
+        'Google\\Chrome\\User Data'
+    );
+    const profileExists = fs.existsSync(chromeProfile);
+
+    console.log(`\n🌐 Utilisation du profil Chrome réel: ${profileExists ? '✅' : '⚠️ Non trouvé'}`);
+    console.log(`   ${chromeProfile}\n`);
+    console.log('📋 Instructions:');
+    console.log('   1. Chrome va s\'ouvrir avec VOTRE vrai profil');
+    console.log('   2. Allez sur africanobet.com et connectez-vous si besoin');
+    console.log('   3. Attendez que les matchs soient visibles');
+    console.log('   4. Appuyez sur ENTRÉE dans ce terminal\n');
+
+    const launchOptions = {
+        headless: false,
+        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        args: [
+            '--no-sandbox',
+            '--window-size=1440,900',
+            '--start-maximized',
+            '--disable-blink-features=AutomationControlled',
+        ],
+        defaultViewport: null,
+        ignoreDefaultArgs: ['--enable-automation'],
+    };
+
+    // Use real Chrome profile if it exists
+    if (profileExists) {
+        launchOptions.userDataDir = chromeProfile;
+    }
+
+    let browser;
+    try {
+        browser = await puppeteer.launch(launchOptions);
+    } catch(e) {
+        console.log('⚠️ Chrome non trouvé à l\'emplacement par défaut, utilisation de Chromium...');
+        browser = await puppeteer.launch({
+            headless: false,
+            args: ['--no-sandbox','--window-size=1440,900','--start-maximized',
+                   '--disable-blink-features=AutomationControlled'],
+            ignoreDefaultArgs: ['--enable-automation'],
+            defaultViewport: null
+        });
+    }
+
+    const pages = await browser.pages();
+    const page = pages[0] || await browser.newPage();
+    
+    await page.goto(`${BASE_URL}/fr/sports/football`, { 
+        waitUntil: 'domcontentloaded', timeout: 60000 
+    });
+
+    // Live cookie counter
+    let monitorRunning = true;
+    const monitor = (async () => {
+        while (monitorRunning) {
+            await sleep(4000);
+            if (!monitorRunning) break;
+            try {
+                const c = await page.cookies();
+                const status = c.length >= 8 ? '✅ Prêt!' : '⏳ En attente...';
+                process.stdout.write(`\r   🍪 Cookies: ${c.length} ${status}           `);
+            } catch(_) {}
+        }
+    })();
+
+    console.log('✋ Appuyez sur ENTRÉE quand les matchs sont visibles...\n');
+    await new Promise(resolve => {
+        process.stdin.resume();
+        process.stdin.once('data', () => { process.stdin.pause(); resolve(); });
+    });
+
+    monitorRunning = false;
+    await monitor;
+
+    const cookies = await page.cookies();
+    console.log(`\n\n   📊 ${cookies.length} cookies récupérés`);
+
+    if (cookies.length < 5) {
+        console.log(`\n⚠️  Pas assez de cookies (${cookies.length}).`);
+        console.log('   → Assurez-vous d\'être connecté et que les matchs sont affichés.\n');
+    } else {
+        saveCookies(cookies);
+        console.log(`✅ ${cookies.length} cookies sauvegardés!`);
+        console.log('   → Lancez: node scripts/africanobet_scraper.js\n');
+    }
+
+    await browser.close();
+}
+
+// ── SCRAPE MODE — utilise les cookies sauvegardés ─────────────────────────────
+async function scrapeAfricanobet() {
+    console.log('\n' + '═'.repeat(58));
+    console.log('⚡ TITANIUM AFRICANOBET SCRAPER V5 — SESSION MODE');
+    console.log(IS_DEBUG ? '🔍 Debug (navigateur visible)' : '🤖 Headless');
+    console.log('═'.repeat(58) + '\n');
+
+    const savedCookies = loadCookies();
+    if (!savedCookies) {
+        console.log('⚠️  Aucun cookie trouvé. Lance d\'abord:');
+        console.log('   node scripts/africanobet_scraper.js --login\n');
+        return [];
+    }
+
+    const browser = await puppeteer.launch({
+        headless: IS_DEBUG ? false : 'new',
+        args: ['--no-sandbox','--disable-setuid-sandbox','--window-size=1920,1080',
+               '--disable-blink-features=AutomationControlled'],
+        defaultViewport: { width: 1920, height: 1080 }
+    });
+
+    const allMatches = [];
+
+    for (const target of TARGETS) {
+        if (allMatches.length >= 150) break;
+        console.log(`🌐 → ${target.url}`);
+        const page = await browser.newPage();
+        const apiMatches = [];
+
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+        await page.setExtraHTTPHeaders({ 'Accept-Language': 'fr-FR,fr;q=0.9' });
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
+        });
+
+        // ── Inject saved cookies ──
+        try {
+            await page.setCookie(...savedCookies);
+            console.log(`   🍪 ${savedCookies.length} cookies injectés`);
+        } catch(e) {
+            console.warn(`   ⚠️ Injection cookies: ${e.message}`);
+        }
+
+        // ── CDP WebSocket + XHR capture ──
+        const cdp = await page.createCDPSession();
+        await cdp.send('Network.enable');
+        cdp.on('Network.webSocketFrameReceived', ({ response }) => {
+            try {
+                const parsed = parsePayload(response.payloadData);
+                if (parsed.length > 0) {
+                    console.log(`   🔌 WS: +${parsed.length} matchs`);
+                    apiMatches.push(...parsed);
+                }
+            } catch(_) {}
+        });
+
+        await page.setRequestInterception(true);
+        page.on('request', req => req.continue());
+        page.on('response', async res => {
+            try {
+                if (!res.headers()['content-type']?.includes('json')) return;
+                if (res.status() !== 200) return;
+                const body = await res.json().catch(() => null);
+                if (!body) return;
+                const parsed = parsePayload(body);
+                if (parsed.length > 0) {
+                    console.log(`   🌐 XHR: +${parsed.length} → ${res.url().slice(0, 70)}`);
+                    apiMatches.push(...parsed);
+                }
+            } catch(_) {}
+        });
+
+        try {
+            await page.goto(target.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            console.log(`   ⏳ SPA rendering (${target.wait/1000}s)...`);
+            await sleep(target.wait);
+
+            // Scroll
+            for (let i = 0; i < 8; i++) {
+                await page.evaluate(() => window.scrollBy(0, 700));
+                await sleep(400);
+            }
+            await sleep(2000);
+
+            if (apiMatches.length > 0) {
+                console.log(`   ✅ API/WS: ${apiMatches.length} matchs`);
+                allMatches.push(...apiMatches);
+            } else {
+                console.log(`   🔄 API vide → DOM extraction...`);
+                const dom = await extractDOM(page);
+                console.log(`   ${dom.length > 0 ? '✅' : '⚠️'} DOM: ${dom.length} matchs`);
+                allMatches.push(...dom);
+            }
+
+            // Refresh cookies after successful session
+            const freshCookies = await page.cookies();
+            if (freshCookies.length > 0) saveCookies(freshCookies);
+
+        } catch(err) {
+            console.error(`   ❌ ${err.message}`);
+        } finally {
+            await cdp.detach().catch(() => {});
+            await page.close();
+            await sleep(1200);
+        }
+    }
+
+    await browser.close();
+
+    // Deduplicate
+    const seen = new Set();
+    const unique = allMatches.filter(m => {
+        const k = `${m.home_team}|${m.away_team}`;
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+    });
+
+    console.log(`\n📊 RÉSULTAT: ${unique.length} matchs uniques`);
+
+    if (unique.length > 0) {
+        console.log('\n🔍 Aperçu (5 premiers):');
+        unique.slice(0, 5).forEach((m, i) =>
+            console.log(`  ${i+1}. [${m.source}] ${m.home_team} vs ${m.away_team} | 1:${m.odds_1||'?'} X:${m.odds_x||'?'} 2:${m.odds_2||'?'}`)
+        );
+        fs.mkdirSync(path.dirname(OUTPUT_JSON), { recursive: true });
+        fs.writeFileSync(OUTPUT_JSON, JSON.stringify(unique, null, 2));
+        console.log(`\n💾 ${OUTPUT_JSON}`);
+        saveToDb(unique);
+    } else {
+        console.log('\n⚠️  Aucun match. Essayez de rafraîchir les cookies:');
+        console.log('   node scripts/africanobet_scraper.js --login\n');
+    }
+
+    console.log('═'.repeat(58) + '\n');
+    return unique;
+}
+
+// ── Entry point ────────────────────────────────────────────────────────────────
+if (require.main === module) {
+    if (IS_LOGIN) {
+        loginAndSaveCookies()
+            .then(() => process.exit(0))
+            .catch(e => { console.error('💥', e.message); process.exit(1); });
+    } else {
+        scrapeAfricanobet()
+            .then(m => process.exit(m?.length > 0 ? 0 : 1))
+            .catch(e => { console.error('💥', e.message); process.exit(1); });
+    }
+}
+
+module.exports = { scrapeAfricanobet, loginAndSaveCookies };

@@ -1,0 +1,858 @@
+.umc-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.umc-modal {
+    background: rgba(30, 41, 59, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    color: #f8fafc;
+    position: relative;
+    /* Fancy glass effect */
+    background-image: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 100%);
+}
+
+.umc-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.umc-close-btn:hover {
+    background: rgba(239, 68, 68, 0.8);
+    transform: scale(1.1);
+}
+
+/* =========================================
+   HEADER SECTION
+   ========================================= */
+.umc-header {
+    padding: 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(to right, rgba(15, 23, 42, 0.6), rgba(30, 41, 59, 0.8));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.umc-league-badge {
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.umc-teams-score {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    width: 100%;
+}
+
+.umc-team {
+    flex: 1;
+    font-size: 24px;
+    font-weight: 800;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.umc-team.home { text-align: right; }
+.umc-team.away { text-align: left; }
+
+.umc-score-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-size: 32px;
+    font-weight: 900;
+    min-width: 120px;
+    border: 1px solid rgba(255,255,255,0.05);
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.umc-score-sep {
+    margin: 0 10px;
+    color: #64748b;
+    font-size: 24px;
+}
+
+.umc-time-status {
+    margin-top: 15px;
+    font-size: 0.9rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.umc-live-pulse {
+    color: #ef4444;
+    font-weight: 700;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* =========================================
+   BODY / GRID
+   ========================================= */
+.umc-body {
+    padding: 25px;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 20px;
+}
+
+/* Panel Base */
+.umc-panel {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08); /* Re-add */
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.umc-panel-title {
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #94a3b8;
+    margin: 0 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 10px;
+}
+
+.umc-panel-title .icon {
+    font-size: 1.2rem;
+}
+
+/* Responsive Grid Spans */
+.col-span-12 { grid-column: span 12; }
+.col-span-8  { grid-column: span 8; }
+.col-span-6  { grid-column: span 6; }
+.col-span-4  { grid-column: span 4; }
+.col-span-3  { grid-column: span 3; }
+
+/* =========================================
+   INTELLIGENCE METRICS (AI, EV, Odds)
+   ========================================= */
+.umc-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.umc-metric-box {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.03);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.umc-metric-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: #334155;
+    opacity: 0.5;
+}
+
+.umc-metric-box.xgb::before { background: #3b82f6; opacity: 1; }
+.umc-metric-box.ev::before { background: #10b981; opacity: 1; }
+.umc-metric-box.kelly::before { background: #f59e0b; opacity: 1; }
+.umc-metric-box.chaos::before { background: #ef4444; opacity: 1; }
+
+.umc-metric-label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.umc-metric-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.umc-metric-desc {
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+/* =========================================
+   TACTICAL & PSYCHOLOGICAL LAB
+   ========================================= */
+.umc-tactical-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.umc-tactical-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 15px;
+    border-radius: 8px;
+    border-left: 3px solid #64748b;
+}
+
+.umc-tactical-row.positive { border-left-color: #10b981; }
+.umc-tactical-row.negative { border-left-color: #ef4444; }
+.umc-tactical-row.warning { border-left-color: #f59e0b; }
+.umc-tactical-row.neutral { border-left-color: #3b82f6; }
+
+.umc-tactical-icon {
+    font-size: 1.3rem;
+    margin-right: 12px;
+}
+
+.umc-tactical-content {
+    flex: 1;
+}
+
+.umc-tactical-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.umc-tactical-subtitle {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.umc-tactical-value {
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+/* =========================================
+   SQUAD HEALTH & INJURIES PITCH
+   ========================================= */
+.umc-squad-container {
+    display: flex;
+    gap: 20px;
+}
+
+.umc-squad-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.umc-squad-team-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-align: center;
+    padding-bottom: 5px;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+    color: #cbd5e1;
+}
+
+.umc-injury-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.umc-injury-item {
+    font-size: 0.75rem;
+    background: rgba(220, 38, 38, 0.1);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    padding: 6px 10px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.umc-injury-item.out { border-color: rgba(220,38,38,0.4); color: #fca5a5; }
+.umc-injury-item.doubtful { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #fcd34d; }
+
+.umc-impact-bar-wrap {
+    margin-top: auto;
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.umc-impact-stat {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+    color: #cbd5e1;
+}
+
+.umc-bar-bg {
+    height: 6px;
+    background: #334155;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.umc-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+}
+.umc-bar-fill.att { background: #38bdf8; }
+.umc-bar-fill.def { background: #10b981; }
+.umc-bar-fill.impact { background: #ef4444; }
+
+/* =========================================
+   MARKET ODDS & SMART MONEY
+   ========================================= */
+.umc-odds-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,0,0,0.3);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.umc-odd-box {
+    text-align: center;
+    flex: 1;
+}
+
+.umc-odd-box:not(:last-child) {
+    border-right: 1px solid rgba(255,255,255,0.05);
+}
+
+.umc-odd-label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 5px;
+}
+
+.umc-odd-val {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.umc-smart-money {
+    padding: 15px;
+    background: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+}
+
+.umc-sm-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+    color: #cbd5e1;
+}
+
+/* =========================================
+   RESPONSIVE DESIGN 
+   ========================================= */
+@media (max-width: 1024px) {
+    .col-span-3, .col-span-4 { grid-column: span 6; }
+    .col-span-6 { grid-column: span 12; }
+}
+
+@media (max-width: 768px) {
+    .umc-body { grid-template-columns: 1fr; }
+    .col-span-12, .col-span-8, .col-span-6, .col-span-4, .col-span-3 { grid-column: span 1; }
+    
+    .umc-metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .umc-teams-score {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .umc-team { text-align: center !important; }
+}
+/* =========================================
+   Laboratoir Hamdi 10-POINT GRID
+   ========================================= */
+.titanium-lab-panel {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.titanium-lab-panel::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.03) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.lab-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.tit-lab-title h2 {
+    font-size: 1rem;
+    margin: 0;
+    color: #f8fafc;
+    letter-spacing: 0.5px;
+}
+
+.tit-badge {
+    background: #38bdf8;
+    color: #0f172a;
+    font-size: 0.65rem;
+    font-weight: 900;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    display: inline-block;
+}
+
+.lab-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.lab-item {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 12px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.lab-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(56, 189, 248, 0.3);
+    transform: translateY(-2px);
+}
+
+.lab-item-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lab-icon {
+    font-size: 1.2rem;
+    margin-bottom: 4px;
+}
+
+.lab-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #94a3b8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lab-score-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.lab-score-bg {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.lab-score-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lab-score-val {
+    font-size: 0.75rem;
+    font-weight: 800;
+    min-width: 30px;
+}
+
+.lab-reason {
+    font-size: 0.7rem;
+    line-height: 1.3;
+    color: #cbd5e1;
+    margin: 0;
+    opacity: 0.8;
+}
+
+.lab-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: #64748b;
+    gap: 15px;
+}
+
+.spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(56, 189, 248, 0.1);
+    border-top-color: #38bdf8;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1200px) {
+    .lab-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 768px) {
+    .lab-grid { grid-template-columns: repeat(2, 1fr); }
+}
+/* =========================================
+   V26 ATTACK MOMENTUM GRAPH
+   ========================================= */
+.momentum-panel {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(56, 189, 248, 0.1);
+}
+
+.momentum-graph-container {
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 10px;
+    margin-top: 15px;
+    overflow-x: auto;
+}
+
+.momentum-bar-wrap {
+    flex: 1;
+    min-width: 4px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+}
+
+.momentum-bar {
+    width: 100%;
+    border-radius: 2px;
+    transition: height 0.3s ease;
+}
+
+.momentum-bar.home {
+    background: linear-gradient(to bottom, #38bdf8, #0ea5e9);
+    align-self: flex-end;
+    margin-bottom: 50%;
+}
+
+.momentum-bar.away {
+    background: linear-gradient(to top, #ef4444, #dc2626);
+    align-self: flex-start;
+    margin-top: 50%;
+}
+
+.momentum-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    padding: 0 10px;
+}
+
+.umc-metric-box.reliability::before {
+    background: #a855f7;
+    opacity: 1;
+}
+
+/* V27 Tactical Precision Styles */
+.umc-weather-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 4px 16px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin: 10px auto 0;
+    width: fit-content;
+}
+
+.ref-stats-badge {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px dashed rgba(234, 179, 8, 0.3);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #f8fafc;
+    font-size: 0.85rem;
+}
+
+/* =========================================
+   V21 ADVANCED MARKET INTELLIGENCE
+   ========================================= */
+.umc-strategic-brief {
+    margin-top: 20px;
+    padding: 12px 24px;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 800px;
+    animation: slideDown 0.4s ease-out;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.brief-icon {
+    font-size: 1.4rem;
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.5));
+}
+
+.brief-text {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #e2e8f0;
+    line-height: 1.4;
+    text-align: left;
+}
+
+.umc-pro-signals {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.pro-signal-card {
+    flex: 1;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.pro-signal-card label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.pro-val-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.prob-box {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 6px 12px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.prob-box .team {
+    font-size: 0.65rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 800;
+}
+
+.prob-box .val {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #38bdf8;
+}
+
+/* =========================================
+   REVOLUTIONARY ORACLE V4 HUD STYLES
+   ========================================= */
+.oracle-panel {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%) !important;
+}
+
+.modal-scanning {
+    filter: saturate(0.5) contrast(1.1);
+}
+
+.oracle-scanning-view {
+    position: relative;
+    overflow: hidden;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+}
+
+.scan-line-anim {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(to right, transparent, #6366f1, transparent);
+    box-shadow: 0 0 10px #6366f1;
+    animation: scan-move 2.5s infinite linear;
+    z-index: 5;
+}
+
+@keyframes scan-move {
+    0%   { top: 0%; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+}
+
+.spinner-v4 {
+    width: 50px;
+    height: 50px;
+    margin: 0 auto;
+    border: 3px solid rgba(99, 102, 241, 0.1);
+    border-top: 3px solid #6366f1;
+    border-radius: 50%;
+    animation: spin-v4 1.2s infinite cubic-bezier(0.7, 0, 0.3, 1);
+}
+
+@keyframes spin-v4 {
+    to { transform: rotate(360deg); }
+}
+
+.score-card-v4 {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.score-card-v4:hover {
+    background: rgba(99, 102, 241, 0.1) !important;
+    border-color: rgba(99, 102, 241, 0.4) !important;
+}
+
+.sc-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    transition: width 1.5s ease;
+}
+
+/* RTL Support for Oracle */
+[dir="rtl"] .oracle-results-grid {
+    direction: rtl;
+}
+
+@media (max-width: 900px) {
+    .oracle-results-grid {
+        grid-template-columns: 1fr !important;
+    }
+}

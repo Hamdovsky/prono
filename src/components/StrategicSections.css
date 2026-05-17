@@ -1,0 +1,179 @@
+.strategic-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 25px;
+    padding: 10px;
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 12px;
+}
+
+.strategic-section {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 15px;
+    border: 1px solid #334155;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.strategic-section.vault {
+    border-left: 4px solid #10b981;
+}
+
+.strategic-section.multiplier {
+    border-left: 4px solid #f59e0b;
+}
+
+.strategic-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #334155;
+}
+
+.strategic-header h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0;
+    flex: 1;
+    color: #f8fafc;
+}
+
+.strat-badge {
+    font-size: 10px;
+    background: #0f172a;
+    padding: 3px 8px;
+    border-radius: 20px;
+    color: #94a3b8;
+    border: 1px solid #334155;
+}
+
+.strat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.strat-item {
+    background: #0f172a;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.strat-match-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.strat-teams {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.strat-reason {
+    font-size: 10px;
+    color: #64748b;
+    font-style: italic;
+}
+
+.strat-metrics {
+    display: flex;
+    gap: 15px;
+}
+
+.strat-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.strat-metric .label {
+    font-size: 9px;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.strat-metric .val {
+    font-size: 14px;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.emerald-text { color: #10b981 !important; }
+.gold-text { color: #f59e0b !important; }
+.pulse-text { color: #38bdf8; animation: pulse-blue 2s infinite; }
+.win-color { color: #10b981; font-weight: 700; }
+
+.vault-combo-card {
+    margin-top: 15px;
+    background: linear-gradient(135deg, #065f46 0%, #064e3b 100%);
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #10b981;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+    animation: slide-up 0.5s ease-out;
+}
+
+.combo-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.combo-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 0.5px;
+}
+
+.combo-desc {
+    font-size: 11px;
+    color: #a7f3d0;
+    font-weight: 500;
+}
+
+.combo-right {
+    display: flex;
+    gap: 20px;
+}
+
+.combo-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.combo-stat .label {
+    font-size: 9px;
+    color: #a7f3d0;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.combo-stat .val {
+    font-size: 18px;
+    font-weight: 900;
+}
+
+@keyframes slide-up {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 1024px) {
+    .strategic-container {
+        grid-template-columns: 1fr;
+    }
+}

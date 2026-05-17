@@ -1,0 +1,43 @@
+FROM node:22-alpine
+
+# System dependencies for native modules (better-sqlite3, puppeteer base)
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+# Tell puppeteer to skip downloading Chromium (we use system's)
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    NODE_ENV=production
+
+WORKDIR /app
+
+# Install dependencies first (cache layer)
+COPY package*.json ./
+RUN npm ci --omit=dev --prefer-offline
+
+# Copy application code
+COPY *.js ./
+COPY *.json ./
+COPY core/ ./core/
+COPY services/ ./services/
+COPY routes/ ./routes/
+COPY scripts/ ./scripts/
+COPY config/ ./config/
+COPY src/ ./src/
+COPY SofascoreScraping/ ./SofascoreScraping/
+COPY dist/ ./dist/
+
+EXPOSE 3001
+
+# Graceful shutdown support
+STOPSIGNAL SIGTERM
+
+CMD ["node", "--max-old-space-size=3072", "server.js"]

@@ -1,0 +1,92 @@
+const axios = require('axios');
+
+async function testAfricanobet() {
+    const url = 'https://www.africanobet.com/swarm/api';
+    
+    try {
+        // Step 1: Request a session
+        console.log('📡 Requesting session...');
+        const sessionRes = await axios.post(url, {
+            command: 'request_session',
+            params: {
+                site_id: 9, // Partner ID 9 found for Africanobet
+                language: 'eng'
+            }
+        });
+        
+        const sid = sessionRes.data.data.sid;
+        console.log('✅ Session obtained:', sid);
+
+        // Step 2: Get sports/leagues to find football
+        console.log('📡 Fetching football competitions...');
+        const sportsRes = await axios.post(url, {
+            command: 'get',
+            params: {
+                source: 'betting',
+                what: {
+                    sport: ['id', 'name'],
+                    region: ['id', 'name'],
+                    competition: ['id', 'name']
+                },
+                where: {
+                    sport: { name: 'Soccer' }
+                }
+            }
+        }, {
+            headers: { 'swarm-session': sid }
+        });
+
+        console.log('📊 Result:', JSON.stringify(sportsRes.data, null, 2).slice(0, 500) + '...');
+        
+        // Step 3: Get games for a specific time range (Today)
+        const now = Math.floor(Date.now() / 1000);
+        const endOfDay = now + 86400;
+
+        console.log('📡 Fetching games for next 24h...');
+        const gamesRes = await axios.post(url, {
+            command: 'get',
+            params: {
+                source: 'betting',
+                what: {
+                    game: ['id', 'team1_name', 'team2_name', 'start_ts', 'is_live', 'info'],
+                    market: ['id', 'type'],
+                    event: ['id', 'price', 'type']
+                },
+                where: {
+                    sport: { name: 'Soccer' },
+                    game: {
+                        type: 0, // Pre-match
+                        start_ts: { '@gte': now, '@lt': endOfDay }
+                    }
+                }
+            }
+        }, {
+            headers: { 'swarm-session': sid }
+        });
+
+        console.log('⚽ Games found:', Object.keys(gamesRes.data.data.sport || {}).length > 0 ? 'YES' : 'NONE');
+        if (gamesRes.data.data.sport) {
+             const sports = gamesRes.data.data.sport;
+             let count = 0;
+             for (let sId in sports) {
+                 for (let rId in sports[sId].region) {
+                     for (let cId in sports[sId].region[rId].competition) {
+                         const games = sports[sId].region[rId].competition[cId].game;
+                         for (let gId in games) {
+                             const g = games[gId];
+                             console.log(` - ${g.team1_name} vs ${g.team2_name} (${new Date(g.start_ts * 1000).toISOString()})`);
+                             count++;
+                             if (count > 5) break;
+                         }
+                     }
+                 }
+             }
+             console.log(`Total games previewed: ${count}`);
+        }
+
+    } catch (err) {
+        console.error('❌ Error:', err.response?.data || err.message);
+    }
+}
+
+testAfricanobet();

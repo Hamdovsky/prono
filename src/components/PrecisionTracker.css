@@ -1,0 +1,127 @@
+.precision-container {
+    background: #020617;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 8px;
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #f1f5f9;
+    min-height: 80vh;
+}
+
+.precision-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #38bdf8;
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+}
+
+.cyber-title {
+    font-size: 1.4rem;
+    font-weight: 950;
+    color: #38bdf8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+.accuracy-badge {
+    background: rgba(56, 189, 248, 0.1);
+    padding: 10px 20px;
+    border-radius: 4px;
+    border: 1px solid #38bdf8;
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+}
+
+.accuracy-badge .label {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.accuracy-badge .val {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: #38bdf8;
+}
+
+.precision-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.stat-box {
+    background: rgba(30, 41, 59, 0.5);
+    padding: 20px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stat-box .val {
+    font-size: 2rem;
+    font-weight: 900;
+}
+
+.stat-box .label {
+    font-size: 0.7rem;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-top: 5px;
+}
+
+.stat-box.success .val { color: #22c55e; }
+.stat-box.failed .val { color: #ef4444; }
+
+.precision-list {
+    background: rgba(15, 23, 42, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.list-header {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr 1fr 0.5fr;
+    padding: 15px;
+    background: rgba(56, 189, 248, 0.05);
+    font-size: 0.75rem;
+    font-weight: 900;
+    color: #64748b;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.precision-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr 1fr 0.5fr;
+    padding: 15px;
+    align-items: center;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    transition: background 0.2s;
+}
+
+.precision-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.precision-row.success { border-left: 4px solid #22c55e; }
+.precision-row.failed { border-left: 4px solid #ef4444; }
+
+.precision-row .date { color: #64748b; font-size: 0.75rem; }
+.precision-row .match-teams { font-weight: 800; }
+.precision-row .impact { font-weight: 900; color: #38bdf8; }
+.precision-row .score { font-weight: 900; }
+
+.precision-loading, .precision-error {
+    padding: 40px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    color: #38bdf8;
+}

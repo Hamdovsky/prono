@@ -1,0 +1,317 @@
+{
+  "analysisDate": "2026-04-27T00:46:44.157Z",
+  "competitionsAnalyzed": 48,
+  "globalFrequencies": {
+    "1": {
+      "count": 255,
+      "pct": "40.9"
+    },
+    "2": {
+      "count": 215,
+      "pct": "34.5"
+    },
+    "X": {
+      "count": 154,
+      "pct": "24.7"
+    }
+  },
+  "averagePerTicket": {
+    "1": "5.31",
+    "2": "4.48",
+    "X": "3.21"
+  },
+  "top5DCPositions": [
+    {
+      "position": 6,
+      "dc": "12",
+      "successRate": 83.3
+    },
+    {
+      "position": 1,
+      "dc": "12",
+      "successRate": 81.3
+    },
+    {
+      "position": 2,
+      "dc": "12",
+      "successRate": 79.2
+    },
+    {
+      "position": 5,
+      "dc": "12",
+      "successRate": 79.2
+    },
+    {
+      "position": 8,
+      "dc": "12",
+      "successRate": 77.1
+    }
+  ],
+  "positionStats": [
+    {
+      "pos": 1,
+      "counts": {
+        "1": 19,
+        "2": 20,
+        "X": 9
+      },
+      "p1": "39.6",
+      "pX": "18.8",
+      "p2": "41.7",
+      "favori": "2",
+      "dc": "21",
+      "dcPct": "81.3"
+    },
+    {
+      "pos": 2,
+      "counts": {
+        "1": 19,
+        "2": 19,
+        "X": 10
+      },
+      "p1": "39.6",
+      "pX": "20.8",
+      "p2": "39.6",
+      "favori": "1",
+      "dc": "12",
+      "dcPct": "79.2"
+    },
+    {
+      "pos": 3,
+      "counts": {
+        "1": 20,
+        "2": 16,
+        "X": 12
+      },
+      "p1": "41.7",
+      "pX": "25.0",
+      "p2": "33.3",
+      "favori": "1",
+      "dc": "12",
+      "dcPct": "75.0"
+    },
+    {
+      "pos": 4,
+      "counts": {
+        "1": 16,
+        "2": 17,
+        "X": 15
+      },
+      "p1": "33.3",
+      "pX": "31.3",
+      "p2": "35.4",
+      "favori": "2",
+      "dc": "21",
+      "dcPct": "68.8"
+    },
+    {
+      "pos": 5,
+      "counts": {
+        "1": 19,
+        "2": 19,
+        "X": 10
+      },
+      "p1": "39.6",
+      "pX": "20.8",
+      "p2": "39.6",
+      "favori": "1",
+      "dc": "12",
+      "dcPct": "79.2"
+    },
+    {
+      "pos": 6,
+      "counts": {
+        "1": 22,
+        "2": 18,
+        "X": 8
+      },
+      "p1": "45.8",
+      "pX": "16.7",
+      "p2": "37.5",
+      "favori": "1",
+      "dc": "12",
+      "dcPct": "83.3"
+    },
+    {
+      "pos": 7,
+      "counts": {
+        "1": 26,
+        "2": 11,
+        "X": 11
+      },
+      "p1": "54.2",
+      "pX": "22.9",
+      "p2": "22.9",
+      "favori": "1",
+      "dc": "1X",
+      "dcPct": "77.1"
+    },
+    {
+      "pos": 8,
+      "counts": {
+        "1": 21,
+        "2": 16,
+        "X": 11
+      },
+      "p1": "43.8",
+      "pX": "22.9",
+      "p2": "33.3",
+      "favori": "1",
+      "dc": "12",
+      "dcPct": "77.1"
+    },
+    {
+      "pos": 9,
+      "counts": {
+        "1": 16,
+        "2": 17,
+        "X": 15
+      },
+      "p1": "33.3",
+      "pX": "31.3",
+      "p2": "35.4",
+      "favori": "2",
+      "dc": "21",
+      "dcPct": "68.8"
+    },
+    {
+      "pos": 10,
+      "counts": {
+        "1": 19,
+        "2": 14,
+        "X": 15
+      },
+      "p1": "39.6",
+      "pX": "31.3",
+      "p2": "29.2",
+      "favori": "1",
+      "dc": "1X",
+      "dcPct": "70.8"
+    },
+    {
+      "pos": 11,
+      "counts": {
+        "1": 22,
+        "2": 14,
+        "X": 12
+      },
+      "p1": "45.8",
+      "pX": "25.0",
+      "p2": "29.2",
+      "favori": "1",
+      "dc": "12",
+      "dcPct": "75.0"
+    },
+    {
+      "pos": 12,
+      "counts": {
+        "1": 18,
+        "2": 17,
+        "X": 13
+      },
+      "p1": "37.5",
+      "pX": "27.1",
+      "p2": "35.4",
+      "favori": "1",
+      "dc": "12",
+      "dcPct": "72.9"
+    },
+    {
+      "pos": 13,
+      "counts": {
+        "1": 18,
+        "2": 17,
+        "X": 13
+      },
+      "p1": "37.5",
+      "pX": "27.1",
+      "p2": "35.4",
+      "favori": "1",
+      "dc": "12",
+      "dcPct": "72.9"
+    }
+  ],
+  "nextCouponPrediction": {
+    "competition": 855,
+    "matches": [
+      {
+        "match": 1,
+        "prediction": "12",
+        "type": "double_chance",
+        "successRate": 81.3
+      },
+      {
+        "match": 2,
+        "prediction": "12",
+        "type": "double_chance",
+        "successRate": 79.2
+      },
+      {
+        "match": 3,
+        "prediction": "1",
+        "type": "simple",
+        "successRate": "41.7"
+      },
+      {
+        "match": 4,
+        "prediction": "2",
+        "type": "simple",
+        "successRate": "35.4"
+      },
+      {
+        "match": 5,
+        "prediction": "12",
+        "type": "double_chance",
+        "successRate": 79.2
+      },
+      {
+        "match": 6,
+        "prediction": "12",
+        "type": "double_chance",
+        "successRate": 83.3
+      },
+      {
+        "match": 7,
+        "prediction": "1",
+        "type": "simple",
+        "successRate": "54.2"
+      },
+      {
+        "match": 8,
+        "prediction": "12",
+        "type": "double_chance",
+        "successRate": 77.1
+      },
+      {
+        "match": 9,
+        "prediction": "2",
+        "type": "simple",
+        "successRate": "35.4"
+      },
+      {
+        "match": 10,
+        "prediction": "1",
+        "type": "simple",
+        "successRate": "39.6"
+      },
+      {
+        "match": 11,
+        "prediction": "1",
+        "type": "simple",
+        "successRate": "45.8"
+      },
+      {
+        "match": 12,
+        "prediction": "1",
+        "type": "simple",
+        "successRate": "37.5"
+      },
+      {
+        "match": 13,
+        "prediction": "1",
+        "type": "simple",
+        "successRate": "37.5"
+      }
+    ]
+  }
+}

@@ -1,0 +1,160 @@
+.ticket-jour-container {
+    background: linear-gradient(135deg, rgba(20, 24, 30, 0.9), rgba(10, 12, 16, 0.95));
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 15px rgba(255, 215, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.ticket-jour-container::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at center, rgba(255, 215, 0, 0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.ticket-jour-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+    padding-bottom: 12px;
+    margin-bottom: 15px;
+    position: relative;
+    z-index: 1;
+}
+
+.ticket-jour-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #ffd700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.ticket-jour-badge {
+    background: rgba(0, 255, 170, 0.1);
+    border: 1px solid #00ffaa;
+    color: #00ffaa;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    box-shadow: 0 0 10px rgba(0, 255, 170, 0.2);
+}
+
+.ticket-jour-matches {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.ticket-match-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    padding: 12px 15px;
+    transition: background 0.2s ease;
+    border-left: 3px solid rgba(255, 215, 0, 0.5);
+}
+
+.ticket-match-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.ticket-match-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ticket-match-league {
+    font-size: 0.7rem;
+    color: #8b9bb4;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ticket-match-teams {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.ticket-match-prediction {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
+
+.ticket-pred-label {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.ticket-match-odd {
+    text-align: right;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #ffd700;
+}
+
+.ticket-jour-footer {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+.ticket-jour-total-label {
+    font-size: 0.9rem;
+    color: #8b9bb4;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.ticket-jour-total-odd {
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #ffd700;
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    background: rgba(255, 215, 0, 0.1);
+    padding: 5px 15px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.ticket-jour-empty {
+    padding: 20px;
+    text-align: center;
+    color: #8b9bb4;
+    font-size: 0.9rem;
+    font-style: italic;
+}

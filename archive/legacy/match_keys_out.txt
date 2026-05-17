@@ -1,0 +1,130 @@
+=== MATCH KEYS ===
+  id: 13981699
+  homeTeam: Lazio
+  awayTeam: Sassuolo
+  league: Serie A
+  scoreHome: 0
+  scoreAway: 0
+  minute: 20:45
+  status: scheduled
+  prediction: None
+  confidence: None
+  timestamp: 2026-03-09T19:45:00.000Z
+  last_updated: 1773015944217
+  possession_home: 0
+  possession_away: 0
+  dangerous_attacks_home: 0
+  dangerous_attacks_away: 0
+  shots_on_target_home: 0
+  shots_on_target_away: 0
+  corners_home: 0
+  corners_away: 0
+  source: flashscore
+  home_win_probability: 0
+  draw_probability: 0
+  away_win_probability: 0
+  expected_score: ? - ?
+  chaos_score: 50
+  ou_25_prob: 0
+  btts_prob: 0
+  insufficient_data: 0
+  xgboost_confidence: 0
+  xgboost_prediction_data: None
+  category_id: 31
+  category_name: Italy
+  tournament_id: 23
+  tournament_name: Serie A
+  news_impact: 0
+  referee: Alberto Ruben Arena
+  home_xg: 0.9629629629629629
+  away_xg: 1.2592592592592593
+  player_ratings_home: {'avgRating': 6.5}
+  player_ratings_away: {'avgRating': 6.5}
+  odds_home: None
+  odds_draw: None
+  odds_away: None
+  ev_home: None
+  ev_best: None
+  category_flag: italy
+  timeOrStatus: 20:45
+  home: Lazio
+  away: Sassuolo
+  score: {'home': 0, 'away': 0}
+  startTimestamp: 1773085500
+  _homeTeamId: 2699
+  _awayTeamId: 2793
+  _uniqueTournament: 23
+  _seasonId: 76457
+  _slug: sassuolo-lazio
+  details: {'referee': 'Alberto Ruben Arena', 'stadium': 'Stadio Olimpico', 'homeRedCards': 0, 'awayRedCards': 0}
+  teamStats: {'home': {'avgGoalsScored': 0.96, 'avgGoalsConceded': 1, 'avgShotsOnTarget': 3.81, 'avgCorners': 3.93, 'avgBigChances': 
+  stats: []
+  lineups: {'home': [], 'away': []}
+  historical_context: {'message': 'No H2H data found in archive', 'h2hPlayed': 0}
+  form_context: {'home': {'tw_xG_scored': '0.00', 'tw_xG_conceded': '0.00', 'momentum': '33'}, 'away': {'tw_xG_scored': '0.00', 'tw_xG_c
+
+=== MATCH KEYS ===
+  id: 14081800
+  homeTeam: Espanyol
+  awayTeam: Real Oviedo
+  league: LaLiga
+  scoreHome: 0
+  scoreAway: 0
+  minute: 21:00
+  status: scheduled
+  prediction: None
+  confidence: None
+  timestamp: 2026-03-09T20:00:00.000Z
+  last_updated: 1773015944217
+  possession_home: 0
+  possession_away: 0
+  dangerous_attacks_home: 0
+  dangerous_attacks_away: 0
+  shots_on_target_home: 0
+  shots_on_target_away: 0
+  corners_home: 0
+  corners_away: 0
+  source: flashscore
+  home_win_probability: 0
+  draw_probability: 0
+  away_win_probability: 0
+  expected_score: ? - ?
+  chaos_score: 50
+  ou_25_prob: 0
+  btts_prob: 0
+  insufficient_data: 0
+  xgboost_confidence: 0
+  xgboost_prediction_data: None
+  category_id: 32
+  category_name: Spain
+  tournament_id: 8
+  tournament_name: LaLiga
+  news_impact: 0
+  referee: Javier Alberola Rojas
+  home_xg: 1.2692307692307692
+  away_xg: 0.6153846153846154
+  player_ratings_home: {'avgRating': 6.5}
+  player_ratings_away: {'avgRating': 6.5}
+  odds_home: None
+  odds_draw: None
+  odds_away: None
+  ev_home: None
+  ev_best: None
+  category_flag: spain
+  timeOrStatus: 21:00
+  home: Espanyol
+  away: Real Oviedo
+  score: {'home': 0, 'away': 0}
+  startTimestamp: 1773086400
+  _homeTeamId: 2814
+  _awayTeamId: 2851
+  _uniqueTournament: 8
+  _seasonId: 77559
+  _slug: real-oviedo-espanyol
+  details: {'referee': 'Javier Alberola Rojas', 'stadium': 'RCDE Stadium', 'homeRedCards': 0, 'awayRedCards': 0}
+  teamStats: {'home': {'avgGoalsScored': 1.27, 'avgGoalsConceded': 1.5, 'avgShotsOnTarget': 4.15, 'avgCorners': 4.27, 'avgBigChances'
+  stats: []
+  lineups: {'home': [], 'away': []}
+  historical_context: {'message': 'No H2H data found in archive', 'h2hPlayed': 0}
+  form_context: {'home': {'tw_xG_scored': '0.00', 'tw_xG_conceded': '0.00', 'momentum': '33'}, 'away': {'tw_xG_scored': '0.00', 'tw_xG_c
+

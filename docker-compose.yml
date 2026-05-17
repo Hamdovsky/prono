@@ -1,0 +1,71 @@
+# Titanium V4 Docker Configuration
+
+
+services:
+  # --- TITANIUM CORE (Node.js API + Bot) ---
+  titanium-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: titanium-core
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - titanium-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - SERVER_PORT=3001
+      - PYTHON_SERVICE_URL=http://neural-x:8000
+      - REDIS_URL=redis://data-vault:6379
+    depends_on:
+      - data-vault
+      - neural-x
+    restart: always
+
+  # --- NEURAL-X (AI Engine + FastAPI) ---
+  neural-x:
+    build:
+      context: .
+      dockerfile: Dockerfile.neural
+    container_name: neural-x
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - titanium-data:/app/data
+    environment:
+      - PORT=8000
+    restart: always
+
+  # --- DS-LAB (Data Science Laboratory) ---
+  ds-lab:
+    build:
+      context: .
+      dockerfile: Dockerfile.neural
+    container_name: ds-lab
+    command: streamlit run core/ultra_dashboard.py --server.headless true --server.port 8501
+
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+      - titanium-data:/app/data
+    restart: always
+
+  # --- DATA-VAULT (Redis Cache) ---
+  data-vault:
+    image: redis:7-alpine
+    container_name: data-vault
+    ports:
+      - "6379:6379"
+    restart: always
+
+volumes:
+  titanium-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data

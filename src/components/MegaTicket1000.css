@@ -1,0 +1,178 @@
+/* 🏆 TITANIUM MEGA TICKET V3 - THE DIAMOND UPDATE */
+
+:root {
+    --mega-gold: #ffd700;
+    --mega-purple: #a855f7;
+    --mega-green: #10b981;
+    --mega-diamond: #00d4ff;
+    --slip-bg: #ffffff;
+    --slip-text: #111827;
+}
+
+.mega-container.v3 {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    padding: 20px;
+    background: radial-gradient(circle at top, rgba(0, 212, 255, 0.05), transparent);
+    min-height: 80vh;
+}
+
+/* 🖱️ HUD & TIER BUTTONS */
+.mega-hud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px 24px;
+    border-radius: 50px;
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+.mega-level-toggles { display: flex; gap: 8px; }
+
+.mega-lvl-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 30px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 600;
+}
+
+.mega-lvl-btn.active {
+    background: var(--theme-color);
+    color: #000;
+    box-shadow: 0 0 20px var(--theme-color);
+}
+
+.lvl-DIAMOND.active {
+    background: linear-gradient(135deg, #fff, var(--mega-diamond));
+    color: #000;
+    box-shadow: 0 0 25px rgba(0, 212, 255, 0.5);
+}
+
+/* 🛡️ DIAMOND SAFETY BADGE */
+.diamond-safety-badge {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #000;
+    color: var(--mega-diamond);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    border: 1px solid var(--mega-diamond);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.badge-wave {
+    width: 6px;
+    height: 6px;
+    background: var(--mega-diamond);
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulseWave 1.5s infinite;
+}
+
+@keyframes pulseWave {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(3); opacity: 0; }
+}
+
+/* 🎟️ TICKET SLIP ENHANCEMENTS */
+.mega-ticket-slip {
+    width: 380px;
+    background: var(--slip-bg);
+    color: var(--slip-text);
+    padding: 35px 30px;
+    position: relative;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+}
+
+.mega-logo { font-weight: 900; font-size: 1.2rem; color: #111; }
+.mega-logo span { color: var(--theme-color); }
+
+.logo-sparkle {
+    display: inline-block;
+    animation: sparkle 2s infinite;
+}
+
+@keyframes sparkle {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.2); }
+}
+
+.val-diamond {
+    color: #000;
+    font-size: 1.8rem;
+    font-weight: 900;
+    text-shadow: 0 0 1px rgba(0, 212, 255, 0.5);
+}
+
+.val-secure {
+    color: #059669;
+    font-weight: 900;
+}
+
+.mega-slip-entry { border-bottom: 1px dashed #e5e7eb; padding-bottom: 14px; }
+.pick-label { border-left: 4px solid var(--theme-color); background: #f3f4f6; }
+
+/* ✂️ PERFORATED EDGE */
+.perforated-edge {
+    position: absolute;
+    bottom: -10px;
+    left: 0;
+    right: 0;
+    height: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.perf-hole {
+    width: 14px;
+    height: 14px;
+    background: #0d0d0d;
+    border-radius: 50%;
+}
+
+.mega-slip-note {
+    margin-top: 24px;
+    width: 380px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #9ca3af;
+    background: rgba(255,255,255,0.03);
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.mega-slip-note b { color: var(--mega-diamond); }
+
+/* HUD ACTIONS */
+.mega-hud-actions { display: flex; gap: 8px; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 16px; }
+.mega-hud-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.1); color: #fff; cursor: pointer; transition: 0.2s; }
+.mega-hud-btn:hover { background: #fff; color: #000; }
+
+@media (max-width: 480px) {
+    .mega-ticket-slip { width: 330px; }
+    .mega-slip-note { width: 330px; }
+}

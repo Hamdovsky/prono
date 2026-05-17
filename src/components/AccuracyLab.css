@@ -1,0 +1,203 @@
+.accuracy-lab {
+    padding: 20px;
+    background: #0f172a;
+    min-height: 100vh;
+    color: #f8fafc;
+    direction: rtl;
+}
+
+.lab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    padding: 25px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.lab-badge {
+    background: rgba(99, 102, 241, 0.1);
+    color: #818cf8;
+    padding: 4px 12px;
+    border-radius: 99px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
+.lab-title h1 {
+    font-size: 1.8rem;
+    margin: 0;
+    background: linear-gradient(to left, #f8fafc, #94a3b8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.lab-title p {
+    color: #64748b;
+    margin: 5px 0 0;
+    font-size: 0.95rem;
+}
+
+.quick-stat {
+    text-align: left;
+}
+
+.quick-stat .label {
+    display: block;
+    font-size: 0.7rem;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.quick-stat .val {
+    font-size: 2rem;
+    font-weight: 900;
+    font-family: 'Outfit', sans-serif;
+}
+
+.lab-tabs {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.lab-tabs button {
+    background: #1e293b;
+    border: 1px solid rgba(255,255,255,0.05);
+    color: #94a3b8;
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.lab-tabs button.active {
+    background: #6366f1;
+    color: white;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+.lab-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.summary-card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.summary-card h3 {
+    margin: 0 0 15px;
+    font-size: 1rem;
+    color: #cbd5e1;
+}
+
+.score-ring {
+    width: 150px;
+    margin: 0 auto 20px;
+}
+
+.circular-chart {
+    display: block;
+    max-width: 100%;
+    max-height: 250px;
+}
+
+.circle-bg {
+    fill: none;
+    stroke: rgba(255,255,255,0.05);
+    stroke-width: 2.8;
+}
+
+.circle {
+    fill: none;
+    stroke: #6366f1;
+    stroke-width: 2.8;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.3s ease;
+}
+
+.percentage {
+    fill: #f8fafc;
+    font-family: sans-serif;
+    font-size: 0.5em;
+    text-anchor: middle;
+    font-weight: bold;
+}
+
+.summary-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+.det {
+    background: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.det span {
+    display: block;
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.league-mini-item {
+    margin-bottom: 12px;
+}
+
+.league-mini-item .n { font-size: 0.85rem; color: #94a3b8; }
+.league-mini-item .p { float: left; color: #6366f1; font-weight: bold; }
+.league-mini-item .b { 
+    height: 4px; 
+    background: rgba(255,255,255,0.05); 
+    border-radius: 2px; 
+    margin-top: 5px; 
+    clear: both;
+}
+.league-mini-item .b div { 
+    height: 100%; 
+    background: #6366f1; 
+    border-radius: 2px; 
+}
+
+.misses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+}
+
+.miss-card-v19 {
+    background: #1e293b;
+    padding: 15px;
+    border-radius: 12px;
+    border-right: 4px solid #ef4444;
+}
+
+.m-head {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.m-match { font-weight: bold; font-size: 0.9rem; }
+.m-score { color: #818cf8; font-family: monospace; }
+.m-verdict { font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; }
+.m-footer { font-size: 0.7rem; color: #64748b; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; }
+
+.hint { color: #f59e0b; font-size: 0.85rem; margin-bottom: 20px; }

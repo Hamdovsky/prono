@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hamdiboxe</string>
+    <string name="title_activity_main">Hamdiboxe</string>
+    <string name="package_name">com.titanium.terminal</string>
+    <string name="custom_url_scheme">com.titanium.terminal</string>
+</resources>

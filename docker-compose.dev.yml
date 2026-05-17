@@ -1,0 +1,40 @@
+# ================================================================
+#  TITANIUM AI — Docker Compose OVERRIDE (Développement local)
+#  Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#  Ou simplement: docker compose up  (si renommé en docker-compose.override.yml)
+# ================================================================
+
+version: '3.8'
+
+services:
+
+  fastapi-ml:
+    # En dev: rechargement auto sur changement de fichier Python
+    command: >
+      uvicorn core.fastapi_server:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/core
+    volumes:
+      - ./core:/app/core
+      - ./inference:/app/inference
+      - ./models:/app/models
+
+  node-api:
+    # En dev: serveur Node avec nodemon pour rechargement auto
+    command: ["npx", "nodemon", "--watch", "server.js", "--watch", "routes", "--watch", "services", "--watch", "core", "server.js"]
+    environment:
+      NODE_ENV: development
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  postgres-timescale:
+    # En dev: exposer des logs détaillés
+    command:
+      - "postgres"
+      - "-c"
+      - "log_statement=all"
+      - "-c"
+      - "log_min_duration_statement=100"

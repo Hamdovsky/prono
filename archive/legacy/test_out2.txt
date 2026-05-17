@@ -1,0 +1,30 @@
+Lazio vs Sassuolo
+  Score: 1 - 1  |  xG: 1.04-1.20  |  H/D/A: 31.7/28.7/39.5  |  Source: Poisson-Ultra-V11 (ML biased)
+
+Espanyol vs Real Oviedo
+  Score: 1 - 0  |  xG: 1.17-0.58  |  H/D/A: 50.1/31.4/18.5  |  Source: Poisson-Ultra-V11 (ML biased)
+
+Tondela vs Rio Ave
+  Score: 0 - 0  |  xG: 0.85-0.91  |  H/D/A: 31.8/33.3/34.9  |  Source: Poisson-Ultra-V11 (ML biased)
+
+GFS Panetolikos vs AE Kifisia
+  Score: 1 - 1  |  xG: 1.03-1.20  |  H/D/A: 31.5/28.8/39.7  |  Source: Poisson-Ultra-V11 (ML biased)
+
+Al-Ahli vs Al Duhail
+  Score: 2 - 1  |  xG: 2.83-1.90  |  H/D/A: 56.7/17.4/25.0  |  Source: Poisson-Ultra-V11 (ML biased)
+
+Tractor FC vs Shabab Al-Ahli Dubai
+  Score: 1 - 1  |  xG: 1.62-1.66  |  H/D/A: 37.5/23.1/39.3  |  Source: Poisson-Ultra-V11 (ML biased)
+
+West Ham United vs Brentford
+  Score: 1 - 1  |  xG: 1.59-1.17  |  H/D/A: 46.9/24.9/28.1  |  Source: Poisson-Ultra-V11 (ML biased)
+
+CA Lanús vs Deportivo Riestra
+  Score: 1 - 0  |  xG: 1.39-0.40  |  H/D/A: 62.1/27.4/10.6  |  Source: Poisson-Ultra-V11 (ML biased)
+
+Gimnasia y Esgrima vs Argentinos Juniors
+  Score: 1 - 0  |  xG: 1.22-0.63  |  H/D/A: 50.3/30.4/19.3  |  Source: Poisson-Ultra-V11 (ML biased)
+
+Central Córdoba vs Boca Juniors
+  Score: 0 - 1  |  xG: 0.41-1.07  |  H/D/A: 13.9/33.9/52.1  |  Source: Poisson-Ultra-V11 (ML biased)
+

@@ -1,0 +1,605 @@
+/* 🛡️ TITANIUM V17 INTELLIGENCE CARD */
+.titanium-card {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(56, 189, 248, 0.1);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+    backdrop-filter: blur(10px);
+    position: relative;
+    box-shadow: inset 0 0 20px rgba(56, 189, 248, 0.05);
+}
+
+.titanium-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(56, 189, 248, 0.5);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.2), inset 0 0 20px rgba(56, 189, 248, 0.1);
+}
+
+.titanium-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.verdict-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 11px; /* Increased from 0.65rem */
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px; /* Increased from 1.5px */
+    border: 1px solid transparent;
+}
+
+.verdict-pill .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.verdict-pill.safe {
+    background: rgba(34, 197, 94, 0.1);
+    color: #4ade80;
+    border-color: rgba(34, 197, 94, 0.3);
+}
+.verdict-pill.safe .dot { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+
+.verdict-pill.strong {
+    background: rgba(56, 189, 248, 0.1);
+    color: #38bdf8;
+    border-color: rgba(56, 189, 248, 0.3);
+}
+.verdict-pill.strong .dot { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+
+.verdict-pill.risky {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+.verdict-pill.risky .dot { background: #f87171; box-shadow: 0 0 8px #f87171; }
+
+.match-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; /* Increased from 0.8rem */
+    color: #64748b;
+    font-weight: 700;
+}
+
+.titanium-duel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+}
+
+.titanium-duel .team {
+    flex: 1;
+    display: flex;
+}
+
+.titanium-duel .name {
+    font-size: 14px; /* Increased from 0.65rem */
+    font-weight: 800;
+    color: #f1f5f9;
+    letter-spacing: normal; /* Reset from -0.2px */
+    white-space: normal; /* Allowed wrapping */
+    text-overflow: ellipsis;
+    max-width: 150px; /* Increased from 90px */
+}
+
+.titanium-duel .team.home { justify-content: flex-end; text-align: right; }
+.titanium-duel .team.away { justify-content: flex-start; text-align: left; }
+
+.score-display {
+    padding: 8px 15px; /* Increased padding */
+    background: #020617;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px; /* Increased from 0.85rem */
+    font-weight: 950;
+    color: #38bdf8;
+    margin: 0 10px;
+    text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.score-display .sep { opacity: 0.2; }
+
+.titanium-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.stat-slot {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 8px 10px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-slot label {
+    font-size: 11px; /* Increased from 10px */
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.stat-slot .value {
+    font-size: 15px; /* Increased from 0.9rem */
+    font-weight: 900;
+    color: #f8fafc;
+}
+
+.titanium-tubes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 15px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.tube-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tube-header .label {
+    font-size: 11px; /* Increased from 0.65rem */
+    font-weight: 900;
+    color: #475569;
+    text-transform: uppercase;
+}
+
+.tube-bar {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; /* Increased from 0.8rem */
+    color: #0ea5e9;
+    letter-spacing: 2.5px;
+    font-weight: bold;
+}
+
+.titanium-action {
+    padding-top: 10px;
+}
+
+.titanium-card.golden-pick {
+    border: 2px solid #fbbf24;
+    background: linear-gradient(145deg, rgba(251, 191, 36, 0.05) 0%, rgba(15, 23, 42, 0.4) 100%);
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.1), inset 0 0 20px rgba(251, 191, 36, 0.05);
+}
+
+.titanium-card.golden-pick::after {
+    content: "PREMIUM SELECTION";
+    position: absolute;
+    top: -10px;
+    right: 20px;
+    background: #fbbf24;
+    color: #000;
+    font-size: 0.5rem;
+    font-weight: 900;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+}
+
+.header-left {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.sentiment-badge {
+    font-size: 11px; /* Increased from 0.55rem */
+    font-weight: 900;
+    padding: 6px 12px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+}
+
+.sentiment-badge.hot {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.sentiment-badge.drop {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.titanium-metadata {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px 15px;
+    border-radius: 12px;
+    margin-top: 5px;
+}
+
+.odds-comparison {
+    display: flex;
+    gap: 15px;
+}
+
+.odds-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.odds-item .label {
+    font-size: 10px; /* Increased from 0.5rem */
+    color: #64748b;
+    text-transform: uppercase;
+}
+
+.odds-item .val {
+    font-size: 14px; /* Increased from 0.85rem */
+    font-weight: 800;
+    color: #94a3b8;
+}
+
+.odds-item.current .val {
+    color: #38bdf8;
+}
+
+.recommended-stake {
+    text-align: right;
+}
+
+.recommended-stake .label {
+    display: block;
+    font-size: 10px; /* Increased from 0.55rem */
+    font-weight: 800;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.stake-dots {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.stake-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.stake-dot.active {
+    background: #38bdf8;
+    box-shadow: 0 0 5px #38bdf8;
+}
+
+.stake-val {
+    font-size: 12px; /* Increased from 0.7rem */
+    font-weight: 900;
+    color: #38bdf8;
+    margin-left: 8px;
+}
+
+.console-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.1) 0%, rgba(14, 165, 233, 0.05) 100%);
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    border-radius: 8px;
+    color: #0ea5e9;
+    font-size: 13px; /* Increased from 0.75rem */
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.console-btn:hover {
+    background: #0ea5e9;
+    color: #020617;
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
+}
+
+.ai-cs-prediction-v19 {
+    background: rgba(14, 165, 233, 0.05);
+    border: 1px solid rgba(14, 165, 233, 0.2);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.ai-cs-prediction-v19 .cs-header {
+    font-size: 11px; /* Increased from 0.6rem */
+    font-weight: 900;
+    color: #38bdf8;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.ai-cs-prediction-v19 .cs-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ai-cs-prediction-v19 .cs-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.ai-cs-prediction-v19 .cs-score {
+    color: #f8fafc;
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 45px;
+}
+
+.ai-cs-prediction-v19 .cs-prob {
+    color: #64748b;
+    font-size: 12px; /* Increased from 0.7rem */
+}
+
+.ai-cs-prediction-v19 .cs-fire {
+    margin-left: auto;
+    font-size: 0.9rem;
+}
+
+/* =========================================
+   V22 ULTIMATE UPGRADE
+   ========================================= */
+
+.v22-success-rate-badge {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(15, 23, 42, 0.6) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 6px 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.v22-success-rate-badge .label {
+    font-size: 11px; /* Increased from 10px */
+    font-weight: 800;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.v22-success-rate-badge .val-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.v22-success-rate-badge .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.4rem; /* Increased from 1.1rem */
+    font-weight: 950;
+    color: #38bdf8;
+    text-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+}
+
+.v22-success-rate-badge .smart-money-icon {
+    font-size: 1rem;
+    filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.5));
+}
+
+.v22-chaos-factors {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.v22-chaos-factors .factor-label {
+    font-size: 10px; /* Increased from 0.5rem */
+    font-weight: 900;
+    color: #475569;
+    letter-spacing: 0.5px;
+}
+
+.v22-chaos-factors .factor-val {
+    font-size: 11px; /* Increased from 0.6rem */
+    font-weight: 700;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.v22-grid .stat-slot {
+    border-left: 2px solid #38bdf8;
+}
+
+.v22-cs {
+    border-left: 2px solid #fbbf24;
+}
+
+/* =========================================
+   V61 SMART MONEY HEATMAP
+   ========================================= */
+
+.sm-heatmap-container {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.3s ease;
+}
+
+/* Glow effects based on traffic light */
+.sm-heatmap-container.glow-GREEN {
+    border-color: rgba(16, 185, 129, 0.3);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.05);
+}
+.sm-heatmap-container.glow-YELLOW {
+    border-color: rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.05);
+}
+.sm-heatmap-container.glow-RED {
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.15), inset 0 0 10px rgba(239, 68, 68, 0.05);
+}
+
+.sm-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sm-title {
+    font-size: 11px; /* Increased from 0.55rem */
+    font-weight: 900;
+    color: #94a3b8;
+    letter-spacing: 1.2px;
+}
+
+.sm-status {
+    font-size: 10px; /* Increased from 0.55rem */
+    font-weight: 900;
+    padding: 4px 8px; /* Increased padding */
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.sm-status.status-GREEN { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+.sm-status.status-YELLOW { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+.sm-status.status-RED { color: #ef4444; background: rgba(239, 68, 68, 0.15); animation: pulse-red 2s infinite; }
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    70% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.sm-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: #ef4444; /* Amateur money (red) fills the remaining space */
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+}
+
+.sm-bar-pro {
+    height: 100%;
+    background: linear-gradient(90deg, #059669 0%, #10b981 100%);
+    border-radius: 4px 0 0 4px;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sm-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px; /* Increased from 0.6rem */
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.pro-label { color: #10b981; }
+.am-label { color: #ef4444; }
+
+/* =========================================
+   V70 ADVANCED ANALYTICS
+   ========================================= */
+
+.v70-analytics-grid {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.v70-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 4px;
+    margin-bottom: 2px;
+}
+
+.v70-title {
+    font-size: 11px; /* Increased from 0.55rem */
+    font-weight: 900;
+    color: #38bdf8;
+    letter-spacing: 1.2px;
+}
+
+.v70-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.v70-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Increased from 6px */
+    font-size: 12px; /* Increased from 0.65rem */
+    font-weight: 700;
+    padding: 8px 12px; /* Increased from 6px 8px */
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.v70-badge.alert { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-left: 2px solid #f59e0b; }
+.v70-badge.normal { background: rgba(16, 185, 129, 0.1); color: #10b981; border-left: 2px solid #10b981; }
+.v70-badge.alert-red { background: rgba(239, 68, 68, 0.15); color: #ef4444; border-left: 2px solid #ef4444; }
+.v70-badge.velocity { background: rgba(168, 85, 247, 0.15); color: #c084fc; border-left: 2px solid #c084fc; }
+
+.v70-badge .icon { font-size: 0.8rem; }
+
+.v70-xg-matrix {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px dashed rgba(255,255,255,0.1);
+}
+
+.xg-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px; /* Increased from 0.6rem */
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.xg-row .tm-label { color: #94a3b8; font-weight: 800; width: 40px; }
+.xg-row .xg-val { color: #fff; font-weight: 700; }
+.xg-row .xg-badge { color: #cbd5e1; }

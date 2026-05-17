@@ -1,0 +1,216 @@
+.intel-container {
+    padding: 24px;
+    background: #02040a;
+    color: #f8fafc;
+    border-radius: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid #1e293b;
+    box-shadow: 0 0 40px rgba(0, 255, 170, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+/* --- NEURAL SCANLINE EFFECT --- */
+.intel-container::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 2px;
+    background: rgba(0, 255, 170, 0.1);
+    animation: neural-scan 4s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes neural-scan {
+    0% { top: 0; }
+    100% { top: 100%; }
+}
+
+.intel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 16px;
+}
+
+.intel-header h2 {
+    font-size: 1.2rem;
+    font-weight: 900;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #00ffaa, #38bdf8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.uptime-pill {
+    background: rgba(0, 255, 170, 0.1);
+    color: #00ffaa;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    border: 1px solid rgba(0, 255, 170, 0.2);
+}
+
+.intel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.intel-card {
+    background: #0a0f18;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 18px;
+    position: relative;
+    transition: all 0.3s;
+}
+
+.intel-card:hover {
+    border-color: #00ffaa66;
+    box-shadow: 0 0 20px rgba(0, 255, 170, 0.1);
+}
+
+.intel-card h3 {
+    font-size: 0.85rem;
+    margin: 0 0 16px 0;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.intel-stat-main {
+    font-size: 1.8rem;
+    font-weight: 900;
+    margin-bottom: 4px;
+    color: #f1f5f9;
+}
+
+.stat-label {
+    font-size: 10px;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* AI Workers (Neural Nodes) */
+.worker-pool {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.worker-node {
+    background: #020617;
+    padding: 8px;
+    border-radius: 4px;
+    text-align: center;
+    border: 1px solid #1e293b;
+    position: relative;
+}
+
+.worker-node.busy {
+    border-color: #00ffaa;
+    box-shadow: 0 0 10px rgba(0, 255, 170, 0.2);
+}
+
+.node-status {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #334155;
+    margin: 0 auto 4px;
+}
+
+.busy .node-status {
+    background: #00ffaa;
+    box-shadow: 0 0 8px #00ffaa;
+    animation: neural-pulse 1s infinite;
+}
+
+@keyframes neural-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Telemetry (Neural Signal) */
+.telemetry-bar {
+    height: 50px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    background: rgba(0,0,0,0.3);
+    padding: 6px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.telemetry-pill {
+    flex: 1;
+    background: #1e293b;
+    border-radius: 1px;
+    min-height: 2px;
+    transition: height 0.3s ease;
+}
+
+.telemetry-pill.active { background: #00ffaa; }
+.telemetry-pill.warn { background: #f59e0b; }
+.telemetry-pill.danger { background: #ef4444; }
+
+/* Strategy Controls */
+.strategy-controls {
+    display: flex;
+    gap: 6px;
+    margin-top: 15px;
+}
+
+.strategy-btn {
+    flex: 1;
+    padding: 6px;
+    border-radius: 4px;
+    background: #020617;
+    border: 1px solid #1e293b;
+    color: #475569;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 800;
+    transition: all 0.2s;
+}
+
+.strategy-btn:hover {
+    border-color: #38bdf8;
+    color: #38bdf8;
+}
+
+.strategy-btn.active {
+    background: rgba(0, 255, 170, 0.1);
+    color: #00ffaa;
+    border-color: #00ffaa;
+}
+
+/* Console Logs Simulation */
+.neural-console {
+    margin-top: 20px;
+    background: #000;
+    padding: 10px;
+    border-radius: 4px;
+    height: 100px;
+    overflow-y: hidden;
+    font-size: 9px;
+    color: #10b981;
+    border: 1px solid #111;
+}
+
+.console-line {
+    margin-bottom: 4px;
+    opacity: 0.8;
+}

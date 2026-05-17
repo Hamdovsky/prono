@@ -1,0 +1,477 @@
+/* 💎 ONYX QUANTUM V24 DASHBOARD STYLES */
+:root {
+    --bg: #020408;
+    --panel: #0a0f18;
+    --gold: #ffb800;
+    --neon: #00ffaa;
+    --sub-text: #64748b;
+    --border-dark: #111827;
+}
+
+.titanium-layout {
+    display: flex;
+    height: 100vh;
+    background-color: var(--bg);
+    color: #fff;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    letter-spacing: normal;
+}
+
+.titanium-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    background: var(--bg);
+}
+
+/* --- ONYX STATUS HEADER --- */
+.onyx-status-header {
+    background: #000;
+    padding: 10px 18px;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--sub-text);
+    font-size: 12px;
+    z-index: 10;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    gap: 16px;
+}
+
+.onyx-header-right {
+    display: flex;
+    gap: 15px;
+}
+
+/* Override existing titanium header styles */
+.titanium-header {
+    display: none; /* Hide old header */
+}
+
+/* --- ONYX GRID CONTAINER --- */
+.onyx-grid-container { 
+    display: flex; 
+    flex-direction: column; 
+    width: 100%; 
+    padding: 14px;
+    gap: 16px;
+}
+
+.onyx-section-title {
+    background: linear-gradient(90deg, #1e1b4b, transparent);
+    padding: 10px 18px;
+    color: var(--gold);
+    font-weight: 900;
+    border-left: 4px solid var(--gold);
+    margin: 6px 0;
+    text-transform: uppercase;
+    font-size: 13px;
+    letter-spacing: 0.8px;
+}
+
+.onyx-section-title.global {
+    color: #3b82f6;
+    border-left-color: #3b82f6;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), transparent);
+}
+
+/* --- ONYX TABLE STYLES --- */
+.onyx-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    table-layout: fixed;
+}
+
+.onyx-table thead tr {
+    height: 35px; /* Increased from 20px */
+    border-bottom: 2px solid var(--border-dark);
+}
+
+.onyx-table th { 
+    text-align: left; 
+    color: var(--sub-text); 
+    font-weight: 700; 
+    padding: 8px 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.onyx-table tbody tr { 
+    height: 50px; /* Significantly increased from 22px to allow multi-line and breathing room */
+    border-bottom: 1px solid var(--border-dark); 
+    transition: background 0.2s;
+}
+
+.onyx-table tbody tr:hover { 
+    background: #161b22 !important; 
+    cursor: pointer; 
+}
+
+.onyx-table td {
+    padding: 8px 10px; /* Increased from 0 5px */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.onyx-table td b {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+/* --- VIRTUAL ROW STYLES --- */
+.onyx-virtual-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border-dark);
+    transition: background 0.2s;
+    cursor: pointer;
+    min-height: 65px; /* Reduced from 70px */
+    padding: 1px 0;
+}
+.onyx-virtual-row:hover {
+    background: #161b22 !important;
+}
+.onyx-virtual-cell {
+    padding: 4px 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+}
+
+.onyx-virtual-cell.centered {
+    align-items: center;
+    text-align: center;
+}
+.onyx-virtual-cell b {
+    font-family: 'JetBrains Mono', monospace;
+    color: #f8fafc;
+    font-weight: 700;
+    font-size: 13.5px; /* Reduced from 14.5px */
+    letter-spacing: 0.1px;
+}
+
+/* --- ONYX FUNCTIONAL COLORS --- */
+.onyx-win { color: var(--neon); font-weight: bold; }
+.onyx-lose { color: #ff4444; }
+.onyx-draw { color: #94a3b8; }
+
+.onyx-acc-high { 
+    color: #000; 
+    background: var(--neon); 
+    padding: 0 4px; 
+    border-radius: 2px; 
+    font-weight: 900; 
+}
+.onyx-acc-med { 
+    color: var(--neon); 
+    border: 1px solid var(--neon); 
+    padding: 0 3px; 
+}
+.onyx-acc-low {
+    color: #94a3b8;
+}
+
+.onyx-cs { color: var(--gold); font-weight: bold; }
+.onyx-impact { font-size: 13px; } /* Increased from 12px */
+
+/* --- SPATIAL --- */
+.mb-2 { margin-bottom: 10px; }
+
+/* Scrollbar customization - Visible & Premium */
+.titanium-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+    position: relative;
+    background: var(--bg);
+}
+
+.titanium-scroll::-webkit-scrollbar { width: 8px; }
+.titanium-scroll::-webkit-scrollbar-track { background: var(--bg); }
+.titanium-scroll::-webkit-scrollbar-thumb { 
+    background: #1e293b; 
+    border-radius: 4px; 
+}
+.titanium-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+/* Keep these for backward compatibility if needed temporarily */
+.flash-empty {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+    font-size: 11px;
+    color: var(--sub-text);
+    font-weight: normal;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* --- MATCH STATUS INDICATORS --- */
+.status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    box-shadow: 0 0 4px currentColor;
+}
+
+.status-dot.finished {
+    background-color: #ff4444; /* Red */
+    color: #ff4444;
+}
+
+.status-dot.scheduled {
+    background-color: var(--gold); /* Yellow/Gold */
+    color: var(--gold);
+}
+
+.status-dot.live {
+    background-color: var(--neon); /* Green/Neon */
+    color: var(--neon);
+    animation: onyx-pulse-dot 1.5s infinite;
+}
+
+@keyframes onyx-pulse-dot {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
+/* --- V33 VIRTUALIZATION & STATUS STYLES --- */
+.onyx-list-section {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background: rgba(10, 15, 24, 0.5);
+    border-radius: 4px;
+    overflow-x: auto; /* Allow horizontal scroll for large tables */
+}
+
+.onyx-skeleton-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px;
+}
+
+.onyx-skeleton-row {
+    height: 25px;
+    background: linear-gradient(90deg, #0a111a 25%, #161b22 50%, #0a111a 75%);
+    background-size: 200% 100%;
+    animation: onyx-skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes onyx-skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.onyx-loader-text {
+    text-align: center;
+    color: var(--gold);
+    font-size: 12px; /* Increased from 10px */
+    margin-top: 15px;
+    letter-spacing: 2px;
+}
+
+.onyx-error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+    gap: 15px;
+}
+
+.onyx-error-icon {
+    font-size: 40px;
+}
+
+.onyx-error-title {
+    color: #ff4444;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.onyx-retry-btn {
+    background: transparent;
+    border: 1px solid #ff4444;
+    color: #ff4444;
+    padding: 10px 20px; /* Increased from 8px 16px */
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+    font-size: 11px; /* Increased from 10px */
+    transition: 0.3s;
+}
+
+.onyx-retry-btn:hover {
+    background: #ff4444;
+    color: #000;
+}
+
+/* --- ONYX SYNC & SCRAPER STYLES --- */
+.onyx-header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.onyx-sync-btn {
+    background: rgba(0, 255, 170, 0.1);
+    border: 1px solid var(--neon);
+    color: var(--neon);
+    font-size: 11px; /* Increased from 8px */
+    padding: 4px 15px; /* Increased from 1px 10px */
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+}
+
+.onyx-sync-btn:hover {
+    background: var(--neon);
+    color: #000;
+    box-shadow: 0 0 10px var(--neon);
+}
+
+.onyx-scraper-status {
+    color: var(--gold);
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.onyx-scraper-detail {
+    color: var(--sub-text);
+    font-weight: normal;
+    margin-left: 5px;
+}
+
+.onyx-pulse {
+    animation: onyx-pulse-text 1.5s infinite;
+}
+
+@keyframes onyx-pulse-text {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
+/* --- PREMIUM COMPONENT UPGRADES --- */
+.onyx-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.onyx-badge.smart {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.onyx-badge.value {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* Progress Bars for O/U and Precision */
+.onyx-progress-container {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+.onyx-progress-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease-out;
+}
+
+.onyx-progress-bar.neon { background: var(--neon); box-shadow: 0 0 5px var(--neon); }
+.onyx-progress-bar.blue { background: #3b82f6; box-shadow: 0 0 5px #3b82f6; }
+.onyx-progress-bar.gold { background: var(--gold); box-shadow: 0 0 5px var(--gold); }
+
+/* Pulse Animation for Elite */
+@keyframes onyx-pulse-glow {
+    0% { box-shadow: 0 0 0 0 rgba(0, 255, 170, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(0, 255, 170, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 255, 170, 0); }
+}
+
+.onyx-pulse-elite {
+    animation: onyx-pulse-glow 2s infinite;
+}
+
+/* Tooltip helper (simple CSS based) */
+[data-tooltip] {
+    position: relative;
+    cursor: help;
+}
+
+.onyx-tag {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+/* Performance Hub Stat Cards */
+.onyx-stat-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: default;
+}
+
+.onyx-stat-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.6) !important;
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
+}
+
+/* --- MASSIVE EDGE ANIMATION (TITANIUM V4) --- */
+.onyx-massive-edge-pulse {
+    animation: onyx-massive-pulse 1.5s infinite;
+    text-shadow: 0 0 12px rgba(251, 191, 36, 0.8);
+    background: rgba(251, 191, 36, 0.15) !important;
+    border: 1px solid #fbbf24 !important;
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: #fbbf24 !important;
+    font-weight: 900 !important;
+}
+
+@keyframes onyx-massive-pulse {
+    0% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 0px rgba(251, 191, 36, 0); }
+    50% { transform: scale(1.05); filter: brightness(1.4); box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); }
+    100% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 0px rgba(251, 191, 36, 0); }
+}

@@ -1,0 +1,35 @@
+const { spawn } = require('child_process');
+const path = require('path');
+
+async function runScript(name, args = []) {
+    return new Promise((resolve, reject) => {
+        console.log(`\n--- RUNNING ${name} ---`);
+        const proc = spawn('node', [path.join(__dirname, name), ...args], {
+            stdio: 'inherit'
+        });
+        proc.on('close', (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(`${name} failed with code ${code}`));
+        });
+    });
+}
+
+async function main() {
+    try {
+        // Step 1: Scrape Africanobet
+        await runScript('africanobet_hardened.js');
+        
+        // Step 2: Enrich with Sofascore stats
+        await runScript('enrich_africanobet.js');
+        
+        // Step 3: Import to Database
+        await runScript('import_africanobet_to_db.js');
+        
+        console.log('\n✅ [MASTER] Africanobet pipeline completed successfully!');
+    } catch (err) {
+        console.error('\n❌ [MASTER] Pipeline failed:', err.message);
+        process.exit(1);
+    }
+}
+
+main();

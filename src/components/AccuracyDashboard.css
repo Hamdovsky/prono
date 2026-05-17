@@ -1,0 +1,189 @@
+/* ── Surgical Acc-Dashboard V2 ────────────────────────────────────────────────── */
+.acc-dashboard {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #0f172a;
+    color: #f1f5f9;
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.acc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding: 24px;
+    background: rgba(30, 41, 59, 0.4);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.acc-header-title { display: flex; align-items: center; gap: 16px; }
+.acc-header-title h1 { margin: 0; font-size: 1.6rem; font-weight: 800; }
+.acc-header-title p { margin: 4px 0 0; color: #94a3b8; font-size: 0.9rem; }
+
+.acc-run-btn {
+    padding: 10px 24px;
+    background: #6366f1;
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.acc-run-btn:hover { background: #4f46e5; }
+.acc-run-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── KPIs ───────────────────────────────────────────────── */
+.acc-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+}
+.acc-kpi {
+    background: rgba(30, 41, 59, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 18px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+.acc-kpi::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 3px;
+    background: var(--kpi-color, #6366f1);
+}
+.acc-kpi-value { font-size: 2rem; font-weight: 900; margin-bottom: 4px; }
+.acc-kpi-label { color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ── Tabs ───────────────────────────────────────────────── */
+.acc-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+.acc-tab {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(30, 41, 59, 0.5);
+    color: #94a3b8;
+    cursor: pointer;
+    font-weight: 600;
+}
+.acc-tab.active { background: #6366f1; color: #fff; }
+
+/* ── Chart Cards ────────────────────────────────────────── */
+.acc-chart-card {
+    background: rgba(30, 41, 59, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+.acc-chart-card h3 { margin: 0 0 20px 0; font-size: 1.1rem; color: #e2e8f0; }
+
+/* ── Misses Feed & Surgical ────────────────────────────── */
+.acc-misses-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.acc-miss-entry {
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 14px;
+    padding: 16px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.acc-miss-entry:hover { background: rgba(30, 41, 59, 0.6); }
+.acc-miss-entry.expanded { border-color: #6366f1; box-shadow: 0 0 15px rgba(99, 102, 241, 0.1); }
+
+.acc-miss-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.acc-miss-teams { font-weight: 700; font-size: 1rem; }
+.acc-miss-score { font-family: monospace; font-size: 1.1rem; color: #94a3b8; }
+
+.acc-miss-tactical {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: rgba(0,0,0,0.2);
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+.acc-miss-icon { font-size: 1.4rem; }
+.acc-miss-desc { color: #f1f5f9; font-size: 0.9rem; }
+.acc-miss-meta { font-size: 0.75rem; color: #64748b; font-style: italic; text-align: left; }
+
+/* ── Surgical Detalis ───────────────────────────────────── */
+.surgical-report {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+.surgical-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 20px;
+}
+.surgical-title { margin: 0 0 12px; font-size: 11px; color: #94a3b8; text-transform: uppercase; }
+
+.surgical-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(0,0,0,0.3);
+    padding: 12px;
+    border-radius: 12px;
+}
+.timeline-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px; /* Increased from 0.85rem */
+    color: #cbd5e1;
+}
+.timeline-time { color: #6366f1; font-weight: 800; min-width: 25px; }
+
+.surgical-footer { margin-top: 15px; }
+.surgical-badge {
+    display: inline-block;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px; /* Increased from 0.65rem */
+    font-weight: 900;
+    padding: 3px 10px; /* Increased padding */
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+.surgical-tip { font-size: 0.8rem; color: #94a3b8; line-height: 1.4; margin: 0; }
+
+.acc-autopsy-dot {
+    width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+}
+
+/* Animations */
+.animate-in {
+    animation: accSlideIn 0.3s ease-out;
+}
+@keyframes accSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+    .surgical-grid { grid-template-columns: 1fr; }
+}

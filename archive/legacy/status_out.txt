@@ -1,0 +1,6 @@
+Status: 'NS' | Count: 155
+Status: 'FINISHED' | Count: 16
+Status: 'Finished' | Count: 2
+Status: '2nd Half' | Count: 1
+Status: '2ND HALF' | Count: 1
+Status: '1ST HALF' | Count: 1

@@ -1,0 +1,15 @@
+{
+    "appId": "com.titanium.terminal",
+    "appName": "Titanium Terminal",
+    "webDir": "dist",
+    "bundledWebRuntime": false,
+    "server": {
+        "androidScheme": "https",
+        "cleartext": true
+    },
+    "plugins": {
+        "CapacitorHttp": {
+            "enabled": true
+        }
+    }
+}

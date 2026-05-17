@@ -1,0 +1,28 @@
+Error parsing fully_data for 15631363: argument of type 'NoneType' is not iterable
+[15631363] Bayer 04 Leverkusen vs Arsenal | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+Error parsing fully_data for 15631335: argument of type 'NoneType' is not iterable
+[15631335] Bodø/Glimt vs Sporting CP | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+Error parsing fully_data for 15631341: argument of type 'NoneType' is not iterable
+[15631341] Paris Saint-Germain vs Chelsea | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+Error parsing fully_data for 15631329: argument of type 'NoneType' is not iterable
+[15631329] Real Madrid vs Manchester City | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+Error parsing fully_data for 14194058: argument of type 'NoneType' is not iterable
+[14194058] Paris Saint-Germain vs Olympique de Marseille | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+Error parsing fully_data for 14064730: argument of type 'NoneType' is not iterable
+[14064730] Annecy FC vs Paris Saint-Germain | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+Error parsing fully_data for 14336381: argument of type 'NoneType' is not iterable
+[14336381] Sporting CP B U21 vs Chaves | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+Error parsing fully_data for 15551853: argument of type 'NoneType' is not iterable
+[15551853] Arsenal Tula vs Volga Ulyanovsk | Score: ? - ? | Insufficient Data: 0 | Headlines: 0
+[14023987] Arsenal vs Everton | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+[14023990] Chelsea vs Newcastle United | Score: 1 - 2 | Insufficient Data: 0 | Headlines: 0
+[14023993] West Ham United vs Manchester City | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+[14083637] Real Madrid vs Elche | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+[14065183] Bayer 04 Leverkusen vs FC Bayern München | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+[14083423] Chelsea vs Almería | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+[14283264] Aston Villa vs Manchester City | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+[14283268] London City Lionesses vs Arsenal | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+[14605931] Real Sociedad vs Real Madrid | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+[15624815] Ural Yekaterinburg vs Arsenal Tula | Score: 1 - 1 | Insufficient Data: 0 | Headlines: 0
+
+Done.

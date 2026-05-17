@@ -1,0 +1,112 @@
+.performance-audit-container {
+    padding: 2rem;
+    background: #0f172a;
+    min-height: 100vh;
+    color: #f8fafc;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.audit-header {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2.5rem;
+    background: rgba(30, 41, 59, 0.4);
+    padding: 1.5rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rating-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: conic-gradient(#3b82f6 80%, #1e293b 0);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.rating-val { font-size: 1.8rem; font-weight: 800; color: #fff; }
+.rating-lbl { font-size: 0.6rem; opacity: 0.8; }
+
+.header-text h1 { font-size: 1.5rem; margin-bottom: 0.25rem; color: #3b82f6; }
+.header-text h1 span { color: #94a3b8; font-size: 0.9rem; margin-right: 0.5rem; }
+.header-text p { color: #64748b; font-size: 0.9rem; }
+
+.audit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.audit-card {
+    background: rgba(30, 41, 59, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 1.25rem;
+}
+
+.audit-card h3 {
+    font-size: 1rem;
+    margin-bottom: 1.25rem;
+    color: #94a3b8;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    padding-bottom: 0.75rem;
+}
+
+/* Stat Bars */
+.bar-fill { height: 8px; background: #3b82f6; border-radius: 4px; transition: width 1s ease; }
+.bar-bg { background: #1e293b; border-radius: 4px; height: 8px; margin: 10px 0; }
+.bar-label { font-size: 0.85rem; font-weight: 600; }
+.stat-row-mini { display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; }
+
+/* Market List */
+.market-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.market-item {
+    background: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+}
+.m-name { display: block; font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+.m-acc { display: block; font-size: 1.1rem; font-weight: 800; color: #3b82f6; }
+.m-total { font-size: 0.6rem; opacity: 0.6; }
+
+/* DNA Leaderboard */
+.dna-split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.dna-rank { font-size: 0.8rem; margin-bottom: 8px; color: #f8fafc; }
+.dna-rank.red { color: #fca5a5; }
+
+/* Patterns */
+.pattern-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.85rem; }
+.p-freq { padding: 2px 6px; border-radius: 4px; background: #1e293b; color: #10b981; font-size: 0.7rem; }
+.p-freq.high { color: #fca5a5; background: rgba(239, 68, 68, 0.1); }
+
+/* Improvement Plan */
+.rec-list { padding-right: 1.25rem; list-style: square; color: #e2e8f0; }
+.rec-list li { font-size: 0.85rem; margin-bottom: 10px; line-height: 1.4; }
+
+/* Critical Issues Tag */
+.full-width { grid-column: 1 / -1; }
+.issues-flex { display: flex; gap: 10px; flex-wrap: wrap; }
+.issue-tag {
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.audit-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 80vh;
+    font-size: 1.2rem;
+    color: #3b82f6;
+    background: #0f172a;
+}

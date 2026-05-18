@@ -6,7 +6,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 
-const { fetch } = require('undici');
+// Using native global fetch (integrated in Node.js >= 18)
 const { getRandomUserAgent } = require('../../SofascoreScraping/src/apiClient');
 
 const SOFA_API = 'https://www.sofascore.com/api/v1';

@@ -172,7 +172,6 @@ class BotService {
 
     async _handleAnalyze(chatId) {
         try {
-            const fetch = require('undici').fetch;
             // Native fetch if available, else standard HTTP
             const response = await new Promise((resolve, reject) => {
                 const http = require('http');
@@ -486,7 +485,6 @@ class BotService {
     async _handlePromosport(chatId) {
         this._executeSend("📈 <b>Chargement Promosport AI Grid...</b>", chatId);
         try {
-            const fetch = require('undici').fetch;
             const response = await new Promise((resolve, reject) => {
                 const http = require('http');
                 http.get(`http://127.0.0.1:${process.env.SERVER_PORT || 3001}/api/promosport`, (res) => {

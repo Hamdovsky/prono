@@ -31,19 +31,7 @@ const httpsAgent = new https.Agent(options);
 let undiciAgent = null;
 
 function getUndiciAgent() {
-    if (undiciAgent) return undiciAgent;
-    try {
-        const { Agent } = require('undici');
-        undiciAgent = new Agent({
-            keepAliveTimeout: 10000,
-            keepAliveMaxTimeout: 30000,
-            connections: 64,
-            pipelining: 1
-        });
-        return undiciAgent;
-    } catch (e) {
-        return null;
-    }
+    return null; // Undici removed due to Node 20 global fetch conflicts
 }
 
 /**

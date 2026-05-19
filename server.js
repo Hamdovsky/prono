@@ -272,8 +272,22 @@ app.get('/api/leagues', async (req, res) => {
 });
 
 const publicPath = path.normalize(path.join(__dirname, 'dist'));
-app.use(express.static(publicPath));
+// Serve static assets with cache, but never cache HTML files
+app.use(express.static(publicPath, {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year for js/css/images
+    }
+  }
+}));
+
+// Fallback for React Router (SPA)
 app.get(/^(?!\/api|\/socket\.io).*/, (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(publicPath, 'index.html'), (err) => {
     if (err && !res.headersSent) {
       res.status(404).send("Not Found");

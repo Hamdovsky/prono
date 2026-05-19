@@ -21,7 +21,7 @@ async function pushLocalMatches() {
     console.log('📡 [SYNC] Uploading matches to Render cloud: https://prono-l5e3.onrender.com...');
     
     try {
-        const response = await axios.post('https://prono-l5e3.onrender.com/api/matches/sync', {
+        const response = await axios.post('https://prono-l5e3.onrender.com/api/sync-matches', {
             matches
         }, {
             maxContentLength: Infinity,

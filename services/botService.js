@@ -11,7 +11,14 @@ const { runAutoRetrain } = require('../scripts/auto_retrain_worker');
 const { getDailyDraws } = require('../scripts/daily_draws');
 const liveGoalPredictor = require('./LiveGoalPredictor');
 const bankrollService = require('./bankrollService');
-const bankrollData = require('../data/bankroll.json');
+function getBankrollData() {
+    try {
+        return require('../data/bankroll.json');
+    } catch (e) {
+        return { current_balance: 1000, initial_balance: 1000, last_updated: Date.now() };
+    }
+}
+const bankrollData = getBankrollData();
 
 class BotService {
     constructor() {
@@ -633,7 +640,7 @@ class BotService {
     }
 
     async _handlePerformanceAudit(chatId) {
-        const br = require('../data/bankroll.json');
+        const br = getBankrollData();
         const profit = br.current_balance - br.initial_balance;
         const roi = ((br.current_balance / br.initial_balance - 1) * 100).toFixed(2);
         
@@ -649,7 +656,7 @@ class BotService {
     }
 
     async _handleBankroll(chatId) {
-        const br = require('../data/bankroll.json');
+        const br = getBankrollData();
         const msg = `💰 <b>TITANIUM BANKROLL</b>\n\n` +
                     `💵 Balance: <b>${br.current_balance.toFixed(2)} units</b>\n` +
                     `🛡️ Stratégie: <b>Fractional Kelly (1/4)</b>\n` +

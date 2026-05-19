@@ -182,7 +182,7 @@ class BotService {
             // Native fetch if available, else standard HTTP
             const response = await new Promise((resolve, reject) => {
                 const http = require('http');
-                http.get(`http://127.0.0.1:${process.env.SERVER_PORT || 3001}/api/upcoming`, (res) => {
+                http.get(`http://127.0.0.1:${process.env.PORT || process.env.SERVER_PORT || 3001}/api/upcoming`, (res) => {
                     let data = '';
                     res.on('data', chunk => data += chunk);
                     res.on('end', () => resolve(JSON.parse(data)));
@@ -215,7 +215,7 @@ class BotService {
         try {
             const http = require('http');
             const data = await new Promise((resolve, reject) => {
-                http.get(`http://127.0.0.1:${process.env.SERVER_PORT || 3001}/api/booking-codes/all`, (res) => {
+                http.get(`http://127.0.0.1:${process.env.PORT || process.env.SERVER_PORT || 3001}/api/booking-codes/all`, (res) => {
                     let raw = '';
                     res.on('data', c => raw += c);
                     res.on('end', () => {
@@ -278,7 +278,7 @@ class BotService {
             const result = await new Promise((resolve, reject) => {
                 const req = http.request({
                     hostname: '127.0.0.1',
-                    port: process.env.SERVER_PORT || 3001,
+                    port: process.env.PORT || process.env.SERVER_PORT || 3001,
                     path: '/api/booking-codes/add',
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
@@ -494,7 +494,7 @@ class BotService {
         try {
             const response = await new Promise((resolve, reject) => {
                 const http = require('http');
-                http.get(`http://127.0.0.1:${process.env.SERVER_PORT || 3001}/api/promosport`, (res) => {
+                http.get(`http://127.0.0.1:${process.env.PORT || process.env.SERVER_PORT || 3001}/api/promosport`, (res) => {
                     let data = '';
                     res.on('data', chunk => data += chunk);
                     res.on('end', () => resolve(JSON.parse(data)));

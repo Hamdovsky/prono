@@ -22,17 +22,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Core React runtime — cached separately
-          'vendor-react': ['react', 'react-dom'],
-          // Charting library
-          'vendor-charts': ['recharts'],
-          // Animation library
-          'vendor-motion': ['framer-motion'],
-          // Utilities
-          'vendor-utils': ['fuse.js', 'clsx', 'tailwind-merge', 'lucide-react'],
-          // Virtualization (large list rendering)
-          'vendor-window': ['react-window'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
         }
       }
     }

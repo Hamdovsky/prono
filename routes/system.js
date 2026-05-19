@@ -141,4 +141,46 @@ router.post('/system/clear-cache', localOnlyOrAuth, async (req, res) => {
     }
 });
 
+/**
+ * GET /api/db-stats — Diagnose DB state from Render logs
+ */
+router.get('/db-stats', async (req, res) => {
+    try {
+        const db = database.db;
+        const total = db.prepare('SELECT COUNT(*) as cnt FROM matches').get();
+        const byStatus = db.prepare('SELECT status, COUNT(*) as cnt FROM matches GROUP BY status').all();
+        const today = new Date().toISOString().split('T')[0];
+        const todayStart = Math.floor(new Date(today + 'T00:00:00Z').getTime() / 1000);
+        const todayEnd = todayStart + 86400;
+        const todayCount = db.prepare('SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp < ?').get(todayStart, todayEnd);
+        const sample = db.prepare('SELECT id, homeTeam, awayTeam, league, status, startTimestamp FROM matches ORDER BY startTimestamp DESC LIMIT 5').all();
+        res.json({
+            total: total?.cnt || 0,
+            today: todayCount?.cnt || 0,
+            todayRange: { from: new Date(todayStart * 1000).toISOString(), to: new Date(todayEnd * 1000).toISOString() },
+            byStatus,
+            sample,
+            serverTime: new Date().toISOString()
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * POST /api/seed — Manually trigger cloud seed (for Render deployments)
+ */
+router.post('/seed', async (req, res) => {
+    try {
+        const { runCloudSeed } = require('../core/cloudSeed');
+        res.json({ success: true, message: 'Seed started in background. Check /api/db-stats in ~2 min.' });
+        // Run after response is sent
+        setImmediate(() => {
+            runCloudSeed().catch(e => console.error('[SEED] Error:', e.message));
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 module.exports = router;

@@ -12,21 +12,22 @@ const logger = require('../core/logger');
 /**
  * GET /api/ping - Diagnostic ping
  */
+const botService = require('../services/botService');
+
 router.get('/ping', (req, res) => res.send('API_PONG'));
 
 /**
  * GET /api/bot-debug - Debug bot env variables in production safely
  */
 router.get('/bot-debug', (req, res) => {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
     res.json({
-        hasToken: !!token,
-        tokenLength: token ? token.length : 0,
-        tokenStart: token ? token.substring(0, 5) : 'none',
-        hasChatId: !!chatId,
-        chatIdLength: chatId ? chatId.length : 0,
-        chatIdStart: chatId ? chatId.substring(0, 5) : 'none',
+        hasToken: !!botService.token,
+        tokenLength: botService.token ? botService.token.length : 0,
+        tokenStart: botService.token ? botService.token.substring(0, 5) : 'none',
+        hasChatId: !!botService.chatId,
+        chatIdLength: botService.chatId ? botService.chatId.length : 0,
+        chatIdStart: botService.chatId ? botService.chatId.substring(0, 5) : 'none',
+        isPolling: botService.isPolling || false
     });
 });
 

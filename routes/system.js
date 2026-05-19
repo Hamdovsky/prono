@@ -183,4 +183,41 @@ router.post('/seed', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/test-seed — Diagnostic test to make a direct Sofascore API call
+ */
+router.get('/test-seed', async (req, res) => {
+    try {
+        const axios = require('axios');
+        const today = new Date().toISOString().split('T')[0];
+        const url = `https://www.sofascore.com/api/v1/sport/football/scheduled-events/${today}`;
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Origin': 'https://www.sofascore.com',
+            'Referer': 'https://www.sofascore.com/',
+            'x-requested-with': 'XMLHttpRequest',
+        };
+        const response = await axios.get(url, { headers, timeout: 10000 });
+        res.json({
+            success: true,
+            status: response.status,
+            eventsCount: response.data?.events?.length || 0,
+            sampleEvent: response.data?.events?.[0] ? {
+                id: response.data.events[0].id,
+                home: response.data.events[0].homeTeam?.name,
+                away: response.data.events[0].awayTeam?.name
+            } : null
+        });
+    } catch (e) {
+        res.json({
+            success: false,
+            message: e.message,
+            responseStatus: e.response?.status,
+            responseData: e.response?.data ? String(e.response.data).substring(0, 500) : null
+        });
+    }
+});
+
 module.exports = router;

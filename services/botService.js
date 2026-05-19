@@ -87,6 +87,9 @@ class BotService {
             const welcome =
 `🛡️ <b>TITANIUM BOT — Commandes Actives</b>
 
+📅 <b>MATCHS DU JOUR</b>
+/today — 📅 Les Matchs & Pronostics d'Aujourd'hui
+
 🏆 <b>TICKETS & PRONOSTICS</b>
 /millionaire — 💰 MILLIONAIRE (Top Value Bets)
 
@@ -105,6 +108,8 @@ class BotService {
         // ─── PRONOSTICS ────────────────────────────────────────────────
         } else if (text.startsWith('/elite50') || text.startsWith('/ticket_expert') || text.startsWith('/ticket_unique') || text.startsWith('/safe_ticket')) {
             this._executeSend(`⚠️ <b>Commande désactivée</b>\nCette commande n'est plus disponible sur la version Titanium v3.`, chatId);
+        } else if (text.startsWith('/today') || text.startsWith('/matchs') || text.startsWith('/aujourdhui')) {
+            this._handleTodayMatches(chatId);
         } else if (text.startsWith('/high_scorer')) {
             this._handleHighScorer(chatId);
         } else if (lowerText.startsWith('/millionaire') || lowerText.startsWith('/billionaire')) {
@@ -506,6 +511,56 @@ class BotService {
         } catch (e) {
             console.error('Promosport Error:', e.message);
             this._executeSend("❌ Failed to load Promosport Grid.", chatId);
+        }
+    }
+
+    async _handleTodayMatches(chatId) {
+        this._executeSend("📅 <b>Chargement des Matchs d'Aujourd'hui...</b>\nExtraction de l'intelligence prédictive en cours.", chatId);
+        try {
+            const database = require('../core/database');
+            const todayStr = new Date().toISOString().split('T')[0];
+            const matches = await database.getMatchesByDate(todayStr);
+
+            if (!matches || matches.length === 0) {
+                this._executeSend("📭 Aucun match programmé pour aujourd'hui dans la base de données.", chatId);
+                return;
+            }
+
+            // Sort by status (live first, then scheduled, then finished)
+            const sortedMatches = [...matches].sort((a, b) => {
+                const statusOrder = { 'live': 1, 'IN_PLAY': 1, 'LIVE': 1, '1H': 1, '2H': 1, 'HT': 1, 'scheduled': 2, 'NOT_STARTED': 2, 'NS': 2 };
+                const orderA = statusOrder[a.status] || 3;
+                const orderB = statusOrder[b.status] || 3;
+                return orderA - orderB;
+            });
+
+            let msg = `📅 <b>TITANIUM — ${sortedMatches.length} MATCHS DU JOUR</b>\n`;
+            msg += `<i>Date: ${todayStr} | Multi-Marchés IA</i>\n\n`;
+
+            sortedMatches.forEach((m, i) => {
+                const statusIcon = ['live', 'IN_PLAY', 'LIVE', '1H', '2H', 'HT'].includes(m.status) ? '⚡' : 
+                                   (['finished', 'FT'].includes(m.status) ? '✅' : '📅');
+                
+                const timeStr = m.minute ? `${m.minute}'` : 
+                                (m.startTimestamp ? new Date(m.startTimestamp * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : 'Scheduled');
+
+                const pred = m.prediction || 'N/A';
+                const conf = m.confidence ? `${Math.round(m.confidence)}%` : 'N/A';
+
+                msg += `${statusIcon} <b>${m.homeTeam} vs ${m.awayTeam}</b>\n`;
+                msg += `   🏆 ${m.league} | ⏱️ ${timeStr}\n`;
+                msg += `   └ 🎯 Prono: <b>${pred}</b> (Confiance: ${conf})\n`;
+                if (m.odds_home || m.odds_away) {
+                    msg += `   └ 📊 Cotes: 1:<b>${m.odds_home || '?'}</b> | N:<b>${m.odds_draw || '?'}</b> | 2:<b>${m.odds_away || '?'}</b>\n`;
+                }
+                msg += `\n`;
+            });
+
+            msg += `🤖 <i>Titanium Quantitative Multi-Market Engine</i>`;
+            this._executeSend(msg, chatId);
+        } catch (e) {
+            console.error('Bot Today Matches Error:', e.message);
+            this._executeSend("❌ Erreur lors de la récupération des matchs d'aujourd'hui: " + e.message, chatId);
         }
     }
 

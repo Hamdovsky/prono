@@ -218,6 +218,8 @@ router.get('/test-seed', async (req, res) => {
             responseData: e.response?.data ? String(e.response.data).substring(0, 500) : null
         });
     }
+});
+
 /**
  * POST /api/sync-matches
  * Secure cloud synchronization webhook to receive matches pushed from local environments.

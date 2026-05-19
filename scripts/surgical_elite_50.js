@@ -411,30 +411,27 @@ Le scraper collecte les données - relancez dans 10 min.`,
 
             let pHO25 = 0, pAO25 = 0, pGGO25 = 0, pHT15 = 0;
 
-            // If probabilities are missing/zero → compute with Poisson
+            // Extract xG from teamStats JSON if available
+            let homeStats = {}, awayStats = {};
+            try { const ts = typeof m.teamStats === 'string' ? JSON.parse(m.teamStats) : (m.teamStats || {}); homeStats = ts.home || {}; awayStats = ts.away || {}; } catch(_) {}
+
+            const league = (m.league || '').toLowerCase();
+            let defXGH = 1.3, defXGA = 1.0;
+            if (league.includes('iceland') || league.includes('reykjavik')) { defXGH = 1.9; defXGA = 1.6; }
+            else if (league.includes('bundesliga') || league.includes('netherlands')) { defXGH = 1.8; defXGA = 1.4; }
+            else if (league.includes('norway') || league.includes('sweden')) { defXGH = 1.6; defXGA = 1.3; }
+
+            const hXG = parseFloat(m.home_xg) || homeStats.avgGoalsScored || defXGH;
+            const aXG = parseFloat(m.away_xg) || awayStats.avgGoalsScored || defXGA;
+            const hAtt = parseFloat(m.home_attack_impact)  || 1.0;
+            const aDef = parseFloat(m.away_defense_impact) || 1.0;
+            const aAtt = parseFloat(m.away_attack_impact)  || 1.0;
+            const hDef = parseFloat(m.home_defense_impact) || 1.0;
+
+            const p = computePoisson(hXG, aXG, hAtt, aDef, aAtt, hDef);
+
+            // If probabilities are missing/zero → fallback to Poisson
             if (pH + pD + pA < 30) {
-                // Try to extract xG from teamStats JSON if available
-                let homeStats = {}, awayStats = {};
-                try { const ts = typeof m.teamStats === 'string' ? JSON.parse(m.teamStats) : (m.teamStats || {}); homeStats = ts.home || {}; awayStats = ts.away || {}; } catch(_) {}
-
-                const league = (m.league || '').toLowerCase();
-                let defXGH = 1.3, defXGA = 1.0;
-                
-                // League-specific goal intensity overrides
-                if (league.includes('iceland') || league.includes('reykjavik')) { defXGH = 1.9; defXGA = 1.6; }
-                else if (league.includes('bundesliga') || league.includes('netherlands')) { defXGH = 1.8; defXGA = 1.4; }
-                else if (league.includes('norway') || league.includes('sweden')) { defXGH = 1.6; defXGA = 1.3; }
-
-                const hXG = parseFloat(m.home_xg) || homeStats.avgGoalsScored || defXGH;
-                const aXG = parseFloat(m.away_xg) || awayStats.avgGoalsScored || defXGA;
-
-                // Extraction des métriques d'impact (défaut à 1.0 si absentes)
-                const hAtt = parseFloat(m.home_attack_impact)  || 1.0;
-                const aDef = parseFloat(m.away_defense_impact) || 1.0;
-                const aAtt = parseFloat(m.away_attack_impact)  || 1.0;
-                const hDef = parseFloat(m.home_defense_impact) || 1.0;
-
-                const p = computePoisson(hXG, aXG, hAtt, aDef, aAtt, hDef);
                 pH = p.home; pD = p.draw; pA = p.away;
                 pOU = p.ou25; pBT = p.btts;
                 pHO25 = p.h_o25; pAO25 = p.a_o25; pGGO25 = p.gg_o25;

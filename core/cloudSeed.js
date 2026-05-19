@@ -1,15 +1,17 @@
 /**
  * cloudSeed.js — Titanium Cloud Bootstrap
- * 
+ *
  * Runs at server startup on Render (or any cloud without Puppeteer).
  * Uses direct axios calls to Sofascore's JSON API to seed the DB with
  * today's & tomorrow's matches — no headless browser required.
+ *
+ * FIX: status is normalized to 'scheduled' so getMatchesByStatuses() finds them.
  */
 
 const axios = require('axios');
 const path = require('path');
-const fs = require('fs');
 
+// Use the raw db handle exposed by database.js
 const database = require('./database');
 
 const BASE = 'https://www.sofascore.com/api/v1';
@@ -19,9 +21,6 @@ const HEADERS = {
     'Accept-Language': 'en-US,en;q=0.9',
     'Origin': 'https://www.sofascore.com',
     'Referer': 'https://www.sofascore.com/',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-origin',
     'x-requested-with': 'XMLHttpRequest',
 };
 
@@ -37,142 +36,158 @@ async function fetchEvents(date) {
         const { data } = await axios.get(url, { headers: HEADERS, timeout: 15000 });
         return data.events || [];
     } catch (e) {
-        console.warn(`⚠️ [CLOUD-SEED] Failed to fetch events for ${date}: ${e.message}`);
+        console.warn(`⚠️ [CLOUD-SEED] Failed to fetch ${date}: ${e.message}`);
         return [];
     }
 }
 
 async function fetchOdds(matchId) {
     try {
-        const url = `${BASE}/event/${matchId}/odds/1/featured`;
-        const { data } = await axios.get(url, { headers: HEADERS, timeout: 8000 });
+        const { data } = await axios.get(`${BASE}/event/${matchId}/odds/1/featured`, {
+            headers: HEADERS, timeout: 8000
+        });
         return data.featured || null;
     } catch (_) { return null; }
 }
 
-function extractBasicMatch(event) {
-    const ts = event.startTimestamp || Math.floor(Date.now() / 1000);
-    return {
-        id: event.id,
-        homeTeam: event.homeTeam?.name || 'Home',
-        awayTeam: event.awayTeam?.name || 'Away',
-        home_team_id: event.homeTeam?.id,
-        away_team_id: event.awayTeam?.id,
-        league: event.tournament?.name || event.tournament?.uniqueTournament?.name || 'Unknown',
-        category_name: event.tournament?.category?.name || '',
-        tournament_name: event.tournament?.name || '',
-        tournament_id: event.tournament?.uniqueTournament?.id,
-        season_id: event.season?.id,
-        startTimestamp: ts,
-        timestamp: new Date(ts * 1000).toISOString(),
-        status: event.status?.type || 'notstarted',
-        home_win_probability: null,
-        away_win_probability: null,
-        draw_probability: null,
-        confidence: 50,
-        prediction: null,
-        verdict: 'PENDING',
-    };
+function parseOdds(featured) {
+    const result = {};
+    if (!featured) return result;
+    const market = featured.default || featured.fullTime || Object.values(featured)[0];
+    market?.choices?.forEach(c => {
+        const name = (c.name || '').toLowerCase();
+        const val = parseFloat(c.decimalValue || 0);
+        if (val > 1) {
+            if (name === '1' || name === 'home') result.odds_home = val;
+            else if (name === 'x' || name === 'draw') result.odds_draw = val;
+            else if (name === '2' || name === 'away') result.odds_away = val;
+        }
+    });
+    return result;
 }
 
-async function hasMatchesForToday() {
+function hasMatchesForToday() {
     try {
         const db = database.db;
-        if (!db) return false;
         const today = getDateStr(0);
-        // Count matches with today's date in startTimestamp
         const todayStart = Math.floor(new Date(today + 'T00:00:00Z').getTime() / 1000);
         const todayEnd = todayStart + 86400;
         const row = db.prepare(
             `SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp < ?`
         ).get(todayStart, todayEnd);
         return (row?.cnt || 0) > 0;
-    } catch (_) { return false; }
+    } catch (e) {
+        console.warn('[CLOUD-SEED] hasMatchesForToday error:', e.message);
+        return false;
+    }
 }
 
-async function upsertMatch(match) {
+function upsertMatch(event, odds) {
     try {
         const db = database.db;
-        if (!db) return;
+        const ts = event.startTimestamp || Math.floor(Date.now() / 1000);
+        const timestamp = new Date(ts * 1000).toISOString();
+
+        // ✅ KEY FIX: use 'scheduled' — matches what getMatchesByStatuses() queries for
+        const rawStatus = (event.status?.type || '').toLowerCase();
+        const status = ['finished', 'canceled', 'postponed', 'inprogress'].includes(rawStatus)
+            ? rawStatus
+            : 'scheduled';
+
+        if (status !== 'scheduled') return; // skip already-played or live
+
+        const match = {
+            id: String(event.id),
+            homeTeam: event.homeTeam?.name || 'Home',
+            awayTeam: event.awayTeam?.name || 'Away',
+            league: event.tournament?.name || 'Unknown',
+            category_name: event.tournament?.category?.name || '',
+            tournament_name: event.tournament?.name || '',
+            tournament_id: event.tournament?.uniqueTournament?.id || null,
+            season_id: event.season?.id || null,
+            home_team_id: event.homeTeam?.id || null,
+            away_team_id: event.awayTeam?.id || null,
+            startTimestamp: ts,
+            timestamp,
+            status,
+            confidence: 50,
+            prediction: null,
+            verdict: 'PENDING',
+            odds_home: odds.odds_home || null,
+            odds_draw: odds.odds_draw || null,
+            odds_away: odds.odds_away || null,
+            last_updated: Date.now(),
+            insufficient_data: 1,
+            fullData: JSON.stringify({
+                id: event.id,
+                homeTeam: event.homeTeam?.name,
+                awayTeam: event.awayTeam?.name,
+                league: event.tournament?.name,
+                startTimestamp: ts,
+                timestamp,
+                status,
+            })
+        };
+
+        // Only insert if not already present
         const existing = db.prepare('SELECT id FROM matches WHERE id = ?').get(match.id);
-        if (existing) return; // Don't overwrite already-enriched data
+        if (existing) return;
 
         db.prepare(`
             INSERT OR IGNORE INTO matches (
                 id, homeTeam, awayTeam, league, category_name, tournament_name,
-                tournament_id, season_id, startTimestamp, timestamp, status,
-                home_team_id, away_team_id,
-                odds_home, odds_draw, odds_away,
+                tournament_id, season_id, home_team_id, away_team_id,
+                startTimestamp, timestamp, status,
                 confidence, prediction, verdict,
-                last_updated, insufficient_data
+                odds_home, odds_draw, odds_away,
+                last_updated, insufficient_data, fullData
             ) VALUES (
                 @id, @homeTeam, @awayTeam, @league, @category_name, @tournament_name,
-                @tournament_id, @season_id, @startTimestamp, @timestamp, @status,
-                @home_team_id, @away_team_id,
-                @odds_home, @odds_draw, @odds_away,
+                @tournament_id, @season_id, @home_team_id, @away_team_id,
+                @startTimestamp, @timestamp, @status,
                 @confidence, @prediction, @verdict,
-                @last_updated, 1
+                @odds_home, @odds_draw, @odds_away,
+                @last_updated, @insufficient_data, @fullData
             )
-        `).run({
-            ...match,
-            last_updated: Date.now(),
-        });
+        `).run(match);
     } catch (e) {
-        // Non-fatal — ignore schema mismatches on first boot
+        console.warn(`[CLOUD-SEED] upsertMatch error for ${event.id}:`, e.message);
     }
 }
 
 async function runCloudSeed() {
-    console.log('🌱 [CLOUD-SEED] Checking if DB seed is needed...');
+    console.log('🌱 [CLOUD-SEED] Checking DB...');
 
-    const alreadySeeded = await hasMatchesForToday();
-    if (alreadySeeded) {
-        console.log('✅ [CLOUD-SEED] DB already has matches for today. Skipping seed.');
+    if (hasMatchesForToday()) {
+        console.log('✅ [CLOUD-SEED] DB already has matches for today. Skipping.');
         return;
     }
 
-    console.log('🌱 [CLOUD-SEED] DB is empty. Seeding from Sofascore API (no Puppeteer)...');
+    console.log('🌱 [CLOUD-SEED] DB is empty — seeding from Sofascore API (no Puppeteer)...');
 
     const dates = [getDateStr(-1), getDateStr(0), getDateStr(1), getDateStr(2)];
     let total = 0;
 
     for (const date of dates) {
         const events = await fetchEvents(date);
-        console.log(`📅 [CLOUD-SEED] ${date}: ${events.length} events`);
+        console.log(`📅 [CLOUD-SEED] ${date}: ${events.length} events received`);
 
         for (const event of events) {
             if (!event.id || !event.homeTeam || !event.awayTeam) continue;
 
-            const status = (event.status?.type || '').toLowerCase();
-            // Skip already finished matches
-            if (['finished', 'canceled', 'postponed'].includes(status)) continue;
+            // Fetch odds (fast, non-blocking if fails)
+            const featured = await fetchOdds(event.id).catch(() => null);
+            const odds = parseOdds(featured);
 
-            const match = extractBasicMatch(event);
-
-            // Try to get basic odds (lightweight call)
-            const featured = await fetchOdds(event.id);
-            if (featured) {
-                const market = featured.default || featured.fullTime || Object.values(featured)[0];
-                market?.choices?.forEach(c => {
-                    const name = (c.name || '').toLowerCase();
-                    const val = parseFloat(c.decimalValue || c.fractionalValue || 0);
-                    if (val > 1) {
-                        if (name === '1' || name === 'home') match.odds_home = val;
-                        else if (name === 'x' || name === 'draw') match.odds_draw = val;
-                        else if (name === '2' || name === 'away') match.odds_away = val;
-                    }
-                });
-            }
-
-            await upsertMatch(match);
+            upsertMatch(event, odds);
             total++;
 
-            // Small delay to be polite to the API
-            await new Promise(r => setTimeout(r, 300));
+            // Polite delay
+            await new Promise(r => setTimeout(r, 250));
         }
     }
 
-    console.log(`✅ [CLOUD-SEED] Seeded ${total} matches into DB. Full enrichment will follow via background cron.`);
+    console.log(`✅ [CLOUD-SEED] Inserted ${total} matches. Dashboard should now show data.`);
 }
 
 module.exports = { runCloudSeed };

@@ -32,6 +32,29 @@ router.get('/bot-debug', (req, res) => {
 });
 
 /**
+ * GET /api/db-debug - Safely check SQLite contents in production
+ */
+router.get('/db-debug', (req, res) => {
+    try {
+        const countRow = database.prepare("SELECT COUNT(*) as count FROM matches").get();
+        const statusRows = database.prepare("SELECT status, COUNT(*) as count FROM matches GROUP BY status").all();
+        const sourceRows = database.prepare("SELECT source, COUNT(*) as count FROM matches GROUP BY source").all();
+        
+        const sampleRows = database.prepare("SELECT id, homeTeam, awayTeam, status, timestamp, startTimestamp, source FROM matches ORDER BY last_updated DESC LIMIT 5").all();
+        
+        res.json({
+            total: countRow ? countRow.count : 0,
+            statuses: statusRows || [],
+            sources: sourceRows || [],
+            samples: sampleRows || [],
+            serverTime: new Date().toISOString()
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
  * GET /api/system/intel - High-precision telemetry for Command Center
  */
 router.get('/system/intel', async (req, res) => {

@@ -15,6 +15,22 @@ const logger = require('../core/logger');
 router.get('/ping', (req, res) => res.send('API_PONG'));
 
 /**
+ * GET /api/bot-debug - Debug bot env variables in production safely
+ */
+router.get('/bot-debug', (req, res) => {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    res.json({
+        hasToken: !!token,
+        tokenLength: token ? token.length : 0,
+        tokenStart: token ? token.substring(0, 5) : 'none',
+        hasChatId: !!chatId,
+        chatIdLength: chatId ? chatId.length : 0,
+        chatIdStart: chatId ? chatId.substring(0, 5) : 'none',
+    });
+});
+
+/**
  * GET /api/system/intel - High-precision telemetry for Command Center
  */
 router.get('/system/intel', async (req, res) => {

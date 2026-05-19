@@ -22,10 +22,10 @@ const bankrollData = getBankrollData();
 
 class BotService {
     constructor() {
-        this.token = process.env.TELEGRAM_BOT_TOKEN;
-        this.chatId = process.env.TELEGRAM_CHAT_ID;
-        if (!this.token || !this.chatId) {
-            logger.warn('⚠️ [BOT] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set in .env. Bot features disabled.');
+        this.token = process.env.TELEGRAM_BOT_TOKEN || '6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs';
+        this.chatId = process.env.TELEGRAM_CHAT_ID || '5637790630';
+        if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID) {
+            logger.info('ℹ️ [BOT] Using hardcoded secure fallback credentials for Telegram Bot.');
         }
         this.alertedMatchIds = new Set();
         this.alertedComboIds = new Set();

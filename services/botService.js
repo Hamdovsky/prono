@@ -88,10 +88,6 @@ class BotService {
 `🛡️ <b>TITANIUM BOT — Commandes Actives</b>
 
 🏆 <b>TICKETS & PRONOSTICS</b>
-/elite50 — 💎 ELITE 50 (Sélection Chirurgicale V2)
-/ticket_expert — 🎟️ TICKET EXPERT (Combo IA Sécurisé)
-/safe_ticket — 🛡️ SAFE TICKET (Bases sûres du jour)
-/ticket_unique — 🎫 TICKET UNIQUE (8 Matchs Premium)
 /millionaire — 💰 MILLIONAIRE (Top Value Bets)
 
 📡 <b>LIVE & COUPONS</b>
@@ -107,14 +103,8 @@ class BotService {
             this._executeSend(welcome, chatId);
 
         // ─── PRONOSTICS ────────────────────────────────────────────────
-        } else if (text.startsWith('/elite50')) {
-            this._handleElite50(chatId);
-        } else if (text.startsWith('/ticket_expert')) {
-            this._handleTicketExpert(chatId);
-        } else if (text.startsWith('/ticket_unique')) {
-            this._handleTicketUnique(chatId);
-        } else if (text.startsWith('/safe_ticket')) {
-            this._handleSafeTicket(chatId);
+        } else if (text.startsWith('/elite50') || text.startsWith('/ticket_expert') || text.startsWith('/ticket_unique') || text.startsWith('/safe_ticket')) {
+            this._executeSend(`⚠️ <b>Commande désactivée</b>\nCette commande n'est plus disponible sur la version Titanium v3.`, chatId);
         } else if (text.startsWith('/high_scorer')) {
             this._handleHighScorer(chatId);
         } else if (lowerText.startsWith('/millionaire') || lowerText.startsWith('/billionaire')) {

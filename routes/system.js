@@ -239,14 +239,14 @@ router.post('/sync-matches', express.json({ limit: '50mb' }), async (req, res) =
                 possession_home, possession_away, dangerous_attacks_home, dangerous_attacks_away,
                 shots_on_target_home, shots_on_target_away, corners_home, corners_away,
                 source, last_updated, home_win_probability, draw_probability, away_win_probability,
-                insufficient_data, odds_home, odds_draw, odds_away, sharp_score
+                insufficient_data, odds_home, odds_draw, odds_away
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?
+                ?, ?, ?, ?
             )
         `);
 
@@ -285,8 +285,7 @@ router.post('/sync-matches', express.json({ limit: '50mb' }), async (req, res) =
                     parseInt(m.insufficient_data || 0),
                     parseFloat(m.odds_home || 0),
                     parseFloat(m.odds_draw || 0),
-                    parseFloat(m.odds_away || 0),
-                    parseFloat(m.sharp_score || 0)
+                    parseFloat(m.odds_away || 0)
                 );
                 count++;
             }

@@ -87,25 +87,19 @@ class BotService {
             const welcome =
 `🛡️ <b>TITANIUM BOT — Commandes Actives</b>
 
-🏆 <b>PRONOSTICS</b>
-/elite50 — 💎 ELITE 50 (Sélection Chirurgicale)
-/mrx — 🔮 ORACLE MR.X (Top Nuls)
-/ticket_unique — 🎫 TICKET UNIQUE (8 matchs premium)
-/safe_ticket — 🛡️ SAFE TICKET (Bases sûres ≥72%)
-/high_scorer — ⚽ HIGH SCORER (Over 2.5 ≥70%)
+🏆 <b>TICKETS & PRONOSTICS</b>
+/elite50 — 💎 ELITE 50 (Sélection Chirurgicale V2)
+/ticket_expert — 🎟️ TICKET EXPERT (Combo IA Sécurisé)
+/safe_ticket — 🛡️ SAFE TICKET (Bases sûres du jour)
+/ticket_unique — 🎫 TICKET UNIQUE (8 Matchs Premium)
 /millionaire — 💰 MILLIONAIRE (Top Value Bets)
 
-📡 <b>LIVE</b>
+📡 <b>LIVE & COUPONS</b>
 /live — ⚡ LIVE GOAL PREDICTOR
+/booking — 📦 Codes Promo / Booking Actuels
 
-⚙️ <b>SYSTÈME</b>
-/status — 🔋 Statut Système
-/scraper — 📡 Statut Scrapers
-/intel — 🛰️ Telemetry (RAM/CPU)
-/learn — 🔄 Auto-Apprentissage
-
-📊 <b>PERFORMANCE</b>
-/accuracy — 🎯 Taux de Réussite
+⚙️ <b>SYSTÈME & PERF</b>
+/status — 🔋 Statut du Serveur
 /performance — 📈 ROI & Profit
 /bankroll — 💰 Gestion Kelly
 
@@ -115,8 +109,8 @@ class BotService {
         // ─── PRONOSTICS ────────────────────────────────────────────────
         } else if (text.startsWith('/elite50')) {
             this._handleElite50(chatId);
-        } else if (text.startsWith('/mrx')) {
-            this._handleMrX(chatId);
+        } else if (text.startsWith('/ticket_expert')) {
+            this._handleTicketExpert(chatId);
         } else if (text.startsWith('/ticket_unique')) {
             this._handleTicketUnique(chatId);
         } else if (text.startsWith('/safe_ticket')) {
@@ -126,11 +120,13 @@ class BotService {
         } else if (lowerText.startsWith('/millionaire') || lowerText.startsWith('/billionaire')) {
             this._handleMillionaire(chatId);
 
-        // ─── LIVE ──────────────────────────────────────────────────────
+        // ─── LIVE & COUPONS ─────────────────────────────────────────────
         } else if (lowerText.startsWith('/live') || lowerText.startsWith('/dom') ||
                    lowerText.startsWith('/live_goal') || lowerText.startsWith('/but_live') ||
                    lowerText === 'live') {
             this._handleLiveGoalPredictor(chatId);
+        } else if (lowerText.startsWith('/booking')) {
+            this._handleBooking(chatId);
 
         // ─── SYSTÈME ──────────────────────────────────────────────────
         } else if (text.startsWith('/status')) {

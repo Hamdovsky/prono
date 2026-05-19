@@ -239,4 +239,86 @@ router.post('/refresh-lineups/:id', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/matches/sync
+ * Secure cloud synchronization webhook to receive enriched matches pushed from local environments.
+ */
+router.post('/sync', express.json({ limit: '50mb' }), async (req, res) => {
+    try {
+        const { matches } = req.body;
+        if (!Array.isArray(matches)) {
+            return res.status(400).json({ error: "Invalid payload: 'matches' array is required." });
+        }
+
+        const db = database.db;
+        const insertStmt = db.prepare(`
+            INSERT OR REPLACE INTO matches (
+                id, homeTeam, awayTeam, league, scoreHome, scoreAway, minute, status,
+                prediction, confidence, fullData, timestamp, startTimestamp,
+                possession_home, possession_away, dangerous_attacks_home, dangerous_attacks_away,
+                shots_on_target_home, shots_on_target_away, corners_home, corners_away,
+                source, last_updated, home_win_probability, draw_probability, away_win_probability,
+                insufficient_data, odds_home, odds_draw, odds_away, sharp_score
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?
+            )
+        `);
+
+        // Perform transaction for maximum speed
+        const transaction = db.transaction((list) => {
+            let count = 0;
+            for (const m of list) {
+                if (!m.id) continue;
+                insertStmt.run(
+                    String(m.id),
+                    m.homeTeam || m.home || 'Home',
+                    m.awayTeam || m.away || 'Away',
+                    m.league || 'Unknown',
+                    parseInt(m.scoreHome || m.goalsHome || 0),
+                    parseInt(m.scoreAway || m.goalsAway || 0),
+                    String(m.minute || ''),
+                    String(m.status || 'scheduled'),
+                    m.prediction || null,
+                    parseFloat(m.confidence || 50),
+                    m.fullData ? (typeof m.fullData === 'string' ? m.fullData : JSON.stringify(m.fullData)) : JSON.stringify(m),
+                    m.timestamp || new Date().toISOString(),
+                    parseInt(m.startTimestamp || Math.floor(Date.now() / 1000)),
+                    parseInt(m.possession_home || 0),
+                    parseInt(m.possession_away || 0),
+                    parseInt(m.dangerous_attacks_home || 0),
+                    parseInt(m.dangerous_attacks_away || 0),
+                    parseInt(m.shots_on_target_home || 0),
+                    parseInt(m.shots_on_target_away || 0),
+                    parseInt(m.corners_home || 0),
+                    parseInt(m.corners_away || 0),
+                    m.source || 'sofascore',
+                    parseInt(m.last_updated || Date.now()),
+                    parseFloat(m.home_win_probability || 0),
+                    parseFloat(m.draw_probability || 0),
+                    parseFloat(m.away_win_probability || 0),
+                    parseInt(m.insufficient_data || 0),
+                    parseFloat(m.odds_home || 0),
+                    parseFloat(m.odds_draw || 0),
+                    parseFloat(m.odds_away || 0),
+                    parseFloat(m.sharp_score || 0)
+                );
+                count++;
+            }
+            return count;
+        });
+
+        const inserted = transaction(matches);
+        logger.info(`⚡ [SYNC API] Successfully synchronized ${inserted} matches from local client.`);
+        res.json({ success: true, count: inserted });
+    } catch (e) {
+        logger.error(`❌ [SYNC API] Transaction failed: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 module.exports = router;

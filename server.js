@@ -359,6 +359,14 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
             await retroSync.syncPastMatches().catch(() => {});
             clvService.start().catch(() => {});
             logger.info('🧠 [AI] Background enrichment logic active');
+
+            // 🌱 [CLOUD-SEED] Auto-populate DB on fresh Render deployment (no Puppeteer needed)
+            try {
+              const { runCloudSeed } = require('./core/cloudSeed');
+              runCloudSeed().catch(e => logger.warn('⚠️ [CLOUD-SEED] Error:', e.message));
+            } catch (seedErr) {
+              logger.warn('⚠️ [CLOUD-SEED] Module load failed:', seedErr.message);
+            }
           } catch (initErr) {
             logger.error('💥 [CRITICAL] Service Initialization Error:', initErr.message);
           }

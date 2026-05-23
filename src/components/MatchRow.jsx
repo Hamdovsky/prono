@@ -51,13 +51,53 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         }
         return '1 - 1';
     };
-    const cs = getCS();
+    const rawCS = getCS();
 
     const hPct = parseFloat(match.home_win_probability || enriched.home_win_probability || 0);
     const aPct = parseFloat(match.away_win_probability || enriched.away_win_probability || 0);
     const dPct = parseFloat(match.draw_probability || enriched.draw_probability || 0);
     const pOU25 = Number(match.ou_25_prob || enriched?.ou_25_prob || 0);
     const pBTTS = Number(match.btts_prob || enriched?.btts_prob || 0);
+
+    // ─── COHERENCE FIX: Align CS with MAIN pick ─────────────────────
+    // Read main_pick from quant engine BEFORE using cs anywhere
+    const quantObj = match.quant || (enriched && enriched.quant);
+    const mainPick = (quantObj?.main_pick || '').toString().trim().toUpperCase();
+
+    const alignCSWithPick = (rawScore, pick) => {
+        if (!rawScore || !rawScore.includes('-')) return rawScore;
+        const parts = rawScore.split('-').map(s => parseInt(s.trim()));
+        if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return rawScore;
+        const [h, a] = parts;
+
+        // Determine direction required by MAIN pick
+        const wantHome  = pick === '1'  || pick.includes('HOME') || pick.includes('1X') || pick.includes('12');
+        const wantAway  = pick === '2'  || pick.includes('AWAY') || pick.includes('X2') || pick.includes('12');
+        const wantDraw  = pick === 'X'  || pick.includes('DRAW') || pick === 'NUL';
+
+        const highScoring = pOU25 > 60 || pBTTS > 62;
+
+        if (wantHome && h <= a) {
+            // CS contradicts pick → flip to a home win
+            if (highScoring) return `${a + 1} - ${a}`;          // e.g. 2-1
+            return `${Math.max(1, a)} - ${Math.max(0, a - 1)}`; // e.g. 1-0
+        }
+        if (wantAway && a <= h) {
+            // CS contradicts pick → flip to an away win
+            if (highScoring) return `${h} - ${h + 1}`;          // e.g. 1-2
+            return `${Math.max(0, h - 1)} - ${Math.max(1, h)}`; // e.g. 0-1
+        }
+        if (wantDraw && h !== a) {
+            // CS contradicts pick → make it a draw
+            const drawGoals = Math.round((h + a) / 2);
+            return `${drawGoals} - ${drawGoals}`;
+        }
+        // Already coherent
+        return rawScore;
+    };
+
+    const cs = alignCSWithPick(rawCS, mainPick);
+    // ─────────────────────────────────────────────────────────────────
 
     const pHT05 = Math.min(89, Math.round((pOU25 * 0.5) + (pBTTS * 0.5) + 5));
     const markets = [];

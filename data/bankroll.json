@@ -1,0 +1,12 @@
+{
+    "current_balance": 1025.5,
+    "currency": "Units",
+    "last_updated": "2026-05-15T11:38:16.494Z",
+    "initial_balance": 1000,
+    "stats": {
+        "total_staked": 0,
+        "total_won": 25.5,
+        "total_lost": 0,
+        "active_bets": 0
+    }
+}

@@ -1,0 +1,2836 @@
+{
+  "entries": [
+    {
+      "date": "2026-03-15",
+      "hits": 6,
+      "misses": 3,
+      "pending": 0,
+      "total": 9,
+      "accuracy": 66.7,
+      "leagueTable": [
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 3,
+          "misses": 1,
+          "total": 4,
+          "accuracy": 75
+        },
+        {
+          "league": "La Liga",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-15_1",
+          "match": "Team H 2026-03-15-1 vs Team A 2026-03-15-1",
+          "league": "Bundesliga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 72.45882969257198,
+          "drawP": 11.049536249752542,
+          "awayP": 16.491634057675476
+        },
+        {
+          "matchId": "hist_2026-03-15_4",
+          "match": "Team H 2026-03-15-4 vs Team A 2026-03-15-4",
+          "league": "La Liga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 40.58932046375752,
+          "drawP": 37.57917952385907,
+          "awayP": 21.831500012383415
+        },
+        {
+          "matchId": "hist_2026-03-15_7",
+          "match": "Team H 2026-03-15-7 vs Team A 2026-03-15-7",
+          "league": "La Liga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "3-1",
+          "xgbConf": 0,
+          "homeP": 32.86207686701876,
+          "drawP": 45.68453997641407,
+          "awayP": 21.45338315656717
+        }
+      ],
+      "generatedAt": "2026-03-16T05:14:22.065Z"
+    },
+    {
+      "date": "2026-03-14",
+      "hits": 8,
+      "misses": 2,
+      "pending": 0,
+      "total": 10,
+      "accuracy": 80,
+      "leagueTable": [
+        {
+          "league": "La Liga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Primera Nacional",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 3,
+          "misses": 2,
+          "total": 5,
+          "accuracy": 60
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "14023996",
+          "match": "Sunderland vs Brighton & Hove Albion",
+          "league": "Premier League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0.394029301821882,
+          "homeP": 39.4,
+          "drawP": 34.4,
+          "awayP": 26.2
+        },
+        {
+          "matchId": "14023988",
+          "match": "Burnley vs Bournemouth",
+          "league": "Premier League",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "0-0",
+          "xgbConf": 0.3884573425149182,
+          "homeP": 38.8,
+          "drawP": 34.2,
+          "awayP": 26.9
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.250Z"
+    },
+    {
+      "date": "2026-03-13",
+      "hits": 8,
+      "misses": 2,
+      "pending": 0,
+      "total": 10,
+      "accuracy": 80,
+      "leagueTable": [
+        {
+          "league": "La Liga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 3,
+          "misses": 0,
+          "total": 3,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Club Friendly Games",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-13_4",
+          "match": "Team H 2026-03-13-4 vs Team A 2026-03-13-4",
+          "league": "Ligue 1",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-0",
+          "xgbConf": 0,
+          "homeP": 40.57290652500081,
+          "drawP": 43.90408221842074,
+          "awayP": 15.523011256578453
+        },
+        {
+          "matchId": "15709392",
+          "match": "Halmstads BK vs Kalmar FF",
+          "league": "Club Friendly Games",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-4",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.244Z"
+    },
+    {
+      "date": "2026-03-12",
+      "hits": 8,
+      "misses": 1,
+      "pending": 0,
+      "total": 9,
+      "accuracy": 88.9,
+      "leagueTable": [
+        {
+          "league": "Bundesliga",
+          "hits": 4,
+          "misses": 0,
+          "total": 4,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-12_6",
+          "match": "Team H 2026-03-12-6 vs Team A 2026-03-12-6",
+          "league": "Premier League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-3",
+          "xgbConf": 0,
+          "homeP": 71.37080226412085,
+          "drawP": 5.077970662243949,
+          "awayP": 23.551227073635197
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.238Z"
+    },
+    {
+      "date": "2026-03-11",
+      "hits": 4,
+      "misses": 8,
+      "pending": 0,
+      "total": 12,
+      "accuracy": 33.3,
+      "leagueTable": [
+        {
+          "league": "Ligue 1",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "La Liga",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "CONMEBOL Libertadores",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Primera A, Apertura",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "CONCACAF Champions Cup",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        },
+        {
+          "league": "Categoría Primera B",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "U20 CONMEBOL Libertadores",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-11_1",
+          "match": "Team H 2026-03-11-1 vs Team A 2026-03-11-1",
+          "league": "La Liga",
+          "predicted": "AWAY",
+          "actual": "HOME",
+          "score": "2-0",
+          "xgbConf": 0,
+          "homeP": 32.09457597725678,
+          "drawP": 30.166577522269264,
+          "awayP": 37.738846500473954
+        },
+        {
+          "matchId": "hist_2026-03-11_4",
+          "match": "Team H 2026-03-11-4 vs Team A 2026-03-11-4",
+          "league": "Premier League",
+          "predicted": "DRAW",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": 0,
+          "homeP": 30.880363508008337,
+          "drawP": 55.44305304240034,
+          "awayP": 13.676583449591316
+        },
+        {
+          "matchId": "15458731",
+          "match": "Botafogo vs Barcelona SC Guayaquil",
+          "league": "CONMEBOL Libertadores",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15636952",
+          "match": "Junior Barranquilla vs Atlético Nacional",
+          "league": "Primera A, Apertura",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-4",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15645947",
+          "match": "CF Monterrey vs Cruz Azul",
+          "league": "CONCACAF Champions Cup",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "2-3",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15415183",
+          "match": "Real Cartagena vs Internacional de Palmira",
+          "league": "Categoría Primera B",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "2-2",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15603412",
+          "match": "Independiente Medellín U20 vs Estudiantes de Mérida U20",
+          "league": "U20 CONMEBOL Libertadores",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15645953",
+          "match": "Los Angeles FC vs LD Alajuelense",
+          "league": "CONCACAF Champions Cup",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "0-0",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.230Z"
+    },
+    {
+      "date": "2026-03-10",
+      "hits": 20,
+      "misses": 17,
+      "pending": 0,
+      "total": 37,
+      "accuracy": 54.1,
+      "leagueTable": [
+        {
+          "league": "Serie A",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Championship",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Hrvatski nogometni kup",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Primera A, Apertura",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Liga 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Primera División, Clausura",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "TOPLYGA",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "1. MFL",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Scottish League One",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Scottish League Two",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Slovnaft Cup",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "UAE Pro League",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "2. Liga",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "NIFL Premiership",
+          "hits": 1,
+          "misses": 2,
+          "total": 3,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Challenger Pro League",
+          "hits": 1,
+          "misses": 3,
+          "total": 4,
+          "accuracy": 25
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Premier League",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "CONCACAF Champions Cup",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Bosnia & Herzegovina Cup",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Liga de Ascenso",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Categoría Primera B",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "U20 CONMEBOL Libertadores",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        },
+        {
+          "league": "Liga AUF Uruguaya",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-10_0",
+          "match": "Team H 2026-03-10-0 vs Team A 2026-03-10-0",
+          "league": "Ligue 1",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 30.660358732122347,
+          "drawP": 50.159989721635625,
+          "awayP": 19.179651546242027
+        },
+        {
+          "matchId": "hist_2026-03-10_2",
+          "match": "Team H 2026-03-10-2 vs Team A 2026-03-10-2",
+          "league": "Premier League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 55.45501445595583,
+          "drawP": 29.879581110468695,
+          "awayP": 14.665404433575471
+        },
+        {
+          "matchId": "hist_2026-03-10_3",
+          "match": "Team H 2026-03-10-3 vs Team A 2026-03-10-3",
+          "league": "Bundesliga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-1",
+          "xgbConf": 0,
+          "homeP": 35.91007513849953,
+          "drawP": 45.47776812593277,
+          "awayP": 18.612156735567694
+        },
+        {
+          "matchId": "15645950",
+          "match": "Philadelphia Union vs Club América",
+          "league": "CONCACAF Champions Cup",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14117860",
+          "match": "Jong KRC Genk U23 vs Club NXT U23",
+          "league": "Challenger Pro League",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "0-0",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15652376",
+          "match": "Al-Dhafra vs Al-Jazira",
+          "league": "UAE Pro League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14117857",
+          "match": "KAS Eupen vs Koninklijke Lierse Sportkring",
+          "league": "Challenger Pro League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14117864",
+          "match": "Patro Eisden Maasmechelen vs RFC Liège",
+          "league": "Challenger Pro League",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15589584",
+          "match": "Sturm Graz II vs FC Liefering",
+          "league": "2. Liga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15604775",
+          "match": "FK Sloga Doboj vs FK Željezničar",
+          "league": "Bosnia & Herzegovina Cup",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "5-5",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15416150",
+          "match": "Unión Española vs Deportes Magallanes",
+          "league": "Liga de Ascenso",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15415182",
+          "match": "Real Santander vs Boca Juniors de Cali",
+          "league": "Categoría Primera B",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14049212",
+          "match": "Bangor FC vs Glentoran FC",
+          "league": "NIFL Premiership",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-4",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15399600",
+          "match": "Crusaders FC vs Cliftonville FC",
+          "league": "NIFL Premiership",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15603411",
+          "match": "Club Bolivar U20 vs Flamengo U20",
+          "league": "U20 CONMEBOL Libertadores",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-4",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15603410",
+          "match": "Nacional U20 vs Santiago Wanderers U20",
+          "league": "U20 CONMEBOL Libertadores",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15634214",
+          "match": "Boston River vs Liverpool UY",
+          "league": "Liga AUF Uruguaya",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.220Z"
+    },
+    {
+      "date": "2026-03-09",
+      "hits": 14,
+      "misses": 22,
+      "pending": 0,
+      "total": 36,
+      "accuracy": 38.9,
+      "leagueTable": [
+        {
+          "league": "La Liga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Primera A, Apertura",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Liga 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Romanian SuperLiga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 3,
+          "misses": 1,
+          "total": 4,
+          "accuracy": 75
+        },
+        {
+          "league": "Premier League",
+          "hits": 3,
+          "misses": 1,
+          "total": 4,
+          "accuracy": 75
+        },
+        {
+          "league": "Liga de Ascenso",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Svenska Cupen",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "First League",
+          "hits": 1,
+          "misses": 2,
+          "total": 3,
+          "accuracy": 33.3
+        },
+        {
+          "league": " Premier Division",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Mozzart Bet Superliga",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        },
+        {
+          "league": "Liga de Primera",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Ekstraklasa",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Betinia Liga",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "1. MFL",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        },
+        {
+          "league": "Primera División, Apertura",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        },
+        {
+          "league": "NM Cup",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Betclic 1. Liga",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Liga II",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "PrvaLiga",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "U20 CONMEBOL Libertadores",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Liga AUF Uruguaya",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-09_2",
+          "match": "Team H 2026-03-09-2 vs Team A 2026-03-09-2",
+          "league": "Serie A",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-3",
+          "xgbConf": 0,
+          "homeP": 57.94770551735235,
+          "drawP": 9.77914959841226,
+          "awayP": 32.27314488423539
+        },
+        {
+          "matchId": "hist_2026-03-09_7",
+          "match": "Team H 2026-03-09-7 vs Team A 2026-03-09-7",
+          "league": "Premier League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 63.379850032091554,
+          "drawP": 4.5044387152075345,
+          "awayP": 32.11571125270091
+        },
+        {
+          "matchId": "15648600",
+          "match": "Shelbourne vs Shamrock Rovers",
+          "league": " Premier Division",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "2-2",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14015611",
+          "match": "OFK Beograd vs FK Radnički 1923",
+          "league": "Mozzart Bet Superliga",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "0-0",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14015608",
+          "match": "FK Mladost Lučani vs FK Novi Pazar",
+          "league": "Mozzart Bet Superliga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15352995",
+          "match": "Universidad de Chile vs Universidad de Concepción",
+          "league": "Liga de Primera",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "13981950",
+          "match": "Wisła Płock vs MZKS Arka Gdynia",
+          "league": "Ekstraklasa",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-3",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15416144",
+          "match": "Deportes Copiapó vs Deportes Temuco",
+          "league": "Liga de Ascenso",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14031727",
+          "match": "AC Horsens vs Lyngby",
+          "league": "Betinia Liga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-3",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14324651",
+          "match": "KF Shkëndija vs AP Brera Strumica",
+          "league": "1. MFL",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14324652",
+          "match": "FK Sileks Kratovo vs FK Vardar Skopje",
+          "league": "1. MFL",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15400116",
+          "match": "Recoleta FC vs Sportivo Ameliano",
+          "league": "Primera División, Apertura",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15253633",
+          "match": "Egersund vs Aalesunds FK",
+          "league": "NM Cup",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "2-3",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15400117",
+          "match": "Sportivo Trinidense vs Nacional Asunción",
+          "league": "Primera División, Apertura",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14039393",
+          "match": "Polonia Warszawa vs ŁKS Łódź",
+          "league": "Betclic 1. Liga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15645564",
+          "match": "ASA Târgu Mureş vs Chindia Târgoviște",
+          "league": "Liga II",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15551845",
+          "match": "Rotor Volgograd vs Ural Yekaterinburg",
+          "league": "First League",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15551853",
+          "match": "Arsenal Tula vs Volga Ulyanovsk",
+          "league": "First League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "14074202",
+          "match": "Kalcer Radomlje vs NK Bravo",
+          "league": "PrvaLiga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-3",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15603409",
+          "match": "Belgrano U20 vs LDU Quito U20",
+          "league": "U20 CONMEBOL Libertadores",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15195324",
+          "match": "Västerås SK vs IK Oddevold",
+          "league": "Svenska Cupen",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        },
+        {
+          "matchId": "15634211",
+          "match": "Cerro Largo vs Montevideo City Torque",
+          "league": "Liga AUF Uruguaya",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 0,
+          "drawP": 0,
+          "awayP": 0
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.211Z"
+    },
+    {
+      "date": "2026-03-08",
+      "hits": 5,
+      "misses": 1,
+      "pending": 0,
+      "total": 6,
+      "accuracy": 83.3,
+      "leagueTable": [
+        {
+          "league": "Serie A",
+          "hits": 3,
+          "misses": 0,
+          "total": 3,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-08_4",
+          "match": "Team H 2026-03-08-4 vs Team A 2026-03-08-4",
+          "league": "Premier League",
+          "predicted": "DRAW",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 32.90427558734713,
+          "drawP": 33.95637947166164,
+          "awayP": 33.13934494099123
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.204Z"
+    },
+    {
+      "date": "2026-03-07",
+      "hits": 4,
+      "misses": 2,
+      "pending": 0,
+      "total": 6,
+      "accuracy": 66.7,
+      "leagueTable": [
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-07_0",
+          "match": "Team H 2026-03-07-0 vs Team A 2026-03-07-0",
+          "league": "La Liga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 49.02949345039717,
+          "drawP": 26.068387544038025,
+          "awayP": 24.902119005564806
+        },
+        {
+          "matchId": "hist_2026-03-07_1",
+          "match": "Team H 2026-03-07-1 vs Team A 2026-03-07-1",
+          "league": "La Liga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 31.981129868958227,
+          "drawP": 45.71648450609489,
+          "awayP": 22.302385624946886
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.198Z"
+    },
+    {
+      "date": "2026-03-06",
+      "hits": 6,
+      "misses": 2,
+      "pending": 0,
+      "total": 8,
+      "accuracy": 75,
+      "leagueTable": [
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 2,
+          "misses": 1,
+          "total": 3,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-06_2",
+          "match": "Team H 2026-03-06-2 vs Team A 2026-03-06-2",
+          "league": "Ligue 1",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-3",
+          "xgbConf": 0,
+          "homeP": 47.359255433894084,
+          "drawP": 37.70081080609145,
+          "awayP": 14.939933760014469
+        },
+        {
+          "matchId": "hist_2026-03-06_6",
+          "match": "Team H 2026-03-06-6 vs Team A 2026-03-06-6",
+          "league": "Bundesliga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-1",
+          "xgbConf": 0,
+          "homeP": 30.436323439604884,
+          "drawP": 45.06838640628174,
+          "awayP": 24.495290154113384
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.193Z"
+    },
+    {
+      "date": "2026-03-05",
+      "hits": 6,
+      "misses": 1,
+      "pending": 0,
+      "total": 7,
+      "accuracy": 85.7,
+      "leagueTable": [
+        {
+          "league": "Bundesliga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 3,
+          "misses": 1,
+          "total": 4,
+          "accuracy": 75
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-05_4",
+          "match": "Team H 2026-03-05-4 vs Team A 2026-03-05-4",
+          "league": "La Liga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 30.897130541694597,
+          "drawP": 39.53106939272958,
+          "awayP": 29.571800065575825
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.173Z"
+    },
+    {
+      "date": "2026-03-04",
+      "hits": 6,
+      "misses": 2,
+      "pending": 0,
+      "total": 8,
+      "accuracy": 75,
+      "leagueTable": [
+        {
+          "league": "Serie A",
+          "hits": 4,
+          "misses": 0,
+          "total": 4,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-04_0",
+          "match": "Team H 2026-03-04-0 vs Team A 2026-03-04-0",
+          "league": "La Liga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 56.332390787289555,
+          "drawP": 24.733610987301205,
+          "awayP": 18.93399822540924
+        },
+        {
+          "matchId": "hist_2026-03-04_7",
+          "match": "Team H 2026-03-04-7 vs Team A 2026-03-04-7",
+          "league": "Bundesliga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-3",
+          "xgbConf": 0,
+          "homeP": 66.39524587904302,
+          "drawP": 19.384701205021287,
+          "awayP": 14.220052915935698
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.165Z"
+    },
+    {
+      "date": "2026-03-03",
+      "hits": 5,
+      "misses": 2,
+      "pending": 0,
+      "total": 7,
+      "accuracy": 71.4,
+      "leagueTable": [
+        {
+          "league": "La Liga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Serie A",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-03_1",
+          "match": "Team H 2026-03-03-1 vs Team A 2026-03-03-1",
+          "league": "Serie A",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-1",
+          "xgbConf": 0,
+          "homeP": 31.703679464750014,
+          "drawP": 42.17072640503214,
+          "awayP": 26.125594130217852
+        },
+        {
+          "matchId": "hist_2026-03-03_5",
+          "match": "Team H 2026-03-03-5 vs Team A 2026-03-03-5",
+          "league": "Premier League",
+          "predicted": "DRAW",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 36.08471321543171,
+          "drawP": 45.19378927479812,
+          "awayP": 18.72149750977017
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.158Z"
+    },
+    {
+      "date": "2026-03-02",
+      "hits": 4,
+      "misses": 3,
+      "pending": 0,
+      "total": 7,
+      "accuracy": 57.1,
+      "leagueTable": [
+        {
+          "league": "Ligue 1",
+          "hits": 2,
+          "misses": 1,
+          "total": 3,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 1,
+          "total": 3,
+          "accuracy": 66.7
+        },
+        {
+          "league": "La Liga",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-02_0",
+          "match": "Team H 2026-03-02-0 vs Team A 2026-03-02-0",
+          "league": "Ligue 1",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-3",
+          "xgbConf": 0,
+          "homeP": 54.34524355860458,
+          "drawP": 21.226689503226392,
+          "awayP": 24.428066938169028
+        },
+        {
+          "matchId": "hist_2026-03-02_4",
+          "match": "Team H 2026-03-02-4 vs Team A 2026-03-02-4",
+          "league": "Serie A",
+          "predicted": "DRAW",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": 0,
+          "homeP": 39.177416188726134,
+          "drawP": 44.55050338526284,
+          "awayP": 16.27208042601102
+        },
+        {
+          "matchId": "hist_2026-03-02_6",
+          "match": "Team H 2026-03-02-6 vs Team A 2026-03-02-6",
+          "league": "La Liga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-0",
+          "xgbConf": 0,
+          "homeP": 34.58967999538678,
+          "drawP": 38.62628741356109,
+          "awayP": 26.78403259105214
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.152Z"
+    },
+    {
+      "date": "2026-03-01",
+      "hits": 3,
+      "misses": 2,
+      "pending": 0,
+      "total": 5,
+      "accuracy": 60,
+      "leagueTable": [
+        {
+          "league": "Ligue 1",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Serie A",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-03-01_2",
+          "match": "Team H 2026-03-01-2 vs Team A 2026-03-01-2",
+          "league": "Serie A",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 58.084973673481116,
+          "drawP": 8.25418861431261,
+          "awayP": 33.66083771220627
+        },
+        {
+          "matchId": "hist_2026-03-01_4",
+          "match": "Team H 2026-03-01-4 vs Team A 2026-03-01-4",
+          "league": "La Liga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-0",
+          "xgbConf": 0,
+          "homeP": 39.554602519850526,
+          "drawP": 45.805564036749175,
+          "awayP": 14.639833443400299
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.145Z"
+    },
+    {
+      "date": "2026-02-28",
+      "hits": 6,
+      "misses": 3,
+      "pending": 0,
+      "total": 9,
+      "accuracy": 66.7,
+      "leagueTable": [
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 1,
+          "total": 3,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 2,
+          "misses": 1,
+          "total": 3,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-28_4",
+          "match": "Team H 2026-02-28-4 vs Team A 2026-02-28-4",
+          "league": "Premier League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 53.55663749801914,
+          "drawP": 27.575481566809053,
+          "awayP": 18.867880935171804
+        },
+        {
+          "matchId": "hist_2026-02-28_5",
+          "match": "Team H 2026-02-28-5 vs Team A 2026-02-28-5",
+          "league": "Serie A",
+          "predicted": "AWAY",
+          "actual": "HOME",
+          "score": "3-0",
+          "xgbConf": 0,
+          "homeP": 33.78809863438476,
+          "drawP": 27.303708813607372,
+          "awayP": 38.90819255200786
+        },
+        {
+          "matchId": "hist_2026-02-28_7",
+          "match": "Team H 2026-02-28-7 vs Team A 2026-02-28-7",
+          "league": "Bundesliga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 31.546945370735315,
+          "drawP": 46.239794844786175,
+          "awayP": 22.213259784478506
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.139Z"
+    },
+    {
+      "date": "2026-02-27",
+      "hits": 4,
+      "misses": 1,
+      "pending": 0,
+      "total": 5,
+      "accuracy": 80,
+      "leagueTable": [
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 2,
+          "misses": 1,
+          "total": 3,
+          "accuracy": 66.7
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-27_4",
+          "match": "Team H 2026-02-27-4 vs Team A 2026-02-27-4",
+          "league": "Premier League",
+          "predicted": "DRAW",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": 0,
+          "homeP": 38.9126355734796,
+          "drawP": 42.305120977538046,
+          "awayP": 18.782243448982356
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.133Z"
+    },
+    {
+      "date": "2026-02-26",
+      "hits": 7,
+      "misses": 2,
+      "pending": 0,
+      "total": 9,
+      "accuracy": 77.8,
+      "leagueTable": [
+        {
+          "league": "Serie A",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 3,
+          "misses": 0,
+          "total": 3,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 2,
+          "total": 3,
+          "accuracy": 33.3
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-26_2",
+          "match": "Team H 2026-02-26-2 vs Team A 2026-02-26-2",
+          "league": "Ligue 1",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "3-1",
+          "xgbConf": 0,
+          "homeP": 37.66579439938299,
+          "drawP": 48.147978871751064,
+          "awayP": 14.18622672886595
+        },
+        {
+          "matchId": "hist_2026-02-26_4",
+          "match": "Team H 2026-02-26-4 vs Team A 2026-02-26-4",
+          "league": "Ligue 1",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-3",
+          "xgbConf": 0,
+          "homeP": 74.22260377407758,
+          "drawP": 6.56212961653268,
+          "awayP": 19.215266609389737
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.127Z"
+    },
+    {
+      "date": "2026-02-25",
+      "hits": 7,
+      "misses": 1,
+      "pending": 0,
+      "total": 8,
+      "accuracy": 87.5,
+      "leagueTable": [
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 4,
+          "misses": 0,
+          "total": 4,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-25_2",
+          "match": "Team H 2026-02-25-2 vs Team A 2026-02-25-2",
+          "league": "La Liga",
+          "predicted": "AWAY",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 31.79064849422636,
+          "drawP": 31.37681984168276,
+          "awayP": 36.83253166409088
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.121Z"
+    },
+    {
+      "date": "2026-02-24",
+      "hits": 5,
+      "misses": 3,
+      "pending": 0,
+      "total": 8,
+      "accuracy": 62.5,
+      "leagueTable": [
+        {
+          "league": "La Liga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Serie A",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-24_4",
+          "match": "Team H 2026-02-24-4 vs Team A 2026-02-24-4",
+          "league": "Premier League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 59.14858656709754,
+          "drawP": 18.870593825949307,
+          "awayP": 21.980819606953155
+        },
+        {
+          "matchId": "hist_2026-02-24_6",
+          "match": "Team H 2026-02-24-6 vs Team A 2026-02-24-6",
+          "league": "Serie A",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-3",
+          "xgbConf": 0,
+          "homeP": 41.87347153373165,
+          "drawP": 31.678207999678943,
+          "awayP": 26.448320466589404
+        },
+        {
+          "matchId": "hist_2026-02-24_7",
+          "match": "Team H 2026-02-24-7 vs Team A 2026-02-24-7",
+          "league": "Ligue 1",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "3-0",
+          "xgbConf": 0,
+          "homeP": 36.918875144509464,
+          "drawP": 39.33817007697228,
+          "awayP": 23.742954778518254
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.112Z"
+    },
+    {
+      "date": "2026-02-23",
+      "hits": 4,
+      "misses": 2,
+      "pending": 0,
+      "total": 6,
+      "accuracy": 66.7,
+      "leagueTable": [
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-23_0",
+          "match": "Team H 2026-02-23-0 vs Team A 2026-02-23-0",
+          "league": "La Liga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 74.71325017924718,
+          "drawP": -7.531575137912405,
+          "awayP": 32.81832495866522
+        },
+        {
+          "matchId": "hist_2026-02-23_3",
+          "match": "Team H 2026-02-23-3 vs Team A 2026-02-23-3",
+          "league": "La Liga",
+          "predicted": "DRAW",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": 0,
+          "homeP": 30.3228455148374,
+          "drawP": 58.51265257827875,
+          "awayP": 11.16450190688386
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.104Z"
+    },
+    {
+      "date": "2026-02-22",
+      "hits": 5,
+      "misses": 3,
+      "pending": 0,
+      "total": 8,
+      "accuracy": 62.5,
+      "leagueTable": [
+        {
+          "league": "La Liga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Serie A",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-22_2",
+          "match": "Team H 2026-02-22-2 vs Team A 2026-02-22-2",
+          "league": "Bundesliga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 40.12081189532978,
+          "drawP": 36.54404412594518,
+          "awayP": 23.335143978725046
+        },
+        {
+          "matchId": "hist_2026-02-22_5",
+          "match": "Team H 2026-02-22-5 vs Team A 2026-02-22-5",
+          "league": "Serie A",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-1",
+          "xgbConf": 0,
+          "homeP": 31.567537637973015,
+          "drawP": 55.70240484971693,
+          "awayP": 12.730057512310058
+        },
+        {
+          "matchId": "hist_2026-02-22_7",
+          "match": "Team H 2026-02-22-7 vs Team A 2026-02-22-7",
+          "league": "Ligue 1",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 69.78129117802891,
+          "drawP": -9.267529677097002,
+          "awayP": 39.486238499068094
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.098Z"
+    },
+    {
+      "date": "2026-02-21",
+      "hits": 4,
+      "misses": 4,
+      "pending": 0,
+      "total": 8,
+      "accuracy": 50,
+      "leagueTable": [
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 0,
+          "misses": 3,
+          "total": 3,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-21_1",
+          "match": "Team H 2026-02-21-1 vs Team A 2026-02-21-1",
+          "league": "La Liga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 34.74655753121614,
+          "drawP": 50.755544668376416,
+          "awayP": 14.49789780040744
+        },
+        {
+          "matchId": "hist_2026-02-21_3",
+          "match": "Team H 2026-02-21-3 vs Team A 2026-02-21-3",
+          "league": "Bundesliga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 37.178263562763426,
+          "drawP": 29.90125852163905,
+          "awayP": 32.92047791559752
+        },
+        {
+          "matchId": "hist_2026-02-21_5",
+          "match": "Team H 2026-02-21-5 vs Team A 2026-02-21-5",
+          "league": "Bundesliga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 58.23777400841723,
+          "drawP": 15.455494824826072,
+          "awayP": 26.306731166756695
+        },
+        {
+          "matchId": "hist_2026-02-21_6",
+          "match": "Team H 2026-02-21-6 vs Team A 2026-02-21-6",
+          "league": "Bundesliga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 31.842659332532282,
+          "drawP": 44.69075664066321,
+          "awayP": 23.46658402680451
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.089Z"
+    },
+    {
+      "date": "2026-02-20",
+      "hits": 6,
+      "misses": 1,
+      "pending": 0,
+      "total": 7,
+      "accuracy": 85.7,
+      "leagueTable": [
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-20_4",
+          "match": "Team H 2026-02-20-4 vs Team A 2026-02-20-4",
+          "league": "Bundesliga",
+          "predicted": "AWAY",
+          "actual": "HOME",
+          "score": "2-0",
+          "xgbConf": 0,
+          "homeP": 32.03037991142198,
+          "drawP": 29.836332012278504,
+          "awayP": 38.13328807629951
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.081Z"
+    },
+    {
+      "date": "2026-02-19",
+      "hits": 5,
+      "misses": 1,
+      "pending": 0,
+      "total": 6,
+      "accuracy": 83.3,
+      "leagueTable": [
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-19_3",
+          "match": "Team H 2026-02-19-3 vs Team A 2026-02-19-3",
+          "league": "Bundesliga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-0",
+          "xgbConf": 0,
+          "homeP": 33.93661629246954,
+          "drawP": 53.91851504396746,
+          "awayP": 12.144868663563
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.052Z"
+    },
+    {
+      "date": "2026-02-18",
+      "hits": 5,
+      "misses": 3,
+      "pending": 0,
+      "total": 8,
+      "accuracy": 62.5,
+      "leagueTable": [
+        {
+          "league": "La Liga",
+          "hits": 3,
+          "misses": 0,
+          "total": 3,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 2,
+          "total": 3,
+          "accuracy": 33.3
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-18_1",
+          "match": "Team H 2026-02-18-1 vs Team A 2026-02-18-1",
+          "league": "Bundesliga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": 0,
+          "homeP": 71.23713313006937,
+          "drawP": -0.12987952295257799,
+          "awayP": 28.89274639288321
+        },
+        {
+          "matchId": "hist_2026-02-18_4",
+          "match": "Team H 2026-02-18-4 vs Team A 2026-02-18-4",
+          "league": "Premier League",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-1",
+          "xgbConf": 0,
+          "homeP": 31.957899456538726,
+          "drawP": 35.09052422685956,
+          "awayP": 32.95157631660172
+        },
+        {
+          "matchId": "hist_2026-02-18_6",
+          "match": "Team H 2026-02-18-6 vs Team A 2026-02-18-6",
+          "league": "Bundesliga",
+          "predicted": "DRAW",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": 0,
+          "homeP": 40.30711190533023,
+          "drawP": 41.961614200579746,
+          "awayP": 17.731273894090027
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.047Z"
+    },
+    {
+      "date": "2026-02-17",
+      "hits": 8,
+      "misses": 1,
+      "pending": 0,
+      "total": 9,
+      "accuracy": 88.9,
+      "leagueTable": [
+        {
+          "league": "La Liga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-17_1",
+          "match": "Team H 2026-02-17-1 vs Team A 2026-02-17-1",
+          "league": "Premier League",
+          "predicted": "AWAY",
+          "actual": "HOME",
+          "score": "2-1",
+          "xgbConf": 0,
+          "homeP": 31.505548318731375,
+          "drawP": 31.176614221669226,
+          "awayP": 37.3178374595994
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.042Z"
+    },
+    {
+      "date": "2026-02-16",
+      "hits": 4,
+      "misses": 5,
+      "pending": 0,
+      "total": 9,
+      "accuracy": 44.4,
+      "leagueTable": [
+        {
+          "league": "La Liga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Serie A",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-16_3",
+          "match": "Team H 2026-02-16-3 vs Team A 2026-02-16-3",
+          "league": "Premier League",
+          "predicted": "AWAY",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 32.171316586305295,
+          "drawP": 32.06388473647222,
+          "awayP": 35.76479867722249
+        },
+        {
+          "matchId": "hist_2026-02-16_4",
+          "match": "Team H 2026-02-16-4 vs Team A 2026-02-16-4",
+          "league": "Serie A",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "3-0",
+          "xgbConf": 0,
+          "homeP": 32.71417369920681,
+          "drawP": 50.11005048175324,
+          "awayP": 17.17577581903995
+        },
+        {
+          "matchId": "hist_2026-02-16_6",
+          "match": "Team H 2026-02-16-6 vs Team A 2026-02-16-6",
+          "league": "Serie A",
+          "predicted": "AWAY",
+          "actual": "HOME",
+          "score": "2-1",
+          "xgbConf": 0,
+          "homeP": 33.63113464689415,
+          "drawP": 31.10354969536774,
+          "awayP": 35.26531565773812
+        },
+        {
+          "matchId": "hist_2026-02-16_7",
+          "match": "Team H 2026-02-16-7 vs Team A 2026-02-16-7",
+          "league": "Ligue 1",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-0",
+          "xgbConf": 0,
+          "homeP": 39.36101791740928,
+          "drawP": 48.34843347170015,
+          "awayP": 12.290548610890571
+        },
+        {
+          "matchId": "hist_2026-02-16_8",
+          "match": "Team H 2026-02-16-8 vs Team A 2026-02-16-8",
+          "league": "Bundesliga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "2-0",
+          "xgbConf": 0,
+          "homeP": 37.43089059492741,
+          "drawP": 50.01775098612366,
+          "awayP": 12.551358418948933
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.035Z"
+    },
+    {
+      "date": "2026-02-15",
+      "hits": 4,
+      "misses": 3,
+      "pending": 0,
+      "total": 7,
+      "accuracy": 57.1,
+      "leagueTable": [
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 1,
+          "total": 3,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 1,
+          "misses": 2,
+          "total": 3,
+          "accuracy": 33.3
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-15_1",
+          "match": "Team H 2026-02-15-1 vs Team A 2026-02-15-1",
+          "league": "Bundesliga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 31.6846958617183,
+          "drawP": 50.901270794397355,
+          "awayP": 17.41403334388435
+        },
+        {
+          "matchId": "hist_2026-02-15_2",
+          "match": "Team H 2026-02-15-2 vs Team A 2026-02-15-2",
+          "league": "Bundesliga",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 39.91308455671289,
+          "drawP": 40.60268649254413,
+          "awayP": 19.48422895074298
+        },
+        {
+          "matchId": "hist_2026-02-15_6",
+          "match": "Team H 2026-02-15-6 vs Team A 2026-02-15-6",
+          "league": "Serie A",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 30.566297063967188,
+          "drawP": 57.72781614829297,
+          "awayP": 11.705886787739843
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.029Z"
+    },
+    {
+      "date": "2026-02-14",
+      "hits": 6,
+      "misses": 3,
+      "pending": 0,
+      "total": 9,
+      "accuracy": 66.7,
+      "leagueTable": [
+        {
+          "league": "Premier League",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie A",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "La Liga",
+          "hits": 2,
+          "misses": 0,
+          "total": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "hits": 1,
+          "misses": 2,
+          "total": 3,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Bundesliga",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "hist_2026-02-14_1",
+          "match": "Team H 2026-02-14-1 vs Team A 2026-02-14-1",
+          "league": "Bundesliga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": 0,
+          "homeP": 45.503448320030806,
+          "drawP": 32.81894064593436,
+          "awayP": 21.677611034034836
+        },
+        {
+          "matchId": "hist_2026-02-14_3",
+          "match": "Team H 2026-02-14-3 vs Team A 2026-02-14-3",
+          "league": "Ligue 1",
+          "predicted": "DRAW",
+          "actual": "HOME",
+          "score": "1-0",
+          "xgbConf": 0,
+          "homeP": 41.71148211276499,
+          "drawP": 45.083850431620164,
+          "awayP": 13.204667455614844
+        },
+        {
+          "matchId": "hist_2026-02-14_6",
+          "match": "Team H 2026-02-14-6 vs Team A 2026-02-14-6",
+          "league": "Ligue 1",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-3",
+          "xgbConf": 0,
+          "homeP": 39.756948762731206,
+          "drawP": 28.80318374936721,
+          "awayP": 31.439867487901584
+        }
+      ],
+      "generatedAt": "2026-03-15T09:04:40.019Z"
+    }
+  ],
+  "lastUpdated": "2026-03-16T05:14:22.065Z"
+}

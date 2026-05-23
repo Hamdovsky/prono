@@ -1,0 +1,38 @@
+{
+  "codes": [
+    {
+      "id": "moe7qxwj57gm",
+      "platform": "Bibeet",
+      "code": "KX26R",
+      "channel": "🤖 Auto-Scraper",
+      "description": "Scraped le 25/04/2026 11:45:26",
+      "matches": "Arsenal (W) vs Olympique Lyon (W), Coventry City vs Wrexham, Chelsea vs Leeds",
+      "status": "active",
+      "addedAt": "2026-04-25T10:45:26.947Z"
+    },
+    {
+      "id": "moe7c9i50dke",
+      "platform": "Bibeet",
+      "code": "EXEMPLE1",
+      "channel": "📌 Exemple Demo",
+      "description": "Code de démonstration — Remplacez par un vrai code",
+      "matches": "Arsenal vs Chelsea, Liverpool vs Man City",
+      "status": "expired",
+      "addedAt": "2026-04-25T10:34:02.133Z"
+    },
+    {
+      "id": "moe7c9i5njqb",
+      "platform": "SportyBet",
+      "code": "DEMO999",
+      "channel": "📌 Exemple Demo",
+      "description": "Ajoutez vos vrais codes via le bouton + ou /add_code sur Telegram",
+      "matches": "",
+      "status": "expired",
+      "addedAt": "2026-04-25T10:34:02.133Z"
+    }
+  ],
+  "meta": {
+    "lastUpdated": "2026-04-25T10:45:26.947Z",
+    "total": 3
+  }
+}

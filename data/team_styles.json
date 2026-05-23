@@ -1,0 +1,12 @@
+{
+  "Manchester City": {"style": "Possession", "key_players": ["Rodri", "De Bruyne", "Haaland"]},
+  "Liverpool": {"style": "Gegenpressing", "key_players": ["Salah", "Van Dijk", "Alisson"]},
+  "Real Madrid": {"style": "Balanced", "key_players": ["Vinícius", "Bellingham", "Mbappé"]},
+  "Arsenal": {"style": "Possession", "key_players": ["Odegaard", "Saka", "Saliba"]},
+  "Barcelona": {"style": "Possession", "key_players": ["Lamine Yamal", "Pedri", "Lewandowski"]},
+  "Bayern München": {"style": "Attacking", "key_players": ["Harry Kane", "Musiala", "Kimmich"]},
+  "Inter": {"style": "Counter-Attack", "key_players": ["Lautaro Martínez", "Barella", "Bastoni"]},
+  "Paris Saint-Germain": {"style": "Possession", "key_players": ["Dembélé", "Vitinha", "Hakimi"]},
+  "Atletico Madrid": {"style": "Defensive", "key_players": ["Griezmann", "Oblak", "Koke"]},
+  "Bayer Leverkusen": {"style": "Balanced", "key_players": ["Wirtz", "Xhaka", "Grimaldo"]}
+}

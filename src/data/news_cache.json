@@ -1,0 +1,6794 @@
+{
+  "match_intel_v50_14023939_Manchester United_Liverpool": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 964753,
+            "name": "Senne Lammens",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 843200,
+            "name": "Diogo Dalot",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 149380,
+            "name": "Harry Maguire",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1445799,
+            "name": "Ayden Heaven",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 190839,
+            "name": "Luke Shaw",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 122951,
+            "name": "Casemiro",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1142175,
+            "name": "Kobbie Mainoo",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 927083,
+            "name": "Bryan Mbeumo",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 288205,
+            "name": "Bruno Fernandes",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 886363,
+            "name": "Matheus Cunha",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 986397,
+            "name": "Benjamin Šeško",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 971037,
+            "name": "Amad Diallo",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1397168,
+            "name": "Patrick Dorgu",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 917007,
+            "name": "Joshua Zirkzee",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1153315,
+            "name": "Leny Yoro",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 815890,
+            "name": "Altay Bayındır",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 825839,
+            "name": "Tyrell Malacia",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 847030,
+            "name": "Noussair Mazraoui",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 846425,
+            "name": "Manuel Ugarte",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 836694,
+            "name": "Mason Mount",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 284417,
+            "name": "Freddie Woodman",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 927353,
+            "name": "Curtis Jones",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 826215,
+            "name": "Ibrahima Konaté",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 151545,
+            "name": "Virgil van Dijk",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 262911,
+            "name": "Andy Robertson",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 904897,
+            "name": "Ryan Gravenberch",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 895324,
+            "name": "Alexis Mac Allister",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 970361,
+            "name": "Jeremie Frimpong",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 862967,
+            "name": "Cody Gakpo",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 869856,
+            "name": "Dominik Szoboszlai",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1019322,
+            "name": "Florian Wirtz",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1097425,
+            "name": "Miloš Kerkez",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1881902,
+            "name": "Rio Ngumoha",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 845386,
+            "name": "Federico Chiesa",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1134236,
+            "name": "Ármin Pécsi",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 318927,
+            "name": "Joe Gomez",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 2169894,
+            "name": "Mor Talla Ndiaye",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1445945,
+            "name": "Trey Nyoni",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1462781,
+            "name": "Kieran Morrison",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1984100,
+            "name": "Will Wright",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Lisandro Martínez",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Benjamin Šeško",
+            "reason": "doubtful",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Matthijs de Ligt",
+            "reason": "doubtful",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Giorgi Mamardashvili",
+            "reason": "missing",
+            "position": "G",
+            "side": "away"
+          },
+          {
+            "name": "Hugo Ekitiké",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Mohamed Salah",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Stefan Bajčetić",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Wataru Endo",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Alexander Isak",
+            "reason": "doubtful",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Alisson",
+            "reason": "doubtful",
+            "position": "G",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "إصابة إيزاك تضرب ليفربول قبل مواجهة مانشستر يونايتد - ahdath-alyom.com",
+          "تشكيلة ليفربول اليوم أمام مانشستر يونايتد والغيابات.. ليس فقط محمد صلاح - قناة ومنصة المشهد",
+          "تشكيل ليفربول أمام مانشستر يونايتد.. وموقف محمد صلاح - بوابة الجمهورية",
+          "محمد صلاح يثير الجدل بموقفه من مواجهة مانشستر يونايتد واحتمال غيابه عن اللقاء الحاسم - تواصل نيوز",
+          "غياب إيزاك عن مباراتي مانشستر يونايتد وليفربول في الدوري الإنجليزي - تواصل نيوز",
+          "مانشستر يونايتد يحبط ريمونتادا ليفربول بالفوز 3-2 فى غياب صلاح.. فيديو - اليوم السابع",
+          "غياب صلاح.. تشكيل ليفربول المتوقع لمواجهة مانشستر يونايتد - بوابة الأهرام",
+          "في غياب صلاح.. التشكيل الرسمي لمباراة مانشستر يونايتد وليفربول بالدوري الإنجليزي الممتاز - القاهرة 24",
+          "سوبوسلاي يقود ليفربول أمام مانشستر يونايتد في غياب صلاح - الوطن سبورت",
+          "تشكيل مانشستر يونايتد المتوقع أمام ليفربول في قمة الدوري الإنجليزي - الأسبوع",
+          "Manchester United vs Liverpool Prediction, Odds, Lineups &amp; Best Bets (GW35) - RotoWire",
+          "Manchester United vs Liverpool: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports",
+          "What does CL qualification mean for Man Utd transfer plans and Carrick future? "
+        ],
+        "items": [
+          {
+            "title": "إصابة إيزاك تضرب ليفربول قبل مواجهة مانشستر يونايتد - ahdath-alyom.com",
+            "pubDate": "Sun, 03 May 2026 09:14:58 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "تشكيلة ليفربول اليوم أمام مانشستر يونايتد والغيابات.. ليس فقط محمد صلاح - قناة ومنصة المشهد",
+            "pubDate": "Sun, 03 May 2026 12:05:39 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "تشكيل ليفربول أمام مانشستر يونايتد.. وموقف محمد صلاح - بوابة الجمهورية",
+            "pubDate": "Sun, 03 May 2026 08:31:28 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "محمد صلاح يثير الجدل بموقفه من مواجهة مانشستر يونايتد واحتمال غيابه عن اللقاء الحاسم - تواصل نيوز",
+            "pubDate": "Mon, 04 May 2026 03:17:25 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "غياب إيزاك عن مباراتي مانشستر يونايتد وليفربول في الدوري الإنجليزي - تواصل نيوز",
+            "pubDate": "Sun, 03 May 2026 03:40:50 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "مانشستر يونايتد يحبط ريمونتادا ليفربول بالفوز 3-2 فى غياب صلاح.. فيديو - اليوم السابع",
+            "pubDate": "Sun, 03 May 2026 16:33:00 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "غياب صلاح.. تشكيل ليفربول المتوقع لمواجهة مانشستر يونايتد - بوابة الأهرام",
+            "pubDate": "Sun, 03 May 2026 08:19:00 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "في غياب صلاح.. التشكيل الرسمي لمباراة مانشستر يونايتد وليفربول بالدوري الإنجليزي الممتاز - القاهرة 24",
+            "pubDate": "Sun, 03 May 2026 13:52:03 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "سوبوسلاي يقود ليفربول أمام مانشستر يونايتد في غياب صلاح - الوطن سبورت",
+            "pubDate": "Sun, 03 May 2026 14:56:51 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "تشكيل مانشستر يونايتد المتوقع أمام ليفربول في قمة الدوري الإنجليزي - الأسبوع",
+            "pubDate": "Sun, 03 May 2026 08:21:42 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "Manchester United vs Liverpool Prediction, Odds, Lineups &amp; Best Bets (GW35) - RotoWire",
+            "pubDate": "Sat, 02 May 2026 22:00:00 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Manchester United vs Liverpool: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports",
+            "pubDate": "Sun, 03 May 2026 07:45:05 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "What does CL qualification mean for Man Utd transfer plans and Carrick future? ",
+            "pubDate": "2026-05-04T20:47:23.213Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Lisandro Martínez",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Benjamin Šeško",
+            "reason": "doubtful",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Matthijs de Ligt",
+            "reason": "doubtful",
+            "position": "D",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 13
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0.039,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0.439
+        },
+        "fetched_at": 1777927651921
+      },
+      "away": {
+        "headlines": [
+          "مانشستر يونايتد يحبط ريمونتادا ليفربول بالفوز 3-2 فى غياب صلاح.. فيديو - اليوم السابع",
+          "\"غياب صلاح يربك الحسابات\" تشكيل ليفربول ضد مانشستر يونايتد المتـوقع اليـوم في الدوري الانجليزي 2026 - بوابة الزهراء",
+          "مانشستر يونايتد يتغلب على ليفربول 3-2 في غياب صلاح - a5bar24h.com",
+          "Manchester United vs Liverpool Prediction, Odds, Lineups &amp; Best Bets (GW35) - RotoWire",
+          "Liverpool predicted line-up vs Man Utd as Arne Slot deals with fresh injury woes - Liverpool.com",
+          "Manchester United vs Liverpool: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports",
+          "Ref Watch: Should Sesko's goal for Man Utd have been disallowed vs Liverpool?"
+        ],
+        "items": [
+          {
+            "title": "مانشستر يونايتد يحبط ريمونتادا ليفربول بالفوز 3-2 فى غياب صلاح.. فيديو - اليوم السابع",
+            "pubDate": "Sun, 03 May 2026 16:33:00 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "\"غياب صلاح يربك الحسابات\" تشكيل ليفربول ضد مانشستر يونايتد المتـوقع اليـوم في الدوري الانجليزي 2026 - بوابة الزهراء",
+            "pubDate": "Sun, 03 May 2026 11:06:22 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "مانشستر يونايتد يتغلب على ليفربول 3-2 في غياب صلاح - a5bar24h.com",
+            "pubDate": "Sun, 03 May 2026 19:47:04 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "Manchester United vs Liverpool Prediction, Odds, Lineups &amp; Best Bets (GW35) - RotoWire",
+            "pubDate": "Sat, 02 May 2026 22:00:00 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Liverpool predicted line-up vs Man Utd as Arne Slot deals with fresh injury woes - Liverpool.com",
+            "pubDate": "Sun, 03 May 2026 06:14:17 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Manchester United vs Liverpool: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports",
+            "pubDate": "Sun, 03 May 2026 07:45:05 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Ref Watch: Should Sesko's goal for Man Utd have been disallowed vs Liverpool?",
+            "pubDate": "2026-05-04T20:47:23.215Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Giorgi Mamardashvili",
+            "reason": "missing",
+            "position": "G",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Hugo Ekitiké",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Mohamed Salah",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Stefan Bajčetić",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Wataru Endo",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Alexander Isak",
+            "reason": "doubtful",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Alisson",
+            "reason": "doubtful",
+            "position": "G",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 7
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0.098,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0.329
+        },
+        "fetched_at": 1777927652096
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777927658193
+    },
+    "expiresAt": 1777934858193
+  },
+  "match_intel_v50_14023927_Aston Villa_Tottenham Hotspur": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 158263,
+            "name": "Emiliano Martínez",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 833956,
+            "name": "Matty Cash",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 143334,
+            "name": "Victor Lindelöf",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 303638,
+            "name": "Tyrone Mings",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 976263,
+            "name": "Ian Maatsen",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1089388,
+            "name": "Lamare Bogarde",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 331737,
+            "name": "Youri Tielemans",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 851100,
+            "name": "Jadon Sancho",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 98435,
+            "name": "Ross Barkley",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 948261,
+            "name": "Morgan Rogers",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 610766,
+            "name": "Tammy Abraham",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 555386,
+            "name": "Ollie Watkins",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 783126,
+            "name": "Emiliano Buendía",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 808590,
+            "name": "Leon Bailey",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 100390,
+            "name": "Marco Bizot",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 827679,
+            "name": "Ezri Konsa",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 96538,
+            "name": "Lucas Digne",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 864169,
+            "name": "Pau Torres",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1457536,
+            "name": "Andrés García",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 867887,
+            "name": "Douglas Luiz",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 1031251,
+            "name": "Antonín Kinský",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 913654,
+            "name": "Pedro Porro",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 794953,
+            "name": "Kevin Danso",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 998247,
+            "name": "Micky van de Ven",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 983572,
+            "name": "Destiny Udogie",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 364612,
+            "name": "João Palhinha",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 791190,
+            "name": "Rodrigo Bentancur",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 871706,
+            "name": "Randal Kolo Muani",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 904970,
+            "name": "Conor Gallagher",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1048888,
+            "name": "Mathys Tel",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 840217,
+            "name": "Richarlison",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 945798,
+            "name": "Djed Spence",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 844842,
+            "name": "Yves Bissouma",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1391251,
+            "name": "Lucas Bergvall",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1002711,
+            "name": "Pape Matar Sarr",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 859896,
+            "name": "Brandon Austin",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 997103,
+            "name": "Radu Drăguşin",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1482340,
+            "name": "Souza",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 356398,
+            "name": "James Maddison",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1142335,
+            "name": "Archie Gray",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Alysson",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "John McGinn",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Mohammed Kudus",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Xavi Simons",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Ben Davies",
+            "reason": "doubtful",
+            "position": "D",
+            "side": "away"
+          },
+          {
+            "name": "Dejan Kulusevski",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Dominic Solanke",
+            "reason": "doubtful",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Guglielmo Vicario",
+            "reason": "doubtful",
+            "position": "G",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "مدرب ليدز: فيليبس وكوبر يغيبان طويلا بسبب الإصابة - alghad.tv",
+          "Manchester United vs Liverpool: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports",
+          "Forest boost Premier League survival chances by stunning woeful Chelsea"
+        ],
+        "items": [
+          {
+            "title": "مدرب ليدز: فيليبس وكوبر يغيبان طويلا بسبب الإصابة - alghad.tv",
+            "pubDate": "Sun, 03 May 2026 16:48:37 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "Manchester United vs Liverpool: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports",
+            "pubDate": "Sun, 03 May 2026 07:45:05 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Forest boost Premier League survival chances by stunning woeful Chelsea",
+            "pubDate": "2026-05-04T20:47:26.558Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Alysson",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "John McGinn",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 3
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0.072,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0.5
+        },
+        "fetched_at": 1777927653994
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Mohammed Kudus",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Xavi Simons",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Ben Davies",
+            "reason": "doubtful",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Dejan Kulusevski",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Dominic Solanke",
+            "reason": "doubtful",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Guglielmo Vicario",
+            "reason": "doubtful",
+            "position": "G",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927666620
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777927670733
+    },
+    "expiresAt": 1777934870733
+  },
+  "match_intel_v50_14024023_Bournemouth_Crystal Palace": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 882604,
+            "name": "Đorđe Petrović",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1184308,
+            "name": "Álex Jiménez",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1156586,
+            "name": "James Hill",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 830659,
+            "name": "Marcos Senesi",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 999028,
+            "name": "Adrien Truffert",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1104986,
+            "name": "Alex Scott",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 800419,
+            "name": "Tyler Adams",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1464966,
+            "name": "Rayan",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1426228,
+            "name": "Eli Junior Kroupi",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 895576,
+            "name": "Marcus Tavernier",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 998490,
+            "name": "Evanilson",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 322391,
+            "name": "Ryan Christie",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 855731,
+            "name": "David Brooks",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 336655,
+            "name": "Enes Ünal",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1154861,
+            "name": "Ben Gannon-Doak",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 991478,
+            "name": "Amine Adli",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 913762,
+            "name": "Christos Mandas",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 44566,
+            "name": "Adam Smith",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 962408,
+            "name": "Bafodé Diakité",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1476524,
+            "name": "Alex Tóth",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 788134,
+            "name": "Dean Henderson",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1471671,
+            "name": "Jaydee Canvot",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 879674,
+            "name": "Maxence Lacroix",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1064218,
+            "name": "Chadi Riad",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 870360,
+            "name": "Daniel Muñoz",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 355796,
+            "name": "Jefferson Lerma",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 794338,
+            "name": "Daichi Kamada",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1084311,
+            "name": "Justin Devenny",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1085180,
+            "name": "Brennan Johnson",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 876599,
+            "name": "Jørgen Strand Larsen",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 984624,
+            "name": "Yéremy Pino",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 988275,
+            "name": "Tyrick Mitchell",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1109771,
+            "name": "Adam Wharton",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 845286,
+            "name": "Ismaïla Sarr",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 848276,
+            "name": "Jean Philippe Mateta",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 931844,
+            "name": "Chris Richards",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 249859,
+            "name": "Walter Benítez",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 581610,
+            "name": "Remi Matthews",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 43215,
+            "name": "Nathaniel Clyne",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1469007,
+            "name": "Rio Cardines",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Justin Kluivert",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Lewis Cook",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Chadi Riad",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          },
+          {
+            "name": "Cheick Doucouré",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Eddie Nketiah",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Evann Guessand",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Will Hughes",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "Adams touts Bournemouth 'belief' in Europe spot"
+        ],
+        "items": [
+          {
+            "title": "Adams touts Bournemouth 'belief' in Europe spot",
+            "pubDate": "2026-05-04T20:47:22.790Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Justin Kluivert",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Lewis Cook",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": -0.026,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927650551
+      },
+      "away": {
+        "headlines": [
+          "Manchester United vs Liverpool: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports"
+        ],
+        "items": [
+          {
+            "title": "Manchester United vs Liverpool: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports",
+            "pubDate": "Sun, 03 May 2026 07:45:05 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Chadi Riad",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Cheick Doucouré",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Eddie Nketiah",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Evann Guessand",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Will Hughes",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0.421,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927666812
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777927676453
+    },
+    "expiresAt": 1777934876453
+  },
+  "match_intel_v50_13980087_Sassuolo_AC Milan": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 893752,
+            "name": "Stefano Turati",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 886243,
+            "name": "Sebastian Walukiewicz",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 933641,
+            "name": "Jay Idzes",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1118177,
+            "name": "Tarik Muharemović",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 558320,
+            "name": "Ulisses Garcia",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1134351,
+            "name": "Ismael Koné",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 44241,
+            "name": "Nemanja Matić",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 924973,
+            "name": "Kristian Thorstvedt",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 253367,
+            "name": "Domenico Berardi",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 788061,
+            "name": "M'bala Nzola",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 932643,
+            "name": "Armand Laurienté",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 989894,
+            "name": "Woyo Coulibaly",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1154898,
+            "name": "Luca Lipani",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1155625,
+            "name": "Cristian Volpato",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 826198,
+            "name": "Andrea Pinamonti",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1031548,
+            "name": "Alieu Fadera",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 888971,
+            "name": "Arijanet Murić",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1012165,
+            "name": "Gioele Zacchi",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 832375,
+            "name": "Giacomo Satalino",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 356032,
+            "name": "Filippo Romagna",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 989276,
+            "name": "Josh Doig",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1485292,
+            "name": "Pedro Felipe",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1838644,
+            "name": "Christian Frangella",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 989371,
+            "name": "Aster Vranckx",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1013239,
+            "name": "Edoardo Iannoni",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 949780,
+            "name": "Luca Moro",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 191210,
+            "name": "Mike Maignan",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 788255,
+            "name": "Fikayo Tomori",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 826195,
+            "name": "Matteo Gabbia",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 965893,
+            "name": "Strahinja Pavlović",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 901891,
+            "name": "Alexis Saelemaekers",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 945062,
+            "name": "Youssouf Fofana",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1034082,
+            "name": "Ardon Jashari",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 250737,
+            "name": "Adrien Rabiot",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 805465,
+            "name": "Pervis Estupiñán",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 769333,
+            "name": "Christopher Nkunku",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 851284,
+            "name": "Rafael Leão",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1409700,
+            "name": "Zachary Athekame",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 284441,
+            "name": "Ruben Loftus-Cheek",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 892141,
+            "name": "Santiago Giménez",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 817957,
+            "name": "Christian Pulišić",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 930189,
+            "name": "Samuele Ricci",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1907240,
+            "name": "Matteo Pittarella",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 136856,
+            "name": "Pietro Terracciano",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1001828,
+            "name": "Koni De Winter",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1390489,
+            "name": "Davide Bartesaghi",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 132645,
+            "name": "Niclas Füllkrug",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Daniel Boloca",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Darryl Bakola",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Luka Modrić",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "Serie A Preview: Sassuolo vs Milan – Team News, Lineups &amp; Prediction - The Cult of Calcio"
+        ],
+        "items": [
+          {
+            "title": "Serie A Preview: Sassuolo vs Milan – Team News, Lineups &amp; Prediction - The Cult of Calcio",
+            "pubDate": "Sun, 03 May 2026 08:56:26 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Daniel Boloca",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Darryl Bakola",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927754212
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Luka Modrić",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927754209
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777927784868
+    },
+    "expiresAt": 1777934984868
+  },
+  "match_intel_v50_13980091_Juventus_Hellas Verona": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 844609,
+            "name": "Michele Di Gregorio",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 965330,
+            "name": "Pierre Kalulu",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 885197,
+            "name": "Bremer",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 865167,
+            "name": "Lloyd Kelly",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 881931,
+            "name": "Weston McKennie",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 363860,
+            "name": "Manuel Locatelli",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 904832,
+            "name": "Khéphren Thuram",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 917048,
+            "name": "Andrea Cambiaso",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 979222,
+            "name": "Francisco Conceição",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1149011,
+            "name": "Kenan Yıldız",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 935564,
+            "name": "Jonathan David",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 832208,
+            "name": "Dušan Vlahović",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1010223,
+            "name": "Fabio Miretti",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 367056,
+            "name": "Jérémie Boga",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 803033,
+            "name": "Teun Koopmeiners",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 887766,
+            "name": "Edon Zhegrova",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 79645,
+            "name": "Mattia Perin",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 46420,
+            "name": "Carlo Pinsoglio",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 965264,
+            "name": "Emil Holm",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1128063,
+            "name": "Federico Gatti",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 126588,
+            "name": "Filip Kostić",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1149288,
+            "name": "Vasilije Adžić",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 835480,
+            "name": "Loïs Openda",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 253391,
+            "name": "Lorenzo Montipò",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 846148,
+            "name": "Victor Nelsson",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 906963,
+            "name": "Andrias Edmundsson",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 874812,
+            "name": "Martin Frese",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1103488,
+            "name": "Rafik Belghali",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 164511,
+            "name": "Jean Daniel Akpa-Akpro",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 287057,
+            "name": "Roberto Gagliardini",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 837080,
+            "name": "Antoine Bernede",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 897594,
+            "name": "Domagoj Bradarić",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 964154,
+            "name": "Tomáš Suslov",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 983601,
+            "name": "Kieron Bowie",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1133236,
+            "name": "Tobias Slotsager",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 575852,
+            "name": "Sandi Lovrić",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 915812,
+            "name": "Abdou Harroui",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1137380,
+            "name": "Giacomo Toniolo",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 253369,
+            "name": "Simone Perilli",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1945133,
+            "name": "Fallou Cham",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 844480,
+            "name": "Pol Lirola",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1471239,
+            "name": "Isaac",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1022204,
+            "name": "Amin Sarr",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1152477,
+            "name": "Ioan Vermesan",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1474846,
+            "name": "Junior Ajayi",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Arkadiusz Milik",
+            "reason": "missing",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Nicolás Valentini",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          },
+          {
+            "name": "Armel Bella-Kotchap",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          },
+          {
+            "name": "Daniel Mosquera",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Daniel Oyegoke",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Cheikh Niasse",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "Juventus vs Verona: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports"
+        ],
+        "items": [
+          {
+            "title": "Juventus vs Verona: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports",
+            "pubDate": "Sun, 03 May 2026 04:33:25 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Arkadiusz Milik",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927790280
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Nicolás Valentini",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Armel Bella-Kotchap",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Daniel Mosquera",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Daniel Oyegoke",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Cheikh Niasse",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927790775
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777927794957
+    },
+    "expiresAt": 1777934994957
+  },
+  "match_intel_v50_13980084_Inter_Parma": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 16206,
+            "name": "Yann Sommer",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 906275,
+            "name": "Yann Bisseck",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 383560,
+            "name": "Manuel Akanji",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 826188,
+            "name": "Alessandro Bastoni",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 759520,
+            "name": "Denzel Dumfries",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 363856,
+            "name": "Nicolò Barella",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 138605,
+            "name": "Piotr Zieliński",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1091303,
+            "name": "Petar Sučić",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 284361,
+            "name": "Federico Dimarco",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 791702,
+            "name": "Marcus Thuram",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1156616,
+            "name": "Francesco Pio Esposito",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1086223,
+            "name": "Ange-Yoan Bonny",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 823984,
+            "name": "Lautaro Martínez",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 929199,
+            "name": "Carlos Augusto",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 37151,
+            "name": "Henrikh Mkhitaryan",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 835600,
+            "name": "Davide Frattesi",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 845291,
+            "name": "Josep Martínez",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 301162,
+            "name": "Raffaele Di Gennaro",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 126816,
+            "name": "Francesco Acerbi",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1416579,
+            "name": "Matteo Cocchi",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 91046,
+            "name": "Stefan de Vrij",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 977679,
+            "name": "Luís Henrique",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1048889,
+            "name": "Andy Diouf",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 19352,
+            "name": "Matteo Darmian",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 135700,
+            "name": "Hakan Çalhanoğlu",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1530727,
+            "name": "Mattia Mosconi",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 905351,
+            "name": "Zion Suzuki",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1155423,
+            "name": "Alessandro Circati",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1516324,
+            "name": "Mariano Troilo",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 984527,
+            "name": "Abdoulaye Ndiaye",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 928103,
+            "name": "Enrico Delprato",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 934384,
+            "name": "Adrián Bernabé",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 876259,
+            "name": "Hans Nicolussi Caviglia",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1110136,
+            "name": "Mandela Keita",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 891346,
+            "name": "Emanuele Valeri",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 877201,
+            "name": "Gabriel Strefezza",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1099296,
+            "name": "Mateo Pellegrino",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1201388,
+            "name": "Christian Ordoñez",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1486729,
+            "name": "Nesta Elphege",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 957921,
+            "name": "Oliver Sørensen",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 856065,
+            "name": "Pontus Almqvist",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1086199,
+            "name": "Franco Carboni",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 990411,
+            "name": "Edoardo Corvi",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1002428,
+            "name": "Filippo Rinaldi",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1963449,
+            "name": "Sascha Britschgi",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 958517,
+            "name": "Lautaro Valenti",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 965009,
+            "name": "Gaetano Oristanio",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 895868,
+            "name": "Nahuel Estévez",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1004790,
+            "name": "Jacob Ondrejka",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Benjamin Cremaschi",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Matija Frigan",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "Transfer rumors, news: Liverpool, Arsenal on alert..."
+        ],
+        "items": [
+          {
+            "title": "Transfer rumors, news: Liverpool, Arsenal on alert...",
+            "pubDate": "2026-05-04T20:50:06.939Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0.296,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927806951
+      },
+      "away": {
+        "headlines": [
+          "تغيير وحيد في تشكيل ريال مدريد الرسمي لمواجهة إسبانيول - Kooora"
+        ],
+        "items": [
+          {
+            "title": "تغيير وحيد في تشكيل ريال مدريد الرسمي لمواجهة إسبانيول - Kooora",
+            "pubDate": "Sun, 03 May 2026 18:10:18 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Benjamin Cremaschi",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Matija Frigan",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0.5
+        },
+        "fetched_at": 1777927824778
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777927828922
+    },
+    "expiresAt": 1777935028922
+  },
+  "match_intel_v50_14083401_Celta Vigo_Elche": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 815202,
+            "name": "Ionuț Radu",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1526627,
+            "name": "Javi Rodríguez",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1145100,
+            "name": "Yoel Lago",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1012410,
+            "name": "Alvaro Núñez",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1008259,
+            "name": "Javier Rueda",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1526628,
+            "name": "Fer López",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 962890,
+            "name": "Ilaix Moriba",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1002764,
+            "name": "Sergio Carreira",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 19356,
+            "name": "Iago Aspas",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1154935,
+            "name": "Hugo Álvarez",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 949962,
+            "name": "Ferran Jutglà",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1630975,
+            "name": "Manu Fernández",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1173575,
+            "name": "Jones El-Abdellaoui",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1126779,
+            "name": "Williot Swedberg",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 785989,
+            "name": "Borja Iglesias",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 859773,
+            "name": "Óscar Mingueza",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 848980,
+            "name": "Iván Villar",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 796320,
+            "name": "Joseph Aidoo",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 363774,
+            "name": "Mihailo Ristić",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1069703,
+            "name": "Carlos Domínguez",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1916256,
+            "name": "Andrés Antañón",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1120669,
+            "name": "Hugo Sotelo",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1398524,
+            "name": "Pablo Durán",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 556884,
+            "name": "Matías Dituro",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1094758,
+            "name": "John Donald",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 988672,
+            "name": "David Affengruber",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 141832,
+            "name": "Pedro Bigas",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 605374,
+            "name": "Tete Morente",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1014595,
+            "name": "Marc Aguado",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 286167,
+            "name": "Aleix Febas",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 928672,
+            "name": "Adrià Pedrosa",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 914765,
+            "name": "Gonzalo Villar",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1154587,
+            "name": "Álvaro Rodriguez",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 190159,
+            "name": "André Silva",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 855831,
+            "name": "Víctor Chust",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1100646,
+            "name": "Martim Neto",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1402908,
+            "name": "Hector Fort",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 808955,
+            "name": "Josan",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1126447,
+            "name": "Lucas Cepeda",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 794949,
+            "name": "Iñaki Peña",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1019324,
+            "name": "Alejandro Iturbe",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1542721,
+            "name": "Buba Sangare",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 827504,
+            "name": "Léo Pétrot",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 848512,
+            "name": "Grady Diangana",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Marcos Alonso",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Carl Starfelt",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Matías Vecino",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Miguel Román",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Germán Valera",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Adam Boayar",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Yago Santiago",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "Celta Vigo vs Elche preview, lineups and prediction today - Mabumbe"
+        ],
+        "items": [
+          {
+            "title": "Celta Vigo vs Elche preview, lineups and prediction today - Mabumbe",
+            "pubDate": "Sun, 03 May 2026 11:03:56 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Marcos Alonso",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Carl Starfelt",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Matías Vecino",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Miguel Román",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927904841
+      },
+      "away": {
+        "headlines": [
+          "Celta Vigo vs Elche preview, lineups and prediction today - Mabumbe"
+        ],
+        "items": [
+          {
+            "title": "Celta Vigo vs Elche preview, lineups and prediction today - Mabumbe",
+            "pubDate": "Sun, 03 May 2026 11:03:56 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Germán Valera",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Adam Boayar",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Yago Santiago",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927904762
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777927908935
+    },
+    "expiresAt": 1777935108935
+  },
+  "match_intel_v50_14083440_Getafe_Rayo Vallecano": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 604258,
+            "name": "David Soria",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 53739,
+            "name": "Kiko Femenía",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1101232,
+            "name": "Abdel Abqar",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 576276,
+            "name": "Domingos Duarte",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 949707,
+            "name": "Juan Iglesias",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1918369,
+            "name": "Davinchi",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1515554,
+            "name": "Adrian Liso",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 811629,
+            "name": "Luis Milla",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 385888,
+            "name": "Mauro Arambarri",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 974713,
+            "name": "Luis Vázquez",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 973536,
+            "name": "Martín Satriano",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 350560,
+            "name": "Diego Rico",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1087476,
+            "name": "Abu Kamara",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1398518,
+            "name": "Álex Sancris",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 353154,
+            "name": "Javier Muñoz",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 604954,
+            "name": "Borja Mayoral",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 826047,
+            "name": "Jiří Letáček",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1392092,
+            "name": "Sebastián Boselli",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 128637,
+            "name": "Allan Nyom",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 2439155,
+            "name": "Adrián Riquelme",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1398521,
+            "name": "Damián Cáceres",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 831510,
+            "name": "Veljko Birmančević",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 358910,
+            "name": "Augusto Batalla",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 152446,
+            "name": "Iván Balliu",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 88528,
+            "name": "Florian Lejeune",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1458073,
+            "name": "Nobel Mendy",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1120947,
+            "name": "Jozhua Vertrouwd",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 913679,
+            "name": "Pathé Ismaël Ciss",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 326471,
+            "name": "Gerard Gumbau",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 900003,
+            "name": "Jorge de Frutos",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 910024,
+            "name": "Sergio Camello",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 542634,
+            "name": "Pacha",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 981604,
+            "name": "Alemão",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 965031,
+            "name": "Andrei Rațiu",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1010421,
+            "name": "Josep Chavarría",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 588566,
+            "name": "Unai López",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 932764,
+            "name": "Randy Nteka",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 900008,
+            "name": "Óscar Valentín",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 965832,
+            "name": "Dani Cárdenas",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 846147,
+            "name": "Abdul Mumin",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 900669,
+            "name": "Pedro Díaz",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 966637,
+            "name": "Fran Pérez",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 21949,
+            "name": "Óscar Trejo",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1089108,
+            "name": "Ilias Akhomach",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1131581,
+            "name": "Carlos Martín",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Zaid Romero",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Djené",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Mario Martín",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Juanmi",
+            "reason": "missing",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Isi Palazón",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Luiz Felipe",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          },
+          {
+            "name": "Diego Mendez",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Álvaro García",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Zaid Romero",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Djené",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Mario Martín",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Juanmi",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927906067
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Isi Palazón",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Luiz Felipe",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Diego Mendez",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Álvaro García",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927907225
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777927913805
+    },
+    "expiresAt": 1777935113805
+  },
+  "match_intel_v50_14083381_Real Betis_Real Oviedo": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 964983,
+            "name": "Álvaro Valles",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 188365,
+            "name": "Héctor Bellerín",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 305278,
+            "name": "Diego Llorente",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1015287,
+            "name": "Natan",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 67769,
+            "name": "Ricardo Rodríguez",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 816763,
+            "name": "Pablo Fornals",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 359272,
+            "name": "Sofyan Amrabat",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 798835,
+            "name": "Giovani Lo Celso",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 958380,
+            "name": "Antony",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 887055,
+            "name": "Cucho Hernández",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1011375,
+            "name": "Abdessamad Ezzalzouli",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 847128,
+            "name": "Marc Roca",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 989113,
+            "name": "Rodrigo Riquelme",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1129401,
+            "name": "Nelson Deossa",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 103417,
+            "name": "Isco",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 789381,
+            "name": "Chimy Ávila",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 50539,
+            "name": "Adrián",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 548848,
+            "name": "Pau López",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1186010,
+            "name": "Valentín Gómez",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 893062,
+            "name": "Aitor Ruibal",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 838629,
+            "name": "Álvaro Fidalgo",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1137814,
+            "name": "Sergi Altimira",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 115665,
+            "name": "Cédric Bakambu",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 368922,
+            "name": "Aarón Escandell",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 844752,
+            "name": "Nacho Vidal",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 345333,
+            "name": "David Costas",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 560756,
+            "name": "Dani Calvo",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 945404,
+            "name": "Javi López",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1008037,
+            "name": "Ilyas Chaira",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 944629,
+            "name": "Nicolas Fonseca",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 822379,
+            "name": "Santiago Colombatto",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1201412,
+            "name": "Thiago Fernández",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 882475,
+            "name": "Alberto Reina",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 976104,
+            "name": "Federico Viñas",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 17651,
+            "name": "Santi Cazorla",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 905639,
+            "name": "Kwasi Sibo",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 942836,
+            "name": "Haissem Hassan",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 597876,
+            "name": "Lucas Ahijado",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1018547,
+            "name": "Thiago Borbas",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 857065,
+            "name": "Horațiu Moldovan",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 892235,
+            "name": "David Carmo",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 606346,
+            "name": "Eric Bailly",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1120504,
+            "name": "Abdel Rahim",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1587199,
+            "name": "Pablo Agudín",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 885664,
+            "name": "Luka Ilić",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1086128,
+            "name": "Álex Forés",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Angel Ortiz",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Junior Firpo",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Marc Bartra",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Leander Dendoncker",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "تغيير وحيد في تشكيل ريال مدريد الرسمي لمواجهة إسبانيول - Kooora"
+        ],
+        "items": [
+          {
+            "title": "تغيير وحيد في تشكيل ريال مدريد الرسمي لمواجهة إسبانيول - Kooora",
+            "pubDate": "Sun, 03 May 2026 18:10:18 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Angel Ortiz",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Junior Firpo",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Marc Bartra",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0.5
+        },
+        "fetched_at": 1777927937456
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Leander Dendoncker",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777927938082
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777927942215
+    },
+    "expiresAt": 1777935142215
+  },
+  "match_intel_v50_14083422_Espanyol_Real Madrid": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 94527,
+            "name": "Marko Dmitrović",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1064026,
+            "name": "Omar El Hilali",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 857205,
+            "name": "Fernando Calero",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 81992,
+            "name": "Leandro Cabrera",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1396048,
+            "name": "Carlos Romero",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1064009,
+            "name": "Urko González",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 877262,
+            "name": "Edu Expósito",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1021165,
+            "name": "Rubén Sánchez",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1088565,
+            "name": "Ramón Terrats",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1063015,
+            "name": "Tyrhys Dolan",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1392592,
+            "name": "Roberto Fernández",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 758664,
+            "name": "Charles Pickel",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1099344,
+            "name": "Antoniu Roca",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 175185,
+            "name": "Pere Milla",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1019236,
+            "name": "Jofre Carreras",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 84972,
+            "name": "Kike García",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1082734,
+            "name": "Angel Fortuno",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1068891,
+            "name": "Jose Salinas",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1129360,
+            "name": "Clemens Riedel",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 934351,
+            "name": "Miguel Rubio",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 2039191,
+            "name": "Ferran Gomez",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1466117,
+            "name": "Lluc Castell",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1391614,
+            "name": "Alex Almansa",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 857574,
+            "name": "Andriy Lunin",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 795064,
+            "name": "Trent Alexander-Arnold",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 142622,
+            "name": "Antonio Rüdiger",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1176744,
+            "name": "Dean Huijsen",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 792073,
+            "name": "Ferland Mendy",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 831808,
+            "name": "Federico Valverde",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 2237795,
+            "name": "Thiago Pitarch",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 859025,
+            "name": "Aurélien Tchouaméni",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 868812,
+            "name": "Vinicius Júnior",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 991011,
+            "name": "Jude Bellingham",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 835485,
+            "name": "Brahim Díaz",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 851271,
+            "name": "Fran García",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1402716,
+            "name": "Gonzalo García",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1403559,
+            "name": "Franco Mastantuono",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 973887,
+            "name": "Eduardo Camavinga",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1402688,
+            "name": "César Palacios",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1493226,
+            "name": "Fran González",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1403015,
+            "name": "Sergio Mestre",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1085081,
+            "name": "Álvaro Carreras",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1156645,
+            "name": "Raúl Asencio",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 66492,
+            "name": "David Alaba",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1142689,
+            "name": "David Jiménez",
+            "position": "D",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Pol Lozano",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Cyril Ngonge",
+            "reason": "doubtful",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Arda Güler",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Dani Carvajal",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          },
+          {
+            "name": "Kylian Mbappé",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Rodrygo",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Thibaut Courtois",
+            "reason": "missing",
+            "position": "G",
+            "side": "away"
+          },
+          {
+            "name": "Éder Militão",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "غيـابات مـؤثـرة.. تشكيلة ريال مدريد أمام اسبانيول Real Madrid vs Espanyol في الدوري الاسباني 2026 - بوابة الزهراء",
+          "\"غياب صلاح يربك الحسابات\" تشكيل ليفربول ضد مانشستر يونايتد المتـوقع اليـوم في الدوري الانجليزي 2026 - بوابة الزهراء",
+          "real madrid vs espanyol.. تشكيلة ريال مدريد ضد إسبانيول اليوم في الدوري الإسباني 2026 - بوابة الزهراء",
+          "Real Madrid vs Espanyol: كيــف يمكـــن متــابعــة مباراة ريال مدريد ضد اسبانيول اليوم في الدوري الأسباني - بوابة الزهراء",
+          "Real Madrid’s starting lineup against Espanyol in LaLiga today - Diario AS",
+          "Espanyol vs. Real Madrid: Preview, Predictions and Lineups - FotMob",
+          "Espanyol vs. Real Madrid: Preview, predictions and lineups - MSN",
+          "Still not ready? It has become clear whether Kylian Mbappé made Real Madrid's La Liga squad - Dailysports",
+          "Espanyol vs Real Madrid: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports"
+        ],
+        "items": [
+          {
+            "title": "غيـابات مـؤثـرة.. تشكيلة ريال مدريد أمام اسبانيول Real Madrid vs Espanyol في الدوري الاسباني 2026 - بوابة الزهراء",
+            "pubDate": "Sun, 03 May 2026 16:59:55 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "\"غياب صلاح يربك الحسابات\" تشكيل ليفربول ضد مانشستر يونايتد المتـوقع اليـوم في الدوري الانجليزي 2026 - بوابة الزهراء",
+            "pubDate": "Sun, 03 May 2026 11:06:22 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "real madrid vs espanyol.. تشكيلة ريال مدريد ضد إسبانيول اليوم في الدوري الإسباني 2026 - بوابة الزهراء",
+            "pubDate": "Sun, 03 May 2026 17:23:06 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "Real Madrid vs Espanyol: كيــف يمكـــن متــابعــة مباراة ريال مدريد ضد اسبانيول اليوم في الدوري الأسباني - بوابة الزهراء",
+            "pubDate": "Sun, 03 May 2026 19:28:34 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "Real Madrid’s starting lineup against Espanyol in LaLiga today - Diario AS",
+            "pubDate": "Sun, 03 May 2026 07:15:13 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Espanyol vs. Real Madrid: Preview, Predictions and Lineups - FotMob",
+            "pubDate": "Sun, 03 May 2026 02:00:00 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Espanyol vs. Real Madrid: Preview, predictions and lineups - MSN",
+            "pubDate": "Sun, 03 May 2026 02:48:22 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Still not ready? It has become clear whether Kylian Mbappé made Real Madrid's La Liga squad - Dailysports",
+            "pubDate": "Sun, 03 May 2026 14:41:56 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Espanyol vs Real Madrid: prediction, head-to-head stats and probable lineups — 03.05.2026 - Dailysports",
+            "pubDate": "Sun, 03 May 2026 06:06:06 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Pol Lozano",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Cyril Ngonge",
+            "reason": "doubtful",
+            "position": "F",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "CRITICAL",
+          "impactScore": -0.25,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 1,
+            "absentee_count": 0,
+            "news_intensity": 9
+          },
+          "summary": "⚠️ غيابات جوهرية مؤثرة على التوقع",
+          "label_ar": "حرج"
+        },
+        "sentiment": {
+          "score": -0.236,
+          "verdict": "CRITICAL",
+          "label": "حرج",
+          "subjectivity": 0.388
+        },
+        "fetched_at": 1777928027297
+      },
+      "away": {
+        "headlines": [
+          "\"غياب صلاح يربك الحسابات\" تشكيل ليفربول ضد مانشستر يونايتد المتـوقع اليـوم في الدوري الانجليزي 2026 - بوابة الزهراء",
+          "Sources: Neymar has training spat with Robinho Jr...."
+        ],
+        "items": [
+          {
+            "title": "\"غياب صلاح يربك الحسابات\" تشكيل ليفربول ضد مانشستر يونايتد المتـوقع اليـوم في الدوري الانجليزي 2026 - بوابة الزهراء",
+            "pubDate": "Sun, 03 May 2026 11:06:22 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "Sources: Neymar has training spat with Robinho Jr....",
+            "pubDate": "2026-05-04T20:53:27.503Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Arda Güler",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Dani Carvajal",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Kylian Mbappé",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Rodrygo",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Thibaut Courtois",
+            "reason": "missing",
+            "position": "G",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Éder Militão",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 2
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0.25
+        },
+        "fetched_at": 1777928011964
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "HIGH_INTEL",
+      "fetched_at": 1777928032563
+    },
+    "expiresAt": 1777935232563
+  },
+  "match_intel_v50_14167987_Lille_Le Havre": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 847494,
+            "name": "Berke Özer",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 128587,
+            "name": "Thomas Meunier",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1119487,
+            "name": "Nathan Ngoy",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 122810,
+            "name": "Aïssa Mandi",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 827519,
+            "name": "Romain Perraud",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1564180,
+            "name": "Ayyoub Bouaddi",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 51665,
+            "name": "Benjamin André",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1391541,
+            "name": "Ngal'ayel Mukau",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1138804,
+            "name": "Hakon Arnar Haraldsson",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 934498,
+            "name": "Félix Correia",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1149144,
+            "name": "Matías Fernández-Pardo",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1402698,
+            "name": "Ethan Mbappé",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 361780,
+            "name": "Calvin Verdonk",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 39070,
+            "name": "Olivier Giroud",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 827506,
+            "name": "Gaëtan Perrin",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1087364,
+            "name": "Tiago Santos",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 878898,
+            "name": "Arnaud Bodart",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 238612,
+            "name": "Chancel Mbemba",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1049775,
+            "name": "Alexsandro Ribeiro",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 965357,
+            "name": "Osame Sahraoui",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 580226,
+            "name": "Mory Diaw",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 54308,
+            "name": "Loic Négo",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 873221,
+            "name": "Ayumu Seko",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 287887,
+            "name": "Gautier Lloris",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1397882,
+            "name": "Yanis Zouaoui",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1490783,
+            "name": "Simon Ebonog",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1012657,
+            "name": "Lucas Gourna-Douath",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1035695,
+            "name": "Fodé Doucouré",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 257205,
+            "name": "Sofiane Boufal",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1001458,
+            "name": "Issa Soumaré",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 825088,
+            "name": "Ally Samatta",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1824137,
+            "name": "Timothee Pembele",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1000442,
+            "name": "Yassine Kechta",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 2277165,
+            "name": "Enzo Koffi",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 980406,
+            "name": "Étienne Youte Kinkoue",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 599192,
+            "name": "Lionel Mpasi Nzau",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1895829,
+            "name": "Daren Nbenbege Mosengo",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1989816,
+            "name": "Yanis Beau Djellel",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 975300,
+            "name": "Godson Kyeremeh",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 910076,
+            "name": "Felix Mambimbi",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Nabil Bentaleb",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Arouna Sangante",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          },
+          {
+            "name": "Abdoulaye Touré",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Rassoul Ndiaye",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Stephan Zagadou",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "Face à Dortmund, Lille au pied d'une montagne en Ligue des Champions"
+        ],
+        "items": [
+          {
+            "title": "Face à Dortmund, Lille au pied d'une montagne en Ligue des Champions",
+            "pubDate": "2026-05-04T20:53:45.633Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Nabil Bentaleb",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0.527,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777928025645
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Arouna Sangante",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Abdoulaye Touré",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Rassoul Ndiaye",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Stephan Zagadou",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777928030270
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777928038857
+    },
+    "expiresAt": 1777935238857
+  },
+  "match_intel_v50_14167991_Auxerre_Angers": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 1095836,
+            "name": "Théo De Percin",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1177351,
+            "name": "Lamine Sy",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 996951,
+            "name": "Sinaly Diomandé",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 987491,
+            "name": "Bryan Okoh",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 844942,
+            "name": "Gideon Mensah",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 997104,
+            "name": "Naouirou Ahamada",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 904424,
+            "name": "Elisha Owusu",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1151803,
+            "name": "Kévin Danois",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 927005,
+            "name": "Lassine Sinayoko",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1047484,
+            "name": "Sékou Mara",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 867440,
+            "name": "Danny Namaso",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1387156,
+            "name": "Clement Akpa",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1035986,
+            "name": "Josué Casimir",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1126588,
+            "name": "Lasso Coulibaly",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 782240,
+            "name": "Assane Dioussé",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 2409356,
+            "name": "Mamoudou Cissokho",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1129363,
+            "name": "Tom Negrel",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1087805,
+            "name": "Marvin Senaya",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1897492,
+            "name": "Telli Siwe",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 805096,
+            "name": "Francisco Sierralta",
+            "position": "D",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 867299,
+            "name": "Hervé Koffi",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1862843,
+            "name": "Marius Louer",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1049538,
+            "name": "Ousmane Camara",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 363042,
+            "name": "Jordan Lefort",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1170532,
+            "name": "Jacques Ekomié",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 580642,
+            "name": "Haris Belkebla",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 190883,
+            "name": "Branco Van den Boomen",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1462778,
+            "name": "Lilian Raolisoa",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 209768,
+            "name": "Pierrick Capelle",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1392829,
+            "name": "Amine Sbai",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 2137784,
+            "name": "Prosper Peter",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1172936,
+            "name": "Louis Mouton",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 891505,
+            "name": "Goduine Koyalipou",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 2142283,
+            "name": "Lanroy Machine",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 170129,
+            "name": "Florent Hanin",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 794373,
+            "name": "Carlens Arcus",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 963201,
+            "name": "Melvin Zinga",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1493480,
+            "name": "Dan Sinaté",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 2302511,
+            "name": "Maël Gernigon",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 121180,
+            "name": "Abdoulaye Bamba",
+            "position": "D",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Donovan Léon",
+            "reason": "missing",
+            "position": "G",
+            "side": "home"
+          },
+          {
+            "name": "Fredrik Oppegård",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Romain Faivre",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Yassin Belkhdim",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Donovan Léon",
+            "reason": "missing",
+            "position": "G",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Fredrik Oppegård",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Romain Faivre",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777928050322
+      },
+      "away": {
+        "headlines": [
+          "Rangers' heart questioned as title hopes all but ended at Tynecastle"
+        ],
+        "items": [
+          {
+            "title": "Rangers' heart questioned as title hopes all but ended at Tynecastle",
+            "pubDate": "2026-05-04T20:53:48.459Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Yassin Belkhdim",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0.511,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777928034640
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777928054806
+    },
+    "expiresAt": 1777935254806
+  },
+  "match_intel_v50_14167989_Olympique Lyonnais_Stade Rennais": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 791046,
+            "name": "Dominik Greif",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 352768,
+            "name": "Ainsley Maitland-Niles",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 152813,
+            "name": "Clinton Mata",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 758168,
+            "name": "Moussa Niakhaté",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 973838,
+            "name": "Abner Vinícius",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 979118,
+            "name": "Tyler Morton",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 343067,
+            "name": "Corentin Tolisso",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1174937,
+            "name": "Endrick",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 2127096,
+            "name": "Khalis Merah",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1215906,
+            "name": "Afonso Moreira",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 829296,
+            "name": "Roman Yaremchuk",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 957604,
+            "name": "Pavel Šulc",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1014540,
+            "name": "Ruben Kluivert",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1545023,
+            "name": "Mathys de Carvalho",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1202024,
+            "name": "Ernest Nuamah",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1195782,
+            "name": "Noah Nartey",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 788180,
+            "name": "Rémy Descamps",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 158243,
+            "name": "Nicolás Tagliafico",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1195784,
+            "name": "Malick Fofana",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1000175,
+            "name": "Adam Karabec",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 164055,
+            "name": "Brice Samba",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1049515,
+            "name": "Alidu Seidu",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1597145,
+            "name": "Abdelhamid Ait Boudlal",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 988907,
+            "name": "Lilian Brassier",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1102502,
+            "name": "Quentin Merlin",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 847983,
+            "name": "Sebastian Szymański",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 581314,
+            "name": "Valentin Rongier",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 916041,
+            "name": "Mahdi Camara",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 876600,
+            "name": "Mousa Tamari",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 966621,
+            "name": "Esteban Lepaul",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 352296,
+            "name": "Breel Embolo",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 806076,
+            "name": "Ludovic Blas",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1545409,
+            "name": "Mahamadou Nagida",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1445628,
+            "name": "Djaoui Cissé",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1891021,
+            "name": "Nordan Mukiele",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1606013,
+            "name": "Yassir Zabiri",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 2334320,
+            "name": "Kilian Belazzoug",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1513605,
+            "name": "Mathys Silistrie",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 991479,
+            "name": "Anthony Rouault",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 292665,
+            "name": "Glen Kamara",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Orel Mangala",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Arnaud Nordin",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Przemysław Frankowski",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "Première ligue féminine : tombeur du PSG, l'Olympique lyonnais sacré pour la 18e fois"
+        ],
+        "items": [
+          {
+            "title": "Première ligue féminine : tombeur du PSG, l'Olympique lyonnais sacré pour la 18e fois",
+            "pubDate": "2026-05-04T20:56:55.472Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Orel Mangala",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777928215545
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Arnaud Nordin",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Przemysław Frankowski",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777928217461
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777928226187
+    },
+    "expiresAt": 1777935426187
+  },
+  "match_intel_v50_14167988_RC Strasbourg_Toulouse": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 1149148,
+            "name": "Mike Penders",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1153355,
+            "name": "Maxi Oyedele",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1049517,
+            "name": "Ismael Doukouré",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1426597,
+            "name": "Lucas Høgsberg",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1930811,
+            "name": "Abdoul Ouattara",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1407484,
+            "name": "Samuel Amo-Ameyaw",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1426224,
+            "name": "Mathis Amougou",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1153333,
+            "name": "Rafael Luis",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1638338,
+            "name": "Gessime Yassine",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 962068,
+            "name": "Sebastian Nanasi",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1542818,
+            "name": "Yaya Diémé",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1605921,
+            "name": "Samir El Mourabet",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1142233,
+            "name": "Diego Moreira",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 983066,
+            "name": "Andrew Omobamidele",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 973556,
+            "name": "Julio Enciso",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1048333,
+            "name": "Emmanuel Emegha",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 40973,
+            "name": "Karl-Johan Johnsson",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1935903,
+            "name": "Amadou Cissé",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1861695,
+            "name": "Tyrese Noubissie",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1197153,
+            "name": "Junior Mwanga",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 1154630,
+            "name": "Guillaume Restes",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 922759,
+            "name": "Mark McKenzie",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1020744,
+            "name": "Charlie Cresswell",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 798124,
+            "name": "Rasmus Nicolaisen",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 863133,
+            "name": "Aron Dønnum",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 2193194,
+            "name": "Alexis Vossah",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 878938,
+            "name": "Cristian Cásseres Jr.",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1894003,
+            "name": "Dayann Methalie",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1199247,
+            "name": "Santiago Hidalgo",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 911851,
+            "name": "Yann Gboho",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1002267,
+            "name": "Jacen Russell Rowe",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1128844,
+            "name": "Emersonn",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1048366,
+            "name": "Waren Kamanzi",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 123388,
+            "name": "Djibril Sidibé",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1386065,
+            "name": "Mario Sauer",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1961638,
+            "name": "Ilyas Azizi",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 792318,
+            "name": "Kjetil Haug",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1894007,
+            "name": "Gaëtan Bakhouche",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 2077075,
+            "name": "Seny Koumbassa",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1657108,
+            "name": "Julian Vignolo",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Aarón Anselmino",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Joaquin Panichelli",
+            "reason": "missing",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Guéla Doué",
+            "reason": "doubtful",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Valentín Barco",
+            "reason": "doubtful",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Abu Francis",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Frank Magri",
+            "reason": "missing",
+            "position": "F",
+            "side": "away"
+          },
+          {
+            "name": "Pape Diop",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Rafik Messali",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Aarón Anselmino",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Joaquin Panichelli",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Guéla Doué",
+            "reason": "doubtful",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Valentín Barco",
+            "reason": "doubtful",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777928215998
+      },
+      "away": {
+        "headlines": [
+          "Still not ready? It has become clear whether Kylian Mbappé made Real Madrid's La Liga squad - Dailysports"
+        ],
+        "items": [
+          {
+            "title": "Still not ready? It has become clear whether Kylian Mbappé made Real Madrid's La Liga squad - Dailysports",
+            "pubDate": "Sun, 03 May 2026 14:41:56 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Abu Francis",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Frank Magri",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Pape Diop",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Rafik Messali",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0.126,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0.394
+        },
+        "fetched_at": 1777928218047
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777928230783
+    },
+    "expiresAt": 1777935430783
+  },
+  "match_intel_v50_14167990_Paris_Stade Brestois": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 38440,
+            "name": "Kevin Trapp",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 362014,
+            "name": "Hamari Traoré",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1050692,
+            "name": "Diego Coppola",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 982319,
+            "name": "Moustapha Mbow",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1426221,
+            "name": "Nhoa Sangui",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 894733,
+            "name": "Marshall Munetsi",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1961626,
+            "name": "Rudy Matondo",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 802142,
+            "name": "Jonathan Ikoné",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1049442,
+            "name": "Ilan Kebbal",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 330051,
+            "name": "Moses Simon",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 877979,
+            "name": "Willem Geubbels",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 352802,
+            "name": "Maxime López",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1216282,
+            "name": "Luca Koleosho",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 795508,
+            "name": "Vincent Marchetti",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 45923,
+            "name": "Ciro Immobile",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 930813,
+            "name": "Tuomas Ollila",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1015872,
+            "name": "Obed Nkambadio",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1069159,
+            "name": "Otávio",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1507384,
+            "name": "Adama Camara",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 842399,
+            "name": "Alimami Gory",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 891508,
+            "name": "Grégoire Coudert",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 141080,
+            "name": "Kenny Lala",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 328035,
+            "name": "Brendan Chardonnet",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1894085,
+            "name": "Raphaël Le Guen",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1499870,
+            "name": "Luc Zogbé",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 976396,
+            "name": "Joris Chotard",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 825681,
+            "name": "Romain Del Castillo",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 787889,
+            "name": "Lucas Tousart",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 861324,
+            "name": "Hugo Magnetti",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1401005,
+            "name": "Remy Labeau Lascary",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 343971,
+            "name": "Ludovic Ajorque",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 904994,
+            "name": "Eric Ebimbe",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1597197,
+            "name": "Hamidou Makalou",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1156353,
+            "name": "Kamory Doumbia",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 557166,
+            "name": "Mama Baldé",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 1410231,
+            "name": "Pathé Mboup",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 849114,
+            "name": "Radosław Majecki",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1910904,
+            "name": "Noah Jauny",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1400993,
+            "name": "Michel Diaz",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1922996,
+            "name": "Serigne Diop",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Pierre Lees Melou",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Jean-Philippe Krasso",
+            "reason": "missing",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Julien López",
+            "reason": "missing",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Pierre-Yves Hamel",
+            "reason": "missing",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Tuomas Ollila",
+            "reason": "missing",
+            "position": "D",
+            "side": "home"
+          },
+          {
+            "name": "Daouda Guindo",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          },
+          {
+            "name": "Bradley Locko",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [
+          "الحل السحري.. زاير إيمري أمام اختبار تعويض أشرف حكيمي في قمة دوري أبطال أوروبا المصيرية. - kapsola.com.sa",
+          "Transfer rumors, news: Liverpool, Arsenal on alert..."
+        ],
+        "items": [
+          {
+            "title": "الحل السحري.. زاير إيمري أمام اختبار تعويض أشرف حكيمي في قمة دوري أبطال أوروبا المصيرية. - kapsola.com.sa",
+            "pubDate": "Mon, 04 May 2026 16:04:53 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "Transfer rumors, news: Liverpool, Arsenal on alert...",
+            "pubDate": "2026-05-04T21:12:10.136Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [
+          {
+            "name": "Pierre Lees Melou",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Jean-Philippe Krasso",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Julien López",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Pierre-Yves Hamel",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Tuomas Ollila",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 2
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777929160246
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Daouda Guindo",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Bradley Locko",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777929149302
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777929167397
+    },
+    "expiresAt": 1777936367397
+  },
+  "match_intel_v50_14065246_FC St. Pauli_1. FSV Mainz 05": {
+    "data": {
+      "lineups": {
+        "confirmed": true,
+        "home": [
+          {
+            "id": 325061,
+            "name": "Nikola Vasilj",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 1125024,
+            "name": "Tomoya Ando",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 253469,
+            "name": "Hauke Wahl",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 57627,
+            "name": "Karol Mets",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 971481,
+            "name": "Arkadiusz Pyrka",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 181581,
+            "name": "Jackson Irvine",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 542038,
+            "name": "Eric Smith",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 873347,
+            "name": "Lars Ritzka",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 887500,
+            "name": "Danel Sinani",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1002461,
+            "name": "Joel Chima Fujita",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1112796,
+            "name": "Andreas Hountondji",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 252343,
+            "name": "Adam Dźwigała",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 888854,
+            "name": "Connor Metcalfe",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1888501,
+            "name": "Abdoulie Ceesay",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 861850,
+            "name": "Martijn Kaars",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 834244,
+            "name": "Mathias Rasmussen",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 987437,
+            "name": "Ben Voll",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 966889,
+            "name": "David Nemeth",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1137900,
+            "name": "Louis Oppie",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 925790,
+            "name": "Taichi Hara",
+            "position": "F",
+            "substitute": true
+          }
+        ],
+        "away": [
+          {
+            "id": 94312,
+            "name": "Daniel Batz",
+            "position": "G",
+            "substitute": false
+          },
+          {
+            "id": 97926,
+            "name": "Danny da Costa",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 355486,
+            "name": "Stefan Posch",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 1548910,
+            "name": "Kacper Potulski",
+            "position": "D",
+            "substitute": false
+          },
+          {
+            "id": 157377,
+            "name": "Silvan Widmer",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 980621,
+            "name": "Paul Nebel",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 1028307,
+            "name": "Kaishu Sano",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 327755,
+            "name": "Nadiem Amiri",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 138126,
+            "name": "Phillipp Mwene",
+            "position": "M",
+            "substitute": false
+          },
+          {
+            "id": 352544,
+            "name": "Sheraldo Becker",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 822340,
+            "name": "Phillip Tietz",
+            "position": "F",
+            "substitute": false
+          },
+          {
+            "id": 1005834,
+            "name": "Armindo Sieb",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 152206,
+            "name": "Dominik Kohr",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 846471,
+            "name": "Anthony Caci",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 893962,
+            "name": "Lennard Maloney",
+            "position": "M",
+            "substitute": true
+          },
+          {
+            "id": 1152505,
+            "name": "Nelson Weiper",
+            "position": "F",
+            "substitute": true
+          },
+          {
+            "id": 174345,
+            "name": "Robin Zentner",
+            "position": "G",
+            "substitute": true
+          },
+          {
+            "id": 1138150,
+            "name": "Nikolas Veratschnig",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 106662,
+            "name": "Stefan Bell",
+            "position": "D",
+            "substitute": true
+          },
+          {
+            "id": 1028306,
+            "name": "Sota Kawasaki",
+            "position": "M",
+            "substitute": true
+          }
+        ],
+        "injuries": [],
+        "missingKey": [
+          {
+            "name": "Manolis Saliakas",
+            "reason": "missing",
+            "position": "M",
+            "side": "home"
+          },
+          {
+            "name": "Mathias Pereira Lage",
+            "reason": "missing",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Ricky-Jade Jones",
+            "reason": "missing",
+            "position": "F",
+            "side": "home"
+          },
+          {
+            "name": "Simon Emil Spari",
+            "reason": "missing",
+            "position": "G",
+            "side": "home"
+          },
+          {
+            "name": "Jae-sung Lee",
+            "reason": "missing",
+            "position": "M",
+            "side": "away"
+          },
+          {
+            "name": "Maxim Dal",
+            "reason": "missing",
+            "position": "D",
+            "side": "away"
+          }
+        ]
+      },
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Manolis Saliakas",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Mathias Pereira Lage",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Ricky-Jade Jones",
+            "reason": "missing",
+            "position": "F",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Simon Emil Spari",
+            "reason": "missing",
+            "position": "G",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777930181082
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [
+          {
+            "name": "Jae-sung Lee",
+            "reason": "missing",
+            "position": "M",
+            "source": "sofascore_official"
+          },
+          {
+            "name": "Maxim Dal",
+            "reason": "missing",
+            "position": "D",
+            "source": "sofascore_official"
+          }
+        ],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1777930181280
+      },
+      "confirmed": true,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1777930181280
+    },
+    "expiresAt": 1777937381280
+  }
+}

@@ -1,0 +1,519 @@
+{
+    "France": {
+        "Ligue 1": 1,
+        "Ligue 2": 2,
+        "Championnat National": 3,
+        "National 2": 4,
+        "National 3": 5,
+        "Ligues régionales": 6
+    },
+    "Spain": {
+        "LaLiga": 1,
+        "La Liga": 1,
+        "Segunda División": 2,
+        "Primera Federación": 3,
+        "Segunda Federación": 4,
+        "Tercera Federación": 5
+    },
+    "United Kingdom": {
+        "Premier League": 1,
+        "EFL Championship": 2,
+        "EFL League One": 3,
+        "EFL League Two": 4,
+        "National League": 5,
+        "National League North": 6,
+        "National League South": 6
+    },
+    "Italy": {
+        "Serie A": 1,
+        "Serie B": 2,
+        "Serie C": 3,
+        "Serie D": 4
+    },
+    "Germany": {
+        "Bundesliga": 1,
+        "2. Bundesliga": 2,
+        "3. Liga": 3,
+        "Regionalliga": 4,
+        "Oberliga": 5
+    },
+    "Tunisia": {
+        "Tunisian Ligue Professionnelle 1": 1,
+        "Tunisian Ligue Professionnelle 2": 2,
+        "Ligue 3": 3,
+        "Ligues régionales": 4
+    },
+    "Brazil": {
+        "Campeonato Brasileiro Série A": 1,
+        "Série A": 1,
+        "Série B": 2,
+        "Série C": 3,
+        "Série D": 4
+    },
+    "United States": {
+        "Major League Soccer": 1,
+        "USL Championship": 2,
+        "USL League One": 3,
+        "USL League Two": 4
+    },
+    "Portugal": {
+        "Primeira Liga": 1,
+        "Liga Portugal 2": 2,
+        "Liga 3": 3,
+        "Campeonato de Portugal": 4
+    },
+    "Netherlands": {
+        "Eredivisie": 1,
+        "Eerste Divisie": 2,
+        "Tweede Divisie": 3,
+        "Derde Divisie": 4
+    },
+    "Belgium": {
+        "Belgian Pro League": 1,
+        "Challenger Pro League": 2,
+        "National Division 1": 3,
+        "Division 2": 4
+    },
+    "Turkey": {
+        "Süper Lig": 1,
+        "TFF First League": 2,
+        "TFF Second League": 3,
+        "TFF Third League": 4
+    },
+    "Saudi Arabia": {
+        "Saudi Pro League": 1,
+        "Saudi First Division League": 2,
+        "Saudi Second Division League": 3
+    },
+    "Japan": {
+        "J1 League": 1,
+        "J2 League": 2,
+        "J3 League": 3
+    },
+    "South Korea": {
+        "K League 1": 1,
+        "K League 2": 2,
+        "K3 League": 3,
+        "K4 League": 4
+    },
+    "China": {
+        "Chinese Super League": 1,
+        "China League One": 2,
+        "China League Two": 3
+    },
+    "Argentina": {
+        "Argentine Primera División": 1,
+        "Primera Nacional": 2,
+        "Primera B Metropolitana": 3,
+        "Torneo Federal A": 4
+    },
+    "Mexico": {
+        "Liga MX": 1,
+        "Liga de Expansión MX": 2,
+        "Liga Premier": 3,
+        "Liga TDP": 4
+    },
+    "Morocco": {
+        "Botola Pro": 1,
+        "Botola 2": 2,
+        "National Amateur": 3
+    },
+    "Egypt": {
+        "Egyptian Premier League": 1,
+        "Egyptian Second Division": 2,
+        "Egyptian Third Division": 3
+    },
+    "Switzerland": {
+        "Swiss Super League": 1,
+        "Swiss Challenge League": 2,
+        "Promotion League": 3,
+        "1. Liga": 4
+    },
+    "Austria": {
+        "Austrian Bundesliga": 1,
+        "2. Liga": 2,
+        "Regionalliga": 3
+    },
+    "Greece": {
+        "Super League Greece": 1,
+        "Super League Greece 2": 2,
+        "Gamma Ethniki": 3
+    },
+    "Russia": {
+        "Russian Premier League": 1,
+        "Russian First League": 2,
+        "Russian Second League": 3
+    },
+    "Ukraine": {
+        "Ukrainian Premier League": 1,
+        "Ukrainian First League": 2,
+        "Ukrainian Second League": 3
+    },
+    "Denmark": {
+        "Danish Superliga": 1,
+        "Danish 1st Division": 2,
+        "Danish 2nd Division": 3
+    },
+    "Sweden": {
+        "Allsvenskan": 1,
+        "Superettan": 2,
+        "Division 1": 3
+    },
+    "Norway": {
+        "Eliteserien": 1,
+        "Norwegian First Division": 2,
+        "Second Division": 3
+    },
+    "Poland": {
+        "Ekstraklasa": 1,
+        "I Liga": 2,
+        "II Liga": 3
+    },
+    "Czech Republic": {
+        "Czech First League": 1,
+        "Czech National Football League": 2,
+        "Czech Third League": 3
+    },
+    "Croatia": {
+        "Croatian First Football League": 1,
+        "Croatian Second Football League": 2,
+        "Croatian Third Football League": 3
+    },
+    "Romania": {
+        "Liga I": 1,
+        "Liga II": 2,
+        "Liga III": 3
+    },
+    "Bulgaria": {
+        "Bulgarian First League": 1,
+        "Bulgarian Second League": 2,
+        "Third League": 3
+    },
+    "Hungary": {
+        "Nemzeti Bajnokság I": 1,
+        "Nemzeti Bajnokság II": 2,
+        "Nemzeti Bajnokság III": 3
+    },
+    "Serbia": {
+        "Serbian SuperLiga": 1,
+        "Serbian First League": 2,
+        "Serbian League": 3
+    },
+    "Slovakia": {
+        "Slovak First Football League": 1,
+        "2. Liga": 2,
+        "3. Liga": 3
+    },
+    "Slovenia": {
+        "Slovenian PrvaLiga": 1,
+        "Slovenian Second League": 2,
+        "Slovenian Third League": 3
+    },
+    "Iceland": {
+        "Úrvalsdeild karla": 1,
+        "1. deild karla": 2,
+        "2. deild karla": 3
+    },
+    "Algeria": {
+        "Algerian Ligue Professionnelle 1": 1,
+        "Algerian Ligue 2": 2,
+        "Inter-Régions": 3
+    },
+    "Nigeria": {
+        "Nigeria Professional Football League": 1,
+        "Nigeria National League": 2,
+        "Nigeria Nationwide League": 3
+    },
+    "South Africa": {
+        "South African Premier Division": 1,
+        "National First Division": 2,
+        "SAFA Second Division": 3
+    },
+    "Ghana": {
+        "Ghana Premier League": 1,
+        "Division One League": 2,
+        "Regional Leagues": 3
+    },
+    "Chile": {
+        "Chilean Primera División": 1,
+        "Primera B": 2,
+        "Segunda División Profesional": 3
+    },
+    "Peru": {
+        "Liga 1": 1,
+        "Liga 2": 2,
+        "Copa Perú": 3
+    },
+    "Uruguay": {
+        "Uruguayan Primera División": 1,
+        "Segunda División": 2,
+        "Segunda División Amateur": 3
+    },
+    "India": {
+        "Indian Super League": 1,
+        "I-League": 2,
+        "I-League 2": 3
+    },
+    "Thailand": {
+        "Thai League 1": 1,
+        "Thai League 2": 2,
+        "Thai League 3": 3
+    },
+    "Vietnam": {
+        "V.League 1": 1,
+        "V.League 2": 2,
+        "Second Division": 3
+    },
+    "Senegal": {
+        "Senegal Premier League": 1,
+        "Ligue 2": 2,
+        "National 1": 3
+    },
+    "Ivory Coast": {
+        "Ligue 1 (Ivory Coast)": 1,
+        "Ligue 2": 2,
+        "Division 3": 3
+    },
+    "Cameroon": {
+        "Elite One": 1,
+        "Elite Two": 2,
+        "Ligues régionales": 3
+    },
+    "Tanzania": {
+        "Tanzanian Premier League": 1,
+        "First Division League": 2,
+        "Second Division League": 3
+    },
+    "Kenya": {
+        "Kenyan Premier League": 1,
+        "National Super League": 2,
+        "Division One": 3
+    },
+    "Costa Rica": {
+        "Liga FPD": 1,
+        "Liga de Ascenso": 2
+    },
+    "Honduras": {
+        "Liga Nacional de Fútbol de Honduras": 1,
+        "Liga de Ascenso": 2
+    },
+    "Guatemala": {
+        "Liga Nacional de Guatemala": 1,
+        "Primera División": 2
+    },
+    "Jamaica": {
+        "Jamaica Premier League": 1,
+        "National Premier League Division 2": 2
+    },
+    "Trinidad and Tobago": {
+        "TT Premier Football League": 1,
+        "National Super League": 2
+    },
+    "United Arab Emirates": {
+        "UAE Pro League": 1,
+        "UAE First Division League": 2
+    },
+    "Qatar": {
+        "Qatar Stars League": 1,
+        "Qatari Second Division": 2
+    },
+    "Oman": {
+        "Oman Professional League": 1,
+        "First Division League": 2
+    },
+    "New Zealand": {
+        "New Zealand National League": 1,
+        "Northern League": 2,
+        "Central League": 2,
+        "Southern League": 2
+    },
+    "Fiji": {
+        "Fiji Premier League": 1,
+        "Fiji Senior League": 2
+    },
+    "Mali": {
+        "Malian Première Division": 1,
+        "Ligue Régionale": 2
+    },
+    "Burkina Faso": {
+        "Burkinabé Premier League": 1,
+        "Deuxième Division": 2
+    },
+    "Togo": {
+        "Togolese Championnat National": 1,
+        "Deuxième Division": 2
+    },
+    "Guinea": {
+        "Guinean Ligue 1": 1,
+        "Ligue 2": 2
+    },
+    "Gabon": {
+        "Gabon Championnat National D1": 1,
+        "Championnat D2": 2
+    },
+    "Bolivia": {
+        "Bolivian Primera División": 1,
+        "Copa Simón Bolívar": 2
+    },
+    "Ecuador": {
+        "Ecuadorian Serie A": 1,
+        "Serie B": 2,
+        "Segunda Categoría": 3
+    },
+    "Paraguay": {
+        "Paraguayan Primera División": 1,
+        "División Intermedia": 2,
+        "Primera B": 3
+    },
+    "Venezuela": {
+        "Venezuelan Primera División": 1,
+        "Segunda División": 2
+    },
+    "Indonesia": {
+        "Liga 1": 1,
+        "Liga 2": 2,
+        "Liga 3": 3
+    },
+    "Malaysia": {
+        "Malaysia Super League": 1,
+        "Malaysia A1 Semi-Pro League": 2
+    },
+    "Philippines": {
+        "Philippines Football League": 1
+    },
+    "Papua New Guinea": {
+        "Papua New Guinea National Soccer League": 1
+    },
+    "Madagascar": {
+        "THB Champions League": 1,
+        "Championnats régionaux": 2
+    },
+    "Mauritania": {
+        "Mauritanian Premier League": 1,
+        "Super D2": 2
+    },
+    "Niger": {
+        "Niger Premier League": 1,
+        "Ligue Nationale": 2
+    },
+    "Rwanda": {
+        "Rwanda Premier League": 1,
+        "Second Division": 2
+    },
+    "Uganda": {
+        "Uganda Premier League": 1,
+        "FUFA Big League": 2
+    },
+    "Panama": {
+        "Liga Panameña de Fútbol": 1,
+        "Liga Prom": 2
+    },
+    "El Salvador": {
+        "Salvadoran Primera División": 1,
+        "Segunda División": 2
+    },
+    "Nicaragua": {
+        "Liga Primera de Nicaragua": 1,
+        "Segunda División": 2
+    },
+    "Pakistan": {
+        "Pakistan Premier League": 1,
+        "Pakistan Football Federation League": 2
+    },
+    "Bangladesh": {
+        "Bangladesh Premier League": 1,
+        "Bangladesh Championship League": 2
+    },
+    "Cambodia": {
+        "Cambodian Premier League": 1,
+        "Cambodian League 2": 2
+    },
+    "Vanuatu": {
+        "Port Vila Premier League": 1
+    },
+    "New Caledonia": {
+        "New Caledonia Super Ligue": 1
+    },
+    "Zambia": {
+        "Zambian Super League": 1,
+        "National Division One": 2
+    },
+    "Mozambique": {
+        "Moçambola": 1,
+        "Segunda Divisão": 2
+    },
+    "Botswana": {
+        "Botswana Premier League": 1,
+        "First Division": 2
+    },
+    "Namibia": {
+        "Namibia Premier League": 1,
+        "Namibia First Division": 2
+    },
+    "Dominican Republic": {
+        "Liga Dominicana de Fútbol": 1
+    },
+    "Cuba": {
+        "Campeonato Nacional de Fútbol de Cuba": 1
+    },
+    "Haiti": {
+        "Ligue Haïtienne": 1,
+        "Division 2": 2
+    },
+    "Kazakhstan": {
+        "Kazakhstan Premier League": 1,
+        "Kazakhstan First Division": 2
+    },
+    "Uzbekistan": {
+        "Uzbekistan Super League": 1,
+        "Uzbekistan Pro League": 2
+    },
+    "Kyrgyzstan": {
+        "Kyrgyz Premier League": 1
+    },
+    "Tonga": {
+        "Tonga Major League": 1
+    },
+    "Andorra": {
+        "Primera Divisió": 1,
+        "Segona Divisió": 2
+    },
+    "San Marino": {
+        "Campionato Sammarinese di Calcio": 1
+    },
+    "Gibraltar": {
+        "Gibraltar National League": 1
+    },
+    "Luxembourg": {
+        "Luxembourg National Division": 1,
+        "Division of Honour": 2
+    },
+    "Latvia": {
+        "Latvian Higher League": 1,
+        "Latvian First League": 2
+    },
+    "Lithuania": {
+        "A Lyga": 1,
+        "I Lyga": 2,
+        "II Lyga": 3
+    },
+    "Estonia": {
+        "Meistriliiga": 1,
+        "Esiliiga": 2,
+        "Esiliiga B": 3
+    },
+    "Malta": {
+        "Maltese Premier League": 1,
+        "Maltese Challenge League": 2,
+        "National Amateur League": 3
+    },
+    "Faroe Islands": {
+        "Faroe Islands Premier League": 1,
+        "1. deild": 2
+    },
+    "Cyprus": {
+        "Cypriot First Division": 1,
+        "Cypriot Second Division": 2,
+        "Cypriot Third Division": 3
+    }
+}

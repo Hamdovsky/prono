@@ -1,0 +1,3709 @@
+[
+  {
+    "id": "4Yg7nbYj",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Nottingham",
+      "logo": "https://ui-avatars.com/api/?name=Nottingham&background=random"
+    },
+    "awayTeam": {
+      "name": "Midtjylland",
+      "logo": "https://ui-avatars.com/api/?name=Midtjylland&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:01.893Z",
+    "updatedAt": "2026-03-12T21:22:23.264Z"
+  },
+  {
+    "id": "MBBW6my3",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Genk",
+      "logo": "https://ui-avatars.com/api/?name=Genk&background=random"
+    },
+    "awayTeam": {
+      "name": "Freiburg",
+      "logo": "https://ui-avatars.com/api/?name=Freiburg&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:03.100Z",
+    "updatedAt": "2026-03-12T21:22:15.369Z"
+  },
+  {
+    "id": "QPsVT7vo",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Lech Poznan",
+      "logo": "https://ui-avatars.com/api/?name=Lech Poznan&background=random"
+    },
+    "awayTeam": {
+      "name": "Shakhtar Donetsk",
+      "logo": "https://ui-avatars.com/api/?name=Shakhtar Donetsk&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:04.301Z",
+    "updatedAt": "2026-03-12T21:22:36.171Z"
+  },
+  {
+    "id": "GCJn8iIO",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Samsunspor",
+      "logo": "https://ui-avatars.com/api/?name=Samsunspor&background=random"
+    },
+    "awayTeam": {
+      "name": "Rayo Vallecano",
+      "logo": "https://ui-avatars.com/api/?name=Rayo Vallecano&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:06.764Z",
+    "updatedAt": "2026-03-12T21:22:45.099Z"
+  },
+  {
+    "id": "MThiyjnB",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Crystal Palace",
+      "logo": "https://ui-avatars.com/api/?name=Crystal Palace&background=random"
+    },
+    "awayTeam": {
+      "name": "AEK Larnaca",
+      "logo": "https://ui-avatars.com/api/?name=AEK Larnaca&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:09.260Z",
+    "updatedAt": "2026-03-12T21:25:52.778Z"
+  },
+  {
+    "id": "vkc4QYXh",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Sigma Olomouc",
+      "logo": "https://ui-avatars.com/api/?name=Sigma Olomouc&background=random"
+    },
+    "awayTeam": {
+      "name": "Mainz",
+      "logo": "https://ui-avatars.com/api/?name=Mainz&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:11.843Z",
+    "updatedAt": "2026-03-12T21:22:56.704Z"
+  },
+  {
+    "id": "G0BM28TG",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Sporting Cristal U20 (Per)",
+      "logo": "https://ui-avatars.com/api/?name=Sporting Cristal U20 (Per)&background=random"
+    },
+    "awayTeam": {
+      "name": "U. Catolica U20 (Ecu)",
+      "logo": "https://ui-avatars.com/api/?name=U. Catolica U20 (Ecu)&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:15.273Z",
+    "updatedAt": "2026-03-12T21:23:02.531Z"
+  },
+  {
+    "id": "4SuOM4Ns",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Svay Rieng (Cam)",
+      "logo": "https://ui-avatars.com/api/?name=Svay Rieng (Cam)&background=random"
+    },
+    "awayTeam": {
+      "name": "Phnom Penh Crown (Cam)",
+      "logo": "https://ui-avatars.com/api/?name=Phnom Penh Crown (Cam)&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:26.380Z",
+    "updatedAt": "2026-03-12T21:35:11.665Z"
+  },
+  {
+    "id": "YsrVJiye",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Ind. Rivadavia",
+      "logo": "https://ui-avatars.com/api/?name=Ind. Rivadavia&background=random"
+    },
+    "awayTeam": {
+      "name": "Barracas Central",
+      "logo": "https://ui-avatars.com/api/?name=Barracas Central&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:27.778Z",
+    "updatedAt": "2026-03-12T21:49:18.030Z"
+  },
+  {
+    "id": "vchBUmYF",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Dep. Riestra",
+      "logo": "https://ui-avatars.com/api/?name=Dep. Riestra&background=random"
+    },
+    "awayTeam": {
+      "name": "Gimnasia Mendoza",
+      "logo": "https://ui-avatars.com/api/?name=Gimnasia Mendoza&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:32.663Z",
+    "updatedAt": "2026-03-12T21:35:30.287Z"
+  },
+  {
+    "id": "r7WxnMlI",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al Riffa",
+      "logo": "https://ui-avatars.com/api/?name=Al Riffa&background=random"
+    },
+    "awayTeam": {
+      "name": "Al-Muharraq",
+      "logo": "https://ui-avatars.com/api/?name=Al-Muharraq&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:27:36.668Z",
+    "updatedAt": "2026-03-12T21:50:14.168Z"
+  },
+  {
+    "id": "bTxPkk14",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Fiorentina",
+      "logo": "https://ui-avatars.com/api/?name=Fiorentina&background=random"
+    },
+    "awayTeam": {
+      "name": "Rakow",
+      "logo": "https://ui-avatars.com/api/?name=Rakow&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:28:39.867Z",
+    "updatedAt": "2026-03-12T21:40:16.526Z"
+  },
+  {
+    "id": "zm0rTeE8",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Talleres Cordoba",
+      "logo": "https://ui-avatars.com/api/?name=Talleres Cordoba&background=random"
+    },
+    "awayTeam": {
+      "name": "Instituto",
+      "logo": "https://ui-avatars.com/api/?name=Instituto&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:28:50.353Z",
+    "updatedAt": "2026-03-12T21:35:37.737Z"
+  },
+  {
+    "id": "4z0KbaYN",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Aali Club",
+      "logo": "https://ui-avatars.com/api/?name=Aali Club&background=random"
+    },
+    "awayTeam": {
+      "name": "Bahrain SC",
+      "logo": "https://ui-avatars.com/api/?name=Bahrain SC&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:28:57.557Z",
+    "updatedAt": "2026-03-12T21:26:51.627Z"
+  },
+  {
+    "id": "pfccVVaL",
+    "date": "2026-03-13",
+    "status": "FINISHED",
+    "homeTeam": {
+      "name": "Bahia",
+      "logo": "https://ui-avatars.com/api/?name=Bahia&background=random"
+    },
+    "awayTeam": {
+      "name": "Vitoria",
+      "logo": "https://ui-avatars.com/api/?name=Vitoria&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 1,
+      "away": 1
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:29:10.763Z",
+    "updatedAt": "2026-03-12T21:24:12.064Z"
+  },
+  {
+    "id": "za4CbXOq",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Flamengo RJ",
+      "logo": "https://ui-avatars.com/api/?name=Flamengo RJ&background=random"
+    },
+    "awayTeam": {
+      "name": "Cruzeiro",
+      "logo": "https://ui-avatars.com/api/?name=Cruzeiro&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:29:15.324Z",
+    "updatedAt": "2026-03-12T21:41:51.162Z"
+  },
+  {
+    "id": "dEhLdBgd",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Vasco",
+      "logo": "https://ui-avatars.com/api/?name=Vasco&background=random"
+    },
+    "awayTeam": {
+      "name": "Palmeiras",
+      "logo": "https://ui-avatars.com/api/?name=Palmeiras&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:29:20.700Z",
+    "updatedAt": "2026-03-12T19:36:06.386Z"
+  },
+  {
+    "id": "Iep18ueA",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Stuttgart",
+      "logo": "https://ui-avatars.com/api/?name=Stuttgart&background=random"
+    },
+    "awayTeam": {
+      "name": "FC Porto",
+      "logo": "https://ui-avatars.com/api/?name=FC Porto&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:29:52.675Z",
+    "updatedAt": "2026-03-12T21:25:21.648Z"
+  },
+  {
+    "id": "MiZv1cmp",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Ferencvaros",
+      "logo": "https://ui-avatars.com/api/?name=Ferencvaros&background=random"
+    },
+    "awayTeam": {
+      "name": "Braga",
+      "logo": "https://ui-avatars.com/api/?name=Braga&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:29:56.024Z",
+    "updatedAt": "2026-03-12T21:45:50.959Z"
+  },
+  {
+    "id": "2adyuYnn",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Rijeka",
+      "logo": "https://ui-avatars.com/api/?name=Rijeka&background=random"
+    },
+    "awayTeam": {
+      "name": "Strasbourg",
+      "logo": "https://ui-avatars.com/api/?name=Strasbourg&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:30:06.189Z",
+    "updatedAt": "2026-03-12T21:51:29.761Z"
+  },
+  {
+    "id": "YFLcL4Ca",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Estudiantes Rio Cuarto",
+      "logo": "https://ui-avatars.com/api/?name=Estudiantes Rio Cuarto&background=random"
+    },
+    "awayTeam": {
+      "name": "Belgrano",
+      "logo": "https://ui-avatars.com/api/?name=Belgrano&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:30:48.862Z",
+    "updatedAt": "2026-03-12T21:26:27.765Z"
+  },
+  {
+    "id": "dpbgxP0J",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Noah",
+      "logo": "https://ui-avatars.com/api/?name=Noah&background=random"
+    },
+    "awayTeam": {
+      "name": "Ararat-Armenia",
+      "logo": "https://ui-avatars.com/api/?name=Ararat-Armenia&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:30:54.671Z",
+    "updatedAt": "2026-03-12T21:26:33.014Z"
+  },
+  {
+    "id": "CpRngLBi",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al-Budaiya",
+      "logo": "https://ui-avatars.com/api/?name=Al-Budaiya&background=random"
+    },
+    "awayTeam": {
+      "name": "Al-Hidd",
+      "logo": "https://ui-avatars.com/api/?name=Al-Hidd&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:31:17.343Z",
+    "updatedAt": "2026-03-12T20:13:09.318Z"
+  },
+  {
+    "id": "fTI3kwBG",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al-Shabbab",
+      "logo": "https://ui-avatars.com/api/?name=Al-Shabbab&background=random"
+    },
+    "awayTeam": {
+      "name": "Al-Najma",
+      "logo": "https://ui-avatars.com/api/?name=Al-Najma&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:31:22.555Z",
+    "updatedAt": "2026-03-12T20:25:24.095Z"
+  },
+  {
+    "id": "lbw8Jx9e",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Castanhal",
+      "logo": "https://ui-avatars.com/api/?name=Castanhal&background=random"
+    },
+    "awayTeam": {
+      "name": "Nova Iguacu",
+      "logo": "https://ui-avatars.com/api/?name=Nova Iguacu&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:31:38.021Z",
+    "updatedAt": "2026-03-12T21:17:20.041Z"
+  },
+  {
+    "id": "hhgedGk2",
+    "date": "2026-03-13",
+    "status": "FINISHED",
+    "homeTeam": {
+      "name": "Porto Velho",
+      "logo": "https://ui-avatars.com/api/?name=Porto Velho&background=random"
+    },
+    "awayTeam": {
+      "name": "Atletico GO",
+      "logo": "https://ui-avatars.com/api/?name=Atletico GO&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 1
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:31:54.910Z",
+    "updatedAt": "2026-03-12T19:39:42.469Z"
+  },
+  {
+    "id": "lvHGuRJb",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Ferroviaria U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Ferroviaria U20 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Sport Recife U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Sport Recife U20 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:32:12.598Z",
+    "updatedAt": "2026-03-12T20:19:51.845Z"
+  },
+  {
+    "id": "d4KOw5lB",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Sao Paulo U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Sao Paulo U20 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Alianca GO U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Alianca GO U20 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:32:31.488Z",
+    "updatedAt": "2026-03-12T21:01:12.599Z"
+  },
+  {
+    "id": "bFvWiZOF",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Finland U17 W",
+      "logo": "https://ui-avatars.com/api/?name=Finland U17 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Romania U17 W",
+      "logo": "https://ui-avatars.com/api/?name=Romania U17 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:32:48.982Z",
+    "updatedAt": "2026-03-12T21:19:15.669Z"
+  },
+  {
+    "id": "Uo4dOIaB",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Vendaval",
+      "logo": "https://ui-avatars.com/api/?name=Vendaval&background=random"
+    },
+    "awayTeam": {
+      "name": "Batanecos",
+      "logo": "https://ui-avatars.com/api/?name=Batanecos&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:32:51.642Z",
+    "updatedAt": "2026-03-12T21:54:58.828Z"
+  },
+  {
+    "id": "x6Lu8oM6",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Shooting",
+      "logo": "https://ui-avatars.com/api/?name=Shooting&background=random"
+    },
+    "awayTeam": {
+      "name": "Rivers United",
+      "logo": "https://ui-avatars.com/api/?name=Rivers United&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:34:14.850Z",
+    "updatedAt": "2026-03-12T21:45:02.683Z"
+  },
+  {
+    "id": "4ADJMjXH",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "AZ Alkmaar",
+      "logo": "https://ui-avatars.com/api/?name=AZ Alkmaar&background=random"
+    },
+    "awayTeam": {
+      "name": "Sparta Prague",
+      "logo": "https://ui-avatars.com/api/?name=Sparta Prague&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:34:59.308Z",
+    "updatedAt": "2026-03-12T21:22:29.648Z"
+  },
+  {
+    "id": "b1Pfiat4",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al-Muharraq",
+      "logo": "https://ui-avatars.com/api/?name=Al-Muharraq&background=random"
+    },
+    "awayTeam": {
+      "name": "Sitra",
+      "logo": "https://ui-avatars.com/api/?name=Sitra&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:35:23.291Z",
+    "updatedAt": "2026-03-12T20:36:06.149Z"
+  },
+  {
+    "id": "E3N4LJet",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Santa Catarina",
+      "logo": "https://ui-avatars.com/api/?name=Santa Catarina&background=random"
+    },
+    "awayTeam": {
+      "name": "Jacuipense",
+      "logo": "https://ui-avatars.com/api/?name=Jacuipense&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:35:38.985Z",
+    "updatedAt": "2026-03-12T21:42:02.699Z"
+  },
+  {
+    "id": "na60OwH8",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Racing de Gualuca",
+      "logo": "https://ui-avatars.com/api/?name=Racing de Gualuca&background=random"
+    },
+    "awayTeam": {
+      "name": "Aguila",
+      "logo": "https://ui-avatars.com/api/?name=Aguila&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:36:25.554Z"
+  },
+  {
+    "id": "QcLaPSdE",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Operario-PR",
+      "logo": "https://ui-avatars.com/api/?name=Operario-PR&background=random"
+    },
+    "awayTeam": {
+      "name": "Capital",
+      "logo": "https://ui-avatars.com/api/?name=Capital&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:36:29.599Z",
+    "updatedAt": "2026-03-12T21:00:30.656Z"
+  },
+  {
+    "id": "dIRE8uON",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al Kahraba",
+      "logo": "https://ui-avatars.com/api/?name=Al Kahraba&background=random"
+    },
+    "awayTeam": {
+      "name": "Al Talaba",
+      "logo": "https://ui-avatars.com/api/?name=Al Talaba&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:36:53.356Z",
+    "updatedAt": "2026-03-12T21:44:08.331Z"
+  },
+  {
+    "id": "dl4tqPRb",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Panathinaikos",
+      "logo": "https://ui-avatars.com/api/?name=Panathinaikos&background=random"
+    },
+    "awayTeam": {
+      "name": "Betis",
+      "logo": "https://ui-avatars.com/api/?name=Betis&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:38:21.198Z",
+    "updatedAt": "2026-03-12T21:25:22.306Z"
+  },
+  {
+    "id": "Y7XvJMM6",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Dewa United (Ina)",
+      "logo": "https://ui-avatars.com/api/?name=Dewa United (Ina)&background=random"
+    },
+    "awayTeam": {
+      "name": "Manila Digger (Phl)",
+      "logo": "https://ui-avatars.com/api/?name=Manila Digger (Phl)&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:39:01.348Z",
+    "updatedAt": "2026-03-12T21:16:13.026Z"
+  },
+  {
+    "id": "C0OzHMNF",
+    "date": "2026-03-13",
+    "status": "FINISHED",
+    "homeTeam": {
+      "name": "Confianca",
+      "logo": "https://ui-avatars.com/api/?name=Confianca&background=random"
+    },
+    "awayTeam": {
+      "name": "Tombense",
+      "logo": "https://ui-avatars.com/api/?name=Tombense&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 2,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:39:35.119Z"
+  },
+  {
+    "id": "YLR6piTg",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Paysandu PA",
+      "logo": "https://ui-avatars.com/api/?name=Paysandu PA&background=random"
+    },
+    "awayTeam": {
+      "name": "Portuguesa RJ",
+      "logo": "https://ui-avatars.com/api/?name=Portuguesa RJ&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:39:48.345Z"
+  },
+  {
+    "id": "0f87O9cT",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Motagua",
+      "logo": "https://ui-avatars.com/api/?name=Motagua&background=random"
+    },
+    "awayTeam": {
+      "name": "UPNFM",
+      "logo": "https://ui-avatars.com/api/?name=UPNFM&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:40:40.922Z"
+  },
+  {
+    "id": "WptHZ6P0",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Persis Solo",
+      "logo": "https://ui-avatars.com/api/?name=Persis Solo&background=random"
+    },
+    "awayTeam": {
+      "name": "Bali United",
+      "logo": "https://ui-avatars.com/api/?name=Bali United&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:41:05.749Z",
+    "updatedAt": "2026-03-12T21:55:58.444Z"
+  },
+  {
+    "id": "SnXaqONh",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al-Faisaly Amman",
+      "logo": "https://ui-avatars.com/api/?name=Al-Faisaly Amman&background=random"
+    },
+    "awayTeam": {
+      "name": "Shabab Al Ordon",
+      "logo": "https://ui-avatars.com/api/?name=Shabab Al Ordon&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:41:06.939Z",
+    "updatedAt": "2026-03-12T21:44:29.355Z"
+  },
+  {
+    "id": "KMTiopgt",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al Ahli",
+      "logo": "https://ui-avatars.com/api/?name=Al Ahli&background=random"
+    },
+    "awayTeam": {
+      "name": "Al Salt",
+      "logo": "https://ui-avatars.com/api/?name=Al Salt&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:41:18.538Z",
+    "updatedAt": "2026-03-12T21:56:14.460Z"
+  },
+  {
+    "id": "OlLpTSo9",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Olympic Azzaweya",
+      "logo": "https://ui-avatars.com/api/?name=Olympic Azzaweya&background=random"
+    },
+    "awayTeam": {
+      "name": "Al-Ittihad",
+      "logo": "https://ui-avatars.com/api/?name=Al-Ittihad&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:41:31.693Z",
+    "updatedAt": "2026-03-12T21:44:54.803Z"
+  },
+  {
+    "id": "bwZFIhGF",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Corinthians",
+      "logo": "https://ui-avatars.com/api/?name=Corinthians&background=random"
+    },
+    "awayTeam": {
+      "name": "Coritiba",
+      "logo": "https://ui-avatars.com/api/?name=Coritiba&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:42:42.647Z",
+    "updatedAt": "2026-03-12T21:07:00.023Z"
+  },
+  {
+    "id": "jRqm3xtC",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Manaus",
+      "logo": "https://ui-avatars.com/api/?name=Manaus&background=random"
+    },
+    "awayTeam": {
+      "name": "Londrina",
+      "logo": "https://ui-avatars.com/api/?name=Londrina&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:42:51.895Z"
+  },
+  {
+    "id": "U9yvIV57",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Atl. Tucuman",
+      "logo": "https://ui-avatars.com/api/?name=Atl. Tucuman&background=random"
+    },
+    "awayTeam": {
+      "name": "Aldosivi",
+      "logo": "https://ui-avatars.com/api/?name=Aldosivi&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:44:55.956Z",
+    "updatedAt": "2026-03-12T21:23:08.852Z"
+  },
+  {
+    "id": "QDjJSR2S",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Defensa y Justicia",
+      "logo": "https://ui-avatars.com/api/?name=Defensa y Justicia&background=random"
+    },
+    "awayTeam": {
+      "name": "Central Cordoba",
+      "logo": "https://ui-avatars.com/api/?name=Central Cordoba&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:44:58.457Z",
+    "updatedAt": "2026-03-12T21:23:13.993Z"
+  },
+  {
+    "id": "zJjjgwdo",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al Khalidiyah",
+      "logo": "https://ui-avatars.com/api/?name=Al Khalidiyah&background=random"
+    },
+    "awayTeam": {
+      "name": "Al Riffa",
+      "logo": "https://ui-avatars.com/api/?name=Al Riffa&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:45:17.904Z",
+    "updatedAt": "2026-03-12T21:26:53.202Z"
+  },
+  {
+    "id": "WpDzXaMj",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Maranhao",
+      "logo": "https://ui-avatars.com/api/?name=Maranhao&background=random"
+    },
+    "awayTeam": {
+      "name": "Ceara",
+      "logo": "https://ui-avatars.com/api/?name=Ceara&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:46:55.167Z",
+    "updatedAt": "2026-03-12T21:28:34.241Z"
+  },
+  {
+    "id": "hAA13QIc",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Vila Nova FC",
+      "logo": "https://ui-avatars.com/api/?name=Vila Nova FC&background=random"
+    },
+    "awayTeam": {
+      "name": "Operario MS",
+      "logo": "https://ui-avatars.com/api/?name=Operario MS&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:47:02.560Z",
+    "updatedAt": "2026-03-12T20:22:06.595Z"
+  },
+  {
+    "id": "4MT6NMOs",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Bahia U17",
+      "logo": "https://ui-avatars.com/api/?name=Bahia U17&background=random"
+    },
+    "awayTeam": {
+      "name": "Fortaleza U17",
+      "logo": "https://ui-avatars.com/api/?name=Fortaleza U17&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:47:08.640Z",
+    "updatedAt": "2026-03-12T21:00:39.474Z"
+  },
+  {
+    "id": "hzQiP5ZH",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Gremio U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Gremio U20 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Criciuma U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Criciuma U20 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:47:15.513Z",
+    "updatedAt": "2026-03-12T21:01:04.525Z"
+  },
+  {
+    "id": "roKfxlxQ",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Sousa",
+      "logo": "https://ui-avatars.com/api/?name=Sousa&background=random"
+    },
+    "awayTeam": {
+      "name": "CRB",
+      "logo": "https://ui-avatars.com/api/?name=CRB&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:49:50.176Z"
+  },
+  {
+    "id": "KIjIMVq4",
+    "date": "2026-03-13",
+    "status": "FINISHED",
+    "homeTeam": {
+      "name": "Olympic S.",
+      "logo": "https://ui-avatars.com/api/?name=Olympic S.&background=random"
+    },
+    "awayTeam": {
+      "name": "Aigle Noir",
+      "logo": "https://ui-avatars.com/api/?name=Aigle Noir&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 1,
+      "away": 1
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:50:23.932Z",
+    "updatedAt": "2026-03-12T21:11:28.463Z"
+  },
+  {
+    "id": "KUCNgfOq",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Atl. San Luis W",
+      "logo": "https://ui-avatars.com/api/?name=Atl. San Luis W&background=random"
+    },
+    "awayTeam": {
+      "name": "Puebla W",
+      "logo": "https://ui-avatars.com/api/?name=Puebla W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:51:28.116Z",
+    "updatedAt": "2026-03-12T21:44:51.548Z"
+  },
+  {
+    "id": "886B0L3B",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Sitra",
+      "logo": "https://ui-avatars.com/api/?name=Sitra&background=random"
+    },
+    "awayTeam": {
+      "name": "Al-Budaiya",
+      "logo": "https://ui-avatars.com/api/?name=Al-Budaiya&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:54:24.930Z",
+    "updatedAt": "2026-03-12T21:41:35.838Z"
+  },
+  {
+    "id": "KMRqRR45",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Internacional U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Internacional U20 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Vasco U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Vasco U20 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:54:48.138Z"
+  },
+  {
+    "id": "WtQCVr8D",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Czech Republic U17 W",
+      "logo": "https://ui-avatars.com/api/?name=Czech Republic U17 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Latvia U17 W",
+      "logo": "https://ui-avatars.com/api/?name=Latvia U17 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:55:04.387Z"
+  },
+  {
+    "id": "Q1waNq4U",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Corinthians U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Corinthians U20 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Taubate U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Taubate U20 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T19:55:10.724Z",
+    "updatedAt": "2026-03-12T20:20:03.983Z"
+  },
+  {
+    "id": "xt34VKFk",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Celje",
+      "logo": "https://ui-avatars.com/api/?name=Celje&background=random"
+    },
+    "awayTeam": {
+      "name": "AEK Athens",
+      "logo": "https://ui-avatars.com/api/?name=AEK Athens&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:00:37.019Z",
+    "updatedAt": "2026-03-12T21:14:54.297Z"
+  },
+  {
+    "id": "drBMakdf",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Deportes Tolima (Col)",
+      "logo": "https://ui-avatars.com/api/?name=Deportes Tolima (Col)&background=random"
+    },
+    "awayTeam": {
+      "name": "O'Higgins (Chi)",
+      "logo": "https://ui-avatars.com/api/?name=O'Higgins (Chi)&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:00:41.726Z",
+    "updatedAt": "2026-03-12T21:23:00.154Z"
+  },
+  {
+    "id": "YJjfH7rA",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Club Nacional U20 (Uru)",
+      "logo": "https://ui-avatars.com/api/?name=Club Nacional U20 (Uru)&background=random"
+    },
+    "awayTeam": {
+      "name": "LDU Quito U20 (Ecu)",
+      "logo": "https://ui-avatars.com/api/?name=LDU Quito U20 (Ecu)&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:00:44.793Z",
+    "updatedAt": "2026-03-12T21:23:06.296Z"
+  },
+  {
+    "id": "AoHTZr0b",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Tampines",
+      "logo": "https://ui-avatars.com/api/?name=Tampines&background=random"
+    },
+    "awayTeam": {
+      "name": "Bangkok Utd",
+      "logo": "https://ui-avatars.com/api/?name=Bangkok Utd&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:00:56.488Z",
+    "updatedAt": "2026-03-12T20:55:11.050Z"
+  },
+  {
+    "id": "h86mL3xq",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Francs Borains",
+      "logo": "https://ui-avatars.com/api/?name=Francs Borains&background=random"
+    },
+    "awayTeam": {
+      "name": "Sporting Lokeren",
+      "logo": "https://ui-avatars.com/api/?name=Sporting Lokeren&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:01:08.666Z",
+    "updatedAt": "2026-03-12T21:41:35.157Z"
+  },
+  {
+    "id": "EuUj6AaN",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Bumamuru",
+      "logo": "https://ui-avatars.com/api/?name=Bumamuru&background=random"
+    },
+    "awayTeam": {
+      "name": "Dynamik",
+      "logo": "https://ui-avatars.com/api/?name=Dynamik&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:01:42.257Z",
+    "updatedAt": "2026-03-12T21:54:34.487Z"
+  },
+  {
+    "id": "8AdSZKlo",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Celta Vigo",
+      "logo": "https://ui-avatars.com/api/?name=Celta Vigo&background=random"
+    },
+    "awayTeam": {
+      "name": "Lyon",
+      "logo": "https://ui-avatars.com/api/?name=Lyon&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:03:13.506Z",
+    "updatedAt": "2026-03-12T20:35:38.785Z"
+  },
+  {
+    "id": "APvcx9sJ",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Belgium U17 W",
+      "logo": "https://ui-avatars.com/api/?name=Belgium U17 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Azerbaijan U17 W",
+      "logo": "https://ui-avatars.com/api/?name=Azerbaijan U17 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:09:30.271Z"
+  },
+  {
+    "id": "StHBmHuT",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al-Ahli Manama",
+      "logo": "https://ui-avatars.com/api/?name=Al-Ahli Manama&background=random"
+    },
+    "awayTeam": {
+      "name": "Malkia",
+      "logo": "https://ui-avatars.com/api/?name=Malkia&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:12:59.464Z",
+    "updatedAt": "2026-03-12T21:49:59.899Z"
+  },
+  {
+    "id": "8n3xeayP",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Switzerland U17 W",
+      "logo": "https://ui-avatars.com/api/?name=Switzerland U17 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Greece U17 W",
+      "logo": "https://ui-avatars.com/api/?name=Greece U17 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:16:23.089Z",
+    "updatedAt": "2026-03-12T21:55:25.554Z"
+  },
+  {
+    "id": "S0Ip3Joo",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al-Karma",
+      "logo": "https://ui-avatars.com/api/?name=Al-Karma&background=random"
+    },
+    "awayTeam": {
+      "name": "Al Gharraf",
+      "logo": "https://ui-avatars.com/api/?name=Al Gharraf&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:22:53.615Z"
+  },
+  {
+    "id": "pYEQCPqd",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Madureira",
+      "logo": "https://ui-avatars.com/api/?name=Madureira&background=random"
+    },
+    "awayTeam": {
+      "name": "Aguia De Maraba",
+      "logo": "https://ui-avatars.com/api/?name=Aguia De Maraba&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:26:50.905Z"
+  },
+  {
+    "id": "AaO8ImTk",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Talleres Jr",
+      "logo": "https://ui-avatars.com/api/?name=Talleres Jr&background=random"
+    },
+    "awayTeam": {
+      "name": "Inter F.A",
+      "logo": "https://ui-avatars.com/api/?name=Inter F.A&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:27:18.478Z"
+  },
+  {
+    "id": "4WKTU95t",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Flamengo RJ U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Flamengo RJ U20 W&background=random"
+    },
+    "awayTeam": {
+      "name": "UD Alagoana U20 W",
+      "logo": "https://ui-avatars.com/api/?name=UD Alagoana U20 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T20:30:55.835Z"
+  },
+  {
+    "id": "0x5TgttH",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Bologna",
+      "logo": "https://ui-avatars.com/api/?name=Bologna&background=random"
+    },
+    "awayTeam": {
+      "name": "AS Roma",
+      "logo": "https://ui-avatars.com/api/?name=AS Roma&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:25:15.582Z"
+  },
+  {
+    "id": "4vvUP9Nr",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Remo",
+      "logo": "https://ui-avatars.com/api/?name=Remo&background=random"
+    },
+    "awayTeam": {
+      "name": "Fluminense",
+      "logo": "https://ui-avatars.com/api/?name=Fluminense&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:27:45.390Z",
+    "updatedAt": "2026-03-12T21:50:33.191Z"
+  },
+  {
+    "id": "rNsCCSkC",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Botafogo U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Botafogo U20 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Vitoria U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Vitoria U20 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:28:53.400Z"
+  },
+  {
+    "id": "CdOyTmzg",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Fluminense U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Fluminense U20 W&background=random"
+    },
+    "awayTeam": {
+      "name": "Litoral Norte U20 W",
+      "logo": "https://ui-avatars.com/api/?name=Litoral Norte U20 W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:29:16.554Z"
+  },
+  {
+    "id": "b329OiFi",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Le Messager Ngozi",
+      "logo": "https://ui-avatars.com/api/?name=Le Messager Ngozi&background=random"
+    },
+    "awayTeam": {
+      "name": "Musongati",
+      "logo": "https://ui-avatars.com/api/?name=Musongati&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:29:20.972Z"
+  },
+  {
+    "id": "M771ivJ6",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Chanmari",
+      "logo": "https://ui-avatars.com/api/?name=Chanmari&background=random"
+    },
+    "awayTeam": {
+      "name": "Dempo",
+      "logo": "https://ui-avatars.com/api/?name=Dempo&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:44:01.697Z"
+  },
+  {
+    "id": "4zQXIRhn",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Dila Gori",
+      "logo": "https://ui-avatars.com/api/?name=Dila Gori&background=random"
+    },
+    "awayTeam": {
+      "name": "Meshakhte Tkibuli",
+      "logo": "https://ui-avatars.com/api/?name=Meshakhte Tkibuli&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:44:09.210Z",
+    "updatedAt": "2026-03-12T21:55:44.141Z"
+  },
+  {
+    "id": "KzZhSapf",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "AS Roma W",
+      "logo": "https://ui-avatars.com/api/?name=AS Roma W&background=random"
+    },
+    "awayTeam": {
+      "name": "Inter W",
+      "logo": "https://ui-avatars.com/api/?name=Inter W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:44:22.540Z",
+    "updatedAt": "2026-03-12T21:56:01.048Z"
+  },
+  {
+    "id": "OGFi7oPk",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Al Murooj",
+      "logo": "https://ui-avatars.com/api/?name=Al Murooj&background=random"
+    },
+    "awayTeam": {
+      "name": "Wefaq Ajdabiya",
+      "logo": "https://ui-avatars.com/api/?name=Wefaq Ajdabiya&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:44:36.226Z"
+  },
+  {
+    "id": "fyrIAKVs",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Abi Al Ashar",
+      "logo": "https://ui-avatars.com/api/?name=Abi Al Ashar&background=random"
+    },
+    "awayTeam": {
+      "name": "Al-Tirsana",
+      "logo": "https://ui-avatars.com/api/?name=Al-Tirsana&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:44:43.920Z",
+    "updatedAt": "2026-03-12T21:56:16.582Z"
+  },
+  {
+    "id": "CbdUwNOk",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Shan Utd",
+      "logo": "https://ui-avatars.com/api/?name=Shan Utd&background=random"
+    },
+    "awayTeam": {
+      "name": "Mahar United",
+      "logo": "https://ui-avatars.com/api/?name=Mahar United&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:44:57.109Z"
+  },
+  {
+    "id": "6NhIFyo3",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Cruz Azul W",
+      "logo": "https://ui-avatars.com/api/?name=Cruz Azul W&background=random"
+    },
+    "awayTeam": {
+      "name": "Necaxa W",
+      "logo": "https://ui-avatars.com/api/?name=Necaxa W&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:45:00.491Z"
+  },
+  {
+    "id": "M1Uy4lEd",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Izalco",
+      "logo": "https://ui-avatars.com/api/?name=Izalco&background=random"
+    },
+    "awayTeam": {
+      "name": "Hercules",
+      "logo": "https://ui-avatars.com/api/?name=Hercules&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:54:47.835Z"
+  },
+  {
+    "id": "WxawJmLj",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Real Espana",
+      "logo": "https://ui-avatars.com/api/?name=Real Espana&background=random"
+    },
+    "awayTeam": {
+      "name": "Victoria",
+      "logo": "https://ui-avatars.com/api/?name=Victoria&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:55:52.557Z"
+  },
+  {
+    "id": "8YSjJVyq",
+    "date": "2026-03-13",
+    "status": "NS",
+    "homeTeam": {
+      "name": "Baghdad",
+      "logo": "https://ui-avatars.com/api/?name=Baghdad&background=random"
+    },
+    "awayTeam": {
+      "name": "Newroz",
+      "logo": "https://ui-avatars.com/api/?name=Newroz&background=random"
+    },
+    "league": {
+      "name": "Unknown",
+      "country": "Unknown"
+    },
+    "source": "SYSTEM ANTICIPATION: 48H",
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "odds": {},
+    "analysis": {
+      "overallConfidence": 62.2,
+      "primaryPrediction": "Home Win",
+      "isBoiling": false,
+      "dangerFactor": null,
+      "isUltimateVVIP": false,
+      "isStrike": false,
+      "isGoldenValue": false,
+      "teamAStrength": 20,
+      "teamBStrength": 20,
+      "liveMomentum": 1,
+      "xgBoostStatus": "GFB Powered",
+      "archivalImpact": "New Profile",
+      "isPreMatch": true,
+      "matchDay": 1
+    },
+    "createdAt": "2026-03-12T21:56:03.575Z"
+  }
+]

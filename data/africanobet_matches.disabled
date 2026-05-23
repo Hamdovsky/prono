@@ -1,0 +1,352 @@
+[
+  {
+    "home_team": "CA Alto Peru",
+    "away_team": "CSD Cooper",
+    "time": "00:00",
+    "league": "Unknown",
+    "odds_1": "-",
+    "odds_x": "-",
+    "odds_2": "-",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Birmingham Legion FC",
+    "away_team": "Miami FC",
+    "time": "01:00",
+    "league": "Unknown",
+    "odds_1": "1.84",
+    "odds_x": "3.71",
+    "odds_2": "3.50",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Coquimbo Unido",
+    "away_team": "Universitario De Deportes",
+    "time": "01:00",
+    "league": "Unknown",
+    "odds_1": "2.30",
+    "odds_x": "2.85",
+    "odds_2": "3.52",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Huntsville City FC",
+    "away_team": "Carolina Core FC",
+    "time": "01:00",
+    "league": "Unknown",
+    "odds_1": "1.99",
+    "odds_x": "3.56",
+    "odds_2": "3.16",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Bambu",
+    "away_team": "FC Panama Norte",
+    "time": "01:00",
+    "league": "Unknown",
+    "odds_1": "2.43",
+    "odds_x": "3.25",
+    "odds_2": "2.63",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "CVV Inter Willemstad",
+    "away_team": "RKSV Scherpenheuvel",
+    "time": "01:00",
+    "league": "Unknown",
+    "odds_1": "3.02",
+    "odds_x": "3.47",
+    "odds_2": "2.08",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Club Blooming",
+    "away_team": "RB Bragantino",
+    "time": "01:30",
+    "league": "Unknown",
+    "odds_1": "3.31",
+    "odds_x": "3.36",
+    "odds_2": "2.00",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Carabobo",
+    "away_team": "River Plate",
+    "time": "01:30",
+    "league": "Unknown",
+    "odds_1": "4.00",
+    "odds_x": "2.98",
+    "odds_2": "1.94",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Independiente Medellín",
+    "away_team": "Flamengo",
+    "time": "01:30",
+    "league": "Unknown",
+    "odds_1": "4.50",
+    "odds_x": "3.40",
+    "odds_2": "1.81",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Corinthians (F)",
+    "away_team": "Sao Paulo (F)",
+    "time": "01:30",
+    "league": "Unknown",
+    "odds_1": "1.62",
+    "odds_x": "3.77",
+    "odds_2": "4.60",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Atlético Bucaramanga",
+    "away_team": "Real Santander CD",
+    "time": "02:00",
+    "league": "Unknown",
+    "odds_1": "1.24",
+    "odds_x": "4.70",
+    "odds_2": "12.00",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "CD Municipal Limeno",
+    "away_team": "Inter FA",
+    "time": "02:00",
+    "league": "Unknown",
+    "odds_1": "2.25",
+    "odds_x": "3.01",
+    "odds_2": "3.10",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "CF Pachuca (Wom)",
+    "away_team": "CF Monterrey (Wom)",
+    "time": "02:00",
+    "league": "Unknown",
+    "odds_1": "1.48",
+    "odds_x": "4.30",
+    "odds_2": "5.20",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Bambanes FC",
+    "away_team": "Deportivo Altamira",
+    "time": "02:00",
+    "league": "Unknown",
+    "odds_1": "3.78",
+    "odds_x": "3.53",
+    "odds_2": "1.81",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "AD Alianza West",
+    "away_team": "AF Chilibre",
+    "time": "02:00",
+    "league": "Unknown",
+    "odds_1": "2.40",
+    "odds_x": "3.35",
+    "odds_2": "2.60",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Atlético Junior Barranquilla",
+    "away_team": "Club Cerro Porteno",
+    "time": "03:00",
+    "league": "Unknown",
+    "odds_1": "1.99",
+    "odds_x": "3.20",
+    "odds_2": "3.92",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "CSD Comunicaciones",
+    "away_team": "Xelaju MC",
+    "time": "03:00",
+    "league": "Unknown",
+    "odds_1": "1.96",
+    "odds_x": "2.93",
+    "odds_2": "4.00",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "San Juan SC",
+    "away_team": "Davis Legacy SC",
+    "time": "03:00",
+    "league": "Unknown",
+    "odds_1": "1.56",
+    "odds_x": "5.60",
+    "odds_2": "3.59",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Dimas Escazu (Wom)",
+    "away_team": "LD Alajuelense (Wom)",
+    "time": "03:00",
+    "league": "Unknown",
+    "odds_1": "11.00",
+    "odds_x": "7.60",
+    "odds_2": "1.14",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "ADFF Pococi (Wom)",
+    "away_team": "CS Herediano (Wom)",
+    "time": "03:00",
+    "league": "Unknown",
+    "odds_1": "5.70",
+    "odds_x": "4.70",
+    "odds_2": "1.41",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Olympic Colon FC",
+    "away_team": "Inter Panama CF",
+    "time": "03:00",
+    "league": "Unknown",
+    "odds_1": "2.23",
+    "odds_x": "3.45",
+    "odds_2": "2.75",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Deportivo Toluca (Wom)",
+    "away_team": "Club America (Wom)",
+    "time": "04:00",
+    "league": "Unknown",
+    "odds_1": "3.76",
+    "odds_x": "4.10",
+    "odds_2": "1.70",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Hapoël Beer-Sheva U19",
+    "away_team": "Maccabi Petach Tikva U19",
+    "time": "08:30",
+    "league": "Unknown",
+    "odds_1": "2.36",
+    "odds_x": "3.26",
+    "odds_2": "2.71",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Persekat Kabupaten Tegal",
+    "away_team": "Persiba Balikpapan",
+    "time": "09:00",
+    "league": "Unknown",
+    "odds_1": "-",
+    "odds_x": "-",
+    "odds_2": "-",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Persipura Jayapura",
+    "away_team": "Adhyaksa FC",
+    "time": "09:00",
+    "league": "Unknown",
+    "odds_1": "-",
+    "odds_x": "-",
+    "odds_2": "-",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Mlada Boleslav U19",
+    "away_team": "Dukla Prague U19",
+    "time": "09:15",
+    "league": "Unknown",
+    "odds_1": "1.93",
+    "odds_x": "3.90",
+    "odds_2": "3.07",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Semen Padang",
+    "away_team": "Persik Kédiri",
+    "time": "09:30",
+    "league": "Unknown",
+    "odds_1": "3.02",
+    "odds_x": "3.25",
+    "odds_2": "2.08",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Viktoria Plzen U19",
+    "away_team": "Slavia Prague U19",
+    "time": "09:30",
+    "league": "Unknown",
+    "odds_1": "2.16",
+    "odds_x": "3.91",
+    "odds_2": "2.62",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Maccabi Haïfa U19",
+    "away_team": "Hapoel Petach Tikva U19",
+    "time": "09:30",
+    "league": "Unknown",
+    "odds_1": "1.58",
+    "odds_x": "4.10",
+    "odds_2": "4.40",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Adelaide Comets FC (F)",
+    "away_team": "NE MetroStars SC (Wom)",
+    "time": "09:45",
+    "league": "Unknown",
+    "odds_1": "1.29",
+    "odds_x": "5.50",
+    "odds_2": "6.90",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "TDTT Bac Ninh",
+    "away_team": "Truong Tuoi Dong Nai FC",
+    "time": "10:00",
+    "league": "Unknown",
+    "odds_1": "2.92",
+    "odds_x": "2.58",
+    "odds_2": "2.70",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Hradec Kralove U19",
+    "away_team": "Sparta Prague U19",
+    "time": "10:00",
+    "league": "Unknown",
+    "odds_1": "1.56",
+    "odds_x": "4.40",
+    "odds_2": "4.30",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Souths United FC NPL (Wom)",
+    "away_team": "Olympic FC QLD (Wom)",
+    "time": "10:00",
+    "league": "Unknown",
+    "odds_1": "6.00",
+    "odds_x": "4.50",
+    "odds_2": "1.37",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Brisbane City",
+    "away_team": "Peninsula Power FC",
+    "time": "10:15",
+    "league": "Unknown",
+    "odds_1": "2.74",
+    "odds_x": "4.00",
+    "odds_2": "1.97",
+    "source": "DOM-V1"
+  },
+  {
+    "home_team": "Heidelberg United",
+    "away_team": "South Melbourne FC",
+    "time": "10:30",
+    "league": "Unknown",
+    "odds_1": "1.07",
+    "odds_x": "10.00",
+    "odds_2": "12.00",
+    "source": "DOM-V1"
+  }
+]

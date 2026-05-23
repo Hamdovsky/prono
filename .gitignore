@@ -29,9 +29,9 @@ yarn-error.log*
 /logs/*.json
 
 # databases
-*.db
-*.db-journal
-*.sqlite
+# *.db
+# *.db-journal
+# *.sqlite
 
 # Editor folders
 .vscode
@@ -47,12 +47,12 @@ yarn-error.log*
 .venv
 tmp/
 tmp
-data/
+# data/
 bin/
 coverage/
-*.db
-*.db-wal
-*.sqlite
+# *.db
+# *.db-wal
+# *.sqlite
 *.pdb
 *.log
 *.png

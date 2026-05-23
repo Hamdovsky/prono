@@ -1,0 +1,22 @@
+[
+  {
+    "name": "__cf_bm",
+    "value": "",
+    "domain": ".africanobet.com",
+    "path": "/",
+    "expires": 1778195192,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "_immortal|user-hash",
+    "value": "",
+    "domain": "www.africanobet.com",
+    "path": "/",
+    "expires": 1809729393,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  }
+]

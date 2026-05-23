@@ -1,0 +1,9 @@
+# TITANIUM PROXY LIST
+# Add your proxies below (one per line)
+# Format: http://user:pass@host:port OR http://host:port
+# Lines starting with # are ignored.
+#
+# Examples:
+# http://proxyuser:proxypass@1.2.3.4:8080
+# http://5.6.7.8:3128
+

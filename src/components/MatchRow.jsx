@@ -6,8 +6,55 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
     // Shared reference to enriched sub-object
     const enriched = match.enriched || {};
 
+    const normalizePct = (value) => {
+        const n = Number(value || 0);
+        if (!Number.isFinite(n) || n <= 0) return 0;
+        return n > 1 ? n : n * 100;
+    };
+
+    const toScore = (score) => {
+        if (!score || !String(score).includes('-')) return null;
+        const [home, away] = String(score).split('-').map(s => parseInt(s.trim()));
+        if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
+        return { home, away, total: home + away };
+    };
+
+    const derivePreciseFTScore = (score) => {
+        const parsed = toScore(score);
+        if (!parsed) return score;
+
+        const h = normalizePct(match.home_win_probability || enriched.home_win_probability);
+        const d = normalizePct(match.draw_probability || enriched.draw_probability);
+        const a = normalizePct(match.away_win_probability || enriched.away_win_probability);
+        const btts = normalizePct(match.btts_prob || enriched?.btts_prob);
+        const over25 = normalizePct(match.ou_25_prob || enriched?.ou_25_prob);
+        const under25 = over25 ? 100 - over25 : 0;
+        const favourite = Math.max(h, d, a);
+        const tightGame = favourite < 46 || d >= 30;
+        const highGoals = over25 >= 62 || (btts >= 62 && over25 >= 55);
+        const lowGoals = under25 >= 62 || (btts <= 42 && over25 <= 42);
+
+        if (d >= h && d >= a) {
+            if (lowGoals || btts <= 42) return '0 - 0';
+            return highGoals ? '2 - 2' : '1 - 1';
+        }
+        if (h >= a) {
+            if (lowGoals) return '1 - 0';
+            if (highGoals && btts >= 55) return h >= a + 18 ? '3 - 1' : '2 - 1';
+            if (tightGame && btts >= 55) return '2 - 1';
+            return h >= a + 20 ? '2 - 0' : '1 - 0';
+        }
+        if (lowGoals) return '0 - 1';
+        if (highGoals && btts >= 55) return a >= h + 18 ? '1 - 3' : '1 - 2';
+        if (tightGame && btts >= 55) return '1 - 2';
+        return a >= h + 20 ? '0 - 2' : '0 - 1';
+    };
+
     // Determine CS (AI Correct Score) — Poisson xG model
     const getCS = () => {
+        const quantScore = match.quant?.expected_score || enriched?.quant?.expected_score;
+        if (quantScore && quantScore.includes('-')) return derivePreciseFTScore(quantScore);
+
         // Priority 1: explicit CS prediction from v22 engine
         if (match.v22_cs_prediction) {
             const part = match.v22_cs_prediction.split(' - ')[0];
@@ -22,7 +69,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         if (es && es.includes('-')) {
             const [esH, esA] = es.split('-').map(s => parseInt(s.trim()));
             const isValidES = !isNaN(esH) && !isNaN(esA) && (esH + esA) > 0;
-            if (isValidES) return es;
+            if (isValidES) return derivePreciseFTScore(es);
         }
 
         // Priority 4: Poisson-style xG
@@ -43,11 +90,14 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         const ou25  = ou25raw > 1 ? ou25raw / 100 : ou25raw;
         const highScoring = ou25 > 0.60 || btts > 62;
         if (h > 0 || a > 0) {
-            if (h > a + 25) return highScoring ? '2 - 1' : '1 - 0';
-            if (a > h + 25) return highScoring ? '1 - 2' : '0 - 1';
-            if (h > a + 12) return highScoring ? '2 - 1' : '1 - 0';
-            if (a > h + 12) return highScoring ? '1 - 2' : '0 - 1';
-            return btts > 58 ? '1 - 1' : (h >= a ? '1 - 0' : '0 - 1');
+            const baseScore = (() => {
+                if (h > a + 25) return highScoring ? '2 - 1' : '1 - 0';
+                if (a > h + 25) return highScoring ? '1 - 2' : '0 - 1';
+                if (h > a + 12) return highScoring ? '2 - 1' : '1 - 0';
+                if (a > h + 12) return highScoring ? '1 - 2' : '0 - 1';
+                return btts > 58 ? '1 - 1' : (h >= a ? '1 - 0' : '0 - 1');
+            })();
+            return derivePreciseFTScore(baseScore);
         }
         return '1 - 1';
     };
@@ -71,8 +121,8 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         const [h, a] = parts;
 
         // Determine direction required by MAIN pick
-        const wantHome  = pick === '1'  || pick.includes('HOME') || pick.includes('1X') || pick.includes('12');
-        const wantAway  = pick === '2'  || pick.includes('AWAY') || pick.includes('X2') || pick.includes('12');
+        const wantHome  = pick === '1'  || pick.includes('HOME');
+        const wantAway  = pick === '2'  || pick.includes('AWAY');
         const wantDraw  = pick === 'X'  || pick.includes('DRAW') || pick === 'NUL';
 
         const highScoring = pOU25 > 60 || pBTTS > 62;
@@ -96,9 +146,32 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         return rawScore;
     };
 
-    const cs = alignCSWithPick(rawCS, mainPick);
+    const cs = derivePreciseFTScore(alignCSWithPick(rawCS, mainPick));
     // ─────────────────────────────────────────────────────────────────
 
+    const ftSignal = (() => {
+        const parsed = toScore(cs);
+        const bttsPct = normalizePct(quantObj?.probs?.btts || pBTTS);
+        const overPct = normalizePct(quantObj?.probs?.over25 || pOU25);
+        const h = normalizePct(match.home_win_probability || enriched.home_win_probability);
+        const d = normalizePct(match.draw_probability || enriched.draw_probability);
+        const a = normalizePct(match.away_win_probability || enriched.away_win_probability);
+        const resultProb = parsed
+            ? (parsed.home > parsed.away ? h : parsed.away > parsed.home ? a : d)
+            : Math.max(h, d, a);
+        let coherence = resultProb || 45;
+
+        if (parsed) {
+            const scoreBtts = parsed.home > 0 && parsed.away > 0;
+            const scoreOver = parsed.total >= 3;
+            coherence += scoreBtts ? (bttsPct - 50) * 0.25 : ((100 - bttsPct) - 50) * 0.2;
+            coherence += scoreOver ? (overPct - 50) * 0.25 : ((100 - overPct) - 50) * 0.2;
+            if (parsed.total > 4) coherence -= 6;
+        }
+
+        if (match.insufficient_data === 1) coherence = Math.min(coherence, 64);
+        return Math.max(35, Math.min(92, Math.round(coherence)));
+    })();
     const pHT05 = Math.min(89, Math.round((pOU25 * 0.5) + (pBTTS * 0.5) + 5));
     const markets = [];
     
@@ -437,11 +510,11 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 3: AI SCORE & HT GOAL (8%) - NARROWED */}
+            {/* COLUMN 3: AI SCORE & FT confidence */}
             <div style={{width: "8%", minWidth: "70px"}} className="onyx-virtual-cell centered">
                 <span className="onyx-cs" style={{fontSize: '14px', fontWeight: '900', color: '#00ffaa'}}>{cs}</span>
                 <div style={{fontSize: '9px', color: '#fbbf24', fontWeight: 'bold'}}>
-                    HT: {quant.probs?.ht_goal || match.ht_goal_prob || 0}%
+                    FT: {ftSignal}%
                 </div>
             </div>
 

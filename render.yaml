@@ -16,3 +16,21 @@ services:
         sync: false
       - key: SERPAPI_API_KEY
         sync: false
+      - key: FOOTBALLDATA_ENABLED
+        value: "true"
+      - key: FOOTBALLDATA_KEY
+        sync: false
+      - key: FOOTBALLDATA_HOST
+        value: footballdata.io
+      - key: FOOTBALLDATA_DAILY_LIMIT
+        value: "20"
+      - key: RAPIDAPI_ENABLED
+        value: "true"
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: RAPIDAPI_HOST
+        value: sportapi7.p.rapidapi.com
+      - key: RAPIDAPI_DAILY_LIMIT
+        value: "20"
+      - key: VITE_API_URL
+        value: https://prono-l5e3.onrender.com

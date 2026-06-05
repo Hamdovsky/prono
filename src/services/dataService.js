@@ -252,7 +252,7 @@ class DataService {
 
     // Helper to handle both Web and Native HTTP (POST)
     async _post(url, body) {
-        const token = localStorage.getItem('admin_token') || 'Matrix22!';
+        const token = localStorage.getItem('admin_token');
         if (Capacitor.isNativePlatform()) {
             const options = {
                 url,
@@ -664,6 +664,17 @@ class DataService {
             return await this._post(getApiUrl('/api/scan-today'), {});
         } catch (error) {
             console.error('Scan trigger failed:', error);
+            throw error;
+        }
+    }
+
+    async triggerHttpScan(date) {
+        try {
+            console.log('⚡ Triggering HTTP API Scan...');
+            const qs = date ? `?date=${date}` : '';
+            return await this._post(getApiUrl(`/api/http-scan${qs}`), {});
+        } catch (error) {
+            console.error('HTTP Scan trigger failed:', error);
             throw error;
         }
     }

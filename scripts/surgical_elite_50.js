@@ -4,8 +4,11 @@ const axios = require('axios');
 const IntegrityService = require('../services/integrity_service');
 const logger = require('../core/logger');
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs';
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '5637790630';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+if (!BOT_TOKEN || !CHAT_ID) {
+    console.warn('[ELITE50] Telegram credentials not configured. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env');
+}
 const DB_PATH = path.resolve(__dirname, '../data/tactical.db');
 
 // ─── Poisson Engine (local, no Python needed) ────────────────────────────────

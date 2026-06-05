@@ -3,7 +3,7 @@ const path = require('path');
 const axios = require('axios');
 
 // 🛡️ CONFIGURATION TITANIUM
-const BOT_TOKEN = '6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const dbPath = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/tactical.db');
 const db = new Database(dbPath, { readonly: true });
 
@@ -59,3 +59,4 @@ async function getPronos() {
 }
 
 getPronos();
+

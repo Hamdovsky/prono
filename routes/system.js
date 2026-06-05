@@ -121,6 +121,28 @@ router.get('/status', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/rapidapi/status - Live RapidAPI Quota Status
+ */
+router.get('/rapidapi/status', (req, res) => {
+    try {
+        const rapidApiQuotaManager = require('../services/rapidApiQuotaManager');
+        const { createQuotaManager } = require('../services/sourceQuotaManager');
+        const fdQuotaManager = createQuotaManager('footballdata');
+        res.json({
+            success: true,
+            rapidapi: rapidApiQuotaManager.getQuotaStatus(),
+            footballdata: {
+                enabled: process.env.FOOTBALLDATA_ENABLED === 'true',
+                host: process.env.FOOTBALLDATA_HOST || 'footballdata.io',
+                quota: fdQuotaManager.getQuotaStatus()
+            }
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 router.get('/health', async (req, res) => {
     try {
         res.json({

@@ -6,8 +6,138 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
     // Shared reference to enriched sub-object
     const enriched = match.enriched || {};
 
+    const normalizePct = (value) => {
+        const n = Number(value || 0);
+        if (!Number.isFinite(n) || n <= 0) return 0;
+        return n > 1 ? n : n * 100;
+    };
+
+    const toScore = (score) => {
+        if (!score || !String(score).includes('-')) return null;
+        const [home, away] = String(score).split('-').map(s => parseInt(s.trim()));
+        if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
+        return { home, away, total: home + away };
+    };
+
+    const hPct = parseFloat(match.home_win_probability || enriched.home_win_probability || 0);
+    const aPct = parseFloat(match.away_win_probability || enriched.away_win_probability || 0);
+    const dPct = parseFloat(match.draw_probability || enriched.draw_probability || 0);
+    const pOU25 = Number(match.ou_25_prob || enriched?.ou_25_prob || 0);
+    const pBTTS = Number(match.btts_prob || enriched?.btts_prob || 0);
+    const quantObj = match.quant || (enriched && enriched.quant);
+    const mainPick = (quantObj?.main_pick || '').toString().trim().toUpperCase();
+
+    const bttsPct = Math.round(normalizePct(quantObj?.probs?.btts || pBTTS));
+    const over25Pct = Math.round(normalizePct(quantObj?.probs?.over25 || pOU25));
+
+    const derivePreciseFTScore = (score) => {
+        const parsed = toScore(score);
+        if (!parsed) return score;
+
+        let homeG = parsed.home;
+        let awayG = parsed.away;
+
+        if (homeG === awayG) {
+            // Draw
+            if (bttsPct >= 55) {
+                // Must be at least 1-1
+                homeG = Math.max(1, homeG);
+                awayG = Math.max(1, awayG);
+                if (over25Pct >= 55) {
+                    // Must be at least 2-2
+                    homeG = Math.max(2, homeG);
+                    awayG = Math.max(2, awayG);
+                }
+            } else if (bttsPct < 45) {
+                // No BTTS -> Must be 0-0
+                homeG = 0;
+                awayG = 0;
+            } else {
+                // Neutral BTTS
+                if (over25Pct >= 55) {
+                    homeG = Math.max(2, homeG);
+                    awayG = Math.max(2, awayG);
+                } else if (over25Pct < 45) {
+                    if (homeG > 1) {
+                        homeG = 1;
+                        awayG = 1;
+                    }
+                }
+            }
+        } else if (homeG > awayG) {
+            // Home Win
+            if (bttsPct >= 55) {
+                // Both must score -> awayG >= 1, and since home win, homeG >= 2
+                awayG = Math.max(1, awayG);
+                homeG = Math.max(awayG + 1, homeG);
+            } else if (bttsPct < 45) {
+                // No BTTS -> awayG must be 0
+                awayG = 0;
+                homeG = Math.max(1, homeG);
+                if (over25Pct >= 55) {
+                    homeG = Math.max(3, homeG);
+                } else if (over25Pct < 45) {
+                    if (homeG > 2) homeG = 2; // e.g. 2-0 is fine
+                }
+            } else {
+                // Neutral BTTS
+                if (over25Pct >= 55) {
+                    // homeG + awayG must be >= 3
+                    if (homeG + awayG < 3) {
+                        if (awayG > 0) homeG = 2; // 2-1
+                        else homeG = 3; // 3-0
+                    }
+                } else if (over25Pct < 45) {
+                    // homeG + awayG must be <= 2
+                    while (homeG + awayG > 2) {
+                        if (awayG > 0) awayG--;
+                        else homeG--;
+                    }
+                    if (homeG <= awayG) homeG = awayG + 1; // preserve home win
+                }
+            }
+        } else {
+            // Away Win (awayG > homeG)
+            if (bttsPct >= 55) {
+                // Both must score -> homeG >= 1, and since away win, awayG >= 2
+                homeG = Math.max(1, homeG);
+                awayG = Math.max(homeG + 1, awayG);
+            } else if (bttsPct < 45) {
+                // No BTTS -> homeG must be 0
+                homeG = 0;
+                awayG = Math.max(1, awayG);
+                if (over25Pct >= 55) {
+                    awayG = Math.max(3, awayG);
+                } else if (over25Pct < 45) {
+                    if (awayG > 2) awayG = 2; // e.g. 0-2 is fine
+                }
+            } else {
+                // Neutral BTTS
+                if (over25Pct >= 55) {
+                    // homeG + awayG must be >= 3
+                    if (homeG + awayG < 3) {
+                        if (homeG > 0) awayG = 2; // 1-2
+                        else awayG = 3; // 0-3
+                    }
+                } else if (over25Pct < 45) {
+                    // homeG + awayG must be <= 2
+                    while (homeG + awayG > 2) {
+                        if (homeG > 0) homeG--;
+                        else awayG--;
+                    }
+                    if (awayG <= homeG) awayG = homeG + 1; // preserve away win
+                }
+            }
+        }
+
+        return `${homeG} - ${awayG}`;
+    };
+
     // Determine CS (AI Correct Score) — Poisson xG model
     const getCS = () => {
+        const quantScore = match.quant?.expected_score || enriched?.quant?.expected_score;
+        if (quantScore && quantScore.includes('-')) return derivePreciseFTScore(quantScore);
+
         // Priority 1: explicit CS prediction from v22 engine
         if (match.v22_cs_prediction) {
             const part = match.v22_cs_prediction.split(' - ')[0];
@@ -22,7 +152,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         if (es && es.includes('-')) {
             const [esH, esA] = es.split('-').map(s => parseInt(s.trim()));
             const isValidES = !isNaN(esH) && !isNaN(esA) && (esH + esA) > 0;
-            if (isValidES) return es;
+            if (isValidES) return derivePreciseFTScore(es);
         }
 
         // Priority 4: Poisson-style xG
@@ -36,34 +166,22 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
             return `${Math.round(xG_h)} - ${Math.round(xG_a)}`;
         }
 
-        const h     = parseFloat(match.home_win_probability || enriched.home_win_probability || 0);
-        const a     = parseFloat(match.away_win_probability || enriched.away_win_probability || 0);
-        const btts  = Number(match.btts_prob || enriched?.btts_prob || 0);
-        const ou25raw = Number(match.ou_25_prob || enriched?.ou_25_prob || 0);
-        const ou25  = ou25raw > 1 ? ou25raw / 100 : ou25raw;
-        const highScoring = ou25 > 0.60 || btts > 62;
-        if (h > 0 || a > 0) {
-            if (h > a + 25) return highScoring ? '2 - 1' : '1 - 0';
-            if (a > h + 25) return highScoring ? '1 - 2' : '0 - 1';
-            if (h > a + 12) return highScoring ? '2 - 1' : '1 - 0';
-            if (a > h + 12) return highScoring ? '1 - 2' : '0 - 1';
-            return btts > 58 ? '1 - 1' : (h >= a ? '1 - 0' : '0 - 1');
+        const highScoring = over25Pct > 60 || bttsPct > 62;
+        if (hPct > 0 || aPct > 0) {
+            const baseScore = (() => {
+                if (hPct > aPct + 25) return highScoring ? '2 - 1' : '1 - 0';
+                if (aPct > hPct + 25) return highScoring ? '1 - 2' : '0 - 1';
+                if (hPct > aPct + 12) return highScoring ? '2 - 1' : '1 - 0';
+                if (aPct > hPct + 12) return highScoring ? '1 - 2' : '0 - 1';
+                return bttsPct > 58 ? '1 - 1' : (hPct >= aPct ? '1 - 0' : '0 - 1');
+            })();
+            return derivePreciseFTScore(baseScore);
         }
         return '1 - 1';
     };
     const rawCS = getCS();
 
-    const hPct = parseFloat(match.home_win_probability || enriched.home_win_probability || 0);
-    const aPct = parseFloat(match.away_win_probability || enriched.away_win_probability || 0);
-    const dPct = parseFloat(match.draw_probability || enriched.draw_probability || 0);
-    const pOU25 = Number(match.ou_25_prob || enriched?.ou_25_prob || 0);
-    const pBTTS = Number(match.btts_prob || enriched?.btts_prob || 0);
-
     // ─── COHERENCE FIX: Align CS with MAIN pick ─────────────────────
-    // Read main_pick from quant engine BEFORE using cs anywhere
-    const quantObj = match.quant || (enriched && enriched.quant);
-    const mainPick = (quantObj?.main_pick || '').toString().trim().toUpperCase();
-
     const alignCSWithPick = (rawScore, pick) => {
         if (!rawScore || !rawScore.includes('-')) return rawScore;
         const parts = rawScore.split('-').map(s => parseInt(s.trim()));
@@ -71,11 +189,11 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         const [h, a] = parts;
 
         // Determine direction required by MAIN pick
-        const wantHome  = pick === '1'  || pick.includes('HOME') || pick.includes('1X') || pick.includes('12');
-        const wantAway  = pick === '2'  || pick.includes('AWAY') || pick.includes('X2') || pick.includes('12');
+        const wantHome  = pick === '1'  || pick.includes('HOME');
+        const wantAway  = pick === '2'  || pick.includes('AWAY');
         const wantDraw  = pick === 'X'  || pick.includes('DRAW') || pick === 'NUL';
 
-        const highScoring = pOU25 > 60 || pBTTS > 62;
+        const highScoring = over25Pct > 60 || bttsPct > 62;
 
         if (wantHome && h <= a) {
             // CS contradicts pick → flip to a home win
@@ -96,9 +214,32 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         return rawScore;
     };
 
-    const cs = alignCSWithPick(rawCS, mainPick);
+    const cs = derivePreciseFTScore(alignCSWithPick(rawCS, mainPick));
     // ─────────────────────────────────────────────────────────────────
 
+    const ftSignal = (() => {
+        const parsed = toScore(cs);
+        const bttsPct = normalizePct(quantObj?.probs?.btts || pBTTS);
+        const overPct = normalizePct(quantObj?.probs?.over25 || pOU25);
+        const h = normalizePct(match.home_win_probability || enriched.home_win_probability);
+        const d = normalizePct(match.draw_probability || enriched.draw_probability);
+        const a = normalizePct(match.away_win_probability || enriched.away_win_probability);
+        const resultProb = parsed
+            ? (parsed.home > parsed.away ? h : parsed.away > parsed.home ? a : d)
+            : Math.max(h, d, a);
+        let coherence = resultProb || 45;
+
+        if (parsed) {
+            const scoreBtts = parsed.home > 0 && parsed.away > 0;
+            const scoreOver = parsed.total >= 3;
+            coherence += scoreBtts ? (bttsPct - 50) * 0.25 : ((100 - bttsPct) - 50) * 0.2;
+            coherence += scoreOver ? (overPct - 50) * 0.25 : ((100 - overPct) - 50) * 0.2;
+            if (parsed.total > 4) coherence -= 6;
+        }
+
+        if (match.insufficient_data === 1) coherence = Math.min(coherence, 64);
+        return Math.max(35, Math.min(92, Math.round(coherence)));
+    })();
     const pHT05 = Math.min(89, Math.round((pOU25 * 0.5) + (pBTTS * 0.5) + 5));
     const markets = [];
     
@@ -164,50 +305,59 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
     }
     acc = Math.max(1, Math.min(99, acc));
 
-    let tg = "-2.5";
-    let tgClass = "";
-    {
-        const ouRaw  = Number(match.ou_25_prob || enriched?.ou_25_prob || 0);
-        const ou35Raw = Number(match.ou_35_prob || enriched?.ou_35_prob || 0);
-        const ou15Raw = Number(match.ou_15_prob || enriched?.ou_15_prob || 0);
-        const bttsRaw = Number(match.btts_prob  || enriched?.btts_prob  || 0);
-        const ouProb = ouRaw  > 1 ? ouRaw  / 100 : ouRaw;
-        const ou35   = ou35Raw > 1 ? ou35Raw / 100 : ou35Raw;
-        const ou15   = ou15Raw > 1 ? ou15Raw / 100 : ou15Raw;
-        const bttsP  = bttsRaw > 1 ? bttsRaw        : bttsRaw * 100;
-        const rawTg   = match.total_goals_label || enriched?.total_goals_label || "";
+    const parsedCS = toScore(cs);
+    const scoreBtts = parsedCS ? (parsedCS.home > 0 && parsedCS.away > 0) : false;
+    const scoreTotal = parsedCS ? parsedCS.total : 0;
 
-        if (rawTg) {
-            tg = rawTg.replace(/buts/i, "").trim();
-        } else if (ou35 > 0.62) {
-            tg = "+3.5";
-        } else if (ouProb > 0.70 || (ouProb > 0.58 && bttsP > 63)) {
-            tg = "+2.5";
-        } else if (ouProb > 0.52 || ou15 > 0.68 || bttsP > 58) {
-            tg = "+1.5";
-        } else if (ouProb < 0.28) {
-            tg = "-1.5";
-        } else if (ouProb < 0.42) {
-            tg = "-2.5";
-        } else {
-            if (cs !== "N/A" && cs.includes("-")) {
-                const [_h, _a] = cs.split('-').map(s => parseInt(s.trim()));
-                if (!isNaN(_h) && !isNaN(_a)) {
-                    const tot = _h + _a;
-                    if (tot >= 5) tg = "+4.5";
-                    else if (tot >= 4) tg = "+3.5";
-                    else if (tot >= 3) tg = "+2.5";
-                    else if (tot >= 2) tg = "+1.5";
-                    else tg = "-1.5";
-                }
-            } else {
-                tg = "+1.5";
-            }
-        }
+    // Coherent BTTS recommendation
+    const bttsLabel = scoreBtts ? 'OUI' : 'NON';
+    const bttsDisplayPct = scoreBtts ? bttsPct : (100 - bttsPct);
+    const bttsBadgeBg = scoreBtts ? 'rgba(0, 255, 170, 0.12)' : 'rgba(239, 68, 68, 0.12)';
+    const bttsBadgeColor = scoreBtts ? '#00ffaa' : '#f87171';
+    const bttsBadgeBorder = scoreBtts ? 'rgba(0, 255, 170, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+
+    // Coherent Total Goals (TG) recommendation based on scoreTotal
+    let tg = "-2.5";
+    let tgClass = "onyx-draw";
+    let tgBadgeBg = 'rgba(148, 163, 184, 0.12)'; // Slate/Gray
+    let tgBadgeColor = '#94a3b8';
+    let tgBadgeBorder = 'rgba(148, 163, 184, 0.3)';
+
+    if (scoreTotal >= 4) {
+        tg = "+3.5";
+        tgClass = "onyx-win";
+        tgBadgeBg = 'rgba(16, 185, 129, 0.12)';
+        tgBadgeColor = '#10b981';
+        tgBadgeBorder = 'rgba(16, 185, 129, 0.3)';
+    } else if (scoreTotal === 3) {
+        tg = "+2.5";
+        tgClass = "onyx-win";
+        tgBadgeBg = 'rgba(16, 185, 129, 0.12)';
+        tgBadgeColor = '#10b981';
+        tgBadgeBorder = 'rgba(16, 185, 129, 0.3)';
+    } else if (scoreTotal === 2) {
+        tg = "+1.5";
+        tgClass = "onyx-win";
+        tgBadgeBg = 'rgba(16, 185, 129, 0.12)';
+        tgBadgeColor = '#10b981';
+        tgBadgeBorder = 'rgba(16, 185, 129, 0.3)';
+    } else if (scoreTotal === 1) {
+        tg = "-2.5";
+        tgClass = "onyx-draw";
+        tgBadgeBg = 'rgba(148, 163, 184, 0.12)';
+        tgBadgeColor = '#94a3b8';
+        tgBadgeBorder = 'rgba(148, 163, 184, 0.3)';
+    } else if (scoreTotal === 0) {
+        tg = "-1.5";
+        tgClass = "onyx-draw";
+        tgBadgeBg = 'rgba(148, 163, 184, 0.12)';
+        tgBadgeColor = '#94a3b8';
+        tgBadgeBorder = 'rgba(148, 163, 184, 0.3)';
     }
 
-    if (tg.includes("+")) tgClass = "onyx-win"; 
-    else if (tg.includes("-")) tgClass = "onyx-draw"; 
+    // Coherent Over/Under label
+    const ouLabel = scoreTotal >= 3 ? 'O2.5' : 'U2.5';
+    const ouDisplayPct = scoreTotal >= 3 ? over25Pct : (100 - over25Pct); 
 
     let accClass = "onyx-acc-low";
     let isVetoed = false;
@@ -419,12 +569,12 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
             
-            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (25%) - WIDENED */}
-            <div style={{width: "25%", minWidth: "200px"}} className="onyx-virtual-cell">
+            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (16%) */}
+            <div style={{width: "16%", minWidth: "160px"}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '2px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
                         <span style={{fontSize: '9px', color: 'var(--neon)', fontWeight: '900', minWidth: '30px'}}>MAIN</span>
-                        <span style={{fontSize: '12.5px', color: '#f1f5f9', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                        <span style={{fontSize: '12px', color: '#f1f5f9', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
                             {(quant.main_pick || '').replace(/🛡️|⚽|⚡|🔥|🏠|✈️|AH_|EH_|COMBOS: |SMART VALUE: /g, '').trim()}
                         </span>
                     </div>
@@ -437,29 +587,59 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 3: AI SCORE & HT GOAL (8%) - NARROWED */}
-            <div style={{width: "8%", minWidth: "70px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 3: AI SCORE & FT confidence (8%) */}
+            <div style={{width: "8%", minWidth: "80px"}} className="onyx-virtual-cell centered">
                 <span className="onyx-cs" style={{fontSize: '14px', fontWeight: '900', color: '#00ffaa'}}>{cs}</span>
                 <div style={{fontSize: '9px', color: '#fbbf24', fontWeight: 'bold'}}>
-                    HT: {quant.probs?.ht_goal || match.ht_goal_prob || 0}%
+                    FT: {ftSignal}%
                 </div>
             </div>
 
-            {/* COLUMN 4: MARKET PROBS (BTTS / O2.5) (12%) */}
-            <div style={{width: "12%", minWidth: "100px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'column', gap: '4px', width: '100%', padding: '0 5px'}}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#cbd5e1'}}>
-                        <span>BTTS</span>
-                        <span style={{fontWeight: '900', color: (quant.probs?.btts || pBTTS) > 60 ? '#10b981' : '#f8fafc'}}>{quant.probs?.btts || pBTTS}%</span>
-                    </div>
-                    <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#cbd5e1'}}>
-                        <span>O2.5</span>
-                        <span style={{fontWeight: '900', color: (quant.probs?.over25 || pOU25_pct) > 60 ? '#10b981' : '#f8fafc'}}>{quant.probs?.over25 || pOU25_pct}%</span>
-                    </div>
+            {/* COLUMN 4: BTTS (10%) */}
+            <div style={{width: "10%", minWidth: "100px"}} className="onyx-virtual-cell centered">
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
+                    <span style={{
+                        fontSize: '11px',
+                        fontWeight: '900',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        background: bttsBadgeBg,
+                        color: bttsBadgeColor,
+                        border: `1px solid ${bttsBadgeBorder}`,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.3px',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        {bttsLabel}
+                    </span>
+                    <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
+                        {bttsDisplayPct}%
+                    </span>
                 </div>
             </div>
 
-            {/* COLUMN 5: PRECISION & RISK (12%) */}
+            {/* COLUMN 5: MARKET (O2.5 / TG) (10%) */}
+            <div style={{width: "10%", minWidth: "100px"}} className="onyx-virtual-cell centered">
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
+                    <span className={tgClass} style={{
+                        fontSize: '11px',
+                        fontWeight: '900',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        background: tgBadgeBg,
+                        color: tgBadgeColor,
+                        border: `1px solid ${tgBadgeBorder}`,
+                        whiteSpace: 'nowrap'
+                    }}>
+                        {tg}
+                    </span>
+                    <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
+                        {ouLabel}: {ouDisplayPct}%
+                    </span>
+                </div>
+            </div>
+
+            {/* COLUMN 6: PRECISION & RISK (12%) */}
             <div style={{width: "12%", minWidth: "110px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                     <span className={`${accClass}`} style={{fontSize: '15px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : '#f59e0b'}}>{acc}%</span>
@@ -470,7 +650,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 6: SIGNAL & EV SCORE (12%) */}
+            {/* COLUMN 7: SIGNAL & EV SCORE (12%) */}
             <div style={{width: "12%", minWidth: "110px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
                     <div className={quant.massive_edge || match.massive_edge ? "onyx-massive-edge-pulse" : ""} style={{
@@ -493,8 +673,8 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 7: STRENGTH (11%) */}
-            <div style={{width: "11%", minWidth: "90px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 8: STRENGTH (12%) */}
+            <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
                     <div style={{fontSize: '13px', fontWeight: '900', color: msColor, letterSpacing: '1px'}}>
                         {quant.market_strength || msDesc}

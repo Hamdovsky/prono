@@ -3,12 +3,11 @@ import { Capacitor } from '@capacitor/core';
 // Detect platform and environment
 const isNative = Capacitor.isNativePlatform();
 
+const PRODUCTION_API_URL = 'https://prono-l5e3.onrender.com';
+
 // API Base URL Configuration
-// IMPORTANT: For mobile testing, update the VITE_API_URL in your .env or replace the string below 
-// with your current ngrok/serveo URL.
-const API_BASE_URL = isNative || (typeof window !== 'undefined' && window.location.protocol === 'file:')
-    ? (import.meta.env.VITE_API_URL || 'http://127.0.0.1:3001') // Fallback for mobile and file:// testing
-    : ''; // Empty string allows relative paths (e.g. /api/live) correctly proxied by Vite
+// Keep every client on the Render API unless VITE_API_URL is explicitly set.
+const API_BASE_URL = import.meta.env.VITE_API_URL || PRODUCTION_API_URL;
 
 export const getApiUrl = (endpoint) => {
     return `${API_BASE_URL}${endpoint}`;

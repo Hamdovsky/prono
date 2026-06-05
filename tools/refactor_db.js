@@ -4,7 +4,7 @@ let code = fs.readFileSync('core/database.js', 'utf8');
 
 const pgSetup = `const { Pool } = require('pg');
 const pool = new Pool({
-    user: 'postgres', password: 'Matrix22!', host: 'localhost', port: 5432, database: 'postgres',
+    user: 'postgres', password: process.env.DB_PASSWORD || 'Matrix22!', host: 'localhost', port: 5432, database: 'postgres',
     max: 20, idleTimeoutMillis: 30000,
 });
 

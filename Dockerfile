@@ -18,9 +18,13 @@ RUN npm install --omit=dev
 
 COPY . .
 
+# Build frontend
+RUN npm run build
+
 # Environment variables
 ENV NODE_ENV=production
 ENV CHROME_PATH=/usr/bin/chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 EXPOSE 3001
 

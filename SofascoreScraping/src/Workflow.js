@@ -329,6 +329,48 @@ class Workflow {
 
             console.log(`📊 [API] Total merged events: ${allEvents.length}`);
 
+            // 🚀 [HTTP FALLBACK] If Sofascore API returned no events, try HTTP-only APIs
+            if (allEvents.length === 0) {
+                console.log('⚠️ [FALLBACK] Sofascore returned 0 events. Triggering HTTP API scraper...');
+                try {
+                    const httpScraperService = require('../../services/httpScraperService');
+                    if (httpScraperService.isAvailable()) {
+                        console.log('📡 [FALLBACK] HTTP scraper is available. Fetching fixtures...');
+                        const today = await this.getLocalDateString(0);
+                        const tomorrow = await this.getLocalDateString(1);
+                        const httpFixtures = [
+                            ...(await httpScraperService.fetchAllFixtures(today)),
+                            ...(await httpScraperService.fetchAllFixtures(tomorrow))
+                        ];
+                        if (httpFixtures.length > 0) {
+                            console.log(`✅ [FALLBACK] HTTP APIs returned ${httpFixtures.length} fixtures. Converting to events...`);
+                            for (const m of httpFixtures) {
+                                const event = {
+                                    id: parseInt(m.id.replace(/\D/g, '').slice(0, 8)) || Math.floor(Math.random() * 1000000),
+                                    homeTeam: { name: m.homeTeam, id: parseInt(m.home_team_id || '0') || 0 },
+                                    awayTeam: { name: m.awayTeam, id: parseInt(m.away_team_id || '0') || 0 },
+                                    tournament: {
+                                        name: m.league,
+                                        uniqueTournament: { id: parseInt(m.tournament_id || '0') || 0, name: m.league, slug: m.league?.toLowerCase().replace(/\s+/g, '-') },
+                                        category: { name: m.category_name || '', id: 0 }
+                                    },
+                                    startTimestamp: m.startTimestamp,
+                                    status: { type: m.status === 'scheduled' ? 'notstarted' : m.status },
+                                    homeScore: { current: m.score?.home },
+                                    awayScore: { current: m.score?.away }
+                                };
+                                allEvents.push(event);
+                            }
+                            console.log(`✅ [FALLBACK] Total events after HTTP fallback: ${allEvents.length}`);
+                        }
+                    } else {
+                        console.log('⚠️ [FALLBACK] HTTP scraper not available (no API keys configured).');
+                    }
+                } catch (fallbackErr) {
+                    console.error('❌ [FALLBACK] HTTP scraper error:', fallbackErr.message);
+                }
+            }
+
             // 🎯 [V54] PRIORITY TOURNAMENT SWEEP (Missing but Wanted Leagues)
             if (needsFullScan) {
                 console.log('🎯 [V54] Checking for priority tournaments requiring forced sync...');
@@ -425,6 +467,38 @@ class Workflow {
                 console.log(Array.from(skippedLeagues).slice(0, 10).join(', '));
             }
 
+            // 🚀 [HTTP FALLBACK v2] If too few target league matches, supplement with HTTP APIs
+            if (targetMatches.length < 5) {
+                console.log(`⚠️ [FALLBACK v2] Only ${targetMatches.length} target league matches. Triggering HTTP API scraper for more...`);
+                try {
+                    const httpScraperService = require('../../services/httpScraperService');
+                    if (httpScraperService.isAvailable()) {
+                        const today = await this.getLocalDateString(0);
+                        const tomorrow = await this.getLocalDateString(1);
+                        const httpFixtures = [
+                            ...(await httpScraperService.fetchAllFixtures(today)),
+                            ...(await httpScraperService.fetchAllFixtures(tomorrow))
+                        ];
+                        for (const m of httpFixtures) {
+                            const matchId = `http_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                            if (!seenMatchIds.has(matchId)) {
+                                targetMatches.push({
+                                    ...m,
+                                    id: matchId,
+                                    league_tier: 'TIER2'
+                                });
+                                seenMatchIds.add(matchId);
+                            }
+                        }
+                        console.log(`✅ [FALLBACK v2] Added ${httpFixtures.length} HTTP API fixtures. Total: ${targetMatches.length}`);
+                    } else {
+                        console.log('⚠️ [FALLBACK v2] HTTP scraper not available. Configure RAPIDAPI_KEY or FOOTBALLDATA_KEY.');
+                    }
+                } catch (fallbackErr) {
+                    console.error('❌ [FALLBACK v2] HTTP scraper error:', fallbackErr.message);
+                }
+            }
+
             // [DEBUG] Log skipped Moroccan/Saudi matches
             allEvents.forEach(event => {
                 const cName = (event.tournament?.category?.name || "").toLowerCase();
@@ -470,6 +544,18 @@ class Workflow {
                 } else {
                     remainingMatches.push(m);
                 }
+            }
+
+            // 🚀 [PREMIUM PRIORITIZATION] Sort by Tier (TIER1 > TIER2 > TIER3) and timestamp
+            if (process.env.RAPIDAPI_ENABLED === 'true') {
+                console.log('🏆 [PRIORITY] Sorting matches by League Tier and Start Time to optimize RapidAPI quota...');
+                const tierPriority = { 'TIER1': 1, 'TIER2': 2, 'TIER3': 3 };
+                remainingMatches.sort((a, b) => {
+                    const priorityA = tierPriority[a.league_tier] || 99;
+                    const priorityB = tierPriority[b.league_tier] || 99;
+                    if (priorityA !== priorityB) return priorityA - priorityB;
+                    return (a.startTimestamp || 0) - (b.startTimestamp || 0);
+                });
             }
 
             // Replace the array contents so the loop only processes missing matches
@@ -949,6 +1035,15 @@ class Workflow {
                 } catch (e) {
                     failed++;
                     console.error(`\n❌ [ERROR] ${match.id} (${match.home}):`, e.message);
+                    if (e.message === 'RAPIDAPI_EXHAUSTED') {
+                        console.error('🚨 [FALLBACK] RapidAPI quota exhausted during scraping! Triggering FootballData fallback...');
+                        try {
+                            const footballDataService = require('../../services/footballDataService');
+                            await footballDataService.processFallbackFixtures();
+                        } catch (fdErr) {
+                            console.error('❌ [FALLBACK] FootballData fallback failed:', fdErr.message);
+                        }
+                    }
                 } finally {
                     done++;
                     const duration = performance.now() - stepStart;
@@ -962,10 +1057,39 @@ class Workflow {
             
             // Dynamic Queue Management with staggered start
             let currentIndex = 0;
+            let rapidApiExhausted = false;
+
             const workers = Array(CONCURRENCY).fill(null).map(async (_, workerIdx) => {
                 while (currentIndex < targetMatches.length) {
+                    if (rapidApiExhausted) {
+                        currentIndex = targetMatches.length; // skip all remaining matches
+                        break;
+                    }
+
                     const matchIdx = currentIndex++;
-                    await processMatch(targetMatches[matchIdx]);
+                    const match = targetMatches[matchIdx];
+
+                    // 🛡️ [RAPIDAPI BUDGET] Pre-check quota before scraping Sofascore
+                    if (process.env.RAPIDAPI_ENABLED === 'true') {
+                        const rapidApiQuotaManager = require('../../services/rapidApiQuotaManager');
+                        if (!rapidApiQuotaManager.canProcessMatch(match.id)) {
+                            console.log(`\n🛑 [RAPIDAPI] Quota limit reached (20 matches). Skipping match ${match.homeTeam} and triggering FootballData fallback...`);
+                            rapidApiExhausted = true;
+                            try {
+                                const footballDataService = require('../../services/footballDataService');
+                                await footballDataService.processFallbackFixtures();
+                            } catch (fdErr) {
+                                console.error('❌ [FALLBACK] FootballData fallback failed:', fdErr.message);
+                            }
+                            continue;
+                        }
+                        
+                        // Register match in the quota
+                        rapidApiQuotaManager.registerMatch(match.id);
+                    }
+
+                    await processMatch(match);
+                    
                     // 🛡️ [TITANIUM STEALTH] Long humanized rest between matches
                     const rest = 2000 + Math.floor(Math.random() * 3000);
                     await new Promise(r => setTimeout(r, rest)); 

@@ -29,6 +29,15 @@ async function runCycle() {
         await titaniumWorkflow.start();
     } catch (err) {
         console.error('❌ [MAIN] Cycle error:', err.message);
+        // 🚀 [FALLBACK] If main scraper crashed, try HTTP-only API fallback
+        console.log('📡 [FALLBACK] Main scraper failed. Running HTTP API fallback...');
+        try {
+            const httpScraperService = require('../services/httpScraperService');
+            const fallbackCount = await httpScraperService.processFallback();
+            console.log(`✅ [FALLBACK] HTTP scraper inserted ${fallbackCount} matches.`);
+        } catch (fbErr) {
+            console.error('❌ [FALLBACK] HTTP fallback also failed:', fbErr.message);
+        }
     } finally {
         await redisCache.redis?.del('scraper:lock').catch(() => {});
     }

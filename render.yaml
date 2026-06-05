@@ -1,10 +1,9 @@
 services:
   - type: web
     name: prono
-    env: node
+    env: docker
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: node server.js
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: NODE_ENV
         value: production
@@ -16,3 +15,27 @@ services:
         sync: false
       - key: SERPAPI_API_KEY
         sync: false
+      - key: FOOTBALLDATA_ENABLED
+        value: "true"
+      - key: FOOTBALLDATA_KEY
+        sync: false
+      - key: FOOTBALLDATA_HOST
+        value: footballdata.io
+      - key: FOOTBALLDATA_DAILY_LIMIT
+        value: "20"
+      - key: RAPIDAPI_ENABLED
+        value: "true"
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: RAPIDAPI_HOST
+        value: sportapi7.p.rapidapi.com
+      - key: RAPIDAPI_DAILY_LIMIT
+        value: "20"
+      - key: HTTP_SCRAPER_ENABLED
+        value: "true"
+      - key: PUPPETEER_SKIP_DOWNLOAD
+        value: "false"
+      - key: PUPPETEER_EXECUTABLE_PATH
+        sync: false
+      - key: VITE_API_URL
+        value: https://prono-l5e3.onrender.com

@@ -49,7 +49,6 @@
     "html2canvas": "^1.4.1",
     "input": "^1.0.1",
     "ioredis": "^5.9.3",
-    "isomorphic-git": "^1.38.4",
     "lucide-react": "^0.575.0",
     "node-cron": "^4.2.1",
     "node-notifier": "^10.0.1",

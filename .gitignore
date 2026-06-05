@@ -68,3 +68,13 @@ coverage/
 !index.html
 dist/
 .github/
+
+# package managers
+bun.lock
+bun.lockb
+pnpm-lock.yaml
+yarn.lock
+
+# scratch debug scripts
+scratch/
+scratch

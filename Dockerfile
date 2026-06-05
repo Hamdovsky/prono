@@ -12,12 +12,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install
 
 COPY . .
 
 # Build frontend
 RUN npm run build
+
+# Prune dev deps after build to shrink image
+RUN npm prune --omit=dev
 
 # Environment variables
 ENV NODE_ENV=production

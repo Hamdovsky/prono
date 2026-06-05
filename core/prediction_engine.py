@@ -42,7 +42,7 @@ def _safe_float(val, default=0.0):
     try:
         if val is None or str(val).lower() in ['none', 'null', '', 'nan']: return float(default)
         return float(val)
-    except:
+    except Exception:
         return float(default)
 
 def _f_feat(key, source, default=0.0):
@@ -53,7 +53,7 @@ def _f_feat(key, source, default=0.0):
         else:
             val = getattr(source, key, default)
         return _safe_float(val, default)
-    except:
+    except Exception:
         return float(default)
 
 # --- CACHE FOR STATISTICAL LOOKUPS ---
@@ -158,7 +158,7 @@ def find_twin_matches(odds_h, odds_d, odds_a, xg_gap):
             if (sh + sa) > 2.5: results['over25'] += 1
             
         return results
-    except:
+    except Exception:
         return None
 
 def calculate_h2h_dominance(h_hist, a_hist, home_name, away_name):
@@ -324,11 +324,11 @@ def simulate_match_mc(model, base_features, num_simulations=500, feature_names=N
         if X_base[i] != 0 and X_base[i] != 1: # Only noise non-binary
             X_simulated[:, i] *= (1.0 + noise_matrix[:, i])
     
-        # [V80] CRISIS MODE: If many key players are missing, the match becomes extremely unpredictable.
-        if (injury_impact[0] > 6.0 or injury_impact[1] > 6.0) and num_simulations < 1000:
-            # Automatic boost in simulations for higher precision in crisis
-            num_simulations = 1000
-            rng = np.random.default_rng(seed=match_seed + 1) # re-seed for extra entropy
+    # [V80] CRISIS MODE: If many key players are missing, the match becomes extremely unpredictable.
+    if (injury_impact[0] > 6.0 or injury_impact[1] > 6.0) and num_simulations < 1000:
+        # Automatic boost in simulations for higher precision in crisis
+        num_simulations = 1000
+        rng = np.random.default_rng(seed=match_seed + 1) # re-seed for extra entropy
         
     fn = feature_names if feature_names and len(feature_names) == X_simulated.shape[1] else None
     xgb = get_xgb()
@@ -455,7 +455,7 @@ def generate_strategic_brief(features, home_name, away_name, selection, match_ob
         else: brief += "Conclusion : Neutralisation tactique attendue dans l'entrejeu."
         
         return brief
-    except:
+    except Exception:
         return "Analyse tactique complexe : Équilibre des forces en présence avec variables multiples."
 
 # --- MODELS AND SCALERS CACHE ---
@@ -483,7 +483,7 @@ def load_elo_ratings():
         try:
             with open(ELO_PATH, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except: return {}
+        except Exception: return {}
     return {}
 
 ELO_DATA = load_elo_ratings()
@@ -498,7 +498,7 @@ def get_db_connection():
         try:
             _DB_CONN = sqlite3.connect(DB_ARCHIVE_PATH, check_same_thread=False)
             _DB_CONN.row_factory = sqlite3.Row
-        except: return None
+        except Exception: return None
     return _DB_CONN
 
 def get_tactical_connection():
@@ -507,7 +507,7 @@ def get_tactical_connection():
         try:
             _TACTICAL_CONN = sqlite3.connect(TACTICAL_DB_PATH, check_same_thread=False)
             _TACTICAL_CONN.row_factory = sqlite3.Row
-        except: return None
+        except Exception: return None
     return _TACTICAL_CONN
 
 # AI Boosters (Lazy Loaded)
@@ -547,7 +547,7 @@ def get_corners_model():
             xgb = get_xgb()
             _CORNERS_MODEL = xgb.Booster()
             _CORNERS_MODEL.load_model(CORNERS_MODEL_PATH)
-        except: pass
+        except Exception: pass
     return _CORNERS_MODEL
 
 def get_cards_model():
@@ -557,7 +557,7 @@ def get_cards_model():
             xgb = get_xgb()
             _CARDS_MODEL = xgb.Booster()
             _CARDS_MODEL.load_model(CARDS_MODEL_PATH)
-        except: pass
+        except Exception: pass
     return _CARDS_MODEL
 
 # SHAP EXPLAINER DISABLED
@@ -686,7 +686,7 @@ def get_league_home_advantage(league_name):
             # Ratio of home superiority
             _LEAGUE_HA_CACHE[league_name] = float(res['avg_h'] / res['avg_a'])
             return _LEAGUE_HA_CACHE[league_name]
-    except: pass
+    except Exception: pass
     return 1.15 # Fallback to standard 15%
 
 def get_h2h_modifier(home_name, away_name):
@@ -717,7 +717,7 @@ def get_h2h_modifier(home_name, away_name):
         # If one team dominates (>70% points), apply modifier
         if win_rate > 0.7: return 1.15, 0.85 # Strong H2H edge
         if win_rate < 0.3: return 0.85, 1.15 # Strong H2H disadvantage
-    except: pass
+    except Exception: pass
     return 1.0, 1.0
 
 # --- V50: Advanced Algorithmic Concepts ---
@@ -1051,7 +1051,7 @@ def apply_live_event_adjustment(match_obj, p_h, p_d, p_a):
     stats_raw = match_obj.get('stats_blob', '[]')
     if isinstance(stats_raw, str):
         try: stats = json.loads(stats_raw)
-        except: stats = []
+        except Exception: stats = []
     else: stats = stats_raw
     
     red_h = 0
@@ -1103,13 +1103,13 @@ def get_historical_patterns(home_team, away_team, match_month):
                 try:
                     pat_month = int(ptype.split('_')[-1])
                     if pat_month == int(match_month): is_valid = True
-                except: pass
+                except Exception: pass
             else: is_valid = True
             if is_valid:
                 if name == home_team: home_pattern = dict(r)
                 elif name == away_team: away_pattern = dict(r)
         return home_pattern, away_pattern
-    except: return None, None
+    except Exception: return None, None
 
 def apply_gap_learning_weight(prob_dict, league_name):
     """Refines probabilities based on historical performance in this specific league."""
@@ -1137,7 +1137,7 @@ def apply_gap_learning_weight(prob_dict, league_name):
             prob_dict[min_key] += discount
             return prob_dict, penalty_strength
             
-    except: pass
+    except Exception: pass
     return prob_dict, 0.0
 
 def process_prediction(match_obj: dict) -> dict:
@@ -1270,7 +1270,7 @@ def process_prediction(match_obj: dict) -> dict:
         ts = int(match_obj.get('startTimestamp', 0))
         import datetime
         match_month = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).month if ts > 0 else datetime.datetime.now().month
-    except: match_month = datetime.datetime.now().month
+    except Exception: match_month = datetime.datetime.now().month
 
     # 1. Base xG — prioritize match-specific data over generic ELO
     # Source 1: Pre-computed home_xg / away_xg from the match object
@@ -1281,7 +1281,7 @@ def process_prediction(match_obj: dict) -> dict:
     team_stats = match_obj.get('teamStats') or {}
     if isinstance(team_stats, str):
         try: team_stats = json.loads(team_stats)
-        except: team_stats = {}
+        except Exception: team_stats = {}
     if not isinstance(team_stats, dict): team_stats = {}
     h_stats = team_stats.get('home') or {}
     a_stats = team_stats.get('away') or {}
@@ -1339,7 +1339,7 @@ def process_prediction(match_obj: dict) -> dict:
     news_data = match_obj.get('news_data')
     if isinstance(news_data, str):
         try: news_data = json.loads(news_data)
-        except: news_data = {}
+        except Exception: news_data = {}
     
     # [TITANIUM V19 NOISE FILTER] Only quantified data is allowed to influence xG.
     # Weather, squad rotations and unquantified news sentiment are DISABLED.
@@ -1550,6 +1550,7 @@ def process_prediction(match_obj: dict) -> dict:
     if odds_drop_a > 5.0: p_a_poi *= (1.0 + (odds_drop_a / 100.0))
 
     # --- Pre-inference: Run Top Analyst Engine to populate ta_* features ---
+    _ta_result = {}
     try:
         _ta_result = process_match_for_top_analyst(match_obj)
         _ta_feats = _ta_result.get('ml_features', {})
@@ -1824,7 +1825,7 @@ def process_prediction(match_obj: dict) -> dict:
     if " - " in expected_score:
         try:
             gh, ga = map(int, expected_score.split(" - "))
-        except: pass
+        except Exception: pass
 
     # --- TITANIUM V19 FINAL: Forced Draw Veto Protocol ---
     attack_h = features.get('home_possession', 50) + (xg_h * 15)
@@ -2087,7 +2088,7 @@ def process_prediction(match_obj: dict) -> dict:
             if val is None: return float(default)
             if str(val).lower() in ['none', 'null', '', 'nan']: return float(default)
             return float(val)
-        except:
+        except Exception:
             return float(default)
 
     # Pre-load all critical metrics with safe fallbacks
@@ -2101,10 +2102,7 @@ def process_prediction(match_obj: dict) -> dict:
     news_impact = _sanitize('news_impact', 0.0)
     
     # 7. Confidence Calibration (Scientific Variance)
-    safe_sel_p = _sanitize('selection_prob', 0.5) 
-    # If selection_prob was passed in locals but not in match_obj
-    if safe_sel_p == 0.5 and 'selection_prob' in locals():
-        safe_sel_p = _sanitize('selection_prob', 0.5) # Re-check
+    safe_sel_p = _safe_float(selection_prob, 0.5)
     
     temp_win_prob = safe_sel_p / 100 if safe_sel_p > 1 else safe_sel_p
     temp_odds = odds_h if selection == "Home" else (odds_a if selection == "Away" else odds_d)
@@ -2114,8 +2112,8 @@ def process_prediction(match_obj: dict) -> dict:
     confidence = safe_sel_p * 100
     
     # 7.1 Relaxed penalty for tactical parity
-    p_h_val = _sanitize('p_h', 0.33)
-    p_a_val = _sanitize('p_a', 0.33)
+    p_h_val = _safe_float(p_h, 0.33)
+    p_a_val = _safe_float(p_a, 0.33)
     if abs(p_h_val - p_a_val) < 0.05:
         confidence *= 0.95 
         
@@ -2128,21 +2126,21 @@ def process_prediction(match_obj: dict) -> dict:
         signal_bonus = 0
         if news_impact > 0.1: signal_bonus += 2
         if is_value_bet: signal_bonus += 3
-        if _sanitize('style_h_mod', 1.0) > 1.05 or _sanitize('style_a_mod', 1.0) > 1.05: signal_bonus += 2
+        if _safe_float(style_h_mod, 1.0) > 1.05 or _safe_float(style_a_mod, 1.0) > 1.05: signal_bonus += 2
 
         confidence = max(confidence, calibrated_base + signal_bonus)
     
     # 7.4 V25 Motivation Level Filter (10% Weight)
     # Applied to confidence to reflect the stakes of the match
-    mot_factor = _sanitize('motivation_context', 1.0)
+    mot_factor = features.get('motivation_context', 1.0)
     if mot_factor != 1.0:
         # Scale: 1.5 motivation -> +5% boost, 0.6 motivation -> -10% penalty
         confidence *= (1.0 + (mot_factor - 1.0) * 0.1)
 
     # 7.5 V26 Reliability Index (Elite Verification)
-    completeness = _sanitize('data_completeness', 50.0)
-    liquidity = _sanitize('liquidity_index', 0.5)
-    confirmed = _sanitize('v26_lineups_confirmed', 0.0)
+    completeness = features.get('data_completeness', 50.0)
+    liquidity = features.get('liquidity_index', 0.5)
+    confirmed = features.get('v26_lineups_confirmed', 0.0)
     
     # Equation: 30% Completeness + 10% Liquidity + 60% Confirmed Lineups
     # If lineups are NOT confirmed, total reliability is capped at 45% (Uncertainty Clause)
@@ -2153,7 +2151,7 @@ def process_prediction(match_obj: dict) -> dict:
         reliability_index = min(45.0, reliability_index)
     
     # 7.6 Tactical Integrity Sentinel (Market Trap Detector)
-    mom_trend = _sanitize('v26_momentum_trend', 0.0)
+    mom_trend = features.get('v26_momentum_trend', 0.0)
     # Odds Drop Check
     odds_drop_h = (odds_h_open - odds_h) / odds_h_open if odds_h_open > 0 else 0
     odds_drop_a = (odds_a_open - odds_a) / odds_a_open if odds_a_open > 0 else 0
@@ -2161,7 +2159,7 @@ def process_prediction(match_obj: dict) -> dict:
     # TRAP A: Home Odds dropping (>15%) but momentum is favoring Away (< -10)
     if odds_drop_h > 0.15 and mom_trend < -10:
         confidence *= 0.85
-        analysis.append("⚠️ V26 ALERT: Piège de marché détecté. Chute de cote Home sans pression offensive.")
+        analysis["Trap_A"] = "⚠️ V26 ALERT: Piège de marché détecté. Chute de cote Home sans pression offensive."
         
     # TRAP B: Away Odds dropping (>15%) but momentum is favoring Home (> 10)
     if odds_drop_a > 0.15 and mom_trend > 10:
@@ -2267,7 +2265,7 @@ def process_prediction(match_obj: dict) -> dict:
             p_eh = (math.pow(xg_h, eh) * math.exp(-xg_h)) / math.factorial(eh)
             p_ea = (math.pow(xg_a, ea) * math.exp(-xg_a)) / math.factorial(ea)
             cs_predictions.insert(0, {"score": expected_score, "prob": round(p_eh * p_ea * 100, 1)})
-        except: pass
+        except Exception: pass
     
     # Ensure uniqueness and top 3
     seen = set()
@@ -2448,7 +2446,7 @@ def process_prediction(match_obj: dict) -> dict:
 
     # [TITANIUM V52.2] Relaxed Friendly Threshold
     # Friendlies often lack depth data; we lower the bar to 5% to ensure they get predicted
-    data_completeness_score = _f_feat('data_completeness', 50.0)
+    data_completeness_score = features.get('data_completeness', 50.0)
     tournament_tag = str(match_obj.get('league', '')).lower()
     is_friendly_match = any(x in tournament_tag for x in ['friendly', 'amical', 'world', 'international'])
     comp_threshold = 5.0 if is_friendly_match else 20.0
@@ -2466,35 +2464,6 @@ def process_prediction(match_obj: dict) -> dict:
     if effective_confidence < 70.0 and is_elite_tier:
         zero_failure_veto = True
         analysis["Shield"] = f"🛡️ VETO ALPHA: Confiance < 70%."
-    
-    if risk_score >= 15: # Relaxed further
-        zero_failure_veto = True
-        analysis["Shield"] = f"🛡️ VETO SÉCURITÉ: Risque critique ({risk_score})."
-        
-    if reliability_index < 25.0: # Minimum data threshold
-        zero_failure_veto = True
-        analysis["Shield"] = "🛡️ VETO DONNÉES: Manque de profondeur."
-
-    if zero_failure_veto and not match_obj.get('force_predict'):
-        no_bet = True
-        verdict = "NO BET (SHIELDED)"
-        selection = "No Bet"
-        selection_label = "No Bet"
-        # Reset confidence to indicate no safe play found
-        confidence = 0
-        precision_bets = [] 
-    
-    if data_completeness_score < comp_threshold:
-        # Extremely low data → No Bet
-        no_bet = True
-        verdict = "NO BET"
-        selection = "No Bet"
-        selection_label = "No Bet"
-    # [FIX] Removed UNDER ANALYSIS block — all matches with sufficient data get a real prediction.
-    # Data between 20-30% is enough for xG/Monte Carlo to produce a valid score and verdict.
-
-    # [TITANIUM V19 FINAL] Power Score: 90% historical xG weight + 10% composite attack boost
-    power_score = round(max(50, (_safe_float(xg_h, 1.2) * 15 * 0.90) + (_safe_float(h_composite_attack, 0.5) * 15 * 0.10) + 50), 1)
 
     # --- V80 MATCH INTEGRITY & RISK DETECTION ---
     risk_score = 0
@@ -2538,6 +2507,35 @@ def process_prediction(match_obj: dict) -> dict:
     # Rule 7: Frontend Flags Mapping
     is_suspicious_flag = bool(risk_score >= 8)
     is_safe_bet_flag = bool(confidence > 80.0 and league_tier == 'T1' and risk_score < 3)
+
+    if risk_score >= 15: # Relaxed further
+        zero_failure_veto = True
+        analysis["Shield"] = f"🛡️ VETO SÉCURITÉ: Risque critique ({risk_score})."
+        
+    if reliability_index < 25.0: # Minimum data threshold
+        zero_failure_veto = True
+        analysis["Shield"] = "🛡️ VETO DONNÉES: Manque de profondeur."
+
+    if zero_failure_veto and not match_obj.get('force_predict'):
+        no_bet = True
+        verdict = "NO BET (SHIELDED)"
+        selection = "No Bet"
+        selection_label = "No Bet"
+        # Reset confidence to indicate no safe play found
+        confidence = 0
+        precision_bets = [] 
+    
+    if data_completeness_score < comp_threshold:
+        # Extremely low data → No Bet
+        no_bet = True
+        verdict = "NO BET"
+        selection = "No Bet"
+        selection_label = "No Bet"
+    # [FIX] Removed UNDER ANALYSIS block — all matches with sufficient data get a real prediction.
+    # Data between 20-30% is enough for xG/Monte Carlo to produce a valid score and verdict.
+
+    # [TITANIUM V19 FINAL] Power Score: 90% historical xG weight + 10% composite attack boost
+    power_score = round(max(50, (_safe_float(xg_h, 1.2) * 15 * 0.90) + (_safe_float(h_composite_attack, 0.5) * 15 * 0.10) + 50), 1)
 
     # 🛑 TIERED CONFIDENCE PRE-MATCH FILTER
     # Elite/T1: Relaxed 45% | Tier 2 / UNKNOWN: 35% | Tier 3/Suspicious: 0% (Allow UI warning)

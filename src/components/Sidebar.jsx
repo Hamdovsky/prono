@@ -76,7 +76,8 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
     const pinnedWithCounts = PINNED_LEAGUES.map(pinned => {
         let count = 0;
         Object.keys(activeCounts).forEach(activeLeagueName => {
-            if (pinned.keywords.some(kw => activeLeagueName.includes(kw))) {
+            const isMena = MENA_LEAGUES.some(mena => mena.keywords.some(kw => activeLeagueName.includes(kw)));
+            if (!isMena && pinned.keywords.some(kw => activeLeagueName.includes(kw))) {
                 count += activeCounts[activeLeagueName];
             }
         });

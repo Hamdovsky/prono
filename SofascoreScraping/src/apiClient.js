@@ -77,9 +77,10 @@ async function getBrowser() {
         puppeteer.use(StealthPlugin());
 
         console.log(`🤖 [Puppeteer] Launching persistent stealth browser (PAGE POOL MODE)...`);
-        globalBrowser = await puppeteer.launch({
-            headless: true, // 🚀 Uses the modern "New Headless" engine
-            protocolTimeout: 120000, // 🛡️ Prevent Runtime.callFunctionOn timeout
+        const chromePath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH;
+        const launchOpts = {
+            headless: true,
+            protocolTimeout: 120000,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -90,7 +91,9 @@ async function getBrowser() {
                 '--disable-gpu',
                 '--disable-dev-shm-usage'
             ]
-        });
+        };
+        if (chromePath) launchOpts.executablePath = chromePath;
+        globalBrowser = await puppeteer.launch(launchOpts);
         
         // Initialize pool
         for (let i = 0; i < MAX_PAGES; i++) {
@@ -308,6 +311,18 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
     return limiter.schedule(async () => {
         let lastError = null;
         
+        // 🚀 [RAPIDAPI REWRITE] Proxy requests through RapidAPI if enabled
+        if (process.env.RAPIDAPI_ENABLED === 'true' && process.env.RAPIDAPI_KEY) {
+            const rapidHost = process.env.RAPIDAPI_HOST || 'sportapi7.p.rapidapi.com';
+            const rapidKey = process.env.RAPIDAPI_KEY;
+            url = url.replace('https://www.sofascore.com/api/v1', `https://${rapidHost}/api/v1`);
+            options.headers = {
+                ...options.headers,
+                'x-rapidapi-host': rapidHost,
+                'x-rapidapi-key': rapidKey
+            };
+        }
+        
         // Dynamic Referer based on endpoint
         let referer = 'https://www.sofascore.com/';
         if (url.includes('/event/')) {
@@ -378,6 +393,12 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
                 const status = e.response?.status;
                 
                 if (status === 403 || status === 429) {
+                    // Check if it's RapidAPI telling us we are out of quota
+                    if (process.env.RAPIDAPI_ENABLED === 'true') {
+                        console.error(`🚨 [apiClient] RapidAPI returned ${status}. Quota might be exhausted!`);
+                        throw new Error('RAPIDAPI_EXHAUSTED');
+                    }
+
                     // 🛡️ [OPTIMIZATION] Skip Puppeteer for non-critical player stats to prevent hangs
                     if (url.includes('/player/') && url.includes('/statistics')) {
                         console.warn(`🛡️ [apiClient] 403 on non-critical Player Stats. Skipping Puppeteer bypass to save time.`);

@@ -3,7 +3,7 @@ const path = require('path');
 const axios = require('axios');
 
 // 🛡️ CONFIGURATION TITANIUM
-const BOT_TOKEN = '6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = '5637790630'; // Default Chat ID
 const dbPath = path.join(__dirname, '..', 'data', 'tactical.db');
 
@@ -300,3 +300,4 @@ async function runSurgicalAnalysis() {
 }
 
 runSurgicalAnalysis();
+

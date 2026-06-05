@@ -1,5 +1,5 @@
 const axios = require('axios');
-const BOT_TOKEN = '6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 async function findId() {
     console.log("🔍 En attente d'un message sur votre Bot Telegram...");
@@ -29,3 +29,4 @@ async function findId() {
 }
 
 findId();
+

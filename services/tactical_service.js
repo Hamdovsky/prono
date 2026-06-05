@@ -24,7 +24,7 @@ class TacticalService {
                     timeout: 90000, // 90s for heavy JIT batches / queue wait
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${process.env.API_SECRET_KEY || 'Matrix22!'}`
+                        'Authorization': `Bearer ${process.env.API_SECRET_KEY}`
                     }
                 });
                 if (response.data && response.data.success !== false) {

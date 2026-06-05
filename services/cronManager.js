@@ -183,9 +183,38 @@ class CronManager {
                 return isFuture && isStale;
             }).slice(0, 300); // 🚀 Increased from 50 to 300 to fulfill the "minimum 50" requirement across all markets
 
-            if (needsEnrichment.length > 0) {
-                logger.info(`🧠 [CRON] Enriching ${needsEnrichment.length} future matches...`);
-                const enriched = await enrichedPredictions.enrichMatches(needsEnrichment);
+            let filteredNeedsEnrichment = needsEnrichment;
+            if (process.env.RAPIDAPI_ENABLED === 'true') {
+                const rapidApiQuotaManager = require('./rapidApiQuotaManager');
+                const quotaStatus = rapidApiQuotaManager.getQuotaStatus();
+                
+                if (quotaStatus.remaining <= 0) {
+                    logger.warn('🛑 [CRON] Proactive enrichment skipped — RapidAPI quota is exhausted. Running FootballData.io fallback...');
+                    try {
+                        const footballDataService = require('./footballDataService');
+                        await footballDataService.processFallbackFixtures();
+                    } catch (fdErr) {
+                        logger.error(`❌ [CRON] FootballData fallback failed: ${fdErr.message}`);
+                    }
+                    return;
+                }
+                
+                // Keep only matches within the quota
+                filteredNeedsEnrichment = [];
+                for (const m of needsEnrichment) {
+                    if (rapidApiQuotaManager.canProcessMatch(m.id)) {
+                        rapidApiQuotaManager.registerMatch(m.id);
+                        filteredNeedsEnrichment.push(m);
+                    }
+                    if (filteredNeedsEnrichment.length >= quotaStatus.remaining) break;
+                }
+                
+                logger.info(`🧠 [CRON] RapidAPI active: filtered enrichment to ${filteredNeedsEnrichment.length} matches within remaining quota (${quotaStatus.remaining}).`);
+            }
+
+            if (filteredNeedsEnrichment.length > 0) {
+                logger.info(`🧠 [CRON] Enriching ${filteredNeedsEnrichment.length} future matches...`);
+                const enriched = await enrichedPredictions.enrichMatches(filteredNeedsEnrichment);
                 for (const m of enriched) {
                     await database.updatePredictions(m.id, m);
                 }

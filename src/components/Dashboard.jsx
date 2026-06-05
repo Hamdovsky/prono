@@ -228,8 +228,8 @@ const Dashboard = () => {
             if (['finished', 'ft', 'ended', 'closed', 'played', 'aet', 'pen', 'postponed', 'canceled'].includes(s)) return false;
             if (m.actualResult && m.actualResult !== 'N/A' && m.actualResult.trim() !== '') return false;
 
-            // Remove matches that started more than 2.5 hours ago (9000000 ms) and are not marked as live
-            if (!isLive && matchTime > 0 && matchTime < now - 9000000) return false;
+            // Remove matches that started more than 12 hours ago (to avoid stale matches), but keep today's matches visible
+            if (!isLive && matchTime > 0 && matchTime < now - (12 * 60 * 60 * 1000) && matchDayStr !== todayStr) return false;
 
             return true;
         });
@@ -286,13 +286,14 @@ const Dashboard = () => {
                         letterSpacing: '0.8px',
                         background: 'rgba(0,0,0,0.3)'
                     }}>
-                        <div style={{width:"22%", minWidth: "220px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
-                        <div style={{width:"18%", minWidth: "180px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
-                        <div style={{width:"10%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / HT</div>
-                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>MARKET (BTTS/O2.5)</div>
-                        <div style={{width:"14%", minWidth: "130px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
-                        <div style={{width:"12%", minWidth: "120px", padding:"0 14px", textAlign: 'center'}}>SIGNAL & EV SCORE</div>
-                        <div style={{width:"12%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>STRENGTH</div>
+                        <div style={{width:"20%", minWidth: "180px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
+                        <div style={{width:"16%", minWidth: "160px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
+                        <div style={{width:"8%", minWidth: "80px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / FT</div>
+                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>BTTS</div>
+                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>MARKET (O2.5/TG)</div>
+                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
+                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>SIGNAL & EV SCORE</div>
+                        <div style={{width:"12%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>STRENGTH</div>
                     </div>
                     <div style={{ height: virtualHeight }}>
                         <List
@@ -517,11 +518,12 @@ const Dashboard = () => {
                     background: 'rgba(15, 23, 42, 0.6)',
                     borderRadius: '12px',
                     border: '1px solid #1e293b',
-                    overflow: 'hidden'
+                    overflowX: 'auto'
                 }}>
                     {/* TABLE HEADER */}
                     <div style={{
                         display: 'flex',
+                        minWidth: '1200px',
                         borderBottom: '2px solid #1e293b',
                         padding: '8px 0',
                         fontSize: '11px',
@@ -531,13 +533,14 @@ const Dashboard = () => {
                         letterSpacing: '0.8px',
                         background: 'rgba(0,0,0,0.3)'
                     }}>
-                        <div style={{width:"22%", minWidth: "220px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
-                        <div style={{width:"18%", minWidth: "180px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
-                        <div style={{width:"10%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / HT</div>
-                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>MARKET (BTTS/O2.5)</div>
-                        <div style={{width:"14%", minWidth: "130px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
-                        <div style={{width:"12%", minWidth: "120px", padding:"0 14px", textAlign: 'center'}}>SIGNAL & EV SCORE</div>
-                        <div style={{width:"12%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>STRENGTH</div>
+                        <div style={{width:"20%", minWidth: "180px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
+                        <div style={{width:"16%", minWidth: "160px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
+                        <div style={{width:"8%", minWidth: "80px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / FT</div>
+                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>BTTS</div>
+                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>MARKET (O2.5/TG)</div>
+                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
+                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>SIGNAL & EV SCORE</div>
+                        <div style={{width:"12%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>STRENGTH</div>
                     </div>
 
                     <List

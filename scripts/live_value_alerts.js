@@ -5,7 +5,7 @@ const fs = require('fs');
 const { SofaAPI } = require('../SofascoreScraping/src/apiClient');
 
 // 🛡️ CONFIGURATION TITANIUM
-const BOT_TOKEN = '6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = '5637790630';
 const dbPath = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/tactical.db');
 const LOG_FILE = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/live_value_alerts.log');
@@ -446,3 +446,4 @@ async function loop() {
 }
 
 loop();
+

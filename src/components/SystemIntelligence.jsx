@@ -48,7 +48,7 @@ const SystemIntelligence = () => {
 
     const updateStrategy = async (strategy) => {
         try {
-            const token = localStorage.getItem('admin_token') || 'Matrix22!';
+            const token = localStorage.getItem('admin_token');
             const res = await fetch('/api/config', {
                 method: 'POST',
                 headers: { 

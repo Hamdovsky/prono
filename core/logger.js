@@ -4,7 +4,7 @@ const path = require('path');
 
 class Logger {
     constructor() {
-        this.logDir = path.join(__dirname, 'logs');
+        this.logDir = path.join(__dirname, '..', 'logs');
         if (!fs.existsSync(this.logDir)) {
             fs.mkdirSync(this.logDir, { recursive: true });
         }

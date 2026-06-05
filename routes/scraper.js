@@ -35,11 +35,16 @@ async function getBrowser() {
     stealth.enabledEvasions.delete('media.codecs');
     puppeteer.use(stealth);
 
-    const paths = [
+    const chromeEnv = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH;
+    const paths = chromeEnv ? [chromeEnv] : [
         'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
         'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
         'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
     ];
     let executablePath;
     for (const p of paths) {
@@ -129,6 +134,23 @@ router.post('/scan-today', async (req, res) => {
         res.json({ success: true, message: 'Scan started in background' });
     } catch (e) {
         console.error('[SCAN-TODAY ERROR]', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * POST /api/http-scan
+ * Triggers HTTP-only API scan (no Puppeteer needed).
+ */
+router.post('/http-scan', async (req, res) => {
+    try {
+        console.log('⚡ [API] Triggering HTTP-only API scan...');
+        const httpScraperService = require('../services/httpScraperService');
+        const date = req.query.date || new Date().toISOString().split('T')[0];
+        const count = await httpScraperService.processFallback(date);
+        res.json({ success: true, message: `HTTP scan complete`, matchesInserted: count });
+    } catch (e) {
+        console.error('[HTTP-SCAN ERROR]', e.message);
         res.status(500).json({ error: e.message });
     }
 });

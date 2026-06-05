@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const pool = new Pool({ user: 'postgres', password: 'Matrix22!', host: 'localhost', port: 5432, database: 'postgres' });
+const pool = new Pool({ user: 'postgres', password: process.env.DB_PASSWORD || 'Matrix22!', host: 'localhost', port: 5432, database: 'postgres' });
 
 async function run() {
     try {

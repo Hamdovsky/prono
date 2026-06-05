@@ -29,9 +29,16 @@ yarn-error.log*
 /logs/*.json
 
 # databases
-# *.db
-# *.db-journal
-# *.sqlite
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Crash / dump files
+hs_err_pid*.log
+replay_pid*.log
+*.hprof
 
 # Editor folders
 .vscode
@@ -50,9 +57,6 @@ tmp
 # data/
 bin/
 coverage/
-# *.db
-# *.db-wal
-# *.sqlite
 *.pdb
 *.log
 *.png

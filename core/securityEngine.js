@@ -44,7 +44,11 @@ class SecurityEngine {
      */
     authenticate(req, res, next) {
         const authHeader = req.headers.authorization;
-        const secretKey = process.env.API_SECRET_KEY || 'Matrix22!';
+        const secretKey = process.env.API_SECRET_KEY;
+        if (!secretKey) {
+            logger.error('[SECURITY] API_SECRET_KEY is not defined in .env');
+            return res.status(500).json({ error: 'Server configuration error' });
+        }
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             logger.warn(`🚫 [SECURITY] Unauthorized attempt to ${req.url} from ${req.ip}`);

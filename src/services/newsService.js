@@ -31,7 +31,7 @@ async function callPythonSentiment(headlines, retryCount = 0) {
             timeout: 15000, // Sufficient for batch analysis in workers
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.API_SECRET_KEY || 'Matrix22!'}`
+                'Authorization': `Bearer ${process.env.API_SECRET_KEY}`
             }
         });
 

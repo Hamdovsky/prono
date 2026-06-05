@@ -155,16 +155,7 @@ function initSchema() {
                 UNIQUE(match_id, prediction_type)
             );
 
-            CREATE TABLE IF NOT EXISTS odds_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                match_id TEXT,
-                odds_home REAL,
-                odds_draw REAL,
-                odds_away REAL,
-                type TEXT, -- OPENING, LIVE, CLOSING
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
+            -- Full odds_history with minute tracking created below in second batch
             CREATE TABLE IF NOT EXISTS quant_performance (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 match_id TEXT,
@@ -503,7 +494,7 @@ const database = {
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?
+                    ?, ?
                 ) ON CONFLICT (id) DO UPDATE SET 
                     scoreHome = excluded.scoreHome, scoreAway = excluded.scoreAway,
                     minute = excluded.minute, status = excluded.status, 
@@ -562,19 +553,27 @@ const database = {
         }
     },
 
-    getMatchesByStatuses: async (statuses) => {
+    getMatchesByStatuses: async (statuses = []) => {
+        if (!Array.isArray(statuses) || statuses.length === 0) return [];
         try {
-            const placeholders = statuses.map(() => `?`).join(',');
+            const placeholders = statuses.map(() => '?').join(',');
             const res = db.prepare(`SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC`).all(statuses);
             return res.map(r => {
                 try {
                     const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
-                    return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league };
+                    return { 
+                        ...r, ...parsed, 
+                        id: r.id, 
+                        homeTeam: r.homeTeam || parsed.homeTeam, 
+                        awayTeam: r.awayTeam || parsed.awayTeam, 
+                        league: r.league || parsed.league,
+                        insufficient_data: r.insufficient_data
+                    };
                 } catch (e) { return r; }
             });
-        } catch (err) { 
-            logger.error(`SQLite getMatchesByStatuses error: ${err.message}`);
-            return []; 
+        } catch (e) {
+            logger.error(`[DB] getMatchesByStatuses failed: ${e.message}`);
+            return [];
         }
     },
 
@@ -915,29 +914,6 @@ const database = {
     },
     getUpcomingPredictions: async () => { return []; },
     insertPrediction: async (p) => { return p.id; },
-    getMatchesByStatuses: async (statuses = []) => {
-        if (!Array.isArray(statuses) || statuses.length === 0) return [];
-        try {
-            const placeholders = statuses.map(() => '?').join(',');
-            const res = db.prepare(`SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC`).all(statuses);
-            return res.map(r => {
-                try {
-                    const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
-                    return { 
-                        ...r, ...parsed, 
-                        id: r.id, 
-                        homeTeam: r.homeTeam || parsed.homeTeam, 
-                        awayTeam: r.awayTeam || parsed.awayTeam, 
-                        league: r.league || parsed.league,
-                        insufficient_data: r.insufficient_data // Map SQLite column
-                    };
-                } catch (e) { return r; }
-            });
-        } catch (e) {
-            logger.error(`[DB] getMatchesByStatuses failed: ${e.message}`);
-            return [];
-        }
-    },
     getMatchesByStatus: async (status) => {
         const parsedStatus = status === 'live' ? 'live' : (status === 'scheduled' ? 'scheduled' : status);
         const res = db.prepare(`SELECT * FROM matches WHERE status = ? ORDER BY timestamp ASC`).all(parsedStatus);

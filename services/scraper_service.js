@@ -6,7 +6,11 @@ const LIVE_POLL_INTERVAL_MS = 10000;
 class ScraperMicroservice {
     constructor() {
         this.pool = new Pool({
-            user: 'postgres', password: 'Matrix22!', host: 'localhost', port: 5432, database: 'postgres',
+            user: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASSWORD || 'Matrix22!',
+            host: process.env.DB_HOST || 'localhost',
+            port: parseInt(process.env.DB_PORT) || 5432,
+            database: process.env.DB_NAME || 'postgres',
             max: 5, idleTimeoutMillis: 30000
         });
         this.isRunning = false;

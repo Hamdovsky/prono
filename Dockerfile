@@ -1,17 +1,18 @@
-FROM node:20-slim
+FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Install system dependencies for SQLite (Chromium removed for Render free tier — 512MB limit)
+# Only native build deps needed (g++/make for better-sqlite3)
 RUN apt-get update && apt-get install -y \
-    python3 \
     make \
     g++ \
-    libsqlite3-dev \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
+
+# Prevent Chromium download (saves ~400MB on free tier)
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN npm install
 
 COPY . .
@@ -19,11 +20,19 @@ COPY . .
 # Build frontend
 RUN npm run build
 
-# Prune dev deps after build to shrink image
+# Prune dev deps to reduce size
 RUN npm prune --omit=dev
 
-# Environment variables
+# ── Runtime stage ──
+FROM node:20-slim
+
+WORKDIR /app
+
+# Runtime only: minimal image (build deps in build stage)
+COPY --from=build /app /app
+
 ENV NODE_ENV=production
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 EXPOSE 3001
 

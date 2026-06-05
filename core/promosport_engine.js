@@ -169,6 +169,12 @@ function generateGridsWithStrategicCoverage(enrichedMatches) {
         id: m.id,
         home: m.homeTeam,
         away: m.awayTeam,
+        p1: m.p1,
+        px: m.px,
+        p2: m.p2,
+        entropy: m.entropy,
+        confidence: m.confidence,
+        isCrowdTrap: m.isCrowdTrap,
         choices: choices,
         intel: m.intel,
         brief: m.tacticalBrief,
@@ -191,4 +197,88 @@ function generateGridsWithStrategicCoverage(enrichedMatches) {
   return grids;
 }
 
-module.exports = { generatePromosportGrids };
+/**
+ * Generate a GOLD Coupon (6 doubles, 7 singles) from Promosport matches.
+ * Uses entropy + crowd trap detection + ML confidence to pick the best 6 doubles
+ * that cover surprises while keeping 7 safe singles as bankers.
+ */
+function generateGoldCoupon(enrichedMatches) {
+  if (!enrichedMatches || enrichedMatches.length !== 13) return null
+
+  // Rank matches: higher uncertainty → more likely to be a double
+  const ranked = [...enrichedMatches]
+    .map(m => ({
+      ...m,
+      uncertaintyScore: m.entropy + (m.isCrowdTrap ? 2.0 : 0) - (m.confidence / 100) * 0.5
+    }))
+    .sort((a, b) => b.uncertaintyScore - a.uncertaintyScore)
+
+  // Top 6 uncertain → doubles, bottom 7 → singles
+  const doubleMatches = ranked.slice(0, 6)
+  const singleMatches = ranked.slice(6)
+
+  function pickBestDouble(m) {
+    const probs = [
+      { v: '1', p: m.p1 },
+      { v: 'X', p: m.px },
+      { v: '2', p: m.p2 }
+    ].sort((a, b) => b.p - a.p)
+
+    // If crowd trap detected, double on the non-obvious side
+    if (m.isCrowdTrap) {
+      const crowdFav = m.homeWinProbability > 0.4 ? '1' : (m.awayWinProbability > 0.4 ? '2' : 'X')
+      const remaining = probs.filter(x => x.v !== crowdFav).sort((a, b) => b.p - a.p)
+      return [probs[0].v, remaining[0].v].sort(byOrder)
+    }
+
+    // If one outcome dominates (>60%), cover the other two
+    if (probs[0].p > 0.60) {
+      return [probs[1].v, probs[2].v].sort(byOrder)
+    }
+
+    // Best pair = highest + second highest prob
+    return [probs[0].v, probs[1].v].sort(byOrder)
+  }
+
+  function pickBestSingle(m) {
+    const probs = [
+      { v: '1', p: m.p1 },
+      { v: 'X', p: m.px },
+      { v: '2', p: m.p2 }
+    ].sort((a, b) => b.p - a.p)
+    return [probs[0].v]
+  }
+
+  function byOrder(a, b) { return ({ '1': 0, 'X': 1, '2': 2 })[a] - ({ '1': 0, 'X': 1, '2': 2 })[b] }
+
+  const matches = enrichedMatches.map(m => {
+    const isDouble = doubleMatches.find(d => d.id === m.id)
+    const choices = isDouble ? pickBestDouble(m) : pickBestSingle(m)
+    return {
+      id: m.id,
+      home: m.homeTeam,
+      away: m.awayTeam,
+      type: isDouble ? 'DOUBLE' : 'SINGLE',
+      choices,
+      intel: m.intel,
+      brief: m.tacticalBrief,
+      entropy: m.entropy,
+      confidence: m.confidence,
+      isCrowdTrap: m.isCrowdTrap
+    }
+  })
+
+  return {
+    name: 'GOLD COUPON (6 DOUBLES)',
+    matches,
+    stats: {
+      totalDoubles: 6,
+      totalSingles: 7,
+      coverageIndex: ((6 * 2 + 7) / 13 * 100).toFixed(0) + '%',
+      avgConfidence: (enrichedMatches.reduce((acc, m) => acc + m.confidence, 0) / 13).toFixed(1),
+      surprises: enrichedMatches.filter(m => m.isCrowdTrap).length
+    }
+  }
+}
+
+module.exports = { generatePromosportGrids, generateGoldCoupon };

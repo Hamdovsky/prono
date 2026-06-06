@@ -17,14 +17,12 @@ RUN npm install
 
 COPY . .
 
+ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV REDISMS_DISABLE_POSTINSTALL=true
-ENV NODE_ENV=production
 
-# Build frontend
-RUN npm run build
-
-# Remove devDependencies to shrink image
+# Build frontend only if dist is missing (pre-built dist can be committed)
+RUN if [ ! -f dist/index.html ]; then npm run build; fi
 RUN npm prune --omit=dev
 
 EXPOSE 3001

@@ -1,9 +1,10 @@
 services:
   - type: web
     name: prono
-    env: docker
+    env: node
     plan: free
-    dockerfilePath: ./Dockerfile
+    buildCommand: npm install && npm run build
+    startCommand: node --max-old-space-size=256 server.js
     envVars:
       - key: NODE_ENV
         value: production

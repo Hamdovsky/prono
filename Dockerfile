@@ -2,12 +2,7 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Native build deps for better-sqlite3
-RUN apt-get update && apt-get install -y \
-    python3 make g++ \
-    --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
+# Prebuilt binaries only — no g++/make/python3 needed for better-sqlite3
 COPY package*.json ./
 
 # CRITICAL: skip Chromium (400MB) and Redis binary downloads

@@ -39,4 +39,4 @@ services:
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "true"
       - key: VITE_API_URL
-        value: https://prono-l5e3.onrender.com
+        value: https://prono-k6gc.onrender.com

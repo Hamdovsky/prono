@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 // Detect platform and environment
 const isNative = Capacitor.isNativePlatform();
 
-const PRODUCTION_API_URL = 'https://prono-l5e3.onrender.com';
+const PRODUCTION_API_URL = 'https://prono-k6gc.onrender.com';
 
 // API Base URL Configuration
 // Detect local dev: if serving from localhost, use same-origin (no prefix)

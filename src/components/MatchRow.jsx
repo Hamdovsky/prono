@@ -370,7 +370,9 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
     }
 
     const domProb  = Math.max(hPct, aPct);
-    const hasOdds  = !!(match.odds_home && match.odds_away);
+    const displayOddsH = match.display_odds_home || match.best_odds_home || match.odds_home;
+    const displayOddsA = match.display_odds_away || match.best_odds_away || match.odds_away;
+    const hasOdds  = !!(displayOddsH && displayOddsA);
     const hasForm  = !!(match.home_form_pts || match.away_form_pts);
     const hasStats = !!(match.ou_25_prob  || match.btts_prob);
     const dataBonus = (hasOdds ? 2 : 0) + (hasForm ? 2 : 0) + (hasStats ? 2 : 0);
@@ -401,8 +403,8 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
     }
 
     const fixedMatchScore = [];
-    const oddsH = parseFloat(match.odds_home || 0);
-    const oddsA = parseFloat(match.odds_away || 0);
+    const oddsH = parseFloat(displayOddsH || 0);
+    const oddsA = parseFloat(displayOddsA || 0);
     if (hPct > 65 && oddsH > 2.8) fixedMatchScore.push(30);
     if (aPct > 65 && oddsA > 2.8) fixedMatchScore.push(30);
     if (match.market_signals?.some(s => s.type === 'reverse_steam')) fixedMatchScore.push(25);
@@ -488,8 +490,8 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
     const getOddsForPick = (pick) => {
         if (!pick) return null;
         const p = pick.trim();
-        if (p === '1' || p === 'HOME') return match.odds_home;
-        if (p === '2' || p === 'AWAY') return match.odds_away;
+        if (p === '1' || p === 'HOME') return displayOddsH;
+        if (p === '2' || p === 'AWAY') return displayOddsA;
         if (p === 'X' || p === 'N' || p === 'DRAW') return match.odds_draw;
         return null;
     };

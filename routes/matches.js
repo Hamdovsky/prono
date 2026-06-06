@@ -93,6 +93,11 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             const oddsA = parseFloat(m.odds_away || 0);
             if ((oddsH > 0 && oddsH < 1.10) || (oddsA > 0 && oddsA < 1.10)) return false;
             return true;
+        }).map(m => {
+            m.display_odds_home = m.best_odds_home || m.odds_home
+            m.display_odds_draw = m.best_odds_draw || m.odds_draw
+            m.display_odds_away = m.best_odds_away || m.odds_away
+            return m;
         });
 
         logger.info(`✅ [QUALITY GATE] ${rawMatches.length} quality matches retained.`);

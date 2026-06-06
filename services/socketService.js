@@ -12,14 +12,24 @@ class SocketService {
     init(server) {
         try {
             this.io = new SocketIOServer(server, {
-                cors: { origin: '*', methods: ['GET', 'POST'] },
+                cors: { origin: process.env.FRONTEND_URL || '*', methods: ['GET', 'POST'] },
                 transports: ['websocket', 'polling'],
                 allowRequest: (req, callback) => {
-                    // Always allow requests for now, but log potential auth issues
-                    const isAuthorized = true; 
-                    callback(null, isAuthorized);
+                    const secretKey = process.env.API_SECRET_KEY
+                    const authHeader = req.headers?.authorization || ''
+                    const token = authHeader.replace('Bearer ', '')
+                    const isAuthorized = !secretKey || token === secretKey
+                    callback(null, isAuthorized)
                 }
-            });
+            })
+
+            this.io.use((socket, next) => {
+                const secretKey = process.env.API_SECRET_KEY
+                if (!secretKey) return next()
+                const token = socket.handshake.auth?.token
+                if (token === secretKey) return next()
+                next(new Error('Authentication required'))
+            })
 
             this.io.on('connection', (socket) => {
                 const token = socket.handshake.auth?.token;

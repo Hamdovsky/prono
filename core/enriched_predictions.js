@@ -229,8 +229,29 @@ class EnrichedPredictionService {
             match.adaptive_weights = await adaptiveLearningEngine.getWeights(league);
             match.adaptive_confidence_adj = await adaptiveLearningEngine.getConfidenceAdjustment(league);
         } catch(e) { /* ignore adaptive errors */ }
-        
-        return await this.pythonService.predict(match);
+
+        // Try Python ML service first, fallback to JS-only prediction
+        try {
+            const result = await this.pythonService.predict(match);
+            if (result && result.success !== false) return result
+        } catch (e) {
+            logger.warn(`[PYTHON] Service unavailable, using JS fallback for ${match.id}: ${e.message}`);
+        }
+
+        // JS Fallback using QuantumQuantEngine
+        const { h: xgH, a: xgA } = QuantumQuantEngine._getMatchXG ? QuantumQuantEngine._getMatchXG(match) : { h: match.xg_home || 1.2, a: match.xg_away || 1.0 }
+        const quantResult = QuantumQuantEngine.analyze(match, xgH, xgA)
+        return {
+            success: true,
+            home_win_probability: (quantResult.markets.match_result['1'].prob * 100),
+            draw_probability: (quantResult.markets.match_result['X'].prob * 100),
+            away_win_probability: (quantResult.markets.match_result['2'].prob * 100),
+            expected_score: quantResult.expected_score,
+            verdict: quantResult.risk_label,
+            confidence: quantResult.confidence,
+            power_score: quantResult.confidence,
+            quantum: quantResult
+        }
     }
 
     /**

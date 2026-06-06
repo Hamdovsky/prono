@@ -485,6 +485,35 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         probs: { btts: 0, over25: 0, ht_goal: 0 }
     };
 
+    const getOddsForPick = (pick) => {
+        if (!pick) return null;
+        const p = pick.trim();
+        if (p === '1' || p === 'HOME') return match.odds_home;
+        if (p === '2' || p === 'AWAY') return match.odds_away;
+        if (p === 'X' || p === 'N' || p === 'DRAW') return match.odds_draw;
+        return null;
+    };
+    const mainOdds = getOddsForPick(quant.main_pick);
+    const mainPickClean = (quant.main_pick || '').replace(/🛡️|⚽|⚡|🔥|🏠|✈️|AH_|EH_|COMBOS: |SMART VALUE: /g, '').trim();
+    const secondPickClean = (quant.secondary_pick || '-').replace(/🛡️|⚽|⚡|🔥|🏠|✈️|AH_|EH_|COMBOS: |SMART VALUE: /g, '').trim();
+
+    const totalPct = hPct + dPct + aPct;
+    const hBar = totalPct > 0 ? (hPct / totalPct) * 100 : 33.3;
+    const dBar = totalPct > 0 ? (dPct / totalPct) * 100 : 33.3;
+    const aBar = totalPct > 0 ? (aPct / totalPct) * 100 : 33.3;
+
+    const evNum = parseFloat(quant.ev_score) || 0;
+    const evArrow = evNum > 0.15 ? '📈' : evNum > 0 ? '↗️' : evNum === 0 ? '➖' : '📉';
+    const evColor = evNum > 0.15 ? '#10b981' : evNum > 0 ? '#34d399' : evNum === 0 ? '#94a3b8' : '#ef4444';
+
+    const dataQuality = match.insufficient_data === 1 ? '⚠️' : '✅';
+    const dataQualityLabel = match.insufficient_data === 1 ? 'LOW DATA' : '';
+
+    const formatOdds = (odds) => {
+        if (!odds || isNaN(odds)) return null;
+        return odds.toFixed(2);
+    };
+
     return (
         <div style={{ ...style, ...rowStyle, display: 'flex', alignItems: 'center', minWidth: 'fit-content' }} className="onyx-virtual-row" onClick={() => onClick(match)}>
             {/* COLUMN 1: MATCH & LEAGUE (20%) */}
@@ -505,8 +534,6 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                     <span style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                         {(() => {
                             const lower = (match.league || match.tournament_name || '').toLowerCase();
-                            
-                            // International / Club Cups
                             if (lower.includes('champions league') || lower.includes('ucl') || lower.includes('uefa')) return '🌍 EUROPE : ';
                             if (lower.includes('europa league') || lower.includes('uel')) return '🌍 EUROPE : ';
                             if (lower.includes('conference league')) return '🌍 EUROPE : ';
@@ -514,8 +541,6 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                             if (lower.includes('afcon') || lower.includes('caf champions') || lower.includes('caf confederation')) return '🌍 AFRIQUE : ';
                             if (lower.includes('afrique') || lower.includes('african')) return '🌍 AFRIQUE : ';
                             if (lower.includes('asian cup') || lower.includes('afc champions') || lower.includes('afc cup')) return '🌏 ASIE : ';
-                            
-                            // Specific Leagues & Countries
                             if (lower.includes('algerian') || lower.includes('algeria')) return '🇩🇿 ALGÉRIE : ';
                             if (lower.includes('tunisian') || lower.includes('tunisia')) return '🇹🇳 TUNISIE : ';
                             if (lower.includes('egyptian') || lower.includes('egypt')) return '🇪🇬 ÉGYPTE : ';
@@ -561,108 +586,121 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                             if (lower.includes('paraguay')) return '🇵🇾 PARAGUAY : ';
                             if (lower.includes('ecuador') || lower.includes('équateur')) return '🇪🇨 ÉQUATEUR : ';
                             if (lower.includes('china') || lower.includes('chine')) return '🇨🇳 CHINE : ';
-                            
                             return '⚽ ';
                         })()}
                         {match.league || match.tournament_name || "Unknown"}
                     </span>
                 </div>
             </div>
-            
+
             {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (16%) */}
             <div style={{width: "16%", minWidth: "160px"}} className="onyx-virtual-cell">
-                <div style={{display: 'flex', flexDirection: 'column', gap: '2px'}}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
-                        <span style={{fontSize: '9px', color: 'var(--neon)', fontWeight: '900', minWidth: '30px'}}>MAIN</span>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                        <span style={{fontSize: '9px', color: 'var(--neon)', fontWeight: '900', minWidth: '28px'}}>MAIN</span>
                         <span style={{fontSize: '12px', color: '#f1f5f9', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                            {(quant.main_pick || '').replace(/🛡️|⚽|⚡|🔥|🏠|✈️|AH_|EH_|COMBOS: |SMART VALUE: /g, '').trim()}
+                            {mainPickClean}
                         </span>
+                        {mainOdds && (
+                            <span style={{fontSize: '10px', color: '#fbbf24', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", background: 'rgba(251,191,36,0.08)', padding: '0 4px', borderRadius: '3px'}}>
+                                @{formatOdds(mainOdds)}
+                            </span>
+                        )}
                     </div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
-                        <span style={{fontSize: '9px', color: '#94a3b8', fontWeight: '900', minWidth: '30px'}}>2ND</span>
+                    <div style={{width: '100%', height: '2px', background: 'rgba(148,163,184,0.15)', borderRadius: '2px', overflow: 'hidden'}}>
+                        <div style={{width: `${Math.min(100, Math.max(5, acc))}%`, height: '100%', background: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
+                    </div>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                        <span style={{fontSize: '9px', color: '#94a3b8', fontWeight: '900', minWidth: '28px'}}>2ND</span>
                         <span style={{fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                            {(quant.secondary_pick || '-').replace(/🛡️|⚽|⚡|🔥|🏠|✈️|AH_|EH_|COMBOS: |SMART VALUE: /g, '').trim()}
+                            {secondPickClean}
                         </span>
                     </div>
                 </div>
             </div>
 
-            {/* COLUMN 3: AI SCORE & FT confidence (8%) */}
-            <div style={{width: "8%", minWidth: "80px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 3: AI SCORE & FT confidence (10%) */}
+            <div style={{width: "10%", minWidth: "90px"}} className="onyx-virtual-cell centered">
                 <span className="onyx-cs" style={{fontSize: '14px', fontWeight: '900', color: '#00ffaa'}}>{cs}</span>
                 <div style={{fontSize: '9px', color: '#fbbf24', fontWeight: 'bold'}}>
                     FT: {ftSignal}%
+                </div>
+                <div style={{display: 'flex', gap: '2px', width: '100%', height: '3px', marginTop: '2px', borderRadius: '2px', overflow: 'hidden'}}>
+                    <div style={{flex: `${Math.round(hBar)}`, height: '100%', background: '#22c55e', minWidth: hBar > 0 ? '2px' : '0'}}></div>
+                    <div style={{flex: `${Math.round(dBar)}`, height: '100%', background: '#94a3b8', minWidth: dBar > 0 ? '2px' : '0'}}></div>
+                    <div style={{flex: `${Math.round(aBar)}`, height: '100%', background: '#3b82f6', minWidth: aBar > 0 ? '2px' : '0'}}></div>
                 </div>
             </div>
 
             {/* COLUMN 4: BTTS (10%) */}
             <div style={{width: "10%", minWidth: "100px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%'}}>
                     <span style={{
-                        fontSize: '11px',
-                        fontWeight: '900',
-                        padding: '1px 5px',
-                        borderRadius: '4px',
-                        background: bttsBadgeBg,
-                        color: bttsBadgeColor,
+                        fontSize: '11px', fontWeight: '900', padding: '1px 5px', borderRadius: '4px',
+                        background: bttsBadgeBg, color: bttsBadgeColor,
                         border: `1px solid ${bttsBadgeBorder}`,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.3px',
-                        whiteSpace: 'nowrap'
+                        textTransform: 'uppercase', letterSpacing: '0.3px', whiteSpace: 'nowrap'
                     }}>
                         {bttsLabel}
                     </span>
                     <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
                         {bttsDisplayPct}%
                     </span>
+                    <div style={{display: 'flex', width: '80%', height: '2px', borderRadius: '2px', overflow: 'hidden', background: 'rgba(148,163,184,0.15)'}}>
+                        <div style={{width: `${bttsPct}%`, height: '100%', background: '#00ffaa'}}></div>
+                        <div style={{width: `${100 - bttsPct}%`, height: '100%', background: '#f87171'}}></div>
+                    </div>
                 </div>
             </div>
 
             {/* COLUMN 5: MARKET (O2.5 / TG) (10%) */}
             <div style={{width: "10%", minWidth: "100px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
-                    <span className={tgClass} style={{
-                        fontSize: '11px',
-                        fontWeight: '900',
-                        padding: '1px 5px',
-                        borderRadius: '4px',
-                        background: tgBadgeBg,
-                        color: tgBadgeColor,
-                        border: `1px solid ${tgBadgeBorder}`,
-                        whiteSpace: 'nowrap'
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%'}}>
+                    <span style={{
+                        fontSize: '11px', fontWeight: '900', padding: '1px 5px', borderRadius: '4px',
+                        background: tgBadgeBg, color: tgBadgeColor,
+                        border: `1px solid ${tgBadgeBorder}`, whiteSpace: 'nowrap'
                     }}>
                         {tg}
                     </span>
                     <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
                         {ouLabel}: {ouDisplayPct}%
                     </span>
+                    <div style={{display: 'flex', width: '80%', height: '2px', borderRadius: '2px', overflow: 'hidden', background: 'rgba(148,163,184,0.15)'}}>
+                        <div style={{width: `${over25Pct}%`, height: '100%', background: '#10b981'}}></div>
+                        <div style={{width: `${100 - over25Pct}%`, height: '100%', background: '#64748b'}}></div>
+                    </div>
                 </div>
             </div>
 
-            {/* COLUMN 6: PRECISION & RISK (12%) */}
-            <div style={{width: "12%", minWidth: "110px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                    <span className={`${accClass}`} style={{fontSize: '15px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : '#f59e0b'}}>{acc}%</span>
+            {/* COLUMN 6: PRECISION & RISK (10%) */}
+            <div style={{width: "10%", minWidth: "100px"}} className="onyx-virtual-cell centered">
+                <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+                    <span style={{fontSize: '16px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>{acc}%</span>
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
-                        <span style={{fontSize: '8.5px', fontWeight: '900', color: '#94a3b8'}}>{quant.risk_label || (acc >= 70 ? 'SAFE' : 'MODERATE')}</span>
-                        <div style={{display: 'flex', gap: '2px'}}>{statusIcon}{resultIcon}</div>
+                        <span style={{fontSize: '8px', fontWeight: '900', color: acc >= 70 ? '#00ffaa' : acc >= 55 ? '#fbbf24' : '#f87171'}}>
+                            {acc >= 70 ? 'SOLIDE' : acc >= 55 ? 'MOYEN' : 'RISQUÉ'}
+                        </span>
+                        <div style={{display: 'flex', gap: '2px', alignItems: 'center'}}>
+                            <span style={{fontSize: '9px'}}>{dataQuality}</span>
+                            {statusIcon}{resultIcon}
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* COLUMN 7: SIGNAL & EV SCORE (12%) */}
             <div style={{width: "12%", minWidth: "110px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                    <div className={quant.massive_edge || match.massive_edge ? "onyx-massive-edge-pulse" : ""} style={{
-                        background: parseFloat(quant.ev_score) > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                        border: `1px solid ${parseFloat(quant.ev_score) > 0 ? '#10b98155' : '#ef444455'}`,
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        textAlign: 'center',
-                        fontSize: (quant.massive_edge || match.massive_edge) ? '9px' : '10.5px'
+                <div style={{display: 'flex', flexDirection: 'column', gap: '3px', width: '100%', alignItems: 'center'}}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                        background: evNum > 0 ? 'rgba(16, 185, 129, 0.1)' : evNum < 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(148,163,184,0.1)',
+                        border: `1px solid ${evNum > 0 ? '#10b98155' : evNum < 0 ? '#ef444455' : '#94a3b855'}`,
+                        padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '900'
                     }}>
-                        <span style={{fontWeight: '900'}}>
-                            {(quant.massive_edge || match.massive_edge) ? '🔥 MASSIVE' : `EV ${quant.ev_score}`}
+                        <span>{evArrow}</span>
+                        <span style={{color: evColor}}>
+                            {quant.massive_edge || match.massive_edge ? 'MASSIVE' : `EV ${quant.ev_score}`}
                         </span>
                     </div>
                     {(match.kelly_stake > 0 || quant.signal_strength > 0) && (
@@ -675,12 +713,15 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
 
             {/* COLUMN 8: STRENGTH (12%) */}
             <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                    <div style={{fontSize: '13px', fontWeight: '900', color: msColor, letterSpacing: '1px'}}>
-                        {quant.market_strength || msDesc}
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                        <span style={{fontSize: '16px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>
+                        <span style={{fontSize: '10px', color: msColor, fontWeight: '700'}}>
+                            {quant.market_strength || msDesc}
+                        </span>
                     </div>
-                    <div className="onyx-progress-container" style={{height: '3px', width: '60px', marginTop: '4px'}}>
-                        <div className="onyx-progress-bar" style={{width: `${(ms || 0) * 10}%`, background: msColor}}></div>
+                    <div className="onyx-progress-container" style={{height: '4px', width: '70px', borderRadius: '3px'}}>
+                        <div className="onyx-progress-bar" style={{width: `${(ms || 0) * 10}%`, background: msColor, borderRadius: '3px'}}></div>
                     </div>
                 </div>
             </div>

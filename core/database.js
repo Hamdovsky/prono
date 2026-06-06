@@ -14,6 +14,16 @@ db.pragma('busy_timeout = 30000'); // 30 seconds for Windows I/O safety
 db.pragma('cache_size = -16000'); // 16MB Page Cache
 db.pragma('temp_store = MEMORY'); // Temporary tables in RAM for speed
 db.pragma('mmap_size = 64000000'); // 64MB memory-mapped I/O (conservative)
+db.pragma('wal_autocheckpoint = 1000'); // checkpoint every 1000 pages (~4MB)
+db.pragma('foreign_keys = ON'); // enforce relational integrity
+
+// Periodic WAL checkpoint to prevent unbounded growth on Render free plan (512MB)
+const WAL_CHECKPOINT_INTERVAL = 5 * 60 * 1000 // 5 minutes
+setInterval(() => {
+  try {
+    db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+  } catch (_) {}
+}, WAL_CHECKPOINT_INTERVAL)
 
 // 🚀 [PERFORMANCE] Statement Cache to avoid constant regex/parsing
 const statementCache = new Map();
@@ -711,27 +721,25 @@ const database = {
                 matchId
             ];
 
-            // 🛡️ [STABILITY] Retry logic for SQLite "Database is locked" on Windows
+            // 🛡️ [STABILITY] Atomic transaction + Retry for SQLite "Database is locked"
+            const histSql = `
+                INSERT INTO prediction_history (match_id, league, prediction_type, prediction_val, probability, status, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(match_id, prediction_type) DO UPDATE SET
+                probability = excluded.probability,
+                prediction_val = excluded.prediction_val
+            `
+            const updateTransaction = db.transaction(() => {
+                db.prepare(sql).run(params)
+                db.prepare(histSql).run(matchId, fullData.league, 'Home', 'Win', hProb/100, 'pending', Date.now())
+                db.prepare(histSql).run(matchId, fullData.league, 'Away', 'Win', aProb/100, 'pending', Date.now())
+                db.prepare(histSql).run(matchId, fullData.league, 'Draw', 'Draw', dProb/100, 'pending', Date.now())
+            })
+
             let attempts = 0;
             while (attempts < 3) {
                 try {
-                    db.prepare(sql).run(params);
-                    
-                    // --- [TITANIUM ALPHA] SAVE TO PREDICTION HISTORY FOR META-REFINER ---
-                    try {
-                        const histSql = `
-                            INSERT INTO prediction_history (match_id, league, prediction_type, prediction_val, probability, status, timestamp)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                            ON CONFLICT(match_id, prediction_type) DO UPDATE SET
-                            probability = excluded.probability,
-                            prediction_val = excluded.prediction_val
-                        `;
-                        // Log main win probabilities
-                        db.prepare(histSql).run(matchId, fullData.league, 'Home', 'Win', hProb/100, 'pending', Date.now());
-                        db.prepare(histSql).run(matchId, fullData.league, 'Away', 'Win', aProb/100, 'pending', Date.now());
-                        db.prepare(histSql).run(matchId, fullData.league, 'Draw', 'Draw', dProb/100, 'pending', Date.now());
-                    } catch (hErr) { /* Silent history fail */ }
-
+                    updateTransaction()
                     logger.info(`✅ [DB] AI Enrichment persisted for ${matchId} — Home:${hProb.toFixed(1)}% Draw:${dProb.toFixed(1)}% Away:${aProb.toFixed(1)}%`);
                     return true;
                 } catch (err) {
@@ -740,7 +748,8 @@ const database = {
                         logger.warn(`⚠️ [DB] Database busy, retry ${attempts}/3 for ${matchId}...`);
                         await new Promise(r => setTimeout(r, 500 * attempts));
                     } else {
-                        throw err;
+                        logger.error(`❌ [DB] updatePredictions transaction failed for ${matchId}: ${err.message}`);
+                        return false;
                     }
                 }
             }

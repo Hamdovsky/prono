@@ -19,7 +19,14 @@ router.get('/ping', (req, res) => res.send('API_PONG'));
 /**
  * GET /api/bot-debug - Debug bot env variables in production safely
  */
-router.get('/bot-debug', (req, res) => {
+const localOrAuth = (req, res, next) => {
+    const ip = req.ip || req.socket?.remoteAddress || ''
+    const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1'
+    if (isLocalhost || process.env.NODE_ENV !== 'production') return next()
+    return securityEngine.authenticate(req, res, next)
+}
+
+router.get('/bot-debug', localOrAuth, (req, res) => {
     res.json({
         hasToken: !!botService.token,
         tokenLength: botService.token ? botService.token.length : 0,
@@ -34,7 +41,7 @@ router.get('/bot-debug', (req, res) => {
 /**
  * GET /api/db-debug - Safely check SQLite contents in production
  */
-router.get('/db-debug', (req, res) => {
+router.get('/db-debug', localOrAuth, (req, res) => {
     try {
         const countRow = database.prepare("SELECT COUNT(*) as count FROM matches").get();
         const statusRows = database.prepare("SELECT status, COUNT(*) as count FROM matches GROUP BY status").all();
@@ -248,7 +255,7 @@ router.post('/seed', async (req, res) => {
 /**
  * GET /api/test-seed — Diagnostic test to make a direct Sofascore API call
  */
-router.get('/test-seed', async (req, res) => {
+router.get('/test-seed', localOrAuth, async (req, res) => {
     try {
         const axios = require('axios');
         const today = new Date().toISOString().split('T')[0];

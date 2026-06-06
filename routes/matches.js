@@ -32,13 +32,12 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
     try {
         // [PREMATCH ONLY] strictly filter out live/in-progress matches
         const allMatches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
-        // [USER REQUEST] Show top 50 matches from Sofascore/all sources, not just africanobet.
         let rawMatches = allMatches;
         
-        // 🧹 [DATA QUALITY] Show ONLY matches for Today, Tomorrow, and Day After
-        const nowTs = Date.now();
+        const daysParam = parseInt(req.query.days) || 3;
+        const maxDays = Math.min(Math.max(daysParam, 1), 14);
         const startOfToday = new Date().setHours(0, 0, 0, 0);
-        const endOfRange = startOfToday + (72 * 60 * 60 * 1000); // 72h (Today + 2 Days)
+        const endOfRange = startOfToday + (maxDays * 24 * 60 * 60 * 1000);
         
         rawMatches = rawMatches.filter(m => {
             let rawTs = m.startTimestamp;
@@ -108,21 +107,23 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         );
         
         if (needsFastPass.length > 0) {
-            logger.info(`✨ [JIT] Synchronous Quant Enrichment for ${needsFastPass.length} matches...`);
+            logger.info(`✨ [JIT] Batch Quant Enrichment for ${needsFastPass.length} matches (concurrency: 10)...`);
             
-            for (const m of needsFastPass) {
+            const CONCURRENCY = 10
+            const enrichOne = async (m) => {
                 try {
                     const enriched = await enrichedPredictions.fastEnrichMatch(m);
                     const idx = rawMatches.findIndex(rm => rm.id === m.id);
                     if (idx !== -1) rawMatches[idx] = enriched;
-                    
-                    // Persist to DB so it doesn't need fast enrichment next time
-                    database.updatePredictions(enriched.id, enriched).catch(e => {
-                        logger.debug(`[JIT-SAVE] Failed to save ${m.id}: ${e.message}`);
-                    });
+                    database.updatePredictions(enriched.id, enriched).catch(() => {});
                 } catch (err) {
                     logger.error(`❌ [JIT] Enrichment failed for ${m.id}: ${err.message}`);
                 }
+            }
+            
+            for (let i = 0; i < needsFastPass.length; i += CONCURRENCY) {
+                const batch = needsFastPass.slice(i, i + CONCURRENCY)
+                await Promise.allSettled(batch.map(enrichOne))
             }
         }
 

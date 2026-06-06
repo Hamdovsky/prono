@@ -78,3 +78,14 @@ yarn.lock
 # scratch debug scripts
 scratch/
 scratch
+
+# auto-generated data files (not seed data)
+data/accuracy_log.json
+data/deepseek_usage.json
+data/footballdata_usage.json
+data/rapidapi_usage.json
+data/scraper_progress.json
+data/scraper_state.json
+data/tactical.db-shm
+data/tactical.db-wal
+scripts/sync_to_render.js

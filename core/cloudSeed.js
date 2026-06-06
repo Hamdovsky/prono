@@ -152,11 +152,16 @@ async function fetchFDFixtures(endpoint) {
             timeout: 20000
         });
 
-        // Response can be: { success, data: { fixtures: [] } } or { fixtures: [] }
+        // ✅ Structure correcte: { success, data: { matches: [] } }
         const root = data?.data || data;
-        return root?.fixtures || [];
+        return root?.matches || root?.fixtures || [];
     } catch (e) {
-        console.warn(`⚠️ [CLOUD-SEED/FD] Failed on ${endpoint}: ${e.message}`);
+        const status = e.response?.status;
+        if (status === 401 || status === 403) {
+            console.warn(`⛔ [CLOUD-SEED/FD] Clé invalide (HTTP ${status}). Vérifiez FOOTBALLDATA_KEY.`);
+        } else {
+            console.warn(`⚠️ [CLOUD-SEED/FD] Failed on ${endpoint}: ${e.message}`);
+        }
         return [];
     }
 }
@@ -385,10 +390,20 @@ async function runCloudSeedModerated() {
     let fdQuotaStatus = fdQuotaManager.getQuotaStatus();
     if (existingToday < 20 && fdQuotaStatus.isActive && fdQuotaStatus.remaining > 0) {
         console.log(`[CLOUD-SEED/FD] Quota remaining: ${fdQuotaStatus.remaining}/${fdQuotaStatus.limit}`);
-        const fixtures = await fetchFDFixtures('/fixtures/today');
-        console.log(`[CLOUD-SEED/FD] Today: ${fixtures.length} fixtures found`);
+        // ✅ Bon endpoint: /fixtures/upcoming retourne les prochains matches
+        const fixtures = await fetchFDFixtures('/fixtures/upcoming');
+        console.log(`[CLOUD-SEED/FD] Upcoming: ${fixtures.length} fixtures found`);
 
-        for (const f of fixtures) {
+        // Filtrer seulement aujourd'hui et demain
+        const today = getDateStr(0);
+        const tomorrow = getDateStr(1);
+        const filtered = fixtures.filter(f => {
+            const d = (f.match_date || f.date || '').substring(0, 10);
+            return d === today || d === tomorrow;
+        });
+        console.log(`[CLOUD-SEED/FD] Filtered today+tomorrow: ${filtered.length} fixtures`);
+
+        for (const f of filtered) {
             fdQuotaStatus = fdQuotaManager.getQuotaStatus();
             if (fdQuotaStatus.remaining <= 0) break;
 

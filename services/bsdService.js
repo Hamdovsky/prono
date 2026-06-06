@@ -10,10 +10,26 @@ class BsdService {
     this.baseUrl = process.env.BSD_BASE_URL || 'https://sports.bzzoiro.com/api'
     this.enabled = process.env.BSD_ENABLED !== 'false'
     this.quota = createQuotaManager('bsd')
+    this._quotaExhausted = false
+    this._authFailed = false
+
+    // ✅ Diagnostic au démarrage
+    if (!this.apiKey || this.apiKey === 'CHANGER_MOI_BSD_API_KEY') {
+      logger.warn('🚨 [BSD] BSD_API_KEY manquant ou non configuré dans .env / Render Environment')
+      logger.warn('   → Allez sur Render Dashboard → Environment → ajoutez BSD_API_KEY')
+    } else if (!this.enabled) {
+      logger.warn('[BSD] Service désactivé (BSD_ENABLED=false)')
+    } else {
+      logger.info(`✅ [BSD] Service prêt — clé: ${this.apiKey.substring(0, 6)}... | URL: ${this.baseUrl}`)
+    }
   }
 
   isAvailable() {
-    return this.enabled && !!this.apiKey
+    if (!this.enabled) return false
+    if (!this.apiKey || this.apiKey === 'CHANGER_MOI_BSD_API_KEY') return false
+    if (this._authFailed) return false     // Stop si clé invalide
+    if (this._quotaExhausted) return false // Stop si quota épuisé
+    return true
   }
 
   _headers() {
@@ -24,8 +40,16 @@ class BsdService {
   }
 
   async _fetch(endpoint) {
-    if (!this.isAvailable()) {
-      logger.warn('[BSD] Service not available (no API key or disabled)')
+    if (!this.enabled || !this.apiKey || this.apiKey === 'CHANGER_MOI_BSD_API_KEY') {
+      logger.warn('🚨 [BSD] Appel ignoré — BSD_API_KEY absent ou invalide')
+      return null
+    }
+    if (this._authFailed) {
+      logger.warn('🔴 [BSD] Appel ignoré — Clé API invalide (401). Vérifiez BSD_API_KEY sur Render.')
+      return null
+    }
+    if (this._quotaExhausted) {
+      logger.warn('🟡 [BSD] Quota épuisé — appel ignoré pour cette session')
       return null
     }
 
@@ -37,9 +61,26 @@ class BsdService {
       })
       return data
     } catch (err) {
-      logger.error(`[BSD] Request failed (${endpoint}): ${err.message}`)
-      if (err.response) {
-        logger.error(`  Status: ${err.response.status}, Body: ${JSON.stringify(err.response.data).substring(0, 200)}`)
+      const status = err.response?.status
+      const body   = JSON.stringify(err.response?.data || {}).substring(0, 200)
+
+      if (status === 401) {
+        this._authFailed = true
+        logger.error(`🔴 [BSD] ERREUR 401 — Clé API invalide ou expirée !`)
+        logger.error(`   → Vérifiez BSD_API_KEY dans Render Dashboard → Environment`)
+        logger.error(`   → Réponse serveur: ${body}`)
+      } else if (status === 403) {
+        logger.error(`🔴 [BSD] ERREUR 403 — Accès refusé (clé sans permission ou compte suspendu)`)
+        logger.error(`   → Vérifiez votre abonnement Bzzoiro Sports Data`)
+      } else if (status === 429) {
+        this._quotaExhausted = true
+        logger.warn(`🟡 [BSD] ERREUR 429 — Quota API épuisé. Réessai reporté à la prochaine session.`)
+      } else if (!err.response) {
+        logger.error(`🔆 [BSD] ERREUR Réseau (${endpoint}): ${err.message}`)
+        logger.error(`   → Vérifiez que BSD_BASE_URL est correct: ${this.baseUrl}`)
+      } else {
+        logger.error(`❌ [BSD] Erreur ${status} sur (${endpoint}): ${err.message}`)
+        logger.error(`   Body: ${body}`)
       }
       return null
     }

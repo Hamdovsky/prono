@@ -33,7 +33,9 @@ services:
       - key: RAPIDAPI_DAILY_LIMIT
         value: "20"
       - key: HTTP_SCRAPER_ENABLED
-        value: "false"
+        value: "true"
+      - key: API_SECRET_KEY
+        sync: false
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "true"
       - key: VITE_API_URL

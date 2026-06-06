@@ -2,8 +2,16 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const securityEngine = require('../core/securityEngine');
 
 const { readScraperProgress } = require('../core/utils');
+
+const localOrAuth = (req, res, next) => {
+    const ip = req.ip || req.socket?.remoteAddress || ''
+    const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1'
+    if (isLocalhost || process.env.NODE_ENV !== 'production') return next()
+    return securityEngine.authenticate(req, res, next)
+}
 
 const userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -638,7 +646,7 @@ function uid() {
  * GET /api/booking-codes/all
  * Returns all booking codes: from booking_codes.json + bibeet_tomorrow.json
  */
-router.get('/booking-codes/all', (req, res) => {
+router.get('/booking-codes/all', localOrAuth, (req, res) => {
     try {
         const db = loadBookingDB();
         let codes = [...(db.codes || [])];
@@ -680,7 +688,7 @@ router.get('/booking-codes/all', (req, res) => {
  * Manually add a booking code to the DB
  * Body: { platform, code, channel, description, matches, status }
  */
-router.post('/booking-codes/add', (req, res) => {
+router.post('/booking-codes/add', localOrAuth, (req, res) => {
     try {
         const { platform, code, channel, description, matches, status } = req.body;
         if (!code || !code.trim()) return res.status(400).json({ error: 'code is required' });
@@ -715,7 +723,7 @@ router.post('/booking-codes/add', (req, res) => {
  * DELETE /api/booking-codes/:id
  * Remove a code by ID
  */
-router.delete('/booking-codes/:id', (req, res) => {
+router.delete('/booking-codes/:id', localOrAuth, (req, res) => {
     try {
         const { id } = req.params;
         const db = loadBookingDB();
@@ -733,7 +741,7 @@ router.delete('/booking-codes/:id', (req, res) => {
  * PATCH /api/booking-codes/:id
  * Update status or other fields of a code
  */
-router.patch('/booking-codes/:id', (req, res) => {
+router.patch('/booking-codes/:id', localOrAuth, (req, res) => {
     try {
         const { id } = req.params;
         const db = loadBookingDB();

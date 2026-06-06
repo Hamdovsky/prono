@@ -288,10 +288,10 @@ const Dashboard = () => {
                     }}>
                         <div style={{width:"20%", minWidth: "180px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
                         <div style={{width:"16%", minWidth: "160px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
-                        <div style={{width:"8%", minWidth: "80px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / FT</div>
+                        <div style={{width:"10%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / FT</div>
                         <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>BTTS</div>
                         <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>MARKET (O2.5/TG)</div>
-                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
+                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
                         <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>SIGNAL & EV SCORE</div>
                         <div style={{width:"12%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>STRENGTH</div>
                     </div>
@@ -535,10 +535,10 @@ const Dashboard = () => {
                     }}>
                         <div style={{width:"20%", minWidth: "180px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
                         <div style={{width:"16%", minWidth: "160px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
-                        <div style={{width:"8%", minWidth: "80px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / FT</div>
+                        <div style={{width:"10%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / FT</div>
                         <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>BTTS</div>
                         <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>MARKET (O2.5/TG)</div>
-                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
+                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
                         <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>SIGNAL & EV SCORE</div>
                         <div style={{width:"12%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>STRENGTH</div>
                     </div>

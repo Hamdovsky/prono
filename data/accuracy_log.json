@@ -1,6 +1,528 @@
 {
   "entries": [
     {
+      "date": "2026-06-05",
+      "hits": 21,
+      "misses": 33,
+      "pending": 0,
+      "total": 54,
+      "accuracy": 38.9,
+      "roi": -12,
+      "markets": {
+        "ou25": {
+          "hits": 0,
+          "misses": 3,
+          "total": 3,
+          "accuracy": 0
+        },
+        "btts": {
+          "hits": 1,
+          "misses": 2,
+          "total": 3,
+          "accuracy": 33.3
+        }
+      },
+      "confidenceBands": {
+        "HIGH": {
+          "label": "> 85% ثقة",
+          "hits": 0,
+          "misses": 0,
+          "accuracy": null
+        },
+        "MED": {
+          "label": "60–85% ثقة",
+          "hits": 0,
+          "misses": 0,
+          "accuracy": null
+        },
+        "LOW": {
+          "label": "< 60% ثقة",
+          "hits": 21,
+          "misses": 33,
+          "accuracy": 38.9
+        }
+      },
+      "leagueTable": [
+        {
+          "league": "Queensland Premier League 1",
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "International Friendly Games",
+          "hits": 9,
+          "misses": 7,
+          "total": 16,
+          "accuracy": 56.3
+        },
+        {
+          "league": "U23 Toulon Tournament",
+          "hits": 1,
+          "misses": 1,
+          "total": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "World Championship Women Qual.",
+          "hits": 8,
+          "misses": 13,
+          "total": 21,
+          "accuracy": 38.1
+        },
+        {
+          "league": "K League 2",
+          "hits": 1,
+          "misses": 2,
+          "total": 3,
+          "accuracy": 33.3
+        },
+        {
+          "league": "U21 Friendly Games",
+          "hits": 1,
+          "misses": 2,
+          "total": 3,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Ukrainian Premier League",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        },
+        {
+          "league": "International Friendly Games Women",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        },
+        {
+          "league": "J2 League",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        },
+        {
+          "league": "Ykkösliiga",
+          "hits": 0,
+          "misses": 2,
+          "total": 2,
+          "accuracy": 0
+        },
+        {
+          "league": "Ettan, Relegation/Promotion",
+          "hits": 0,
+          "misses": 1,
+          "total": 1,
+          "accuracy": 0
+        }
+      ],
+      "missedPredictions": [
+        {
+          "matchId": "16263838",
+          "match": "Singapore vs China",
+          "league": "International Friendly Games",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16195375",
+          "match": "Thailand vs Kuwait",
+          "league": "International Friendly Games",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "2-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16118855",
+          "match": "Slovakia vs Montenegro",
+          "league": "International Friendly Games",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "2-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16174765",
+          "match": "Moldova vs Bulgaria",
+          "league": "International Friendly Games",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "2-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16047999",
+          "match": "San Marino vs Bangladesh",
+          "league": "International Friendly Games",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16269421",
+          "match": "Oleksandria vs FC Livyi Bereh Kyiv",
+          "league": "Ukrainian Premier League",
+          "predicted": "AWAY",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": 0.36,
+          "homeP": 32,
+          "drawP": 32,
+          "awayP": 36
+        },
+        {
+          "matchId": "16269419",
+          "match": "Kudrivka vs Ahrobiznes Volochysk",
+          "league": "Ukrainian Premier League",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "0-0",
+          "xgbConf": 0.4,
+          "homeP": 40,
+          "drawP": 29,
+          "awayP": 31
+        },
+        {
+          "matchId": "16277692",
+          "match": "Egypt vs Tunisia",
+          "league": "International Friendly Games Women",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16268590",
+          "match": "New Zealand vs Haiti",
+          "league": "International Friendly Games Women",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15403895",
+          "match": "Busan I Park vs Chungnam Asan",
+          "league": "K League 2",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "2-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15403896",
+          "match": "Seongnam vs Gimhae City",
+          "league": "K League 2",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16260635",
+          "match": "Kamatamare Sanuki vs AC Nagano Parceiro",
+          "league": "J2 League",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "3-5",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16174766",
+          "match": "Azerbaijan vs Malta",
+          "league": "International Friendly Games",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16277693",
+          "match": "Benin vs Niger",
+          "league": "International Friendly Games",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15117943",
+          "match": "Poland vs France",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15042381",
+          "match": "Ukraine vs Iceland",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15024675",
+          "match": "Czechia vs Albania",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15024677",
+          "match": "Montenegro vs Wales",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15117965",
+          "match": "Slovakia vs Finland",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-4",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15117995",
+          "match": "Bosnia & Herzegovina vs Lithuania",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "0-0",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15118000",
+          "match": "Liechtenstein vs Estonia",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-5",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15118012",
+          "match": "Kosovo vs Croatia",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15118025",
+          "match": "Azerbaijan vs Hungary",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15118024",
+          "match": "Andorra vs North Macedonia",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15024673",
+          "match": "Georgia vs Faroe Islands",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "2-3",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15118028",
+          "match": "Moldova vs Romania",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "0-0",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15118031",
+          "match": "Armenia vs Kazakhstan",
+          "league": "World Championship Women Qual.",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15341249",
+          "match": "FC Haka vs JäPS",
+          "league": "Ykkösliiga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15341248",
+          "match": "KäPa vs KTP",
+          "league": "Ykkösliiga",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "1-2",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "15458376",
+          "match": "FBK Karlstad vs IF Karlstad Fotboll",
+          "league": "Ettan, Relegation/Promotion",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "2-3",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16268588",
+          "match": "Montenegro U21 vs Cyprus U21",
+          "league": "U21 Friendly Games",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16273037",
+          "match": "Slovenia U21 vs Albania U21",
+          "league": "U21 Friendly Games",
+          "predicted": "HOME",
+          "actual": "DRAW",
+          "score": "1-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        },
+        {
+          "matchId": "16006969",
+          "match": "Colombia U19 vs China U22",
+          "league": "U23 Toulon Tournament",
+          "predicted": "HOME",
+          "actual": "AWAY",
+          "score": "0-1",
+          "xgbConf": null,
+          "homeP": null,
+          "drawP": null,
+          "awayP": null
+        }
+      ],
+      "generatedAt": "2026-06-05T21:00:00.034Z",
+      "cumulativeRoi": -157
+    },
+    {
       "date": "2026-05-17",
       "hits": 1,
       "misses": 7,
@@ -12745,7 +13267,7 @@
       "cumulativeRoi": -4
     }
   ],
-  "lastUpdated": "2026-05-17T21:00:00.774Z",
+  "lastUpdated": "2026-06-05T21:00:00.034Z",
   "recordStreak": 5,
   "currentStreak": 0
 }

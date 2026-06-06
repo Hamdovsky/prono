@@ -406,7 +406,6 @@ class Workflow {
             }
 
             const targetMatches = [];
-            const skippedLeagues = new Set();
             const seenMatchIds = new Set();
 
             for (const event of allEvents) {
@@ -426,20 +425,7 @@ class Workflow {
                 // 🏆 [LEAGUE RESOLVER] Standardize League Name
                 match.league = this.resolver.resolveTournament(match.league, match.category_name);
 
-                // 🎯 [STRICT TARGET LEAGUES] Only process matches from our configured target leagues
-                const mCountry = (match.category_name || '').toLowerCase().replace(/\s+/g, '-');
-                const mLeague = (match.tournament_name || match.league || '').toLowerCase().replace(/\s+/g, '-');
-                
-                const isTargetLeague = this.leagues.some(l => 
-                    (l.country === mCountry || mCountry.includes(l.country)) && 
-                    (mLeague.includes(l.league) || l.league.includes(mLeague))
-                );
-                
-                if (!isTargetLeague) {
-                    skippedLeagues.add(match.category_name + ' - ' + match.tournament_name);
-                    continue;
-                }
-                
+                // 🎯 [V54] Process ALL matches — no league restrictions
                 // Attach raw event metadata for team stats fetching
                 match._homeTeamId = event.homeTeam?.id;
                 match._awayTeamId = event.awayTeam?.id;
@@ -462,9 +448,9 @@ class Workflow {
                 }
             }
 
-            if (targetMatches.length < 10 && skippedLeagues.size > 0) {
-                console.log("⚠️ [DEBUG] Very few matches found in target leagues. Sample of skipped leagues:");
-                console.log(Array.from(skippedLeagues).slice(0, 10).join(', '));
+            if (targetMatches.length < 10) {
+                const skipped = allEvents.length - targetMatches.length;
+                console.log(`📊 [V54] Total events: ${allEvents.length}, kept: ${targetMatches.length}, filtered out: ${skipped}`);
             }
 
             // 🚀 [HTTP FALLBACK v2] If too few target league matches, supplement with HTTP APIs

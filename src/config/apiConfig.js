@@ -6,8 +6,10 @@ const isNative = Capacitor.isNativePlatform();
 const PRODUCTION_API_URL = 'https://prono-l5e3.onrender.com';
 
 // API Base URL Configuration
-// Keep every client on the Render API unless VITE_API_URL is explicitly set.
-const API_BASE_URL = import.meta.env.VITE_API_URL || PRODUCTION_API_URL;
+// Detect local dev: if serving from localhost, use same-origin (no prefix)
+// Otherwise use Render API unless VITE_API_URL is explicitly set.
+const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE_URL = isLocalhost ? '' : (import.meta.env.VITE_API_URL || PRODUCTION_API_URL);
 
 export const getApiUrl = (endpoint) => {
     return `${API_BASE_URL}${endpoint}`;

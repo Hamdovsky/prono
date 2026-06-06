@@ -11,14 +11,16 @@
  */
 
 const CACHE_STORE = new Map();
-const _revalidating = new Set(); // Prevent concurrent background revalidations
+const _revalidating = new Set()
+const MAX_CACHE_ENTRIES = 200
 
-/**
- * Returns an Express middleware that caches the JSON response in memory.
- * @param {string} key       - Cache key prefix.
- * @param {number} ttlMs     - Time-to-live in ms (serve fresh cache). Default 60 s.
- * @param {number} staleMs   - Max stale age in ms (serve stale while revalidating). Default 5 min.
- */
+function evictIfNeeded() {
+  if (CACHE_STORE.size > MAX_CACHE_ENTRIES) {
+    const oldest = [...CACHE_STORE.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0]
+    if (oldest) CACHE_STORE.delete(oldest[0])
+  }
+}
+
 function speedCache(key, ttlMs = 60_000, staleMs = 300_000) {
     return (req, res, next) => {
         const cacheKey = `${key}:${req.originalUrl}`;
@@ -28,17 +30,14 @@ function speedCache(key, ttlMs = 60_000, staleMs = 300_000) {
         if (cached) {
             const age = now - cached.timestamp;
             if (age < ttlMs) {
-                // Fresh — serve from cache
                 return res.json(cached.data);
             }
             if (age < staleMs) {
-                // Stale-while-revalidate: serve stale immediately
                 res.json(cached.data);
-                
-                // Only trigger one background revalidation at a time per key
                 if (!_revalidating.has(cacheKey)) {
                     _revalidating.add(cacheKey);
-                    // Create a fake response object to capture the fresh result
+                    const originalUrl = req.originalUrl
+                    const fakeReq = { ...req, originalUrl }
                     const fakeRes = {
                         statusCode: 200,
                         json: (body) => {
@@ -47,20 +46,20 @@ function speedCache(key, ttlMs = 60_000, staleMs = 300_000) {
                         },
                         status(code) { this.statusCode = code; return this; },
                         set() { return this; },
-                        send(body) { this.json(body); }
+                        send(body) { this.json(body); },
+                        get() { return this; },
+                        header() { return this; }
                     };
-                    // Background revalidation disabled for stability
-                    _revalidating.delete(cacheKey);
+                    next(fakeRes)
                 }
-                return; // Response already sent
+                return;
             }
-            // Expired — evict and continue normally
             CACHE_STORE.delete(cacheKey);
         }
 
-        // Intercept res.json to store the response
         const _json = res.json.bind(res);
         res.json = (body) => {
+            evictIfNeeded()
             CACHE_STORE.set(cacheKey, { data: body, timestamp: Date.now() });
             return _json(body);
         };

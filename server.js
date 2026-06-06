@@ -113,6 +113,9 @@ try {
   console.warn('⚠️ [SECURITY] helmet not installed — run: npm install helmet');
 }
 
+// Global rate-limit on all /api/ routes
+app.use('/api', securityEngine.middleware.bind(securityEngine))
+
 app.use(async (req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
@@ -245,7 +248,7 @@ app.use('/api', systemRoutes);
 app.use('/api', analyticsRoutes);
 app.use('/api/evolution', evolutionRoutes);
 app.use('/api', scraperRoutes);
-app.use('/api', securityEngine.middleware.bind(securityEngine), matchesRoutes);
+app.use('/api', matchesRoutes);
 app.use('/api/promosport', promosportRoutes);
 app.use('/api/webhook', securityEngine.authenticate.bind(securityEngine), integrationRoutes);
 

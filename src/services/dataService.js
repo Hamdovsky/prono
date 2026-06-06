@@ -37,7 +37,7 @@ class DataService {
         this.intervalId = null;
         this.apiEndpoint = getApiUrl('/api/live');
         this.comboApiEndpoint = getApiUrl('/api/combos');
-        this.upcomingApiEndpoint = getApiUrl('/api/upcoming');
+        this.upcomingApiEndpoint = getApiUrl('/api/upcoming?days=14');
         this.promosportApiEndpoint = getApiUrl('/api/promosport');
 
         // Rate Limit State
@@ -550,7 +550,7 @@ class DataService {
 
         this._upcomingFetchPromise = (async () => {
             try {
-                const endpoint = force ? `${this.upcomingApiEndpoint}?force=true` : this.upcomingApiEndpoint;
+                const endpoint = force ? `${getApiUrl('/api/upcoming')}?days=14&force=true` : this.upcomingApiEndpoint;
                 console.log('📡 [DATA] Fetching upcoming matches from:', endpoint);
                 const raw = await this._get(endpoint);
 

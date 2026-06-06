@@ -21,6 +21,7 @@ class QuantumQuantEngine {
             risk_label: this._getRiskLabel(ranked.main.prob),
             expected_score: StatisticalEngine.findMostProbableScore(xgH, xgA),
             confidence: Math.round(ranked.main.prob * 100),
+            bsd_boosted: ranked.bsd_boosted || false,
             momentum: {
                 home: require('./services/MomentumEngine').getTrend(m.homeTeam),
                 away: require('./services/MomentumEngine').getTrend(m.awayTeam)
@@ -110,14 +111,27 @@ class QuantumQuantEngine {
         // --- [NEW: MASSIVE EDGE DETECTION] ---
         const bestValue = secondaryPicks[0] || mainPick;
         const isMassive = (bestValue.edge > 0.12 && bestValue.prob > 0.50);
-        const signalStrength = Math.min(100, Math.round((bestValue.edge * 400) + (bestValue.prob * 40)));
+        let signalStrength = Math.min(100, Math.round((bestValue.edge * 400) + (bestValue.prob * 40)));
+        // BSD Signal Boost: si BSD prédit le même vainqueur, +15%
+        let bsd_boosted = false;
+        if (m.bsd_prediction && mainPick) {
+          const bsdPicks = { '1': '1', 'HOME': '1', 'X': 'X', 'DRAW': 'X', '2': '2', 'AWAY': '2' }
+          const bsdWinner = bsdPicks[m.bsd_prediction.trim().toUpperCase()]
+          const qqWinner = mainPick.val
+          if (bsdWinner && qqWinner && bsdWinner === qqWinner) {
+            mainPick.prob = Math.min(0.99, mainPick.prob * 1.15)
+            signalStrength = Math.min(100, signalStrength + 15)
+            bsd_boosted = true;
+          }
+        }
 
         return {
             main: mainPick,
             secondary: bestValue,
             all: secondaryPicks,
             massive_edge: isMassive,
-            signal_strength: signalStrength
+            signal_strength: signalStrength,
+            bsd_boosted: bsd_boosted
         };
     }
 

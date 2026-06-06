@@ -38,6 +38,7 @@ const TIER1_TOURNAMENT_IDS = new Set([
 ]);
 
 const httpScraperService = require('../services/httpScraperService');
+const bsdService = require('../services/bsdService');
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function getDateStr(offset = 0) {
@@ -406,6 +407,22 @@ async function runCloudSeedModerated() {
         console.log(`[CLOUD-SEED/FD] Inserted ${fdInserted} primary matches.`);
     } else {
         console.log('[CLOUD-SEED/FD] Skipped: enough matches, disabled, or daily quota exhausted.');
+    }
+
+    // ── STEP 2: BSD Bzzoiro Sports Data (free, unlimited) ══ PRIORITY ══
+    if (bsdService.isAvailable()) {
+      console.log('[CLOUD-SEED/BSD] Primary seeding with Bzzoiro Sports Data...')
+      try {
+        const bsdCount = await bsdService.fullSync()
+        console.log(`[CLOUD-SEED/BSD] Inserted ${bsdCount} matches`)
+        console.log('[CLOUD-SEED/BSD] Enriching odds for all matches...')
+        const enriched = await bsdService.enrichAllMatchesOdds()
+        console.log(`[CLOUD-SEED/BSD] Odds enriched for ${enriched} matches`)
+      } catch (bsdErr) {
+        console.warn(`[CLOUD-SEED/BSD] Error: ${bsdErr.message}`)
+      }
+    } else {
+      console.log('[CLOUD-SEED/BSD] Skipped: not available (no API key).')
     }
 
     const finalAfterFD = countMatchesForPeriod(0, 0);

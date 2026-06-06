@@ -64,7 +64,7 @@ const IntelligenceCard = ({ match, onOpenUltimate }) => {
     };
     const recommendedStake = calculateStake();
 
-    const oddsH = match.odds_home || match.market_odds || (match.odds?.home);
+    const oddsH = match.display_odds_home || match.best_odds_home || match.odds_home || match.market_odds || (match.odds?.home);
     const oddsHOpen = match.odds_home_open || (match.odds?.home_open);
     const dropPct = oddsHOpen && oddsH && oddsH < oddsHOpen ? Math.floor(((oddsHOpen - oddsH) / oddsHOpen) * 100) : 0;
 

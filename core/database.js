@@ -380,6 +380,14 @@ function runMigrations() {
         ['matches', 'motivation_signature',      'TEXT'],
         ['matches', 'autopsy_result',            'TEXT'],
         ['matches', 'is_autopsied',               'INTEGER DEFAULT 0'],
+        ['matches', 'best_odds_home',             'REAL'],
+        ['matches', 'best_odds_draw',             'REAL'],
+        ['matches', 'best_odds_away',             'REAL'],
+        ['matches', 'bsd_prediction',             'TEXT'],
+        ['matches', 'bsd_home_win_prob',          'REAL DEFAULT 0'],
+        ['matches', 'bsd_draw_prob',              'REAL DEFAULT 0'],
+        ['matches', 'bsd_away_win_prob',          'REAL DEFAULT 0'],
+        ['matches', 'bsd_confidence',             'REAL DEFAULT 0'],
         ['player_stats', 'xg_avg',                'REAL DEFAULT 0'],
         ['player_stats', 'xgot_avg',              'REAL DEFAULT 0'],
         ['player_stats', 'heatmap_danger',        'REAL DEFAULT 0'],
@@ -486,6 +494,11 @@ const database = {
             const fullData = JSON.stringify(dataToSave);
             const stats = m.stats || m.statistics || {};
 
+            // Best odds = max des sources disponibles
+            m.best_odds_home = Math.max(m.odds_home || 0, m.best_odds_home || 0) || m.odds_home || null
+            m.best_odds_draw = Math.max(m.odds_draw || 0, m.best_odds_draw || 0) || m.odds_draw || null
+            m.best_odds_away = Math.max(m.odds_away || 0, m.best_odds_away || 0) || m.odds_away || null
+
             const sql = `
                 INSERT INTO matches (
                     id, homeTeam, awayTeam, league, scoreHome, scoreAway, 
@@ -494,7 +507,8 @@ const database = {
                     shots_on_target_home, shots_on_target_away, corners_home, corners_away,
                     source, last_updated, home_win_probability, draw_probability, away_win_probability,
                     expected_score, chaos_score, ou_25_prob, btts_prob, xgboost_confidence, news_impact,
-                    odds_home, odds_draw, odds_away, ev_home, ev_draw, ev_away, ev_best,
+                    odds_home, odds_draw, odds_away, best_odds_home, best_odds_draw, best_odds_away,
+                    ev_home, ev_draw, ev_away, ev_best,
                     odds_home_open, odds_draw_open, odds_away_open,
                     true_prob_home, true_prob_draw, true_prob_away, true_prob_ou25, true_prob_btts,
                     clv_value, kelly_stake,
@@ -526,6 +540,9 @@ const database = {
                     odds_home = COALESCE(excluded.odds_home, matches.odds_home),
                     odds_draw = COALESCE(excluded.odds_draw, matches.odds_draw),
                     odds_away = COALESCE(excluded.odds_away, matches.odds_away),
+                    best_odds_home = COALESCE(excluded.best_odds_home, matches.best_odds_home),
+                    best_odds_draw = COALESCE(excluded.best_odds_draw, matches.best_odds_draw),
+                    best_odds_away = COALESCE(excluded.best_odds_away, matches.best_odds_away),
                     weather_temp = COALESCE(excluded.weather_temp, matches.weather_temp),
                     weather_desc = COALESCE(excluded.weather_desc, matches.weather_desc),
                     weather_humidity = COALESCE(excluded.weather_humidity, matches.weather_humidity),
@@ -546,7 +563,8 @@ const database = {
                 m.home_win_probability || 0, m.draw_probability || 0, m.away_win_probability || 0,
                 m.expected_score || '1 - 1', m.chaos_score || 50, m.ou_25_prob || 0, m.btts_prob || 0,
                 m.xgboost_confidence || 0, m.news_impact || 0,
-                m.odds_home || null, m.odds_draw || null, m.odds_away || null, 
+                m.odds_home || null, m.odds_draw || null, m.odds_away || null,
+                m.best_odds_home || null, m.best_odds_draw || null, m.best_odds_away || null,
                 m.ev_home || null, m.ev_draw || null, m.ev_away || null, m.ev_best || 'NONE',
                 m.odds_home_open || m.odds_home || null, m.odds_draw_open || m.odds_draw || null, m.odds_away_open || m.odds_away || null,
                 m.true_prob_home || null, m.true_prob_draw || null, m.true_prob_away || null, m.true_prob_ou25 || null, m.true_prob_btts || null,

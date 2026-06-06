@@ -11,14 +11,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,          // No sourcemaps in prod → smaller bundle
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false,   // Keep console.logs for diagnostics
-        drop_debugger: true,
-        passes: 2
-      }
-    },
+    minify: 'esbuild',
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {

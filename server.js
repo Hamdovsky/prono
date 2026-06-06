@@ -62,6 +62,8 @@ const promosportRoutes = require('./routes/promosport');
 console.log('🚀 [STARTUP] INITIALIZING TITANIUM SERVER V3.0...');
 
 const app = express();
+module.exports = app; // Export for testing (supertest)
+app.set('trust proxy', 1); // Honor X-Forwarded-For (Render proxy)
 
 // Prometheus metrics middleware — use shared register to avoid duplicate metric errors on restart
 let metricsMiddleware;

@@ -18,7 +18,7 @@ class BsdService {
 
   _headers() {
     return {
-      'Authorization': `Bearer ${this.apiKey}`,
+      'Authorization': `Token ${this.apiKey}`,
       'Accept': 'application/json'
     }
   }
@@ -48,21 +48,21 @@ class BsdService {
   // ── PUBLIC API ─────────────────────────────────────────────────
 
   async fetchEvents(dateStr) {
-    const data = await this._fetch(`/events/?date=${dateStr}`)
-    return data?.events || data?.data || []
+    const data = await this._fetch(`/v2/events/?date_from=${dateStr}&date_to=${dateStr}&limit=200`)
+    return data?.results || []
   }
 
   async fetchPredictions(matchId) {
-    return await this._fetch(`/predictions/${matchId}/`)
+    return await this._fetch(`/v2/events/${matchId}/prediction/`)
   }
 
   async fetchOdds(matchId) {
-    return await this._fetch(`/odds/compare/${matchId}/`)
+    return await this._fetch(`/v2/events/${matchId}/odds/`)
   }
 
   async fetchUpcomingEvents() {
-    const data = await this._fetch('/events/')
-    return data?.events || data?.data || []
+    const data = await this._fetch('/v2/events/?limit=200')
+    return data?.results || []
   }
 
   // ── MAPPING ─────────────────────────────────────────────────────
@@ -154,9 +154,9 @@ class BsdService {
     const oddsData = await this.fetchOdds(matchId.replace(/^bsd_/, ''))
     if (!oddsData) return null
 
-    const bestHome = oddsData.best_odds?.home_win || oddsData.home_win
-    const bestDraw = oddsData.best_odds?.draw || oddsData.draw
-    const bestAway = oddsData.best_odds?.away_win || oddsData.away_win
+    const bestHome = oddsData?.odds?.home_win || null
+    const bestDraw = oddsData?.odds?.draw || null
+    const bestAway = oddsData?.odds?.away_win || null
 
     if (bestHome || bestDraw || bestAway) {
       try {
@@ -214,9 +214,9 @@ class BsdService {
       try {
         const oddsData = await this.fetchOdds(m.bsd_match_id)
         if (!oddsData) continue
-        const bsdHome = oddsData.best_odds?.home_win || oddsData.home_win || null
-        const bsdDraw = oddsData.best_odds?.draw || oddsData.draw || null
-        const bsdAway = oddsData.best_odds?.away_win || oddsData.away_win || null
+        const bsdHome = oddsData?.odds?.home_win || null
+        const bsdDraw = oddsData?.odds?.draw || null
+        const bsdAway = oddsData?.odds?.away_win || null
         if (bsdHome || bsdDraw || bsdAway) {
           db.prepare(`
             UPDATE matches SET

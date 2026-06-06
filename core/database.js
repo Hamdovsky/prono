@@ -380,6 +380,7 @@ function runMigrations() {
         ['matches', 'motivation_signature',      'TEXT'],
         ['matches', 'autopsy_result',            'TEXT'],
         ['matches', 'is_autopsied',               'INTEGER DEFAULT 0'],
+        ['matches', 'bsd_match_id',              'TEXT'],
         ['matches', 'best_odds_home',             'REAL'],
         ['matches', 'best_odds_draw',             'REAL'],
         ['matches', 'best_odds_away',             'REAL'],
@@ -501,7 +502,7 @@ const database = {
 
             const sql = `
                 INSERT INTO matches (
-                    id, homeTeam, awayTeam, league, scoreHome, scoreAway, 
+                    id, bsd_match_id, homeTeam, awayTeam, league, scoreHome, scoreAway, 
                     minute, status, prediction, confidence, fullData, timestamp,
                     possession_home, possession_away, dangerous_attacks_home, dangerous_attacks_away,
                     shots_on_target_home, shots_on_target_away, corners_home, corners_away,
@@ -518,8 +519,9 @@ const database = {
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?
+                    ?, ?, ?, ?, ?, ?
                 ) ON CONFLICT (id) DO UPDATE SET 
+                    bsd_match_id = COALESCE(excluded.bsd_match_id, matches.bsd_match_id),
                     scoreHome = excluded.scoreHome, scoreAway = excluded.scoreAway,
                     minute = excluded.minute, status = excluded.status, 
                     last_updated = excluded.last_updated, fullData = excluded.fullData,
@@ -552,7 +554,7 @@ const database = {
             `;
 
             const params = [
-                m.id, m.homeTeam, m.awayTeam, m.league, m.score?.home ?? 0, m.score?.away ?? 0,
+                m.id, m.bsd_match_id || null, m.homeTeam, m.awayTeam, m.league, m.score?.home ?? 0, m.score?.away ?? 0,
                 m.minute || '0', m.status || (m.isLive ? 'live' : 'scheduled'), m.prediction, m.confidence,
                 fullData, timestamp,
                 stats.possession?.home || m.possession_home || 0, stats.possession?.away || m.possession_away || 0,

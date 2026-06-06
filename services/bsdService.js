@@ -131,6 +131,7 @@ class BsdService {
     for (const event of events) {
       try {
         const match = this._mapEventToMatch(event)
+        match.bsd_match_id = String(event.id || event.match_id || '')
 
         // Normalize team names
         try {
@@ -204,14 +205,14 @@ class BsdService {
     const db = database.db
     if (!db) return 0
 
-    const matches = db.prepare("SELECT id FROM matches WHERE status = 'scheduled'").all()
+    // Only fetch odds for matches that have a BSD match ID
+    const matches = db.prepare("SELECT id, bsd_match_id FROM matches WHERE bsd_match_id IS NOT NULL AND bsd_match_id != '' AND status = 'scheduled'").all()
     logger.info(`[BSD] Enriching ${matches.length} matches with odds...`)
     let count = 0
 
     for (const m of matches) {
       try {
-        const rawId = m.id.replace(/^(bsd_|fd_|rapid_)/, '')
-        const oddsData = await this.fetchOdds(rawId)
+        const oddsData = await this.fetchOdds(m.bsd_match_id)
         if (!oddsData) continue
         const bsdHome = oddsData.best_odds?.home_win || oddsData.home_win || null
         const bsdDraw = oddsData.best_odds?.draw || oddsData.draw || null
@@ -228,6 +229,7 @@ class BsdService {
         }
       } catch (_) {}
     }
+
     logger.info(`[BSD] Enriched ${count}/${matches.length} matches with better odds`)
     return count
   }

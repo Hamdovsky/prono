@@ -42,7 +42,8 @@ const mockFs = () => {
     ...actualFs,
     existsSync: jest.fn((path) => {
       if (path.includes('logs')) return false;
-      // For data dir checks, return false by default to avoid IO in tests
+      // Allow data directory to exist for better-sqlite3
+      if (typeof path === 'string' && path.includes('data')) return true;
       return false;
     }),
     mkdirSync: jest.fn(),

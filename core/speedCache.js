@@ -15,10 +15,14 @@ const _revalidating = new Set()
 const MAX_CACHE_ENTRIES = 200
 
 function evictIfNeeded() {
-  if (CACHE_STORE.size > MAX_CACHE_ENTRIES) {
+  if (CACHE_STORE.size >= MAX_CACHE_ENTRIES) {
     const oldest = [...CACHE_STORE.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0]
     if (oldest) CACHE_STORE.delete(oldest[0])
   }
+}
+
+function clearCache() {
+  CACHE_STORE.clear()
 }
 
 function speedCache(key, ttlMs = 60_000, staleMs = 300_000) {
@@ -93,9 +97,16 @@ speedCache.wrap = function wrap(key, ttlMs = 60_000) {
         if (cached && (now - cached.timestamp) < ttlMs) return cached.data;
         const result = fn(...args);
         const data = result && typeof result.then === 'function' ? await result : result;
+        evictIfNeeded()
         CACHE_STORE.set(cacheKey, { data, timestamp: Date.now() });
         return data;
     };
 };
+
+speedCache.cache = {
+  clear: () => CACHE_STORE.clear(),
+  get size() { return CACHE_STORE.size },
+  has: (k) => CACHE_STORE.has(k)
+}
 
 module.exports = { speedCache, invalidateCache };

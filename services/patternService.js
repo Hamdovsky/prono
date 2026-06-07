@@ -24,6 +24,19 @@ class PatternService {
         }
     }
 
+    async analyze(match) {
+        try {
+            const boosted = await this.applyVVIPBoost(match)
+            if (boosted.isVVIP) {
+                return { match: true, probability: 0.85, ...boosted.vvipDetails }
+            }
+            return { match: false, probability: 0 }
+        } catch (e) {
+            logger.error(`❌ [PATTERN] analyze error: ${e.message}`)
+            return { match: false, probability: 0 }
+        }
+    }
+
     async applyVVIPBoost(match) {
         try {
             const patterns = await database.getAllPatterns(50);

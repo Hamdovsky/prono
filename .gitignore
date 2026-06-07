@@ -88,6 +88,7 @@ data/scraper_progress.json
 data/scraper_state.json
 data/tactical.db-shm
 data/tactical.db-wal
+data/autoheal_state.json
 scripts/sync_to_render.js
 
 # Python cache

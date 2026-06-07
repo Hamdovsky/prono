@@ -6,8 +6,7 @@ const FASTAPI_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000';
 class PythonService {
     constructor() {
         this.isReady = false;
-        // Try to establish connection on startup
-        this.checkHealth();
+        this._notified = false;
     }
 
     async checkHealth() {
@@ -16,15 +15,15 @@ class PythonService {
             if (!this.isReady) {
                 logger.info(`✅ [PythonService] FastAPI Inference Engine connected at ${FASTAPI_URL}`);
                 this.isReady = true;
+                this._notified = true;
             }
             return true;
         } catch (e) {
-            if (!this.isReady) {
+            if (!this._notified) {
                 logger.info(`⏳ [PythonService] FastAPI not reachable at ${FASTAPI_URL} — will retry later (${e.message})`);
-            } else {
-                logger.warn(`⚠️ [PythonService] FastAPI Inference Engine disconnected.`);
-                this.isReady = false;
+                this._notified = true;
             }
+            this.isReady = false;
             return false;
         }
     }

@@ -42,6 +42,15 @@ const MEMORY_FALLBACK = new Map();
 
 async function getCache(key) {
   const start = performance.now();
+  if (!redis) {
+    const local = MEMORY_FALLBACK.get(key);
+    if (local && local.expiry > Date.now()) {
+      metrics.hits++;
+      return local.value;
+    }
+    metrics.misses++;
+    return null;
+  }
   try {
     const data = await redisBreaker.call(async () => {
       return await redis.get(key);
@@ -65,6 +74,23 @@ async function getCache(key) {
 }
 
 async function setCache(key, value, ttlInSeconds = 1800) {
+  if (!redis) {
+    MEMORY_FALLBACK.set(key, {
+      value,
+      expiry: Date.now() + (ttlInSeconds * 1000)
+    });
+    if (MEMORY_FALLBACK.size > 300) {
+      const now = Date.now();
+      for (const [k, v] of MEMORY_FALLBACK.entries()) {
+        if (v.expiry < now) MEMORY_FALLBACK.delete(k);
+      }
+      if (MEMORY_FALLBACK.size > 300) {
+        const sorted = [...MEMORY_FALLBACK.entries()].sort((a, b) => a[1].expiry - b[1].expiry)
+        for (const [k] of sorted.slice(0, sorted.length - 200)) MEMORY_FALLBACK.delete(k)
+      }
+    }
+    return
+  }
   await redisBreaker.call(async () => {
     const strValue = JSON.stringify(value);
     await redis.set(key, strValue, 'EX', ttlInSeconds);

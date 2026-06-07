@@ -38,6 +38,8 @@ services:
         sync: false
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "true"
+      - key: REDISMS_DISABLE_POSTINSTALL
+        value: "true"
       - key: VITE_API_URL
         value: https://prono-k6gc.onrender.com
       # API sources (keys set manually on dashboard — sync: false)

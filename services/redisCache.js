@@ -4,7 +4,6 @@
  */
 
 const redisConfig = require('../config/redis.config');
-const { RedisMemoryServer } = require('redis-memory-server');
 const logger = require('../core/logger');
 const Redis = require('ioredis');
 
@@ -23,25 +22,7 @@ class RedisCache {
         }
 
         if (!this.redis) {
-            logger.info('🧠 [REDIS] Local instance not found. Starting In-Memory Redis Server...');
-            try {
-                this.memoryServer = new RedisMemoryServer();
-                const host = await this.memoryServer.getHost();
-                const port = await this.memoryServer.getPort();
-                
-                this.redis = new Redis({
-                    host: host,
-                    port: port,
-                    retryStrategy: (times) => Math.min(times * 100, 2000),
-                    maxRetriesPerRequest: 5
-                });
-                
-                await this.redis.ping();
-                logger.info(`✅ [REDIS] Momentary Memory active at ${host}:${port}`);
-            } catch (err) {
-                logger.warn('⚠️ Redis Memory Server failed to start, using Map fallback:', err.message);
-                this.redis = null;
-            }
+            logger.info('🧠 [REDIS] Local instance not found. Using in-memory Map fallback.');
         }
     }
 

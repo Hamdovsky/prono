@@ -209,11 +209,15 @@ app.get('/metrics', async (req, res) => {
 
 app.get('/api/diag', async (req, res) => {
   try {
-    const matchesToday = database.db?.prepare("SELECT COUNT(*) as c FROM matches WHERE status = 'scheduled' AND timestamp >= date('now')").get()?.c || 0
+    const statuses = database.db?.prepare("SELECT status, COUNT(*) as c FROM matches GROUP BY status ORDER BY c DESC").all() || []
+    const sample = database.db?.prepare("SELECT id, homeTeam, awayTeam, league, status, timestamp FROM matches LIMIT 5").all() || []
+    const bsdSample = database.db?.prepare("SELECT id, homeTeam, awayTeam, league, status, source, timestamp FROM matches WHERE source = 'bsd' LIMIT 5").all() || []
     res.json({
       bsdAvailable: bsdService.isAvailable(),
       dbTotal: database.db?.prepare("SELECT COUNT(*) as c FROM matches").get()?.c || 0,
-      dbScheduled: matchesToday,
+      statuses,
+      sample,
+      bsdSample,
     })
   } catch (e) {
     res.status(500).json({ error: e.message })

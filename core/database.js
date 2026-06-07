@@ -482,6 +482,14 @@ const database = {
     // -- NATIVE POSTGRES IMPLEMENTATIONS --
     insertMatch: async (m) => {
         try {
+            // Skip matches with placeholder team names
+            const home = (m.homeTeam || '').toString().toLowerCase()
+            const away = (m.awayTeam || '').toString().toLowerCase()
+            if (home === 'home' || away === 'away') {
+                logger.warn(`[DB] Skipping match ${m.id} — placeholder team name (${m.homeTeam} vs ${m.awayTeam})`)
+                return false
+            }
+
             let timestamp = new Date().toISOString();
             if (m.startTimestamp) {
                 try {
@@ -996,6 +1004,18 @@ const database = {
         } catch (e) {
             logger.error(`[DB] getMatchesByDate failed: ${e.message}`);
             return [];
+        }
+    },
+    cleanupPlaceholderTeams: () => {
+        try {
+            const count = db.prepare("DELETE FROM matches WHERE LOWER(homeTeam) = 'home' OR LOWER(awayTeam) = 'away'").run()
+            if (count.changes > 0) {
+                logger.info(`[DB] Cleaned up ${count.changes} matches with placeholder team names`)
+            }
+            return count.changes
+        } catch (e) {
+            logger.error(`[DB] Cleanup error: ${e.message}`)
+            return 0
         }
     },
     query: (sql, params = []) => {

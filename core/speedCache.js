@@ -12,7 +12,7 @@
 
 const CACHE_STORE = new Map();
 const _revalidating = new Set()
-const MAX_CACHE_ENTRIES = 200
+const MAX_CACHE_ENTRIES = 100
 
 function evictIfNeeded() {
   if (CACHE_STORE.size >= MAX_CACHE_ENTRIES) {

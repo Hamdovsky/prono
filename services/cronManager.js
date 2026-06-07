@@ -62,8 +62,12 @@ class CronManager {
         // 7. Adaptive Learning Engine (02:30)
         cron.schedule('30 2 * * *', () => this.runAdaptiveLearning(), { timezone: 'Europe/Paris' });
 
-        // 8. Cache cleanup (Every 6 hours)
-        cron.schedule('0 */6 * * *', () => redisCache.clearExpired());
+        // 8. Cache cleanup + deltaEngine cleanup (Every 6 hours)
+        cron.schedule('0 */6 * * *', () => {
+            redisCache.clearExpired()
+            const deltaEngine = require('./deltaEngine')
+            deltaEngine.cleanup()
+        })
 
         // 9. Combo Refresh (Every hour)
         cron.schedule('0 * * * *', () => socketService.refreshCombos());

@@ -112,8 +112,9 @@ class LiveGoalPredictor {
 
         analysis.patternMatched = await this.findMatchingPatterns(match);
         
-        this.activeMatches.set(match.id, analysis);
-        return analysis;
+        if (this.activeMatches.size > 500) this._cleanup()
+        this.activeMatches.set(match.id, analysis)
+        return analysis
     }
 
     calculateScoreStateFactor(match) {
@@ -301,8 +302,16 @@ class LiveGoalPredictor {
     }
 
     getActiveMatches() {
+        this._cleanup()
         return Array.from(this.activeMatches.values())
-            .sort((a, b) => b.probabilities.next10min - a.probabilities.next10min);
+            .sort((a, b) => b.probabilities.next10min - a.probabilities.next10min)
+    }
+
+    _cleanup() {
+        const cutoff = Date.now() - 3 * 60 * 60 * 1000
+        for (const [id, analysis] of this.activeMatches) {
+            if (analysis.timestamp < cutoff) this.activeMatches.delete(id)
+        }
     }
 }
 

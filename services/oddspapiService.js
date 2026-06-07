@@ -31,7 +31,11 @@ class OddsPapiService {
 
   async fetchEvents(dateStr) {
     const tours = await this.fetchTournaments(10)
-    const ids = tours.slice(0, 5).map(t => t.tournamentId).filter(Boolean)
+    const active = tours
+      .filter(t => (t.upcomingFixtures || 0) > 0 || (t.futureFixtures || 0) > 0)
+      .sort((a, b) => (b.upcomingFixtures + b.futureFixtures) - (a.upcomingFixtures + a.futureFixtures))
+      .slice(0, 5)
+    const ids = active.map(t => t.tournamentId).filter(Boolean)
     if (ids.length === 0) return []
     const fixtures = await this.fetchOddsByTournaments(ids)
     return (fixtures || []).map(f => this.mapToMatch(f))

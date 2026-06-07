@@ -8,9 +8,8 @@ const crypto = require('crypto');
 
 class SmartOddsAnalyzer {
     constructor() {
-        this.patternCache = new Map();
-        this.MIN_PATTERN_OCCURRENCES = 5;
-        this.STEAM_THRESHOLD = 8; // % de baisse = signal fort
+        this.MIN_PATTERN_OCCURRENCES = 5
+        this.STEAM_THRESHOLD = 8 // % de baisse = signal fort
     }
 
     /**

@@ -23,6 +23,8 @@
 - `core/ml_features.py` — Feature extraction
 - `core/fastapi_server.py` — FastAPI inference API
 - `core/database.js` — DB abstraction layer
+- `services/autoHealAgent.js` — AI Autopilot: periodic health patrol, error detection, automated fixes
+- `services/autoHealRemedies.js` — Registry of known issues + remedies (FastAPI down, Redis, memory, scraper lock, port conflict)
 - `render.yaml` — Render.com deployment config
 
 ## Deployment

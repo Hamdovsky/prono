@@ -18,13 +18,17 @@ class CLVService {
 
     async start() {
         if (this.isRunning) return;
+
+        const rapidKey = process.env.RAPIDAPI_KEY || '';
+        if (!rapidKey || rapidKey.startsWith('VOTRE_') || rapidKey.length < 10) {
+            logger.warn('🚫 [CLV] Disabled — RAPIDAPI_KEY not configured.');
+            return;
+        }
+
         this.isRunning = true;
         logger.info('🚀 [CLV] Closing Line Value monitor started.');
         
-        // Run every 10 minutes
         setInterval(() => this.captureClosingOdds(), 10 * 60 * 1000);
-        
-        // Run immediately on start
         this.captureClosingOdds();
     }
 

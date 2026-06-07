@@ -47,7 +47,14 @@ def extract_bias_matrix():
         avg_actual = data['sum_actual'] / data['count']
         
         # Corrective factor: if actual is 0.7 and prob was 0.8, factor is 0.875
-        factor = avg_actual / avg_prob if avg_prob > 0 else 1.0
+        raw_factor = avg_actual / avg_prob if avg_prob > 0 else 1.0
+        
+        # Bayesian shrinkage: pull factor toward 1.0 for small samples
+        # K=20 means at count=5, shrinkage is 80%; at count=100, only 17%
+        K = 20
+        shrinkage = data['count'] / (data['count'] + K)
+        factor = 1.0 + (raw_factor - 1.0) * shrinkage
+        
         bias_matrix[f"{key[0]}|{key[1]}"] = round(factor, 3)
         
     conn.close()

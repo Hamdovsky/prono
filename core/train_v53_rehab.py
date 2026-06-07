@@ -16,7 +16,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from ml_features import extract_ml_features, FEATURE_NAMES_V52
+from ml_features import extract_ml_features, FEATURE_NAMES_V52, FEATURE_VOLATILITY
 from top_analyst_engine import process_match_for_top_analyst
 
 # Paths
@@ -91,6 +91,21 @@ def load_data(limit=30000):
     print(f"[STATS] Extracted {valid_matches} rows with {len(FEATURE_NAMES_V52)} features.")
     return pd.DataFrame(data, columns=FEATURE_NAMES_V52), np.array(labels)
 
+def noise_augment(X, y, noise_levels, rng=None):
+    """Augment training data with Gaussian noise matching inference volatility."""
+    if rng is None:
+        rng = np.random.default_rng(42)
+    X_aug = X.copy()
+    n_samples, n_features = X_aug.shape
+    for i in range(min(n_features, len(noise_levels))):
+        vol = noise_levels[i]
+        if vol > 0:
+            noise = rng.normal(0, vol, n_samples)
+            # Only noise non-binary features (same guard as simulate_match_mc)
+            X_aug[:, i] *= np.where((X[:, i] != 0) & (X[:, i] != 1), 1.0 + noise, 1.0)
+    return np.vstack([X, X_aug]), np.concatenate([y, y])
+
+
 def run_v53_training():
     print("[REHAB] Starting V53 Market & H2H Intelligence Model Training...")
     
@@ -101,7 +116,12 @@ def run_v53_training():
         
     X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
     X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
-    
+
+    # Noise augmentation: match inference-time volatility
+    noise_levels = [FEATURE_VOLATILITY.get(f, 0.05) for f in FEATURE_NAMES_V52]
+    X_train_aug, y_train_aug = noise_augment(X_train.values, y_train, noise_levels)
+    print(f"[AUG] Training set: {len(X_train)} → {len(X_train_aug)} (noise augmentation applied)")
+
     print("[OPTI] Tuning V53 features with XGBoost...")
     # Standard high-performance params for XGBoost (skipping Optuna for speed during reboot)
     best_params = {
@@ -113,7 +133,7 @@ def run_v53_training():
     }
     
     best_xgb = xgb.XGBClassifier(**best_params)
-    best_xgb.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+    best_xgb.fit(X_train_aug, y_train_aug, eval_set=[(X_val, y_val)], verbose=False)
 
     
     # 4. Accuracy Assessment

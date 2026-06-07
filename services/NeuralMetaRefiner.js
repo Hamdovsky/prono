@@ -18,33 +18,34 @@ class NeuralMetaRefiner {
         if (Date.now() - this.lastUpdate < 300000) return; // Refresh every 5 mins
 
         try {
-            const query = `
+            const rows = db.db.prepare(`
                 SELECT league, prediction_type, probability, result
                 FROM prediction_history
                 WHERE result IS NOT NULL
-            `;
-            const { rows } = await db.query(query);
+            `).all();
 
             const stats = {};
             for (const r of rows) {
                 const key = `${r.league}|${r.prediction_type}`;
                 if (!stats[key]) stats[key] = { sumProb: 0, sumActual: 0, count: 0 };
                 
-                stats[key].sumProb += r.probability || 0;
+                stats[key].sumProb += parseFloat(r.probability) || 0;
                 stats[key].sumActual += (r.result === 'won' || r.result === 'WON') ? 1 : 0;
                 stats[key].count++;
             }
 
             this.biasCache.clear();
             for (const [key, data] of Object.entries(stats)) {
-                if (data.count < 3) continue; // Minimum 3 matches for bias
+                if (data.count < 3) continue;
 
                 const avgProb = data.sumProb / data.count;
                 const avgActual = data.sumActual / data.count;
 
-                // Bayesian Correction Factor
-                const alpha = 2; // Prior strength
-                const correctedFactor = (data.sumActual + alpha) / (data.sumProb + alpha);
+                // Bayesian shrinkage toward 1.0 (K=20 same as Python meta_refiner)
+                const K = 20;
+                const shrinkage = data.count / (data.count + K);
+                const rawFactor = avgProb > 0 ? avgActual / avgProb : 1.0;
+                const correctedFactor = 1.0 + (rawFactor - 1.0) * shrinkage;
                 
                 this.biasCache.set(key, correctedFactor);
             }

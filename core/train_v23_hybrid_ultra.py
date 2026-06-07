@@ -4,24 +4,16 @@ import sqlite3
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-import optuna
-import shap
 import joblib
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, log_loss
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, Dropout
-from tensorflow.keras.optimizers import Adam
 from ml_features import extract_ml_features, FEATURE_NAMES
 
-# Paths
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'data', 'historical_archive.sqlite')
 MODEL_XGB_PATH = os.path.join(BASE_DIR, 'models', 'stitch_v23_hybrid.json')
 MODEL_NN_PATH = os.path.join(BASE_DIR, 'models', 'stitch_v23_nn.h5')
 SCALER_PATH = os.path.join(BASE_DIR, 'models', 'scaler_v23.pkl')
 SHAP_EXPLAINER_PATH = os.path.join(BASE_DIR, 'models', 'shap_explainer_v23.pkl')
+
 
 def load_data(limit=15000):
     conn = sqlite3.connect(DB_PATH)
@@ -41,7 +33,10 @@ def load_data(limit=15000):
         
     return pd.DataFrame(data, columns=FEATURE_NAMES), np.array(labels)
 
+
 def objective_xgb(trial, X_train, y_train, X_val, y_val):
+    from sklearn.metrics import log_loss
+    import xgboost as xgb
     params = {
         'objective': 'multi:softprob',
         'num_class': 3,
@@ -56,7 +51,11 @@ def objective_xgb(trial, X_train, y_train, X_val, y_val):
     preds = model.predict_proba(X_val)
     return log_loss(y_val, preds)
 
+
 def train_nn(X_train, y_train, X_val, y_val, params):
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense, Dropout
+    from tensorflow.keras.optimizers import Adam
     model = Sequential([
         Dense(params['units1'], activation='relu', input_shape=(X_train.shape[1],)),
         Dropout(params['dropout1']),
@@ -68,6 +67,7 @@ def train_nn(X_train, y_train, X_val, y_val, params):
     model.fit(X_train, y_train, validation_data=(X_val, y_val), epochs=50, batch_size=32, verbose=0)
     return model
 
+
 class HybridModel:
     def __init__(self, xgb_model, nn_model, scaler):
         self.xgb = xgb_model
@@ -77,18 +77,20 @@ class HybridModel:
         self.w_nn = 0.5
 
     def predict_proba(self, X):
+        from sklearn.preprocessing import StandardScaler
         X_scaled = self.scaler.transform(X)
         p_xgb = self.xgb.predict_proba(X)
         p_nn = self.nn.predict(X_scaled, verbose=0)
         return (p_xgb * self.w_xgb) + (p_nn * self.w_nn)
 
+
 def incremental_update(X_new, y_new):
     """
     Online Learning: Updates existing models with new data (Big Data Stream).
+    Only XGBoost is updated if tensorflow is not available.
     """
     print("🔄 [ONLINE] Performing incremental update on V23 Hybrid hemisphers...")
     
-    # 1. Update XGBoost (using existing booster as base)
     if os.path.exists(MODEL_XGB_PATH):
         old_xgb = xgb.Booster()
         old_xgb.load_model(MODEL_XGB_PATH)
@@ -96,18 +98,29 @@ def incremental_update(X_new, y_new):
         updated_xgb = xgb.train({'objective': 'multi:softprob', 'num_class': 3}, dnew, num_boost_round=10, xgb_model=old_xgb)
         updated_xgb.save_model(MODEL_XGB_PATH)
         print("✅ XGBoost hemisphere updated online.")
-        
-    # 2. Update Neural Network
-    if os.path.exists(MODEL_NN_PATH):
-        nn = load_model(MODEL_NN_PATH)
-        scaler = joblib.load(SCALER_PATH)
-        X_new_s = scaler.transform(X_new)
-        nn.fit(X_new_s, y_new, epochs=5, batch_size=16, verbose=0)
-        nn.save(MODEL_NN_PATH)
-        print("✅ Neural Network hemisphere updated online.")
+    
+    try:
+        from tensorflow.keras.models import load_model
+        from sklearn.preprocessing import StandardScaler
+        if os.path.exists(MODEL_NN_PATH):
+            nn = load_model(MODEL_NN_PATH)
+            scaler = joblib.load(SCALER_PATH)
+            X_new_s = scaler.transform(X_new)
+            nn.fit(X_new_s, y_new, epochs=5, batch_size=16, verbose=0)
+            nn.save(MODEL_NN_PATH)
+            print("✅ Neural Network hemisphere updated online.")
+    except ImportError:
+        print("⚠️ TensorFlow not available — skipped NN hemisphere update.")
+    except Exception as e:
+        print(f"⚠️ NN update failed: {e}")
+
 
 def run_v23_upgrade():
-    # ... existing code ...
+    import optuna
+    import shap
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.metrics import accuracy_score
     print("🚀 [V23] Starting Hybrid Big Data AutoML Upgrade...")
     X, y = load_data()
     X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -138,7 +151,6 @@ def run_v23_upgrade():
     
     # 5. SHAP Explanability
     print("🔮 Generating SHAP Explainer (Global Patterns)...")
-    # Using XGB for SHAP as it's faster and usually represents the logic well in a hybrid
     explainer = shap.Explainer(best_xgb)
     joblib.dump(explainer, SHAP_EXPLAINER_PATH)
     
@@ -147,6 +159,7 @@ def run_v23_upgrade():
     best_nn.save(MODEL_NN_PATH)
     joblib.dump(scaler, SCALER_PATH)
     print(f"💾 Models and Scaler saved at {os.path.dirname(MODEL_XGB_PATH)}")
+
 
 if __name__ == "__main__":
     run_v23_upgrade()

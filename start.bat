@@ -38,7 +38,7 @@ echo =====================================================================
 echo.
 
 cd /d %~dp0
-call npx concurrently "node --max-old-space-size=4096 tools\start-redis.js" "npm run scraper" "streamlit run core/command_center.py" "node --max-old-space-size=4096 server.js" "npm run learn" "npx vite" "node scripts/live_value_alerts.js" ".venv\Scripts\python.exe -m uvicorn core.fastapi_server:app --host 127.0.0.1 --port 8000 --workers 1" --names "REDIS,SCRAPER,COMMAND,API_CORE,LEARN,UI_DASH,LIVE_ALERTS,ML_CORE" --prefix-colors "blue.bold,yellow.bold,red.bold,green.bold,magenta.bold,cyan.bold,yellow.dim,white.bold" --kill-others --restart-tries 3 --restart-after 10000
+call npx concurrently "node --max-old-space-size=512 tools\start-redis.js" "npm run scraper" "streamlit run core/command_center.py" "node --max-old-space-size=512 server.js" "npm run learn" "npx vite" "node scripts/live_value_alerts.js" ".venv\Scripts\python.exe -m uvicorn core.fastapi_server:app --host 127.0.0.1 --port 8000 --workers 1" --names "REDIS,SCRAPER,COMMAND,API_CORE,LEARN,UI_DASH,LIVE_ALERTS,ML_CORE" --prefix-colors "blue.bold,yellow.bold,red.bold,green.bold,magenta.bold,cyan.bold,yellow.dim,white.bold" --kill-others --restart-tries 3 --restart-after 10000
 
 echo.
 echo [%time%] Titanium Services have been gracefully shut down.

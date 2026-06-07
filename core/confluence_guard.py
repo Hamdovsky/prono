@@ -81,15 +81,28 @@ def evaluate_confluence(
     # Vainqueur de consensus
     winners = [xgb_winner, poi_winner]
     if mkt_winner: winners.append(mkt_winner)
-    consensus_winner = max(set(winners), key=winners.count)
-    all_agree = len(set(winners)) == 1
+    
+    if len(winners) == 3 and len(set(winners)) == 3:
+        consensus_winner = 'CONFLICT'
+        all_agree = False
+    else:
+        consensus_winner = max(set(winners), key=winners.count)
+        all_agree = len(set(winners)) == 1
 
     # --- Détermination du niveau de confluence ---
     level = 'MODERATE'
     penalty = 0.0
     reason_parts = []
 
-    if all_agree and xgb_poi_div < 0.10:
+    if consensus_winner == 'CONFLICT':
+        # ⚫ TROIS AVIS DIFFÉRENTS — conflit pur, forcer NO BET
+        level = 'CRITICAL'
+        penalty = 0.50
+        reason_parts.append(
+            f"⚫ Conflit total: XGB→{xgb_winner} / Poisson→{poi_winner} / Marché→{mkt_winner or 'N/A'}"
+        )
+
+    elif all_agree and xgb_poi_div < 0.10:
         # 🟢 CONSENSUS FORT : tous les modèles convergent
         level = 'STRONG'
         penalty = -0.08  # Bonus confiance

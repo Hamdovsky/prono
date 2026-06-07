@@ -139,28 +139,41 @@ def calculate_rolling_averages(history_list, window=30):
     """
     V20 Quantum Decay: Uses a 30-match window with exponential weighting.
     Recent matches have significantly higher influence on the average.
+    For cold start (< 3 matches), blends with league-average defaults.
     """
-    if not history_list: return 0.0, 0.0
-    
-    # Use up to 30 matches
+    LEAGUE_AVG_GOALS = 1.2
+    LEAGUE_AVG_PTS = 1.0
+
+    if not history_list:
+        return LEAGUE_AVG_GOALS, LEAGUE_AVG_PTS
+
     history = history_list[:min(len(history_list), window)]
-    
+
     weighted_goals = 0.0
     weighted_points = 0.0
     total_weight = 0.0
-    
-    # Alpha of 0.15 for exponential decay
+
     alpha = 0.15
-    
+
     for i, m in enumerate(history):
-        # i=0 is most recent
         weight = math.pow(1 - alpha, i)
         weighted_goals += m.get('score_for', 0) * weight
         weighted_points += m.get('points', 0) * weight
         total_weight += weight
-        
-    if total_weight == 0: return 0.0, 0.0
-    return weighted_goals / total_weight, weighted_points / total_weight
+
+    if total_weight == 0:
+        return LEAGUE_AVG_GOALS, LEAGUE_AVG_PTS
+
+    avg_goals = weighted_goals / total_weight
+    avg_points = weighted_points / total_weight
+
+    # Cold start blend: for < 5 matches, mix in league average to prevent early season volatility
+    if len(history_list) < 5:
+        blend = len(history_list) / 5.0
+        avg_goals = avg_goals * blend + LEAGUE_AVG_GOALS * (1 - blend)
+        avg_points = avg_points * blend + LEAGUE_AVG_PTS * (1 - blend)
+
+    return avg_goals, avg_points
 
 def calculate_glicko_momentum(history_list, window=5):
     """

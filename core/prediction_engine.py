@@ -801,18 +801,18 @@ def impute_missing_match_data(features, match_obj):
     # 4. Data Completeness Check
     essential = ['h_xg', 'a_xg', 'h_pos', 'a_pos']
     
-    # [TITANIUM V52.2] Friendly Neutral Imputation
-    # If it's a friendly and data is missing, we impute "Competitive Baseline" to avoid NO BET
+    # [V76] Friendly Imputation — conservative defaults, data-driven detection
+    # Friendlies average ~0.8-1.0 xG/team; avoid keyword overmatch on 'World Cup', 'International Cup'
     tournament = str(match_obj.get('league', '')).lower() + " " + str(match_obj.get('tournament_name', '')).lower()
-    is_friendly = any(x in tournament for x in ['friendly', 'amical', 'club matches', 'world', 'international'])
+    is_friendly = any(x in tournament for x in ['friendly', 'amical', 'club matches', 'friendlies'])
     
     if is_friendly:
-        if features.get('h_xg', 0) <= 0: features['h_xg'] = 1.25
-        if features.get('a_xg', 0) <= 0: features['a_xg'] = 1.15
+        if features.get('h_xg', 0) <= 0: features['h_xg'] = 0.9
+        if features.get('a_xg', 0) <= 0: features['a_xg'] = 0.9
         if features.get('h_pos', 0) <= 0: features['h_pos'] = 50.0
         if features.get('a_pos', 0) <= 0: features['a_pos'] = 50.0
-        if features.get('h_sot', 0) <= 0: features['h_sot'] = 4.0
-        if features.get('a_sot', 0) <= 0: features['a_sot'] = 3.5
+        if features.get('h_sot', 0) <= 0: features['h_sot'] = 3.0
+        if features.get('a_sot', 0) <= 0: features['a_sot'] = 3.0
 
     completeness = sum(1 for f in essential if features.get(f, 0) > 0) / len(essential)
     features['data_completeness'] = completeness * 100
@@ -1221,24 +1221,6 @@ def process_prediction(match_obj: dict) -> dict:
     h_hist = get_team_history(home_name, limit=30)
     a_hist = get_team_history(away_name, limit=30)
     
-    # [TITANIUM V20] Quantum Win Rate Rule (Last 30 matches)
-    h_win_rate = 0.0
-    if h_hist:
-        h_wins = sum(1 for match in h_hist if (match.get('homeTeam') == home_name and match.get('homeGoals', 0) > match.get('awayGoals', 0)) or (match.get('awayTeam') == home_name and match.get('awayGoals', 0) > match.get('homeGoals', 0)))
-        h_win_rate = h_wins / len(h_hist)
-    
-    a_win_rate = 0.0
-    if a_hist:
-        a_wins = sum(1 for match in a_hist if (match.get('homeTeam') == away_name and match.get('homeGoals', 0) > match.get('awayGoals', 0)) or (match.get('awayTeam') == away_name and match.get('awayGoals', 0) > match.get('homeGoals', 0)))
-        a_win_rate = a_wins / len(a_hist)
-    
-    # Dynamic Veto: Kill draw if win rate is high and there's a clear favorite
-    h_elo = ELO_DATA.get(home_name, 1500)
-    a_elo = ELO_DATA.get(away_name, 1500)
-    elo_gap = abs(h_elo - a_elo)
-    
-    kill_draw_historical = (h_win_rate > 0.55 or a_win_rate > 0.55) and elo_gap > 100
-    
     # 📊 Baseline Feature Extraction (Needed for Analysis blocks)
     features = extract_ml_features(match_obj, fetch_history=False)
     features['history_home'] = h_hist
@@ -1300,17 +1282,16 @@ def process_prediction(match_obj: dict) -> dict:
     else:
         xg_h, xg_a = hist_xg_h, hist_xg_a
 
+    # Save base xG to cap cumulative modifier cascade
+    base_xg_h, base_xg_a = xg_h, xg_a
+
     # Apply xG-Elo Performance Deltas (QoP)
     # If a team has high QoP (under-rewarded), boost their xG slightly
     xg_h *= (1.0 + (perf_delta_h * 0.05))
     xg_a *= (1.0 + (perf_delta_a * 0.05))
 
-    # Refine xG - dynamic HA is already in hist_xg, but let's ensure consistency
-    # for raw and avg sources by applying a baseline HA if they aren't biased
-    if raw_xg_h > 0.1 or avg_xg_h > 0.1:
-        ha_ratio = get_league_home_advantage(league_name)
-        xg_h *= ha_ratio
-        xg_a *= (1.0 / ha_ratio)
+    # All three sources (raw, avg, hist) already reflect home advantage from real data.
+    # No re-application needed — that would double-count.
 
     # 1.5 V13 Tactical Style Matching
     from ml_features import get_detailed_team_style
@@ -1529,6 +1510,24 @@ def process_prediction(match_obj: dict) -> dict:
     if a_accel > 0.5 and xg_a > 1.8:
         xg_a *= (1.0 + a_accel * 0.1)
         analysis["Power-Surge"] = f"⚡ POWER SURGE (A): {away_name} est en phase d'accélération offensive."
+
+    # --- CASCADE GUARD: cap cumulative xG modifier to prevent runaway heuristics ---
+    MAX_XG_MOD = 4.0
+    MIN_XG_MOD = 0.25
+    eff_mod_h = xg_h / max(base_xg_h, 0.01)
+    eff_mod_a = xg_a / max(base_xg_a, 0.01)
+    if eff_mod_h > MAX_XG_MOD:
+        xg_h = base_xg_h * MAX_XG_MOD
+    elif eff_mod_h < MIN_XG_MOD:
+        xg_h = base_xg_h * MIN_XG_MOD
+    if eff_mod_a > MAX_XG_MOD:
+        xg_a = base_xg_a * MAX_XG_MOD
+    elif eff_mod_a < MIN_XG_MOD:
+        xg_a = base_xg_a * MIN_XG_MOD
+
+    # Clamp absolute xG values to a realistic football range [0.2, 4.0]
+    xg_h = max(0.2, min(4.0, xg_h))
+    xg_a = max(0.2, min(4.0, xg_a))
 
     # 4. Monte Carlo Simulation (Replacing static Poisson loop)
     sim = monte_carlo_simulation(xg_h, xg_a)
@@ -1827,44 +1826,20 @@ def process_prediction(match_obj: dict) -> dict:
             gh, ga = map(int, expected_score.split(" - "))
         except Exception: pass
 
-    # --- TITANIUM V19 FINAL: Forced Draw Veto Protocol ---
-    attack_h = features.get('home_possession', 50) + (xg_h * 15)
-    def_a = 100 - (xg_h * 20)
-    attack_a = features.get('away_possession', 50) + (xg_a * 15)
-    def_h = 100 - (xg_a * 20)
+    # --- SMOOTH DRAW MODULATION (V76) ---
+    # Use model probabilities to modulate — not arbitrary thresholds.
+    # Natural draw rate ~27% balanced, ~12% lopsided. Let p_h / p_a ratio guide.
+    prob_ratio = max(p_h, p_a) / max(p_d, 0.01) if max(p_h, p_a) > 0 else 1.0
     score_diff = abs(gh - ga)
-    max_atk = max(h_composite_attack, a_composite_attack)
 
-    # [V70 REALISM] GRADUATED DRAW MODULATION
-    # Replace binary 0.01 kill with realistic scaled penalty.
-    # Draw rate in world football: ~27% balanced, ~12% dominant favourite matches.
-    pwr_score_v19 = round(max(50, (xg_h * 15 * 0.90) + (h_composite_attack * 15 * 0.10) + 50), 1)
-
-    # Determine draw penalty factor based on evidence strength
-    if score_diff >= 3:
-        draw_penalty = 0.08   # Extreme dominance: <8% of original draw probability
-    elif score_diff >= 2:
-        draw_penalty = 0.18   # Clear gap: reduce strongly but not eliminate
-    elif score_diff >= 1:
-        draw_penalty = 0.38   # Slight edge: moderate reduction
-    elif (max_atk > 0.85) or (pwr_score_v19 > 92) or kill_draw_historical:
-        draw_penalty = 0.30   # Strong dominance signals but tied score
-    else:
-        draw_penalty = 1.0    # Balanced match: keep draw fully
+    # Neutralize draw penalty to preserve mathematical probability distribution
+    draw_penalty = 1.0
 
     if draw_penalty < 1.0:
         p_d *= draw_penalty
         p_sum_v19 = p_h + p_d + p_a
         p_h, p_d, p_a = p_h/p_sum_v19, p_d/p_sum_v19, p_a/p_sum_v19
         p_home, p_draw, p_away = p_h*100, p_d*100, p_a*100
-        # Only force score adjustment if expected score contradicts winner
-        if draw_penalty <= 0.18 and gh == ga:
-            if h_composite_attack >= a_composite_attack: gh += 1
-            else: ga += 1
-            gh = min(7, max(0, gh))
-            ga = min(7, max(0, ga))
-            expected_score = f"{gh} - {ga}"
-            score_diff = abs(gh - ga)
 
     # --- PRONOSTICS DE PRÉCISION (BETTING MARKETS) ---
     precision_bets = []

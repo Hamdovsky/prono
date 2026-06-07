@@ -398,7 +398,14 @@ def process_match_for_top_analyst(match_obj):
     # Final Verdict & Tip Generation
     winner_tip = "Home" if xg_h - xg_a > 0.4 and odds_analysis['true_prob_h'] > 0.42 else ("Away" if xg_a - xg_h > 0.4 and odds_analysis['true_prob_a'] > 0.42 else "Draw")
     verdict = "SAFE BET" if (value_analysis['value_bet_flag'] == 1 and market_confidence_indicator == 1) else ("STRONG BET" if max(value_analysis['model_prob_h'], value_analysis['model_prob_a']) > 0.55 else "RISKY BET")
-    power_score = int(50 + (xg_h * 15) + (trend_analysis['trend_score']/5))
+    # Symmetric power score calculation based on predicted winner
+    if winner_tip == "Home":
+        xg_target = xg_h
+    elif winner_tip == "Away":
+        xg_target = xg_a
+    else:
+        xg_target = (xg_h + xg_a) / 2.0
+    power_score = int(50 + (xg_target * 15) + (trend_analysis['trend_score']/5))
 
     return {
         "verdict": verdict,

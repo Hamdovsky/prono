@@ -404,14 +404,19 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
             clvService.start().catch(() => {});
             logger.info('🧠 [AI] Background enrichment logic active');
 
-            // 🗄️ [SUPABASE] Connect to PostgreSQL cloud (persistent data across deploys)
+            // 🗄️ [SUPABASE] PostgreSQL cloud persistence — dual-sync startup
             setTimeout(async () => {
               try {
                 const connected = await supabaseService.connect()
                 if (connected) {
                   await supabaseService.initSchema()
+                  // Phase 1: restore cloud data → SQLite (survives redeploy)
+                  await supabaseService.restoreToSQLite(database)
+                  // Phase 2: push latest SQLite data → cloud
                   await supabaseService.syncFromSQLite(database)
-                  logger.info('✅ [SUPABASE] Sync complete — data is now persistent across deploys')
+                  // Phase 3: continuous sync every 5 min
+                  supabaseService.startPeriodicSync(database)
+                  logger.info('✅ [SUPABASE] Dual-sync active — data survives redeploys')
                 }
               } catch (e) {
                 logger.warn(`⚠️ [SUPABASE] Init error: ${e.message}`)

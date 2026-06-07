@@ -1,11 +1,14 @@
 const { Pool } = require('pg')
 const logger = require('../core/logger')
 
+const SYNC_INTERVAL = 5 * 60 * 1000
+
 class SupabaseService {
   constructor() {
     this.enabled = process.env.SUPABASE_ENABLED !== 'false'
     this.connected = false
     this.pool = null
+    this._syncTimer = null
 
     const url = process.env.SUPABASE_URL
     if (!url || url.startsWith('CHANGER_MOI')) {
@@ -240,6 +243,71 @@ class SupabaseService {
     } catch (e) {
       logger.warn(`⚠️ [SUPABASE] Sync error: ${e.message}`)
       return 0
+    }
+  }
+
+  async restoreToSQLite(database) {
+    if (!this.isAvailable()) return 0
+    try {
+      const result = await this.query(`
+        SELECT id, "homeTeam", "awayTeam", league, status, prediction, confidence,
+               "fullData", timestamp, "startTimestamp", source, last_updated,
+               "home_win_probability", "draw_probability", "away_win_probability",
+               odds_home, odds_draw, odds_away, insufficient_data
+        FROM matches
+        WHERE status = 'scheduled'
+        ORDER BY last_updated DESC LIMIT 500
+      `)
+      if (!result?.rows?.length) {
+        logger.info('⏭️ [SUPABASE] No remote matches to restore')
+        return 0
+      }
+
+      const upsert = database.db.prepare(`
+        INSERT OR REPLACE INTO matches (
+          id, "homeTeam", "awayTeam", league, status, prediction, confidence,
+          "fullData", timestamp, "startTimestamp", source, last_updated,
+          "home_win_probability", "draw_probability", "away_win_probability",
+          odds_home, odds_draw, odds_away, insufficient_data
+        ) VALUES (
+          @id, @homeTeam, @awayTeam, @league, @status, @prediction, @confidence,
+          @fullData, @timestamp, @startTimestamp, @source, @last_updated,
+          @home_win_probability, @draw_probability, @away_win_probability,
+          @odds_home, @odds_draw, @odds_away, @insufficient_data
+        )
+      `)
+
+      const tx = database.db.transaction((rows) => {
+        for (const row of rows) {
+          upsert.run(row)
+        }
+      })
+      tx(result.rows)
+      logger.info(`✅ [SUPABASE] Restored ${result.rows.length} matches from cloud to SQLite`)
+      return result.rows.length
+    } catch (e) {
+      logger.warn(`⚠️ [SUPABASE] Restore error: ${e.message}`)
+      return 0
+    }
+  }
+
+  startPeriodicSync(database) {
+    if (!this.enabled || this._syncTimer) return
+
+    const sync = async () => {
+      if (!this.isAvailable()) return
+      await this.syncFromSQLite(database)
+    }
+
+    sync()
+    this._syncTimer = setInterval(sync, SYNC_INTERVAL)
+    logger.info(`⏰ [SUPABASE] Periodic sync every ${SYNC_INTERVAL / 60000}min started`)
+  }
+
+  stopPeriodicSync() {
+    if (this._syncTimer) {
+      clearInterval(this._syncTimer)
+      this._syncTimer = null
     }
   }
 }

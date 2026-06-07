@@ -18,6 +18,7 @@ class SupabaseService {
       this.pool = new Pool({
         connectionString: url,
         ssl: { rejectUnauthorized: false },
+        family: 4,
         max: 5,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000

@@ -51,7 +51,7 @@ class AutoHealRemedies {
         description: 'DeepSeek API quota exhausted — AI enrichment degraded',
         check: async () => {
           try {
-            const usageFile = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/deepseek_usage.json')
+            const usageFile = path.join(__dirname, '..', 'data', 'deepseek_usage.json')
             if (!fs.existsSync(usageFile)) return { detected: false }
             const data = JSON.parse(fs.readFileSync(usageFile, 'utf8'))
             const limit = parseInt(process.env.DEEPSEEK_MAX_MONTHLY_CALLS || '220')
@@ -165,8 +165,11 @@ class AutoHealRemedies {
         description: 'Target port occupied by another process',
         check: async () => {
           const port = process.env.PORT || 3001
+          const cmd = process.platform === 'win32'
+            ? `netstat -ano | findstr LISTENING | findstr :${port}`
+            : `ss -tlnp | grep :${port}`
           return new Promise(resolve => {
-            exec(`netstat -ano | findstr LISTENING | findstr :${port}`, (err, stdout) => {
+            exec(cmd, (err, stdout) => {
               if (err || !stdout) return resolve({ detected: false })
               const pids = [...new Set(stdout.trim().split(/\r?\n/).map(l => l.trim().split(/\s+/).pop()).filter(p => p && p !== '0' && parseInt(p) !== process.pid))]
               if (pids.length > 0) return resolve({ detected: true, detail: `PID(s): ${pids.join(', ')} on port ${port}` })
@@ -176,11 +179,17 @@ class AutoHealRemedies {
         },
         fix: async () => {
           const port = process.env.PORT || 3001
+          const cmd = process.platform === 'win32'
+            ? `netstat -ano | findstr LISTENING | findstr :${port}`
+            : `ss -tlnp | grep :${port}`
           return new Promise(resolve => {
-            exec(`netstat -ano | findstr LISTENING | findstr :${port}`, (err, stdout) => {
+            exec(cmd, (err, stdout) => {
               if (err || !stdout) return resolve({ success: true, detail: 'No conflict found' })
               const pids = [...new Set(stdout.trim().split(/\r?\n/).map(l => l.trim().split(/\s+/).pop()).filter(p => p && p !== '0'))]
-              Promise.all(pids.map(pid => new Promise(r => exec(`taskkill /F /PID ${pid} /T`, () => r()))))
+              const killCmd = process.platform === 'win32'
+                ? pid => `taskkill /F /PID ${pid} /T`
+                : pid => `kill -9 ${pid}`
+              Promise.all(pids.map(pid => new Promise(r => exec(killCmd(pid), () => r()))))
                 .then(() => setTimeout(() => resolve({ success: true, detail: `Killed PID(s): ${pids.join(', ')}` }), 1500))
             })
           })

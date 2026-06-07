@@ -40,3 +40,26 @@ services:
         value: "true"
       - key: VITE_API_URL
         value: https://prono-k6gc.onrender.com
+      # API sources (keys set manually on dashboard — sync: false)
+      - key: BSD_API_KEY
+        sync: false
+      - key: THERUNDOWN_KEY
+        sync: false
+      - key: ODDSPAPI_KEY
+        sync: false
+      - key: SPORTMONKS_KEY
+        sync: false
+      - key: APIFOOTBALL_KEY
+        sync: false
+      - key: OPENWEATHER_KEY
+        sync: false
+      # Supabase (PostgreSQL cloud persistence)
+      - key: SUPABASE_ENABLED
+        value: "true"
+      - key: SUPABASE_URL
+        sync: false
+      # Telegram bot
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false

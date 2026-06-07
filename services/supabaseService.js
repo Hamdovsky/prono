@@ -113,7 +113,7 @@ class SupabaseService {
         "corners_home" INTEGER,
         "corners_away" INTEGER,
         source TEXT,
-        last_updated INTEGER,
+        last_updated BIGINT,
         "home_win_probability" REAL,
         "draw_probability" REAL,
         "away_win_probability" REAL,
@@ -146,9 +146,6 @@ class SupabaseService {
         home_team_id TEXT,
         away_team_id TEXT
       );
-
-      ALTER TABLE matches ALTER COLUMN "startTimestamp" TYPE BIGINT;
-      ALTER TABLE matches ALTER COLUMN last_updated TYPE BIGINT;
 
       CREATE TABLE IF NOT EXISTS prediction_history (
         id SERIAL PRIMARY KEY,
@@ -193,11 +190,12 @@ class SupabaseService {
       CREATE INDEX IF NOT EXISTS idx_history_match_id ON prediction_history(match_id);
     `
     const result = await this.query(sql)
-    if (result) {
-      logger.info('✅ [SUPABASE] Schema initialized')
-      return true
-    }
-    return false
+    if (result) logger.info('✅ [SUPABASE] Schema initialized')
+
+    // Fix column types for existing tables (safe no-op if already BIGINT)
+    await this.query('ALTER TABLE matches ALTER COLUMN "startTimestamp" TYPE BIGINT').catch(() => {})
+    await this.query('ALTER TABLE matches ALTER COLUMN last_updated TYPE BIGINT').catch(() => {})
+    return true
   }
 
   async upsertMatch(match) {

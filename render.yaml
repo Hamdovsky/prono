@@ -65,5 +65,4 @@ services:
         sync: false
       # Python FastAPI inference (Railway or other external host)
       - key: INFERENCE_URL
-        value: https://prono-inference.up.railway.app
-        # Changez cette URL après avoir créé le service Railway
+        value: https://stitch-production-1aa5.up.railway.app

@@ -64,7 +64,7 @@ async function getCache(key) {
   return null;
 }
 
-async function setCache(key, value, ttlInSeconds = 3600) {
+async function setCache(key, value, ttlInSeconds = 1800) {
   await redisBreaker.call(async () => {
     const strValue = JSON.stringify(value);
     await redis.set(key, strValue, 'EX', ttlInSeconds);
@@ -73,10 +73,14 @@ async function setCache(key, value, ttlInSeconds = 3600) {
       value,
       expiry: Date.now() + (ttlInSeconds * 1000)
     });
-    if (MEMORY_FALLBACK.size > 1000) {
+    if (MEMORY_FALLBACK.size > 300) {
       const now = Date.now();
       for (const [k, v] of MEMORY_FALLBACK.entries()) {
         if (v.expiry < now) MEMORY_FALLBACK.delete(k);
+      }
+      if (MEMORY_FALLBACK.size > 300) {
+        const sorted = [...MEMORY_FALLBACK.entries()].sort((a, b) => a[1].expiry - b[1].expiry)
+        for (const [k] of sorted.slice(0, sorted.length - 200)) MEMORY_FALLBACK.delete(k)
       }
     }
   });

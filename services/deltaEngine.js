@@ -14,17 +14,17 @@ class DeltaEngine {
      */
     getDelta(id, currentState) {
         if (!this.previousStates.has(id)) {
-            this.previousStates.set(id, JSON.parse(JSON.stringify(currentState)));
-            return null; // First time, send full payload
+            this.previousStates.set(id, { ...JSON.parse(JSON.stringify(currentState)), _timestamp: Date.now() })
+            return null // First time, send full payload
         }
 
-        const prevState = this.previousStates.get(id);
-        const patch = jsonpatch.compare(prevState, currentState);
+        const prevState = this.previousStates.get(id)
+        const patch = jsonpatch.compare(prevState, currentState)
 
         // Update previous state for next time
-        this.previousStates.set(id, JSON.parse(JSON.stringify(currentState)));
+        this.previousStates.set(id, { ...JSON.parse(JSON.stringify(currentState)), _timestamp: Date.now() })
 
-        return patch.length > 0 ? patch : [];
+        return patch.length > 0 ? patch : []
     }
 
     /**
@@ -39,6 +39,17 @@ class DeltaEngine {
      */
     reset() {
         this.previousStates.clear();
+    }
+
+    /**
+     * Auto-cleanup: remove entries older than 1h (called periodically)
+     */
+    cleanup() {
+        const cutoff = Date.now() - 60 * 60 * 1000
+        for (const [id, state] of this.previousStates) {
+            if (state._timestamp && state._timestamp < cutoff) this.previousStates.delete(id)
+        }
+        if (this.previousStates.size > 1000) this.previousStates.clear()
     }
 }
 

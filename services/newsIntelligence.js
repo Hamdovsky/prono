@@ -17,6 +17,7 @@ class NewsIntelligence {
      * Looks for: Goalkeepers, Top Scorers, Captains.
      */
     async getMatchNews(homeTeam, awayTeam) {
+        if (this.cache.size > 500) this._cleanup()
         const cacheKey = `${homeTeam}_${awayTeam}`;
         if (this.cache.has(cacheKey)) return this.cache.get(cacheKey);
 
@@ -59,6 +60,13 @@ class NewsIntelligence {
             sentiment_score: 0.1,
             news_summary: "Stable team news."
         };
+    }
+
+    _cleanup() {
+        const entries = [...this.cache.entries()]
+        const cutoff = Date.now() - 60 * 60 * 1000
+        this.cache.clear()
+        for (const [k, v] of entries.slice(-250)) this.cache.set(k, v)
     }
 }
 

@@ -25,7 +25,6 @@ const backupService = require('./backup_service');
 const comboService = require('./services/comboService');
 const botService = require('./services/botService');
 const mlPredictionService = require('./services/mlPredictionService');
-const archiveService = require('./services/archiveService');
 const patternService = require('./services/patternService');
 const socketService = require('./services/socketService');
 const cronManager = require('./services/cronManager');

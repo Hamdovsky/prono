@@ -4,7 +4,6 @@
  * Handles fetching, normalization, and distribution of live match data.
  */
 
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { getApiUrl } from '../config/apiConfig.js';
 import { io } from 'socket.io-client';
 import { normalizeTeamName, isReserveTeam, deduplicateMatches } from '../utils/teamNameNormalizer.js';
@@ -201,38 +200,25 @@ class DataService {
 
         const fetchPromise = (async () => {
             try {
-                if (Capacitor.isNativePlatform()) {
-                    const options = { url };
-                    const response = await CapacitorHttp.get(options);
-                    if (response.status === 429) {
-                        this._handleRateLimit();
-                        throw new Error('Rate Limit Active');
-                    }
-                    this.isRateLimited = false;
-                    return response.data;
-                } else {
-                    const startTime = Date.now();
-                    // console.log(`⏱️ [FETCHER] Starting fetch: ${url}`);
-                    const response = await fetch(url);
-                    const fetchTime = Date.now() - startTime;
-                    
-                    if (response.status === 429) {
-                        this._handleRateLimit();
-                        throw new Error('Rate Limit Active');
-                    }
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    
-                    this.isRateLimited = false;
-                    const data = await response.json();
-                    this._lastFetch.set(url, Date.now());
-                    
-                    // Update specific caches
-                    if (url.includes('/api/scraper/status')) this.scraperStatusCache = data;
-                    if (url.includes('/api/health')) this.healthCache = data;
-
-                    console.log(`✅ [FETCHER] Parse complete for ${url} (${Date.now() - (startTime + fetchTime)}ms)`);
-                    return data;
+                const startTime = Date.now();
+                const response = await fetch(url);
+                const fetchTime = Date.now() - startTime;
+                
+                if (response.status === 429) {
+                    this._handleRateLimit();
+                    throw new Error('Rate Limit Active');
                 }
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                this.isRateLimited = false;
+                const data = await response.json();
+                this._lastFetch.set(url, Date.now());
+                
+                if (url.includes('/api/scraper/status')) this.scraperStatusCache = data;
+                if (url.includes('/api/health')) this.healthCache = data;
+
+                console.log(`✅ [FETCHER] Parse complete for ${url} (${Date.now() - (startTime + fetchTime)}ms)`);
+                return data;
             } finally {
                 this._pendingRequests.delete(url);
             }
@@ -253,29 +239,16 @@ class DataService {
     // Helper to handle both Web and Native HTTP (POST)
     async _post(url, body) {
         const token = localStorage.getItem('admin_token');
-        if (Capacitor.isNativePlatform()) {
-            const options = {
-                url,
-                data: body,
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            };
-            const response = await CapacitorHttp.post(options);
-            return response.data;
-        } else {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(body)
-            });
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return await response.json();
-        }
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
     }
 
     // Proactive normalization to ensure UI stability

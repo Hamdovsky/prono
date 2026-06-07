@@ -444,16 +444,22 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
               } catch (e) {
                 logger.warn(`⚠️ [SUPABASE] Init error: ${e.message}`)
               }
-              // 🧹 Clean up any matches with placeholder team names (after Supabase restore)
-              database.cleanupPlaceholderTeams()
-              // Also clean up the cloud so bad data doesn't come back
-              try { supabaseService.cleanupPlaceholderTeams() } catch (_) {}
             }, 5000)
+
+            // 🧹 Clean up any matches with placeholder team names
+            database.cleanupPlaceholderTeams()
+            // Also try to clean the cloud
+            setTimeout(() => {
+              try { supabaseService.cleanupPlaceholderTeams() } catch (_) {}
+            }, 15000)
 
             // 🌱 [CLOUD-SEED] Auto-populate DB on fresh Render deployment (no Puppeteer needed)
             try {
               const { runCloudSeed } = require('./core/cloudSeed');
-              runCloudSeed().catch(e => logger.warn('⚠️ [CLOUD-SEED] Error:', e.message));
+              runCloudSeed().then(() => {
+                // Clean up any placeholder matches that might have been inserted
+                database.cleanupPlaceholderTeams()
+              }).catch(e => logger.warn('⚠️ [CLOUD-SEED] Error:', e.message));
             } catch (seedErr) {
               logger.warn('⚠️ [CLOUD-SEED] Module load failed:', seedErr.message);
             }

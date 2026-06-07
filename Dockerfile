@@ -1,25 +1,37 @@
-FROM node:20-slim
+FROM python:3.10-slim
+
+# System dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Prebuilt binaries only — no g++/make/python3 needed for better-sqlite3
-COPY package*.json ./
+# Install Python dependencies (cached layer)
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir \
+        fastapi \
+        uvicorn[standard] \
+        pydantic \
+        psycopg2-binary \
+        redis \
+        aioredis \
+        httpx
 
-# CRITICAL: skip Chromium (400MB) and Redis binary downloads
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV REDISMS_DISABLE_POSTINSTALL=true
-RUN npm install
+# Copy application code
+COPY core/ /app/core/
+COPY inference/ /app/inference/
+COPY models/ /app/models/
 
-COPY . .
+# Set Python path so imports work correctly
+ENV PYTHONPATH=/app/core:/app
 
-ENV NODE_ENV=production
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV REDISMS_DISABLE_POSTINSTALL=true
+EXPOSE 8000
 
-# Build frontend only if dist is missing (pre-built dist can be committed)
-RUN if [ ! -f dist/index.html ]; then npm run build; fi
-RUN npm prune --omit=dev
+# Graceful shutdown
+STOPSIGNAL SIGTERM
 
-EXPOSE 3001
-
-CMD ["node", "--max-old-space-size=256", "server.js"]
+CMD ["uvicorn", "core.fastapi_server:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--timeout-keep-alive", "30"]

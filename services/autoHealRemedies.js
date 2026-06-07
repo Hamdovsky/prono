@@ -13,10 +13,11 @@ class AutoHealRemedies {
       {
         id: 'python_service_down',
         severity: 'critical',
-        description: 'FastAPI inference engine inaccessible (ECONNREFUSED on :8000)',
+        description: 'FastAPI inference engine inaccessible',
         check: async () => {
+          const url = (process.env.INFERENCE_URL || 'http://127.0.0.1:8000') + '/health'
           try {
-            const res = await fetch('http://127.0.0.1:8000/health', { signal: AbortSignal.timeout(3000) })
+            const res = await fetch(url, { signal: AbortSignal.timeout(3000) })
             if (!res.ok) return { detected: true, detail: `HTTP ${res.status}` }
             return { detected: false }
           } catch (e) {

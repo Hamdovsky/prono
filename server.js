@@ -446,6 +446,9 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
               }
             }, 5000)
 
+            // 🧹 Clean up any matches with placeholder team names
+            database.cleanupPlaceholderTeams()
+
             // 🌱 [CLOUD-SEED] Auto-populate DB on fresh Render deployment (no Puppeteer needed)
             try {
               const { runCloudSeed } = require('./core/cloudSeed');

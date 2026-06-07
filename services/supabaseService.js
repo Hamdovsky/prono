@@ -335,6 +335,21 @@ class SupabaseService {
       this._syncTimer = null
     }
   }
+  async cleanupPlaceholderTeams() {
+    if (!this.isAvailable()) return 0
+    try {
+      const result = await this.query(`
+        DELETE FROM matches
+        WHERE LOWER("homeTeam") = 'home' OR LOWER("awayTeam") = 'away'
+      `)
+      const count = result?.rowCount || 0
+      if (count > 0) logger.info(`☁️ [SUPABASE] Cleaned ${count} placeholder matches from cloud`)
+      return count
+    } catch (e) {
+      logger.warn(`⚠️ [SUPABASE] Cloud cleanup error: ${e.message}`)
+      return 0
+    }
+  }
 }
 
 module.exports = new SupabaseService()

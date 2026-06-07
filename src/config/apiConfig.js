@@ -1,7 +1,5 @@
-import { Capacitor } from '@capacitor/core';
-
-// Detect platform and environment
-const isNative = Capacitor.isNativePlatform();
+// Web-only platform (no native)
+const isNative = false;
 
 const PRODUCTION_API_URL = 'https://prono-k6gc.onrender.com';
 

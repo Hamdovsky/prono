@@ -1,4 +1,5 @@
 const { Pool } = require('pg')
+const dns = require('dns')
 const logger = require('../core/logger')
 
 const SYNC_INTERVAL = 5 * 60 * 1000
@@ -18,15 +19,20 @@ class SupabaseService {
     }
 
     try {
-      this.pool = new Pool({
-        connectionString: url,
+      const parsed = new URL(url)
+      this._config = {
+        host: parsed.hostname,
+        port: parseInt(parsed.port || '5432'),
+        user: decodeURIComponent(parsed.username),
+        password: decodeURIComponent(parsed.password),
+        database: parsed.pathname.replace(/^\//, ''),
         ssl: { rejectUnauthorized: false },
-        family: 4,
         max: 5,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000
-      })
-      logger.info('✅ [SUPABASE] Pool created (connecting...)')
+      }
+      this.pool = new Pool(this._config)
+      logger.info('✅ [SUPABASE] Pool created (resolving IPv4...)')
     } catch (e) {
       logger.warn(`⚠️ [SUPABASE] Pool creation failed: ${e.message}`)
       this.enabled = false
@@ -47,6 +53,24 @@ class SupabaseService {
       logger.info('✅ [SUPABASE] Connected successfully')
       return true
     } catch (e) {
+      if (e.message.includes('ENETUNREACH') && this._config?.host) {
+        logger.warn(`⚠️ [SUPABASE] ENETUNREACH on ${this._config.host} — trying IPv4 resolution...`)
+        try {
+          const addrs = await dns.resolve4(this._config.host)
+          if (addrs.length > 0) {
+            this._config.host = addrs[0]
+            this.pool = new Pool(this._config)
+            const client = await this.pool.connect()
+            await client.query('SELECT 1')
+            client.release()
+            this.connected = true
+            logger.info(`✅ [SUPABASE] Connected via IPv4: ${addrs[0]}`)
+            return true
+          }
+        } catch (dnsErr) {
+          logger.warn(`⚠️ [SUPABASE] IPv4 resolution failed: ${dnsErr.message}`)
+        }
+      }
       this.connected = false
       logger.warn(`⚠️ [SUPABASE] Connection failed: ${e.message}`)
       return false

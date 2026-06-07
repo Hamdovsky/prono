@@ -1,5 +1,5 @@
 const { Pool } = require('pg')
-const dns = require('dns')
+const { resolve4 } = require('dns/promises')
 const logger = require('../core/logger')
 
 const SYNC_INTERVAL = 5 * 60 * 1000
@@ -56,7 +56,7 @@ class SupabaseService {
       if (e.message.includes('ENETUNREACH') && this._config?.host) {
         logger.warn(`⚠️ [SUPABASE] ENETUNREACH on ${this._config.host} — trying IPv4 resolution...`)
         try {
-          const addrs = await dns.resolve4(this._config.host)
+          const addrs = await resolve4(this._config.host)
           if (addrs.length > 0) {
             this._config.host = addrs[0]
             this.pool = new Pool(this._config)

@@ -12,14 +12,16 @@ class PythonService {
 
     async checkHealth() {
         try {
-            await axios.get(`${FASTAPI_URL}/health`, { timeout: 2000 });
+            await axios.get(`${FASTAPI_URL}/health`, { timeout: 5000 });
             if (!this.isReady) {
                 logger.info(`✅ [PythonService] FastAPI Inference Engine connected at ${FASTAPI_URL}`);
                 this.isReady = true;
             }
             return true;
         } catch (e) {
-            if (this.isReady) {
+            if (!this.isReady) {
+                logger.info(`⏳ [PythonService] FastAPI not reachable at ${FASTAPI_URL} — will retry later (${e.message})`);
+            } else {
                 logger.warn(`⚠️ [PythonService] FastAPI Inference Engine disconnected.`);
                 this.isReady = false;
             }

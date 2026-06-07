@@ -261,6 +261,30 @@ class AutoHealRemedies {
       },
 
       {
+        id: 'supabase_db_down',
+        severity: 'warning',
+        description: 'Supabase PostgreSQL connection lost',
+        check: async () => {
+          try {
+            const svc = require('./supabaseService')
+            if (!svc.enabled) return { detected: false }
+            if (!svc.connected) return { detected: true, detail: 'Supabase not connected' }
+            const r = await svc.query('SELECT 1')
+            if (!r) return { detected: true, detail: 'Query failed' }
+            return { detected: false }
+          } catch (e) {
+            return { detected: false }
+          }
+        },
+        fix: async () => {
+          const svc = require('./supabaseService')
+          svc.connected = false
+          const ok = await svc.connect()
+          return { success: ok, detail: ok ? 'Reconnected' : 'Failed to reconnect' }
+        }
+      },
+
+      {
         id: 'apifootball_api_down',
         severity: 'info',
         description: 'API-Football (API-Sports) inaccessible',

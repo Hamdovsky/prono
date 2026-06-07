@@ -33,6 +33,9 @@ const cronManager = require('./services/cronManager');
 // Auto-Heal Agent
 const autoHealAgent = require('./services/autoHealAgent');
 
+// Supabase (PostgreSQL cloud — données persistantes)
+const supabaseService = require('./services/supabaseService');
+
 // API Fallback Manager
 const apiFallbackManager = require('./services/apiFallbackManager');
 const bsdService = require('./services/bsdService');
@@ -400,6 +403,20 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
             await retroSync.syncPastMatches().catch(() => {});
             clvService.start().catch(() => {});
             logger.info('🧠 [AI] Background enrichment logic active');
+
+            // 🗄️ [SUPABASE] Connect to PostgreSQL cloud (persistent data across deploys)
+            setTimeout(async () => {
+              try {
+                const connected = await supabaseService.connect()
+                if (connected) {
+                  await supabaseService.initSchema()
+                  await supabaseService.syncFromSQLite(database)
+                  logger.info('✅ [SUPABASE] Sync complete — data is now persistent across deploys')
+                }
+              } catch (e) {
+                logger.warn(`⚠️ [SUPABASE] Init error: ${e.message}`)
+              }
+            }, 5000)
 
             // 🌱 [CLOUD-SEED] Auto-populate DB on fresh Render deployment (no Puppeteer needed)
             try {

@@ -103,7 +103,7 @@ class SupabaseService {
         confidence REAL,
         "fullData" TEXT,
         timestamp TEXT,
-        "startTimestamp" INTEGER,
+        "startTimestamp" BIGINT,
         "possession_home" INTEGER,
         "possession_away" INTEGER,
         "dangerous_attacks_home" INTEGER,
@@ -146,6 +146,9 @@ class SupabaseService {
         home_team_id TEXT,
         away_team_id TEXT
       );
+
+      ALTER TABLE matches ALTER COLUMN "startTimestamp" TYPE BIGINT;
+      ALTER TABLE matches ALTER COLUMN last_updated TYPE BIGINT;
 
       CREATE TABLE IF NOT EXISTS prediction_history (
         id SERIAL PRIMARY KEY,

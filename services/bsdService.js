@@ -111,13 +111,10 @@ class BsdService {
   _mapEventToMatch(event) {
     const ts = event.start_timestamp || event.date_unix || Math.floor(new Date(event.date || Date.now()).getTime() / 1000)
 
-    let homeTeam = event.home_team?.name || event.homeTeam || event.home_name || 'Home'
-    let awayTeam = event.away_team?.name || event.awayTeam || event.away_name || 'Away'
-
-    if (event.home_team?.name) homeTeam = event.home_team.name
-    if (event.away_team?.name) awayTeam = event.away_team.name
-
-    const league = event.league?.name || event.tournament_name || event.competition || 'Unknown'
+    const resolveName = (v) => (typeof v === 'string' ? v : v?.name) || null
+    let homeTeam = resolveName(event.home_team) || event.homeTeam || event.home_name || 'Home'
+    let awayTeam = resolveName(event.away_team) || event.awayTeam || event.away_name || 'Away'
+    const league = resolveName(event.league) || event.tournament_name || event.competition || 'Unknown'
     const matchId = event.id || event.match_id || `bsd_${ts}_${Math.random().toString(36).substring(2, 8)}`
 
     return {

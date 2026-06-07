@@ -83,11 +83,6 @@ class ApiFootballService {
     const league = fixture.league || {}
     const goals = fixture.goals || {}
     const score = fixture.score || {}
-    const odds = []
-
-    if (fixture.fixture?.id) {
-      this.fetchOdds(fixture.fixture.id).catch(() => {})
-    }
 
     return {
       id: `af_${fixture.fixture?.id || Date.now()}`,

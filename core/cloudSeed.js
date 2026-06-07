@@ -6,7 +6,8 @@
  * STRATEGY:
  *  1. PRIMARY:  FootballData.io — upcoming fixtures
  *  2. FREE:     BSD Bzzoiro — unlimited matches + odds
- *  3. FALLBACK: RapidAPI SportAPI — only if still needed
+ *  3. FALLBACK: TheRundown → OddsPapi → Sportmonks → APIFootball
+ *  4. RESERVE:  RapidAPI SportAPI — only if still needed
  */
 
 const axios = require('axios');
@@ -274,28 +275,32 @@ function registerFallbackSources() {
         priority: 2,
         isAvailable: () => therundownService.isAvailable(),
         getQuotaStatus: () => therundownService.getQuotaStatus(),
-        fetchEvents: (dateStr) => therundownService.fetchSoccerEvents(dateStr)
+        fetchEvents: (dateStr) => therundownService.fetchSoccerEvents(dateStr),
+        fetchOdds: (eventId) => therundownService.fetchOddsForMatch(eventId)
     })
     apiFallbackManager.registerSource({
         name: 'OddsPapi',
         priority: 3,
         isAvailable: () => oddspapiService.isAvailable(),
         getQuotaStatus: () => oddspapiService.getQuotaStatus(),
-        fetchEvents: (dateStr) => oddspapiService.fetchEvents(dateStr)
+        fetchEvents: (dateStr) => oddspapiService.fetchEvents(dateStr),
+        fetchOdds: (fixtureId) => oddspapiService.fetchOddsForFixture(fixtureId)
     })
     apiFallbackManager.registerSource({
         name: 'Sportmonks',
         priority: 4,
         isAvailable: () => sportmonksService.isAvailable(),
         getQuotaStatus: () => sportmonksService.getQuotaStatus(),
-        fetchEvents: (dateStr) => sportmonksService.fetchEvents(dateStr)
+        fetchEvents: (dateStr) => sportmonksService.fetchEvents(dateStr),
+        fetchOdds: (fixtureId) => sportmonksService.fetchPrematchOdds(fixtureId)
     })
     apiFallbackManager.registerSource({
         name: 'APIFootball',
         priority: 5,
         isAvailable: () => apifootballService.isAvailable(),
         getQuotaStatus: () => apifootballService.getQuotaStatus(),
-        fetchEvents: (dateStr) => apifootballService.fetchEvents(dateStr)
+        fetchEvents: (dateStr) => apifootballService.fetchEvents(dateStr),
+        fetchOdds: (fixtureId) => apifootballService.fetchOdds(fixtureId)
     })
     console.log('[CLOUD-SEED/FALLBACK] Registered API sources (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball)')
 }
@@ -363,6 +368,43 @@ async function runCloudSeed() {
       }
     } else {
       console.log('[CLOUD-SEED/BSD] Skipped: not available (no API key).')
+    }
+
+    // ── STEP 3: API Fallback tier (TheRundown → OddsPapi → Sportmonks → APIFootball)
+    const fbFallbackSources = [
+      { name: 'TheRundown', fetch: () => therundownService.fetchSoccerEvents(today).then(events => events.map(e => therundownService.mapEventToMatch(e))), available: () => therundownService.isAvailable() },
+      { name: 'OddsPapi',   fetch: () => oddspapiService.fetchEvents(today),              available: () => oddspapiService.isAvailable() },
+      { name: 'Sportmonks', fetch: () => sportmonksService.fetchEvents(today),            available: () => sportmonksService.isAvailable() },
+      { name: 'APIFootball',fetch: () => apifootballService.fetchEvents(today),           available: () => apifootballService.isAvailable() },
+    ]
+
+    const currentCount = countMatchesForPeriod(0, 0)
+    if (currentCount < 20) {
+      for (const src of fbFallbackSources) {
+        if (!src.available()) {
+          console.log(`[CLOUD-SEED/FALLBACK] ${src.name}: skipped (not available)`)
+          continue
+        }
+        if (countMatchesForPeriod(0, 0) >= 20) break
+        try {
+          const matches = await src.fetch()
+          if (!matches?.length) {
+            console.log(`[CLOUD-SEED/FALLBACK] ${src.name}: returned 0 matches`)
+            continue
+          }
+          let inserted = 0
+          for (const match of matches) {
+            if (match.status !== 'scheduled') continue
+            if (upsertMatch(match)) inserted++
+          }
+          console.log(`[CLOUD-SEED/FALLBACK] ${src.name}: inserted ${inserted}/${matches.length} matches`)
+          await sleep(500)
+        } catch (e) {
+          console.warn(`[CLOUD-SEED/FALLBACK] ${src.name}: error — ${e.message}`)
+        }
+      }
+    } else {
+      console.log('[CLOUD-SEED/FALLBACK] Skipped: enough matches already seeded.')
     }
 
     const finalAfterFD = countMatchesForPeriod(0, 0);

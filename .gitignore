@@ -89,3 +89,20 @@ data/scraper_state.json
 data/tactical.db-shm
 data/tactical.db-wal
 scripts/sync_to_render.js
+
+# Python cache
+__pycache__/
+*.pyc
+
+# opencode config
+.opencode/
+
+# Debug scratch files
+data/db_final.js
+data/db_query1.js
+data/tactical_check.js
+data/online_learning_log.json
+data/online_learning_state.json
+
+# Model files (generated, not source)
+models/titanium_v2.json

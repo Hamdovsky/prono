@@ -30,6 +30,18 @@ const patternService = require('./services/patternService');
 const socketService = require('./services/socketService');
 const cronManager = require('./services/cronManager');
 
+// Auto-Heal Agent
+const autoHealAgent = require('./services/autoHealAgent');
+
+// API Fallback Manager
+const apiFallbackManager = require('./services/apiFallbackManager');
+const bsdService = require('./services/bsdService');
+const therundownService = require('./services/therundownService');
+const oddspapiService = require('./services/oddspapiService');
+const sportmonksService = require('./services/sportmonksService');
+const apifootballService = require('./services/apifootballService');
+const weatherService = require('./services/weatherService');
+
 // Secondary Services
 const _redisClient = require('./core/redisClient');
 // Normalize API: redisClient exports getCache/setCache; alias to .get/.set for middleware
@@ -273,6 +285,29 @@ app.use((err, req, res, next) => {
   });
 });
 
+// 🤖 AUTO-HEAL ENDPOINTS
+app.get('/api/autoheal/status', (req, res) => {
+  res.json(autoHealAgent.getStatus())
+})
+
+app.post('/api/autoheal/patrol', async (req, res) => {
+  try {
+    const result = await autoHealAgent.triggerPatrol()
+    res.json(result)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+app.get('/api/autoheal/history', (req, res) => {
+  const remedies = require('./services/autoHealRemedies')
+  res.json({ history: remedies.getHistory() })
+})
+
+app.get('/api/fallback/status', (req, res) => {
+  res.json(apiFallbackManager.getAllStatus())
+})
+
 app.get('/api/leagues', async (req, res) => {
   try { res.json(await database.getAllLeaguesConfig()); } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -373,6 +408,48 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
             } catch (seedErr) {
               logger.warn('⚠️ [CLOUD-SEED] Module load failed:', seedErr.message);
             }
+
+            // 🔁 [FALLBACK] Register API sources at startup
+            try {
+              apiFallbackManager.registerSource({
+                name: 'BSD',
+                priority: 1,
+                isAvailable: () => bsdService.isAvailable(),
+                getQuotaStatus: () => ({ available: bsdService.isAvailable() })
+              })
+              apiFallbackManager.registerSource({
+                name: 'TheRundown',
+                priority: 2,
+                isAvailable: () => therundownService.isAvailable(),
+                getQuotaStatus: () => therundownService.getQuotaStatus()
+              })
+              apiFallbackManager.registerSource({
+                name: 'OddsPapi',
+                priority: 3,
+                isAvailable: () => oddspapiService.isAvailable(),
+                getQuotaStatus: () => oddspapiService.getQuotaStatus()
+              })
+              apiFallbackManager.registerSource({
+                name: 'Sportmonks',
+                priority: 4,
+                isAvailable: () => sportmonksService.isAvailable(),
+                getQuotaStatus: () => sportmonksService.getQuotaStatus()
+              })
+              apiFallbackManager.registerSource({
+                name: 'APIFootball',
+                priority: 5,
+                isAvailable: () => apifootballService.isAvailable(),
+                getQuotaStatus: () => apifootballService.getQuotaStatus()
+              })
+              logger.info('🔁 [FALLBACK] API sources registered (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball)')
+            } catch (fbErr) {
+              logger.warn('⚠️ [FALLBACK] Registration error:', fbErr.message)
+            }
+
+            // 🤖 [AUTOHEAL] Run initial patrol 30 seconds after startup
+            setTimeout(() => {
+              autoHealAgent.patrol().catch(e => logger.warn('⚠️ [AUTOHEAL] Initial patrol error:', e.message))
+            }, 30000)
           } catch (initErr) {
             logger.error('💥 [CRITICAL] Service Initialization Error:', initErr.message);
           }

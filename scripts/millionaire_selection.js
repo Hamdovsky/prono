@@ -134,39 +134,60 @@ async function runReport(db, offset, label) {
     for (const item of top30) {
         report += buildMatchLine(item.match, item.enriched, label) + '\n';
 
-        // Call DeepSeek exclusively for the Top 3 selections to keep API consumption moderate
+        // Call AI for the Top 3 selections (Bluesminds preferred, DeepSeek fallback)
         if (rank <= 3) {
-            try {
-                const DeepSeekService = require('../services/DeepSeekService');
-                if (DeepSeekService.isQuotaAvailable()) {
-                    console.log(`🧠 [DEEPSEEK] Generating VIP pre-match preview for Top ${rank}: ${item.match.homeTeam} vs ${item.match.awayTeam}`);
-                    const aiPreview = await DeepSeekService.analyzePreMatchVIP({
-                        homeTeam: item.match.homeTeam,
-                        awayTeam: item.match.awayTeam,
-                        tournament_name: item.match.tournament_name || item.match.league || 'Ligue',
-                        home_win_probability: item.enriched.home_win_probability || 0,
-                        draw_probability: item.enriched.draw_probability || 0,
-                        away_win_probability: item.enriched.away_win_probability || 0,
-                        ou_25_prob: item.enriched.ou_25_prob || 0,
-                        btts_prob: item.enriched.btts_prob || 0,
-                        xgboost_confidence: item.enriched.confidence || 0,
-                        home_position: item.match.home_position || 'N/A',
-                        home_zone: item.match.home_zone || 'Mid-Table',
-                        home_target_weight: item.match.home_target_weight || 0,
-                        away_position: item.match.away_position || 'N/A',
-                        away_zone: item.match.away_zone || 'Mid-Table',
-                        away_target_weight: item.match.away_target_weight || 0
-                    });
+            const aiData = {
+                homeTeam: item.match.homeTeam,
+                awayTeam: item.match.awayTeam,
+                tournament_name: item.match.tournament_name || item.match.league || 'Ligue',
+                home_win_probability: item.enriched.home_win_probability || 0,
+                draw_probability: item.enriched.draw_probability || 0,
+                away_win_probability: item.enriched.away_win_probability || 0,
+                ou_25_prob: item.enriched.ou_25_prob || 0,
+                btts_prob: item.enriched.btts_prob || 0,
+                xgboost_confidence: item.enriched.confidence || 0,
+                home_position: item.match.home_position || 'N/A',
+                home_zone: item.match.home_zone || 'Mid-Table',
+                home_target_weight: item.match.home_target_weight || 0,
+                away_position: item.match.away_position || 'N/A',
+                away_zone: item.match.away_zone || 'Mid-Table',
+                away_target_weight: item.match.away_target_weight || 0
+            }
 
-                    if (aiPreview) {
-                        report += `   └─ 🧠 <b>VIP PRE-MATCH BRIEFING (DeepSeek V3) :</b>\n`;
-                        report += `      • 📋 <i>Overview:</i> ${aiPreview.match_overview}\n`;
-                        report += `      • ⚔️ <i>Key Tactical Matchup:</i> ${aiPreview.tactical_keyup}\n`;
-                        report += `      • 🎯 <i>Score Estimé:</i> <b>${aiPreview.exact_score_prediction}</b> | 🛡️ <i>Sécurisation:</i> ${aiPreview.risk_mitigation}\n\n`;
-                    }
+            let aiPreview = null
+            let provider = ''
+
+            // Try Bluesminds first (free, unlimited)
+            try {
+                const BluesmindsService = require('../services/bluesmindsService')
+                if (BluesmindsService.isAvailable()) {
+                    console.log(`🧠 [BLUESMINDS] Generating VIP preview for Top ${rank}: ${item.match.homeTeam} vs ${item.match.awayTeam}`)
+                    aiPreview = await BluesmindsService.analyzePreMatchVIP(aiData)
+                    if (aiPreview) provider = 'Bluesminds AI'
                 }
-            } catch (dsErr) {
-                console.error(`⚠️ [DEEPSEEK] VIP Analysis failed: ${dsErr.message}`);
+            } catch (bsErr) {
+                console.error(`⚠️ [BLUESMINDS] VIP Analysis failed: ${bsErr.message}`)
+            }
+
+            // Fallback to DeepSeek/Groq
+            if (!aiPreview) {
+                try {
+                    const DeepSeekService = require('../services/DeepSeekService')
+                    if (DeepSeekService.isQuotaAvailable()) {
+                        console.log(`🧠 [DEEPSEEK] Generating VIP preview for Top ${rank}: ${item.match.homeTeam} vs ${item.match.awayTeam}`)
+                        aiPreview = await DeepSeekService.analyzePreMatchVIP(aiData)
+                        if (aiPreview) provider = 'DeepSeek V3'
+                    }
+                } catch (dsErr) {
+                    console.error(`⚠️ [DEEPSEEK] VIP Analysis failed: ${dsErr.message}`)
+                }
+            }
+
+            if (aiPreview) {
+                report += `   └─ 🧠 <b>VIP BRIEFING (${provider}) :</b>\n`
+                report += `      • 📋 <i>Overview:</i> ${aiPreview.match_overview}\n`
+                report += `      • ⚔️ <i>Key Tactical Matchup:</i> ${aiPreview.tactical_keyup}\n`
+                report += `      • 🎯 <i>Score Estimé:</i> <b>${aiPreview.exact_score_prediction}</b> | 🛡️ <i>Sécurisation:</i> ${aiPreview.risk_mitigation}\n\n`
             }
         }
         rank++;

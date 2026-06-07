@@ -1,5 +1,4 @@
 const { Server: SocketIOServer } = require('socket.io');
-const { Client: PGClient } = require('pg');
 const logger = require('../core/logger');
 const ComboService = require('./comboService');
 

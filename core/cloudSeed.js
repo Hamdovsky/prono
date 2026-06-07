@@ -1,20 +1,24 @@
 /**
- * cloudSeed.js — Titanium Cloud Bootstrap v4.0
+ * cloudSeed.js — Titanium Cloud Bootstrap
  *
- * Runs at server startup on Render (or any cloud without Puppeteer).
+ * Runs at server startup to seed matches from multiple sources.
  * 
  * STRATEGY:
- *  1. PRIMARY:  RapidAPI SportAPI (Sofascore proxy) — respects 20-match quota
- *  2. FALLBACK: FootballData.io — unlimited for basic seeding (1000/month)
- *
- * Covers today + tomorrow to keep the dashboard populated at all times.
- * NO direct Sofascore calls — those are blocked by Cloudflare on Render.
+ *  1. PRIMARY:  FootballData.io — upcoming fixtures
+ *  2. FREE:     BSD Bzzoiro — unlimited matches + odds
+ *  3. FALLBACK: RapidAPI SportAPI — only if still needed
  */
 
 const axios = require('axios');
 const database = require('./database');
 const { createQuotaManager } = require('../services/sourceQuotaManager');
 const rapidApiQuotaManager = require('../services/rapidApiQuotaManager');
+const apiFallbackManager = require('../services/apiFallbackManager');
+const bsdService = require('../services/bsdService');
+const therundownService = require('../services/therundownService');
+const oddspapiService = require('../services/oddspapiService');
+const sportmonksService = require('../services/sportmonksService');
+const apifootballService = require('../services/apifootballService');
 
 const fdQuotaManager = createQuotaManager('footballdata');
 
@@ -36,9 +40,6 @@ const TIER1_TOURNAMENT_IDS = new Set([
     203,   // Scottish Premiership
     574,   // Jupiler Pro League
 ]);
-
-const httpScraperService = require('../services/httpScraperService');
-const bsdService = require('../services/bsdService');
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function getDateStr(offset = 0) {
@@ -260,124 +261,48 @@ function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
     }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// MAIN: runCloudSeed
-// ══════════════════════════════════════════════════════════════════════════════
-
-async function runCloudSeed() {
-    console.log('🌱 [CLOUD-SEED v4] Starting dual-source seeding (RapidAPI → FootballData fallback)...');
-
-    const today    = getDateStr(0);
-    const tomorrow = getDateStr(1);
-    
-    // Check if we already have enough data
-    const existingToday    = countMatchesForPeriod(0, 0);
-    const existingTomorrow = countMatchesForPeriod(1, 1);
-    console.log(`📊 [CLOUD-SEED] Existing: ${existingToday} today / ${existingTomorrow} tomorrow`);
-
-    let rapidApiInserted = 0;
-    let fdInserted = 0;
-
-    // ── STEP 1: RapidAPI (Primary) ──────────────────────────────────────────
-    // Use quota manager to check remaining budget
-    let quotaManager = null;
-    try {
-        quotaManager = require('../services/rapidApiQuotaManager');
-    } catch (_) {}
-
-    const quotaStatus = quotaManager?.getQuotaStatus?.() || { remaining: 20, isActive: true };
-    const canUseRapid = quotaStatus.isActive && quotaStatus.remaining > 0;
-
-    if (canUseRapid) {
-        console.log(`🎯 [CLOUD-SEED/RAPID] Quota remaining: ${quotaStatus.remaining}/${quotaStatus.limit || 20}`);
-        const rapidQuota = quotaStatus.remaining;
-        let rapidUsed = 0;
-        
-        for (const date of [today, tomorrow]) {
-            if (rapidUsed >= rapidQuota) break;
-            
-            const events = await fetchRapidApiEvents(date);
-            if (events.length === 0) continue;
-            
-            // Sort: Tier1 first, then others
-            const tier1 = events.filter(isTier1);
-            const others = events.filter(e => !isTier1(e));
-            const sorted = [...tier1, ...others];
-            
-            console.log(`  📅 ${date}: ${events.length} events (${tier1.length} Tier1 + ${others.length} others)`);
-            
-            for (const event of sorted) {
-                if (rapidUsed >= rapidQuota) break;
-                if (!event.id || !event.homeTeam || !event.awayTeam) continue;
-                
-                const match = mapRapidEventToMatch(event);
-                if (match.status !== 'scheduled') continue;
-                
-                const inserted = upsertMatch(match);
-                if (inserted) {
-                    quotaManager?.registerMatch?.(event.id);
-                    rapidUsed++;
-                    rapidApiInserted++;
-                }
-                
-                await sleep(200); // Polite delay
-            }
-        }
-        console.log(`✅ [CLOUD-SEED/RAPID] Inserted ${rapidApiInserted} matches via RapidAPI.`);
-    } else {
-        console.log(`🛑 [CLOUD-SEED/RAPID] Quota exhausted or disabled. Skipping RapidAPI.`);
-    }
-
-    // ── STEP 2: HTTP Multi-API Fallback (API-Football, football-data.org) ──
-    // Fill remaining gaps when RapidAPI is exhausted or returns 0
-    const needsMoreToday    = countMatchesForPeriod(0, 0) < 5;
-    const needsMoreTomorrow = countMatchesForPeriod(1, 1) < 5;
-
-    if ((needsMoreToday || needsMoreTomorrow) && httpScraperService.isAvailable()) {
-        console.log(`🔄 [CLOUD-SEED/HTTP] Filling gaps with HTTP API scraper...`);
-        try {
-            if (needsMoreToday) {
-                const todayFixtures = await httpScraperService.fetchAllFixtures(today);
-                for (const match of todayFixtures) {
-                    if (upsertMatch({ ...match, confidence: 50, prediction: null, verdict: 'PENDING', insufficient_data: 1, fullData: JSON.stringify(match) })) fdInserted++;
-                }
-                console.log(`  📅 Today (HTTP): ${todayFixtures.length} fixtures processed`);
-            }
-            if (needsMoreTomorrow) {
-                const tomorrowFixtures = await httpScraperService.fetchAllFixtures(tomorrow);
-                for (const match of tomorrowFixtures) {
-                    if (upsertMatch({ ...match, confidence: 50, prediction: null, verdict: 'PENDING', insufficient_data: 1, fullData: JSON.stringify(match) })) fdInserted++;
-                }
-                console.log(`  📅 Tomorrow (HTTP): ${tomorrowFixtures.length} fixtures processed`);
-            }
-            console.log(`✅ [CLOUD-SEED/HTTP] Inserted ${fdInserted} fallback matches.`);
-        } catch (httpErr) {
-            console.warn(`⚠️ [CLOUD-SEED/HTTP] HTTP fallback error: ${httpErr.message}`);
-        }
-    } else {
-        if (!httpScraperService.isAvailable()) {
-            console.log(`⚠️ [CLOUD-SEED/HTTP] HTTP scraper not available (no API keys). Skipping.`);
-        } else {
-            console.log(`✅ [CLOUD-SEED/HTTP] Enough matches already present. Skipping fallback.`);
-        }
-    }
-
-    // ── STEP 3: Summary ──────────────────────────────────────────────────────
-    const finalToday    = countMatchesForPeriod(0, 0);
-    const finalTomorrow = countMatchesForPeriod(1, 1);
-    
-    console.log(`\n🏁 [CLOUD-SEED v4] Complete!`);
-    console.log(`   ➕ RapidAPI inserted:    ${rapidApiInserted} matches`);
-    console.log(`   ➕ FootballData inserted: ${fdInserted} matches`);
-    console.log(`   📊 DB now has: ${finalToday} today / ${finalTomorrow} tomorrow (scheduled)`);
-    
-    if (finalToday + finalTomorrow === 0) {
-        console.warn(`⚠️ [CLOUD-SEED] WARNING: No scheduled matches found! Check API keys and quotas.`);
-    }
+function registerFallbackSources() {
+    apiFallbackManager.registerSource({
+        name: 'BSD',
+        priority: 1,
+        isAvailable: () => bsdService.isAvailable(),
+        getQuotaStatus: () => ({ available: bsdService.isAvailable() }),
+        fetchEvents: (dateStr) => bsdService.fetchEvents(dateStr)
+    })
+    apiFallbackManager.registerSource({
+        name: 'TheRundown',
+        priority: 2,
+        isAvailable: () => therundownService.isAvailable(),
+        getQuotaStatus: () => therundownService.getQuotaStatus(),
+        fetchEvents: (dateStr) => therundownService.fetchSoccerEvents(dateStr)
+    })
+    apiFallbackManager.registerSource({
+        name: 'OddsPapi',
+        priority: 3,
+        isAvailable: () => oddspapiService.isAvailable(),
+        getQuotaStatus: () => oddspapiService.getQuotaStatus(),
+        fetchEvents: (dateStr) => oddspapiService.fetchEvents(dateStr)
+    })
+    apiFallbackManager.registerSource({
+        name: 'Sportmonks',
+        priority: 4,
+        isAvailable: () => sportmonksService.isAvailable(),
+        getQuotaStatus: () => sportmonksService.getQuotaStatus(),
+        fetchEvents: (dateStr) => sportmonksService.fetchEvents(dateStr)
+    })
+    apiFallbackManager.registerSource({
+        name: 'APIFootball',
+        priority: 5,
+        isAvailable: () => apifootballService.isAvailable(),
+        getQuotaStatus: () => apifootballService.getQuotaStatus(),
+        fetchEvents: (dateStr) => apifootballService.fetchEvents(dateStr)
+    })
+    console.log('[CLOUD-SEED/FALLBACK] Registered API sources (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball)')
 }
 
-async function runCloudSeedModerated() {
-    console.log('[CLOUD-SEED v5] Starting moderated seeding (FootballData -> RapidAPI fallback)...');
+async function runCloudSeed() {
+    registerFallbackSources()
+    console.log('[CLOUD-SEED] Starting multi-source seeding (FootballData -> BSD -> RapidAPI)...');
 
     const today = getDateStr(0);
     const existingToday = countMatchesForPeriod(0, 0);
@@ -479,11 +404,11 @@ async function runCloudSeedModerated() {
 
     const finalToday = countMatchesForPeriod(0, 0);
     const finalTomorrow = countMatchesForPeriod(1, 1);
-    console.log(`[CLOUD-SEED v5] Complete. FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`);
+    console.log(`[CLOUD-SEED] Complete. FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`);
 
     if (finalToday + finalTomorrow === 0) {
         console.warn('[CLOUD-SEED] WARNING: No scheduled matches found. Check API keys and quotas.');
     }
 }
 
-module.exports = { runCloudSeed: runCloudSeedModerated };
+module.exports = { runCloudSeed };

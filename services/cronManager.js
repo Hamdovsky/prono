@@ -43,7 +43,14 @@ class CronManager {
         // 4. Daily Auto-Archiver (04:00)
         cron.schedule('0 4 * * *', () => autoArchiver.runArchiver(2), { timezone: 'Europe/Paris' });
 
-        // 5. Periodic H2H Reinforcement (05:00)
+        // 5. Online Learning Incremental Update (every 6 hours — after archiver at 04:00)
+        cron.schedule('30 */6 * * *', () => {
+            logger.info('🧠 [CRON] Launching Online Learning Incremental Update...');
+            const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'online_learning_update.js')], { stdio: 'inherit', windowsHide: true });
+            proc.on('close', code => logger.info(`✅ [CRON] Online Learning finished (code ${code})`));
+        }, { timezone: 'Africa/Tunis' });
+
+        // 6. Periodic H2H Reinforcement (05:00)
         cron.schedule('0 5 * * *', () => {
             const proc = spawn('node', [path.join(__dirname, '..', 'tools', 'reinject_h2h.js')], { stdio: 'inherit', windowsHide: true });
             proc.on('close', code => logger.info(`✅ [CRON] H2H Success (code ${code})`));
@@ -119,6 +126,16 @@ class CronManager {
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'surgical_results_report.js')], { stdio: 'inherit', windowsHide: true });
             proc.on('close', code => logger.info(`✅ [CRON] Results Report finished (code ${code})`));
         }, { timezone: 'Africa/Tunis' });
+
+        // 15. [AUTOHEAL] Autopilot system patrol (Every 30 minutes)
+        cron.schedule('*/30 * * * *', () => {
+            try {
+                const autoHealAgent = require('./autoHealAgent');
+                autoHealAgent.patrol();
+            } catch (e) {
+                logger.error(`❌ [CRON] AutoHeal patrol error: ${e.message}`);
+            }
+        });
 
         logger.info('✅ [CRON] Scheduler active');
 

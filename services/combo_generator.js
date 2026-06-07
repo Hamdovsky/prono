@@ -75,7 +75,9 @@ class ComboGenerator {
 
     _calculateFairOdds(winProb) {
         if (!winProb || winProb <= 0) return 2.0;
-        return parseFloat((100 / winProb).toFixed(2));
+        // Normalize: if winProb is decimal (0-1), convert to percentage
+        const pct = winProb <= 1 ? winProb * 100 : winProb;
+        return parseFloat((100 / pct).toFixed(2));
     }
 
     _generateCombinations(matches, size) {

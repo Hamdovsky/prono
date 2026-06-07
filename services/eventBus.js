@@ -5,6 +5,9 @@ class GlobalEventBus extends EventEmitter {
     constructor() {
         super();
         this.setMaxListeners(100);
+        this.on('error', (err) => {
+            logger.error(`[EVENT-BUS] Unhandled error: ${err.message}`);
+        });
     }
 
     /**

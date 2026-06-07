@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"vite\" --names \"api,vite\" --prefix-colors \"cyan,magenta\"",
-    "server": "node --max-old-space-size=3072 server.js",
+    "server": "node --max-old-space-size=512 server.js",
     "scraper": "node SofascoreScraping/index.js",
     "scrape": "npm run scraper",
     "build": "vite build",
@@ -18,6 +18,7 @@
     "dispatch": "node scripts/surgical_daily_dispatch.js",
     "results": "node scripts/surgical_results_report.js",
     "autolearn": "python scripts/train_xgboost.py",
+    "online:update": "node scripts/online_learning_update.js",
     "test": "jest --coverage --detectOpenHandles",
     "test:watch": "jest --watch"
   },
@@ -26,13 +27,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@capacitor/core": "^8.0.2",
     "@vitejs/plugin-react": "^5.1.3",
     "async-retry": "^1.3.3",
     "axios": "^1.15.0",
     "better-sqlite3": "^12.6.2",
     "bottleneck": "^2.19.5",
-    "bullmq": "^5.70.0",
     "clsx": "^2.1.1",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
@@ -50,7 +49,6 @@
     "lucide-react": "^0.575.0",
     "node-cron": "^4.2.1",
     "node-notifier": "^10.0.1",
-    "pg": "^8.20.0",
     "puppeteer": "^24.42.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
@@ -68,8 +66,6 @@
     "vite": "^7.3.1"
   },
   "devDependencies": {
-    "@capacitor/android": "^8.0.2",
-    "@capacitor/cli": "^8.0.2",
     "@vitejs/plugin-legacy": "^7.2.1",
     "concurrently": "^9.2.1",
     "jest": "^30.3.0",

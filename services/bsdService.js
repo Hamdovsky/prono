@@ -232,7 +232,7 @@ class BsdService {
         for (const m of matches) {
           try {
             await this.enrichMatchOdds(m.id)
-          } catch (_) {}
+      } catch (e) { logger.warn(`[BSD] Odds update failed for ${matchId}: ${e.message}`); }
         }
       }
     }

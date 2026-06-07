@@ -1,51 +1,101 @@
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
-const sqlite = require('better-sqlite3');
+const { spawn } = require('child_process')
+const path = require('path')
+const fs = require('fs')
+const sqlite = require('better-sqlite3')
 
-const logger = console;
-const DB_PATH = path.join(__dirname, '..', 'data', 'historical_archive.sqlite');
-const TRAIN_SCRIPT = path.join(__dirname, '..', 'core', 'train_v23_hybrid_ultra.py');
+const logger = console
+const DB_PATH = path.join(__dirname, '..', 'data', 'historical_archive.sqlite')
+const STATE_FILE = path.join(__dirname, '..', 'data', 'online_learning_state.json')
+const LOG_FILE = path.join(__dirname, '..', 'data', 'online_learning_log.json')
+const AUDIT_SCRIPT = path.join(__dirname, 'audit_performance.py')
+const PYTHON = path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe')
 
-/**
- * Online Learning Update
- * Fetches the very latest archived matches and feeds them to the incremental_update function.
- */
+function getLastLearnedId() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')).lastLearnedId || 0
+    }
+  } catch (_) {}
+  return 0
+}
+
+function saveLastLearnedId(id) {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ lastLearnedId: id, updatedAt: new Date().toISOString() }))
+  } catch (_) {}
+}
+
+function appendLog(entry) {
+  try {
+    const logs = fs.existsSync(LOG_FILE) ? JSON.parse(fs.readFileSync(LOG_FILE, 'utf8')) : []
+    logs.push({ ...entry, timestamp: new Date().toISOString() })
+    fs.writeFileSync(LOG_FILE, JSON.stringify(logs, null, 2))
+  } catch (_) {}
+}
+
+function sendTelegram(message) {
+  try {
+    const botService = require('../services/botService')
+    botService.sendAlert(message)
+  } catch (_) {}
+}
+
+function runAudit() {
+  return new Promise((resolve) => {
+    const pythonExe = fs.existsSync(PYTHON) ? PYTHON : 'python'
+    const proc = spawn(pythonExe, [AUDIT_SCRIPT, '--last', '50'], {
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      windowsHide: true
+    })
+    let output = ''
+    proc.stdout.on('data', d => output += d.toString())
+    proc.stderr.on('data', d => logger.warn(`[AUDIT-ERR] ${d.toString().trim()}`))
+    proc.on('close', (code) => resolve({ code, output }))
+  })
+}
+
 async function runOnlineUpdate() {
-    logger.info('🔄 [ONLINE-LEARNING] Checking for new data to update models...');
+  logger.info('🔄 [ONLINE-LEARNING] Checking for new data to update models...')
 
-    try {
-        const db = new sqlite(DB_PATH);
-        // Get matches archived in the last 24 hours that haven't been 'learned' yet
-        // In a real system, we'd track a 'last_learned_id'. For now, we take the last 50.
-        const matches = db.prepare(`
-            SELECT * FROM archive_matches 
-            WHERE stats_blob IS NOT NULL 
-            ORDER BY id DESC LIMIT 50
-        `).all();
+  let db
+  try {
+    if (!fs.existsSync(DB_PATH)) {
+      logger.info('✅ [ONLINE-LEARNING] No historical archive DB found.')
+      return
+    }
 
-        if (matches.length === 0) {
-            logger.info('✅ [ONLINE-LEARNING] No new data found for incremental update.');
-            return;
-        }
+    db = new sqlite(DB_PATH)
+    const lastLearnedId = getLastLearnedId()
 
-        logger.info(`📈 [ONLINE-LEARNING] Feeding ${matches.length} recent matches to V23 Hybrid hemisphers...`);
+    const matches = db.prepare(`
+      SELECT * FROM archive_matches 
+      WHERE stats_blob IS NOT NULL AND id > ?
+      ORDER BY id ASC LIMIT 50
+    `).all(lastLearnedId)
 
-        // We use a temporary JSON to pass data to the Python incremental_update
-        const tmpPath = path.join(__dirname, '..', 'data', 'online_batch.json');
-        fs.writeFileSync(tmpPath, JSON.stringify(matches));
+    if (matches.length === 0) {
+      logger.info('✅ [ONLINE-LEARNING] No new data found for incremental update.')
+      db.close()
+      return
+    }
 
-        const pythonScript = `
-import json
+    logger.info(`📈 [ONLINE-LEARNING] Feeding ${matches.length} matches to V23 Hybrid hemispheres...`)
+
+    const tmpDir = path.join(__dirname, '..', 'data')
+    const dataPath = path.join(tmpDir, `online_batch_${Date.now()}.json`)
+    const scriptPath = path.join(tmpDir, `online_update_${Date.now()}.py`)
+
+    fs.writeFileSync(dataPath, JSON.stringify(matches))
+
+    const pyScript = `import json, sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'core'))
 import pandas as pd
 import numpy as np
-import sys
-import os
-sys.path.append(os.path.join(os.getcwd(), 'core'))
 from train_v23_hybrid_ultra import incremental_update, FEATURE_NAMES
 from ml_features import extract_ml_features
 
-with open('${tmpPath.replace(/\\/g, '/')}', 'r') as f:
+data_path = sys.argv[1]
+with open(data_path) as f:
     matches = json.load(f)
 
 data, labels = [], []
@@ -57,38 +107,87 @@ for row in matches:
         if hg > ag: labels.append(0)
         elif hg == ag: labels.append(1)
         else: labels.append(2)
-    except: continue
+    except Exception as e:
+        print(f"Skipping match {row.get('id', '?')}: {e}")
+        continue
 
 if data:
     incremental_update(pd.DataFrame(data, columns=FEATURE_NAMES), np.array(labels))
     print("SUCCESS")
 else:
     print("NO_DATA")
-`;
+`
+    fs.writeFileSync(scriptPath, pyScript)
 
-        const pyProcess = spawn('python', ['-c', pythonScript], { 
-            env: { ...process.env, PYTHONPATH: path.join(__dirname, '..', 'core') } 
-        });
+    const pythonExe = fs.existsSync(PYTHON) ? PYTHON : 'python'
 
-        pyProcess.stdout.on('data', (d) => logger.info(`[PYTHON-STDOUT] ${d.toString().trim()}`));
-        pyProcess.stderr.on('data', (d) => logger.warn(`[PYTHON-STDERR] ${d.toString().trim()}`));
+    const pyProcess = spawn(pythonExe, [scriptPath, dataPath], {
+      cwd: path.join(__dirname, '..'),
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true
+    })
 
-        pyProcess.on('close', (code) => {
-            if (code === 0) {
-                logger.info('✅ [ONLINE-LEARNING] Incremental update complete.');
-            } else {
-                logger.error(`❌ [ONLINE-LEARNING] Update failed with code ${code}`);
-            }
-            if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
-        });
+    let stdout = ''
+    pyProcess.stdout.on('data', (d) => {
+      const text = d.toString()
+      stdout += text
+      logger.info(`[PYTHON] ${text.trim()}`)
+    })
+    pyProcess.stderr.on('data', (d) => logger.warn(`[PYTHON-ERR] ${d.toString().trim()}`))
 
-    } catch (err) {
-        logger.error('💥 [ONLINE-LEARNING] Error:', err.message);
-    }
+    pyProcess.on('close', async (code) => {
+      try { if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath) } catch (_) {}
+      try { if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath) } catch (_) {}
+      if (db && db.open) db.close()
+
+      const success = code === 0 && stdout.includes('SUCCESS')
+      const maxId = matches.reduce((max, m) => Math.max(max, m.id || 0), 0)
+
+      if (success) {
+        saveLastLearnedId(maxId)
+        logger.info('✅ [ONLINE-LEARNING] Incremental update complete.')
+
+        // Run audit to validate the update
+        logger.info('📊 [ONLINE-LEARNING] Running validation audit...')
+        const audit = await runAudit()
+
+        const auditResult = audit.output.includes('IMPROVEMENT') ? 'IMPROVEMENT'
+          : audit.output.includes('STABLE') ? 'STABLE'
+          : audit.output.includes('REGRESSION') ? 'REGRESSION'
+          : 'UNKNOWN'
+
+        appendLog({
+          event: 'update',
+          matchesProcessed: matches.length,
+          lastLearnedId: maxId,
+          auditResult,
+          auditOutput: audit.output.trim()
+        })
+
+        const msg = `🧠 <b>ONLINE LEARNING UPDATE</b> 🧠\n\n📈 Matchs traités: ${matches.length}\n📊 Audit: ${auditResult}\n💾 Dernier ID: ${maxId}`
+        sendTelegram(msg)
+        logger.info(`📊 [ONLINE-LEARNING] Audit result: ${auditResult}`)
+
+      } else if (code === 0 && stdout.includes('NO_DATA')) {
+        logger.info('✅ [ONLINE-LEARNING] No valid matches to learn from.')
+        appendLog({ event: 'no_data', matchesProcessed: 0 })
+      } else {
+        const errMsg = `❌ [ONLINE-LEARNING] Update failed with code ${code}`
+        logger.error(errMsg)
+        appendLog({ event: 'failure', matchesProcessed: matches.length, error: errMsg })
+        sendTelegram(`❌ <b>ONLINE LEARNING FAILED</b> ❌\n\nCode: ${code}\nMatches: ${matches.length}`)
+      }
+    })
+  } catch (err) {
+    logger.error('💥 [ONLINE-LEARNING] Error:', err.message)
+    if (db && db.open) db.close()
+    appendLog({ event: 'crash', error: err.message })
+  }
 }
 
 if (require.main === module) {
-    runOnlineUpdate();
+  runOnlineUpdate()
 }
 
-module.exports = { runOnlineUpdate };
+module.exports = { runOnlineUpdate }

@@ -84,8 +84,8 @@ def analyze_value_bets():
             xg_h = max(0.4, xg_h)
             xg_a = max(0.4, xg_a)
             
-            # 2. Modèle de Score Poisson (0-0 à 5-5)
-            max_goals = 5
+            # 2. Modèle de Score Poisson (0-0 à 10-10)
+            max_goals = 10
             probs_h = [poisson.pmf(i, xg_h) for i in range(max_goals + 1)]
             probs_a = [poisson.pmf(i, xg_a) for i in range(max_goals + 1)]
             matrix = np.outer(probs_h, probs_a)
@@ -94,6 +94,13 @@ def analyze_value_bets():
             prob_home = np.tril(matrix, -1).sum()
             prob_draw = np.trace(matrix)
             prob_away = np.triu(matrix, 1).sum()
+            
+            # Normalisation
+            total_prob = prob_home + prob_draw + prob_away
+            if total_prob > 0:
+                prob_home /= total_prob
+                prob_draw /= total_prob
+                prob_away /= total_prob
             
             # Score Prédit (le plus probable)
             best_prob = -1

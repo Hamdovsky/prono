@@ -173,7 +173,8 @@ class BotService {
             // Native fetch if available, else standard HTTP
             const response = await new Promise((resolve, reject) => {
                 const http = require('http');
-                http.get(`http://127.0.0.1:${process.env.PORT || process.env.SERVER_PORT || 3001}/api/upcoming`, (res) => {
+                const apiPort = process.env.API_PORT || process.env.PORT || 3001;
+                http.get(`http://127.0.0.1:${apiPort}/api/upcoming`, (res) => {
                     let data = '';
                     res.on('data', chunk => data += chunk);
                     res.on('end', () => resolve(JSON.parse(data)));
@@ -573,10 +574,15 @@ class BotService {
 
             const safePicks = matches
                 .filter(m => {
-                    const winProb = Math.max(m.home_win_probability || 0, m.away_win_probability || 0);
+                    let winProb = Math.max(m.home_win_probability || 0, m.away_win_probability || 0);
+                    if (winProb <= 1) winProb *= 100; // Normalize decimal → percentage
                     return winProb >= 65;
                 })
-                .sort((a,b) => Math.max(b.home_win_probability || 0, b.away_win_probability || 0) - Math.max(a.home_win_probability || 0, a.away_win_probability || 0))
+                .sort((a,b) => {
+                    const pb = Math.max(b.home_win_probability || 0, b.away_win_probability || 0);
+                    const pa = Math.max(a.home_win_probability || 0, a.away_win_probability || 0);
+                    return (pb <= 1 ? pb * 100 : pb) - (pa <= 1 ? pa * 100 : pa);
+                })
                 .slice(0, 7);
 
             if (safePicks.length === 0) {
@@ -589,7 +595,9 @@ class BotService {
 
             safePicks.forEach((m, i) => {
                 const base = m.home_win_probability > m.away_win_probability ? "1" : "2";
-                const conf = Math.round(Math.max(m.home_win_probability || 0, m.away_win_probability || 0));
+                let confVal = Math.max(m.home_win_probability || 0, m.away_win_probability || 0);
+                if (confVal <= 1) confVal *= 100;
+                const conf = Math.round(confVal);
                 msg += `${i+1}. <b>${m.homeTeam} vs ${m.awayTeam}</b>\n`;
                 msg += `   └ 🛡️ Base: <b>${base}</b> | Confiance: <b>${conf}%</b>\n\n`;
             });

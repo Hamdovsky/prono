@@ -13,8 +13,8 @@ function seededRand(seed) {
     for (let i = 0; i < str.length; i++) {
         hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
     }
-    // Convert to [0, 1) using unsigned right shift
-    return ((hash >>> 0) % 10000) / 10000;
+    // Convert to [0, 1) using unsigned right shift (100k steps for precision)
+    return ((hash >>> 0) % 100000) / 100000;
 }
 
 async function generatePromosportGrids(scrapedMatches) {
@@ -45,9 +45,18 @@ async function generatePromosportGrids(scrapedMatches) {
                 return {};
             }) || {};
           
-            const p1 = pred.probabilities?.home || m.homeWinProbability || 0.33;
-            const px = pred.probabilities?.draw || m.drawProbability || 0.33;
-            const p2 = pred.probabilities?.away || m.awayWinProbability || 0.34;
+            let p1 = pred.probabilities?.home || m.homeWinProbability || 0.33;
+            let px = pred.probabilities?.draw || m.drawProbability || 0.33;
+            let p2 = pred.probabilities?.away || m.awayWinProbability || 0.34;
+          
+            // Normalize probabilities if in 0-100% format
+            if (p1 > 1.0 || px > 1.0 || p2 > 1.0) {
+                p1 = p1 / 100;
+                px = px / 100;
+                p2 = p2 / 100;
+            }
+            const total = p1 + px + p2
+            p1 /= total; px /= total; p2 /= total
           
             const H = - (p1 * Math.log2(Math.max(0.01, p1)) + px * Math.log2(Math.max(0.01, px)) + p2 * Math.log2(Math.max(0.01, p2)));
           
@@ -55,7 +64,8 @@ async function generatePromosportGrids(scrapedMatches) {
             const pressureMultiplier = isHighPressure ? 1.12 : 1.0;
             const confidence = pred.confidence || Math.max(50, 80 - (H * 15));
 
-            const crowdP1 = m.homeWinProbability || 0.33;
+            let crowdP1 = m.homeWinProbability || 0.33;
+            if (crowdP1 > 1) crowdP1 /= 100
             const p1Delta = crowdP1 - p1;
             const isCrowdTrap = (p1Delta > 0.25 && p1 < 0.50);
 
@@ -145,6 +155,14 @@ function generateGridsWithStrategicCoverage(enrichedMatches) {
 
       // Strategic Double Logic: "Complementary Coverage"
       if (isDouble) {
+        if (m.bsd_prediction && choices[0]) {
+          const bsdPicks = { '1': '1', 'HOME': '1', 'X': 'X', 'DRAW': 'X', '2': '2', 'AWAY': '2' }
+          const bsdWinner = bsdPicks[String(m.bsd_prediction).trim().toUpperCase()];
+          if (bsdWinner && !choices.includes(bsdWinner)) {
+              choices.push(bsdWinner);
+          }
+        }
+        
         const probs = [
             {v: '1', p: m.p1},
             {v: 'X', p: m.px},

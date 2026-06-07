@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 # ─── Config ─────────────────────────────────────────────────────────────────
 DB_PATH     = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'tactical.db')
 ARCHIVE_DB  = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'historical_archive.sqlite')
-TRAIN_SCRIPT = os.path.join(os.path.dirname(__file__), 'train_v17_ultra.py')
+TRAIN_SCRIPT = os.path.join(os.path.dirname(__file__), 'train_v53_rehab.py')
 API_BASE     = "http://localhost:5000"
 PLOT_OUTPUT  = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'training_reports')
 

@@ -1,9 +1,10 @@
 const database = require('./database');
 
+const FASTAPI_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
+
 async function runPythonPrediction(match) {
     try {
-        // [MICROSERVICES] Call the standalone AI Prediction Service (FastAPI)
-        const response = await fetch('http://127.0.0.1:8000/predict', {
+        const response = await fetch(`${FASTAPI_URL}/predict`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(match)
@@ -14,7 +15,7 @@ async function runPythonPrediction(match) {
         }
         return await response.json();
     } catch (e) {
-        return { success: false, error: 'Network Error: ' + e.message + '. Is ai_server.py running?' };
+        return { success: false, error: 'Network Error: ' + e.message }
     }
 }
 

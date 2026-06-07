@@ -63,3 +63,7 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      # Python FastAPI inference (Railway or other external host)
+      - key: INFERENCE_URL
+        value: https://prono-inference.up.railway.app
+        # Changez cette URL après avoir créé le service Railway

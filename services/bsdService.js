@@ -129,7 +129,7 @@ class BsdService {
       away_team_id: event.away_team?.id || event.away_team_id || null,
       startTimestamp: ts,
       timestamp: new Date(ts * 1000).toISOString(),
-      status: event.status || 'scheduled',
+      status: ({ notstarted: 'NOT_STARTED', inprogress: 'live', finished: 'finished', canceled: 'canceled', postponed: 'POSTPONED', abandoned: 'abandoned' })[event.status] || 'scheduled',
       confidence: 50,
       prediction: null,
       verdict: 'PENDING',
@@ -147,7 +147,7 @@ class BsdService {
         awayTeam,
         league,
         startTimestamp: ts,
-        status: event.status || 'scheduled'
+        status
       })
     }
   }

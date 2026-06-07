@@ -207,6 +207,19 @@ app.get('/metrics', async (req, res) => {
   res.end(await register.metrics());
 });
 
+app.get('/api/diag', async (req, res) => {
+  try {
+    const matchesToday = database.db?.prepare("SELECT COUNT(*) as c FROM matches WHERE status = 'scheduled' AND timestamp >= date('now')").get()?.c || 0
+    res.json({
+      bsdAvailable: bsdService.isAvailable(),
+      dbTotal: database.db?.prepare("SELECT COUNT(*) as c FROM matches").get()?.c || 0,
+      dbScheduled: matchesToday,
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 app.get('/api/audit/performance', async (req, res) => {
   try {
     const auditService = require('./services/auditService');

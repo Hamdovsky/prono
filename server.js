@@ -40,6 +40,7 @@ const apiFallbackManager = require('./services/apiFallbackManager');
 const bsdService = require('./services/bsdService');
 const therundownService = require('./services/therundownService');
 const oddspapiService = require('./services/oddspapiService');
+const openligadbService = require('./services/openligadbService');
 const sportmonksService = require('./services/sportmonksService');
 const apifootballService = require('./services/apifootballService');
 const weatherService = require('./services/weatherService');
@@ -392,6 +393,29 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
 
         setTimeout(async () => {
           try {
+            // 🔍 [DIAGNOSTIC] Log which API keys are missing at startup
+            const requiredKeys = [
+              ['BSD_API_KEY', 'BSD Bzzoiro'],
+              ['ODDSPAPI_KEY', 'OddsPapi'],
+              ['FOOTBALLDATA_KEY', 'FootballData.io'],
+              ['RAPIDAPI_KEY', 'RapidAPI SportAPI'],
+              ['THERUNDOWN_KEY', 'TheRundown'],
+              ['SPORTMONKS_KEY', 'Sportmonks'],
+              ['APIFOOTBALL_KEY', 'APIFootball'],
+              ['SUPABASE_URL', 'Neon PostgreSQL'],
+              ['INFERENCE_URL', 'Python FastAPI'],
+              ['GROQ_API_KEY', 'Groq AI'],
+              ['GEMINI_API_KEY', 'Gemini AI'],
+            ]
+            const missing = requiredKeys.filter(([key]) => !process.env[key] || process.env[key].startsWith('CHANGER_MOI'))
+            if (missing.length > 0) {
+              console.log('🔍 [DIAGNOSTIC] API keys manquantes sur Render Dashboard:')
+              missing.forEach(([, name]) => console.log(`   ❌ ${name}`))
+              console.log('   → Allez sur https://dashboard.render.com → Environment → ajoutez ces clés')
+            } else {
+              console.log('✅ [DIAGNOSTIC] Toutes les clés API sont configurées')
+            }
+
             if (process.env.DISABLE_BACKUP !== 'true') backupService.startAutomatedBackups();
             botService.startPolling();
             
@@ -462,7 +486,14 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
                 isAvailable: () => apifootballService.isAvailable(),
                 getQuotaStatus: () => apifootballService.getQuotaStatus()
               })
-              logger.info('🔁 [FALLBACK] API sources registered (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball)')
+              apiFallbackManager.registerSource({
+                name: 'OpenLigaDB',
+                priority: 6,
+                isAvailable: () => openligadbService.isAvailable(),
+                getQuotaStatus: () => ({ available: openligadbService.isAvailable() }),
+                fetchEvents: (dateStr) => openligadbService.fetchEvents(dateStr)
+              })
+              logger.info('🔁 [FALLBACK] API sources registered (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)')
             } catch (fbErr) {
               logger.warn('⚠️ [FALLBACK] Registration error:', fbErr.message)
             }

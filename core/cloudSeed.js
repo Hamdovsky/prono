@@ -20,6 +20,7 @@ const therundownService = require('../services/therundownService');
 const oddspapiService = require('../services/oddspapiService');
 const sportmonksService = require('../services/sportmonksService');
 const apifootballService = require('../services/apifootballService');
+const openligadbService = require('../services/openligadbService');
 
 const fdQuotaManager = createQuotaManager('footballdata');
 
@@ -302,7 +303,14 @@ function registerFallbackSources() {
         fetchEvents: (dateStr) => apifootballService.fetchEvents(dateStr),
         fetchOdds: (fixtureId) => apifootballService.fetchOdds(fixtureId)
     })
-    console.log('[CLOUD-SEED/FALLBACK] Registered API sources (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball)')
+    apiFallbackManager.registerSource({
+        name: 'OpenLigaDB',
+        priority: 6,
+        isAvailable: () => openligadbService.isAvailable(),
+        getQuotaStatus: () => ({ available: openligadbService.isAvailable() }),
+        fetchEvents: (dateStr) => openligadbService.fetchEvents(dateStr),
+    })
+    console.log('[CLOUD-SEED/FALLBACK] Registered API sources (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)')
 }
 
 async function runCloudSeed() {
@@ -370,12 +378,13 @@ async function runCloudSeed() {
       console.log('[CLOUD-SEED/BSD] Skipped: not available (no API key).')
     }
 
-    // ── STEP 3: API Fallback tier (TheRundown → OddsPapi → Sportmonks → APIFootball)
+    // ── STEP 3: API Fallback tier (TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)
     const fbFallbackSources = [
       { name: 'TheRundown', fetch: () => therundownService.fetchSoccerEvents(today).then(events => events.map(e => therundownService.mapEventToMatch(e))), available: () => therundownService.isAvailable() },
       { name: 'OddsPapi',   fetch: () => oddspapiService.fetchEvents(today),              available: () => oddspapiService.isAvailable() },
       { name: 'Sportmonks', fetch: () => sportmonksService.fetchEvents(today),            available: () => sportmonksService.isAvailable() },
       { name: 'APIFootball',fetch: () => apifootballService.fetchEvents(today),           available: () => apifootballService.isAvailable() },
+      { name: 'OpenLigaDB', fetch: () => openligadbService.fetchEvents(today),            available: () => openligadbService.isAvailable() },
     ]
 
     const currentCount = countMatchesForPeriod(0, 0)

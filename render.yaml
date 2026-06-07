@@ -53,6 +53,9 @@ services:
         sync: false
       - key: OPENWEATHER_KEY
         sync: false
+      # OpenLigaDB — free, no API key required
+      - key: OPENLIGADB_ENABLED
+        value: "true"
       # Supabase (PostgreSQL cloud persistence)
       - key: SUPABASE_ENABLED
         value: "true"

@@ -4,6 +4,7 @@
  * Runs at server startup to seed matches from multiple sources.
  * 
  * STRATEGY:
+ *  0. PRIMARY:  Sofascore (free, no API key) — direct HTTP
  *  1. PRIMARY:  FootballData.io — upcoming fixtures
  *  2. FREE:     BSD Bzzoiro — unlimited matches + odds
  *  3. FALLBACK: TheRundown → OddsPapi → Sportmonks → APIFootball
@@ -52,6 +53,78 @@ function getDateStr(offset = 0) {
 
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BLOCK 0: SOFASCORE (FREE — NO API KEY NEEDED)
+// Uses the public Sofascore API directly to fetch scheduled events per date
+// No authentication required, unlimited usage
+// ══════════════════════════════════════════════════════════════════════════════
+
+const SOFASCORE_BASE = 'https://www.sofascore.com/api/v1';
+
+async function fetchSofascoreEvents(date) {
+    try {
+        console.log(`📡 [CLOUD-SEED/SOFASCORE] Fetching ${date}...`);
+        const { data } = await axios.get(`${SOFASCORE_BASE}/sport/football/scheduled-events/${date}`, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'application/json',
+                'Origin': 'https://www.sofascore.com',
+                'Referer': 'https://www.sofascore.com/'
+            },
+            timeout: 15000
+        });
+        return data?.events || [];
+    } catch (e) {
+        console.warn(`⚠️ [CLOUD-SEED/SOFASCORE] Failed to fetch ${date}: ${e.message}`);
+        return [];
+    }
+}
+
+function mapSofascoreEventToMatch(event) {
+    const ts = event.startTimestamp || Math.floor(Date.now() / 1000);
+    const rawStatus = (event.status?.type || '').toLowerCase();
+    const status = ['finished', 'canceled', 'postponed', 'inprogress'].includes(rawStatus)
+        ? rawStatus : 'scheduled';
+
+    const homeTeam = event.homeTeam?.name || 'Home';
+    const awayTeam = event.awayTeam?.name || 'Away';
+    const leagueName = event.tournament?.name || 'Unknown';
+    const categoryName = event.tournament?.category?.name || '';
+    const tournamentName = event.tournament?.uniqueTournament?.name || leagueName;
+
+    return {
+        id: `sofascore_${event.id}`,
+        homeTeam,
+        awayTeam,
+        league: tournamentName,
+        category_name: categoryName,
+        tournament_name: tournamentName,
+        tournament_id: event.tournament?.uniqueTournament?.id || null,
+        home_team_id: event.homeTeam?.id || null,
+        away_team_id: event.awayTeam?.id || null,
+        startTimestamp: ts,
+        timestamp: new Date(ts * 1000).toISOString(),
+        status,
+        confidence: 50,
+        prediction: null,
+        verdict: 'PENDING',
+        odds_home: null,
+        odds_draw: null,
+        odds_away: null,
+        last_updated: Date.now(),
+        insufficient_data: 1,
+        source: 'sofascore',
+        fullData: JSON.stringify({
+            id: event.id,
+            homeTeam,
+            awayTeam,
+            league: tournamentName,
+            startTimestamp: ts,
+            status,
+        })
+    };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -310,7 +383,14 @@ function registerFallbackSources() {
         getQuotaStatus: () => ({ available: openligadbService.isAvailable() }),
         fetchEvents: (dateStr) => openligadbService.fetchEvents(dateStr),
     })
-    console.log('[CLOUD-SEED/FALLBACK] Registered API sources (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)')
+    apiFallbackManager.registerSource({
+        name: 'Sofascore',
+        priority: 0,
+        isAvailable: () => true,
+        getQuotaStatus: () => ({ available: true }),
+        fetchEvents: (dateStr) => fetchSofascoreEvents(dateStr).then(events => events.map(mapSofascoreEventToMatch)),
+    })
+    console.log('[CLOUD-SEED/FALLBACK] Registered API sources (Sofascore[free] → BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)')
 }
 
 async function runCloudSeed() {
@@ -324,6 +404,29 @@ async function runCloudSeed() {
 
     let fdInserted = 0;
     let rapidApiInserted = 0;
+    let sofascoreInserted = 0;
+
+    // ── STEP 0: Sofascore (FREE — no API key needed) ══ PRIORITY ══
+    console.log('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
+    try {
+        const datesToFetch = [today, getDateStr(1)]
+        for (const dateStr of datesToFetch) {
+            const events = await fetchSofascoreEvents(dateStr)
+            console.log(`[CLOUD-SEED/SOFASCORE] ${events.length} events found for ${dateStr}`)
+
+            const notstarted = events.filter(e => (e.status?.type || '').toLowerCase() === 'notstarted')
+            console.log(`[CLOUD-SEED/SOFASCORE] ${notstarted.length} not-started matches to insert for ${dateStr}`)
+
+            for (const event of notstarted) {
+                if (!event.id || !event.homeTeam?.name || !event.awayTeam?.name) continue
+                const match = mapSofascoreEventToMatch(event)
+                if (upsertMatch(match)) sofascoreInserted++
+            }
+        }
+        console.log(`[CLOUD-SEED/SOFASCORE] Inserted ${sofascoreInserted} free matches total.`)
+    } catch (e) {
+        console.warn(`⚠️ [CLOUD-SEED/SOFASCORE] Error: ${e.message}`)
+    }
 
     let fdQuotaStatus = fdQuotaManager.getQuotaStatus();
     if (existingToday < 20 && fdQuotaStatus.isActive && fdQuotaStatus.remaining > 0) {
@@ -363,23 +466,29 @@ async function runCloudSeed() {
     }
 
     // ── STEP 2: BSD Bzzoiro Sports Data (free, unlimited) ══ PRIORITY ══
-    if (bsdService.isAvailable()) {
-      console.log('[CLOUD-SEED/BSD] Primary seeding with Bzzoiro Sports Data...')
-      try {
-        const bsdCount = await bsdService.fullSync()
-        console.log(`[CLOUD-SEED/BSD] Inserted ${bsdCount} matches`)
-        console.log('[CLOUD-SEED/BSD] Enriching odds for all matches...')
-        const enriched = await bsdService.enrichAllMatchesOdds()
-        console.log(`[CLOUD-SEED/BSD] Odds enriched for ${enriched} matches`)
-      } catch (bsdErr) {
-        console.warn(`[CLOUD-SEED/BSD] Error: ${bsdErr.message}`)
+    try {
+      if (bsdService.isAvailable()) {
+        console.log('[CLOUD-SEED/BSD] Primary seeding with Bzzoiro Sports Data...')
+        try {
+          const bsdCount = await bsdService.fullSync()
+          console.log(`[CLOUD-SEED/BSD] Inserted ${bsdCount} matches`)
+          console.log('[CLOUD-SEED/BSD] Enriching odds for all matches...')
+          const enriched = await bsdService.enrichAllMatchesOdds()
+          console.log(`[CLOUD-SEED/BSD] Odds enriched for ${enriched} matches`)
+        } catch (bsdErr) {
+          console.warn(`[CLOUD-SEED/BSD] Error during fullSync: ${bsdErr.message}`)
+          console.warn(`[CLOUD-SEED/BSD] Stack: ${bsdErr.stack?.substring(0, 500)}`)
+        }
+      } else {
+        console.log('[CLOUD-SEED/BSD] Skipped: not available (no API key or service disabled).')
       }
-    } else {
-      console.log('[CLOUD-SEED/BSD] Skipped: not available (no API key).')
+    } catch (outerErr) {
+      console.warn(`[CLOUD-SEED/BSD] Outer error: ${outerErr.message}`)
     }
 
-    // ── STEP 3: API Fallback tier (TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)
+    // ── STEP 3: API Fallback tier (Sofascore → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)
     const fbFallbackSources = [
+      { name: 'Sofascore', fetch: () => fetchSofascoreEvents(today).then(events => events.map(mapSofascoreEventToMatch)), available: () => true },
       { name: 'TheRundown', fetch: () => therundownService.fetchSoccerEvents(today).then(events => events.map(e => therundownService.mapEventToMatch(e))), available: () => therundownService.isAvailable() },
       { name: 'OddsPapi',   fetch: () => oddspapiService.fetchEvents(today),              available: () => oddspapiService.isAvailable() },
       { name: 'Sportmonks', fetch: () => sportmonksService.fetchEvents(today),            available: () => sportmonksService.isAvailable() },
@@ -455,7 +564,7 @@ async function runCloudSeed() {
 
     const finalToday = countMatchesForPeriod(0, 0);
     const finalTomorrow = countMatchesForPeriod(1, 1);
-    console.log(`[CLOUD-SEED] Complete. FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`);
+    console.log(`[CLOUD-SEED] Complete. Sofascore: ${sofascoreInserted}, FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`);
 
     if (finalToday + finalTomorrow === 0) {
         console.warn('[CLOUD-SEED] WARNING: No scheduled matches found. Check API keys and quotas.');

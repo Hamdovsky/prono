@@ -560,25 +560,25 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
         <div style={{ ...style, ...rowStyle, display: 'flex', alignItems: 'center', minWidth: 'fit-content' }} className="onyx-virtual-row" onClick={() => onClick(match)}>
             {/* COLUMN 1: MATCH / FORME (20%) */}
             <div style={{width: "20%", minWidth: "160px"}} className="onyx-virtual-cell">
-                <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '1px', minWidth: 0}}>
                     <span className={`status-dot ${statusClass}`}></span>
                     {formattedTime && (
-                        <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#fbbf24', fontWeight: '800', background: 'rgba(251, 191, 36, 0.1)', padding: '1px 3px', borderRadius: '4px'}}>
+                        <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#fbbf24', fontWeight: '800', background: 'rgba(251, 191, 36, 0.1)', padding: '1px 3px', borderRadius: '4px', flexShrink: 0}}>
                             {formattedTime}
                         </span>
                     )}
                     {countdownStr && !countdownStr.includes("EN COURS") && (
-                        <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#38bdf8', fontWeight: '700', background: 'rgba(56,189,248,0.08)', padding: '1px 3px', borderRadius: '3px'}}>
+                        <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#38bdf8', fontWeight: '700', background: 'rgba(56,189,248,0.08)', padding: '1px 3px', borderRadius: '3px', flexShrink: 0}}>
                             -{countdownStr}
                         </span>
                     )}
-                    <b style={{ fontSize: '12px', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                    <b style={{ fontSize: '12px', color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 auto', minWidth: 0 }}>
                         {homeName} vs {awayName}
                     </b>
                 </div>
-                <div style={{ fontSize: '9px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <span style={{opacity: 0.6}}>🏆</span>
-                    <span style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px'}}>
+                <div style={{ fontSize: '9px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '3px', minWidth: 0 }}>
+                    <span style={{opacity: 0.6, flexShrink: 0}}>🏆</span>
+                    <span style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 auto', minWidth: 0}}>
                         {(() => {
                             const lower = (match.league || match.tournament_name || '').toLowerCase();
                             if (lower.includes('champions league') || lower.includes('ucl') || lower.includes('uefa')) return '🌍 EUROPE : ';

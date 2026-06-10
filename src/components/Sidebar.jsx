@@ -216,6 +216,23 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                     <span className="flash-label" style={{ fontWeight: 'bold' }}>Millionaire Selection</span>
                 </button>
 
+                {/* ── LIVE MATCHES ────────────────────────── */}
+                <button 
+                  className={`flash-nav-item ${activeView === 'livelab' ? 'active' : ''}`}
+                  onClick={() => handleNav('livelab')}
+                  style={{
+                    marginTop: '4px',
+                    background: activeView === 'livelab'
+                        ? 'linear-gradient(90deg, rgba(239,68,68,0.15) 0%, transparent 100%)'
+                        : 'transparent',
+                    borderLeft: activeView === 'livelab' ? '2px solid #ef4444' : 'none',
+                    color: '#ef4444'
+                  }}
+                >
+                    <span className="flash-icon">🔴</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>Live Match</span>
+                </button>
+
                 {/* ── System Intelligence ────────────────────── */}
                 <button 
                   className={`flash-nav-item ${activeView === 'intel' ? 'active' : ''}`}

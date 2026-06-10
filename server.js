@@ -366,6 +366,10 @@ const server = http.createServer(app);
 // ⚡ Socket.io & Real-time Synchronization
 socketService.init(server);
 
+// 🔴 Live Match Polling (every 30s)
+const liveMatchService = require('./services/liveMatchService');
+liveMatchService.startPolling(30000);
+
 // 🧠 ML Prediction Service Bridge
 const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
 

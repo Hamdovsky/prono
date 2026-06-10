@@ -9,23 +9,77 @@ const ValueBetEngine = require('../src/services/ValueBetEngine');
 const IntegrityService = require('../services/integrity_service');
 const { getSteamForMatch } = require('../services/oddsMovementService');
 const liveGoalPredictor = require('../services/LiveGoalPredictor');
+const liveMatchService = require('../services/liveMatchService');
 
 /**
  * GET /api/live
- * Live matches with goal prediction analysis (DISABLED)
+ * Live matches with goal prediction analysis
  */
 router.get('/live', async (req, res) => {
-    logger.info('[LIVE API] Live module is disabled.');
-    res.json([]);
+    try {
+        const matches = liveMatchService.getActiveMatches()
+        const enriched = matches.map(m => {
+            const prediction = liveGoalPredictor.analyzeLiveMatch(m)
+            return { ...m, goalPrediction: prediction }
+        })
+        res.json(enriched)
+    } catch (err) {
+        logger.error(`[LIVE] Error: ${err.message}`)
+        res.json([])
+    }
 });
 
 /**
  * GET /api/live/goal-predictions
- * Expert live goal predictor endpoint (DISABLED)
+ * Expert live goal predictor endpoint
  */
+/**
+ * GET /api/live-lab
+ * Live Lab dashboard data
+ */
+router.get('/live-lab', async (req, res) => {
+    try {
+        const matches = liveMatchService.getActiveMatches()
+        res.json({
+            matches: matches.map(m => ({
+                ...m,
+                stats: m.stats || { dangerousAttacks: { home: 0, away: 0 }, shotsOnTarget: { home: 0, away: 0 }, xg: { home: 0, away: 0 } },
+                momentum: m.momentum || { homePercent: 50, awayPercent: 50 },
+                alerts: m.alerts || [],
+                recoveryRate: 50,
+                xgDeviation: { home: 0, away: 0, verdict: 'Normal' },
+                dnaInsight: null,
+                statsbombInsight: null,
+                pronostics: null
+            })),
+            counts: {
+                live: matches.filter(m => m.status === 'live').length,
+                total: matches.length
+            },
+            lastUpdate: Date.now()
+        })
+    } catch (err) {
+        logger.error(`[LIVE-LAB] Error: ${err.message}`)
+        res.json({ matches: [], counts: { live: 0, total: 0 }, lastUpdate: Date.now() })
+    }
+});
+
 router.get('/live/goal-predictions', async (req, res) => {
-    logger.info('[GOAL PREDICTOR API] Live module is disabled.');
-    res.json([]);
+    try {
+        const matches = liveMatchService.getActiveMatches()
+        const predictions = matches.map(m => ({
+            matchId: m.id,
+            homeTeam: m.homeTeam,
+            awayTeam: m.awayTeam,
+            minute: m.minute,
+            score: `${m.scoreHome}-${m.scoreAway}`,
+            prediction: liveGoalPredictor.analyzeLiveMatch(m)
+        }))
+        res.json(predictions)
+    } catch (err) {
+        logger.error(`[LIVE] Goal prediction error: ${err.message}`)
+        res.json([])
+    }
 });
 
 router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) => {

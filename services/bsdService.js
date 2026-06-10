@@ -132,6 +132,11 @@ class BsdService {
     return data?.results || []
   }
 
+  async fetchLiveEvents() {
+    const data = await this._fetch('/v2/events/?status=inprogress&limit=50')
+    return data?.results || []
+  }
+
   // ── MAPPING ─────────────────────────────────────────────────────
 
   _mapEventToMatch(event) {

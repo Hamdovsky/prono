@@ -11,15 +11,7 @@ WORKDIR /app
 
 # Install Python dependencies (cached layer)
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir \
-        fastapi \
-        uvicorn[standard] \
-        pydantic \
-        psycopg2-binary \
-        redis \
-        aioredis \
-        httpx
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY core/ /app/core/
@@ -34,4 +26,4 @@ EXPOSE 8000
 # Graceful shutdown
 STOPSIGNAL SIGTERM
 
-CMD ["uvicorn", "core.fastapi_server:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--timeout-keep-alive", "30"]
+CMD ["uvicorn", "core.fastapi_server:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--timeout-keep-alive", "30"]

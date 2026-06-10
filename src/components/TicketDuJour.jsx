@@ -217,7 +217,17 @@ const TicketDuJour = ({ matches }) => {
     }, [matches]);
 
     if (!ticket || ticket.selections.length === 0) {
-        return null;
+        return (
+            <div className="ticket-jour-container ticket-jour-empty">
+                <div className="ticket-jour-header">
+                    <div className="ticket-jour-title">🎯 Ticket Spécial du Jour</div>
+                </div>
+                <div style={{padding: '20px', textAlign: 'center', fontSize: '12px', color: '#64748b'}}>
+                    Aucun match avec une confiance ≥ 75% pour aujourd'hui.<br/>
+                    <span style={{fontSize: '11px', color: '#2d3f56'}}>Réessayez avec un filtre de date différent ou revenez plus tard.</span>
+                </div>
+            </div>
+        )
     }
 
     return (

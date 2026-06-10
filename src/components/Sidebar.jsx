@@ -1,5 +1,6 @@
-import React from 'react';
-import './Sidebar.css';
+import React from 'react'
+import { useNavigate } from 'react-router-dom'
+import './Sidebar.css'
 
 const PINNED_LEAGUES = [
     { id: 'en_pr', name: 'Angleterre : Premier League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', keywords: ['premier league', 'epl'] },
@@ -36,8 +37,34 @@ const MENA_LEAGUES = [
     { id: 'bh_pl', name: 'Bahreïn : Bahraini Premier', flag: '🇧🇭', keywords: ['bahraini premier', 'bahrain'] }
 ];
 
-const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onViewChange, activeDate, onDateChange }) => {
-    
+const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activeDate, onDateChange, isOpen = true }) => {
+    const navigate = useNavigate()
+
+    const handleNav = (view) => {
+        navigate({
+            'matches': '/',
+            'all-matches': '/all-matches',
+            'millionaire': '/millionaire',
+            'accuracy': '/accuracy',
+            'learning': '/learning',
+            'combos': '/combos',
+            'props': '/props',
+            'mega': '/mega',
+            'precision': '/precision',
+            'market': '/market',
+            'datascience': '/datascience',
+            'integrity': '/integrity',
+            'livelab': '/livelab',
+            'livegoal': '/livegoal',
+            'audit': '/audit',
+            'backtest': '/backtest',
+            'mega1000': '/mega1000',
+            'intel': '/intel',
+            'promosport': '/promosport',
+            'evolution': '/evolution',
+        }[view] || '/')
+    }
+
     const activeCounts = {};
     const todayStr = new Date().toLocaleDateString();
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -127,16 +154,19 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
     const totalFilteredMatches = Object.values(activeCounts).reduce((a, b) => a + b, 0);
 
     return (
-        <aside className="flash-sidebar">
+        <aside className={`flash-sidebar ${isOpen ? '' : 'collapsed'}`}>
             <div className="flash-sidebar-header">
-                <h2>Laboratoir Hamdi</h2>
+                <h2>Laboratoire Hamdi</h2>
+                <div style={{ fontSize: '8px', color: '#1e3a4a', fontWeight: '700', letterSpacing: '1.5px', marginTop: '3px', textTransform: 'uppercase' }}>
+                    ⚡ TITANIUM NEURAL-X v3.0
+                </div>
             </div>
             
             <div className="flash-nav-section">
-                {/* ── NEW: ALL MATCHES SCANNER ────────────────────── */}
+                {/* ── ALL MATCHES SCANNER ────────────────────── */}
                 <button 
                   className={`flash-nav-item ${activeView === 'all-matches' ? 'active' : ''}`}
-                  onClick={() => onViewChange?.('all-matches')}
+                  onClick={() => handleNav('all-matches')}
                   style={{
                     background: activeView === 'all-matches'
                         ? 'linear-gradient(90deg, rgba(148,163,184,0.15) 0%, transparent 100%)'
@@ -153,10 +183,10 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
                     </span>
                 </button>
 
-                {/* ── NEW: Adaptive Learning AI ────────────────────── */}
+                {/* ── Adaptive Learning AI ────────────────────── */}
                 <button 
                   className={`flash-nav-item ${activeView === 'learning' ? 'active' : ''}`}
-                  onClick={() => onViewChange?.('learning')}
+                  onClick={() => handleNav('learning')}
                   style={{
                     marginTop: '4px',
                     background: activeView === 'learning'
@@ -172,7 +202,7 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
 
                 <button 
                   className={`flash-nav-item ${activeView === 'millionaire' ? 'active' : ''}`}
-                  onClick={() => onViewChange?.('millionaire')}
+                  onClick={() => handleNav('millionaire')}
                   style={{
                     marginTop: '4px',
                     background: activeView === 'millionaire'
@@ -186,10 +216,10 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
                     <span className="flash-label" style={{ fontWeight: 'bold' }}>Millionaire Selection</span>
                 </button>
 
-                {/* ── NEW: System Intelligence ────────────────────── */}
+                {/* ── System Intelligence ────────────────────── */}
                 <button 
                   className={`flash-nav-item ${activeView === 'intel' ? 'active' : ''}`}
-                  onClick={() => onViewChange?.('intel')}
+                  onClick={() => handleNav('intel')}
                   style={{
                     marginTop: '4px',
                     background: activeView === 'intel'
@@ -203,10 +233,10 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
                     <span className="flash-label" style={{ fontWeight: 'bold' }}>System Intelligence</span>
                 </button>
 
-                {/* ── NEW: Promosport ────────────────────── */}
+                {/* ── Promosport ────────────────────── */}
                 <button 
                   className={`flash-nav-item ${activeView === 'promosport' ? 'active' : ''}`}
-                  onClick={() => onViewChange?.('promosport')}
+                  onClick={() => handleNav('promosport')}
                   style={{
                     marginTop: '4px',
                     background: activeView === 'promosport'
@@ -220,10 +250,10 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
                     <span className="flash-label" style={{ fontWeight: 'bold' }}>TeleMatch / Promosport IA</span>
                 </button>
 
-                {/* ── NEW: Titanium Evolution ────────────────────── */}
+                {/* ── Titanium Evolution ────────────────────── */}
                 <button 
                   className={`flash-nav-item ${activeView === 'evolution' ? 'active' : ''}`}
-                  onClick={() => onViewChange?.('evolution')}
+                  onClick={() => handleNav('evolution')}
                   style={{
                     marginTop: '4px',
                     background: activeView === 'evolution'
@@ -240,31 +270,35 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
 
             <div className="flash-nav-section">
                 <h3 className="flash-section-title" style={{ color: '#64748b' }}>📅 FILTRE TEMPOREL</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '0 12px 12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', padding: '4px 10px 10px' }}>
                     {["Today", "Tomorrow", "Next 3 Days", "Next 7 Days"].map(date => {
                         const labels = {
                             "Today": "AUJOURD'HUI",
                             "Tomorrow": "DEMAIN",
-                            "Next 3 Days": "3 PROCHAINS JOURS",
-                            "Next 7 Days": "7 PROCHAINS JOURS"
+                            "Next 3 Days": "3 JOURS",
+                            "Next 7 Days": "7 JOURS"
                         };
+                        const isActive = activeDate === date
                         return (
                             <button
                                 key={date}
-                                className={`date-filter-btn ${activeDate === date ? 'active' : ''}`}
+                                className={`date-filter-btn ${isActive ? 'active' : ''}`}
                                 onClick={() => onDateChange?.(date)}
                                 style={{
-                                    padding: '8px 6px',
-                                    fontSize: '11px',
-                                    background: activeDate === date ? '#f59e0b' : 'rgba(255,255,255,0.06)',
-                                    color: activeDate === date ? '#000' : '#cbd5e1',
-                                    border: activeDate === date ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                                    padding: '7px 5px',
+                                    fontSize: '9.5px',
+                                    background: isActive
+                                        ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                                        : 'rgba(255,255,255,0.04)',
+                                    color: isActive ? '#000' : '#64748b',
+                                    border: isActive ? 'none' : '1px solid rgba(255,255,255,0.07)',
                                     borderRadius: '6px',
                                     cursor: 'pointer',
-                                    fontWeight: activeDate === date ? '800' : '500',
-                                    letterSpacing: '0.3px',
-                                    transition: 'all 0.15s',
-                                    fontFamily: "'JetBrains Mono', monospace"
+                                    fontWeight: isActive ? '900' : '600',
+                                    letterSpacing: '0.4px',
+                                    transition: 'all 0.18s ease',
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    boxShadow: isActive ? '0 2px 10px rgba(245,158,11,0.3)' : 'none',
                                 }}
                             >
                                 {labels[date]}
@@ -284,7 +318,7 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
                     <button 
                         key={league.id} 
                         className={`flash-nav-item ${activeLeague === league.keywords[0] ? 'active' : ''}`}
-                        onClick={() => { onViewChange?.('matches'); onLeagueChange(league.keywords[0]); }}
+                        onClick={() => { handleNav('matches'); onLeagueChange(league.keywords[0]); }}
                         style={{ borderLeft: activeLeague === league.keywords[0] ? '2px solid #f59e0b' : 'none' }}
                     >
                         <span className="flash-icon">{league.flag}</span>
@@ -298,7 +332,7 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
                     <button 
                         key={league.id} 
                         className={`flash-nav-item ${activeLeague === league.id ? 'active' : ''}`}
-                        onClick={() => { onViewChange?.('matches'); onLeagueChange(league.id); }}
+                        onClick={() => { handleNav('matches'); onLeagueChange(league.id); }}
                     >
                         <span className="flash-icon">⚽</span>
                         <span className="flash-label">{league.name}</span>
@@ -318,7 +352,7 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, onVie
                         <button 
                             key={league.id} 
                             className={`flash-nav-item ${activeLeague === league.keywords[0] ? 'active' : ''}`}
-                            onClick={() => { onViewChange?.('matches'); onLeagueChange(league.keywords[0]); }}
+                            onClick={() => { handleNav('matches'); onLeagueChange(league.keywords[0]); }}
                             style={{ borderLeft: activeLeague === league.keywords[0] ? '2px solid #10b981' : 'none' }}
                         >
                             <span className="flash-icon">{league.flag}</span>

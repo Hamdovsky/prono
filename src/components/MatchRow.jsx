@@ -595,11 +595,11 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (16%) */}
-            <div style={{width: "16%", minWidth: "160px"}} className="onyx-virtual-cell">
+            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (18%) */}
+            <div style={{width: "18%", minWidth: "170px"}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                        <span style={{fontSize: '9px', color: 'var(--neon)', fontWeight: '900', minWidth: '28px'}}>MAIN</span>
+                        <span style={{fontSize: '10px', color: 'var(--neon)', fontWeight: '900', minWidth: '32px'}}>MAIN</span>
                         <span style={{fontSize: '12px', color: '#f1f5f9', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
                             {mainPickClean}
                         </span>
@@ -613,7 +613,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                         <div style={{width: `${Math.min(100, Math.max(5, acc))}%`, height: '100%', background: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
                     </div>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                        <span style={{fontSize: '9px', color: '#94a3b8', fontWeight: '900', minWidth: '28px'}}>2ND</span>
+                        <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '900', minWidth: '32px'}}>2ND</span>
                         <span style={{fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
                             {secondPickClean}
                         </span>
@@ -621,84 +621,75 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 3: AI SCORE & FT confidence (10%) */}
-            <div style={{width: "10%", minWidth: "90px"}} className="onyx-virtual-cell centered">
-                <span className="onyx-cs" style={{fontSize: '14px', fontWeight: '900', color: '#00ffaa'}}>{cs}</span>
-                <div style={{fontSize: '9px', color: '#fbbf24', fontWeight: 'bold'}}>
+            {/* COLUMN 3: AI SCORE & FT confidence (12%) */}
+            <div style={{width: "12%", minWidth: "100px"}} className="onyx-virtual-cell centered">
+                <span className="onyx-cs" style={{fontSize: '16px', fontWeight: '900', color: '#00ffaa'}}>{cs}</span>
+                <div style={{fontSize: '11px', color: '#fbbf24', fontWeight: 'bold'}}>
                     FT: {ftSignal}%
                 </div>
-                <div style={{display: 'flex', gap: '2px', width: '100%', height: '3px', marginTop: '2px', borderRadius: '2px', overflow: 'hidden'}}>
+                <div style={{display: 'flex', gap: '2px', width: '100%', height: '4px', marginTop: '2px', borderRadius: '2px', overflow: 'hidden'}}>
                     <div style={{flex: `${Math.round(hBar)}`, height: '100%', background: '#22c55e', minWidth: hBar > 0 ? '2px' : '0'}}></div>
                     <div style={{flex: `${Math.round(dBar)}`, height: '100%', background: '#94a3b8', minWidth: dBar > 0 ? '2px' : '0'}}></div>
                     <div style={{flex: `${Math.round(aBar)}`, height: '100%', background: '#3b82f6', minWidth: aBar > 0 ? '2px' : '0'}}></div>
                 </div>
             </div>
 
-            {/* COLUMN 4: BTTS (10%) */}
-            <div style={{width: "10%", minWidth: "100px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%'}}>
-                    <span style={{
-                        fontSize: '11px', fontWeight: '900', padding: '1px 5px', borderRadius: '4px',
-                        background: bttsBadgeBg, color: bttsBadgeColor,
-                        border: `1px solid ${bttsBadgeBorder}`,
-                        textTransform: 'uppercase', letterSpacing: '0.3px', whiteSpace: 'nowrap'
-                    }}>
-                        {bttsLabel}
-                    </span>
-                    <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
-                        {bttsDisplayPct}%
-                    </span>
-                    <div style={{display: 'flex', width: '80%', height: '2px', borderRadius: '2px', overflow: 'hidden', background: 'rgba(148,163,184,0.15)'}}>
-                        <div style={{width: `${bttsPct}%`, height: '100%', background: '#00ffaa'}}></div>
-                        <div style={{width: `${100 - bttsPct}%`, height: '100%', background: '#f87171'}}></div>
+            {/* COLUMN 4: MARCHÉS (BTTS + O/U) (16%) - merged */}
+            <div style={{width: "16%", minWidth: "140px"}} className="onyx-virtual-cell centered">
+                <div style={{display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
+                        <span style={{
+                            fontSize: '10px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px',
+                            background: bttsBadgeBg, color: bttsBadgeColor,
+                            border: `1px solid ${bttsBadgeBorder}`,
+                            textTransform: 'uppercase', letterSpacing: '0.2px', whiteSpace: 'nowrap'
+                        }}>
+                            {bttsLabel}
+                        </span>
+                        <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
+                            {bttsDisplayPct}%
+                        </span>
+                    </div>
+                    <div style={{width:'1px', height:'24px', background:'rgba(148,163,184,0.2)'}}></div>
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
+                        <span style={{
+                            fontSize: '10px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px',
+                            background: tgBadgeBg, color: tgBadgeColor,
+                            border: `1px solid ${tgBadgeBorder}`, whiteSpace: 'nowrap'
+                        }}>
+                            {tg}
+                        </span>
+                        <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
+                            {ouLabel}: {ouDisplayPct}%
+                        </span>
                     </div>
                 </div>
             </div>
 
-            {/* COLUMN 5: MARKET (O2.5 / TG) (10%) */}
-            <div style={{width: "10%", minWidth: "100px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%'}}>
-                    <span style={{
-                        fontSize: '11px', fontWeight: '900', padding: '1px 5px', borderRadius: '4px',
-                        background: tgBadgeBg, color: tgBadgeColor,
-                        border: `1px solid ${tgBadgeBorder}`, whiteSpace: 'nowrap'
-                    }}>
-                        {tg}
-                    </span>
-                    <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
-                        {ouLabel}: {ouDisplayPct}%
-                    </span>
-                    <div style={{display: 'flex', width: '80%', height: '2px', borderRadius: '2px', overflow: 'hidden', background: 'rgba(148,163,184,0.15)'}}>
-                        <div style={{width: `${over25Pct}%`, height: '100%', background: '#10b981'}}></div>
-                        <div style={{width: `${100 - over25Pct}%`, height: '100%', background: '#64748b'}}></div>
-                    </div>
-                </div>
-            </div>
-
-            {/* COLUMN 6: PRECISION & RISK (10%) */}
-            <div style={{width: "10%", minWidth: "100px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 5: PRECISION & RISK (12%) */}
+            <div style={{width: "12%", minWidth: "110px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
-                    <span style={{fontSize: '16px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>{acc}%</span>
+                    <span style={{fontSize: '18px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>{acc}%</span>
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
-                        <span style={{fontSize: '8px', fontWeight: '900', color: acc >= 70 ? '#00ffaa' : acc >= 55 ? '#fbbf24' : '#f87171'}}>
+                        <span style={{fontSize: '10px', fontWeight: '900', color: acc >= 70 ? '#00ffaa' : acc >= 55 ? '#fbbf24' : '#f87171'}}>
                             {acc >= 70 ? 'SOLIDE' : acc >= 55 ? 'MOYEN' : 'RISQUÉ'}
                         </span>
                         <div style={{display: 'flex', gap: '2px', alignItems: 'center'}}>
-                            <span style={{fontSize: '9px'}}>{dataQuality}</span>
+                            <span style={{fontSize: '10px'}}>{dataQuality}</span>
                             {statusIcon}{resultIcon}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* COLUMN 7: SIGNAL & EV SCORE (12%) */}
+            {/* COLUMN 6: SIGNAL & EV SCORE (12%) */}
             <div style={{width: "12%", minWidth: "110px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px', width: '100%', alignItems: 'center'}}>
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
                         background: evNum > 0 ? 'rgba(16, 185, 129, 0.1)' : evNum < 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(148,163,184,0.1)',
                         border: `1px solid ${evNum > 0 ? '#10b98155' : evNum < 0 ? '#ef444455' : '#94a3b855'}`,
-                        padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '900'
+                        padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '900'
                     }}>
                         <span>{evArrow}</span>
                         <span style={{color: evColor}}>
@@ -706,19 +697,19 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                         </span>
                     </div>
                     {(match.kelly_stake > 0 || quant.signal_strength > 0) && (
-                        <div style={{fontSize: '8.5px', color: '#38bdf8', fontWeight: '900', textAlign: 'center'}}>
+                        <div style={{fontSize: '9px', color: '#38bdf8', fontWeight: '900', textAlign: 'center'}}>
                             {quant.massive_edge ? `STR: ${quant.signal_strength || 0}%` : `K: ${match.kelly_stake.toFixed(1)}%`}
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* COLUMN 8: STRENGTH (12%) */}
-            <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 7: FORCE (8%) */}
+            <div style={{width: "8%", minWidth: "80px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                        <span style={{fontSize: '16px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>
-                        <span style={{fontSize: '10px', color: msColor, fontWeight: '700'}}>
+                        <span style={{fontSize: '18px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>
+                        <span style={{fontSize: '11px', color: msColor, fontWeight: '700'}}>
                             {quant.market_strength || msDesc}
                         </span>
                     </div>

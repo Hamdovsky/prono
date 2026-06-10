@@ -4,7 +4,8 @@ scikit-learn
 matplotlib
 numpy==1.26.4
 fastapi
-uvicorn
+uvicorn[standard]
+pydantic
 streamlit
 joblib
 requests
@@ -13,3 +14,5 @@ scipy
 textblob
 vaderSentiment
 nltk
+redis
+httpx

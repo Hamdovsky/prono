@@ -1,10 +1,11 @@
 services:
+  # ── Node.js Web App ──────────────────────────────────────
   - type: web
     name: prono
     env: node
     plan: free
     buildCommand: npm install && npm run build
-    startCommand: node --max-old-space-size=400 server.js
+    startCommand: node --expose-gc --max-old-space-size=256 server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -63,11 +64,28 @@ services:
         value: "true"
       - key: SUPABASE_URL
         sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       # Telegram bot
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
-      # Python FastAPI inference (Railway — set manually on dashboard)
+      # Python FastAPI inference — public Render URL (free plan, no private network)
       - key: INFERENCE_URL
-        sync: false
+        value: https://prono-fastapi.onrender.com
+
+  # ── Python FastAPI Inference ────────────────────────────
+  - type: web
+    name: prono-fastapi
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONHASHSEED
+        value: "42"

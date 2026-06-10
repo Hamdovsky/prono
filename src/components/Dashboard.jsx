@@ -1,29 +1,32 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import Sidebar from "./Sidebar";
-import IntelligenceCard from "./IntelligenceCard";
-import AccuracyDashboard from "./AccuracyDashboard";
-import LearningDashboard from "./LearningDashboard";
-import ComboTracker from "./ComboTracker";
-import PropsDashboard from "./PropsDashboard";
-import MegaCorrelation from "./MegaCorrelation";
-import PrecisionTracker from "./PrecisionTracker";
-import MarketLab from "./MarketLab";
-import DataScienceLab from "./DataScienceLab";
-import UltimateMatchCenter from "./UltimateMatchCenter/UltimateMatchCenter";
-import LiveLab from "./LiveLab/LiveLab";
-import LiveGoalDashboard from "./LiveGoalDashboard";
-import MegaTicket1000 from "./MegaTicket1000";
-import MatchRow from "./MatchRow";
-import PerformanceAudit from "./PerformanceAudit";
-import BacktestDashboard from "./BacktestDashboard";
-import TicketDuJour from "./TicketDuJour";
-import SystemIntelligence from "./SystemIntelligence";
-import Promosport from "./Promosport";
-import EvolutionDashboard from "./EvolutionDashboard";
-import dataService from "../services/dataService";
-import { List } from 'react-window';
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from "react"
+import { useLocation } from "react-router-dom"
+import Sidebar from "./Sidebar"
+import UltimateMatchCenter from "./UltimateMatchCenter/UltimateMatchCenter"
+import MatchRow from "./MatchRow"
+import TicketDuJour from "./TicketDuJour"
+import PerformanceHub from "./PerformanceHub.jsx"
+import dataService from "../services/dataService"
+import { List } from 'react-window'
 
-import "./Dashboard.css";
+import "./Dashboard.css"
+
+// Lazy-loaded route components
+const AccuracyDashboard = lazy(() => import("./AccuracyDashboard"))
+const LearningDashboard = lazy(() => import("./LearningDashboard"))
+const ComboTracker = lazy(() => import("./ComboTracker"))
+const PropsDashboard = lazy(() => import("./PropsDashboard"))
+const MegaCorrelation = lazy(() => import("./MegaCorrelation"))
+const PrecisionTracker = lazy(() => import("./PrecisionTracker"))
+const MarketLab = lazy(() => import("./MarketLab"))
+const DataScienceLab = lazy(() => import("./DataScienceLab"))
+const LiveLab = lazy(() => import("./LiveLab/LiveLab"))
+const LiveGoalDashboard = lazy(() => import("./LiveGoalDashboard"))
+const MegaTicket1000 = lazy(() => import("./MegaTicket1000"))
+const PerformanceAudit = lazy(() => import("./PerformanceAudit"))
+const BacktestDashboard = lazy(() => import("./BacktestDashboard"))
+const SystemIntelligence = lazy(() => import("./SystemIntelligence"))
+const Promosport = lazy(() => import("./Promosport"))
+const EvolutionDashboard = lazy(() => import("./EvolutionDashboard"))
 
 const MatchRowMemo = React.memo(({ index, style, list, isElite, onClick }) => {
     const m = list[index];
@@ -71,22 +74,64 @@ const UnifiedRowMemo = React.memo(({ index, style, unifiedList, onClick }) => {
     );
 });
 
-import PerformanceHub from './PerformanceHub.jsx';
-
 const Dashboard = () => {
+    const location = useLocation()
+
+    const VIEW_TO_PATH = {
+        'matches': '/',
+        'all-matches': '/all-matches',
+        'millionaire': '/millionaire',
+        'accuracy': '/accuracy',
+        'learning': '/learning',
+        'combos': '/combos',
+        'props': '/props',
+        'mega': '/mega',
+        'precision': '/precision',
+        'market': '/market',
+        'datascience': '/datascience',
+        'integrity': '/integrity',
+        'livelab': '/livelab',
+        'livegoal': '/livegoal',
+        'audit': '/audit',
+        'backtest': '/backtest',
+        'mega1000': '/mega1000',
+        'intel': '/intel',
+        'promosport': '/promosport',
+        'evolution': '/evolution',
+    }
+
+    const PATH_TO_VIEW = Object.fromEntries(
+        Object.entries(VIEW_TO_PATH).map(([k, v]) => [v, k])
+    )
+
     // State
     const [activeSignal, setActiveSignal] = useState("ALL");
     const [activeSort, setActiveSort] = useState("POWER");
+    const [sortDir, setSortDir] = useState('desc');
     const [matches, setMatches] = useState([]);
     const [activeLeague, setActiveLeague] = useState("ALL");
     const [activeDate, setActiveDate] = useState("Today");
     const [selectedMatchForUltimateView, setSelectedMatchForUltimateView] = useState(null);
-    const [activeView, setActiveView] = useState('matches');
-    const [surgicalMode, setSurgicalMode] = useState(false); // 🔥 SURGICAL FILTER
+    const [surgicalMode, setSurgicalMode] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
 
     const [status, setStatus] = useState('idle');
     const [scraperProgress, setScraperProgress] = useState(null);
     const [isScraping, setIsScraping] = useState(false);
+
+    const handleSort = (field) => {
+        setActiveSort(prev => {
+            if (prev === field) {
+                setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+                return prev
+            }
+            setSortDir('desc')
+            return field
+        })
+    }
+
+    // Derive activeView from URL path
+    const activeView = PATH_TO_VIEW[location.pathname] || 'matches'
 
     // Fast client-side enrichment (0 blocking time)
     const fastEnrichMatch = useCallback((m) => {
@@ -284,16 +329,26 @@ const Dashboard = () => {
                         textTransform: 'uppercase',
                         fontWeight: '800',
                         letterSpacing: '0.8px',
-                        background: 'rgba(0,0,0,0.3)'
+                        background: 'rgba(0,0,0,0.3)',
+                        cursor: 'pointer'
                     }}>
-                        <div style={{width:"20%", minWidth: "180px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
-                        <div style={{width:"16%", minWidth: "160px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
-                        <div style={{width:"10%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / FT</div>
-                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>BTTS</div>
-                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>MARKET (O2.5/TG)</div>
-                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
-                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>SIGNAL & EV SCORE</div>
-                        <div style={{width:"12%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>STRENGTH</div>
+                        <div style={{width:"22%", minWidth: "200px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
+                        <div style={{width:"18%", minWidth: "170px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
+                        <div style={{width:"12%", minWidth: "100px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
+                            AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"16%", minWidth: "140px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                            MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
+                            PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                            SIGNAL & EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"8%", minWidth: "80px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                            FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
                     </div>
                     <div style={{ height: virtualHeight }}>
                         <List
@@ -334,23 +389,23 @@ const Dashboard = () => {
             );
         }
 
-        if (activeView === 'accuracy') return <AccuracyDashboard />;
-        if (activeView === 'learning') return <LearningDashboard />;
-        if (activeView === 'combos') return <ComboTracker />;
-        if (activeView === 'props') return <PropsDashboard />;
-        if (activeView === 'mega') return <MegaCorrelation matches={matches} />;
-        if (activeView === 'precision') return <PrecisionTracker />;
-        if (activeView === 'market') return <MarketLab />;
-        if (activeView === 'datascience') return <DataScienceLab matches={matches} />;
-        if (activeView === 'integrity') return <MarketLab initialFilter="YELLOW" />;
-        if (activeView === 'livelab') return <LiveLab />;
-        if (activeView === 'livegoal') return <LiveGoalDashboard />;
-        if (activeView === 'audit') return <PerformanceAudit />;
-        if (activeView === 'backtest') return <BacktestDashboard />;
-        if (activeView === 'mega1000') return <MegaTicket1000 matches={matches} />;
-        if (activeView === 'intel') return <SystemIntelligence />;
-        if (activeView === 'promosport') return <Promosport />;
-        if (activeView === 'evolution') return <EvolutionDashboard />;
+        if (activeView === 'accuracy') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><AccuracyDashboard /></Suspense>;
+        if (activeView === 'learning') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><LearningDashboard /></Suspense>;
+        if (activeView === 'combos') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><ComboTracker /></Suspense>;
+        if (activeView === 'props') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><PropsDashboard /></Suspense>;
+        if (activeView === 'mega') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><MegaCorrelation matches={matches} /></Suspense>;
+        if (activeView === 'precision') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><PrecisionTracker /></Suspense>;
+        if (activeView === 'market') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><MarketLab /></Suspense>;
+        if (activeView === 'datascience') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><DataScienceLab matches={matches} /></Suspense>;
+        if (activeView === 'integrity') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><MarketLab initialFilter="YELLOW" /></Suspense>;
+        if (activeView === 'livelab') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><LiveLab /></Suspense>;
+        if (activeView === 'livegoal') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><LiveGoalDashboard /></Suspense>;
+        if (activeView === 'audit') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><PerformanceAudit /></Suspense>;
+        if (activeView === 'backtest') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><BacktestDashboard /></Suspense>;
+        if (activeView === 'mega1000') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><MegaTicket1000 matches={matches} /></Suspense>;
+        if (activeView === 'intel') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><SystemIntelligence /></Suspense>;
+        if (activeView === 'promosport') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><Promosport /></Suspense>;
+        if (activeView === 'evolution') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><EvolutionDashboard /></Suspense>;
 
         if (activeView === 'all-matches') {
             return (
@@ -523,7 +578,7 @@ const Dashboard = () => {
                     {/* TABLE HEADER */}
                     <div style={{
                         display: 'flex',
-                        minWidth: '1200px',
+                        minWidth: '1050px',
                         borderBottom: '2px solid #1e293b',
                         padding: '8px 0',
                         fontSize: '11px',
@@ -531,23 +586,33 @@ const Dashboard = () => {
                         textTransform: 'uppercase',
                         fontWeight: '800',
                         letterSpacing: '0.8px',
-                        background: 'rgba(0,0,0,0.3)'
+                        background: 'rgba(0,0,0,0.3)',
+                        cursor: 'pointer'
                     }}>
-                        <div style={{width:"20%", minWidth: "180px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
-                        <div style={{width:"16%", minWidth: "160px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
-                        <div style={{width:"10%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>AI SCORE / FT</div>
-                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>BTTS</div>
-                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>MARKET (O2.5/TG)</div>
-                        <div style={{width:"10%", minWidth: "100px", padding:"0 14px", textAlign: 'center'}}>PRÉCISION / RISK</div>
-                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center'}}>SIGNAL & EV SCORE</div>
-                        <div style={{width:"12%", minWidth: "90px", padding:"0 14px", textAlign: 'center'}}>STRENGTH</div>
+                        <div style={{width:"22%", minWidth: "200px", padding:"0 14px"}}>MATCH / CHAMPIONNAT</div>
+                        <div style={{width:"18%", minWidth: "170px", padding:"0 14px"}}>PRONOSTICS (MAIN/2ND)</div>
+                        <div style={{width:"12%", minWidth: "100px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
+                            AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"16%", minWidth: "140px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                            MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
+                            PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"12%", minWidth: "110px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                            SIGNAL & EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"8%", minWidth: "80px", padding:"0 14px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                            FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
                     </div>
 
                     <List
-                        height={800}
+                        height={600}
                         rowCount={unifiedList.length}
                         rowHeight={65}
-                        width={1200}
+                        width={1050}
                         className="onyx-custom-scrollbar"
                         rowComponent={UnifiedRowMemo}
                         rowProps={{ unifiedList, onClick: setSelectedMatchForUltimateView }}
@@ -566,9 +631,9 @@ const Dashboard = () => {
                 onLeagueChange={setActiveLeague} 
                 matches={matches}
                 activeView={activeView}
-                onViewChange={setActiveView}
                 activeDate={activeDate}
                 onDateChange={setActiveDate}
+                isOpen={sidebarOpen}
             />
             
             <main className="titanium-main">
@@ -579,7 +644,11 @@ const Dashboard = () => {
                     padding: '8px 20px',
                     height: '45px'
                 }}>
-                    <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                    <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                        <button onClick={() => setSidebarOpen(s => !s)} style={{
+                            background: 'transparent', border: 'none', color: '#64748b', fontSize: '16px',
+                            cursor: 'pointer', padding: '2px 6px', borderRadius: '4px', lineHeight: '1'
+                        }} title="Toggle sidebar">{sidebarOpen ? '◀' : '▶'}</button>
                         <div className="status-dot live" style={{width: '8px', height: '8px', boxShadow: '0 0 10px #00ffaa'}}></div>
                         <span style={{fontSize: '11px', fontWeight: '900', letterSpacing: '1px', color: '#f8fafc'}}>
                             TITANIUM <span style={{color: '#00ffaa'}}>SENSOR COMMAND</span> v3.0
@@ -625,6 +694,18 @@ const Dashboard = () => {
                     {renderMainContent()}
                 </div>
             </main>
+
+            <footer className="onyx-footer">
+                <span>TITANIUM NEURAL-X v3.0</span>
+                <span className="onyx-footer-dot">•</span>
+                <span>{matches.length} matchs chargés</span>
+                <span className="onyx-footer-dot">•</span>
+                <span>IA: {status === 'error' ? '⚠️' : '✅'} Active</span>
+                <span className="onyx-footer-dot">•</span>
+                <span>Mise à jour: {new Date().toLocaleTimeString('fr-FR')}</span>
+                <span className="onyx-footer-dot">•</span>
+                <span className="onyx-footer-build">build {import.meta.env.VITE_BUILD_HASH || 'dev'}</span>
+            </footer>
 
             {selectedMatchForUltimateView && (
                 <UltimateMatchCenter 

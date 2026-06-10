@@ -20,7 +20,8 @@
     "autolearn": "python scripts/train_xgboost.py",
     "online:update": "node scripts/online_learning_update.js",
     "test": "jest --coverage --detectOpenHandles",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "sportdb:import": "node scripts/import_sportdb_history.js"
   },
   "keywords": [],
   "author": "",
@@ -32,6 +33,7 @@
     "axios": "^1.15.0",
     "better-sqlite3": "^12.6.2",
     "bottleneck": "^2.19.5",
+    "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
@@ -56,6 +58,7 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-router-dom": "^7.17.0",
     "react-window": "^2.2.7",
     "recharts": "^3.7.0",
     "rss-parser": "^3.13.0",

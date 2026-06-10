@@ -1,4 +1,8 @@
-/* 💎 ONYX QUANTUM V24 DASHBOARD STYLES */
+/* ═══════════════════════════════════════════════════════════════
+   💎 ONYX QUANTUM V25 — TITANIUM PREMIUM DASHBOARD
+   ═══════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 :root {
     --bg: #020408;
     --panel: #0a0f18;
@@ -6,6 +10,11 @@
     --neon: #00ffaa;
     --sub-text: #64748b;
     --border-dark: #111827;
+    --glass-bg: rgba(10, 15, 30, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.07);
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --shadow-glow: 0 0 40px rgba(0, 255, 170, 0.05);
 }
 
 .titanium-layout {
@@ -30,9 +39,9 @@
 
 /* --- ONYX STATUS HEADER --- */
 .onyx-status-header {
-    background: #000;
-    padding: 10px 18px;
-    border-bottom: 1px solid #1e293b;
+    background: linear-gradient(90deg, #000 0%, #060c18 50%, #000 100%);
+    padding: 8px 20px;
+    border-bottom: 1px solid rgba(0, 255, 170, 0.15);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -42,6 +51,23 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     gap: 16px;
+    box-shadow: 0 1px 20px rgba(0, 0, 0, 0.6);
+    position: relative;
+}
+/* Subtle animated bottom glow on header */
+.onyx-status-header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 170, 0.35), transparent);
+    animation: header-glow-shift 5s ease-in-out infinite;
+}
+@keyframes header-glow-shift {
+    0%, 100% { left: 10%; right: 10%; opacity: 0.6; }
+    50%       { left: 25%; right: 25%; opacity: 1; }
 }
 
 .onyx-header-right {
@@ -59,8 +85,8 @@
     display: flex; 
     flex-direction: column; 
     width: 100%; 
-    padding: 14px;
-    gap: 16px;
+    padding: 16px 18px;
+    gap: 18px;
 }
 
 .onyx-section-title {
@@ -187,22 +213,30 @@
 /* --- SPATIAL --- */
 .mb-2 { margin-bottom: 10px; }
 
-/* Scrollbar customization - Visible & Premium */
+/* ── PREMIUM SCROLLBAR ── */
 .titanium-scroll {
     flex: 1;
     overflow-y: auto;
     padding: 0;
     position: relative;
     background: var(--bg);
+    scroll-behavior: smooth;
 }
 
-.titanium-scroll::-webkit-scrollbar { width: 8px; }
-.titanium-scroll::-webkit-scrollbar-track { background: var(--bg); }
-.titanium-scroll::-webkit-scrollbar-thumb { 
-    background: #1e293b; 
-    border-radius: 4px; 
+.titanium-scroll::-webkit-scrollbar { width: 6px; }
+.titanium-scroll::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
 }
-.titanium-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }
+.titanium-scroll::-webkit-scrollbar-thumb { 
+    background: linear-gradient(180deg, #1e293b, #0f172a); 
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.2s;
+}
+.titanium-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(0,255,170,0.3), #1e293b);
+}
 
 /* Keep these for backward compatibility if needed temporarily */
 .flash-empty {
@@ -249,33 +283,37 @@
     50% { transform: scale(1.4); opacity: 0.7; }
     100% { transform: scale(1); opacity: 1; }
 }
-/* --- V33 VIRTUALIZATION & STATUS STYLES --- */
+/* ── VIRTUALIZED LIST SECTION ── */
 .onyx-list-section {
     display: flex;
     flex-direction: column;
     width: 100%;
-    background: rgba(10, 15, 24, 0.5);
-    border-radius: 4px;
-    overflow-x: auto; /* Allow horizontal scroll for large tables */
+    background: rgba(10, 15, 24, 0.55);
+    border-radius: 10px;
+    overflow-x: auto;
+    border: 1px solid rgba(255,255,255,0.04);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
 }
 
+/* ── SKELETON LOADING ── */
 .onyx-skeleton-container {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 20px;
+    gap: 10px;
+    padding: 24px;
 }
 
 .onyx-skeleton-row {
-    height: 25px;
-    background: linear-gradient(90deg, #0a111a 25%, #161b22 50%, #0a111a 75%);
-    background-size: 200% 100%;
-    animation: onyx-skeleton-loading 1.5s infinite;
-    border-radius: 4px;
+    height: 52px;
+    background: linear-gradient(90deg, #080d16 25%, #0f1825 50%, #080d16 75%);
+    background-size: 400% 100%;
+    animation: onyx-skeleton-loading 1.8s ease-in-out infinite;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.03);
 }
 
 @keyframes onyx-skeleton-loading {
-    0% { background-position: 200% 0; }
+    0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
 
@@ -445,17 +483,20 @@
     font-weight: 700;
 }
 
-/* Performance Hub Stat Cards */
+/* ── PERFORMANCE HUB STAT CARDS ── */
 .onyx-stat-card {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: default;
+    border-radius: 12px !important;
 }
 
 .onyx-stat-card:hover {
-    transform: translateY(-5px);
-    border-color: rgba(255, 255, 255, 0.3) !important;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.6) !important;
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
+    transform: translateY(-6px) scale(1.01);
+    border-color: rgba(0, 255, 170, 0.25) !important;
+    box-shadow: 
+        0 16px 40px rgba(0,0,0,0.7),
+        0 0 20px rgba(0, 255, 170, 0.06) !important;
+    background: linear-gradient(135deg, rgba(15, 25, 45, 0.95) 0%, rgba(8, 16, 30, 0.95) 100%) !important;
 }
 
 /* --- MASSIVE EDGE ANIMATION (TITANIUM V4) --- */
@@ -474,4 +515,78 @@
     0% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 0px rgba(251, 191, 36, 0); }
     50% { transform: scale(1.05); filter: brightness(1.4); box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); }
     100% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 0px rgba(251, 191, 36, 0); }
+}
+
+/* ── FOOTER ── */
+.onyx-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    border-top: 1px solid rgba(0, 255, 170, 0.15);
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    z-index: 5;
+}
+.onyx-footer-dot {
+    color: #334155;
+    font-size: 8px;
+}
+.onyx-footer-build {
+    color: #2d3f56;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+}
+
+/* ── SIDEBAR RESPONSIVE ── */
+.flash-sidebar {
+    transition: transform 0.25s ease, margin-left 0.25s ease, width 0.25s ease;
+}
+.flash-sidebar.collapsed {
+    margin-left: -200px;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    border-right: none;
+}
+
+@media (max-width: 1024px) {
+    .flash-sidebar {
+        position: fixed;
+        z-index: 100;
+        left: 0;
+        top: 0;
+        height: 100%;
+        box-shadow: 4px 0 30px rgba(0,0,0,0.8);
+    }
+    .flash-sidebar.collapsed {
+        transform: translateX(-100%);
+        margin-left: 0;
+        width: 200px;
+        min-width: 200px;
+    }
+    .onyx-status-header {
+        padding: 6px 10px;
+        gap: 8px;
+        flex-wrap: wrap;
+        height: auto;
+        min-height: 40px;
+    }
+    .onyx-header-center {
+        justify-content: flex-end;
+    }
+    .onyx-grid-container {
+        padding: 10px 8px;
+    }
+    .onyx-footer {
+        font-size: 8px;
+        gap: 4px;
+        flex-wrap: wrap;
+        padding: 4px 8px;
+    }
 }

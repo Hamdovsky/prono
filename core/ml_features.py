@@ -59,19 +59,23 @@ def extract_features_from_stats(stats_json):
     try:
         stats = json.loads(stats_json)
         features = {}
-        if not isinstance(stats, list): return {}
-        for item in stats:
-            if not isinstance(item, dict): continue
-            cat = item.get('category', 'Unknown')
-            val_h = item.get('homeValue', 0)
-            val_a = item.get('awayValue', 0)
-            def _clean(val):
-                if isinstance(val, str):
-                    try: return float(val.replace('%', '').split('/')[0])
-                    except: return 0.0
-                return float(val) if val is not None else 0.0
-            features[f"{cat}_home"] = _clean(val_h)
-            features[f"{cat}_away"] = _clean(val_a)
+        if isinstance(stats, list):
+            for item in stats:
+                if not isinstance(item, dict): continue
+                cat = item.get('category', 'Unknown')
+                val_h = item.get('homeValue', 0)
+                val_a = item.get('awayValue', 0)
+                def _clean(val):
+                    if isinstance(val, str):
+                        try: return float(val.replace('%', '').split('/')[0])
+                        except: return 0.0
+                    return float(val) if val is not None else 0.0
+                features[f"{cat}_home"] = _clean(val_h)
+                features[f"{cat}_away"] = _clean(val_a)
+        elif isinstance(stats, dict):
+            for k, v in stats.items():
+                try: features[k] = float(v) if v is not None else 0.0
+                except: features[k] = 0.0
         return features
     except: return {}
 
@@ -266,6 +270,70 @@ def is_derby_match(home_name, away_name):
         if team1 in home_name and team2 in away_name: return True
         if team2 in home_name and team1 in away_name: return True
     return False
+
+
+def _compute_streak(history, stat_fn):
+    """Compute consecutive matches matching stat_fn from most recent match backwards."""
+    streak = 0
+    for m in history:
+        if stat_fn(m): streak += 1
+        else: break
+    return float(streak)
+
+
+def _hist_rate(history, num_key, den_key, default=0.0):
+    """Compute ratio num_key/den_key from history arrays."""
+    if not history: return default
+    n = sum(m.get(num_key, 0) for m in history if isinstance(m, dict))
+    d = sum(m.get(den_key, 0) for m in history if isinstance(m, dict))
+    return n / d if d > 0 else default
+
+
+@functools.lru_cache(maxsize=256)
+def get_h2h_advanced(home_team, away_team, current_match_ts=None):
+    """Get detailed H2H stats (avg goals, xG, over rate) from archive."""
+    conn = get_db_connection()
+    if not conn: return {}
+    try:
+        h = home_team.strip()
+        a = away_team.strip()
+        import time
+        cutoff_ts = int(current_match_ts) if current_match_ts else int(time.time())
+        rows = conn.execute("""
+            SELECT stats_blob, homeTeam, awayTeam, scoreHome, scoreAway
+            FROM archive_matches
+            WHERE ((homeTeam = ? AND awayTeam = ?) OR (homeTeam = ? AND awayTeam = ?))
+            AND scoreHome IS NOT NULL
+            AND (startTimestamp IS NULL OR startTimestamp < ?)
+            ORDER BY startTimestamp DESC LIMIT 20
+        """, (h, a, a, h, cutoff_ts)).fetchall()
+        if not rows: return {}
+        total_goals_list = []
+        xg_total = 0.0
+        xg_count = 0
+        over25 = 0
+        for r in rows:
+            sH = float(r['scoreHome'] or 0)
+            sA = float(r['scoreAway'] or 0)
+            tg = sH + sA
+            total_goals_list.append(tg)
+            if tg > 2.5: over25 += 1
+            feats = extract_features_from_stats(r['stats_blob'])
+            if feats:
+                xgh = feats.get('Expected goals_home', 0)
+                xga = feats.get('Expected goals_away', 0)
+                if xgh > 0 and xga > 0:
+                    xg_total += xgh + xga
+                    xg_count += 1
+        n = len(rows)
+        return {
+            'avg_total_goals': sum(total_goals_list) / n,
+            'over25_rate': over25 / n,
+            'avg_xg': xg_total / xg_count if xg_count else 0,
+            'total_matches': n
+        }
+    except:
+        return {}
 
 
 def calculate_data_completeness(features):
@@ -512,10 +580,45 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     ts_h = ts.get('home') if isinstance(ts.get('home'), dict) else {}
     ts_a = ts.get('away') if isinstance(ts.get('away'), dict) else {}
 
+    # [V54 ROW-LEVEL FALLBACK] Inject archive columns into ts_h/ts_a
+    # so _get_avg_hist / _get_decayed_avg find real values when teamStats missing
+    _ROW_FALLBACK = {
+        'avgPossession':       ('home_possession', 'away_possession'),
+        'avgShots':            ('home_shots', 'away_shots'),
+        'avgShotsOnTarget':    ('home_shots_on_target', 'away_shots_on_target'),
+        'avgShotsOffTarget':   ('home_shots_off', 'away_shots_off'),
+        'avgCorners':          ('home_corners', 'away_corners'),
+        'avgFouls':            ('home_fouls', 'away_fouls'),
+        'expectedGoals':       ('home_xg', 'away_xg'),
+        'goalsAgainst':        ('home_goals_conceded', 'away_goals_conceded'),
+    }
+    for ts_key, (h_col, a_col) in _ROW_FALLBACK.items():
+        if ts_key not in ts_h:
+            try:
+                v = row.get(h_col)
+                if v is not None: ts_h[ts_key] = float(v)
+            except: pass
+        if ts_key not in ts_a:
+            try:
+                v = row.get(a_col)
+                if v is not None: ts_a[ts_key] = float(v)
+            except: pass
+
+    def _resolve_key(hist, key):
+        """Try both title-case (teamStats list format) and snake_case (stats_blob dict format)."""
+        if isinstance(hist, list) and len(hist) > 0 and isinstance(hist[0], dict):
+            if key in hist[0]:
+                return key
+            snake = key.lower().replace(' ', '_').replace("'", '').replace('-', '_')
+            if snake in hist[0]:
+                return snake
+        return key
+
     def _get_avg_hist(hist, key, ts_dict, ts_key, default=0.0):
         # Extracts from history arrays, falling back to team season stats if history fails
-        if isinstance(hist, list) and len(hist) > 0 and isinstance(hist[0], dict) and key in hist[0]:
-            vals = [m.get(key, default) for m in hist if isinstance(m, dict)]
+        resolved = _resolve_key(hist, key)
+        if isinstance(hist, list) and len(hist) > 0 and isinstance(hist[0], dict) and resolved in hist[0]:
+            vals = [m.get(resolved, default) for m in hist if isinstance(m, dict)]
             return sum(vals)/len(vals) if vals else default
         
         # Safe access to ts_dict
@@ -523,6 +626,23 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
             try:
                 return float(ts_dict.get(ts_key, default))
             except (ValueError, TypeError):
+                return float(default)
+        return float(default)
+
+    def _get_decayed_avg(hist, key, ts_dict, ts_key, default=0.0, alpha=0.20):
+        """Time-decayed weighted average — recent matches matter more."""
+        resolved = _resolve_key(hist, key)
+        if isinstance(hist, list) and len(hist) > 0 and isinstance(hist[0], dict) and resolved in hist[0]:
+            vals = [m.get(resolved, default) for m in hist if isinstance(m, dict)]
+            if not vals: return default
+            weights = [math.pow(1 - alpha, i) for i in range(len(vals))]
+            tw = sum(weights)
+            if tw == 0: return sum(vals) / len(vals)
+            return sum(v * w for v, w in zip(vals, weights)) / tw
+        if isinstance(ts_dict, dict):
+            try:
+                return float(ts_dict.get(ts_key, default))
+            except:
                 return float(default)
         return float(default)
 
@@ -570,10 +690,77 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     # 6. Stylistic & Momentum (V13/V19 Fusion)
     h_style = get_detailed_team_style(h_hist[0] if h_hist else {})
     a_style = get_detailed_team_style(a_hist[0] if a_hist else {})
-    features['h_style_enc'] = hash(h_style) % 10
-    features['a_style_enc'] = hash(a_style) % 10
+    _STYLE_MAP = {"Balanced": 0, "Possession": 1, "Counter-Attack": 2, "High Press": 3, "Low Block": 4}
+    features['h_style_enc'] = _STYLE_MAP.get(h_style, 0)
+    features['a_style_enc'] = _STYLE_MAP.get(a_style, 0)
     features['h_mom_gicko'] = calculate_glicko_momentum(h_hist)
     features['a_mom_gicko'] = calculate_glicko_momentum(a_hist)
+
+    # 6b. V53 SofaScore Advanced Stats (already in teamStats, time-decayed)
+    features['h_successful_dribbles'] = _get_decayed_avg(h_hist, 'Successful dribbles_home', ts_h, 'avgSuccessfulDribbles', 5.0)
+    features['a_successful_dribbles'] = _get_decayed_avg(a_hist, 'Successful dribbles_away', ts_a, 'avgSuccessfulDribbles', 5.0)
+    features['h_accurate_long_balls'] = _get_decayed_avg(h_hist, 'Accurate long balls_home', ts_h, 'avgAccurateLongBalls', 15.0)
+    features['a_accurate_long_balls'] = _get_decayed_avg(a_hist, 'Accurate long balls_away', ts_a, 'avgAccurateLongBalls', 15.0)
+    features['h_accurate_crosses'] = _get_decayed_avg(h_hist, 'Accurate crosses_home', ts_h, 'avgAccurateCrosses', 3.0)
+    features['a_accurate_crosses'] = _get_decayed_avg(a_hist, 'Accurate crosses_away', ts_a, 'avgAccurateCrosses', 3.0)
+    features['h_opp_half_passes'] = _get_decayed_avg(h_hist, 'Opposition half passes_home', ts_h, 'avgOppositionHalfPasses', 150.0)
+    features['a_opp_half_passes'] = _get_decayed_avg(a_hist, 'Opposition half passes_away', ts_a, 'avgOppositionHalfPasses', 150.0)
+    features['h_duels_won_pct'] = _get_decayed_avg(h_hist, 'Duels won percentage_home', ts_h, 'duelsWonPct', 50.0)
+    features['a_duels_won_pct'] = _get_decayed_avg(a_hist, 'Duels won percentage_away', ts_a, 'duelsWonPct', 50.0)
+    features['h_errors_leading_to_shot'] = _get_decayed_avg(h_hist, 'Errors leading to shot_home', ts_h, 'errorsLeadingToShot', 0.5)
+    features['a_errors_leading_to_shot'] = _get_decayed_avg(a_hist, 'Errors leading to shot_away', ts_a, 'errorsLeadingToShot', 0.5)
+
+    # 6c. V54 Enhanced Passing Detail
+    features['h_accurate_opp_half_passes'] = _get_decayed_avg(h_hist, 'Accurate opposition half passes_home', ts_h, 'avgAccurateOppositionHalfPasses', 80.0)
+    features['a_accurate_opp_half_passes'] = _get_decayed_avg(a_hist, 'Accurate opposition half passes_away', ts_a, 'avgAccurateOppositionHalfPasses', 80.0)
+    features['h_opp_half_pass_pct'] = _get_decayed_avg(h_hist, 'Accurate opposition half passes percentage_home', ts_h, 'accurateOppositionHalfPassesPct', 80.0)
+    features['a_opp_half_pass_pct'] = _get_decayed_avg(a_hist, 'Accurate opposition half passes percentage_away', ts_a, 'accurateOppositionHalfPassesPct', 80.0)
+    features['h_acc_own_half_passes'] = _get_decayed_avg(h_hist, 'Accurate own half passes_home', ts_h, 'avgAccurateOwnHalfPasses', 150.0)
+    features['a_acc_own_half_passes'] = _get_decayed_avg(a_hist, 'Accurate own half passes_away', ts_a, 'avgAccurateOwnHalfPasses', 150.0)
+    features['h_long_ball_pct'] = _get_decayed_avg(h_hist, 'Accurate long balls percentage_home', ts_h, 'accurateLongBallsPct', 50.0)
+    features['a_long_ball_pct'] = _get_decayed_avg(a_hist, 'Accurate long balls percentage_away', ts_a, 'accurateLongBallsPct', 50.0)
+    features['h_cross_pct'] = _get_decayed_avg(h_hist, 'Accurate crosses percentage_home', ts_h, 'accurateCrossesPct', 25.0)
+    features['a_cross_pct'] = _get_decayed_avg(a_hist, 'Accurate crosses percentage_away', ts_a, 'accurateCrossesPct', 25.0)
+
+    # 6d. V54 Ground & Aerial Duel Detail
+    features['h_ground_duels_won'] = _get_decayed_avg(h_hist, 'Ground duels won_home', ts_h, 'avgGroundDuelsWon', 20.0)
+    features['a_ground_duels_won'] = _get_decayed_avg(a_hist, 'Ground duels won_away', ts_a, 'avgGroundDuelsWon', 20.0)
+    features['h_ground_duel_pct'] = _get_decayed_avg(h_hist, 'Ground duels won percentage_home', ts_h, 'groundDuelsWonPct', 50.0)
+    features['a_ground_duel_pct'] = _get_decayed_avg(a_hist, 'Ground duels won percentage_away', ts_a, 'groundDuelsWonPct', 50.0)
+    features['h_aerial_duel_pct'] = _get_decayed_avg(h_hist, 'Aerial duels won percentage_home', ts_h, 'aerialDuelsWonPct', 50.0)
+    features['a_aerial_duel_pct'] = _get_decayed_avg(a_hist, 'Aerial duels won percentage_away', ts_a, 'aerialDuelsWonPct', 50.0)
+    features['h_total_duels'] = _get_decayed_avg(h_hist, 'Total duels_home', ts_h, 'avgTotalDuels', 40.0)
+    features['a_total_duels'] = _get_decayed_avg(a_hist, 'Total duels_away', ts_a, 'avgTotalDuels', 40.0)
+
+    # 6e. V54 Ball Recovery & Blocks
+    features['h_ball_recovery'] = _get_decayed_avg(h_hist, 'Ball recovery_home', ts_h, 'avgBallRecovery', 20.0)
+    features['a_ball_recovery'] = _get_decayed_avg(a_hist, 'Ball recovery_away', ts_a, 'avgBallRecovery', 20.0)
+    features['h_blocked_shots'] = _get_decayed_avg(h_hist, 'Blocked scoring attempt_home', ts_h, 'avgBlockedScoringAttempt', 3.0)
+    features['a_blocked_shots'] = _get_decayed_avg(a_hist, 'Blocked scoring attempt_away', ts_a, 'avgBlockedScoringAttempt', 3.0)
+    features['h_assists'] = _get_decayed_avg(h_hist, 'Assists_home', ts_h, 'avgAssists', 1.5)
+    features['a_assists'] = _get_decayed_avg(a_hist, 'Assists_away', ts_a, 'avgAssists', 1.5)
+
+    # 6f. V54 Defensive "Against" (opponent perspective — how much pressure a team faces)
+    features['h_shots_faced'] = _get_decayed_avg(h_hist, 'Shots against_home', ts_h, 'avgShotsAgainst', 10.0)
+    features['a_shots_faced'] = _get_decayed_avg(a_hist, 'Shots against_away', ts_a, 'avgShotsAgainst', 10.0)
+    features['h_sot_faced'] = _get_decayed_avg(h_hist, 'Shots on target against_home', ts_h, 'avgShotsOnTargetAgainst', 4.0)
+    features['a_sot_faced'] = _get_decayed_avg(a_hist, 'Shots on target against_away', ts_a, 'avgShotsOnTargetAgainst', 4.0)
+    features['h_bc_conceded'] = _get_decayed_avg(h_hist, 'Big chances against_home', ts_h, 'avgBigChancesAgainst', 2.0)
+    features['a_bc_conceded'] = _get_decayed_avg(a_hist, 'Big chances against_away', ts_a, 'avgBigChancesAgainst', 2.0)
+    features['h_key_passes_allowed'] = _get_decayed_avg(h_hist, 'Key passes against_home', ts_h, 'avgKeyPassesAgainst', 5.0)
+    features['a_key_passes_allowed'] = _get_decayed_avg(a_hist, 'Key passes against_away', ts_a, 'avgKeyPassesAgainst', 5.0)
+    features['h_corners_conceded'] = _get_decayed_avg(h_hist, 'Corners against_home', ts_h, 'avgCornersAgainst', 5.0)
+    features['a_corners_conceded'] = _get_decayed_avg(a_hist, 'Corners against_away', ts_a, 'avgCornersAgainst', 5.0)
+    features['h_dribbles_allowed'] = _get_decayed_avg(h_hist, 'Dribble attempts won against_home', ts_h, 'avgDribbleAttemptsWonAgainst', 5.0)
+    features['a_dribbles_allowed'] = _get_decayed_avg(a_hist, 'Dribble attempts won against_away', ts_a, 'avgDribbleAttemptsWonAgainst', 5.0)
+
+    # 6g. V54 Computed Proxies (FBref replacements)
+    features['h_ppda'] = _get_decayed_avg(h_hist, 'PPDA proxy_home', ts_h, 'ppdaProxy', 15.0)
+    features['a_ppda'] = _get_decayed_avg(a_hist, 'PPDA proxy_away', ts_a, 'ppdaProxy', 15.0)
+    features['h_prog_passes'] = _get_decayed_avg(h_hist, 'Progressive passes proxy_home', ts_h, 'progressivePassesProxy', 20.0)
+    features['a_prog_passes'] = _get_decayed_avg(a_hist, 'Progressive passes proxy_away', ts_a, 'progressivePassesProxy', 20.0)
+    features['h_sca'] = _get_decayed_avg(h_hist, 'Shot-creating actions proxy_home', ts_h, 'shotCreatingActionsProxy', 5.0)
+    features['a_sca'] = _get_decayed_avg(a_hist, 'Shot-creating actions proxy_away', ts_a, 'shotCreatingActionsProxy', 5.0)
 
     # 7. Market & Environmental (TITANIUM)
     features['h_att_imp'] = float(row.get('home_att') or 1.0)
@@ -597,6 +784,9 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
 
     # 9. V46 News Intelligence (Deep Parsing)
     news = row.get('news_data') or {}
+    if isinstance(news, str):
+        try: news = json.loads(news)
+        except: news = {}
     h_intel = (news.get('home') or {}).get('intelligence', {}).get('features', {})
     a_intel = (news.get('away') or {}).get('intelligence', {}).get('features', {})
     
@@ -607,6 +797,9 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
 
     # 10. V47 Strategic Features (Market & Psychology)
     v70 = row.get('v70_analytics') or {}
+    if isinstance(v70, str):
+        try: v70 = json.loads(v70)
+        except: v70 = {}
     features['odds_velocity'] = _f((v70.get('odds_velocity') or {}).get('velocity_h'), 0)
     features['h_mkt_val'] = _f(row.get('home_market_value'), 50.0)
     features['a_mkt_val'] = _f(row.get('away_market_value'), 50.0)
@@ -678,7 +871,7 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     if isinstance(h2h, str):
         try: h2h = json.loads(h2h)
         except: h2h = {}
-    elif not isinstance(h2h, dict):
+    if not isinstance(h2h, dict):
         h2h = {}
     
     duel = h2h.get('teamDuel', {})
@@ -693,11 +886,11 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     features['h2h_total_matches'] = h2_total
 
     # 12. [V52] LINE MOVEMENT INTELLIGENCE (24h Market Delta)
-    move = row.get('odds_movement_24h')
+    move = row.get('odds_movement_24h') or {}
     if isinstance(move, str):
         try: move = json.loads(move)
         except: move = {}
-    elif not isinstance(move, dict):
+    if not isinstance(move, dict):
         move = {}
     
     features['h_odds_move_24h'] = float(move.get('h_pct', 0))
@@ -724,6 +917,82 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     features['motivation_context'] = mot_val
     features['liquidity_index'] = min(1.0, volume / 100000.0)
     features['data_completeness'] = calculate_data_completeness(features)
+
+    # --- V53 ENHANCED FEATURES (xGA, xPTS, Efficiency, Streaks, H2H Advanced, Bayesian) ---
+
+    # 1. xGA (Expected Goals Against) — avg opponent xG in recent matches (time-decayed)
+    h_xga_val = _get_decayed_avg(h_hist, 'Expected goals_away', ts_h, 'goalsAgainst', 1.2)
+    a_xga_val = _get_decayed_avg(a_hist, 'Expected goals_away', ts_a, 'goalsAgainst', 1.2)
+    features['h_xga'] = h_xga_val
+    features['a_xga'] = a_xga_val
+    features['xga_diff'] = h_xga_val - a_xga_val
+
+    # 2. xG Overperformance (actual goals - xG) — >0 = regression to come (time-decayed)
+    h_xg_avg = _get_decayed_avg(h_hist, 'Expected goals_home', ts_h, 'expectedGoals', 1.0)
+    a_xg_avg = _get_decayed_avg(a_hist, 'Expected goals_home', ts_a, 'expectedGoals', 1.0)
+    h_goals_avg = _get_decayed_avg(h_hist, 'score_for', ts_h, 'avgGoals', 1.2)
+    a_goals_avg = _get_decayed_avg(a_hist, 'score_for', ts_a, 'avgGoals', 1.2)
+    features['h_xg_overperformance'] = h_goals_avg - h_xg_avg
+    features['a_xg_overperformance'] = a_goals_avg - a_xg_avg
+
+    # 3. xPTS (Expected Points proxy) — from xG_diff converted to expected win/draw/loss
+    def _xpts_proxy(team_xg, opp_xg):
+        if team_xg + opp_xg == 0: return 1.0
+        p_win = team_xg / (team_xg + opp_xg) * 0.6
+        p_draw = 0.25
+        return p_win * 3.0 + p_draw * 1.0
+
+    features['h_xpts'] = _xpts_proxy(features['h_xg'], features['a_xg'])
+    features['a_xpts'] = _xpts_proxy(features['a_xg'], features['h_xg'])
+
+    # 4. Conversion & Efficiency
+    features['h_conversion_rate'] = _hist_rate(h_hist, 'score_for', 'Total shots_home', 0.1)
+    features['a_conversion_rate'] = _hist_rate(a_hist, 'score_for', 'Total shots_away', 0.1)
+    features['h_sot_rate'] = _hist_rate(h_hist, 'Shots on target_home', 'Total shots_home', 0.4)
+    features['a_sot_rate'] = _hist_rate(a_hist, 'Shots on target_away', 'Total shots_away', 0.4)
+    h_shots_vol = _get_decayed_avg(h_hist, 'Total shots_home', ts_h, 'avgShots', 10.0)
+    a_shots_vol = _get_decayed_avg(a_hist, 'Total shots_away', ts_a, 'avgShots', 10.0)
+    features['h_shot_volume'] = h_shots_vol
+    features['a_shot_volume'] = a_shots_vol
+
+    # 5. Streaks (momentum)
+    features['h_clean_streak'] = _compute_streak(h_hist, lambda m: m.get('score_against', 0) == 0)
+    features['a_clean_streak'] = _compute_streak(a_hist, lambda m: m.get('score_against', 0) == 0)
+    features['h_scoring_streak'] = _compute_streak(h_hist, lambda m: m.get('score_for', 0) > 0)
+    features['a_scoring_streak'] = _compute_streak(a_hist, lambda m: m.get('score_for', 0) > 0)
+    features['h_win_streak'] = _compute_streak(h_hist, lambda m: m.get('points', 0) == 3)
+    features['a_win_streak'] = _compute_streak(a_hist, lambda m: m.get('points', 0) == 3)
+
+    # 6. H2H Advanced (from archive)
+    h2h_adv = get_h2h_advanced(home_name, away_name, current_match_ts)
+    features['h2h_avg_goals'] = h2h_adv.get('avg_total_goals', 0.0)
+    features['h2h_over25_rate'] = h2h_adv.get('over25_rate', 0.5)
+    features['h2h_avg_xg'] = h2h_adv.get('avg_xg', 0.0)
+    features['h2h_archive_matches'] = float(h2h_adv.get('total_matches', 0))
+
+    # 7. Bayesian Shrink Factors (weight by sample size)
+    h_shrink = min(1.0, len(h_hist) / 10.0)
+    a_shrink = min(1.0, len(a_hist) / 10.0)
+    features['h_shrink_factor'] = h_shrink
+    features['a_shrink_factor'] = a_shrink
+
+    # 8. Time context
+    ts = row.get('startTimestamp') or row.get('match_date') or 0
+    try:
+        ts = int(ts)
+        import datetime
+        dt = datetime.datetime.fromtimestamp(ts)
+        features['day_of_week'] = float(dt.weekday())
+        features['kickoff_hour'] = float(dt.hour)
+    except:
+        features['day_of_week'] = -1.0
+        features['kickoff_hour'] = -1.0
+
+    # 9. Enhanced match importance
+    imp_score = features.get('motivation_context', 1.0)
+    if features.get('is_cup', 0) > 0: imp_score += 0.3
+    if abs(features.get('pts_diff', 0)) < 0.5 and features.get('h_pts', 0) > 0: imp_score += 0.2
+    features['match_importance'] = imp_score
 
     # --- V52 STABILITY GUARD: Final NaN/None Cleanup ---
     for k, v in list(features.items()):
@@ -811,8 +1080,56 @@ FEATURE_NAMES_V52 = FEATURE_NAMES_V51 + [
     'market_reliability'
 ]
 
-# [TITANIUM] ELITE AI FEATURES - Full Environmental Intelligence
-FEATURE_NAMES_TITANIUM = FEATURE_NAMES_V52 + [
+# V53 Enhanced Features (xGA, xPTS, Efficiency, Streaks, H2H Advanced, Bayesian Shrink)
+FEATURE_NAMES_V53 = FEATURE_NAMES_V52 + [
+    'h_xga', 'a_xga', 'xga_diff',
+    'h_xg_overperformance', 'a_xg_overperformance',
+    'h_xpts', 'a_xpts',
+    'h_conversion_rate', 'a_conversion_rate',
+    'h_sot_rate', 'a_sot_rate',
+    'h_shot_volume', 'a_shot_volume',
+    'h_clean_streak', 'a_clean_streak',
+    'h_scoring_streak', 'a_scoring_streak',
+    'h_win_streak', 'a_win_streak',
+    'h2h_avg_goals', 'h2h_over25_rate', 'h2h_avg_xg', 'h2h_archive_matches',
+    'h_shrink_factor', 'a_shrink_factor',
+    'day_of_week', 'kickoff_hour',
+    'match_importance',
+    'h_successful_dribbles', 'a_successful_dribbles',
+    'h_accurate_long_balls', 'a_accurate_long_balls',
+    'h_accurate_crosses', 'a_accurate_crosses',
+    'h_opp_half_passes', 'a_opp_half_passes',
+    'h_duels_won_pct', 'a_duels_won_pct',
+    'h_errors_leading_to_shot', 'a_errors_leading_to_shot'
+]
+
+# V54 Enhanced Passing, Duels, Defensive (Against) + FBref Proxies
+FEATURE_NAMES_V54 = FEATURE_NAMES_V53 + [
+    'h_accurate_opp_half_passes', 'a_accurate_opp_half_passes',
+    'h_opp_half_pass_pct', 'a_opp_half_pass_pct',
+    'h_acc_own_half_passes', 'a_acc_own_half_passes',
+    'h_long_ball_pct', 'a_long_ball_pct',
+    'h_cross_pct', 'a_cross_pct',
+    'h_ground_duels_won', 'a_ground_duels_won',
+    'h_ground_duel_pct', 'a_ground_duel_pct',
+    'h_aerial_duel_pct', 'a_aerial_duel_pct',
+    'h_total_duels', 'a_total_duels',
+    'h_ball_recovery', 'a_ball_recovery',
+    'h_blocked_shots', 'a_blocked_shots',
+    'h_assists', 'a_assists',
+    'h_shots_faced', 'a_shots_faced',
+    'h_sot_faced', 'a_sot_faced',
+    'h_bc_conceded', 'a_bc_conceded',
+    'h_key_passes_allowed', 'a_key_passes_allowed',
+    'h_corners_conceded', 'a_corners_conceded',
+    'h_dribbles_allowed', 'a_dribbles_allowed',
+    'h_ppda', 'a_ppda',
+    'h_prog_passes', 'a_prog_passes',
+    'h_sca', 'a_sca'
+]
+
+# [TITANIUM V3] ELITE AI FEATURES - Full Environmental Intelligence (V54)
+FEATURE_NAMES_TITANIUM = FEATURE_NAMES_V54 + [
     'h_pts', 'a_pts', 'pts_diff',
     'humidity',
     'ip_h', 'ip_d', 'ip_a',
@@ -849,7 +1166,118 @@ FEATURE_VOLATILITY = {
     "news_sent": 0.35, "v26_momentum_trend": 0.45,
     "is_pressure": 0.35, "home_injury_impact": 0.40, "away_injury_impact": 0.40,
     "h_odds_move_24h": 0.20, "a_odds_move_24h": 0.20,
-    "h_def_err": 0.50, "a_def_err": 0.50  # High volatility on mistakes
+    "h_def_err": 0.50, "a_def_err": 0.50,  # High volatility on mistakes
+    
+    # V53 Enhanced Features
+    "h_xga": 0.12, "a_xga": 0.12, "xga_diff": 0.15,
+    "h_xg_overperformance": 0.35, "a_xg_overperformance": 0.35,
+    "h_xpts": 0.18, "a_xpts": 0.18,
+    "h_conversion_rate": 0.25, "a_conversion_rate": 0.25,
+    "h_sot_rate": 0.12, "a_sot_rate": 0.12,
+    "h_shot_volume": 0.10, "a_shot_volume": 0.10,
+    "h_clean_streak": 0.30, "a_clean_streak": 0.30,
+    "h_scoring_streak": 0.25, "a_scoring_streak": 0.25,
+    "h_win_streak": 0.30, "a_win_streak": 0.30,
+    "h2h_avg_goals": 0.20, "h2h_over25_rate": 0.18, "h2h_avg_xg": 0.18, "h2h_archive_matches": 0.05,
+    "h_shrink_factor": 0.02, "a_shrink_factor": 0.02,
+    "day_of_week": 0.05, "kickoff_hour": 0.08,
+    "match_importance": 0.25,
+    "h_successful_dribbles": 0.18, "a_successful_dribbles": 0.18,
+    "h_accurate_long_balls": 0.14, "a_accurate_long_balls": 0.14,
+    "h_accurate_crosses": 0.16, "a_accurate_crosses": 0.16,
+    "h_opp_half_passes": 0.10, "a_opp_half_passes": 0.10,
+    "h_duels_won_pct": 0.08, "a_duels_won_pct": 0.08,
+    "h_errors_leading_to_shot": 0.40, "a_errors_leading_to_shot": 0.40,
+
+    # V54 Enhanced Passing Detail
+    "h_accurate_opp_half_passes": 0.10, "a_accurate_opp_half_passes": 0.10,
+    "h_opp_half_pass_pct": 0.06, "a_opp_half_pass_pct": 0.06,
+    "h_acc_own_half_passes": 0.08, "a_acc_own_half_passes": 0.08,
+    "h_long_ball_pct": 0.10, "a_long_ball_pct": 0.10,
+    "h_cross_pct": 0.12, "a_cross_pct": 0.12,
+
+    # V54 Ground & Aerial Duels
+    "h_ground_duels_won": 0.14, "a_ground_duels_won": 0.14,
+    "h_ground_duel_pct": 0.08, "a_ground_duel_pct": 0.08,
+    "h_aerial_duel_pct": 0.10, "a_aerial_duel_pct": 0.10,
+    "h_total_duels": 0.08, "a_total_duels": 0.08,
+
+    # V54 Ball Recovery & Blocks
+    "h_ball_recovery": 0.12, "a_ball_recovery": 0.12,
+    "h_blocked_shots": 0.15, "a_blocked_shots": 0.15,
+    "h_assists": 0.18, "a_assists": 0.18,
+
+    # V54 Defensive (Against)
+    "h_shots_faced": 0.12, "a_shots_faced": 0.12,
+    "h_sot_faced": 0.12, "a_sot_faced": 0.12,
+    "h_bc_conceded": 0.18, "a_bc_conceded": 0.18,
+    "h_key_passes_allowed": 0.14, "a_key_passes_allowed": 0.14,
+    "h_corners_conceded": 0.10, "a_corners_conceded": 0.10,
+    "h_dribbles_allowed": 0.14, "a_dribbles_allowed": 0.14,
+
+    # V54 Computed Proxies
+    "h_ppda": 0.12, "a_ppda": 0.12,
+    "h_prog_passes": 0.10, "a_prog_passes": 0.10,
+    "h_sca": 0.16, "a_sca": 0.16,
+
+    # Titanium-Specific Features
+    "h_pts": 0.01, "a_pts": 0.01, "pts_diff": 0.02,
+    "humidity": 0.05, "is_extreme_weather": 0.15,
+    "ip_h": 0.02, "ip_d": 0.02, "ip_a": 0.02,
+    "news_is_missing_gk": 0.25, "news_is_missing_scorer": 0.25,
+    "news_is_missing_captain": 0.25, "news_is_missing_star": 0.30,
+    "odds_velocity": 0.20, "is_derby": 0.08,
+
+    # Legacy Derived Diffs (low volatility — noise cancels out)
+    "elo_diff": 0.02, "tactical_synergy": 0.04,
+    "pos_diff": 0.04, "pass_acc_diff": 0.04, "xg_diff": 0.04,
+    "bc_diff": 0.04, "sot_diff": 0.04, "int_diff": 0.04,
+    "tackles_diff": 0.04, "clear_diff": 0.04, "foul_diff": 0.04,
+    "corner_diff": 0.04, "lost_diff": 0.04,
+    "h2h_total_matches": 0.02,
+    "h_style_enc": 0.03, "a_style_enc": 0.03,
+    "d_odds_move_24h": 0.20,
+    "liquidity_index": 0.02, "data_completeness": 0.02,
+    "motivation_context": 0.22,
+
+    # Legacy Per-Match Stats (medium volatility)
+    "h_shots_off": 0.15, "a_shots_off": 0.15,
+    "h_inner_shots": 0.14, "a_inner_shots": 0.14,
+    "a_int": 0.12, "a_tackles": 0.12, "a_clear": 0.15,
+    "h_saves": 0.18, "a_saves": 0.18,
+    "h_ground_won": 0.10, "a_ground_won": 0.10,
+    "h_aerial_won": 0.12, "a_aerial_won": 0.12,
+    "h_poss_lost": 0.10, "a_poss_lost": 0.10,
+    "h_corners": 0.08, "a_corners": 0.08,
+    "h_fouls": 0.10, "a_fouls": 0.10,
+    "h_cards": 0.12, "a_cards": 0.12,
+    "h_mom_gicko": 0.15, "a_mom_gicko": 0.15,
+    "h_att_imp": 0.06, "a_att_imp": 0.06,
+
+    # Market & Environmental
+    "odds_h": 0.08, "odds_a": 0.08,
+    "temp": 0.05, "rest_h": 0.08, "rest_a": 0.08,
+    "travel_f": 0.10, "is_cup": 0.15,
+    "ref_yellow_avg": 0.06, "ref_red_avg": 0.06, "ref_pen_avg": 0.06,
+    "weather_impact": 0.10,
+    "v26_momentum_h": 0.30, "v26_momentum_a": 0.30,
+    "v26_lineups_confirmed": 0.20,
+
+    # Top Analyst Market Intelligence
+    "ta_true_prob_h": 0.08, "ta_true_prob_d": 0.08, "ta_true_prob_a": 0.08,
+    "ta_odds_change_speed_h": 0.25, "ta_odds_change_speed_a": 0.25,
+    "ta_sharp_money_h": 0.20, "ta_sharp_money_a": 0.20, "ta_sharp_money_d": 0.20,
+    "ta_sharp_money_indicator": 0.15,
+    "ta_xg_h": 0.12, "ta_xg_a": 0.12,
+    "ta_sot_h": 0.15, "ta_sot_a": 0.15,
+    "ta_news_impact": 0.30, "ta_news_sentiment": 0.35,
+    "ta_over_25_prob": 0.10, "ta_under_25_prob": 0.10,
+    "ta_expected_total_goals": 0.10,
+    "ta_value_bet_flag": 0.20, "ta_highest_value_index": 0.15,
+    "ta_market_confidence_indicator": 0.08,
+    "ta_team_strength_indicator": 0.06, "ta_momentum_indicator": 0.20,
+    "ta_goal_expectation_indicator": 0.10,
+    "ta_h_rating": 0.06, "ta_a_rating": 0.06, "ta_rating_diff": 0.08
 }
 
 

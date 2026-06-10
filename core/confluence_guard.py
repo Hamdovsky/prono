@@ -119,21 +119,38 @@ def evaluate_confluence(
 
     elif xgb_winner != poi_winner and xgb_poi_div > 0.25:
         # 🔴 CRITIQUE : désaccord fort entre XGBoost et Poisson sur le vainqueur
-        level = 'CRITICAL'
-        penalty = 0.35
-        reason_parts.append(
-            f"🔴 Désaccord critique: XGB→{xgb_winner} vs Poisson→{poi_winner} "
-            f"(écart {xgb_poi_div:.1%})"
-        )
+        xgb_max_conf = max(xh, xd, xa)
+        if xgb_max_conf > 0.80:
+            # XGB très confiant → réduire pénalité (modèle fixé V4+ est fiable)
+            level = 'WEAK'
+            penalty = 0.15
+            reason_parts.append(
+                f"🟠 XGB→{xgb_winner} à {xgb_max_conf:.0%} (confiance élevée, "
+                f"pénalité réduite), Poisson→{poi_winner} (écart {xgb_poi_div:.1%})"
+            )
+        else:
+            level = 'CRITICAL'
+            penalty = 0.35
+            reason_parts.append(
+                f"🔴 Désaccord critique: XGB→{xgb_winner} vs Poisson→{poi_winner} "
+                f"(écart {xgb_poi_div:.1%})"
+            )
 
     elif xgb_winner != poi_winner and xgb_poi_div > 0.15:
         # 🟠 FAIBLE : désaccord modéré
-        level = 'WEAK'
-        penalty = 0.18
-        reason_parts.append(
-            f"🟠 Désaccord modéré: XGB→{xgb_winner} vs Poisson→{poi_winner} "
-            f"(écart {xgb_poi_div:.1%})"
-        )
+        xgb_max_conf = max(xh, xd, xa)
+        if xgb_max_conf > 0.80:
+            penalty = 0.10
+            reason_parts.append(
+                f"🟠 XGB→{xgb_winner} à {xgb_max_conf:.0%} (confiance élevée, "
+                f"pénalité réduite), Poisson→{poi_winner} (écart {xgb_poi_div:.1%})"
+            )
+        else:
+            penalty = 0.18
+            reason_parts.append(
+                f"🟠 Désaccord modéré: XGB→{xgb_winner} vs Poisson→{poi_winner} "
+                f"(écart {xgb_poi_div:.1%})"
+            )
 
     # Blocage supplémentaire : marché totalement opposé + momentum négatif
     should_no_bet = False

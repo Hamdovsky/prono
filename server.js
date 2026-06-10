@@ -73,6 +73,7 @@ const evolutionRoutes = require('./routes/evolution');
 const integrationRoutes = require('./routes/integration');
 const matchesRoutes = require('./routes/matches');
 const promosportRoutes = require('./routes/promosport');
+const dsRoutes = require('./routes/ds');
 
 console.log('🚀 [STARTUP] INITIALIZING TITANIUM SERVER V3.0...');
 
@@ -100,7 +101,7 @@ app.use(compression());
 
 // CORS - restrict in production
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || '*',
+  origin: process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://prono-k6gc.onrender.com' : '*'),
   credentials: true
 };
 app.use(cors(corsOptions));
@@ -284,6 +285,7 @@ app.use('/api/evolution', evolutionRoutes);
 app.use('/api', scraperRoutes);
 app.use('/api', matchesRoutes);
 app.use('/api/promosport', promosportRoutes);
+app.use('/api/ds', dsRoutes);
 app.use('/api/webhook', securityEngine.authenticate.bind(securityEngine), integrationRoutes);
 
 // ── GLOBAL ERROR HANDLER ──────────────────

@@ -558,8 +558,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
     return (
         <div style={{ ...style, ...rowStyle, display: 'flex', alignItems: 'center', minWidth: 'fit-content' }} className="onyx-virtual-row" onClick={() => onClick(match)}>
-            {/* COLUMN 1: MATCH ⏱ FORME (18%) */}
-            <div style={{width: "18%", minWidth: "150px"}} className="onyx-virtual-cell">
+            {/* COLUMN 1: MATCH / FORME (20%) */}
+            <div style={{width: "20%", minWidth: "160px"}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px'}}>
                     <span className={`status-dot ${statusClass}`}></span>
                     {formattedTime && (
@@ -792,8 +792,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 8: FORCE (10%) */}
-            <div style={{width: "10%", minWidth: "70px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 8: FORCE (8%) */}
+            <div style={{width: "8%", minWidth: "60px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                         <span style={{fontSize: '16px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>

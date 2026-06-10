@@ -315,13 +315,15 @@ const Dashboard = () => {
                 if (!(m.league || '').toLowerCase().includes(activeLeague.toLowerCase())) return false;
             }
 
-            // 🔍 Search filter on team/league
+            // 🔍 Search filter on team/league (raw + normalized)
             if (searchQuery) {
-                const q = searchQuery.toLowerCase()
+                const q = searchQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                 const home = (m.homeTeam || '').toLowerCase()
                 const away = (m.awayTeam || '').toLowerCase()
-                const league = (m.league || m.tournament_name || '').toLowerCase()
-                if (!home.includes(q) && !away.includes(q) && !league.includes(q)) return false
+                const rawHome = (m.rawHomeTeam || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const rawAway = (m.rawAwayTeam || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const league = (m.league || m.tournament_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                if (!home.includes(q) && !away.includes(q) && !rawHome.includes(q) && !rawAway.includes(q) && !league.includes(q)) return false
             }
 
             const matchDayStr = getMatchDate(m);
@@ -401,7 +403,7 @@ const Dashboard = () => {
                         background: 'rgba(0,0,0,0.3)',
                         cursor: 'pointer'
                     }}>
-                        <div style={{width:"18%", minWidth: "150px", padding:"0 8px"}}>MATCH ⏱ FORME</div>
+                        <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
                         <div style={{width:"16%", minWidth: "120px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
                         <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                             AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
@@ -418,7 +420,7 @@ const Dashboard = () => {
                         <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('VALUE')}>
                             🏆 VALEUR {activeSort === 'VALUE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"10%", minWidth: "70px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                        <div style={{width:"8%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
                             FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
                     </div>
@@ -710,7 +712,7 @@ const Dashboard = () => {
                         background: 'rgba(0,0,0,0.3)',
                         cursor: 'pointer'
                     }}>
-                        <div style={{width:"18%", minWidth: "150px", padding:"0 8px"}}>MATCH ⏱ FORME</div>
+                        <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
                         <div style={{width:"16%", minWidth: "120px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
                         <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                             AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
@@ -727,7 +729,7 @@ const Dashboard = () => {
                         <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('VALUE')}>
                             🏆 VALEUR {activeSort === 'VALUE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"10%", minWidth: "70px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                        <div style={{width:"8%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
                             FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
                     </div>

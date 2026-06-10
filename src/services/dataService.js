@@ -303,6 +303,8 @@ class DataService {
             // Normalize Names
             // Normalize Names (Support camelCase, lowercase, and snake_case)
             league: this._normalizeName(match.league || match.league_name || match.leagueName || (typeof match.league === 'object' ? match.league.name : 'Unknown')),
+            rawHomeTeam: match.homeTeam || match.hometeam || match.home_team || '',
+            rawAwayTeam: match.awayTeam || match.awayteam || match.away_team || '',
             homeTeam: normalizeTeamName(match.homeTeam || match.hometeam || match.home_team || (typeof match.homeTeam === 'object' ? match.homeTeam.name : 'Home')),
             awayTeam: normalizeTeamName(match.awayTeam || match.awayteam || match.away_team || (typeof match.awayTeam === 'object' ? match.awayTeam.name : 'Away')),
             homeTeamNormalized: normalizeTeamName(match.homeTeam || match.hometeam || match.home_team),

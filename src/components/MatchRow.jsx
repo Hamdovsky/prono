@@ -2,7 +2,7 @@ import React from 'react';
 import SuspiciousIcon from '../assets/suspicious_match.png';
 import SafeBetIcon from '../assets/safe_bet.png';
 
-const MatchRow = ({ match, isElite, onClick, style }) => {
+const MatchRow = ({ match, isElite, onClick, style, now }) => {
     // Shared reference to enriched sub-object
     const enriched = match.enriched || {};
 
@@ -452,6 +452,45 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
         formattedTime = date.toLocaleTimeString('fr-TN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Tunis' });
     }
 
+    // ⏰ Countdown timer
+    let countdownStr = ""
+    const matchTime = match.startTimestamp ? (match.startTimestamp > 1e11 ? match.startTimestamp : match.startTimestamp * 1000) : 0
+    if (now && matchTime > 0) {
+        const diff = matchTime - now
+        if (diff > 0) {
+            const hours = Math.floor(diff / 3600000)
+            const minutes = Math.floor((diff % 3600000) / 60000)
+            const secs = Math.floor((diff % 60000) / 1000)
+            if (hours > 24) {
+                countdownStr = `${Math.floor(hours / 24)}j ${hours % 24}h`
+            } else if (hours > 0) {
+                countdownStr = `${hours}h ${minutes}m`
+            } else if (minutes > 0) {
+                countdownStr = `${minutes}m ${secs}s`
+            } else {
+                countdownStr = `${secs}s`
+            }
+        } else if (diff > -7200000) {
+            countdownStr = "🔴 EN COURS"
+        }
+    }
+
+    // 📊 Mini form badges
+    const hForm = match.home_form_rating || match.enriched?.home_form_rating || 0
+    const aForm = match.away_form_rating || match.enriched?.away_form_rating || 0
+    const renderFormBadge = (rating) => {
+        if (!rating || rating <= 0) return <span style={{fontSize: '8px', color: '#475569'}}>—</span>
+        const color = rating >= 70 ? '#00ffaa' : rating >= 50 ? '#fbbf24' : '#f87171'
+        const label = rating >= 70 ? 'H' : rating >= 50 ? 'M' : 'B'
+        return (
+            <span style={{fontSize: '8px', fontWeight: '900', color, background: `${color}15`, border: `1px solid ${color}30`, borderRadius: '3px', padding: '0 3px'}}>
+                {label}{Math.round(rating)}
+            </span>
+        )
+    }
+
+    // 🏆 Value Score (computed after evNum declaration below)
+
     let resultIcon = null;
     if (status === "finished" || status === "ft" || status === "ended") {
         statusClass = "finished";
@@ -505,6 +544,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
     const aBar = totalPct > 0 ? (aPct / totalPct) * 100 : 33.3;
 
     const evNum = parseFloat(quant.ev_score) || 0;
+    const valueScore = (evNum * acc / 100).toFixed(1)
     const evArrow = evNum > 0.15 ? '📈' : evNum > 0 ? '↗️' : evNum === 0 ? '➖' : '📉';
     const evColor = evNum > 0.15 ? '#10b981' : evNum > 0 ? '#34d399' : evNum === 0 ? '#94a3b8' : '#ef4444';
 
@@ -518,22 +558,27 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
 
     return (
         <div style={{ ...style, ...rowStyle, display: 'flex', alignItems: 'center', minWidth: 'fit-content' }} className="onyx-virtual-row" onClick={() => onClick(match)}>
-            {/* COLUMN 1: MATCH & LEAGUE (20%) */}
-            <div style={{width: "20%", minWidth: "140px"}} className="onyx-virtual-cell">
-                <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px'}}>
+            {/* COLUMN 1: MATCH ⏱ FORME (18%) */}
+            <div style={{width: "18%", minWidth: "150px"}} className="onyx-virtual-cell">
+                <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px'}}>
                     <span className={`status-dot ${statusClass}`}></span>
                     {formattedTime && (
-                        <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#fbbf24', fontWeight: '800', background: 'rgba(251, 191, 36, 0.1)', padding: '1px 3px', borderRadius: '4px'}}>
+                        <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#fbbf24', fontWeight: '800', background: 'rgba(251, 191, 36, 0.1)', padding: '1px 3px', borderRadius: '4px'}}>
                             {formattedTime}
                         </span>
                     )}
-                    <b style={{ fontSize: '12px', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {countdownStr && !countdownStr.includes("EN COURS") && (
+                        <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#38bdf8', fontWeight: '700', background: 'rgba(56,189,248,0.08)', padding: '1px 3px', borderRadius: '3px'}}>
+                            -{countdownStr}
+                        </span>
+                    )}
+                    <b style={{ fontSize: '12px', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
                         {homeName} vs {awayName}
                     </b>
                 </div>
-                <div style={{ fontSize: '10px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{opacity: 0.7}}>🏆</span>
-                    <span style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                <div style={{ fontSize: '9px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span style={{opacity: 0.6}}>🏆</span>
+                    <span style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px'}}>
                         {(() => {
                             const lower = (match.league || match.tournament_name || '').toLowerCase();
                             if (lower.includes('champions league') || lower.includes('ucl') || lower.includes('uefa')) return '🌍 EUROPE : ';
@@ -592,11 +637,15 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                         })()}
                         {match.league || match.tournament_name || "Unknown"}
                     </span>
+                    <span style={{fontSize: '8px', color: '#475569', margin: '0 2px'}}>|</span>
+                    {renderFormBadge(hForm)}
+                    <span style={{fontSize: '7px', color: '#475569'}}>vs</span>
+                    {renderFormBadge(aForm)}
                 </div>
             </div>
 
-            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (18%) */}
-            <div style={{width: "18%", minWidth: "130px"}} className="onyx-virtual-cell">
+            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (16%) */}
+            <div style={{width: "16%", minWidth: "120px"}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                         <span style={{fontSize: '10px', color: 'var(--neon)', fontWeight: '900', minWidth: '32px'}}>MAIN</span>
@@ -639,7 +688,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
             </div>
 
             {/* COLUMN 3: AI SCORE & FT confidence (12%) */}
-            <div style={{width: "12%", minWidth: "100px"}} className="onyx-virtual-cell centered">
+            <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
                 <span className="onyx-cs" style={{fontSize: '16px', fontWeight: '900', color: '#00ffaa'}}>{cs}</span>
                 <div style={{fontSize: '11px', color: '#fbbf24', fontWeight: 'bold'}}>
                     FT: {ftSignal}%
@@ -651,8 +700,8 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 4: MARCHÉS (BTTS + O/U) (16%) - merged */}
-            <div style={{width: "16%", minWidth: "110px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 4: MARCHÉS (BTTS + O/U) (14%) */}
+            <div style={{width: "14%", minWidth: "100px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
                         <span style={{
@@ -683,8 +732,8 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 5: PRECISION & RISK (12%) */}
-            <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 5: PRECISION & RISK (10%) */}
+            <div style={{width: "10%", minWidth: "80px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
                     <span style={{fontSize: '18px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>{acc}%</span>
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
@@ -699,8 +748,8 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 6: SIGNAL & EV SCORE (12%) */}
-            <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 6: SIGNAL & EV SCORE (10%) */}
+            <div style={{width: "10%", minWidth: "80px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px', width: '100%', alignItems: 'center'}}>
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
@@ -721,16 +770,38 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                 </div>
             </div>
 
-            {/* COLUMN 7: FORCE (8%) */}
-            <div style={{width: "8%", minWidth: "60px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 7: 🏆 VALEUR (10%) */}
+            <div style={{width: "10%", minWidth: "80px"}} className="onyx-virtual-cell centered">
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
+                    <span style={{fontSize: '16px', fontWeight: '900', color: parseFloat(valueScore) >= 5 ? '#00ffaa' : parseFloat(valueScore) >= 2 ? '#fbbf24' : '#64748b'}}>
+                        {valueScore}
+                    </span>
+                    <span style={{fontSize: '9px', color: '#64748b', fontWeight: '700'}}>
+                        EV×CONF
+                    </span>
+                    <div style={{
+                        height: '3px', width: '60px', borderRadius: '3px', background: 'rgba(148,163,184,0.15)',
+                        overflow: 'hidden'
+                    }}>
+                        <div style={{
+                            height: '100%', width: `${Math.min(100, parseFloat(valueScore) * 10)}%`,
+                            background: parseFloat(valueScore) >= 5 ? '#00ffaa' : parseFloat(valueScore) >= 2 ? '#fbbf24' : '#64748b',
+                            borderRadius: '3px'
+                        }}></div>
+                    </div>
+                </div>
+            </div>
+
+            {/* COLUMN 8: FORCE (10%) */}
+            <div style={{width: "10%", minWidth: "70px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                        <span style={{fontSize: '18px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>
-                        <span style={{fontSize: '11px', color: msColor, fontWeight: '700'}}>
+                        <span style={{fontSize: '16px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>
+                        <span style={{fontSize: '10px', color: msColor, fontWeight: '700'}}>
                             {quant.market_strength || msDesc}
                         </span>
                     </div>
-                    <div className="onyx-progress-container" style={{height: '4px', width: '70px', borderRadius: '3px'}}>
+                    <div className="onyx-progress-container" style={{height: '3px', width: '60px', borderRadius: '3px'}}>
                         <div className="onyx-progress-bar" style={{width: `${(ms || 0) * 10}%`, background: msColor, borderRadius: '3px'}}></div>
                     </div>
                 </div>

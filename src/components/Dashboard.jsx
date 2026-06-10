@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from "react"
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy, useRef } from "react"
 import { useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import UltimateMatchCenter from "./UltimateMatchCenter/UltimateMatchCenter"
@@ -28,7 +28,7 @@ const SystemIntelligence = lazy(() => import("./SystemIntelligence"))
 const Promosport = lazy(() => import("./Promosport"))
 const EvolutionDashboard = lazy(() => import("./EvolutionDashboard"))
 
-const MatchRowMemo = React.memo(({ index, style, list, isElite, onClick }) => {
+const MatchRowMemo = React.memo(({ index, style, list, isElite, onClick, now: nowProp }) => {
     const m = list[index];
     if (!m) return null;
     return (
@@ -37,11 +37,12 @@ const MatchRowMemo = React.memo(({ index, style, list, isElite, onClick }) => {
             isElite={isElite}
             onClick={onClick}
             style={style}
+            now={nowProp}
         />
     );
 });
 
-const UnifiedRowMemo = React.memo(({ index, style, unifiedList, onClick }) => {
+const UnifiedRowMemo = React.memo(({ index, style, unifiedList, onClick, now: nowProp }) => {
     const item = unifiedList[index];
     if (!item) return null;
     if (item.type === 'header') {
@@ -70,6 +71,7 @@ const UnifiedRowMemo = React.memo(({ index, style, unifiedList, onClick }) => {
             style={style} 
             isElite={item._isElite} 
             onClick={onClick} 
+            now={nowProp}
         />
     );
 });
@@ -118,6 +120,14 @@ const Dashboard = () => {
     const [status, setStatus] = useState('idle');
     const [scraperProgress, setScraperProgress] = useState(null);
     const [isScraping, setIsScraping] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("")
+    const [now, setNow] = useState(Date.now())
+
+    // 1-second timer for countdowns
+    useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 1000)
+        return () => clearInterval(interval)
+    }, [])
 
     const handleSort = (field) => {
         setActiveSort(prev => {
@@ -195,6 +205,56 @@ const Dashboard = () => {
         }
     };
 
+    const handleRefresh = () => {
+        dataService.refreshAllData()
+    }
+
+    const handleExportCSV = () => {
+        const rows = [['Date','Ligue','Domicile','Extérieur','CS','Confiance','BTTS','O/U','EV','Force','Valeur Score']]
+        sortedMatches.forEach(m => {
+            const ev = parseFloat(m.quant?.ev_score || m.ev_score || 0)
+            const conf = m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0
+            const valueScore = ((ev || 0) * (conf || 0) / 100).toFixed(2)
+            rows.push([
+                new Date(m.startTimestamp > 1e11 ? m.startTimestamp : m.startTimestamp * 1000).toLocaleDateString('fr-FR'),
+                m.league || m.tournament_name || '',
+                m.homeTeam || '',
+                m.awayTeam || '',
+                m.quant?.expected_score || m.expected_score || '',
+                conf,
+                Math.round(Number(m.btts_prob || m.quant?.probs?.btts || 0)) + '%',
+                Math.round(Number(m.ou_25_prob || m.quant?.probs?.over25 || 0)) + '%',
+                ev.toFixed(2),
+                m.enriched?.power_score || m.power_score || '',
+                valueScore
+            ])
+        })
+        const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `matches_${new Date().toISOString().slice(0,10)}.csv`
+        a.click()
+        URL.revokeObjectURL(url)
+    }
+
+    // League accuracy derived from matches
+    const leagueAccuracy = useMemo(() => {
+        const groups = {}
+        matches.forEach(m => {
+            const league = m.league || m.tournament_name || 'Unknown'
+            if (!groups[league]) groups[league] = { total: 0, sum: 0 }
+            groups[league].total++
+            const conf = m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0
+            groups[league].sum += conf > 1 ? conf : conf * 100
+        })
+        return Object.entries(groups)
+            .map(([league, data]) => ({ league, pct: Math.round(data.sum / data.total) }))
+            .sort((a, b) => b.total - a.total || b.pct - a.pct)
+            .slice(0, 5)
+    }, [matches])
+
     // Date Constants for filtering
     const getToday = () => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); };
     const getTomorrow = () => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + 1); return d.getTime(); };
@@ -255,6 +315,15 @@ const Dashboard = () => {
                 if (!(m.league || '').toLowerCase().includes(activeLeague.toLowerCase())) return false;
             }
 
+            // 🔍 Search filter on team/league
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase()
+                const home = (m.homeTeam || '').toLowerCase()
+                const away = (m.awayTeam || '').toLowerCase()
+                const league = (m.league || m.tournament_name || '').toLowerCase()
+                if (!home.includes(q) && !away.includes(q) && !league.includes(q)) return false
+            }
+
             const matchDayStr = getMatchDate(m);
             const matchTime = m.startTimestamp ? (m.startTimestamp > 1e11 ? m.startTimestamp : m.startTimestamp * 1000) : 0;
             
@@ -301,7 +370,7 @@ const Dashboard = () => {
             
             return aTime - bTime;
         });
-    }, [matches, activeLeague, activeDate, activeSignal, activeSort, getMatchDate, dateCache]);
+    }, [matches, activeLeague, activeDate, activeSignal, activeSort, searchQuery, getMatchDate, dateCache]);
 
     const renderMatchList = (list, title, isElite = false) => {
         if (list.length === 0) return null;
@@ -332,21 +401,24 @@ const Dashboard = () => {
                         background: 'rgba(0,0,0,0.3)',
                         cursor: 'pointer'
                     }}>
-                        <div style={{width:"22%", minWidth: "140px", padding:"0 8px"}}>MATCH / CHAMPIONNAT</div>
-                        <div style={{width:"18%", minWidth: "130px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
-                        <div style={{width:"12%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
+                        <div style={{width:"18%", minWidth: "150px", padding:"0 8px"}}>MATCH ⏱ FORME</div>
+                        <div style={{width:"16%", minWidth: "120px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
+                        <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                             AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"16%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                        <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
                             MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
+                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
                             PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
                             SIGNAL & EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"8%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('VALUE')}>
+                            🏆 VALEUR {activeSort === 'VALUE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"10%", minWidth: "70px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
                             FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
                     </div>
@@ -355,7 +427,7 @@ const Dashboard = () => {
                             height={virtualHeight}
                             rowCount={list.length}
                             rowHeight={ROW_H}
-                            rowProps={{ list, isElite, onClick: setSelectedMatchForUltimateView }}
+                            rowProps={{ list, isElite, onClick: setSelectedMatchForUltimateView, now }}
                             width="100%"
                             className="titanium-virtual-list"
                             style={{ overflowX: 'hidden' }}
@@ -410,6 +482,56 @@ const Dashboard = () => {
         if (activeView === 'all-matches') {
             return (
                 <div className="onyx-grid-container">
+                    {/* Toolbar: Search + Refresh + CSV + League Accuracy */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '8px 14px', background: 'rgba(0,0,0,0.25)',
+                        borderRadius: '8px', marginBottom: '10px', flexWrap: 'wrap'
+                    }}>
+                        <input
+                            type="text"
+                            placeholder="🔍 Équipe / Ligue..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            style={{
+                                flex: '1 1 160px', minWidth: '120px', padding: '6px 10px',
+                                background: 'rgba(15,23,42,0.8)', border: '1px solid #334155',
+                                borderRadius: '6px', color: '#f1f5f9', fontSize: '12px', outline: 'none'
+                            }}
+                        />
+                        <button onClick={handleRefresh} style={{
+                            padding: '6px 12px', background: 'rgba(0,255,170,0.08)',
+                            border: '1px solid rgba(0,255,170,0.2)', borderRadius: '6px',
+                            color: '#00ffaa', fontWeight: '700', fontSize: '11px', cursor: 'pointer'
+                        }}>
+                            🔄 RAFRAÎCHIR
+                        </button>
+                        <button onClick={handleExportCSV} style={{
+                            padding: '6px 12px', background: 'rgba(56,189,248,0.08)',
+                            border: '1px solid rgba(56,189,248,0.2)', borderRadius: '6px',
+                            color: '#38bdf8', fontWeight: '700', fontSize: '11px', cursor: 'pointer'
+                        }}>
+                            📥 CSV
+                        </button>
+                        {leagueAccuracy.length > 0 && (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                                padding: '4px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', flexWrap: 'wrap'
+                            }}>
+                                <span style={{fontSize: '10px', color: '#64748b', fontWeight: '700'}}>🎯</span>
+                                {leagueAccuracy.slice(0, 5).map((la, i) => (
+                                    <span key={i} style={{
+                                        fontSize: '10px', fontWeight: '700',
+                                        color: la.pct >= 70 ? '#00ffaa' : la.pct >= 55 ? '#fbbf24' : '#f87171',
+                                        background: `${la.pct >= 70 ? 'rgba(0,255,170,0.08)' : la.pct >= 55 ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)'}`,
+                                        padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap'
+                                    }}>
+                                        {la.league.split(' ').slice(0, 2).join(' ')}: {la.pct}%
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                     {renderMatchList(sortedMatches, `📊 TOUS LES MATCHS (${activeDate.toUpperCase()})`, false)}
                 </div>
             );
@@ -588,21 +710,24 @@ const Dashboard = () => {
                         background: 'rgba(0,0,0,0.3)',
                         cursor: 'pointer'
                     }}>
-                        <div style={{width:"22%", minWidth: "140px", padding:"0 8px"}}>MATCH / CHAMPIONNAT</div>
-                        <div style={{width:"18%", minWidth: "130px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
-                        <div style={{width:"12%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
+                        <div style={{width:"18%", minWidth: "150px", padding:"0 8px"}}>MATCH ⏱ FORME</div>
+                        <div style={{width:"16%", minWidth: "120px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
+                        <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                             AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"16%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                        <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
                             MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
+                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
                             PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
                             SIGNAL & EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
-                        <div style={{width:"8%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('VALUE')}>
+                            🏆 VALEUR {activeSort === 'VALUE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                        </div>
+                        <div style={{width:"10%", minWidth: "70px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
                             FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
                     </div>
@@ -614,7 +739,7 @@ const Dashboard = () => {
                         width="100%"
                         className="onyx-custom-scrollbar"
                         rowComponent={UnifiedRowMemo}
-                        rowProps={{ unifiedList, onClick: setSelectedMatchForUltimateView }}
+                        rowProps={{ unifiedList, onClick: setSelectedMatchForUltimateView, now }}
                     />
                 </div>
             </div>

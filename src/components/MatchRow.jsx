@@ -519,7 +519,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
     return (
         <div style={{ ...style, ...rowStyle, display: 'flex', alignItems: 'center', minWidth: 'fit-content' }} className="onyx-virtual-row" onClick={() => onClick(match)}>
             {/* COLUMN 1: MATCH & LEAGUE (20%) */}
-            <div style={{width: "20%", minWidth: "180px"}} className="onyx-virtual-cell">
+            <div style={{width: "20%", minWidth: "140px"}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px'}}>
                     <span className={`status-dot ${statusClass}`}></span>
                     {formattedTime && (
@@ -596,7 +596,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
             </div>
 
             {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (18%) */}
-            <div style={{width: "18%", minWidth: "170px"}} className="onyx-virtual-cell">
+            <div style={{width: "18%", minWidth: "130px"}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                         <span style={{fontSize: '10px', color: 'var(--neon)', fontWeight: '900', minWidth: '32px'}}>MAIN</span>
@@ -635,7 +635,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
             </div>
 
             {/* COLUMN 4: MARCHÉS (BTTS + O/U) (16%) - merged */}
-            <div style={{width: "16%", minWidth: "140px"}} className="onyx-virtual-cell centered">
+            <div style={{width: "16%", minWidth: "110px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
                         <span style={{
@@ -667,7 +667,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
             </div>
 
             {/* COLUMN 5: PRECISION & RISK (12%) */}
-            <div style={{width: "12%", minWidth: "110px"}} className="onyx-virtual-cell centered">
+            <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
                     <span style={{fontSize: '18px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>{acc}%</span>
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
@@ -683,7 +683,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
             </div>
 
             {/* COLUMN 6: SIGNAL & EV SCORE (12%) */}
-            <div style={{width: "12%", minWidth: "110px"}} className="onyx-virtual-cell centered">
+            <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px', width: '100%', alignItems: 'center'}}>
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
@@ -705,7 +705,7 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
             </div>
 
             {/* COLUMN 7: FORCE (8%) */}
-            <div style={{width: "8%", minWidth: "80px"}} className="onyx-virtual-cell centered">
+            <div style={{width: "8%", minWidth: "60px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                         <span style={{fontSize: '18px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>

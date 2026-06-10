@@ -166,7 +166,7 @@
     background: #161b22 !important;
 }
 .onyx-virtual-cell {
-    padding: 4px 14px;
+    padding: 4px 8px;
     overflow: hidden;
     display: flex;
     flex-direction: column;

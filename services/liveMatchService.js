@@ -33,6 +33,59 @@ class LiveMatchService {
     }
   }
 
+  async fetchUpcomingFallback() {
+    try {
+      // Try BSD upcoming events
+      if (bsdService.isAvailable()) {
+        const events = await bsdService.fetchUpcomingEvents()
+        if (events && events.length > 0) {
+          return events.slice(0, 30).map(e => ({
+            id: e.id || `upcoming_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            homeTeam: e.home_team?.name || e.homeTeam || 'Home',
+            awayTeam: e.away_team?.name || e.awayTeam || 'Away',
+            league: e.league?.name || e.tournament_name || 'Unknown',
+            scoreHome: 0,
+            scoreAway: 0,
+            minute: '0',
+            status: 'scheduled',
+            source: 'bsd',
+            isFallback: true,
+            homeWinP: 33,
+            drawP: 34,
+            awayWinP: 33
+          }))
+        }
+      }
+      // Fallback: SportScore upcoming
+      const axios = require('axios')
+      const { data } = await axios.get('https://sportscore.com/api/widget/matches/', {
+        params: { sport: 'football', limit: 50 },
+        timeout: 8000
+      })
+      if (data?.matches?.length) {
+        return data.matches
+          .filter(m => m.status === 'upcoming')
+          .slice(0, 30)
+          .map(m => ({
+            id: `ss_upc_${m.home}_${m.away}`.replace(/\s+/g, '_').toLowerCase(),
+            homeTeam: m.home,
+            awayTeam: m.away,
+            league: m.competition || 'Unknown',
+            scoreHome: 0,
+            scoreAway: 0,
+            minute: '0',
+            status: 'scheduled',
+            source: 'sportscore',
+            isFallback: true,
+            homeWinP: 33,
+            drawP: 34,
+            awayWinP: 33
+          }))
+      }
+    } catch {}
+    return []
+  }
+
   async syncLive() {
     // Check for finished matches to update training outcomes
     this.checkPredictionOutcomes()
@@ -88,6 +141,17 @@ class LiveMatchService {
       logger.info(`[LIVE] Synced ${matches.length} live matches via ${source}`)
     } else {
       this._emptyCycles++
+      // Show upcoming matches as fallback after 3 empty cycles
+      if (this._emptyCycles === 3 || this._emptyCycles % 12 === 3) {
+        const fallback = await this.fetchUpcomingFallback()
+        if (fallback.length > 0) {
+          this.activeMatches = fallback
+          this.lastSource = 'fallback-upcoming'
+          socketService.broadcast('live:update', fallback)
+          logger.info(`[LIVE] Fallback: ${fallback.length} upcoming matches`)
+          return
+        }
+      }
       if (this.activeMatches.length > 0) {
         this.activeMatches = []
         socketService.broadcast('live:update', [])

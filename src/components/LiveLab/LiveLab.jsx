@@ -248,7 +248,7 @@ const LiveLab = () => {
             try {
                 const res = await fetch('/api/live-lab');
                 const data = await res.json();
-                setMatches(data);
+                setMatches(data.matches || []);
                 setLastUpdate(new Date());
                 setLoading(false);
             } catch (err) {
@@ -261,7 +261,7 @@ const LiveLab = () => {
         return () => socket.disconnect();
     }, []);
 
-    const filteredMatches = matches.filter(m => {
+    const filteredMatches = (Array.isArray(matches) ? matches : []).filter(m => {
         if (filter === 'ALL') return true;
         if (filter === 'ELITE') return m.pronostics?.some(p => p.status?.includes('نخبة'));
         if (filter === 'VALUE') return m.pronostics?.some(p => p.type === 'VALUE');

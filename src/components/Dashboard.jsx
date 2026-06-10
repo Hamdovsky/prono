@@ -211,7 +211,8 @@ const Dashboard = () => {
 
     const handleExportCSV = () => {
         const rows = [['Date','Ligue','Domicile','Extérieur','CS','Confiance','BTTS','O/U','EV','Force','Valeur Score']]
-        sortedMatches.forEach(m => {
+        const exportList = activeView === 'all-matches' ? allMatchesList : sortedMatches
+        exportList.forEach(m => {
             const ev = parseFloat(m.quant?.ev_score || m.ev_score || 0)
             const conf = m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0
             const valueScore = ((ev || 0) * (conf || 0) / 100).toFixed(2)
@@ -315,17 +316,6 @@ const Dashboard = () => {
                 if (!(m.league || '').toLowerCase().includes(activeLeague.toLowerCase())) return false;
             }
 
-            // 🔍 Search filter on team/league (raw + normalized)
-            if (searchQuery) {
-                const q = searchQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                const home = (m.homeTeam || '').toLowerCase()
-                const away = (m.awayTeam || '').toLowerCase()
-                const rawHome = (m.rawHomeTeam || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                const rawAway = (m.rawAwayTeam || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                const league = (m.league || m.tournament_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                if (!home.includes(q) && !away.includes(q) && !rawHome.includes(q) && !rawAway.includes(q) && !league.includes(q)) return false
-            }
-
             const matchDayStr = getMatchDate(m);
             const matchTime = m.startTimestamp ? (m.startTimestamp > 1e11 ? m.startTimestamp : m.startTimestamp * 1000) : 0;
             
@@ -372,7 +362,32 @@ const Dashboard = () => {
             
             return aTime - bTime;
         });
-    }, [matches, activeLeague, activeDate, activeSignal, activeSort, searchQuery, getMatchDate, dateCache]);
+    }, [matches, activeLeague, activeDate, activeSignal, activeSort, getMatchDate, dateCache]);
+
+    // Separate list for all-matches view: no date/league/signal filter, only search + finished removal
+    const allMatchesList = useMemo(() => {
+        return matches.filter(m => {
+            // 🔍 Search filter on team/league (raw + normalized)
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const home = (m.homeTeam || '').toLowerCase()
+                const away = (m.awayTeam || '').toLowerCase()
+                const rawHome = (m.rawHomeTeam || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const rawAway = (m.rawAwayTeam || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const league = (m.league || m.tournament_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                if (!home.includes(q) && !away.includes(q) && !rawHome.includes(q) && !rawAway.includes(q) && !league.includes(q)) return false
+            }
+            // Remove finished/completed matches
+            const s = String(m.status || '').toLowerCase()
+            if (['finished', 'ft', 'ended', 'closed', 'played', 'aet', 'pen', 'postponed', 'canceled'].includes(s)) return false
+            if (m.actualResult && m.actualResult !== 'N/A' && m.actualResult.trim() !== '') return false
+            return true
+        }).sort((a, b) => {
+            const aTime = a._ts || (a._ts = a.startTimestamp ? (a.startTimestamp > 1e11 ? a.startTimestamp : a.startTimestamp * 1000) : 0)
+            const bTime = b._ts || (b._ts = b.startTimestamp ? (b.startTimestamp > 1e11 ? b.startTimestamp : b.startTimestamp * 1000) : 0)
+            return aTime - bTime
+        })
+    }, [matches, searchQuery])
 
     const renderMatchList = (list, title, isElite = false) => {
         if (list.length === 0) return null;
@@ -495,6 +510,7 @@ const Dashboard = () => {
                             placeholder="🔍 Équipe / Ligue..."
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
+                            autoFocus
                             style={{
                                 flex: '1 1 160px', minWidth: '120px', padding: '6px 10px',
                                 background: 'rgba(15,23,42,0.8)', border: '1px solid #334155',
@@ -534,7 +550,7 @@ const Dashboard = () => {
                             </div>
                         )}
                     </div>
-                    {renderMatchList(sortedMatches, `📊 TOUS LES MATCHS (${activeDate.toUpperCase()})`, false)}
+                    {renderMatchList(allMatchesList, `📊 TOUS LES MATCHS`, false)}
                 </div>
             );
         }

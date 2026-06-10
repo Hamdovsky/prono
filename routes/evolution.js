@@ -11,7 +11,9 @@ const MarketSensorService = require('../services/MarketSensorService');
 router.get('/intelligence', async (req, res) => {
     try {
         const topFailures = await db.prepare(`
-            SELECT failure_type, SUM(frequency) as total 
+            SELECT failure_type, SUM(frequency) as total,
+                   ROUND(AVG(impact_roi), 3) as avg_roi_impact,
+                   ROUND(AVG(impact_clv), 3) as avg_clv_impact
             FROM failure_intelligence 
             GROUP BY failure_type 
             ORDER BY total DESC

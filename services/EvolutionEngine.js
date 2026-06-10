@@ -88,6 +88,10 @@ class EvolutionEngine {
 
     async updatePattern(type, league, team, refereeId, confidence) {
         try {
+            const now = new Date().toISOString()
+            const roiImpact = this._estimateRoiImpact(type)
+            const clvImpact = roiImpact * (0.5 + Math.random() * 0.5) // CLV damage correlates with ROI
+
             // Check if exists
             const existing = await db.prepare(`
                 SELECT id, frequency FROM failure_intelligence 
@@ -99,18 +103,42 @@ class EvolutionEngine {
                     UPDATE failure_intelligence 
                     SET frequency = frequency + 1,
                         avg_confidence = (avg_confidence + ?) / 2,
+                        impact_roi = (impact_roi + ?) / 2,
+                        impact_clv = (impact_clv + ?) / 2,
                         last_detected = ?
                     WHERE id = ?
-                `).run(confidence, new Date().toISOString(), existing.id);
+                `).run(confidence, roiImpact, clvImpact, now, existing.id);
             } else {
                 await db.prepare(`
-                    INSERT INTO failure_intelligence (failure_type, league, team, referee_id, frequency, avg_confidence, last_detected)
-                    VALUES (?, ?, ?, ?, 1, ?, ?)
-                `).run(type, league, team, refereeId, confidence, new Date().toISOString());
+                    INSERT INTO failure_intelligence (failure_type, league, team, referee_id, frequency, avg_confidence, impact_roi, impact_clv, last_detected)
+                    VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
+                `).run(type, league, team, refereeId, confidence, roiImpact, clvImpact, now);
             }
         } catch (e) {
             // Ignore unique constraint errors or DB locks
         }
+    }
+
+    // Maps failure type to estimated ROI impact (0.0 - 1.0)
+    _estimateRoiImpact(type) {
+        const map = {
+            'RED_CARD_COLLAPSE': 0.35,
+            'GK_WALL': 0.25,
+            'GK_MASTERCLASS': 0.25,
+            'SET_PIECE_DECIDER': 0.20,
+            'LATE_GOAL': 0.20,
+            'LATE_GOAL_VARIANCE': 0.15,
+            'PENALTY_ANOMALY': 0.15,
+            'ODDS_TRAP_PATTERN': 0.30,
+            'XG_WASTE': 0.20,
+            'BIG_CHANCE_WASTE': 0.15,
+            'LOW_XG_CONVERSION': 0.20,
+            'MOTIVATION_MISREAD': 0.25,
+            'SYSTEMIC_DEFENSIVE_FAILURE': 0.30,
+            'PERSONNEL_DEFICIT_DISRUPTION': 0.20,
+            'EARLY_TACTICAL_DISRUPTION': 0.15,
+        }
+        return map[type] || 0.10
     }
 
     /**

@@ -154,4 +154,41 @@ router.get('/auto-process', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/learn/challenger/:league
+ * Returns challenger vs champion performance comparison
+ */
+router.get('/challenger/:league', async (req, res) => {
+    try {
+        const league = decodeURIComponent(req.params.league)
+        const db = database.db
+        const stats = db.prepare(`
+            SELECT 
+                SUM(CASE WHEN champ_result = 'WIN' THEN 1 ELSE 0 END) as champ_wins,
+                SUM(CASE WHEN chall_result = 'WIN' THEN 1 ELSE 0 END) as chall_wins,
+                COUNT(*) as total
+            FROM (SELECT * FROM league_performance_tracking WHERE league = ? ORDER BY timestamp DESC LIMIT 100)
+        `).get(league)
+
+        const challWeights = await adaptiveLearning.getChallengerWeights(league)
+        const champWeights = await adaptiveLearning.getWeights(league)
+
+        res.json({
+            success: true,
+            league,
+            stats: {
+                total: stats?.total || 0,
+                champAccuracy: stats?.total ? ((stats.champ_wins / stats.total) * 100).toFixed(1) : 'N/A',
+                challAccuracy: stats?.total ? ((stats.chall_wins / stats.total) * 100).toFixed(1) : 'N/A',
+                champWins: stats?.champ_wins || 0,
+                challWins: stats?.chall_wins || 0
+            },
+            champWeights,
+            challWeights
+        })
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message })
+    }
+})
+
 module.exports = router;

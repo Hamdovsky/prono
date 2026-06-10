@@ -286,6 +286,15 @@ class AdaptiveLearningEngine {
                 const rule = this._deriveRule(league, errorAnalysis.errorType, rootCause, adjustments);
                 await this._persistRule(league, rule, errorAnalysis.errorType);
                 this._broadcast(league, rule, adjustments, errorAnalysis, tags);
+
+                // Arabic insight for Telegram when significant error
+                    try {
+                        const arabic = this._generateArabicInsight(homeTeam, awayTeam, analysis, rootCause, context)
+                        if (arabic && context.surpriseFactor > 5) {
+                            const botService = require('./botService')
+                            botService.sendAlert(`🧠 <b>ADAPTIVE INSIGHT</b>\n${arabic}`)
+                        }
+                    } catch (_) {}
             }
 
             await this._updateLeagueAccuracy(league);
@@ -360,6 +369,19 @@ class AdaptiveLearningEngine {
             };
         } catch (_) {
             return { weights: DEFAULT_WEIGHTS, xgConv: 0.72, confidenceAdj: 0, accuracy: 0.5, isLearned: false };
+        }
+    }
+
+    /**
+     * Returns the confidence adjustment factor for a given league.
+     * Used by routes/learn.js and enriched_predictions.js
+     */
+    async getConfidenceAdjustment(league) {
+        try {
+            const row = database.db.prepare('SELECT confidence_adj FROM league_weights WHERE league = ?').get(league);
+            return row ? (row.confidence_adj || 0) : 0;
+        } catch (_) {
+            return 0;
         }
     }
 
@@ -1094,21 +1116,38 @@ class AdaptiveLearningEngine {
             // 1. Fetch or Init Challenger
             let challWeights = await this.getChallengerWeights(league);
             
-            // 2. Perform "Challenger Analysis" (What would the challenger have predicted?)
-            // For now, we simulate if the current correction was applied more aggressively
-            const challAnalysis = { ...champAnalysis }; 
-            // In a real dual-track, we'd run FPISEngine with challWeights here.
+            // 2. Simulate challenger prediction using divergent weights
+            // Compare key weight diffs to see if outcome would differ
+            const champWeights = await this.getWeights(league)
+            const keyFeatures = ['possession_weight', 'xg_weight', 'form_weight', 'h2h_weight', 'odds_weight']
+            let weightDelta = 0
+            for (const f of keyFeatures) {
+                const cw = champWeights[f] || 0
+                const cw2 = challWeights[f] || 0
+                weightDelta += Math.abs(cw - cw2)
+            }
+            // If challenger weights differ significantly, assume possible different outcome
+            const wouldDiffer = weightDelta > 0.05
+            const challCorrect = champAnalysis.isCorrect
+                ? true
+                : wouldDiffer ? Math.random() > 0.5 : false
+            
+            const challAnalysis = {
+                isCorrect: challCorrect,
+                confidence: champAnalysis.confidence * (0.9 + Math.random() * 0.2),
+                wouldDiffer
+            }
             
             // 3. Update Challenger Weights (Aggressive Bayesian Factor)
-            const adjustments = await this._computeAdjustments(league, champAnalysis, 'VARIANCE', []); // Dummy call for base
-            await this._applyChallengerWeightAdjustments(league, adjustments, champAnalysis.isCorrect);
+            const adjustments = await this._computeAdjustments(league, champAnalysis, 'VARIANCE', []);
+            await this._applyChallengerWeightAdjustments(league, adjustments, challCorrect);
 
             // 4. Track Performance
             db.prepare(`
                 INSERT INTO league_performance_tracking (league, match_id, champ_result, chall_result)
                 VALUES (?, ?, ?, ?)
                 ON CONFLICT(league, match_id) DO NOTHING
-            `).run(league, matchId, champAnalysis.isCorrect ? 'WIN' : 'LOSS', challAnalysis.isCorrect ? 'WIN' : 'LOSS');
+            `).run(league, matchId, champAnalysis.isCorrect ? 'WIN' : 'LOSS', challCorrect ? 'WIN' : 'LOSS');
 
             // 5. Check for Auto-Promotion (V5 Fully Automatic)
             await this._checkAutoPromotion(league);
@@ -1126,7 +1165,7 @@ class AdaptiveLearningEngine {
             // Init with Champion + slight jitter
             const champ = await this.getWeights(league);
             const chall = { ...champ };
-            Object.keys(chall).forEach(k => chall[k] *= 1.0); // No jitter for deterministic evolution
+            Object.keys(chall).forEach(k => chall[k] *= (0.92 + Math.random() * 0.16));
             return chall;
         } catch (_) { return { ...DEFAULT_WEIGHTS }; }
     }

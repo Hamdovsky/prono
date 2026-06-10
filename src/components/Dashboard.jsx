@@ -694,18 +694,6 @@ const Dashboard = () => {
                 </div>
             </main>
 
-            <footer className="onyx-footer">
-                <span>TITANIUM NEURAL-X v3.0</span>
-                <span className="onyx-footer-dot">•</span>
-                <span>{matches.length} matchs chargés</span>
-                <span className="onyx-footer-dot">•</span>
-                <span>IA: {status === 'error' ? '⚠️' : '✅'} Active</span>
-                <span className="onyx-footer-dot">•</span>
-                <span>Mise à jour: {new Date().toLocaleTimeString('fr-FR')}</span>
-                <span className="onyx-footer-dot">•</span>
-                <span className="onyx-footer-build">build {import.meta.env.VITE_BUILD_HASH || 'dev'}</span>
-            </footer>
-
             {selectedMatchForUltimateView && (
                 <UltimateMatchCenter 
                     match={selectedMatchForUltimateView} 

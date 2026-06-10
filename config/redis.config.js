@@ -17,21 +17,26 @@ class RedisConfig {
      */
     async connect() {
         try {
+            const redisUrl = process.env.REDIS_URL;
+            const options = redisUrl
+                ? { url: redisUrl }
+                : {
+                    host: process.env.REDIS_HOST || 'localhost',
+                    port: process.env.REDIS_PORT || 6379,
+                    password: process.env.REDIS_PASSWORD || undefined,
+                };
             this.client = new Redis({
-                host: process.env.REDIS_HOST || 'localhost',
-                port: process.env.REDIS_PORT || 6379,
-                password: process.env.REDIS_PASSWORD || undefined,
+                ...options,
                 retryStrategy: (times) => {
-                    // Stop retrying after 2 attempts if Redis is not available
                     if (times > 2) {
-                        return null; // Stop retrying
+                        return null;
                     }
                     return Math.min(times * 50, 2000);
                 },
                 maxRetriesPerRequest: 2,
                 enableReadyCheck: true,
-                lazyConnect: true, // Don't connect immediately
-                enableOfflineQueue: false // Don't queue commands when offline
+                lazyConnect: true,
+                enableOfflineQueue: false
             });
 
             this.client.on('connect', () => {

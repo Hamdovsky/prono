@@ -73,9 +73,20 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      # Redis cache (free Render Key Value)
+      - key: REDIS_URL
+        fromService:
+          name: prono-redis
+          type: kv
+          property: connectionString
       # Python FastAPI inference — public Render URL (free plan, no private network)
       - key: INFERENCE_URL
         value: https://prono-fastapi.onrender.com
+
+  # ── Redis Cache (Render Key Value, free 25MB) ─────────────────
+  - type: kv
+    name: prono-redis
+    plan: free
 
   # ── Python FastAPI Inference ────────────────────────────
   - type: web

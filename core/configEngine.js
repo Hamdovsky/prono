@@ -17,7 +17,7 @@ class ConfigEngine {
             SMART_SCAN_ENABLED: true,
             WEBHOOK_ENABLED: true,
             SYNC_PRIORITY: 'HIGH',
-            DEEP_NEWS_ENABLED: false // 🛡️ [SAFETY] Disabled to prevent timeouts during massive scans
+            DEEP_NEWS_ENABLED: process.env.DEEP_NEWS_ENABLED !== 'false'
         };
         this.load();
     }

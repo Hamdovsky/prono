@@ -10,12 +10,19 @@ class SupabaseService {
     this.connected = false
     this.pool = null
     this._syncTimer = null
+    this._lastError = null
 
     const url = process.env.SUPABASE_URL
+    const anonKey = process.env.SUPABASE_ANON_KEY
+
     if (!url || url.startsWith('CHANGER_MOI')) {
       logger.warn('⚠️ [SUPABASE] No connection URL — service disabled')
       this.enabled = false
       return
+    }
+
+    if (!anonKey || anonKey.startsWith('CHANGER_MOI')) {
+      logger.warn('⚠️ [SUPABASE] SUPABASE_ANON_KEY missing — connection may fail')
     }
 
     try {
@@ -29,7 +36,7 @@ class SupabaseService {
         ssl: { rejectUnauthorized: false },
         max: 5,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000
+        connectionTimeoutMillis: 15000
       }
       this.pool = new Pool(this._config)
       logger.info('✅ [SUPABASE] Pool created (resolving IPv4...)')
@@ -40,19 +47,27 @@ class SupabaseService {
   }
 
   isAvailable() {
-    return this.enabled && this.connected
+    if (!this.enabled || !this.pool) return false
+    if (this._lastError && !this.connected) return false
+    return true
   }
 
   async connect() {
-    if (!this.enabled || !this.pool) return false
+    if (!this.enabled || !this.pool) {
+      this._lastError = 'not initialized'
+      return false
+    }
     try {
       const client = await this.pool.connect()
       await client.query('SELECT 1')
       client.release()
       this.connected = true
+      this._lastError = null
       logger.info('✅ [SUPABASE] Connected successfully')
       return true
     } catch (e) {
+      this.connected = false
+      this._lastError = e.message
       if (e.message.includes('ENETUNREACH') && this._config?.host) {
         logger.warn(`⚠️ [SUPABASE] ENETUNREACH on ${this._config.host} — trying IPv4 resolution...`)
         try {
@@ -64,6 +79,7 @@ class SupabaseService {
             await client.query('SELECT 1')
             client.release()
             this.connected = true
+            this._lastError = null
             logger.info(`✅ [SUPABASE] Connected via IPv4: ${addrs[0]}`)
             return true
           }
@@ -71,7 +87,6 @@ class SupabaseService {
           logger.warn(`⚠️ [SUPABASE] IPv4 resolution failed: ${dnsErr.message}`)
         }
       }
-      this.connected = false
       logger.warn(`⚠️ [SUPABASE] Connection failed: ${e.message}`)
       return false
     }

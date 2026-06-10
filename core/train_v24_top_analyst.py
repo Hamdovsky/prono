@@ -17,7 +17,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from ml_features import extract_ml_features, FEATURE_NAMES_V24
+from ml_features import extract_ml_features, FEATURE_NAMES_V53, FEATURE_VOLATILITY
 from top_analyst_engine import process_match_for_top_analyst
 
 # Paths
@@ -52,7 +52,7 @@ def build_match_payload_from_row(row, base_feats):
     return match
 
 def load_data(limit=30000):
-    print("[DB] Loading historical data for V24 Top Analyst Retrospective Analysis...")
+    print("[DB] Loading historical data for V53 Top Analyst Retrospective Analysis...")
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     df = pd.read_sql(f"SELECT * FROM archive_matches WHERE stats_blob IS NOT NULL LIMIT {limit}", conn)
@@ -80,8 +80,8 @@ def load_data(limit=30000):
             # 4. Merge dictionaries
             full_feats = {**base_feats, **ta_feats}
             
-            # 5. Extract strictly by FEATURE_NAMES_V24 ordering
-            row_vector = [full_feats.get(f, 0.0) for f in FEATURE_NAMES_V24]
+            # 5. Extract strictly by FEATURE_NAMES_V53 ordering
+            row_vector = [full_feats.get(f, 0.0) for f in FEATURE_NAMES_V53]
             data.append(row_vector)
             
             # 6. Generate labels (0: Home, 1: Draw, 2: Away)
@@ -97,8 +97,8 @@ def load_data(limit=30000):
         except Exception as e:
             continue
             
-    print(f"[STATS] Extracted {valid_matches} rows with {len(FEATURE_NAMES_V24)} features successfully.")
-    return pd.DataFrame(data, columns=FEATURE_NAMES_V24), np.array(labels)
+    print(f"[STATS] Extracted {valid_matches} rows with {len(FEATURE_NAMES_V53)} features successfully.")
+    return pd.DataFrame(data, columns=FEATURE_NAMES_V53), np.array(labels)
 
 def objective_xgb(trial, X_train, y_train, X_val, y_val):
     params = {
@@ -109,17 +109,17 @@ def objective_xgb(trial, X_train, y_train, X_val, y_val):
         'max_depth': trial.suggest_int('max_depth', 3, 9),
         'subsample': trial.suggest_float('subsample', 0.6, 1.0),
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-        'n_estimators': trial.suggest_int('n_estimators', 100, 600)
+        'n_estimators': trial.suggest_int('n_estimators', 100, 600),
+        'early_stopping_rounds': 15
     }
     model = xgb.XGBClassifier(**params)
-    # [EARLY STOPPING FIX] Prevent overfitting on the training set
-    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False, early_stopping_rounds=15)
+    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
     preds = model.predict_proba(X_val)
     return log_loss(y_val, preds)
 
 def run_v24_upgrade():
     os.makedirs(os.path.join(BASE_DIR, 'models'), exist_ok=True)
-    print("[V24] Starting Automated Top Analyst Market Intelligence Model Training...")
+    print("[V53] Starting Automated Top Analyst Market Intelligence Model Training...")
     
     X, y = load_data()
     if len(X) < 100:
@@ -129,7 +129,7 @@ def run_v24_upgrade():
     X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
     X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
     
-    print("[OPTI] Optimizing XGBoost V24 with Optuna for max Sharp Money detection accuracy...")
+    print("[OPTI] Optimizing XGBoost V53 with Optuna for max Sharp Money detection accuracy...")
     try:
         optuna.logging.set_verbosity(optuna.logging.WARNING)
         study_xgb = optuna.create_study(direction='minimize')
@@ -146,6 +146,7 @@ def run_v24_upgrade():
     
     best_params['objective'] = 'multi:softprob'
     best_params['num_class'] = 3
+    best_params['early_stopping_rounds'] = 20
     best_xgb = xgb.XGBClassifier(**best_params)
     
     # [CLASS IMBALANCE FIX] Compute weights so Away Wins and Draws teach the model equally
@@ -156,8 +157,7 @@ def run_v24_upgrade():
         X_train, y_train, 
         sample_weight=weights, 
         eval_set=[(X_val, y_val)], 
-        verbose=False, 
-        early_stopping_rounds=20
+        verbose=False
     )
     
     # 4. Accuracy Assessment
@@ -165,9 +165,9 @@ def run_v24_upgrade():
     acc = accuracy_score(y_test, y_pred)
     print(f"[MODEL] V24 Top Analyst XGBoost Accuracy: {acc*100:.2f}%")
     
-    # 5. Save Model
-    best_xgb.save_model(MODEL_XGB_PATH)
-    print(f"[DISK] V24 Model saved successfully at {os.path.basename(MODEL_XGB_PATH)}")
+    # 5. Save Model (use booster to avoid sklearn wrapper bug)
+    best_xgb.get_booster().save_model(MODEL_XGB_PATH)
+    print(f"[DISK] V53 Model saved successfully at {os.path.basename(MODEL_XGB_PATH)}")
     
     # 6. SHAP Explanability Update for V24 Dashboard
     try:
@@ -180,9 +180,9 @@ def run_v24_upgrade():
         shap_values = explainer(X_train.head(500))
         mean_abs_shap = np.abs(shap_values.values).mean(axis=(0, 2))
         top_indices = np.argsort(mean_abs_shap)[::-1][:10]
-        print("\n[TOP10] TOP 10 INFLUENCERS IN V24 MODEL")
+        print("\n[TOP10] TOP 10 INFLUENCERS IN V53 MODEL")
         for idx in top_indices:
-            print(f"   -> {FEATURE_NAMES_V24[idx]} (Importance: {mean_abs_shap[idx]:.4f})")
+            print(f"   -> {FEATURE_NAMES_V53[idx]} (Importance: {mean_abs_shap[idx]:.4f})")
     except Exception as e:
         print("[WARN] SHAP evaluation skipped or failed: ", e)
 

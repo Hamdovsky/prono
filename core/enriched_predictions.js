@@ -83,6 +83,27 @@ class EnrichedPredictionService {
             match = Schemas.validateMatch(match);
             trace.step('Normalization');
 
+            // 0.1 Weather Enrichment (if missing)
+            if (!match.weather_temp || !match.weather_desc) {
+                try {
+                    const weatherService = require('../services/weatherService');
+                    if (weatherService.isAvailable()) {
+                        const countryMap = { EN: 'London', ES: 'Madrid', IT: 'Rome', DE: 'Berlin', FR: 'Paris', PT: 'Lisbon', NL: 'Amsterdam', BE: 'Brussels', TR: 'Istanbul', GR: 'Athens', RU: 'Moscow', SA: 'Riyadh' }
+                        const iso = (match.country_iso || '').toUpperCase()
+                        let city = countryMap[iso] || match.category_name || ''
+                        if (city) {
+                            const w = await weatherService.fetchByCity(city)
+                            const info = weatherService.extractWeatherInfo(w)
+                            if (info) {
+                                match.weather_temp = info.temp
+                                match.weather_desc = info.description
+                                match.weather_humidity = info.humidity
+                            }
+                        }
+                    }
+                } catch (_) {}
+            }
+
             // 1. Parallel Task Execution (News, Odds, Environmental)
             trace.step('Parallel enrichment start');
             

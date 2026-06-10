@@ -1,216 +1,387 @@
+/* ═══════════════════════════════════════════════════════════════════
+   NEURAL COMMAND CENTER v5 — GLASSMORPHISM PREMIUM DESIGN
+   ═══════════════════════════════════════════════════════════════════ */
+
 .intel-container {
-    padding: 24px;
-    background: #02040a;
+    padding: 28px;
+    background: linear-gradient(145deg, #02040a 0%, #060c18 60%, #020a14 100%);
     color: #f8fafc;
-    border-radius: 12px;
+    border-radius: 16px;
     font-family: 'JetBrains Mono', monospace;
-    border: 1px solid #1e293b;
-    box-shadow: 0 0 40px rgba(0, 255, 170, 0.05);
+    border: 1px solid rgba(0, 255, 170, 0.12);
+    box-shadow: 
+        0 0 60px rgba(0, 255, 170, 0.04),
+        0 0 120px rgba(56, 189, 248, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
     position: relative;
     overflow: hidden;
 }
 
-/* --- NEURAL SCANLINE EFFECT --- */
+/* Animated scanline overlay */
+.intel-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 255, 170, 0.012) 2px,
+        rgba(0, 255, 170, 0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Moving scanline beam */
 .intel-container::after {
     content: "";
     position: absolute;
-    top: 0; left: 0; width: 100%; height: 2px;
-    background: rgba(0, 255, 170, 0.1);
-    animation: neural-scan 4s linear infinite;
+    top: -2px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 170, 0.4), rgba(56, 189, 248, 0.3), transparent);
+    animation: neural-scan 5s linear infinite;
     pointer-events: none;
+    z-index: 1;
 }
 
 @keyframes neural-scan {
-    0% { top: 0; }
-    100% { top: 100%; }
+    0%   { top: -2px; opacity: 0; }
+    5%   { opacity: 1; }
+    95%  { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
 }
 
+/* Ensure content is above overlays */
+.intel-container > * {
+    position: relative;
+    z-index: 2;
+}
+
+/* ── HEADER ── */
 .intel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
-    border-bottom: 1px solid #1e293b;
-    padding-bottom: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .intel-header h2 {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 900;
     margin: 0;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    background: linear-gradient(90deg, #00ffaa, #38bdf8);
+    letter-spacing: 3px;
+    background: linear-gradient(90deg, #00ffaa 0%, #38bdf8 50%, #818cf8 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .uptime-pill {
-    background: rgba(0, 255, 170, 0.1);
+    background: rgba(0, 255, 170, 0.08);
     color: #00ffaa;
-    padding: 4px 12px;
+    padding: 5px 14px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
     border: 1px solid rgba(0, 255, 170, 0.2);
+    text-transform: uppercase;
+    box-shadow: 0 0 12px rgba(0, 255, 170, 0.08);
+    animation: uptime-breathe 3s ease-in-out infinite;
 }
 
+@keyframes uptime-breathe {
+    0%, 100% { box-shadow: 0 0 8px rgba(0, 255, 170, 0.08); }
+    50%       { box-shadow: 0 0 18px rgba(0, 255, 170, 0.18); }
+}
+
+/* ── GRID ── */
 .intel-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
+    gap: 18px;
+    margin-bottom: 20px;
 }
 
+/* ── CARDS (GLASSMORPHISM) ── */
 .intel-card {
-    background: #0a0f18;
-    border: 1px solid #1e293b;
-    border-radius: 8px;
-    padding: 18px;
+    background: rgba(10, 15, 30, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    padding: 20px;
     position: relative;
-    transition: all 0.3s;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+/* Subtle gradient top border accent */
+.intel-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 170, 0.3), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
 }
 
 .intel-card:hover {
-    border-color: #00ffaa66;
-    box-shadow: 0 0 20px rgba(0, 255, 170, 0.1);
+    border-color: rgba(0, 255, 170, 0.2);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 24px rgba(0, 255, 170, 0.07);
+    transform: translateY(-2px);
+}
+
+.intel-card:hover::before {
+    opacity: 1;
 }
 
 .intel-card h3 {
-    font-size: 0.85rem;
-    margin: 0 0 16px 0;
-    color: #64748b;
+    font-size: 0.75rem;
+    margin: 0 0 18px 0;
+    color: #475569;
     display: flex;
     align-items: center;
     gap: 8px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
+    font-weight: 700;
 }
 
 .intel-stat-main {
-    font-size: 1.8rem;
+    font-size: 2rem;
     font-weight: 900;
     margin-bottom: 4px;
     color: #f1f5f9;
+    line-height: 1;
+    letter-spacing: -0.5px;
 }
 
 .stat-label {
     font-size: 10px;
-    color: #475569;
+    color: #334155;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
+    margin-top: 4px;
+    line-height: 1.4;
 }
 
-/* AI Workers (Neural Nodes) */
+/* ── AI WORKER POOL (NODE CLUSTER) ── */
 .worker-pool {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
-    margin-top: 15px;
+    margin-top: 16px;
 }
 
 .worker-node {
-    background: #020617;
-    padding: 8px;
-    border-radius: 4px;
+    background: rgba(2, 6, 23, 0.8);
+    padding: 10px 6px;
+    border-radius: 8px;
     text-align: center;
-    border: 1px solid #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.05);
     position: relative;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
 }
 
 .worker-node.busy {
-    border-color: #00ffaa;
-    box-shadow: 0 0 10px rgba(0, 255, 170, 0.2);
+    border-color: rgba(0, 255, 170, 0.3);
+    background: rgba(0, 255, 170, 0.04);
+    box-shadow: 0 0 12px rgba(0, 255, 170, 0.12);
 }
 
+.worker-node span {
+    font-size: 8px;
+    font-weight: 700;
+    color: #334155;
+    letter-spacing: 0.5px;
+}
+
+.worker-node.busy span {
+    color: rgba(0, 255, 170, 0.7);
+}
+
+/* Glowing status dot */
 .node-status {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: #334155;
-    margin: 0 auto 4px;
+    background: rgba(51, 65, 85, 0.8);
+    position: relative;
+    transition: all 0.3s;
 }
 
 .busy .node-status {
     background: #00ffaa;
-    box-shadow: 0 0 8px #00ffaa;
-    animation: neural-pulse 1s infinite;
+    box-shadow: 
+        0 0 6px #00ffaa,
+        0 0 12px rgba(0, 255, 170, 0.5);
+    animation: node-pulse 1.2s ease-in-out infinite;
 }
 
-@keyframes neural-pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.5); opacity: 0.5; }
-    100% { transform: scale(1); opacity: 1; }
+/* Idle nodes get a subtle idle glow */
+.worker-node:not(.busy) .node-status {
+    background: #1e293b;
 }
 
-/* Telemetry (Neural Signal) */
+@keyframes node-pulse {
+    0%   { transform: scale(1);   box-shadow: 0 0 6px #00ffaa, 0 0 12px rgba(0,255,170,0.5); }
+    50%  { transform: scale(1.6); box-shadow: 0 0 10px #00ffaa, 0 0 22px rgba(0,255,170,0.3); }
+    100% { transform: scale(1);   box-shadow: 0 0 6px #00ffaa, 0 0 12px rgba(0,255,170,0.5); }
+}
+
+/* Staggered animation delays for worker nodes */
+.worker-node:nth-child(1).busy .node-status { animation-delay: 0ms; }
+.worker-node:nth-child(2).busy .node-status { animation-delay: 150ms; }
+.worker-node:nth-child(3).busy .node-status { animation-delay: 300ms; }
+.worker-node:nth-child(4).busy .node-status { animation-delay: 450ms; }
+
+/* ── TELEMETRY BAR (SPARKLINE) ── */
 .telemetry-bar {
-    height: 50px;
+    height: 56px;
     display: flex;
     align-items: flex-end;
-    gap: 3px;
-    background: rgba(0,0,0,0.3);
-    padding: 6px;
-    border-radius: 4px;
-    margin-top: 10px;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 8px 6px 6px;
+    border-radius: 8px;
+    margin-top: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .telemetry-pill {
     flex: 1;
-    background: #1e293b;
-    border-radius: 1px;
+    border-radius: 2px 2px 0 0;
     min-height: 2px;
-    transition: height 0.3s ease;
+    transition: height 0.4s ease, background 0.3s;
+    opacity: 0.85;
 }
 
-.telemetry-pill.active { background: #00ffaa; }
-.telemetry-pill.warn { background: #f59e0b; }
-.telemetry-pill.danger { background: #ef4444; }
+.telemetry-pill.active {
+    background: linear-gradient(180deg, #00ffaa, rgba(0, 255, 170, 0.5));
+    box-shadow: 0 0 4px rgba(0, 255, 170, 0.4);
+}
+.telemetry-pill.warn {
+    background: linear-gradient(180deg, #f59e0b, rgba(245, 158, 11, 0.5));
+    box-shadow: 0 0 4px rgba(245, 158, 11, 0.3);
+}
+.telemetry-pill.danger {
+    background: linear-gradient(180deg, #ef4444, rgba(239, 68, 68, 0.5));
+    box-shadow: 0 0 4px rgba(239, 68, 68, 0.3);
+}
 
-/* Strategy Controls */
+/* ── STRATEGY BUTTONS ── */
 .strategy-controls {
     display: flex;
-    gap: 6px;
-    margin-top: 15px;
+    gap: 8px;
+    margin-top: 18px;
 }
 
 .strategy-btn {
     flex: 1;
-    padding: 6px;
-    border-radius: 4px;
-    background: #020617;
-    border: 1px solid #1e293b;
+    padding: 8px 6px;
+    border-radius: 6px;
+    background: rgba(2, 6, 23, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.07);
     color: #475569;
     cursor: pointer;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 800;
-    transition: all 0.2s;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: 'JetBrains Mono', monospace;
 }
 
 .strategy-btn:hover {
-    border-color: #38bdf8;
+    border-color: rgba(56, 189, 248, 0.4);
     color: #38bdf8;
+    background: rgba(56, 189, 248, 0.06);
 }
 
 .strategy-btn.active {
-    background: rgba(0, 255, 170, 0.1);
+    background: rgba(0, 255, 170, 0.08);
     color: #00ffaa;
-    border-color: #00ffaa;
+    border-color: rgba(0, 255, 170, 0.35);
+    box-shadow: 0 0 12px rgba(0, 255, 170, 0.1);
 }
 
-/* Console Logs Simulation */
+/* ── NEURAL CONSOLE ── */
 .neural-console {
-    margin-top: 20px;
-    background: #000;
-    padding: 10px;
-    border-radius: 4px;
-    height: 100px;
-    overflow-y: hidden;
-    font-size: 9px;
+    margin-top: 22px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 14px 16px;
+    border-radius: 10px;
+    height: 110px;
+    overflow: hidden;
+    font-size: 9.5px;
     color: #10b981;
-    border: 1px solid #111;
+    border: 1px solid rgba(16, 185, 129, 0.12);
+    box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.4);
+    position: relative;
+}
+
+.neural-console::before {
+    content: "▸ NEURAL CONSOLE OUTPUT";
+    display: block;
+    font-size: 8px;
+    color: #1e3a2a;
+    font-weight: 900;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
 }
 
 .console-line {
-    margin-bottom: 4px;
-    opacity: 0.8;
+    margin-bottom: 5px;
+    opacity: 0.85;
+    line-height: 1.5;
+    letter-spacing: 0.3px;
+    animation: console-fadein 0.4s ease;
+}
+
+.console-line:last-child {
+    color: #34d399;
+    opacity: 1;
+}
+
+@keyframes console-fadein {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 0.85; transform: translateY(0); }
+}
+
+/* Intel loading state */
+.intel-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    font-size: 11px;
+    color: #00ffaa;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+    opacity: 0.7;
+    animation: loading-flicker 1.5s ease-in-out infinite;
+}
+
+@keyframes loading-flicker {
+    0%, 100% { opacity: 0.7; }
+    50%       { opacity: 0.3; }
 }

@@ -4,6 +4,7 @@ import numpy as np
 import xgboost as xgb
 import json
 import os
+import optuna
 import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error
@@ -30,28 +31,19 @@ def load_data(limit=15000):
 
     for _, row in df_raw.iterrows():
         try:
-            stats = json.loads(row['stats_blob'])
+            # Read corners from dedicated columns (archive schema has home_corners/away_corners)
+            home_corners_actual = float(row.get('home_corners') or 0)
+            away_corners_actual = float(row.get('away_corners') or 0)
             
-            # Ground Truth Extraction for Corners and Cards
-            home_corners_actual = 0
-            away_corners_actual = 0
+            # Read cards from stats_blob (flat JSON object format)
             home_cards_actual = 0
             away_cards_actual = 0
-            
-            for item in stats:
-                cat = item.get('category', 'Unknown')
-                val_h = float(item.get('homeValue', 0) if str(item.get('homeValue', '0')).replace('.', '').isdigit() else 0)
-                val_a = float(item.get('awayValue', 0) if str(item.get('awayValue', '0')).replace('.', '').isdigit() else 0)
-                
-                if cat == 'Corner kicks':
-                    home_corners_actual = val_h
-                    away_corners_actual = val_a
-                elif cat == 'Yellow cards':
-                    home_cards_actual += val_h
-                    away_cards_actual += val_a
-                elif cat == 'Red cards':
-                    home_cards_actual += (val_h * 2) # Arbitrary weight mapping for regressor
-                    away_cards_actual += (val_a * 2)
+            stats_raw = row.get('stats_blob')
+            if stats_raw:
+                stats = json.loads(stats_raw) if isinstance(stats_raw, str) else stats_raw
+                if isinstance(stats, dict):
+                    home_cards_actual = float(stats.get('yellow_cards_home', 0)) + float(stats.get('red_cards_home', 0)) * 2
+                    away_cards_actual = float(stats.get('yellow_cards_away', 0)) + float(stats.get('red_cards_away', 0)) * 2
 
             # Skip matches with 0 corners total (highly likely missing data)
             if (home_corners_actual + away_corners_actual) == 0:
@@ -80,22 +72,46 @@ def load_data(limit=15000):
     print(f"✅ Extracted {len(X)} valid training matches.")
     return X, y_cor, y_car
 
+def objective_reg(trial, X_train, y_train, X_val, y_val):
+    params = {
+        'objective': 'reg:squarederror',
+        'eval_metric': 'mae',
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2),
+        'max_depth': trial.suggest_int('max_depth', 3, 9),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'n_estimators': trial.suggest_int('n_estimators', 100, 500),
+        'early_stopping_rounds': 15
+    }
+    model = xgb.XGBRegressor(**params)
+    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+    preds = model.predict(X_val)
+    return mean_absolute_error(y_val, preds)
+
 def train_regressor(X, y, name, save_path):
     print(f"\n⚙️ Training Regressor for: {name}")
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15, random_state=42)
+    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
+    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
     
-    model = xgb.XGBRegressor(
-        objective='reg:squarederror',
-        n_estimators=150,
-        learning_rate=0.08,
-        max_depth=5,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        random_state=42,
-        n_jobs=-1
-    )
+    # Optuna optimization
+    print(f"🔍 Optimizing {name} with Optuna...")
+    try:
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        study = optuna.create_study(direction='minimize')
+        study.optimize(lambda t: objective_reg(t, X_train, y_train, X_val, y_val), n_trials=10)
+        print(f"   Best MAE: {study.best_value:.2f}")
+        best_params = study.best_params
+    except Exception as e:
+        print(f"   Optuna failed ({e}), using defaults")
+        best_params = {
+            'learning_rate': 0.08, 'max_depth': 5, 'subsample': 0.8,
+            'colsample_bytree': 0.8, 'n_estimators': 150
+        }
     
-    model.fit(X_train, y_train)
+    best_params['objective'] = 'reg:squarederror'
+    best_params['early_stopping_rounds'] = 20
+    model = xgb.XGBRegressor(**best_params)
+    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
     
     preds = model.predict(X_test)
     rmse = np.sqrt(mean_squared_error(y_test, preds))
@@ -104,9 +120,9 @@ def train_regressor(X, y, name, save_path):
     print(f"🎯 {name} MAE (Average Error): ±{mae:.2f}")
     print(f"🎯 {name} RMSE: {rmse:.2f}")
     
-    # Save the model
+    # Save the model (use booster to avoid sklearn wrapper bug)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    model.save_model(save_path)
+    model.get_booster().save_model(save_path)
     print(f"💾 Model saved to: {save_path}")
 
 def main():

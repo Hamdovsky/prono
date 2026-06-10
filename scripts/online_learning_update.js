@@ -8,7 +8,8 @@ const DB_PATH = path.join(__dirname, '..', 'data', 'historical_archive.sqlite')
 const STATE_FILE = path.join(__dirname, '..', 'data', 'online_learning_state.json')
 const LOG_FILE = path.join(__dirname, '..', 'data', 'online_learning_log.json')
 const AUDIT_SCRIPT = path.join(__dirname, 'audit_performance.py')
-const PYTHON = path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe')
+const PYTHON_WIN = path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe')
+const PYTHON_NIX = path.join(__dirname, '..', '.venv', 'bin', 'python3')
 
 function getLastLearnedId() {
   try {
@@ -40,9 +41,15 @@ function sendTelegram(message) {
   } catch (_) {}
 }
 
+function resolvePython() {
+  if (fs.existsSync(PYTHON_WIN)) return PYTHON_WIN
+  if (fs.existsSync(PYTHON_NIX)) return PYTHON_NIX
+  return 'python3'
+}
+
 function runAudit() {
   return new Promise((resolve) => {
-    const pythonExe = fs.existsSync(PYTHON) ? PYTHON : 'python'
+    const pythonExe = resolvePython()
     const proc = spawn(pythonExe, [AUDIT_SCRIPT, '--last', '50'], {
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
       windowsHide: true
@@ -79,7 +86,7 @@ async function runOnlineUpdate() {
       return
     }
 
-    logger.info(`📈 [ONLINE-LEARNING] Feeding ${matches.length} matches to V23 Hybrid hemispheres...`)
+    logger.info(`📈 [ONLINE-LEARNING] Feeding ${matches.length} matches to V54 incremental update...`)
 
     const tmpDir = path.join(__dirname, '..', 'data')
     const dataPath = path.join(tmpDir, `online_batch_${Date.now()}.json`)
@@ -89,11 +96,16 @@ async function runOnlineUpdate() {
 
     const pyScript = `import json, sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'core'))
-import pandas as pd
-import numpy as np
-from train_v23_hybrid_ultra import incremental_update, FEATURE_NAMES
-from ml_features import extract_ml_features
+try:
+    import pandas as pd
+    import numpy as np
+    import xgboost as xgb
+    from ml_features import extract_ml_features, FEATURE_NAMES_V54
+except ImportError as e:
+    print(f"MISSING_DEP:{e}")
+    sys.exit(2)
 
+MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v24_hybrid.json')
 data_path = sys.argv[1]
 with open(data_path) as f:
     matches = json.load(f)
@@ -102,7 +114,7 @@ data, labels = [], []
 for row in matches:
     try:
         feats = extract_ml_features(row, fetch_history=False)
-        data.append([feats.get(f, 0) for f in FEATURE_NAMES])
+        data.append([feats.get(f, 0) for f in FEATURE_NAMES_V54])
         hg, ag = row['scoreHome'], row['scoreAway']
         if hg > ag: labels.append(0)
         elif hg == ag: labels.append(1)
@@ -111,15 +123,24 @@ for row in matches:
         print(f"Skipping match {row.get('id', '?')}: {e}")
         continue
 
-if data:
-    incremental_update(pd.DataFrame(data, columns=FEATURE_NAMES), np.array(labels))
+if data and os.path.exists(MODEL_PATH):
+    X_new = pd.DataFrame(data, columns=FEATURE_NAMES_V54)
+    y_new = np.array(labels)
+    old_booster = xgb.Booster()
+    old_booster.load_model(MODEL_PATH)
+    dnew = xgb.DMatrix(X_new, label=y_new, feature_names=FEATURE_NAMES_V54)
+    updated = xgb.train({'objective': 'multi:softprob', 'num_class': 3, 'eval_metric': 'mlogloss'},
+                        dnew, num_boost_round=10, xgb_model=old_booster)
+    updated.save_model(MODEL_PATH)
     print("SUCCESS")
-else:
+elif not data:
     print("NO_DATA")
+else:
+    print(f"MODEL_MISSING:{MODEL_PATH}")
 `
     fs.writeFileSync(scriptPath, pyScript)
 
-    const pythonExe = fs.existsSync(PYTHON) ? PYTHON : 'python'
+    const pythonExe = resolvePython()
 
     const pyProcess = spawn(pythonExe, [scriptPath, dataPath], {
       cwd: path.join(__dirname, '..'),

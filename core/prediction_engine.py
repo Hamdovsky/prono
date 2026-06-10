@@ -1847,6 +1847,27 @@ def process_prediction(match_obj: dict) -> dict:
                 except Exception as _v4_err:
                     sys.stderr.write(f"⚠️ [V4-Ensemble] {_v4_err}\n")
 
+            # --- PREDIXSPORT ENSEMBLE ---
+            # Blend external API predictions for top-5 leagues
+            _predixsport = match_obj.get('predixsport', None)
+            _ps_home = _safe_float(_predixsport.get('home_win') if isinstance(_predixsport, dict) else None, None)
+            _ps_draw = _safe_float(_predixsport.get('draw') if isinstance(_predixsport, dict) else None, None)
+            _ps_away = _safe_float(_predixsport.get('away_win') if isinstance(_predixsport, dict) else None, None)
+            if _ps_home and _ps_draw and _ps_away and _ps_home + _ps_draw + _ps_away > 0:
+                ps_sum = _ps_home + _ps_draw + _ps_away
+                _ps_home /= ps_sum
+                _ps_draw /= ps_sum
+                _ps_away /= ps_sum
+                ps_weight = 0.20  # 20% weight for external model signal
+                p_h_ai = (p_h_ai * (1.0 - ps_weight)) + (_ps_home * ps_weight)
+                p_d_ai = (p_d_ai * (1.0 - ps_weight)) + (_ps_draw * ps_weight)
+                p_a_ai = (p_a_ai * (1.0 - ps_weight)) + (_ps_away * ps_weight)
+                s_ps = p_h_ai + p_d_ai + p_a_ai
+                if s_ps > 0:
+                    p_h_ai, p_d_ai, p_a_ai = p_h_ai/s_ps, p_d_ai/s_ps, p_a_ai/s_ps
+                ai_source += "+PredixSport"
+                analysis["PredixSport"] = f"External model blend (20%): H={_ps_home:.3f} D={_ps_draw:.3f} A={_ps_away:.3f}"
+
             # --- SHAP-LITE EXPLAINABILITY ---
             # Get feature contributions for the main prediction
             xgb = get_xgb()

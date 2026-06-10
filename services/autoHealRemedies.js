@@ -341,6 +341,74 @@ class AutoHealRemedies {
       },
 
       {
+        id: 'bigballsdata_api_down',
+        severity: 'info',
+        description: 'Big Balls Data API inaccessible',
+        check: async () => {
+          try {
+            const svc = require('./bigBallsDataService')
+            if (!svc.enabled) return { detected: false }
+            const sports = await svc.getSports()
+            if (!sports || sports.length === 0) return { detected: true, detail: 'No response from API' }
+            return { detected: false }
+          } catch (e) {
+            return { detected: false }
+          }
+        },
+        fix: async () => {
+          const svc = require('./bigBallsDataService')
+          svc._authFailed = false
+          svc._quotaExhausted = false
+          return { success: true, detail: 'BigBallsData flags reset' }
+        }
+      },
+
+      {
+        id: 'oddsapiio_api_down',
+        severity: 'info',
+        description: 'Odds-API.io inaccessible',
+        check: async () => {
+          try {
+            const svc = require('./oddsApiIoService')
+            if (!svc.enabled) return { detected: false }
+            const events = await svc.getEvents('football', 'live', 1)
+            if (events === null) return { detected: true, detail: 'No response from API' }
+            return { detected: false }
+          } catch (e) {
+            return { detected: false }
+          }
+        },
+        fix: async () => {
+          const svc = require('./oddsApiIoService')
+          svc._quotaExhausted = false
+          return { success: true, detail: 'OddsAPIio flags reset' }
+        }
+      },
+
+      {
+        id: 'predixsport_api_down',
+        severity: 'info',
+        description: 'PredixSport API inaccessible',
+        check: async () => {
+          try {
+            const svc = require('./predixSportService')
+            if (!svc.enabled) return { detected: false }
+            const matches = await svc.fetchUpcoming(1)
+            if (!Array.isArray(matches)) return { detected: true, detail: 'No response from API' }
+            return { detected: false }
+          } catch (e) {
+            return { detected: false }
+          }
+        },
+        fix: async () => {
+          const svc = require('./predixSportService')
+          svc._authFailed = false
+          svc._quotaExhausted = false
+          return { success: true, detail: 'PredixSport flags reset — will retry on next call' }
+        }
+      },
+
+      {
         id: 'error_log_burst',
         severity: 'warning',
         description: 'High error rate detected in logs',

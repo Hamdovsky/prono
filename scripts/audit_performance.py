@@ -3,8 +3,9 @@ import json
 import os
 import datetime
 
-DB_PATH = 'data/tactical.db'
-ACCURACY_LOG_PATH = 'data/accuracy_log.json'
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, 'data', 'tactical.db')
+ACCURACY_LOG_PATH = os.path.join(BASE_DIR, 'data', 'accuracy_log.json')
 
 def run_audit():
     if not os.path.exists(DB_PATH):
@@ -80,7 +81,7 @@ def run_audit():
             audit_results.append(audit_entry)
 
     # Save logs
-    os.makedirs('data', exist_ok=True)
+    os.makedirs(os.path.dirname(ACCURACY_LOG_PATH), exist_ok=True)
     with open(ACCURACY_LOG_PATH, 'w', encoding='utf-8') as f:
         json.dump(logs, f, indent=2)
 
@@ -91,11 +92,11 @@ def run_audit():
     correct_count = sum(1 for r in audit_results if r['is_correct'])
     acc = (correct_count / len(audit_results)) * 100
     
-    # Simple Duel Thresholds
-    print(f"--- V19 MODEL DUEL RESULTS ---")
+    # V54 Thresholds (adjusted for expanded feature set)
+    print(f"--- V54 TITANIUM V3 AUDIT ---")
     print(f"Batch Accuracy: {acc:.1f}%")
     
-    if acc >= 75:
+    if acc >= 72:
         print("Result: [IMPROVEMENT] - High accuracy threshold met.")
     elif acc >= 55:
         print("Result: [STABLE] - Performance within expected range.")

@@ -10,19 +10,17 @@ import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, log_loss
 
-# Ensure paths correctly resolve to the core functionality
 import sys
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from ml_features import extract_ml_features, FEATURE_NAMES_V53, FEATURE_VOLATILITY
+from ml_features import extract_ml_features, FEATURE_NAMES_V54, FEATURE_VOLATILITY
 from top_analyst_engine import process_match_for_top_analyst
 
-# Paths
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'data', 'historical_archive.sqlite')
-MODEL_XGB_PATH = os.path.join(BASE_DIR, 'models', 'stitch_v24_hybrid.json') # Same file to replace
+MODEL_XGB_PATH = os.path.join(BASE_DIR, 'models', 'stitch_v24_hybrid.json')
 SHAP_EXPLAINER_PATH = os.path.join(BASE_DIR, 'models', 'shap_explainer_v24.pkl')
 
 def build_match_payload_from_row(row, base_feats):
@@ -46,53 +44,39 @@ def build_match_payload_from_row(row, base_feats):
     return match
 
 def load_data(limit=30000):
-    print(f"[V53] Loading historical data for REHAB (V51/V52 Features Active)...")
+    print(f"[V54] Loading historical data for V54 (Enhanced Passing, Duels, Defensive Against)...")
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     df = pd.read_sql(f"SELECT * FROM archive_matches WHERE scoreHome IS NOT NULL LIMIT {limit}", conn)
     conn.close()
-    
+
     data, labels = [], []
     valid_matches = 0
-    
+
     for i, row in df.iterrows():
         try:
             row_dict = dict(row)
-            # 1. Extract base features while passing the row which now has h2h_data etc.
-            base_feats = extract_ml_features(row_dict, fetch_history=False)
-            
-            # 2. Build pseudo-live match payload for Top Analyst
+            base_feats = extract_ml_features(row_dict, fetch_history=True, current_match_ts=row_dict.get('startTimestamp'))
             match_payload = build_match_payload_from_row(row, base_feats)
-            
-            # 3. Process through Top Analyst to get the market/sentiment features
             ta_result = process_match_for_top_analyst(match_payload)
             ta_feats = ta_result.get('ml_features', {})
-            
-            # 4. Merge dictionaries
             full_feats = {**base_feats, **ta_feats}
-            
-            # 5. Extract strictly by FEATURE_NAMES_V53 ordering
-            row_vector = [full_feats.get(f, 0.0) for f in FEATURE_NAMES_V53]
+            row_vector = [full_feats.get(f, 0.0) for f in FEATURE_NAMES_V54]
             data.append(row_vector)
-            
-            # 6. Generate labels (0: Home, 1: Draw, 2: Away)
             hg, ag = row['scoreHome'], row['scoreAway']
             if hg > ag: labels.append(0)
             elif hg == ag: labels.append(1)
             else: labels.append(2)
-            
             valid_matches += 1
             if valid_matches % 500 == 0:
                 print(f"   ... Processed {valid_matches} records.")
-                
         except Exception as e:
             continue
-            
-    print(f"[STATS] Extracted {valid_matches} rows with {len(FEATURE_NAMES_V53)} features.")
-    return pd.DataFrame(data, columns=FEATURE_NAMES_V53), np.array(labels)
+
+    print(f"[STATS] Extracted {valid_matches} rows with {len(FEATURE_NAMES_V54)} features.")
+    return pd.DataFrame(data, columns=FEATURE_NAMES_V54), np.array(labels)
 
 def noise_augment(X, y, noise_levels, rng=None):
-    """Augment training data with Gaussian noise matching inference volatility."""
     if rng is None:
         rng = np.random.default_rng(42)
     X_aug = X.copy()
@@ -101,69 +85,82 @@ def noise_augment(X, y, noise_levels, rng=None):
         vol = noise_levels[i]
         if vol > 0:
             noise = rng.normal(0, vol, n_samples)
-            # Only noise non-binary features (same guard as simulate_match_mc)
-            X_aug[:, i] *= np.where((X[:, i] != 0) & (X[:, i] != 1), 1.0 + noise, 1.0)
+            mask = (X[:, i] != 0) & (X[:, i] != 1)
+            X_aug[:, i] = np.where(mask, X[:, i] * (1.0 + noise), X[:, i])
     return np.vstack([X, X_aug]), np.concatenate([y, y])
 
+def run_v54_training():
+    print("[V54] Starting V54 Enhanced Model Training with Optuna...")
 
-def run_v53_training():
-    print("[REHAB] Starting V53 Market & H2H Intelligence Model Training...")
-    
     X, y = load_data()
     if len(X) < 100:
-        print("[FAIL] Not enough data to train V53.")
+        print("[FAIL] Not enough data to train V54.")
         return
-        
+
     X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
     X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
-    # Noise augmentation: match inference-time volatility
-    noise_levels = [FEATURE_VOLATILITY.get(f, 0.05) for f in FEATURE_NAMES_V53]
+    noise_levels = [FEATURE_VOLATILITY.get(f, 0.05) for f in FEATURE_NAMES_V54]
     X_train_aug, y_train_aug = noise_augment(X_train.values, y_train, noise_levels)
-    print(f"[AUG] Training set: {len(X_train)} → {len(X_train_aug)} (noise augmentation applied)")
+    print(f"[AUG] Training set: {len(X_train)} -> {len(X_train_aug)} (noise augmentation applied)")
 
-    # Convert eval sets to numpy to avoid XGBoost feature name mismatch with augmented training data
     X_val_np = X_val.values if hasattr(X_val, 'values') else X_val
     y_val_np = y_val.values if hasattr(y_val, 'values') else y_val
 
-    print("[OPTI] Tuning V53 features with XGBoost...")
-    # Standard high-performance params for XGBoost (skipping Optuna for speed during reboot)
-    best_params = {
-        'objective': 'multi:softprob', 'num_class': 3,
-        'learning_rate': 0.03, 'max_depth': 7, 'subsample': 0.85,
-        'colsample_bytree': 0.85, 'n_estimators': 450,
-        'random_state': 42,
-        'early_stopping_rounds': 50
-    }
-    
+    print("[OPTI] Tuning V54 with Optuna...")
+
+    def objective(trial):
+        params = {
+            'objective': 'multi:softprob',
+            'num_class': 3,
+            'learning_rate': trial.suggest_float('learning_rate', 0.005, 0.06, log=True),
+            'max_depth': trial.suggest_int('max_depth', 5, 10),
+            'subsample': trial.suggest_float('subsample', 0.65, 0.95),
+            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.65, 0.95),
+            'min_child_weight': trial.suggest_int('min_child_weight', 1, 6),
+            'reg_alpha': trial.suggest_float('reg_alpha', 0.0, 1.0),
+            'reg_lambda': trial.suggest_float('reg_lambda', 0.0, 2.0),
+            'early_stopping_rounds': 50,
+            'random_state': 42,
+            'n_estimators': trial.suggest_int('n_estimators', 350, 700),
+            'eval_metric': 'mlogloss'
+        }
+        model = xgb.XGBClassifier(**params)
+        model.fit(X_train_aug, y_train_aug, eval_set=[(X_val_np, y_val_np)], verbose=False)
+        preds = model.predict_proba(X_val_np)
+        return log_loss(y_val_np, preds)
+
+    study = optuna.create_study(direction='minimize', sampler=optuna.samplers.TPESampler(seed=42))
+    study.optimize(objective, n_trials=25, show_progress_bar=True)
+
+    best_params = study.best_params
+    best_params.update({'objective': 'multi:softprob', 'num_class': 3, 'eval_metric': 'mlogloss', 'random_state': 42})
+    print(f"[OPTI] Best params: {best_params}")
+
     best_xgb = xgb.XGBClassifier(**best_params)
     best_xgb.fit(X_train_aug, y_train_aug, eval_set=[(X_val_np, y_val_np)], verbose=False)
 
-    
-    # 4. Accuracy Assessment
     X_test_np = X_test.values if hasattr(X_test, 'values') else X_test
     y_test_np = y_test.values if hasattr(y_test, 'values') else y_test
     y_pred = np.argmax(best_xgb.predict_proba(X_test_np), axis=1)
     acc = accuracy_score(y_test_np, y_pred)
     l_loss = log_loss(y_test_np, best_xgb.predict_proba(X_test_np))
-    print(f"[MODEL] V53 REHAB Accuracy: {acc*100:.2f}% | Log Loss: {l_loss:.4f}")
-    
-    # 5. Save Model
+    print(f"[MODEL] V54 Accuracy: {acc*100:.2f}% | Log Loss: {l_loss:.4f}")
+
     best_xgb.get_booster().save_model(MODEL_XGB_PATH)
-    print(f"[DISK] V53 Rehabilitated Model saved at {os.path.basename(MODEL_XGB_PATH)}")
-    
-    # 6. SHAP Explanability Update
+    print(f"[DISK] V54 Model saved at {os.path.basename(MODEL_XGB_PATH)}")
+
     try:
         explainer = shap.Explainer(best_xgb.get_booster())
         joblib.dump(explainer, SHAP_EXPLAINER_PATH)
         shap_values = explainer(X_train.head(500))
         mean_abs_shap = np.abs(shap_values.values).mean(axis=(0, 2))
-        top_indices = np.argsort(mean_abs_shap)[::-1][:10]
-        print("\n[V53-TOP10] TOP 10 INFLUENCERS (REHABILITATION BRAIN)")
+        top_indices = np.argsort(mean_abs_shap)[::-1][:15]
+        print("\n[V54-TOP15] TOP 15 INFLUENCERS")
         for idx in top_indices:
-            print(f"   -> {FEATURE_NAMES_V53[idx]} (Importance: {mean_abs_shap[idx]:.4f})")
+            print(f"   -> {FEATURE_NAMES_V54[idx]} (Importance: {mean_abs_shap[idx]:.4f})")
     except Exception as e:
-        print("[WARN] SHAP error: ", e)
+        print(f"[WARN] SHAP error: {e}")
 
 if __name__ == "__main__":
-    run_v53_training()
+    run_v54_training()

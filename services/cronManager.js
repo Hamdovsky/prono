@@ -141,6 +141,26 @@ class CronManager {
             }
         });
 
+        // 16. PredixSport Sync (Every 6 hours)
+        cron.schedule('0 */6 * * *', async () => {
+          try {
+            const predixSportService = require('./predixSportService')
+            await predixSportService.syncUpcoming()
+          } catch (e) {
+            logger.error(`[CRON] PredixSport sync error: ${e.message}`)
+          }
+        }, { timezone: 'Europe/Paris' })
+
+        // 17. Big Balls Data Sync (Every 12 hours — xG/stats for training)
+        cron.schedule('0 */12 * * *', async () => {
+          try {
+            const bbs = require('./bigBallsDataService')
+            await bbs.syncUpcoming()
+          } catch (e) {
+            logger.error(`[CRON] BBS sync error: ${e.message}`)
+          }
+        }, { timezone: 'Europe/Paris' })
+
         logger.info('✅ [CRON] Scheduler active');
 
         // 🚀 [RESUME] Disabled to avoid conflict with standalone scraper process

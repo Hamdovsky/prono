@@ -44,6 +44,9 @@ const openligadbService = require('./services/openligadbService');
 const sportmonksService = require('./services/sportmonksService');
 const apifootballService = require('./services/apifootballService');
 const weatherService = require('./services/weatherService');
+const bigBallsDataService = require('./services/bigBallsDataService');
+const oddsApiIoService = require('./services/oddsApiIoService');
+const predixSportService = require('./services/predixSportService');
 
 // Secondary Services
 const _redisClient = require('./core/redisClient');
@@ -423,6 +426,9 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
               ['APIFOOTBALL_KEY', 'APIFootball'],
               ['SUPABASE_URL', 'Neon PostgreSQL'],
               ['INFERENCE_URL', 'Python FastAPI'],
+              ['PREDIXSPORT_API_KEY', 'PredixSport API'],
+              ['BBS_API_KEY', 'Big Balls Data'],
+              ['ODDSAPI_IO_KEY', 'Odds-API.io'],
               ['GROQ_API_KEY', 'Groq AI'],
               ['GEMINI_API_KEY', 'Gemini AI'],
             ]
@@ -522,7 +528,25 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
                 getQuotaStatus: () => ({ available: openligadbService.isAvailable() }),
                 fetchEvents: (dateStr) => openligadbService.fetchEvents(dateStr)
               })
-              logger.info('🔁 [FALLBACK] API sources registered (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)')
+              apiFallbackManager.registerSource({
+                name: 'PredixSport',
+                priority: 7,
+                isAvailable: () => predixSportService.isAvailable(),
+                getQuotaStatus: () => ({ available: predixSportService.isAvailable() })
+              })
+              apiFallbackManager.registerSource({
+                name: 'BigBallsData',
+                priority: 8,
+                isAvailable: () => bigBallsDataService.isAvailable(),
+                getQuotaStatus: () => ({ available: bigBallsDataService.isAvailable() })
+              })
+              apiFallbackManager.registerSource({
+                name: 'OddsAPIio',
+                priority: 9,
+                isAvailable: () => oddsApiIoService.isAvailable(),
+                getQuotaStatus: () => ({ available: oddsApiIoService.isAvailable() })
+              })
+              logger.info('🔁 [FALLBACK] API sources registered (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB → PredixSport → BigBallsData → OddsAPIio)')
             } catch (fbErr) {
               logger.warn('⚠️ [FALLBACK] Registration error:', fbErr.message)
             }

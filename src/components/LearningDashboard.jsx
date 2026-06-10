@@ -148,36 +148,35 @@ function CausePie({ distrib }) {
 
 // ── Rules table ───────────────────────────────────────────────────────────────
 const RULE_TL = {
-    'GENERAL_NOISE': 'ضوضاء عامة',
-    'DEF_COLLAPSE': 'انهيار دفاعي',
-    'ATK_COLLAPSE': 'انهيار هجومي',
-    'variance_event': 'حدث عرضي',
-    'STRUCTURAL_TEAM_WEAKNESS': 'ضعف بنيوي متكرر (فريق)',
-    'no_weight_change_required': 'لا يتطلب تغيير وزن',
-    'downgrade_form_weight_in_next_match_same_team': 'خفض مؤشر الفورمة للمباراة القادمة',
-    // total_goals >= 5 remains as is if not matched exactly
+    'GENERAL_NOISE': 'Bruit général / Aléatoire',
+    'DEF_COLLAPSE': 'Effondrement défensif',
+    'ATK_COLLAPSE': 'Panne offensive / Manque de réalisme',
+    'variance_event': 'Événement fortuit (Variance)',
+    'STRUCTURAL_TEAM_WEAKNESS': 'Faiblesse structurelle (Équipe)',
+    'no_weight_change_required': 'Aucun ajustement requis',
+    'downgrade_form_weight_in_next_match_same_team': 'Dégrader le poids de la forme pour le prochain match',
 };
 const tl = s => RULE_TL[s] || s;
 
 // ── Rules table ───────────────────────────────────────────────────────────────
 function RulesTable({ rules }) {
-    if (!rules?.length) return <div className="ld-empty">لا توجد قواعد مستنتجة بعد.</div>;
+    if (!rules?.length) return <div className="ld-empty">Aucune règle décisionnelle détectée pour le moment.</div>;
     return (
-        <table className="ld-rules-table" dir="rtl">
+        <table className="ld-rules-table" dir="ltr">
             <thead>
                 <tr>
-                    <th>النوع</th>
-                    <th>الشرط</th>
-                    <th>الإجراء</th>
-                    <th>الثقة</th>
-                    <th>التكرار</th>
+                    <th>Type</th>
+                    <th>Condition</th>
+                    <th>Action</th>
+                    <th>Confiance</th>
+                    <th>Occurrences</th>
                 </tr>
             </thead>
             <tbody>
                 {rules.map((r, i) => (
                     <tr key={i}>
                         <td><span className="ld-rule-type">{tl(r.rule_type)}</span></td>
-                        <td className="ld-rule-cond" dir="ltr" style={{textAlign: 'right'}}>{tl(r.condition)}</td>
+                        <td className="ld-rule-cond" dir="ltr" style={{textAlign: 'left'}}>{tl(r.condition)}</td>
                         <td className="ld-rule-action">{tl(r.action)}</td>
                         <td>
                             <span className="ld-conf-badge"
@@ -424,11 +423,11 @@ export default function LearningDashboard() {
             {/* ── Tabs ─────────────────────────────────────────────────── */}
             <div className="ld-tabs">
                 {[
-                    { id: 'overview',  label: '🧬 الأوزان' },
-                    { id: 'errors',    label: '❌ أنواع الأخطاء' },
-                    { id: 'causes',    label: '🔎 الأسباب الجذرية' },
-                    { id: 'rules',     label: '📋 القواعد' },
-                    { id: 'cases',     label: '📁 الحالات' },
+                    { id: 'overview',  label: '🧬 Poids Adaptatifs' },
+                    { id: 'errors',    label: '❌ Types d\'Erreurs' },
+                    { id: 'causes',    label: '🔎 Causes Profondes' },
+                    { id: 'rules',     label: '📋 Règles de Décision' },
+                    { id: 'cases',     label: '📁 Cas Récents' },
                 ].map(t => (
                     <button key={t.id}
                         className={`ld-tab ${activeTab === t.id ? 'active' : ''}`}
@@ -516,8 +515,8 @@ export default function LearningDashboard() {
                     {activeTab === 'rules' && (
                         <div className="ld-panel">
                             <div className="ld-panel-title">
-                                📋 قواعد القرار المستنتجة
-                                <span className="ld-panel-sub">مستخرجة آلياً من تحليل الأنماط المتكررة</span>
+                                📋 Règles de Décision Apprises
+                                <span className="ld-panel-sub">Générées automatiquement à partir des motifs d'erreur récurrents</span>
                             </div>
                             <RulesTable rules={report.topRules} />
                         </div>

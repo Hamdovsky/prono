@@ -13,7 +13,30 @@ class LiveMatchService {
     this._emptyCycles = 0
   }
 
+  async checkPredictionOutcomes() {
+    try {
+      const unchecked = database.getUncheckedLivePredictions()
+      if (!unchecked || unchecked.length === 0) return
+
+      for (const row of unchecked) {
+        const match = await database.getMatchById(row.match_id)
+        if (match && match.status === 'finished') {
+          await database.updateLivePredictionOutcomes(
+            row.match_id,
+            match.scoreHome || 0,
+            match.scoreAway || 0
+          )
+        }
+      }
+    } catch (e) {
+      // silent
+    }
+  }
+
   async syncLive() {
+    // Check for finished matches to update training outcomes
+    this.checkPredictionOutcomes()
+
     let matches = []
     let source = null
 

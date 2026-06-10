@@ -1,0 +1,27 @@
+{
+  "model_type": "xgboost-live-goal",
+  "target": "goal_in_next5min",
+  "version": "1.0",
+  "features": [
+    "minute",
+    "score_diff",
+    "total_goals",
+    "xg_h_remaining",
+    "xg_a_remaining",
+    "xg_h_consumed",
+    "xg_a_consumed",
+    "sot_h_sofar",
+    "sot_a_sofar",
+    "possession_h",
+    "possession_diff",
+    "half",
+    "minutes_remaining"
+  ],
+  "validation_accuracy": 0.747,
+  "validation_auc": 0.8799842849659507,
+  "validation_brier": 0.14264826476573944,
+  "goal_rate_pct": 4.367368421052632,
+  "synthetic_snapshots": 95000,
+  "historical_matches": 5000,
+  "trained_at": "2026-06-10T19:54:16.032771"
+}

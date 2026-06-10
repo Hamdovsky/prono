@@ -6,6 +6,9 @@ const logger = console; // Simple logger for worker
 const MODEL_PATH = path.join(__dirname, '..', 'models', 'stitch_v24_hybrid.json');
 const TRAIN_SCRIPT = path.join(__dirname, '..', 'core', 'train_v24_top_analyst.py');
 
+const LIVE_MODEL_PATH = path.join(__dirname, '..', 'models', 'live_goal_xgb.json');
+const LIVE_TRAIN_SCRIPT = path.join(__dirname, '..', 'core', 'train_live_model.py');
+
 /**
  * Runs the Automated XGBoost Retraining Pipeline.
  * @returns {Promise<object>} Returns an object with the status and log output
@@ -95,6 +98,46 @@ function runAutoRetrain() {
     });
 }
 
+/**
+ * Runs the Live Goal Prediction Model Training Pipeline.
+ */
+function runLiveModelRetrain() {
+    return new Promise((resolve) => {
+        logger.info(`[LIVE-RETRAIN] Starting live goal model training...`);
+
+        let pythonPath = 'python';
+        const venvPythonPath = path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe');
+        if (fs.existsSync(venvPythonPath)) {
+            pythonPath = venvPythonPath;
+        }
+
+        const pythonProcess = spawn(pythonPath, [LIVE_TRAIN_SCRIPT], {
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            windowsHide: true
+        });
+
+        pythonProcess.stdout.on('data', (data) => {
+            const output = data.toString().trim()
+            if (output) logger.info(`[LIVE-MODEL] ${output}`)
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+            const output = data.toString().trim()
+            if (output) logger.warn(`[LIVE-MODEL-WARN] ${output}`)
+        });
+
+        pythonProcess.on('close', (code) => {
+            if (code === 0 && fs.existsSync(LIVE_MODEL_PATH)) {
+                logger.info(`✅ [LIVE-RETRAIN] Live goal model updated successfully.`)
+                resolve({ success: true, message: 'Live goal model retrained' })
+            } else {
+                logger.warn(`⚠️ [LIVE-RETRAIN] Live model training exited with code ${code}`)
+                resolve({ success: false, message: `Live model exit code ${code}` })
+            }
+        });
+    });
+}
+
 // Execute normally if run directly from terminal/cron
 if (require.main === module) {
     runAutoRetrain()
@@ -114,4 +157,4 @@ if (require.main === module) {
         });
 }
 
-module.exports = { runAutoRetrain };
+module.exports = { runAutoRetrain, runLiveModelRetrain };

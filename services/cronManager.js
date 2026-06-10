@@ -117,6 +117,17 @@ class CronManager {
             }).catch(e => logger.error(`[CRON] Auto-Retrain failed: ${e}`));
         }, { timezone: 'Africa/Tunis' });
 
+        // 12b. Weekly Live Model Retrain (05:00 AM every Sunday)
+        cron.schedule('0 5 * * 0', () => {
+            logger.info('🚀 [CRON] Launching Weekly Live Goal Model Retrain...');
+            const { runLiveModelRetrain } = require('../scripts/auto_retrain_worker');
+            runLiveModelRetrain().then(res => {
+                if (res.success) {
+                    logger.info('✅ [CRON] Live goal model retrained successfully')
+                }
+            })
+        }, { timezone: 'Africa/Tunis' });
+
         // 13. [TITANIUM] Daily Surgical Dispatch (09:00 AM)
         cron.schedule('0 9 * * *', () => {
             logger.info('🚀 [CRON] Launching Daily Surgical Dispatch...');

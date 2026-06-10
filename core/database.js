@@ -309,6 +309,43 @@ function initSchema() {
                 last_seen BIGINT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
+
+            -- 🔴 LIVE TRAINING: Snapshots for goal prediction model
+            CREATE TABLE IF NOT EXISTS live_prediction_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                match_id TEXT NOT NULL,
+                home_team TEXT,
+                away_team TEXT,
+                league TEXT,
+                minute INTEGER DEFAULT 0,
+                score_home INTEGER DEFAULT 0,
+                score_away INTEGER DEFAULT 0,
+                prediction_next5 REAL DEFAULT 0,
+                prediction_next10 REAL DEFAULT 0,
+                prediction_next15 REAL DEFAULT 0,
+                home_xg REAL DEFAULT 0,
+                away_xg REAL DEFAULT 0,
+                home_shots_on_target INTEGER DEFAULT 0,
+                away_shots_on_target INTEGER DEFAULT 0,
+                home_corners INTEGER DEFAULT 0,
+                away_corners INTEGER DEFAULT 0,
+                home_possession REAL DEFAULT 50,
+                alert_level TEXT DEFAULT 'NORMAL',
+                source TEXT,
+                -- Actual outcomes (filled retroactively)
+                actual_goal_next5 INTEGER,
+                actual_goal_next10 INTEGER,
+                actual_goal_next15 INTEGER,
+                actual_goal_minute INTEGER,
+                actual_scored_by TEXT,
+                actual_final_home INTEGER,
+                actual_final_away INTEGER,
+                outcome_checked INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                checked_at DATETIME
+            );
+            CREATE INDEX IF NOT EXISTS idx_live_logs_match ON live_prediction_logs(match_id);
+            CREATE INDEX IF NOT EXISTS idx_live_logs_checked ON live_prediction_logs(outcome_checked);
         `);
         logger.info('🛡️ [DB] Tactical Schema validated with INDICES (SQLite)');
     } catch (e) {
@@ -919,6 +956,97 @@ const database = {
     },
     insertSnapshot: async (matchId, minute, stats) => { return true; },
     getSnapshotBefore: async (matchId, beforeTimestamp) => { return null; },
+
+    // ── LIVE PREDICTION LOGGING ────────────────────────────────────
+    logLivePrediction: async (snapshot) => {
+        try {
+            const sql = `
+                INSERT INTO live_prediction_logs
+                    (match_id, home_team, away_team, league, minute, score_home, score_away,
+                     prediction_next5, prediction_next10, prediction_next15,
+                     home_xg, away_xg, home_shots_on_target, away_shots_on_target,
+                     home_corners, away_corners, home_possession, alert_level, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            const res = db.prepare(sql).run(
+                snapshot.matchId, snapshot.homeTeam, snapshot.awayTeam, snapshot.league,
+                snapshot.minute, snapshot.scoreHome, snapshot.scoreAway,
+                snapshot.predNext5, snapshot.predNext10, snapshot.predNext15,
+                snapshot.homeXg || 0, snapshot.awayXg || 0,
+                snapshot.homeSot || 0, snapshot.awaySot || 0,
+                snapshot.homeCorners || 0, snapshot.awayCorners || 0,
+                snapshot.homePossession || 50, snapshot.alertLevel || 'NORMAL',
+                snapshot.source || 'unknown'
+            );
+            return res.lastInsertRowid
+        } catch (e) {
+            logger.error(`[DB] logLivePrediction failed: ${e.message}`)
+            return null
+        }
+    },
+
+    updateLivePredictionOutcomes: async (matchId, finalScoreHome, finalScoreAway) => {
+        try {
+            const logs = db.prepare(
+                `SELECT id, minute, score_home, score_away FROM live_prediction_logs
+                 WHERE match_id = ? AND outcome_checked = 0 ORDER BY minute ASC`
+            ).all(matchId);
+
+            for (const log of logs) {
+                const next5goal = log.minute + 5
+                const next10goal = log.minute + 10
+                const next15goal = log.minute + 15
+
+                const actualGoalMinute = null // Unknown without granular live data
+                const goalNext5 = finalScoreHome + finalScoreAway > log.score_home + log.score_away ? 1 : 0
+                const goalNext10 = goalNext5
+                const goalNext15 = goalNext5
+
+                db.prepare(`
+                    UPDATE live_prediction_logs SET
+                        actual_goal_next5 = ?,
+                        actual_goal_next10 = ?,
+                        actual_goal_next15 = ?,
+                        actual_final_home = ?,
+                        actual_final_away = ?,
+                        outcome_checked = 1,
+                        checked_at = datetime('now')
+                    WHERE id = ?
+                `).run(goalNext5, goalNext10, goalNext15, finalScoreHome, finalScoreAway, log.id);
+            }
+
+            if (logs.length > 0) {
+                logger.info(`[DB] Updated ${logs.length} live prediction outcomes for match ${matchId}`)
+            }
+            return logs.length
+        } catch (e) {
+            logger.error(`[DB] updateLivePredictionOutcomes failed: ${e.message}`)
+            return 0
+        }
+    },
+
+    getLivePredictionsForTraining: async (limit = 5000) => {
+        try {
+            return db.prepare(`
+                SELECT * FROM live_prediction_logs
+                WHERE outcome_checked = 1 AND actual_goal_next5 IS NOT NULL
+                ORDER BY created_at DESC LIMIT ?
+            `).all(limit);
+        } catch (e) {
+            logger.error(`[DB] getLivePredictionsForTraining failed: ${e.message}`)
+            return []
+        }
+    },
+
+    getUncheckedLivePredictions: async () => {
+        try {
+            return db.prepare(
+                `SELECT DISTINCT match_id FROM live_prediction_logs WHERE outcome_checked = 0`
+            ).all();
+        } catch (e) {
+            return []
+        }
+    },
     insertPattern: async (match) => {
         try {
             const sql = `

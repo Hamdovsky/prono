@@ -128,6 +128,17 @@ async def predict_endpoint(payload: dict):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/predict-live")
+async def predict_live_endpoint(payload: dict):
+    try:
+        from live_goal_predictor import predict_live
+        result = predict_live(payload)
+        return convert_numpy(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"next5min": 0.5, "next10min": 0.6, "next15min": 0.7, "error": str(e)}
+
 @app.get("/health")
 async def health_check():
     import os

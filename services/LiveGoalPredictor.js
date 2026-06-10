@@ -1,12 +1,35 @@
 const database = require('../core/database');
 const patternService = require('./patternService');
 const logger = require('../core/logger');
+const axios = require('axios');
 
 class LiveGoalPredictor {
     constructor() {
         this.goalMatrix = this.initializeGoalMatrix();
         this.patternWeights = this.loadPatternWeights();
         this.activeMatches = new Map();
+        this.fastApiUrl = process.env.FASTAPI_URL || 'http://127.0.0.1:8000';
+    }
+
+    async callMLModel(match) {
+        try {
+            const { data } = await axios.post(`${this.fastApiUrl}/predict-live`, {
+                minute: match.minute,
+                scoreHome: match.scoreHome,
+                scoreAway: match.scoreAway,
+                home_xg: match.home_xg || match.xg?.home || 0,
+                away_xg: match.away_xg || match.xg?.away || 0,
+                home_shots_on_target: match.shots_on_target_home || match.stats?.shotsOnTarget?.home || 0,
+                away_shots_on_target: match.shots_on_target_away || match.stats?.shotsOnTarget?.away || 0,
+                possession_home: match.possession_home || match.stats?.possession?.home || 50
+            }, { timeout: 3000 })
+            if (data && data.model_loaded) {
+                return data
+            }
+            return null
+        } catch {
+            return null
+        }
     }
 
     initializeGoalMatrix() {
@@ -65,7 +88,7 @@ class LiveGoalPredictor {
     }
 
     async analyzeLiveMatch(match) {
-        if (!match || !match.isLive) return null;
+        if (!match || (match.status !== 'live' && !match.isLive)) return null;
 
         const analysis = {
             matchId: match.id,
@@ -78,9 +101,38 @@ class LiveGoalPredictor {
             probabilities: {},
             prediction: null,
             confidence: 0,
-            alertLevel: 'NORMAL'
+            alertLevel: 'NORMAL',
+            modelUsed: false
         };
 
+        // Try ML model first
+        try {
+            const mlResult = await this.callMLModel(match)
+            if (mlResult && mlResult.model_loaded) {
+                analysis.probabilities = {
+                    next5min: Math.min(99, Math.round(mlResult.next5min * 100)),
+                    next10min: Math.min(99, Math.round(mlResult.next10min * 100)),
+                    next15min: Math.min(99, Math.round(mlResult.next15min * 100)),
+                    restOfMatch: Math.min(99, Math.round(mlResult.next15min * 120))
+                }
+                analysis.modelUsed = true
+                analysis.confidence = this.calculateConfidenceLevel(analysis)
+                analysis.prediction = this.generatePrediction(analysis, match)
+
+                if (analysis.probabilities.next10min > 75) analysis.alertLevel = 'HIGH'
+                if (analysis.probabilities.next10min > 85) analysis.alertLevel = 'CRITICAL'
+                if (analysis.probabilities.next10min > 92) analysis.alertLevel = 'IMMINENT'
+
+                analysis.patternMatched = await this.findMatchingPatterns(match)
+                if (this.activeMatches.size > 500) this._cleanup()
+                this.activeMatches.set(match.id, analysis)
+                return analysis
+            }
+        } catch {
+            // fallback to heuristic
+        }
+
+        // Heuristic fallback
         analysis.factors.scoreState = this.calculateScoreStateFactor(match);
         analysis.factors.timeFactor = this.calculateTimeFactor(match);
         analysis.factors.pressureFactor = this.calculatePressureFactor(match);

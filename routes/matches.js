@@ -40,18 +40,51 @@ router.get('/live', async (req, res) => {
 router.get('/live-lab', async (req, res) => {
     try {
         const matches = liveMatchService.getActiveMatches()
-        res.json({
-            matches: matches.map(m => ({
+        const enriched = matches.map(m => {
+            const prediction = liveGoalPredictor.analyzeLiveMatch(m)
+
+            // Log snapshot for training
+            if (m.minute && parseInt(m.minute) > 0) {
+                database.logLivePrediction({
+                    matchId: m.id,
+                    homeTeam: m.homeTeam,
+                    awayTeam: m.awayTeam,
+                    league: m.league,
+                    minute: parseInt(m.minute) || 0,
+                    scoreHome: m.scoreHome ?? 0,
+                    scoreAway: m.scoreAway ?? 0,
+                    predNext5: prediction?.next5min ?? 0,
+                    predNext10: prediction?.next10min ?? 0,
+                    predNext15: prediction?.next15min ?? 0,
+                    homeXg: m.home_xg || m.xg?.home || 0,
+                    awayXg: m.away_xg || m.xg?.away || 0,
+                    homeSot: m.shots_on_target_home || m.stats?.shotsOnTarget?.home || 0,
+                    awaySot: m.shots_on_target_away || m.stats?.shotsOnTarget?.away || 0,
+                    homeCorners: m.corners_home || m.stats?.corners?.home || 0,
+                    awayCorners: m.corners_away || m.stats?.corners?.away || 0,
+                    homePossession: m.possession_home || m.stats?.possession?.home || 50,
+                    alertLevel: prediction?.alertLevel || 'NORMAL',
+                    source: m.source || 'unknown'
+                }).catch(() => {})
+            }
+
+            return {
                 ...m,
+                goalPrediction: prediction,
                 stats: m.stats || { dangerousAttacks: { home: 0, away: 0 }, shotsOnTarget: { home: 0, away: 0 }, xg: { home: 0, away: 0 } },
                 momentum: m.momentum || { homePercent: 50, awayPercent: 50 },
-                alerts: m.alerts || [],
+                alerts: prediction?.alertLevel === 'IMMINENT' || prediction?.alertLevel === 'CRITICAL'
+                    ? [{ level: prediction.alertLevel, message: prediction.alertMessage || 'Goal alert' }]
+                    : [],
                 recoveryRate: 50,
                 xgDeviation: { home: 0, away: 0, verdict: 'Normal' },
                 dnaInsight: null,
                 statsbombInsight: null,
                 pronostics: null
-            })),
+            }
+        })
+        res.json({
+            matches: enriched,
             counts: {
                 live: matches.filter(m => m.status === 'live').length,
                 total: matches.length

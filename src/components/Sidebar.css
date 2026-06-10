@@ -16,6 +16,18 @@
     box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
     flex-shrink: 0;
     position: relative;
+    transition: width 0.25s ease, opacity 0.2s ease, min-width 0.25s ease;
+}
+
+/* Collapsed state — smooth toggle */
+.flash-sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border-right: none;
+    opacity: 0;
+    transition: width 0.25s ease, opacity 0.2s ease, min-width 0.25s ease;
 }
 
 /* Subtle right-edge neon glow */

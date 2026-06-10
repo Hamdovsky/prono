@@ -578,7 +578,6 @@ const Dashboard = () => {
                     {/* TABLE HEADER */}
                     <div style={{
                         display: 'flex',
-                        minWidth: '1050px',
                         borderBottom: '2px solid #1e293b',
                         padding: '8px 0',
                         fontSize: '11px',
@@ -612,7 +611,7 @@ const Dashboard = () => {
                         height={600}
                         rowCount={unifiedList.length}
                         rowHeight={65}
-                        width={1050}
+                        width="100%"
                         className="onyx-custom-scrollbar"
                         rowComponent={UnifiedRowMemo}
                         rowProps={{ unifiedList, onClick: setSelectedMatchForUltimateView }}

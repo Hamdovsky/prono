@@ -280,7 +280,7 @@ class BsdService {
     if (total > 0) {
       const db = database.db
       if (db) {
-        const matches = db.prepare("SELECT id FROM matches WHERE source = 'bsd' AND status = 'scheduled'").all()
+        const matches = db.prepare("SELECT id FROM matches WHERE source = 'bsd' AND (status = 'scheduled' OR status = 'NOT_STARTED')").all()
         for (const m of matches) {
           try {
             await this.enrichMatchOdds(m.id)
@@ -302,7 +302,7 @@ class BsdService {
     if (!db) return 0
 
     // Only fetch odds for matches that have a BSD match ID
-    const matches = db.prepare("SELECT id, bsd_match_id FROM matches WHERE bsd_match_id IS NOT NULL AND bsd_match_id != '' AND status = 'scheduled'").all()
+    const matches = db.prepare("SELECT id, bsd_match_id FROM matches WHERE bsd_match_id IS NOT NULL AND bsd_match_id != '' AND (status = 'scheduled' OR status = 'NOT_STARTED')").all()
     logger.info(`[BSD] Enriching ${matches.length} matches with odds...`)
     let count = 0
 

@@ -12,6 +12,7 @@ class BsdService {
     this.quota = createQuotaManager('bsd')
     this._quotaExhausted = false
     this._authFailed = false
+    this._leagueCache = null
 
     // ✅ Diagnostic au démarrage
     if (!this.apiKey || this.apiKey === 'CHANGER_MOI_BSD_API_KEY') {
@@ -21,7 +22,32 @@ class BsdService {
       logger.warn('[BSD] Service désactivé (BSD_ENABLED=false)')
     } else {
       logger.info(`✅ [BSD] Service prêt — clé: ${this.apiKey.substring(0, 6)}... | URL: ${this.baseUrl}`)
+      this._loadLeagues()
     }
+  }
+
+  async _loadLeagues() {
+    try {
+      const data = await this._fetch('/v2/leagues/?sport=football&limit=200')
+      if (data?.results?.length) {
+        this._leagueCache = {}
+        for (const league of data.results) {
+          if (league.id && league.name) {
+            this._leagueCache[league.id] = league.name
+          }
+        }
+        logger.info(`✅ [BSD] League cache loaded: ${Object.keys(this._leagueCache).length} leagues`)
+      }
+    } catch (e) {
+      logger.warn(`⚠️ [BSD] Failed to load leagues: ${e.message}`)
+    }
+  }
+
+  _resolveLeagueName(leagueId) {
+    if (this._leagueCache && leagueId && this._leagueCache[leagueId]) {
+      return this._leagueCache[leagueId]
+    }
+    return null
   }
 
   isAvailable() {
@@ -114,7 +140,8 @@ class BsdService {
     const resolveName = (v) => (typeof v === 'string' ? v : v?.name) || null
     let homeTeam = resolveName(event.home_team) || event.homeTeam || event.home_name || 'Home'
     let awayTeam = resolveName(event.away_team) || event.awayTeam || event.away_name || 'Away'
-    const league = resolveName(event.league) || event.tournament_name || event.competition || 'Unknown'
+    const leagueName = this._resolveLeagueName(event.league_id) || resolveName(event.league) || event.tournament_name || event.competition || 'Unknown'
+    const category = event.league?.country || event.country || ''
     const matchId = event.id || event.match_id || `bsd_${ts}_${Math.random().toString(36).substring(2, 8)}`
 
     let status = 'scheduled'
@@ -129,10 +156,10 @@ class BsdService {
       id: `bsd_${matchId}`,
       homeTeam,
       awayTeam,
-      league,
-      category_name: event.league?.country || event.country || '',
-      tournament_name: league,
-      tournament_id: event.league?.id || event.tournament_id || null,
+      league: leagueName,
+      category_name: category,
+      tournament_name: leagueName,
+      tournament_id: event.league_id || event.tournament_id || null,
       home_team_id: event.home_team?.id || event.home_team_id || null,
       away_team_id: event.away_team?.id || event.away_team_id || null,
       startTimestamp: ts,
@@ -153,9 +180,10 @@ class BsdService {
         id: matchId,
         homeTeam,
         awayTeam,
-        league,
+        league: leagueName,
         startTimestamp: ts,
-        status
+        status,
+        bsd_league_id: event.league_id || null
       })
     }
   }
@@ -216,6 +244,25 @@ class BsdService {
     return { home: bestHome, draw: bestDraw, away: bestAway }
   }
 
+  async _backfillLeagueNames() {
+    if (!this._leagueCache || !database.db) return
+    try {
+      const unknown = database.db.prepare("SELECT id, fullData FROM matches WHERE source = 'bsd' AND (league = 'Unknown' OR league IS NULL)").all()
+      for (const row of unknown) {
+        try {
+          const fd = JSON.parse(row.fullData || '{}')
+          const leagueName = this._resolveLeagueName(fd.bsd_league_id) || null
+          if (leagueName) {
+            database.db.prepare("UPDATE matches SET league = ?, tournament_name = ? WHERE id = ?").run(leagueName, leagueName, row.id)
+          }
+        } catch (_) {}
+      }
+      if (unknown.length > 0) logger.info(`[BSD] Backfilled league names for ${unknown.length} matches`)
+    } catch (e) {
+      logger.warn(`[BSD] Backfill error: ${e.message}`)
+    }
+  }
+
   async fullSync() {
     if (!this.isAvailable()) {
       logger.warn('[BSD] Full sync skipped — service not available')
@@ -241,6 +288,9 @@ class BsdService {
         }
       }
     }
+
+    // Backfill league names for existing matches with Unknown league
+    await this._backfillLeagueNames()
 
     logger.info(`[BSD] Full sync complete: ${total} matches`)
     return total

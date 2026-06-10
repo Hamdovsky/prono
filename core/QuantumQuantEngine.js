@@ -1,16 +1,42 @@
 const StatisticalEngine = require('./services/StatisticalEngine');
+const MomentumEngine = require('./services/MomentumEngine');
+
+const LEAGUE_PROFILES = {
+  attack: /bundesliga|netherlands|eredivisie|iceland|women|brazil|portugal|belgium|jupiler|austria|swiss|liga portugal/i,
+  defense: /serie a|italy|ligue 2|argentina|greece|tunisia|morocco|egypt|saudi|qatar/i
+}
+
+function getLeagueProfile(league) {
+  if (!league) return 'balanced'
+  if (LEAGUE_PROFILES.attack.test(league)) return 'attack'
+  if (LEAGUE_PROFILES.defense.test(league)) return 'defense'
+  return 'balanced'
+}
+
+function getTeamStyle(xgH, xgA, m) {
+  let attacking = 0
+  if (m.home_avg_scored > 1.5 || m.away_avg_scored > 1.5) attacking++
+  if (m.home_avg_scored < 1.0 || m.away_avg_scored < 1.0) attacking--
+  if (xgH + xgA > 3.0) attacking++
+  if (xgH + xgA < 2.0) attacking--
+  return attacking
+}
+
+function getWeatherImpact(m) {
+  const desc = (m.weather_desc || '').toLowerCase()
+  if (desc.includes('rain') || desc.includes('pluie') || desc.includes('storm') || desc.includes('wind') || desc.includes('vent')) return -1
+  return 0
+}
 
 class QuantumQuantEngine {
-    
+
     analyze(m, xgH, xgA) {
-        // 1. Probabilités de base via Poisson (Enrichi par le contexte ligue)
         const probs = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m);
-        
-        // 2. Générer les marchés avec cotes réelles si disponibles
         const markets = this._generateMarkets(probs, m);
-        
-        // 3. Classer par Intelligence (Safety vs Value)
-        const ranked = this._rankMarkets(markets, m);
+        const profile = getLeagueProfile(m.league);
+        const teamStyle = getTeamStyle(xgH, xgA, m);
+        const weatherImpact = getWeatherImpact(m);
+        const ranked = this._rankMarkets(markets, m, { profile, teamStyle, weatherImpact });
 
         return {
             markets,
@@ -23,21 +49,25 @@ class QuantumQuantEngine {
             confidence: Math.round(ranked.main.prob * 100),
             bsd_boosted: ranked.bsd_boosted || false,
             momentum: {
-                home: require('./services/MomentumEngine').getTrend(m.homeTeam),
-                away: require('./services/MomentumEngine').getTrend(m.awayTeam)
+                home: MomentumEngine.getTrend(m.homeTeam),
+                away: MomentumEngine.getTrend(m.awayTeam)
             },
             all_picks: ranked.all.slice(0, 4),
             probs: {
                 btts: Math.round(probs.btts.yes * 100),
                 over25: Math.round(probs.over25 * 100),
                 ht_goal: Math.round(probs.ht_goal * 100)
+            },
+            league_profile: profile,
+            context: {
+                teamStyle: teamStyle > 0 ? 'attacking' : teamStyle < 0 ? 'defensive' : 'neutral',
+                weatherImpact
             }
         };
     }
 
     _generateMarkets(p, m) {
         const ht = p.first_half;
-        
         const calcEV = (prob, odds) => (prob * (odds || 2.0)) - 1;
 
         const markets = {
@@ -59,33 +89,56 @@ class QuantumQuantEngine {
                 '1X': { prob: p.dc['1X'], odds: 1.3, ev: calcEV(p.dc['1X'], 1.3) },
                 'X2': { prob: p.dc['X2'], odds: 1.6, ev: calcEV(p.dc['X2'], 1.6) },
                 '12': { prob: p.dc['12'], odds: 1.25, ev: calcEV(p.dc['12'], 1.25) }
+            },
+            first_half: {
+                'O0.5':  { prob: ht.goal_yes, odds: 1.5,  ev: calcEV(ht.goal_yes, 1.5) },
+                'O1.5':  { prob: ht.ou15,      odds: 3.5,  ev: calcEV(ht.ou15, 3.5) },
+                'BTTS':  { prob: ht.btts,      odds: 6.0,  ev: calcEV(ht.btts, 6.0) }
             }
         };
 
         return markets;
     }
 
-    _rankMarkets(markets, m) {
+    _rankMarkets(markets, m, ctx = {}) {
+        const profile = ctx.profile || 'balanced';
+        const teamStyle = ctx.teamStyle || 0;
+        const weatherImpact = ctx.weatherImpact || 0;
         const ranked = [];
-        
+
         for (const [cat, choices] of Object.entries(markets)) {
             for (const [val, data] of Object.entries(choices)) {
                 const prob = data.prob;
                 const odds = data.odds || 0;
-                
-                // --- [INTELLIGENCE: BEAT THE BOOKIE] ---
-                // Implied Prob = 1 / Odds
                 const impliedProb = odds > 0 ? (1 / odds) : 0;
                 const edge = (impliedProb > 0) ? (prob - impliedProb) : 0;
-                
-                // EV Score (ROI theoretical)
                 const ev = odds > 0 ? (prob * odds) - 1 : 0;
 
-                // Smart Score logic:
-                // 1. Probabilité brute (Sécurité)
-                // 2. Edge (Battre le bookmaker) - Poids fort pour l'intelligence
-                // 3. EV (Rentabilité long terme)
-                const smartScore = (prob * 50) + (edge * 150) + (ev * 30);
+                let smartScore = (prob * 50) + (edge * 150) + (ev * 30);
+
+                // ── CONTEXTUAL BIAS ──
+                // League profile: attack leagues favor O2.5, HT goals, BTTS; defense leagues favor U2.5, BTTS No, DC
+                if (profile === 'attack') {
+                    if (cat === 'first_half') smartScore *= 1.25
+                    if (val === 'O2.5' || val === 'YES') smartScore *= 1.15
+                } else if (profile === 'defense') {
+                    if (val === 'U2.5' || val === 'NO') smartScore *= 1.2
+                    if (cat === 'double_chance') smartScore *= 1.1
+                }
+
+                // Team style: attacking teams favor HT goals, BTTS; defensive teams favor U2.5
+                if (teamStyle > 0) {
+                    if (cat === 'first_half') smartScore *= 1.2
+                    if (val === 'YES' || val === 'O2.5') smartScore *= 1.1
+                } else if (teamStyle < 0) {
+                    if (val === 'U2.5' || val === 'NO') smartScore *= 1.15
+                }
+
+                // Weather: rain/wind → fewer goals → U2.5, BTTS No get boosted
+                if (weatherImpact < 0) {
+                    if (val === 'U2.5' || val === 'NO') smartScore *= 1.2
+                    if (cat === 'first_half') smartScore *= 0.85
+                }
 
                 ranked.push({
                     cat, val, prob, odds, ev, edge,
@@ -95,24 +148,18 @@ class QuantumQuantEngine {
             }
         }
 
-        // TIER 1: MAIN pick = Toujours le 1X2 le plus probable (La base solide)
         const matchResultMarkets = ranked.filter(r => r.cat === 'match_result');
         const mainPick = matchResultMarkets.sort((a, b) => b.prob - a.prob)[0];
 
-        // TIER 2: SECONDARY = La meilleure "VALEUR" (L'intelligence pour battre le bookie)
-        // On cherche le marché qui a le meilleur SmartScore
-        const secondaryPool = ranked.filter(r => 
-            r.label !== mainPick.label && // Pas de doublon
-            r.prob > 0.35 // Qualité minimum
+        const secondaryPool = ranked.filter(r =>
+            r.label !== mainPick.label &&
+            r.prob > 0.30
         );
-        
+
         const secondaryPicks = secondaryPool.sort((a, b) => b.smartScore - a.smartScore);
-        
-        // --- [NEW: MASSIVE EDGE DETECTION] ---
         const bestValue = secondaryPicks[0] || mainPick;
         const isMassive = (bestValue.edge > 0.12 && bestValue.prob > 0.50);
         let signalStrength = Math.min(100, Math.round((bestValue.edge * 400) + (bestValue.prob * 40)));
-        // BSD Signal Boost: si BSD prédit le même vainqueur, +15%
         let bsd_boosted = false;
         if (m.bsd_prediction && mainPick) {
           const bsdPicks = { '1': '1', 'HOME': '1', 'X': 'X', 'DRAW': 'X', '2': '2', 'AWAY': '2' }

@@ -411,8 +411,8 @@ class EnrichedPredictionService {
             // ── QUALITY GATE ──
             // Reject if missing xG or extreme low entropy data
             let { h: xgH, a: xgA } = this._getMatchXG(m);
-            const dataQuality = (xgH > 0.4 && xgA > 0.4) ? 'HIGH' : 'LOW';
-            
+            const dataQuality = (xgH > 0.25 && xgA > 0.25) ? 'HIGH' : 'LOW';
+
             // If quality is LOW and no brain data exists, return WAITING state
             if (dataQuality === 'LOW' && (!m.ai_source || !m.ai_source.includes('XGB'))) {
                 m.insufficient_data = 1;

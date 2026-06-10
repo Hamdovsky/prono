@@ -333,7 +333,7 @@ const Dashboard = () => {
                         cursor: 'pointer'
                     }}>
                         <div style={{width:"22%", minWidth: "140px", padding:"0 8px"}}>MATCH / CHAMPIONNAT</div>
-                        <div style={{width:"18%", minWidth: "130px", padding:"0 8px"}}>PRONOSTICS (MAIN/2ND)</div>
+                        <div style={{width:"18%", minWidth: "130px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
                         <div style={{width:"12%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                             AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>
@@ -589,7 +589,7 @@ const Dashboard = () => {
                         cursor: 'pointer'
                     }}>
                         <div style={{width:"22%", minWidth: "140px", padding:"0 8px"}}>MATCH / CHAMPIONNAT</div>
-                        <div style={{width:"18%", minWidth: "130px", padding:"0 8px"}}>PRONOSTICS (MAIN/2ND)</div>
+                        <div style={{width:"18%", minWidth: "130px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
                         <div style={{width:"12%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                             AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                         </div>

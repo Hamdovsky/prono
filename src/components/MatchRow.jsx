@@ -613,10 +613,27 @@ const MatchRow = ({ match, isElite, onClick, style }) => {
                         <div style={{width: `${Math.min(100, Math.max(5, acc))}%`, height: '100%', background: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
                     </div>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                        <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '900', minWidth: '32px'}}>2ND</span>
-                        <span style={{fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                            {secondPickClean}
-                        </span>
+                        {(() => {
+                            const raw = quant.secondary_pick || '';
+                            const isHT = raw.startsWith('HT:');
+                            const isBTTS = raw.startsWith('BTTS:');
+                            const isOU = raw.startsWith('O/U');
+                            const isDC = raw.startsWith('DC:');
+                            const badgeColor = isHT ? '#38bdf8' : isBTTS ? '#a78bfa' : isOU ? '#f59e0b' : '#64748b';
+                            const badgeLabel = isHT ? 'HT' : isBTTS ? 'BTTS' : isOU ? 'O/U' : isDC ? 'DC' : '';
+                            return (
+                                <>
+                                    {badgeLabel && (
+                                        <span style={{fontSize: '8px', fontWeight: '900', color: badgeColor, border: `1px solid ${badgeColor}33`, borderRadius: '3px', padding: '0 4px', background: `${badgeColor}11`, letterSpacing: '0.5px'}}>
+                                            {badgeLabel}
+                                        </span>
+                                    )}
+                                    <span style={{fontSize: '11px', color: badgeColor || '#94a3b8', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                                        {secondPickClean}
+                                    </span>
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
             </div>

@@ -179,9 +179,9 @@ class StatisticalEngine {
             xgA *= (boost < 1 ? (1/boost) : 1);
         }
 
-        return { 
-            h: Math.max(0.45, xgH * 1.03), 
-            a: Math.max(0.41, xgA * 0.98) 
+        return {
+            h: Math.max(0.30, xgH * 1.03),
+            a: Math.max(0.25, xgA * 0.98)
         };
     }
 

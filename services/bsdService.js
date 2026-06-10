@@ -117,6 +117,14 @@ class BsdService {
     const league = resolveName(event.league) || event.tournament_name || event.competition || 'Unknown'
     const matchId = event.id || event.match_id || `bsd_${ts}_${Math.random().toString(36).substring(2, 8)}`
 
+    let status = 'scheduled'
+    const rawEventStatus = event.status
+    if (typeof rawEventStatus === 'string') {
+      status = ({ notstarted: 'NOT_STARTED', inprogress: 'live', finished: 'finished', canceled: 'canceled', postponed: 'POSTPONED', abandoned: 'abandoned' })[rawEventStatus.toLowerCase()] || 'scheduled'
+    } else if (rawEventStatus && typeof rawEventStatus === 'object' && rawEventStatus.type) {
+      status = ({ notstarted: 'NOT_STARTED', inprogress: 'live', finished: 'finished', canceled: 'canceled', postponed: 'POSTPONED', abandoned: 'abandoned' })[rawEventStatus.type.toLowerCase()] || 'scheduled'
+    }
+
     return {
       id: `bsd_${matchId}`,
       homeTeam,
@@ -129,7 +137,7 @@ class BsdService {
       away_team_id: event.away_team?.id || event.away_team_id || null,
       startTimestamp: ts,
       timestamp: new Date(ts * 1000).toISOString(),
-      status: ({ notstarted: 'NOT_STARTED', inprogress: 'live', finished: 'finished', canceled: 'canceled', postponed: 'POSTPONED', abandoned: 'abandoned' })[event.status] || 'scheduled',
+      status,
       confidence: 50,
       prediction: null,
       verdict: 'PENDING',

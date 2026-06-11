@@ -115,7 +115,7 @@ const Dashboard = () => {
     const [activeDate, setActiveDate] = useState("Today")
     const [selectedMatchForUltimateView, setSelectedMatchForUltimateView] = useState(null)
     const [surgicalMode, setSurgicalMode] = useState(false)
-    const [sidebarOpen, setSidebarOpen] = useState(true)
+    const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 1024 : true)
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
 
     useEffect(() => {
@@ -125,6 +125,26 @@ const Dashboard = () => {
         window.addEventListener('resize', handleResize)
         return () => window.removeEventListener('resize', handleResize)
     }, [])
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+            setSidebarOpen(false)
+        }
+    }, [location.pathname])
+
+    const handleLeagueChange = (league) => {
+        setActiveLeague(league)
+        if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+            setSidebarOpen(false)
+        }
+    }
+
+    const handleDateChange = (date) => {
+        setActiveDate(date)
+        if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+            setSidebarOpen(false)
+        }
+    }
 
     const [status, setStatus] = useState('idle')
     const [scraperProgress, setScraperProgress] = useState(null)
@@ -824,11 +844,11 @@ const Dashboard = () => {
         <div className="titanium-layout">
             <Sidebar 
                 activeLeague={activeLeague} 
-                onLeagueChange={setActiveLeague} 
+                onLeagueChange={handleLeagueChange} 
                 matches={matches}
                 activeView={activeView}
                 activeDate={activeDate}
-                onDateChange={setActiveDate}
+                onDateChange={handleDateChange}
                 isOpen={sidebarOpen}
             />
             

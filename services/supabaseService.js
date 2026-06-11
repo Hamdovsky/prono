@@ -1,4 +1,4 @@
-const { Pool } = require('pg')
+const { getPool, query: pgQuery } = require('../core/pg_connector')
 const { resolve4 } = require('dns/promises')
 const logger = require('../core/logger')
 
@@ -8,76 +8,63 @@ class SupabaseService {
   constructor() {
     this.enabled = process.env.SUPABASE_ENABLED !== 'false'
     this.connected = false
-    this.pool = null
     this._syncTimer = null
     this._lastError = null
 
-    const url = process.env.SUPABASE_URL
-    const anonKey = process.env.SUPABASE_ANON_KEY
-
+    // Validate required config
+    const url = process.env.DATABASE_URL || process.env.SUPABASE_URL
     if (!url || url.startsWith('CHANGER_MOI')) {
-      logger.warn('⚠️ [SUPABASE] No connection URL — service disabled')
-      this.enabled = false
-      return
-    }
-
-    if (!anonKey || anonKey.startsWith('CHANGER_MOI')) {
-      logger.warn('⚠️ [SUPABASE] SUPABASE_ANON_KEY missing — connection may fail')
-    }
-
-    try {
-      const parsed = new URL(url)
-      this._config = {
-        host: parsed.hostname,
-        port: parseInt(parsed.port || '5432'),
-        user: decodeURIComponent(parsed.username),
-        password: decodeURIComponent(parsed.password),
-        database: parsed.pathname.replace(/^\//, ''),
-        ssl: { rejectUnauthorized: false },
-        max: 5,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 15000
-      }
-      this.pool = new Pool(this._config)
-      logger.info('✅ [SUPABASE] Pool created (resolving IPv4...)')
-    } catch (e) {
-      logger.warn(`⚠️ [SUPABASE] Pool creation failed: ${e.message}`)
+      logger.warn('⚠️ [SUPABASE] No DATABASE_URL/SUPABASE_URL — service disabled')
       this.enabled = false
     }
   }
 
   isAvailable() {
-    if (!this.enabled || !this.pool) return false
+    if (!this.enabled) return false
     if (this._lastError && !this.connected) return false
     return true
   }
 
   async connect() {
-    if (!this.enabled || !this.pool) {
+    if (!this.enabled) {
       this._lastError = 'not initialized'
       return false
     }
     try {
-      const client = await this.pool.connect()
+      const pool = getPool()
+      if (!pool) {
+        this._lastError = 'no pool (SQLite mode)'
+        return false
+      }
+      const client = await pool.connect()
       await client.query('SELECT 1')
       client.release()
       this.connected = true
       this._lastError = null
-      logger.info('✅ [SUPABASE] Connected successfully')
+      logger.info('✅ [SUPABASE] Connected (shared pool)')
       return true
     } catch (e) {
       this.connected = false
       this._lastError = e.message
-      if (e.message.includes('ENETUNREACH') && this._config?.host) {
-        logger.warn(`⚠️ [SUPABASE] ENETUNREACH on ${this._config.host} — trying IPv4 resolution...`)
+      if (e.message.includes('ENETUNREACH') || e.message.includes('getaddrinfo')) {
+        const host = process.env.DATABASE_URL || process.env.SUPABASE_URL || ''
+        const parsed = new URL(host)
+        logger.warn(`⚠️ [SUPABASE] DNS failed for ${parsed.hostname} — trying IPv4 resolution...`)
         try {
-          const addrs = await resolve4(this._config.host)
+          const addrs = await resolve4(parsed.hostname)
           if (addrs.length > 0) {
-            this._config.host = addrs[0]
-            this.pool = new Pool(this._config)
-            const client = await this.pool.connect()
+            const ipUrl = host.replace(parsed.hostname, addrs[0])
+            const { Pool } = require('pg')
+            const directPool = new Pool({
+              connectionString: ipUrl,
+              max: 1,
+              connectionTimeoutMillis: 10000,
+              ssl: host.includes('supabase.co') ? { rejectUnauthorized: false } : undefined
+            })
+            const client = await directPool.connect()
             await client.query('SELECT 1')
             client.release()
+            await directPool.end()
             this.connected = true
             this._lastError = null
             logger.info(`✅ [SUPABASE] Connected via IPv4: ${addrs[0]}`)
@@ -95,8 +82,7 @@ class SupabaseService {
   async query(text, params) {
     if (!this.isAvailable()) return null
     try {
-      const result = await this.pool.query(text, params)
-      return result
+      return await pgQuery(text, params)
     } catch (e) {
       logger.error(`❌ [SUPABASE] Query error: ${e.message}`)
       return null
@@ -205,9 +191,7 @@ class SupabaseService {
       CREATE INDEX IF NOT EXISTS idx_history_match_id ON prediction_history(match_id);
     `
     const result = await this.query(sql)
-    if (result) logger.info('✅ [SUPABASE] Schema initialized')
-
-    // Fix column types for existing tables (safe no-op if already BIGINT)
+    if (result) logger.info('✅ [SUPABASE] Schema initialized (shared pool)')
     await this.query('ALTER TABLE matches ALTER COLUMN "startTimestamp" TYPE BIGINT').catch(() => {})
     await this.query('ALTER TABLE matches ALTER COLUMN last_updated TYPE BIGINT').catch(() => {})
     return true
@@ -350,6 +334,7 @@ class SupabaseService {
       this._syncTimer = null
     }
   }
+
   async cleanupPlaceholderTeams() {
     if (!this.isAvailable()) return 0
     try {

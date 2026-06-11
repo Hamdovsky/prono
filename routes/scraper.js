@@ -36,8 +36,13 @@ async function getBrowser() {
         }
     }
     
-    const puppeteer = require('puppeteer-extra');
-    const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+    let puppeteer, StealthPlugin
+    try {
+      puppeteer = require('puppeteer-extra')
+      StealthPlugin = require('puppeteer-extra-plugin-stealth')
+    } catch (_) {
+      throw new Error('puppeteer not available (optional dep not installed on Render)')
+    }
     const stealth = StealthPlugin();
     stealth.enabledEvasions.delete('iframe.contentWindow'); // Prevent some 403 blocks
     stealth.enabledEvasions.delete('media.codecs');

@@ -1163,4 +1163,13 @@ const database = {
 
 database.db.query = database.query.bind(database);
 
-module.exports = database;
+// ─── Auto-detect: Postgres (Neon/Supabase) vs SQLite ───
+if (process.env.DATABASE_URL) {
+  logger.info('[DB] DATABASE_URL detected — using Postgres (Neon/Supabase) instead of SQLite')
+  const pgDb = require('./pg_database')
+  const pgMigrations = require('./pg_migrations')
+  pgMigrations.runMigrations().catch(e => logger.error(`[DB] PG migration error: ${e.message}`))
+  module.exports = pgDb
+} else {
+  module.exports = database
+}

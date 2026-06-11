@@ -8,7 +8,7 @@ class LiveGoalPredictor {
         this.goalMatrix = this.initializeGoalMatrix();
         this.patternWeights = this.loadPatternWeights();
         this.activeMatches = new Map();
-        this.fastApiUrl = process.env.FASTAPI_URL || 'http://127.0.0.1:8000';
+        this.fastApiUrl = process.env.INFERENCE_URL || 'http://127.0.0.1:8000';
     }
 
     async callMLModel(match) {

@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────
+# render-account2.yaml
+# À déployer sur le 2ème compte Render
+# Services : FastAPI (ML) + Scraper Worker (HTTP)
+# ─────────────────────────────────────────────────────────
+
+services:
+  # ── Python FastAPI Inference ────────────────────────────
+  - type: web
+    name: prono-fastapi
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONHASHSEED
+        value: "42"
+      # Neon/Supabase connection (shared DB avec Compte 1)
+      - key: DATABASE_URL
+        sync: false
+
+  # ── Serverless Scraper Worker (HTTP-only, ~50MB RAM) ──
+  - type: web
+    name: prono-scraper
+    env: node
+    plan: free
+    buildCommand: npm install --omit=optional
+    startCommand: node --expose-gc --max-old-space-size=128 serverless/scraper-worker.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      # Clé partagée avec le Compte 1
+      - key: API_SECRET_KEY
+        sync: false
+      # API keys pour le scraping HTTP
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: RAPIDAPI_HOST
+        value: sportapi7.p.rapidapi.com
+      - key: FOOTBALLDATA_KEY
+        sync: false
+      - key: HTTP_SCRAPER_ENABLED
+        value: "true"
+      # Neon/Supabase connection (shared DB avec Compte 1)
+      - key: DATABASE_URL
+        sync: false

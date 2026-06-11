@@ -1,10 +1,10 @@
 services:
-  # ── Node.js Web App ──────────────────────────────────────
+  # ── Node.js Web App (Compte 1) ──────────────────────────
   - type: web
     name: prono
     env: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --omit=optional && npm run build
     startCommand: node --expose-gc --max-old-space-size=256 server.js
     envVars:
       - key: NODE_ENV
@@ -43,7 +43,6 @@ services:
         value: "true"
       - key: VITE_API_URL
         value: https://prono-k6gc.onrender.com
-      # API sources (keys set manually on dashboard — sync: false)
       - key: BSD_API_KEY
         sync: false
       - key: THERUNDOWN_KEY
@@ -56,10 +55,8 @@ services:
         sync: false
       - key: OPENWEATHER_KEY
         sync: false
-      # OpenLigaDB — free, no API key required
       - key: OPENLIGADB_ENABLED
         value: "true"
-      # Supabase (PostgreSQL cloud persistence)
       - key: SUPABASE_ENABLED
         value: "true"
       - key: SUPABASE_URL
@@ -68,7 +65,6 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      # Telegram bot
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID
@@ -79,24 +75,16 @@ services:
           name: prono-redis
           type: kv
           property: connectionString
-      # Python FastAPI inference — public Render URL (free plan, no private network)
+      # ── URLs des services sur le Compte 2 ──
+      # À remplacer par les vraies URLs Render après déploiement
       - key: INFERENCE_URL
         value: https://prono-fastapi.onrender.com
+      - key: SCRAPER_WORKER_URL
+        value: https://prono-scraper.onrender.com
+      - key: DATABASE_URL
+        sync: false
 
   # ── Redis Cache (Render Key Value, free 25MB) ─────────────────
   - type: kv
     name: prono-redis
     plan: free
-
-  # ── Python FastAPI Inference ────────────────────────────
-  - type: web
-    name: prono-fastapi
-    env: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
-    healthCheckPath: /health
-    envVars:
-      - key: PYTHONUNBUFFERED
-        value: "1"
-      - key: PYTHONHASHSEED
-        value: "42"

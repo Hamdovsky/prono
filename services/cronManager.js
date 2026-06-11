@@ -187,7 +187,7 @@ class CronManager {
         if (this.scraperSchedule.running) return;
         
         // 🔒 [LOCK CHECK] If the external scraper process already holds the Redis lock,
-        // skip spawning a duplicate. The external process releases the lock when it finishes.
+        // skip spawning a duplicate.
         try {
             const isLocked = await redisCache.get('scraper:lock');
             if (isLocked) {
@@ -201,15 +201,20 @@ class CronManager {
         this.scraperSchedule.running = true;
         this.scraperSchedule.lastRun = new Date().toISOString();
         
-        logger.info(`📡 [CRON] Launching Scraper (${label})...`);
-        const proc = spawn('node', [path.join(__dirname, '..', 'SofascoreScraping', 'index.js')], { stdio: 'inherit', windowsHide: true });
+        logger.info(`📡 [CRON] Launching Scraper (${label}) via bridge...`);
         
-        proc.on('close', async () => {
-            this.scraperSchedule.running = false;
-            await redisCache.setLastRun(Date.now()).catch(() => {});
-            await redisCache.redis?.del('scraper:lock').catch(() => {}); // Release lock
-            logger.info(`✅ [CRON] Scraper (${label}) finished.`);
-        });
+        // Use scraper bridge: calls serverless worker if configured, otherwise runs locally
+        const scraperBridge = require('./scraperBridge')
+        try {
+            await scraperBridge.triggerScrape()
+        } catch (err) {
+            logger.error(`[CRON] Scraper bridge failed: ${err.message}`)
+        }
+        
+        this.scraperSchedule.running = false;
+        await redisCache.setLastRun(Date.now()).catch(() => {});
+        await redisCache.redis?.del('scraper:lock').catch(() => {});
+        logger.info(`✅ [CRON] Scraper (${label}) finished via bridge.`);
     }
 
     async runAdaptiveLearning() {

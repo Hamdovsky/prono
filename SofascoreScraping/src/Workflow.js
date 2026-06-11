@@ -84,6 +84,9 @@ async function fetchTeamStats(teamId, uniqueTournamentId, seasonId) {
             avgBigChancesCreated: +((s.bigChancesCreated || 0) / mp).toFixed(2),
             avgBigChancesMissed: +((s.bigChancesMissed || 0) / mp).toFixed(2),
             avgSuccessfulDribbles: +((s.successfulDribbles || 0) / mp).toFixed(2),
+            avgAssists: +((s.assists || 0) / mp).toFixed(2),
+            avgBlockedScoringAttempt: +((s.blockedScoringAttempt || 0) / mp).toFixed(2),
+            avgFreeKickShots: +((s.freeKickShots || 0) / mp).toFixed(2),
             hitWoodwork: s.hitWoodwork || 0,
             fastBreaks: s.fastBreaks || 0,
             fastBreakGoals: s.fastBreakGoals || 0,
@@ -93,9 +96,15 @@ async function fetchTeamStats(teamId, uniqueTournamentId, seasonId) {
             avgAccuratePasses: +((s.accuratePasses || 0) / mp).toFixed(2),
             passAccuracyPct: +(s.accuratePassesPercentage || 0).toFixed(1),
             avgOwnHalfPasses: +((s.totalOwnHalfPasses || 0) / mp).toFixed(2),
+            avgAccurateOwnHalfPasses: +((s.accurateOwnHalfPasses || 0) / mp).toFixed(2),
+            accurateOwnHalfPassesPct: +(s.accurateOwnHalfPassesPercentage || 0).toFixed(1),
             avgOppositionHalfPasses: +((s.totalOppositionHalfPasses || 0) / mp).toFixed(2),
+            avgAccurateOppositionHalfPasses: +((s.accurateOppositionHalfPasses || 0) / mp).toFixed(2),
+            accurateOppositionHalfPassesPct: +(s.accurateOppositionHalfPassesPercentage || 0).toFixed(1),
             avgAccurateLongBalls: +((s.accurateLongBalls || 0) / mp).toFixed(2),
+            accurateLongBallsPct: +(s.accurateLongBallsPercentage || 0).toFixed(1),
             avgAccurateCrosses: +((s.accurateCrosses || 0) / mp).toFixed(2),
+            accurateCrossesPct: +(s.accurateCrossesPercentage || 0).toFixed(1),
 
             // --- DEFENDING & PRESSURE ---
             avgGoalsConceded: +((s.goalsConceded || 0) / mp).toFixed(2),
@@ -108,8 +117,22 @@ async function fetchTeamStats(teamId, uniqueTournamentId, seasonId) {
             errorsLeadingToShot: s.errorsLeadingToShot || 0,
             avgDuelsWon: +((s.duelsWon || 0) / mp).toFixed(2),
             duelsWonPct: +(s.duelsWonPercentage || 0).toFixed(1),
+            avgTotalDuels: +((s.totalDuels || 0) / mp).toFixed(2),
+            avgGroundDuelsWon: +((s.groundDuelsWon || 0) / mp).toFixed(2),
+            groundDuelsWonPct: +(s.groundDuelsWonPercentage || 0).toFixed(1),
             avgAerialDuelsWon: +((s.aerialDuelsWon || 0) / mp).toFixed(2),
+            aerialDuelsWonPct: +(s.aerialDuelsWonPercentage || 0).toFixed(1),
             avgPossessionLost: +((s.possessionLost || 0) / mp).toFixed(2),
+            avgBallRecovery: +((s.ballRecovery || 0) / mp).toFixed(2),
+
+            // --- DEFENSIVE (AGAINST / OPPONENT PERSPECTIVE) ---
+            avgShotsAgainst: +((s.shotsAgainst || 0) / mp).toFixed(2),
+            avgShotsOnTargetAgainst: +((s.shotsOnTargetAgainst || 0) / mp).toFixed(2),
+            avgBigChancesAgainst: +((s.bigChancesAgainst || 0) / mp).toFixed(2),
+            avgCornersAgainst: +((s.cornersAgainst || 0) / mp).toFixed(2),
+            avgKeyPassesAgainst: +((s.keyPassesAgainst || 0) / mp).toFixed(2),
+            avgDribbleAttemptsWonAgainst: +((s.dribbleAttemptsWonAgainst || 0) / mp).toFixed(2),
+            avgTotalPassesAgainst: +((s.totalPassesAgainst || 0) / mp).toFixed(2),
 
             // --- DISCIPLINE & SET PIECES ---
             avgFouls: +((s.fouls || 0) / mp).toFixed(2),
@@ -118,7 +141,15 @@ async function fetchTeamStats(teamId, uniqueTournamentId, seasonId) {
             yellowCards: s.yellowCards || 0,
             redCards: s.redCards || 0,
             penaltiesConceded: s.penaltiesCommited || 0,
-            penaltyGoalsConceded: s.penaltyGoalsConceded || 0
+            penaltyGoalsConceded: s.penaltyGoalsConceded || 0,
+
+            // --- COMPUTED PROXIES (FBref replacements) ---
+            ppdaProxy: (function() {
+                const denom = (s.tackles || 0) + (s.interceptions || 0) + (s.clearances || 0) + (s.fouls || 0)
+                return denom > 0 ? +((s.totalPasses || 0) / denom).toFixed(2) : 15.0
+            })(),
+            progressivePassesProxy: +(((s.accurateLongBalls || 0) + (s.accurateOppositionHalfPasses || 0)) / mp).toFixed(2),
+            shotCreatingActionsProxy: +(((s.bigChancesCreated || 0) + (s.accurateCrosses || 0) + (s.successfulDribbles || 0)) / mp).toFixed(2)
         };
 
         await setCache(cacheKey, statsObj, REDIS_TTL_STATS);

@@ -102,12 +102,35 @@ try {
 
 app.use(compression());
 
-// CORS - restrict in production
+// CORS - restrict in production but allow native smartphone containers
+const allowedOrigins = [
+  'https://prono-k6gc.onrender.com',
+  'http://localhost',
+  'https://localhost',
+  'capacitor://localhost'
+]
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://prono-k6gc.onrender.com' : '*'),
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. mobile native HTTP clients, curl, postman)
+    if (!origin) return callback(null, true)
+    
+    // Check if origin is in the allowed list or is a local address
+    const isAllowed = allowedOrigins.includes(origin) ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('https://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') ||
+      process.env.NODE_ENV !== 'production'
+      
+    if (isAllowed) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   credentials: true
-};
-app.use(cors(corsOptions));
+}
+app.use(cors(corsOptions))
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

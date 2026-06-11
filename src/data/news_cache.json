@@ -1,327 +1,4 @@
 {
-  "match_intel_v50_16233431_Cape Town City_Magesi": {
-    "data": {
-      "lineups": null,
-      "home": {
-        "headlines": [],
-        "items": [],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 0
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100022584
-      },
-      "away": {
-        "headlines": [],
-        "items": [],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 0
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100022941
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100022941
-    },
-    "expiresAt": 1781107222941
-  },
-  "match_intel_v50_16270796_Kuopion Palloseura_VPS": {
-    "data": {
-      "lineups": null,
-      "home": {
-        "headlines": [],
-        "items": [],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 0
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100044217
-      },
-      "away": {
-        "headlines": [],
-        "items": [],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 0
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100044144
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100044217
-    },
-    "expiresAt": 1781107244217
-  },
-  "match_intel_v50_16270795_Ilves_FC Lahti": {
-    "data": {
-      "lineups": null,
-      "home": {
-        "headlines": [],
-        "items": [],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 0
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100063893
-      },
-      "away": {
-        "headlines": [],
-        "items": [],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 0
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100066771
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100066771
-    },
-    "expiresAt": 1781107266771
-  },
-  "match_intel_v50_16273061_SJK_Inter Turku": {
-    "data": {
-      "lineups": null,
-      "home": {
-        "headlines": [],
-        "items": [],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 0
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100084251
-      },
-      "away": {
-        "headlines": [],
-        "items": [],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 0
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100085999
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100085999
-    },
-    "expiresAt": 1781107285999
-  },
-  "match_intel_v50_16264520_Leça_GD Vitória Sernache": {
-    "data": {
-      "lineups": null,
-      "home": {
-        "headlines": [
-          "Euro-2016 : vainqueur des Bleus, le Portugal est sacré champion d'Europe"
-        ],
-        "items": [
-          {
-            "title": "Euro-2016 : vainqueur des Bleus, le Portugal est sacré champion d'Europe",
-            "pubDate": "2026-06-10T14:01:42.133Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 1
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100102186
-      },
-      "away": {
-        "headlines": [],
-        "items": [],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 0
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100103830
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100104617
-    },
-    "expiresAt": 1781107304617
-  },
   "match_intel_v50_15272310_Varbergs BoIS_Norrby IF": {
     "data": {
       "lineups": null,
@@ -349,7 +26,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100122249
+        "fetched_at": 1781114428190
       },
       "away": {
         "headlines": [],
@@ -375,15 +52,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100128965
+        "fetched_at": 1781114426763
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100128965
+      "fetched_at": 1781114428190
     },
-    "expiresAt": 1781107328965
+    "expiresAt": 1781121628190
   },
   "match_intel_v50_15272307_Örebro SK_GIF Sundsvall": {
     "data": {
@@ -412,7 +89,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100148865
+        "fetched_at": 1781114450957
       },
       "away": {
         "headlines": [],
@@ -438,15 +115,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100146279
+        "fetched_at": 1781114448883
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100148865
+      "fetched_at": 1781114450957
     },
-    "expiresAt": 1781107348865
+    "expiresAt": 1781121650957
   },
   "match_intel_v50_16006978_Colombia U19_Tunisia U20": {
     "data": {
@@ -475,7 +152,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100168534
+        "fetched_at": 1781114469666
       },
       "away": {
         "headlines": [],
@@ -501,15 +178,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100168727
+        "fetched_at": 1781114473459
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100168727
+      "fetched_at": 1781114473459
     },
-    "expiresAt": 1781107368727
+    "expiresAt": 1781121673459
   },
   "match_intel_v50_16264530_Málaga_Las Palmas": {
     "data": {
@@ -538,20 +215,13 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100190906
+        "fetched_at": 1781114493925
       },
       "away": {
         "headlines": [
-          "Preview: Malaga vs Las Palmas - prediction, team news, lineups - Sports Mole",
           "Ready for the World Cup? Messi opens up about his condition ahead of the tournament - Dailysports"
         ],
         "items": [
-          {
-            "title": "Preview: Malaga vs Las Palmas - prediction, team news, lineups - Sports Mole",
-            "pubDate": "Mon, 08 Jun 2026 15:24:41 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
           {
             "title": "Ready for the World Cup? Messi opens up about his condition ahead of the tournament - Dailysports",
             "pubDate": "Wed, 10 Jun 2026 13:28:13 GMT",
@@ -569,7 +239,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 2
+            "news_intensity": 1
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -580,43 +250,29 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100188590
+        "fetched_at": 1781114496821
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100190906
+      "fetched_at": 1781114496821
     },
-    "expiresAt": 1781107390906
+    "expiresAt": 1781121696821
   },
   "match_intel_v50_16135568_Portugal_Nigeria": {
     "data": {
       "lineups": null,
       "home": {
         "headlines": [
-          "Portugal vs. Nigeria—International Friendly: Preview, Predictions and Lineups - FotMob",
           "Preview: Portugal vs Nigeria Prediction, lineups, betting tips &amp; odds | International Freindly - Khel Now",
-          "Portugal vs Nigeria: Preview, team news, h2h &amp; more as Super Eagles aim to spoil Ronaldo's World Cup farewell - Afrik-Foot",
           "Portugal Primeira Liga Injuries &amp; Suspensions | Injury News - Sportsgambler",
           "Euro-2016 : vainqueur des Bleus, le Portugal est sacré champion d'Europe"
         ],
         "items": [
           {
-            "title": "Portugal vs. Nigeria—International Friendly: Preview, Predictions and Lineups - FotMob",
-            "pubDate": "Wed, 10 Jun 2026 02:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
             "title": "Preview: Portugal vs Nigeria Prediction, lineups, betting tips &amp; odds | International Freindly - Khel Now",
             "pubDate": "Tue, 09 Jun 2026 14:11:23 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Portugal vs Nigeria: Preview, team news, h2h &amp; more as Super Eagles aim to spoil Ronaldo's World Cup farewell - Afrik-Foot",
-            "pubDate": "Mon, 08 Jun 2026 17:19:20 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
@@ -628,7 +284,7 @@
           },
           {
             "title": "Euro-2016 : vainqueur des Bleus, le Portugal est sacré champion d'Europe",
-            "pubDate": "2026-06-10T14:03:25.446Z",
+            "pubDate": "2026-06-10T18:01:53.688Z",
             "source": "goal_direct"
           }
         ],
@@ -642,7 +298,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 5
+            "news_intensity": 3
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -653,7 +309,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100205457
+        "fetched_at": 1781114513699
       },
       "away": {
         "headlines": [
@@ -669,7 +325,7 @@
           },
           {
             "title": "Éliminatoires de la CAN 2025 : calendrier et résultats des 3e et 4e journées",
-            "pubDate": "2026-06-10T14:03:27.533Z",
+            "pubDate": "2026-06-10T18:02:16.830Z",
             "source": "goal_direct"
           }
         ],
@@ -694,15 +350,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100207544
+        "fetched_at": 1781114536839
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100207544
+      "fetched_at": 1781114536839
     },
-    "expiresAt": 1781107407544
+    "expiresAt": 1781121736839
   },
   "match_intel_v50_15598106_England_Costa Rica": {
     "data": {
@@ -710,6 +366,7 @@
       "home": {
         "headlines": [
           "بوكايو ساكة لا يزال غير مستعد، مهدد بعدم المشاركة في أول مباراة إنجليزية - VOI.id",
+          "Premier League Injuries &amp; Suspensions - Sportsgambler",
           "Tuchel's mission to remove pressure as he plays down favourites tag"
         ],
         "items": [
@@ -720,8 +377,14 @@
             "source": "google_news_ar"
           },
           {
+            "title": "Premier League Injuries &amp; Suspensions - Sportsgambler",
+            "pubDate": "Wed, 10 Jun 2026 03:47:58 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
             "title": "Tuchel's mission to remove pressure as he plays down favourites tag",
-            "pubDate": "2026-06-10T14:03:27.677Z",
+            "pubDate": "2026-06-10T18:02:17.364Z",
             "source": "goal_direct"
           }
         ],
@@ -735,7 +398,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 2
+            "news_intensity": 3
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -746,16 +409,14 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100208330
+        "fetched_at": 1781114537786
       },
       "away": {
         "headlines": [
           "England vs. Costa Rica—International Friendly: Preview, Predictions and Lineups - Sports Illustrated",
           "Mexico v South Africa: Prediction, team news, lineups and odds - Football365",
           "England at the World Cup: Thomas Tuchel gives injury update on Bukayo Saka “pain” before Costa Rica game as backup assessed - Sports Mole",
-          "England vs Costa Rica Prediction &amp; Betting Tips – 10/06/2026 - The Football Faithful",
-          "England vs Costa Rica Prediction and Betting Tips - MrFixitsTips",
-          "Argentina vs Iceland prediction and betting tips 09 June 2026 - Dailysports"
+          "England vs Costa Rica Prediction and Betting Tips - MrFixitsTips"
         ],
         "items": [
           {
@@ -766,7 +427,7 @@
           },
           {
             "title": "Mexico v South Africa: Prediction, team news, lineups and odds - Football365",
-            "pubDate": "Wed, 10 Jun 2026 11:24:14 GMT",
+            "pubDate": "Wed, 10 Jun 2026 11:00:51 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
@@ -777,20 +438,8 @@
             "source": "google_news_en"
           },
           {
-            "title": "England vs Costa Rica Prediction &amp; Betting Tips – 10/06/2026 - The Football Faithful",
-            "pubDate": "Tue, 09 Jun 2026 18:26:45 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
             "title": "England vs Costa Rica Prediction and Betting Tips - MrFixitsTips",
             "pubDate": "Mon, 08 Jun 2026 18:26:26 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Argentina vs Iceland prediction and betting tips 09 June 2026 - Dailysports",
-            "pubDate": "Tue, 09 Jun 2026 14:21:00 GMT",
             "lang": "en",
             "source": "google_news_en"
           }
@@ -805,7 +454,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 6
+            "news_intensity": 4
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -816,15 +465,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100227395
+        "fetched_at": 1781114558787
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100227395
+      "fetched_at": 1781114558787
     },
-    "expiresAt": 1781107427395
+    "expiresAt": 1781121758787
   },
   "match_intel_v50_15941988_Nacional Potosí_Club Aurora": {
     "data": {
@@ -853,7 +502,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100246299
+        "fetched_at": 1781114577481
       },
       "away": {
         "headlines": [],
@@ -879,15 +528,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100252650
+        "fetched_at": 1781114578611
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100252650
+      "fetched_at": 1781114578611
     },
-    "expiresAt": 1781107452650
+    "expiresAt": 1781121778611
   },
   "match_intel_v50_15526121_Ceará_Avaí": {
     "data": {
@@ -916,7 +565,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100271202
+        "fetched_at": 1781114602542
       },
       "away": {
         "headlines": [
@@ -925,7 +574,7 @@
         "items": [
           {
             "title": "Mathieu van der Poel s'adjuge un deuxième Milan-Sanremo en résistant à Tadej Pogacar",
-            "pubDate": "2026-06-10T14:04:27.909Z",
+            "pubDate": "2026-06-10T18:03:18.070Z",
             "source": "goal_direct"
           }
         ],
@@ -950,15 +599,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100267920
+        "fetched_at": 1781114598079
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100271202
+      "fetched_at": 1781114602542
     },
-    "expiresAt": 1781107471202
+    "expiresAt": 1781121802542
   },
   "match_intel_v50_15526122_Goiás_Grêmio Novorizontino": {
     "data": {
@@ -987,7 +636,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100291363
+        "fetched_at": 1781114625252
       },
       "away": {
         "headlines": [],
@@ -1013,15 +662,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100289551
+        "fetched_at": 1781114622019
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100291363
+      "fetched_at": 1781114625252
     },
-    "expiresAt": 1781107491363
+    "expiresAt": 1781121825252
   },
   "match_intel_v50_15502827_Forge_HFX Wanderers": {
     "data": {
@@ -1050,7 +699,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100309195
+        "fetched_at": 1781114643580
       },
       "away": {
         "headlines": [],
@@ -1076,15 +725,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100310965
+        "fetched_at": 1781114645419
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100310965
+      "fetched_at": 1781114645419
     },
-    "expiresAt": 1781107510965
+    "expiresAt": 1781121845419
   },
   "match_intel_v50_15283310_FC Tampa Bay Rowdies_Charleston Battery": {
     "data": {
@@ -1113,7 +762,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100329486
+        "fetched_at": 1781114665476
       },
       "away": {
         "headlines": [],
@@ -1139,15 +788,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100327705
+        "fetched_at": 1781114665649
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100329486
+      "fetched_at": 1781114665649
     },
-    "expiresAt": 1781107529486
+    "expiresAt": 1781121865649
   },
   "match_intel_v50_15285458_Westchester_Fort Wayne": {
     "data": {
@@ -1176,7 +825,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100351729
+        "fetched_at": 1781114686240
       },
       "away": {
         "headlines": [],
@@ -1202,15 +851,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100347730
+        "fetched_at": 1781114689226
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100351729
+      "fetched_at": 1781114689226
     },
-    "expiresAt": 1781107551729
+    "expiresAt": 1781121889226
   },
   "match_intel_v50_15394316_Greenville Triumph_Loudoun United": {
     "data": {
@@ -1239,7 +888,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100370206
+        "fetched_at": 1781114707749
       },
       "away": {
         "headlines": [],
@@ -1265,15 +914,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100370576
+        "fetched_at": 1781114708561
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100370576
+      "fetched_at": 1781114708561
     },
-    "expiresAt": 1781107570576
+    "expiresAt": 1781121908561
   },
   "match_intel_v50_15394342_One Knoxville_Chattanooga Red Wolves": {
     "data": {
@@ -1302,7 +951,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100390312
+        "fetched_at": 1781114727295
       },
       "away": {
         "headlines": [],
@@ -1328,15 +977,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100391106
+        "fetched_at": 1781114727039
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100391106
+      "fetched_at": 1781114727295
     },
-    "expiresAt": 1781107591106
+    "expiresAt": 1781121927295
   },
   "match_intel_v50_15502828_Inter Toronto_Cavalry": {
     "data": {
@@ -1365,7 +1014,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100410054
+        "fetched_at": 1781114745328
       },
       "away": {
         "headlines": [],
@@ -1391,15 +1040,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100410675
+        "fetched_at": 1781114746992
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100410675
+      "fetched_at": 1781114746992
     },
-    "expiresAt": 1781107610675
+    "expiresAt": 1781121946992
   },
   "match_intel_v50_15283304_Detroit City_El Paso Locomotive": {
     "data": {
@@ -1428,7 +1077,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100430410
+        "fetched_at": 1781114765258
       },
       "away": {
         "headlines": [],
@@ -1454,15 +1103,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100430595
+        "fetched_at": 1781114765842
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100430595
+      "fetched_at": 1781114765842
     },
-    "expiresAt": 1781107630595
+    "expiresAt": 1781121965842
   },
   "match_intel_v50_15285456_Charlotte Independence_Union Omaha": {
     "data": {
@@ -1491,7 +1140,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100449909
+        "fetched_at": 1781114785291
       },
       "away": {
         "headlines": [],
@@ -1517,15 +1166,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100450294
+        "fetched_at": 1781114793626
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100450294
+      "fetched_at": 1781114793626
     },
-    "expiresAt": 1781107650294
+    "expiresAt": 1781121993626
   },
   "match_intel_v50_15526118_Sport Recife_Athletic Club": {
     "data": {
@@ -1554,7 +1203,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100468101
+        "fetched_at": 1781114812985
       },
       "away": {
         "headlines": [
@@ -1596,15 +1245,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100467801
+        "fetched_at": 1781114812608
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100468101
+      "fetched_at": 1781114812985
     },
-    "expiresAt": 1781107668101
+    "expiresAt": 1781122012985
   },
   "match_intel_v50_15421016_Vancouver Whitecaps FC II_North Texas": {
     "data": {
@@ -1633,7 +1282,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100491900
+        "fetched_at": 1781114832784
       },
       "away": {
         "headlines": [],
@@ -1659,15 +1308,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100488188
+        "fetched_at": 1781114831650
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100491900
+      "fetched_at": 1781114832784
     },
-    "expiresAt": 1781107691900
+    "expiresAt": 1781122032784
   },
   "match_intel_v50_15285457_AC Boise_Richmond Kickers": {
     "data": {
@@ -1696,7 +1345,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100512070
+        "fetched_at": 1781114851663
       },
       "away": {
         "headlines": [],
@@ -1722,15 +1371,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100511666
+        "fetched_at": 1781114852049
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100512070
+      "fetched_at": 1781114852049
     },
-    "expiresAt": 1781107712070
+    "expiresAt": 1781122052049
   },
   "match_intel_v50_15502829_Vancouver_Pacific": {
     "data": {
@@ -1759,7 +1408,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100529718
+        "fetched_at": 1781114871725
       },
       "away": {
         "headlines": [],
@@ -1785,15 +1434,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100531493
+        "fetched_at": 1781114871741
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100531493
+      "fetched_at": 1781114871741
     },
-    "expiresAt": 1781107731493
+    "expiresAt": 1781122071741
   },
   "match_intel_v50_15283307_Monterey Bay_SC Jacksonville": {
     "data": {
@@ -1822,7 +1471,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100550101
+        "fetched_at": 1781114890573
       },
       "away": {
         "headlines": [],
@@ -1848,15 +1497,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100552357
+        "fetched_at": 1781114894775
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100552357
+      "fetched_at": 1781114894775
     },
-    "expiresAt": 1781107752357
+    "expiresAt": 1781122094775
   },
   "match_intel_v50_15283311_Phoenix Rising_Louisville City": {
     "data": {
@@ -1885,7 +1534,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100570118
+        "fetched_at": 1781114914249
       },
       "away": {
         "headlines": [],
@@ -1911,15 +1560,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100570897
+        "fetched_at": 1781114916171
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100570897
+      "fetched_at": 1781114916171
     },
-    "expiresAt": 1781107770897
+    "expiresAt": 1781122116171
   },
   "match_intel_v50_15285464_AV Alta_Sarasota Paradise": {
     "data": {
@@ -1948,7 +1597,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100594247
+        "fetched_at": 1781114935234
       },
       "away": {
         "headlines": [],
@@ -1974,15 +1623,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100589580
+        "fetched_at": 1781114934524
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100594247
+      "fetched_at": 1781114935234
     },
-    "expiresAt": 1781107794247
+    "expiresAt": 1781122135234
   },
   "match_intel_v50_16143343_Austria_Guatemala": {
     "data": {
@@ -1995,7 +1644,7 @@
         "items": [
           {
             "title": "World Cup AI Predictions 2026: ChatGPT Picks Every Match - Covers.com",
-            "pubDate": "Tue, 09 Jun 2026 14:38:00 GMT",
+            "pubDate": "Wed, 10 Jun 2026 16:14:00 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
@@ -2027,7 +1676,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100612458
+        "fetched_at": 1781114954248
       },
       "away": {
         "headlines": [],
@@ -2053,15 +1702,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100613095
+        "fetched_at": 1781114953694
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100613095
+      "fetched_at": 1781114954248
     },
-    "expiresAt": 1781107813095
+    "expiresAt": 1781122154248
   },
   "match_intel_v50_16006979_Venezuela U23_Japan U19": {
     "data": {
@@ -2090,7 +1739,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100633047
+        "fetched_at": 1781114974511
       },
       "away": {
         "headlines": [],
@@ -2116,15 +1765,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100633112
+        "fetched_at": 1781114973107
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100633112
+      "fetched_at": 1781114974511
     },
-    "expiresAt": 1781107833112
+    "expiresAt": 1781122174511
   },
   "match_intel_v50_15272300_Helsingborgs IF_Landskrona BoIS": {
     "data": {
@@ -2153,7 +1802,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100651094
+        "fetched_at": 1781114993043
       },
       "away": {
         "headlines": [],
@@ -2179,15 +1828,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100652410
+        "fetched_at": 1781114992977
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100652410
+      "fetched_at": 1781114993043
     },
-    "expiresAt": 1781107852410
+    "expiresAt": 1781122193043
   },
   "match_intel_v50_16006980_Portugal U19_Canada U20": {
     "data": {
@@ -2216,7 +1865,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100671210
+        "fetched_at": 1781115013384
       },
       "away": {
         "headlines": [],
@@ -2242,38 +1891,46 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100671393
+        "fetched_at": 1781115049507
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100671393
+      "fetched_at": 1781115049507
     },
-    "expiresAt": 1781107871393
+    "expiresAt": 1781122249507
   },
   "match_intel_v50_15186710_Mexico_South Africa": {
     "data": {
       "lineups": null,
       "home": {
         "headlines": [
+          "Mexico vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
           "Mexico v South Africa: Prediction, team news, lineups and odds - Football365",
           "World Cup AI Predictions 2026: ChatGPT Picks Every Match - Covers.com",
           "Mexico vs South Africa: Preview, Team News, Possible Lineups, Time and Score Prediction - Pulse Sports Kenya",
           "Mexico vs South Africa: Match preview, h2h, team news, prediction and betting tips - Afrik-Foot",
           "Preview: Mexico vs South Africa prediction, odds, where to watch, time | FIFA World Cup 2026 - Khel Now",
-          "El Niño, extreme weather and the future: World Cup Q&A with a climate scientist"
+          "Bafana Bafana's lack of experienced players in their World Cup squad is good for Hugo Broos' men according to John Terry - Dailysports",
+          "Mexico City WC fan fest at risk over protests"
         ],
         "items": [
           {
+            "title": "Mexico vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
+            "pubDate": "Wed, 10 Jun 2026 08:52:00 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
             "title": "Mexico v South Africa: Prediction, team news, lineups and odds - Football365",
-            "pubDate": "Wed, 10 Jun 2026 11:24:14 GMT",
+            "pubDate": "Wed, 10 Jun 2026 11:00:51 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
           {
             "title": "World Cup AI Predictions 2026: ChatGPT Picks Every Match - Covers.com",
-            "pubDate": "Tue, 09 Jun 2026 14:38:00 GMT",
+            "pubDate": "Wed, 10 Jun 2026 16:14:00 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
@@ -2296,8 +1953,14 @@
             "source": "google_news_en"
           },
           {
-            "title": "El Niño, extreme weather and the future: World Cup Q&A with a climate scientist",
-            "pubDate": "2026-06-10T14:11:11.508Z",
+            "title": "Bafana Bafana's lack of experienced players in their World Cup squad is good for Hugo Broos' men according to John Terry - Dailysports",
+            "pubDate": "Wed, 10 Jun 2026 14:20:57 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Mexico City WC fan fest at risk over protests",
+            "pubDate": "2026-06-10T18:10:52.054Z",
             "source": "goal_direct"
           }
         ],
@@ -2311,7 +1974,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 6
+            "news_intensity": 8
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -2322,14 +1985,21 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100672165
+        "fetched_at": 1781115052064
       },
       "away": {
         "headlines": [
+          "Mexico vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
           "Mexico vs South Africa Prediction: World Cup 2026 Preview &amp; Best Bets - OneFootball",
           "Mexico v South Africa: Prediction, team news, lineups and odds - Football365"
         ],
         "items": [
+          {
+            "title": "Mexico vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
+            "pubDate": "Wed, 10 Jun 2026 08:52:00 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
           {
             "title": "Mexico vs South Africa Prediction: World Cup 2026 Preview &amp; Best Bets - OneFootball",
             "pubDate": "Tue, 09 Jun 2026 13:12:30 GMT",
@@ -2338,67 +2008,7 @@
           },
           {
             "title": "Mexico v South Africa: Prediction, team news, lineups and odds - Football365",
-            "pubDate": "Wed, 10 Jun 2026 11:24:14 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 2
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781100690367
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100690367
-    },
-    "expiresAt": 1781107890367
-  },
-  "match_intel_v50_15186720_South Korea_Czechia": {
-    "data": {
-      "lineups": null,
-      "home": {
-        "headlines": [
-          "World Cup 2026 Power Rankings: Spain still top despite Lamal Yamal's injury issues, Carlo Ancelotti leads Brazil back into the top 10 while USMNT climb ahead of the big kick-off - Goal.com",
-          "Preview: Malaga vs Las Palmas - prediction, team news, lineups - Sports Mole",
-          "Germany 2026 World Cup preview: Squad, fixtures and prediction | Can Julian Nagelsmann's side reverse recent history? - Sports Mole"
-        ],
-        "items": [
-          {
-            "title": "World Cup 2026 Power Rankings: Spain still top despite Lamal Yamal's injury issues, Carlo Ancelotti leads Brazil back into the top 10 while USMNT climb ahead of the big kick-off - Goal.com",
-            "pubDate": "Tue, 09 Jun 2026 07:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Preview: Malaga vs Las Palmas - prediction, team news, lineups - Sports Mole",
-            "pubDate": "Mon, 08 Jun 2026 15:24:41 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Germany 2026 World Cup preview: Squad, fixtures and prediction | Can Julian Nagelsmann's side reverse recent history? - Sports Mole",
-            "pubDate": "Tue, 09 Jun 2026 09:59:12 GMT",
+            "pubDate": "Wed, 10 Jun 2026 11:00:51 GMT",
             "lang": "en",
             "source": "google_news_en"
           }
@@ -2424,7 +2034,81 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100710315
+        "fetched_at": 1781115069865
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781115069865
+    },
+    "expiresAt": 1781122269865
+  },
+  "match_intel_v50_15186720_South Korea_Czechia": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [
+          "Brazil vs Morocco Prediction, Betting Tips &amp; Booking Code (Jun 13) - 22Bet",
+          "Korea Republic vs Czech Republic Predictions, Picks &amp; Odds – 12/06/2026 - ToffeeWeb",
+          "World Cup 2026 Power Rankings: Spain still top despite Lamal Yamal's injury issues, Carlo Ancelotti leads Brazil back into the top 10 while USMNT climb ahead of the big kick-off - Goal.com",
+          "Bafana Bafana's lack of experienced players in their World Cup squad is good for Hugo Broos' men according to John Terry - Dailysports",
+          "Germany 2026 World Cup preview: Squad, fixtures and prediction | Can Julian Nagelsmann's side reverse recent history? - Sports Mole"
+        ],
+        "items": [
+          {
+            "title": "Brazil vs Morocco Prediction, Betting Tips &amp; Booking Code (Jun 13) - 22Bet",
+            "pubDate": "Wed, 10 Jun 2026 14:30:47 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Korea Republic vs Czech Republic Predictions, Picks &amp; Odds – 12/06/2026 - ToffeeWeb",
+            "pubDate": "Wed, 10 Jun 2026 13:51:24 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "World Cup 2026 Power Rankings: Spain still top despite Lamal Yamal's injury issues, Carlo Ancelotti leads Brazil back into the top 10 while USMNT climb ahead of the big kick-off - Goal.com",
+            "pubDate": "Tue, 09 Jun 2026 07:00:00 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Bafana Bafana's lack of experienced players in their World Cup squad is good for Hugo Broos' men according to John Terry - Dailysports",
+            "pubDate": "Wed, 10 Jun 2026 14:20:57 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Germany 2026 World Cup preview: Squad, fixtures and prediction | Can Julian Nagelsmann's side reverse recent history? - Sports Mole",
+            "pubDate": "Tue, 09 Jun 2026 09:59:12 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 5
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115089468
       },
       "away": {
         "headlines": [
@@ -2434,7 +2118,7 @@
         "items": [
           {
             "title": "World Cup AI Predictions 2026: ChatGPT Picks Every Match - Covers.com",
-            "pubDate": "Tue, 09 Jun 2026 14:38:00 GMT",
+            "pubDate": "Wed, 10 Jun 2026 16:14:00 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
@@ -2466,15 +2150,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100709350
+        "fetched_at": 1781115088915
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100710315
+      "fetched_at": 1781115089468
     },
-    "expiresAt": 1781107910315
+    "expiresAt": 1781122289468
   },
   "match_intel_v50_16265412_FC Isloch Minsk Region_Naftan Novopolotsk": {
     "data": {
@@ -2503,7 +2187,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100730504
+        "fetched_at": 1781115109795
       },
       "away": {
         "headlines": [],
@@ -2529,15 +2213,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781100730069
+        "fetched_at": 1781115109439
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781100730504
+      "fetched_at": 1781115109795
     },
-    "expiresAt": 1781107930504
+    "expiresAt": 1781122309795
   },
   "match_intel_v50_16029696_FC Iberia 1999_FC Spaeri": {
     "data": {
@@ -2566,7 +2250,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107230698
+        "fetched_at": 1781115129217
       },
       "away": {
         "headlines": [],
@@ -2592,15 +2276,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107229284
+        "fetched_at": 1781115134916
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781107230698
+      "fetched_at": 1781115134916
     },
-    "expiresAt": 1781114430698
+    "expiresAt": 1781122334916
   },
   "match_intel_v50_15472501_FK Tukums 2000_BFC Daugavpils": {
     "data": {
@@ -2629,7 +2313,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107249786
+        "fetched_at": 1781115159038
       },
       "away": {
         "headlines": [],
@@ -2655,15 +2339,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107247870
+        "fetched_at": 1781115154796
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781107249787
+      "fetched_at": 1781115159038
     },
-    "expiresAt": 1781114449787
+    "expiresAt": 1781122359038
   },
   "match_intel_v50_15341255_JäPS_PK-35": {
     "data": {
@@ -2692,7 +2376,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107269729
+        "fetched_at": 1781115178890
       },
       "away": {
         "headlines": [],
@@ -2718,15 +2402,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107269617
+        "fetched_at": 1781115177966
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781107269729
+      "fetched_at": 1781115178890
     },
-    "expiresAt": 1781114469729
+    "expiresAt": 1781122378890
   },
   "match_intel_v50_15341253_KTP_EIF": {
     "data": {
@@ -2755,7 +2439,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107299733
+        "fetched_at": 1781115197847
       },
       "away": {
         "headlines": [],
@@ -2781,15 +2465,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107290834
+        "fetched_at": 1781115204450
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781107299733
+      "fetched_at": 1781115204450
     },
-    "expiresAt": 1781114499733
+    "expiresAt": 1781122404450
   },
   "match_intel_v50_15546921_FK Panevėžys_FK Transinvest": {
     "data": {
@@ -2818,7 +2502,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107318688
+        "fetched_at": 1781115223695
       },
       "away": {
         "headlines": [],
@@ -2844,15 +2528,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107318749
+        "fetched_at": 1781115227555
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781107318749
+      "fetched_at": 1781115227555
     },
-    "expiresAt": 1781114518749
+    "expiresAt": 1781122427555
   },
   "match_intel_v50_16265390_Belshina Bobruisk_BATE Borisov": {
     "data": {
@@ -2881,7 +2565,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107338566
+        "fetched_at": 1781115245582
       },
       "away": {
         "headlines": [],
@@ -2907,15 +2591,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107341677
+        "fetched_at": 1781115252967
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781107341677
+      "fetched_at": 1781115252967
     },
-    "expiresAt": 1781114541677
+    "expiresAt": 1781122452967
   },
   "match_intel_v50_15472502_FK Liepaja_SK Super Nova": {
     "data": {
@@ -2944,7 +2628,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107362453
+        "fetched_at": 1781115271096
       },
       "away": {
         "headlines": [],
@@ -2970,15 +2654,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107361352
+        "fetched_at": 1781115272117
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781107362453
+      "fetched_at": 1781115272117
     },
-    "expiresAt": 1781114562453
+    "expiresAt": 1781122472117
   },
   "match_intel_v50_15546917_Džiugas Telšiai_Šiauliai FA": {
     "data": {
@@ -3007,7 +2691,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107381068
+        "fetched_at": 1781115290788
       },
       "away": {
         "headlines": [],
@@ -3033,15 +2717,15 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107381620
+        "fetched_at": 1781115290869
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781107381620
+      "fetched_at": 1781115290869
     },
-    "expiresAt": 1781114581620
+    "expiresAt": 1781122490869
   },
   "match_intel_v50_15388807_Follo FK_Kjelsås": {
     "data": {
@@ -3070,7 +2754,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107403561
+        "fetched_at": 1781115310660
       },
       "away": {
         "headlines": [],
@@ -3096,14 +2780,1125 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781107400730
+        "fetched_at": 1781115308847
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781107403561
+      "fetched_at": 1781115310660
     },
-    "expiresAt": 1781114603561
+    "expiresAt": 1781122510660
+  },
+  "match_intel_v50_15388663_Dinamo Batumi_FC Dila Gori": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115330390
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115330924
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781115330924
+    },
+    "expiresAt": 1781122530924
+  },
+  "match_intel_v50_15546916_FK Žalgiris_FK Riteriai": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115349933
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115349107
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781115349933
+    },
+    "expiresAt": 1781122549933
+  },
+  "match_intel_v50_15458390_Umeå_Piteå IF": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115368874
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115370515
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781115370515
+    },
+    "expiresAt": 1781122570515
+  },
+  "match_intel_v50_15458391_Lunds BK_AFC Malmo": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115392089
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115389985
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781115392089
+    },
+    "expiresAt": 1781122592089
+  },
+  "match_intel_v50_15254051_Vittsjö GIK_Kristianstads DFF": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115411268
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781115411268
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781115411268
+    },
+    "expiresAt": 1781122611268
+  },
+  "match_intel_v50_15238104_Derry City_Bohemian": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121632844
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121633664
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121633664
+    },
+    "expiresAt": 1781128833664
+  },
+  "match_intel_v50_15238105_Galway United_Dundalk": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121654683
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121654444
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121654683
+    },
+    "expiresAt": 1781128854683
+  },
+  "match_intel_v50_15238107_St. Patrick's Athletic_Drogheda United": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121673723
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121675153
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121675153
+    },
+    "expiresAt": 1781128875153
+  },
+  "match_intel_v50_15238108_Waterford_Sligo Rovers": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121695336
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121694098
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121695336
+    },
+    "expiresAt": 1781128895336
+  },
+  "match_intel_v50_15238798_Finn Harps_University College Dublin": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121715531
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121716437
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121716437
+    },
+    "expiresAt": 1781128916437
+  },
+  "match_intel_v50_15238799_Kerry_Athlone Town AFC": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [
+          "Yankees Face Dilemma Over Ryan McMahon After Bleacher Report DFA Prediction - readers.id"
+        ],
+        "items": [
+          {
+            "title": "Yankees Face Dilemma Over Ryan McMahon After Bleacher Report DFA Prediction - readers.id",
+            "pubDate": "Tue, 09 Jun 2026 00:57:44 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121736889
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121735854
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121736889
+    },
+    "expiresAt": 1781128936889
+  },
+  "match_intel_v50_15238800_Treaty United_Bray Wanderers": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121754916
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121756920
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121756920
+    },
+    "expiresAt": 1781128956921
+  },
+  "match_intel_v50_15238801_Wexford_Cork City": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121778416
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121777959
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121778416
+    },
+    "expiresAt": 1781128978416
+  },
+  "match_intel_v50_15186836_Canada_Bosnia & Herzegovina": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [
+          "Brazil vs Morocco Prediction, Betting Tips &amp; Booking Code (Jun 13) - 22Bet",
+          "2026 World Cup: Canada vs. Bosnia &amp; Herzegovina Match Prediction, Betting Tips, And Odds (6/12/26) - Canada Sports Betting",
+          "World Cup Daily: Live updates with one day to go b..."
+        ],
+        "items": [
+          {
+            "title": "Brazil vs Morocco Prediction, Betting Tips &amp; Booking Code (Jun 13) - 22Bet",
+            "pubDate": "Wed, 10 Jun 2026 14:30:47 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "2026 World Cup: Canada vs. Bosnia &amp; Herzegovina Match Prediction, Betting Tips, And Odds (6/12/26) - Canada Sports Betting",
+            "pubDate": "Tue, 09 Jun 2026 15:51:19 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "World Cup Daily: Live updates with one day to go b...",
+            "pubDate": "2026-06-10T20:03:00.516Z",
+            "source": "goal_direct"
+          }
+        ],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 3
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121780534
+      },
+      "away": {
+        "headlines": [
+          "Bosnia &amp; Herzegovina World Cup 2026 Odds, Predictions &amp; Best Bets - OneFootball",
+          "Canada vs Bosnia &amp; Herzegovina Prediction: World Cup 2026 Preview &amp; Best Bets - Total Football Analysis",
+          "Canada vs Bosnia &amp; Herzegovina Prediction: World Cup 2026 Preview &amp; Best Bets - OneFootball",
+          "Brazil vs Morocco Prediction, Betting Tips &amp; Booking Code (Jun 13) - 22Bet",
+          "2026 World Cup: Canada vs. Bosnia &amp; Herzegovina Match Prediction, Betting Tips, And Odds (6/12/26) - Canada Sports Betting",
+          "World Cup 2026 Power Rankings: Spain still top despite Lamal Yamal's injury issues, Carlo Ancelotti leads Brazil back into the top 10 while USMNT climb ahead of the big kick-off - Goal.com",
+          "USA FIFA World Cup 2026 Preview: Squad, Fixtures, Lineup and Prediction - Chase Your Sport",
+          "FIFA World Cup 2026: Nations Returning To Football's Biggest Stage After Years In The Wilderness - Chase Your Sport",
+          "Canada vs Bosnia &amp; Herzegovina: Preview and Prediction - TheHardTackle.com",
+          "World Cup 2026: Canada vs. Bosnia and Herzegovina Predictions - WSN.com"
+        ],
+        "items": [
+          {
+            "title": "Bosnia &amp; Herzegovina World Cup 2026 Odds, Predictions &amp; Best Bets - OneFootball",
+            "pubDate": "Wed, 10 Jun 2026 14:13:46 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Canada vs Bosnia &amp; Herzegovina Prediction: World Cup 2026 Preview &amp; Best Bets - Total Football Analysis",
+            "pubDate": "Wed, 10 Jun 2026 15:46:27 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Canada vs Bosnia &amp; Herzegovina Prediction: World Cup 2026 Preview &amp; Best Bets - OneFootball",
+            "pubDate": "Wed, 10 Jun 2026 16:04:42 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Brazil vs Morocco Prediction, Betting Tips &amp; Booking Code (Jun 13) - 22Bet",
+            "pubDate": "Wed, 10 Jun 2026 14:30:47 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "2026 World Cup: Canada vs. Bosnia &amp; Herzegovina Match Prediction, Betting Tips, And Odds (6/12/26) - Canada Sports Betting",
+            "pubDate": "Tue, 09 Jun 2026 15:51:19 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "World Cup 2026 Power Rankings: Spain still top despite Lamal Yamal's injury issues, Carlo Ancelotti leads Brazil back into the top 10 while USMNT climb ahead of the big kick-off - Goal.com",
+            "pubDate": "Tue, 09 Jun 2026 07:00:00 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "USA FIFA World Cup 2026 Preview: Squad, Fixtures, Lineup and Prediction - Chase Your Sport",
+            "pubDate": "Tue, 09 Jun 2026 19:02:05 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "FIFA World Cup 2026: Nations Returning To Football's Biggest Stage After Years In The Wilderness - Chase Your Sport",
+            "pubDate": "Tue, 09 Jun 2026 07:55:50 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "Canada vs Bosnia &amp; Herzegovina: Preview and Prediction - TheHardTackle.com",
+            "pubDate": "Wed, 10 Jun 2026 17:57:01 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          },
+          {
+            "title": "World Cup 2026: Canada vs. Bosnia and Herzegovina Predictions - WSN.com",
+            "pubDate": "Wed, 10 Jun 2026 14:00:00 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 10
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121796451
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121796451
+    },
+    "expiresAt": 1781128996451
+  },
+  "match_intel_v50_16293199_CD San Antonio_Academia de Balompié Boliviano": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121815544
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121815237
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121815544
+    },
+    "expiresAt": 1781129015544
+  },
+  "match_intel_v50_15238106_Shelbourne_Shamrock Rovers": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121834583
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1781121834952
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1781121834952
+    },
+    "expiresAt": 1781129034952
   }
 }

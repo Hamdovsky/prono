@@ -548,37 +548,140 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     const evArrow = evNum > 0.15 ? '📈' : evNum > 0 ? '↗️' : evNum === 0 ? '➖' : '📉';
     const evColor = evNum > 0.15 ? '#10b981' : evNum > 0 ? '#34d399' : evNum === 0 ? '#94a3b8' : '#ef4444';
 
-    const dataQuality = match.insufficient_data === 1 ? '⚠️' : '✅';
-    const dataQualityLabel = match.insufficient_data === 1 ? 'LOW DATA' : '';
+    const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' && window.innerWidth < 768)
+
+    React.useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768)
+        }
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
+
+    const dataQuality = match.insufficient_data === 1 ? '⚠️' : '✅'
+    const dataQualityLabel = match.insufficient_data === 1 ? 'LOW DATA' : ''
 
     const formatOdds = (odds) => {
-        if (!odds || isNaN(odds)) return null;
-        return odds.toFixed(2);
-    };
+        if (!odds || isNaN(odds)) return null
+        return odds.toFixed(2)
+    }
+
+    if (isMobile) {
+        return (
+            <div style={{ ...style, padding: '4px 6px', boxSizing: 'border-box' }}>
+                <div 
+                    className={`onyx-mobile-card ${statusClass}`}
+                    onClick={() => onClick(match)}
+                    style={{
+                        background: isElite ? 'linear-gradient(135deg, rgba(0, 255, 170, 0.08) 0%, #030712 100%)' : 'linear-gradient(135deg, #090f1a 0%, #020408 100%)',
+                        border: `1px solid ${isElite ? 'rgba(0, 255, 170, 0.25)' : 'rgba(255,255,255,0.06)'}`,
+                        borderRadius: '10px',
+                        padding: '10px',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: isElite ? '0 4px 15px rgba(0, 255, 170, 0.08)' : 'none',
+                        position: 'relative'
+                    }}
+                >
+                    {/* Top line: Time, League, and status */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#64748b' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
+                            <span className={`status-dot ${statusClass}`} style={{ width: '5px', height: '5px', flexShrink: 0 }}></span>
+                            {formattedTime && (
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#fbbf24', fontWeight: '800', background: 'rgba(251, 191, 36, 0.1)', padding: '1px 3px', borderRadius: '3px', flexShrink: 0 }}>
+                                    {formattedTime}
+                                </span>
+                            )}
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+                                {match.league || 'Ligue'}
+                            </span>
+                        </div>
+                        
+                        {/* Confidence Accuracy */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <span style={{ color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', fontWeight: '800' }}>
+                                {acc}%
+                            </span>
+                            <span style={{ fontSize: '8px', color: '#475569' }}>CONF.</span>
+                        </div>
+                    </div>
+
+                    {/* Middle line: Teams and AI Correct Score */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '13px', fontWeight: '800', color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {homeName}
+                            </div>
+                            <div style={{ fontSize: '13px', fontWeight: '800', color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                                {awayName}
+                            </div>
+                        </div>
+
+                        {/* AI Correct Score Badge */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 255, 170, 0.08)', border: '1px solid rgba(0, 255, 170, 0.25)', borderRadius: '6px', padding: '4px 10px', minWidth: '60px' }}>
+                            <span style={{ fontSize: '8px', color: '#64748b', fontWeight: '900', letterSpacing: '0.5px' }}>SCORE IA</span>
+                            <span style={{ fontSize: '15px', fontWeight: '900', color: 'var(--neon)', fontFamily: "'JetBrains Mono', monospace" }}>{cs}</span>
+                        </div>
+                    </div>
+
+                    {/* Bottom line: Pick, odds, and secondary markets */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '6px', fontSize: '10px' }}>
+                        {/* Main Pick */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
+                            <span style={{ background: 'rgba(0, 255, 170, 0.1)', color: 'var(--neon)', fontWeight: '900', padding: '1px 4px', borderRadius: '3px', fontSize: '8px' }}>PICK</span>
+                            <span style={{ fontWeight: '800', color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px' }}>
+                                {mainPickClean}
+                            </span>
+                            {mainOdds && (
+                                <span style={{ color: '#fbbf24', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace" }}>
+                                    @{formatOdds(mainOdds)}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Markets and Tags */}
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            {/* BTTS */}
+                            <span style={{ fontSize: '8px', fontWeight: '800', padding: '1px 4px', borderRadius: '3px', background: bttsBadgeBg, color: bttsBadgeColor, border: `1px solid ${bttsBadgeBorder}` }}>
+                                BTTS: {bttsLabel}
+                            </span>
+                            {/* TG */}
+                            <span style={{ fontSize: '8px', fontWeight: '800', padding: '1px 4px', borderRadius: '3px', background: tgBadgeBg, color: tgBadgeColor, border: `1px solid ${tgBadgeBorder}` }}>
+                                {tg}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div style={{ ...style, ...rowStyle, display: 'flex', alignItems: 'center', minWidth: 'fit-content' }} className="onyx-virtual-row" onClick={() => onClick(match)}>
-            {/* COLUMN 1: MATCH / FORME (20%) */}
-            <div style={{width: "20%", minWidth: "160px"}} className="onyx-virtual-cell">
-                <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '1px', minWidth: 0}}>
-                    <span className={`status-dot ${statusClass}`}></span>
+            {/* COLUMN 1: MATCH & LEAGUE (22%) */}
+            <div style={{width: "22%", minWidth: "160px"}} className="onyx-virtual-cell">
+                <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px', minWidth: 0}}>
+                    <span className={`status-dot ${statusClass}`} style={{flexShrink: 0}}></span>
                     {formattedTime && (
                         <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#fbbf24', fontWeight: '800', background: 'rgba(251, 191, 36, 0.1)', padding: '1px 3px', borderRadius: '4px', flexShrink: 0}}>
                             {formattedTime}
                         </span>
                     )}
                     {countdownStr && !countdownStr.includes("EN COURS") && (
-                        <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#38bdf8', fontWeight: '700', background: 'rgba(56,189,248,0.08)', padding: '1px 3px', borderRadius: '3px', flexShrink: 0}}>
+                        <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#38bdf8', fontWeight: '700', background: 'rgba(56,189,248,0.08)', padding: '1px 2px', borderRadius: '3px', flexShrink: 0}}>
                             -{countdownStr}
                         </span>
                     )}
-                    <b style={{ fontSize: '12px', color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 auto', minWidth: 0 }}>
+                    <b style={{ fontSize: '12px', color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 0', minWidth: 0 }}>
                         {homeName} vs {awayName}
                     </b>
                 </div>
                 <div style={{ fontSize: '9px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '3px', minWidth: 0 }}>
                     <span style={{opacity: 0.6, flexShrink: 0}}>🏆</span>
-                    <span style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 auto', minWidth: 0}}>
+                    <span style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 0', minWidth: 0}}>
                         {(() => {
                             const lower = (match.league || match.tournament_name || '').toLowerCase();
                             if (lower.includes('champions league') || lower.includes('ucl') || lower.includes('uefa')) return '🌍 EUROPE : ';
@@ -637,15 +740,15 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                         })()}
                         {match.league || match.tournament_name || "Unknown"}
                     </span>
-                    <span style={{fontSize: '8px', color: '#475569', margin: '0 2px'}}>|</span>
-                    {renderFormBadge(hForm)}
-                    <span style={{fontSize: '7px', color: '#475569'}}>vs</span>
-                    {renderFormBadge(aForm)}
+                    <span style={{fontSize: '7px', color: '#475569', flexShrink: 0}}>|</span>
+                    {hForm > 0 && <span style={{fontSize:'8px',fontWeight:'900',color:hForm>=70?'#00ffaa':'#fbbf24',flexShrink:0}}>{Math.round(hForm)}</span>}
+                    <span style={{fontSize:'6px',color:'#475569',flexShrink:0}}>v</span>
+                    {aForm > 0 && <span style={{fontSize:'8px',fontWeight:'900',color:aForm>=70?'#00ffaa':'#fbbf24',flexShrink:0}}>{Math.round(aForm)}</span>}
                 </div>
             </div>
 
-            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (16%) */}
-            <div style={{width: "16%", minWidth: "120px"}} className="onyx-virtual-cell">
+            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (17%) */}
+            <div style={{width: "17%", minWidth: "120px"}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                         <span style={{fontSize: '10px', color: 'var(--neon)', fontWeight: '900', minWidth: '32px'}}>MAIN</span>
@@ -732,8 +835,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 5: PRECISION & RISK (10%) */}
-            <div style={{width: "10%", minWidth: "80px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 5: PRECISION & RISK (11%) */}
+            <div style={{width: "11%", minWidth: "80px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
                     <span style={{fontSize: '18px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>{acc}%</span>
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
@@ -748,52 +851,35 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 6: SIGNAL & EV SCORE (10%) */}
-            <div style={{width: "10%", minWidth: "80px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'column', gap: '3px', width: '100%', alignItems: 'center'}}>
+            {/* COLUMN 6: SIGNAL & EV + VALUE SCORE (14%) */}
+            <div style={{width: "14%", minWidth: "100px"}} className="onyx-virtual-cell centered">
+                <div style={{display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center'}}>
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
                         background: evNum > 0 ? 'rgba(16, 185, 129, 0.1)' : evNum < 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(148,163,184,0.1)',
                         border: `1px solid ${evNum > 0 ? '#10b98155' : evNum < 0 ? '#ef444455' : '#94a3b855'}`,
-                        padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '900'
+                        padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: '900'
                     }}>
                         <span>{evArrow}</span>
                         <span style={{color: evColor}}>
                             {quant.massive_edge || match.massive_edge ? 'MASSIVE' : `EV ${quant.ev_score}`}
                         </span>
                     </div>
-                    {(match.kelly_stake > 0 || quant.signal_strength > 0) && (
-                        <div style={{fontSize: '9px', color: '#38bdf8', fontWeight: '900', textAlign: 'center'}}>
-                            {quant.massive_edge ? `STR: ${quant.signal_strength || 0}%` : `K: ${match.kelly_stake.toFixed(1)}%`}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* COLUMN 7: 🏆 VALEUR (10%) */}
-            <div style={{width: "10%", minWidth: "80px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
-                    <span style={{fontSize: '16px', fontWeight: '900', color: parseFloat(valueScore) >= 5 ? '#00ffaa' : parseFloat(valueScore) >= 2 ? '#fbbf24' : '#64748b'}}>
-                        {valueScore}
-                    </span>
-                    <span style={{fontSize: '9px', color: '#64748b', fontWeight: '700'}}>
-                        EV×CONF
-                    </span>
-                    <div style={{
-                        height: '3px', width: '60px', borderRadius: '3px', background: 'rgba(148,163,184,0.15)',
-                        overflow: 'hidden'
-                    }}>
-                        <div style={{
-                            height: '100%', width: `${Math.min(100, parseFloat(valueScore) * 10)}%`,
-                            background: parseFloat(valueScore) >= 5 ? '#00ffaa' : parseFloat(valueScore) >= 2 ? '#fbbf24' : '#64748b',
-                            borderRadius: '3px'
-                        }}></div>
+                    <div style={{display:'flex', gap:'6px', alignItems:'center', justifyContent:'center'}}>
+                        {(match.kelly_stake > 0 || quant.signal_strength > 0) && (
+                            <span style={{fontSize:'9px', color:'#38bdf8', fontWeight:'900'}}>
+                                K:{match.kelly_stake.toFixed(1)}%
+                            </span>
+                        )}
+                        <span style={{fontSize:'10px', fontWeight:'900', color: parseFloat(valueScore) >= 5 ? '#00ffaa' : parseFloat(valueScore) >= 2 ? '#fbbf24' : '#64748b'}}>
+                            🏆{valueScore}
+                        </span>
                     </div>
                 </div>
             </div>
 
-            {/* COLUMN 8: FORCE (8%) */}
-            <div style={{width: "8%", minWidth: "60px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 7: FORCE (10%) */}
+            <div style={{width: "10%", minWidth: "60px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                         <span style={{fontSize: '16px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>

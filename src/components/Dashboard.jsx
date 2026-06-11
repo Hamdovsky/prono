@@ -107,19 +107,28 @@ const Dashboard = () => {
     )
 
     // State
-    const [activeSignal, setActiveSignal] = useState("ALL");
-    const [activeSort, setActiveSort] = useState("POWER");
-    const [sortDir, setSortDir] = useState('desc');
-    const [matches, setMatches] = useState([]);
-    const [activeLeague, setActiveLeague] = useState("ALL");
-    const [activeDate, setActiveDate] = useState("Today");
-    const [selectedMatchForUltimateView, setSelectedMatchForUltimateView] = useState(null);
-    const [surgicalMode, setSurgicalMode] = useState(false);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [activeSignal, setActiveSignal] = useState("ALL")
+    const [activeSort, setActiveSort] = useState("POWER")
+    const [sortDir, setSortDir] = useState('desc')
+    const [matches, setMatches] = useState([])
+    const [activeLeague, setActiveLeague] = useState("ALL")
+    const [activeDate, setActiveDate] = useState("Today")
+    const [selectedMatchForUltimateView, setSelectedMatchForUltimateView] = useState(null)
+    const [surgicalMode, setSurgicalMode] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(true)
+    const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
 
-    const [status, setStatus] = useState('idle');
-    const [scraperProgress, setScraperProgress] = useState(null);
-    const [isScraping, setIsScraping] = useState(false);
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768)
+        }
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
+
+    const [status, setStatus] = useState('idle')
+    const [scraperProgress, setScraperProgress] = useState(null)
+    const [isScraping, setIsScraping] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
     const [now, setNow] = useState(Date.now())
 
@@ -312,6 +321,17 @@ const Dashboard = () => {
         const { now, todayStr, tomorrowStr, threeDays, sevenDays, twelveHours } = dateCache;
 
         const filtered = matches.filter(m => {
+            // 🔍 Search filter on team/league (raw + normalized)
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const home = (m.homeTeam || '').toLowerCase()
+                const away = (m.awayTeam || '').toLowerCase()
+                const rawHome = (m.rawHomeTeam || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const rawAway = (m.rawAwayTeam || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                const league = (m.league || m.tournament_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                if (!home.includes(q) && !away.includes(q) && !rawHome.includes(q) && !rawAway.includes(q) && !league.includes(q)) return false
+            }
+
             if (activeLeague !== "ALL") {
                 if (!(m.league || '').toLowerCase().includes(activeLeague.toLowerCase())) return false;
             }
@@ -362,7 +382,7 @@ const Dashboard = () => {
             
             return aTime - bTime;
         });
-    }, [matches, activeLeague, activeDate, activeSignal, activeSort, getMatchDate, dateCache]);
+    }, [matches, activeLeague, activeDate, activeSignal, activeSort, searchQuery, getMatchDate, dateCache]);
 
     // Separate list for all-matches view: no date/league/signal filter, only search + finished removal
     const allMatchesList = useMemo(() => {
@@ -390,14 +410,14 @@ const Dashboard = () => {
     }, [matches, searchQuery])
 
     const renderMatchList = (list, title, isElite = false) => {
-        if (list.length === 0) return null;
+        if (list.length === 0) return null
 
-        const ROW_H = 65;
-        const HEADER_H = 42;
+        const ROW_H = isMobile ? 110 : 65
+        const HEADER_H = isMobile ? 0 : 42
         const listHeight = isElite
             ? Math.min(list.length * ROW_H, 600)
-            : Math.min(list.length * ROW_H, 800);
-        const virtualHeight = listHeight - HEADER_H;
+            : Math.min(list.length * ROW_H, 800)
+        const virtualHeight = listHeight - HEADER_H
 
         return (
             <div className="onyx-list-section">
@@ -406,39 +426,41 @@ const Dashboard = () => {
                 </div>
                 <div style={{ width: '100%' }}>
                     {/* ✅ Column Header Row */}
-                    <div style={{
-                        display: 'flex',
-                        borderBottom: '2px solid #1e293b',
-                        padding: '8px 0',
-                        fontSize: '11px',
-                        color: '#64748b',
-                        textTransform: 'uppercase',
-                        fontWeight: '800',
-                        letterSpacing: '0.8px',
-                        background: 'rgba(0,0,0,0.3)',
-                        cursor: 'pointer'
-                    }}>
-                        <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
-                        <div style={{width:"16%", minWidth: "120px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
-                        <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
-                            AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                    {!isMobile && (
+                        <div style={{
+                            display: 'flex',
+                            borderBottom: '2px solid #1e293b',
+                            padding: '8px 0',
+                            fontSize: '11px',
+                            color: '#64748b',
+                            textTransform: 'uppercase',
+                            fontWeight: '800',
+                            letterSpacing: '0.8px',
+                            background: 'rgba(0,0,0,0.3)',
+                            cursor: 'pointer'
+                        }}>
+                            <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
+                            <div style={{width:"16%", minWidth: "120px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
+                            <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
+                                AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                                MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
+                                PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                                SIGNAL & EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('VALUE')}>
+                                🏆 VALEUR {activeSort === 'VALUE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"8%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                                FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
                         </div>
-                        <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
-                            MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
-                            PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
-                            SIGNAL & EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('VALUE')}>
-                            🏆 VALEUR {activeSort === 'VALUE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                        <div style={{width:"8%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
-                            FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                    </div>
+                    )}
                     <div style={{ height: virtualHeight }}>
                         <List
                             height={virtualHeight}
@@ -667,6 +689,36 @@ const Dashboard = () => {
                 {/* 🔥 PERFORMANCE & SURGICAL BANNER */}
                 {activeView === 'matches' && <PerformanceHub matches={sortedMatches} />}
 
+                {/* Search Bar for matches view */}
+                {activeView === 'matches' && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 14px', background: 'rgba(0,0,0,0.25)',
+                        borderRadius: '8px', marginBottom: '10px', flexWrap: 'wrap'
+                    }}>
+                        <input
+                            type="text"
+                            placeholder="🔍 Équipe / Ligue..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            style={{
+                                flex: '1 1 160px', minWidth: '120px', padding: '6px 10px',
+                                background: 'rgba(15,23,42,0.8)', border: '1px solid #334155',
+                                borderRadius: '6px', color: '#f1f5f9', fontSize: '12px', outline: 'none'
+                            }}
+                        />
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} style={{
+                                padding: '6px 10px', background: 'rgba(239, 68, 68, 0.1)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px',
+                                color: '#f87171', fontSize: '12px', cursor: 'pointer'
+                            }}>
+                                ✕
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -716,44 +768,46 @@ const Dashboard = () => {
                     overflowX: 'auto'
                 }}>
                     {/* TABLE HEADER */}
-                    <div style={{
-                        display: 'flex',
-                        borderBottom: '2px solid #1e293b',
-                        padding: '8px 0',
-                        fontSize: '11px',
-                        color: '#64748b',
-                        textTransform: 'uppercase',
-                        fontWeight: '800',
-                        letterSpacing: '0.8px',
-                        background: 'rgba(0,0,0,0.3)',
-                        cursor: 'pointer'
-                    }}>
-                        <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
-                        <div style={{width:"16%", minWidth: "120px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
-                        <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
-                            AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                    {!isMobile && (
+                        <div style={{
+                            display: 'flex',
+                            borderBottom: '2px solid #1e293b',
+                            padding: '8px 0',
+                            fontSize: '11px',
+                            color: '#64748b',
+                            textTransform: 'uppercase',
+                            fontWeight: '800',
+                            letterSpacing: '0.8px',
+                            background: 'rgba(0,0,0,0.3)',
+                            cursor: 'pointer'
+                        }}>
+                            <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
+                            <div style={{width:"16%", minWidth: "120px", padding:"0 8px"}}>MAIN / MARCHÉ</div>
+                            <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
+                                AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                                MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
+                                PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                                SIGNAL & EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('VALUE')}>
+                                🏆 VALEUR {activeSort === 'VALUE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
+                            <div style={{width:"8%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                                FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </div>
                         </div>
-                        <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
-                            MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
-                            PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
-                            SIGNAL & EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                        <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('VALUE')}>
-                            🏆 VALEUR {activeSort === 'VALUE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                        <div style={{width:"8%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
-                            FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                        </div>
-                    </div>
+                    )}
 
                     <List
-                        height={600}
+                        height={isMobile ? 550 : 600}
                         rowCount={unifiedList.length}
-                        rowHeight={65}
+                        rowHeight={isMobile ? 110 : 65}
                         width="100%"
                         className="onyx-custom-scrollbar"
                         rowComponent={UnifiedRowMemo}

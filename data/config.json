@@ -16,5 +16,6 @@
   "strategy": "Balanced",
   "SMART_SCAN_ENABLED": true,
   "WEBHOOK_ENABLED": true,
-  "SYNC_PRIORITY": "HIGH"
+  "SYNC_PRIORITY": "HIGH",
+  "DEEP_NEWS_ENABLED": true
 }

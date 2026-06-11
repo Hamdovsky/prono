@@ -11,7 +11,23 @@ class SocketService {
     init(server) {
         try {
             this.io = new SocketIOServer(server, {
-                cors: { origin: process.env.FRONTEND_URL || '*', methods: ['GET', 'POST'] },
+                cors: {
+                    origin: (origin, callback) => {
+                        const allowed = [
+                            process.env.FRONTEND_URL,
+                            'https://prono-k6gc.onrender.com',
+                            'http://localhost',
+                            'https://localhost',
+                            'capacitor://localhost'
+                        ].filter(Boolean)
+                        if (!origin || allowed.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+                            callback(null, true)
+                        } else {
+                            callback(new Error('Not allowed by CORS'))
+                        }
+                    },
+                    methods: ['GET', 'POST']
+                },
                 transports: ['websocket', 'polling'],
                 allowRequest: (req, callback) => {
                     const secretKey = process.env.API_SECRET_KEY

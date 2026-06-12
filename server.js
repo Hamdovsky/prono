@@ -289,6 +289,26 @@ app.post('/api/debug/test-insert', async (req, res) => {
   }
 })
 
+app.post('/api/debug/test-insert-full', async (req, res) => {
+  try {
+    const db = require('./core/database')
+    const id = `test_full_${Date.now()}`
+    const result = await db.insertMatch({
+      id,
+      homeTeam: 'Test Home Full',
+      awayTeam: 'Test Away Full',
+      league: 'Test League',
+      startTimestamp: Math.floor(Date.now()/1000) + 86400,
+      status: 'scheduled',
+      confidence: 50,
+      source: 'manual',
+    })
+    res.json({ id, result })
+  } catch (e) {
+    res.json({ error: e.message })
+  }
+})
+
 app.post('/api/seed-match', async (req, res) => {
   try {
     const match = req.body

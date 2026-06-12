@@ -282,8 +282,35 @@ class BsdService {
     }
 
     let total = 0
+    // Try each date in the 7-day window
     for (const d of dates) {
       total += await this.syncFixtures(d)
+    }
+
+    // If per-date fetch returned 0, try the date-less endpoint as fallback
+    if (total === 0) {
+      logger.info('[BSD] No events found per-date, trying date-less /v2/events/ endpoint...')
+      try {
+        const allEvents = await this.fetchUpcomingEvents()
+        if (allEvents?.length) {
+          logger.info(`[BSD] date-less endpoint returned ${allEvents.length} events — processing...`)
+          for (const event of allEvents) {
+            try {
+              const match = this._mapEventToMatch(event)
+              match.bsd_match_id = String(event.id || event.match_id || '')
+              match.homeTeam = match.homeTeam || 'Home'
+              match.awayTeam = match.awayTeam || 'Away'
+              await database.insertMatch(match)
+              total++
+            } catch (_) {}
+          }
+          logger.info(`[BSD] Inserted ${total} matches from date-less fallback`)
+        } else {
+          logger.info('[BSD] date-less endpoint also returned 0 events')
+        }
+      } catch (e) {
+        logger.warn(`[BSD] date-less fallback error: ${e.message}`)
+      }
     }
 
     // Enrich inserted matches with odds

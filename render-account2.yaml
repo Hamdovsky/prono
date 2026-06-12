@@ -37,7 +37,7 @@ services:
     name: prono-scraper
     env: node
     plan: free
-    buildCommand: npm install --omit=optional
+    buildCommand: npm install && npm rebuild
     startCommand: node --expose-gc --max-old-space-size=128 serverless/scraper-worker.js
     healthCheckPath: /health
     envVars:

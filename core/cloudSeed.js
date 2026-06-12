@@ -353,7 +353,7 @@ async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
         if (isPG) {
             const { query: pgQuery } = require('./pg_connector')
             const result = await pgQuery(
-                `SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= $1 AND startTimestamp <= $2 AND status = 'scheduled'`,
+                `SELECT COUNT(*) as cnt FROM matches WHERE COALESCE(startTimestamp, SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) >= $1 AND COALESCE(startTimestamp, SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) <= $2 AND status = 'scheduled'`,
                 [startTs, endTs]
             )
             return parseInt(result.rows?.[0]?.cnt || '0')

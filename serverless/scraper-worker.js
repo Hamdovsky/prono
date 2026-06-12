@@ -177,14 +177,22 @@ app.post('/reset', requireAuth, (req, res) => {
 // ─── DB Test: debug Postgres connection ────────────────────
 app.get('/db-test', requireAuth, async (req, res) => {
   try {
-    const database = require('../core/database')
-    const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
+    const { query, usingPostgres, healthCheck } = require('../core/pg_connector')
+    const health = await healthCheck()
+    let tableCount = null, sampleRow = null
+    if (health.ok) {
+      const r = await query('SELECT COUNT(*) as cnt FROM matches')
+      tableCount = r.rows?.[0]?.cnt
+      const r2 = await query('SELECT id, status, "startTimestamp" FROM matches LIMIT 3')
+      sampleRow = r2.rows
+    }
     res.json({
-      env_db_url: !!process.env.DATABASE_URL,
-      env_pg_url: !!process.env.PGDATABASE_URL,
-      matches_count: matches.length,
-      sample_id: matches[0]?.id || null,
-      sample_start: matches[0]?.startTimestamp || null
+      db_url_set: !!process.env.DATABASE_URL,
+      pg_url_set: !!process.env.PGDATABASE_URL,
+      health,
+      using_postgres: usingPostgres(),
+      table_count: tableCount,
+      sample: sampleRow
     })
   } catch (e) {
     res.json({ error: e.message, stack: e.stack?.slice(0, 500) })

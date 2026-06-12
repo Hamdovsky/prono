@@ -57,6 +57,10 @@ services:
         sync: false
       - key: HTTP_SCRAPER_ENABLED
         value: "true"
+      - key: INFERENCE_URL
+        value: https://prono-fastapi-cnxf.onrender.com
+      - key: MAIN_SERVER_URL
+        value: https://prono-k6gc.onrender.com
       - key: BSD_API_KEY
         sync: false
       - key: PREDIXSPORT_API_KEY

@@ -321,11 +321,11 @@ async function runMigrations() {
       logger.warn(`[PG MIGRATIONS] Column check skipped: ${e.message}`)
     }
 
-    // Backfill startTimestamp from fullData JSON for rows where it's NULL (uses regex extraction to avoid JSON cast issues)
+    // Backfill startTimestamp from "fullData" for rows where it's NULL (column name is case-sensitive)
     try {
       const backfillResult = await query(`
-        UPDATE matches SET startTimestamp = SUBSTRING(fullData FROM '"startTimestamp":([0-9]+)')::bigint
-        WHERE startTimestamp IS NULL AND fullData IS NOT NULL AND fullData ~ '"startTimestamp":[0-9]+'
+        UPDATE matches SET startTimestamp = SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint
+        WHERE startTimestamp IS NULL AND "fullData" IS NOT NULL AND "fullData" ~ '"startTimestamp":[0-9]+'
       `)
       if (backfillResult.rowCount > 0) {
         logger.info(`[PG MIGRATIONS] Backfilled startTimestamp for ${backfillResult.rowCount} rows`)

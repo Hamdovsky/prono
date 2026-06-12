@@ -174,8 +174,8 @@ const pgDb = {
       const result = await query(`SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC`, statuses)
       return result.rows.map(r => {
         try {
-          const parsed = r.fulldata ? (typeof r.fulldata === 'string' ? JSON.parse(r.fulldata) : r.fulldata) : {}
-          return { ...r, ...parsed, id: r.id, homeTeam: r.hometeam || parsed.homeTeam, awayTeam: r.awayteam || parsed.awayTeam, league: r.league || parsed.league }
+          const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {}
+          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
         } catch (e) { return r }
       })
     } catch (e) {
@@ -206,8 +206,8 @@ const pgDb = {
       const r = result.rows?.[0]
       if (!r) return null
       try {
-        const parsed = r.fulldata ? (typeof r.fulldata === 'string' ? JSON.parse(r.fulldata) : r.fulldata) : {}
-        return { ...r, ...parsed, id: r.id, homeTeam: r.hometeam || parsed.homeTeam, awayTeam: r.awayteam || parsed.awayTeam, league: r.league || parsed.league }
+        const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {}
+        return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
       } catch (e) { return r }
     } catch (err) {
       return null
@@ -321,7 +321,7 @@ const pgDb = {
     try {
       const result = await query(`SELECT * FROM matches WHERE status = 'scheduled' AND fullData IS NOT NULL ORDER BY timestamp ASC LIMIT 20`)
       return result.rows.map(r => {
-        try { const parsed = JSON.parse(r.fulldata || '{}'); return { ...r, ...parsed } }
+        try { const parsed = JSON.parse(r.fullData || '{}'); return { ...r, ...parsed } }
         catch { return r }
       })
     } catch { return [] }
@@ -333,7 +333,7 @@ const pgDb = {
       let total = 0, hits = 0
       const matches = []
       for (const r of result.rows) {
-        const data = JSON.parse(r.fulldata || '{}')
+        const data = JSON.parse(r.fullData || '{}')
         const pronos = (data.enriched?.main_predictions) ? data.enriched.main_predictions : (data.predictions || [])
         if (pronos.length === 0) continue
         total++
@@ -346,7 +346,7 @@ const pgDb = {
           else if ((val.includes('draw') || val.includes('x')) && actual === 'D') success = true
         })
         if (success) hits++
-        matches.push({ id: Math.random().toString(), homeTeam: r.hometeam, awayTeam: r.awayteam, impact: 'High', success })
+        matches.push({ id: Math.random().toString(), homeTeam: r.homeTeam, awayTeam: r.awayTeam, impact: 'High', success })
       }
       return { total, accuracy: total > 0 ? Math.round((hits / total) * 100) : 0, matches: matches.slice(0, 10) }
     } catch { return { total: 0, accuracy: 0, matches: [] } }
@@ -365,7 +365,7 @@ const pgDb = {
         const sh = r.scorehome ?? 0, sa = r.scoreaway ?? 0
         await query(
           `INSERT INTO historical_matches (id, homeTeam, awayTeam, scoreHome, scoreAway, league, fullData, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING`,
-          [r.id, r.hometeam, r.awayteam, sh, sa, r.league, r.fulldata || '{}', r.timestamp || new Date().toISOString()]
+          [r.id, r.homeTeam, r.awayTeam, sh, sa, r.league, r.fullData || '{}', r.timestamp || new Date().toISOString()]
         )
         await query(
           `UPDATE prediction_history SET status = 'finished', result = CASE WHEN (($1 > $2 AND prediction_type = 'Home') OR ($1 < $2 AND prediction_type = 'Away') OR ($1 = $2 AND prediction_type = 'Draw')) THEN 'won' ELSE 'lost' END WHERE match_id = $3`,
@@ -476,8 +476,8 @@ const pgDb = {
       const result = await query(`SELECT * FROM matches WHERE status = $1 ORDER BY timestamp ASC`, [parsedStatus])
       return result.rows.map(r => {
         try {
-          const parsed = r.fulldata ? (typeof r.fulldata === 'string' ? JSON.parse(r.fulldata) : r.fulldata) : {}
-          return { ...r, ...parsed, id: r.id, homeTeam: r.hometeam || parsed.homeTeam, awayTeam: r.awayteam || parsed.awayTeam, league: r.league || parsed.league }
+          const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {}
+          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
         } catch (e) { return r }
       })
     } catch (e) {
@@ -515,8 +515,8 @@ const pgDb = {
       const result = await query(`SELECT * FROM matches WHERE timestamp LIKE $1 ORDER BY timestamp ASC`, [`${dateStr}%`])
       return result.rows.map(r => {
         try {
-          const parsed = r.fulldata ? (typeof r.fulldata === 'string' ? JSON.parse(r.fulldata) : r.fulldata) : {}
-          return { ...r, ...parsed, id: r.id, homeTeam: r.hometeam || parsed.homeTeam, awayTeam: r.awayteam || parsed.awayTeam, league: r.league || parsed.league }
+          const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {}
+          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
         } catch (e) { return r }
       })
     } catch { return [] }

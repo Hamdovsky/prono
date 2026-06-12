@@ -1171,19 +1171,29 @@ if (process.env.DATABASE_URL) {
   const pgMigrations = require('./pg_migrations')
   pgConnector.getPool() // Ensure isPostgres=true BEFORE migration check
   pgMigrations.runMigrations().catch(e => logger.error(`[DB] PG migration error: ${e.message}`))
-  // Direct backfill of startTimestamp from fullData for existing rows
-  setImmediate(async () => {
+  // Direct backfill of startTimestamp from "fullData" for existing rows
+  setTimeout(async () => {
     try {
       const { query: pgQuery } = require('./pg_connector')
-      const result = await pgQuery(`
-        UPDATE matches SET startTimestamp = SUBSTRING(fullData FROM '"startTimestamp":([0-9]+)')::bigint
-        WHERE startTimestamp IS NULL AND fullData IS NOT NULL AND fullData ~ '"startTimestamp":[0-9]+'
-      `)
-      if (result.rowCount > 0) logger.info(`[DB] Backfilled startTimestamp for ${result.rowCount} existing rows`)
+      const testResult = await pgQuery('SELECT id, "fullData", SUBSTRING("fullData" FROM \'"startTimestamp":([0-9]+)\') AS ts FROM matches WHERE startTimestamp IS NULL AND "fullData" IS NOT NULL LIMIT 1')
+      if (testResult.rows.length > 0) {
+        const testRow = testResult.rows[0]
+        logger.info(`[DB] Backfill test: id=${testRow.id} ts_extracted=${testRow.ts} fullData_length=${(testRow.fullData || '').length}`)
+        if (testRow.ts) {
+          const result = await pgQuery(
+            `UPDATE matches SET startTimestamp = SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint WHERE startTimestamp IS NULL AND "fullData" IS NOT NULL AND "fullData" ~ '"startTimestamp":[0-9]+'`
+          )
+          logger.info(`[DB] Backfill result: rowCount=${result.rowCount}`)
+        } else {
+          logger.warn(`[DB] Backfill: could not extract startTimestamp (format mismatch or fullData JSON missing field)`)
+        }
+      } else {
+        logger.info('[DB] Backfill: no rows need backfill')
+      }
     } catch (e) {
-      logger.warn(`[DB] Backfill attempt: ${e.message}`)
+      logger.warn(`[DB] Backfill error: ${e.message} | stack: ${(e.stack || '').slice(0, 200)}`)
     }
-  })
+  }, 5000)
   module.exports = pgDb
 } else {
   module.exports = database

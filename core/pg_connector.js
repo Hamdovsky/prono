@@ -17,7 +17,7 @@ function getPool() {
 
   isPostgres = true
 
-  const isSupabase = dbUrl.includes('supabase.co')
+  const isSupabase = dbUrl.includes('supabase.co') || dbUrl.includes('neon.tech')
   pool = new Pool({
     connectionString: dbUrl,
     max: 5,

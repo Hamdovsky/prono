@@ -59,7 +59,7 @@ class SupabaseService {
               connectionString: ipUrl,
               max: 1,
               connectionTimeoutMillis: 10000,
-              ssl: host.includes('supabase.co') ? { rejectUnauthorized: false } : undefined
+              ssl: host.includes('supabase.co') || host.includes('neon.tech') ? { rejectUnauthorized: false } : undefined
             })
             const client = await directPool.connect()
             await client.query('SELECT 1')

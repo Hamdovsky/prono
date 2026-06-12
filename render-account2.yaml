@@ -17,9 +17,20 @@ services:
         value: "1"
       - key: PYTHONHASHSEED
         value: "42"
-      # Neon/Supabase connection (shared DB avec Compte 1)
+      - key: API_SECRET_KEY
+        sync: false
       - key: DATABASE_URL
         sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: neondb
 
   # ── Serverless Scraper Worker (HTTP-only, ~50MB RAM) ──
   - type: web
@@ -34,10 +45,10 @@ services:
         value: "20"
       - key: NODE_ENV
         value: production
-      # Clé partagée avec le Compte 1
       - key: API_SECRET_KEY
         sync: false
-      # API keys pour le scraping HTTP
+      - key: DATABASE_URL
+        sync: false
       - key: RAPIDAPI_KEY
         sync: false
       - key: RAPIDAPI_HOST
@@ -46,6 +57,3 @@ services:
         sync: false
       - key: HTTP_SCRAPER_ENABLED
         value: "true"
-      # Neon/Supabase connection (shared DB avec Compte 1)
-      - key: DATABASE_URL
-        sync: false

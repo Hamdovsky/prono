@@ -9,6 +9,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "20"
       - key: API_SECRET_KEY
         value: tok_c0b4cc72d01a1a2f4e895180195dfae5
       - key: INFERENCE_URL
@@ -45,8 +47,8 @@ services:
         value: sportapi7.p.rapidapi.com
       - key: RAPIDAPI_DAILY_LIMIT
         value: "20"
-      - key: TEST_VAR
-        value: test123
+      - key: SPORTMONKS_KEY
+        value: FKXiJ1IwegdaPaf1qKv8YfVk6mW4v9oq93hlwU85a0uNLlKttPiu5ioJyBSC
       # ── Secrets à ajouter manuellement dans le Dashboard Render ──
       - key: GROQ_API_KEY
         sync: false

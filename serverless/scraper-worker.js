@@ -178,9 +178,8 @@ app.post('/reset', requireAuth, (req, res) => {
 app.get('/db-test', requireAuth, async (req, res) => {
   try {
     const conn = require('../core/pg_connector')
-    const dbUrl = process.env.DATABASE_URL || ''
-    const dbUrlLen = dbUrl.length
-    const dbUrlFirst50 = dbUrl.slice(0, 50)
+    const dbUrl = (process.env.DATABASE_URL || '') 
+    const dbUrlFirst50 = dbUrl.slice(0, 55)
     // Call getPool
     const p = conn.getPool()
     const isPg = conn.usingPostgres()
@@ -196,10 +195,9 @@ app.get('/db-test', requireAuth, async (req, res) => {
     }
     res.json({
       db_url_set: !!process.env.DATABASE_URL,
-      db_url_length: dbUrlLen,
       db_url_start: dbUrlFirst50 + '...',
+      pg_url_set: !!process.env.PGDATABASE_URL,
       pool_is_null: p === null,
-      pool_type: typeof p,
       using_postgres: isPg,
       table_count: tableCount,
       sample: sampleRow,

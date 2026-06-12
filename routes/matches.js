@@ -358,4 +358,17 @@ router.post('/refresh-lineups/:id', async (req, res) => {
     }
 });
 
+// Cache invalidation endpoint (called by worker after enrich)
+router.post('/invalidate-cache', (req, res) => {
+    const key = req.headers['x-api-key']
+    if (!key || key !== process.env.API_SECRET_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' })
+    }
+    const prefixes = req.body?.prefixes || ['upcoming', 'live', 'combos']
+    for (const p of prefixes) {
+        invalidateCache(p)
+    }
+    res.json({ invalidated: prefixes })
+});
+
 module.exports = router;

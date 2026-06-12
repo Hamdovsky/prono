@@ -177,23 +177,33 @@ app.post('/reset', requireAuth, (req, res) => {
 // ─── DB Test: debug Postgres connection ────────────────────
 app.get('/db-test', requireAuth, async (req, res) => {
   try {
-    const { query, usingPostgres, getPool } = require('../core/pg_connector')
-    // Force pool init by calling getPool first
-    getPool()
-    const isPg = usingPostgres()
-    let tableCount = null, sampleRow = null
-    if (isPg) {
-      const r = await query('SELECT COUNT(*) as cnt FROM matches')
+    const conn = require('../core/pg_connector')
+    const dbUrl = process.env.DATABASE_URL || ''
+    const dbUrlLen = dbUrl.length
+    const dbUrlFirst50 = dbUrl.slice(0, 50)
+    // Call getPool
+    const p = conn.getPool()
+    const isPg = conn.usingPostgres()
+    // Try direct query regardless of isPg
+    let tableCount = null, sampleRow = null, queryError = null
+    try {
+      const r = await conn.query('SELECT COUNT(*) as cnt FROM matches')
       tableCount = r.rows?.[0]?.cnt
-      const r2 = await query('SELECT id, status, "startTimestamp" FROM matches LIMIT 3')
+      const r2 = await conn.query('SELECT id, status, "startTimestamp" FROM matches LIMIT 3')
       sampleRow = r2.rows
+    } catch (qe) {
+      queryError = qe.message
     }
     res.json({
       db_url_set: !!process.env.DATABASE_URL,
-      pg_url_set: !!process.env.PGDATABASE_URL,
+      db_url_length: dbUrlLen,
+      db_url_start: dbUrlFirst50 + '...',
+      pool_is_null: p === null,
+      pool_type: typeof p,
       using_postgres: isPg,
       table_count: tableCount,
-      sample: sampleRow
+      sample: sampleRow,
+      query_error: queryError
     })
   } catch (e) {
     res.json({ error: e.message, stack: e.stack?.slice(0, 500) })

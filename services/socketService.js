@@ -6,6 +6,7 @@ class SocketService {
     constructor() {
         this.io = null;
         this.pgListener = null;
+        this._prevLiveScores = new Map();
     }
 
     init(server) {
@@ -67,8 +68,72 @@ class SocketService {
     }
 
     _initPgListener() {
-        // [PREMATCH ONLY] PG Listener for live updates disabled.
-        logger.info('⚡ [SOCKET] Real-time live listener disabled (Prematch Mode).');
+        if (process.env.SOCKET_LIVE_DISABLED === 'true') {
+            logger.info('⚡ [SOCKET] Live listener disabled via SOCKET_LIVE_DISABLED env var.');
+            return;
+        }
+        const POLL_INTERVAL = parseInt(process.env.SOCKET_LIVE_INTERVAL || '30') * 1000;
+        logger.info(`⚡ [SOCKET] Live listener active (polling every ${POLL_INTERVAL/1000}s)`);
+
+        const poll = async () => {
+            try {
+                // Poll only if clients are connected
+                if (!this.io || this.io.engine?.clientsCount === 0) return;
+
+                const liveStatuses = ['live', 'inprogress', 'IN_PLAY', 'LIVE', 'playing', '1H', '2H', 'HT', 'ET', 'PEN'];
+                const database = require('../core/database');
+                const liveMatches = await database.getMatchesByStatuses(liveStatuses);
+
+                if (!Array.isArray(liveMatches) || liveMatches.length === 0) {
+                    this._prevLiveScores.clear();
+                    return;
+                }
+
+                let hasChanges = false;
+                const patches = [];
+
+                for (const m of liveMatches) {
+                    const prev = this._prevLiveScores.get(m.id);
+                    const scoreKey = `${m.scoreHome ?? ''}-${m.scoreAway ?? ''}-${m.minute ?? ''}`;
+
+                    if (!prev) {
+                        hasChanges = true;
+                    } else if (prev.score !== scoreKey) {
+                        patches.push({
+                            id: m.id,
+                            patch: [
+                                { op: 'replace', path: '/scoreHome', value: m.scoreHome },
+                                { op: 'replace', path: '/scoreAway', value: m.scoreAway },
+                                { op: 'replace', path: '/minute', value: m.minute }
+                            ]
+                        });
+                    }
+                    this._prevLiveScores.set(m.id, { score: scoreKey });
+                }
+
+                // Clean up stale entries
+                for (const [id] of this._prevLiveScores) {
+                    if (!liveMatches.find(m => m.id === id)) {
+                        this._prevLiveScores.delete(id);
+                        hasChanges = true;
+                    }
+                }
+
+                if (hasChanges) {
+                    this.io.emit('matches_update', liveMatches);
+                }
+                for (const p of patches) {
+                    this.io.emit('match_patch_update', p);
+                }
+            } catch (err) {
+                // Silently ignore polling errors — live scoring is best-effort
+            }
+        };
+
+        // Start polling interval
+        this._liveInterval = setInterval(poll, POLL_INTERVAL);
+        // Immediate first poll
+        poll();
     }
 
     async refreshCombos() {

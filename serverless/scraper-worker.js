@@ -134,7 +134,7 @@ app.post('/enrich', requireAuth, async (req, res) => {
       return ts > now - 3600000 && ts < twoDaysEnd && (!m.home_win_probability || parseFloat(m.home_win_probability) === 0)
     }).slice(0, 300)
     if (needsEnrichment.length === 0) return { enriched: 0 }
-    const enriched = await enrichedPredictions.enrichMatches(needsEnrichment)
+    const enriched = await enrichedPredictions.enrichMatches(needsEnrichment, { fastMode: false })
     let updated = 0
     for (const m of enriched) {
       await database.updatePredictions(m.id, m)

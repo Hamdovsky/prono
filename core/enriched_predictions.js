@@ -501,14 +501,14 @@ class EnrichedPredictionService {
     }
 
     /**
-     * Enrichit une liste de matchs — synchronous fast path, no Python.
-     * Python is reserved for single on-demand enrichMatch() calls.
+     * Enrichit une liste de matchs
+     * - fastMode=true (défaut): JS-only QuantumQuantEngine (<100ms)
+     * - fastMode=false: Python FastAPI ML avec contrôle de concurrence
      */
     async enrichMatches(matches, options = {}) {
-        const { fastMode = true, backgroundDeepEnrich = true } = options;
+        const { fastMode = true } = options;
         
         // ✅ NE PAS RÉENRICHIR LES MATCHS DÉJÀ ENRICHIS
-        // Évite 95% des calculs inutiles au redémarrage
         const needsEnrichment = matches.filter(m => 
             !m.home_win_probability || 
             m.home_win_probability === 0 || 
@@ -518,23 +518,39 @@ class EnrichedPredictionService {
         
         const alreadyEnriched = matches.filter(m => !needsEnrichment.includes(m));
         
-        logger.info(`⚡ [ENRICH] ${alreadyEnriched.length} matchs déjà enrichis, ${needsEnrichment.length} à traiter`);
+        logger.info(`⚡ [ENRICH] ${alreadyEnriched.length} déjà enrichis, ${needsEnrichment.length} à traiter (fastMode=${fastMode})`);
         
-        // MODE RAPIDE PAR DÉFAUT: Rendu instantané < 100ms
-        const fastResults = await Promise.all(needsEnrichment.map(async m => {
-            try {
-                return await this.fastEnrichMatch(m);
-            } catch (err) {
-                logger.error(`❌ [ENRICH] Fast path failed for ${m.homeTeam}:`, err.message);
-                return m;
+        if (fastMode) {
+            // JS-only instantané (<100ms)
+            const fastResults = await Promise.all(needsEnrichment.map(async m => {
+                try {
+                    return await this.fastEnrichMatch(m);
+                } catch (err) {
+                    logger.error(`❌ [ENRICH] Fast path failed for ${m.homeTeam}:`, err.message);
+                    return m;
+                }
+            }));
+            return [...alreadyEnriched, ...fastResults];
+        }
+        
+        // Mode profond: Python FastAPI avec concurrence limitée
+        const CONCURRENCY = parseInt(process.env.ENRICH_CONCURRENCY || '3');
+        const results = [];
+        for (let i = 0; i < needsEnrichment.length; i += CONCURRENCY) {
+            const batch = needsEnrichment.slice(i, i + CONCURRENCY);
+            const batchResults = await Promise.all(batch.map(m =>
+                this.enrichMatch(m).catch(err => {
+                    logger.error(`❌ [ENRICH] Deep path failed for ${m.homeTeam}:`, err.message);
+                    return this.fastEnrichMatch(m);
+                })
+            ));
+            results.push(...batchResults);
+            if (i + CONCURRENCY < needsEnrichment.length) {
+                await new Promise(r => setTimeout(r, 200));
             }
-        }));
+        }
         
-        // 💡 [OPTIMIZATION] Recursive background enrichment removed.
-        // Single-pass fast enrichment is sufficient for bulk operations.
-        // Deep enrichment (Python/News) is now reserved for on-demand single match calls.
-        
-        return [...alreadyEnriched, ...fastResults];
+        return [...alreadyEnriched, ...results];
     }
     
     /**

@@ -58,9 +58,18 @@ const RESERVE_PATTERNS = [
 const normalizeTeamName = (name) => {
     if (!name || typeof name !== 'string') return '';
     
-    let clean = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    clean = clean.replace(/[^a-zA-Z0-9\s]/g, ' ').trim();
-    clean = clean.replace(/\s+/g, ' ');
+    // Normaliser les caractères spéciaux (œ → oe, etc.)
+    let clean = name
+        .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+        .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+        .replace(/[\u2013\u2014]/g, '-')
+        .replace(/\u00A0/g, ' ')  // non-breaking space → space
+        .trim()
+    
+    // Préserver les lettres accentuées communes dans les noms d'équipes
+    // On garde a-zA-Z, chiffres, espaces, tirets, points, esperluettes
+    clean = clean.replace(/[^\w\s\-\.\&À-ÿ\u00C0-\u024F\u0400-\u04FF\u0100-\u017F\u0180-\u024F']/g, ' ').trim()
+    clean = clean.replace(/\s+/g, ' ')
     
     for (const suffix of TEAM_SUFFIXES) {
         if (clean.toLowerCase().endsWith(suffix.toLowerCase())) {

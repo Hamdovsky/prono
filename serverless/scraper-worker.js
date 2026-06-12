@@ -182,25 +182,32 @@ app.get('/db-test', requireAuth, async (req, res) => {
     const dbUrlFirst50 = dbUrl.slice(0, 55)
     const p = conn.getPool()
     const isPg = conn.usingPostgres()
-    let tableCount = null, sampleRow = null, queryError = null, aiSourceCheck = null
+    let tableCount = null, sampleRow = null, queryError = null, aiSourceCheck = null, columns = null
     try {
       const r = await conn.query('SELECT COUNT(*) as cnt FROM matches')
       tableCount = r.rows?.[0]?.cnt
+      // Get columns
+      const colR = await conn.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'matches' ORDER BY ordinal_position")
+      columns = colR.rows?.map(x => x.column_name)
+      // Get fullData sample
       const r2 = await conn.query('SELECT id, status, "fullData" FROM matches LIMIT 3')
-      sampleRow = r2.rows?.map(x => ({ id: x.id, status: x.status, fullData_len: x.fullData?.length, ai_source: x.fullData ? (() => { try { return JSON.parse(x.fullData).ai_source } catch(e) { return 'PARSE_ERR' } })() : null }))
+      sampleRow = r2.rows?.map(x => ({ id: x.id, status: x.status, ai_source: x.fullData ? (() => { try { return JSON.parse(x.fullData).ai_source } catch(e) { return 'PARSE_ERR' } })() : null }))
       // Count ai_source values
-      const r3 = await conn.query('SELECT COUNT(*) as cnt FROM matches WHERE "fullData"::text LIKE \'%TITANIUM_QUANT_V4%\'')
-      const r4 = await conn.query('SELECT COUNT(*) as cnt FROM matches WHERE "fullData"::text LIKE \'%TITANIUM_ELITE_V3%\'')
+      const r3 = await conn.query("SELECT COUNT(*) as cnt FROM matches WHERE fullData::text LIKE '%TITANIUM_QUANT_V4%'")
+      const r4 = await conn.query("SELECT COUNT(*) as cnt FROM matches WHERE fullData::text LIKE '%TITANIUM_ELITE_V3%'")
       aiSourceCheck = { quant_v4: r3.rows?.[0]?.cnt, elite_v3: r4.rows?.[0]?.cnt }
     } catch (qe) {
       queryError = qe.message
     }
     res.json({
-      db_url_start: dbUrlFirst50 + '...',
       using_postgres: isPg,
       table_count: tableCount,
+      columns_fullData: columns?.includes('fullData'),
+      columns_fulldata: columns?.includes('fulldata'),
+      columns_ai_source: columns?.includes('ai_source'),
+      all_columns: columns,
       sample: sampleRow,
-      ai_source_count: aiSourceCheck,
+      ai_source_in_json: aiSourceCheck,
       query_error: queryError
     })
   } catch (e) {

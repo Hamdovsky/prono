@@ -69,22 +69,8 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
-      # Redis cache (free Render Key Value)
-      - key: REDIS_URL
-        fromService:
-          name: prono-redis
-          type: kv
-          property: connectionString
       # ── URLs des services sur le Compte 2 ──
-      # REMPLACE ces valeurs après déploiement du Compte 2
       - key: INFERENCE_URL
-        value: https://prono-fastapi.onrender.com
+        value: https://prono-fastapi-cnxf.onrender.com
       - key: SCRAPER_WORKER_URL
         value: https://prono-scraper.onrender.com
-      - key: DATABASE_URL
-        sync: false
-
-  # ── Redis Cache (Render Key Value, free 25MB) ─────────────────
-  - type: kv
-    name: prono-redis
-    plan: free

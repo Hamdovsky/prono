@@ -37,6 +37,11 @@ async function runTask(taskLabel, taskFn, req, res) {
   }
   isRunning = true
   const startTime = Date.now()
+
+  // Auto-reset on client disconnect so flag doesn't stick
+  const onClose = () => { isRunning = false }
+  req.on('close', onClose)
+
   try {
     const result = await taskFn()
     res.json({ success: true, ...result, durationMs: Date.now() - startTime })
@@ -44,6 +49,7 @@ async function runTask(taskLabel, taskFn, req, res) {
     res.status(500).json({ success: false, error: err.message, durationMs: Date.now() - startTime })
   } finally {
     isRunning = false
+    req.off('close', onClose)
   }
 }
 
@@ -160,6 +166,12 @@ app.post('/db/maintenance', requireAuth, async (req, res) => {
     await database.maintenance()
     return {}
   }, req, res)
+})
+
+// ─── Reset: force-clear isRunning if stuck ─────────────────
+app.post('/reset', requireAuth, (req, res) => {
+  isRunning = false
+  res.json({ success: true, message: 'isRunning reset to false' })
 })
 
 // ─── Status ────────────────────────────────────────────────

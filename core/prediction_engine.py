@@ -2779,9 +2779,15 @@ def process_prediction(match_obj: dict) -> dict:
             abs(locals().get('p_a_xgb',0)-locals().get('p_a',0))<1e-9
         )
     })
-    _tf = _os.path.join(_os.environ.get('TEMP', r'C:\Users\HAMDI\AppData\Local\Temp'), 'opencode', 'prob_trace.jsonl')
-    with open(_tf, 'a', encoding='utf-8') as _f:
-        _f.write(json.dumps(__prob_trace__[-1], default=str) + '\n')
+    _tf = _os.path.join(_os.environ.get('TEMP', '/tmp'), 'opencode', 'prob_trace.jsonl')
+    try:
+        _d = _os.path.dirname(_tf)
+        if not _os.path.exists(_d):
+            _os.makedirs(_d, exist_ok=True)
+        with open(_tf, 'a', encoding='utf-8') as _f:
+            _f.write(json.dumps(__prob_trace__[-1], default=str) + '\n')
+    except Exception:
+        pass
 
     # [TITANIUM V52.3] Final Serialization Shield
     return {

@@ -4,9 +4,9 @@ const logger = require('./logger');
 
 // Lazy SQLite init (Postgres-only environments don't need better-sqlite3)
 let db = null
+const dbPath = path.resolve(__dirname, '../data/tactical.db')
 try {
   const Database = require('better-sqlite3');
-  const dbPath = path.resolve(__dirname, '../data/tactical.db');
   const dbDir = path.dirname(dbPath);
   if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
@@ -62,10 +62,11 @@ function getPreparedStatement(sql) {
     }
 }
 
-logger.info(`🗄️ [DATABASE] Using SQLite: ${dbPath}`);
+if (db) logger.info(`🗄️ [DATABASE] Using SQLite: ${dbPath}`);
 
 // ─── ABSOLUTE DEFENSE SCHEMA INITIALIZATION ───────────────────────
 function initSchema() {
+    if (!db) return
     try {
         db.exec(`
             CREATE TABLE IF NOT EXISTS matches (

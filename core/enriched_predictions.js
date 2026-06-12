@@ -506,10 +506,10 @@ class EnrichedPredictionService {
      * - fastMode=false: Python FastAPI ML avec contrôle de concurrence
      */
     async enrichMatches(matches, options = {}) {
-        const { fastMode = true } = options;
+        const { fastMode = true, force = false } = options;
         
-        // ✅ NE PAS RÉENRICHIR LES MATCHS DÉJÀ ENRICHIS
-        const needsEnrichment = matches.filter(m => 
+        // ✅ NE PAS RÉENRICHIR LES MATCHS DÉJÀ ENRICHIS (sauf force=true)
+        const needsEnrichment = force ? matches : matches.filter(m => 
             !m.home_win_probability || 
             m.home_win_probability === 0 || 
             !m.expected_score || 
@@ -535,10 +535,9 @@ class EnrichedPredictionService {
         
         // Mode profond: Python FastAPI avec concurrence limitée
         // Pre-check santé FastAPI avant de lancer les appels
-        try {
-            await this.pythonService.checkHealth()
-        } catch (e) {
-            logger.warn(`[ENRICH] FastAPI non disponible, fallback fastMode: ${e.message}`)
+        const fastApiHealthy = await this.pythonService.checkHealth()
+        if (!fastApiHealthy) {
+            logger.warn(`[ENRICH] FastAPI non disponible (checkHealth=false), fallback fastMode`)
             const fastResults = await Promise.all(needsEnrichment.map(async m => {
                 try {
                     return await this.fastEnrichMatch(m);
@@ -548,9 +547,10 @@ class EnrichedPredictionService {
             }));
             return [...alreadyEnriched, ...fastResults];
         }
+        logger.info(`[ENRICH] FastAPI OK, lancement deep enrich avec ML`)
         
         const CONCURRENCY = parseInt(process.env.ENRICH_CONCURRENCY || '3');
-        const BULK_TIMEOUT = parseInt(process.env.ENRICH_TIMEOUT_MS || '30000');
+        const BULK_TIMEOUT = parseInt(process.env.ENRICH_TIMEOUT_MS || '45000');
         const results = [];
         for (let i = 0; i < needsEnrichment.length; i += CONCURRENCY) {
             const batch = needsEnrichment.slice(i, i + CONCURRENCY);

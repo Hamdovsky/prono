@@ -131,10 +131,10 @@ app.post('/enrich', requireAuth, async (req, res) => {
     const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
     const needsEnrichment = matches.filter(m => {
       const ts = m.startTimestamp ? m.startTimestamp * 1000 : (m.timestamp ? new Date(m.timestamp).getTime() : 0)
-      return ts > now - 3600000 && ts < twoDaysEnd && (!m.home_win_probability || parseFloat(m.home_win_probability) === 0)
+      return ts > now - 3600000 && ts < twoDaysEnd
     }).slice(0, 300)
     if (needsEnrichment.length === 0) return { enriched: 0 }
-    const enriched = await enrichedPredictions.enrichMatches(needsEnrichment, { fastMode: false })
+    const enriched = await enrichedPredictions.enrichMatches(needsEnrichment, { fastMode: false, force: true })
     let updated = 0
     for (const m of enriched) {
       await database.updatePredictions(m.id, m)

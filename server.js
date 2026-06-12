@@ -253,6 +253,28 @@ app.get('/api/diag', async (req, res) => {
   })
 })
 
+app.post('/api/debug/backfill', async (req, res) => {
+  const { query: pgQuery } = require('./core/pg_connector')
+  try {
+    const test1 = await pgQuery('SELECT id, "fullData", "startTimestamp" FROM matches WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL LIMIT 3')
+    const step1 = test1.rows.map(r => ({
+      id: r.id,
+      fullData_snippet: (r.fullData || '').slice(0, 150),
+      startTs: r.startTimestamp
+    }))
+    let step2 = []
+    if (test1.rows.length > 0) {
+      const test2 = await pgQuery('SELECT id, SUBSTRING("fullData" FROM \'"startTimestamp":([0-9]+)\') AS ts FROM matches WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL LIMIT 3')
+      step2 = test2.rows.map(r => ({ id: r.id, ts: r.ts }))
+    }
+    const pgDb = require('./core/pg_database')
+    const step3 = await pgDb.getMatchesByStatuses(['scheduled'])
+    res.json({ step1, step2, step3_count: step3.length, step3_sample: step3.slice(0, 2).map(r => ({ id: r.id, homeTeam: r.homeTeam, startTs: r.startTimestamp })) })
+  } catch (e) {
+    res.json({ error: e.message, stack: (e.stack || '').slice(0, 500) })
+  }
+})
+
 app.get('/api/audit/performance', async (req, res) => {
   try {
     const auditService = require('./services/auditService');

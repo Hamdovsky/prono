@@ -4,7 +4,7 @@ services:
     name: prono
     env: node
     plan: free
-    buildCommand: npm install --omit=optional && npm run build
+    buildCommand: PUPPETEER_SKIP_DOWNLOAD=true npm install && npm run build
     startCommand: node --expose-gc --max-old-space-size=256 server.js
     envVars:
       - key: NODE_ENV

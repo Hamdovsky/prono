@@ -189,12 +189,24 @@ app.get('/db-test', requireAuth, async (req, res) => {
       // Get columns
       const colR = await conn.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'matches' ORDER BY ordinal_position")
       columns = colR.rows?.map(x => x.column_name)
-      // Get fullData sample
+      // Get fullData sample with ai_source
       const r2 = await conn.query('SELECT id, status, "fullData" FROM matches LIMIT 3')
-      sampleRow = r2.rows?.map(x => ({ id: x.id, status: x.status, ai_source: x.fullData ? (() => { try { return JSON.parse(x.fullData).ai_source } catch(e) { return 'PARSE_ERR' } })() : null }))
-      // Count ai_source values
-      const r3 = await conn.query("SELECT COUNT(*) as cnt FROM matches WHERE fullData::text LIKE '%TITANIUM_QUANT_V4%'")
-      const r4 = await conn.query("SELECT COUNT(*) as cnt FROM matches WHERE fullData::text LIKE '%TITANIUM_ELITE_V3%'")
+      sampleRow = r2.rows?.map(x => {
+        let ai_source = null, fullData_str = null
+        if (x.fullData) {
+          try {
+            const parsed = typeof x.fullData === 'string' ? JSON.parse(x.fullData) : x.fullData
+            ai_source = parsed.ai_source
+            fullData_str = JSON.stringify(parsed).slice(0, 200)
+          } catch(e) {
+            ai_source = 'PARSE_ERR'
+          }
+        }
+        return { id: x.id, status: x.status, ai_source, fullData_preview: fullData_str }
+      })
+      // Count ai_source values with correct quoting
+      const r3 = await conn.query("SELECT COUNT(*) as cnt FROM matches WHERE \"fullData\"::text LIKE '%TITANIUM_QUANT_V4%'")
+      const r4 = await conn.query("SELECT COUNT(*) as cnt FROM matches WHERE \"fullData\"::text LIKE '%TITANIUM_ELITE_V3%'")
       aiSourceCheck = { quant_v4: r3.rows?.[0]?.cnt, elite_v3: r4.rows?.[0]?.cnt }
     } catch (qe) {
       queryError = qe.message

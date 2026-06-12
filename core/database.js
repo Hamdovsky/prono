@@ -1,27 +1,34 @@
-const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 const logger = require('./logger');
 
-const dbPath = path.resolve(__dirname, '../data/tactical.db');
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
+// Lazy SQLite init (Postgres-only environments don't need better-sqlite3)
+let db = null
+try {
+  const Database = require('better-sqlite3');
+  const dbPath = path.resolve(__dirname, '../data/tactical.db');
+  const dbDir = path.dirname(dbPath);
+  if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
+  }
+  db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 30000');
+  db.pragma('cache_size = -16000');
+  db.pragma('temp_store = MEMORY');
+  db.pragma('mmap_size = 64000000');
+  db.pragma('wal_autocheckpoint = 1000');
+  db.pragma('foreign_keys = ON');
+  logger.info('[DB] SQLite initialized')
+} catch (e) {
+  logger.warn(`[DB] SQLite not available: ${e.message}. Postgres-only mode.`)
 }
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('busy_timeout = 30000'); // 30 seconds for Windows I/O safety
-db.pragma('cache_size = -16000'); // 16MB Page Cache
-db.pragma('temp_store = MEMORY'); // Temporary tables in RAM for speed
-db.pragma('mmap_size = 64000000'); // 64MB memory-mapped I/O (conservative)
-db.pragma('wal_autocheckpoint = 1000'); // checkpoint every 1000 pages (~4MB)
-db.pragma('foreign_keys = ON'); // enforce relational integrity
 
-// Periodic WAL checkpoint to prevent unbounded growth on Render free plan (512MB)
-const WAL_CHECKPOINT_INTERVAL = 5 * 60 * 1000 // 5 minutes
+// Periodic WAL checkpoint (no-op if SQLite unavailable)
+const WAL_CHECKPOINT_INTERVAL = 5 * 60 * 1000
 setInterval(() => {
   try {
-    db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+    if (db) db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
   } catch (_) {}
 }, WAL_CHECKPOINT_INTERVAL)
 

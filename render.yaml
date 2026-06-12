@@ -11,36 +11,22 @@ services:
         value: production
       - key: NODE_VERSION
         value: "20"
-      - key: FOOTBALLDATA_ENABLED
+      - key: API_SECRET_KEY
+        value: tok_c0b4cc72d01a1a2f4e895180195dfae5
+      - key: INFERENCE_URL
+        value: https://prono-fastapi-cnxf.onrender.com
+      - key: SCRAPER_WORKER_URL
+        value: https://prono-scraper.onrender.com
+      - key: VITE_API_URL
+        value: https://prono-k6gc.onrender.com
+      - key: SUPABASE_URL
+        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
+      - key: SUPABASE_ENABLED
         value: "true"
-      - key: FOOTBALLDATA_KEY
-        sync: false
-      - key: FOOTBALLDATA_HOST
-        value: footballdata.io
-      - key: FOOTBALLDATA_DAILY_LIMIT
-        value: "20"
-      - key: RAPIDAPI_ENABLED
-        value: "true"
-      - key: RAPIDAPI_HOST
-        value: sportapi7.p.rapidapi.com
-      - key: RAPIDAPI_DAILY_LIMIT
-        value: "20"
       - key: HTTP_SCRAPER_ENABLED
         value: "true"
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "true"
-      - key: REDISMS_DISABLE_POSTINSTALL
-        value: "true"
-      - key: VITE_API_URL
-        value: https://prono-k6gc.onrender.com
-      - key: OPENLIGADB_ENABLED
-        value: "true"
-      - key: SUPABASE_ENABLED
-        value: "true"
-      - key: SUPABASE_URL
-        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
-      - key: API_SECRET_KEY
-        value: tok_c0b4cc72d01a1a2f4e895180195dfae5
       - key: BBS_ENABLED
         value: "true"
       - key: BBS_API_KEY
@@ -53,21 +39,15 @@ services:
         value: "true"
       - key: PREDIXSPORT_API_KEY
         value: psk_yJdsKtz8VcYmyxaWDiAdwB4KjbFxTMWU
-      - key: SCRAPER_WORKER_URL
-        value: https://prono-scraper.onrender.com
-      - key: INFERENCE_URL
-        value: https://prono-fastapi-cnxf.onrender.com
-      - key: OPENWEATHER_KEY
-        value: 74d47a6b7cd2cd655bddd6b599c52424
-      - key: TELEGRAM_BOT_TOKEN
-        value: 6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs
-      - key: TELEGRAM_CHAT_ID
-        value: "5637790630"
+      - key: RAPIDAPI_ENABLED
+        value: "true"
       - key: RAPIDAPI_KEY
         value: 6551913962msh464a2699f275258p121b43jsn90a42244ee62
-      - key: SPORTMONKS_KEY
-        value: FKXiJ1IwegdaPaf1qKv8YfVk6mW4v9oq93hlwU85a0uNLlKttPiu5ioJyBSC
-      # ── Secrets à ajouter dans le Dashboard Render ──
+      - key: RAPIDAPI_HOST
+        value: sportapi7.p.rapidapi.com
+      - key: RAPIDAPI_DAILY_LIMIT
+        value: "20"
+      # ── Secrets à ajouter manuellement dans le Dashboard Render ──
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY

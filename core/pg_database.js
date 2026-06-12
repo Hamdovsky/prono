@@ -163,7 +163,7 @@ const pgDb = {
       return m.id
     } catch (err) {
       logger.error(`[PG DB] insertMatch error: ${err.message}`)
-      return false
+      return { error: err.message }
     }
   },
 

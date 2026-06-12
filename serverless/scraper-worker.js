@@ -141,6 +141,17 @@ app.post('/enrich', requireAuth, async (req, res) => {
     }).slice(0, 300)
     if (needsEnrichment.length === 0) return { enriched: 0 }
     const enriched = await enrichedPredictions.enrichMatches(needsEnrichment, { fastMode: false, force: true })
+    
+    // DEBUG: log first enriched match structure
+    if (enriched.length > 0) {
+      const m = enriched[0]
+      console.log('[WORKER ENRICH] First match keys:', Object.keys(m))
+      console.log('[WORKER ENRICH] ai_source:', m.ai_source)
+      console.log('[WORKER ENRICH] home_win_probability:', m.home_win_probability)
+      console.log('[WORKER ENRICH] expected_score:', m.expected_score)
+      console.log('[WORKER ENRICH] enriched keys:', m.enriched ? Object.keys(m.enriched) : 'none')
+    }
+    
     let updated = 0
     for (const m of enriched) {
       await database.updatePredictions(m.id, m)

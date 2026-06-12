@@ -299,12 +299,12 @@ async function upsertMatch(match) {
             const existing = await db.prepare('SELECT id FROM matches WHERE id = $1').get(match.id);
             if (existing) return false;
 
-            const cols = ['id', 'homeTeam', 'awayTeam', 'league', 'category_name', 'tournament_name',
+            const cols = ['id', '"homeTeam"', '"awayTeam"', 'league', 'category_name', 'tournament_name',
                 'tournament_id', 'home_team_id', 'away_team_id',
-                'startTimestamp', 'timestamp', 'status',
+                '"startTimestamp"', 'timestamp', 'status',
                 'confidence', 'prediction',
                 'odds_home', 'odds_draw', 'odds_away',
-                'last_updated', 'insufficient_data', 'source', 'fullData']
+                'last_updated', 'insufficient_data', 'source', '"fullData"']
             const vals = cols.map((_, i) => `$${i + 1}`).join(', ')
             const params = cols.map(c => match[c] !== undefined ? match[c] : null)
             await db.prepare(
@@ -353,7 +353,7 @@ async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
         if (isPG) {
             const { query: pgQuery } = require('./pg_connector')
             const result = await pgQuery(
-                `SELECT COUNT(*) as cnt FROM matches WHERE COALESCE(startTimestamp, SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) >= $1 AND COALESCE(startTimestamp, SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) <= $2 AND status = 'scheduled'`,
+                `SELECT COUNT(*) as cnt FROM matches WHERE COALESCE("startTimestamp", SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) >= $1 AND COALESCE("startTimestamp", SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) <= $2 AND status = 'scheduled'`,
                 [startTs, endTs]
             )
             return parseInt(result.rows?.[0]?.cnt || '0')

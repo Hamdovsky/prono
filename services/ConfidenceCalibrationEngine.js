@@ -45,7 +45,7 @@ class ConfidenceCalibrationEngine {
             const stats = await db.prepare(`
                 SELECT 
                     COUNT(*) as total,
-                    SUM(CASE WHEN scoreHome IS NOT NULL THEN 1 ELSE 0 END) as finished
+                    SUM(CASE WHEN "scoreHome" IS NOT NULL THEN 1 ELSE 0 END) as finished
                 FROM matches 
                 WHERE league = ?
             `).get(leagueName);

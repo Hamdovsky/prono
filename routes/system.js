@@ -303,8 +303,8 @@ router.post('/sync-matches', express.json({ limit: '50mb' }), async (req, res) =
         const db = database.db;
         const insertStmt = db.prepare(`
             INSERT OR REPLACE INTO matches (
-                id, homeTeam, awayTeam, league, scoreHome, scoreAway, minute, status,
-                prediction, confidence, fullData, timestamp, startTimestamp,
+                id, "homeTeam", "awayTeam", league, "scoreHome", "scoreAway", minute, status,
+                prediction, confidence, "fullData", timestamp, "startTimestamp",
                 possession_home, possession_away, dangerous_attacks_home, dangerous_attacks_away,
                 shots_on_target_home, shots_on_target_away, corners_home, corners_away,
                 source, last_updated, home_win_probability, draw_probability, away_win_probability,

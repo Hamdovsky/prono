@@ -20,7 +20,7 @@ class ArchiveService {
                         // Fallback manual archiving if core DB method is generic
                         const stmt = database.prepare(`
                             INSERT INTO matches (
-                                id, timestamp, homeTeam, awayTeam, scoreHome, scoreAway, league, fullData
+                                id, timestamp, "homeTeam", "awayTeam", "scoreHome", "scoreAway", league, "fullData"
                             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                             ON CONFLICT (id) DO NOTHING
                         `);

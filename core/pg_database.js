@@ -84,8 +84,8 @@ const pgDb = {
 
       const sql = `
         INSERT INTO matches (
-          id, bsd_match_id, homeTeam, awayTeam, league, scoreHome, scoreAway,
-          minute, status, prediction, confidence, fullData, timestamp, startTimestamp,
+          id, "bsd_match_id", "homeTeam", "awayTeam", league, "scoreHome", "scoreAway",
+          minute, status, prediction, confidence, "fullData", timestamp, "startTimestamp",
           possession_home, possession_away, dangerous_attacks_home, dangerous_attacks_away,
           shots_on_target_home, shots_on_target_away, corners_home, corners_away,
           source, last_updated, home_win_probability, draw_probability, away_win_probability,
@@ -103,11 +103,11 @@ const pgDb = {
           $43, $44, $45, $46, $47, $48, $49, $50, $51,
           $52, $53, $54, $55, $56, $57, $58, $59
         ) ON CONFLICT (id) DO UPDATE SET
-          startTimestamp = COALESCE(EXCLUDED.startTimestamp, matches.startTimestamp),
-          bsd_match_id = COALESCE(EXCLUDED.bsd_match_id, matches.bsd_match_id),
-          scoreHome = EXCLUDED.scoreHome, scoreAway = EXCLUDED.scoreAway,
+          "startTimestamp" = COALESCE(EXCLUDED."startTimestamp", matches."startTimestamp"),
+          "bsd_match_id" = COALESCE(EXCLUDED."bsd_match_id", matches."bsd_match_id"),
+          "scoreHome" = EXCLUDED."scoreHome", "scoreAway" = EXCLUDED."scoreAway",
           minute = EXCLUDED.minute, status = EXCLUDED.status,
-          last_updated = EXCLUDED.last_updated, fullData = EXCLUDED.fullData,
+          last_updated = EXCLUDED.last_updated, "fullData" = EXCLUDED."fullData",
           prediction = COALESCE(EXCLUDED.prediction, matches.prediction),
           confidence = COALESCE(EXCLUDED.confidence, matches.confidence),
           expected_score = CASE WHEN EXCLUDED.expected_score != '1 - 1' THEN EXCLUDED.expected_score ELSE matches.expected_score END,
@@ -216,7 +216,7 @@ const pgDb = {
 
   async updatePredictions(matchId, data) {
     try {
-      const result = await query('SELECT fullData FROM matches WHERE id = $1', [matchId])
+      const result = await query('SELECT "fullData" FROM matches WHERE id = $1', [matchId])
       const row = result.rows?.[0]
       if (!row) return false
 
@@ -319,7 +319,7 @@ const pgDb = {
 
   async getHighImpactScheduledMatches() {
     try {
-      const result = await query(`SELECT * FROM matches WHERE status = 'scheduled' AND fullData IS NOT NULL ORDER BY timestamp ASC LIMIT 20`)
+      const result = await query(`SELECT * FROM matches WHERE status = 'scheduled' AND "fullData" IS NOT NULL ORDER BY timestamp ASC LIMIT 20`)
       return result.rows.map(r => {
         try { const parsed = JSON.parse(r.fullData || '{}'); return { ...r, ...parsed } }
         catch { return r }
@@ -329,7 +329,7 @@ const pgDb = {
 
   async getNewsPrecisionHistory() {
     try {
-      const result = await query(`SELECT homeTeam, awayTeam, status, scoreHome, scoreAway, fullData FROM matches WHERE status IN ('FT', 'finished', 'Finished') ORDER BY timestamp DESC LIMIT 30`)
+      const result = await query(`SELECT "homeTeam", "awayTeam", status, "scoreHome", "scoreAway", "fullData" FROM matches WHERE status IN ('FT', 'finished', 'Finished') ORDER BY timestamp DESC LIMIT 30`)
       let total = 0, hits = 0
       const matches = []
       for (const r of result.rows) {
@@ -364,7 +364,7 @@ const pgDb = {
       for (const r of finished.rows) {
         const sh = r.scorehome ?? 0, sa = r.scoreaway ?? 0
         await query(
-          `INSERT INTO historical_matches (id, homeTeam, awayTeam, scoreHome, scoreAway, league, fullData, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING`,
+          `INSERT INTO historical_matches (id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", league, "fullData", timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING`,
           [r.id, r.homeTeam, r.awayTeam, sh, sa, r.league, r.fullData || '{}', r.timestamp || new Date().toISOString()]
         )
         await query(
@@ -450,7 +450,7 @@ const pgDb = {
       const scoreStr = `${match.scoreHome || 0}-${match.scoreAway || 0}`
       const result = match.status === 'finished' ? 'WIN' : 'UNKNOWN'
       await query(
-        `INSERT INTO winning_patterns (match_id, league, homeTeam, awayTeam, prediction, result, score, fullData) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        `INSERT INTO winning_patterns (match_id, league, "homeTeam", "awayTeam", prediction, result, score, "fullData") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [match.id, match.league, match.homeTeam, match.awayTeam, match.prediction || 'N/A', result, scoreStr, match.fullData || JSON.stringify(match)]
       )
       return true

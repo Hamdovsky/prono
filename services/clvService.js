@@ -39,10 +39,10 @@ class CLVService {
             
             // 1. Find scheduled matches starting soon that don't have CLV yet
             const upcomingMatches = await db.prepare(`
-                SELECT id, homeTeam, awayTeam, odds_home, odds_home_open, startTimestamp
+                SELECT id, "homeTeam", "awayTeam", odds_home, odds_home_open, "startTimestamp"
                 FROM matches
                 WHERE status = 'scheduled'
-                AND startTimestamp > ? AND startTimestamp < ?
+                AND "startTimestamp" > ? AND "startTimestamp" < ?
                 AND clv_value IS NULL
             `).all(now / 1000, futureThreshold / 1000);
 

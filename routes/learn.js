@@ -94,9 +94,9 @@ router.get('/auto-process', async (req, res) => {
         let rows = [];
         try {
             rows = db.prepare(`
-                SELECT m.id, m.homeTeam, m.awayTeam, m.league,
-                       m.scoreHome, m.scoreAway, m.prediction, m.confidence,
-                       m.fullData
+                SELECT m.id, m."homeTeam", m."awayTeam", m.league,
+                       m."scoreHome", m."scoreAway", m.prediction, m.confidence,
+                       m."fullData"
                 FROM matches m
                 WHERE m.status IN ('FT','Finished','finished','FINISHED')
                   AND m.id NOT IN (SELECT match_id FROM learning_memory)

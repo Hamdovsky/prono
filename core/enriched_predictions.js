@@ -74,7 +74,7 @@ class EnrichedPredictionService {
     /**
      * Génère des prédictions enrichies pour un match
      */
-    async enrichMatch(match) {
+    async enrichMatch(match, timeoutMs = null) {
         if (!match) return null;
         const trace = new DiagnosticTrace();
         
@@ -135,7 +135,7 @@ class EnrichedPredictionService {
             }
 
             // 2. Market Intelligence and Python Prediction
-            const pythonResult = await this.getAnalyticalPrediction(match);
+            const pythonResult = await this.getAnalyticalPrediction(match, timeoutMs);
             trace.step('Python Prediction', { success: pythonResult?.success });
 
             // 3. News Impact Calculation
@@ -244,7 +244,7 @@ class EnrichedPredictionService {
     /**
      * Execute local Python Engine via persistent worker
      */
-    async getAnalyticalPrediction(match) {
+    async getAnalyticalPrediction(match, timeoutMs = null) {
         try {
             const league = match.league || match.tournament || 'Unknown';
             match.adaptive_weights = await adaptiveLearningEngine.getWeights(league);
@@ -253,7 +253,7 @@ class EnrichedPredictionService {
 
         // Try Python ML service first, fallback to JS-only prediction
         try {
-            const result = await this.pythonService.predict(match);
+            const result = await this.pythonService.predict(match, timeoutMs || 180000);
             if (result && result.success !== false) return result
         } catch (e) {
             logger.warn(`[PYTHON] Service unavailable, using JS fallback for ${match.id}: ${e.message}`);
@@ -534,12 +534,28 @@ class EnrichedPredictionService {
         }
         
         // Mode profond: Python FastAPI avec concurrence limitée
+        // Pre-check santé FastAPI avant de lancer les appels
+        try {
+            await this.pythonService.checkHealth()
+        } catch (e) {
+            logger.warn(`[ENRICH] FastAPI non disponible, fallback fastMode: ${e.message}`)
+            const fastResults = await Promise.all(needsEnrichment.map(async m => {
+                try {
+                    return await this.fastEnrichMatch(m);
+                } catch (err) {
+                    return m;
+                }
+            }));
+            return [...alreadyEnriched, ...fastResults];
+        }
+        
         const CONCURRENCY = parseInt(process.env.ENRICH_CONCURRENCY || '3');
+        const BULK_TIMEOUT = parseInt(process.env.ENRICH_TIMEOUT_MS || '30000');
         const results = [];
         for (let i = 0; i < needsEnrichment.length; i += CONCURRENCY) {
             const batch = needsEnrichment.slice(i, i + CONCURRENCY);
             const batchResults = await Promise.all(batch.map(m =>
-                this.enrichMatch(m).catch(err => {
+                this.enrichMatch(m, BULK_TIMEOUT).catch(err => {
                     logger.error(`❌ [ENRICH] Deep path failed for ${m.homeTeam}:`, err.message);
                     return this.fastEnrichMatch(m);
                 })

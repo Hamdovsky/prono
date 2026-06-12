@@ -174,6 +174,23 @@ app.post('/reset', requireAuth, (req, res) => {
   res.json({ success: true, message: 'isRunning reset to false' })
 })
 
+// ─── DB Test: debug Postgres connection ────────────────────
+app.get('/db-test', requireAuth, async (req, res) => {
+  try {
+    const database = require('../core/database')
+    const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
+    res.json({
+      env_db_url: !!process.env.DATABASE_URL,
+      env_pg_url: !!process.env.PGDATABASE_URL,
+      matches_count: matches.length,
+      sample_id: matches[0]?.id || null,
+      sample_start: matches[0]?.startTimestamp || null
+    })
+  } catch (e) {
+    res.json({ error: e.message, stack: e.stack?.slice(0, 500) })
+  }
+})
+
 // ─── Status ────────────────────────────────────────────────
 app.get('/status', requireAuth, (req, res) => {
   res.json({

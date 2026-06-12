@@ -274,6 +274,19 @@ class BsdService {
       return 0
     }
 
+    // Quick health check — if API key is bad, mark unavailable immediately
+    try {
+      const quickCheck = await this._fetch('/v2/events/?limit=1')
+      if (!quickCheck) {
+        logger.warn('[BSD] Health check failed — marking unavailable')
+        return 0
+      }
+    } catch (e) {
+      logger.warn(`[BSD] Health check error: ${e.message} — marking unavailable`)
+      this._authFailed = true
+      return 0
+    }
+
     const today = new Date().toISOString().split('T')[0]
     const dates = []
     for (let i = 0; i < 7; i++) {
@@ -282,24 +295,20 @@ class BsdService {
     }
 
     let total = 0
-    // Try each date in the 7-day window
     for (const d of dates) {
       total += await this.syncFixtures(d)
     }
 
-    // If per-date fetch returned 0, try the date-less endpoint as fallback
     if (total === 0) {
       logger.info('[BSD] No events found per-date, trying date-less /v2/events/ endpoint...')
       try {
         const allEvents = await this.fetchUpcomingEvents()
         if (allEvents?.length) {
-          logger.info(`[BSD] date-less endpoint returned ${allEvents.length} events — processing...`)
+          logger.info(`[BSD] date-less endpoint returned ${allEvents.length} events`)
           for (const event of allEvents) {
             try {
               const match = this._mapEventToMatch(event)
               match.bsd_match_id = String(event.id || event.match_id || '')
-              match.homeTeam = match.homeTeam || 'Home'
-              match.awayTeam = match.awayTeam || 'Away'
               await database.insertMatch(match)
               total++
             } catch (_) {}

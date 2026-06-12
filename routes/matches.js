@@ -151,6 +151,32 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             return tsMs >= startOfToday && tsMs <= endOfRange;
         });
 
+        // If no upcoming matches, fallback to recent matches (last 7 days)
+        if (rawMatches.length === 0) {
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime();
+            const allMatches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
+            rawMatches = allMatches.filter(m => {
+                let rawTs = m.startTimestamp;
+                if (!rawTs || rawTs === 0) {
+                    try {
+                        const data = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData;
+                        if (data && data.startTimestamp) rawTs = data.startTimestamp;
+                    } catch(e) {}
+                }
+                if (!rawTs || rawTs === 0) return false;
+                let tsMs;
+                if (typeof rawTs === 'string' && rawTs.includes('T')) {
+                    tsMs = new Date(rawTs).getTime();
+                } else {
+                    tsMs = parseInt(rawTs) > 1e11 ? parseInt(rawTs) : parseInt(rawTs) * 1000;
+                }
+                return !isNaN(tsMs) && tsMs >= sevenDaysAgo;
+            });
+            if (rawMatches.length > 0) {
+                logger.info(`[UPCOMING] No upcoming matches — showing ${rawMatches.length} recent matches as fallback`);
+            }
+        }
+
         // 🔁 [STRICT DEDUP] Prioritize most imminent match per team pair
         const teamPairMap = new Map();
         rawMatches.forEach(m => {

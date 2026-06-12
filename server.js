@@ -276,6 +276,38 @@ app.post('/api/debug/test-bsd', async (req, res) => {
   }
 })
 
+app.post('/api/seed-match', async (req, res) => {
+  try {
+    const match = req.body
+    if (!match.homeTeam || !match.awayTeam) {
+      return res.status(400).json({ error: 'homeTeam and awayTeam required' })
+    }
+    const db = require('./core/database')
+    const id = match.id || `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const newMatch = {
+      id,
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      league: match.league || 'Manual Entry',
+      startTimestamp: match.startTimestamp || Math.floor(Date.now() / 1000) + 86400,
+      status: 'scheduled',
+      confidence: 50,
+      prediction: null,
+      source: 'manual',
+      odds_home: match.odds_home || null,
+      odds_draw: match.odds_draw || null,
+      odds_away: match.odds_away || null,
+      home_win_probability: match.home_win_probability || null,
+      draw_probability: match.draw_probability || null,
+      away_win_probability: match.away_win_probability || null,
+    }
+    await db.insertMatch(newMatch)
+    res.json({ success: true, id })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 app.post('/api/debug/backfill', async (req, res) => {
   const { query: pgQuery } = require('./core/pg_connector')
   try {

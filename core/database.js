@@ -1175,13 +1175,13 @@ if (process.env.DATABASE_URL) {
   setTimeout(async () => {
     try {
       const { query: pgQuery } = require('./pg_connector')
-      const testResult = await pgQuery('SELECT id, "fullData", SUBSTRING("fullData" FROM \'"startTimestamp":([0-9]+)\') AS ts FROM matches WHERE startTimestamp IS NULL AND "fullData" IS NOT NULL LIMIT 1')
+      const testResult = await pgQuery('SELECT id, "fullData", SUBSTRING("fullData" FROM \'"startTimestamp":([0-9]+)\') AS ts FROM matches WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL LIMIT 1')
       if (testResult.rows.length > 0) {
         const testRow = testResult.rows[0]
         logger.info(`[DB] Backfill test: id=${testRow.id} ts_extracted=${testRow.ts} fullData_length=${(testRow.fullData || '').length}`)
         if (testRow.ts) {
           const result = await pgQuery(
-            `UPDATE matches SET startTimestamp = SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint WHERE startTimestamp IS NULL AND "fullData" IS NOT NULL AND "fullData" ~ '"startTimestamp":[0-9]+'`
+            `UPDATE matches SET "startTimestamp" = SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL AND "fullData" ~ '"startTimestamp":[0-9]+'`
           )
           logger.info(`[DB] Backfill result: rowCount=${result.rowCount}`)
         } else {

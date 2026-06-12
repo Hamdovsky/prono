@@ -48,11 +48,11 @@ services:
       - key: API_SECRET_KEY
         sync: false
       - key: DATABASE_URL
-        value: postgresql://prono_user:q5A5p4cI5XVXqBHkBOmjIphqg3b3SCvG@ep-wispy-leaf-a5ay4rhf-pooler.us-east-1.aws.neon.tech/prono_db?sslmode=require
+        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
       - key: PGDATABASE_URL
-        value: postgresql://prono_user:q5A5p4cI5XVXqBHkBOmjIphqg3b3SCvG@ep-wispy-leaf-a5ay4rhf-pooler.us-east-1.aws.neon.tech/prono_db?sslmode=require
+        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
       - key: NEON_DATABASE_URL
-        value: postgresql://prono_user:q5A5p4cI5XVXqBHkBOmjIphqg3b3SCvG@ep-wispy-leaf-a5ay4rhf-pooler.us-east-1.aws.neon.tech/prono_db?sslmode=require
+        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
       - key: RAPIDAPI_KEY
         sync: false
       - key: RAPIDAPI_HOST

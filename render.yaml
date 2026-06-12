@@ -76,7 +76,7 @@ services:
           type: kv
           property: connectionString
       # ── URLs des services sur le Compte 2 ──
-      # À remplacer par les vraies URLs Render après déploiement
+      # REMPLACE ces valeurs après déploiement du Compte 2
       - key: INFERENCE_URL
         value: https://prono-fastapi.onrender.com
       - key: SCRAPER_WORKER_URL

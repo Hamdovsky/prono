@@ -38,7 +38,7 @@ services:
       - key: PREDIXSPORT_ENABLED
         value: "true"
       - key: PREDIXSPORT_API_KEY
-        value: psk_yJdsKtz8VcYmyxaWDiAdwB4KjbFxTMWU
+        value: psk_U59kHndJQ1mk3O7X2uhoy9Eq9fStVKSu
       - key: RAPIDAPI_ENABLED
         value: "true"
       - key: RAPIDAPI_KEY
@@ -60,11 +60,11 @@ services:
         sync: false
       - key: FOOTBALLDATA_KEY
         sync: false
+      - key: APIFOOTBALL_KEY
+        sync: false
       - key: THERUNDOWN_KEY
         sync: false
       - key: ODDSPAPI_KEY
-        sync: false
-      - key: APIFOOTBALL_KEY
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false

@@ -67,5 +67,3 @@ services:
         sync: false
       - key: RAPIDAPI_ENABLED
         value: "true"
-      - key: RAPIDAPI_KEY
-        sync: false

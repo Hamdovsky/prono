@@ -215,17 +215,15 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
 
         logger.info(`✅ [QUALITY GATE] ${rawMatches.length} quality matches retained.`);
 
-        // 🚀 [JIT FAST PASS V4] Force re-enrichment for all pre-V4 matches
-        // V4 = Edge Hunter Intelligence (Beating the bookmaker)
+        // 🚀 [JIT FAST PASS] Force re-enrichment only for matches missing predictions
         const needsFastPass = rawMatches.filter(m => 
-            m.ai_source !== 'TITANIUM_QUANT_V4' || 
             !m.home_win_probability ||
             m.home_win_probability === 0 ||
             !m.expected_score
         );
         
         if (needsFastPass.length > 0) {
-            logger.info(`✨ [JIT] Batch Quant Enrichment for ${needsFastPass.length} matches (concurrency: 10)...`);
+            logger.info(`✨ [JIT] Batch Quant Enrichment for ${needsFastPass.length} matches (concurrency: 5)...`);
             
             const CONCURRENCY = 5
             const enrichOne = async (m) => {

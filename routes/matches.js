@@ -227,7 +227,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         if (needsFastPass.length > 0) {
             logger.info(`✨ [JIT] Batch Quant Enrichment for ${needsFastPass.length} matches (concurrency: 10)...`);
             
-            const CONCURRENCY = 10
+            const CONCURRENCY = 5
             const enrichOne = async (m) => {
                 try {
                     const enriched = await enrichedPredictions.fastEnrichMatch(m);

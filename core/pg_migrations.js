@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS matches (
     status TEXT,
     prediction TEXT,
     confidence REAL,
-    fullData TEXT,
+    "fullData" TEXT,
     timestamp TEXT,
     startTimestamp INTEGER,
     possession_home INTEGER,
@@ -376,6 +376,24 @@ async function runMigrations() {
       }
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] startTimestamp backfill skipped: ${e.message}`)
+    }
+
+    // Fix column casing: if fulldata (lowercase) exists but "fullData" doesn't, rename
+    try {
+      const checkLower = await query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'matches' AND column_name = 'fulldata'
+      `)
+      const checkCamel = await query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'matches' AND column_name = 'fullData'
+      `)
+      if (checkLower.rows.length > 0 && checkCamel.rows.length === 0) {
+        await query('ALTER TABLE matches RENAME COLUMN fulldata TO "fullData"')
+        logger.info('[PG MIGRATIONS] Renamed fulldata column to "fullData"')
+      }
+    } catch (e) {
+      logger.warn(`[PG MIGRATIONS] fullData rename skipped: ${e.message}`)
     }
 
     return { applied: 1, skipped: false }

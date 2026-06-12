@@ -178,29 +178,29 @@ app.post('/reset', requireAuth, (req, res) => {
 app.get('/db-test', requireAuth, async (req, res) => {
   try {
     const conn = require('../core/pg_connector')
-    const dbUrl = (process.env.DATABASE_URL || '') 
+    const dbUrl = (process.env.DATABASE_URL || '')
     const dbUrlFirst50 = dbUrl.slice(0, 55)
-    // Call getPool
     const p = conn.getPool()
     const isPg = conn.usingPostgres()
-    // Try direct query regardless of isPg
-    let tableCount = null, sampleRow = null, queryError = null
+    let tableCount = null, sampleRow = null, queryError = null, aiSourceCheck = null
     try {
       const r = await conn.query('SELECT COUNT(*) as cnt FROM matches')
       tableCount = r.rows?.[0]?.cnt
-      const r2 = await conn.query('SELECT id, status, "startTimestamp" FROM matches LIMIT 3')
-      sampleRow = r2.rows
+      const r2 = await conn.query('SELECT id, status, "fullData" FROM matches LIMIT 3')
+      sampleRow = r2.rows?.map(x => ({ id: x.id, status: x.status, fullData_len: x.fullData?.length, ai_source: x.fullData ? (() => { try { return JSON.parse(x.fullData).ai_source } catch(e) { return 'PARSE_ERR' } })() : null }))
+      // Count ai_source values
+      const r3 = await conn.query('SELECT COUNT(*) as cnt FROM matches WHERE "fullData"::text LIKE \'%TITANIUM_QUANT_V4%\'')
+      const r4 = await conn.query('SELECT COUNT(*) as cnt FROM matches WHERE "fullData"::text LIKE \'%TITANIUM_ELITE_V3%\'')
+      aiSourceCheck = { quant_v4: r3.rows?.[0]?.cnt, elite_v3: r4.rows?.[0]?.cnt }
     } catch (qe) {
       queryError = qe.message
     }
     res.json({
-      db_url_set: !!process.env.DATABASE_URL,
       db_url_start: dbUrlFirst50 + '...',
-      pg_url_set: !!process.env.PGDATABASE_URL,
-      pool_is_null: p === null,
       using_postgres: isPg,
       table_count: tableCount,
       sample: sampleRow,
+      ai_source_count: aiSourceCheck,
       query_error: queryError
     })
   } catch (e) {

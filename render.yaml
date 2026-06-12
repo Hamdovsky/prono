@@ -43,34 +43,58 @@ services:
         value: "true"
       - key: VITE_API_URL
         value: https://prono-k6gc.onrender.com
-      - key: BSD_API_KEY
-        sync: false
-      - key: THERUNDOWN_KEY
-        sync: false
-      - key: ODDSPAPI_KEY
-        sync: false
-      - key: SPORTMONKS_KEY
-        sync: false
-      - key: APIFOOTBALL_KEY
-        sync: false
-      - key: OPENWEATHER_KEY
-        sync: false
       - key: OPENLIGADB_ENABLED
         value: "true"
       - key: SUPABASE_ENABLED
         value: "true"
       - key: SUPABASE_URL
+        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
+      - key: API_SECRET_KEY
+        value: tok_c0b4cc72d01a1a2f4e895180195dfae5
+      - key: BBS_ENABLED
+        value: "true"
+      - key: BBS_API_KEY
+        value: bbs_live_00000fkDE92ssaxu33rrvsc9elfRql7pXmuvEv5x9sRduJkY
+      - key: ODDSAPI_IO_ENABLED
+        value: "true"
+      - key: ODDSAPI_IO_KEY
+        value: 68be85afdf71c0d08309f868a440799c8544f938a50a67c837c1b2c5af0a6587
+      - key: PREDIXSPORT_ENABLED
+        value: "true"
+      - key: PREDIXSPORT_API_KEY
+        value: psk_yJdsKtz8VcYmyxaWDiAdwB4KjbFxTMWU
+      - key: SCRAPER_WORKER_URL
+        value: https://prono-scraper.onrender.com
+      - key: INFERENCE_URL
+        value: https://prono-fastapi-cnxf.onrender.com
+      - key: OPENWEATHER_KEY
+        value: 74d47a6b7cd2cd655bddd6b599c52424
+      - key: TELEGRAM_BOT_TOKEN
+        value: 6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs
+      - key: TELEGRAM_CHAT_ID
+        value: "5637790630"
+      - key: RAPIDAPI_KEY
+        value: 6551913962msh464a2699f275258p121b43jsn90a42244ee62
+      - key: SPORTMONKS_KEY
+        value: FKXiJ1IwegdaPaf1qKv8YfVk6mW4v9oq93hlwU85a0uNLlKttPiu5ioJyBSC
+      # ── Secrets à ajouter dans le Dashboard Render ──
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SERPAPI_API_KEY
+        sync: false
+      - key: BSD_API_KEY
+        sync: false
+      - key: FOOTBALLDATA_KEY
+        sync: false
+      - key: THERUNDOWN_KEY
+        sync: false
+      - key: ODDSPAPI_KEY
+        sync: false
+      - key: APIFOOTBALL_KEY
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_CHAT_ID
-        sync: false
-      # ── URLs des services sur le Compte 2 ──
-      - key: INFERENCE_URL
-        value: https://prono-fastapi-cnxf.onrender.com
-      - key: SCRAPER_WORKER_URL
-        value: https://prono-scraper.onrender.com

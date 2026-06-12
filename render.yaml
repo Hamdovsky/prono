@@ -5,6 +5,7 @@ services:
     env: node
     plan: free
     buildCommand: npm install --omit=optional && npm run build
+    healthCheckPath: /health
     startCommand: node --expose-gc --max-old-space-size=256 server.js
     envVars:
       - key: NODE_ENV

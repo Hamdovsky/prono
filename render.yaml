@@ -45,8 +45,8 @@ services:
         value: sportapi7.p.rapidapi.com
       - key: RAPIDAPI_DAILY_LIMIT
         value: "20"
-      - key: SPORTMONKS_KEY
-        value: FKXiJ1IwegdaPaf1qKv8YfVk6mW4v9oq93hlwU85a0uNLlKttPiu5ioJyBSC
+      - key: TEST_VAR
+        value: test123
       # ── Secrets à ajouter manuellement dans le Dashboard Render ──
       - key: GROQ_API_KEY
         sync: false

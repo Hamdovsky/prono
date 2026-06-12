@@ -275,11 +275,16 @@ class BsdService {
     }
 
     const today = new Date().toISOString().split('T')[0]
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+    const dates = []
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.now() + i * 86400000)
+      dates.push(d.toISOString().split('T')[0])
+    }
 
     let total = 0
-    total += await this.syncFixtures(today)
-    total += await this.syncFixtures(tomorrow)
+    for (const d of dates) {
+      total += await this.syncFixtures(d)
+    }
 
     // Enrich inserted matches with odds
     if (total > 0) {

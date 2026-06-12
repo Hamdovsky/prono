@@ -327,12 +327,21 @@ async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
         const endDate   = getDateStr(dayOffsetEnd);
         const startTs = Math.floor(new Date(startDate + 'T00:00:00Z').getTime() / 1000);
         const endTs   = Math.floor(new Date(endDate   + 'T23:59:59Z').getTime() / 1000);
+        const isPG = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres');
+        if (isPG) {
+            const { query: pgQuery } = require('./pg_connector')
+            const result = await pgQuery(
+                `SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= $1 AND startTimestamp <= $2 AND status = 'scheduled'`,
+                [startTs, endTs]
+            )
+            return parseInt(result.rows?.[0]?.cnt || '0')
+        }
         const row = await db.prepare(
             `SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp <= ? AND status = 'scheduled'`
-        ).get(startTs, endTs);
-        return row?.cnt || 0;
+        ).get(startTs, endTs)
+        return row?.cnt || 0
     } catch (e) {
-        return 0;
+        return 0
     }
 }
 

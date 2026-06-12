@@ -31,11 +31,13 @@ const pgDb = {
 
   prepare(sql) {
     const self = this
+    let qIdx = 0
+    const pgSql = sql.replace(/\?(?=(?:[^']*'[^']*')*[^']*$)/g, () => `$${++qIdx}`)
     return {
       run: async (...args) => {
         const params = Array.isArray(args[0]) ? args[0] : args
         try {
-          const result = await query(sql, params)
+          const result = await query(pgSql, params)
           return { lastInsertRowid: result.rows?.[0]?.id || null, changes: result.rowCount || 0 }
         } catch (e) {
           return { changes: 0 }
@@ -44,7 +46,7 @@ const pgDb = {
       get: async (...args) => {
         const params = Array.isArray(args[0]) ? args[0] : args
         try {
-          const result = await query(sql, params)
+          const result = await query(pgSql, params)
           return result.rows?.[0] || null
         } catch (e) {
           return null
@@ -53,7 +55,7 @@ const pgDb = {
       all: async (...args) => {
         const params = Array.isArray(args[0]) ? args[0] : args
         try {
-          const result = await query(sql, params)
+          const result = await query(pgSql, params)
           return result.rows || []
         } catch (e) {
           return []
@@ -83,7 +85,7 @@ const pgDb = {
       const sql = `
         INSERT INTO matches (
           id, bsd_match_id, homeTeam, awayTeam, league, scoreHome, scoreAway,
-          minute, status, prediction, confidence, fullData, timestamp,
+          minute, status, prediction, confidence, fullData, timestamp, startTimestamp,
           possession_home, possession_away, dangerous_attacks_home, dangerous_attacks_away,
           shots_on_target_home, shots_on_target_away, corners_home, corners_away,
           source, last_updated, home_win_probability, draw_probability, away_win_probability,
@@ -95,12 +97,13 @@ const pgDb = {
           clv_value, kelly_stake,
           weather_temp, weather_desc, weather_humidity, home_form_pts, away_form_pts, insufficient_data
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-          $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26,
-          $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41,
-          $42, $43, $44, $45, $46, $47, $48, $49, $50,
-          $51, $52, $53, $54, $55, $56
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+          $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27,
+          $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42,
+          $43, $44, $45, $46, $47, $48, $49, $50, $51,
+          $52, $53, $54, $55, $56, $57
         ) ON CONFLICT (id) DO UPDATE SET
+          startTimestamp = COALESCE(EXCLUDED.startTimestamp, matches.startTimestamp),
           bsd_match_id = COALESCE(EXCLUDED.bsd_match_id, matches.bsd_match_id),
           scoreHome = EXCLUDED.scoreHome, scoreAway = EXCLUDED.scoreAway,
           minute = EXCLUDED.minute, status = EXCLUDED.status,
@@ -137,6 +140,7 @@ const pgDb = {
         m.id, m.bsd_match_id || null, m.homeTeam, m.awayTeam, m.league, m.score?.home ?? 0, m.score?.away ?? 0,
         m.minute || '0', m.status || (m.isLive ? 'live' : 'scheduled'), m.prediction, m.confidence,
         fullData, m.timestamp || new Date().toISOString(),
+        m.startTimestamp || null,
         stats.possession?.home || m.possession_home || 0, stats.possession?.away || m.possession_away || 0,
         stats.dangerousAttacks?.home || m.dangerous_attacks_home || 0, stats.dangerousAttacks?.away || m.dangerous_attacks_away || 0,
         stats.totalShots?.home || m.shots_on_target_home || 0, stats.totalShots?.away || m.shots_on_target_away || 0,

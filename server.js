@@ -241,21 +241,15 @@ app.get('/api/diag', async (req, res) => {
     catch (e) { return { ok: false, error: e.message } }
   }
   const statuses = await q("SELECT status, COUNT(*) as c FROM matches GROUP BY status ORDER BY c DESC")
-  const sample = await q("SELECT id, homeTeam, awayTeam, league, status, timestamp FROM matches LIMIT 5")
-  const sampleLower = await q("SELECT id, hometeam, awayteam, league, status, timestamp FROM matches LIMIT 5")
-  const sampleStar = await q("SELECT * FROM matches LIMIT 5")
-  const bsdSample = await q("SELECT id, homeTeam, awayTeam, league, status, source, timestamp, fullData FROM matches WHERE source = 'bsd' AND status = 'NOT_STARTED' LIMIT 5")
+  const sample = await q("SELECT * FROM matches LIMIT 5")
+  const bsdSample = await q("SELECT * FROM matches WHERE source = 'bsd' AND status = 'NOT_STARTED' LIMIT 5")
   const dbTotalRow = await db?.prepare("SELECT COUNT(*) as c FROM matches").get()
-  const cols = await q("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'matches'")
   res.json({
     bsdAvailable: bsdService.isAvailable(),
     dbTotal: dbTotalRow?.c || 0,
     statuses,
     sample,
-    sampleLower,
-    sampleStar,
     bsdSample,
-    columns: cols,
   })
 })
 

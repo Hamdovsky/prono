@@ -201,6 +201,13 @@ class EnrichedPredictionService {
             const enrichedMatch = {
                 ...match,
                 trace: trace.getSummary(),
+                ai_source: pythonResult?.ai_source || match.ai_source || 'TITANIUM_ELITE_V3',
+                xgboost_confidence: pythonResult?.xgboost_confidence || match.xgboost_confidence || 0,
+                surgical_market: pythonResult?.surgical_market || match.surgical_market || null,
+                surgical_confidence: pythonResult?.surgical_confidence || match.surgical_confidence || null,
+                backup_market: pythonResult?.backup_market || match.backup_market || null,
+                btts_prob: pythonResult?.btts_prob || match.btts_prob || null,
+                ou_25_prob: pythonResult?.ou_25_prob || match.ou_25_prob || null,
                 power_score: pythonResult?.power_score || 70,
                 verdict: pythonResult?.verdict || "STRONG BET",
                 enriched: {

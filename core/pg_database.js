@@ -221,8 +221,21 @@ const pgDb = {
       if (!row) return false
 
       let fullData = (row.fullData ?? row.fulldata) ? (typeof (row.fullData ?? row.fulldata) === 'string' ? JSON.parse(row.fullData ?? row.fulldata) : (row.fullData ?? row.fulldata)) : {}
+      
+      // DEBUG: log what's coming in
+      console.log(`[UPDATE_PRED] ${matchId} incoming data keys:`, Object.keys(data))
+      console.log(`[UPDATE_PRED] ${matchId} data.ai_source:`, data.ai_source)
+      console.log(`[UPDATE_PRED] ${matchId} data.home_win_probability:`, data.home_win_probability)
+      console.log(`[UPDATE_PRED] ${matchId} data.expected_score:`, data.expected_score)
+      console.log(`[UPDATE_PRED] ${matchId} data.enriched keys:`, data.enriched ? Object.keys(data.enriched) : 'none')
+      
       const enriched = data.enriched || (data.home_win_probability ? data : null)
       fullData = { ...fullData, ...data, enriched: enriched ? { ...(fullData.enriched || {}), ...enriched } : fullData.enriched, last_updated: Date.now() }
+      
+      // DEBUG: log what's in fullData after merge
+      console.log(`[UPDATE_PRED] ${matchId} fullData.ai_source after merge:`, fullData.ai_source)
+      console.log(`[UPDATE_PRED] ${matchId} fullData.home_win_probability after merge:`, fullData.home_win_probability)
+      
       if (enriched) {
         fullData.home_win_probability = enriched.home_win_probability || fullData.home_win_probability
         fullData.draw_probability = enriched.draw_probability || fullData.draw_probability

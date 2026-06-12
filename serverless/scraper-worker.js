@@ -244,6 +244,61 @@ app.get('/db-test', requireAuth, async (req, res) => {
   }
 })
 
+// ─── Test updatePredictions directly ──────────────────────
+app.post('/test-update', requireAuth, async (req, res) => {
+  try {
+    const database = require('../core/database')
+    const enrichedPredictions = require('../core/enriched_predictions')
+    const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
+    const testMatch = matches[0]
+    if (!testMatch) return res.json({ error: 'No matches' })
+    
+    // Enrich one match
+    const enriched = await enrichedPredictions.enrichMatches([testMatch], { fastMode: false, force: true })
+    const m = enriched[0]
+    
+    // Debug: what does enriched match have?
+    const debug = {
+      id: m.id,
+      ai_source: m.ai_source,
+      home_win_probability: m.home_win_probability,
+      draw_probability: m.draw_probability,
+      away_win_probability: m.away_win_probability,
+      expected_score: m.expected_score,
+      verdict: m.verdict
+    }
+    
+    // Call updatePredictions
+    const result = await database.updatePredictions(m.id, m)
+    
+    // Read back from DB
+    const conn = require('../core/pg_connector')
+    const r = await conn.query('SELECT "fullData", home_win_probability, ai_source FROM matches WHERE id = $1', [m.id])
+    const row = r.rows?.[0]
+    let fullData_ai_source = null, fullData_hwp = null
+    if (row?.fullData) {
+      try {
+        const parsed = typeof row.fullData === 'string' ? JSON.parse(row.fullData) : row.fullData
+        fullData_ai_source = parsed.ai_source
+        fullData_hwp = parsed.home_win_probability
+      } catch(e) {}
+    }
+    
+    res.json({
+      input_debug: debug,
+      update_result: result,
+      db_after: {
+        column_hwp: row?.home_win_probability,
+        column_ai_source: row?.ai_source,
+        fullData_ai_source: fullData_ai_source,
+        fullData_hwp: fullData_hwp
+      }
+    })
+  } catch (e) {
+    res.json({ error: e.message, stack: e.stack?.slice(0, 500) })
+  }
+})
+
 // ─── Status ────────────────────────────────────────────────
 app.get('/status', requireAuth, (req, res) => {
   res.json({

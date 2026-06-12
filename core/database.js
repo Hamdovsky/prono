@@ -1171,6 +1171,19 @@ if (process.env.DATABASE_URL) {
   const pgMigrations = require('./pg_migrations')
   pgConnector.getPool() // Ensure isPostgres=true BEFORE migration check
   pgMigrations.runMigrations().catch(e => logger.error(`[DB] PG migration error: ${e.message}`))
+  // Direct backfill of startTimestamp from fullData for existing rows
+  setImmediate(async () => {
+    try {
+      const { query: pgQuery } = require('./pg_connector')
+      const result = await pgQuery(`
+        UPDATE matches SET startTimestamp = SUBSTRING(fullData FROM '"startTimestamp":([0-9]+)')::bigint
+        WHERE startTimestamp IS NULL AND fullData IS NOT NULL AND fullData ~ '"startTimestamp":[0-9]+'
+      `)
+      if (result.rowCount > 0) logger.info(`[DB] Backfilled startTimestamp for ${result.rowCount} existing rows`)
+    } catch (e) {
+      logger.warn(`[DB] Backfill attempt: ${e.message}`)
+    }
+  })
   module.exports = pgDb
 } else {
   module.exports = database

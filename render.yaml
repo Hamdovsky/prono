@@ -11,12 +11,6 @@ services:
         value: production
       - key: NODE_VERSION
         value: "20"
-      - key: GROQ_API_KEY
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: SERPAPI_API_KEY
-        sync: false
       - key: FOOTBALLDATA_ENABLED
         value: "true"
       - key: FOOTBALLDATA_KEY
@@ -27,16 +21,12 @@ services:
         value: "20"
       - key: RAPIDAPI_ENABLED
         value: "true"
-      - key: RAPIDAPI_KEY
-        sync: false
       - key: RAPIDAPI_HOST
         value: sportapi7.p.rapidapi.com
       - key: RAPIDAPI_DAILY_LIMIT
         value: "20"
       - key: HTTP_SCRAPER_ENABLED
         value: "true"
-      - key: API_SECRET_KEY
-        sync: false
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "true"
       - key: REDISMS_DISABLE_POSTINSTALL

@@ -177,10 +177,12 @@ app.post('/reset', requireAuth, (req, res) => {
 // ─── DB Test: debug Postgres connection ────────────────────
 app.get('/db-test', requireAuth, async (req, res) => {
   try {
-    const { query, usingPostgres, healthCheck } = require('../core/pg_connector')
-    const health = await healthCheck()
+    const { query, usingPostgres, getPool } = require('../core/pg_connector')
+    // Force pool init by calling getPool first
+    getPool()
+    const isPg = usingPostgres()
     let tableCount = null, sampleRow = null
-    if (health.ok) {
+    if (isPg) {
       const r = await query('SELECT COUNT(*) as cnt FROM matches')
       tableCount = r.rows?.[0]?.cnt
       const r2 = await query('SELECT id, status, "startTimestamp" FROM matches LIMIT 3')
@@ -189,8 +191,7 @@ app.get('/db-test', requireAuth, async (req, res) => {
     res.json({
       db_url_set: !!process.env.DATABASE_URL,
       pg_url_set: !!process.env.PGDATABASE_URL,
-      health,
-      using_postgres: usingPostgres(),
+      using_postgres: isPg,
       table_count: tableCount,
       sample: sampleRow
     })

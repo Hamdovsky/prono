@@ -292,6 +292,28 @@ async function upsertMatch(match) {
         // Skip already-finished matches
         if (['finished', 'canceled', 'postponed'].includes(match.status)) return false;
 
+        const isPG = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres');
+
+        if (isPG) {
+            // Skip if already exists
+            const existing = await db.prepare('SELECT id FROM matches WHERE id = $1').get(match.id);
+            if (existing) return false;
+
+            const cols = ['id', 'homeTeam', 'awayTeam', 'league', 'category_name', 'tournament_name',
+                'tournament_id', 'home_team_id', 'away_team_id',
+                'startTimestamp', 'timestamp', 'status',
+                'confidence', 'prediction',
+                'odds_home', 'odds_draw', 'odds_away',
+                'last_updated', 'insufficient_data', 'source', 'fullData']
+            const vals = cols.map((_, i) => `$${i + 1}`).join(', ')
+            const params = cols.map(c => match[c] !== undefined ? match[c] : null)
+            await db.prepare(
+                `INSERT INTO matches (${cols.join(', ')}) VALUES (${vals}) ON CONFLICT (id) DO NOTHING`
+            ).run(params)
+            return true
+        }
+
+        // SQLite path
         // Skip if already exists
         const existing = await db.prepare('SELECT id FROM matches WHERE id = ?').get(match.id);
         if (existing) return false;

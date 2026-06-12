@@ -276,39 +276,6 @@ app.post('/api/debug/test-bsd', async (req, res) => {
   }
 })
 
-app.post('/api/debug/test-insert', async (req, res) => {
-  try {
-    const { query: pgQuery } = require('./core/pg_connector')
-    const testSql = `INSERT INTO matches (id, "homeTeam", "awayTeam", league, "startTimestamp", status, confidence, source) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING`
-    const testId = `test_${Date.now()}`
-    await pgQuery(testSql, [testId, 'Test Home', 'Test Away', 'Test League', Math.floor(Date.now()/1000)+86400, 'scheduled', 50, 'manual'])
-    const verify = await pgQuery(`SELECT id, "homeTeam", "awayTeam" FROM matches WHERE id = $1`, [testId])
-    res.json({ success: true, id: testId, inserted: verify.rows?.[0] || null })
-  } catch (e) {
-    res.json({ success: false, error: e.message, stack: (e.stack || '').split('\n').slice(0, 5).join('; ') })
-  }
-})
-
-app.post('/api/debug/test-insert-full', async (req, res) => {
-  try {
-    const db = require('./core/database')
-    const id = `test_full_${Date.now()}`
-    const result = await db.insertMatch({
-      id,
-      homeTeam: 'Test Home Full',
-      awayTeam: 'Test Away Full',
-      league: 'Test League',
-      startTimestamp: Math.floor(Date.now()/1000) + 86400,
-      status: 'scheduled',
-      confidence: 50,
-      source: 'manual',
-    })
-    res.json({ id, result })
-  } catch (e) {
-    res.json({ error: e.message })
-  }
-})
-
 app.post('/api/seed-match', async (req, res) => {
   try {
     const match = req.body
@@ -334,8 +301,8 @@ app.post('/api/seed-match', async (req, res) => {
       draw_probability: match.draw_probability || null,
       away_win_probability: match.away_win_probability || null,
     }
-    const result = await db.insertMatch(newMatch)
-    res.json({ success: !!result, id, result })
+    await db.insertMatch(newMatch)
+    res.json({ success: true, id })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

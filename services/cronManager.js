@@ -4,6 +4,7 @@ const path = require('path');
 const logger = require('../core/logger');
 const database = require('../core/database');
 const redisCache = require('./redisCache');
+const workerBridge = require('./workerBridge');
 const { runAnalysis } = require('../scripts/today_analysis');
 const { snapshotOdds } = require('./oddsMovementService');
 const autoArchiver = require('./autoArchiver');
@@ -56,8 +57,13 @@ class CronManager {
             proc.on('close', code => logger.info(`✅ [CRON] H2H Success (code ${code})`));
         }, { timezone: 'Europe/Paris' });
 
-        // 6. Retro-Sync (Every 3 hours)
-        cron.schedule('0 */3 * * *', () => retroSync.syncPastMatches(), { timezone: 'Europe/Paris' });
+        // 6. Retro-Sync (Every 3 hours) — try Account 2 worker first
+        cron.schedule('0 */3 * * *', async () => {
+            const result = await workerBridge.callWorker('sync/retro')
+            if (!result?.success) {
+                await retroSync.syncPastMatches()
+            }
+        }, { timezone: 'Europe/Paris' });
 
         // 7. Adaptive Learning Engine (02:30)
         cron.schedule('30 2 * * *', () => this.runAdaptiveLearning(), { timezone: 'Europe/Paris' });
@@ -72,8 +78,13 @@ class CronManager {
         // 9. Combo Refresh (Every hour)
         cron.schedule('0 * * * *', () => socketService.refreshCombos());
 
-        // 10. Proactive Future Enrichment (01:00, 07:00, 13:00, 19:00)
-        cron.schedule('0 1,7,13,19 * * *', () => this.runProactiveEnrichment(), { timezone: 'Europe/Paris' });
+        // 10. Proactive Future Enrichment (01:00, 07:00, 13:00, 19:00) — try Account 2 worker first
+        cron.schedule('0 1,7,13,19 * * *', async () => {
+            const result = await workerBridge.callWorker('enrich')
+            if (!result?.success) {
+                await this.runProactiveEnrichment()
+            }
+        }, { timezone: 'Europe/Paris' });
 
         // 10.1 Universal Omniscience Predictor (Every 2 hours for near-real-time tactical updates)
         cron.schedule('0 */2 * * *', () => {
@@ -103,8 +114,13 @@ class CronManager {
             botService.sendMrXBroadcast();
         }, { timezone: 'Europe/Paris' });
         
-        // 11. Database Maintenance (03:00 AM) - [RAM OPTIMIZATION]
-        cron.schedule('0 3 * * *', () => database.maintenance(), { timezone: 'Europe/Paris' });
+        // 11. Database Maintenance (03:00 AM) — try Account 2 worker first
+        cron.schedule('0 3 * * *', async () => {
+            const result = await workerBridge.callWorker('db/maintenance')
+            if (!result?.success) {
+                await database.maintenance()
+            }
+        }, { timezone: 'Europe/Paris' });
         
         // 12. Monthly Auto-Retrain (04:00 AM 1st of every month)
         cron.schedule('0 4 1 * *', () => {
@@ -152,24 +168,55 @@ class CronManager {
             }
         });
 
-        // 16. PredixSport Sync (Every 6 hours)
+        // 16. PredixSport Sync (Every 6 hours) — try Account 2 worker first
         cron.schedule('0 */6 * * *', async () => {
-          try {
-            const predixSportService = require('./predixSportService')
-            await predixSportService.syncUpcoming()
-          } catch (e) {
-            logger.error(`[CRON] PredixSport sync error: ${e.message}`)
+          const result = await workerBridge.callWorker('sync/predixsport')
+          if (!result?.success) {
+            try {
+              const predixSportService = require('./predixSportService')
+              await predixSportService.syncUpcoming()
+            } catch (e) {
+              logger.error(`[CRON] PredixSport sync error: ${e.message}`)
+            }
           }
         }, { timezone: 'Europe/Paris' })
 
-        // 17. Big Balls Data Sync (Every 12 hours — xG/stats for training)
+        // 17. Big Balls Data Sync (Every 12 hours) — try Account 2 worker first
         cron.schedule('0 */12 * * *', async () => {
-          try {
-            const bbs = require('./bigBallsDataService')
-            await bbs.syncUpcoming()
-          } catch (e) {
-            logger.error(`[CRON] BBS sync error: ${e.message}`)
+          const result = await workerBridge.callWorker('sync/bigballsdata')
+          if (!result?.success) {
+            try {
+              const bbs = require('./bigBallsDataService')
+              await bbs.syncUpcoming()
+            } catch (e) {
+              logger.error(`[CRON] BBS sync error: ${e.message}`)
+            }
           }
+        }, { timezone: 'Europe/Paris' })
+
+        // 18. BSD Sync (Every 6 hours) — via Account 2 worker
+        cron.schedule('0 */6 * * *', async () => {
+          const result = await workerBridge.callWorker('sync/bsd')
+          if (!result?.success) {
+            logger.info('[CRON] BSD sync skipped — no local fallback available')
+          }
+        }, { timezone: 'Europe/Paris' })
+
+        // 19. Archive finished matches (Daily at 04:30) — via Account 2 worker
+        cron.schedule('30 4 * * *', async () => {
+          const result = await workerBridge.callWorker('sync/archive')
+          if (!result?.success) {
+            try {
+              await database.archiveFinishedMatches()
+            } catch (e) {
+              logger.error(`[CRON] Archive error: ${e.message}`)
+            }
+          }
+        }, { timezone: 'Europe/Paris' })
+
+        // 20. OpenLigaDB Sync (Daily at 05:00) — via Account 2 worker
+        cron.schedule('0 5 * * *', async () => {
+          await workerBridge.callWorker('sync/openligadb')
         }, { timezone: 'Europe/Paris' })
 
         logger.info('✅ [CRON] Scheduler active');

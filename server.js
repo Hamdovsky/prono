@@ -236,12 +236,13 @@ app.get('/metrics', async (req, res) => {
 
 app.get('/api/diag', async (req, res) => {
   try {
-    const statuses = database.db?.prepare("SELECT status, COUNT(*) as c FROM matches GROUP BY status ORDER BY c DESC").all() || []
-    const sample = database.db?.prepare("SELECT id, homeTeam, awayTeam, league, status, timestamp FROM matches LIMIT 5").all() || []
-    const bsdSample = database.db?.prepare("SELECT id, homeTeam, awayTeam, league, status, source, timestamp, fullData FROM matches WHERE source = 'bsd' AND status = 'NOT_STARTED' LIMIT 5").all() || []
+    const statuses = await database.db?.prepare("SELECT status, COUNT(*) as c FROM matches GROUP BY status ORDER BY c DESC").all() || []
+    const sample = await database.db?.prepare("SELECT id, homeTeam, awayTeam, league, status, timestamp FROM matches LIMIT 5").all() || []
+    const bsdSample = await database.db?.prepare("SELECT id, homeTeam, awayTeam, league, status, source, timestamp, fullData FROM matches WHERE source = 'bsd' AND status = 'NOT_STARTED' LIMIT 5").all() || []
+    const dbTotalRow = await database.db?.prepare("SELECT COUNT(*) as c FROM matches").get()
     res.json({
       bsdAvailable: bsdService.isAvailable(),
-      dbTotal: database.db?.prepare("SELECT COUNT(*) as c FROM matches").get()?.c || 0,
+      dbTotal: dbTotalRow?.c || 0,
       statuses,
       sample,
       bsdSample,

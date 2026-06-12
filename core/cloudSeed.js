@@ -284,7 +284,7 @@ function mapFDFixtureToMatch(f) {
 // BLOCK 3: DATABASE UPSERT
 // ══════════════════════════════════════════════════════════════════════════════
 
-function upsertMatch(match) {
+async function upsertMatch(match) {
     try {
         const db = database.db;
         if (!db) return false;
@@ -293,10 +293,10 @@ function upsertMatch(match) {
         if (['finished', 'canceled', 'postponed'].includes(match.status)) return false;
 
         // Skip if already exists
-        const existing = db.prepare('SELECT id FROM matches WHERE id = ?').get(match.id);
+        const existing = await db.prepare('SELECT id FROM matches WHERE id = ?').get(match.id);
         if (existing) return false;
 
-        db.prepare(`
+        await db.prepare(`
             INSERT OR IGNORE INTO matches (
                 id, homeTeam, awayTeam, league, category_name, tournament_name,
                 tournament_id, home_team_id, away_team_id,
@@ -320,14 +320,14 @@ function upsertMatch(match) {
     }
 }
 
-function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
+async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
     try {
         const db = database.db;
         const startDate = getDateStr(dayOffsetStart);
         const endDate   = getDateStr(dayOffsetEnd);
         const startTs = Math.floor(new Date(startDate + 'T00:00:00Z').getTime() / 1000);
         const endTs   = Math.floor(new Date(endDate   + 'T23:59:59Z').getTime() / 1000);
-        const row = db.prepare(
+        const row = await db.prepare(
             `SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp <= ? AND status = 'scheduled'`
         ).get(startTs, endTs);
         return row?.cnt || 0;
@@ -398,8 +398,8 @@ async function runCloudSeed() {
     console.log('[CLOUD-SEED] Starting multi-source seeding (FootballData -> BSD -> RapidAPI)...');
 
     const today = getDateStr(0);
-    const existingToday = countMatchesForPeriod(0, 0);
-    const existingTomorrow = countMatchesForPeriod(1, 1);
+    const existingToday = await countMatchesForPeriod(0, 0);
+    const existingTomorrow = await countMatchesForPeriod(1, 1);
     console.log(`[CLOUD-SEED] Existing: ${existingToday} today / ${existingTomorrow} tomorrow`);
 
     let fdInserted = 0;
@@ -420,7 +420,7 @@ async function runCloudSeed() {
             for (const event of notstarted) {
                 if (!event.id || !event.homeTeam?.name || !event.awayTeam?.name) continue
                 const match = mapSofascoreEventToMatch(event)
-                if (upsertMatch(match)) sofascoreInserted++
+                if (await upsertMatch(match)) sofascoreInserted++
             }
         }
         console.log(`[CLOUD-SEED/SOFASCORE] Inserted ${sofascoreInserted} free matches total.`)
@@ -454,7 +454,7 @@ async function runCloudSeed() {
             const match = mapFDFixtureToMatch(f);
             if (match.status !== 'scheduled') continue;
 
-            if (upsertMatch(match)) {
+            if (await upsertMatch(match)) {
                 fdQuotaManager.registerMatch(fdId);
                 fdInserted++;
             }
@@ -496,14 +496,14 @@ async function runCloudSeed() {
       { name: 'OpenLigaDB', fetch: () => openligadbService.fetchEvents(today),            available: () => openligadbService.isAvailable() },
     ]
 
-    const currentCount = countMatchesForPeriod(0, 0)
+    const currentCount = await countMatchesForPeriod(0, 0)
     if (currentCount < 20) {
       for (const src of fbFallbackSources) {
         if (!src.available()) {
           console.log(`[CLOUD-SEED/FALLBACK] ${src.name}: skipped (not available)`)
           continue
         }
-        if (countMatchesForPeriod(0, 0) >= 20) break
+        if (await countMatchesForPeriod(0, 0) >= 20) break
         try {
           const matches = await src.fetch()
           if (!matches?.length) {
@@ -513,7 +513,7 @@ async function runCloudSeed() {
           let inserted = 0
           for (const match of matches) {
             if (match.status !== 'scheduled') continue
-            if (upsertMatch(match)) inserted++
+            if (await upsertMatch(match)) inserted++
           }
           console.log(`[CLOUD-SEED/FALLBACK] ${src.name}: inserted ${inserted}/${matches.length} matches`)
           await sleep(500)
@@ -525,7 +525,7 @@ async function runCloudSeed() {
       console.log('[CLOUD-SEED/FALLBACK] Skipped: enough matches already seeded.')
     }
 
-    const finalAfterFD = countMatchesForPeriod(0, 0);
+    const finalAfterFD = await countMatchesForPeriod(0, 0);
     const fdFinished = fdQuotaManager.getQuotaStatus().remaining <= 0 || fdInserted === 0;
     const rapidQuotaStatus = rapidApiQuotaManager.getQuotaStatus();
     const canUseRapid = finalAfterFD < 20 && fdFinished && rapidQuotaStatus.isActive && rapidQuotaStatus.remaining > 0;
@@ -548,7 +548,7 @@ async function runCloudSeed() {
             const match = mapRapidEventToMatch(event);
             if (match.status !== 'scheduled') continue;
 
-            if (upsertMatch(match)) {
+            if (await upsertMatch(match)) {
                 rapidApiQuotaManager.registerMatch(event.id);
                 rapidUsed++;
                 rapidApiInserted++;
@@ -562,8 +562,8 @@ async function runCloudSeed() {
         console.log('[CLOUD-SEED/RAPID] Fallback skipped.');
     }
 
-    const finalToday = countMatchesForPeriod(0, 0);
-    const finalTomorrow = countMatchesForPeriod(1, 1);
+    const finalToday = await countMatchesForPeriod(0, 0);
+    const finalTomorrow = await countMatchesForPeriod(1, 1);
     console.log(`[CLOUD-SEED] Complete. Sofascore: ${sofascoreInserted}, FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`);
 
     if (finalToday + finalTomorrow === 0) {

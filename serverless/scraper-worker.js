@@ -142,21 +142,27 @@ app.post('/enrich', requireAuth, async (req, res) => {
     if (needsEnrichment.length === 0) return { enriched: 0 }
     const enriched = await enrichedPredictions.enrichMatches(needsEnrichment, { fastMode: false, force: true })
     
-    // DEBUG: log first enriched match structure
+    // DEBUG: capture first match details
+    let debugInfo = {}
     if (enriched.length > 0) {
       const m = enriched[0]
-      console.log('[WORKER ENRICH] First match keys:', Object.keys(m))
-      console.log('[WORKER ENRICH] ai_source:', m.ai_source)
-      console.log('[WORKER ENRICH] home_win_probability:', m.home_win_probability)
-      console.log('[WORKER ENRICH] expected_score:', m.expected_score)
-      console.log('[WORKER ENRICH] enriched keys:', m.enriched ? Object.keys(m.enriched) : 'none')
+      debugInfo = {
+        keys: Object.keys(m),
+        ai_source: m.ai_source,
+        home_win_probability: m.home_win_probability,
+        expected_score: m.expected_score,
+        enriched_keys: m.enriched ? Object.keys(m.enriched) : 'none'
+      }
+      console.log('[WORKER ENRICH DEBUG]', JSON.stringify(debugInfo))
     }
     
     let updated = 0
     for (const m of enriched) {
-      await database.updatePredictions(m.id, m)
+      const result = await database.updatePredictions(m.id, m)
+      if (!result) console.log(`[WORKER ENRICH] updatePredictions returned false for ${m.id}`)
       updated++
     }
+    
     // Invalider le cache du serveur principal
     try {
       const axios = require('axios')
@@ -166,7 +172,7 @@ app.post('/enrich', requireAuth, async (req, res) => {
         { headers: { 'x-api-key': API_SECRET_KEY, 'Content-Type': 'application/json' }, timeout: 5000 }
       )
     } catch (_) {}
-    return { enriched: updated }
+    return { enriched: updated, debug: debugInfo }
   }, req, res)
 })
 

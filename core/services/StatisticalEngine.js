@@ -88,6 +88,36 @@ class StatisticalEngine {
         return Math.exp(logP);
     }
 
+    getDixonColesAdj(lh, la, h, a, rho = -0.12) {
+        if (h === 0 && a === 0) return 1.0 - (lh * la * rho);
+        if (h === 1 && a === 0) return 1.0 + (la * rho);
+        if (h === 0 && a === 1) return 1.0 + (lh * rho);
+        if (h === 1 && a === 1) return 1.0 - rho;
+        return 1.0;
+    }
+
+    applyGamma(xgH, xgA, gamma = 0.0) {
+        if (Math.abs(gamma) < 0.001) return { h: xgH, a: xgA };
+        const ratio = (xgH - xgA) / Math.max(xgH + xgA, 0.01);
+        return {
+            h: xgH * Math.exp(-gamma * ratio),
+            a: xgA * Math.exp(gamma * ratio)
+        };
+    }
+
+    getGoalModelParams(league) {
+        if (!league) return { rho: -0.12, gamma: 0.0 };
+        const key = league.toLowerCase().trim();
+        const known = this._leagueParams;
+        if (known && known[key]) return known[key];
+        return { rho: -0.12, gamma: 0.0 };
+    }
+
+    /** Load league params from the DB (called once at startup) */
+    loadGoalModelParams(paramsMap) {
+        this._leagueParams = paramsMap || {};
+    }
+
     getMatchXG(m) {
         // Priority: home_xg/away_xg → teamStats averages → defaults
         const rxgH = parseFloat(m.home_xg) || 0;
@@ -189,8 +219,8 @@ class StatisticalEngine {
      * calculatePoissonProbs
      * Bridge method for QuantumQuantEngine
      */
-    calculatePoissonProbs(xgH, xgA, m = {}) {
-        const full = this.calculateMarketProbs(xgH, xgA);
+    calculatePoissonProbs(xgH, xgA, m = {}, opts = {}) {
+        const full = this.calculateMarketProbs(xgH, xgA, opts);
         const ht = this.calculateFirstHalfProbs(xgH, xgA, m);
         return {
             ...full,
@@ -206,7 +236,10 @@ class StatisticalEngine {
      * calculateMarketProbs
      * Computes raw probabilities for multiple markets using Poisson Matrix.
      */
-    calculateMarketProbs(xgH, xgA) {
+    calculateMarketProbs(xgH, xgA, opts = {}) {
+        const rho = opts.rho || -0.12;
+        const gamma = opts.gamma || 0.0;
+        const { h: xgHadj, a: xgAadj } = this.applyGamma(xgH, xgA, gamma);
         let pH = 0, pD = 0, pA = 0;
         let pBTTS = 0, pBTTS_NO = 0;
         let pOU = { 0.5: 0, 1.5: 0, 2.5: 0, 3.5: 0, 4.5: 0 };
@@ -214,7 +247,7 @@ class StatisticalEngine {
         
         // Advanced Markets
         let pCleanSheetH = 0, pCleanSheetA = 0;
-        let pScoreFirstH = xgH / (xgH + xgA || 1); // Simple approximation for score first
+        let pScoreFirstH = xgHadj / (xgHadj + xgAadj || 1);
         let pAH = { 'H-1.5': 0, 'H-1': 0, 'A-1.5': 0, 'A-1': 0, 'H+1': 0, 'A+1': 0 };
         let pEH = { 'H-1': 0, 'A-1': 0 };
         
@@ -225,10 +258,11 @@ class StatisticalEngine {
         let pX2AndU35 = 0;
 
         for (let h = 0; h <= 10; h++) {
-            const probH = this.getPoissonProb(xgH, h);
+            const probH = this.getPoissonProb(xgHadj, h);
             for (let a = 0; a <= 10; a++) {
-                const probA = this.getPoissonProb(xgA, a);
-                const prob = probH * probA;
+                const probA = this.getPoissonProb(xgAadj, a);
+                const dc = this.getDixonColesAdj(xgHadj, xgAadj, h, a, rho);
+                const prob = probH * probA * dc;
                 const total = h + a;
                 const diff = h - a;
 
@@ -301,15 +335,19 @@ class StatisticalEngine {
      * findMostProbableScore
      * Finds the exact score with the absolute highest probability (Poisson Mode).
      */
-    findMostProbableScore(xgH, xgA) {
+    findMostProbableScore(xgH, xgA, opts = {}) {
+        const rho = opts.rho || -0.12;
+        const gamma = opts.gamma || 0.0;
+        const { h: xgHadj, a: xgAadj } = this.applyGamma(xgH, xgA, gamma);
         let maxProb = -1;
         let bestScore = "1 - 1";
         
-        for (let h = 0; h <= 5; h++) {
-            const probH = this.getPoissonProb(xgH, h);
-            for (let a = 0; a <= 5; a++) {
-                const probA = this.getPoissonProb(xgA, a);
-                const prob = probH * probA;
+        for (let h = 0; h <= 7; h++) {
+            const probH = this.getPoissonProb(xgHadj, h);
+            for (let a = 0; a <= 7; a++) {
+                const probA = this.getPoissonProb(xgAadj, a);
+                const dc = this.getDixonColesAdj(xgHadj, xgAadj, h, a, rho);
+                const prob = probH * probA * dc;
                 
                 if (prob > maxProb) {
                     maxProb = prob;

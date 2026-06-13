@@ -271,7 +271,8 @@ class EnrichedPredictionService {
         }
 
         // JS Fallback using QuantumQuantEngine
-        const { h: xgH, a: xgA } = QuantumQuantEngine._getMatchXG ? QuantumQuantEngine._getMatchXG(match) : { h: match.xg_home || 1.2, a: match.xg_away || 1.0 }
+        const xgResult = StatisticalEngine.getMatchXG(match)
+        const xgH = xgResult.h, xgA = xgResult.a
         const quantResult = QuantumQuantEngine.analyze(match, xgH, xgA)
         return {
             success: true,

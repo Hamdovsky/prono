@@ -31,10 +31,12 @@ function getWeatherImpact(m) {
 class QuantumQuantEngine {
 
     analyze(m, xgH, xgA) {
-        const probs = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m);
+        const gmParams = StatisticalEngine.getGoalModelParams(m.league)
+        const { h: xgHadj, a: xgAadj } = StatisticalEngine.applyGamma(xgH, xgA, gmParams.gamma)
+        const probs = StatisticalEngine.calculatePoissonProbs(xgHadj, xgAadj, m, { rho: gmParams.rho, gamma: gmParams.gamma });
         const markets = this._generateMarkets(probs, m);
         const profile = getLeagueProfile(m.league);
-        const teamStyle = getTeamStyle(xgH, xgA, m);
+        const teamStyle = getTeamStyle(xgHadj, xgAadj, m);
         const weatherImpact = getWeatherImpact(m);
         const ranked = this._rankMarkets(markets, m, { profile, teamStyle, weatherImpact });
 
@@ -45,7 +47,7 @@ class QuantumQuantEngine {
             ev_score: ranked.secondary.ev.toFixed(2),
             edge_score: ranked.secondary.edge.toFixed(2),
             risk_label: this._getRiskLabel(ranked.main.prob),
-            expected_score: StatisticalEngine.findMostProbableScore(xgH, xgA),
+            expected_score: StatisticalEngine.findMostProbableScore(xgHadj, xgAadj, { rho: gmParams.rho, gamma: gmParams.gamma }),
             confidence: Math.round(ranked.main.prob * 100),
             bsd_boosted: ranked.bsd_boosted || false,
             momentum: {

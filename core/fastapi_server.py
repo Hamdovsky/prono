@@ -1,9 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 import sys
 import os
 import json
 import numpy as np
+import threading
 
 # Add current dir to sys.path
 sys.path.append(os.path.dirname(__file__))
@@ -166,17 +167,57 @@ class GoalModelFitRequest(BaseModel):
     matches_data: dict[str, list] = {}  # league -> list of match dicts
 
 
-@app.post("/goalmodel/fit")
-async def goalmodel_fit(req: GoalModelFitRequest):
+def _fit_one_league(league, raw_matches):
+    """Run MLE for a single league (called in background thread)."""
     try:
         from goal_model import _choose_distribution, fit_dixon_coles, calculate_time_weights
         from goal_model import save_cache, load_cache
         from datetime import datetime
 
-        cache = load_cache()
-        fitted_count = 0
-        results = []
+        now = datetime.utcnow()
+        matches = []
+        for m in raw_matches:
+            ts_str = m.get('timestamp', '')
+            days_ago = 365
+            if ts_str:
+                try:
+                    dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                    days_ago = max(0, (now - dt).days)
+                except Exception:
+                    pass
+            matches.append({
+                'home': m.get('homeTeam', m.get('home', '')),
+                'away': m.get('awayTeam', m.get('away', '')),
+                'home_goals': int(m.get('scoreHome', m.get('home_goals', 0))),
+                'away_goals': int(m.get('scoreAway', m.get('away_goals', 0))),
+                'days_ago': days_ago
+            })
 
+        if len(matches) < 10:
+            print(f"[GOALMODEL] {league}: not enough matches ({len(matches)})")
+            return
+
+        match_days = [m['days_ago'] for m in matches]
+        time_weights = calculate_time_weights(match_days)
+        result = fit_dixon_coles(matches, time_weights)
+
+        if result.get('success'):
+            result['league'] = league
+            result['updated_at'] = datetime.utcnow().timestamp()
+            result['distribution_type'] = _choose_distribution(matches)
+            cache = load_cache()
+            cache[league] = result
+            save_cache(cache)
+            print(f"[GOALMODEL] Fitted {league}: rho={result['rho']:.4f}, dist={result['distribution_type']}")
+        else:
+            print(f"[GOALMODEL] {league}: fit failed: {result.get('error')}")
+    except Exception as e:
+        print(f"[GOALMODEL] {league}: error: {e}")
+
+
+@app.post("/goalmodel/fit")
+async def goalmodel_fit(req: GoalModelFitRequest, background_tasks: BackgroundTasks):
+    try:
         leagues_to_fit = []
         if req.matches_data:
             leagues_to_fit = list(req.matches_data.keys())
@@ -184,57 +225,17 @@ async def goalmodel_fit(req: GoalModelFitRequest):
             leagues_to_fit = req.leagues
 
         for league in leagues_to_fit:
-            try:
-                raw_matches = req.matches_data.get(league, [])
-                if not raw_matches or len(raw_matches) < 10:
-                    results.append({'league': league, 'error': 'Not enough matches (<10)'})
-                    continue
+            raw_matches = req.matches_data.get(league, [])
+            if not raw_matches or len(raw_matches) < 10:
+                continue
+            background_tasks.add_task(_fit_one_league, league, raw_matches)
 
-                now = datetime.utcnow()
-                matches = []
-                for m in raw_matches:
-                    ts_str = m.get('timestamp', '')
-                    days_ago = 365
-                    if ts_str:
-                        try:
-                            dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
-                            days_ago = max(0, (now - dt).days)
-                        except Exception:
-                            pass
-                    matches.append({
-                        'home': m.get('homeTeam', m.get('home', '')),
-                        'away': m.get('awayTeam', m.get('away', '')),
-                        'home_goals': int(m.get('scoreHome', m.get('home_goals', 0))),
-                        'away_goals': int(m.get('scoreAway', m.get('away_goals', 0))),
-                        'days_ago': days_ago
-                    })
-
-                if len(matches) < 10:
-                    results.append({'league': league, 'error': 'Not enough matches after parsing'})
-                    continue
-
-                match_days = [m['days_ago'] for m in matches]
-                time_weights = calculate_time_weights(match_days)
-                result = fit_dixon_coles(matches, time_weights)
-
-                if result.get('success'):
-                    result['league'] = league
-                    result['updated_at'] = datetime.utcnow().timestamp()
-                    result['distribution_type'] = _choose_distribution(matches)
-                    cache[league] = result
-                    fitted_count += 1
-                    results.append({'league': league, 'rho': result['rho'], 'dist': result['distribution_type']})
-                else:
-                    results.append({'league': league, 'error': result.get('error', 'Fit failed')})
-            except Exception as e:
-                results.append({'league': league, 'error': str(e)})
-
-        save_cache(cache)
         return {
             "success": True,
-            "fitted": fitted_count,
+            "fitted": 0,
             "total": len(leagues_to_fit),
-            "results": results
+            "status": "started",
+            "note": "Fitting running in background"
         }
     except Exception as e:
         import traceback

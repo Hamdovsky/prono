@@ -464,39 +464,33 @@ app.post('/api/goalmodel/fit', async (req, res) => {
     for (const f of dbFiles) {
       if (fs.existsSync(f)) { try { db = new Database(f); break } catch (e) {} }
     }
-    let debugSteps = []
     if (db) {
       const tables = ['archive_matches', 'historical_matches', 'matches', 'historical_batch']
       for (const tbl of tables) {
         let cols = db.prepare(`PRAGMA table_info(${tbl})`).all().map(c => c.name)
         if (cols.length === 0) {
-          // Fallback: infer columns from a LIMIT 0 query
           try {
             const stmt = db.prepare(`SELECT * FROM ${tbl} LIMIT 0`)
             cols = stmt.columns().map(c => c.name)
           } catch (e2) {}
         }
-        debugSteps.push({ table: tbl, cols: cols.length })
-        if (cols.length === 0) { debugSteps[debugSteps.length-1].skip = 'no cols'; continue }
+        if (cols.length === 0) continue
         const hasScoreHome = cols.includes('scoreHome')
         const hasScoreAway = cols.includes('scoreAway')
         const hasHomeTeam = cols.includes('homeTeam')
-        const hasAwayTeam = cols.includes('awayTeam')
-        if (!hasScoreHome || !hasHomeTeam) { debugSteps[debugSteps.length-1].skip = 'no scoreHome/homeTeam'; continue }
+        if (!hasScoreHome || !hasHomeTeam) continue
         const leagueCol = cols.includes('tournament_name') ? 'tournament_name' : (cols.includes('league') ? 'league' : null)
         const tsCol = cols.includes('startTimestamp') ? 'startTimestamp' : (cols.includes('timestamp') ? 'timestamp' : null)
-        if (!leagueCol || !tsCol) { debugSteps[debugSteps.length-1].skip = 'no leagueCol/tsCol'; continue }
+        if (!leagueCol || !tsCol) continue
         const leagues = leagueFilter.length > 0
           ? leagueFilter
-          : db.prepare(`SELECT "${leagueCol}" AS league_name FROM ${tbl} WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL GROUP BY "${leagueCol}" HAVING COUNT(*) >= 5 ORDER BY COUNT(*) DESC LIMIT 50`).all().map(r => r.league_name)
-        debugSteps[debugSteps.length-1].leaguesFound = leagues.length
+          : db.prepare(`SELECT "${leagueCol}" AS league_name FROM ${tbl} WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL GROUP BY "${leagueCol}" HAVING COUNT(*) >= 5 ORDER BY COUNT(*) DESC LIMIT 5`).all().map(r => r.league_name)
         for (const league of leagues) {
           if (matchesData[league]) continue
           const rows = db.prepare(
-            `SELECT homeTeam, awayTeam, scoreHome, scoreAway, "${tsCol}" AS ts FROM ${tbl} WHERE "${leagueCol}" = ? AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY ts DESC LIMIT 200`
+            `SELECT homeTeam, awayTeam, scoreHome, scoreAway, "${tsCol}" AS ts FROM ${tbl} WHERE "${leagueCol}" = ? AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY ts DESC LIMIT 100`
           ).all(league)
-          debugSteps[debugSteps.length-1][`league_${league}`] = rows.length
-          if (rows.length >= 5) {
+          if (rows.length >= 10) {
             matchesData[league] = rows.map(r => ({
               homeTeam: r.homeTeam, awayTeam: r.awayTeam,
               scoreHome: r.scoreHome || 0, scoreAway: r.scoreAway || 0,
@@ -509,7 +503,7 @@ app.post('/api/goalmodel/fit', async (req, res) => {
     }
 
     if (Object.keys(matchesData).length === 0) {
-      return res.json({ success: true, fitted: 0, total: 0, note: 'No match data found', debugSteps })
+      return res.json({ success: true, fitted: 0, total: 0, note: 'No match data found' })
     }
 
     // Send to FastAPI for fitting

@@ -1183,9 +1183,10 @@ const database = {
     },
     upsertGoalModelParameter: async (params) => {
         try {
+            const ts = params.updated_at || new Date().toISOString()
             db.prepare(`
                 INSERT INTO league_model_parameters (tournament_name, team_name, attack_rating, defense_rating, hfa, rho, mu, distribution_type, num_matches, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(tournament_name, team_name) DO UPDATE SET
                     attack_rating = excluded.attack_rating,
                     defense_rating = excluded.defense_rating,
@@ -1194,7 +1195,7 @@ const database = {
                     mu = excluded.mu,
                     distribution_type = excluded.distribution_type,
                     num_matches = excluded.num_matches,
-                    updated_at = CURRENT_TIMESTAMP
+                    updated_at = excluded.updated_at
             `).run(
                 params.tournament_name,
                 params.team_name || null,
@@ -1204,7 +1205,8 @@ const database = {
                 params.rho || -0.12,
                 params.mu || 0.13,
                 params.distribution_type || 'poisson',
-                params.num_matches || 0
+                params.num_matches || 0,
+                ts
             );
             return true;
         } catch (e) {

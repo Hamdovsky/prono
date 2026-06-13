@@ -509,7 +509,8 @@ app.post('/api/goalmodel/fit', async (req, res) => {
     // Send to FastAPI for fitting
     const fastApiUrl = process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com'
     const httpMod = fastApiUrl.startsWith('https') ? require('https') : require('http')
-    const body = JSON.stringify({ leagues: Object.keys(matchesData), matches_data: matchesData })
+    const callbackUrl = (process.env.VITE_API_URL || 'https://prono-k6gc.onrender.com') + '/api/goalmodel/callback'
+    const body = JSON.stringify({ leagues: Object.keys(matchesData), matches_data: matchesData, callback_url: callbackUrl })
 
     const result = await new Promise((resolve, reject) => {
       const urlObj = new URL(fastApiUrl.replace(/\/+$/, '') + '/goalmodel/fit')
@@ -535,6 +536,48 @@ app.post('/api/goalmodel/fit', async (req, res) => {
       req.end()
     })
     res.json({ success: true, ...result })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+// ─── Callback: receive fitted GoalModel params from FastAPI → DB ──
+app.post('/api/goalmodel/callback', async (req, res) => {
+  try {
+    const { league, mu, hfa, rho, distribution_type, num_matches, teams, attack_ratings, defense_ratings } = req.body
+    if (!league) return res.status(400).json({ error: 'league required' })
+    const now = new Date().toISOString()
+    // Save league-level summary as a row with team_name=null
+    await database.upsertGoalModelParameter({
+      tournament_name: league,
+      team_name: null,
+      attack_rating: 0,
+      defense_rating: 0,
+      hfa: hfa || 0.25,
+      rho: rho || -0.12,
+      mu: mu || 0.13,
+      distribution_type: distribution_type || 'poisson',
+      num_matches: num_matches || 0,
+      updated_at: now
+    })
+    // Save per-team attack/defense ratings
+    if (teams && Array.isArray(teams)) {
+      for (const team of teams) {
+        await database.upsertGoalModelParameter({
+          tournament_name: league,
+          team_name: team,
+          attack_rating: (attack_ratings && attack_ratings[team]) || 0,
+          defense_rating: (defense_ratings && defense_ratings[team]) || 0,
+          hfa: hfa || 0.25,
+          rho: rho || -0.12,
+          mu: mu || 0.13,
+          distribution_type: distribution_type || 'poisson',
+          num_matches: num_matches || 0,
+          updated_at: now
+        })
+      }
+    }
+    res.json({ success: true, league, teams: teams?.length || 0 })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
   }

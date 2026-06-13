@@ -165,14 +165,16 @@ async def health_check():
 class GoalModelFitRequest(BaseModel):
     leagues: list[str] = []
     matches_data: dict[str, list] = {}  # league -> list of match dicts
+    callback_url: str = ''
 
 
-def _fit_one_league(league, raw_matches):
+def _fit_one_league(league, raw_matches, callback_url=None):
     """Run MLE for a single league (called in background thread)."""
     try:
         from goal_model import _choose_distribution, fit_dixon_coles, calculate_time_weights
         from goal_model import save_cache, load_cache
         from datetime import datetime
+        import urllib.request
 
         now = datetime.utcnow()
         matches = []
@@ -209,10 +211,40 @@ def _fit_one_league(league, raw_matches):
             cache[league] = result
             save_cache(cache)
             print(f"[GOALMODEL] Fitted {league}: rho={result['rho']:.4f}, dist={result['distribution_type']}")
+            # POST results back to main server for DB persistence
+            _post_results_callback(callback_url, result)
         else:
             print(f"[GOALMODEL] {league}: fit failed: {result.get('error')}")
     except Exception as e:
         print(f"[GOALMODEL] {league}: error: {e}")
+
+
+def _post_results_callback(url, result):
+    """POST fitted parameters to main server for DB storage."""
+    if not url:
+        return
+    try:
+        import urllib.request
+        import json
+        payload = json.dumps({
+            'league': result['league'],
+            'mu': result.get('mu', 0.13),
+            'hfa': result.get('hfa', 0.25),
+            'rho': result.get('rho', -0.12),
+            'distribution_type': result.get('distribution_type', 'poisson'),
+            'num_matches': result.get('num_matches', 0),
+            'teams': result.get('teams', []),
+            'updated_at': result.get('updated_at'),
+            'attack_ratings': result.get('attack', {}),
+            'defense_ratings': result.get('defense', {}),
+            'source': 'fastapi_goalmodel'
+        }).encode()
+        req = urllib.request.Request(url, data=payload, method='POST',
+            headers={'Content-Type': 'application/json'})
+        resp = urllib.request.urlopen(req, timeout=10)
+        print(f"[GOALMODEL] Callback {url} → {resp.status}")
+    except Exception as e:
+        print(f"[GOALMODEL] Callback failed: {e}")
 
 
 @app.post("/goalmodel/fit")
@@ -224,11 +256,12 @@ async def goalmodel_fit(req: GoalModelFitRequest, background_tasks: BackgroundTa
         elif req.leagues:
             leagues_to_fit = req.leagues
 
+        main_callback = req.callback_url or os.environ.get('MAIN_SERVER_CALLBACK', '')
         for league in leagues_to_fit:
             raw_matches = req.matches_data.get(league, [])
             if not raw_matches or len(raw_matches) < 10:
                 continue
-            background_tasks.add_task(_fit_one_league, league, raw_matches)
+            background_tasks.add_task(_fit_one_league, league, raw_matches, main_callback)
 
         return {
             "success": True,

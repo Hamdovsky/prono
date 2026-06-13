@@ -444,6 +444,7 @@ class EnrichedPredictionService {
 
             // ── 1. QUANTUM QUANT ANALYSIS ──
             let { h: xgH, a: xgA } = this._getMatchXG(m);
+            const quantResult = QuantumQuantEngine.analyze(m, xgH, xgA);
 
             // ── 2. FINAL ASSEMBLY ──
             const resultData = {

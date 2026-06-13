@@ -457,8 +457,8 @@ app.post('/api/goalmodel/fit', async (req, res) => {
     // Query local SQLite
     let matchesData = {}
     const dbFiles = [
-      path.join(__dirname, 'data', 'tactical.db'),
-      path.join(__dirname, 'data', 'historical_archive.sqlite')
+      path.join(__dirname, 'data', 'historical_archive.sqlite'),
+      path.join(__dirname, 'data', 'tactical.db')
     ]
     let db = null
     for (const f of dbFiles) {
@@ -468,7 +468,14 @@ app.post('/api/goalmodel/fit', async (req, res) => {
     if (db) {
       const tables = ['archive_matches', 'historical_matches', 'matches', 'historical_batch']
       for (const tbl of tables) {
-        const cols = db.prepare(`PRAGMA table_info(${tbl})`).all().map(c => c.name)
+        let cols = db.prepare(`PRAGMA table_info(${tbl})`).all().map(c => c.name)
+        if (cols.length === 0) {
+          // Fallback: infer columns from a LIMIT 0 query
+          try {
+            const stmt = db.prepare(`SELECT * FROM ${tbl} LIMIT 0`)
+            cols = stmt.columns().map(c => c.name)
+          } catch (e2) {}
+        }
         debugSteps.push({ table: tbl, cols: cols.length })
         if (cols.length === 0) { debugSteps[debugSteps.length-1].skip = 'no cols'; continue }
         const hasScoreHome = cols.includes('scoreHome')

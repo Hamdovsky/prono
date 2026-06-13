@@ -253,7 +253,7 @@ class EnrichedPredictionService {
     }
 
     /**
-     * Execute local Python Engine via persistent worker
+     * Execute JS QuantumQuantEngine PRIMARY, Python/FastAPI optional enrichment
      */
     async getAnalyticalPrediction(match, timeoutMs = null) {
         try {
@@ -262,19 +262,11 @@ class EnrichedPredictionService {
             match.adaptive_confidence_adj = await adaptiveLearningEngine.getConfidenceAdjustment(league);
         } catch(e) { /* ignore adaptive errors */ }
 
-        // Try Python ML service first, fallback to JS-only prediction
-        try {
-            const result = await this.pythonService.predict(match, timeoutMs || 180000);
-            if (result && result.success !== false) return result
-        } catch (e) {
-            logger.warn(`[PYTHON] Service unavailable, using JS fallback for ${match.id}: ${e.message}`);
-        }
-
-        // JS Fallback using QuantumQuantEngine
+        // JS PRIMARY — toujours exécuté
         const xgResult = StatisticalEngine.getMatchXG(match)
         const xgH = xgResult.h, xgA = xgResult.a
         const quantResult = QuantumQuantEngine.analyze(match, xgH, xgA)
-        return {
+        const result = {
             success: true,
             home_win_probability: (quantResult.markets.match_result['1'].prob * 100),
             draw_probability: (quantResult.markets.match_result['X'].prob * 100),
@@ -285,6 +277,20 @@ class EnrichedPredictionService {
             power_score: quantResult.confidence,
             quantum: quantResult
         }
+
+        // Python/FastAPI optional enrichment (ne remplace PAS les valeurs JS)
+        try {
+            const py = await this.pythonService.predict(match, timeoutMs || 180000);
+            if (py && py.success !== false) {
+                result.python_enriched = true;
+                if (py.tactical_brief) result.tactical_brief = py.tactical_brief;
+                if (py.deep_analysis) result.deep_analysis = py.deep_analysis;
+            }
+        } catch (e) {
+            // Python down — pas grave, JS suffit
+        }
+
+        return result
     }
 
     /**

@@ -490,7 +490,19 @@ app.post('/api/goalmodel/fit', async (req, res) => {
     }
 
     if (Object.keys(matchesData).length === 0) {
-      return res.json({ success: true, fitted: 0, total: 0, note: 'No match data found' })
+      // Debug: check if DB exists at all
+      let dbg = { dbFiles: dbFiles.map(f => ({ path: f, exists: fs.existsSync(f) })) }
+      for (const f of dbFiles) {
+        if (fs.existsSync(f)) {
+          try {
+            const d = new (require('better-sqlite3'))(f)
+            const tables = d.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name)
+            dbg.tables = tables
+            d.close()
+          } catch (e) { dbg.error = e.message }
+        }
+      }
+      return res.json({ success: true, fitted: 0, total: 0, note: 'No match data found', debug: dbg })
     }
 
     // Send to FastAPI for fitting

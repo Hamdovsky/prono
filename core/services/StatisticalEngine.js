@@ -173,15 +173,22 @@ class StatisticalEngine {
                 const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '2';
                 let numHash = 0;
                 for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
-                // [V5 DIVERSITY] Noise augmenté à ±0.8 pour des scores variés
-                const noise = (numHash % 50 - 25) / 30; // -0.83 to +0.83
-                
-                if (league.includes('iceland') || league.includes('reykjavik')) { xgH = 2.2 + noise; xgA = 1.7 - noise; }
-                else if (league.includes('bundesliga')) { xgH = 2.0 + noise; xgA = 1.5 - noise; }
-                else if (league.includes('women')) { xgH = 2.4 + noise; xgA = 1.9 - noise; }
-                else if (league.includes('misli') || league.includes('azerbaijan')) { xgH = 1.9 + noise; xgA = 1.1 - noise; }
-                else if (league.includes('national 1')) { xgH = 1.3 + noise; xgA = 1.0 - noise; }
-                else { xgH = 1.55 + noise; xgA = 1.15 - noise; }
+                // [V5 DIVERSITY] Bruit asymétrique large pour scores variés
+                const noiseFactor = (numHash % 200 - 100) / 100; // -1.0 to +0.99
+                let baseXgH = 1.5, baseXgA = 1.15;
+                if (league.includes('iceland') || league.includes('reykjavik') || league.includes('women')) { baseXgH = 2.0; baseXgA = 1.6; }
+                else if (league.includes('bundesliga') || league.includes('netherlands')) { baseXgH = 1.8; baseXgA = 1.4; }
+                else if (league.includes('misli') || league.includes('azerbaijan')) { baseXgH = 1.7; baseXgA = 1.1; }
+
+                if (noiseFactor >= 0) {
+                    xgH = baseXgH * (1 + noiseFactor * 0.8);
+                    xgA = baseXgA * (1 - noiseFactor * 0.6);
+                } else {
+                    xgH = baseXgH * (1 + noiseFactor * 0.6);
+                    xgA = baseXgA * (1 - noiseFactor * 0.8);
+                }
+                xgH = Math.max(0.15, xgH);
+                xgA = Math.max(0.15, xgA);
                 
                 m.insufficient_data = 1;
             }

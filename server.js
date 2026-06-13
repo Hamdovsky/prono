@@ -479,11 +479,11 @@ app.post('/api/goalmodel/fit', async (req, res) => {
         if (!leagueCol || !tsCol) continue
         const leagues = leagueFilter.length > 0
           ? leagueFilter
-          : db.prepare(`SELECT "${leagueCol}" AS league_name FROM ${tbl} WHERE scoreHome IS NOT NULL AND scoreHome > 0 AND scoreAway IS NOT NULL GROUP BY "${leagueCol}" HAVING COUNT(*) >= 5 ORDER BY COUNT(*) DESC LIMIT 50`).all().map(r => r.league_name)
+          : db.prepare(`SELECT "${leagueCol}" AS league_name FROM ${tbl} WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL GROUP BY "${leagueCol}" HAVING COUNT(*) >= 5 ORDER BY COUNT(*) DESC LIMIT 50`).all().map(r => r.league_name)
         for (const league of leagues) {
           if (matchesData[league]) continue
           const rows = db.prepare(
-            `SELECT homeTeam, awayTeam, scoreHome, scoreAway, "${tsCol}" AS ts FROM ${tbl} WHERE "${leagueCol}" = ? AND scoreHome IS NOT NULL ORDER BY ts DESC LIMIT 200`
+            `SELECT homeTeam, awayTeam, scoreHome, scoreAway, "${tsCol}" AS ts FROM ${tbl} WHERE "${leagueCol}" = ? AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY ts DESC LIMIT 200`
           ).all(league)
           if (rows.length >= 5) {
             matchesData[league] = rows.map(r => ({

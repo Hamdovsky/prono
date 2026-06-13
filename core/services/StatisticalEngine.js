@@ -214,27 +214,35 @@ class StatisticalEngine {
                 xgH = ((hScored || (baseH + noiseH)) + (aConc || (baseA + noiseA))) / 2.0;
                 xgA = ((aScored || (baseA + noiseA - 0.2)) + (hConc || (baseH + noiseH))) / 2.0;
             } else {
-                const league = (m.league || '').toLowerCase();
-                const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '2';
-                let numHash = 0;
-                for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
-                // [V5 DIVERSITY] Bruit asymétrique large pour scores variés
-                const noiseFactor = (numHash % 200 - 100) / 100; // -1.0 to +0.99
-                let baseXgH = 1.5, baseXgA = 1.15;
-                if (league.includes('iceland') || league.includes('reykjavik') || league.includes('women')) { baseXgH = 2.0; baseXgA = 1.6; }
-                else if (league.includes('bundesliga') || league.includes('netherlands')) { baseXgH = 1.8; baseXgA = 1.4; }
-                else if (league.includes('misli') || league.includes('azerbaijan')) { baseXgH = 1.7; baseXgA = 1.1; }
-
-                if (noiseFactor >= 0) {
-                    xgH = baseXgH * (1 + noiseFactor * 0.8);
-                    xgA = baseXgA * (1 - noiseFactor * 0.6);
+                // Compute xG from historical data instead of random noise
+                const hStr = this.getTeamAttackDefense(m.homeTeam);
+                const aStr = this.getTeamAttackDefense(m.awayTeam);
+                const leagueBase = this._getLeagueBaseXG(m.league);
+                if (hStr.matchCount >= 3 || aStr.matchCount >= 3) {
+                    xgH = ((hStr.attack || leagueBase.h) + (aStr.defense || leagueBase.a)) / 2;
+                    xgA = ((aStr.attack || leagueBase.a) + (hStr.defense || leagueBase.h)) / 2;
+                    xgH = Math.max(0.3, Math.min(4.0, xgH));
+                    xgA = Math.max(0.25, Math.min(4.0, xgA));
                 } else {
-                    xgH = baseXgH * (1 + noiseFactor * 0.6);
-                    xgA = baseXgA * (1 - noiseFactor * 0.8);
+                    const league = (m.league || '').toLowerCase();
+                    const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '2';
+                    let numHash = 0;
+                    for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
+                    const noiseFactor = (numHash % 200 - 100) / 100;
+                    let baseXgH = 1.5, baseXgA = 1.15;
+                    if (league.includes('iceland') || league.includes('reykjavik') || league.includes('women')) { baseXgH = 2.0; baseXgA = 1.6; }
+                    else if (league.includes('bundesliga') || league.includes('netherlands')) { baseXgH = 1.8; baseXgA = 1.4; }
+                    else if (league.includes('misli') || league.includes('azerbaijan')) { baseXgH = 1.7; baseXgA = 1.1; }
+                    if (noiseFactor >= 0) {
+                        xgH = baseXgH * (1 + noiseFactor * 0.8);
+                        xgA = baseXgA * (1 - noiseFactor * 0.6);
+                    } else {
+                        xgH = baseXgH * (1 + noiseFactor * 0.6);
+                        xgA = baseXgA * (1 - noiseFactor * 0.8);
+                    }
+                    xgH = Math.max(0.15, xgH);
+                    xgA = Math.max(0.25, xgA);
                 }
-                xgH = Math.max(0.15, xgH);
-                xgA = Math.max(0.15, xgA);
-                
                 m.insufficient_data = 1;
             }
         }

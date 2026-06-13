@@ -616,23 +616,31 @@ class EnrichedPredictionService {
     async enrichMatches(matches, options = {}) {
         const { fastMode = true, force = false } = options;
         
-        // ✅ NE PAS RÉENRICHIR LES MATCHS DÉJÀ ENRICHIS (sauf force=true)
-        // On détecte les scores "1-0" / "0-1" comme possiblement stalés et on les réenrichit
-        const isStaleScore = (s) => {
-            if (!s || s === '1 - 1') return false
-            const parts = s.split(' - ').map(Number)
-            if (parts.length !== 2) return false
-            const [h, a] = parts
-            // Un score 1-0 ou 0-1 avec un FT<45% est suspect (manque de diversité)
-            if (h + a <= 1) return true
-            return false
+        // ✅ Détection des scores stalés (fallback noise, hash collisions, xG manquant)
+        // Un score est suspect si:
+        //   - très bas (0-0, 1-0, 0-1) → probablement pas réel
+        //   - identique à plus de 5 autres matchs dans le batch → hash noise
+        //   - insufficient_data=1 → pas de données réelles
+        const scoreCounts = {}
+        for (const m of matches) {
+            const s = m.expected_score || ''
+            scoreCounts[s] = (scoreCounts[s] || 0) + 1
         }
-        const needsEnrichment = force ? matches : matches.filter(m => 
-            !m.home_win_probability || 
-            m.home_win_probability === 0 || 
-            !m.expected_score || 
-            isStaleScore(m.expected_score)
-        );
+        const needsEnrichment = force ? matches : matches.filter(m => {
+            const s = m.expected_score || ''
+            const parts = s.split(' - ').map(Number)
+            const isLowScore = parts.length === 2 && parts[0] + parts[1] <= 1
+            const isDuplicateScore = s && scoreCounts[s] > 3
+            const isInsufficientData = parseInt(m.insufficient_data) === 1
+            return (
+                !m.home_win_probability || 
+                m.home_win_probability === 0 || 
+                !m.expected_score || 
+                isLowScore ||
+                isDuplicateScore ||
+                isInsufficientData
+            )
+        });
         
         const alreadyEnriched = matches.filter(m => !needsEnrichment.includes(m));
         

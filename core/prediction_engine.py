@@ -17,7 +17,11 @@ from goal_model import (
     log_rps_to_accuracy_log,
     poisson_pmf as gm_poisson_pmf,
     negbin_pmf,
-    cmp_pmf
+    cmp_pmf,
+    expg_from_probabilities,
+    predict_btts as gm_predict_btts,
+    predict_ou as gm_predict_ou,
+    predict_hurdle
 )
 
 # Fix relative import paths
@@ -1134,14 +1138,14 @@ def calculate_most_likely_score(xg_h, xg_a, distribution='poisson', theta=2.0, n
                 best_score = (h, a)
     return f"{best_score[0]} - {best_score[1]}"
 
-def calculate_exact_score(xg_h, xg_a, p_home, p_away, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
+def calculate_exact_score(xg_h, xg_a, p_home, p_away, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12, gamma=0.0):
     """Derive most likely scoreline from xG and adjust for high win confidence."""
     score_str = calculate_most_likely_score(xg_h, xg_a, distribution=distribution, theta=theta, nu=nu, rho=rho)
     h_f, a_f = map(int, score_str.split(' - '))
     # If win probability is very high but score doesn't reflect it, adjust
-    if p_home > 55 and h_f <= a_f:
+    if p_home > 70 and h_f == a_f:
         h_f = a_f + 1
-    elif p_away > 55 and a_f <= h_f:
+    elif p_away > 70 and h_f == a_f:
         a_f = h_f + 1
     return f"{max(0, min(7, h_f))} - {max(0, min(7, a_f))}"
 
@@ -1456,11 +1460,34 @@ def process_prediction(match_obj: dict) -> dict:
     league_name = match_obj.get('league', 'Unknown')
     hist_xg_h, hist_xg_a = get_advanced_xg_adjustment(home_name, away_name, league_name, features)
 
+    # Source 4: Reverse-engineer xG from odds probabilities
+    _odds_1x2 = None
+    try:
+        _odds_1 = float(match_obj.get('odds_home') or 0)
+        _odds_d = float(match_obj.get('odds_draw') or 0)
+        _odds_2 = float(match_obj.get('odds_away') or 0)
+        if min(_odds_1, _odds_d, _odds_2) > 1.01:
+            _p1 = 1.0 / _odds_1
+            _pd = 1.0 / _odds_d
+            _p2 = 1.0 / _odds_2
+            _total_p = _p1 + _pd + _p2
+            _p1 /= _total_p; _pd /= _total_p; _p2 /= _total_p
+            _odds_1x2 = (_p1, _pd, _p2)
+    except Exception:
+        pass
+
     # Choose best available source
     if raw_xg_h > 0.1 and raw_xg_a > 0.1:
         xg_h, xg_a = raw_xg_h, raw_xg_a
     elif avg_xg_h > 0.1 and avg_xg_a > 0.1:
         xg_h, xg_a = avg_xg_h, avg_xg_a
+    elif _odds_1x2 is not None:
+        _expg = expg_from_probabilities(_odds_1x2[0], _odds_1x2[1], _odds_1x2[2])
+        if _expg.get('success'):
+            xg_h, xg_a = _expg['expg_home'], _expg['expg_away']
+            analysis['xG Source'] = 'Odds Reverse-Engineering'
+        else:
+            xg_h, xg_a = hist_xg_h, hist_xg_a
     else:
         xg_h, xg_a = hist_xg_h, hist_xg_a
 
@@ -1585,11 +1612,11 @@ def process_prediction(match_obj: dict) -> dict:
             motivation_signature = "⚖️ RESPECT DES LOIS (PRO)"
     
     # Attack increases with DMF and decreases with fatigue. 
-    h_att_mod *= h_dmf * (1.0 - h_fatigue)
-    h_def_mod *= h_dmf * (1.0 / (1.0 + h_fatigue)) # Corrected: High DMF = Stronger Defense
+    h_att_mod *= h_dmf * h_fatigue
+    h_def_mod *= h_dmf * h_fatigue
     
-    a_att_mod *= a_dmf * (1.0 - a_fatigue)
-    a_def_mod *= a_dmf * (1.0 / (1.0 + a_fatigue))
+    a_att_mod *= a_dmf * a_fatigue
+    a_def_mod *= a_dmf * a_fatigue
     
     # Inject V50 Modifiers into Base xG
     xg_h *= (h_att_mod / a_def_mod) if a_def_mod > 0 else h_att_mod
@@ -1711,15 +1738,22 @@ def process_prediction(match_obj: dict) -> dict:
     xg_h = max(0.2, min(4.0, xg_h))
     xg_a = max(0.2, min(4.0, xg_a))
 
-    # 4. Monte Carlo Simulation with dynamic Dixon-Coles parameters
+    # 4. Monte Carlo Simulation with dynamic Dixon-Coles/Rue-Salvesen parameters
     _gm_params = load_or_fit_goalmodel_parameters(
         str(match_obj.get('league', 'unknown')),
-        db_conn=get_db_connection()
+        db_conn=get_tactical_connection()
     )
     _gm_rho = _gm_params.get('rho', -0.12)
+    _gm_gamma = _gm_params.get('gamma', 0.0)
     _gm_dist = _gm_params.get('distribution_type', 'poisson')
     _gm_theta = 2.0
     _gm_nu = 1.0
+
+    # Apply Rue-Salvesen gamma correction to xG (amplify/regress based on strength)
+    if abs(_gm_gamma) > 0.001:
+        _strength_ratio = (xg_h - xg_a) / max(xg_h + xg_a, 0.01)
+        xg_h *= math.exp(-_gm_gamma * _strength_ratio)
+        xg_a *= math.exp(_gm_gamma * _strength_ratio)
 
     sim = monte_carlo_simulation(xg_h, xg_a, distribution=_gm_dist, rho=_gm_rho)
     p_h_poi, p_d_poi, p_a_poi = sim['p_h'], sim['p_d'], sim['p_a']
@@ -2077,7 +2111,7 @@ def process_prediction(match_obj: dict) -> dict:
         gap = abs(p_h - p_h_xgb) + abs(p_d - p_d_xgb) + abs(p_a - p_a_xgb)
         if gap > 0.45: deep_audit_required = True
         
-    expected_score = calculate_exact_score(xg_h, xg_a, p_home, p_away, distribution=_gm_dist, rho=_gm_rho)
+    expected_score = calculate_exact_score(xg_h, xg_a, p_home, p_away, distribution=_gm_dist, rho=_gm_rho, gamma=_gm_gamma)
     
     gh, ga = 0, 0
     if " - " in expected_score:

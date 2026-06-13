@@ -546,7 +546,13 @@ def log_rps_to_accuracy_log(match_id, home_team, away_team, league_name,
 
 # ─── ENSEMBLE MONTE CARLO (Poisson / NegBin / CMP) ──────────
 def monte_carlo_simulation_goalmodel(xg_h, xg_a, distribution='poisson',
-                                     theta=2.0, nu=1.0, rho=-0.12, iterations=1000):
+                                     theta=2.0, nu=1.0, rho=-0.12, gamma=0.0, iterations=1000):
+    # Apply Rue-Salvesen gamma correction to xG (amplify/regress based on strength)
+    if abs(gamma) > 0.001:
+        _strength_ratio = (xg_h - xg_a) / max(xg_h + xg_a, 0.01)
+        xg_h *= math.exp(-gamma * _strength_ratio)
+        xg_a *= math.exp(gamma * _strength_ratio)
+
     h_wins = 0
     draws = 0
     a_wins = 0
@@ -609,7 +615,12 @@ def monte_carlo_simulation_goalmodel(xg_h, xg_a, distribution='poisson',
 
 
 def calculate_most_likely_score_goalmodel(xg_h, xg_a, distribution='poisson',
-                                          theta=2.0, nu=1.0, rho=-0.12):
+                                          theta=2.0, nu=1.0, rho=-0.12, gamma=0.0):
+    # Apply Rue-Salvesen gamma correction to xG
+    if abs(gamma) > 0.001:
+        _strength_ratio = (xg_h - xg_a) / max(xg_h + xg_a, 0.01)
+        xg_h *= math.exp(-gamma * _strength_ratio)
+        xg_a *= math.exp(gamma * _strength_ratio)
     best_score = (1, 1)
     best_prob = -1.0
     for h in range(8):
@@ -625,3 +636,241 @@ def calculate_most_likely_score_goalmodel(xg_h, xg_a, distribution='poisson',
                 best_prob = prob
                 best_score = (h, a)
     return f"{best_score[0]} - {best_score[1]}"
+
+
+# ─── STANDALONE BTTS / O/U PREDICTORS ──────────────────────────
+
+def predict_btts(xg_h, xg_a, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12, gamma=0.0):
+    """Calculate both teams to score probability directly from xG."""
+    if abs(gamma) > 0.001:
+        _strength_ratio = (xg_h - xg_a) / max(xg_h + xg_a, 0.01)
+        xg_h *= math.exp(-gamma * _strength_ratio)
+        xg_a *= math.exp(gamma * _strength_ratio)
+    btts = 0.0
+    for h in range(15):
+        for a in range(15):
+            if h > 0 and a > 0:
+                if distribution == 'negbin':
+                    prob = negbin_pmf(xg_h, theta, h) * negbin_pmf(xg_a, theta, a)
+                elif distribution == 'cmp':
+                    prob = cmp_pmf(xg_h, nu, h) * cmp_pmf(xg_a, nu, a)
+                else:
+                    prob = poisson_pmf(xg_h, h) * poisson_pmf(xg_a, a)
+                prob *= get_dixon_coles_adjustment(xg_h, xg_a, h, a, rho)
+                btts += prob
+    return min(btts, 1.0)
+
+
+def predict_ou(xg_h, xg_a, threshold=2.5, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12, gamma=0.0):
+    """Calculate over/under threshold probability directly from xG."""
+    if abs(gamma) > 0.001:
+        _strength_ratio = (xg_h - xg_a) / max(xg_h + xg_a, 0.01)
+        xg_h *= math.exp(-gamma * _strength_ratio)
+        xg_a *= math.exp(gamma * _strength_ratio)
+    over = 0.0
+    for h in range(15):
+        for a in range(15):
+            if h + a > threshold:
+                if distribution == 'negbin':
+                    prob = negbin_pmf(xg_h, theta, h) * negbin_pmf(xg_a, theta, a)
+                elif distribution == 'cmp':
+                    prob = cmp_pmf(xg_h, nu, h) * cmp_pmf(xg_a, nu, a)
+                else:
+                    prob = poisson_pmf(xg_h, h) * poisson_pmf(xg_a, a)
+                prob *= get_dixon_coles_adjustment(xg_h, xg_a, h, a, rho)
+                over += prob
+    return min(over, 1.0)
+
+
+# ─── CMP TOOLKIT ───────────────────────────────────────────────
+
+def eCMP(lam, nu, max_k=25):
+    """Expected value of CMP distribution (numeric approximation)."""
+    total_prob = 0.0
+    expected = 0.0
+    for k in range(max_k + 1):
+        pk = cmp_pmf(lam, nu, k, max_k)
+        total_prob += pk
+        expected += k * pk
+    return expected / max(total_prob, 1e-10)
+
+
+def lambdaCMP(mu, nu, max_k=25):
+    """Find λ for CMP given target mean μ and dispersion ν (Newton-Raphson)."""
+    lam = max(mu, 0.1)
+    for _ in range(50):
+        f_val = eCMP(lam, nu, max_k) - mu
+        if abs(f_val) < 1e-6:
+            break
+        eps = max(lam * 1e-4, 1e-6)
+        df = (eCMP(lam + eps, nu, max_k) - eCMP(lam - eps, nu, max_k)) / (2 * eps)
+        if abs(df) < 1e-12:
+            break
+        lam -= f_val / df
+        lam = max(lam, 0.001)
+    return lam
+
+
+def pCMP(lam, nu, k, lower_tail=True, max_k=25):
+    """CDF of CMP distribution. If lower_tail=True, returns P(X ≤ k)."""
+    total = 0.0
+    if lower_tail:
+        for j in range(k + 1):
+            total += cmp_pmf(lam, nu, j, max_k)
+    else:
+        for j in range(k + 1, max_k + 1):
+            total += cmp_pmf(lam, nu, j, max_k)
+    return min(total, 1.0)
+
+
+# ─── HURDLE MODEL (separate 0-0 probability) ───────────────────
+
+def predict_hurdle(xg_h, xg_a, pi0=0.08, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12, gamma=0.0):
+    """Hurdle model: separate inflation for 0-0 draws.
+    pi0 is the extra probability mass on 0-0 beyond the base Poisson.
+    Returns full probability table adjusted for zero-inflation.
+    """
+    if abs(gamma) > 0.001:
+        _strength_ratio = (xg_h - xg_a) / max(xg_h + xg_a, 0.01)
+        xg_h *= math.exp(-gamma * _strength_ratio)
+        xg_a *= math.exp(gamma * _strength_ratio)
+
+    # Compute base Poisson probabilities
+    total = 0.0
+    probs = {}
+    for h in range(12):
+        for a in range(12):
+            if distribution == 'negbin':
+                ph = negbin_pmf(xg_h, theta, h)
+                pa = negbin_pmf(xg_a, theta, a)
+            elif distribution == 'cmp':
+                ph = cmp_pmf(xg_h, nu, h)
+                pa = cmp_pmf(xg_a, nu, a)
+            else:
+                ph = poisson_pmf(xg_h, h)
+                pa = poisson_pmf(xg_a, a)
+            prob = ph * pa * get_dixon_coles_adjustment(xg_h, xg_a, h, a, rho)
+            probs[(h, a)] = prob
+            total += prob
+
+    # Normalize and apply hurdle
+    if total > 0:
+        for k in probs:
+            probs[k] /= total
+
+    base_00 = probs.get((0, 0), 0.0)
+    inflated_00 = base_00 + pi0 * (1.0 - base_00)
+    scaling = (1.0 - inflated_00) / max(1.0 - base_00, 1e-10)
+
+    result = {}
+    total_check = 0.0
+    for (h, a), prob in probs.items():
+        if h == 0 and a == 0:
+            result[(h, a)] = inflated_00
+        else:
+            result[(h, a)] = prob * scaling
+        total_check += result[(h, a)]
+
+    # Renormalize
+    if total_check > 0:
+        for k in result:
+            result[k] /= total_check
+
+    # Aggregate
+    p_home = sum(prob for (h, a), prob in result.items() if h > a)
+    p_draw = sum(prob for (h, a), prob in result.items() if h == a)
+    p_away = sum(prob for (h, a), prob in result.items() if h < a)
+    btts = sum(prob for (h, a), prob in result.items() if h > 0 and a > 0)
+
+    return {
+        'p_home': p_home, 'p_draw': p_draw, 'p_away': p_away,
+        'btts': btts, 'p_00': result.get((0, 0), 0.0),
+        'full_table': result
+    }
+
+
+# ─── ADDITIONAL COVARIATES MODEL ───────────────────────────────
+
+def fit_covariate_model(matches, covariates, time_weights=None):
+    """Fit Poisson model with additional external covariates (x1, x2 per match).
+    covariates: list of dicts with 'x1', 'x2' per match.
+    Returns: fitted parameters including beta1, beta2 for the covariates.
+    """
+    if not _HAS_SCIPY:
+        return {'success': False, 'error': 'scipy not available'}
+    if len(matches) < 10:
+        return {'success': False, 'error': 'Not enough matches'}
+    if len(matches) != len(covariates):
+        return {'success': False, 'error': 'Covariates length mismatch'}
+
+    teams, team_map, num_teams = _build_team_index(matches)
+    if time_weights is None:
+        time_weights = np.ones(len(matches), dtype=float)
+
+    def _nll_cov(params):
+        mu = params[0]
+        hfa = max(0, params[1])
+        beta1 = params[2]
+        beta2 = params[3]
+        att = np.zeros(num_teams)
+        deff = np.zeros(num_teams)
+        for i in range(num_teams):
+            att[i] = params[4 + i]
+            deff[i] = params[4 + num_teams + i]
+        log_like = 0.0
+        for i, m in enumerate(matches):
+            h_idx = team_map[m['home']]
+            a_idx = team_map[m['away']]
+            hg = m['home_goals']
+            ag = m['away_goals']
+            w = time_weights[i] if i < len(time_weights) else 1.0
+            x1 = covariates[i].get('x1', 0.0)
+            x2 = covariates[i].get('x2', 0.0)
+            log_lh = mu + hfa + att[h_idx] - deff[a_idx] + beta1 * x1 + beta2 * x2
+            log_la = mu + att[a_idx] - deff[h_idx] + beta1 * x2 + beta2 * x1
+            lh = math.exp(min(log_lh, 10.0))
+            la = math.exp(min(log_la, 10.0))
+            ph = poisson_pmf(lh, hg)
+            pa = poisson_pmf(la, ag)
+            prob = ph * pa
+            if prob > 1e-15:
+                log_like += w * math.log(prob)
+            else:
+                log_like -= 100.0 * w
+        return -log_like
+
+    n_params = 4 + 2 * num_teams
+    x0 = np.zeros(n_params, dtype=float)
+    x0[0] = 0.13
+    x0[1] = 0.25
+    x0[2] = 0.0
+    x0[3] = 0.0
+
+    cons = ({'type': 'eq', 'fun': lambda p: float(np.sum(p[4:4 + num_teams]))})
+    bounds = [(None, None), (0.0, 1.0), (None, None), (None, None)] + [(-3.0, 3.0)] * (2 * num_teams)
+
+    try:
+        res = minimize(_nll_cov, x0, method='SLSQP', constraints=cons, bounds=bounds,
+                       options={'maxiter': 500, 'ftol': 1e-6})
+        if res.success:
+            fitted = res.x
+            return {
+                'success': True, 'mu': float(fitted[0]), 'hfa': float(fitted[1]),
+                'beta1': float(fitted[2]), 'beta2': float(fitted[3]),
+                'attack': {teams[i]: float(fitted[4 + i]) for i in range(num_teams)},
+                'defense': {teams[i]: float(fitted[4 + num_teams + i]) for i in range(num_teams)},
+                'teams': teams, 'num_matches': len(matches), 'model': 'covariate'
+            }
+        return {'success': False, 'error': f'Optimizer failed: {res.message}'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+# ─── OFFSET (EXTRA TIME / PROLONGATIONS) ──────────────────────
+
+def apply_offset(xg_h, xg_a, offset_minutes=90, standard_minutes=90):
+    """Scale xG for different match durations (e.g., extra time, shortened matches)."""
+    if offset_minutes <= 0 or standard_minutes <= 0:
+        return xg_h, xg_a
+    factor = offset_minutes / standard_minutes
+    return xg_h * factor, xg_a * factor

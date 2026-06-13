@@ -203,29 +203,30 @@ app.post('/sync/goalmodel', requireAuth, async (req, res) => {
         }
       }
       if (db) {
-        // Try historical_matches first, then matches (finished)
-        let tableName = 'historical_matches'
-        const hasHist = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='historical_matches'").get()
-        if (!hasHist) {
-          tableName = 'matches'
-        }
+        // Check all possible tables with scores
+        const tables = ['archive_matches', 'historical_matches', 'matches']
+        for (const tbl of tables) {
+          const hasTbl = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tbl}'`).get()
+          if (!hasTbl) continue
 
-        const leagues = leagueFilter.length > 0
-          ? leagueFilter
-          : db.prepare(`SELECT league FROM ${tableName} WHERE scoreHome IS NOT NULL GROUP BY league HAVING COUNT(*) >= 10 ORDER BY COUNT(*) DESC LIMIT 50`).all().map(r => r.league)
+          const leagues = leagueFilter.length > 0
+            ? leagueFilter
+            : db.prepare(`SELECT league FROM ${tbl} WHERE scoreHome IS NOT NULL AND scoreHome > 0 AND scoreAway IS NOT NULL GROUP BY league HAVING COUNT(*) >= 5 ORDER BY COUNT(*) DESC LIMIT 50`).all().map(r => r.league)
 
-        for (const league of leagues) {
-          const rows = db.prepare(
-            `SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp FROM ${tableName} WHERE league = ? AND scoreHome IS NOT NULL ORDER BY timestamp DESC LIMIT 200`
-          ).all(league)
-          if (rows.length >= 10) {
-            matchesData[league] = rows.map(r => ({
-              homeTeam: r.homeTeam,
-              awayTeam: r.awayTeam,
-              scoreHome: r.scoreHome || 0,
-              scoreAway: r.scoreAway || 0,
-              timestamp: r.timestamp || new Date().toISOString()
-            }))
+          for (const league of leagues) {
+            if (matchesData[league]) continue
+            const rows = db.prepare(
+              `SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp FROM ${tbl} WHERE league = ? AND scoreHome IS NOT NULL ORDER BY timestamp DESC LIMIT 200`
+            ).all(league)
+            if (rows.length >= 5) {
+              matchesData[league] = rows.map(r => ({
+                homeTeam: r.homeTeam,
+                awayTeam: r.awayTeam,
+                scoreHome: r.scoreHome || 0,
+                scoreAway: r.scoreAway || 0,
+                timestamp: r.timestamp || new Date().toISOString()
+              }))
+            }
           }
         }
         db.close()

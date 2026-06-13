@@ -180,11 +180,47 @@ app.post('/enrich', requireAuth, async (req, res) => {
 app.post('/sync/goalmodel', requireAuth, async (req, res) => {
   await runTask('goalmodel-fit', async () => {
     const https = require('https')
+    const path = require('path')
     const fastApiUrl = process.env.FASTAPI_URL || 'https://prono-fastapi.onrender.com'
-    const leagues = req.body?.leagues || []
+
+    // Query local SQLite for recent match history
+    let matchesData = {}
+    const leagueFilter = req.body?.leagues || []
+    const dbPath = path.resolve(__dirname, '../data/historical_archive.sqlite')
+
+    try {
+      const Database = require('better-sqlite3')
+      const fs = require('fs')
+      if (fs.existsSync(dbPath)) {
+        const db = new Database(dbPath)
+        const leagues = leagueFilter.length > 0
+          ? leagueFilter
+          : db.prepare(
+              "SELECT league FROM historical_matches GROUP BY league HAVING COUNT(*) >= 10 ORDER BY COUNT(*) DESC LIMIT 50"
+            ).all().map(r => r.league)
+
+        for (const league of leagues) {
+          const rows = db.prepare(
+            "SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp FROM historical_matches WHERE league = ? ORDER BY timestamp DESC LIMIT 200"
+          ).all(league)
+          if (rows.length >= 10) {
+            matchesData[league] = rows.map(r => ({
+              homeTeam: r.homeTeam,
+              awayTeam: r.awayTeam,
+              scoreHome: r.scoreHome,
+              scoreAway: r.scoreAway,
+              timestamp: r.timestamp
+            }))
+          }
+        }
+        db.close()
+      }
+    } catch (e) {
+      // fallback: empty matchesData
+    }
 
     const result = await new Promise((resolve, reject) => {
-      const body = JSON.stringify({ leagues })
+      const body = JSON.stringify({ leagues: Object.keys(matchesData), matches_data: matchesData })
       const urlObj = new URL(fastApiUrl + '/goalmodel/fit')
       const opts = {
         hostname: urlObj.hostname,
@@ -195,14 +231,14 @@ app.post('/sync/goalmodel', requireAuth, async (req, res) => {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(body)
         },
-        timeout: 120000
+        timeout: 180000
       }
       const req = https.request(opts, (res) => {
         let data = ''
         res.on('data', chunk => data += chunk)
         res.on('end', () => {
           try { resolve(JSON.parse(data)) }
-          catch (e) { resolve({ raw: data }) }
+          catch (e) { resolve({ raw: data, error: e.message }) }
         })
       })
       req.on('error', reject)

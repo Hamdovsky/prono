@@ -176,23 +176,41 @@ app.post('/enrich', requireAuth, async (req, res) => {
   }, req, res)
 })
 
-// ─── Sync: GoalModel MLE Parameters ──────────────────────────
+// ─── Sync: GoalModel MLE Parameters (via FastAPI) ────────────
 app.post('/sync/goalmodel', requireAuth, async (req, res) => {
   await runTask('goalmodel-fit', async () => {
-    const { execSync } = require('child_process')
-    const path = require('path')
-    const scriptPath = path.resolve(__dirname, '../core/fit_goalmodel.py')
+    const https = require('https')
+    const fastApiUrl = process.env.FASTAPI_URL || 'https://prono-fastapi.onrender.com'
     const leagues = req.body?.leagues || []
-    const args = leagues.length > 0 ? leagues.join(',') : 'all'
-    const result = execSync(`python "${scriptPath}" "${args}"`, {
-      timeout: 120000,
-      maxBuffer: 10 * 1024 * 1024,
-      env: { ...process.env, PYTHONUNBUFFERED: '1' }
+
+    const result = await new Promise((resolve, reject) => {
+      const body = JSON.stringify({ leagues })
+      const urlObj = new URL(fastApiUrl + '/goalmodel/fit')
+      const opts = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || 443,
+        path: urlObj.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body)
+        },
+        timeout: 120000
+      }
+      const req = https.request(opts, (res) => {
+        let data = ''
+        res.on('data', chunk => data += chunk)
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)) }
+          catch (e) { resolve({ raw: data }) }
+        })
+      })
+      req.on('error', reject)
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')) })
+      req.write(body)
+      req.end()
     })
-    const output = result.stdout.toString().trim()
-    let parsed
-    try { parsed = JSON.parse(output) } catch (e) { parsed = { raw: output } }
-    return { fitted: parsed }
+    return { fitted: result }
   }, req, res)
 })
 

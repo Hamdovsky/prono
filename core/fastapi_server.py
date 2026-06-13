@@ -159,3 +159,97 @@ async def health_check():
     }
     
     return health_data
+
+
+class GoalModelFitRequest(BaseModel):
+    leagues: list[str] = []
+
+
+@app.post("/goalmodel/fit")
+async def goalmodel_fit(req: GoalModelFitRequest):
+    try:
+        from fit_goalmodel import fit_league, save_cache, load_cache
+        from goal_model import _choose_distribution, fit_dixon_coles, calculate_time_weights
+        import sqlite3
+        from datetime import datetime
+
+        DB_ARCHIVE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'historical_archive.sqlite')
+        conn = sqlite3.connect(DB_ARCHIVE_PATH)
+        conn.row_factory = sqlite3.Row
+
+        if not req.leagues or len(req.leagues) == 0:
+            cursor = conn.cursor()
+            rows = cursor.execute(
+                """SELECT league, COUNT(*) as cnt
+                   FROM historical_matches
+                   GROUP BY league
+                   HAVING cnt >= 10
+                   ORDER BY cnt DESC
+                   LIMIT 50"""
+            ).fetchall()
+            leagues = [r[0] for r in rows]
+        else:
+            leagues = req.leagues
+
+        cache = load_cache()
+        fitted_count = 0
+        results = []
+
+        for league in leagues:
+            try:
+                cursor = conn.cursor()
+                rows = cursor.execute(
+                    """SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp
+                       FROM historical_matches
+                       WHERE league = ?
+                       ORDER BY timestamp DESC LIMIT 200""",
+                    (league,)
+                ).fetchall()
+                if not rows or len(rows) < 10:
+                    continue
+                matches = []
+                now = datetime.utcnow()
+                for r in rows:
+                    ts_str = r[4] if r[4] else ''
+                    days_ago = 365
+                    if ts_str:
+                        try:
+                            dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                            days_ago = max(0, (now - dt).days)
+                        except Exception:
+                            pass
+                    matches.append({
+                        'home': r[0] or '',
+                        'away': r[1] or '',
+                        'home_goals': int(r[2]) if r[2] is not None else 0,
+                        'away_goals': int(r[3]) if r[3] is not None else 0,
+                        'days_ago': days_ago
+                    })
+                if len(matches) < 10:
+                    continue
+                match_days = [m['days_ago'] for m in matches]
+                time_weights = calculate_time_weights(match_days)
+                result = fit_dixon_coles(matches, time_weights)
+                if result.get('success'):
+                    result['league'] = league
+                    result['updated_at'] = datetime.utcnow().timestamp()
+                    result['distribution_type'] = _choose_distribution(matches)
+                    cache[league] = result
+                    fitted_count += 1
+                    results.append({'league': league, 'rho': result['rho'], 'dist': result['distribution_type']})
+            except Exception as e:
+                results.append({'league': league, 'error': str(e)})
+
+        save_cache(cache)
+        conn.close()
+
+        return {
+            "success": True,
+            "fitted": fitted_count,
+            "total": len(leagues),
+            "results": results
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}

@@ -426,19 +426,24 @@ class EnrichedPredictionService {
         try {
             const m = { ...match };
 
-            // ── QUALITY GATE ──
-            // Reject if missing xG or extreme low entropy data
-            let { h: xgH, a: xgA } = this._getMatchXG(m);
-            const dataQuality = (xgH > 0.25 && xgA > 0.25) ? 'HIGH' : 'LOW';
-
-            // If quality is LOW and no brain data exists, return WAITING state
-            if (dataQuality === 'LOW' && (!m.ai_source || !m.ai_source.includes('XGB'))) {
-                m.insufficient_data = 1;
-                return this._buildOfflineState(m);
+            // ── BSD XG FETCH ──
+            // If match lacks real xG data, try to fetch from BSD prediction API
+            const hasRealXg = parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5;
+            if (!hasRealXg && m.bsd_match_id) {
+                try {
+                    const bsdService = require('../services/bsdService');
+                    if (bsdService.isAvailable()) {
+                        const pred = await bsdService.fetchPredictions(m.bsd_match_id);
+                        if (pred && pred.xg) {
+                            m.home_xg = pred.xg.home || m.home_xg;
+                            m.away_xg = pred.xg.away || m.away_xg;
+                        }
+                    }
+                } catch (_) { /* BSD prediction fetch failed — proceed with fallback */ }
             }
 
             // ── 1. QUANTUM QUANT ANALYSIS ──
-            const quantResult = QuantumQuantEngine.analyze(m, xgH, xgA);
+            let { h: xgH, a: xgA } = this._getMatchXG(m);
 
             // ── 2. FINAL ASSEMBLY ──
             const resultData = {

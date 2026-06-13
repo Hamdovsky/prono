@@ -123,8 +123,11 @@ class StatisticalEngine {
         const rxgH = parseFloat(m.home_xg) || 0;
         const rxgA = parseFloat(m.away_xg) || 0;
         let xgH, xgA;
+        // Détection et rejet des xG stalés (typiquement <0.5 après le fatigue bug).
+        // Si les xG stockés sont trop bas, on les ignore et on recalcule depuis teamStats/league.
+        const xgSeemsStale = (rxgH > 0.1 && rxgA > 0.1) && (rxgH < 0.5 || rxgA < 0.5);
 
-        if (rxgH > 0.1 && rxgA > 0.1) {
+        if (rxgH > 0.1 && rxgA > 0.1 && !xgSeemsStale) {
             xgH = rxgH;
             xgA = rxgA;
         } else {
@@ -154,8 +157,8 @@ class StatisticalEngine {
                 let numHash = 0;
                 for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
                 
-                const noiseH = (numHash % 20 - 10) / 50; // -0.2 to +0.2
-                const noiseA = ((numHash * 3) % 20 - 10) / 50;
+                const noiseH = (numHash % 40 - 20) / 40; // -0.5 to +0.5
+                const noiseA = ((numHash * 3) % 40 - 20) / 40;
 
                 xgH = ((hScored || (baseH + noiseH)) + (aConc || (baseA + noiseA))) / 2.0;
                 xgA = ((aScored || (baseA + noiseA - 0.2)) + (hConc || (baseH + noiseH))) / 2.0;
@@ -166,14 +169,15 @@ class StatisticalEngine {
                 const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '2';
                 let numHash = 0;
                 for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
-                const noise = (numHash % 30 - 15) / 30; // Increased noise range: -0.5 to +0.5
+                // [V5 DIVERSITY] Noise augmenté à ±0.8 pour des scores variés
+                const noise = (numHash % 50 - 25) / 30; // -0.83 to +0.83
                 
-                if (league.includes('iceland') || league.includes('reykjavik')) { xgH = 2.0 + noise; xgA = 1.7 - (noise * 0.8); }
-                else if (league.includes('bundesliga')) { xgH = 1.85 + noise; xgA = 1.5 - (noise * 0.7); }
-                else if (league.includes('women')) { xgH = 2.2 + noise; xgA = 1.9 - (noise * 0.9); }
-                else if (league.includes('misli') || league.includes('azerbaijan')) { xgH = 1.7 + noise; xgA = 1.1 - (noise * 0.5); }
-                else if (league.includes('national 1')) { xgH = 1.2 + noise; xgA = 1.0 - (noise * 0.4); }
-                else { xgH = 1.45 + noise; xgA = 1.15 - (noise * 0.6); }
+                if (league.includes('iceland') || league.includes('reykjavik')) { xgH = 2.2 + noise; xgA = 1.7 - noise; }
+                else if (league.includes('bundesliga')) { xgH = 2.0 + noise; xgA = 1.5 - noise; }
+                else if (league.includes('women')) { xgH = 2.4 + noise; xgA = 1.9 - noise; }
+                else if (league.includes('misli') || league.includes('azerbaijan')) { xgH = 1.9 + noise; xgA = 1.1 - noise; }
+                else if (league.includes('national 1')) { xgH = 1.3 + noise; xgA = 1.0 - noise; }
+                else { xgH = 1.55 + noise; xgA = 1.15 - noise; }
                 
                 m.insufficient_data = 1;
             }

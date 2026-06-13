@@ -354,6 +354,21 @@ function initSchema() {
             );
             CREATE INDEX IF NOT EXISTS idx_live_logs_match ON live_prediction_logs(match_id);
             CREATE INDEX IF NOT EXISTS idx_live_logs_checked ON live_prediction_logs(outcome_checked);
+
+            CREATE TABLE IF NOT EXISTS league_model_parameters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tournament_name TEXT NOT NULL,
+                team_name TEXT,
+                attack_rating REAL DEFAULT 0.0,
+                defense_rating REAL DEFAULT 0.0,
+                hfa REAL DEFAULT 0.25,
+                rho REAL DEFAULT -0.12,
+                mu REAL DEFAULT 0.13,
+                distribution_type TEXT DEFAULT 'poisson',
+                num_matches INTEGER DEFAULT 0,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(tournament_name, team_name)
+            );
         `);
         logger.info('🛡️ [DB] Tactical Schema validated with INDICES (SQLite)');
     } catch (e) {
@@ -1152,6 +1167,49 @@ const database = {
         } catch (e) {
             logger.error(`[DB] Cleanup error: ${e.message}`)
             return 0
+        }
+    },
+    // ─── GOALMODEL PARAMETERS ──────────────────────────────────
+    getGoalModelParameters: async (tournamentName) => {
+        try {
+            const rows = db.prepare(
+                "SELECT * FROM league_model_parameters WHERE tournament_name = ?"
+            ).all(tournamentName);
+            return rows;
+        } catch (e) {
+            logger.error(`[DB] getGoalModelParameters error: ${e.message}`);
+            return [];
+        }
+    },
+    upsertGoalModelParameter: async (params) => {
+        try {
+            db.prepare(`
+                INSERT INTO league_model_parameters (tournament_name, team_name, attack_rating, defense_rating, hfa, rho, mu, distribution_type, num_matches, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(tournament_name, team_name) DO UPDATE SET
+                    attack_rating = excluded.attack_rating,
+                    defense_rating = excluded.defense_rating,
+                    hfa = excluded.hfa,
+                    rho = excluded.rho,
+                    mu = excluded.mu,
+                    distribution_type = excluded.distribution_type,
+                    num_matches = excluded.num_matches,
+                    updated_at = CURRENT_TIMESTAMP
+            `).run(
+                params.tournament_name,
+                params.team_name || null,
+                params.attack_rating || 0,
+                params.defense_rating || 0,
+                params.hfa || 0.25,
+                params.rho || -0.12,
+                params.mu || 0.13,
+                params.distribution_type || 'poisson',
+                params.num_matches || 0
+            );
+            return true;
+        } catch (e) {
+            logger.error(`[DB] upsertGoalModelParameter error: ${e.message}`);
+            return false;
         }
     },
     query: (sql, params = []) => {

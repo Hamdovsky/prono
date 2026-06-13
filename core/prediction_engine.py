@@ -6,8 +6,23 @@ import os
 import sqlite3
 import numpy as np
 
+from goal_model import (
+    get_dixon_coles_adjustment,
+    calculate_time_weights,
+    fit_dixon_coles,
+    load_or_fit_goalmodel_parameters,
+    monte_carlo_simulation_goalmodel,
+    calculate_most_likely_score_goalmodel,
+    calculate_rps,
+    log_rps_to_accuracy_log,
+    poisson_pmf as gm_poisson_pmf,
+    negbin_pmf,
+    cmp_pmf
+)
+
 # Fix relative import paths
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Lazy import helpers
 _xgb = None
@@ -1100,26 +1115,28 @@ def get_advanced_xg_adjustment(home_name, away_name, league_name, features=None)
     
     return max(0.4, xg_h), max(0.4, xg_a)
 
-def calculate_most_likely_score(xg_h, xg_a):
-    """Find the most probable exact score using Dixon-Coles Poisson."""
+def calculate_most_likely_score(xg_h, xg_a, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
+    """Find the most probable exact score using Dixon-Coles and alternative goal distributions."""
     best_score = (1, 1)
     best_prob = -1
     for h in range(8):
         for a in range(8):
-            # Standard Poisson
-            prob = poisson_prob(xg_h, h) * poisson_prob(xg_a, a)
-            # Dixon-Coles Adjustment
-            prob *= get_dixon_coles_adjustment(xg_h, xg_a, h, a)
+            if distribution == 'negbin':
+                prob = negbin_pmf(xg_h, theta, h) * negbin_pmf(xg_a, theta, a)
+            elif distribution == 'cmp':
+                prob = cmp_pmf(xg_h, nu, h) * cmp_pmf(xg_a, nu, a)
+            else:
+                prob = poisson_prob(xg_h, h) * poisson_prob(xg_a, a)
+            prob *= get_dixon_coles_adjustment(xg_h, xg_a, h, a, rho)
             
             if prob > best_prob:
                 best_prob = prob
                 best_score = (h, a)
     return f"{best_score[0]} - {best_score[1]}"
 
-def calculate_exact_score(xg_h, xg_a, p_home, p_away):
+def calculate_exact_score(xg_h, xg_a, p_home, p_away, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
     """Derive most likely scoreline from xG and adjust for high win confidence."""
-    # Get the most probable scoreline from Poisson distribution
-    score_str = calculate_most_likely_score(xg_h, xg_a)
+    score_str = calculate_most_likely_score(xg_h, xg_a, distribution=distribution, theta=theta, nu=nu, rho=rho)
     h_f, a_f = map(int, score_str.split(' - '))
     # If win probability is very high but score doesn't reflect it, adjust
     if p_home > 55 and h_f <= a_f:
@@ -1153,8 +1170,8 @@ def poisson_prob(lam, k):
     if lam <= 0: return 1.0 if k == 0 else 0.0
     return (math.exp(-lam) * (lam**k)) / math.factorial(k)
 
-def monte_carlo_simulation(xg_h, xg_a, iterations=1000):
-    """Simulates match outcomes using Bivariate Poisson distributions for scientific accuracy.
+def monte_carlo_simulation(xg_h, xg_a, iterations=1000, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
+    """Simulates match outcomes using Bivariate Poisson (or NegBin/CMP) with Dixon-Coles adjustment.
     V80 REALISM: Simulates goal co-dependence (shared variance) to accurately price draws.
     """
     h_wins = 0
@@ -1163,22 +1180,29 @@ def monte_carlo_simulation(xg_h, xg_a, iterations=1000):
     total_goals_list = []
     btts_count = 0
     
-    # [V80] Bivariate Covariance: Assume goals are slightly correlated
-    # Usually matches open up, giving a baseline shared expectation
     cov = 0.15 * min(max(0, xg_h), max(0, xg_a))
     if math.isnan(cov) or math.isinf(cov): cov = 0.0
     
     base_h = max(0, xg_h - cov)
     base_a = max(0, xg_a - cov)
     
-    # Generate random Poisson outcomes
-    home_base = np.random.poisson(base_h, iterations)
-    away_base = np.random.poisson(base_a, iterations)
+    if distribution == 'negbin':
+        p_h = theta / (theta + base_h) if base_h > 0 else 1.0
+        p_a = theta / (theta + base_a) if base_a > 0 else 1.0
+        home_base = np.random.negative_binomial(theta, p_h, iterations)
+        away_base = np.random.negative_binomial(theta, p_a, iterations)
+    elif distribution == 'cmp':
+        home_base = np.array([np.random.poisson(base_h) for _ in range(iterations)])
+        away_base = np.array([np.random.poisson(base_a) for _ in range(iterations)])
+    else:
+        home_base = np.random.poisson(base_h, iterations)
+        away_base = np.random.poisson(base_a, iterations)
+    
     shared_goals = np.random.poisson(cov, iterations)
     
     for i in range(iterations):
-        gh = home_base[i] + shared_goals[i]
-        ga = away_base[i] + shared_goals[i]
+        gh = int(home_base[i]) + int(shared_goals[i])
+        ga = int(away_base[i]) + int(shared_goals[i])
         
         if gh > ga: h_wins += 1
         elif gh < ga: a_wins += 1
@@ -1687,8 +1711,17 @@ def process_prediction(match_obj: dict) -> dict:
     xg_h = max(0.2, min(4.0, xg_h))
     xg_a = max(0.2, min(4.0, xg_a))
 
-    # 4. Monte Carlo Simulation (Replacing static Poisson loop)
-    sim = monte_carlo_simulation(xg_h, xg_a)
+    # 4. Monte Carlo Simulation with dynamic Dixon-Coles parameters
+    _gm_params = load_or_fit_goalmodel_parameters(
+        str(match_obj.get('league', 'unknown')),
+        db_conn=get_db_connection()
+    )
+    _gm_rho = _gm_params.get('rho', -0.12)
+    _gm_dist = _gm_params.get('distribution_type', 'poisson')
+    _gm_theta = 2.0
+    _gm_nu = 1.0
+
+    sim = monte_carlo_simulation(xg_h, xg_a, distribution=_gm_dist, rho=_gm_rho)
     p_h_poi, p_d_poi, p_a_poi = sim['p_h'], sim['p_d'], sim['p_a']
     
     # 4.5 V13 Glicko Momentum Integration
@@ -2044,7 +2077,7 @@ def process_prediction(match_obj: dict) -> dict:
         gap = abs(p_h - p_h_xgb) + abs(p_d - p_d_xgb) + abs(p_a - p_a_xgb)
         if gap > 0.45: deep_audit_required = True
         
-    expected_score = calculate_exact_score(xg_h, xg_a, p_home, p_away)
+    expected_score = calculate_exact_score(xg_h, xg_a, p_home, p_away, distribution=_gm_dist, rho=_gm_rho)
     
     gh, ga = 0, 0
     if " - " in expected_score:

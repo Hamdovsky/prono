@@ -176,6 +176,26 @@ app.post('/enrich', requireAuth, async (req, res) => {
   }, req, res)
 })
 
+// ─── Sync: GoalModel MLE Parameters ──────────────────────────
+app.post('/sync/goalmodel', requireAuth, async (req, res) => {
+  await runTask('goalmodel-fit', async () => {
+    const { execSync } = require('child_process')
+    const path = require('path')
+    const scriptPath = path.resolve(__dirname, '../core/fit_goalmodel.py')
+    const leagues = req.body?.leagues || []
+    const args = leagues.length > 0 ? leagues.join(',') : 'all'
+    const result = execSync(`python "${scriptPath}" "${args}"`, {
+      timeout: 120000,
+      maxBuffer: 10 * 1024 * 1024,
+      env: { ...process.env, PYTHONUNBUFFERED: '1' }
+    })
+    const output = result.stdout.toString().trim()
+    let parsed
+    try { parsed = JSON.parse(output) } catch (e) { parsed = { raw: output } }
+    return { fitted: parsed }
+  }, req, res)
+})
+
 // ─── DB Maintenance ────────────────────────────────────────
 app.post('/db/maintenance', requireAuth, async (req, res) => {
   await runTask('maintenance', async () => {

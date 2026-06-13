@@ -1,0 +1,417 @@
+import numpy as np
+import math
+import os
+import pickle
+import json
+import time
+from datetime import datetime, timedelta
+
+try:
+    from scipy.optimize import minimize
+    from scipy.special import gammaln
+    _HAS_SCIPY = True
+except Exception:
+    _HAS_SCIPY = False
+    gammaln = math.lgamma
+
+# Cache directory for fitted parameters
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+CACHE_FILE = os.path.join(CACHE_DIR, 'goalmodel_parameters_cache.pkl')
+CACHE_TTL_HOURS = 24
+
+
+def ensure_cache_dir():
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR, exist_ok=True)
+
+
+# ─── TIME WEIGHTS (Dixon-Coles exponential decay) ─────────────
+def calculate_time_weights(match_days, half_life=365):
+    if half_life <= 0:
+        return np.ones_like(np.array(match_days, dtype=float))
+    lambda_decay = math.log(2) / half_life
+    return np.array([math.exp(-lambda_decay * d) for d in match_days], dtype=float)
+
+
+# ─── POISSON PMF ──────────────────────────────────────────────
+def poisson_pmf(lam, k):
+    if k < 0:
+        return 0.0
+    if lam <= 0:
+        return 1.0 if k == 0 else 0.0
+    return (math.exp(-lam) * (lam ** k)) / math.factorial(k)
+
+
+# ─── NEGATIVE BINOMIAL PMF (overdispersion) ───────────────────
+def negbin_pmf(mu, theta, k):
+    if k < 0 or mu <= 0 or theta <= 0:
+        return 0.0
+    coeff = math.exp(gammaln(k + theta) - gammaln(k + 1) - gammaln(theta))
+    prob = coeff * ((theta / (theta + mu)) ** theta) * ((mu / (theta + mu)) ** k)
+    return prob
+
+
+# ─── CONWAY-MAXWELL-POISSON PMF (under/over dispersion) ────
+def cmp_pmf(lam, nu, k, max_k=25):
+    if k < 0 or lam <= 0:
+        return 0.0
+    if nu <= 0:
+        nu = 1.0
+    log_probs = []
+    for j in range(max_k + 1):
+        lp = j * math.log(lam) - nu * math.lgamma(j + 1)
+        log_probs.append(lp)
+    max_lp = max(log_probs)
+    probs = [math.exp(lp - max_lp) for lp in log_probs]
+    z = sum(probs)
+    if z <= 0:
+        return 0.0
+    return probs[k] / z
+
+
+# ─── DIXON-COLES ADJUSTMENT ───────────────────────────────────
+def get_dixon_coles_adjustment(lh, la, h, a, rho):
+    if h == 0 and a == 0:
+        return 1.0 - (lh * la * rho)
+    elif h == 1 and a == 0:
+        return 1.0 + (la * rho)
+    elif h == 0 and a == 1:
+        return 1.0 + (lh * rho)
+    elif h == 1 and a == 1:
+        return 1.0 - rho
+    return 1.0
+
+
+# ─── MLE: DIXON-COLES PARAMETER FITTING ───────────────────────
+def fit_dixon_coles(matches, time_weights=None):
+    if not _HAS_SCIPY:
+        return {'success': False, 'error': 'scipy not available'}
+
+    if len(matches) < 10:
+        return {'success': False, 'error': 'Not enough matches'}
+
+    teams = []
+    seen = set()
+    for m in matches:
+        for t in (m['home'], m['away']):
+            if t not in seen:
+                seen.add(t)
+                teams.append(t)
+    num_teams = len(teams)
+    team_map = {t: i for i, t in enumerate(teams)}
+
+    if time_weights is None:
+        time_weights = np.ones(len(matches), dtype=float)
+
+    init_params = np.zeros(3 + 2 * num_teams, dtype=float)
+    init_params[0] = 0.13  # mu (intercept)
+    init_params[1] = 0.25  # hfa
+    init_params[2] = -0.10  # rho
+
+    def neg_log_likelihood(params):
+        mu = params[0]
+        hfa = params[1]
+        rho = params[2]
+        att = params[3:3 + num_teams]
+        deff = params[3 + num_teams:3 + 2 * num_teams]
+
+        log_like = 0.0
+        for i, m in enumerate(matches):
+            h_idx = team_map[m['home']]
+            a_idx = team_map[m['away']]
+            hg = m['home_goals']
+            ag = m['away_goals']
+            w = time_weights[i] if i < len(time_weights) else 1.0
+
+            log_lh = mu + hfa + att[h_idx] - deff[a_idx]
+            log_la = mu + att[a_idx] - deff[h_idx]
+            lh = math.exp(min(log_lh, 10.0))
+            la = math.exp(min(log_la, 10.0))
+
+            p_hg = poisson_pmf(lh, hg)
+            p_ag = poisson_pmf(la, ag)
+            adj = get_dixon_coles_adjustment(lh, la, hg, ag, rho)
+
+            prob = p_hg * p_ag * adj
+            if prob > 1e-15:
+                log_like += w * math.log(prob)
+            else:
+                log_like -= 100.0 * w
+
+        return -log_like
+
+    cons = ({'type': 'eq', 'fun': lambda p: float(np.sum(p[3:3 + num_teams]))})
+    bounds = [(None, None), (0.0, 1.0), (-0.3, 0.3)] + [(-3.0, 3.0)] * (2 * num_teams)
+
+    try:
+        res = minimize(neg_log_likelihood, init_params, method='SLSQP',
+                       constraints=cons, bounds=bounds,
+                       options={'maxiter': 500, 'ftol': 1e-6})
+        if res.success:
+            fitted = res.x
+            return {
+                'success': True,
+                'mu': float(fitted[0]),
+                'hfa': float(fitted[1]),
+                'rho': float(fitted[2]),
+                'attack': {teams[i]: float(fitted[3 + i]) for i in range(num_teams)},
+                'defense': {teams[i]: float(fitted[3 + num_teams + i]) for i in range(num_teams)},
+                'teams': teams,
+                'num_matches': len(matches)
+            }
+        return {'success': False, 'error': f'Optimizer failed: {res.message}'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+# ─── PICKLE CACHE ─────────────────────────────────────────────
+def load_cache():
+    ensure_cache_dir()
+    if not os.path.exists(CACHE_FILE):
+        return {}
+    try:
+        with open(CACHE_FILE, 'rb') as f:
+            data = pickle.load(f)
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        return {}
+    return {}
+
+
+def save_cache(cache):
+    ensure_cache_dir()
+    try:
+        with open(CACHE_FILE, 'wb') as f:
+            pickle.dump(cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+    except Exception as e:
+        print(f"[GOALMODEL] Cache save failed: {e}")
+
+
+def load_or_fit_goalmodel_parameters(league_name, db_conn=None, force_refit=False):
+    cache = load_cache()
+    entry = cache.get(league_name)
+
+    if not force_refit and entry is not None:
+        ts = entry.get('updated_at', 0)
+        age_hours = (time.time() - ts) / 3600
+        if age_hours < CACHE_TTL_HOURS:
+            return entry
+
+    if db_conn is None:
+        return _fallback_params(league_name)
+
+    try:
+        cursor = db_conn.cursor()
+        rows = cursor.execute(
+            """SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp
+               FROM historical_matches
+               WHERE league = ?
+               ORDER BY timestamp DESC LIMIT 200""",
+            (league_name,)
+        ).fetchall()
+
+        if not rows or len(rows) < 10:
+            return _fallback_params(league_name)
+
+        matches = []
+        now = datetime.utcnow()
+        for r in rows:
+            home = r[0] if r[0] else ''
+            away = r[1] if r[1] else ''
+            sh = int(r[2]) if r[2] is not None else 0
+            sa = int(r[3]) if r[3] is not None else 0
+            ts_str = r[4] if r[4] else ''
+            match_date = None
+            if ts_str:
+                try:
+                    match_date = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                except Exception:
+                    match_date = None
+            days_ago = 365
+            if match_date:
+                days_ago = max(0, (now - match_date).days)
+            matches.append({
+                'home': home,
+                'away': away,
+                'home_goals': sh,
+                'away_goals': sa,
+                'days_ago': days_ago
+            })
+
+        if len(matches) < 10:
+            return _fallback_params(league_name)
+
+        match_days = [m['days_ago'] for m in matches]
+        time_weights = calculate_time_weights(match_days)
+        result = fit_dixon_coles(matches, time_weights)
+
+        if result.get('success'):
+            result['league'] = league_name
+            result['updated_at'] = time.time()
+            result['distribution_type'] = _choose_distribution(matches)
+            cache[league_name] = result
+            save_cache(cache)
+            return result
+
+        return _fallback_params(league_name)
+
+    except Exception as e:
+        print(f"[GOALMODEL] Error fitting {league_name}: {e}")
+        return _fallback_params(league_name)
+
+
+def _fallback_params(league_name):
+    return {
+        'success': False,
+        'league': league_name,
+        'rho': -0.12,
+        'hfa': 0.25,
+        'mu': 0.13,
+        'attack': {},
+        'defense': {},
+        'distribution_type': 'poisson',
+        'updated_at': 0
+    }
+
+
+def _choose_distribution(matches):
+    goals = []
+    for m in matches:
+        goals.append(m['home_goals'])
+        goals.append(m['away_goals'])
+    if len(goals) < 4:
+        return 'poisson'
+    mean_g = np.mean(goals)
+    var_g = np.var(goals)
+    if mean_g <= 0:
+        return 'poisson'
+    vmr = var_g / mean_g
+    if vmr > 1.15:
+        return 'negbin'
+    elif vmr < 0.85:
+        return 'cmp'
+    return 'poisson'
+
+
+# ─── RANKED PROBABILITY SCORE (RPS) ──────────────────────────
+def calculate_rps(probs, outcome_idx):
+    p = np.array(probs, dtype=float)
+    obs = np.zeros(3, dtype=float)
+    obs[outcome_idx] = 1.0
+    cum_p = np.cumsum(p)
+    cum_obs = np.cumsum(obs)
+    return float(np.sum((cum_p[:2] - cum_obs[:2]) ** 2) / 2.0)
+
+
+def log_rps_to_accuracy_log(match_id, home_team, away_team, league_name,
+                            probs, actual_outcome, predicted_selection):
+    fpath = os.path.join(CACHE_DIR, 'accuracy_log.json')
+    entry = {
+        'matchId': match_id,
+        'match': f"{home_team} vs {away_team}",
+        'league': league_name,
+        'homeP': round(probs[0] * 100, 1),
+        'drawP': round(probs[1] * 100, 1),
+        'awayP': round(probs[2] * 100, 1),
+        'predicted': predicted_selection,
+        'rps': round(calculate_rps(probs, actual_outcome), 4),
+        'date': datetime.utcnow().isoformat()
+    }
+    try:
+        existing_data = {}
+        if os.path.exists(fpath):
+            with open(fpath, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+        rps_log = existing_data.get('rps_log', [])
+        rps_log.append(entry)
+        rps_log = rps_log[-5000:]
+        existing_data['rps_log'] = rps_log
+        with open(fpath, 'w', encoding='utf-8') as f:
+            json.dump(existing_data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+    return entry['rps']
+
+
+# ─── ENSEMBLE MONTE CARLO (Poisson / NegBin / CMP) ──────────
+def monte_carlo_simulation_goalmodel(xg_h, xg_a, distribution='poisson',
+                                     theta=2.0, nu=1.0, rho=-0.12, iterations=1000):
+    h_wins = 0
+    draws = 0
+    a_wins = 0
+    total_goals_list = []
+    btts_count = 0
+
+    cov = 0.15 * min(max(0.0, xg_h), max(0.0, xg_a))
+    base_h = max(0.0, xg_h - cov)
+    base_a = max(0.0, xg_a - cov)
+
+    if distribution == 'negbin':
+        p_success_h = theta / (theta + base_h) if base_h > 0 else 1.0
+        p_success_a = theta / (theta + base_a) if base_a > 0 else 1.0
+        n_success = theta
+        home_goals = np.random.negative_binomial(n_success, p_success_h, iterations)
+        away_goals = np.random.negative_binomial(n_success, p_success_a, iterations)
+    elif distribution == 'cmp':
+        def sample_cmp(lam, nu_val, max_k=25):
+            k = 0
+            while True:
+                k = min(k, max_k)
+                pk = cmp_pmf(lam, nu_val, k)
+                if pk <= 0:
+                    k = 0
+                    continue
+                if np.random.random() < pk:
+                    return k
+                k += 1
+        home_goals = np.array([sample_cmp(base_h, nu) for _ in range(iterations)])
+        away_goals = np.array([sample_cmp(base_a, nu) for _ in range(iterations)])
+    else:
+        home_goals = np.random.poisson(base_h, iterations)
+        away_goals = np.random.poisson(base_a, iterations)
+
+    shared_goals = np.random.poisson(cov, iterations)
+
+    for i in range(iterations):
+        gh = int(home_goals[i]) + int(shared_goals[i])
+        ga = int(away_goals[i]) + int(shared_goals[i])
+        if gh > ga:
+            h_wins += 1
+        elif gh < ga:
+            a_wins += 1
+        else:
+            draws += 1
+        total_goals_list.append(gh + ga)
+        if gh > 0 and ga > 0:
+            btts_count += 1
+
+    return {
+        "p_h": h_wins / iterations,
+        "p_d": draws / iterations,
+        "p_a": a_wins / iterations,
+        "avg_total_goals": float(np.mean(total_goals_list)),
+        "btts_prob": btts_count / iterations,
+        "ou_25_prob": sum(1 for g in total_goals_list if g > 2.5) / iterations,
+        "ou_15_prob": sum(1 for g in total_goals_list if g > 1.5) / iterations,
+        "ou_35_prob": sum(1 for g in total_goals_list if g > 3.5) / iterations
+    }
+
+
+def calculate_most_likely_score_goalmodel(xg_h, xg_a, distribution='poisson',
+                                          theta=2.0, nu=1.0, rho=-0.12):
+    best_score = (1, 1)
+    best_prob = -1.0
+    for h in range(8):
+        for a in range(8):
+            if distribution == 'negbin':
+                prob = negbin_pmf(xg_h, theta, h) * negbin_pmf(xg_a, theta, a)
+            elif distribution == 'cmp':
+                prob = cmp_pmf(xg_h, nu, h) * cmp_pmf(xg_a, nu, a)
+            else:
+                prob = poisson_pmf(xg_h, h) * poisson_pmf(xg_a, a)
+            prob *= get_dixon_coles_adjustment(xg_h, xg_a, h, a, rho)
+            if prob > best_prob:
+                best_prob = prob
+                best_score = (h, a)
+    return f"{best_score[0]} - {best_score[1]}"

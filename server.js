@@ -448,21 +448,75 @@ app.get('/api/leagues', async (req, res) => {
   try { res.json(await database.getAllLeaguesConfig()); } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ─── GoalModel MLE Fit (runs locally where data lives) ─────
+// ─── GoalModel MLE Fit (queries local DB, fits on FastAPI) ──
 app.post('/api/goalmodel/fit', async (req, res) => {
   try {
-    const { execSync } = require('child_process')
-    const pyScript = path.join(__dirname, 'core', 'fit_goalmodel.py')
-    const leagues = req.body?.leagues?.join(',') || 'all'
-    const result = execSync(`python "${pyScript}" "${leagues}"`, {
-      timeout: 180000,
-      maxBuffer: 10 * 1024 * 1024,
-      env: { ...process.env, PYTHONUNBUFFERED: '1' }
+    const Database = require('better-sqlite3')
+    const leagueFilter = req.body?.leagues || []
+
+    // Query local SQLite
+    let matchesData = {}
+    const dbFiles = [
+      path.join(__dirname, 'data', 'tactical.db'),
+      path.join(__dirname, 'data', 'historical_archive.sqlite')
+    ]
+    let db = null
+    for (const f of dbFiles) {
+      if (fs.existsSync(f)) { try { db = new Database(f); break } catch (e) {} }
+    }
+    if (db) {
+      const tables = ['historical_matches', 'matches']
+      for (const tbl of tables) {
+        const hasTbl = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tbl}'`).get()
+        if (!hasTbl) continue
+        const leagues = leagueFilter.length > 0
+          ? leagueFilter
+          : db.prepare(`SELECT league FROM ${tbl} WHERE scoreHome IS NOT NULL AND scoreHome > 0 AND scoreAway IS NOT NULL GROUP BY league HAVING COUNT(*) >= 5 ORDER BY COUNT(*) DESC LIMIT 50`).all().map(r => r.league)
+        for (const league of leagues) {
+          if (matchesData[league]) continue
+          const rows = db.prepare(
+            `SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp FROM ${tbl} WHERE league = ? AND scoreHome IS NOT NULL ORDER BY timestamp DESC LIMIT 200`
+          ).all(league)
+          if (rows.length >= 5) {
+            matchesData[league] = rows.map(r => ({
+              homeTeam: r.homeTeam, awayTeam: r.awayTeam,
+              scoreHome: r.scoreHome || 0, scoreAway: r.scoreAway || 0,
+              timestamp: r.timestamp || new Date().toISOString()
+            }))
+          }
+        }
+      }
+      db.close()
+    }
+
+    if (Object.keys(matchesData).length === 0) {
+      return res.json({ success: true, fitted: 0, total: 0, note: 'No match data found' })
+    }
+
+    // Send to FastAPI for fitting
+    const fastApiUrl = process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com'
+    const httpMod = fastApiUrl.startsWith('https') ? require('https') : require('http')
+    const body = JSON.stringify({ leagues: Object.keys(matchesData), matches_data: matchesData })
+
+    const result = await new Promise((resolve, reject) => {
+      const urlObj = new URL(fastApiUrl + '/goalmodel/fit')
+      const opts = {
+        hostname: urlObj.hostname, port: urlObj.port || 443, path: urlObj.pathname,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+        timeout: 180000
+      }
+      const req = httpMod.request(opts, (r) => {
+        let data = ''
+        r.on('data', chunk => data += chunk)
+        r.on('end', () => { try { resolve(JSON.parse(data)) } catch (e) { resolve({ raw: data }) } })
+      })
+      req.on('error', reject)
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')) })
+      req.write(body)
+      req.end()
     })
-    const output = result.stdout.toString().trim()
-    let parsed
-    try { parsed = JSON.parse(output) } catch (e) { parsed = { raw: output } }
-    res.json({ success: true, ...parsed })
+    res.json({ success: true, ...result })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
   }

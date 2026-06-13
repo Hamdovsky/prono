@@ -518,17 +518,22 @@ app.post('/api/goalmodel/fit', async (req, res) => {
     const body = JSON.stringify({ leagues: Object.keys(matchesData), matches_data: matchesData })
 
     const result = await new Promise((resolve, reject) => {
-      const urlObj = new URL(fastApiUrl + '/goalmodel/fit')
+      const urlObj = new URL(fastApiUrl.replace(/\/+$/, '') + '/goalmodel/fit')
       const opts = {
-        hostname: urlObj.hostname, port: urlObj.port || 443, path: urlObj.pathname,
+        hostname: urlObj.hostname, port: urlObj.port || 443, path: urlObj.pathname + urlObj.search,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-        timeout: 180000
+        timeout: 300000
       }
       const req = httpMod.request(opts, (r) => {
         let data = ''
         r.on('data', chunk => data += chunk)
-        r.on('end', () => { try { resolve(JSON.parse(data)) } catch (e) { resolve({ raw: data }) } })
+        r.on('end', () => {
+          if (r.statusCode >= 400) {
+            return resolve({ error: `HTTP ${r.statusCode}`, body: data })
+          }
+          try { resolve(JSON.parse(data)) } catch (e) { resolve({ raw: data, status: r.statusCode }) }
+        })
       })
       req.on('error', reject)
       req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')) })

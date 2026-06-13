@@ -133,7 +133,13 @@ class StatisticalEngine {
         } else {
             let ts = m.teamStats;
             if (typeof ts === 'string') { try { ts = JSON.parse(ts); } catch(_) { ts = null; } }
-            if (ts && typeof ts === 'object') {
+            const hasRealTeamStats = ts && typeof ts === 'object' && (
+                parseFloat(ts.home?.avgGoalsScored) > 0 ||
+                parseFloat(ts.away?.avgGoalsScored) > 0 ||
+                parseFloat(ts.home?.avgGoalsConceded) > 0 ||
+                parseFloat(ts.away?.avgGoalsConceded) > 0
+            );
+            if (ts && typeof ts === 'object' && hasRealTeamStats) {
                 const hs = ts.home || {};
                 const as = ts.away || {};
                 const hScored = parseFloat(hs.avgGoalsScored) || 0;
@@ -151,7 +157,7 @@ class StatisticalEngine {
                 else if (league.includes('ligue 1') || league.includes('france') || league.includes('national 1')) { baseH = 1.25; baseA = 1.05; }
                 else if (league.includes('women')) { baseH = 2.1; baseA = 1.8; }
                 else if (league.includes('misli') || league.includes('azerbaijan')) { baseH = 1.6; baseA = 1.1; }
-
+                
                 // Add slight randomization to prevent identical fallbacks (Titanium Noise V2)
                 const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '1';
                 let numHash = 0;
@@ -159,11 +165,9 @@ class StatisticalEngine {
                 
                 const noiseH = (numHash % 40 - 20) / 40; // -0.5 to +0.5
                 const noiseA = ((numHash * 3) % 40 - 20) / 40;
-
+                
                 xgH = ((hScored || (baseH + noiseH)) + (aConc || (baseA + noiseA))) / 2.0;
                 xgA = ((aScored || (baseA + noiseA - 0.2)) + (hConc || (baseH + noiseH))) / 2.0;
-                
-                if (!hScored && !aScored && !hConc && !aConc) m.insufficient_data = 1;
             } else {
                 const league = (m.league || '').toLowerCase();
                 const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '2';

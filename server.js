@@ -506,6 +506,16 @@ app.post('/api/goalmodel/fit', async (req, res) => {
             const d = new (require('better-sqlite3'))(f)
             const tables = d.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name)
             dbg.tables = tables
+            for (const tbl of tables) {
+              const cnt = d.prepare(`SELECT COUNT(*) as c FROM ${tbl}`).get().c
+              dbg[`${tbl}_rows`] = cnt
+              if (tbl === 'archive_matches') {
+                const scored = d.prepare("SELECT COUNT(*) as c FROM archive_matches WHERE scoreHome IS NOT NULL").get().c
+                dbg.archive_matches_with_scores = scored
+                const leagueCnt = d.prepare("SELECT tournament_name, COUNT(*) as c FROM archive_matches WHERE scoreHome IS NOT NULL GROUP BY tournament_name ORDER BY c DESC LIMIT 10").all()
+                dbg.archive_matches_leagues = leagueCnt
+              }
+            }
             d.close()
           } catch (e) { dbg.error = e.message }
         }

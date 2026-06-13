@@ -448,6 +448,26 @@ app.get('/api/leagues', async (req, res) => {
   try { res.json(await database.getAllLeaguesConfig()); } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// ─── GoalModel MLE Fit (runs locally where data lives) ─────
+app.post('/api/goalmodel/fit', async (req, res) => {
+  try {
+    const { execSync } = require('child_process')
+    const pyScript = path.join(__dirname, 'core', 'fit_goalmodel.py')
+    const leagues = req.body?.leagues?.join(',') || 'all'
+    const result = execSync(`python "${pyScript}" "${leagues}"`, {
+      timeout: 180000,
+      maxBuffer: 10 * 1024 * 1024,
+      env: { ...process.env, PYTHONUNBUFFERED: '1' }
+    })
+    const output = result.stdout.toString().trim()
+    let parsed
+    try { parsed = JSON.parse(output) } catch (e) { parsed = { raw: output } }
+    res.json({ success: true, ...parsed })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
 const publicPath = path.normalize(path.join(__dirname, 'dist'));
 // Serve static assets with cache, but never cache HTML files
 app.use(express.static(publicPath, {

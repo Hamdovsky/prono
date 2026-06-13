@@ -144,6 +144,39 @@ class CronManager {
             })
         }, { timezone: 'Africa/Tunis' });
 
+        // 12c. Weekly Dixon-Coles MLE GoalModel Fit (06:00 AM every Sunday)
+        cron.schedule('0 6 * * 0', async () => {
+            logger.info('📐 [CRON] Launching Weekly Dixon-Coles GoalModel MLE Fit...');
+            try {
+                const http = require('http')
+                const body = JSON.stringify({})
+                const opts = {
+                    hostname: '127.0.0.1', port: 5000, path: '/api/goalmodel/fit',
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+                    timeout: 300000
+                }
+                const result = await new Promise((resolve, reject) => {
+                    const req = http.request(opts, r => {
+                        let data = ''
+                        r.on('data', c => data += c)
+                        r.on('end', () => { try { resolve(JSON.parse(data)) } catch (e) { resolve({ raw: data }) } })
+                    })
+                    req.on('error', reject)
+                    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')) })
+                    req.write(body)
+                    req.end()
+                })
+                if (result?.success) {
+                    logger.info(`✅ [CRON] GoalModel fit started: ${result.total} leagues`)
+                } else {
+                    logger.warn(`⚠️ [CRON] GoalModel fit issue: ${JSON.stringify(result)}`)
+                }
+            } catch (e) {
+                logger.error(`❌ [CRON] GoalModel fit failed: ${e.message}`)
+            }
+        }, { timezone: 'Africa/Tunis' })
+
         // 13. [TITANIUM] Daily Surgical Dispatch (09:00 AM)
         cron.schedule('0 9 * * *', () => {
             logger.info('🚀 [CRON] Launching Daily Surgical Dispatch...');

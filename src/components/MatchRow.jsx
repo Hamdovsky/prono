@@ -30,113 +30,12 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     const bttsPct = Math.round(normalizePct(quantObj?.probs?.btts || pBTTS));
     const over25Pct = Math.round(normalizePct(quantObj?.probs?.over25 || pOU25));
 
-    const derivePreciseFTScore = (score) => {
-        const parsed = toScore(score);
-        if (!parsed) return score;
+    // derivePreciseFTScore removed – backend score is authoritative
 
-        let homeG = parsed.home;
-        let awayG = parsed.away;
-
-        if (homeG === awayG) {
-            // Draw
-            if (bttsPct >= 55) {
-                // Must be at least 1-1
-                homeG = Math.max(1, homeG);
-                awayG = Math.max(1, awayG);
-                if (over25Pct >= 55) {
-                    // Must be at least 2-2
-                    homeG = Math.max(2, homeG);
-                    awayG = Math.max(2, awayG);
-                }
-            } else if (bttsPct < 45) {
-                // No BTTS -> Must be 0-0
-                homeG = 0;
-                awayG = 0;
-            } else {
-                // Neutral BTTS
-                if (over25Pct >= 55) {
-                    homeG = Math.max(2, homeG);
-                    awayG = Math.max(2, awayG);
-                } else if (over25Pct < 45) {
-                    if (homeG > 1) {
-                        homeG = 1;
-                        awayG = 1;
-                    }
-                }
-            }
-        } else if (homeG > awayG) {
-            // Home Win
-            if (bttsPct >= 55) {
-                // Both must score -> awayG >= 1, and since home win, homeG >= 2
-                awayG = Math.max(1, awayG);
-                homeG = Math.max(awayG + 1, homeG);
-            } else if (bttsPct < 45) {
-                // No BTTS -> awayG must be 0
-                awayG = 0;
-                homeG = Math.max(1, homeG);
-                if (over25Pct >= 55) {
-                    homeG = Math.max(3, homeG);
-                } else if (over25Pct < 45) {
-                    if (homeG > 2) homeG = 2; // e.g. 2-0 is fine
-                }
-            } else {
-                // Neutral BTTS
-                if (over25Pct >= 55) {
-                    // homeG + awayG must be >= 3
-                    if (homeG + awayG < 3) {
-                        if (awayG > 0) homeG = 2; // 2-1
-                        else homeG = 3; // 3-0
-                    }
-                } else if (over25Pct < 45) {
-                    // homeG + awayG must be <= 2
-                    while (homeG + awayG > 2) {
-                        if (awayG > 0) awayG--;
-                        else homeG--;
-                    }
-                    if (homeG <= awayG) homeG = awayG + 1; // preserve home win
-                }
-            }
-        } else {
-            // Away Win (awayG > homeG)
-            if (bttsPct >= 55) {
-                // Both must score -> homeG >= 1, and since away win, awayG >= 2
-                homeG = Math.max(1, homeG);
-                awayG = Math.max(homeG + 1, awayG);
-            } else if (bttsPct < 45) {
-                // No BTTS -> homeG must be 0
-                homeG = 0;
-                awayG = Math.max(1, awayG);
-                if (over25Pct >= 55) {
-                    awayG = Math.max(3, awayG);
-                } else if (over25Pct < 45) {
-                    if (awayG > 2) awayG = 2; // e.g. 0-2 is fine
-                }
-            } else {
-                // Neutral BTTS
-                if (over25Pct >= 55) {
-                    // homeG + awayG must be >= 3
-                    if (homeG + awayG < 3) {
-                        if (homeG > 0) awayG = 2; // 1-2
-                        else awayG = 3; // 0-3
-                    }
-                } else if (over25Pct < 45) {
-                    // homeG + awayG must be <= 2
-                    while (homeG + awayG > 2) {
-                        if (homeG > 0) homeG--;
-                        else awayG--;
-                    }
-                    if (awayG <= homeG) awayG = homeG + 1; // preserve away win
-                }
-            }
-        }
-
-        return `${homeG} - ${awayG}`;
-    };
-
-    // Determine CS (AI Correct Score) — Poisson xG model
+    // Determine CS (AI Correct Score) — backend score is authoritative
     const getCS = () => {
         const quantScore = match.quant?.expected_score || enriched?.quant?.expected_score;
-        if (quantScore && quantScore.includes('-')) return derivePreciseFTScore(quantScore);
+        if (quantScore && quantScore.includes('-')) return quantScore;
 
         // Priority 1: explicit CS prediction from v22 engine
         if (match.v22_cs_prediction) {
@@ -152,7 +51,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
         if (es && es.includes('-')) {
             const [esH, esA] = es.split('-').map(s => parseInt(s.trim()));
             const isValidES = !isNaN(esH) && !isNaN(esA) && (esH + esA) > 0;
-            if (isValidES) return derivePreciseFTScore(es);
+            if (isValidES) return es;
         }
 
         // Priority 4: Poisson-style xG
@@ -214,7 +113,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
         return rawScore;
     };
 
-    const cs = derivePreciseFTScore(alignCSWithPick(rawCS, mainPick));
+    const cs = alignCSWithPick(rawCS, mainPick);
     // ─────────────────────────────────────────────────────────────────
 
     const ftSignal = (() => {

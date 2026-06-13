@@ -78,8 +78,8 @@ class CronManager {
         // 9. Combo Refresh (Every hour)
         cron.schedule('0 * * * *', () => socketService.refreshCombos());
 
-        // 10. Proactive Future Enrichment (01:00, 07:00, 13:00, 19:00) — try Account 2 worker first
-        cron.schedule('0 1,7,13,19 * * *', async () => {
+        // 10. Proactive Future Enrichment (every 4 hours) — try Account 2 worker first
+        cron.schedule('0 0,4,8,12,16,20 * * *', async () => {
             const result = await workerBridge.callWorker('enrich')
             if (!result?.success) {
                 await this.runProactiveEnrichment()
@@ -191,8 +191,8 @@ class CronManager {
             proc.on('close', code => logger.info(`✅ [CRON] Results Report finished (code ${code})`));
         }, { timezone: 'Africa/Tunis' });
 
-        // 15. [AUTOHEAL] Autopilot system patrol (Every 30 minutes)
-        cron.schedule('*/30 * * * *', () => {
+        // 15. [AUTOHEAL] Autopilot system patrol (Every 15 minutes) — includes stale xG detection & fix
+        cron.schedule('*/15 * * * *', () => {
             try {
                 const autoHealAgent = require('./autoHealAgent');
                 autoHealAgent.patrol();
@@ -307,15 +307,15 @@ class CronManager {
 
     async runProactiveEnrichment() {
         try {
-            logger.info('🧠 [CRON] Starting proactive 2-day enrichment cycle...');
+            logger.info('🧠 [CRON] Starting proactive 4-hour enrichment cycle...');
             const now = Date.now();
-            const twoDaysEnd = now + (2 * 24 * 60 * 60 * 1000);
+            const lookupEnd = now + (3 * 24 * 60 * 60 * 1000);
             
             // Get scheduled matches for the next 7 days
             const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
             const needsEnrichment = matches.filter(m => {
                 const ts = m.startTimestamp ? m.startTimestamp * 1000 : (m.timestamp ? new Date(m.timestamp).getTime() : 0);
-                const isFuture = ts > now - 3600000 && ts < twoDaysEnd;
+                const isFuture = ts > now - 3600000 && ts < lookupEnd;
                 const isStale = !m.home_win_probability || parseFloat(m.home_win_probability) === 0;
                 return isFuture && isStale;
             }).slice(0, 300); // 🚀 Increased from 50 to 300 to fulfill the "minimum 50" requirement across all markets

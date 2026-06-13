@@ -210,6 +210,9 @@ const redisMiddleware = async (req, res, next) => {
 // ── CORE API ENDPOINTS ─────────────────────────────────────────
 app.get('/health', (req, res) => {
   const circuitBreaker = require('./core/circuitBreaker');
+  const eloService = require('./services/eloRatingService');
+  const thetaOptimizer = require('./services/thetaOptimizer');
+  const thetaMap = thetaOptimizer.getOptimizedMap();
   res.json({ 
     status: 'ok', 
     uptime: process.uptime(),
@@ -225,6 +228,12 @@ app.get('/health', (req, res) => {
     services: {
       timescale: database.isConnected ? 'connected' : 'disconnected',
       redis: _redisClient.isReady ? 'ready' : 'connecting'
+    },
+    models: {
+      distribution: 'negative_binomial',
+      eloTeams: eloService.getAllRatings().length,
+      thetaLeagues: Object.keys(thetaMap).length,
+      thetaDefaults: '3.0-6.0 per league, auto-MLE on historical data'
     }
   });
 });
@@ -605,6 +614,42 @@ app.post('/api/goalmodel/callback', async (req, res) => {
     res.status(500).json({ success: false, error: e.message })
   }
 })
+
+// ─── Theta Optimizer: run MLE and return per-league NB dispersion params ──
+app.get('/api/theta/optimize', async (req, res) => {
+  try {
+    const thetaOptimizer = require('./services/thetaOptimizer');
+    const map = thetaOptimizer.getOptimizedMap();
+    res.json({ success: true, count: Object.keys(map).length, theta: map, note: 'theta = dispersion parameter for Negative Binomial (lower = more overdispersion)' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── Elo ratings ──
+app.get('/api/elo', async (req, res) => {
+  try {
+    const eloService = require('./services/eloRatingService');
+    const ratings = eloService.getAllRatings();
+    res.json({ success: true, count: ratings.length, ratings: ratings.slice(0, 100) });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/elo/update', async (req, res) => {
+  try {
+    const eloService = require('./services/eloRatingService');
+    const { homeTeam, awayTeam, scoreHome, scoreAway } = req.body;
+    if (!homeTeam || !awayTeam || scoreHome == null || scoreAway == null) {
+      return res.status(400).json({ success: false, error: 'homeTeam, awayTeam, scoreHome, scoreAway required' });
+    }
+    const result = eloService.updateRatings(homeTeam, awayTeam, scoreHome, scoreAway);
+    res.json({ success: true, ...result });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
 
 const publicPath = path.normalize(path.join(__dirname, 'dist'));
 // Serve static assets with cache, but never cache HTML files

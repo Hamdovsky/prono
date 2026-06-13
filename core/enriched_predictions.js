@@ -278,13 +278,29 @@ class EnrichedPredictionService {
             quantum: quantResult
         }
 
-        // Python/FastAPI optional enrichment (ne remplace PAS les valeurs JS)
+        // Gemma 4 (local) tactical briefing enrichment
+        try {
+            const Gemma4Service = require('./services/gemma4Service');
+            const briefing = await Gemma4Service.analyzePreMatchVIP(match);
+            if (briefing) {
+                result.tactical_brief = briefing.match_overview;
+                result.deep_analysis = {
+                    match_overview: briefing.match_overview,
+                    tactical_keyup: briefing.tactical_keyup,
+                    motivation_verdict: briefing.motivation_verdict,
+                    exact_score_prediction: briefing.exact_score_prediction,
+                    risk_mitigation: briefing.risk_mitigation
+                };
+            }
+        } catch (e) {
+            // Gemma 4 down — pas grave, JS suffit
+        }
+
+        // Python/FastAPI optional enrichment (legacy fallback)
         try {
             const py = await this.pythonService.predict(match, timeoutMs || 180000);
             if (py && py.success !== false) {
                 result.python_enriched = true;
-                if (py.tactical_brief) result.tactical_brief = py.tactical_brief;
-                if (py.deep_analysis) result.deep_analysis = py.deep_analysis;
             }
         } catch (e) {
             // Python down — pas grave, JS suffit
@@ -425,30 +441,83 @@ class EnrichedPredictionService {
     async fastEnrichMatch(match) {
         try {
             const m = { ...match };
-
-            // ── BSD XG FETCH ──
-            // If match lacks real xG data, try to fetch from BSD prediction API
+            // ── EXTERNAL XG FETCH ──
+            // Try multiple external sources when DB xG is missing or stale
             const hasRealXg = parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5;
-            if (!hasRealXg && m.bsd_match_id) {
-                try {
-                    const bsdService = require('../services/bsdService');
-                    if (bsdService.isAvailable()) {
-                        const pred = await bsdService.fetchPredictions(m.bsd_match_id);
-                        if (pred && pred.xg) {
-                            m.home_xg = pred.xg.home || m.home_xg;
-                            m.away_xg = pred.xg.away || m.away_xg;
+            if (!hasRealXg) {
+                // 1. Sofascore xG (High accuracy, free)
+                if (m.sofascore_id) {
+                    try {
+                        const sofaXgSvc = require('../services/sofascoreXgService');
+                        const sofaData = await sofaXgSvc.fetchMatchXg(m.sofascore_id);
+                        if (sofaData) {
+                            m.home_xg = sofaData.home_xg || m.home_xg;
+                            m.away_xg = sofaData.away_xg || m.away_xg;
                         }
-                    }
-                } catch (_) { /* BSD prediction fetch failed — proceed with fallback */ }
+                    } catch (_) { /* Sofascore fetch failed */ }
+                }
+
+                // 2. BSD prediction API (via bsd_match_id)
+                if (!(parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5) && m.bsd_match_id) {
+                    try {
+                        const bsdService = require('../services/bsdService');
+                        if (bsdService.isAvailable()) {
+                            const pred = await bsdService.fetchPredictions(m.bsd_match_id);
+                            if (pred && pred.xg) {
+                                m.home_xg = pred.xg.home || m.home_xg;
+                                m.away_xg = pred.xg.away || m.away_xg;
+                            }
+                        }
+                    } catch (_) { /* BSD prediction fetch failed */ }
+                }
+
+                // 3. API-Football predictions (via fixtureId in fullData)
+                if (!(parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5)) {
+                    try {
+                        const fd = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : (m.fullData || {})
+                        const fixtureId = fd.fixtureId
+                        if (fixtureId) {
+                            const afService = require('../services/apifootballService');
+                            if (afService.isAvailable()) {
+                                const preds = await afService.fetchPredictions(fixtureId);
+                                if (preds && preds.length > 0 && preds[0].predictions) {
+                                    const p = preds[0].predictions
+                                    if (p.goals_home != null) m.home_xg = parseFloat(p.goals_home) || m.home_xg
+                                    if (p.goals_away != null) m.away_xg = parseFloat(p.goals_away) || m.away_xg
+                                }
+                            }
+                        }
+                    } catch (_) { /* API-Football prediction fetch failed */ }
+                }
+
+                // 4. Big Balls Data stats (via bigballs.matchId in fullData)
+                if (!(parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5)) {
+                    try {
+                        const fd = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : (m.fullData || {})
+                        const bbMatchId = fd.bigballs?.matchId
+                        if (bbMatchId) {
+                            const bbsService = require('../services/bigBallsDataService');
+                            if (bbsService.isAvailable()) {
+                                const stats = await bbsService.getMatchStats(bbMatchId);
+                                if (stats) {
+                                    const xgH = stats.h2h?.home?.xg || stats.team?.home?.xg || stats.home_xg
+                                    const xgA = stats.h2h?.away?.xg || stats.team?.away?.xg || stats.away_xg
+                                    if (xgH != null && xgH > 0.1) m.home_xg = xgH
+                                    if (xgA != null && xgA > 0.1) m.away_xg = xgA
+                                }
+                            }
+                        }
+                    } catch (_) { /* Big Balls Data stats fetch failed */ }
+                }
             }
 
             // ── 1. QUANTUM QUANT ANALYSIS ──
             let { h: xgH, a: xgA } = this._getMatchXG(m);
             const quantResult = QuantumQuantEngine.analyze(m, xgH, xgA);
-
             // ── 2. FINAL ASSEMBLY ──
             const resultData = {
                 ...m,
+
                 success: true,
                 ai_source: 'TITANIUM_QUANT_V4',  // V4 = Edge Hunter Intelligence
                 expected_score: quantResult.expected_score,
@@ -494,6 +563,21 @@ class EnrichedPredictionService {
                     }))
                 }
             };
+
+            // Gemma 4 tactical briefing (fire-and-forget — non-blocking)
+            const g4Service = require('../services/gemma4Service')
+            g4Service.analyzePreMatchVIP(m).then(briefing => {
+                if (briefing) {
+                    resultData.tactical_brief = briefing.match_overview;
+                    resultData.deep_analysis = {
+                        match_overview: briefing.match_overview,
+                        tactical_keyup: briefing.tactical_keyup,
+                        motivation_verdict: briefing.motivation_verdict,
+                        exact_score_prediction: briefing.exact_score_prediction,
+                        risk_mitigation: briefing.risk_mitigation
+                    };
+                }
+            }).catch(() => {})
 
             return resultData;
         } catch (err) {

@@ -14,48 +14,48 @@
  */
 
 // ── Constants ───────────────────────────────────────────────────
-const KELLY_FRACTION  = 0.25;   // fractional Kelly multiplier (1/4)
-const MIN_EDGE_VALUE  = 5.0;    // min edge % to flag as value (User threshold)
-const MIN_ODDS_VALUE  = 1.10;   // allow shorter odds
-const MAX_KELLY_PCT   = 10.0;   // cap recommended stake at 10%
+const KELLY_FRACTION  = 0.25;
+const MIN_EDGE_VALUE  = 5.0;
+const MIN_ODDS_VALUE  = 1.10;
+const MAX_KELLY_PCT   = 10.0;
+
+const QuantService = require('../../services/quantService')
 
 // ── Helpers ─────────────────────────────────────────────────────
 
-/**
- * rawImplied(odds) — basic raw implied probability without margin removal.
- * @param {number} odds - decimal odds (e.g. 1.85)
- * @returns {number} probability 0–100
- */
 function rawImplied(odds) {
     if (!odds || odds <= 1) return 0;
     return (1 / odds) * 100;
 }
 
-/**
- * deVig(home, draw, away) — remove bookmaker margin.
- * Returns fair implied probabilities that sum to 100.
- * @returns {{ home, draw, away, margin }} all in %
- */
 function deVig(homeOdds, drawOdds, awayOdds) {
-    const rawH = rawImplied(homeOdds);
-    const rawD = rawImplied(drawOdds) || 0;
-    const rawA = rawImplied(awayOdds);
-
-    const overround = rawH + rawD + rawA; // typically 105–108%
-    const margin    = overround - 100;
-
-    if (overround <= 0) return { home: 33.3, draw: 33.3, away: 33.3, margin: 0 };
-
-    const fairH = (rawH / overround) * 100;
-    const fairD = drawOdds ? (rawD / overround) * 100 : 0;
-    const fairA = (rawA / overround) * 100;
-
-    return {
-        home: parseFloat(fairH.toFixed(2)),
-        draw: parseFloat(fairD.toFixed(2)),
-        away: parseFloat(fairA.toFixed(2)),
-        margin: parseFloat(margin.toFixed(2))
-    };
+    const odds = [homeOdds, drawOdds, awayOdds].filter(Boolean)
+    if (odds.length < 2) {
+        const rawH = rawImplied(homeOdds)
+        const rawD = rawImplied(drawOdds) || 0
+        const rawA = rawImplied(awayOdds)
+        const overround = rawH + rawD + rawA
+        if (overround <= 0) return { home: 33.3, draw: 33.3, away: 33.3, margin: 0 }
+        return {
+            home: parseFloat(((rawH / overround) * 100).toFixed(2)),
+            draw: parseFloat(((rawD / overround) * 100).toFixed(2)),
+            away: parseFloat(((rawA / overround) * 100).toFixed(2)),
+            margin: parseFloat((overround - 100).toFixed(2))
+        }
+    }
+    const shinProbs = QuantService.removeMarginShin(odds)
+    const allOdds = [homeOdds, drawOdds, awayOdds]
+    let idx = 0
+    const result = { home: 33.3, draw: 33.3, away: 33.3, margin: 0 }
+    const rawSum = allOdds.reduce((s, o) => s + (o ? rawImplied(o) : 0), 0)
+    if (rawSum > 0) result.margin = parseFloat((rawSum - 100).toFixed(2))
+    const keys = ['home', 'draw', 'away']
+    for (let i = 0; i < 3; i++) {
+        if (allOdds[i]) {
+            result[keys[i]] = parseFloat((shinProbs[idx++] * 100).toFixed(2))
+        }
+    }
+    return result
 }
 
 /**

@@ -4,6 +4,13 @@
 # Services : FastAPI (ML) + Scraper Worker (HTTP)
 # ─────────────────────────────────────────────────────────
 
+notifications:
+  - type: email
+    to: hamdi@example.com  # ← Remplace par ton email Render
+    events:
+      - deploy_failure
+      - service_down
+
 services:
   # ── Python FastAPI Inference ────────────────────────────
   - type: web

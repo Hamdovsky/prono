@@ -157,19 +157,31 @@ async function runReport(db, offset, label) {
             let aiPreview = null
             let provider = ''
 
-            // Try Bluesminds first (free, unlimited)
+            // 1. Try Gemma 4 (local Ollama — free, instant, no quota)
             try {
-                const BluesmindsService = require('../services/bluesmindsService')
-                if (BluesmindsService.isAvailable()) {
-                    console.log(`🧠 [BLUESMINDS] Generating VIP preview for Top ${rank}: ${item.match.homeTeam} vs ${item.match.awayTeam}`)
-                    aiPreview = await BluesmindsService.analyzePreMatchVIP(aiData)
-                    if (aiPreview) provider = 'Bluesminds AI'
-                }
-            } catch (bsErr) {
-                console.error(`⚠️ [BLUESMINDS] VIP Analysis failed: ${bsErr.message}`)
+                const Gemma4Service = require('../services/gemma4Service')
+                console.log(`🧠 [GEMMA4] Generating VIP preview for Top ${rank}: ${item.match.homeTeam} vs ${item.match.awayTeam}`)
+                aiPreview = await Gemma4Service.analyzePreMatchVIP(aiData)
+                if (aiPreview) provider = 'Gemma 4 (Local)'
+            } catch (g4Err) {
+                console.error(`⚠️ [GEMMA4] VIP Analysis failed: ${g4Err.message}`)
             }
 
-            // Fallback to DeepSeek/Groq
+            // 2. Try Bluesminds second (free, unlimited, cloud)
+            if (!aiPreview) {
+                try {
+                    const BluesmindsService = require('../services/bluesmindsService')
+                    if (BluesmindsService.isAvailable()) {
+                        console.log(`🧠 [BLUESMINDS] Generating VIP preview for Top ${rank}: ${item.match.homeTeam} vs ${item.match.awayTeam}`)
+                        aiPreview = await BluesmindsService.analyzePreMatchVIP(aiData)
+                        if (aiPreview) provider = 'Bluesminds AI'
+                    }
+                } catch (bsErr) {
+                    console.error(`⚠️ [BLUESMINDS] VIP Analysis failed: ${bsErr.message}`)
+                }
+            }
+
+            // 3. Fallback to DeepSeek/Groq (quota limited)
             if (!aiPreview) {
                 try {
                     const DeepSeekService = require('../services/DeepSeekService')

@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS team_registry (
     name TEXT UNIQUE NOT NULL,
     normalized TEXT NOT NULL,
     league TEXT,
-    last_seen INTEGER
+    last_seen BIGINT
 );
 CREATE INDEX IF NOT EXISTS idx_team_registry_normalized ON team_registry(normalized);
 
@@ -394,6 +394,15 @@ async function runMigrations() {
       }
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] fullData rename skipped: ${e.message}`)
+    }
+
+    // Fix last_seen column type: INTEGER → BIGINT (Date.now() exceeds INT4 max)
+    try {
+      await query(`ALTER TABLE team_registry ALTER COLUMN last_seen TYPE BIGINT`)
+      logger.info('[PG MIGRATIONS] team_registry.last_seen migrated to BIGINT')
+    } catch (e) {
+      // Already BIGINT or column doesn't exist — safe to ignore
+      logger.info(`[PG MIGRATIONS] last_seen BIGINT migration skipped: ${e.message}`)
     }
 
     return { applied: 1, skipped: false }

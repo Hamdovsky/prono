@@ -48,7 +48,9 @@ class QuantumQuantEngine {
             edge_score: ranked.secondary.edge.toFixed(2),
             risk_label: this._getRiskLabel(ranked.main.prob),
             expected_score: StatisticalEngine.findMostProbableScore(xgHadj, xgAadj, { rho: gmParams.rho, gamma: gmParams.gamma }),
-            confidence: Math.round(ranked.main.prob * 100),
+            confidence: m.insufficient_data === 1 
+                ? Math.round(ranked.main.prob * 70) // Pénalité de 30% si données faibles
+                : Math.round(ranked.main.prob * 100),
             bsd_boosted: ranked.bsd_boosted || false,
             momentum: {
                 home: MomentumEngine.getTrend(m.homeTeam),

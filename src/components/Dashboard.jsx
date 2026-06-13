@@ -610,23 +610,23 @@ const Dashboard = () => {
         const SURGICAL_MIN_CONF = 60; // Lowered from 65 to be more inclusive
         const SURGICAL_MAX_CHAOS = 9; // Increased from 8
 
-        const isSurgicalQualified = (m) => {
-            const conf = getConf(m);
-            const chaos = Math.round((m.chaos_score || m.chaos_level || 50) / 10);
-            const hasTrap = m.isTrap || m.enriched?.isTrap || false;
-            const quant = m.quant || (m.enriched && m.enriched.quant);
-            
-            // Institutional Quant Filter
-            if (quant && (quant.risk_label === 'SAFE' || quant.risk_label === 'EXTREME VALUE')) return true;
+    const isSurgicalQualified = (m) => {
+        const conf = getConf(m);
+        const chaos = Math.round((m.chaos_score || m.chaos_level || 50) / 10);
+        const hasTrap = m.isTrap || m.enriched?.isTrap || false;
+        const quant = m.quant || (m.enriched && m.enriched.quant);
+        
+        // 1. STRICT QUANT FILTER
+        if (quant && (quant.risk_label === 'SAFE' || quant.risk_label === 'EXTREME VALUE')) return true;
 
-            const prob = Math.max(
-                parseFloat(m.home_win_probability || 0),
-                parseFloat(m.away_win_probability || 0)
-            );
-            
-            // Legacy Behavioral Filter
-            return conf >= SURGICAL_MIN_CONF && !hasTrap && chaos <= SURGICAL_MAX_CHAOS && (conf >= 65 || prob >= 45);
-        };
+        const prob = Math.max(
+            parseFloat(m.home_win_probability || 0),
+            parseFloat(m.away_win_probability || 0)
+        );
+        
+        // 2. SURGICAL REQUIREMENTS: High Confidence, No Trap, Low Chaos, and REAL DATA
+        return conf >= 75 && !hasTrap && chaos <= 7 && prob >= 55 && m.insufficient_data !== 1;
+    };
 
         const millionaireMatches = sortedMatches
             .filter(m => {
@@ -770,9 +770,9 @@ const Dashboard = () => {
                         🎯 MODE CHIRURGICAL {surgicalMode ? 'ON' : 'OFF'}
                     </button>
                     {surgicalMode && (
-                        <span style={{ fontSize: '13px', color: '#00ffaa', fontWeight: '600', opacity: 0.9 }}>
-                            ✅ {surgicalCount} pronostic{surgicalCount !== 1 ? 's' : ''} sûr{surgicalCount !== 1 ? 's' : ''} &nbsp;·&nbsp; ACC ≥ 72% &nbsp;·&nbsp; Sans piège &nbsp;·&nbsp; Données complètes
-                        </span>
+                            <span style={{ fontSize: '13px', color: '#00ffaa', fontWeight: '600', opacity: 0.9 }}>
+                                ✅ {surgicalCount} pronostic{surgicalCount !== 1 ? 's' : ''} sûr{surgicalCount !== 1 ? 's' : ''} &nbsp;·&nbsp; ACC ≥ 75% &nbsp;·&nbsp; Sans piège &nbsp;·&nbsp; Données Réelles
+                            </span>
                     )}
                     {!surgicalMode && (
                         <span style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>

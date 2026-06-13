@@ -7,7 +7,7 @@ const enrichedPredictions = require('../core/enriched_predictions');
 
 describe('EnrichedPredictions', () => {
   describe('fastEnrichMatch()', () => {
-    it('should enrich a match with AI predictions', () => {
+    it('should enrich a match with AI predictions', async () => {
       const match = {
         id: 'match-1',
         homeTeam: 'Barcelona',
@@ -20,7 +20,7 @@ describe('EnrichedPredictions', () => {
         btts_prob: null
       };
 
-      const enriched = enrichedPredictions.fastEnrichMatch(match);
+      const enriched = await enrichedPredictions.fastEnrichMatch(match);
 
       expect(enriched).toBeDefined();
       expect(enriched).toHaveProperty('home_win_probability');
@@ -30,7 +30,7 @@ describe('EnrichedPredictions', () => {
       expect(enriched).toHaveProperty('enriched');
     });
 
-    it('should preserve original match data', () => {
+    it('should preserve original match data', async () => {
       const original = {
         id: 'match-2',
         homeTeam: 'PSG',
@@ -39,7 +39,7 @@ describe('EnrichedPredictions', () => {
         customField: 'custom-value'
       };
 
-      const enriched = enrichedPredictions.fastEnrichMatch(original);
+      const enriched = await enrichedPredictions.fastEnrichMatch(original);
 
       // Original properties should exist on enriched object
       expect(enriched.customField).toBe('custom-value');
@@ -47,7 +47,7 @@ describe('EnrichedPredictions', () => {
       expect(enriched.home_win_probability).toBeDefined();
     });
 
-    it('should not override existing probabilities if they exist', () => {
+    it('should recalculate probabilities from engine (not preserve stale values)', async () => {
       const match = {
         id: 'match-3',
         homeTeam: 'Bayern',
@@ -57,22 +57,23 @@ describe('EnrichedPredictions', () => {
         away_win_probability: 8.0
       };
 
-      const enriched = enrichedPredictions.fastEnrichMatch(match);
+      const enriched = await enrichedPredictions.fastEnrichMatch(match);
 
-      // Existing probabilities should be preserved
-      expect(enriched.home_win_probability).toBe(80.0);
-      expect(enriched.draw_probability).toBe(12.0);
-      expect(enriched.away_win_probability).toBe(8.0);
+      // Engine recalculates everything — existing values are replaced
+      expect(enriched.home_win_probability).toBeDefined();
+      expect(enriched.home_win_probability).not.toBe(80.0);
+      expect(enriched.expected_score).toBeDefined();
+      expect(enriched.expected_score).toMatch(/\d+\s*-\s*\d+/);
     });
 
-    it('should generate expected score', () => {
+    it('should generate expected score', async () => {
       const match = {
         id: 'match-4',
         homeTeam: 'Liverpool',
         awayTeam: 'Chelsea'
       };
 
-      const enriched = enrichedPredictions.fastEnrichMatch(match);
+      const enriched = await enrichedPredictions.fastEnrichMatch(match);
       
       expect(enriched.expected_score).toBeDefined();
       expect(typeof enriched.expected_score).toBe('string');

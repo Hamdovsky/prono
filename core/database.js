@@ -263,7 +263,7 @@ function initSchema() {
                 name       TEXT UNIQUE NOT NULL,
                 normalized TEXT NOT NULL,
                 league     TEXT,
-                last_seen  INTEGER
+                last_seen  BIGINT
             );
             CREATE INDEX IF NOT EXISTS idx_team_registry_normalized ON team_registry(normalized);
 

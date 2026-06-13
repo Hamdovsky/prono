@@ -1,12 +1,34 @@
+envVarGroups:
+  - name: prono-database
+    envVars:
+      - key: SUPABASE_URL
+        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
+
+notifications:
+  - type: email
+    to: hamdi@example.com  # ← Remplace par ton email Render
+    events:
+      - deploy_failure
+      - service_down
+  - type: slack
+    webhookUrl: https://hooks.slack.com/services/...  # ← Optionnel, à configurer depuis le Dashboard
+    events:
+      - deploy
+      - deploy_failure
+
 services:
   # ── Node.js Web App (Compte 1) ──────────────────────────
   - type: web
     name: prono
     env: node
     plan: free
+    healthCheckPath: /health
     buildCommand: PUPPETEER_SKIP_DOWNLOAD=true npm install && npm run build
     startCommand: node --expose-gc --max-old-space-size=256 server.js
     envVars:
+      - fromGroup: prono-database
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
@@ -19,10 +41,6 @@ services:
         value: https://prono-scraper.onrender.com
       - key: VITE_API_URL
         value: https://prono-k6gc.onrender.com
-      - key: SUPABASE_URL
-        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
-      - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_sYcm9EnGq8fu@ep-green-firefly-ap7belpw-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require
       - key: HTTP_SCRAPER_ENABLED
         value: "true"
       - key: PUPPETEER_SKIP_DOWNLOAD

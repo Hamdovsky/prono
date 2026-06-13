@@ -23,6 +23,6 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/__tests__/setup.js'],
   testTimeout: 30000,
   maxWorkers: 2,
-  modulePathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/SofascoreScraping/'],
+  modulePathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/SofascoreScraping/', '<rootDir>/\.kilo/'],
   verbose: true
 };

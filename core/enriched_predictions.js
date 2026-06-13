@@ -521,11 +521,21 @@ class EnrichedPredictionService {
         const { fastMode = true, force = false } = options;
         
         // ✅ NE PAS RÉENRICHIR LES MATCHS DÉJÀ ENRICHIS (sauf force=true)
+        // On détecte les scores "1-0" / "0-1" comme possiblement stalés et on les réenrichit
+        const isStaleScore = (s) => {
+            if (!s || s === '1 - 1') return false
+            const parts = s.split(' - ').map(Number)
+            if (parts.length !== 2) return false
+            const [h, a] = parts
+            // Un score 1-0 ou 0-1 avec un FT<45% est suspect (manque de diversité)
+            if (h + a <= 1) return true
+            return false
+        }
         const needsEnrichment = force ? matches : matches.filter(m => 
             !m.home_win_probability || 
             m.home_win_probability === 0 || 
             !m.expected_score || 
-            !m.expected_score
+            isStaleScore(m.expected_score)
         );
         
         const alreadyEnriched = matches.filter(m => !needsEnrichment.includes(m));

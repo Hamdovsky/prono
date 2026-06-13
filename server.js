@@ -358,6 +358,28 @@ app.post('/api/predict', async (req, res) => {
   }
 });
 
+app.post('/api/re-enrich', async (req, res) => {
+  try {
+    const database = require('./core/database');
+    const enrichedPredictions = require('./core/enriched_predictions');
+    const matches = await database.getMatchesByStatus('scheduled');
+    logger.info(`🔄 [RE-ENRICH] Force re-enriching ${matches.length} matches with JS engine...`);
+    const enriched = await enrichedPredictions.enrichMatches(matches, { fastMode: true, force: true });
+    let updated = 0;
+    for (const m of enriched) {
+      if (m.expected_score) {
+        await database.updatePredictions(m.id, m);
+        updated++;
+      }
+    }
+    logger.info(`✅ [RE-ENRICH] Updated ${updated}/${matches.length} matches`);
+    res.json({ success: true, total: matches.length, updated });
+  } catch (err) {
+    logger.error('❌ [RE-ENRICH] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/config', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const newConfig = req.body;

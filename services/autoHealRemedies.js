@@ -409,6 +409,40 @@ class AutoHealRemedies {
       },
 
       {
+        id: 'stale_xg_data',
+        severity: 'warning',
+        description: 'Matches with stale xG (<0.5) from old fatigue bug — need re-enrich',
+        check: async () => {
+          try {
+            const database = require('../core/database')
+            const stale = database.db.prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','NS') AND home_xg IS NOT NULL AND home_xg > 0.1 AND home_xg < 0.5").get()
+            if (stale.c > 0) return { detected: true, detail: `${stale.c} matches with stale xG (<0.5)` }
+            return { detected: false }
+          } catch (e) {
+            return { detected: false }
+          }
+        },
+        fix: async () => {
+          try {
+            const database = require('../core/database')
+            const enrichedPredictions = require('../core/enriched_predictions')
+            const stale = database.db.prepare("SELECT * FROM matches WHERE status IN ('scheduled','NS') AND home_xg IS NOT NULL AND home_xg > 0.1 AND home_xg < 0.5").all()
+            const enriched = await enrichedPredictions.enrichMatches(stale, { fastMode: true, force: true })
+            let updated = 0
+            for (const m of enriched) {
+              if (m.expected_score) {
+                await database.updatePredictions(m.id, m)
+                updated++
+              }
+            }
+            return { success: true, detail: `Re-enriched ${updated}/${stale.length} stale matches` }
+          } catch (e) {
+            return { success: false, detail: e.message }
+          }
+        }
+      },
+
+      {
         id: 'error_log_burst',
         severity: 'warning',
         description: 'High error rate detected in logs',

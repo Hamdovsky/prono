@@ -171,8 +171,9 @@ class GoalModelFitRequest(BaseModel):
 def _fit_one_league(league, raw_matches, callback_url=None):
     """Run MLE for a single league (called in background thread)."""
     try:
-        from goal_model import _choose_distribution, fit_dixon_coles, calculate_time_weights
-        from goal_model import save_cache, load_cache
+        from goal_model import (_choose_distribution, fit_dixon_coles,
+                                fit_rue_salvesen, fit_two_step, fit_base_poisson,
+                                calculate_time_weights, save_cache, load_cache)
         from datetime import datetime
         import urllib.request
 
@@ -201,7 +202,13 @@ def _fit_one_league(league, raw_matches, callback_url=None):
 
         match_days = [m['days_ago'] for m in matches]
         time_weights = calculate_time_weights(match_days)
-        result = fit_dixon_coles(matches, time_weights)
+
+        # Try two-step DC first (most stable), fallback to full DC, then RS
+        result = fit_two_step(matches, time_weights, second_step='dc')
+        if not result.get('success'):
+            result = fit_dixon_coles(matches, time_weights)
+        if not result.get('success'):
+            result = fit_rue_salvesen(matches, time_weights)
 
         if result.get('success'):
             result['league'] = league
@@ -210,8 +217,10 @@ def _fit_one_league(league, raw_matches, callback_url=None):
             cache = load_cache()
             cache[league] = result
             save_cache(cache)
-            print(f"[GOALMODEL] Fitted {league}: rho={result['rho']:.4f}, dist={result['distribution_type']}")
-            # POST results back to main server for DB persistence
+            if 'rho' in result:
+                print(f"[GOALMODEL] Fitted {league}: rho={result['rho']:.4f}, model={result.get('model','?')}")
+            if 'gamma' in result:
+                print(f"[GOALMODEL] Fitted {league}: gamma={result['gamma']:.4f}, model={result.get('model','?')}")
             _post_results_callback(callback_url, result)
         else:
             print(f"[GOALMODEL] {league}: fit failed: {result.get('error')}")
@@ -231,6 +240,8 @@ def _post_results_callback(url, result):
             'mu': result.get('mu', 0.13),
             'hfa': result.get('hfa', 0.25),
             'rho': result.get('rho', -0.12),
+            'gamma': result.get('gamma', 0.0),
+            'model': result.get('model', 'poisson'),
             'distribution_type': result.get('distribution_type', 'poisson'),
             'num_matches': result.get('num_matches', 0),
             'teams': result.get('teams', []),

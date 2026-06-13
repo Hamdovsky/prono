@@ -82,14 +82,107 @@ def get_dixon_coles_adjustment(lh, la, h, a, rho):
     return 1.0
 
 
-# ─── MLE: DIXON-COLES PARAMETER FITTING ───────────────────────
-def fit_dixon_coles(matches, time_weights=None):
+# ─── RUE-SALVESEN ADJUSTMENT ──────────────────────────────────
+def get_rue_salvesen_lambda(mu, hfa, att_h, deff_h, att_a, deff_a, gamma):
+    """Return (λ_home, λ_away) adjusted by Rue-Salvesen (2001)."""
+    log_lh = mu + hfa + att_h - deff_a
+    log_la = mu + att_a - deff_h
+    delta = (att_h + deff_h - att_a - deff_a) / 2.0
+    log_lh_adj = log_lh - gamma * delta
+    log_la_adj = log_la + gamma * delta
+    return math.exp(min(log_lh_adj, 10.0)), math.exp(min(log_la_adj, 10.0))
+
+
+# ─── CORE NEGATIVE LOG-LIKELIHOOD ─────────────────────────────
+def _nll_base(params, matches, time_weights, num_teams, team_map,
+              mu_fixed=None, hfa_fixed=None, rho_fixed=None, gamma_fixed=None,
+              att_fixed=None, deff_fixed=None):
+    """Flexible NLL that handles fixed params by shifting indices."""
+    idx = 0
+    mu = mu_fixed if mu_fixed is not None else params[idx]; idx += 0 if mu_fixed is not None else 1
+    hfa = hfa_fixed if hfa_fixed is not None else params[idx]; idx += 0 if hfa_fixed is not None else 1
+    rho = rho_fixed if rho_fixed is not None else params[idx]; idx += 0 if rho_fixed is not None else 1
+    gamma = gamma_fixed if gamma_fixed is not None else params[idx]; idx += 0 if gamma_fixed is not None else 1
+
+    use_dc = rho_fixed is None
+    use_rs = gamma_fixed is None
+
+    att = np.zeros(num_teams)
+    deff = np.zeros(num_teams)
+    for i in range(num_teams):
+        att[i] = att_fixed[i] if att_fixed is not None else params[idx + i]
+        deff[i] = deff_fixed[i] if deff_fixed is not None else params[idx + num_teams + i]
+
+    log_like = 0.0
+    for i, m in enumerate(matches):
+        h_idx = team_map[m['home']]
+        a_idx = team_map[m['away']]
+        hg = m['home_goals']
+        ag = m['away_goals']
+        w = time_weights[i] if i < len(time_weights) else 1.0
+
+        if use_rs:
+            lh, la = get_rue_salvesen_lambda(mu, hfa, att[h_idx], deff[h_idx],
+                                              att[a_idx], deff[a_idx], gamma)
+        else:
+            log_lh = mu + hfa + att[h_idx] - deff[a_idx]
+            log_la = mu + att[a_idx] - deff[h_idx]
+            lh = math.exp(min(log_lh, 10.0))
+            la = math.exp(min(log_la, 10.0))
+
+        p_hg = poisson_pmf(lh, hg)
+        p_ag = poisson_pmf(la, ag)
+        adj = get_dixon_coles_adjustment(lh, la, hg, ag, rho) if use_dc else 1.0
+
+        prob = p_hg * p_ag * adj
+        if prob > 1e-15:
+            log_like += w * math.log(prob)
+        else:
+            log_like -= 100.0 * w
+
+    return -log_like
+
+
+# ─── MLE: BASE POISSON (no adjustment) ────────────────────────
+def fit_base_poisson(matches, time_weights=None):
+    """Fit the base Poisson model (mu, hfa, attack, defense). No DC/RS."""
     if not _HAS_SCIPY:
         return {'success': False, 'error': 'scipy not available'}
-
     if len(matches) < 10:
         return {'success': False, 'error': 'Not enough matches'}
 
+    teams, team_map, num_teams = _build_team_index(matches)
+    if time_weights is None:
+        time_weights = np.ones(len(matches), dtype=float)
+
+    n_params = 2 + 2 * num_teams
+    x0 = np.zeros(n_params, dtype=float)
+    x0[0] = 0.13
+    x0[1] = 0.25
+
+    cons = ({'type': 'eq', 'fun': lambda p: float(np.sum(p[2:2 + num_teams]))})
+    bounds = [(None, None), (0.0, 1.0)] + [(-3.0, 3.0)] * (2 * num_teams)
+
+    try:
+        res = minimize(
+            lambda p: _nll_base(p, matches, time_weights, num_teams, team_map,
+                               rho_fixed=0.0, gamma_fixed=0.0),
+            x0, method='SLSQP', constraints=cons, bounds=bounds,
+            options={'maxiter': 500, 'ftol': 1e-6})
+        if res.success:
+            fitted = res.x
+            return {
+                'success': True, 'mu': float(fitted[0]), 'hfa': float(fitted[1]),
+                'attack': {teams[i]: float(fitted[2 + i]) for i in range(num_teams)},
+                'defense': {teams[i]: float(fitted[2 + num_teams + i]) for i in range(num_teams)},
+                'teams': teams, 'num_matches': len(matches), 'model': 'poisson'
+            }
+        return {'success': False, 'error': f'Optimizer failed: {res.message}'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+def _build_team_index(matches):
     teams = []
     seen = set()
     for m in matches:
@@ -97,71 +190,186 @@ def fit_dixon_coles(matches, time_weights=None):
             if t not in seen:
                 seen.add(t)
                 teams.append(t)
-    num_teams = len(teams)
-    team_map = {t: i for i, t in enumerate(teams)}
+    return teams, {t: i for i, t in enumerate(teams)}, len(teams)
 
+
+# ─── MLE: DIXON-COLES (fits mu, hfa, rho, attack, defense) ───
+def fit_dixon_coles(matches, time_weights=None):
+    if not _HAS_SCIPY:
+        return {'success': False, 'error': 'scipy not available'}
+    if len(matches) < 10:
+        return {'success': False, 'error': 'Not enough matches'}
+
+    teams, team_map, num_teams = _build_team_index(matches)
     if time_weights is None:
         time_weights = np.ones(len(matches), dtype=float)
 
-    init_params = np.zeros(3 + 2 * num_teams, dtype=float)
-    init_params[0] = 0.13  # mu (intercept)
-    init_params[1] = 0.25  # hfa
-    init_params[2] = -0.10  # rho
-
-    def neg_log_likelihood(params):
-        mu = params[0]
-        hfa = params[1]
-        rho = params[2]
-        att = params[3:3 + num_teams]
-        deff = params[3 + num_teams:3 + 2 * num_teams]
-
-        log_like = 0.0
-        for i, m in enumerate(matches):
-            h_idx = team_map[m['home']]
-            a_idx = team_map[m['away']]
-            hg = m['home_goals']
-            ag = m['away_goals']
-            w = time_weights[i] if i < len(time_weights) else 1.0
-
-            log_lh = mu + hfa + att[h_idx] - deff[a_idx]
-            log_la = mu + att[a_idx] - deff[h_idx]
-            lh = math.exp(min(log_lh, 10.0))
-            la = math.exp(min(log_la, 10.0))
-
-            p_hg = poisson_pmf(lh, hg)
-            p_ag = poisson_pmf(la, ag)
-            adj = get_dixon_coles_adjustment(lh, la, hg, ag, rho)
-
-            prob = p_hg * p_ag * adj
-            if prob > 1e-15:
-                log_like += w * math.log(prob)
-            else:
-                log_like -= 100.0 * w
-
-        return -log_like
+    n_params = 3 + 2 * num_teams
+    x0 = np.zeros(n_params, dtype=float)
+    x0[0] = 0.13
+    x0[1] = 0.25
+    x0[2] = -0.10
 
     cons = ({'type': 'eq', 'fun': lambda p: float(np.sum(p[3:3 + num_teams]))})
     bounds = [(None, None), (0.0, 1.0), (-0.3, 0.3)] + [(-3.0, 3.0)] * (2 * num_teams)
 
     try:
-        res = minimize(neg_log_likelihood, init_params, method='SLSQP',
-                       constraints=cons, bounds=bounds,
-                       options={'maxiter': 500, 'ftol': 1e-6})
+        res = minimize(
+            lambda p: _nll_base(p, matches, time_weights, num_teams, team_map,
+                               gamma_fixed=0.0),
+            x0, method='SLSQP', constraints=cons, bounds=bounds,
+            options={'maxiter': 500, 'ftol': 1e-6})
         if res.success:
             fitted = res.x
             return {
-                'success': True,
-                'mu': float(fitted[0]),
-                'hfa': float(fitted[1]),
+                'success': True, 'mu': float(fitted[0]), 'hfa': float(fitted[1]),
                 'rho': float(fitted[2]),
                 'attack': {teams[i]: float(fitted[3 + i]) for i in range(num_teams)},
                 'defense': {teams[i]: float(fitted[3 + num_teams + i]) for i in range(num_teams)},
-                'teams': teams,
-                'num_matches': len(matches)
+                'teams': teams, 'num_matches': len(matches), 'model': 'dixon_coles'
             }
         return {'success': False, 'error': f'Optimizer failed: {res.message}'}
     except Exception as e:
         return {'success': False, 'error': str(e)}
+
+
+# ─── MLE: RUE-SALVESEN (fits mu, hfa, gamma, attack, defense) ─
+def fit_rue_salvesen(matches, time_weights=None):
+    if not _HAS_SCIPY:
+        return {'success': False, 'error': 'scipy not available'}
+    if len(matches) < 10:
+        return {'success': False, 'error': 'Not enough matches'}
+
+    teams, team_map, num_teams = _build_team_index(matches)
+    if time_weights is None:
+        time_weights = np.ones(len(matches), dtype=float)
+
+    n_params = 3 + 2 * num_teams
+    x0 = np.zeros(n_params, dtype=float)
+    x0[0] = 0.13
+    x0[1] = 0.25
+    x0[2] = 0.05
+
+    cons = ({'type': 'eq', 'fun': lambda p: float(np.sum(p[3:3 + num_teams]))})
+    bounds = [(None, None), (0.0, 1.0), (0.0, 0.5)] + [(-3.0, 3.0)] * (2 * num_teams)
+
+    try:
+        res = minimize(
+            lambda p: _nll_base(p, matches, time_weights, num_teams, team_map,
+                               rho_fixed=0.0),
+            x0, method='SLSQP', constraints=cons, bounds=bounds,
+            options={'maxiter': 500, 'ftol': 1e-6})
+        if res.success:
+            fitted = res.x
+            return {
+                'success': True, 'mu': float(fitted[0]), 'hfa': float(fitted[1]),
+                'gamma': float(fitted[2]),
+                'attack': {teams[i]: float(fitted[3 + i]) for i in range(num_teams)},
+                'defense': {teams[i]: float(fitted[3 + num_teams + i]) for i in range(num_teams)},
+                'teams': teams, 'num_matches': len(matches), 'model': 'rue_salvesen'
+            }
+        return {'success': False, 'error': f'Optimizer failed: {res.message}'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+# ─── TWO-STEP ESTIMATION ─────────────────────────────────────
+def fit_two_step(matches, time_weights=None, second_step='dc'):
+    """1) Fit base Poisson. 2) Fix att/def/mu/hfa, estimate rho or gamma only."""
+    base = fit_base_poisson(matches, time_weights)
+    if not base.get('success'):
+        return base
+
+    teams, team_map, num_teams = _build_team_index(matches)
+    if time_weights is None:
+        time_weights = np.ones(len(matches), dtype=float)
+
+    att_fixed = np.array([base['attack'][t] for t in teams])
+    deff_fixed = np.array([base['defense'][t] for t in teams])
+    mu_fixed = base['mu']
+    hfa_fixed = base['hfa']
+
+    if second_step == 'dc':
+        x0 = np.array([-0.10])
+        bounds = [(-0.3, 0.3)]
+        rho_fixed = None
+        gamma_fixed = 0.0
+    else:
+        x0 = np.array([0.05])
+        bounds = [(0.0, 0.5)]
+        rho_fixed = 0.0
+        gamma_fixed = None
+
+    try:
+        res = minimize(
+            lambda p: _nll_base(p, matches, time_weights, num_teams, team_map,
+                               mu_fixed=mu_fixed, hfa_fixed=hfa_fixed,
+                               rho_fixed=rho_fixed, gamma_fixed=gamma_fixed,
+                               att_fixed=att_fixed, deff_fixed=deff_fixed),
+            x0, method='L-BFGS-B', bounds=bounds,
+            options={'maxiter': 200, 'ftol': 1e-6})
+        result = {
+            'success': res.success,
+            'mu': mu_fixed, 'hfa': hfa_fixed,
+            'attack': base['attack'], 'defense': base['defense'],
+            'teams': teams, 'num_matches': len(matches),
+            'model': f'poisson+{second_step}'
+        }
+        if res.success:
+            if second_step == 'dc':
+                result['rho'] = float(res.x[0])
+            else:
+                result['gamma'] = float(res.x[0])
+        else:
+            result['rho'] = -0.12
+            result['gamma'] = 0.0
+        return result
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+# ─── REVERSE-ENGINEER xG FROM 1X2 PROBABILITIES ──────────────
+def expg_from_probabilities(p_home, p_draw, p_away, rho=-0.12):
+    """Find (λ_h, λ_a) that best match the given 1x2 probabilities under Poisson + DC."""
+    if not _HAS_SCIPY:
+        return {'success': False, 'error': 'scipy not available'}
+    from scipy.optimize import minimize
+
+    def _probs(lh, la):
+        p1, pd, p2 = 0.0, 0.0, 0.0
+        for h in range(12):
+            ph = poisson_pmf(lh, h)
+            for a in range(12):
+                pa = poisson_pmf(la, a)
+                adj = get_dixon_coles_adjustment(lh, la, h, a, rho)
+                prob = ph * pa * adj
+                if h > a:
+                    p1 += prob
+                elif h == a:
+                    pd += prob
+                else:
+                    p2 += prob
+        total = p1 + pd + p2
+        if total > 0:
+            p1 /= total; pd /= total; p2 /= total
+        return p1, pd, p2
+
+    def objective(x):
+        lh, la = max(0.01, x[0]), max(0.01, x[1])
+        p1, pd, p2 = _probs(lh, la)
+        return (p1 - p_home)**2 + (pd - p_draw)**2 + (p2 - p_away)**2
+
+    res = minimize(objective, [1.5, 1.2], method='Nelder-Mead',
+                   options={'maxiter': 1000, 'xatol': 1e-6, 'fatol': 1e-6})
+    if res.success:
+        lh, la = max(0.01, res.x[0]), max(0.01, res.x[1])
+        p1, pd, p2 = _probs(lh, la)
+        return {
+            'success': True, 'expg_home': float(lh), 'expg_away': float(la),
+            'fitted_probs': {'home': p1, 'draw': pd, 'away': p2},
+            'error': float(res.fun)
+        }
+    return {'success': False, 'error': f'Optimizer failed: {res.message}'}
 
 
 # ─── PICKLE CACHE ─────────────────────────────────────────────
@@ -266,11 +474,13 @@ def _fallback_params(league_name):
         'success': False,
         'league': league_name,
         'rho': -0.12,
+        'gamma': 0.0,
         'hfa': 0.25,
         'mu': 0.13,
         'attack': {},
         'defense': {},
         'distribution_type': 'poisson',
+        'model': 'poisson',
         'updated_at': 0
     }
 

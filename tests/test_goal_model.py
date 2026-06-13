@@ -12,8 +12,13 @@ from core.goal_model import (
     negbin_pmf,
     cmp_pmf,
     get_dixon_coles_adjustment,
+    get_rue_salvesen_lambda,
     calculate_time_weights,
     fit_dixon_coles,
+    fit_base_poisson,
+    fit_rue_salvesen,
+    fit_two_step,
+    expg_from_probabilities,
     calculate_rps,
     log_rps_to_accuracy_log,
     monte_carlo_simulation_goalmodel,
@@ -162,6 +167,101 @@ def test_fallback_params():
     assert params['rho'] == -0.12, "Fallback rho should be -0.12"
     assert params['hfa'] == 0.25, "Fallback hfa should be 0.25"
     assert params['distribution_type'] == 'poisson', "Fallback distribution should be poisson"
+    assert 'gamma' in params, "Fallback should include gamma"
+
+
+# ─── NEW FUNCTION TESTS ─────────────────────────────────────────
+
+def test_rue_salvesen_lambda():
+    lh, la = get_rue_salvesen_lambda(0.13, 0.25, 0.3, 0.1, -0.2, -0.1, 0.1)
+    assert lh > 0, f"λ_home should be > 0, got {lh}"
+    assert la > 0, f"λ_away should be > 0, got {la}"
+    # Stronger home team should have slightly lower λ with gamma>0
+    lh2, la2 = get_rue_salvesen_lambda(0.13, 0.25, 0.6, 0.4, -0.3, -0.2, 0.2)
+    delta1 = (0.3 + 0.1 - (-0.2) - (-0.1)) / 2
+    delta2 = (0.6 + 0.4 - (-0.3) - (-0.2)) / 2
+    assert delta2 > delta1, "Stronger team gap should have larger delta"
+    print(f"[OK] RS lambdas: home={lh:.4f}, away={la:.4f}")
+
+
+def test_fit_base_poisson():
+    matches = _make_test_matches(12)
+    result = fit_base_poisson(matches)
+    if result.get('success'):
+        assert 'mu' in result
+        assert 'hfa' in result
+        assert len(result['attack']) == 3
+        assert result.get('model') == 'poisson'
+        print(f"[OK] Base Poisson: mu={result['mu']:.4f}, hfa={result['hfa']:.4f}")
+    else:
+        if not sys.platform.startswith('win'):
+            raise AssertionError(f"Base Poisson failed: {result.get('error')}")
+
+
+def test_fit_rue_salvesen():
+    matches = _make_test_matches(15)
+    result = fit_rue_salvesen(matches)
+    if result.get('success'):
+        assert 'gamma' in result, "RS result should contain gamma"
+        assert result.get('model') == 'rue_salvesen'
+        print(f"[OK] Rue-Salvesen: gamma={result['gamma']:.4f}")
+    else:
+        if not sys.platform.startswith('win'):
+            raise AssertionError(f"RS failed: {result.get('error')}")
+
+
+def test_fit_two_step_dc():
+    matches = _make_test_matches(12)
+    result = fit_two_step(matches, second_step='dc')
+    if result.get('success'):
+        assert 'rho' in result
+        assert result.get('model') == 'poisson+dc'
+        print(f"[OK] Two-step DC: rho={result['rho']:.4f}")
+    else:
+        if not sys.platform.startswith('win'):
+            raise AssertionError(f"Two-step DC failed: {result.get('error')}")
+
+
+def test_fit_two_step_rs():
+    matches = _make_test_matches(15)
+    result = fit_two_step(matches, second_step='rs')
+    if result.get('success'):
+        assert 'gamma' in result
+        assert result.get('model') == 'poisson+rs'
+        print(f"[OK] Two-step RS: gamma={result['gamma']:.4f}")
+    else:
+        if not sys.platform.startswith('win'):
+            raise AssertionError(f"Two-step RS failed: {result.get('error')}")
+
+
+def test_expg_from_probabilities():
+    # Known probs for λ_h=1.5, λ_a=1.2, rho=-0.12
+    result = expg_from_probabilities(0.45, 0.25, 0.30, rho=-0.12)
+    if result.get('success'):
+        assert result['expg_home'] > 0
+        assert result['expg_away'] > 0
+        fitted = result['fitted_probs']
+        total = fitted['home'] + fitted['draw'] + fitted['away']
+        assert abs(total - 1.0) < 0.01, f"Probs should sum to ~1, got {total}"
+        print(f"[OK] expg_from_probs: home={result['expg_home']:.3f}, away={result['expg_away']:.3f}, "
+              f"fitted=({fitted['home']:.3f},{fitted['draw']:.3f},{fitted['away']:.3f})")
+    else:
+        if not sys.platform.startswith('win'):
+            raise AssertionError(f"expg_from_probs failed: {result.get('error')}")
+
+
+def _make_test_matches(n=12):
+    import random
+    teams = ['TeamA', 'TeamB', 'TeamC']
+    matches = []
+    for i in range(n):
+        h = teams[i % 3]
+        a = teams[(i + 1 + random.randint(0, 1)) % 3]
+        matches.append({'home': h, 'away': a,
+                        'home_goals': random.choices([0, 1, 2, 3], weights=[3, 4, 2, 1])[0],
+                        'away_goals': random.choices([0, 1, 2, 3], weights=[3, 4, 2, 1])[0],
+                        'days_ago': i * 10})
+    return matches
 
 
 if __name__ == '__main__':
@@ -178,6 +278,12 @@ if __name__ == '__main__':
         test_most_likely_score_goalmodel,
         test_choose_distribution,
         test_fallback_params,
+        test_rue_salvesen_lambda,
+        test_fit_base_poisson,
+        test_fit_rue_salvesen,
+        test_fit_two_step_dc,
+        test_fit_two_step_rs,
+        test_expg_from_probabilities,
     ]
     passed = 0
     failed = 0

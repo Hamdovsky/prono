@@ -186,30 +186,45 @@ app.post('/sync/goalmodel', requireAuth, async (req, res) => {
     // Query local SQLite for recent match history
     let matchesData = {}
     const leagueFilter = req.body?.leagues || []
-    const dbPath = path.resolve(__dirname, '../data/historical_archive.sqlite')
+    const dbPaths = [
+      path.resolve(__dirname, '../data/tactical.db'),
+      path.resolve(__dirname, '../data/historical_archive.sqlite'),
+      path.resolve(__dirname, '../data/archive.db')
+    ]
+    const fs = require('fs')
 
     try {
       const Database = require('better-sqlite3')
-      const fs = require('fs')
-      if (fs.existsSync(dbPath)) {
-        const db = new Database(dbPath)
+      let db = null
+      for (const p of dbPaths) {
+        if (fs.existsSync(p)) {
+          try { db = new Database(p); break }
+          catch (e) { continue }
+        }
+      }
+      if (db) {
+        // Try historical_matches first, then matches (finished)
+        let tableName = 'historical_matches'
+        const hasHist = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='historical_matches'").get()
+        if (!hasHist) {
+          tableName = 'matches'
+        }
+
         const leagues = leagueFilter.length > 0
           ? leagueFilter
-          : db.prepare(
-              "SELECT league FROM historical_matches GROUP BY league HAVING COUNT(*) >= 10 ORDER BY COUNT(*) DESC LIMIT 50"
-            ).all().map(r => r.league)
+          : db.prepare(`SELECT league FROM ${tableName} WHERE scoreHome IS NOT NULL GROUP BY league HAVING COUNT(*) >= 10 ORDER BY COUNT(*) DESC LIMIT 50`).all().map(r => r.league)
 
         for (const league of leagues) {
           const rows = db.prepare(
-            "SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp FROM historical_matches WHERE league = ? ORDER BY timestamp DESC LIMIT 200"
+            `SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp FROM ${tableName} WHERE league = ? AND scoreHome IS NOT NULL ORDER BY timestamp DESC LIMIT 200`
           ).all(league)
           if (rows.length >= 10) {
             matchesData[league] = rows.map(r => ({
               homeTeam: r.homeTeam,
               awayTeam: r.awayTeam,
-              scoreHome: r.scoreHome,
-              scoreAway: r.scoreAway,
-              timestamp: r.timestamp
+              scoreHome: r.scoreHome || 0,
+              scoreAway: r.scoreAway || 0,
+              timestamp: r.timestamp || new Date().toISOString()
             }))
           }
         }

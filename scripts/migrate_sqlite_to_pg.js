@@ -1,64 +1,72 @@
 const Database = require('better-sqlite3');
 const { Pool } = require('pg');
 const path = require('path');
+require('dotenv').config();
 
 const sqliteDbPath = path.resolve(__dirname, '../data/tactical.db');
 const sqlite = new Database(sqliteDbPath, { readonly: true });
 
 const pgPool = new Pool({
-    user: process.env.PG_USER || 'postgres',
-    host: process.env.PG_HOST || 'localhost',
-    database: process.env.PG_DB || 'titanium_quant',
-    password: process.env.PG_PASSWORD || 'postgres_password',
-    port: process.env.PG_PORT || 5432,
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
 });
 
 async function migrate() {
-    console.log('🚀 Starting Migration from SQLite to PostgreSQL Append-Only Architecture...');
+    console.log('🚀 Starting Migration from SQLite to PostgreSQL...');
     
     try {
         const matches = sqlite.prepare('SELECT * FROM matches ORDER BY timestamp ASC').all();
         console.log(`📦 Found ${matches.length} matches in SQLite.`);
 
+        let successCount = 0;
+        let errorCount = 0;
+
         for (const m of matches) {
-            // Reconstruct historical timestamp strictly
-            let matchTime = new Date(m.timestamp);
-            if (m.startTimestamp) matchTime = new Date(m.startTimestamp * 1000);
-            
-            // Historical fallback: assuming it was recorded slightly before match started
-            const recordedAt = matchTime.toISOString();
-
-            // 1. Insert Event Log (Append-only)
-            const payload = JSON.parse(m.fullData || '{}');
-            await pgPool.query(
-                'INSERT INTO event_log (event_type, aggregate_id, payload, created_at) VALUES ($1, $2, $3, $4)',
-                ['MATCH_MIGRATED', m.id, payload, recordedAt]
-            );
-
-            // 2. Insert Match History (Point-in-time)
-            await pgPool.query(`
-                INSERT INTO matches_history 
-                (match_id, league, home_team, away_team, status, home_score, away_score, match_timestamp, valid_from, recorded_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            `, [
-                m.id, m.league, m.homeTeam, m.awayTeam, m.status || 'finished', 
-                m.scoreHome || 0, m.scoreAway || 0, 
-                matchTime.toISOString(), recordedAt, recordedAt
-            ]);
-
-            // 3. Insert Odds Tick (Hypertable)
-            if (m.odds_home && m.odds_draw && m.odds_away) {
+            try {
+                // 1. Standardize values
+                const fullData = typeof m.fullData === 'string' ? m.fullData : JSON.stringify(m.fullData || {});
+                const timestamp = m.timestamp || new Date().toISOString();
+                
+                // 2. Insert/Update into main matches table (The most important part for the AI)
                 await pgPool.query(`
-                    INSERT INTO odds_ticks 
-                    (match_id, bookmaker_id, market_type, home_odds, draw_odds, away_odds, recorded_at)
-                    VALUES ($1, 'Pinnacle', '1X2', $2, $3, $4, $5)
-                `, [m.id, m.odds_home, m.odds_draw, m.odds_away, recordedAt]);
-            }
+                    INSERT INTO matches (
+                        "id", "homeTeam", "awayTeam", "league", "scoreHome", "scoreAway", 
+                        "status", "prediction", "confidence", "fullData", "timestamp", 
+                        "home_win_probability", "draw_probability", "away_win_probability", 
+                        "expected_score", "home_xg", "away_xg", "source"
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                    ON CONFLICT ("id") DO UPDATE SET
+                        "scoreHome" = EXCLUDED."scoreHome",
+                        "scoreAway" = EXCLUDED."scoreAway",
+                        "status" = EXCLUDED."status",
+                        "fullData" = EXCLUDED."fullData",
+                        "timestamp" = EXCLUDED."timestamp",
+                        "home_win_probability" = EXCLUDED."home_win_probability",
+                        "draw_probability" = EXCLUDED."draw_probability",
+                        "away_win_probability" = EXCLUDED."away_win_probability",
+                        "expected_score" = EXCLUDED."expected_score",
+                        "home_xg" = EXCLUDED."home_xg",
+                        "away_xg" = EXCLUDED."away_xg"
+                `, [
+                    m.id, m.homeTeam, m.awayTeam, m.league, m.scoreHome || 0, m.scoreAway || 0,
+                    m.status || 'finished', m.prediction, m.confidence, fullData, timestamp,
+                    m.home_win_probability || 0, m.draw_probability || 0, m.away_win_probability || 0,
+                    m.expected_score, m.home_xg || 0, m.away_xg || 0, m.source || 'SofaScore'
+                ]);
+
+                successCount++;
+                } catch (e) {
+                    errorCount++;
+                    console.error(`❌ Error migrating match ${m.id}: ${e.message}`);
+                }
         }
         
-        console.log('✅ SQLite Migration Completed Successfully without destructive updates.');
+        console.log(`✅ Migration Completed!`);
+        console.log(`- Matches processed: ${matches.length}`);
+        console.log(`- Successfully migrated: ${successCount}`);
+        console.log(`- Errors: ${errorCount}`);
     } catch (e) {
-        console.error('❌ Migration Error:', e.message);
+        console.error('❌ Critical Migration Error:', e.message);
     } finally {
         await pgPool.end();
         process.exit(0);

@@ -358,11 +358,83 @@ async function runMigrations() {
         await addCol('bsd_home_win_prob', 'REAL DEFAULT 0')
         await addCol('bsd_draw_prob', 'REAL DEFAULT 0')
         await addCol('bsd_away_win_prob', 'REAL DEFAULT 0')
-        await addCol('bsd_confidence', 'REAL DEFAULT 0')
+            await addCol('bsd_confidence', 'REAL DEFAULT 0')
         logger.info('[PG MIGRATIONS] Missing columns added successfully')
       }
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] Column check skipped: ${e.message}`)
+
+    // ─── Adaptive Learning Engine tables (not in main SCHEMA_SQL) ───────
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS learning_memory (
+            id          SERIAL PRIMARY KEY,
+            match_id    TEXT    NOT NULL UNIQUE,
+            league      TEXT    NOT NULL,
+            home_team   TEXT,
+            away_team   TEXT,
+            score       TEXT,
+            prediction  TEXT,
+            confidence  REAL,
+            actual      TEXT,
+            error_type  TEXT,
+            root_cause  TEXT,
+            context     TEXT,
+            tags        TEXT,
+            adjustments TEXT,
+            new_rule    TEXT,
+            match_date  TIMESTAMPTZ,
+            root_causes_stack TEXT,
+            processed_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `)
+      await query(`
+        CREATE TABLE IF NOT EXISTS league_weights (
+            id            SERIAL PRIMARY KEY,
+            league        TEXT    NOT NULL UNIQUE,
+            weights       TEXT    NOT NULL,
+            confidence_adj REAL   DEFAULT 0.0,
+            total_cases   INTEGER DEFAULT 0,
+            accuracy      REAL    DEFAULT 0.5,
+            last_updated  TIMESTAMPTZ DEFAULT NOW()
+        )
+      `)
+      await query(`
+        CREATE TABLE IF NOT EXISTS learning_rules (
+            id          SERIAL PRIMARY KEY,
+            league      TEXT,
+            rule_type   TEXT,
+            condition   TEXT,
+            action      TEXT,
+            confidence  REAL,
+            hit_count   INTEGER DEFAULT 1,
+            last_fired  TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(league, rule_type, condition)
+        )
+      `)
+      await query(`
+        CREATE TABLE IF NOT EXISTS league_xg_conversion (
+            league         TEXT PRIMARY KEY,
+            avg_conv_rate  REAL    DEFAULT 0.72,
+            sample_size    INTEGER DEFAULT 0,
+            variance       REAL    DEFAULT 0.12,
+            last_updated   TIMESTAMPTZ DEFAULT NOW()
+        )
+      `)
+      await query(`
+        CREATE TABLE IF NOT EXISTS team_momentum (
+            team_name     TEXT PRIMARY KEY,
+            current_form  REAL    DEFAULT 0.0,
+            streak_type   TEXT    DEFAULT 'NEUTRAL',
+            last_turnpoint DATE,
+            volatility    REAL    DEFAULT 0.1,
+            last_updated  TIMESTAMPTZ DEFAULT NOW()
+        )
+      `)
+      logger.info('[PG MIGRATIONS] Adaptive Learning Engine tables created')
+    } catch (e) {
+      logger.warn(`[PG MIGRATIONS] ALE tables skipped: ${e.message}`)
+    }
     }
 
     // Backfill startTimestamp from "fullData" for rows where it's NULL (column name is case-sensitive)

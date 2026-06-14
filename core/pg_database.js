@@ -523,6 +523,18 @@ const pgDb = {
     }
   },
 
+  async getAllMatches() {
+    try {
+      const result = await query('SELECT * FROM matches ORDER BY timestamp ASC')
+      return result.rows.map(r => {
+        try {
+          const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
+          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
+        } catch (e) { return r }
+      })
+    } catch { return [] }
+  },
+
   async getMatchesByDate(dateStr) {
     try {
       const result = await query(`SELECT * FROM matches WHERE timestamp LIKE $1 ORDER BY timestamp ASC`, [`${dateStr}%`])

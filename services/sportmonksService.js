@@ -70,10 +70,25 @@ class SportmonksService {
     return data?.data || []
   }
 
+  _extractScores(fixture) {
+    const scores = fixture.scores || []
+    const homeId = fixture.participants?.[0]?.id
+    const awayId = fixture.participants?.[1]?.id
+    if (!homeId || !awayId || !scores.length) return { scoreHome: 0, scoreAway: 0 }
+    const current = scores.filter(s => s.type_id === 1525)
+    const target = current.length > 0 ? current : scores.filter(s => s.type_id === 2)
+    const homeScore = target.find(s => s.participant_id === homeId)
+    const awayScore = target.find(s => s.participant_id === awayId)
+    return {
+      scoreHome: homeScore?.score?.goals ?? 0,
+      scoreAway: awayScore?.score?.goals ?? 0
+    }
+  }
+
   mapToMatch(fixture) {
     const participants = fixture.participants || []
-    const home = participants.find(p => p.meta?.position === 'home') || {}
-    const away = participants.find(p => p.meta?.position === 'away') || {}
+    const home = participants[0] || {}
+    const away = participants[1] || {}
     const flatOdds = {}
     if (fixture.odds) {
       const oddsArr = Array.isArray(fixture.odds) ? fixture.odds : [fixture.odds]
@@ -88,16 +103,23 @@ class SportmonksService {
       })
     }
 
+    const scores = this._extractScores(fixture)
+    const stateId = fixture.state?.id || 0
+    const statusMap = { 1: 'scheduled', 2: 'inprogress', 3: 'finished', 4: 'finished', 5: 'finished', 6: 'finished', 7: 'finished', 8: 'finished' }
+
     return {
       id: `sm_${fixture.id}`,
       homeTeam: home.name || fixture.name?.split(' vs ')[0] || 'Home',
       awayTeam: away.name || fixture.name?.split(' vs ')[1] || 'Away',
       league: fixture.league?.name || fixture.leagueName || 'Unknown',
-      startTimestamp: fixture.starting_at
+      score: { home: scores.scoreHome, away: scores.scoreAway },
+      scoreHome: scores.scoreHome,
+      scoreAway: scores.scoreAway,
+      startTimestamp: fixture.starting_at_timestamp || (fixture.starting_at
         ? Math.floor(new Date(fixture.starting_at).getTime() / 1000)
-        : Math.floor(Date.now() / 1000),
-      timestamp: fixture.starting_at || fixture.date || new Date().toISOString(),
-      status: fixture.state?.id === 1 ? 'scheduled' : fixture.state?.id === 2 ? 'inprogress' : fixture.state?.id === 3 ? 'finished' : 'scheduled',
+        : Math.floor(Date.now() / 1000)),
+      timestamp: fixture.starting_at || new Date().toISOString(),
+      status: statusMap[stateId] || 'scheduled',
       odds_home: flatOdds.home_win || null,
       odds_draw: flatOdds.draw || null,
       odds_away: flatOdds.away_win || null,

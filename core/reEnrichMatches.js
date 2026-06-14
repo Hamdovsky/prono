@@ -1,31 +1,51 @@
+require('dotenv').config()
 const database = require('./database');
 const EnrichedPredictionService = require('./enriched_predictions');
 const logger = require('./logger');
 
+const BATCH_LIMIT = parseInt(process.argv[2] || '50')
+const TIMEOUT_MS = 30000
+
+async function enrichWithTimeout(match, service) {
+    return new Promise(async (resolve) => {
+        const timer = setTimeout(() => {
+            resolve(null)
+        }, TIMEOUT_MS)
+        try {
+            const result = await service.fastEnrichMatch(match)
+            clearTimeout(timer)
+            resolve(result)
+        } catch (err) {
+            clearTimeout(timer)
+            resolve(null)
+        }
+    })
+}
+
 async function reEnrich() {
-    console.log('🚀 [RE-ENRICH] Starting mass prediction update...');
+    console.log(`🚀 [RE-ENRICH] Starting mass prediction update (batch: ${BATCH_LIMIT}, timeout: ${TIMEOUT_MS}ms)...`);
     const service = EnrichedPredictionService;
     
     try {
-        // 1. Fetch matches with risk labels instead of picks
-        // We target matches where prediction is a risk label or empty
         const riskLabels = ['SAFE', 'STABLE', 'MODERATE', 'RISKY', 'RISKY BET', ''];
         const allMatches = await database.getAllMatches();
         const matches = allMatches.filter(m => 
             riskLabels.includes(m.prediction) || !m.prediction
-        );
+        ).slice(0, BATCH_LIMIT);
 
-        console.log(`📦 Found ${matches.length} matches needing update.`);
+        console.log(`📦 ${matches.length} matches to process (out of ${allMatches.length} total).`);
 
         let updatedCount = 0;
         let errorCount = 0;
 
-        for (const match of matches) {
-            try {
-                // We use fastEnrichMatch to avoid calling Python for thousands of matches
-                const enriched = await service.fastEnrichMatch(match);
-                
-                if (enriched && enriched.prediction) {
+        for (let i = 0; i < matches.length; i++) {
+            const match = matches[i];
+            process.stdout.write(`   [${i+1}/${matches.length}] ${match.homeTeam} vs ${match.awayTeam}... `);
+            
+            const enriched = await enrichWithTimeout(match, service);
+            
+            if (enriched && enriched.prediction) {
+                try {
                     await database.updatePredictions(match.id, {
                         prediction: enriched.prediction,
                         verdict: enriched.verdict,
@@ -39,14 +59,18 @@ async function reEnrich() {
                         enriched: enriched
                     });
                     updatedCount++;
+                    console.log(`✅ ${enriched.prediction} (${Math.round(enriched.confidence)}%)`);
+                } catch (err) {
+                    errorCount++;
+                    console.log(`❌ update failed`);
                 }
-            } catch (err) {
+            } else {
                 errorCount++;
-                // console.error(`❌ Error updating match ${match.id}: ${err.message}`);
+                console.log(`⏭️ no prediction`);
             }
         }
 
-        console.log(`✅ [RE-ENRICH] Completed!`);
+        console.log(`\n✅ [RE-ENRICH] Completed!`);
         console.log(`- Updated: ${updatedCount}`);
         console.log(`- Errors: ${errorCount}`);
         console.log(`- Total processed: ${matches.length}`);

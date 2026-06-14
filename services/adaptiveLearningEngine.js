@@ -121,92 +121,76 @@ class AdaptiveLearningEngine {
     
     _ensureSchema() {
         if (this._schemaReady) return;
-        const db = database.db;
-        db.exec(`
-            CREATE TABLE IF NOT EXISTS learning_memory (
-                id          SERIAL PRIMARY KEY,
-                match_id    TEXT    NOT NULL,
-                league      TEXT    NOT NULL,
-                home_team   TEXT,
-                away_team   TEXT,
-                score       TEXT,
-                prediction  TEXT,
-                confidence  REAL,
-                actual      TEXT,
-                error_type  TEXT,
-                root_cause  TEXT,
-                context     TEXT,
-                tags        TEXT,
-                adjustments TEXT,
-                new_rule    TEXT,
-                match_date  DATETIME,
-                root_causes_stack TEXT,
-                processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(match_id)
-            );
+        try {
+            const db = database.db;
+            // Only run in SQLite mode; PG tables are created by pg_migrations.js
+            if (db && db.prepare) {
+                db.exec(`
+                    CREATE TABLE IF NOT EXISTS learning_memory (
+                        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                        match_id    TEXT    NOT NULL,
+                        league      TEXT    NOT NULL,
+                        home_team   TEXT,
+                        away_team   TEXT,
+                        score       TEXT,
+                        prediction  TEXT,
+                        confidence  REAL,
+                        actual      TEXT,
+                        error_type  TEXT,
+                        root_cause  TEXT,
+                        context     TEXT,
+                        tags        TEXT,
+                        adjustments TEXT,
+                        new_rule    TEXT,
+                        match_date  DATETIME,
+                        root_causes_stack TEXT,
+                        processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(match_id)
+                    );
 
-            CREATE TABLE IF NOT EXISTS league_weights (
-                id            SERIAL PRIMARY KEY,
-                league        TEXT    NOT NULL UNIQUE,
-                weights       TEXT    NOT NULL,
-                confidence_adj REAL   DEFAULT 0.0,
-                total_cases   INTEGER DEFAULT 0,
-                accuracy      REAL    DEFAULT 0.5,
-                last_updated  DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
+                    CREATE TABLE IF NOT EXISTS league_weights (
+                        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                        league        TEXT    NOT NULL UNIQUE,
+                        weights       TEXT    NOT NULL,
+                        confidence_adj REAL   DEFAULT 0.0,
+                        total_cases   INTEGER DEFAULT 0,
+                        accuracy      REAL    DEFAULT 0.5,
+                        last_updated  DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
 
-            CREATE TABLE IF NOT EXISTS learning_rules (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                league      TEXT,
-                rule_type   TEXT,
-                condition   TEXT,
-                action      TEXT,
-                confidence  REAL,
-                hit_count   INTEGER DEFAULT 1,
-                last_fired  DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(league, rule_type, condition)
-            );
+                    CREATE TABLE IF NOT EXISTS learning_rules (
+                        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                        league      TEXT,
+                        rule_type   TEXT,
+                        condition   TEXT,
+                        action      TEXT,
+                        confidence  REAL,
+                        hit_count   INTEGER DEFAULT 1,
+                        last_fired  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(league, rule_type, condition)
+                    );
 
-            CREATE TABLE IF NOT EXISTS league_xg_conversion (
-                league         TEXT PRIMARY KEY,
-                avg_conv_rate  REAL    DEFAULT 0.72,
-                sample_size    INTEGER DEFAULT 0,
-                variance       REAL    DEFAULT 0.12,
-                last_updated   DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
+                    CREATE TABLE IF NOT EXISTS league_xg_conversion (
+                        league         TEXT PRIMARY KEY,
+                        avg_conv_rate  REAL    DEFAULT 0.72,
+                        sample_size    INTEGER DEFAULT 0,
+                        variance       REAL    DEFAULT 0.12,
+                        last_updated   DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
 
-            CREATE TABLE IF NOT EXISTS team_momentum (
-                team_name     TEXT PRIMARY KEY,
-                current_form  REAL    DEFAULT 0.0,
-                streak_type   TEXT    DEFAULT 'NEUTRAL',
-                last_turnpoint DATE,
-                volatility    REAL    DEFAULT 0.1,
-                last_updated  DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS league_challenger_weights (
-                league        TEXT PRIMARY KEY,
-                weights       TEXT NOT NULL,
-                accuracy      REAL DEFAULT 0.0,
-                total_cases   INTEGER DEFAULT 0,
-                last_updated  DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS league_performance_tracking (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                league        TEXT NOT NULL,
-                match_id      TEXT NOT NULL,
-                champ_result  TEXT,
-                chall_result  TEXT,
-                timestamp     DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(league, match_id)
-            );
-        `);
-        
-        // Attempt column migrations via try/catch in case they don't exist
-        try { db.exec(`ALTER TABLE learning_memory ADD COLUMN match_date DATETIME;`); } catch (_) {}
-        try { db.exec(`ALTER TABLE learning_memory ADD COLUMN root_causes_stack TEXT;`); } catch (_) {}
-        
+                    CREATE TABLE IF NOT EXISTS team_momentum (
+                        team_name     TEXT PRIMARY KEY,
+                        current_form  REAL    DEFAULT 0.0,
+                        streak_type   TEXT    DEFAULT 'NEUTRAL',
+                        last_turnpoint DATE,
+                        volatility    REAL    DEFAULT 0.1,
+                        last_updated  DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
+                `);
+            }
+        } catch (_) {
+            // Schema creation failed (likely PG mode) — tables handled by pg_migrations.js
+        }
         this._schemaReady = true;
     }
 
@@ -953,11 +937,28 @@ class AdaptiveLearningEngine {
         try {
             const db = database.db;
             db.prepare(`
-                INSERT OR REPLACE INTO learning_memory
+                INSERT INTO learning_memory
                     (match_id, league, home_team, away_team, score, prediction,
                      confidence, actual, error_type, root_cause, context,
                      tags, adjustments, new_rule, match_date, root_causes_stack)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT (match_id) DO UPDATE SET
+                    league = EXCLUDED.league,
+                    home_team = EXCLUDED.home_team,
+                    away_team = EXCLUDED.away_team,
+                    score = EXCLUDED.score,
+                    prediction = EXCLUDED.prediction,
+                    confidence = EXCLUDED.confidence,
+                    actual = EXCLUDED.actual,
+                    error_type = EXCLUDED.error_type,
+                    root_cause = EXCLUDED.root_cause,
+                    context = EXCLUDED.context,
+                    tags = EXCLUDED.tags,
+                    adjustments = EXCLUDED.adjustments,
+                    new_rule = EXCLUDED.new_rule,
+                    match_date = EXCLUDED.match_date,
+                    root_causes_stack = EXCLUDED.root_causes_stack,
+                    processed_at = NOW()
             `).run(
                 data.matchId, data.league, data.homeTeam, data.awayTeam, data.score, data.prediction,
                 data.confidence, data.actual, data.errorType, data.rootCause, data.context,

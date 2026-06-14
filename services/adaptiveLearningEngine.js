@@ -124,7 +124,7 @@ class AdaptiveLearningEngine {
         const db = database.db;
         db.exec(`
             CREATE TABLE IF NOT EXISTS learning_memory (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                id          SERIAL PRIMARY KEY,
                 match_id    TEXT    NOT NULL,
                 league      TEXT    NOT NULL,
                 home_team   TEXT,
@@ -146,7 +146,7 @@ class AdaptiveLearningEngine {
             );
 
             CREATE TABLE IF NOT EXISTS league_weights (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                id            SERIAL PRIMARY KEY,
                 league        TEXT    NOT NULL UNIQUE,
                 weights       TEXT    NOT NULL,
                 confidence_adj REAL   DEFAULT 0.0,

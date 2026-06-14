@@ -245,9 +245,8 @@ class StatisticalEngine {
                     m.insufficient_data = 1;
                 }
             }
-            }
         }
-
+        
         // 🚀 [TITANIUM V55] Environmental & Form Intelligence
         const weather = EnvironmentalIntelligence.analyzeWeather({
             temp: m.weather_temp,

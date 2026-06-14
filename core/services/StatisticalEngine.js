@@ -242,8 +242,9 @@ class StatisticalEngine {
                     }
                     xgH = Math.max(0.15, xgH);
                     xgA = Math.max(0.25, xgA);
+                    m.insufficient_data = 1;
                 }
-                m.insufficient_data = 1;
+            }
             }
         }
 

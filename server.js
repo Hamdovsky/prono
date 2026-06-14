@@ -1,4 +1,4 @@
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') { require('dotenv').config(); }
 const http = require('http');
 const v8 = require('v8');
 const { spawn } = require('child_process');
@@ -7,7 +7,7 @@ const path = require('path');
 const express = require('express');
 // Build trigger: 2026-05-19 11:39
 const cors = require('cors');
-const compression = require('compression');
+// compression removed — Render proxy handles gzip natively
 const promBundle = require('express-prom-bundle');
 
 // Core Engines
@@ -47,6 +47,7 @@ const weatherService = require('./services/weatherService');
 const bigBallsDataService = require('./services/bigBallsDataService');
 const oddsApiIoService = require('./services/oddsApiIoService');
 const predixSportService = require('./services/predixSportService');
+const futpythonService = require('./services/futpythonService');
 
 // Secondary Services
 const _redisClient = require('./core/redisClient');
@@ -99,8 +100,6 @@ try {
   logger.warn('📊 [METRICS] Middleware failed to initialize:', e.message);
 }
 
-
-app.use(compression());
 
 // CORS - restrict in production but allow native smartphone containers
 const allowedOrigins = [
@@ -209,43 +208,14 @@ const redisMiddleware = async (req, res, next) => {
 
 // ── CORE API ENDPOINTS ─────────────────────────────────────────
 app.get('/health', (req, res) => {
-  const circuitBreaker = require('./core/circuitBreaker');
-  const eloService = require('./services/eloRatingService');
-  const thetaOptimizer = require('./services/thetaOptimizer');
-  const thetaMap = thetaOptimizer.getOptimizedMap();
-  const bsdService = require('./services/bsdService');
-  const apifootballService = require('./services/apifootballService');
-  const bigBallsDataService = require('./services/bigBallsDataService');
-  const predixSportService = require('./services/predixSportService');
-  const sofascoreXg = require('./services/sofascoreXgService');
   res.json({ 
     status: 'ok', 
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    memory: process.memoryUsage(),
-    circuitBreakers: {
-      redis: circuitBreaker.breakers.redis.getState(),
-      sofacore: circuitBreaker.breakers.sofacore.getState(),
-      database: circuitBreaker.breakers.database.getState(),
-      telegram: circuitBreaker.breakers.telegram.getState()
-    },
-    services: {
-      timescale: database.isConnected ? 'connected' : 'disconnected',
-      redis: _redisClient.isReady ? 'ready' : 'connecting'
-    },
-    apis: {
-      sofascore: sofascoreXg.isAvailable() ? 'enabled' : 'disabled',
-      bsd: bsdService.isAvailable() ? 'enabled' : 'disabled',
-      apifootball: apifootballService.isAvailable() ? 'enabled' : 'disabled',
-      bigBallsData: bigBallsDataService.isAvailable() ? 'enabled' : 'disabled',
-      predixSport: predixSportService.isAvailable() ? 'enabled' : 'disabled'
-    },
-    models: {
-      distribution: 'negative_binomial',
-      eloTeams: eloService.getAllRatings().length,
-      thetaLeagues: Object.keys(thetaMap).length,
-      thetaDefaults: '3.0-6.0 per league, auto-MLE on historical data'
+    memory: {
+      heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+      heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
     }
   });
 });
@@ -761,6 +731,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
               ['ODDSAPI_IO_KEY', 'Odds-API.io'],
               ['GROQ_API_KEY', 'Groq AI'],
               ['GEMINI_API_KEY', 'Gemini AI'],
+              ['FUTPYTHONTRADER_API_KEY', 'FutPythonTrader'],
             ]
             const missing = requiredKeys.filter(([key]) => !process.env[key] || process.env[key].startsWith('CHANGER_MOI'))
             if (missing.length > 0) {
@@ -772,7 +743,11 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
             }
 
             if (process.env.DISABLE_BACKUP !== 'true') backupService.startAutomatedBackups();
-            botService.startPolling();
+            if (process.env.TELEGRAM_BOT_TOKEN) {
+              botService.startPolling();
+            } else {
+              logger.warn('⚠️ [STARTUP] TELEGRAM_BOT_TOKEN not set — bot polling disabled');
+            }
             
             await redisCache.init().catch(e => logger.warn('Redis error:', e.message));
             
@@ -825,31 +800,44 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
                 name: 'BSD',
                 priority: 1,
                 isAvailable: () => bsdService.isAvailable(),
-                getQuotaStatus: () => ({ available: bsdService.isAvailable() })
+                getQuotaStatus: () => ({ available: bsdService.isAvailable() }),
+                fetchEvents: (dateStr) => bsdService.fetchEvents(dateStr),
+                fetchOdds: (matchId) => bsdService.fetchOdds(matchId),
+                fetchPredictions: (matchId) => bsdService.fetchPredictions(matchId),
+                fetchLiveEvents: () => bsdService.fetchLiveEvents()
               })
               apiFallbackManager.registerSource({
                 name: 'TheRundown',
                 priority: 2,
                 isAvailable: () => therundownService.isAvailable(),
-                getQuotaStatus: () => therundownService.getQuotaStatus()
+                getQuotaStatus: () => therundownService.getQuotaStatus(),
+                fetchEvents: (dateStr) => therundownService.fetchSoccerEvents(dateStr),
+                fetchOdds: (eventId) => therundownService.fetchOddsForMatch(eventId)
               })
               apiFallbackManager.registerSource({
                 name: 'OddsPapi',
                 priority: 3,
                 isAvailable: () => oddspapiService.isAvailable(),
-                getQuotaStatus: () => oddspapiService.getQuotaStatus()
+                getQuotaStatus: () => oddspapiService.getQuotaStatus(),
+                fetchEvents: (dateStr) => oddspapiService.fetchEvents(dateStr),
+                fetchOdds: (fixtureId) => oddspapiService.fetchOddsForFixture(fixtureId)
               })
               apiFallbackManager.registerSource({
                 name: 'Sportmonks',
                 priority: 4,
                 isAvailable: () => sportmonksService.isAvailable(),
-                getQuotaStatus: () => sportmonksService.getQuotaStatus()
+                getQuotaStatus: () => sportmonksService.getQuotaStatus(),
+                fetchEvents: (dateStr) => sportmonksService.fetchEvents(dateStr),
+                fetchOdds: (fixtureId) => sportmonksService.fetchPrematchOdds(fixtureId)
               })
               apiFallbackManager.registerSource({
                 name: 'APIFootball',
                 priority: 5,
                 isAvailable: () => apifootballService.isAvailable(),
-                getQuotaStatus: () => apifootballService.getQuotaStatus()
+                getQuotaStatus: () => apifootballService.getQuotaStatus(),
+                fetchEvents: (dateStr) => apifootballService.fetchEvents(dateStr),
+                fetchOdds: (fixtureId) => apifootballService.fetchOdds(fixtureId),
+                fetchPredictions: (fixtureId) => apifootballService.fetchPredictions(fixtureId)
               })
               apiFallbackManager.registerSource({
                 name: 'OpenLigaDB',
@@ -862,21 +850,31 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
                 name: 'PredixSport',
                 priority: 7,
                 isAvailable: () => predixSportService.isAvailable(),
-                getQuotaStatus: () => ({ available: predixSportService.isAvailable() })
+                getQuotaStatus: () => ({ available: predixSportService.isAvailable() }),
+                fetchEvents: () => predixSportService.fetchUpcoming()
               })
               apiFallbackManager.registerSource({
                 name: 'BigBallsData',
                 priority: 8,
                 isAvailable: () => bigBallsDataService.isAvailable(),
-                getQuotaStatus: () => ({ available: bigBallsDataService.isAvailable() })
+                getQuotaStatus: () => ({ available: bigBallsDataService.isAvailable() }),
+                fetchEvents: (league, status) => bigBallsDataService.getMatches(league, status)
               })
               apiFallbackManager.registerSource({
                 name: 'OddsAPIio',
                 priority: 9,
                 isAvailable: () => oddsApiIoService.isAvailable(),
-                getQuotaStatus: () => ({ available: oddsApiIoService.isAvailable() })
+                getQuotaStatus: () => ({ available: oddsApiIoService.isAvailable() }),
+                fetchEvents: (sport, status, limit) => oddsApiIoService.getEvents(sport, status, limit)
               })
-              logger.info('🔁 [FALLBACK] API sources registered (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB → PredixSport → BigBallsData → OddsAPIio)')
+              apiFallbackManager.registerSource({
+                name: 'FutPythonTrader',
+                priority: 10,
+                isAvailable: () => futpythonService.isAvailable(),
+                getQuotaStatus: () => ({ available: futpythonService.isAvailable() }),
+                fetchEvents: (source, params) => futpythonService.getMatches(source, params)
+              })
+              logger.info('🔁 [FALLBACK] API sources registered (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB → PredixSport → BigBallsData → OddsAPIio → FutPythonTrader)')
             } catch (fbErr) {
               logger.warn('⚠️ [FALLBACK] Registration error:', fbErr.message)
             }

@@ -28,7 +28,9 @@ class AutoHealRemedies {
           const pythonScript = path.join(__dirname, '..', 'core', 'fastapi_server.py')
           if (!fs.existsSync(pythonScript)) return { success: false, detail: 'fastapi_server.py not found' }
           try {
-            exec('taskkill /f /im python.exe 2>nul || echo no process')
+            if (process.platform === 'win32') {
+              exec('taskkill /f /im python.exe 2>nul || echo no process')
+            }
             const proc = spawn('python', [pythonScript], {
               cwd: path.join(__dirname, '..'),
               windowsHide: true,

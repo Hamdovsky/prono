@@ -743,7 +743,7 @@ const database = {
             delete fullData.fullData;
             if (fullData.enriched && fullData.enriched.enriched) delete fullData.enriched.enriched;
 
-            const verdict = data.verdict || (data.enriched && data.enriched.verdict) || data.prediction || 'RISKY BET';
+            const verdict = data.prediction || (data.enriched && data.enriched.prediction) || data.verdict || 'RISKY BET';
 
             // Extract scalar values to write into indexed SQLite columns
             const hProb  = parseFloat(data.home_win_probability || enriched?.home_win_probability || fullData.home_win_probability || 0);

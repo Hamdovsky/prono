@@ -15,7 +15,6 @@ const axios = require('axios');
 const database = require('./database');
 const { createQuotaManager } = require('../services/sourceQuotaManager');
 const rapidApiQuotaManager = require('../services/rapidApiQuotaManager');
-const apiFallbackManager = require('../services/apiFallbackManager');
 const bsdService = require('../services/bsdService');
 const therundownService = require('../services/therundownService');
 const oddspapiService = require('../services/oddspapiService');
@@ -367,66 +366,8 @@ async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
     }
 }
 
-function registerFallbackSources() {
-    apiFallbackManager.registerSource({
-        name: 'BSD',
-        priority: 1,
-        isAvailable: () => bsdService.isAvailable(),
-        getQuotaStatus: () => ({ available: bsdService.isAvailable() }),
-        fetchEvents: (dateStr) => bsdService.fetchEvents(dateStr)
-    })
-    apiFallbackManager.registerSource({
-        name: 'TheRundown',
-        priority: 2,
-        isAvailable: () => therundownService.isAvailable(),
-        getQuotaStatus: () => therundownService.getQuotaStatus(),
-        fetchEvents: (dateStr) => therundownService.fetchSoccerEvents(dateStr),
-        fetchOdds: (eventId) => therundownService.fetchOddsForMatch(eventId)
-    })
-    apiFallbackManager.registerSource({
-        name: 'OddsPapi',
-        priority: 3,
-        isAvailable: () => oddspapiService.isAvailable(),
-        getQuotaStatus: () => oddspapiService.getQuotaStatus(),
-        fetchEvents: (dateStr) => oddspapiService.fetchEvents(dateStr),
-        fetchOdds: (fixtureId) => oddspapiService.fetchOddsForFixture(fixtureId)
-    })
-    apiFallbackManager.registerSource({
-        name: 'Sportmonks',
-        priority: 4,
-        isAvailable: () => sportmonksService.isAvailable(),
-        getQuotaStatus: () => sportmonksService.getQuotaStatus(),
-        fetchEvents: (dateStr) => sportmonksService.fetchEvents(dateStr),
-        fetchOdds: (fixtureId) => sportmonksService.fetchPrematchOdds(fixtureId)
-    })
-    apiFallbackManager.registerSource({
-        name: 'APIFootball',
-        priority: 5,
-        isAvailable: () => apifootballService.isAvailable(),
-        getQuotaStatus: () => apifootballService.getQuotaStatus(),
-        fetchEvents: (dateStr) => apifootballService.fetchEvents(dateStr),
-        fetchOdds: (fixtureId) => apifootballService.fetchOdds(fixtureId)
-    })
-    apiFallbackManager.registerSource({
-        name: 'OpenLigaDB',
-        priority: 6,
-        isAvailable: () => openligadbService.isAvailable(),
-        getQuotaStatus: () => ({ available: openligadbService.isAvailable() }),
-        fetchEvents: (dateStr) => openligadbService.fetchEvents(dateStr),
-    })
-    apiFallbackManager.registerSource({
-        name: 'Sofascore',
-        priority: 0,
-        isAvailable: () => true,
-        getQuotaStatus: () => ({ available: true }),
-        fetchEvents: (dateStr) => fetchSofascoreEvents(dateStr).then(events => events.map(mapSofascoreEventToMatch)),
-    })
-    console.log('[CLOUD-SEED/FALLBACK] Registered API sources (Sofascore[free] → BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)')
-}
-
 async function runCloudSeed() {
-    registerFallbackSources()
-    console.log('[CLOUD-SEED] Starting multi-source seeding (FootballData -> BSD -> RapidAPI)...');
+    console.log('[CLOUD-SEED] Starting multi-source seeding (Sofascore → FootballData → BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)...');
 
     const today = getDateStr(0);
     const existingToday = await countMatchesForPeriod(0, 0);

@@ -49,7 +49,7 @@ class QuantumQuantEngine {
             risk_label: this._getRiskLabel(ranked.main.prob),
             expected_score: StatisticalEngine.findMostProbableScore(xgHadj, xgAadj, { rho: gmParams.rho, gamma: gmParams.gamma }),
             confidence: m.insufficient_data === 1 
-                ? Math.round(ranked.main.prob * 70) // Pénalité de 30% si données faibles
+                ? Math.round(ranked.main.prob * 90) // Pénalité de 10% si données faibles
                 : Math.round(ranked.main.prob * 100),
             bsd_boosted: ranked.bsd_boosted || false,
             momentum: {

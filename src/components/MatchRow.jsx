@@ -136,7 +136,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
             if (parsed.total > 4) coherence -= 6;
         }
 
-        if (match.insufficient_data === 1) coherence = Math.min(coherence, 64);
+        if (match.insufficient_data === 1) coherence = Math.min(coherence, 75);
         return Math.max(35, Math.min(92, Math.round(coherence)));
     })();
     const pHT05 = Math.min(89, Math.round((pOU25 * 0.5) + (pBTTS * 0.5) + 5));
@@ -595,10 +595,10 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                             if (lower.includes('egyptian') || lower.includes('egypt')) return '🇪🇬 ÉGYPTE : ';
                             if (lower.includes('moroccan') || lower.includes('morocco') || lower.includes('botola')) return '🇲🇦 MAROC : ';
                             if (lower.includes('premier league') || lower.includes('championship') || lower.includes('league one') || lower.includes('league two') || lower.includes('efl') || lower.includes('fa cup')) return '🏴󠁧󠁢󠁥󠁮󠁧󠁿 ANGLETERRE : ';
+                            if (lower.includes('brazil') || lower.includes('brésil') || lower.includes('brasileirão') || lower.includes('paulista') || lower.includes('carioca')) return '🇧🇷 BRÉSIL : ';
                             if (lower.includes('laliga') || lower.includes('segunda') || lower.includes('espagne') || lower.includes('copa del rey') || lower.includes('spain')) return '🇪🇸 ESPAGNE : ';
-                            if (lower.includes('serie a') || lower.includes('serie b') || lower.includes('italie') || lower.includes('coppa italia') || lower.includes('italy')) return '🇮🇹 ITALIE : ';
+                            if (lower.includes('serie a') || lower.includes('italie') || lower.includes('coppa italia') || lower.includes('italy')) return '🇮🇹 ITALIE : ';
                             if (lower.includes('bundesliga') || lower.includes('allemagne') || lower.includes('dfb pokal') || lower.includes('germany')) return '🇩🇪 ALLEMAGNE : ';
-                            if (lower.includes('brazil') || lower.includes('brésil') || lower.includes('paulista') || lower.includes('carioca')) return '🇧🇷 BRÉSIL : ';
                             if (lower.includes('mls') || lower.includes('major league soccer') || lower.includes('usa') || lower.includes('us open cup')) return '🇺🇸 USA : ';
                             if (lower.includes('portugal') || lower.includes('primeira liga') || lower.includes('taca de portugal')) return '🇵🇹 PORTUGAL : ';
                             if (lower.includes('ligue 1') || lower.includes('ligue 2') || lower.includes('france') || lower.includes('coupe de france') || lower.includes('national')) return '🇫🇷 FRANCE : ';

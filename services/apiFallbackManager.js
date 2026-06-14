@@ -72,6 +72,14 @@ class ApiFallbackManager {
   async enrichOdds(matchId) {
     return this.trySources('fetchOdds', matchId)
   }
+
+  async fetchLiveMatchData() {
+    return this.trySources('fetchLiveEvents')
+  }
+
+  async fetchMatchPredictions(matchId) {
+    return this.trySources('fetchPredictions', matchId)
+  }
 }
 
 module.exports = new ApiFallbackManager()

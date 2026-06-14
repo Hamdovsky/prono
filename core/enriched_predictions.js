@@ -273,6 +273,7 @@ class EnrichedPredictionService {
             away_win_probability: (quantResult.markets.match_result['2'].prob * 100),
             expected_score: quantResult.expected_score,
             verdict: quantResult.risk_label,
+            prediction: quantResult.main_pick,
             confidence: quantResult.confidence,
             power_score: quantResult.confidence,
             quantum: quantResult
@@ -537,6 +538,7 @@ class EnrichedPredictionService {
                 confidence: quantResult.confidence,
                 risk_score: 100 - quantResult.confidence,
                 verdict: quantResult.risk_label,
+                prediction: quantResult.main_pick,
                 
                 // UI Predictions Array (for MatchRow)
                 predictions: [

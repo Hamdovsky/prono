@@ -170,7 +170,7 @@ class StatisticalEngine {
         let xgH, xgA;
         // Détection et rejet des xG stalés (typiquement <0.5 après le fatigue bug).
         // Si les xG stockés sont trop bas, on les ignore et on recalcule depuis teamStats/league.
-        const xgSeemsStale = (rxgH > 0.1 && rxgA > 0.1) && (rxgH < 0.5 || rxgA < 0.5);
+        const xgSeemsStale = (rxgH > 0.1 && rxgA > 0.1) && (rxgH < 0.15 || rxgA < 0.15);
 
         if (rxgH > 0.1 && rxgA > 0.1 && !xgSeemsStale) {
             xgH = rxgH;
@@ -218,7 +218,7 @@ class StatisticalEngine {
                 const hStr = this.getTeamAttackDefense(m.homeTeam);
                 const aStr = this.getTeamAttackDefense(m.awayTeam);
                 const leagueBase = this._getLeagueBaseXG(m.league);
-                if (hStr.matchCount >= 3 || aStr.matchCount >= 3) {
+                if (hStr.matchCount >= 1 || aStr.matchCount >= 1) {
                     xgH = ((hStr.attack || leagueBase.h) + (aStr.defense || leagueBase.a)) / 2;
                     xgA = ((aStr.attack || leagueBase.a) + (hStr.defense || leagueBase.h)) / 2;
                     xgH = Math.max(0.3, Math.min(4.0, xgH));

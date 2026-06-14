@@ -508,9 +508,24 @@ class EnrichedPredictionService {
                                 }
                             }
                         }
-                    } catch (_) { /* Big Balls Data stats fetch failed */ }
+                        } catch (_) { /* Big Balls Data stats fetch failed */ }
+                    }
+    
+                    // 5. FutPythonTrader data (Comprehensive match info)
+                    if (!(parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5)) {
+                        try {
+                            const fpService = require('../services/futpythonService');
+                            if (fpService.isAvailable()) {
+                                const fpData = await fpService.enrichMatch(m);
+                                if (fpData) {
+                                    m.fullData = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : (m.fullData || {});
+                                    m.fullData.futpython = fpData;
+                                    m.fullData = JSON.stringify(m.fullData);
+                                }
+                            }
+                        } catch (_) { /* FutPython fetch failed */ }
+                    }
                 }
-            }
 
             // ── 1. QUANTUM QUANT ANALYSIS ──
             let { h: xgH, a: xgA } = this._getMatchXG(m);

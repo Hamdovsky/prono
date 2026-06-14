@@ -80,6 +80,28 @@ class FutPythonTraderService {
     return d?.data || []
   }
 
+  async enrichMatch(match) {
+    if (!this.isAvailable()) return null;
+    try {
+      const dateStr = match.timestamp ? new Date(match.timestamp * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const sources = this._sources;
+      const results = {};
+
+      for (const source of sources) {
+        const games = await this.getDailyGames(source, dateStr);
+        const found = games.find(g => 
+          (g.home_team === match.homeTeam || g.mandante === match.homeTeam) && 
+          (g.away_team === match.awayTeam || g.visitante === match.awayTeam)
+        );
+        if (found) results[source] = found;
+      }
+      return Object.keys(results).length > 0 ? results : null;
+    } catch (e) {
+      logger.warn(`[FUTPYTHON] enrichMatch failed: ${e.message}`);
+      return null;
+    }
+  },
+
   async syncUpcoming() {
     if (!this.isAvailable()) return 0
     try {

@@ -675,6 +675,28 @@ const database = {
         }
     },
 
+    getAllMatches: async () => {
+        try {
+            const res = db.prepare(`SELECT * FROM matches ORDER BY timestamp DESC`).all();
+            return res.map(r => {
+                try {
+                    const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
+                    return { 
+                        ...r, ...parsed, 
+                        id: r.id, 
+                        homeTeam: r.homeTeam || parsed.homeTeam, 
+                        awayTeam: r.awayTeam || parsed.awayTeam, 
+                        league: r.league || parsed.league,
+                        insufficient_data: r.insufficient_data
+                    };
+                } catch (e) { return r; }
+            });
+        } catch (e) {
+            logger.error(`[DB] getAllMatches failed: ${e.message}`);
+            return [];
+        }
+    },
+
     /**
      * Finds or creates a team alias to handle name normalization across sources.
      * E.g., "ESPERANCE" -> "Esperance Tunis"

@@ -163,6 +163,32 @@ class StatisticalEngine {
         this._leagueParams = paramsMap || {};
     }
 
+    _deriveXgFromOdds(m) {
+        const oh = parseFloat(m.odds_home) || 2.0;
+        const ox = parseFloat(m.odds_draw) || 3.0;
+        const oa = parseFloat(m.odds_away) || 2.0;
+        
+        // Probabilités implicites
+        const p_h = 1 / oh;
+        const p_x = 1 / ox;
+        const p_a = 1 / oa;
+        const sum = p_h + p_x + p_a;
+        
+        // Normalisation (retrait de la marge du bookmaker)
+        const nh = p_h / sum;
+        const nx = p_x / sum;
+        const na = p_a / sum;
+        
+        const leagueBase = this._getLeagueBaseXG(m.league);
+        
+        // Approximation simplifiée xG via probabilités
+        // Un favori à 50% (cote 2.0) a généralement un xG autour de 1.5-1.8
+        const xgH = nh * 3.0; 
+        const xgA = na * 3.0;
+        
+        return { h: Math.max(0.5, xgH), a: Math.max(0.5, xgA) };
+    }
+
     getMatchXG(m) {
         // Priority: home_xg/away_xg → teamStats averages → defaults
         const rxgH = parseFloat(m.home_xg) || 0;
@@ -242,11 +268,20 @@ class StatisticalEngine {
                     }
                     xgH = Math.max(0.15, xgH);
                     xgA = Math.max(0.25, xgA);
-                    const league = (m.league || '').toLowerCase();
-                    if (!league.includes('world cup')) {
-                        m.insufficient_data = 1;
+                    
+                    // 🎯 [SENSORS] Final attempt: Derive from Odds before marking insufficient
+                    if (m.odds_home && m.odds_away) {
+                        const derived = this._deriveXgFromOdds(m);
+                        xgH = (xgH + derived.h) / 2;
+                        xgA = (xgA + derived.a) / 2;
+                    } else {
+                        const league = (m.league || '').toLowerCase();
+                        if (!league.includes('world cup')) {
+                            m.insufficient_data = 1;
+                        }
                     }
                 }
+            }
             }
         }
         

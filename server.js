@@ -213,6 +213,11 @@ app.get('/health', (req, res) => {
   const eloService = require('./services/eloRatingService');
   const thetaOptimizer = require('./services/thetaOptimizer');
   const thetaMap = thetaOptimizer.getOptimizedMap();
+  const bsdService = require('./services/bsdService');
+  const apifootballService = require('./services/apifootballService');
+  const bigBallsDataService = require('./services/bigBallsDataService');
+  const predixSportService = require('./services/predixSportService');
+  const sofascoreXg = require('./services/sofascoreXgService');
   res.json({ 
     status: 'ok', 
     uptime: process.uptime(),
@@ -228,6 +233,13 @@ app.get('/health', (req, res) => {
     services: {
       timescale: database.isConnected ? 'connected' : 'disconnected',
       redis: _redisClient.isReady ? 'ready' : 'connecting'
+    },
+    apis: {
+      sofascore: sofascoreXg.isAvailable() ? 'enabled' : 'disabled',
+      bsd: bsdService.isAvailable() ? 'enabled' : 'disabled',
+      apifootball: apifootballService.isAvailable() ? 'enabled' : 'disabled',
+      bigBallsData: bigBallsDataService.isAvailable() ? 'enabled' : 'disabled',
+      predixSport: predixSportService.isAvailable() ? 'enabled' : 'disabled'
     },
     models: {
       distribution: 'negative_binomial',

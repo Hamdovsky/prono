@@ -6,9 +6,9 @@ const { SofaAPI } = require('../SofascoreScraping/src/apiClient');
 
 // 🛡️ CONFIGURATION TITANIUM
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const CHAT_ID = '5637790630';
-const dbPath = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/tactical.db');
-const LOG_FILE = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/live_value_alerts.log');
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '5637790630';
+const dbPath = path.resolve(process.cwd(), 'data/tactical.db');
+const LOG_FILE = path.resolve(process.cwd(), 'data/live_value_alerts.log');
 
 function log(msg) {
     const time = new Date().toISOString();
@@ -445,5 +445,14 @@ async function loop() {
     }
 }
 
-loop();
+// Support both single-run (cron) and continuous (standalone) modes
+if (process.argv.includes('--once')) {
+    log('🔁 Running single audit cycle (--once mode)...');
+    runAudit().finally(() => {
+        log('🏁 Single audit cycle complete.')
+        process.exit(0)
+    })
+} else {
+    loop();
+}
 

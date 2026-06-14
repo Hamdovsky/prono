@@ -309,6 +309,63 @@ class StatisticalEngine {
         };
     }
 
+    liveAdjustXG(xgH, xgA, m) {
+        if (!m || (!m.isLive && !m.liveData && !m.minute)) return { h: xgH, a: xgA }
+
+        const live = m.liveData || {}
+        const minute = parseInt(live.minute || m.minute || 45)
+        const scoreH = parseInt(live.homeScore ?? live.home_score ?? m.liveHomeScore ?? 0)
+        const scoreA = parseInt(live.awayScore ?? live.away_score ?? m.liveAwayScore ?? 0)
+        const remaining = 90 - minute
+        const isLate = minute > 70
+        const isHalftime = minute >= 43 && minute <= 50
+
+        if (isNaN(minute) || remaining <= 0) return { h: xgH, a: xgA }
+
+        let adjH = xgH, adjA = xgA
+
+        if (scoreH > scoreA) {
+            const diff = Math.min(scoreH - scoreA, 3)
+            adjA *= 1 + diff * 0.15 * (isLate ? 1.15 : 1.0)
+        } else if (scoreA > scoreH) {
+            const diff = Math.min(scoreA - scoreH, 3)
+            adjH *= 1 + diff * 0.15 * (isLate ? 1.15 : 1.0)
+        }
+
+        if (scoreH === scoreA && isLate) {
+            const urgency = (minute - 70) / 20 * 0.12
+            adjH *= 1 + urgency
+            adjA *= 1 + urgency
+        }
+
+        if (live.possession) {
+            const posH = parseFloat(live.possession.home || live.possession)
+            const posA = parseFloat(live.possession.away || (100 - posH))
+            if (!isNaN(posH) && posH > 55) adjH *= 1 + (posH - 50) * 0.004
+            if (!isNaN(posA) && posA > 55) adjA *= 1 + (posA - 50) * 0.004
+        }
+
+        if (live.redCards) {
+            const rcH = parseInt(live.redCards.home || 0)
+            const rcA = parseInt(live.redCards.away || 0)
+            if (rcH > 0) adjA *= 1 + rcH * 0.25
+            if (rcA > 0) adjH *= 1 + rcA * 0.25
+        }
+
+        if (isHalftime) {
+            const consumedH = scoreH > 0 ? scoreH * 0.35 : 0
+            const consumedA = scoreA > 0 ? scoreA * 0.35 : 0
+            adjH = Math.max(adjH - consumedH, 0.15)
+            adjA = Math.max(adjA - consumedA, 0.15)
+        }
+
+        const timeRatio = Math.max(remaining / 90, 0.1)
+        adjH *= timeRatio
+        adjA *= timeRatio
+
+        return { h: Math.max(0.1, adjH), a: Math.max(0.1, adjA) }
+    }
+
     _getLeagueBaseXG(league) {
         const key = (league || '').toLowerCase()
         if (key.includes('iceland') || key.includes('reykjavik') || key.includes('women')) return { h: 2.0, a: 1.6 }

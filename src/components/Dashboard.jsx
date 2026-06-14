@@ -117,6 +117,8 @@ const Dashboard = () => {
     const [surgicalMode, setSurgicalMode] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 1024 : true)
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
+    const [apiHealth, setApiHealth] = useState(null)
+    const [autoRefresh, setAutoRefresh] = useState(false)
 
     useEffect(() => {
         const handleResize = () => {
@@ -203,6 +205,28 @@ const Dashboard = () => {
             unsubStatus();
         };
     }, []);
+
+    // API Health check
+    const checkApiHealth = useCallback(async () => {
+        try {
+            const res = await fetch('/health')
+            const data = await res.json()
+            setApiHealth(data.apis || null)
+        } catch { /* ignore */ }
+    }, [])
+
+    useEffect(() => {
+        checkApiHealth()
+        const interval = setInterval(checkApiHealth, 120000)
+        return () => clearInterval(interval)
+    }, [checkApiHealth])
+
+    // Auto-refresh every 60s
+    useEffect(() => {
+        if (!autoRefresh) return
+        const interval = setInterval(() => dataService.refreshAllData(), 60000)
+        return () => clearInterval(interval)
+    }, [autoRefresh])
 
     // Scraper Polling Effect
     useEffect(() => {
@@ -779,7 +803,50 @@ const Dashboard = () => {
                             Activez le mode chirurgical pour n'afficher que les paris les plus sûrs
                         </span>
                     )}
+                    <div style={{marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center'}}>
+                        <button onClick={() => setAutoRefresh(s => !s)} style={{
+                            padding: '4px 10px', borderRadius: '4px',
+                            border: `1px solid ${autoRefresh ? '#38bdf8' : '#334155'}`,
+                            background: autoRefresh ? 'rgba(56,189,248,0.12)' : 'transparent',
+                            color: autoRefresh ? '#38bdf8' : '#64748b',
+                            fontSize: '10px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit'
+                        }}>
+                            ↻ AUTO {autoRefresh ? 'ON' : 'OFF'}
+                        </button>
+                        {apiHealth && (() => {
+                            const ok = Object.values(apiHealth).filter(v => v === 'enabled').length
+                            const total = Object.keys(apiHealth).length
+                            return (
+                                <span style={{fontSize: '9px', fontWeight: '700', color: ok === total ? '#00ffaa' : ok > 0 ? '#fbbf24' : '#f87171'}}>
+                                    {ok}/{total} API
+                                </span>
+                            )
+                        })()}
+                    </div>
                 </div>
+
+                {/* Quick counts */}
+                {(() => {
+                    const total = sortedMatches.length
+                    const surgicalCount = sortedMatches.filter(m => isSurgicalQualified(m)).length
+                    const millionCount = millionaireMatches.length
+                    const eliteCount = eliteMatches.length
+                    const insufficientCount = sortedMatches.filter(m => m.insufficient_data === 1).length
+                    return (
+                        <div style={{
+                            display: 'flex', gap: '8px', padding: '4px 14px 8px',
+                            fontSize: '10px', fontWeight: '700', flexWrap: 'wrap', alignItems: 'center'
+                        }}>
+                            <span style={{color: '#94a3b8'}}>📊 {total} matchs</span>
+                            <span style={{color: '#fbbf24'}}>💰 {millionCount}</span>
+                            <span style={{color: '#00ffaa'}}>💎 {eliteCount}</span>
+                            <span style={{color: '#38bdf8'}}>🎯 {surgicalCount} chirurgical</span>
+                            {insufficientCount > 0 && (
+                                <span style={{color: '#f59e0b'}}>⚠️ {insufficientCount} données faibles</span>
+                            )}
+                        </div>
+                    )
+                })()}
 
                 <div className="onyx-unified-list-container" style={{
                     background: 'rgba(15, 23, 42, 0.6)',

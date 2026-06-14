@@ -252,6 +252,15 @@ class CronManager {
           await workerBridge.callWorker('sync/openligadb')
         }, { timezone: 'Europe/Paris' })
 
+        // 21. Live Value Alerts (Every 5 min, 9:00-23:59) — detects EV+ live bets
+        cron.schedule('*/5 9-23 * * *', () => {
+          const scriptPath = path.join(__dirname, '..', 'scripts', 'live_value_alerts.js')
+          if (require('fs').existsSync(scriptPath)) {
+            const proc = spawn('node', [scriptPath, '--once'], { stdio: 'ignore', windowsHide: true })
+            proc.unref()
+          }
+        }, { timezone: 'Europe/Paris' })
+
         logger.info('✅ [CRON] Scheduler active');
 
         // 🚀 [RESUME] Disabled to avoid conflict with standalone scraper process

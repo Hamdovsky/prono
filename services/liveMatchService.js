@@ -93,8 +93,20 @@ class LiveMatchService {
     let matches = []
     let source = null
 
+    // 0) Sofascore (no key needed, best coverage)
+    try {
+      const { SofaAPI } = require('../SofascoreScraping/src/apiClient')
+      const liveData = await SofaAPI.getLiveEvents()
+      if (liveData && liveData.events && liveData.events.length > 0) {
+        matches = liveData.events.map(e => this._mapLiveEvent(e, 'sofascore'))
+        source = 'Sofascore'
+      }
+    } catch (e) {
+      logger.warn(`[LIVE] Sofascore failed: ${e.message}`)
+    }
+
     // 1) Try BSD
-    if (bsdService.isAvailable()) {
+    if (!matches.length && bsdService.isAvailable()) {
       try {
         const events = await bsdService.fetchLiveEvents()
         if (events && events.length > 0) {
@@ -163,6 +175,40 @@ class LiveMatchService {
   }
 
   _mapLiveEvent(event, source) {
+    if (source === 'sofascore' || source === 'Sofascore') {
+      const desc = event.status?.description || ''
+      let minute = 0
+      const minMatch = desc.match(/(\d+)/)
+      if (minMatch) minute = parseInt(minMatch[1])
+      if (desc.includes('Halftime') || desc.includes('HT')) minute = 45
+      return {
+        id: event.id || `live_${Date.now()}`,
+        homeTeam: event.homeTeam?.name || 'Home',
+        awayTeam: event.awayTeam?.name || 'Away',
+        league: event.tournament?.name || 'Unknown',
+        scoreHome: event.homeScore?.display ?? event.homeScore?.current ?? 0,
+        scoreAway: event.awayScore?.display ?? event.awayScore?.current ?? 0,
+        minute: minute || '0',
+        status: 'live',
+        source: 'sofascore',
+        homeWinP: 33,
+        drawP: 34,
+        awayWinP: 33,
+        confidence: 0,
+        category: 'LIVE',
+        staleSecs: 0,
+        possession: event.statistics?.possession,
+        redCards: event.statistics?.redCards,
+        liveData: {
+          minute,
+          homeScore: event.homeScore?.display ?? event.homeScore?.current ?? 0,
+          awayScore: event.awayScore?.display ?? event.awayScore?.current ?? 0,
+          possession: event.statistics?.possession,
+          redCards: event.statistics?.redCards
+        }
+      }
+    }
+
     if (source === 'sportscore' || source === 'SportScore' || source === 'sportsrc' || source === 'SportSRC') {
       return {
         id: event.id || `live_${Date.now()}`,

@@ -22,7 +22,7 @@ class BsdService {
       logger.warn('[BSD] Service désactivé (BSD_ENABLED=false)')
     } else {
       logger.info(`✅ [BSD] Service prêt — clé: ${this.apiKey.substring(0, 6)}... | URL: ${this.baseUrl}`)
-      this._loadLeagues()
+      if (!process.env.LOCAL_DATA_URL) this._loadLeagues()
     }
   }
 

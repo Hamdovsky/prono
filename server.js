@@ -754,30 +754,34 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
         setTimeout(async () => {
           try {
             // 🔍 [DIAGNOSTIC] Log which API keys are missing at startup
-            const requiredKeys = [
-              ['BSD_API_KEY', 'BSD Bzzoiro'],
-              ['ODDSPAPI_KEY', 'OddsPapi'],
-              ['FOOTBALLDATA_KEY', 'FootballData.io'],
-              ['RAPIDAPI_KEY', 'RapidAPI SportAPI'],
-              ['THERUNDOWN_KEY', 'TheRundown'],
-              ['SPORTMONKS_KEY', 'Sportmonks'],
-              ['APIFOOTBALL_KEY', 'APIFootball'],
-              ['SUPABASE_URL', 'Neon PostgreSQL'],
-              ['INFERENCE_URL', 'Python FastAPI'],
-              ['PREDIXSPORT_API_KEY', 'PredixSport API'],
-              ['BBS_API_KEY', 'Big Balls Data'],
-              ['ODDSAPI_IO_KEY', 'Odds-API.io'],
-              ['GROQ_API_KEY', 'Groq AI'],
-              ['GEMINI_API_KEY', 'Gemini AI'],
-              ['FUTPYTHONTRADER_API_KEY', 'FutPythonTrader'],
-            ]
-            const missing = requiredKeys.filter(([key]) => !process.env[key] || process.env[key].startsWith('CHANGER_MOI'))
-            if (missing.length > 0) {
-              console.log('🔍 [DIAGNOSTIC] API keys manquantes sur Render Dashboard:')
-              missing.forEach(([, name]) => console.log(`   ❌ ${name}`))
-              console.log('   → Allez sur https://dashboard.render.com → Environment → ajoutez ces clés')
+            if (!process.env.LOCAL_DATA_URL) {
+              const requiredKeys = [
+                ['BSD_API_KEY', 'BSD Bzzoiro'],
+                ['ODDSPAPI_KEY', 'OddsPapi'],
+                ['FOOTBALLDATA_KEY', 'FootballData.io'],
+                ['RAPIDAPI_KEY', 'RapidAPI SportAPI'],
+                ['THERUNDOWN_KEY', 'TheRundown'],
+                ['SPORTMONKS_KEY', 'Sportmonks'],
+                ['APIFOOTBALL_KEY', 'APIFootball'],
+                ['SUPABASE_URL', 'Neon PostgreSQL'],
+                ['INFERENCE_URL', 'Python FastAPI'],
+                ['PREDIXSPORT_API_KEY', 'PredixSport API'],
+                ['BBS_API_KEY', 'Big Balls Data'],
+                ['ODDSAPI_IO_KEY', 'Odds-API.io'],
+                ['GROQ_API_KEY', 'Groq AI'],
+                ['GEMINI_API_KEY', 'Gemini AI'],
+                ['FUTPYTHONTRADER_API_KEY', 'FutPythonTrader'],
+              ]
+              const missing = requiredKeys.filter(([key]) => !process.env[key] || process.env[key].startsWith('CHANGER_MOI'))
+              if (missing.length > 0) {
+                console.log('🔍 [DIAGNOSTIC] API keys manquantes sur Render Dashboard:')
+                missing.forEach(([, name]) => console.log(`   ❌ ${name}`))
+                console.log('   → Allez sur https://dashboard.render.com → Environment → ajoutez ces clés')
+              } else {
+                console.log('✅ [DIAGNOSTIC] Toutes les clés API sont configurées')
+              }
             } else {
-              console.log('✅ [DIAGNOSTIC] Toutes les clés API sont configurées')
+              console.log('🔍 [DIAGNOSTIC] LOCAL_DATA_URL actif — API keys ignorées, tout passe par ngrok')
             }
 
             if (process.env.DISABLE_BACKUP !== 'true') backupService.startAutomatedBackups();

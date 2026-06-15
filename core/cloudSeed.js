@@ -252,6 +252,19 @@ async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
 
 async function runCloudSeed() {
   const localDataUrl = process.env.LOCAL_DATA_URL || ''
+  const isPG = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')
+
+  // Skip if DB already has enough matches (local mode or already seeded)
+  if (!isPG && !localDataUrl) {
+    try {
+      const db = database.db
+      const count = db.prepare('SELECT COUNT(*) as cnt FROM matches').get()
+      if (count && count.cnt >= 100) {
+        console.log(`[CLOUD-SEED] DB already has ${count.cnt} matches — skipping seed`)
+        return
+      }
+    } catch (_) {}
+  }
 
   if (localDataUrl) {
     console.log('[CLOUD-SEED] LOCAL_DATA_URL detected — using ngrok tunnel as ONLY source. All external APIs SKIPPED.')

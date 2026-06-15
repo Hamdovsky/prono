@@ -100,7 +100,7 @@ class FutPythonTraderService {
       logger.warn(`[FUTPYTHON] enrichMatch failed: ${e.message}`);
       return null;
     }
-  },
+  }
 
   async syncUpcoming() {
     if (!this.isAvailable()) return 0

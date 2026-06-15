@@ -124,7 +124,8 @@ class AdaptiveLearningEngine {
         try {
             const db = database.db;
             // Only run in SQLite mode; PG tables are created by pg_migrations.js
-            if (db && db.prepare) {
+            // Use db.pragma (SQLite-only) to differentiate from PG compat wrapper
+            if (db && db.pragma) {
                 db.exec(`
                     CREATE TABLE IF NOT EXISTS learning_memory (
                         id          INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -248,7 +248,7 @@ class SupabaseService {
   async syncFromSQLite(database) {
     if (!this.isAvailable()) return 0
     try {
-      const rows = database.db.prepare(`
+      const rows = await database.db.prepare(`
         SELECT id, "homeTeam", "awayTeam", league, status, prediction, confidence,
                "fullData", timestamp, "startTimestamp", source, last_updated,
                "home_win_probability", "draw_probability", "away_win_probability",
@@ -272,6 +272,10 @@ class SupabaseService {
 
   async restoreToSQLite(database) {
     if (!this.isAvailable()) return 0
+    // Skip in PG mode — no local SQLite to restore to
+    if (!database.db || !database.db.pragma) {
+      return 0
+    }
     try {
       const result = await this.query(`
         SELECT id, "homeTeam", "awayTeam", league, status, prediction, confidence,

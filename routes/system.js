@@ -301,6 +301,10 @@ router.post('/sync-matches', express.json({ limit: '50mb' }), async (req, res) =
         }
 
         const db = database.db;
+        // Skip PG mode — INSERT OR REPLACE is SQLite-only
+        if (!db || !db.pragma) {
+            return res.status(400).json({ error: 'PG mode: use Supabase API directly' })
+        }
         const insertStmt = db.prepare(`
             INSERT OR REPLACE INTO matches (
                 id, "homeTeam", "awayTeam", league, "scoreHome", "scoreAway", minute, status,

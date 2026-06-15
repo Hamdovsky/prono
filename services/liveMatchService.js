@@ -1,6 +1,4 @@
-const bsdService = require('./bsdService')
 const sportScoreService = require('./sportScoreService')
-const sportSrcService = require('./sportSrcService')
 const database = require('../core/database')
 const logger = require('../core/logger')
 const socketService = require('./socketService')
@@ -35,28 +33,7 @@ class LiveMatchService {
 
   async fetchUpcomingFallback() {
     try {
-      // Try BSD upcoming events
-      if (bsdService.isAvailable()) {
-        const events = await bsdService.fetchUpcomingEvents()
-        if (events && events.length > 0) {
-          return events.slice(0, 30).map(e => ({
-            id: e.id || `upcoming_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            homeTeam: e.home_team?.name || e.homeTeam || 'Home',
-            awayTeam: e.away_team?.name || e.awayTeam || 'Away',
-            league: e.league?.name || e.tournament_name || 'Unknown',
-            scoreHome: 0,
-            scoreAway: 0,
-            minute: '0',
-            status: 'scheduled',
-            source: 'bsd',
-            isFallback: true,
-            homeWinP: 33,
-            drawP: 34,
-            awayWinP: 33
-          }))
-        }
-      }
-      // Fallback: SportScore upcoming
+      // Only source: SportScore (free, no key)
       const axios = require('axios')
       const { data } = await axios.get('https://sportscore.com/api/widget/matches/', {
         params: { sport: 'football', limit: 50 },
@@ -93,55 +70,15 @@ class LiveMatchService {
     let matches = []
     let source = null
 
-    // 0) Sofascore (no key needed, best coverage)
+    // ONLY source: SportScore (free, no key needed)
     try {
-      const { SofaAPI } = require('../SofascoreScraping/src/apiClient')
-      const liveData = await SofaAPI.getLiveEvents()
-      if (liveData && liveData.events && liveData.events.length > 0) {
-        matches = liveData.events.map(e => this._mapLiveEvent(e, 'sofascore'))
-        source = 'Sofascore'
+      const events = await sportScoreService.fetchLiveEvents()
+      if (events && events.length > 0) {
+        matches = events
+        source = 'SportScore'
       }
     } catch (e) {
-      logger.warn(`[LIVE] Sofascore failed: ${e.message}`)
-    }
-
-    // 1) Try BSD
-    if (!matches.length && bsdService.isAvailable()) {
-      try {
-        const events = await bsdService.fetchLiveEvents()
-        if (events && events.length > 0) {
-          matches = events.map(e => this._mapLiveEvent(e, 'bsd'))
-          source = 'BSD'
-        }
-      } catch (e) {
-        logger.warn(`[LIVE] BSD failed: ${e.message}`)
-      }
-    }
-
-    // 2) Fallback → SportScore (no key needed)
-    if (!matches.length && sportScoreService.isAvailable()) {
-      try {
-        const events = await sportScoreService.fetchLiveEvents()
-        if (events && events.length > 0) {
-          matches = events
-          source = 'SportScore'
-        }
-      } catch (e) {
-        logger.warn(`[LIVE] SportScore failed: ${e.message}`)
-      }
-    }
-
-    // 3) Fallback → SportSRC (needs key)
-    if (!matches.length && sportSrcService.isAvailable()) {
-      try {
-        const events = await sportSrcService.fetchLiveEvents()
-        if (events && events.length > 0) {
-          matches = events
-          source = 'SportSRC'
-        }
-      } catch (e) {
-        logger.warn(`[LIVE] SportSRC failed: ${e.message}`)
-      }
+      logger.warn(`[LIVE] SportScore failed: ${e.message}`)
     }
 
     // Broadcast

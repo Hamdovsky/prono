@@ -95,6 +95,8 @@ services:
         sync: false
       - key: LOCAL_DATA_URL
         sync: false
+      - key: ARCHIVE_DOWNLOAD_URL
+        value: https://files.catbox.moe/hdrmf2.gz
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY

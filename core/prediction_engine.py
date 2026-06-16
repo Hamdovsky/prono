@@ -61,10 +61,10 @@ from leagues_master import classify_league# --- Core V11: Hybrid Ultra Engine (P
 # --- ABSOLUTE DEFENSE: Global Sanitizers ---
 def _safe_float(val, default=0.0):
     try:
-        if val is None or str(val).lower() in ['none', 'null', '', 'nan']: return float(default)
+        if val is None or str(val).lower() in ['none', 'null', '', 'nan']: return 0.0 if default is None else float(default)
         return float(val)
     except Exception:
-        return float(default)
+        return 0.0 if default is None else float(default)
 
 def _f_feat(key, source, default=0.0):
     if source is None: return float(default)

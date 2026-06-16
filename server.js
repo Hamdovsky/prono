@@ -746,6 +746,40 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
       console.warn('⚠️ [STARTUP] Redis client check failed.');
     }
 
+    // Download historical archive if missing (Render ephemeral fs)
+    const archivePath = path.join(__dirname, 'data', 'historical_archive.sqlite')
+    if (!fs.existsSync(archivePath)) {
+      const ARCHIVE_URL = process.env.ARCHIVE_DOWNLOAD_URL || ''
+      if (ARCHIVE_URL) {
+        console.log('[STARTUP] historical_archive.sqlite missing — downloading...')
+        ;(async () => {
+          try {
+            const https = require('https')
+            const zlib = require('zlib')
+            const tmp = archivePath + '.download'
+            await new Promise((resolve, reject) => {
+              const file = fs.createWriteStream(tmp)
+              https.get(ARCHIVE_URL, res => {
+                if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return }
+                const gunzip = zlib.createGunzip()
+                res.pipe(gunzip).pipe(file)
+                file.on('finish', () => { file.close(); resolve() })
+              }).on('error', reject)
+            })
+            fs.renameSync(tmp, archivePath)
+            console.log(`[STARTUP] Archive downloaded (${(fs.statSync(archivePath).size / 1024 / 1024).toFixed(1)} MB)`)
+          } catch (e) {
+            console.warn(`[STARTUP] Archive download failed: ${e.message}`)
+            if (fs.existsSync(archivePath + '.download')) fs.unlinkSync(archivePath + '.download')
+          }
+        })()
+      } else {
+        console.log('[STARTUP] ARCHIVE_DOWNLOAD_URL not set — skipping archive download')
+      }
+    } else {
+      console.log(`[STARTUP] Archive found locally (${(fs.statSync(archivePath).size / 1024 / 1024).toFixed(1)} MB)`)
+    }
+
     const startServer = (retries = 5) => {
       server.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 Titanium Server listening at http://127.0.0.1:${PORT}`);

@@ -86,22 +86,21 @@ def get_team_history(team_name, limit=10, current_match_ts=None):
     try:
         clean_name = team_name.strip()
 
-        # [DATA LEAKAGE FIX] Only fetch matches that finished BEFORE the current match.
-        # If no timestamp is given, we use the current UTC time as a safe cutoff.
         import time
         cutoff_ts = int(current_match_ts) if current_match_ts else int(time.time())
 
+        # Query archive_matches (existing — tennis/other sports)
         query = """
         SELECT stats_blob, homeTeam, awayTeam, scoreHome, scoreAway, startTimestamp 
         FROM archive_matches 
-        WHERE homeTeam = ? 
+        WHERE homeTeam = ?
         AND stats_blob IS NOT NULL
         AND scoreHome IS NOT NULL
         AND (startTimestamp IS NULL OR startTimestamp < ?)
         UNION ALL
         SELECT stats_blob, homeTeam, awayTeam, scoreHome, scoreAway, startTimestamp 
         FROM archive_matches 
-        WHERE awayTeam = ? 
+        WHERE awayTeam = ?
         AND stats_blob IS NOT NULL
         AND scoreHome IS NOT NULL
         AND (startTimestamp IS NULL OR startTimestamp < ?)
@@ -110,6 +109,7 @@ def get_team_history(team_name, limit=10, current_match_ts=None):
         rows = conn.execute(query, (clean_name, cutoff_ts, clean_name, cutoff_ts, limit)).fetchall()
         
         history = []
+
         for r in rows:
             feats = extract_features_from_stats(r['stats_blob']) or {}
             h_team = r['homeTeam'] or ''
@@ -136,7 +136,78 @@ def get_team_history(team_name, limit=10, current_match_ts=None):
             else: norm['points'] = 0.0
             
             history.append(norm)
-        return history
+
+        # Also query archive_football_data (main football source)
+        from datetime import datetime
+        cutoff_dt = datetime.fromtimestamp(cutoff_ts)
+        cutoff_date = cutoff_dt.strftime('%Y-%m-%d')
+
+        query_fb = """
+        SELECT home_team, away_team, score_home, score_away, match_date,
+               shots_home, shots_away, sot_home, sot_away,
+               fouls_home, fouls_away, corners_home, corners_away,
+               yellow_home, yellow_away, red_home, red_away
+        FROM archive_football_data
+        WHERE home_team = ?
+        AND odds_home IS NOT NULL
+        AND score_home IS NOT NULL
+        AND match_date < ?
+        UNION ALL
+        SELECT home_team, away_team, score_home, score_away, match_date,
+               shots_home, shots_away, sot_home, sot_away,
+               fouls_home, fouls_away, corners_home, corners_away,
+               yellow_home, yellow_away, red_home, red_away
+        FROM archive_football_data
+        WHERE away_team = ?
+        AND odds_home IS NOT NULL
+        AND score_home IS NOT NULL
+        AND match_date < ?
+        ORDER BY match_date DESC LIMIT ?
+        """
+        rows_fb = conn.execute(query_fb, (clean_name, cutoff_date, clean_name, cutoff_date, limit)).fetchall()
+
+        _STAT_MAP = {
+            'shots_home': 'Total shots_home', 'shots_away': 'Total shots_away',
+            'sot_home': 'Shots on target_home', 'sot_away': 'Shots on target_away',
+            'fouls_home': 'Fouls_home', 'fouls_away': 'Fouls_away',
+            'corners_home': 'Corner kicks_home', 'corners_away': 'Corner kicks_away',
+            'yellow_home': 'Yellow cards_home', 'yellow_away': 'Yellow cards_away',
+            'red_home': 'Red cards_home', 'red_away': 'Red cards_away',
+        }
+
+        for r in rows_fb:
+            feats = {}
+            for col, key in _STAT_MAP.items():
+                val = r[col]
+                if val is not None:
+                    feats[key] = float(val)
+
+            h_team = r['home_team'] or ''
+            a_team = r['away_team'] or ''
+            is_home = (h_team.lower() == clean_name.lower())
+
+            norm = {}
+            for k, v in feats.items():
+                if is_home: norm[k] = v
+                else:
+                    if '_home' in k: norm[k.replace('_home', '_away')] = v
+                    elif '_away' in k: norm[k.replace('_away', '_home')] = v
+
+            s_for = r['score_home']
+            s_ag = r['score_away']
+            if not is_home: s_for, s_ag = s_ag, s_for
+
+            norm['score_for'] = float(s_for) if s_for is not None else 0.0
+            norm['score_against'] = float(s_ag) if s_ag is not None else 0.0
+            norm['opponent_name'] = a_team if is_home else h_team
+
+            if norm['score_for'] > norm['score_against']: norm['points'] = 3.0
+            elif norm['score_for'] == norm['score_against']: norm['points'] = 1.0
+            else: norm['points'] = 0.0
+
+            history.append(norm)
+
+        return history[:limit]
     except: return []
 
 def calculate_rolling_averages(history_list, window=30):
@@ -543,8 +614,8 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
 
     # 4. Momentum (Rolling Averages)
     if fetch_history:
-        h_hist = get_team_history(home_name, limit=5, current_match_ts=current_match_ts)
-        a_hist = get_team_history(away_name, limit=5, current_match_ts=current_match_ts)
+        h_hist = get_team_history(home_name, limit=20, current_match_ts=current_match_ts)
+        a_hist = get_team_history(away_name, limit=20, current_match_ts=current_match_ts)
     else:
         h_hist = row.get('history_home', [])
         a_hist = row.get('history_away', [])

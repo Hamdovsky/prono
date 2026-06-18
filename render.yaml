@@ -97,6 +97,8 @@ services:
         sync: false
       - key: ARCHIVE_DOWNLOAD_URL
         value: https://files.catbox.moe/hdrmf2.gz
+      - key: PREMIUM_CSV_URL
+        value: https://files.catbox.moe/v2qjeu.csv
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY

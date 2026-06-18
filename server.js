@@ -780,6 +780,38 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
       console.log(`[STARTUP] Archive found locally (${(fs.statSync(archivePath).size / 1024 / 1024).toFixed(1)} MB)`)
     }
 
+    // Download premium CSV if missing (Render ephemeral fs)
+    const premiumCsvPath = path.join(__dirname, 'data', 'v553_wc2026_premium.csv')
+    if (!fs.existsSync(premiumCsvPath)) {
+      const PREMIUM_CSV_URL = process.env.PREMIUM_CSV_URL || ''
+      if (PREMIUM_CSV_URL) {
+        console.log('[STARTUP] v553_wc2026_premium.csv missing — downloading...')
+        ;(async () => {
+          try {
+            const https = require('https')
+            const tmp = premiumCsvPath + '.download'
+            await new Promise((resolve, reject) => {
+              const file = fs.createWriteStream(tmp)
+              https.get(PREMIUM_CSV_URL, res => {
+                if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return }
+                res.pipe(file)
+                file.on('finish', () => { file.close(); resolve() })
+              }).on('error', reject)
+            })
+            fs.renameSync(tmp, premiumCsvPath)
+            console.log(`[STARTUP] Premium CSV downloaded (${(fs.statSync(premiumCsvPath).size / 1024 / 1024).toFixed(1)} MB)`)
+          } catch (e) {
+            console.warn(`[STARTUP] Premium CSV download failed: ${e.message}`)
+            if (fs.existsSync(premiumCsvPath + '.download')) fs.unlinkSync(premiumCsvPath + '.download')
+          }
+        })()
+      } else {
+        console.log('[STARTUP] PREMIUM_CSV_URL not set — skipping premium CSV download')
+      }
+    } else {
+      console.log(`[STARTUP] Premium CSV found locally (${(fs.statSync(premiumCsvPath).size / 1024 / 1024).toFixed(1)} MB)`)
+    }
+
     const startServer = (retries = 5) => {
       server.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 Titanium Server listening at http://127.0.0.1:${PORT}`);

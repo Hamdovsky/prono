@@ -812,6 +812,19 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
       console.log(`[STARTUP] Premium CSV found locally (${(fs.statSync(premiumCsvPath).size / 1024 / 1024).toFixed(1)} MB)`)
     }
 
+    // Bootstrap: fetch fixtures from BSD API at startup (bypasses cron on free plan)
+    setTimeout(() => {
+      try {
+        const bsd = require('./services/bsdService')
+        if (bsd.isAvailable()) {
+          console.log('[STARTUP] BSD API available — syncing fixtures...')
+          bsd.fullSync().then(n => console.log(`[STARTUP] BSD sync complete: ${n} matches`))
+        }
+      } catch (e) {
+        console.warn(`[STARTUP] BSD sync skipped: ${e.message}`)
+      }
+    }, 5000)
+
     const startServer = (retries = 5) => {
       server.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 Titanium Server listening at http://127.0.0.1:${PORT}`);

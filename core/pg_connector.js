@@ -35,6 +35,13 @@ function getPool() {
     logger.debug('[PG] Connection acquired from pool')
   })
 
+  // Keep-alive every 2 min to prevent Neon free tier from sleeping
+  setInterval(async () => {
+    try {
+      await pool.query('SELECT 1')
+    } catch (_) { /* ignore keep-alive failures */ }
+  }, 120000).unref()
+
   logger.info(`[PG] Connected to Postgres via connection pool (max: 5)`)
   return pool
 }
@@ -43,21 +50,34 @@ function usingPostgres() {
   return isPostgres
 }
 
-async function query(text, params = []) {
+async function query(text, params = [], retries = 1) {
   const p = getPool()
   if (!p) return { rows: [], error: 'No Postgres config' }
 
   const start = Date.now()
-  try {
-    const result = await p.query(text, params)
-    const duration = Date.now() - start
-    if (duration > 500) {
-      logger.warn(`[PG SLOW QUERY] ${duration}ms — ${text.slice(0, 80)}`)
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const result = await p.query(text, params)
+      const duration = Date.now() - start
+      if (duration > 500) {
+        logger.warn(`[PG SLOW QUERY] ${duration}ms — ${text.slice(0, 80)}`)
+      }
+      return { rows: result.rows, rowCount: result.rowCount }
+    } catch (err) {
+      const isTimeout = err.message && (
+        err.message.includes('timeout') ||
+        err.message.includes('ETIMEDOUT') ||
+        err.message.includes('Connection terminated') ||
+        err.message.includes('write EPIPE')
+      )
+      if (isTimeout && attempt < retries) {
+        logger.warn(`[PG QUERY RETRY] attempt ${attempt + 1}/${retries} — ${err.message}`)
+        await new Promise(r => setTimeout(r, 1000))
+        continue
+      }
+      logger.error(`[PG QUERY] ${err.message} — ${text.slice(0, 120)}`)
+      throw err
     }
-    return { rows: result.rows, rowCount: result.rowCount }
-  } catch (err) {
-    logger.error(`[PG QUERY] ${err.message} — ${text.slice(0, 120)}`)
-    throw err
   }
 }
 

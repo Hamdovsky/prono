@@ -52,7 +52,7 @@ __prob_trace__ = []
 import logging
 logging.getLogger('absl').setLevel(logging.ERROR)
 
-from ml_features import extract_ml_features, FEATURE_NAMES, FEATURE_NAMES_V24, FEATURE_NAMES_TITANIUM, calculate_rolling_averages, FEATURE_VOLATILITY
+from ml_features import extract_ml_features, FEATURE_NAMES, FEATURE_NAMES_V24, FEATURE_NAMES_V55, FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553, FEATURE_NAMES_TITANIUM, calculate_rolling_averages, FEATURE_VOLATILITY
 
 from top_analyst_engine import process_match_for_top_analyst
 
@@ -485,6 +485,11 @@ def generate_strategic_brief(features, home_name, away_name, selection, match_ob
 ELO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'elo_ratings.json')
 DB_ARCHIVE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'historical_archive.sqlite')
 XGB_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v24_hybrid.json')
+V55_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v55_optimized.json')
+V551_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v551_optimized.json')
+V552_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v552_optimized.json')
+V553_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v553_optimized.json')
+V553_PREMIUM_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v553_premium.json')
 ACCURACY_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'accuracy_log.json')
 TACTICAL_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'tactical.db')
 
@@ -564,6 +569,11 @@ def get_tactical_connection():
 
 # AI Boosters (Lazy Loaded)
 _XGB_BOOSTER = None
+_XGB_V55_BOOSTER = None
+_XGB_V551_BOOSTER = None
+_XGB_V552_BOOSTER = None
+_XGB_V553_BOOSTER = None
+_XGB_V553_PREMIUM_BOOSTER = None
 _CORNERS_MODEL = None
 _CARDS_MODEL = None
 _TITANIUM_BOOSTER = None
@@ -592,6 +602,66 @@ def get_titanium_v4_booster():
             sys.stderr.write(f"⚠️ [XGB] Failed to load Titanium V4 model: {str(e)}\n")
             _TITANIUM_V4_BOOSTER = None
     return _TITANIUM_V4_BOOSTER
+
+def get_v55_booster():
+    global _XGB_V55_BOOSTER
+    if _XGB_V55_BOOSTER is None and os.path.exists(V55_MODEL_PATH):
+        try:
+            xgb = get_xgb()
+            _XGB_V55_BOOSTER = xgb.Booster()
+            _XGB_V55_BOOSTER.load_model(V55_MODEL_PATH)
+        except Exception as e:
+            sys.stderr.write(f"⚠️ [XGB] Failed to load V55 model: {str(e)}\n")
+            _XGB_V55_BOOSTER = None
+    return _XGB_V55_BOOSTER
+
+def get_v551_booster():
+    global _XGB_V551_BOOSTER
+    if _XGB_V551_BOOSTER is None and os.path.exists(V551_MODEL_PATH):
+        try:
+            xgb = get_xgb()
+            _XGB_V551_BOOSTER = xgb.Booster()
+            _XGB_V551_BOOSTER.load_model(V551_MODEL_PATH)
+        except Exception as e:
+            sys.stderr.write(f"⚠️ [XGB] Failed to load V551 model: {str(e)}\n")
+            _XGB_V551_BOOSTER = None
+    return _XGB_V551_BOOSTER
+
+def get_v552_booster():
+    global _XGB_V552_BOOSTER
+    if _XGB_V552_BOOSTER is None and os.path.exists(V552_MODEL_PATH):
+        try:
+            xgb = get_xgb()
+            _XGB_V552_BOOSTER = xgb.Booster()
+            _XGB_V552_BOOSTER.load_model(V552_MODEL_PATH)
+        except Exception as e:
+            sys.stderr.write(f"⚠️ [XGB] Failed to load V552 model: {str(e)}\n")
+            _XGB_V552_BOOSTER = None
+    return _XGB_V552_BOOSTER
+
+def get_v553_booster():
+    global _XGB_V553_BOOSTER
+    if _XGB_V553_BOOSTER is None and os.path.exists(V553_MODEL_PATH):
+        try:
+            xgb = get_xgb()
+            _XGB_V553_BOOSTER = xgb.Booster()
+            _XGB_V553_BOOSTER.load_model(V553_MODEL_PATH)
+        except Exception as e:
+            sys.stderr.write(f"[XGB] Failed to load V553 model: {str(e)}\n")
+            _XGB_V553_BOOSTER = None
+    return _XGB_V553_BOOSTER
+
+def get_v553_premium_booster():
+    global _XGB_V553_PREMIUM_BOOSTER
+    if _XGB_V553_PREMIUM_BOOSTER is None and os.path.exists(V553_PREMIUM_MODEL_PATH):
+        try:
+            xgb = get_xgb()
+            _XGB_V553_PREMIUM_BOOSTER = xgb.Booster()
+            _XGB_V553_PREMIUM_BOOSTER.load_model(V553_PREMIUM_MODEL_PATH)
+        except Exception as e:
+            sys.stderr.write(f"[XGB] Failed to load V553 Premium model: {str(e)}\n")
+            _XGB_V553_PREMIUM_BOOSTER = None
+    return _XGB_V553_PREMIUM_BOOSTER
 
 def extract_v4_features(match_obj):
     """Extract V4 features from match object (requires match stats)."""
@@ -1791,16 +1861,46 @@ def process_prediction(match_obj: dict) -> dict:
     p_h_ai, p_d_ai, p_a_ai = p_h_poi, p_d_poi, p_a_poi
     ai_source = "Standard-Poisson"
     
-    from ml_features import FEATURE_NAMES_V53, FEATURE_NAMES_V54, FEATURE_NAMES_TITANIUM
+    from ml_features import FEATURE_NAMES_V53, FEATURE_NAMES_V54, FEATURE_NAMES_V55, FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553, FEATURE_NAMES_TITANIUM
 
-    # [V53 STABILITY FIX] Force extended features for Titanium Model
+    # [V553] Fallback chain: V553_PREMIUM → V553 → V552 → V551 → V55 → Titanium → V54 → Legacy
+    V553_PREMIUM_BOOSTER = get_v553_premium_booster()
+    V553_BOOSTER = get_v553_booster()
+    V552_BOOSTER = get_v552_booster()
+    V551_BOOSTER = get_v551_booster()
+    V55_BOOSTER = get_v55_booster()
     TITANIUM_BOOSTER = get_titanium_booster()
     XGB_BOOSTER = TITANIUM_BOOSTER if TITANIUM_BOOSTER else get_main_booster()
 
-    # [FIX V111] Use enriched features dict (includes imputation, Elo adjustments, TA merge)
-    # instead of raw_features snapshot. Training uses extract_ml_features() output directly,
-    # so inference must use the same enriched feature space for distribution alignment.
-    if TITANIUM_BOOSTER:
+    # V553 PREMIUM — enriched model, preferred when both teams have WC2026 data
+    is_wc2026_match = (V553_PREMIUM_BOOSTER is not None or V553_BOOSTER is not None) and features.get('fifa_rank_h', 999) < 999 and features.get('fifa_rank_a', 999) < 999
+    if is_wc2026_match:
+        if V553_PREMIUM_BOOSTER is not None:
+            active_feature_names = FEATURE_NAMES_V553
+            active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V553]
+            ai_source = "V553-PREMIUM"
+            XGB_BOOSTER = V553_PREMIUM_BOOSTER
+        else:
+            active_feature_names = FEATURE_NAMES_V553
+            active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V553]
+            ai_source = "V553-WC2026"
+            XGB_BOOSTER = V553_BOOSTER
+    elif V552_BOOSTER:
+        active_feature_names = FEATURE_NAMES_V552
+        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V552]
+        ai_source = "V552-CHRONO-2026"
+        XGB_BOOSTER = V552_BOOSTER
+    elif V551_BOOSTER:
+        active_feature_names = FEATURE_NAMES_V551
+        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V551]
+        ai_source = "V551-PRUNED+2010"
+        XGB_BOOSTER = V551_BOOSTER
+    elif V55_BOOSTER:
+        active_feature_names = FEATURE_NAMES_V55
+        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V55]
+        ai_source = "V55-OPTIMIZED"
+        XGB_BOOSTER = V55_BOOSTER
+    elif TITANIUM_BOOSTER:
         active_feature_names = FEATURE_NAMES_TITANIUM
         active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_TITANIUM]
         ai_source = "TITANIUM-ELITE-V3"

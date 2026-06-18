@@ -1,0 +1,1882 @@
+{
+  "intl_to_soccer": {
+    "Afghanistan": {
+      "soccer_name": "Afghanistan",
+      "soccer_id": 3004,
+      "match_score": 1.0
+    },
+    "Albania": {
+      "soccer_name": "Albania",
+      "soccer_id": 1967,
+      "match_score": 1.0
+    },
+    "Algeria": {
+      "soccer_name": "Algeria",
+      "soccer_id": 2717,
+      "match_score": 1.0
+    },
+    "Ambazonia": {
+      "soccer_name": "Amazonas",
+      "soccer_id": 953,
+      "match_score": 0.8235
+    },
+    "Andorra": {
+      "soccer_name": "andorra",
+      "soccer_id": 1992,
+      "match_score": 1.0
+    },
+    "Angola": {
+      "soccer_name": "Angola",
+      "soccer_id": 2718,
+      "match_score": 1.0
+    },
+    "Anguilla": {
+      "soccer_name": "Anguilla",
+      "soccer_id": 2850,
+      "match_score": 1.0
+    },
+    "Antigua and Barbuda": {
+      "soccer_name": "Antigua and Barbuda",
+      "soccer_id": 2827,
+      "match_score": 1.0
+    },
+    "Argentina": {
+      "soccer_name": "Argentina",
+      "soccer_id": 1906,
+      "match_score": 1.0
+    },
+    "Armenia": {
+      "soccer_name": "Armenia",
+      "soccer_id": 2004,
+      "match_score": 1.0
+    },
+    "Aruba": {
+      "soccer_name": "Aruba",
+      "soccer_id": 2848,
+      "match_score": 1.0
+    },
+    "Asturias": {
+      "soccer_name": "Austria",
+      "soccer_id": 1969,
+      "match_score": 0.8
+    },
+    "Australia": {
+      "soccer_name": "Australia",
+      "soccer_id": 1929,
+      "match_score": 1.0
+    },
+    "Austria": {
+      "soccer_name": "Austria",
+      "soccer_id": 1969,
+      "match_score": 1.0
+    },
+    "Azerbaijan": {
+      "soccer_name": "Azerbaijan",
+      "soccer_id": 1982,
+      "match_score": 1.0
+    },
+    "Bahamas": {
+      "soccer_name": "Bahamas",
+      "soccer_id": 2853,
+      "match_score": 1.0
+    },
+    "Bahrain": {
+      "soccer_name": "Bahrain",
+      "soccer_id": 2778,
+      "match_score": 1.0
+    },
+    "Bangladesh": {
+      "soccer_name": "Bangladesh",
+      "soccer_id": 2998,
+      "match_score": 1.0
+    },
+    "Barbados": {
+      "soccer_name": "Barbados",
+      "soccer_id": 2842,
+      "match_score": 1.0
+    },
+    "Basque Country": {
+      "soccer_name": "Basque Country",
+      "soccer_id": 2979,
+      "match_score": 1.0
+    },
+    "Belarus": {
+      "soccer_name": "Belarus",
+      "soccer_id": 1981,
+      "match_score": 1.0
+    },
+    "Belgium": {
+      "soccer_name": "Belgium",
+      "soccer_id": 1916,
+      "match_score": 1.0
+    },
+    "Belize": {
+      "soccer_name": "Belize",
+      "soccer_id": 2844,
+      "match_score": 1.0
+    },
+    "Benin": {
+      "soccer_name": "Benin",
+      "soccer_id": 2967,
+      "match_score": 1.0
+    },
+    "Bermuda": {
+      "soccer_name": "Bermuda",
+      "soccer_id": 2839,
+      "match_score": 1.0
+    },
+    "Bhutan": {
+      "soccer_name": "Bhutan",
+      "soccer_id": 2926,
+      "match_score": 1.0
+    },
+    "Bolivia": {
+      "soccer_name": "Bolivia",
+      "soccer_id": 2633,
+      "match_score": 1.0
+    },
+    "Bonaire": {
+      "soccer_name": "Bonaire",
+      "soccer_id": 2888,
+      "match_score": 1.0
+    },
+    "Bosnia and Herzegovina": {
+      "soccer_name": "Bosnia & Herzegovina",
+      "soccer_id": 2003,
+      "match_score": 1.0
+    },
+    "Botswana": {
+      "soccer_name": "Botswana",
+      "soccer_id": 2883,
+      "match_score": 1.0
+    },
+    "Brazil": {
+      "soccer_name": "Brazil",
+      "soccer_id": 1924,
+      "match_score": 1.0
+    },
+    "British Virgin Islands": {
+      "soccer_name": "British Virgin Islands",
+      "soccer_id": 2849,
+      "match_score": 1.0
+    },
+    "Brunei": {
+      "soccer_name": "Brunei",
+      "soccer_id": 2953,
+      "match_score": 1.0
+    },
+    "Bulgaria": {
+      "soccer_name": "Bulgaria",
+      "soccer_id": 1987,
+      "match_score": 1.0
+    },
+    "Burkina Faso": {
+      "soccer_name": "Burkina Faso",
+      "soccer_id": 2719,
+      "match_score": 1.0
+    },
+    "Burundi": {
+      "soccer_name": "Burundi",
+      "soccer_id": 2882,
+      "match_score": 1.0
+    },
+    "Cambodia": {
+      "soccer_name": "Cambodia",
+      "soccer_id": 2954,
+      "match_score": 1.0
+    },
+    "Cameroon": {
+      "soccer_name": "Cameroon",
+      "soccer_id": 1919,
+      "match_score": 1.0
+    },
+    "Canada": {
+      "soccer_name": "Canada",
+      "soccer_id": 1917,
+      "match_score": 1.0
+    },
+    "Canary Islands": {
+      "soccer_name": "Canvey Island",
+      "soccer_id": 2556,
+      "match_score": 0.8148
+    },
+    "Cape Verde": {
+      "soccer_name": "Cape Verde Islands",
+      "soccer_id": 2714,
+      "match_score": 1.0
+    },
+    "Catalonia": {
+      "soccer_name": "Catania",
+      "soccer_id": 3451,
+      "match_score": 0.875
+    },
+    "Cayman Islands": {
+      "soccer_name": "Cayman Islands",
+      "soccer_id": 2830,
+      "match_score": 1.0
+    },
+    "Central African Republic": {
+      "soccer_name": "Central African Republic",
+      "soccer_id": 2925,
+      "match_score": 1.0
+    },
+    "Central Spain": {
+      "soccer_name": "Central Espanol",
+      "soccer_id": 4605,
+      "match_score": 0.8571
+    },
+    "Chad": {
+      "soccer_name": "Chad",
+      "soccer_id": 3087,
+      "match_score": 1.0
+    },
+    "Chameria": {
+      "soccer_name": "Almeria",
+      "soccer_id": 99,
+      "match_score": 0.8
+    },
+    "Chile": {
+      "soccer_name": "Chile",
+      "soccer_id": 2630,
+      "match_score": 1.0
+    },
+    "China": {
+      "soccer_name": "China",
+      "soccer_id": 2770,
+      "match_score": 1.0
+    },
+    "Colombia": {
+      "soccer_name": "Colombia",
+      "soccer_id": 2635,
+      "match_score": 1.0
+    },
+    "Comoros": {
+      "soccer_name": "Comoros",
+      "soccer_id": 2741,
+      "match_score": 1.0
+    },
+    "Congo": {
+      "soccer_name": "Congo",
+      "soccer_id": 2984,
+      "match_score": 1.0
+    },
+    "Cook Islands": {
+      "soccer_name": "Cook Islands",
+      "soccer_id": 3080,
+      "match_score": 1.0
+    },
+    "Costa Rica": {
+      "soccer_name": "Costa Rica",
+      "soccer_id": 1931,
+      "match_score": 1.0
+    },
+    "Croatia": {
+      "soccer_name": "Croatia",
+      "soccer_id": 1913,
+      "match_score": 1.0
+    },
+    "Cuba": {
+      "soccer_name": "Cuba",
+      "soccer_id": 2832,
+      "match_score": 1.0
+    },
+    "Curaçao": {
+      "soccer_name": "Curaçao",
+      "soccer_id": 2840,
+      "match_score": 1.0
+    },
+    "Cyprus": {
+      "soccer_name": "Cyprus",
+      "soccer_id": 1977,
+      "match_score": 1.0
+    },
+    "Czech Republic": {
+      "soccer_name": "Czech Republic",
+      "soccer_id": 1971,
+      "match_score": 1.0
+    },
+    "DR Congo": {
+      "soccer_name": "Congo DR",
+      "soccer_id": 2725,
+      "match_score": 1.0
+    },
+    "Denmark": {
+      "soccer_name": "Denmark",
+      "soccer_id": 1908,
+      "match_score": 1.0
+    },
+    "Djibouti": {
+      "soccer_name": "Djibouti",
+      "soccer_id": 2884,
+      "match_score": 1.0
+    },
+    "Dominica": {
+      "soccer_name": "Dominica",
+      "soccer_id": 2834,
+      "match_score": 1.0
+    },
+    "Dominican Republic": {
+      "soccer_name": "Dominican Republic",
+      "soccer_id": 2833,
+      "match_score": 1.0
+    },
+    "East Turkestan": {
+      "soccer_name": "East Preston",
+      "soccer_id": 2859,
+      "match_score": 0.8125
+    },
+    "Ecuador": {
+      "soccer_name": "Ecuador",
+      "soccer_id": 1905,
+      "match_score": 1.0
+    },
+    "Egypt": {
+      "soccer_name": "Egypt",
+      "soccer_id": 2712,
+      "match_score": 1.0
+    },
+    "El Salvador": {
+      "soccer_name": "El Salvador",
+      "soccer_id": 2837,
+      "match_score": 1.0
+    },
+    "England": {
+      "soccer_name": "England",
+      "soccer_id": 1902,
+      "match_score": 1.0
+    },
+    "Equatorial Guinea": {
+      "soccer_name": "Equatorial Guinea",
+      "soccer_id": 2711,
+      "match_score": 1.0
+    },
+    "Eritrea": {
+      "soccer_name": "Eritrea",
+      "soccer_id": 3125,
+      "match_score": 1.0
+    },
+    "Estonia": {
+      "soccer_name": "Estonia",
+      "soccer_id": 1980,
+      "match_score": 1.0
+    },
+    "Eswatini": {
+      "soccer_name": "Eswatini",
+      "soccer_id": 3082,
+      "match_score": 1.0
+    },
+    "Ethiopia": {
+      "soccer_name": "Ethiopia",
+      "soccer_id": 2738,
+      "match_score": 1.0
+    },
+    "Faroe Islands": {
+      "soccer_name": "Faroe Islands",
+      "soccer_id": 1998,
+      "match_score": 1.0
+    },
+    "Fiji": {
+      "soccer_name": "Fiji",
+      "soccer_id": 2891,
+      "match_score": 1.0
+    },
+    "Finland": {
+      "soccer_name": "Finland",
+      "soccer_id": 2002,
+      "match_score": 1.0
+    },
+    "France": {
+      "soccer_name": "France",
+      "soccer_id": 1928,
+      "match_score": 1.0
+    },
+    "Franconia": {
+      "soccer_name": "Ancona",
+      "soccer_id": 5352,
+      "match_score": 0.8
+    },
+    "French Guiana": {
+      "soccer_name": "French Guyana",
+      "soccer_id": 2980,
+      "match_score": 0.9231
+    },
+    "Gabon": {
+      "soccer_name": "Gabon",
+      "soccer_id": 2742,
+      "match_score": 1.0
+    },
+    "Gambia": {
+      "soccer_name": "Gambia",
+      "soccer_id": 2715,
+      "match_score": 1.0
+    },
+    "Georgia": {
+      "soccer_name": "Georgia",
+      "soccer_id": 1975,
+      "match_score": 1.0
+    },
+    "Germany": {
+      "soccer_name": "Germany",
+      "soccer_id": 1914,
+      "match_score": 1.0
+    },
+    "Ghana": {
+      "soccer_name": "Ghana",
+      "soccer_id": 1923,
+      "match_score": 1.0
+    },
+    "Gibraltar": {
+      "soccer_name": "Gibraltar",
+      "soccer_id": 1994,
+      "match_score": 1.0
+    },
+    "Gotland": {
+      "soccer_name": "Scotland",
+      "soccer_id": 1964,
+      "match_score": 0.8
+    },
+    "Greece": {
+      "soccer_name": "Greece",
+      "soccer_id": 2001,
+      "match_score": 1.0
+    },
+    "Grenada": {
+      "soccer_name": "Grenada",
+      "soccer_id": 2838,
+      "match_score": 1.0
+    },
+    "Guadeloupe": {
+      "soccer_name": "Guadalupe FC",
+      "soccer_id": 1775,
+      "match_score": 0.8421
+    },
+    "Guatemala": {
+      "soccer_name": "Guatemala",
+      "soccer_id": 2831,
+      "match_score": 1.0
+    },
+    "Guernsey": {
+      "soccer_name": "Guernsey",
+      "soccer_id": 5144,
+      "match_score": 1.0
+    },
+    "Guinea": {
+      "soccer_name": "Guinea",
+      "soccer_id": 2716,
+      "match_score": 1.0
+    },
+    "Guinea-Bissau": {
+      "soccer_name": "Guinea-Bissau",
+      "soccer_id": 2709,
+      "match_score": 1.0
+    },
+    "Guyana": {
+      "soccer_name": "Guyana",
+      "soccer_id": 2846,
+      "match_score": 1.0
+    },
+    "Haiti": {
+      "soccer_name": "Haiti",
+      "soccer_id": 2843,
+      "match_score": 1.0
+    },
+    "Hitra": {
+      "soccer_name": "Nitra",
+      "soccer_id": 1250,
+      "match_score": 0.8
+    },
+    "Honduras": {
+      "soccer_name": "Honduras",
+      "soccer_id": 2854,
+      "match_score": 1.0
+    },
+    "Hong Kong": {
+      "soccer_name": "Hong Kong",
+      "soccer_id": 2776,
+      "match_score": 1.0
+    },
+    "Hungary": {
+      "soccer_name": "Hungary",
+      "soccer_id": 1965,
+      "match_score": 1.0
+    },
+    "Iceland": {
+      "soccer_name": "Iceland",
+      "soccer_id": 1993,
+      "match_score": 1.0
+    },
+    "India": {
+      "soccer_name": "India",
+      "soccer_id": 2769,
+      "match_score": 1.0
+    },
+    "Indonesia": {
+      "soccer_name": "Indonesia",
+      "soccer_id": 2779,
+      "match_score": 1.0
+    },
+    "Iran": {
+      "soccer_name": "Iran",
+      "soccer_id": 1903,
+      "match_score": 1.0
+    },
+    "Iraq": {
+      "soccer_name": "Iraq",
+      "soccer_id": 2780,
+      "match_score": 1.0
+    },
+    "Israel": {
+      "soccer_name": "Israel",
+      "soccer_id": 1983,
+      "match_score": 1.0
+    },
+    "Italy": {
+      "soccer_name": "Italy",
+      "soccer_id": 1966,
+      "match_score": 1.0
+    },
+    "Ivory Coast": {
+      "soccer_name": "Ivory Coast",
+      "soccer_id": 2708,
+      "match_score": 1.0
+    },
+    "Jamaica": {
+      "soccer_name": "Jamaica",
+      "soccer_id": 2632,
+      "match_score": 1.0
+    },
+    "Japan": {
+      "soccer_name": "Japan",
+      "soccer_id": 1915,
+      "match_score": 1.0
+    },
+    "Jordan": {
+      "soccer_name": "Jordan",
+      "soccer_id": 2782,
+      "match_score": 1.0
+    },
+    "Kazakhstan": {
+      "soccer_name": "Kazakhstan",
+      "soccer_id": 1976,
+      "match_score": 1.0
+    },
+    "Kenya": {
+      "soccer_name": "Kenya",
+      "soccer_id": 2969,
+      "match_score": 1.0
+    },
+    "Kosovo": {
+      "soccer_name": "Kosovo",
+      "soccer_id": 2005,
+      "match_score": 1.0
+    },
+    "Kuwait": {
+      "soccer_name": "Kuwait",
+      "soccer_id": 2885,
+      "match_score": 1.0
+    },
+    "Kyrgyzstan": {
+      "soccer_name": "Kyrgyzstan",
+      "soccer_id": 2784,
+      "match_score": 1.0
+    },
+    "Laos": {
+      "soccer_name": "Laos",
+      "soccer_id": 3002,
+      "match_score": 1.0
+    },
+    "Latvia": {
+      "soccer_name": "Latvia",
+      "soccer_id": 1985,
+      "match_score": 1.0
+    },
+    "Lebanon": {
+      "soccer_name": "Lebanon",
+      "soccer_id": 2768,
+      "match_score": 1.0
+    },
+    "Lesotho": {
+      "soccer_name": "Lesotho",
+      "soccer_id": 2880,
+      "match_score": 1.0
+    },
+    "Liberia": {
+      "soccer_name": "Liberia",
+      "soccer_id": 3081,
+      "match_score": 1.0
+    },
+    "Libya": {
+      "soccer_name": "Libya",
+      "soccer_id": 2879,
+      "match_score": 1.0
+    },
+    "Liechtenstein": {
+      "soccer_name": "Liechtenstein",
+      "soccer_id": 2000,
+      "match_score": 1.0
+    },
+    "Lithuania": {
+      "soccer_name": "Lithuania",
+      "soccer_id": 1990,
+      "match_score": 1.0
+    },
+    "Luxembourg": {
+      "soccer_name": "Luxembourg",
+      "soccer_id": 1989,
+      "match_score": 1.0
+    },
+    "Macau": {
+      "soccer_name": "Macva",
+      "soccer_id": 1322,
+      "match_score": 0.8
+    },
+    "Madagascar": {
+      "soccer_name": "Madagascar",
+      "soccer_id": 2930,
+      "match_score": 1.0
+    },
+    "Malawi": {
+      "soccer_name": "Malawi",
+      "soccer_id": 2740,
+      "match_score": 1.0
+    },
+    "Malaysia": {
+      "soccer_name": "Malaysia",
+      "soccer_id": 2781,
+      "match_score": 1.0
+    },
+    "Maldives": {
+      "soccer_name": "Maldives",
+      "soccer_id": 3003,
+      "match_score": 1.0
+    },
+    "Mali": {
+      "soccer_name": "Mali",
+      "soccer_id": 2722,
+      "match_score": 1.0
+    },
+    "Malta": {
+      "soccer_name": "Malta",
+      "soccer_id": 1997,
+      "match_score": 1.0
+    },
+    "Martinique": {
+      "soccer_name": "Martinique",
+      "soccer_id": 2978,
+      "match_score": 1.0
+    },
+    "Mauritania": {
+      "soccer_name": "Mauritania",
+      "soccer_id": 2720,
+      "match_score": 1.0
+    },
+    "Mauritius": {
+      "soccer_name": "Mauritius",
+      "soccer_id": 2996,
+      "match_score": 1.0
+    },
+    "Mexico": {
+      "soccer_name": "Mexico",
+      "soccer_id": 1910,
+      "match_score": 1.0
+    },
+    "Moldova": {
+      "soccer_name": "Moldova",
+      "soccer_id": 1991,
+      "match_score": 1.0
+    },
+    "Monaco": {
+      "soccer_name": "Monaco",
+      "soccer_id": 216,
+      "match_score": 1.0
+    },
+    "Mongolia": {
+      "soccer_name": "Mongolia",
+      "soccer_id": 2952,
+      "match_score": 1.0
+    },
+    "Montenegro": {
+      "soccer_name": "Montenegro",
+      "soccer_id": 1988,
+      "match_score": 1.0
+    },
+    "Montserrat": {
+      "soccer_name": "Montserrat",
+      "soccer_id": 2828,
+      "match_score": 1.0
+    },
+    "Morocco": {
+      "soccer_name": "Morocco",
+      "soccer_id": 1912,
+      "match_score": 1.0
+    },
+    "Mozambique": {
+      "soccer_name": "Mozambique",
+      "soccer_id": 2713,
+      "match_score": 1.0
+    },
+    "Myanmar": {
+      "soccer_name": "Myanmar",
+      "soccer_id": 3000,
+      "match_score": 1.0
+    },
+    "Namibia": {
+      "soccer_name": "Namibia",
+      "soccer_id": 2721,
+      "match_score": 1.0
+    },
+    "Nepal": {
+      "soccer_name": "Nepal",
+      "soccer_id": 2889,
+      "match_score": 1.0
+    },
+    "Netherlands": {
+      "soccer_name": "Netherlands",
+      "soccer_id": 1901,
+      "match_score": 1.0
+    },
+    "New Caledonia": {
+      "soccer_name": "New Caledonia",
+      "soccer_id": 3008,
+      "match_score": 1.0
+    },
+    "New Zealand": {
+      "soccer_name": "New Zealand",
+      "soccer_id": 2951,
+      "match_score": 1.0
+    },
+    "Nicaragua": {
+      "soccer_name": "Nicaragua",
+      "soccer_id": 2852,
+      "match_score": 1.0
+    },
+    "Niger": {
+      "soccer_name": "Niger",
+      "soccer_id": 2881,
+      "match_score": 1.0
+    },
+    "Nigeria": {
+      "soccer_name": "Nigeria",
+      "soccer_id": 2710,
+      "match_score": 1.0
+    },
+    "North Korea": {
+      "soccer_name": "North Korea",
+      "soccer_id": 2997,
+      "match_score": 1.0
+    },
+    "North Macedonia": {
+      "soccer_name": "FYR Macedonia",
+      "soccer_id": 1984,
+      "match_score": 1.0
+    },
+    "Northern Ireland": {
+      "soccer_name": "Northern Ireland",
+      "soccer_id": 1979,
+      "match_score": 1.0
+    },
+    "Norway": {
+      "soccer_name": "Norway",
+      "soccer_id": 1999,
+      "match_score": 1.0
+    },
+    "Oman": {
+      "soccer_name": "Oman",
+      "soccer_id": 2785,
+      "match_score": 1.0
+    },
+    "Pakistan": {
+      "soccer_name": "Pakistan",
+      "soccer_id": 3009,
+      "match_score": 1.0
+    },
+    "Palestine": {
+      "soccer_name": "Palestine",
+      "soccer_id": 2777,
+      "match_score": 1.0
+    },
+    "Panama": {
+      "soccer_name": "Panama",
+      "soccer_id": 2634,
+      "match_score": 1.0
+    },
+    "Papua New Guinea": {
+      "soccer_name": "Papua New Guinea",
+      "soccer_id": 2928,
+      "match_score": 1.0
+    },
+    "Paraguay": {
+      "soccer_name": "Paraguay",
+      "soccer_id": 2636,
+      "match_score": 1.0
+    },
+    "Peru": {
+      "soccer_name": "Peru",
+      "soccer_id": 2629,
+      "match_score": 1.0
+    },
+    "Philippines": {
+      "soccer_name": "Philippines",
+      "soccer_id": 2995,
+      "match_score": 1.0
+    },
+    "Poland": {
+      "soccer_name": "Poland",
+      "soccer_id": 1911,
+      "match_score": 1.0
+    },
+    "Portugal": {
+      "soccer_name": "Portugal",
+      "soccer_id": 1922,
+      "match_score": 1.0
+    },
+    "Puerto Rico": {
+      "soccer_name": "Puerto Rico",
+      "soccer_id": 2836,
+      "match_score": 1.0
+    },
+    "Qatar": {
+      "soccer_name": "Qatar",
+      "soccer_id": 1904,
+      "match_score": 1.0
+    },
+    "Republic of Ireland": {
+      "soccer_name": "Rep. Of Ireland",
+      "soccer_id": 1995,
+      "match_score": 1.0
+    },
+    "Romania": {
+      "soccer_name": "Romania",
+      "soccer_id": 1972,
+      "match_score": 1.0
+    },
+    "Russia": {
+      "soccer_name": "Russia",
+      "soccer_id": 1986,
+      "match_score": 1.0
+    },
+    "Rwanda": {
+      "soccer_name": "Rwanda",
+      "soccer_id": 2929,
+      "match_score": 1.0
+    },
+    "Saint Helena": {
+      "soccer_name": "St Helens",
+      "soccer_id": 2447,
+      "match_score": 0.9167
+    },
+    "Saint Kitts and Nevis": {
+      "soccer_name": "St. Kitts and Nevis",
+      "soccer_id": 2835,
+      "match_score": 1.0
+    },
+    "Saint Lucia": {
+      "soccer_name": "St. Lucia",
+      "soccer_id": 3124,
+      "match_score": 1.0
+    },
+    "Saint Martin": {
+      "soccer_name": "Saint Martin",
+      "soccer_id": 3006,
+      "match_score": 1.0
+    },
+    "Saint Vincent and the Grenadines": {
+      "soccer_name": "St. Vincent / Grenadines",
+      "soccer_id": 2841,
+      "match_score": 1.0
+    },
+    "Samoa": {
+      "soccer_name": "Amora",
+      "soccer_id": 4032,
+      "match_score": 0.8
+    },
+    "San Marino": {
+      "soccer_name": "San Marino",
+      "soccer_id": 1978,
+      "match_score": 1.0
+    },
+    "Saudi Arabia": {
+      "soccer_name": "Saudi Arabia",
+      "soccer_id": 1907,
+      "match_score": 1.0
+    },
+    "Scotland": {
+      "soccer_name": "Scotland",
+      "soccer_id": 1964,
+      "match_score": 1.0
+    },
+    "Senegal": {
+      "soccer_name": "Senegal",
+      "soccer_id": 1900,
+      "match_score": 1.0
+    },
+    "Serbia": {
+      "soccer_name": "Serbia",
+      "soccer_id": 1925,
+      "match_score": 1.0
+    },
+    "Seychelles": {
+      "soccer_name": "Seychelles",
+      "soccer_id": 3010,
+      "match_score": 1.0
+    },
+    "Shetland": {
+      "soccer_name": "Heartland",
+      "soccer_id": 6478,
+      "match_score": 0.8235
+    },
+    "Sierra Leone": {
+      "soccer_name": "Sierra Leone",
+      "soccer_id": 2743,
+      "match_score": 1.0
+    },
+    "Singapore": {
+      "soccer_name": "Singapore",
+      "soccer_id": 3001,
+      "match_score": 1.0
+    },
+    "Sint Maarten": {
+      "soccer_name": "Saint Martin",
+      "soccer_id": 3006,
+      "match_score": 0.8333
+    },
+    "Slovakia": {
+      "soccer_name": "Slovakia",
+      "soccer_id": 1970,
+      "match_score": 1.0
+    },
+    "Slovenia": {
+      "soccer_name": "Slovenia",
+      "soccer_id": 1968,
+      "match_score": 1.0
+    },
+    "Solomon Islands": {
+      "soccer_name": "Solomon Islands",
+      "soccer_id": 2890,
+      "match_score": 1.0
+    },
+    "Somalia": {
+      "soccer_name": "Somalia",
+      "soccer_id": 3083,
+      "match_score": 1.0
+    },
+    "Somaliland": {
+      "soccer_name": "Somalia",
+      "soccer_id": 3083,
+      "match_score": 0.8235
+    },
+    "South Africa": {
+      "soccer_name": "South Africa",
+      "soccer_id": 2723,
+      "match_score": 1.0
+    },
+    "South Korea": {
+      "soccer_name": "South Korea",
+      "soccer_id": 1921,
+      "match_score": 1.0
+    },
+    "South Sudan": {
+      "soccer_name": "South Sudan",
+      "soccer_id": 3067,
+      "match_score": 1.0
+    },
+    "Spain": {
+      "soccer_name": "Spain",
+      "soccer_id": 1930,
+      "match_score": 1.0
+    },
+    "Sri Lanka": {
+      "soccer_name": "Sri Lanka",
+      "soccer_id": 2927,
+      "match_score": 1.0
+    },
+    "Sudan": {
+      "soccer_name": "Sudan",
+      "soccer_id": 2744,
+      "match_score": 1.0
+    },
+    "Suriname": {
+      "soccer_name": "Suriname",
+      "soccer_id": 2829,
+      "match_score": 1.0
+    },
+    "Sweden": {
+      "soccer_name": "Sweden",
+      "soccer_id": 1996,
+      "match_score": 1.0
+    },
+    "Switzerland": {
+      "soccer_name": "Switzerland",
+      "soccer_id": 1918,
+      "match_score": 1.0
+    },
+    "Syria": {
+      "soccer_name": "Syria",
+      "soccer_id": 2773,
+      "match_score": 1.0
+    },
+    "São Tomé and Príncipe": {
+      "soccer_name": "Sao Tome and Principe",
+      "soccer_id": 4761,
+      "match_score": 0.8571
+    },
+    "Tahiti": {
+      "soccer_name": "Tahiti",
+      "soccer_id": 3007,
+      "match_score": 1.0
+    },
+    "Taiwan": {
+      "soccer_name": "Chinese Taipei",
+      "soccer_id": 2999,
+      "match_score": 1.0
+    },
+    "Tajikistan": {
+      "soccer_name": "Tajikistan",
+      "soccer_id": 2771,
+      "match_score": 1.0
+    },
+    "Tanzania": {
+      "soccer_name": "Tanzania",
+      "soccer_id": 2724,
+      "match_score": 1.0
+    },
+    "Thailand": {
+      "soccer_name": "Thailand",
+      "soccer_id": 2783,
+      "match_score": 1.0
+    },
+    "Timor-Leste": {
+      "soccer_name": "Timor-Leste",
+      "soccer_id": 3098,
+      "match_score": 1.0
+    },
+    "Togo": {
+      "soccer_name": "Togo",
+      "soccer_id": 2968,
+      "match_score": 1.0
+    },
+    "Tonga": {
+      "soccer_name": "Tonga",
+      "soccer_id": 4762,
+      "match_score": 1.0
+    },
+    "Trinidad and Tobago": {
+      "soccer_name": "Trinidad and Tobago",
+      "soccer_id": 2845,
+      "match_score": 1.0
+    },
+    "Tunisia": {
+      "soccer_name": "Tunisia",
+      "soccer_id": 1909,
+      "match_score": 1.0
+    },
+    "Turkmenistan": {
+      "soccer_name": "Turkmenistan",
+      "soccer_id": 2887,
+      "match_score": 1.0
+    },
+    "Turks and Caicos Islands": {
+      "soccer_name": "Turks and Caicos Islands",
+      "soccer_id": 2851,
+      "match_score": 1.0
+    },
+    "Uganda": {
+      "soccer_name": "Uganda",
+      "soccer_id": 2886,
+      "match_score": 1.0
+    },
+    "Ukraine": {
+      "soccer_name": "Ukraine",
+      "soccer_id": 1973,
+      "match_score": 1.0
+    },
+    "United Arab Emirates": {
+      "soccer_name": "United Arab Emirates",
+      "soccer_id": 2775,
+      "match_score": 1.0
+    },
+    "United States": {
+      "soccer_name": "USA",
+      "soccer_id": 1926,
+      "match_score": 1.0
+    },
+    "Uruguay": {
+      "soccer_name": "Uruguay",
+      "soccer_id": 1920,
+      "match_score": 1.0
+    },
+    "Uzbekistan": {
+      "soccer_name": "Uzbekistan",
+      "soccer_id": 2772,
+      "match_score": 1.0
+    },
+    "Vanuatu": {
+      "soccer_name": "Vanuatu",
+      "soccer_id": 2910,
+      "match_score": 1.0
+    },
+    "Venezuela": {
+      "soccer_name": "Venezuela",
+      "soccer_id": 2631,
+      "match_score": 1.0
+    },
+    "Vietnam": {
+      "soccer_name": "Vietnam",
+      "soccer_id": 2774,
+      "match_score": 1.0
+    },
+    "Wales": {
+      "soccer_name": "Wales",
+      "soccer_id": 1927,
+      "match_score": 1.0
+    },
+    "Western Armenia": {
+      "soccer_name": "West Armenia",
+      "soccer_id": 6511,
+      "match_score": 0.8
+    },
+    "Yemen": {
+      "soccer_name": "Yemen",
+      "soccer_id": 3005,
+      "match_score": 1.0
+    },
+    "Zambia": {
+      "soccer_name": "Zambia",
+      "soccer_id": 2726,
+      "match_score": 1.0
+    },
+    "Zimbabwe": {
+      "soccer_name": "Zimbabwe",
+      "soccer_id": 2739,
+      "match_score": 1.0
+    }
+  },
+  "intl_to_wc": {
+    "Algeria": {
+      "wc_name": "Algeria",
+      "match_score": 1.0
+    },
+    "Angola": {
+      "wc_name": "Angola PR",
+      "match_score": 0.95
+    },
+    "Argentina": {
+      "wc_name": "Argentina",
+      "match_score": 1.0
+    },
+    "Asturias": {
+      "wc_name": "Austria",
+      "match_score": 0.8
+    },
+    "Australia": {
+      "wc_name": "Australia",
+      "match_score": 1.0
+    },
+    "Austria": {
+      "wc_name": "Austria",
+      "match_score": 1.0
+    },
+    "Belgium": {
+      "wc_name": "Belgium",
+      "match_score": 1.0
+    },
+    "Benin": {
+      "wc_name": "Benin PR",
+      "match_score": 0.95
+    },
+    "Bosnia and Herzegovina": {
+      "wc_name": "Bosnia and Herzegovina",
+      "match_score": 1.0
+    },
+    "Botswana": {
+      "wc_name": "Botswana PR",
+      "match_score": 0.95
+    },
+    "Brazil": {
+      "wc_name": "Brazil",
+      "match_score": 1.0
+    },
+    "Burkina Faso": {
+      "wc_name": "Burkina Faso PR",
+      "match_score": 0.95
+    },
+    "Burundi": {
+      "wc_name": "Burundi PR",
+      "match_score": 0.95
+    },
+    "Cameroon": {
+      "wc_name": "Cameroon PR",
+      "match_score": 0.95
+    },
+    "Canada": {
+      "wc_name": "Canada",
+      "match_score": 1.0
+    },
+    "Cape Verde": {
+      "wc_name": "Cape Verde",
+      "match_score": 0.95
+    },
+    "Central African Republic": {
+      "wc_name": "Central African Republic",
+      "match_score": 0.95
+    },
+    "Chad": {
+      "wc_name": "Chad PR",
+      "match_score": 0.95
+    },
+    "China": {
+      "wc_name": "China PR",
+      "match_score": 0.95
+    },
+    "Colombia": {
+      "wc_name": "Colombia",
+      "match_score": 1.0
+    },
+    "Comoros": {
+      "wc_name": "Comoros PR",
+      "match_score": 0.95
+    },
+    "Congo": {
+      "wc_name": "Congo PR",
+      "match_score": 0.95
+    },
+    "Croatia": {
+      "wc_name": "Croatia",
+      "match_score": 1.0
+    },
+    "Curaçao": {
+      "wc_name": "Curacao",
+      "match_score": 0.8571
+    },
+    "DR Congo": {
+      "wc_name": "Congo DR",
+      "match_score": 1.0
+    },
+    "Djibouti": {
+      "wc_name": "Djibouti PR",
+      "match_score": 0.95
+    },
+    "Ecuador": {
+      "wc_name": "Ecuador",
+      "match_score": 1.0
+    },
+    "Egypt": {
+      "wc_name": "Egypt",
+      "match_score": 1.0
+    },
+    "England": {
+      "wc_name": "England",
+      "match_score": 1.0
+    },
+    "Equatorial Guinea": {
+      "wc_name": "Equatorial Guinea PR",
+      "match_score": 0.95
+    },
+    "Eritrea": {
+      "wc_name": "Eritrea PR",
+      "match_score": 0.95
+    },
+    "Eswatini": {
+      "wc_name": "Eswatini PR",
+      "match_score": 0.95
+    },
+    "Ethiopia": {
+      "wc_name": "Ethiopia PR",
+      "match_score": 0.95
+    },
+    "France": {
+      "wc_name": "France",
+      "match_score": 1.0
+    },
+    "Gabon": {
+      "wc_name": "Gabon PR",
+      "match_score": 0.95
+    },
+    "Gambia": {
+      "wc_name": "Gambia PR",
+      "match_score": 0.95
+    },
+    "Germany": {
+      "wc_name": "Germany",
+      "match_score": 1.0
+    },
+    "Ghana": {
+      "wc_name": "Ghana",
+      "match_score": 1.0
+    },
+    "Gotland": {
+      "wc_name": "Scotland",
+      "match_score": 0.8
+    },
+    "Guinea": {
+      "wc_name": "Guinea PR",
+      "match_score": 0.95
+    },
+    "Haiti": {
+      "wc_name": "Haiti",
+      "match_score": 1.0
+    },
+    "Iran": {
+      "wc_name": "IR Iran",
+      "match_score": 1.0
+    },
+    "Iraq": {
+      "wc_name": "Iraq",
+      "match_score": 1.0
+    },
+    "Ivory Coast": {
+      "wc_name": "Cote d'Ivoire",
+      "match_score": 1.0
+    },
+    "Japan": {
+      "wc_name": "Japan",
+      "match_score": 1.0
+    },
+    "Jordan": {
+      "wc_name": "Jordan",
+      "match_score": 1.0
+    },
+    "Kenya": {
+      "wc_name": "Kenya PR",
+      "match_score": 0.95
+    },
+    "Laos": {
+      "wc_name": "Lao PR",
+      "match_score": 0.95
+    },
+    "Lesotho": {
+      "wc_name": "Lesotho PR",
+      "match_score": 0.95
+    },
+    "Liberia": {
+      "wc_name": "Liberia PR",
+      "match_score": 0.95
+    },
+    "Libya": {
+      "wc_name": "Libya PR",
+      "match_score": 0.95
+    },
+    "Malawi": {
+      "wc_name": "Malawi PR",
+      "match_score": 0.95
+    },
+    "Mali": {
+      "wc_name": "Mali PR",
+      "match_score": 0.95
+    },
+    "Mauritania": {
+      "wc_name": "Mauritania PR",
+      "match_score": 0.95
+    },
+    "Mauritius": {
+      "wc_name": "Mauritius PR",
+      "match_score": 0.95
+    },
+    "Mexico": {
+      "wc_name": "Mexico",
+      "match_score": 1.0
+    },
+    "Morocco": {
+      "wc_name": "Morocco",
+      "match_score": 1.0
+    },
+    "Mozambique": {
+      "wc_name": "Mozambique PR",
+      "match_score": 0.95
+    },
+    "Myanmar": {
+      "wc_name": "Myanmar PR",
+      "match_score": 0.95
+    },
+    "Namibia": {
+      "wc_name": "Namibia PR",
+      "match_score": 0.95
+    },
+    "Netherlands": {
+      "wc_name": "Netherlands",
+      "match_score": 1.0
+    },
+    "New Zealand": {
+      "wc_name": "New Zealand",
+      "match_score": 1.0
+    },
+    "Niger": {
+      "wc_name": "Niger PR",
+      "match_score": 0.95
+    },
+    "Nigeria": {
+      "wc_name": "Nigeria PR",
+      "match_score": 0.95
+    },
+    "North Korea": {
+      "wc_name": "North Korea",
+      "match_score": 0.95
+    },
+    "Norway": {
+      "wc_name": "Norway",
+      "match_score": 1.0
+    },
+    "Panama": {
+      "wc_name": "Panama",
+      "match_score": 1.0
+    },
+    "Paraguay": {
+      "wc_name": "Paraguay",
+      "match_score": 1.0
+    },
+    "Philippines": {
+      "wc_name": "Philippines PR",
+      "match_score": 0.95
+    },
+    "Portugal": {
+      "wc_name": "Portugal",
+      "match_score": 1.0
+    },
+    "Qatar": {
+      "wc_name": "Qatar",
+      "match_score": 1.0
+    },
+    "Rwanda": {
+      "wc_name": "Rwanda PR",
+      "match_score": 0.95
+    },
+    "Saint Helena": {
+      "wc_name": "Saint Helena",
+      "match_score": 0.95
+    },
+    "Saudi Arabia": {
+      "wc_name": "Saudi Arabia",
+      "match_score": 1.0
+    },
+    "Scotland": {
+      "wc_name": "Scotland",
+      "match_score": 1.0
+    },
+    "Senegal": {
+      "wc_name": "Senegal",
+      "match_score": 1.0
+    },
+    "Seychelles": {
+      "wc_name": "Seychelles PR",
+      "match_score": 0.95
+    },
+    "Sierra Leone": {
+      "wc_name": "Sierra Leone PR",
+      "match_score": 0.95
+    },
+    "Somalia": {
+      "wc_name": "Somalia PR",
+      "match_score": 0.95
+    },
+    "South Africa": {
+      "wc_name": "South Africa",
+      "match_score": 1.0
+    },
+    "South Korea": {
+      "wc_name": "South Korea",
+      "match_score": 0.95
+    },
+    "South Sudan": {
+      "wc_name": "South Sudan PR",
+      "match_score": 0.95
+    },
+    "Spain": {
+      "wc_name": "Spain",
+      "match_score": 1.0
+    },
+    "Sudan": {
+      "wc_name": "Sudan PR",
+      "match_score": 0.95
+    },
+    "Sweden": {
+      "wc_name": "Sweden",
+      "match_score": 1.0
+    },
+    "Switzerland": {
+      "wc_name": "Switzerland",
+      "match_score": 1.0
+    },
+    "Syria": {
+      "wc_name": "Syria PR",
+      "match_score": 0.95
+    },
+    "Taiwan": {
+      "wc_name": "Chinese Taipei",
+      "match_score": 0.95
+    },
+    "Tanzania": {
+      "wc_name": "Tanzania PR",
+      "match_score": 0.95
+    },
+    "Togo": {
+      "wc_name": "Togo PR",
+      "match_score": 0.95
+    },
+    "Tunisia": {
+      "wc_name": "Tunisia",
+      "match_score": 1.0
+    },
+    "Uganda": {
+      "wc_name": "Uganda PR",
+      "match_score": 0.95
+    },
+    "Uruguay": {
+      "wc_name": "Uruguay",
+      "match_score": 1.0
+    },
+    "Uzbekistan": {
+      "wc_name": "Uzbekistan",
+      "match_score": 1.0
+    },
+    "Vietnam": {
+      "wc_name": "Viet Nam",
+      "match_score": 0.95
+    },
+    "Zambia": {
+      "wc_name": "Zambia PR",
+      "match_score": 0.95
+    },
+    "Zimbabwe": {
+      "wc_name": "Zimbabwe PR",
+      "match_score": 0.95
+    }
+  },
+  "intl_names": [
+    "Abkhazia",
+    "Afghanistan",
+    "Albania",
+    "Alderney",
+    "Algeria",
+    "Ambazonia",
+    "American Samoa",
+    "Andalusia",
+    "Andorra",
+    "Angola",
+    "Anguilla",
+    "Antigua and Barbuda",
+    "Arameans Suryoye",
+    "Argentina",
+    "Armenia",
+    "Artsakh",
+    "Aruba",
+    "Asturias",
+    "Australia",
+    "Austria",
+    "Aymara",
+    "Azerbaijan",
+    "Bahamas",
+    "Bahrain",
+    "Bangladesh",
+    "Barawa",
+    "Barbados",
+    "Basque Country",
+    "Belarus",
+    "Belgium",
+    "Belize",
+    "Benin",
+    "Bermuda",
+    "Bhutan",
+    "Biafra",
+    "Bolivia",
+    "Bonaire",
+    "Bosnia and Herzegovina",
+    "Botswana",
+    "Brazil",
+    "British Virgin Islands",
+    "Brittany",
+    "Brunei",
+    "Bulgaria",
+    "Burkina Faso",
+    "Burundi",
+    "Cambodia",
+    "Cameroon",
+    "Canada",
+    "Canary Islands",
+    "Cape Verde",
+    "Cascadia",
+    "Catalonia",
+    "Cayman Islands",
+    "Central African Republic",
+    "Central Spain",
+    "Chad",
+    "Chagos Islands",
+    "Chameria",
+    "Chechnya",
+    "Chile",
+    "China",
+    "Cilento",
+    "Colombia",
+    "Comoros",
+    "Congo",
+    "Cook Islands",
+    "Corsica",
+    "Costa Rica",
+    "County of Nice",
+    "Crimea",
+    "Croatia",
+    "Cuba",
+    "Curaçao",
+    "Cyprus",
+    "Czech Republic",
+    "Czechoslovakia",
+    "DR Congo",
+    "Darfur",
+    "Denmark",
+    "Djibouti",
+    "Dominica",
+    "Dominican Republic",
+    "Donetsk PR",
+    "Délvidék",
+    "East Turkestan",
+    "Ecuador",
+    "Egypt",
+    "El Salvador",
+    "Elba Island",
+    "Ellan Vannin",
+    "England",
+    "Equatorial Guinea",
+    "Eritrea",
+    "Estonia",
+    "Eswatini",
+    "Ethiopia",
+    "Falkland Islands",
+    "Faroe Islands",
+    "Felvidék",
+    "Fiji",
+    "Finland",
+    "France",
+    "Franconia",
+    "French Guiana",
+    "Frøya",
+    "Gabon",
+    "Galicia",
+    "Gambia",
+    "Georgia",
+    "German DR",
+    "Germany",
+    "Ghana",
+    "Gibraltar",
+    "Gotland",
+    "Gozo",
+    "Greece",
+    "Greenland",
+    "Grenada",
+    "Guadeloupe",
+    "Guam",
+    "Guatemala",
+    "Guernsey",
+    "Guinea",
+    "Guinea-Bissau",
+    "Guyana",
+    "Găgăuzia",
+    "Haiti",
+    "Hitra",
+    "Hmong",
+    "Honduras",
+    "Hong Kong",
+    "Hungary",
+    "Iceland",
+    "India",
+    "Indonesia",
+    "Iran",
+    "Iraq",
+    "Iraqi Kurdistan",
+    "Isle of Man",
+    "Isle of Wight",
+    "Israel",
+    "Italy",
+    "Ivory Coast",
+    "Jamaica",
+    "Japan",
+    "Jersey",
+    "Jordan",
+    "Kabylia",
+    "Kazakhstan",
+    "Kenya",
+    "Kernow",
+    "Kiribati",
+    "Kosovo",
+    "Kurdistan",
+    "Kuwait",
+    "Kyrgyzstan",
+    "Kárpátalja",
+    "Laos",
+    "Latvia",
+    "Lebanon",
+    "Lesotho",
+    "Liberia",
+    "Libya",
+    "Liechtenstein",
+    "Lithuania",
+    "Luhansk PR",
+    "Luxembourg",
+    "Macau",
+    "Madagascar",
+    "Madrid",
+    "Malawi",
+    "Malaysia",
+    "Maldives",
+    "Mali",
+    "Malta",
+    "Manchukuo",
+    "Mapuche",
+    "Marshall Islands",
+    "Martinique",
+    "Matabeleland",
+    "Maule Sur",
+    "Mauritania",
+    "Mauritius",
+    "Mayotte",
+    "Menorca",
+    "Mexico",
+    "Micronesia",
+    "Moldova",
+    "Monaco",
+    "Mongolia",
+    "Montenegro",
+    "Montserrat",
+    "Morocco",
+    "Mozambique",
+    "Myanmar",
+    "Namibia",
+    "Nepal",
+    "Netherlands",
+    "New Caledonia",
+    "New Zealand",
+    "Nicaragua",
+    "Niger",
+    "Nigeria",
+    "Niue",
+    "North Korea",
+    "North Macedonia",
+    "North Vietnam",
+    "Northern Cyprus",
+    "Northern Ireland",
+    "Northern Mariana Islands",
+    "Norway",
+    "Occitania",
+    "Oman",
+    "Orkney",
+    "Padania",
+    "Pakistan",
+    "Palau",
+    "Palestine",
+    "Panama",
+    "Panjab",
+    "Papua New Guinea",
+    "Paraguay",
+    "Parishes of Jersey",
+    "Peru",
+    "Philippines",
+    "Poland",
+    "Portugal",
+    "Provence",
+    "Puerto Rico",
+    "Qatar",
+    "Quebec",
+    "Raetia",
+    "Republic of Ireland",
+    "Republic of St. Pauli",
+    "Rhodes",
+    "Romani people",
+    "Romania",
+    "Russia",
+    "Rwanda",
+    "Ryūkyū",
+    "Réunion",
+    "Saare County",
+    "Saarland",
+    "Saint Barthélemy",
+    "Saint Helena",
+    "Saint Kitts and Nevis",
+    "Saint Lucia",
+    "Saint Martin",
+    "Saint Pierre and Miquelon",
+    "Saint Vincent and the Grenadines",
+    "Samoa",
+    "San Marino",
+    "Sark",
+    "Saudi Arabia",
+    "Saugeais",
+    "Scotland",
+    "Sealand",
+    "Seborga",
+    "Senegal",
+    "Serbia",
+    "Seychelles",
+    "Shetland",
+    "Sierra Leone",
+    "Silesia",
+    "Singapore",
+    "Sint Maarten",
+    "Slovakia",
+    "Slovenia",
+    "Solomon Islands",
+    "Somalia",
+    "Somaliland",
+    "South Africa",
+    "South Korea",
+    "South Ossetia",
+    "South Sudan",
+    "South Yemen",
+    "Spain",
+    "Sri Lanka",
+    "Sudan",
+    "Suriname",
+    "Surrey",
+    "Sweden",
+    "Switzerland",
+    "Syria",
+    "Székely Land",
+    "Sápmi",
+    "São Tomé and Príncipe",
+    "Tahiti",
+    "Taiwan",
+    "Tajikistan",
+    "Tamil Eelam",
+    "Tanzania",
+    "Thailand",
+    "Tibet",
+    "Ticino",
+    "Timor-Leste",
+    "Togo",
+    "Tonga",
+    "Trinidad and Tobago",
+    "Tunisia",
+    "Turkey",
+    "Turkmenistan",
+    "Turks and Caicos Islands",
+    "Tuvalu",
+    "Two Sicilies",
+    "Uganda",
+    "Ukraine",
+    "United Arab Emirates",
+    "United Koreans in Japan",
+    "United States",
+    "United States Virgin Islands",
+    "Uruguay",
+    "Uzbekistan",
+    "Vanuatu",
+    "Vatican City",
+    "Venezuela",
+    "Vietnam",
+    "Vietnam Republic",
+    "Wales",
+    "Wallis Islands and Futuna",
+    "West Papua",
+    "Western Armenia",
+    "Western Australia",
+    "Western Isles",
+    "Western Sahara",
+    "Yemen",
+    "Yemen DPR",
+    "Ynys Môn",
+    "Yorkshire",
+    "Yoruba Nation",
+    "Yugoslavia",
+    "Zambia",
+    "Zanzibar",
+    "Zimbabwe",
+    "Åland Islands"
+  ]
+}

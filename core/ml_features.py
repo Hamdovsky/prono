@@ -31,13 +31,126 @@ def parse_pct(s):
     return _f(str(s).replace('%', '').strip() if s else 0)
 
 _DB_CONN = None
+_WC2026_TEAMS_CACHE = None
+_XG_HOME_MODEL = None
+_XG_AWAY_MODEL = None
+_XG_ARCHIVE_MODEL = None
+
+def get_wc2026_team_data():
+    global _WC2026_TEAMS_CACHE
+    if _WC2026_TEAMS_CACHE is not None:
+        return _WC2026_TEAMS_CACHE
+    conn = get_db_connection()
+    if conn is None:
+        _WC2026_TEAMS_CACHE = {}
+        return _WC2026_TEAMS_CACHE
+    try:
+        rows = conn.execute("SELECT team_name, fifa_rank, fifa_points, total_market_value_eur AS total_market_value, squad_size, average_age, confederation FROM wc2026_teams").fetchall()
+        cache = {}
+        for r in rows:
+            name = str(r['team_name']).strip().lower()
+            cache[name] = {
+                'fifa_rank': _f(r['fifa_rank'], 999),
+                'fifa_points': _f(r['fifa_points'], 0),
+                'squad_value': _f(r['total_market_value'], 0),
+                'squad_size': _f(r['squad_size'], 26),
+                'avg_age': _f(r['average_age'], 27),
+                'confederation': str(r['confederation'] or ''),
+            }
+        _WC2026_TEAMS_CACHE = cache
+    except Exception:
+        _WC2026_TEAMS_CACHE = {}
+    return _WC2026_TEAMS_CACHE
+
+def _load_xg_models():
+    global _XG_HOME_MODEL, _XG_AWAY_MODEL, _XG_ARCHIVE_MODEL
+    if _XG_HOME_MODEL is not None:
+        return
+    import xgboost as xgb
+    model_dir = os.path.dirname(os.path.dirname(__file__))
+    home_path = os.path.join(model_dir, 'models', 'xg_home_model.json')
+    away_path = os.path.join(model_dir, 'models', 'xg_away_model.json')
+    arch_path = os.path.join(model_dir, 'models', 'xg_archive_model.json')
+    if os.path.exists(home_path) and os.path.exists(away_path):
+        try:
+            _XG_HOME_MODEL = xgb.Booster()
+            _XG_HOME_MODEL.load_model(home_path)
+            _XG_AWAY_MODEL = xgb.Booster()
+            _XG_AWAY_MODEL.load_model(away_path)
+        except Exception:
+            _XG_HOME_MODEL = _XG_AWAY_MODEL = None
+    if os.path.exists(arch_path):
+        try:
+            _XG_ARCHIVE_MODEL = xgb.Booster()
+            _XG_ARCHIVE_MODEL.load_model(arch_path)
+        except Exception:
+            _XG_ARCHIVE_MODEL = None
+
+def _predict_xg_h(row, ts_h):
+    """Predict home xG from match stats when real xG unavailable."""
+    try:
+        _load_xg_models()
+        # Try full model first (needs shots_inside_box)
+        if _XG_HOME_MODEL is not None:
+            ib = _f(row.get('home_shots_inside_box') or ts_h.get('avgShotsInsideBox'), 0)
+            sot = _f(row.get('home_shots_on_goal') or _f(row.get('sot_home')) or ts_h.get('avgShotsOnTarget'), 0)
+            ts_ = _f(row.get('home_shots_total') or _f(row.get('shots_home')) or ts_h.get('avgShots'), 0)
+            pos = _f(row.get('home_possession') or ts_h.get('avgPossession'), 50.0)
+            corn = _f(row.get('home_corners') or _f(row.get('corners_home')) or ts_h.get('avgCorners'), 0)
+            if ib > 0 or (sot > 0 and ts_ > 0):
+                import numpy as np
+                arr = np.array([[ib, sot, ts_, pos, corn]], dtype=np.float32)
+                return float(_XG_HOME_MODEL.predict(xgb.DMatrix(arr))[0])
+        # Fall back to archive model (total shots, sot, corners, pos)
+        if _XG_ARCHIVE_MODEL is not None:
+            ts_ = _f(row.get('home_shots_total') or _f(row.get('shots_home')) or ts_h.get('avgShots'), 0)
+            sot = _f(row.get('home_shots_on_goal') or _f(row.get('sot_home')) or ts_h.get('avgShotsOnTarget'), 0)
+            corn = _f(row.get('home_corners') or _f(row.get('corners_home')) or ts_h.get('avgCorners'), 0)
+            pos = _f(row.get('home_possession') or ts_h.get('avgPossession'), 50.0)
+            if ts_ > 0 or sot > 0:
+                import numpy as np
+                sot_rate = sot / (ts_ + 1)
+                arr = np.array([[ts_, sot, corn, pos, sot_rate]], dtype=np.float32)
+                return float(_XG_ARCHIVE_MODEL.predict(xgb.DMatrix(arr))[0])
+        return None
+    except Exception:
+        return None
+
+def _predict_xg_a(row, ts_a):
+    """Predict away xG from match stats when real xG unavailable."""
+    try:
+        _load_xg_models()
+        # Try full model first (needs shots_inside_box)
+        if _XG_AWAY_MODEL is not None:
+            ib = _f(row.get('away_shots_inside_box') or ts_a.get('avgShotsInsideBox'), 0)
+            sot = _f(row.get('away_shots_on_goal') or _f(row.get('sot_away')) or ts_a.get('avgShotsOnTarget'), 0)
+            ts_ = _f(row.get('away_shots_total') or _f(row.get('shots_away')) or ts_a.get('avgShots'), 0)
+            pos = _f(row.get('away_possession') or ts_a.get('avgPossession'), 50.0)
+            corn = _f(row.get('away_corners') or _f(row.get('corners_away')) or ts_a.get('avgCorners'), 0)
+            if ib > 0 or (sot > 0 and ts_ > 0):
+                import numpy as np
+                arr = np.array([[ib, sot, ts_, pos, corn]], dtype=np.float32)
+                return float(_XG_AWAY_MODEL.predict(xgb.DMatrix(arr))[0])
+        # Fall back to archive model (total shots, sot, corners, pos)
+        if _XG_ARCHIVE_MODEL is not None:
+            ts_ = _f(row.get('away_shots_total') or _f(row.get('shots_away')) or ts_a.get('avgShots'), 0)
+            sot = _f(row.get('away_shots_on_goal') or _f(row.get('sot_away')) or ts_a.get('avgShotsOnTarget'), 0)
+            corn = _f(row.get('away_corners') or _f(row.get('corners_away')) or ts_a.get('avgCorners'), 0)
+            pos = _f(row.get('away_possession') or ts_a.get('avgPossession'), 50.0)
+            if ts_ > 0 or sot > 0:
+                import numpy as np
+                sot_rate = sot / (ts_ + 1)
+                arr = np.array([[ts_, sot, corn, pos, sot_rate]], dtype=np.float32)
+                return float(_XG_ARCHIVE_MODEL.predict(xgb.DMatrix(arr))[0])
+        return None
+    except Exception:
+        return None
 
 def get_db_connection():
     global _DB_CONN
     if not os.path.exists(DB_ARCHIVE_PATH):
         return None
     
-    # Check if connection is alive, if not create it
     if _DB_CONN is None:
         try:
             _DB_CONN = sqlite3.connect(DB_ARCHIVE_PATH, check_same_thread=False)
@@ -731,8 +844,14 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     features['h_pass_acc'], features['a_pass_acc'], features['pass_acc_diff'] = _get_dual_stat(features, 'Accurate passes', ts_h, 'passAccuracyPct', 80.0)
     
     # 2. Attack Dynamics
-    features['h_xg'] = _f(row.get('home_xg') or ts_h.get('expectedGoals'), 1.0)
-    features['a_xg'] = _f(row.get('away_xg') or ts_a.get('expectedGoals'), 1.0)
+    h_xg_raw = row.get('home_xg') or ts_h.get('expectedGoals')
+    a_xg_raw = row.get('away_xg') or ts_a.get('expectedGoals')
+    if not h_xg_raw:
+        h_xg_raw = _predict_xg_h(row, ts_h)
+    if not a_xg_raw:
+        a_xg_raw = _predict_xg_a(row, ts_a)
+    features['h_xg'] = _f(h_xg_raw, 1.0)
+    features['a_xg'] = _f(a_xg_raw, 1.0)
     features['xg_diff'] = features['h_xg'] - features['a_xg']
     features['h_bc'], features['a_bc'], features['bc_diff'] = _get_dual_stat(features, 'Big chances', ts_h, 'avgBigChances', 1.5)
     features['h_sot'], features['a_sot'], features['sot_diff'] = _get_dual_stat(features, 'Shots on target', ts_h, 'avgShotsOnTarget', 4.0)
@@ -1065,6 +1184,104 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     if abs(features.get('pts_diff', 0)) < 0.5 and features.get('h_pts', 0) > 0: imp_score += 0.2
     features['match_importance'] = imp_score
 
+    # --- V55 FEATURE CROSSES & COMPOSITE METRICS ---
+    def _safe_div(a, b):
+        return a / b if b and b != 0 else 0.0
+
+    # xG per shot — shot quality indicator
+    features['xg_per_shot_h'] = _safe_div(features.get('h_xg', 0), features.get('h_shot_volume', 1))
+    features['xg_per_shot_a'] = _safe_div(features.get('a_xg', 0), features.get('a_shot_volume', 1))
+
+    # SoT per possession — attacking intensity
+    features['sot_per_possession_h'] = _safe_div(features.get('h_sot', 1), features.get('h_pos', 50))
+    features['sot_per_possession_a'] = _safe_div(features.get('a_sot', 1), features.get('a_pos', 50))
+
+    # Goals per xG — finishing efficiency (regression signal)
+    h_goals_avg = _get_decayed_avg(h_hist, 'score_for', ts_h, 'avgGoals', 1.2)
+    a_goals_avg = _get_decayed_avg(a_hist, 'score_for', ts_a, 'avgGoals', 1.2)
+    features['goals_per_xg_h'] = _safe_div(h_goals_avg, features.get('h_xg', 1))
+    features['goals_per_xg_a'] = _safe_div(a_goals_avg, features.get('a_xg', 1))
+
+    # SoT conceded per possession — defensive pressure resistance
+    features['sot_conceded_per_possession_h'] = _safe_div(features.get('h_sot_faced', 1), features.get('h_pos', 50))
+    features['sot_conceded_per_possession_a'] = _safe_div(features.get('a_sot_faced', 1), features.get('a_pos', 50))
+
+    # Shots faced per xG conceded — opponent chance quality
+    features['shots_faced_per_xg_h'] = _safe_div(features.get('h_shots_faced', 1), features.get('h_xga', 1))
+    features['shots_faced_per_xg_a'] = _safe_div(features.get('a_shots_faced', 1), features.get('a_xga', 1))
+
+
+    # Form × Momentum interaction
+    features['form_x_momentum_h'] = features.get('home_momentum_points', 0) * features.get('explosive_momentum_h', 0)
+    features['form_x_momentum_a'] = features.get('away_momentum_points', 0) * features.get('explosive_momentum_a', 0)
+
+    # Elo × Home advantage interaction
+    is_home_stronger = 1.0 if features.get('elo_diff', 0) > 50 else 0.0
+    features['elo_x_home_advantage'] = 1.0 if is_home_stronger > 0 else 0.0
+
+    # Odds-implied probability minus xG-derived probability (market mispricing)
+    odds_implied_h = features.get('ip_h', 0.33)
+    odds_implied_a = features.get('ip_a', 0.33)
+    xg_implied_h = _safe_div(features.get('h_xg', 1), features.get('h_xg', 1) + features.get('a_xg', 1)) if features.get('h_xg', 0) + features.get('a_xg', 0) > 0 else 0.5
+    xg_implied_a = 1.0 - xg_implied_h
+    features['odds_implied_minus_xg_prob_h'] = odds_implied_h - xg_implied_h
+    features['odds_implied_minus_xg_prob_a'] = odds_implied_a - xg_implied_a
+
+    # Sharp money × odds movement interaction
+    features['sharp_money_x_odds_move_h'] = features.get('ta_sharp_money_h', 0) * features.get('h_odds_move_24h', 0)
+    features['sharp_money_x_odds_move_a'] = features.get('ta_sharp_money_a', 0) * features.get('a_odds_move_24h', 0)
+
+    # Cyclical time encoding
+    try:
+        ts = int(row.get('startTimestamp') or row.get('match_date') or 0)
+        import datetime
+        dt = datetime.datetime.fromtimestamp(ts)
+        features['day_sin'] = float(math.sin(2 * math.pi * dt.weekday() / 7))
+        features['day_cos'] = float(math.cos(2 * math.pi * dt.weekday() / 7))
+        features['month_sin'] = float(math.sin(2 * math.pi * (dt.month - 1) / 12))
+        features['month_cos'] = float(math.cos(2 * math.pi * (dt.month - 1) / 12))
+    except:
+        features['day_sin'] = 0.0
+        features['day_cos'] = 0.0
+        features['month_sin'] = 0.0
+        features['month_cos'] = 0.0
+
+    # Data quality flags
+    features['has_actual_xg'] = 1.0 if (float(row.get('home_xg') or 0) > 0 or float(row.get('away_xg') or 0) > 0 or float(row.get('home_shots_on_goal') or 0) > 0 or float(row.get('away_shots_on_goal') or 0) > 0) else 0.0
+    features['has_actual_odds'] = 1.0 if (float(row.get('odds_home') or 0) > 1.0 and float(row.get('odds_away') or 0) > 1.0) else 0.0
+    features['has_match_stats'] = 1.0 if (features.get('h_pos', 0) > 0 or features.get('a_pos', 0) > 0) else 0.0
+    try:
+        match_year = int(dt.year)
+        features['is_modern_football_era'] = 1.0 if match_year >= 2015 else 0.0
+    except:
+        features['is_modern_football_era'] = 1.0
+    features['data_completeness_score'] = features.get('data_completeness', 0.5)
+
+    # --- V553 WC2026-SPECIFIC FEATURES ---
+    wc26_teams = get_wc2026_team_data()
+    h_name_key = h_team.strip().lower() if h_team else ''
+    a_name_key = a_team.strip().lower() if a_team else ''
+    h_wc = wc26_teams.get(h_name_key, {})
+    a_wc = wc26_teams.get(a_name_key, {})
+    features['fifa_rank_h'] = h_wc.get('fifa_rank', 999)
+    features['fifa_rank_a'] = a_wc.get('fifa_rank', 999)
+    features['fifa_pts_h'] = h_wc.get('fifa_points', 0)
+    features['fifa_pts_a'] = a_wc.get('fifa_points', 0)
+    features['squad_value_h'] = h_wc.get('squad_value', 0)
+    features['squad_value_a'] = a_wc.get('squad_value', 0)
+    features['squad_size_h'] = h_wc.get('squad_size', 26)
+    features['squad_size_a'] = a_wc.get('squad_size', 26)
+    features['avg_age_h'] = h_wc.get('avg_age', 27)
+    features['avg_age_a'] = a_wc.get('avg_age', 27)
+    features['fifa_rank_diff'] = features['fifa_rank_h'] - features['fifa_rank_a']
+    features['squad_value_diff'] = features['squad_value_h'] - features['squad_value_a']
+    conf_h = (h_wc.get('confederation') or '').upper()
+    conf_a = (a_wc.get('confederation') or '').upper()
+    features['conf_uefa_h'] = 1.0 if conf_h == 'UEFA' else 0.0
+    features['conf_conmebol_h'] = 1.0 if conf_h == 'CONMEBOL' else 0.0
+    features['conf_uefa_a'] = 1.0 if conf_a == 'UEFA' else 0.0
+    features['conf_conmebol_a'] = 1.0 if conf_a == 'CONMEBOL' else 0.0
+
     # --- V52 STABILITY GUARD: Final NaN/None Cleanup ---
     for k, v in list(features.items()):
         if v is None or (isinstance(v, float) and math.isnan(v)):
@@ -1199,6 +1416,55 @@ FEATURE_NAMES_V54 = FEATURE_NAMES_V53 + [
     'h_sca', 'a_sca'
 ]
 
+# V55 Feature Crosses & Data Quality (Composite Intelligence)
+FEATURE_NAMES_V55 = FEATURE_NAMES_V54 + [
+    # xG per shot — shot quality
+    'xg_per_shot_h', 'xg_per_shot_a',
+    # SoT per possession — attacking intensity
+    'sot_per_possession_h', 'sot_per_possession_a',
+    # Goals per xG — finishing efficiency (regression towards mean)
+    'goals_per_xg_h', 'goals_per_xg_a',
+    # SoT conceded per possession — defensive discipline
+    'sot_conceded_per_possession_h', 'sot_conceded_per_possession_a',
+    # Shots faced per xG conceded — defensive quality
+    'shots_faced_per_xg_h', 'shots_faced_per_xg_a',
+    # Form × Momentum cross
+    'form_x_momentum_h', 'form_x_momentum_a',
+    # Elo × Home advantage
+    'elo_x_home_advantage',
+    # Market mispricing (odds implied - xG implied)
+    'odds_implied_minus_xg_prob_h', 'odds_implied_minus_xg_prob_a',
+    # Sharp money × odds movement
+    'sharp_money_x_odds_move_h', 'sharp_money_x_odds_move_a',
+    # Cyclical time encoding
+    'day_sin', 'day_cos', 'month_sin', 'month_cos',
+    # Data quality gates
+    'has_actual_xg', 'has_actual_odds', 'has_match_stats',
+    'is_modern_football_era', 'data_completeness_score'
+]
+
+# V551 — Pruned V55: only features that proved valuable (xg_per_shot + market mispricing)
+FEATURE_NAMES_V551 = FEATURE_NAMES_V54 + [
+    'xg_per_shot_h', 'xg_per_shot_a',
+    'odds_implied_minus_xg_prob_h', 'odds_implied_minus_xg_prob_a',
+    'data_completeness_score'
+]
+
+# V552 — Same features as V551, trained with chronological split (2022-2026) + V54-like hyperparams
+FEATURE_NAMES_V552 = FEATURE_NAMES_V551
+
+# V553 — WC2026 Context Features: FIFA ranking, squad value, age, confederation
+FEATURE_NAMES_V553 = FEATURE_NAMES_V552 + [
+    'fifa_rank_h', 'fifa_rank_a',
+    'fifa_pts_h', 'fifa_pts_a',
+    'squad_value_h', 'squad_value_a',
+    'squad_size_h', 'squad_size_a',
+    'avg_age_h', 'avg_age_a',
+    'fifa_rank_diff', 'squad_value_diff',
+    'conf_uefa_h', 'conf_conmebol_h',
+    'conf_uefa_a', 'conf_conmebol_a'
+]
+
 # [TITANIUM V3] ELITE AI FEATURES - Full Environmental Intelligence (V54)
 FEATURE_NAMES_TITANIUM = FEATURE_NAMES_V54 + [
     'h_pts', 'a_pts', 'pts_diff',
@@ -1298,6 +1564,20 @@ FEATURE_VOLATILITY = {
     "news_is_missing_gk": 0.25, "news_is_missing_scorer": 0.25,
     "news_is_missing_captain": 0.25, "news_is_missing_star": 0.30,
     "odds_velocity": 0.20, "is_derby": 0.08,
+
+    # V55 Feature Crosses & Composites
+    "xg_per_shot_h": 0.10, "xg_per_shot_a": 0.10,
+    "sot_per_possession_h": 0.08, "sot_per_possession_a": 0.08,
+    "goals_per_xg_h": 0.30, "goals_per_xg_a": 0.30,
+    "sot_conceded_per_possession_h": 0.10, "sot_conceded_per_possession_a": 0.10,
+    "shots_faced_per_xg_h": 0.12, "shots_faced_per_xg_a": 0.12,
+    "form_x_momentum_h": 0.30, "form_x_momentum_a": 0.30,
+    "elo_x_home_advantage": 0.02,
+    "odds_implied_minus_xg_prob_h": 0.12, "odds_implied_minus_xg_prob_a": 0.12,
+    "sharp_money_x_odds_move_h": 0.30, "sharp_money_x_odds_move_a": 0.30,
+    "day_sin": 0.05, "day_cos": 0.05, "month_sin": 0.05, "month_cos": 0.05,
+    "has_actual_xg": 0.01, "has_actual_odds": 0.01, "has_match_stats": 0.01,
+    "is_modern_football_era": 0.01, "data_completeness_score": 0.02,
 
     # Legacy Derived Diffs (low volatility — noise cancels out)
     "elo_diff": 0.02, "tactical_synergy": 0.04,

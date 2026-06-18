@@ -812,16 +812,58 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
       console.log(`[STARTUP] Premium CSV found locally (${(fs.statSync(premiumCsvPath).size / 1024 / 1024).toFixed(1)} MB)`)
     }
 
-    // Bootstrap: fetch fixtures from BSD API at startup (bypasses cron on free plan)
-    setTimeout(() => {
+    // Bootstrap: fetch fixtures + stats from working APIs at startup
+    setTimeout(async () => {
       try {
         const bsd = require('./services/bsdService')
         if (bsd.isAvailable()) {
           console.log('[STARTUP] BSD API available — syncing fixtures...')
-          bsd.fullSync().then(n => console.log(`[STARTUP] BSD sync complete: ${n} matches`))
+          await bsd.fullSync().then(n => console.log(`[STARTUP] BSD sync complete: ${n} matches`))
         }
       } catch (e) {
         console.warn(`[STARTUP] BSD sync skipped: ${e.message}`)
+      }
+
+      // Fetch WC2026 match data from Football-Data.org (has real scores + standings)
+      try {
+        const fdKey = process.env.FOOTBALLDATA_KEY || ''
+        if (fdKey && !fdKey.startsWith('CHANGER_MOI')) {
+          const https = require('https')
+          const db = require('./core/database')
+          const today = new Date().toISOString().split('T')[0]
+          const url = `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${today}&dateTo=${today}`
+          console.log('[STARTUP] Fetching WC2026 data from Football-Data.org...')
+          const body = await new Promise((resolve, reject) => {
+            https.get(url, { headers: { 'X-Auth-Token': fdKey } }, res => {
+              let d = ''
+              res.on('data', c => d += c)
+              res.on('end', () => resolve(d))
+            }).on('error', reject)
+          })
+          const data = JSON.parse(body)
+          const matches = data.matches || []
+          console.log(`[STARTUP] Football-Data: ${matches.length} WC2026 matches today`)
+          for (const m of matches) {
+            const home = m.homeTeam.name
+            const away = m.awayTeam.name
+            const score = m.score?.fullTime || {}
+            const status = m.status
+            // Store in match fullData for prediction engine to use
+            try {
+              const existing = db.db?.prepare("SELECT id, fullData FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1")
+                .get(home, away, today)
+              if (existing) {
+                const fd = JSON.parse(existing.fullData || '{}')
+                fd.footballData = { score, status, competition: 'WC', matchId: m.id }
+                db.db?.prepare("UPDATE matches SET fullData = ? WHERE id = ?")
+                  .run(JSON.stringify(fd), existing.id)
+              }
+            } catch (_) {}
+          }
+          console.log('[STARTUP] Football-Data sync done')
+        }
+      } catch (e) {
+        console.warn(`[STARTUP] Football-Data sync failed: ${e.message}`)
       }
     }, 5000)
 

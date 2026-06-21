@@ -35,7 +35,7 @@ function _saveCache() {
     const db = require('../core/database')
     if (db && db.db) {
       db.db.prepare("CREATE TABLE IF NOT EXISTS config_engine (key TEXT PRIMARY KEY, value TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)").run()
-      db.db.prepare("INSERT OR REPLACE INTO config_engine (key, value, updated_at) VALUES (?, ?, datetime('now'))")
+      db.db.prepare("INSERT INTO config_engine (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = datetime('now')")
         .run(CACHE_KEY, JSON.stringify(_ratings))
     }
   } catch (e) {}

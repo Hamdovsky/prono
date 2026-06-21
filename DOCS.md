@@ -20,7 +20,7 @@ This file serves as the main index for all project documentation.
 
 ### High Level
 ```
-[Frontend React] ←WebSocket→ [Node.js Express API] ←→ [Redis Cache]
+[Frontend React] ←WebSocket-> [Node.js Express API] ←-> [Redis Cache]
                                     ↓
                             [Python ML Engine]
                                     ↓
@@ -177,7 +177,7 @@ Key tables:
 ### Steps
 1. Clone repository
 2. `npm ci`
-3. Copy `.env.example` → `.env`
+3. Copy `.env.example` -> `.env`
 4. `npm run dev`
 5. Visit `http://localhost:5173`
 
@@ -185,7 +185,7 @@ Key tables:
 
 | Issue | Solution |
 |-------|----------|
-| Port 3001 in use | `netstat -ano \| findstr :3001` → `taskkill /PID <pid>` |
+| Port 3001 in use | `netstat -ano \| findstr :3001` -> `taskkill /PID <pid>` |
 | Redis connection refused | Start Redis or set DISABLE_REDIS=true |
 | Scraper timeout | Check network, increase timeout in config |
 | ML model missing | Run `npm run learn` to generate |

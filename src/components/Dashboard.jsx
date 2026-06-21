@@ -27,6 +27,7 @@ const BacktestDashboard = lazy(() => import("./BacktestDashboard"))
 const SystemIntelligence = lazy(() => import("./SystemIntelligence"))
 const Promosport = lazy(() => import("./Promosport"))
 const EvolutionDashboard = lazy(() => import("./EvolutionDashboard"))
+const TopPicks = lazy(() => import("./TopPicks"))
 
 const MatchRowMemo = React.memo(({ index, style, list, isElite, onClick, now: nowProp }) => {
     const m = list[index];
@@ -100,6 +101,7 @@ const Dashboard = () => {
         'intel': '/intel',
         'promosport': '/promosport',
         'evolution': '/evolution',
+        'top-picks': '/top-picks',
     }
 
     const PATH_TO_VIEW = Object.fromEntries(
@@ -117,14 +119,17 @@ const Dashboard = () => {
     const [surgicalMode, setSurgicalMode] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(typeof window !== 'undefined' ? window.innerWidth > 1024 : true)
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
+    const [viewportHeight, setViewportHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 800)
     const [apiHealth, setApiHealth] = useState(null)
     const [autoRefresh, setAutoRefresh] = useState(false)
 
     useEffect(() => {
         const handleResize = () => {
             setIsMobile(window.innerWidth < 768)
+            setViewportHeight(window.innerHeight)
         }
         window.addEventListener('resize', handleResize)
+        handleResize()
         return () => window.removeEventListener('resize', handleResize)
     }, [])
 
@@ -561,6 +566,7 @@ const Dashboard = () => {
         if (activeView === 'intel') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><SystemIntelligence /></Suspense>;
         if (activeView === 'promosport') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><Promosport /></Suspense>;
         if (activeView === 'evolution') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><EvolutionDashboard /></Suspense>;
+        if (activeView === 'top-picks') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><TopPicks /></Suspense>;
 
         if (activeView === 'all-matches') {
             return (
@@ -892,7 +898,7 @@ const Dashboard = () => {
                     )}
 
                     <List
-                        height={isMobile ? 550 : 600}
+                        height={isMobile ? Math.max(420, viewportHeight - 260) : Math.max(520, viewportHeight - 320)}
                         rowCount={unifiedList.length}
                         rowHeight={isMobile ? 110 : 65}
                         width="100%"

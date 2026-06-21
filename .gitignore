@@ -89,6 +89,13 @@ data/scraper_state.json
 data/tactical.db-shm
 data/tactical.db-wal
 data/autoheal_state.json
+data/daily_predictions.json
+data/today_predictions.json
+data/top_picks.json
+data/historical_archive.sqlite-shm
+data/historical_archive.sqlite-wal
+data/historical_archive.sqlite.gz
+data/raw/
 scripts/sync_to_render.js
 
 # Python cache
@@ -110,3 +117,9 @@ models/titanium_v2.json
 
 # Generated CSV (uploaded to catbox, downloaded at runtime)
 data/v553_wc2026_premium.csv
+
+# News cache
+src/data/news_cache.json
+
+# Binary ML model files (regenerated during training)
+*.pkl

@@ -210,21 +210,21 @@ Confidence Score (0-100%)
 
 ### Flow 1: Prediction Request
 ```
-1. Client → GET /api/promosport
-2. Express → Rate limit check
-3. Express → Cache check (Redis)
+1. Client -> GET /api/promosport
+2. Express -> Rate limit check
+3. Express -> Cache check (Redis)
    ├─ Hit: Return cached data
    └─ Miss: Continue
-4. Express → Scraper service
-   → Puppeteer → Sofascore.com
+4. Express -> Scraper service
+   -> Puppeteer -> Sofascore.com
    ← Raw match data
-5. Express → Validation
-6. Express → Prediction engine
-   → Python process
-   → Feature extraction
-   → Model inference
+5. Express -> Validation
+6. Express -> Prediction engine
+   -> Python process
+   -> Feature extraction
+   -> Model inference
    ← Predictions (JSON)
-7. Express → Cache store (Redis, 60s TTL)
+7. Express -> Cache store (Redis, 60s TTL)
 8. Express ← Response (JSON)
 9. Client ← Render grid
 ```
@@ -235,9 +235,9 @@ Confidence Score (0-100%)
 2. Fetch latest matches
 3. Compare with previous
 4. If changes detected:
-   → Emit socket.io event
-   → All connected clients
-   → Update UI in real-time
+   -> Emit socket.io event
+   -> All connected clients
+   -> Update UI in real-time
 ```
 
 ### Flow 3: Cache Invalidation

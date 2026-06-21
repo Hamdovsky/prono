@@ -320,6 +320,43 @@ def get_team_history(team_name, limit=10, current_match_ts=None):
 
             history.append(norm)
 
+        # Also query international_results (World Cup, friendlies, qualifiers)
+        query_intl = """
+        SELECT home_team, away_team, home_score, away_score, date as match_date, tournament
+        FROM international_results
+        WHERE home_team = ?
+        AND home_score IS NOT NULL
+        AND date < ?
+        UNION ALL
+        SELECT home_team, away_team, home_score, away_score, date as match_date, tournament
+        FROM international_results
+        WHERE away_team = ?
+        AND home_score IS NOT NULL
+        AND date < ?
+        ORDER BY match_date DESC LIMIT ?
+        """
+        rows_intl = conn.execute(query_intl, (clean_name, cutoff_date, clean_name, cutoff_date, limit)).fetchall()
+
+        for r in rows_intl:
+            h_team = r['home_team'] or ''
+            a_team = r['away_team'] or ''
+            is_home = (h_team.lower() == clean_name.lower())
+
+            norm = {}
+            s_for = r['home_score']
+            s_ag = r['away_score']
+            if not is_home: s_for, s_ag = s_ag, s_for
+
+            norm['score_for'] = float(s_for) if s_for is not None else 0.0
+            norm['score_against'] = float(s_ag) if s_ag is not None else 0.0
+            norm['opponent_name'] = a_team if is_home else h_team
+
+            if norm['score_for'] > norm['score_against']: norm['points'] = 3.0
+            elif norm['score_for'] == norm['score_against']: norm['points'] = 1.0
+            else: norm['points'] = 0.0
+
+            history.append(norm)
+
         return history[:limit]
     except: return []
 

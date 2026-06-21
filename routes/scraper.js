@@ -4,8 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const securityEngine = require('../core/securityEngine');
 
-const { readScraperProgress } = require('../core/utils');
-
 const localOrAuth = (req, res, next) => {
     const ip = req.ip || req.socket?.remoteAddress || ''
     const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1'

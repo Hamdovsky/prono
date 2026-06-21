@@ -31,7 +31,7 @@ Système de prédiction football de nouvelle génération combinant XGBoost, Mon
                        │ Socket.IO / REST
 ┌──────────────────────▼──────────────────────────────┐
 │              Express 5 API Server                    │
-│  routes/  →  services/  →  core/                     │
+│  routes/  ->  services/  ->  core/                     │
 │  Socket.IO broadcast  │  Cron jobs  │  AutoHeal      │
 └──────────────────────┬──────────────────────────────┘
                        │ HTTP / Child Process
@@ -61,7 +61,7 @@ Système de prédiction football de nouvelle génération combinant XGBoost, Mon
 - **Confluence Guard** : triple validation XGBoost + Poisson + Market
 
 ### 🔴 Live
-- **Matchs en direct** multi-source (BSD → SportScore → SportSRC)
+- **Matchs en direct** multi-source (BSD -> SportScore -> SportSRC)
 - **Prédiction de buts live** (modèle XGBoost AUC 0.88-0.92)
 - **Logging des prédictions** pour amélioration continue
 - **Fallback** matchs à venir quand aucun live
@@ -149,7 +149,7 @@ Extraction features (115+ features)
     ├── Imputation données manquantes
     │
     ▼
-Calcul xG (précomputed → moyennes → advanced weighted)
+Calcul xG (précomputed -> moyennes -> advanced weighted)
     │
     ▼
 Modificateurs tactiques (style, Time Machine, blessures, fatigue, marché, arbitre)
@@ -270,7 +270,7 @@ Verdict + Confiance + Score attendu
 ```
 
 ### Déploiement continu
-- `git push origin main` → auto-deploy sur Render
+- `git push origin main` -> auto-deploy sur Render
 - Variables d'environnement configurées dans Render Dashboard
 
 ---
@@ -354,8 +354,8 @@ curl https://prono-k6gc.onrender.com/api/health
 
 ## 📜 Licence
 
-Projet privé — TITANIUM NEURAL-X v5.0
+Projet privé --- TITANIUM NEURAL-X v5.0
 
 ---
 
-*Généré le 10 Juin 2026 — Dernier commit: [git log --oneline -1]*
+*Généré le 10 Juin 2026 --- Dernier commit: [git log --oneline -1]*

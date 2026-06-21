@@ -6,17 +6,18 @@
     width: 200px;
     min-width: 200px;
     height: 100%;
-    background: linear-gradient(180deg, #01030a 0%, #020617 60%, #010307 100%);
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(1, 3, 10, 0.92);
+    backdrop-filter: blur(16px);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
     color: #94a3b8;
-    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+    box-shadow: 4px 0 40px rgba(0, 0, 0, 0.55);
     flex-shrink: 0;
     position: relative;
-    transition: width 0.25s ease, opacity 0.2s ease, min-width 0.25s ease;
+    transition: width 0.25s ease, opacity 0.2s ease, min-width 0.25s ease, transform 0.25s ease, background 0.25s ease;
 }
 
 /* Collapsed state — smooth toggle */
@@ -101,17 +102,23 @@
     display: flex;
     align-items: center;
     width: 100%;
-    padding: 7px 12px;
+    padding: 10px 12px;
     background: transparent;
     border: none;
-    border-left: 2px solid transparent;
+    border-left: 3px solid transparent;
     cursor: pointer;
     text-align: left;
-    transition: all 0.18s ease;
-    color: #64748b;
+    transition: all 0.2s ease, transform 0.2s ease;
+    color: #94a3b8;
     position: relative;
     font-family: 'Inter', sans-serif;
     box-sizing: border-box;
+}
+
+.flash-nav-item:hover {
+    background: rgba(255, 255, 255, 0.045);
+    transform: translateX(1px);
+    color: #cbd5e1;
 }
 
 .flash-nav-item::before {
@@ -136,6 +143,8 @@
    we only define the generic fallback here */
 .flash-nav-item.active {
     color: #f8fafc;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
 }
 
 /* ── ICONS & LABELS ── */

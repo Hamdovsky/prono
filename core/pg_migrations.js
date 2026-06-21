@@ -4,18 +4,18 @@ const logger = require('./logger')
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS matches (
     id TEXT PRIMARY KEY,
-    homeTeam TEXT,
-    awayTeam TEXT,
+    "homeTeam" TEXT,
+    "awayTeam" TEXT,
     league TEXT,
-    scoreHome INTEGER DEFAULT 0,
-    scoreAway INTEGER DEFAULT 0,
+    "scoreHome" INTEGER DEFAULT 0,
+    "scoreAway" INTEGER DEFAULT 0,
     minute TEXT,
     status TEXT,
     prediction TEXT,
     confidence REAL,
     "fullData" TEXT,
     timestamp TEXT,
-    startTimestamp INTEGER,
+    "startTimestamp" INTEGER,
     possession_home INTEGER,
     possession_away INTEGER,
     dangerous_attacks_home INTEGER,
@@ -206,8 +206,6 @@ CREATE TABLE IF NOT EXISTS team_registry (
     league TEXT,
     last_seen BIGINT
 );
-CREATE INDEX IF NOT EXISTS idx_team_registry_normalized ON team_registry(normalized);
-
 CREATE TABLE IF NOT EXISTS player_stats (
     player_id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -223,13 +221,6 @@ CREATE TABLE IF NOT EXISTS player_stats (
     heatmap_danger REAL DEFAULT 0,
     last_updated INTEGER
 );
-CREATE INDEX IF NOT EXISTS idx_player_stats_team ON player_stats(team_name);
-
-CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status);
-CREATE INDEX IF NOT EXISTS idx_matches_timestamp ON matches(timestamp);
-CREATE INDEX IF NOT EXISTS idx_history_match_id ON prediction_history(match_id);
-CREATE INDEX IF NOT EXISTS idx_patterns_league ON winning_patterns(league);
-
 CREATE TABLE IF NOT EXISTS odds_history (
     id SERIAL PRIMARY KEY,
     match_id TEXT NOT NULL,
@@ -240,7 +231,6 @@ CREATE TABLE IF NOT EXISTS odds_history (
     timestamp BIGINT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_odds_history_match_id ON odds_history(match_id);
 
 CREATE TABLE IF NOT EXISTS odds_patterns (
     id SERIAL PRIMARY KEY,
@@ -289,8 +279,6 @@ CREATE TABLE IF NOT EXISTS live_prediction_logs (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     checked_at TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS idx_live_logs_match ON live_prediction_logs(match_id);
-CREATE INDEX IF NOT EXISTS idx_live_logs_checked ON live_prediction_logs(outcome_checked);
 `
 
 async function runMigrations() {
@@ -307,6 +295,26 @@ async function runMigrations() {
       logger.info('[PG MIGRATIONS] Full schema applied successfully')
     } finally {
       client.release()
+    }
+
+    // Individual index creation (table ownership may vary)
+    const createIndexes = [
+      'CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status)',
+      'CREATE INDEX IF NOT EXISTS idx_matches_timestamp ON matches(timestamp)',
+      'CREATE INDEX IF NOT EXISTS idx_history_match_id ON prediction_history(match_id)',
+      'CREATE INDEX IF NOT EXISTS idx_patterns_league ON winning_patterns(league)',
+      'CREATE INDEX IF NOT EXISTS idx_team_registry_normalized ON team_registry(normalized)',
+      'CREATE INDEX IF NOT EXISTS idx_player_stats_team ON player_stats(team_name)',
+      'CREATE INDEX IF NOT EXISTS idx_odds_history_match_id ON odds_history(match_id)',
+      'CREATE INDEX IF NOT EXISTS idx_live_logs_match ON live_prediction_logs(match_id)',
+      'CREATE INDEX IF NOT EXISTS idx_live_logs_checked ON live_prediction_logs(outcome_checked)',
+    ]
+    for (const idxSql of createIndexes) {
+      try {
+        await query(idxSql)
+      } catch (e) {
+        logger.warn(`[PG MIGRATIONS] Index skipped (may lack ownership): ${e.message}`)
+      }
     }
 
     try {
@@ -475,6 +483,65 @@ async function runMigrations() {
     } catch (e) {
       // Already BIGINT or column doesn't exist — safe to ignore
       logger.info(`[PG MIGRATIONS] last_seen BIGINT migration skipped: ${e.message}`)
+    }
+
+    // Fix camelCase column casing for existing matches table (created before quoting was fixed)
+    const columnRenames = [
+      ['hometeam',     '"homeTeam"'],
+      ['awayteam',     '"awayTeam"'],
+      ['scorehome',    '"scoreHome"'],
+      ['scoreaway',    '"scoreAway"'],
+      ['starttimestamp', '"startTimestamp"'],
+    ]
+    for (const [from, to] of columnRenames) {
+      try {
+        const checkLower = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'matches' AND column_name = $1`, [from])
+        const checkCamel = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'matches' AND column_name = $1`, [to.replace(/"/g, '')])
+        if (checkLower.rows.length > 0 && checkCamel.rows.length === 0) {
+          await query(`ALTER TABLE matches RENAME COLUMN "${from}" TO ${to}`)
+          logger.info(`[PG MIGRATIONS] Renamed matches.${from} to ${to}`)
+        }
+      } catch (e) {
+        // Column might already be correct — safe to ignore
+      }
+    }
+
+    // Grant sequence usage to fix "droit refusé pour la séquence" errors
+    try {
+      await query('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO CURRENT_USER')
+      logger.info('[PG MIGRATIONS] Granted sequence usage to current user')
+    } catch (e) {
+      logger.warn(`[PG MIGRATIONS] Could not grant sequence usage: ${e.message}. Trying ALTER DEFAULT PRIVILEGES...`)
+      try {
+        await query('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO PUBLIC')
+        logger.info('[PG MIGRATIONS] ALTER DEFAULT PRIVILEGES for sequences set')
+      } catch (e2) {
+        logger.warn(`[PG MIGRATIONS] Sequence privileges could not be auto-granted: ${e2.message}`)
+      }
+    }
+
+    // Try granting on individual known sequences (for existing, not just future)
+    const knownSequences = [
+      'prediction_history_id_seq',
+      'team_registry_id_seq',
+      'matches_id_seq',
+      'quant_performance_id_seq',
+      'leagues_config_id_seq',
+      'team_key_players_id_seq',
+      'winning_patterns_id_seq',
+      'odds_history_id_seq',
+      'odds_patterns_id_seq',
+      'live_prediction_logs_id_seq',
+      'league_performance_tracking_id_seq',
+      'learning_memory_id_seq',
+      'league_weights_id_seq',
+      'learning_rules_id_seq',
+      'player_stats_id_seq',
+    ]
+    for (const seq of knownSequences) {
+      try {
+        await query(`GRANT USAGE, SELECT ON SEQUENCE ${seq} TO CURRENT_USER`)
+      } catch (_) { /* best-effort */ }
     }
 
     return { applied: 1, skipped: false }

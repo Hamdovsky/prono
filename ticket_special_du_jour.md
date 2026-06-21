@@ -1,4 +1,4 @@
-# 🎯 Ticket Spécial du Jour — Titanium AI V17 Ultra
+# 🎯 Ticket Spécial du Jour --- Titanium AI V17 Ultra
 > **Note :** Ce ticket combiné de **4 équipes** a été généré et optimisé par l'intelligence artificielle de pointe **Titanium V17 Ultra** après simulation de 10 000 scénarios Monte Carlo.
 
 ---

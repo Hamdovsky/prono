@@ -660,14 +660,14 @@ def objective_cv(trial, X, y, sw, match_dates, n_folds=3):
         'random_state': 42,
         'tree_method': 'hist',
         'nthread': -1,
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, log=True),
-        'max_depth': trial.suggest_int('max_depth', 3, 6),
-        'subsample': trial.suggest_float('subsample', 0.7, 1.0),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 1.0),
-        'min_child_weight': trial.suggest_int('min_child_weight', 1, 5),
-        'gamma': trial.suggest_float('gamma', 0, 2.0),
-        'reg_alpha': trial.suggest_float('reg_alpha', 0, 1.0),
-        'reg_lambda': trial.suggest_float('reg_lambda', 0, 2.0),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.15, log=True),
+        'max_depth': trial.suggest_int('max_depth', 3, 7),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'min_child_weight': trial.suggest_int('min_child_weight', 1, 7),
+        'gamma': trial.suggest_float('gamma', 0, 3.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 2.0),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 3.0),
     }
 
     X_arr = X.values if hasattr(X, 'values') else np.array(X)
@@ -694,12 +694,12 @@ def objective_cv(trial, X, y, sw, match_dates, n_folds=3):
         dval = xgb.DMatrix(X_val_fold, label=y_val_fold)
 
         es_cb = xgb.callback.EarlyStopping(
-            rounds=15, metric_name='mlogloss',
+            rounds=30, metric_name='mlogloss',
             data_name='validation_0', maximize=False, save_best=True
         )
 
         model = xgb.train(
-            param, dtrain, num_boost_round=400,
+            param, dtrain, num_boost_round=600,
             evals=[(dval, 'validation_0')],
             callbacks=[es_cb],
             verbose_eval=False
@@ -751,7 +751,7 @@ def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=Fa
             'reg_alpha': 0.1,
             'reg_lambda': 1.0,
         }
-        limit = 30000
+        limit = 60000
     elif wc2026:
         # V553: WC2026-context features + 2022-2026 data + WC2026 matches
         model_path = MODEL_PATH_V553
@@ -769,7 +769,7 @@ def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=Fa
             'reg_alpha': 0.1,
             'reg_lambda': 1.0,
         }
-        limit = 30000
+        limit = 60000
     elif modern:
         # V552: top features + 2022-2026 clean data + chronological split
         model_path = MODEL_PATH_V552
@@ -806,7 +806,7 @@ def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=Fa
     print("%s TRAINING — %s" % (tag, mode_desc))
     print("=" * 60)
 
-    limit = 30000 if (post2010 or modern or wc2026 or premium) else 60000
+    limit = 60000 if premium else (30000 if (post2010 or modern or wc2026) else 60000)
     X, y, sw, match_dates = load_data(limit=limit, min_year=min_year, feature_names=feat_names, wc2026=(wc2026 or premium), premium=premium)
     if len(X) < 100:
         print("[FAIL] Not enough data.")
@@ -853,11 +853,11 @@ def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=Fa
         if not (use_optuna or use_optuna_cv) and os.path.exists(BEST_PARAMS_PATH):
             print("[%s] Optuna not requested, using saved best params." % tag)
         elif use_optuna_cv:
-            print("[%s] Running Optuna CV hyperparameter search (15 trials, 3-fold TimeSeriesSplit) ..." % tag)
+            print("[%s] Running Optuna CV hyperparameter search (50 trials, 3-fold TimeSeriesSplit) ..." % tag)
             study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(seed=42))
             study.optimize(
                 lambda t: objective_cv(t, X_train, y_train, sw_train, match_dates),
-                n_trials=15
+                n_trials=50
             )
             best_params = study.best_params
             best_acc = study.best_value
@@ -867,7 +867,7 @@ def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=Fa
                 json.dump(best_params, f, indent=2)
             print("[%s-Optuna-CV] Params saved to %s" % (tag, BEST_PARAMS_PATH_CV))
         elif use_optuna:
-            print("[%s] Running Optuna hyperparameter search (30 trials) ..." % tag)
+            print("[%s] Running Optuna hyperparameter search (50 trials) ..." % tag)
             X_sub = X_train.iloc[:15000] if len(X_train) > 15000 else X_train
             y_sub = y_train[:15000] if len(y_train) > 15000 else y_train
             sw_sub = sw_train[:15000] if len(sw_train) > 15000 else sw_train
@@ -899,7 +899,7 @@ def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=Fa
     class_weights = compute_sample_weight(class_weight='balanced', y=y_train)
     class_weights = class_weights / class_weights.mean()
 
-    n_est = 800 if (modern or wc2026 or premium) else 500
+    n_est = 1000 if (modern or wc2026 or premium) else 500
     final_params = dict(best_params)
     final_params.update({
         'tree_method': 'hist',
@@ -912,7 +912,7 @@ def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=Fa
         verbosity=0,
         random_state=42,
         n_estimators=n_est,
-        early_stopping_rounds=30,
+        early_stopping_rounds=50,
         **final_params
     )
 

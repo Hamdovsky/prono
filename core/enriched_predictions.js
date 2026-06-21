@@ -17,6 +17,7 @@ const { analyzeValue } = require('../src/services/ValueBetEngine');
 const DeepFormService = require('../services/DeepFormService');
 const PlayerPropsService = require('../services/playerPropsService');
 const pythonService = require('./pythonService');
+const pythonBridgeService = require('../services/pythonBridgeService');
 const goalNewsService = require('../services/goalNewsService');
 const sharpService = require('../services/SharpIntelligenceService');
 const correlationEngine = require('../services/MarketCorrelationEngine');
@@ -262,26 +263,36 @@ class EnrichedPredictionService {
             match.adaptive_confidence_adj = await adaptiveLearningEngine.getConfidenceAdjustment(league);
         } catch(e) { /* ignore adaptive errors */ }
 
-        // JS PRIMARY — toujours exécuté
-        const xgResult = StatisticalEngine.getMatchXG(match)
-        const xgH = xgResult.h, xgA = xgResult.a
-        const quantResult = QuantumQuantEngine.analyze(match, xgH, xgA)
-        const result = {
-            success: true,
-            home_win_probability: (quantResult.markets.match_result['1'].prob * 100),
-            draw_probability: (quantResult.markets.match_result['X'].prob * 100),
-            away_win_probability: (quantResult.markets.match_result['2'].prob * 100),
-            expected_score: quantResult.expected_score,
-            verdict: quantResult.risk_label,
-            prediction: quantResult.main_pick,
-            confidence: quantResult.confidence,
-            power_score: quantResult.confidence,
-            quantum: quantResult
+        // V553 PREMIUM (XGBoost) — PRIMARY
+        const v553Result = await this._tryV553(match, timeoutMs)
+        let result
+        if (v553Result.success) {
+            result = v553Result
+        } else {
+            // JS ENGINE — fallback si V553 down
+            const xgResult = StatisticalEngine.getMatchXG(match)
+            const xgH = xgResult.h, xgA = xgResult.a
+            const quantResult = QuantumQuantEngine.analyze(match, xgH, xgA)
+            result = {
+                success: true,
+                home_win_probability: (quantResult.markets.match_result['1'].prob * 100),
+                draw_probability: (quantResult.markets.match_result['X'].prob * 100),
+                away_win_probability: (quantResult.markets.match_result['2'].prob * 100),
+                expected_score: quantResult.expected_score,
+                verdict: quantResult.risk_label,
+                prediction: quantResult.main_pick,
+                confidence: quantResult.confidence,
+                power_score: quantResult.confidence,
+                quantum: quantResult
+            }
         }
 
         // Gemma 4 (local) tactical briefing enrichment
         try {
             const Gemma4Service = require('./services/gemma4Service');
+            if (!Gemma4Service.isAvailable()) {
+                logger.debug('[GEMMA4] Skipped — service unavailable.')
+            } else {
             const briefing = await Gemma4Service.analyzePreMatchVIP(match);
             if (briefing) {
                 result.tactical_brief = briefing.match_overview;
@@ -293,8 +304,9 @@ class EnrichedPredictionService {
                     risk_mitigation: briefing.risk_mitigation
                 };
             }
+            }
         } catch (e) {
-            // Gemma 4 down — pas grave, JS suffit
+            // Gemma 4 down — pas grave
         }
 
         // Python/FastAPI optional enrichment (legacy fallback)
@@ -304,10 +316,48 @@ class EnrichedPredictionService {
                 result.python_enriched = true;
             }
         } catch (e) {
-            // Python down — pas grave, JS suffit
+            // Python down — pas grave
         }
 
         return result
+    }
+
+    async _tryV553(match, timeoutMs) {
+        try {
+            const pyMatch = {
+                homeTeam: match.homeTeam,
+                awayTeam: match.awayTeam,
+                league: match.league || match.tournament || 'International',
+                match_date: match.match_date || '',
+                startTimestamp: match.startTimestamp || 0,
+                odds_home: match.odds_home,
+                odds_draw: match.odds_draw,
+                odds_away: match.odds_away,
+            }
+            const py = await pythonBridgeService.predict(pyMatch, timeoutMs || 120000)
+            if (py && py.success && py.prediction) {
+                const labelMap = { '1': '1', 'X': 'X', '2': '2' }
+                const label = labelMap[py.prediction] || py.prediction
+                return {
+                    success: true,
+                    v553: true,
+                    home_win_probability: py.home_win_prob,
+                    draw_probability: py.draw_prob,
+                    away_win_probability: py.away_win_prob,
+                    expected_score: py.expected_score || '0 - 0',
+                    prediction: label,
+                    verdict: label === '1' ? 'Home' : (label === 'X' ? 'Draw' : 'Away'),
+                    confidence: py.confidence || 0,
+                    power_score: py.confidence || 0,
+                    model: 'V553_PREMIUM',
+                    elapsed: py.elapsed,
+                }
+            }
+            return { success: false, fallback: true }
+        } catch (e) {
+            logger.warn(`[V553] Bridge error: ${e.message}`)
+            return { success: false, fallback: true }
+        }
     }
 
     /**
@@ -527,19 +577,37 @@ class EnrichedPredictionService {
                     }
                 }
 
-            // ── 1. QUANTUM QUANT ANALYSIS ──
-            let { h: xgH, a: xgA } = this._getMatchXG(m);
-            const quantResult = QuantumQuantEngine.analyze(m, xgH, xgA);
+            // ── 1. V553 PREMIUM (XGBoost) — PRIMARY ──
+            const v553 = await this._tryV553(m)
+            let quantResult, aiSource, xgH, xgA, probs
+            if (v553.success) {
+                aiSource = 'V553_PREMIUM'
+                xgH = parseFloat((v553.expected_score || '0 - 0').split(' - ')[0]) || 0
+                xgA = parseFloat((v553.expected_score || '0 - 0').split(' - ')[1]) || 0
+                quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
+                quantResult.main_pick = v553.prediction
+                quantResult.risk_label = v553.verdict
+                quantResult.confidence = v553.confidence
+                quantResult.expected_score = v553.expected_score
+                probs = { h: v553.home_win_prob / 100, d: v553.draw_prob / 100, a: v553.away_win_prob / 100 }
+            } else {
+                // JS ENGINE — fallback
+                aiSource = 'TITANIUM_QUANT_V4'
+                const xg = this._getMatchXG(m)
+                xgH = xg.h; xgA = xg.a
+                quantResult = QuantumQuantEngine.analyze(m, xgH, xgA)
+                probs = { h: quantResult.markets.match_result['1'].prob, d: quantResult.markets.match_result['X'].prob, a: quantResult.markets.match_result['2'].prob }
+            }
             // ── 2. FINAL ASSEMBLY ──
             const resultData = {
                 ...m,
 
                 success: true,
-                ai_source: 'TITANIUM_QUANT_V4',  // V4 = Edge Hunter Intelligence
+                ai_source: aiSource,
                 expected_score: quantResult.expected_score,
-                home_win_probability: (quantResult.markets.match_result['1'].prob * 100),
-                draw_probability: (quantResult.markets.match_result['X'].prob * 100),
-                away_win_probability: (quantResult.markets.match_result['2'].prob * 100),
+                home_win_probability: (probs.h * 100),
+                draw_probability: (probs.d * 100),
+                away_win_probability: (probs.a * 100),
                 btts_prob: quantResult.probs.btts,
                 ou_25_prob: quantResult.probs.over25,
                 ht_goal_prob: quantResult.probs.ht_goal,

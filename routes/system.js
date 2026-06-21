@@ -6,7 +6,6 @@ const mlPredictionService = require('../services/mlPredictionService');
 const configEngine = require('../core/configEngine');
 const securityEngine = require('../core/securityEngine');
 const { speedCache } = require('../core/speedCache');
-const { readScraperProgress } = require('../core/utils');
 const logger = require('../core/logger');
 
 /**

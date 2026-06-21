@@ -1,18 +1,37 @@
+# =============================================================================
+# Stitch / Titanium AI — Production Python Dependencies
+# =============================================================================
+# Install with:  pip install -r requirements.txt
+# Freeze with:   pip freeze > requirements.txt  (then prune manually)
+# =============================================================================
+
+# --- Core ML / Data Science ---
 xgboost==2.1.0
-pandas
-scikit-learn
-matplotlib
 numpy==1.26.4
-fastapi
-uvicorn[standard]
-pydantic
-streamlit
-joblib
-requests
-shap
-scipy
-textblob
-vaderSentiment
-nltk
-redis
-httpx
+pandas==3.0.2
+scikit-learn==1.8.0
+scipy==1.17.1
+joblib==1.5.3
+shap==0.49.1
+optuna>=4.0.0
+
+# --- API / Server ---
+fastapi==0.135.3
+uvicorn[standard]==0.44.0
+pydantic==2.13.0
+requests==2.33.1
+
+# --- Analytics / Viz ---
+matplotlib==3.10.8
+seaborn>=0.13.0
+streamlit==1.56.0
+
+# --- NLP / Sentiment ---
+textblob==0.20.0
+vaderSentiment==3.3.2
+
+# --- Web Scraping (scripts/) ---
+beautifulsoup4>=4.12.0
+
+# --- Database (inference/) ---
+psycopg2-binary>=2.9.0

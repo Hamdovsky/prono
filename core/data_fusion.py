@@ -167,7 +167,7 @@ def normalize_name(name):
     n = n.replace('st. ', 'saint ').replace('st ', 'saint ')
     return n
 
-def fuzzy_match(name, candidates, manual_map=None, threshold=0.80):
+def fuzzy_match(name, candidates, manual_map=None, threshold=0.70):
     n = normalize_name(name)
     if not n:
         return None, 0.0

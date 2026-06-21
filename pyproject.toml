@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "stitch-titanium"
+version = "1.0.0"
+description = "Titanium AI — Football prediction engine with XGBoost, Monte Carlo, and ensemble learning"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+
+[project.urls]
+"Source" = "https://github.com/anomalyco/stitch"
+
+[tool.setuptools.packages.find]
+include = ["core*", "services*", "scripts*", "inference*"]

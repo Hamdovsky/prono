@@ -1,9 +1,27 @@
 const { usingPostgres, query } = require('./pg_connector')
 const logger = require('./logger')
 
+function sqliteToPg(sql) {
+  return sql
+    .replace(/\bINTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT\b/gi, 'SERIAL PRIMARY KEY')
+    .replace(/\bINSERT\s+OR\s+REPLACE\s+INTO\b/gi, 'INSERT INTO')
+    .replace(/\bINSERT\s+OR\s+IGNORE\s+INTO\b/gi, 'INSERT INTO')
+    .replace(/\bINSERT\s+OR\s+ABORT\s+INTO\b/gi, 'INSERT INTO')
+    .replace(/json_extract\s*\(\s*("[^"]+"|\w+)\s*,\s*'\$\.([^']+)'\s*\)/g,
+      (match, col, path) => {
+        const parts = path.split('.')
+        const colClean = col.startsWith('"') ? col : `"${col}"`
+        return `${colClean}::jsonb #>> '{${parts.join(',')}}'`
+      })
+    .replace(/datetime\s*\(\s*'now'\s*\)/gi, 'NOW()')
+    .replace(/\bCURRENT_TIMESTAMP\b/gi, 'NOW()')
+    .replace(/\bDATETIME\b/gi, 'TIMESTAMPTZ')
+    .replace(/("fullData"|\bfullData\b)/g, (m) => m === '"fullData"' ? m : '"fullData"')
+}
+
 const pgDb = {
   async exec(sql) {
-    await query(sql)
+    await query(sqliteToPg(sql))
   },
 
   async query(sql, params = []) {
@@ -32,7 +50,7 @@ const pgDb = {
   prepare(sql) {
     const self = this
     let qIdx = 0
-    const pgSql = sql.replace(/\?(?=(?:[^']*'[^']*')*[^']*$)/g, () => `$${++qIdx}`)
+    const pgSql = sqliteToPg(sql).replace(/\?(?=(?:[^']*'[^']*')*[^']*$)/g, () => `$${++qIdx}`)
     return {
       run: async (...args) => {
         const params = Array.isArray(args[0]) ? args[0] : args
@@ -221,21 +239,10 @@ const pgDb = {
       if (!row) return false
 
       let fullData = (row.fullData ?? row.fulldata) ? (typeof (row.fullData ?? row.fulldata) === 'string' ? JSON.parse(row.fullData ?? row.fulldata) : (row.fullData ?? row.fulldata)) : {}
-      
-      // DEBUG: log what's coming in
-      console.log(`[UPDATE_PRED] ${matchId} incoming data keys:`, Object.keys(data))
-      console.log(`[UPDATE_PRED] ${matchId} data.ai_source:`, data.ai_source)
-      console.log(`[UPDATE_PRED] ${matchId} data.home_win_probability:`, data.home_win_probability)
-      console.log(`[UPDATE_PRED] ${matchId} data.expected_score:`, data.expected_score)
-      console.log(`[UPDATE_PRED] ${matchId} data.enriched keys:`, data.enriched ? Object.keys(data.enriched) : 'none')
-      
+
       const enriched = data.enriched || (data.home_win_probability ? data : null)
       fullData = { ...fullData, ...data, enriched: enriched ? { ...(fullData.enriched || {}), ...enriched } : fullData.enriched, last_updated: Date.now() }
-      
-      // DEBUG: log what's in fullData after merge
-      console.log(`[UPDATE_PRED] ${matchId} fullData.ai_source after merge:`, fullData.ai_source)
-      console.log(`[UPDATE_PRED] ${matchId} fullData.home_win_probability after merge:`, fullData.home_win_probability)
-      
+
       if (enriched) {
         fullData.home_win_probability = enriched.home_win_probability || fullData.home_win_probability
         fullData.draw_probability = enriched.draw_probability || fullData.draw_probability
@@ -247,47 +254,50 @@ const pgDb = {
       if (fullData.enriched?.enriched) delete fullData.enriched.enriched
 
       const verdict = data.verdict || (data.enriched?.verdict) || data.prediction || 'RISKY BET'
-      const hProb = parseFloat(data.home_win_probability || enriched?.home_win_probability || fullData.home_win_probability || 0)
-      const dProb = parseFloat(data.draw_probability || enriched?.draw_probability || fullData.draw_probability || 0)
-      const aProb = parseFloat(data.away_win_probability || enriched?.away_win_probability || fullData.away_win_probability || 0)
-      const ou25 = parseFloat(data.ou_25_prob || enriched?.ou_25_prob || data.ou_2_5_prob || 0)
-      const bttsp = parseFloat(data.btts_prob || enriched?.btts_prob || 0)
+      const toNull = v => (v === null || v === undefined || (typeof v === 'number' && (isNaN(v) || !isFinite(v))) ? null : v)
+      const parseSafe = (v, fallback = 0) => { const n = parseFloat(v || fallback); return isNaN(n) ? null : n }
+
+      const hProb = parseSafe(data.home_win_probability || enriched?.home_win_probability || fullData.home_win_probability)
+      const dProb = parseSafe(data.draw_probability || enriched?.draw_probability || fullData.draw_probability)
+      const aProb = parseSafe(data.away_win_probability || enriched?.away_win_probability || fullData.away_win_probability)
+      const ou25 = parseSafe(data.ou_25_prob || enriched?.ou_25_prob || data.ou_2_5_prob)
+      const bttsp = parseSafe(data.btts_prob || enriched?.btts_prob)
       const expScr = data.expected_score || enriched?.expected_score || fullData.expected_score || null
-      const conf = parseFloat(data.confidence || enriched?.confidence || data.v22_success_rate || 0)
-      const xgbConf = parseFloat(data.xgboost_confidence || enriched?.xgboost_confidence || 0)
+      const conf = parseSafe(data.confidence || enriched?.confidence || data.v22_success_rate)
+      const xgbConf = parseSafe(data.xgboost_confidence || enriched?.xgboost_confidence)
 
       const sql = `
         UPDATE matches SET
-          fullData = $1, prediction = $2, last_updated = $3,
-          home_win_probability = CASE WHEN $4 > 0 THEN $4 ELSE home_win_probability END,
-          draw_probability = CASE WHEN $5 > 0 THEN $5 ELSE draw_probability END,
-          away_win_probability = CASE WHEN $6 > 0 THEN $6 ELSE away_win_probability END,
-          ou_25_prob = CASE WHEN $7 > 0 THEN $7 ELSE ou_25_prob END,
-          btts_prob = CASE WHEN $8 > 0 THEN $8 ELSE btts_prob END,
-          expected_score = CASE WHEN $9 IS NOT NULL THEN $9 ELSE expected_score END,
-          confidence = CASE WHEN $10 > 0 THEN $10 ELSE confidence END,
-          xgboost_confidence = CASE WHEN $11 > 0 THEN $11 ELSE xgboost_confidence END,
-          ev_home = CASE WHEN $12 IS NOT NULL THEN $12 ELSE ev_home END,
-          ev_draw = CASE WHEN $13 IS NOT NULL THEN $13 ELSE ev_draw END,
-          ev_away = CASE WHEN $14 IS NOT NULL THEN $14 ELSE ev_away END,
-          kelly_stake = CASE WHEN $15 > 0 THEN $15 ELSE kelly_stake END,
-          true_prob_home = CASE WHEN $16 > 0 THEN $16 ELSE true_prob_home END,
-          true_prob_draw = CASE WHEN $17 > 0 THEN $17 ELSE true_prob_draw END,
-          true_prob_away = CASE WHEN $18 > 0 THEN $18 ELSE true_prob_away END,
-          weather_temp = CASE WHEN $19 IS NOT NULL THEN $19 ELSE weather_temp END,
-          weather_humidity = CASE WHEN $20 IS NOT NULL THEN $20 ELSE weather_humidity END,
-          home_form_pts = CASE WHEN $21 IS NOT NULL THEN $21 ELSE home_form_pts END,
-          away_form_pts = CASE WHEN $22 IS NOT NULL THEN $22 ELSE away_form_pts END,
-          motivation_signature = $23
-        WHERE id = $24
+          "fullData" = $1::jsonb, prediction = $2::text, last_updated = $3::bigint,
+          home_win_probability = CASE WHEN $4::double precision IS DISTINCT FROM NULL AND $4::double precision > 0 THEN $4::double precision ELSE home_win_probability END,
+          draw_probability = CASE WHEN $5::double precision IS DISTINCT FROM NULL AND $5::double precision > 0 THEN $5::double precision ELSE draw_probability END,
+          away_win_probability = CASE WHEN $6::double precision IS DISTINCT FROM NULL AND $6::double precision > 0 THEN $6::double precision ELSE away_win_probability END,
+          ou_25_prob = CASE WHEN $7::double precision IS DISTINCT FROM NULL AND $7::double precision > 0 THEN $7::double precision ELSE ou_25_prob END,
+          btts_prob = CASE WHEN $8::double precision IS DISTINCT FROM NULL AND $8::double precision > 0 THEN $8::double precision ELSE btts_prob END,
+          expected_score = CASE WHEN $9::text IS NOT NULL THEN $9::text ELSE expected_score END,
+          confidence = CASE WHEN $10::double precision IS DISTINCT FROM NULL AND $10::double precision > 0 THEN $10::double precision ELSE confidence END,
+          xgboost_confidence = CASE WHEN $11::double precision IS DISTINCT FROM NULL AND $11::double precision > 0 THEN $11::double precision ELSE xgboost_confidence END,
+          ev_home = $12::double precision,
+          ev_draw = $13::double precision,
+          ev_away = $14::double precision,
+          kelly_stake = $15::double precision,
+          true_prob_home = $16::double precision,
+          true_prob_draw = $17::double precision,
+          true_prob_away = $18::double precision,
+          weather_temp = $19::double precision,
+          weather_humidity = $20::double precision,
+          home_form_pts = $21::double precision,
+          away_form_pts = $22::double precision,
+          motivation_signature = $23::text
+        WHERE id = $24::text
       `
 
       await query(sql, [
         JSON.stringify(fullData), verdict, Date.now(),
-        hProb, dProb, aProb, ou25, bttsp, expScr, conf, xgbConf,
-        data.ev_home ?? null, data.ev_draw ?? null, data.ev_away ?? null,
-        data.kelly_stake || 0, data.true_prob_home || 0, data.true_prob_draw || 0, data.true_prob_away || 0,
-        data.weather_temp ?? null, data.weather_humidity ?? null, data.home_form_pts ?? null, data.away_form_pts ?? null,
+        toNull(hProb), toNull(dProb), toNull(aProb), toNull(ou25), toNull(bttsp), expScr, toNull(conf), toNull(xgbConf),
+        toNull(data.ev_home), toNull(data.ev_draw), toNull(data.ev_away),
+        toNull(data.kelly_stake), toNull(data.true_prob_home), toNull(data.true_prob_draw), toNull(data.true_prob_away),
+        toNull(data.weather_temp), toNull(data.weather_humidity), toNull(data.home_form_pts), toNull(data.away_form_pts),
         data.motivation_signature || enriched?.motivation_signature || 'Logique Standard',
         matchId
       ])
@@ -298,11 +308,12 @@ const pgDb = {
         ON CONFLICT(match_id, prediction_type) DO UPDATE SET
           probability = EXCLUDED.probability, prediction_val = EXCLUDED.prediction_val
       `
-      await query(histSql, [matchId, fullData.league, 'Home', 'Win', hProb / 100, 'pending'])
-      await query(histSql, [matchId, fullData.league, 'Away', 'Win', aProb / 100, 'pending'])
-      await query(histSql, [matchId, fullData.league, 'Draw', 'Draw', dProb / 100, 'pending'])
+      const safeDiv = v => (v != null && !isNaN(v) ? v / 100 : 0)
+      await query(histSql, [matchId, fullData.league, 'Home', 'Win', safeDiv(hProb), 'pending'])
+      await query(histSql, [matchId, fullData.league, 'Away', 'Win', safeDiv(aProb), 'pending'])
+      await query(histSql, [matchId, fullData.league, 'Draw', 'Draw', safeDiv(dProb), 'pending'])
 
-      logger.info(`[PG DB] AI Enrichment persisted for ${matchId} — Home:${hProb.toFixed(1)}% Draw:${dProb.toFixed(1)}% Away:${aProb.toFixed(1)}%`)
+      logger.info(`[PG DB] AI Enrichment persisted for ${matchId} — Home:${hProb != null ? hProb.toFixed(1) : 'N/A'}% Draw:${dProb != null ? dProb.toFixed(1) : 'N/A'}% Away:${aProb != null ? aProb.toFixed(1) : 'N/A'}%`)
       return true
     } catch (e) {
       logger.error(`[PG DB] updatePredictions failed for ${matchId}: ${e.message}`)

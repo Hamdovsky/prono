@@ -3,7 +3,7 @@
  * Apprentissage automatique, détection de patterns, intégration pronostics
  */
 
-const db = require('../core/database_pg');
+const db = require('../core/database');
 const crypto = require('crypto');
 
 class SmartOddsAnalyzer {

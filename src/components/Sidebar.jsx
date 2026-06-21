@@ -183,6 +183,23 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                     </span>
                 </button>
 
+                {/* ── TOP PICKS ─────────────────────────── */}
+                <button 
+                  className={`flash-nav-item ${activeView === 'top-picks' ? 'active' : ''}`}
+                  onClick={() => handleNav('top-picks')}
+                  style={{
+                    marginTop: '4px',
+                    background: activeView === 'top-picks'
+                        ? 'linear-gradient(90deg, rgba(251,191,36,0.15) 0%, transparent 100%)'
+                        : 'transparent',
+                    borderLeft: activeView === 'top-picks' ? '2px solid #fbbf24' : 'none',
+                    color: '#fbbf24'
+                  }}
+                >
+                    <span className="flash-icon">🎯</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>TOP PICKS DU JOUR</span>
+                </button>
+
                 {/* ── Adaptive Learning AI ────────────────────── */}
                 <button 
                   className={`flash-nav-item ${activeView === 'learning' ? 'active' : ''}`}

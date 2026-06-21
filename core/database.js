@@ -841,9 +841,9 @@ const database = {
             `
             const updateTransaction = db.transaction(() => {
                 db.prepare(sql).run(params)
-                db.prepare(histSql).run(matchId, fullData.league, 'Home', 'Win', hProb/100, 'pending', Date.now())
-                db.prepare(histSql).run(matchId, fullData.league, 'Away', 'Win', aProb/100, 'pending', Date.now())
-                db.prepare(histSql).run(matchId, fullData.league, 'Draw', 'Draw', dProb/100, 'pending', Date.now())
+                if (hProb > 0) db.prepare(histSql).run(matchId, fullData.league, 'Home', 'Win', hProb/100, 'pending', Date.now())
+                if (aProb > 0) db.prepare(histSql).run(matchId, fullData.league, 'Away', 'Win', aProb/100, 'pending', Date.now())
+                if (dProb > 0) db.prepare(histSql).run(matchId, fullData.league, 'Draw', 'Draw', dProb/100, 'pending', Date.now())
             })
 
             let attempts = 0;
@@ -971,9 +971,8 @@ const database = {
                         WHEN prediction_type = 'Home' AND ? > ? THEN 'won'
                         WHEN prediction_type = 'Away' AND ? < ? THEN 'won'
                         WHEN prediction_type = 'Draw' AND ? = ? THEN 'won'
-                        ELSE 'lost'
                     END
-                WHERE match_id = ?
+                WHERE match_id = ? AND prediction_type IN ('Home', 'Away', 'Draw')
             `);
 
             const deleteStmt = db.prepare("DELETE FROM matches WHERE id = ?");

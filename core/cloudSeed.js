@@ -298,20 +298,24 @@ async function runCloudSeed() {
   let rapidApiInserted = 0
   let sofascoreInserted = 0
 
-  console.log('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
-  try {
-    const datesToFetch = [today, getDateStr(1)]
-    for (const dateStr of datesToFetch) {
-      const events = await fetchSofascoreEvents(dateStr)
-      const notstarted = events.filter(e => (e.status?.type || '').toLowerCase() === 'notstarted')
-      for (const event of notstarted) {
-        if (!event.id || !event.homeTeam?.name || !event.awayTeam?.name) continue
-        if (await upsertMatch(mapSofascoreEventToMatch(event))) sofascoreInserted++
+  if (process.env.DISABLE_SOFASCORE === 'true' || process.env.NODE_ENV === 'development') {
+    console.log('[CLOUD-SEED/SOFASCORE] Skipped — disabled in dev/local mode.')
+  } else {
+    console.log('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
+    try {
+      const datesToFetch = [today, getDateStr(1)]
+      for (const dateStr of datesToFetch) {
+        const events = await fetchSofascoreEvents(dateStr)
+        const notstarted = events.filter(e => (e.status?.type || '').toLowerCase() === 'notstarted')
+        for (const event of notstarted) {
+          if (!event.id || !event.homeTeam?.name || !event.awayTeam?.name) continue
+          if (await upsertMatch(mapSofascoreEventToMatch(event))) sofascoreInserted++
+        }
       }
+      console.log(`[CLOUD-SEED/SOFASCORE] Inserted ${sofascoreInserted} free matches total.`)
+    } catch (e) {
+      console.warn(`[CLOUD-SEED/SOFASCORE] Error: ${e.message}`)
     }
-    console.log(`[CLOUD-SEED/SOFASCORE] Inserted ${sofascoreInserted} free matches total.`)
-  } catch (e) {
-    console.warn(`[CLOUD-SEED/SOFASCORE] Error: ${e.message}`)
   }
 
   let fdQuotaStatus = fdQuotaManager.getQuotaStatus()
@@ -349,7 +353,7 @@ async function runCloudSeed() {
   }
 
   const fbFallbackSources = [
-    { name: 'Sofascore', fetch: () => fetchSofascoreEvents(today).then(events => events.map(mapSofascoreEventToMatch)), available: () => true },
+    { name: 'Sofascore', fetch: () => fetchSofascoreEvents(today).then(events => events.map(mapSofascoreEventToMatch)), available: () => process.env.DISABLE_SOFASCORE !== 'true' && process.env.NODE_ENV !== 'development' },
     { name: 'TheRundown', fetch: () => therundownService.fetchSoccerEvents(today).then(events => events.map(e => therundownService.mapEventToMatch(e))), available: () => therundownService.isAvailable() },
     { name: 'OddsPapi',   fetch: () => oddspapiService.fetchEvents(today),              available: () => oddspapiService.isAvailable() },
     { name: 'Sportmonks', fetch: () => sportmonksService.fetchEvents(today),            available: () => sportmonksService.isAvailable() },

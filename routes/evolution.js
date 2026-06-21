@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../core/database');
-const MarketSensorService = require('../services/MarketSensorService');
 
 /**
  * 📊 TITANIUM RESEARCH & QUANT API

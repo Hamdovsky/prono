@@ -10,8 +10,9 @@ import { normalizeTeamName, isReserveTeam, deduplicateMatches } from '../utils/t
 
 class DataService {
     _handleUpcomingUpdate(data) {
-        if (Array.isArray(data)) {
-            this.upcomingPredictions = data.map(m => this._normalizeMatch(m, 'upcoming')).filter(m => m !== null);
+        const matches = Array.isArray(data) ? data : (data?.matches || [])
+        if (matches.length > 0 || Array.isArray(data)) {
+            this.upcomingPredictions = matches.map(m => this._normalizeMatch(m, 'upcoming')).filter(m => m !== null);
             this.upcomingSubscribers.forEach(cb => cb(this.upcomingPredictions));
         } else if (data && typeof data === 'object') {
             this.fetchUpcomingPredictions();
@@ -530,17 +531,15 @@ class DataService {
                 const raw = await this._get(endpoint);
 
             console.log(`📊 [DATA] Received ${Array.isArray(raw) ? raw.length : 'non-array'} raw matches.`);
-            
-            this.upcomingPredictions = Array.isArray(raw)
-                ? raw.map(m => {
+
+            const rawMatches = Array.isArray(raw) ? raw : (raw?.matches || [])
+            this.upcomingPredictions = rawMatches.map(m => {
                     try {
-                        // Use 'upcoming' mode: allows matches up to 60 days in the future
                         return this._normalizeMatch(m, 'upcoming');
                     } catch (e) {
                         return null;
                     }
                 }).filter(m => m !== null)
-                : [];
             
             // ✅ Dédoublonnage aussi sur les matchs à venir
             this.upcomingPredictions = deduplicateMatches(this.upcomingPredictions);

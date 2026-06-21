@@ -291,9 +291,9 @@ describe('Database', () => {
       const items = Array.from({ length: 250 }, (_, i) => ({ id: i }));
       let processedCount = 0;
 
-      const transactionFn = (chunk) => {
-        processedCount += chunk.length;
-      };
+      const transactionFn = (item) => {
+        processedCount++
+      }
 
       const transaction = database.transaction(transactionFn);
       transaction(items);

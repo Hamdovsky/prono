@@ -1,0 +1,59 @@
+{
+    "tun2socks": {
+        "enabled": true,
+        "interface": "tun0",
+        "stack": "gVisor",
+        "mtu": 1500
+    },
+    "proxy_fleet": [
+        {
+            "id": "h-1",
+            "type": "SOCKS5",
+            "host": "127.0.0.1",
+            "port": 1080
+        },
+        {
+            "id": "h-2",
+            "type": "SOCKS5",
+            "host": "127.0.0.1",
+            "port": 1081
+        },
+        {
+            "id": "h-3",
+            "type": "SOCKS5",
+            "host": "127.0.0.1",
+            "port": 1082
+        },
+        {
+            "id": "h-4",
+            "type": "SOCKS5",
+            "host": "127.0.0.1",
+            "port": 1083
+        },
+        {
+            "id": "h-5",
+            "type": "SOCKS5",
+            "host": "127.0.0.1",
+            "port": 1084
+        },
+        {
+            "id": "h-6",
+            "type": "SOCKS5",
+            "host": "127.0.0.1",
+            "port": 1085
+        },
+        {
+            "id": "h-7",
+            "type": "SOCKS5",
+            "host": "127.0.0.1",
+            "port": 1086
+        },
+        {
+            "id": "h-8",
+            "type": "SOCKS5",
+            "host": "127.0.0.1",
+            "port": 1087
+        }
+    ],
+    "rotation_interval_ms": 300000
+}

@@ -3,11 +3,7 @@ const router = express.Router();
 const logger = require('../core/logger');
 const database = require('../core/database');
 const { speedCache, invalidateCache } = require('../core/speedCache');
-const newsService = require('../src/services/newsService');
 const enrichedPredictions = require('../core/enriched_predictions');
-const ValueBetEngine = require('../src/services/ValueBetEngine');
-const IntegrityService = require('../services/integrity_service');
-const { getSteamForMatch } = require('../services/oddsMovementService');
 const liveGoalPredictor = require('../services/LiveGoalPredictor');
 const liveMatchService = require('../services/liveMatchService');
 

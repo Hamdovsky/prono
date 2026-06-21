@@ -20,7 +20,7 @@ function getPool() {
   const isSupabase = dbUrl.includes('supabase.co') || dbUrl.includes('neon.tech')
   pool = new Pool({
     connectionString: dbUrl,
-    max: 5,
+    max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 15000,
     ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
@@ -31,9 +31,7 @@ function getPool() {
     logger.error(`[PG] Unexpected pool error: ${err.message}`)
   })
 
-  pool.on('acquire', () => {
-    logger.debug('[PG] Connection acquired from pool')
-  })
+  // pool.on('acquire', () => { logger.debug('[PG] Connection acquired from pool') }) // disabled — noise
 
   // Keep-alive every 2 min to prevent Neon free tier from sleeping
   setInterval(async () => {

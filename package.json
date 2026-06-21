@@ -1,52 +1,54 @@
 {
   "name": "stitch",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Titanium AI — Football prediction engine",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"vite\" --names \"api,vite\" --prefix-colors \"cyan,magenta\"",
     "server": "node --max-old-space-size=512 server.js",
     "scraper": "node SofascoreScraping/index.js",
-    "scrape": "npm run scraper",
     "build": "vite build",
     "preview": "vite preview",
     "db:optimize": "node scripts/optimize_db.js",
-    "cleanup:dry": "node tools/cleanup_root.js --dry",
-    "cleanup": "node tools/cleanup_root.js",
-    "optimize": "npm run db:optimize && npm run build",
+    "sportdb:import": "node scripts/import_sportdb_history.js",
     "learn": "node scripts/adaptive_learning_sync.js",
-    "dispatch": "node scripts/surgical_daily_dispatch.js",
-    "results": "node scripts/surgical_results_report.js",
     "autolearn": "python scripts/train_xgboost.py",
     "online:update": "node scripts/online_learning_update.js",
+    "dispatch": "node scripts/surgical_daily_dispatch.js",
+    "results": "node scripts/surgical_results_report.js",
     "test": "jest --coverage --detectOpenHandles",
     "test:watch": "jest --watch",
-    "sportdb:import": "node scripts/import_sportdb_history.js"
+    "cleanup:dry": "node archive/scripts_legacy/cleanup_root.js --dry",
+    "cleanup": "node archive/scripts_legacy/cleanup_root.js",
+    "optimize": "npm run db:optimize && npm run build"
   },
-  "keywords": [],
+  "keywords": [
+    "football",
+    "prediction",
+    "ai",
+    "machine-learning"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.3",
     "async-retry": "^1.3.3",
     "axios": "^1.15.0",
     "better-sqlite3": "^12.6.2",
     "bottleneck": "^2.19.5",
-    "cheerio": "^1.2.0",
-    "clsx": "^2.1.1",
-    "compression": "^1.8.1",
+    "chalk": "^4.1.2",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "express-prom-bundle": "^8.0.0",
-    "express-rate-limit": "^8.2.1",
     "fast-json-patch": "^3.1.1",
     "framer-motion": "^12.34.3",
-    "fuse.js": "^7.1.0",
     "helmet": "^8.1.0",
     "html2canvas": "^1.4.1",
-    "input": "^1.0.1",
     "ioredis": "^5.9.3",
     "lucide-react": "^0.575.0",
     "node-cron": "^4.2.1",
@@ -61,7 +63,7 @@
     "rss-parser": "^3.13.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
-    "tailwind-merge": "^3.5.0",
+    "sqlite3": "^5.1.7",
     "telegram": "^2.26.22",
     "undici": "^8.1.0",
     "vite": "^7.3.1"
@@ -74,13 +76,14 @@
     "concurrently": "^9.2.1",
     "jest": "^29.7.0",
     "jest-mock-extended": "^4.0.1",
+    "puppeteer": "^24.42.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "redis-memory-server": "^0.16.0",
     "supertest": "^7.2.2",
     "terser": "^5.46.0"
   },
   "optionalDependencies": {
-    "puppeteer": "^24.42.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "playwright": "^1.50.0"
   }
 }

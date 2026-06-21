@@ -312,6 +312,28 @@ class Workflow {
         return `${year}-${month}-${day}`;
     }
 
+    _httpFixtureToEvent(m) {
+        const id = parseInt(String(m.id).replace(/\D/g, '').slice(0, 8)) || Math.floor(Math.random() * 1000000)
+        return {
+            id,
+            homeTeam: { name: m.homeTeam, id: parseInt(m.home_team_id || '0') || 0 },
+            awayTeam: { name: m.awayTeam, id: parseInt(m.away_team_id || '0') || 0 },
+            tournament: {
+                name: m.league,
+                uniqueTournament: {
+                    id: parseInt(m.tournament_id || '0') || 0,
+                    name: m.league,
+                    slug: (m.league || '').toLowerCase().replace(/\s+/g, '-')
+                },
+                category: { name: m.category_name || '', id: 0 }
+            },
+            startTimestamp: m.startTimestamp,
+            status: { type: m.status === 'scheduled' ? 'notstarted' : (m.status || 'notstarted') },
+            homeScore: { current: m.score?.home },
+            awayScore: { current: m.score?.away }
+        }
+    }
+
     async start() {
         await persistence.init();
         
@@ -342,15 +364,43 @@ class Workflow {
             }
 
             const allEvents = [];
-            for (const d of datesToFetch) {
-                console.log(`📡 [API] Fetching scheduled events for: ${d}`);
-                try {
-                    const data = await SofaAPI.getEvents(d);
-                    const events = data.events || [];
-                    console.log(`📊 [API] Found ${events.length} events for ${d}`);
-                    allEvents.push(...events);
-                } catch (e) {
-                    console.error(`❌ [API] Error fetching for ${d}:`, e.message);
+            // PRIMARY: httpScraperService (API-Football / Football-Data.org)
+            try {
+                const httpScraperService = require('../../services/httpScraperService');
+                if (httpScraperService.isAvailable()) {
+                    for (const d of datesToFetch) {
+                        try {
+                            const fixtures = await httpScraperService.fetchAllFixtures(d);
+                            if (fixtures && fixtures.length > 0) {
+                                console.log(`📊 [HTTP] Found ${fixtures.length} fixtures for ${d}`);
+                                for (const m of fixtures) {
+                                    allEvents.push(this._httpFixtureToEvent(m))
+                                }
+                            }
+                        } catch (e) {
+                            console.warn(`⚠️ [HTTP] Fetch error for ${d}: ${e.message}`)
+                        }
+                    }
+                } else {
+                    console.log('⚠️ [HTTP] httpScraperService not available.')
+                }
+            } catch (e) {
+                console.warn(`⚠️ [HTTP] httpScraperService load error: ${e.message}`)
+            }
+
+            // FALLBACK: Sofascore API (if HTTP returned nothing)
+            if (allEvents.length === 0) {
+                console.log('📡 [FALLBACK] HTTP returned 0 events. Trying Sofascore API...')
+                for (const d of datesToFetch) {
+                    console.log(`📡 [API] Fetching scheduled events for: ${d}`)
+                    try {
+                        const data = await SofaAPI.getEvents(d)
+                        const events = data.events || []
+                        console.log(`📊 [API] Found ${events.length} events for ${d}`)
+                        allEvents.push(...events)
+                    } catch (e) {
+                        console.error(`❌ [API] Error fetching for ${d}: ${e.message}`)
+                    }
                 }
             }
 
@@ -359,48 +409,6 @@ class Workflow {
             }
 
             console.log(`📊 [API] Total merged events: ${allEvents.length}`);
-
-            // 🚀 [HTTP FALLBACK] If Sofascore API returned no events, try HTTP-only APIs
-            if (allEvents.length === 0) {
-                console.log('⚠️ [FALLBACK] Sofascore returned 0 events. Triggering HTTP API scraper...');
-                try {
-                    const httpScraperService = require('../../services/httpScraperService');
-                    if (httpScraperService.isAvailable()) {
-                        console.log('📡 [FALLBACK] HTTP scraper is available. Fetching fixtures...');
-                        const today = await this.getLocalDateString(0);
-                        const tomorrow = await this.getLocalDateString(1);
-                        const httpFixtures = [
-                            ...(await httpScraperService.fetchAllFixtures(today)),
-                            ...(await httpScraperService.fetchAllFixtures(tomorrow))
-                        ];
-                        if (httpFixtures.length > 0) {
-                            console.log(`✅ [FALLBACK] HTTP APIs returned ${httpFixtures.length} fixtures. Converting to events...`);
-                            for (const m of httpFixtures) {
-                                const event = {
-                                    id: parseInt(m.id.replace(/\D/g, '').slice(0, 8)) || Math.floor(Math.random() * 1000000),
-                                    homeTeam: { name: m.homeTeam, id: parseInt(m.home_team_id || '0') || 0 },
-                                    awayTeam: { name: m.awayTeam, id: parseInt(m.away_team_id || '0') || 0 },
-                                    tournament: {
-                                        name: m.league,
-                                        uniqueTournament: { id: parseInt(m.tournament_id || '0') || 0, name: m.league, slug: m.league?.toLowerCase().replace(/\s+/g, '-') },
-                                        category: { name: m.category_name || '', id: 0 }
-                                    },
-                                    startTimestamp: m.startTimestamp,
-                                    status: { type: m.status === 'scheduled' ? 'notstarted' : m.status },
-                                    homeScore: { current: m.score?.home },
-                                    awayScore: { current: m.score?.away }
-                                };
-                                allEvents.push(event);
-                            }
-                            console.log(`✅ [FALLBACK] Total events after HTTP fallback: ${allEvents.length}`);
-                        }
-                    } else {
-                        console.log('⚠️ [FALLBACK] HTTP scraper not available (no API keys configured).');
-                    }
-                } catch (fallbackErr) {
-                    console.error('❌ [FALLBACK] HTTP scraper error:', fallbackErr.message);
-                }
-            }
 
             // 🎯 [V54] PRIORITY TOURNAMENT SWEEP (Missing but Wanted Leagues)
             if (needsFullScan) {
@@ -484,36 +492,8 @@ class Workflow {
                 console.log(`📊 [V54] Total events: ${allEvents.length}, kept: ${targetMatches.length}, filtered out: ${skipped}`);
             }
 
-            // 🚀 [HTTP FALLBACK v2] If too few target league matches, supplement with HTTP APIs
             if (targetMatches.length < 5) {
-                console.log(`⚠️ [FALLBACK v2] Only ${targetMatches.length} target league matches. Triggering HTTP API scraper for more...`);
-                try {
-                    const httpScraperService = require('../../services/httpScraperService');
-                    if (httpScraperService.isAvailable()) {
-                        const today = await this.getLocalDateString(0);
-                        const tomorrow = await this.getLocalDateString(1);
-                        const httpFixtures = [
-                            ...(await httpScraperService.fetchAllFixtures(today)),
-                            ...(await httpScraperService.fetchAllFixtures(tomorrow))
-                        ];
-                        for (const m of httpFixtures) {
-                            const matchId = `http_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-                            if (!seenMatchIds.has(matchId)) {
-                                targetMatches.push({
-                                    ...m,
-                                    id: matchId,
-                                    league_tier: 'TIER2'
-                                });
-                                seenMatchIds.add(matchId);
-                            }
-                        }
-                        console.log(`✅ [FALLBACK v2] Added ${httpFixtures.length} HTTP API fixtures. Total: ${targetMatches.length}`);
-                    } else {
-                        console.log('⚠️ [FALLBACK v2] HTTP scraper not available. Configure RAPIDAPI_KEY or FOOTBALLDATA_KEY.');
-                    }
-                } catch (fallbackErr) {
-                    console.error('❌ [FALLBACK v2] HTTP scraper error:', fallbackErr.message);
-                }
+                console.log(`ℹ️  Only ${targetMatches.length} target league matches available.`)
             }
 
             // [DEBUG] Log skipped Moroccan/Saudi matches

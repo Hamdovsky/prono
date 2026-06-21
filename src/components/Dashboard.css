@@ -19,13 +19,14 @@
 
 .titanium-layout {
     display: flex;
-    height: 100vh;
+    min-height: 100vh;
     background-color: var(--bg);
     color: #fff;
     overflow: hidden;
     font-family: 'Inter', sans-serif;
     font-size: 14px;
     letter-spacing: normal;
+    transition: background 0.3s ease, color 0.3s ease;
 }
 
 .titanium-main {
@@ -35,6 +36,7 @@
     overflow: hidden;
     position: relative;
     background: var(--bg);
+    transition: transform 0.25s ease, background 0.3s ease;
 }
 
 /* --- ONYX STATUS HEADER --- */
@@ -221,21 +223,24 @@
     position: relative;
     background: var(--bg);
     scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+    transition: opacity 0.25s ease;
 }
 
-.titanium-scroll::-webkit-scrollbar { width: 6px; }
+.titanium-scroll::-webkit-scrollbar { width: 8px; }
 .titanium-scroll::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
 }
 .titanium-scroll::-webkit-scrollbar-thumb { 
-    background: linear-gradient(180deg, #1e293b, #0f172a); 
-    border-radius: 3px;
-    border: 1px solid rgba(255,255,255,0.04);
-    transition: background 0.2s;
+    background: linear-gradient(180deg, rgba(14, 23, 36, 0.95), rgba(30, 41, 59, 0.95));
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.2s ease, transform 0.2s ease;
 }
 .titanium-scroll::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, rgba(0,255,170,0.3), #1e293b);
+    background: linear-gradient(180deg, rgba(0,255,170,0.4), rgba(13, 43, 55, 0.95));
+    transform: scale(1.05);
 }
 
 /* Keep these for backward compatibility if needed temporarily */
@@ -288,11 +293,15 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    background: rgba(10, 15, 24, 0.55);
-    border-radius: 10px;
+    background: rgba(10, 15, 24, 0.72);
+    border-radius: 12px;
     overflow-x: auto;
-    border: 1px solid rgba(255,255,255,0.04);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 16px 60px rgba(0,0,0,0.35);
+    transition: transform 0.2s ease, background 0.25s ease, border-color 0.25s ease;
+}
+.onyx-list-section:hover {
+    transform: translateY(-1px);
 }
 
 /* ── SKELETON LOADING ── */

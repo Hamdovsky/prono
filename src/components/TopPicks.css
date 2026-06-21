@@ -1,0 +1,81 @@
+.top-picks-container {
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+  color: #e2e8f0;
+}
+.top-picks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.top-picks-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.top-picks-count {
+  font-size: 13px;
+  color: #94a3b8;
+  background: #1e293b;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+.top-picks-section {
+  margin-bottom: 28px;
+}
+.top-picks-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #94a3b8;
+}
+.picks-table {
+  background: #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #334155;
+}
+.picks-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid #334155;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.picks-row:last-child { border-bottom: none; }
+.picks-row:hover { background: #293548; }
+.picks-header {
+  background: #0f172a !important;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+.top-three {
+  background: rgba(251, 191, 36, 0.05);
+}
+.col-date { width: 50px; }
+.col-match { flex: 1; }
+.col-prono { width: 40px; text-align: center; font-weight: 700; font-size: 16px; }
+.prono-1 { color: #22c55e; }
+.prono-x { color: #f59e0b; }
+.prono-2 { color: #ef4444; }
+.col-conf { width: 55px; text-align: right; font-weight: 600; }
+.col-ou { width: 60px; text-align: right; color: #60a5fa; font-size: 13px; }
+.col-btts { width: 60px; text-align: right; color: #c084fc; font-size: 13px; }
+.col-odds { width: 70px; text-align: right; color: #94a3b8; }
+.col-ev { width: 55px; text-align: right; font-weight: 600; }
+.ev-good { color: #22c55e; }
+.top-picks-loading, .top-picks-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+  font-size: 15px;
+}

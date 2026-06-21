@@ -37,8 +37,11 @@ class SupabaseService {
         return false
       }
       const client = await pool.connect()
-      await client.query('SELECT 1')
-      client.release()
+      try {
+        await client.query('SELECT 1')
+      } finally {
+        client.release()
+      }
       this.connected = true
       this._lastError = null
       logger.info('✅ [SUPABASE] Connected (shared pool)')
@@ -62,8 +65,11 @@ class SupabaseService {
               ssl: host.includes('supabase.co') || host.includes('neon.tech') ? { rejectUnauthorized: false } : undefined
             })
             const client = await directPool.connect()
-            await client.query('SELECT 1')
-            client.release()
+            try {
+              await client.query('SELECT 1')
+            } finally {
+              client.release()
+            }
             await directPool.end()
             this.connected = true
             this._lastError = null

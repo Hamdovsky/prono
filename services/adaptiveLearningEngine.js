@@ -959,7 +959,7 @@ class AdaptiveLearningEngine {
                     new_rule = EXCLUDED.new_rule,
                     match_date = EXCLUDED.match_date,
                     root_causes_stack = EXCLUDED.root_causes_stack,
-                    processed_at = NOW()
+                    processed_at = datetime('now')
             `).run(
                 data.matchId, data.league, data.homeTeam, data.awayTeam, data.score, data.prediction,
                 data.confidence, data.actual, data.errorType, data.rootCause, data.context,

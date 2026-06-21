@@ -31,6 +31,7 @@ class SocketService {
                 },
                 transports: ['websocket', 'polling'],
                 allowRequest: (req, callback) => {
+                    if (process.env.NODE_ENV === 'development') return callback(null, true)
                     const secretKey = process.env.API_SECRET_KEY
                     const authHeader = req.headers?.authorization || ''
                     const token = authHeader.replace('Bearer ', '')
@@ -40,6 +41,7 @@ class SocketService {
             })
 
             this.io.use((socket, next) => {
+                if (process.env.NODE_ENV === 'development') return next()
                 const secretKey = process.env.API_SECRET_KEY
                 if (!secretKey) return next()
                 const token = socket.handshake.auth?.token

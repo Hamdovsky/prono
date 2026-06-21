@@ -25,7 +25,6 @@ const backupService = require('./backup_service');
 const comboService = require('./services/comboService');
 const botService = require('./services/botService');
 const mlPredictionService = require('./services/mlPredictionService');
-const patternService = require('./services/patternService');
 const socketService = require('./services/socketService');
 const cronManager = require('./services/cronManager');
 
@@ -43,11 +42,13 @@ const oddspapiService = require('./services/oddspapiService');
 const openligadbService = require('./services/openligadbService');
 const sportmonksService = require('./services/sportmonksService');
 const apifootballService = require('./services/apifootballService');
-const weatherService = require('./services/weatherService');
 const bigBallsDataService = require('./services/bigBallsDataService');
 const oddsApiIoService = require('./services/oddsApiIoService');
 const predixSportService = require('./services/predixSportService');
 const futpythonService = require('./services/futpythonService');
+const clearSportsService = require('./services/clearSportsService');
+const sportApiService = require('./services/sportApiService');
+const apiNinjasService = require('./services/apiNinjasService');
 
 // Secondary Services
 const _redisClient = require('./core/redisClient');
@@ -634,6 +635,119 @@ app.post('/api/elo/update', async (req, res) => {
 });
 
 // ── LOCAL DATA ENDPOINTS for Render cloud seed (only source) ──
+app.get('/api/upcoming', async (req, res) => {
+  try {
+    const db = require('./core/database')
+    const days = parseInt(req.query.days) || 7
+    const all = await db.getAllMatches()
+    const now = Math.floor(Date.now() / 1000)
+    const maxTs = now + days * 86400
+    const upcoming = all.filter(m => {
+      if (m.status !== 'scheduled' && m.status !== 'NOT_STARTED' && m.status !== 'NS') return false
+      const ts = m.startTimestamp || 0
+      return ts >= now - 86400 && ts <= maxTs
+    })
+    res.json({ success: true, count: upcoming.length, matches: upcoming })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+app.get('/api/top-picks', async (req, res) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const picksPath = path.join(__dirname, 'data', 'daily_predictions.json')
+    if (fs.existsSync(picksPath)) {
+      const data = JSON.parse(fs.readFileSync(picksPath, 'utf-8'))
+      res.json({ success: true, ...data })
+    } else {
+      res.json({ success: false, error: 'No predictions yet. Run daily_predictions.py first.' })
+    }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+// ── AI Scraper Endpoint ──────────────────────────────────────────
+app.get('/api/scrape/odds', async (req, res) => {
+  try {
+    const { home, away, league } = req.query
+    if (!home || !away) {
+      return res.status(400).json({ success: false, error: 'Missing home or away param' })
+    }
+    const scrapeService = require('./services/scrapeService')
+    const odds = await scrapeService.getOdds(home, away, league || 'Unknown')
+    res.json({
+      success: !!odds,
+      home, away, league: league || 'Unknown',
+      odds,
+      cache_size: require('./services/scrapeService').getCacheSize(),
+    })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+app.post('/api/scrape/trigger', express.json(), async (req, res) => {
+  try {
+    const { url, type } = req.body
+    if (!url) return res.status(400).json({ success: false, error: 'Missing url' })
+    const scrapeService = require('./services/scrapeService')
+    const result = await scrapeService.scrapeUrl(url)
+    res.json({ success: true, url, type: type || 'auto', ...result })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+// ── Scraper Toggle & Status ───────────────────────────────────────
+app.get('/api/scraper/status', (req, res) => {
+  try {
+    const router = require('./services/scrapers')
+    const status = router.getStatus()
+    const fcAvailable = require('./services/scrapers/FirecrawlScraper').isAvailable()
+    res.json({
+      success: true,
+      mode: status.mode,
+      firecrawl_configured: fcAvailable,
+      firecrawl_key_set: status.firecrawl_key_set,
+      active_chain: status.chain,
+      health: status.health,
+      caches: status.cache_size,
+      hint: fcAvailable
+        ? 'Firecrawl primary → Jina fallback → Python legacy'
+        : 'Jina primary → Python legacy. Add FIRECRAWL_API_KEY to .env for JS-dynamic scraping.',
+    })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+app.post('/api/scraper/toggle', express.json(), async (req, res) => {
+  try {
+    const router = require('./services/scrapers')
+    const { mode } = req.body
+    if (!mode || !['firecrawl_primary', 'jina_primary'].includes(mode)) {
+      return res.status(400).json({ success: false, error: 'Mode must be firecrawl_primary or jina_primary' })
+    }
+    router.setMode(mode)
+    res.json({ success: true, mode, note: 'Mode will persist across restarts' })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+app.post('/api/scraper/reset', (req, res) => {
+  try {
+    const router = require('./services/scrapers')
+    router.resetHealth()
+    res.json({ success: true, message: 'Health counters reset' })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
 app.get('/api/local/matches', async (req, res) => {
   try {
     const db = require('./core/database')
@@ -700,9 +814,9 @@ const server = http.createServer(app);
 // ⚡ Socket.io & Real-time Synchronization
 socketService.init(server);
 
-// 🔴 Live Match Polling (every 30s)
-const liveMatchService = require('./services/liveMatchService');
-liveMatchService.startPolling(30000);
+// 🔴 Live Match Polling (every 30s) — DÉSACTIVÉ définitivement
+// const liveMatchService = require('./services/liveMatchService');
+// liveMatchService.startPolling(30000);
 
 // 🧠 ML Prediction Service Bridge
 const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
@@ -1041,7 +1155,33 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
                   getQuotaStatus: () => ({ available: futpythonService.isAvailable() }),
                   fetchEvents: (source, params) => futpythonService.getMatches(source, params)
                 })
-                logger.info('🔁 [FALLBACK] API sources registered (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB → PredixSport → BigBallsData → OddsAPIio → FutPythonTrader)')
+                apiFallbackManager.registerSource({
+                  name: 'ClearSports',
+                  priority: 11,
+                  isAvailable: () => clearSportsService.isAvailable(),
+                  getQuotaStatus: () => ({ available: clearSportsService.isAvailable() }),
+                  fetchEvents: (dateStr) => clearSportsService.fetchEvents(dateStr),
+                  fetchOdds: (gameKey) => clearSportsService.fetchOdds(gameKey),
+                  fetchLiveEvents: () => clearSportsService.fetchLiveEvents()
+                })
+                apiFallbackManager.registerSource({
+                  name: 'SportAPI',
+                  priority: 12,
+                  isAvailable: () => sportApiService.isAvailable(),
+                  getQuotaStatus: () => ({ available: sportApiService.isAvailable() }),
+                  fetchEvents: (dateStr) => sportApiService.fetchEvents(dateStr),
+                  fetchOdds: (fixtureId) => sportApiService.fetchOdds(fixtureId),
+                  fetchLiveEvents: () => sportApiService.fetchLiveEvents()
+                })
+                apiFallbackManager.registerSource({
+                  name: 'APINinjas',
+                  priority: 13,
+                  isAvailable: () => apiNinjasService.isAvailable(),
+                  getQuotaStatus: () => ({ available: apiNinjasService.isAvailable() }),
+                  fetchEvents: (dateStr) => apiNinjasService.fetchEvents(dateStr),
+                  fetchLiveEvents: () => apiNinjasService.fetchLiveEvents()
+                })
+                logger.info('🔁 [FALLBACK] API sources registered (BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB → PredixSport → BigBallsData → OddsAPIio → FutPythonTrader → ClearSports → SportAPI → APINinjas)')
               } catch (fbErr) {
                 logger.warn('⚠️ [FALLBACK] Registration error:', fbErr.message)
               }

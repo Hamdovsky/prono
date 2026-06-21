@@ -269,6 +269,15 @@ class BsdService {
   }
 
   async fullSync() {
+    try {
+      return await this._fullSyncImpl()
+    } catch (e) {
+      logger.error(`[BSD] fullSync crashed: ${e.message} — ${e.stack?.slice(0, 200) || ''}`)
+      return 0
+    }
+  }
+
+  async _fullSyncImpl() {
     if (!this.isAvailable()) {
       logger.warn('[BSD] Full sync skipped — service not available')
       return 0
@@ -324,13 +333,21 @@ class BsdService {
 
     // Enrich inserted matches with odds
     if (total > 0) {
-      const db = database.db
-      if (db) {
-        const matches = db.prepare("SELECT id FROM matches WHERE source = 'bsd' AND (status = 'scheduled' OR status = 'NOT_STARTED')").all()
-        for (const m of matches) {
-          try {
-            await this.enrichMatchOdds(m.id)
-        } catch (e) { logger.warn(`[BSD] Odds update failed for ${m.id}: ${e.message}`); }
+      const localDb = database.db
+      if (localDb) {
+        try {
+          const matches = localDb.prepare("SELECT id FROM matches WHERE source = 'bsd' AND (status = 'scheduled' OR status = 'NOT_STARTED')").all()
+          if (matches && typeof matches[Symbol.iterator] === 'function') {
+            for (const m of matches) {
+              try {
+                await this.enrichMatchOdds(m.id)
+              } catch (e) { logger.warn(`[BSD] Odds update failed for ${m.id}: ${e.message}`) }
+            }
+          } else {
+            logger.warn(`[BSD] matches is not iterable (type: ${typeof matches})`)
+          }
+        } catch (e) {
+          logger.error(`[BSD] Enrichment query failed: ${e.message}`)
         }
       }
     }

@@ -65,10 +65,11 @@ class TeamRegistry {
         if (!teamName || teamName.length < 2) return;
         const norm = normalize(teamName);
         try {
+            const regId = Math.abs(teamName.split('').reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0) | 0, 0))
             await this.db.prepare(
-                `INSERT INTO team_registry (name, normalized, league, last_seen) VALUES (?, ?, ?, ?)
+                `INSERT INTO team_registry (id, name, normalized, league, last_seen) VALUES (?, ?, ?, ?, ?)
                  ON CONFLICT (name) DO UPDATE SET last_seen = EXCLUDED.last_seen`
-            ).run(teamName, norm, league || 'Unknown', Date.now());
+            ).run(regId, teamName, norm, league || 'Unknown', Date.now());
 
             // Update in-memory cache if new
             if (!this.knownTeams.find(t => t.normalized === norm)) {

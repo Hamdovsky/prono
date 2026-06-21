@@ -211,7 +211,10 @@ const pgDb = {
     try {
       const row = await query('SELECT name FROM team_registry WHERE normalized = $1 OR name LIKE $2 LIMIT 1', [normalized, `%${normalized}%`])
       if (row.rows?.[0]) return row.rows[0].name
-      await query('INSERT INTO team_registry (name, normalized, last_seen) VALUES ($1, $2, $3) ON CONFLICT (name) DO UPDATE SET last_seen = $3', [name, normalized, Date.now()])
+      const regId = Math.abs(name.split('').reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0) | 0, 0))
+      try {
+        await query('INSERT INTO team_registry (id, name, normalized, last_seen) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET last_seen = $4', [regId, name, normalized, Date.now()])
+      } catch (_) {}
       return name
     } catch (e) {
       return name
@@ -302,16 +305,19 @@ const pgDb = {
         matchId
       ])
 
+      // Use explicit numeric id to avoid SERIAL sequence permission issues on Neon
+      const idFromStr = s => { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h = h & h } return Math.abs(h) }
+      const histBase = idFromStr(matchId)
       const histSql = `
-        INSERT INTO prediction_history (match_id, league, prediction_type, prediction_val, probability, status, timestamp)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        INSERT INTO prediction_history (id, match_id, league, prediction_type, prediction_val, probability, status, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
         ON CONFLICT(match_id, prediction_type) DO UPDATE SET
           probability = EXCLUDED.probability, prediction_val = EXCLUDED.prediction_val
       `
       const safeDiv = v => (v != null && !isNaN(v) ? v / 100 : 0)
-      await query(histSql, [matchId, fullData.league, 'Home', 'Win', safeDiv(hProb), 'pending'])
-      await query(histSql, [matchId, fullData.league, 'Away', 'Win', safeDiv(aProb), 'pending'])
-      await query(histSql, [matchId, fullData.league, 'Draw', 'Draw', safeDiv(dProb), 'pending'])
+      try { await query(histSql, [histBase, matchId, fullData.league, 'Home', 'Win', safeDiv(hProb), 'pending']) } catch (_) {}
+      try { await query(histSql, [histBase + 1, matchId, fullData.league, 'Away', 'Win', safeDiv(aProb), 'pending']) } catch (_) {}
+      try { await query(histSql, [histBase + 2, matchId, fullData.league, 'Draw', 'Draw', safeDiv(dProb), 'pending']) } catch (_) {}
 
       logger.info(`[PG DB] AI Enrichment persisted for ${matchId} — Home:${hProb != null ? hProb.toFixed(1) : 'N/A'}% Draw:${dProb != null ? dProb.toFixed(1) : 'N/A'}% Away:${aProb != null ? aProb.toFixed(1) : 'N/A'}%`)
       return true

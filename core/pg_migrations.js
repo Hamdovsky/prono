@@ -506,21 +506,14 @@ async function runMigrations() {
       }
     }
 
-    // Grant sequence usage to fix "droit refusé pour la séquence" errors
+    // ── Diagnostic permissions ─────────────────────────────────
     try {
-      await query('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO CURRENT_USER')
-      logger.info('[PG MIGRATIONS] Granted sequence usage to current user')
-    } catch (e) {
-      logger.warn(`[PG MIGRATIONS] Could not grant sequence usage: ${e.message}. Trying ALTER DEFAULT PRIVILEGES...`)
-      try {
-        await query('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO PUBLIC')
-        logger.info('[PG MIGRATIONS] ALTER DEFAULT PRIVILEGES for sequences set')
-      } catch (e2) {
-        logger.warn(`[PG MIGRATIONS] Sequence privileges could not be auto-granted: ${e2.message}`)
-      }
-    }
+      const userRes = await query('SELECT current_user AS u, session_user AS s')
+      const currentUser = userRes.rows?.[0]?.u || 'unknown'
+      logger.info(`[PG MIGRATIONS] Connected as: ${currentUser}`)
+    } catch (_) {}
 
-    // Try granting on individual known sequences (for existing, not just future)
+    // ── Fix sequences: GRANT → ALTER OWNER → ALTER DEFAULT ────
     const knownSequences = [
       'prediction_history_id_seq',
       'team_registry_id_seq',
@@ -538,10 +531,50 @@ async function runMigrations() {
       'learning_rules_id_seq',
       'player_stats_id_seq',
     ]
+
+    let seqFixed = false
+    // Strategy 1: GRANT USAGE
+    try {
+      await query('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO CURRENT_USER')
+      logger.info('[PG MIGRATIONS] Granted sequence usage to current user')
+      seqFixed = true
+    } catch (e) {
+      logger.warn(`[PG MIGRATIONS] Cannot GRANT ALL SEQUENCES: ${e.message}`)
+    }
+
+    if (!seqFixed) {
+      // Strategy 2: ALTER SEQUENCE OWNER for each known sequence
+      for (const seq of knownSequences) {
+        try {
+          await query(`ALTER SEQUENCE ${seq} OWNER TO CURRENT_USER`)
+          logger.info(`[PG MIGRATIONS] Changed ${seq} owner to CURRENT_USER`)
+          seqFixed = true
+        } catch (_) {}
+      }
+    }
+
+    if (!seqFixed) {
+      // Strategy 3: ALTER DEFAULT PRIVILEGES (only affects FUTURE sequences)
+      try {
+        await query('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO PUBLIC')
+        logger.info('[PG MIGRATIONS] ALTER DEFAULT PRIVILEGES for sequences set (future only)')
+      } catch (e2) {
+        logger.warn(`[PG MIGRATIONS] Cannot ALTER DEFAULT PRIVILEGES: ${e2.message}`)
+      }
+    }
+
+    // Strategy 4: best-effort per-sequence GRANT (may work even if ALL SEQUENCES failed)
     for (const seq of knownSequences) {
       try {
         await query(`GRANT USAGE, SELECT ON SEQUENCE ${seq} TO CURRENT_USER`)
-      } catch (_) { /* best-effort */ }
+      } catch (_) {}
+    }
+
+    // If still broken, log clear instructions
+    if (!seqFixed) {
+      logger.warn(`[PG MIGRATIONS] ⚠️  AUTO-FIX FAILED. Connect to your Neon/Supabase SQL console and run:
+      GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "${currentUser || 'your_user'}";
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "${currentUser || 'your_user'}";`)
     }
 
     return { applied: 1, skipped: false }

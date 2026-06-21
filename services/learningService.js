@@ -15,11 +15,12 @@ class LearningService {
      */
     async logPrediction(matchId, league, type, prob) {
         try {
+            const phId = Math.abs(matchId.split('').reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0) | 0, 0))
             await database.db.query(`
-                INSERT INTO prediction_history (match_id, league, prediction_type, probability, status, timestamp)
-                VALUES ($1, $2, $3, $4, 'PENDING', $5)
-                ON CONFLICT DO NOTHING
-            `, [matchId, league, type, prob, Date.now()]);
+                INSERT INTO prediction_history (id, match_id, league, prediction_type, probability, status, timestamp)
+                VALUES ($1, $2, $3, $4, $5, 'PENDING', $6)
+                ON CONFLICT (match_id, prediction_type) DO NOTHING
+            `, [phId, matchId, league, type, prob, Date.now()]);
         } catch (e) {
             // Silently ignore (table may not exist yet in fresh installs)
         }

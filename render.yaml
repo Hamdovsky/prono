@@ -40,6 +40,10 @@ services:
         value: https://prono-scraper.onrender.com
       - key: VITE_API_URL
         value: https://prono-k6gc.onrender.com
+      - key: DISABLE_SOFASCORE
+        value: "true"
+      - key: SCRAPING_BYPASS_ENABLED
+        value: "true"
       - key: HTTP_SCRAPER_ENABLED
         value: "true"
       - key: PUPPETEER_SKIP_DOWNLOAD
@@ -102,4 +106,14 @@ services:
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CLEARSPORTS_API_KEY
+        sync: false
+      - key: SPORTAPI_KEY
+        sync: false
+      - key: APININJAS_KEY
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: OPENWEATHER_KEY
         sync: false

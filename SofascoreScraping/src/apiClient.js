@@ -54,6 +54,11 @@ const RESTART_THRESHOLD = 100; // 🔄 Restart after 100 requests
 const RAM_THRESHOLD_MB = 1500;  // 🔄 Restart if RAM > 1.5GB
 
 async function getBrowser() {
+    // 🛡️ Skip Puppeteer when DISABLE_SOFASCORE is set (Render/cloud env without Chrome)
+    if (process.env.DISABLE_SOFASCORE === 'true') {
+        throw new Error('Puppeteer disabled via DISABLE_SOFASCORE')
+    }
+
     // 🧠 Check if restart needed (RAM or Request Count)
     const memUsage = process.memoryUsage().heapUsed / 1024 / 1024;
     const needsRestart = requestsInCurrentBrowser >= RESTART_THRESHOLD || memUsage > RAM_THRESHOLD_MB;

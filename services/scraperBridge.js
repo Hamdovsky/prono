@@ -24,6 +24,23 @@ async function triggerScrape() {
 }
 
 async function runLocalScraper() {
+  // 🛡️ Skip Puppeteer-based Workflow when DISABLE_SOFASCORE is set (Render)
+  if (process.env.DISABLE_SOFASCORE === 'true') {
+    logger.info('[SCRAPER BRIDGE] DISABLE_SOFASCORE=true — using HTTP scrapers only')
+    try {
+      const httpScraperService = require('./httpScraperService')
+      const fallbackCount = await httpScraperService.processFallback()
+      return { success: true, fallback: true, fallbackCount }
+    } catch (fbErr) {
+      try {
+        const scrapeService = require('./scrapeService')
+        return { success: true, source: 'scrapeService' }
+      } catch (sErr) {
+        return { success: false, error: 'All local scrapers failed', fallbackError: fbErr.message, scrapeError: sErr.message }
+      }
+    }
+  }
+
   try {
     const Workflow = require('../SofascoreScraping/src/Workflow')
     const fs = require('fs')

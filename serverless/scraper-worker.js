@@ -56,13 +56,12 @@ async function runTask(taskLabel, taskFn, req, res) {
 // ─── Scrape: fixtures via HTTP API ────────────────────────
 app.post('/scrape', requireAuth, async (req, res) => {
   await runTask('scrape', async () => {
-    const HttpScraperService = require('../services/httpScraperService')
-    const service = new HttpScraperService()
-    if (!service.isAvailable()) {
+    const httpScraperService = require('../services/httpScraperService')
+    if (!httpScraperService.isAvailable()) {
       return { error: 'No API keys configured (RAPIDAPI_KEY or FOOTBALLDATA_KEY)' }
     }
     const dateStr = req.body?.date || new Date().toISOString().split('T')[0]
-    const fixtures = await service.fetchAllFixtures(dateStr)
+    const fixtures = await httpScraperService.fetchAllFixtures(dateStr)
     let inserted = 0
     if (fixtures.length > 0) {
       const database = require('../core/database')

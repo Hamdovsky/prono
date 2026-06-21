@@ -603,6 +603,7 @@ class EnrichedPredictionService {
                 ...m,
 
                 success: true,
+                insufficient_data: 0,
                 ai_source: aiSource,
                 expected_score: quantResult.expected_score,
                 home_win_probability: (probs.h * 100),

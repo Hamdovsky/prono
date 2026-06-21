@@ -802,7 +802,8 @@ const database = {
                     "weather_humidity"     = CASE WHEN ? IS NOT NULL THEN ? ELSE "weather_humidity" END,
                     "home_form_pts"        = CASE WHEN ? IS NOT NULL THEN ? ELSE "home_form_pts" END,
                     "away_form_pts"        = CASE WHEN ? IS NOT NULL THEN ? ELSE "away_form_pts" END,
-                    "motivation_signature" = ?
+                    "motivation_signature" = ?,
+                    "insufficient_data" = 0
                 WHERE id = ?
             `;
 

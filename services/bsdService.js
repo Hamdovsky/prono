@@ -43,6 +43,20 @@ class BsdService {
     }
   }
 
+  async _fetchLeagueName(leagueId) {
+    if (!leagueId) return null
+    if (this._leagueCache && this._leagueCache[leagueId]) return this._leagueCache[leagueId]
+    try {
+      const data = await this._fetch(`/v2/leagues/${leagueId}/`)
+      if (data?.name) {
+        if (!this._leagueCache) this._leagueCache = {}
+        this._leagueCache[leagueId] = data.name
+        return data.name
+      }
+    } catch (_) {}
+    return null
+  }
+
   _resolveLeagueName(leagueId) {
     if (this._leagueCache && leagueId && this._leagueCache[leagueId]) {
       return this._leagueCache[leagueId]
@@ -145,7 +159,7 @@ class BsdService {
     const resolveName = (v) => (typeof v === 'string' ? v : v?.name) || null
     let homeTeam = resolveName(event.home_team) || event.homeTeam || event.home_name || 'Home'
     let awayTeam = resolveName(event.away_team) || event.awayTeam || event.away_name || 'Away'
-    const leagueName = this._resolveLeagueName(event.league_id) || resolveName(event.league) || event.tournament_name || event.competition || 'Unknown'
+    const leagueName = this._resolveLeagueName(event.league_id) || resolveName(event.league) || event.league_name || event.tournament_name || event.tournament?.name || event.competition || event.competition_name || 'Unknown'
     const category = event.league?.country || event.country || ''
     const matchId = event.id || event.match_id || `bsd_${ts}_${Math.random().toString(36).substring(2, 8)}`
 
@@ -250,19 +264,24 @@ class BsdService {
   }
 
   async _backfillLeagueNames() {
-    if (!this._leagueCache || !database.db) return
+    if (!database.db) return
     try {
       const unknown = database.db.prepare("SELECT id, fullData FROM matches WHERE source = 'bsd' AND (league = 'Unknown' OR league IS NULL)").all()
+      let fixed = 0
       for (const row of unknown) {
         try {
           const fd = JSON.parse(row.fullData || '{}')
-          const leagueName = this._resolveLeagueName(fd.bsd_league_id) || null
+          let leagueName = this._resolveLeagueName(fd.bsd_league_id)
+          if (!leagueName && fd.bsd_league_id) {
+            leagueName = await this._fetchLeagueName(fd.bsd_league_id)
+          }
           if (leagueName) {
             database.db.prepare("UPDATE matches SET league = ?, tournament_name = ? WHERE id = ?").run(leagueName, leagueName, row.id)
+            fixed++
           }
         } catch (_) {}
       }
-      if (unknown.length > 0) logger.info(`[BSD] Backfilled league names for ${unknown.length} matches`)
+      if (unknown.length > 0) logger.info(`[BSD] Backfilled league names for ${fixed}/${unknown.length} matches`)
     } catch (e) {
       logger.warn(`[BSD] Backfill error: ${e.message}`)
     }

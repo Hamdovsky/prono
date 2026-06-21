@@ -291,7 +291,8 @@ const pgDb = {
           weather_humidity = $20::double precision,
           home_form_pts = $21::double precision,
           away_form_pts = $22::double precision,
-          motivation_signature = $23::text
+          motivation_signature = $23::text,
+          insufficient_data = 0
         WHERE id = $24::text
       `
 

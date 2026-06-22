@@ -208,7 +208,7 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                         color: section.items[0]?.color || '#64748b',
                         display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px'
                     }}>
-                        {section.items[0]?.icon} {t('sidebar.' + section.section.toLowerCase().replace(/[ &]+/g, '')) || section.section}
+                        {section.items[0]?.icon} {section.section}
                     </h3>
                     {section.items.map(item => (
                         <button
@@ -226,7 +226,7 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                         >
                             <span className="flash-icon">{item.icon}</span>
                             <span className="flash-label" style={{ fontWeight: section.section === 'Navigation' ? 'bold' : 'normal' }}>
-                                {t('sidebar.' + item.view.replace(/-/g, '')) || item.label}
+                                {item.label}
                             </span>
                         </button>
                     ))}

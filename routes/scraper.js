@@ -3,6 +3,7 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const securityEngine = require('../core/securityEngine');
+const { readScraperProgress } = require('../core/utils');
 
 const localOrAuth = (req, res, next) => {
     const ip = req.ip || req.socket?.remoteAddress || ''

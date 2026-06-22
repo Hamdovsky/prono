@@ -28,6 +28,7 @@ const SystemIntelligence = lazy(() => import("./SystemIntelligence"))
 const Promosport = lazy(() => import("./Promosport"))
 const EvolutionDashboard = lazy(() => import("./EvolutionDashboard"))
 const TopPicks = lazy(() => import("./TopPicks"))
+const AccuracyTracker = lazy(() => import("./AccuracyTracker"))
 
 const MatchRowMemo = React.memo(({ index, style, list, isElite, onClick, now: nowProp }) => {
     const m = list[index];
@@ -102,6 +103,7 @@ const Dashboard = () => {
         'promosport': '/promosport',
         'evolution': '/evolution',
         'top-picks': '/top-picks',
+        'accuracy-tracker': '/accuracy-tracker',
     }
 
     const PATH_TO_VIEW = Object.fromEntries(
@@ -567,6 +569,7 @@ const Dashboard = () => {
         if (activeView === 'promosport') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><Promosport /></Suspense>;
         if (activeView === 'evolution') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><EvolutionDashboard /></Suspense>;
         if (activeView === 'top-picks') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><TopPicks /></Suspense>;
+        if (activeView === 'accuracy-tracker') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><AccuracyTracker /></Suspense>;
 
         if (activeView === 'all-matches') {
             return (

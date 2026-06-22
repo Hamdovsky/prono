@@ -410,4 +410,76 @@ router.get('/safe-ticket', async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+/**
+ * GET /api/accuracy/tracker
+ * Compare predictions vs results for finished matches.
+ */
+router.get('/accuracy/tracker', async (req, res) => {
+  try {
+    const matches = await database.prepare(`
+      SELECT id, "homeTeam", "awayTeam", league, "scoreHome", "scoreAway",
+             "home_win_probability", "draw_probability", "away_win_probability",
+             prediction, confidence, "expected_score"
+      FROM matches
+      WHERE "scoreHome" IS NOT NULL
+        AND "home_win_probability" IS NOT NULL
+        AND "home_win_probability" > 0
+    `).all()
+
+    let totalCorrect = 0
+    let totalWrong = 0
+    const leagueStats = {}
+
+    for (const m of matches) {
+      const h = m.home_win_probability || 0
+      const d = m.draw_probability || 0
+      const a = m.away_win_probability || 0
+      const maxProb = Math.max(h, d, a)
+      if (maxProb === 0) continue
+
+      let predicted
+      if (h === maxProb) predicted = 'H'
+      else if (d === maxProb) predicted = 'D'
+      else predicted = 'A'
+
+      const sH = parseInt(m.scoreHome) || 0
+      const sA = parseInt(m.scoreAway) || 0
+      let actual
+      if (sH > sA) actual = 'H'
+      else if (sH < sA) actual = 'A'
+      else actual = 'D'
+
+      const correct = predicted === actual
+      if (correct) totalCorrect++
+      else totalWrong++
+
+      if (!leagueStats[m.league]) {
+        leagueStats[m.league] = { correct: 0, wrong: 0, total: 0 }
+      }
+      leagueStats[m.league][correct ? 'correct' : 'wrong']++
+      leagueStats[m.league].total++
+    }
+
+    const total = totalCorrect + totalWrong
+    const leagues = Object.entries(leagueStats)
+      .map(([name, stats]) => ({
+        league: name,
+        ...stats,
+        winRate: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0
+      }))
+      .sort((a, b) => b.total - a.total)
+
+    res.json({
+      success: true,
+      total,
+      correct: totalCorrect,
+      wrong: totalWrong,
+      winRate: total > 0 ? Math.round((totalCorrect / total) * 100) : 0,
+      leagues
+    })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
 module.exports = router;

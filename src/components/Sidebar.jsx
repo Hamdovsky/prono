@@ -62,6 +62,7 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
             'intel': '/intel',
             'promosport': '/promosport',
             'evolution': '/evolution',
+            'accuracy-tracker': '/accuracy-tracker',
         }[view] || '/')
     }
 
@@ -299,6 +300,23 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                 >
                     <span className="flash-icon">🧬</span>
                     <span className="flash-label" style={{ fontWeight: 'bold' }}>Titanium Evolution</span>
+                </button>
+
+                {/* ── Accuracy Tracker ────────────────────── */}
+                <button 
+                  className={`flash-nav-item ${activeView === 'accuracy-tracker' ? 'active' : ''}`}
+                  onClick={() => handleNav('accuracy-tracker')}
+                  style={{
+                    marginTop: '4px',
+                    background: activeView === 'accuracy-tracker'
+                        ? 'linear-gradient(90deg, rgba(0,255,170,0.15) 0%, transparent 100%)'
+                        : 'transparent',
+                    borderLeft: activeView === 'accuracy-tracker' ? '2px solid #00ffaa' : 'none',
+                    color: '#00ffaa'
+                  }}
+                >
+                    <span className="flash-icon">📊</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>Précision</span>
                 </button>
             </div>
 

@@ -177,15 +177,7 @@ class Logger {
 
 const logger = new Logger();
 
-// Global error handlers
-process.on('uncaughtException', (error) => {
-    logger.error('Uncaught Exception', error, { critical: true });
-    // Give time to write logs before crashing
-    // setTimeout(() => process.exit(1), 1000); // Debug: keep alive
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled Rejection', reason, { promise: promise.toString() });
-});
+// NOTE: uncaughtException/unhandledRejection handlers are in server.js
+// (only one handler can be active — Node keeps the last one registered)
 
 module.exports = logger;

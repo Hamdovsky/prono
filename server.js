@@ -1240,13 +1240,15 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
 })();
 
 process.on('uncaughtException', (err) => {
-  logger.error(`💥 [FATAL] Uncaught Exception: ${err.message}`, { stack: err.stack });
-  setTimeout(() => process.exit(1), 1000); // Give logger time to flush
-});
+  const msg = `💥 [FATAL] Uncaught Exception: ${err.message}`
+  try { logger.error(msg, { stack: err.stack }) } catch (_) { console.error(msg) }
+  setTimeout(() => process.exit(1), 1000)
+})
 
 process.on('unhandledRejection', (reason) => {
-  logger.error('⚠️  UNHANDLED REJECTION:', reason instanceof Error ? reason.message : String(reason));
-});
+  const msg = `⚠️  UNHANDLED REJECTION: ${reason instanceof Error ? reason.message : String(reason)}`
+  try { logger.error(msg) } catch (_) { console.error(msg) }
+})
 
 const shutDown = () => {
   logger.info('🛑 Received kill signal, shutting down gracefully');

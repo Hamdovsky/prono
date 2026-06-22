@@ -19,9 +19,9 @@ notifications:
       - deploy_failure
 
 services:
-  # ── Node.js Web App (Compte 1) ──────────────────────────
+  # ── Node.js Web App (prono-k6gc, Compte 1) ──────────────
   - type: web
-    name: prono
+    name: prono-k6gc
     env: node
     plan: free
     healthCheckPath: /health
@@ -120,81 +120,4 @@ services:
       - key: OPENWEATHER_KEY
         sync: false
 
-  # ── Node.js Worker (Compte 1) ──────────────────────────
-  - type: worker
-    name: prono-worker
-    env: node
-    plan: free
-    buildCommand: PUPPETEER_SKIP_DOWNLOAD=true npm install --omit=dev
-    startCommand: node --expose-gc --max-old-space-size=384 serverless/scraper-worker.js
-    envVars:
-      - fromGroup: prono-database
-      - key: NODE_ENV
-        value: production
-      - key: NODE_VERSION
-        value: "20"
-      - key: DISABLE_SOFASCORE
-        value: "true"
-      - key: HTTP_SCRAPER_ENABLED
-        value: "true"
-      - key: RAPIDAPI_ENABLED
-        value: "true"
-      - key: RAPIDAPI_HOST
-        value: sportapi7.p.rapidapi.com
-      - key: RAPIDAPI_DAILY_LIMIT
-        value: "20"
-      - key: BBS_ENABLED
-        value: "true"
-      - key: ODDSAPI_IO_ENABLED
-        value: "true"
-      - key: PREDIXSPORT_ENABLED
-        value: "true"
-      # ── ⚠️  SECRETS : À configurer dans le Dashboard Render → Environment ──
-      - key: API_SECRET_KEY
-        sync: false
-      - key: SUPABASE_URL
-        sync: false
-      - key: BBS_API_KEY
-        sync: false
-      - key: ODDSAPI_IO_KEY
-        sync: false
-      - key: PREDIXSPORT_API_KEY
-        sync: false
-      - key: RAPIDAPI_KEY
-        sync: false
-      - key: SPORTMONKS_KEY
-        sync: false
-      - key: GROQ_API_KEY
-        sync: false
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: SERPAPI_API_KEY
-        sync: false
-      - key: BSD_API_KEY
-        sync: false
-      - key: FOOTBALLDATA_KEY
-        sync: false
-      - key: APIFOOTBALL_KEY
-        sync: false
-      - key: THERUNDOWN_KEY
-        sync: false
-      - key: ODDSPAPI_KEY
-        sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_CHAT_ID
-        sync: false
-      - key: LOCAL_DATA_URL
-        sync: false
-      - key: CLEARSPORTS_API_KEY
-        sync: false
-      - key: SPORTAPI_KEY
-        sync: false
-      - key: APININJAS_KEY
-        sync: false
-      - key: FIRECRAWL_API_KEY
-        sync: false
-      - key: SCRAPERAPI_KEY
-        sync: false
-      - key: OPENWEATHER_KEY
-        sync: false
+  # ── Node.js Worker (prono-scraper, Compte 2 — render-account2.yaml) ──

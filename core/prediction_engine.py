@@ -2586,6 +2586,40 @@ def process_prediction(match_obj: dict) -> dict:
     if p_d != p_d_raw:
         analysis["DrawCorrection"] = f"Draw post-proc: mult={draw_mult:.3f}, {p_d_raw:.1%}->{p_d:.1%}"
 
+    is_wc = 'world cup' in league_name_str or 'fifa' in league_name_str
+    if is_wc:
+        rank_h = features.get('fifa_rank_h', 999)
+        rank_a = features.get('fifa_rank_a', 999)
+        has_rank = rank_h < 999 and rank_a < 999
+
+        if has_rank:
+            rank_diff = rank_a - rank_h
+            if abs(rank_diff) > 20:
+                winner_idx = 0 if rank_diff > 0 else 2
+                boost = min(0.15, abs(rank_diff) / 500.0)
+                outcomes_probs = [p_h, p_d, p_a]
+                outcomes_probs[winner_idx] = min(0.85, outcomes_probs[winner_idx] + boost)
+                outcomes_probs[1 - winner_idx] = max(0.02, outcomes_probs[1 - winner_idx] - boost * 0.7)
+                total = sum(outcomes_probs)
+                p_h, p_d, p_a = [x / total for x in outcomes_probs]
+                analysis["FIFARankBoost"] = f"{'Home' if rank_diff > 0 else 'Away'} +{boost:.1%} (rank diff={abs(rank_diff)})"
+
+            if abs(rank_diff) < 15:
+                p_d_raw2 = p_d
+                p_d = min(0.50, p_d * 1.15)
+                total = p_h + p_d + p_a
+                p_h /= total; p_d /= total; p_a /= total
+                if p_d != p_d_raw2:
+                    analysis["WCGroupDrawBoost"] = f"Close ranks: {p_d_raw2:.1%}->{p_d:.1%}"
+
+        is_knockout = any(k in tourn_name_str for k in ['round of 16', 'quarter', 'semi', 'final', 'knockout', 'round 16', 'round_16'])
+        if is_knockout:
+            confidence -= 3.0
+            analysis["WCKnockout"] = "KO match: confidence -3%"
+        else:
+            confidence -= 1.0
+            analysis["WCGroupStage"] = "Group: confidence -1% (variance)"
+
     outcomes = [
         ("Home", p_h, odds_h, odds_h_open),
         ("Draw", p_d, odds_d, odds_d_open),

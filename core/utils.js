@@ -21,6 +21,14 @@ async function readScraperProgress() {
     return { isRunning: false, total: 0, done: 0, percent: 0, remaining: 0, lastUpdated: null };
 }
 
+async function saveScraperProgress(progress) {
+    try {
+        await fs.promises.writeFile(SCRAPER_PROGRESS_FILE, JSON.stringify({ ...progress, lastUpdated: new Date().toISOString() }, null, 2));
+    } catch (err) {
+        logger.error(`Error saving scraper progress: ${err.message}`);
+    }
+}
+
 /**
  * Saves the current tactical configuration to the data file.
  * Returns a promise.
@@ -36,6 +44,7 @@ async function saveConfig(config) {
 
 module.exports = {
     readScraperProgress,
+    saveScraperProgress,
     saveConfig,
     SCRAPER_PROGRESS_FILE,
     CONFIG_FILE

@@ -205,20 +205,26 @@ class HttpScraperService {
         }
     }
 
-    async processFallback(targetDate) {
+    async processFallback(opts = {}) {
         if (!this.isAvailable()) return 0;
+
+        const targetDate = typeof opts === 'string' ? opts : opts.date
+        const fullScan = typeof opts === 'object' ? opts.fullScan : false
 
         const dates = []
         if (targetDate) {
             dates.push(targetDate)
-        } else {
-            // Match Workflow.js range: yesterday to +4 days
+        } else if (fullScan) {
+            // Full scan (06h cron): yesterday to +2 days = 4 dates
             const now = new Date()
-            for (let d = -1; d <= 4; d++) {
+            for (let d = -1; d <= 2; d++) {
                 const dt = new Date(now)
                 dt.setDate(dt.getDate() + d)
                 dates.push(dt.toISOString().split('T')[0])
             }
+        } else {
+            // Incremental (12h/18h cron): today only = 1 date
+            dates.push(new Date().toISOString().split('T')[0])
         }
 
         let totalCount = 0
@@ -244,6 +250,12 @@ class HttpScraperService {
                 }
             }
         }
+
+        // Update scraper progress for status endpoint
+        const { saveScraperProgress } = require('../core/utils')
+        await saveScraperProgress({
+            isRunning: false, total: 0, done: 0, percent: 100, remaining: 0
+        })
 
         logger.info(`[HTTP-SCRAPER] Done — inserted ${totalCount} matches across ${dates.length} dates.`);
         return totalCount;

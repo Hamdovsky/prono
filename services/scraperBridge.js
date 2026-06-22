@@ -13,7 +13,7 @@ async function triggerScrape() {
   try {
     const { data } = await axios.post(`${workerUrl}/scrape`, {}, {
       headers: { 'x-api-key': apiKey },
-      timeout: 300000
+      timeout: 30000
     })
     logger.info(`[SCRAPER BRIDGE] Worker returned: ${data.success ? 'success' : 'failed'} (${data.durationMs || 0}ms)`)
     return data
@@ -25,11 +25,15 @@ async function triggerScrape() {
 
 async function runLocalScraper() {
   // 🛡️ Skip Puppeteer-based Workflow when DISABLE_SOFASCORE is set (Render)
+  // Full scan at 06h (morning), incremental for 12h/18h
+  const hour = new Date().getHours()
+  const fullScan = hour >= 4 && hour < 10
+
   if (process.env.DISABLE_SOFASCORE === 'true') {
-    logger.info('[SCRAPER BRIDGE] DISABLE_SOFASCORE=true — using HTTP scrapers only')
+    logger.info(`[SCRAPER BRIDGE] DISABLE_SOFASCORE=true — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`)
     try {
       const httpScraperService = require('./httpScraperService')
-      const fallbackCount = await httpScraperService.processFallback()
+      const fallbackCount = await httpScraperService.processFallback({ fullScan })
       return { success: true, fallback: true, fallbackCount }
     } catch (fbErr) {
       try {
@@ -60,7 +64,7 @@ async function runLocalScraper() {
     logger.error(`[SCRAPER BRIDGE] Local scraper failed: ${err.message}`)
     try {
       const httpScraperService = require('./httpScraperService')
-      const fallbackCount = await httpScraperService.processFallback()
+      const fallbackCount = await httpScraperService.processFallback({ fullScan })
       return { success: true, fallback: true, fallbackCount }
     } catch (fbErr) {
       return { success: false, error: err.message, fallbackError: fbErr.message }

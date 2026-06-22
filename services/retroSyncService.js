@@ -74,9 +74,9 @@ class RetroSyncService {
                     db.prepare(`
                         UPDATE matches 
                         SET status = 'FT', 
-                            scoreHome = ?, 
-                            scoreAway = ?, 
-                            fullData = ?
+                            "scoreHome" = ?, 
+                            "scoreAway" = ?, 
+                            "fullData" = ?
                         WHERE id = ?
                     `).run(homeScore, awayScore, JSON.stringify(updatedFullData), matchId);
 

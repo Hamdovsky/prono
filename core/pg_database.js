@@ -16,7 +16,7 @@ function sqliteToPg(sql) {
     .replace(/datetime\s*\(\s*'now'\s*\)/gi, 'NOW()')
     .replace(/\bCURRENT_TIMESTAMP\b/gi, 'NOW()')
     .replace(/\bDATETIME\b/gi, 'TIMESTAMPTZ')
-    .replace(/("fullData"|\bfullData\b)/g, (m) => m === '"fullData"' ? m : '"fullData"')
+    .replace(/(?<!")\b([a-z]+[A-Z]\w*)\b(?!")/g, '"$1"')
 }
 
 const pgDb = {

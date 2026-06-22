@@ -7,6 +7,8 @@ import TicketDuJour from "./TicketDuJour"
 import PerformanceHub from "./PerformanceHub.jsx"
 import dataService from "../services/dataService"
 import { List } from 'react-window'
+import { ROUTES, PATH_TO_VIEW } from "../config/routes"
+import LoadingSkeleton from "./LoadingSkeleton"
 
 import "./Dashboard.css"
 
@@ -80,35 +82,6 @@ const UnifiedRowMemo = React.memo(({ index, style, unifiedList, onClick, now: no
 
 const Dashboard = () => {
     const location = useLocation()
-
-    const VIEW_TO_PATH = {
-        'matches': '/',
-        'all-matches': '/all-matches',
-        'millionaire': '/millionaire',
-        'accuracy': '/accuracy',
-        'learning': '/learning',
-        'combos': '/combos',
-        'props': '/props',
-        'mega': '/mega',
-        'precision': '/precision',
-        'market': '/market',
-        'datascience': '/datascience',
-        'integrity': '/integrity',
-        'livelab': '/livelab',
-        'livegoal': '/livegoal',
-        'audit': '/audit',
-        'backtest': '/backtest',
-        'mega1000': '/mega1000',
-        'intel': '/intel',
-        'promosport': '/promosport',
-        'evolution': '/evolution',
-        'top-picks': '/top-picks',
-        'accuracy-tracker': '/accuracy-tracker',
-    }
-
-    const PATH_TO_VIEW = Object.fromEntries(
-        Object.entries(VIEW_TO_PATH).map(([k, v]) => [v, k])
-    )
 
     // State
     const [activeSignal, setActiveSignal] = useState("ALL")
@@ -531,14 +504,7 @@ const Dashboard = () => {
 
     const renderMainContent = () => {
         if (status === 'loading' && matches.length === 0) {
-            return (
-                <div className="onyx-skeleton-container">
-                    {[1,2,3,4,5].map(i => (
-                        <div key={i} className="onyx-skeleton-row"></div>
-                    ))}
-                    <div className="onyx-loader-text">SYNCING GLOBAL DATA SENSORS...</div>
-                </div>
-            );
+            return <LoadingSkeleton type="page" label="SYNCING GLOBAL DATA SENSORS..." />
         }
 
         if (status === 'error' && matches.length === 0) {
@@ -551,25 +517,25 @@ const Dashboard = () => {
             );
         }
 
-        if (activeView === 'accuracy') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><AccuracyDashboard /></Suspense>;
-        if (activeView === 'learning') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><LearningDashboard /></Suspense>;
-        if (activeView === 'combos') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><ComboTracker /></Suspense>;
-        if (activeView === 'props') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><PropsDashboard /></Suspense>;
-        if (activeView === 'mega') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><MegaCorrelation matches={matches} /></Suspense>;
-        if (activeView === 'precision') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><PrecisionTracker /></Suspense>;
-        if (activeView === 'market') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><MarketLab /></Suspense>;
-        if (activeView === 'datascience') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><DataScienceLab matches={matches} /></Suspense>;
-        if (activeView === 'integrity') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><MarketLab initialFilter="YELLOW" /></Suspense>;
-        if (activeView === 'livelab') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><LiveLab /></Suspense>;
-        if (activeView === 'livegoal') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><LiveGoalDashboard /></Suspense>;
-        if (activeView === 'audit') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><PerformanceAudit /></Suspense>;
-        if (activeView === 'backtest') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><BacktestDashboard /></Suspense>;
-        if (activeView === 'mega1000') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><MegaTicket1000 matches={matches} /></Suspense>;
-        if (activeView === 'intel') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><SystemIntelligence /></Suspense>;
-        if (activeView === 'promosport') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><Promosport /></Suspense>;
-        if (activeView === 'evolution') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><EvolutionDashboard /></Suspense>;
-        if (activeView === 'top-picks') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><TopPicks /></Suspense>;
-        if (activeView === 'accuracy-tracker') return <Suspense fallback={<div className="onyx-skeleton-container"><div className="onyx-loader-text">CHARGEMENT...</div></div>}><AccuracyTracker /></Suspense>;
+        if (activeView === 'accuracy') return <Suspense fallback={<LoadingSkeleton type="chart" label="Accuracy Dashboard..." />}><AccuracyDashboard /></Suspense>;
+        if (activeView === 'learning') return <Suspense fallback={<LoadingSkeleton type="page" label="Adaptive Learning AI..." />}><LearningDashboard /></Suspense>;
+        if (activeView === 'combos') return <Suspense fallback={<LoadingSkeleton type="table" label="Combo Tracker..." />}><ComboTracker /></Suspense>;
+        if (activeView === 'props') return <Suspense fallback={<LoadingSkeleton type="table" label="Player Props..." />}><PropsDashboard /></Suspense>;
+        if (activeView === 'mega') return <Suspense fallback={<LoadingSkeleton type="page" label="Mega Corrélation..." />}><MegaCorrelation matches={matches} /></Suspense>;
+        if (activeView === 'precision') return <Suspense fallback={<LoadingSkeleton type="card" label="Précision Tracker..." />}><PrecisionTracker /></Suspense>;
+        if (activeView === 'market') return <Suspense fallback={<LoadingSkeleton type="table" label="Market Lab..." />}><MarketLab /></Suspense>;
+        if (activeView === 'datascience') return <Suspense fallback={<LoadingSkeleton type="chart" label="Data Science Lab..." />}><DataScienceLab matches={matches} /></Suspense>;
+        if (activeView === 'integrity') return <Suspense fallback={<LoadingSkeleton type="table" label="Market Lab..." />}><MarketLab initialFilter="YELLOW" /></Suspense>;
+        if (activeView === 'livelab') return <Suspense fallback={<LoadingSkeleton type="card" label="Live Lab..." />}><LiveLab /></Suspense>;
+        if (activeView === 'livegoal') return <Suspense fallback={<LoadingSkeleton type="chart" label="Live Goal Prédictions..." />}><LiveGoalDashboard /></Suspense>;
+        if (activeView === 'audit') return <Suspense fallback={<LoadingSkeleton type="page" label="Performance Audit..." />}><PerformanceAudit /></Suspense>;
+        if (activeView === 'backtest') return <Suspense fallback={<LoadingSkeleton type="page" label="Backtest..." />}><BacktestDashboard /></Suspense>;
+        if (activeView === 'mega1000') return <Suspense fallback={<LoadingSkeleton type="card" label="Mega Ticket 1000..." />}><MegaTicket1000 matches={matches} /></Suspense>;
+        if (activeView === 'intel') return <Suspense fallback={<LoadingSkeleton type="page" label="System Intelligence..." />}><SystemIntelligence /></Suspense>;
+        if (activeView === 'promosport') return <Suspense fallback={<LoadingSkeleton type="table" label="Promosport IA..." />}><Promosport /></Suspense>;
+        if (activeView === 'evolution') return <Suspense fallback={<LoadingSkeleton type="chart" label="Titanium Evolution..." />}><EvolutionDashboard /></Suspense>;
+        if (activeView === 'top-picks') return <Suspense fallback={<LoadingSkeleton type="card" label="Top Picks du Jour..." />}><TopPicks /></Suspense>;
+        if (activeView === 'accuracy-tracker') return <Suspense fallback={<LoadingSkeleton type="table" label="Précision..." />}><AccuracyTracker /></Suspense>;
 
         if (activeView === 'all-matches') {
             return (

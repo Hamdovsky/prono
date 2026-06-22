@@ -1,5 +1,8 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ROUTES, NAV_ITEMS } from '../config/routes'
+import { useTheme } from '../contexts/ThemeContext'
+import { useI18n } from '../contexts/I18nContext'
 import './Sidebar.css'
 
 const PINNED_LEAGUES = [
@@ -39,31 +42,11 @@ const MENA_LEAGUES = [
 
 const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activeDate, onDateChange, isOpen = true }) => {
     const navigate = useNavigate()
+    const { theme, toggleTheme } = useTheme()
+    const { locale, setLocale, t } = useI18n()
 
     const handleNav = (view) => {
-        navigate({
-            'matches': '/',
-            'all-matches': '/all-matches',
-            'millionaire': '/millionaire',
-            'accuracy': '/accuracy',
-            'learning': '/learning',
-            'combos': '/combos',
-            'props': '/props',
-            'mega': '/mega',
-            'precision': '/precision',
-            'market': '/market',
-            'datascience': '/datascience',
-            'integrity': '/integrity',
-            'livelab': '/livelab',
-            'livegoal': '/livegoal',
-            'audit': '/audit',
-            'backtest': '/backtest',
-            'mega1000': '/mega1000',
-            'intel': '/intel',
-            'promosport': '/promosport',
-            'evolution': '/evolution',
-            'accuracy-tracker': '/accuracy-tracker',
-        }[view] || '/')
+        navigate(ROUTES[view] || '/')
     }
 
     const activeCounts = {};
@@ -178,7 +161,7 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                   }}
                 >
                     <span className="flash-icon">📊</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>TOUS LES MATCHS</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>{t('sidebar.allMatches')}</span>
                     <span className="flash-count" style={{ background: '#334155', color: '#fff', padding: '1px 6px', borderRadius: '4px' }}>
                         {totalFilteredMatches}
                     </span>
@@ -198,26 +181,10 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                   }}
                 >
                     <span className="flash-icon">🎯</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>TOP PICKS DU JOUR</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>{t('sidebar.topPicks')}</span>
                 </button>
 
-                {/* ── Adaptive Learning AI ────────────────────── */}
-                <button 
-                  className={`flash-nav-item ${activeView === 'learning' ? 'active' : ''}`}
-                  onClick={() => handleNav('learning')}
-                  style={{
-                    marginTop: '4px',
-                    background: activeView === 'learning'
-                        ? 'linear-gradient(90deg, rgba(129,140,248,0.15) 0%, transparent 100%)'
-                        : 'transparent',
-                    borderLeft: activeView === 'learning' ? '2px solid #818cf8' : 'none',
-                    color: '#818cf8'
-                  }}
-                >
-                    <span className="flash-icon">🧠</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>Adaptive Learning AI</span>
-                </button>
-
+                {/* ── Millionaire Selection ─────────────────── */}
                 <button 
                   className={`flash-nav-item ${activeView === 'millionaire' ? 'active' : ''}`}
                   onClick={() => handleNav('millionaire')}
@@ -231,97 +198,43 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                   }}
                 >
                     <span className="flash-icon">💰</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>Millionaire Selection</span>
-                </button>
-
-                {/* ── LIVE MATCHES ────────────────────────── */}
-                <button 
-                  className={`flash-nav-item ${activeView === 'livelab' ? 'active' : ''}`}
-                  onClick={() => handleNav('livelab')}
-                  style={{
-                    marginTop: '4px',
-                    background: activeView === 'livelab'
-                        ? 'linear-gradient(90deg, rgba(239,68,68,0.15) 0%, transparent 100%)'
-                        : 'transparent',
-                    borderLeft: activeView === 'livelab' ? '2px solid #ef4444' : 'none',
-                    color: '#ef4444'
-                  }}
-                >
-                    <span className="flash-icon">🔴</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>Live Match</span>
-                </button>
-
-                {/* ── System Intelligence ────────────────────── */}
-                <button 
-                  className={`flash-nav-item ${activeView === 'intel' ? 'active' : ''}`}
-                  onClick={() => handleNav('intel')}
-                  style={{
-                    marginTop: '4px',
-                    background: activeView === 'intel'
-                        ? 'linear-gradient(90deg, rgba(56,189,248,0.15) 0%, transparent 100%)'
-                        : 'transparent',
-                    borderLeft: activeView === 'intel' ? '2px solid #38bdf8' : 'none',
-                    color: '#38bdf8'
-                  }}
-                >
-                    <span className="flash-icon">🛡️</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>System Intelligence</span>
-                </button>
-
-                {/* ── Promosport ────────────────────── */}
-                <button 
-                  className={`flash-nav-item ${activeView === 'promosport' ? 'active' : ''}`}
-                  onClick={() => handleNav('promosport')}
-                  style={{
-                    marginTop: '4px',
-                    background: activeView === 'promosport'
-                        ? 'linear-gradient(90deg, rgba(16,185,129,0.15) 0%, transparent 100%)'
-                        : 'transparent',
-                    borderLeft: activeView === 'promosport' ? '2px solid #10b981' : 'none',
-                    color: '#10b981'
-                  }}
-                >
-                    <span className="flash-icon">💰</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>TeleMatch / Promosport IA</span>
-                </button>
-
-                {/* ── Titanium Evolution ────────────────────── */}
-                <button 
-                  className={`flash-nav-item ${activeView === 'evolution' ? 'active' : ''}`}
-                  onClick={() => handleNav('evolution')}
-                  style={{
-                    marginTop: '4px',
-                    background: activeView === 'evolution'
-                        ? 'linear-gradient(90deg, rgba(236,72,153,0.15) 0%, transparent 100%)'
-                        : 'transparent',
-                    borderLeft: activeView === 'evolution' ? '2px solid #ec4899' : 'none',
-                    color: '#ec4899'
-                  }}
-                >
-                    <span className="flash-icon">🧬</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>Titanium Evolution</span>
-                </button>
-
-                {/* ── Accuracy Tracker ────────────────────── */}
-                <button 
-                  className={`flash-nav-item ${activeView === 'accuracy-tracker' ? 'active' : ''}`}
-                  onClick={() => handleNav('accuracy-tracker')}
-                  style={{
-                    marginTop: '4px',
-                    background: activeView === 'accuracy-tracker'
-                        ? 'linear-gradient(90deg, rgba(0,255,170,0.15) 0%, transparent 100%)'
-                        : 'transparent',
-                    borderLeft: activeView === 'accuracy-tracker' ? '2px solid #00ffaa' : 'none',
-                    color: '#00ffaa'
-                  }}
-                >
-                    <span className="flash-icon">📊</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>Précision</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>{t('sidebar.millionaire')}</span>
                 </button>
             </div>
 
+            {NAV_ITEMS.slice(1).map(section => (
+                <div className="flash-nav-section" key={section.section}>
+                    <h3 className="flash-section-title" style={{
+                        color: section.items[0]?.color || '#64748b',
+                        display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px'
+                    }}>
+                        {section.items[0]?.icon} {t('sidebar.' + section.section.toLowerCase().replace(/[ &]+/g, '')) || section.section}
+                    </h3>
+                    {section.items.map(item => (
+                        <button
+                            key={item.view}
+                            className={`flash-nav-item ${activeView === item.view ? 'active' : ''}`}
+                            onClick={() => handleNav(item.view)}
+                            style={{
+                                marginTop: '4px',
+                                background: activeView === item.view
+                                    ? `linear-gradient(90deg, ${item.color}25 0%, transparent 100%)`
+                                    : 'transparent',
+                                borderLeft: activeView === item.view ? `2px solid ${item.color}` : 'none',
+                                color: item.color
+                            }}
+                        >
+                            <span className="flash-icon">{item.icon}</span>
+                            <span className="flash-label" style={{ fontWeight: section.section === 'Navigation' ? 'bold' : 'normal' }}>
+                                {t('sidebar.' + item.view.replace(/-/g, '')) || item.label}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            ))}
+
             <div className="flash-nav-section">
-                <h3 className="flash-section-title" style={{ color: '#64748b' }}>📅 FILTRE TEMPOREL</h3>
+                <h3 className="flash-section-title" style={{ color: '#64748b' }}>📅 {t('sidebar.filterTemporal')}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', padding: '4px 10px 10px' }}>
                     {["Today", "Tomorrow", "Next 3 Days", "Next 7 Days"].map(date => {
                         const labels = {
@@ -422,6 +335,23 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                         Aucune ligue active pour cette date.
                     </div>
                 )}
+            </div>
+
+            <div className="flash-nav-section" style={{ marginTop: 'auto', paddingTop: '8px', borderTop: '1px solid var(--sidebar-border)' }}>
+                <button 
+                  onClick={toggleTheme}
+                  className="flash-nav-item"
+                  style={{
+                    background: 'transparent',
+                    color: 'var(--text-muted)',
+                    borderLeft: 'none',
+                  }}
+                >
+                    <span className="flash-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
+                    <span className="flash-label" style={{ fontWeight: '600' }}>
+                        {theme === 'dark' ? 'MODE CLAIR' : 'MODE SOMBRE'}
+                    </span>
+                </button>
             </div>
 
         </aside>

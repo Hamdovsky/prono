@@ -104,6 +104,20 @@ class OddsPapiService {
     return await this._fetch(`/odds?fixtureId=${fixtureId}&oddsFormat=decimal`)
   }
 
+  async fetchOddsForMatch(match) {
+    const fixtureId = match.oddspapi_match_id || match.id?.toString().replace(/^op_/, '') || match.id
+    if (!fixtureId) return null
+    const raw = await this._fetch(`/odds?fixtureId=${fixtureId}&oddsFormat=decimal`)
+    if (!raw) return null
+    const data = Array.isArray(raw) ? raw[0] : raw
+    const odds = data?.odds || data || {}
+    return {
+      home: parseFloat(odds.home_win || odds.home || odds[0]) || null,
+      draw: parseFloat(odds.draw || odds[1]) || null,
+      away: parseFloat(odds.away_win || odds.away || odds[2]) || null,
+    }
+  }
+
   _extractParticipant(fixture, index) {
     if (fixture.participants?.[index]?.name) return fixture.participants[index].name
     if (fixture[`participant${index + 1}`]) return fixture[`participant${index + 1}`]

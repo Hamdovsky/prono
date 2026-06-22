@@ -30,6 +30,11 @@ streamlit==1.56.0
 textblob==0.20.0
 vaderSentiment==3.3.2
 
+# --- FBref / Data Sources (fbref_service.py) ---
+soccerdata>=0.4.0
+lxml>=5.0.0
+html5lib>=1.1
+
 # --- Web Scraping (scripts/) ---
 beautifulsoup4>=4.12.0
 

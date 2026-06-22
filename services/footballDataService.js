@@ -40,6 +40,14 @@ class FootballDataService {
 
     // ── PUBLIC API ──────────────────────────────────────────────────────────
 
+    isAvailable() {
+      return false
+    }
+
+    async fetchOdds(match) {
+      return null
+    }
+
     /**
      * Fetches today's fixtures from FootballData.io
      */

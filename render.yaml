@@ -115,5 +115,7 @@ services:
         sync: false
       - key: FIRECRAWL_API_KEY
         sync: false
+      - key: SCRAPERAPI_KEY
+        sync: false
       - key: OPENWEATHER_KEY
         sync: false

@@ -80,5 +80,7 @@ services:
         value: "predixsport.p.rapidapi.com"
       - key: BBS_API_KEY
         sync: false
+      - key: SCRAPERAPI_KEY
+        sync: false
       - key: RAPIDAPI_ENABLED
         value: "true"

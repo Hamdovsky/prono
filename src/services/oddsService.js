@@ -2,12 +2,14 @@
  * oddsService.js
  * ─────────────────────────────────────────────────────────────
  * Fetches real 1X2 market odds directly from Sofascore's API.
+ * Routes through ScraperAPI (if available) to bypass IP blocks.
  * Caches results per match for 15 minutes to avoid rate limits.
  * ─────────────────────────────────────────────────────────────
  */
 
 // Using native global fetch (integrated in Node.js >= 18)
 const { getRandomUserAgent } = require('../../SofascoreScraping/src/apiClient');
+const scraperProxy = require('../../services/scraperProxy');
 
 const SOFA_API = 'https://www.sofascore.com/api/v1';
 const SOFA_HEADERS = {
@@ -53,16 +55,27 @@ async function getLiveOdds(matchId) {
 
     try {
         const url = `${SOFA_API}/event/${matchId}/odds/1/all`;
-        const res = await fetch(url, {
-            headers: {
-                ...SOFA_HEADERS,
-                'User-Agent': getRandomUserAgent()
-            },
-            method: 'GET'
-        });
+        let data
 
-        if (!res.ok) return null;
-        const data = await res.json();
+        if (scraperProxy.isAvailable()) {
+          try {
+            data = await scraperProxy.fetchJSON(url, { render: true, timeout: 25000 })
+          } catch (_) {
+            const res = await fetch(url, {
+              headers: { ...SOFA_HEADERS, 'User-Agent': getRandomUserAgent() },
+              method: 'GET'
+            });
+            if (!res.ok) return null;
+            data = await res.json();
+          }
+        } else {
+          const res = await fetch(url, {
+            headers: { ...SOFA_HEADERS, 'User-Agent': getRandomUserAgent() },
+            method: 'GET'
+          });
+          if (!res.ok) return null;
+          data = await res.json();
+        }
         const markets = data?.markets;
         if (!markets || !Array.isArray(markets)) {
             console.error(`[OddsService] No markets found for ${matchId}`);

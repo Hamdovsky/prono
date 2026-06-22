@@ -2,6 +2,8 @@
  * scrapeService.js — AI-powered self-healing scraper service
  * 
  * Architecture:
+ *   Tier 0: ScraperAPI (free with API key, residential IPs)
+ *            Routes any URL through anti-blocking proxy
  *   Tier 1: Jina AI Reader (free, no key) → markdown → regex extraction
  *            Works for: static HTML pages, Soccerway, text-based odds
  *   Tier 2: Firecrawl (paid, FIRECRAWL_API_KEY) → full JS extraction
@@ -20,6 +22,7 @@ const https = require('https')
 const http = require('http')
 const { spawn } = require('child_process')
 const path = require('path')
+const scraperProxy = require('./scraperProxy')
 
 const SCRAPE_CACHE = new Map()
 const CACHE_TTL = 15 * 60 * 1000
@@ -266,7 +269,34 @@ async function getOdds(homeTeam, awayTeam, league) {
     return cached.data
   }
 
-  // 1. Try Python cloudscraper first (already works for BetExplorer)
+  // 0. Try ScraperAPI (residential IPs, bypasses blocking)
+  if (scraperProxy.isAvailable()) {
+    const betexplorerUrl = getBetExplorerUrl(league)
+    const soccerwayUrl = getSoccerwayUrl(league)
+    for (const targetUrl of [betexplorerUrl, soccerwayUrl].filter(Boolean)) {
+      try {
+        const html = await scraperProxy.fetchText(targetUrl, { render: false, timeout: 25000 })
+        const matches = extractOddsFromMarkdown(html, homeTeam, awayTeam)
+        if (matches.length > 0 && matches[0].home_win) {
+          const m = matches[0]
+          const result = {
+            home_win: m.home_win, draw: m.draw, away_win: m.away_win,
+            over_25: m.over_25, under_25: m.under_25,
+            btts_yes: m.btts_yes, btts_no: m.btts_no,
+            source: 'scraperapi:betexplorer',
+            scraped_at: new Date().toISOString(),
+            match_url: targetUrl,
+          }
+          SCRAPE_CACHE.set(cacheKey, { ts: Date.now(), data: result })
+          return result
+        }
+      } catch (e) {
+        // ScraperAPI tier failed for this URL, try next
+      }
+    }
+  }
+
+  // 1. Try Python cloudscraper (works for BetExplorer)
   try {
     const result = await scrapeViaPython(homeTeam, awayTeam, league)
     if (result && result.home_win && result.draw && result.away_win) {

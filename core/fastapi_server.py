@@ -162,6 +162,84 @@ async def health_check():
     return health_data
 
 
+# ─── FBref Endpoints ────────────────────────────────────────
+
+@app.post("/fbref/odds")
+async def fbref_odds(payload: dict):
+    try:
+        from fbref_service import get_odds
+        home = payload.get('homeTeam', payload.get('home', ''))
+        away = payload.get('awayTeam', payload.get('away', ''))
+        league = payload.get('league', payload.get('tournament', ''))
+        if not home or not away or not league:
+            return {"success": False, "error": "Missing homeTeam, awayTeam, or league"}
+        result = get_odds(home, away, league)
+        if result:
+            return {"success": True, **result}
+        return {"success": False, "error": "Odds not found"}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/fbref/xg")
+async def fbref_xg(payload: dict):
+    try:
+        from fbref_service import get_match_xg
+        home = payload.get('homeTeam', payload.get('home', ''))
+        away = payload.get('awayTeam', payload.get('away', ''))
+        league = payload.get('league', payload.get('tournament', ''))
+        if not home or not away or not league:
+            return {"success": False, "error": "Missing homeTeam, awayTeam, or league"}
+        result = get_match_xg(home, away, league)
+        if result:
+            return {"success": True, **result}
+        return {"success": False, "error": "xG not found"}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/fbref/team-stats")
+async def fbref_team_stats(payload: dict):
+    try:
+        from fbref_service import get_team_season_stats
+        team = payload.get('team', '')
+        league = payload.get('league', payload.get('tournament', ''))
+        if not team or not league:
+            return {"success": False, "error": "Missing team or league"}
+        result = get_team_season_stats(team, league)
+        if result:
+            return {"success": True, **result}
+        return {"success": False, "error": "Team stats not found"}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/fbref/schedule")
+async def fbref_schedule(payload: dict):
+    """Return the full schedule for a league (for debugging/bulk)."""
+    try:
+        from fbref_service import get_schedule
+        league = payload.get('league', '')
+        force = payload.get('force_refresh', False)
+        if not league:
+            return {"success": False, "error": "Missing league"}
+        df = get_schedule(league, force)
+        if df is not None and not df.empty:
+            matches = df.reset_index().to_dict(orient='records')
+            return {"success": True, "matches": matches[:50], "total": len(matches)}
+        return {"success": False, "error": "No schedule data"}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
 class GoalModelFitRequest(BaseModel):
     leagues: list[str] = []
     matches_data: dict[str, list] = {}  # league -> list of match dicts

@@ -11,7 +11,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const newsService = require('../src/services/newsService');
 const axiosModule = require('axios');
-const { getLiveOdds } = require('../src/services/oddsService');
+const dataFusionService = require('../services/dataFusionService');
 const { detectBookmakerTrap } = require('../services/oddsMovementService');
 const { analyzeValue } = require('../src/services/ValueBetEngine');
 const DeepFormService = require('../services/DeepFormService');
@@ -112,7 +112,7 @@ class EnrichedPredictionService {
             const newsEnabled = configEngine.get('DEEP_NEWS_ENABLED', true);
             
             const [liveOdds, newsIntel] = await Promise.all([
-                getLiveOdds(match.id).catch(e => { trace.error('Odds', e.message); return null; }),
+                dataFusionService.fetchOdds(match).catch(e => { trace.error('Odds', e.message); return null; }),
                 newsEnabled 
                     ? newsService.getMatchIntelligence(match.id, match.homeTeam, match.awayTeam, match.startTimestamp, {
                         countryHint: match.category || '',

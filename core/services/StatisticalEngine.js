@@ -250,35 +250,30 @@ class StatisticalEngine {
                     xgH = Math.max(0.3, Math.min(4.0, xgH));
                     xgA = Math.max(0.25, Math.min(4.0, xgA));
                 } else {
-                    const league = (m.league || '').toLowerCase();
-                    const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '2';
-                    let numHash = 0;
-                    for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
-                    const noiseFactor = (numHash % 200 - 100) / 100;
-                    let baseXgH = 1.5, baseXgA = 1.15;
-                    if (league.includes('iceland') || league.includes('reykjavik') || league.includes('women')) { baseXgH = 2.0; baseXgA = 1.6; }
-                    else if (league.includes('bundesliga') || league.includes('netherlands')) { baseXgH = 1.8; baseXgA = 1.4; }
-                    else if (league.includes('misli') || league.includes('azerbaijan')) { baseXgH = 1.7; baseXgA = 1.1; }
-                    if (noiseFactor >= 0) {
-                        xgH = baseXgH * (1 + noiseFactor * 0.8);
-                        xgA = baseXgA * (1 - noiseFactor * 0.6);
-                    } else {
-                        xgH = baseXgH * (1 + noiseFactor * 0.6);
-                        xgA = baseXgA * (1 - noiseFactor * 0.8);
-                    }
-                    xgH = Math.max(0.15, xgH);
-                    xgA = Math.max(0.25, xgA);
-                    
-                    // 🎯 [SENSORS] Final attempt: Derive from Odds before marking insufficient
+                    // 🎯 [ODS FIRST] Derive xG from odds (REAL data) before resorting to noise
                     if (m.odds_home && m.odds_away) {
                         const derived = this._deriveXgFromOdds(m);
-                        xgH = (xgH + derived.h) / 2;
-                        xgA = (xgA + derived.a) / 2;
+                        xgH = derived.h;
+                        xgA = derived.a;
                     } else {
                         const league = (m.league || '').toLowerCase();
-                        if (!league.includes('world cup')) {
-                            m.insufficient_data = 1;
+                        const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '2';
+                        let numHash = 0;
+                        for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
+                        const noiseFactor = (numHash % 200 - 100) / 100;
+                        let baseXgH = 1.5, baseXgA = 1.15;
+                        if (league.includes('iceland') || league.includes('reykjavik') || league.includes('women')) { baseXgH = 2.0; baseXgA = 1.6; }
+                        else if (league.includes('bundesliga') || league.includes('netherlands')) { baseXgH = 1.8; baseXgA = 1.4; }
+                        else if (league.includes('misli') || league.includes('azerbaijan')) { baseXgH = 1.7; baseXgA = 1.1; }
+                        if (noiseFactor >= 0) {
+                            xgH = baseXgH * (1 + noiseFactor * 0.8);
+                            xgA = baseXgA * (1 - noiseFactor * 0.6);
+                        } else {
+                            xgH = baseXgH * (1 + noiseFactor * 0.6);
+                            xgA = baseXgA * (1 - noiseFactor * 0.8);
                         }
+                        xgH = Math.max(0.15, xgH);
+                        xgA = Math.max(0.25, xgA);
                     }
                 }
             }

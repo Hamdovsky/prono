@@ -66,8 +66,26 @@ class SportmonksService {
   }
 
   async fetchPrematchOdds(fixtureId) {
-    const data = await this._fetch(`/odds/pre-match/fixture/${fixtureId}?include=bookmaker;market`)
-    return data?.data || []
+    const id = typeof fixtureId === 'object'
+      ? (fixtureId.sm_match_id || fixtureId.id?.toString().replace(/^sm_/, '') || fixtureId.id)
+      : fixtureId
+    if (!id) return null
+    const data = await this._fetch(`/odds/pre-match/fixture/${id}?include=bookmaker;market`)
+    const items = data?.data || []
+    if (!items.length) return null
+    for (const item of items) {
+      const name = item.market?.name || item.market_name || ''
+      if (name.toLowerCase().includes('3 way') || name.toLowerCase().includes('match winner')) {
+        const outcomes = item.outcomes || item.bookmaker_outcomes || []
+        const home = outcomes.find(o => (o.label || '').toLowerCase() === 'home')
+        const draw = outcomes.find(o => (o.label || '').toLowerCase() === 'draw')
+        const away = outcomes.find(o => (o.label || '').toLowerCase() === 'away')
+        if (home?.odds && away?.odds) {
+          return { home: parseFloat(home.odds), draw: parseFloat(draw?.odds || 0), away: parseFloat(away.odds) }
+        }
+      }
+    }
+    return null
   }
 
   _extractScores(fixture) {

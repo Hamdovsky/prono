@@ -64,7 +64,19 @@ class ApiFootballService {
 
   async fetchOdds(fixtureId) {
     const data = await this._fetch(`/odds?fixture=${fixtureId}`)
-    return data?.response || []
+    if (!data?.response?.length) return null
+    const bookmaker = data.response[0]?.bookmakers?.[0]
+    if (!bookmaker?.bets?.length) return null
+    const matchWinner = bookmaker.bets.find(b => b.name === 'Match Winner')
+    if (!matchWinner?.values?.length) return null
+    const home = matchWinner.values.find(v => v.value === 'Home')
+    const draw = matchWinner.values.find(v => v.value === 'Draw')
+    const away = matchWinner.values.find(v => v.value === 'Away')
+    return {
+      home: parseFloat(home?.odd) || null,
+      draw: parseFloat(draw?.odd) || null,
+      away: parseFloat(away?.odd) || null,
+    }
   }
 
   async fetchPredictions(fixtureId) {

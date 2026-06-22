@@ -20,8 +20,6 @@ class RetroSyncService {
                 FROM matches
                 WHERE (status = 'scheduled' OR status IS NULL)
                 AND timestamp < ?
-                AND (json_extract("fullData", '$.predictions') IS NOT NULL 
-                     OR json_extract("fullData", '$.enriched.main_predictions') IS NOT NULL)
                 LIMIT 50
             `).all(twoHoursAgo);
 

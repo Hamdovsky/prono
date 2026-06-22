@@ -18,6 +18,7 @@ const KELLY_FRACTION  = 0.25;
 const MIN_EDGE_VALUE  = 5.0;
 const MIN_ODDS_VALUE  = 1.10;
 const MAX_KELLY_PCT   = 10.0;
+const MIN_EV_THRESHOLD = 0.10;
 
 const QuantService = require('../../services/quantService')
 
@@ -112,6 +113,7 @@ function analyzeValue({ modelHome, modelDraw, modelAway, homeOdds, drawOdds, awa
         if (!odds || odds < MIN_ODDS_VALUE || !modelProb) return null;
         const edge   = parseFloat((modelProb - fairProb).toFixed(2));
         const ev     = parseFloat(((modelProb / 100) * odds - 1).toFixed(3));
+        if (ev < MIN_EV_THRESHOLD) return null;
         const kelly  = kellyStake(modelProb, odds);
         const tier   = valueTier(edge, ev);
         return { label, selection: outcomeKey, modelProb, odds, fairProb, edge, ev, kelly, tier };
@@ -145,6 +147,7 @@ function calculateValue(winProb, odds) {
     if (!odds || odds <= 1 || !winProb) return { ev: 0, kelly: 0, verdict: '⚖️ Neutral', color: '#7f8c8d' };
     const p = winProb / 100;
     const ev = parseFloat(((p * odds) - 1).toFixed(3));
+    if (ev < MIN_EV_THRESHOLD) return { ev, kelly: 0, verdict: '🚫 Filtered', color: '#95a5a6' };
     const kelly = kellyStake(winProb, odds);
     const tier  = valueTier((winProb - rawImplied(odds)), ev);
     return { ev, kelly, verdict: tier.label, color: tier.color };

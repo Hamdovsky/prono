@@ -37,7 +37,7 @@ services:
       - key: INFERENCE_URL
         value: https://prono-fastapi-cnxf.onrender.com
       - key: SCRAPER_WORKER_URL
-        value: https://prono-worker.onrender.com
+        value: https://prono-scraper.onrender.com
       - key: VITE_API_URL
         value: https://prono-k6gc.onrender.com
       - key: DISABLE_SOFASCORE

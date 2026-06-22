@@ -208,35 +208,45 @@ class HttpScraperService {
     async processFallback(targetDate) {
         if (!this.isAvailable()) return 0;
 
-        const date = targetDate || new Date().toISOString().split('T')[0];
-        const fixtures = await this.fetchAllFixtures(date);
-
-        if (fixtures.length === 0) {
-            logger.info('[HTTP-SCRAPER] No fixtures found via HTTP APIs.');
-            return 0;
-        }
-
-        logger.info(`[HTTP-SCRAPER] Inserting ${fixtures.length} fixtures into database...`);
-
-        let count = 0;
-        for (const match of fixtures) {
-            try {
-                await database.insertMatch({
-                    ...match,
-                    confidence: 50,
-                    prediction: null,
-                    verdict: 'PENDING',
-                    fullData: JSON.stringify(match),
-                    insufficient_data: 0
-                });
-                count++;
-            } catch (dbErr) {
-                logger.warn(`[HTTP-SCRAPER] DB insert failed for ${match.id}: ${dbErr.message}`);
+        const dates = []
+        if (targetDate) {
+            dates.push(targetDate)
+        } else {
+            // Match Workflow.js range: yesterday to +4 days
+            const now = new Date()
+            for (let d = -1; d <= 4; d++) {
+                const dt = new Date(now)
+                dt.setDate(dt.getDate() + d)
+                dates.push(dt.toISOString().split('T')[0])
             }
         }
 
-        logger.info(`[HTTP-SCRAPER] Successfully inserted ${count}/${fixtures.length} matches.`);
-        return count;
+        let totalCount = 0
+        for (const date of dates) {
+            const fixtures = await this.fetchAllFixtures(date);
+            if (fixtures.length === 0) continue;
+
+            logger.info(`[HTTP-SCRAPER] ${date}: ${fixtures.length} fixtures found`);
+
+            for (const match of fixtures) {
+                try {
+                    await database.insertMatch({
+                        ...match,
+                        confidence: 50,
+                        prediction: null,
+                        verdict: 'PENDING',
+                        fullData: JSON.stringify(match),
+                        insufficient_data: 0
+                    });
+                    totalCount++;
+                } catch (dbErr) {
+                    logger.warn(`[HTTP-SCRAPER] DB insert failed for ${match.id}: ${dbErr.message}`);
+                }
+            }
+        }
+
+        logger.info(`[HTTP-SCRAPER] Done — inserted ${totalCount} matches across ${dates.length} dates.`);
+        return totalCount;
     }
 }
 

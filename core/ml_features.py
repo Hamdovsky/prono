@@ -1319,6 +1319,30 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     features['conf_uefa_a'] = 1.0 if conf_a == 'UEFA' else 0.0
     features['conf_conmebol_a'] = 1.0 if conf_a == 'CONMEBOL' else 0.0
 
+    # --- [DPM-LIGHT] Draw Pattern Features (Deadlock + Defensive Equilibrium) ---
+    if h_hist and a_hist:
+        h_cs = sum(1 for m in h_hist if m.get('score_against', 1) == 0) / max(len(h_hist), 1)
+        a_cs = sum(1 for m in a_hist if m.get('score_against', 1) == 0) / max(len(a_hist), 1)
+        h_ga = sum(m.get('score_against', 0) for m in h_hist) / max(len(h_hist), 1)
+        a_ga = sum(m.get('score_against', 0) for m in a_hist) / max(len(a_hist), 1)
+        h_gf = sum(m.get('score_for', 0) for m in h_hist) / max(len(h_hist), 1)
+        a_gf = sum(m.get('score_for', 0) for m in a_hist) / max(len(a_hist), 1)
+
+        deadlock_ga = (h_ga + a_ga) / 2.0
+        cs_avg = (h_cs + a_cs) / 2.0
+        if cs_avg > 0.30 and deadlock_ga < 1.5:
+            features['draw_deadlock'] = min(1.0, max(0.0, (1.5 - deadlock_ga) * cs_avg * 2.0))
+        else:
+            features['draw_deadlock'] = 0.0
+
+        eq_h = abs(h_gf - a_ga)
+        eq_a = abs(a_gf - h_ga)
+        eq_raw = (eq_h + eq_a) / 2.0
+        features['draw_defensive_eq'] = max(0.0, min(1.0, 1.0 - eq_raw * 0.35))
+    else:
+        features['draw_deadlock'] = 0.0
+        features['draw_defensive_eq'] = 0.0
+
     # --- V52 STABILITY GUARD: Final NaN/None Cleanup ---
     for k, v in list(features.items()):
         if v is None or (isinstance(v, float) and math.isnan(v)):
@@ -1488,7 +1512,9 @@ FEATURE_NAMES_V551 = FEATURE_NAMES_V54 + [
 ]
 
 # V552 — Same features as V551, trained with chronological split (2022-2026) + V54-like hyperparams
-FEATURE_NAMES_V552 = FEATURE_NAMES_V551
+FEATURE_NAMES_V552 = FEATURE_NAMES_V551 + [
+    'draw_deadlock', 'draw_defensive_eq'
+]
 
 # V553 — WC2026 Context Features: FIFA ranking, squad value, age, confederation
 FEATURE_NAMES_V553 = FEATURE_NAMES_V552 + [

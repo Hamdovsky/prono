@@ -1419,12 +1419,13 @@ def process_prediction(match_obj: dict) -> dict:
     league_name_str = str(match_obj.get('league', '')).lower()
     tourn_name_str = str(match_obj.get('tournament_name', '')).lower()
     
-    # [NEW] Layered Architecture: Classification Request
-    league_tier = classify_league(league_name_str, tourn_name_str)
+    league_tier, confidence_tag = classify_league(league_name_str, tourn_name_str)
     
     if league_tier == 'BLACKLIST' and not match_obj.get('force_predict'):
         sys.stderr.write(f"🛑 PRE-MATCH FILTER: Tournament '{league_name_str} {tourn_name_str}' is blacklisted (Tier Logic).\n")
         return {"success": False, "error": "Filtered by Pre-Match Policy", "is_suspicious": True}
+    
+    sys.stderr.write(f"  [LeagueTier] {league_name_str} -> {league_tier}/{confidence_tag}\n")
 
     # Selection & Betting Initializers
     selection_prob = 0.34
@@ -2565,9 +2566,26 @@ def process_prediction(match_obj: dict) -> dict:
             "reason": f"🧠 Cerveau Adaptatif: Correction automatique ({adaptive_adj:+.1f}%) appliquée suite aux biais historiques de cette ligue."
         }
         
+    # Confidence Tag modulation
+    CONF_TAG_ADJ = {'HIGH': 3.0, 'MEDIUM': 0.0, 'LOW': -8.0, 'EXCLUDED': -100.0}
+    ct_adj = CONF_TAG_ADJ.get(confidence_tag, -8.0)
+    if ct_adj != 0:
+        analysis["LeagueConfidenceTag"] = f"{confidence_tag} ({ct_adj:+.0f}%)"
+    confidence += ct_adj
+
     # Final Safety Clamp
     confidence = max(0.1, min(100.0, confidence + (conf_mod)))
     
+    draw_mult = _get_league_draw_multiplier(None, None, league_name=league_name_str)
+    p_d_raw = p_d
+    p_d = min(0.60, p_d * draw_mult)
+    total = p_h + p_d + p_a
+    p_h /= total
+    p_d /= total
+    p_a /= total
+    if p_d != p_d_raw:
+        analysis["DrawCorrection"] = f"Draw post-proc: mult={draw_mult:.3f}, {p_d_raw:.1%}->{p_d:.1%}"
+
     outcomes = [
         ("Home", p_h, odds_h, odds_h_open),
         ("Draw", p_d, odds_d, odds_d_open),

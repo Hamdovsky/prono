@@ -269,12 +269,12 @@ app.post('/api/debug/test-bsd', async (req, res) => {
   }
 })
 
-app.post('/api/seed', async (req, res) => {
+app.post('/api/seed/emergency', async (req, res) => {
   try {
-    const { execSync } = require('child_process')
-    const result = execSync('node scripts/seed_emergency.js', { cwd: __dirname, encoding: 'utf-8' })
-    logger.info('[SEED] ' + result.trim())
-    res.json({ success: true, message: result.trim() })
+    const db = require('./core/database')
+    const { seedDemoMatches } = require('./scripts/seed_emergency')
+    const count = await seedDemoMatches(db)
+    res.json({ success: true, message: `Seeded ${count} matches via emergency seed` })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
   }

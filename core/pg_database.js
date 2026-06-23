@@ -16,7 +16,7 @@ function sqliteToPg(sql) {
     .replace(/datetime\s*\(\s*'now'\s*\)/gi, 'NOW()')
     .replace(/\bCURRENT_TIMESTAMP\b/gi, 'NOW()')
     .replace(/\bDATETIME\b/gi, 'TIMESTAMPTZ')
-    .replace(/(?<!")\b([a-z]+[A-Z]\w*)\b(?!")/g, '"$1"')
+    .replace(/'[^']*'|(?<!")\b([a-z]+[A-Z]\w*)\b(?!")/g, (m, g1) => g1 === undefined ? m : `"${g1}"`)
 }
 
 const pgDb = {

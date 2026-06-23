@@ -48,6 +48,8 @@ function usingPostgres() {
   return isPostgres
 }
 
+const permissionErrors = new Set()
+
 async function query(text, params = [], retries = 1) {
   const p = getPool()
   if (!p) return { rows: [], error: 'No Postgres config' }
@@ -73,7 +75,22 @@ async function query(text, params = [], retries = 1) {
         await new Promise(r => setTimeout(r, 1000))
         continue
       }
-      logger.error(`[PG QUERY] ${err.message} — ${text.slice(0, 120)}`)
+      // Suppress repetitive permission errors (log once per type, not on every query)
+      const isPermissionErr = err.message && (
+        err.message.includes('doit être le propriétaire') ||
+        err.message.includes('droit refusé') ||
+        err.message.includes('permission denied') ||
+        err.message.includes('must be owner')
+      )
+      if (isPermissionErr) {
+        const key = err.message.slice(0, 60)
+        if (!permissionErrors.has(key)) {
+          permissionErrors.add(key)
+          logger.warn(`[PG PERMISSION] ${err.message} — (suppressed for this session)`)
+        }
+      } else {
+        logger.error(`[PG QUERY] ${err.message} — ${text.slice(0, 120)}`)
+      }
       throw err
     }
   }

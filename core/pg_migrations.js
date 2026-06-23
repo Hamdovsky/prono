@@ -371,6 +371,7 @@ async function runMigrations() {
       }
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] Column check skipped: ${e.message}`)
+    }
 
     // ─── Adaptive Learning Engine tables (not in main SCHEMA_SQL) ───────
     try {
@@ -442,7 +443,6 @@ async function runMigrations() {
       logger.info('[PG MIGRATIONS] Adaptive Learning Engine tables created')
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] ALE tables skipped: ${e.message}`)
-    }
     }
 
     // Backfill startTimestamp from "fullData" for rows where it's NULL (column name is case-sensitive)
@@ -563,10 +563,13 @@ async function runMigrations() {
       }
     }
 
-    // Strategy 4: best-effort per-sequence GRANT (may work even if ALL SEQUENCES failed)
+    // Strategy 4: best-effort per-sequence GRANT (only for sequences that exist)
     for (const seq of knownSequences) {
       try {
-        await query(`GRANT USAGE, SELECT ON SEQUENCE ${seq} TO CURRENT_USER`)
+        const exists = await query(`SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = $1`, [seq])
+        if (exists.rows.length > 0) {
+          await query(`GRANT USAGE, SELECT ON SEQUENCE ${seq} TO CURRENT_USER`)
+        }
       } catch (_) {}
     }
 

@@ -127,13 +127,9 @@ router.get('/news-watch', async (req, res) => {
       ORDER BY "startTimestamp" DESC
       LIMIT 100
     `
-    let matches
-    if (typeof db.prepare === 'function') {
-      matches = db.prepare(sql).all()
-    } else {
-      const result = await db.query(sql)
-      matches = result.rows || result
-    }
+    const result = await db.query(sql)
+    let matches = result.rows || result
+    if (!Array.isArray(matches)) matches = []
 
     const precisionMatches = []
     let correct = 0

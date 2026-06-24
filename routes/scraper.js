@@ -4,13 +4,81 @@ const path = require('path');
 const fs = require('fs');
 const securityEngine = require('../core/securityEngine');
 const { readScraperProgress } = require('../core/utils');
-const browserlessService = require('../services/browserlessService');
 
 const localOrAuth = (req, res, next) => {
     const ip = req.ip || req.socket?.remoteAddress || ''
     const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1'
     if (isLocalhost || process.env.NODE_ENV !== 'production') return next()
     return securityEngine.authenticate(req, res, next)
+}
+
+const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+];
+const getRandomUA = () => userAgents[Math.floor(Math.random() * userAgents.length)];
+
+// Singleton browser instance
+let globalBrowser = null;
+
+async function getBrowser() {
+    if (globalBrowser) {
+        try {
+            const pages = await globalBrowser.pages();
+            if (pages.length > 0) return globalBrowser;
+        } catch (e) {
+            console.log('[SCRAPER] Browser disconnected, restarting...');
+            globalBrowser = null;
+        }
+    }
+    
+    let puppeteer, StealthPlugin
+    try {
+      puppeteer = require('puppeteer-extra')
+      StealthPlugin = require('puppeteer-extra-plugin-stealth')
+    } catch (_) {
+      throw new Error('puppeteer not available (optional dep not installed on Render)')
+    }
+    const stealth = StealthPlugin();
+    stealth.enabledEvasions.delete('iframe.contentWindow'); // Prevent some 403 blocks
+    stealth.enabledEvasions.delete('media.codecs');
+    puppeteer.use(stealth);
+
+    const chromeEnv = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH;
+    const paths = chromeEnv ? [chromeEnv] : [
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+    ];
+    let executablePath;
+    for (const p of paths) {
+        if (fs.existsSync(p)) { executablePath = p; break; }
+    }
+
+    globalBrowser = await puppeteer.launch({
+        headless: 'new',
+        executablePath,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
+            '--ignore-certificate-errors',
+            '--window-size=1920,1080'
+        ]
+    });
+    
+    return globalBrowser;
 }
 
 const scraperSchedule = { times: ['06:00', '12:00', '18:00'], lastRun: null, nextRun: null, running: false };
@@ -41,7 +109,8 @@ router.get('/scraper/status', async (req, res) => {
 });
 
 /**
- * POST /api/news-watch/refresh
+ * GET /api/news-watch
+ * Returns news-watch precision data for the PrecisionTracker component.
  */
 router.get('/news-watch', async (req, res) => {
   try {
@@ -110,6 +179,9 @@ router.get('/news-watch', async (req, res) => {
   }
 })
 
+/**
+ * POST /api/news-watch/refresh
+ */
 router.post('/news-watch/refresh', async (req, res) => {
     try {
         const enrichNewsProcessor = require('../core/_enrich_news');
@@ -178,155 +250,192 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
     const { ticketId } = req.body;
     if (!ticketId) return res.status(400).json({ error: 'Ticket ID is required' });
 
+    let browser;
     try {
-        const functionCode = `
-            export default async ({ page }) => {
-                const ticketId = ${JSON.stringify(String(ticketId))};
+        browser = await getBrowser();
 
-                await page.setViewport({ width: 1366, height: 2000 });
-                await page.setExtraHTTPHeaders({
-                    'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-                    'Upgrade-Insecure-Requests': '1'
-                });
+        // ── الخطوة 1: تحميل الصفحة الرئيسية لجلب رابط الـ iframe ──
+        const mainPage = await browser.newPage();
+        const ua = getRandomUA();
+        await mainPage.setViewport({ width: 1366, height: 768 });
+        await mainPage.setUserAgent(ua);
+        await mainPage.setExtraHTTPHeaders({
+            'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Upgrade-Insecure-Requests': '1'
+        });
 
-                // Step 1: Load main page to find sport iframe
-                console.log('[BETX2] Loading main page...');
-                await page.goto('https://betx2.com/fr/sport', { waitUntil: 'domcontentloaded', timeout: 45000 });
-                await new Promise(r => setTimeout(r, 4000));
+        console.log('[BETX2] Loading main page...');
+        await mainPage.goto('https://betx2.com/fr/sport', { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await new Promise(r => setTimeout(r, 4000));
 
-                const sportIframeUrl = await page.evaluate(() => {
-                    const iframes = Array.from(document.querySelectorAll('iframe'));
-                    for (const f of iframes) {
-                        if (f.src && f.src.includes('sport.betx2.com')) return f.src;
-                    }
-                    return null;
-                });
+        // جلب رابط الـ iframe الرياضي
+        const sportIframeUrl = await mainPage.evaluate(() => {
+            const iframes = Array.from(document.querySelectorAll('iframe'));
+            for (const f of iframes) {
+                if (f.src && f.src.includes('sport.betx2.com')) return f.src;
+            }
+            return null;
+        });
+        console.log('[BETX2] Sport iframe URL found:', !!sportIframeUrl);
+        await mainPage.close();
 
-                const targetUrl = sportIframeUrl ||
-                    'https://sport.betx2.com/afdb6836-2b81-4931-a030-8a97d61a13d6/SportsBook/Home?token=-&d=d&l=fr&tz=&parent=betx2.com&sportsBookView=europeanView';
+        // ── الخطوة 2: فتح الـ iframe مباشرةً في صفحة جديدة ──
+        const sportPage = await browser.newPage();
+        await sportPage.setViewport({ width: 1366, height: 2000 }); // كبير لتغطية لوحة COUPON
+        await sportPage.setUserAgent(ua);
+        await sportPage.setExtraHTTPHeaders({
+            'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Upgrade-Insecure-Requests': '1'
+        });
 
-                // Step 2: Navigate to the sport iframe
-                console.log('[BETX2] Navigating to sport page...');
-                await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 45000 });
-                await new Promise(r => setTimeout(r, 5000));
+        const targetUrl = sportIframeUrl ||
+            'https://sport.betx2.com/afdb6836-2b81-4931-a030-8a97d61a13d6/SportsBook/Home?token=-&d=d&l=fr&tz=&parent=betx2.com&sportsBookView=europeanView';
 
-                // Step 3: Click coupon button
-                console.log('[BETX2] Clicking coupon button...');
-                const couponOpened = await page.evaluate(() => {
-                    const primarySelectors = [
-                        '.dg_bs_slip_bar', '[class*="slip_bar"]', '[class*="coupon_bar"]',
-                        '[class*="betslip_bar"]', '[class*="book_bar"]', '[class*="bs_bar"]'
-                    ];
-                    for (const sel of primarySelectors) {
-                        const el = document.querySelector(sel);
-                        if (el && el.getBoundingClientRect().width > 0) { el.click(); return { method: 'primary', selector: sel }; }
-                    }
-                    const allElements = document.querySelectorAll('button, div, span, a');
-                    const keywords = ['coupon de pari', 'paris enregistr', 'vérificateur', 'bet slip', 'betslip', 'pari'];
-                    let bestMatch = null;
-                    let highestScore = 0;
-                    for (const el of allElements) {
-                        const text = (el.textContent || '').toLowerCase().trim();
-                        const rect = el.getBoundingClientRect();
-                        if (rect.width === 0 || rect.height === 0) continue;
-                        for (const kw of keywords) {
-                            if (text.includes(kw)) {
-                                let score = (text === kw) ? 100 : 50;
-                                if (el.tagName === 'BUTTON') score += 20;
-                                if (score > highestScore) { highestScore = score; bestMatch = el; }
-                            }
+        console.log('[BETX2] Navigating to sport page...');
+        await sportPage.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 45000 });
+        await new Promise(r => setTimeout(r, 5000));
+
+        console.log('[BETX2] Clicking coupon button...');
+        const couponOpened = await sportPage.evaluate(() => {
+            // 1. Primary Selectors
+            const primarySelectors = [
+                '.dg_bs_slip_bar', '[class*="slip_bar"]', '[class*="coupon_bar"]',
+                '[class*="betslip_bar"]', '[class*="book_bar"]', '[class*="bs_bar"]'
+            ];
+            for (const sel of primarySelectors) {
+                const el = document.querySelector(sel);
+                if (el && el.getBoundingClientRect().width > 0) { 
+                    el.click(); 
+                    return { method: 'primary', selector: sel }; 
+                }
+            }
+
+            // 2. Self-Healing Discovery (Dynamic)
+            const allElements = document.querySelectorAll('button, div, span, a');
+            const keywords = ['coupon de pari', 'paris enregistr', 'vérificateur', 'bet slip', 'betslip', 'pari'];
+            
+            let bestMatch = null;
+            let highestScore = 0;
+
+            for (const el of allElements) {
+                const text = (el.textContent || '').toLowerCase().trim();
+                const rect = el.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) continue;
+
+                for (const kw of keywords) {
+                    if (text.includes(kw)) {
+                        let score = (text === kw) ? 100 : 50;
+                        if (el.tagName === 'BUTTON') score += 20;
+                        if (score > highestScore) {
+                            highestScore = score;
+                            bestMatch = el;
                         }
                     }
-                    if (bestMatch) { bestMatch.click(); return { method: 'self-healing', text: bestMatch.textContent.trim() }; }
-                    return false;
-                });
+                }
+            }
 
-                await new Promise(r => setTimeout(r, 3000));
+            if (bestMatch) {
+                bestMatch.click();
+                return { method: 'self-healing', text: bestMatch.textContent.trim() };
+            }
+            return false;
+        });
+        console.log('[BETX2] Coupon open result:', couponOpened);
+        console.log('[BETX2] Coupon open result:', couponOpened);
+        await new Promise(r => setTimeout(r, 3000));
 
-                // Step 4: Type ticket ID
-                console.log('[BETX2] Searching for ticket input...');
-                const inputTyped = await page.evaluate((tid) => {
-                    const known = [
-                        'input.dg_bs_book_input', 'input[class*="book_input"]',
-                        'input[placeholder*="nregistrement"]', 'input[placeholder*="oupon"]',
-                        'input[placeholder*="icket"]', 'input[placeholder*="ode"]'
-                    ];
-                    for (const sel of known) {
-                        const el = document.querySelector(sel);
-                        if (el && el.getBoundingClientRect().width > 0) {
-                            el.focus(); el.value = tid;
-                            el.dispatchEvent(new Event('input', { bubbles: true }));
-                            return { method: 'known', selector: sel };
-                        }
+        // ── الخطوة 4: البحث عن حقل إدخال رقم التذكرة (Self-Healing) ──
+        console.log('[BETX2] Searching for ticket input...');
+        const inputTyped = await sportPage.evaluate((ticketId) => {
+            // 1. محاولة استخدام الـ selectors المعروفة
+            const known = [
+                'input.dg_bs_book_input', 'input[class*="book_input"]',
+                'input[placeholder*="nregistrement"]', 'input[placeholder*="oupon"]',
+                'input[placeholder*="icket"]', 'input[placeholder*="ode"]'
+            ];
+            
+            for (const sel of known) {
+                const el = document.querySelector(sel);
+                if (el && el.getBoundingClientRect().width > 0) {
+                    el.focus();
+                    el.value = ticketId;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    return { method: 'known', selector: sel };
+                }
+            }
+
+            // 2. اكتشاف ديناميكي إذا تغير التصميم
+            const allInputs = Array.from(document.querySelectorAll('input'));
+            const patterns = ['code', 'ticket', 'coupon', 'pari', 'booking', 'regist'];
+            
+            for (const inp of allInputs) {
+                const ph = (inp.placeholder || '').toLowerCase();
+                const cls = (inp.className || '').toLowerCase();
+                const id = (inp.id || '').toLowerCase();
+                
+                if (patterns.some(p => ph.includes(p) || cls.includes(p) || id.includes(p))) {
+                    if (inp.type === 'text' || !inp.type) {
+                        inp.focus();
+                        inp.value = ticketId;
+                        inp.dispatchEvent(new Event('input', { bubbles: true }));
+                        return { method: 'dynamic-discovery', id: inp.id, placeholder: inp.placeholder };
                     }
-                    const allInputs = Array.from(document.querySelectorAll('input'));
-                    const patterns = ['code', 'ticket', 'coupon', 'pari', 'booking', 'regist'];
-                    for (const inp of allInputs) {
-                        const ph = (inp.placeholder || '').toLowerCase();
-                        const cls = (inp.className || '').toLowerCase();
-                        const id = (inp.id || '').toLowerCase();
-                        if (patterns.some(p => ph.includes(p) || cls.includes(p) || id.includes(p))) {
-                            if (inp.type === 'text' || !inp.type) {
-                                inp.focus(); inp.value = tid;
-                                inp.dispatchEvent(new Event('input', { bubbles: true }));
-                                return { method: 'dynamic-discovery', id: inp.id, placeholder: inp.placeholder };
-                            }
-                        }
-                    }
-                    return null;
-                }, ticketId);
+                }
+            }
+            return null;
+        }, String(ticketId));
 
-                if (!inputTyped) throw new Error('Self-healing failed: No ticket input found even with dynamic discovery.');
+        if (!inputTyped) {
+            throw new Error('Self-healing failed: No ticket input found even with dynamic discovery.');
+        }
+        console.log('[BETX2] Input result:', inputTyped);
 
-                await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 500));
 
-                // Step 5: Click confirm button
-                console.log('[BETX2] Clicking Confirmer...');
-                const confirmClicked = await page.evaluate(() => {
-                    const sels = [
-                        'button.dg_bs_book_btn', '[class*="book_btn"]', '[class*="confirm_btn"]',
-                        'button[class*="confirm"]', '[class*="verify_btn"]'
-                    ];
-                    for (const sel of sels) {
-                        const el = document.querySelector(sel);
-                        if (el && el.getBoundingClientRect().width > 0) { el.click(); return sel; }
-                    }
-                    const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
-                    for (const b of btns) {
-                        const t = (b.textContent || '').toLowerCase().trim();
-                        if ((t.includes('confirm') || t.includes('vérif') || t.includes('check') || t === 'ok')
-                            && b.getBoundingClientRect().width > 0) { b.click(); return 'text:' + t; }
-                    }
-                    return false;
-                });
-                if (!confirmClicked) await page.keyboard.press('Enter');
+        // ── الخطوة 5: النقر على زر Confirmer ──
+        console.log('[BETX2] Clicking Confirmer...');
+        const confirmClicked = await sportPage.evaluate(() => {
+            const sels = [
+                'button.dg_bs_book_btn', '[class*="book_btn"]', '[class*="confirm_btn"]',
+                'button[class*="confirm"]', '[class*="verify_btn"]'
+            ];
+            for (const sel of sels) {
+                const el = document.querySelector(sel);
+                if (el && el.getBoundingClientRect().width > 0) { el.click(); return sel; }
+            }
+            // نصي
+            const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+            for (const b of btns) {
+                const t = (b.textContent || '').toLowerCase().trim();
+                if ((t.includes('confirm') || t.includes('vérif') || t.includes('check') || t === 'ok')
+                    && b.getBoundingClientRect().width > 0) {
+                    b.click(); return 'text:' + t;
+                }
+            }
+            return false;
+        });
+        if (!confirmClicked) await sportPage.keyboard.press('Enter');
+        console.log('[BETX2] Confirm result:', confirmClicked);
 
-                // Step 6: Wait for result
-                await new Promise(r => setTimeout(r, 6000));
+        // ── الخطوة 6: انتظار النتيجة ──
+        await new Promise(r => setTimeout(r, 6000));
 
-                // Step 7: Extract data
-                const resultData = await page.evaluate(() => {
-                    const sels = [
-                        '[class*="book_result"]', '[class*="coupon_result"]', '[class*="ticket_result"]',
-                        '[class*="slip_content"]', '[class*="betslip_content"]', '[class*="bs_content"]',
-                        '.dg_bs_slip', '[class*="bs_slip"]'
-                    ];
-                    let out = '';
-                    for (const sel of sels) {
-                        const el = document.querySelector(sel);
-                        if (el && el.innerText) out += el.innerText + '\\n';
-                    }
-                    return out || document.body.innerText;
-                });
+        // ── الخطوة 7: استخراج البيانات ──
+        const resultData = await sportPage.evaluate(() => {
+            const sels = [
+                '[class*="book_result"]', '[class*="coupon_result"]', '[class*="ticket_result"]',
+                '[class*="slip_content"]', '[class*="betslip_content"]', '[class*="bs_content"]',
+                '.dg_bs_slip', '[class*="bs_slip"]'
+            ];
+            let out = '';
+            for (const sel of sels) {
+                const el = document.querySelector(sel);
+                if (el && el.innerText) out += el.innerText + '\n';
+            }
+            return out || document.body.innerText;
+        });
 
-                return { resultData, couponOpened, inputTyped, confirmClicked };
-            };
-        `;
-
-        const browserResult = await browserlessService.runFunction(functionCode);
-
-        const resultData = browserResult.resultData || '';
-
+        // ── الخطوة 8: تحليل النتيجة ──
         const lower = resultData.toLowerCase();
         let status = 'Pending';
         if (lower.includes('gagn') || lower.includes('won') || lower.includes('win')) status = 'Won';
@@ -366,6 +475,15 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
     } catch (e) {
         console.error('[SCRAPER TICKET ERROR]', e.message);
         res.status(500).json({ error: e.message });
+    } finally {
+        if (browser) {
+            try {
+                const pages = await browser.pages();
+                for (const p of pages) {
+                    if (p.url() !== 'about:blank') await p.close();
+                }
+            } catch (e) { console.error('[SCRAPER] Error closing pages:', e.message); }
+        }
     }
 });
 
@@ -378,124 +496,123 @@ router.post('/scraper/bibeet-ticket', async (req, res) => {
     const { ticketId, mode = 'betid' } = req.body;
     if (!ticketId) return res.status(400).json({ error: 'Ticket ID requis' });
 
+    let browser;
     try {
-        const isBookingCode = mode === 'bookingcode' || (ticketId && String(ticketId).length <= 8);
+        browser = await getBrowser();
+        const ua = getRandomUA();
 
-        const functionCode = `
-            export default async ({ page }) => {
-                const ticketId = ${JSON.stringify(String(ticketId))};
-                const isBookingCode = ${isBookingCode};
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1400, height: 900 });
+        await page.setUserAgent(ua);
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Upgrade-Insecure-Requests': '1'
+        });
 
-                await page.setViewport({ width: 1400, height: 900 });
-                await page.setExtraHTTPHeaders({
-                    'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-                    'Upgrade-Insecure-Requests': '1'
-                });
+        console.log('[BIBEET] Loading parent page...');
+        await page.goto('https://bibeet.com/betting#/overview', {
+            waitUntil: 'domcontentloaded', timeout: 60000
+        });
+        await new Promise(r => setTimeout(r, 6000));
 
-                console.log('[BIBEET] Loading parent page...');
-                await page.goto('https://bibeet.com/betting#/overview', {
-                    waitUntil: 'domcontentloaded', timeout: 60000
-                });
-                await new Promise(r => setTimeout(r, 6000));
+        console.log('[BIBEET] Searching for Altenar iframe...');
+        let sportFrame = null;
+        const frames = page.frames();
+        for (const f of frames) {
+            const url = f.url().toLowerCase();
+            if (url.includes('altenar') || url.includes('biahosted') || url.includes('dazzabet')) {
+                sportFrame = f;
+                break;
+            }
+        }
 
-                // Find Altenar iframe
-                console.log('[BIBEET] Searching for Altenar iframe...');
-                let sportFrame = null;
-                const frames = page.frames();
-                for (const f of frames) {
-                    const url = f.url().toLowerCase();
-                    if (url.includes('altenar') || url.includes('biahosted') || url.includes('dazzabet')) {
-                        sportFrame = f;
-                        break;
-                    }
+        const target = sportFrame || page;
+        console.log(`[BIBEET] Target: ${sportFrame ? 'Altenar Frame' : 'Main Page'}`);
+
+        // ── Étape 1: Saisir le code (Booking Code ou Bet ID) ──
+        const isBookingCode = mode === 'bookingcode' || (ticketId && ticketId.length <= 8);
+        console.log(`[BIBEET] Strategy: ${isBookingCode ? 'Fast Code (Booking)' : 'Bet ID'} Mode`);
+
+        const inputResult = await target.evaluate((tid, isBooking) => {
+            // Sélecteurs pour Bibeet / Altenar
+            const placeholders = isBooking ? 
+                ['enter fast code', 'fast code', 'booking code', 'code rapide', 'entrez le code'] : 
+                ['enter bet id', 'bet id', 'id du pari'];
+            
+            const allInputs = Array.from(document.querySelectorAll('input'));
+            let inputEl = allInputs.find(inp => {
+                const ph = (inp.placeholder || '').toLowerCase();
+                return placeholders.some(p => ph.includes(p));
+            });
+
+            if (!inputEl) {
+                inputEl = document.querySelector('input[class*="booking"], input[class*="fast"], input[class*="search-bets"]');
+            }
+
+            if (!inputEl && isBooking) {
+                // Fallback: search by label or nearby text
+                const labels = Array.from(document.querySelectorAll('label, span, div'));
+                const bookingLabel = labels.find(l => l.innerText && l.innerText.toLowerCase().includes('booking'));
+                if (bookingLabel) {
+                    inputEl = bookingLabel.parentElement.querySelector('input') || bookingLabel.querySelector('input');
                 }
+            }
 
-                const target = sportFrame || page;
+            if (!inputEl) return { ok: false, msg: 'Input non trouvé' };
 
-                // Step 1: Type the code (Booking Code or Bet ID)
-                const inputResult = await target.evaluate((tid, isBooking) => {
-                    const placeholders = isBooking ? 
-                        ['enter fast code', 'fast code', 'booking code', 'code rapide', 'entrez le code'] : 
-                        ['enter bet id', 'bet id', 'id du pari'];
-                    
-                    const allInputs = Array.from(document.querySelectorAll('input'));
-                    let inputEl = allInputs.find(inp => {
-                        const ph = (inp.placeholder || '').toLowerCase();
-                        return placeholders.some(p => ph.includes(p));
-                    });
+            inputEl.scrollIntoView({ block: 'center' });
+            inputEl.focus();
+            
+            const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            setter.call(inputEl, tid);
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
 
-                    if (!inputEl) {
-                        inputEl = document.querySelector('input[class*="booking"], input[class*="fast"], input[class*="search-bets"]');
-                    }
+            // Valider
+            const form = inputEl.closest('form');
+            if (form) {
+                form.dispatchEvent(new Event('submit', { bubbles: true }));
+            } else {
+                inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+            }
 
-                    if (!inputEl && isBooking) {
-                        const labels = Array.from(document.querySelectorAll('label, span, div'));
-                        const bookingLabel = labels.find(l => l.innerText && l.innerText.toLowerCase().includes('booking'));
-                        if (bookingLabel) {
-                            inputEl = bookingLabel.parentElement.querySelector('input') || bookingLabel.querySelector('input');
-                        }
-                    }
+            return { ok: true, placeholder: inputEl.placeholder };
+        }, String(ticketId), isBookingCode);
 
-                    if (!inputEl) return { ok: false, msg: 'Input non trouvé' };
-
-                    inputEl.scrollIntoView({ block: 'center' });
-                    inputEl.focus();
-                    
-                    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                    setter.call(inputEl, tid);
-                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-
-                    const form = inputEl.closest('form');
-                    if (form) {
-                        form.dispatchEvent(new Event('submit', { bubbles: true }));
-                    } else {
-                        inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-                    }
-
-                    return { ok: true, placeholder: inputEl.placeholder };
-                }, ticketId, isBookingCode);
-
-                if (!inputResult.ok) {
-                    await target.evaluate(() => {
-                        const icons = Array.from(document.querySelectorAll('[aria-label], [title], [class*="icon"]'));
-                        const searchIcon = icons.find(i => {
-                            const label = (i.getAttribute('aria-label') || i.getAttribute('title') || '').toLowerCase();
-                            return label.includes('check') || label.includes('search') || label.includes('ticket');
-                        });
-                        if (searchIcon) searchIcon.click();
-                    });
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-
-                // Step 2: Wait for result
-                console.log('[BIBEET] Waiting for result...');
-                await new Promise(r => setTimeout(r, 8000));
-
-                // Step 3: Extract data
-                const rawData = await target.evaluate(() => {
-                    const sels = [
-                        '[class*="ticket"]', '[class*="bet-detail"]', '[class*="betDetail"]',
-                        '[class*="coupon"]', '[class*="booking"]', '[class*="result"]',
-                        '[class*="slip"]', '[class*="asb"]', '.asb-flex-column'
-                    ];
-                    let text = '';
-                    sels.forEach(sel => {
-                        document.querySelectorAll(sel).forEach(el => {
-                            if (el.innerText && el.innerText.trim().length > 10) text += el.innerText.trim() + '\\n';
-                        });
-                    });
-                    return text.trim() || document.body.innerText.substring(0, 5000);
+        if (!inputResult.ok) {
+            // Second attempt: try to click the search icon first if it's Altenar WSDK
+            await target.evaluate(() => {
+                const icons = Array.from(document.querySelectorAll('[aria-label], [title], [class*="icon"]'));
+                const searchIcon = icons.find(i => {
+                    const label = (i.getAttribute('aria-label') || i.getAttribute('title') || '').toLowerCase();
+                    return label.includes('check') || label.includes('search') || label.includes('ticket');
                 });
+                if (searchIcon) searchIcon.click();
+            });
+            await new Promise(r => setTimeout(r, 2000));
+        }
 
-                return { rawData, inputResult };
-            };
-        `;
+        // ── Étape 2: Attendre le résultat ──
+        console.log('[BIBEET] Waiting for result...');
+        await new Promise(r => setTimeout(r, 8000));
 
-        const browserResult = await browserlessService.runFunction(functionCode);
-        const rawData = browserResult.rawData || '';
+        // ── Étape 3: Extraire les données ──
+        const rawData = await target.evaluate(() => {
+            const sels = [
+                '[class*="ticket"]', '[class*="bet-detail"]', '[class*="betDetail"]',
+                '[class*="coupon"]', '[class*="booking"]', '[class*="result"]',
+                '[class*="slip"]', '[class*="asb"]', '.asb-flex-column'
+            ];
+            let text = '';
+            sels.forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => {
+                    if (el.innerText && el.innerText.trim().length > 10) text += el.innerText.trim() + '\n';
+                });
+            });
+            return text.trim() || document.body.innerText.substring(0, 5000);
+        });
 
-        // Step 4: Parse
+        // ── Étape 4: Parser ──
         const lower = rawData.toLowerCase();
         let status = 'En cours';
         if (lower.includes('won') || lower.includes('win') || lower.includes('gagné')) status = 'Gagné';
@@ -505,11 +622,12 @@ router.post('/scraper/bibeet-ticket', async (req, res) => {
         let totalOdds = 1.0;
         const oddsMatches = rawData.match(/(\d+[,.]\d{2,3})/g);
         if (oddsMatches) {
+            // Often the largest number that isn't a date or huge stake is the total odds
             const candidates = oddsMatches.map(m => parseFloat(m.replace(',', '.'))).filter(v => v > 1.05 && v < 10000);
             if (candidates.length > 0) totalOdds = Math.max(...candidates);
         }
 
-        res.json({
+        return res.json({
             success: true,
             tickets: [{
                 id: ticketId,
@@ -522,7 +640,16 @@ router.post('/scraper/bibeet-ticket', async (req, res) => {
 
     } catch (e) {
         console.error('[BIBEET SCRAPER ERROR]', e.message);
-        res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: e.message });
+    } finally {
+        if (browser) {
+            try {
+                const pages = await browser.pages();
+                for (const p of pages) {
+                    if (p.url() !== 'about:blank') await p.close();
+                }
+            } catch (e) { console.error('[SCRAPER] Error closing pages:', e.message); }
+        }
     }
 });
 

@@ -120,7 +120,7 @@ router.get('/news-watch', async (req, res) => {
     const sql = `
       SELECT id, "homeTeam", "awayTeam", league, "scoreHome", "scoreAway",
              "home_win_probability", "draw_probability", "away_win_probability",
-             "startTimestamp", "news_impact"
+             "startTimestamp", "news_impact", status
       FROM matches
       WHERE "news_impact" IS NOT NULL AND "news_impact" != 0
         AND id NOT LIKE 'seed_%' AND id NOT LIKE 'tr_%'
@@ -146,21 +146,23 @@ router.get('/news-watch', async (req, res) => {
       else if (d === maxProb) predicted = 'D'
       else predicted = 'A'
 
+      const isFinished = m.status === 'FT' || m.status === 'finished' || m.status === 'Ended'
       const sH = parseInt(m.scoreHome)
       const sA = parseInt(m.scoreAway)
       let actual = null
       let success = false
       let score = '-'
 
-      if (!isNaN(sH) && !isNaN(sA)) {
+      if (isFinished && !isNaN(sH) && !isNaN(sA)) {
         if (sH > sA) actual = 'H'
         else if (sH < sA) actual = 'A'
         else actual = 'D'
         success = predicted === actual
         score = `${sH}-${sA}`
+        if (success) correct++
+      } else {
+        score = 'en cours'
       }
-
-      if (success) correct++
 
       precisionMatches.push({
         homeTeam: m.homeTeam,

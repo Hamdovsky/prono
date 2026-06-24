@@ -293,5 +293,20 @@
     "tournament_name": "Syrian Premier League",
     "tournament_id": "1243",
     "category_name": "Syria"
+  },
+  {
+    "tournament_name": "World Cup 2026",
+    "tournament_id": "3089",
+    "category_name": "World"
+  },
+  {
+    "tournament_name": "World Cup 2026 Qualification",
+    "tournament_id": "3085",
+    "category_name": "World"
+  },
+  {
+    "tournament_name": "UEFA Nations League",
+    "tournament_id": "3806",
+    "category_name": "Europe"
   }
 ]

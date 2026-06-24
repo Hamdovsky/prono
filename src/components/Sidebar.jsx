@@ -167,24 +167,7 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                     </span>
                 </button>
 
-                {/* ── TOP PICKS ─────────────────────────── */}
-                <button 
-                  className={`flash-nav-item ${activeView === 'top-picks' ? 'active' : ''}`}
-                  onClick={() => handleNav('top-picks')}
-                  style={{
-                    marginTop: '4px',
-                    background: activeView === 'top-picks'
-                        ? 'linear-gradient(90deg, rgba(251,191,36,0.15) 0%, transparent 100%)'
-                        : 'transparent',
-                    borderLeft: activeView === 'top-picks' ? '2px solid #fbbf24' : 'none',
-                    color: '#fbbf24'
-                  }}
-                >
-                    <span className="flash-icon">🎯</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>{t('sidebar.topPicks')}</span>
-                </button>
-
-                {/* ── Millionaire Selection ─────────────────── */}
+                {/* ── TOP PICKS DU JOUR ─────────────────── */}
                 <button 
                   className={`flash-nav-item ${activeView === 'millionaire' ? 'active' : ''}`}
                   onClick={() => handleNav('millionaire')}
@@ -197,41 +180,27 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                     color: '#fbbf24'
                   }}
                 >
+                    <span className="flash-icon">🎯</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>TOP PICKS DU JOUR</span>
+                </button>
+
+                {/* ── PROMOSPORT ─────────────────── */}
+                <button 
+                  className={`flash-nav-item ${activeView === 'promosport' ? 'active' : ''}`}
+                  onClick={() => handleNav('promosport')}
+                  style={{
+                    marginTop: '4px',
+                    background: activeView === 'promosport'
+                        ? 'linear-gradient(90deg, rgba(16,185,129,0.15) 0%, transparent 100%)'
+                        : 'transparent',
+                    borderLeft: activeView === 'promosport' ? '2px solid #10b981' : 'none',
+                    color: '#10b981'
+                  }}
+                >
                     <span className="flash-icon">💰</span>
-                    <span className="flash-label" style={{ fontWeight: 'bold' }}>{t('sidebar.millionaire')}</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>PROMOSPORT</span>
                 </button>
             </div>
-
-            {NAV_ITEMS.slice(1).map(section => (
-                <div className="flash-nav-section" key={section.section}>
-                    <h3 className="flash-section-title" style={{
-                        color: section.items[0]?.color || '#64748b',
-                        display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px'
-                    }}>
-                        {section.items[0]?.icon} {section.section}
-                    </h3>
-                    {section.items.map(item => (
-                        <button
-                            key={item.view}
-                            className={`flash-nav-item ${activeView === item.view ? 'active' : ''}`}
-                            onClick={() => handleNav(item.view)}
-                            style={{
-                                marginTop: '4px',
-                                background: activeView === item.view
-                                    ? `linear-gradient(90deg, ${item.color}25 0%, transparent 100%)`
-                                    : 'transparent',
-                                borderLeft: activeView === item.view ? `2px solid ${item.color}` : 'none',
-                                color: item.color
-                            }}
-                        >
-                            <span className="flash-icon">{item.icon}</span>
-                            <span className="flash-label" style={{ fontWeight: section.section === 'Navigation' ? 'bold' : 'normal' }}>
-                                {item.label}
-                            </span>
-                        </button>
-                    ))}
-                </div>
-            ))}
 
             <div className="flash-nav-section">
                 <h3 className="flash-section-title" style={{ color: '#64748b' }}>📅 {t('sidebar.filterTemporal')}</h3>

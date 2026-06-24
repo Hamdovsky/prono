@@ -13,24 +13,7 @@ import LoadingSkeleton from "./LoadingSkeleton"
 import "./Dashboard.css"
 
 // Lazy-loaded route components
-const AccuracyDashboard = lazy(() => import("./AccuracyDashboard"))
-const LearningDashboard = lazy(() => import("./LearningDashboard"))
-const ComboTracker = lazy(() => import("./ComboTracker"))
-const PropsDashboard = lazy(() => import("./PropsDashboard"))
-const MegaCorrelation = lazy(() => import("./MegaCorrelation"))
-const PrecisionTracker = lazy(() => import("./PrecisionTracker"))
-const MarketLab = lazy(() => import("./MarketLab"))
-const DataScienceLab = lazy(() => import("./DataScienceLab"))
-const LiveLab = lazy(() => import("./LiveLab/LiveLab"))
-const LiveGoalDashboard = lazy(() => import("./LiveGoalDashboard"))
-const MegaTicket1000 = lazy(() => import("./MegaTicket1000"))
-const PerformanceAudit = lazy(() => import("./PerformanceAudit"))
-const BacktestDashboard = lazy(() => import("./BacktestDashboard"))
-const SystemIntelligence = lazy(() => import("./SystemIntelligence"))
 const Promosport = lazy(() => import("./Promosport"))
-const EvolutionDashboard = lazy(() => import("./EvolutionDashboard"))
-const TopPicks = lazy(() => import("./TopPicks"))
-const AccuracyTracker = lazy(() => import("./AccuracyTracker"))
 
 const MatchRowMemo = React.memo(({ index, style, list, isElite, onClick, now: nowProp }) => {
     const m = list[index];
@@ -517,25 +500,7 @@ const Dashboard = () => {
             );
         }
 
-        if (activeView === 'accuracy') return <Suspense fallback={<LoadingSkeleton type="chart" label="Accuracy Dashboard..." />}><AccuracyDashboard /></Suspense>;
-        if (activeView === 'learning') return <Suspense fallback={<LoadingSkeleton type="page" label="Adaptive Learning AI..." />}><LearningDashboard /></Suspense>;
-        if (activeView === 'combos') return <Suspense fallback={<LoadingSkeleton type="table" label="Combo Tracker..." />}><ComboTracker /></Suspense>;
-        if (activeView === 'props') return <Suspense fallback={<LoadingSkeleton type="table" label="Player Props..." />}><PropsDashboard /></Suspense>;
-        if (activeView === 'mega') return <Suspense fallback={<LoadingSkeleton type="page" label="Mega Corrélation..." />}><MegaCorrelation matches={matches} /></Suspense>;
-        if (activeView === 'precision') return <Suspense fallback={<LoadingSkeleton type="card" label="Précision Tracker..." />}><PrecisionTracker /></Suspense>;
-        if (activeView === 'market') return <Suspense fallback={<LoadingSkeleton type="table" label="Market Lab..." />}><MarketLab /></Suspense>;
-        if (activeView === 'datascience') return <Suspense fallback={<LoadingSkeleton type="chart" label="Data Science Lab..." />}><DataScienceLab matches={matches} /></Suspense>;
-        if (activeView === 'integrity') return <Suspense fallback={<LoadingSkeleton type="table" label="Market Lab..." />}><MarketLab initialFilter="YELLOW" /></Suspense>;
-        if (activeView === 'livelab') return <Suspense fallback={<LoadingSkeleton type="card" label="Live Lab..." />}><LiveLab /></Suspense>;
-        if (activeView === 'livegoal') return <Suspense fallback={<LoadingSkeleton type="chart" label="Live Goal Prédictions..." />}><LiveGoalDashboard /></Suspense>;
-        if (activeView === 'audit') return <Suspense fallback={<LoadingSkeleton type="page" label="Performance Audit..." />}><PerformanceAudit /></Suspense>;
-        if (activeView === 'backtest') return <Suspense fallback={<LoadingSkeleton type="page" label="Backtest..." />}><BacktestDashboard /></Suspense>;
-        if (activeView === 'mega1000') return <Suspense fallback={<LoadingSkeleton type="card" label="Mega Ticket 1000..." />}><MegaTicket1000 matches={matches} /></Suspense>;
-        if (activeView === 'intel') return <Suspense fallback={<LoadingSkeleton type="page" label="System Intelligence..." />}><SystemIntelligence /></Suspense>;
         if (activeView === 'promosport') return <Suspense fallback={<LoadingSkeleton type="table" label="Promosport IA..." />}><Promosport /></Suspense>;
-        if (activeView === 'evolution') return <Suspense fallback={<LoadingSkeleton type="chart" label="Titanium Evolution..." />}><EvolutionDashboard /></Suspense>;
-        if (activeView === 'top-picks') return <Suspense fallback={<LoadingSkeleton type="card" label="Top Picks du Jour..." />}><TopPicks /></Suspense>;
-        if (activeView === 'accuracy-tracker') return <Suspense fallback={<LoadingSkeleton type="table" label="Précision..." />}><AccuracyTracker /></Suspense>;
 
         if (activeView === 'all-matches') {
             return (
@@ -677,14 +642,14 @@ const Dashboard = () => {
 
         if (activeView === 'millionaire') {
             if (millionaireMatches.length > 0) {
-                unifiedList.push({ type: 'header', label: `💰 MILLIONAIRE SELECTION (${activeDate.toUpperCase()}) - TOP 30 (CONF & EV SORTED)`, isElite: true, isMillionaire: true });
+                unifiedList.push({ type: 'header', label: `🎯 TOP PICKS DU JOUR (${activeDate.toUpperCase()}) - TOP 30 (CONF & EV SORTED)`, isElite: true, isMillionaire: true });
                 millionaireMatches.forEach(m => unifiedList.push({ ...m, type: 'match', _isElite: true, _isMillionaire: true }));
             } else {
-                unifiedList.push({ type: 'header', label: `💰 AUCUN MATCH MILLIONAIRE DISPONIBLE POUR CETTE DATE`, isElite: false, isMillionaire: true });
+                unifiedList.push({ type: 'header', label: `💰 AUCUN TOP PICK DISPONIBLE POUR CETTE DATE`, isElite: false, isMillionaire: true });
             }
         } else {
             if (millionaireMatches.length > 0) {
-                unifiedList.push({ type: 'header', label: `💰 MILLIONAIRE SELECTION (${activeDate.toUpperCase()}) - TOP 30`, isElite: true, isMillionaire: true });
+                unifiedList.push({ type: 'header', label: `🎯 TOP PICKS DU JOUR (${activeDate.toUpperCase()}) - TOP 30`, isElite: true, isMillionaire: true });
                 millionaireMatches.forEach(m => unifiedList.push({ ...m, type: 'match', _isElite: true, _isMillionaire: true }));
             }
             if (eliteMatches.length > 0) {

@@ -115,7 +115,7 @@ router.get('/scraper/status', async (req, res) => {
 router.get('/news-watch', async (req, res) => {
   try {
     const db = require('../core/database')
-    const matches = db.prepare(`
+    const matches = await db.prepare(`
       SELECT id, "homeTeam", "awayTeam", league, "scoreHome", "scoreAway",
              "home_win_probability", "draw_probability", "away_win_probability",
              "startTimestamp", "news_impact"

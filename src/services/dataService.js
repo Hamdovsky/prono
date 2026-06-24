@@ -39,6 +39,8 @@ class DataService {
         this.comboApiEndpoint = getApiUrl('/api/combos');
         this.upcomingApiEndpoint = getApiUrl('/api/upcoming?days=14');
         this.promosportApiEndpoint = getApiUrl('/api/promosport');
+        this.promosportWeaponsEndpoint = getApiUrl('/api/promosport/secret-weapons');
+        this.promosportAnalysisEndpoint = getApiUrl('/api/promosport/analysis');
 
         // Rate Limit State
         this.isRateLimited = false;
@@ -562,6 +564,24 @@ class DataService {
             return await this._get(this.promosportApiEndpoint);
         } catch (error) {
             console.error('❌ [DATA] Failed to fetch Promosport grid:', error.message);
+            return null;
+        }
+    }
+
+    async fetchPromosportWeapons() {
+        try {
+            return await this._get(this.promosportWeaponsEndpoint);
+        } catch (error) {
+            console.error('❌ [DATA] Failed to fetch Promosport weapons:', error.message);
+            return null;
+        }
+    }
+
+    async fetchPromosportAnalysis() {
+        try {
+            return await this._get(this.promosportAnalysisEndpoint);
+        } catch (error) {
+            console.error('❌ [DATA] Failed to fetch Promosport analysis:', error.message);
             return null;
         }
     }

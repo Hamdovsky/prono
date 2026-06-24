@@ -9,6 +9,8 @@ const Promosport = () => {
     const [simulating, setSimulating] = useState(false);
     const [viewMode, setViewMode] = useState('module');
     const [selectedStrategy, setSelectedStrategy] = useState('EV OPTIMIZED');
+    const [weaponsData, setWeaponsData] = useState(null);
+    const [analysisData, setAnalysisData] = useState(null);
     const [meta, setMeta] = useState({ 
         concours: '---', 
         date: '--/--/----',
@@ -22,9 +24,15 @@ const Promosport = () => {
             setLoading(true);
             try {
                 console.log("📡 [PROMOSPORT] Initializing data fetch...");
-                const data = await dataService.fetchPromosport();
+                const [data, weapons, analysis] = await Promise.all([
+                    dataService.fetchPromosport(),
+                    dataService.fetchPromosportWeapons().catch(() => null),
+                    dataService.fetchPromosportAnalysis().catch(() => null)
+                ]);
                 if (data && data.matches && data.matches.length > 0) {
                     setMatches(data.matches);
+                    setWeaponsData(weapons);
+                    setAnalysisData(analysis);
                     setMeta(prev => ({ 
                         ...prev, 
                         concours: data.concours || '855', 
@@ -185,6 +193,26 @@ const Promosport = () => {
                             {viewMode === 'module' ? '🖥️ PRO TERMINAL' : '📱 MODULE VIEW'}
                         </button>
                     </div>
+                    <div className="stat-item">
+                        <button 
+                            className="pro-toggle-btn" 
+                            onClick={() => setViewMode(viewMode === 'weapons' ? 'module' : 'weapons')}
+                            style={{
+                                background: viewMode === 'weapons' ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)' : 'rgba(236, 72, 153, 0.1)',
+                                color: viewMode === 'weapons' ? '#000' : '#ec4899',
+                                border: '1px solid #ec4899',
+                                padding: '10px 15px',
+                                borderRadius: '10px',
+                                fontWeight: '900',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s',
+                                fontSize: '0.8rem',
+                                letterSpacing: '1px'
+                            }}
+                        >
+                            🔥 ARMES SECRÈTES
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -198,6 +226,152 @@ const Promosport = () => {
 
             {viewMode === 'terminal' ? (
                 <PromosportTerminal matches={matches} onGenerateReduced={handleGenerateReduced} />
+            ) : viewMode === 'weapons' ? (
+                <div className="promosport-weapons" style={{ padding: '20px' }}>
+                    <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '25px', borderRadius: '15px', border: '1px solid #ec489933', marginBottom: '25px' }}>
+                        <h3 style={{ color: '#ec4899', fontSize: '1.6rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '900' }}>
+                            <span style={{ fontSize: '2rem' }}>🔥</span> ARMES SECRÈTES — CONCOURS {meta.concours}
+                        </h3>
+                        <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
+                            Analyse contrarian : les matchs où la foule a tort et nos picks différenciants.
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', flexWrap: 'wrap' }}>
+                            <div style={{ background: 'rgba(236, 72, 153, 0.1)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(236, 72, 153, 0.3)' }}>
+                                <span style={{ color: '#ec4899', fontWeight: 'bold', fontSize: '1.2rem' }}>{weaponsData?.stats?.contrarianCount || '?'}</span>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>MATCHS CONTRARIAN</span>
+                            </div>
+                            <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                                <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '1.2rem' }}>{weaponsData?.stats?.survivalCount || '?'}</span>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>MATCHS SURVIE</span>
+                            </div>
+                            <div style={{ background: 'rgba(251, 191, 36, 0.1)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
+                                <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '1.2rem' }}>{analysisData?.solidBases?.filter(b => b.isSolid).length || '?'}</span>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>BASES SOLIDES</span>
+                            </div>
+                        </div>
+
+                        <table className="promosport-table" style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ color: '#64748b', textTransform: 'uppercase' }}>
+                                    <th style={{ padding: '10px' }}>N°</th>
+                                    <th style={{ textAlign: 'left', padding: '10px' }}>Match</th>
+                                    <th style={{ padding: '10px' }}>Vote foule</th>
+                                    <th style={{ padding: '10px' }}>Pick AI</th>
+                                    <th style={{ padding: '10px' }}>🔒 Grilles</th>
+                                    <th style={{ padding: '10px' }}>Arme secrète</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(weaponsData?.weapons || matches.map((m, i) => ({ id: i+1, home: m.home, away: m.away, isContrarian: false, isDeadRubber: false, isSurvival: false, brief: m.brief || '', secretWeapon: '' }))).map(w => (
+                                    <tr key={w.id} style={{
+                                        borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                        background: w.isContrarian ? 'rgba(236, 72, 153, 0.05)' : (w.isDeadRubber ? 'rgba(251, 191, 36, 0.05)' : (w.isSurvival ? 'rgba(16, 185, 129, 0.05)' : 'transparent'))
+                                    }}>
+                                        <td style={{ color: '#64748b', fontWeight: 'bold', padding: '12px 10px' }}>{w.id}</td>
+                                        <td style={{ fontWeight: '600', padding: '12px 10px' }}>
+                                            <span>{w.home || '?'}</span>
+                                            <span style={{ color: '#475569', margin: '0 5px' }}>vs</span>
+                                            <span>{w.away || '?'}</span>
+                                        </td>
+                                        <td style={{ padding: '12px 10px' }}>
+                                            <span style={{
+                                                background: w.crowdFav === '1' ? 'rgba(59, 130, 246, 0.2)' : (w.crowdFav === '2' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)'),
+                                                color: w.crowdFav === '1' ? '#60a5fa' : (w.crowdFav === '2' ? '#f87171' : '#fbbf24'),
+                                                padding: '4px 10px', borderRadius: '4px', fontWeight: 'bold'
+                                            }}>
+                                                {w.crowdFav || '-'}
+                                            </span>
+                                            <span style={{ color: '#64748b', marginLeft: '6px', fontSize: '0.75rem' }}>
+                                                {w.p1}/{w.px}/{w.p2}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px 10px' }}>
+                                            <span style={{
+                                                background: w.realFav === '1' ? 'rgba(16, 185, 129, 0.2)' : (w.realFav === '2' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)'),
+                                                color: w.realFav === '1' ? '#34d399' : (w.realFav === '2' ? '#f87171' : '#fbbf24'),
+                                                padding: '4px 10px', borderRadius: '4px', fontWeight: 'bold'
+                                            }}>
+                                                {w.realFav || '-'}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px 10px' }}>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                {(w.choices || ['-','-','-','-']).map((c, ci) => (
+                                                    <span key={ci} style={{
+                                                        background: c && c.length > 1 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
+                                                        color: c && c.length > 1 ? '#10b981' : '#64748b',
+                                                        padding: '2px 6px', borderRadius: '3px', fontSize: '0.7rem', fontWeight: 'bold'
+                                                    }}>
+                                                        {ci + 1}:{c || '-'}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '12px 10px', fontSize: '0.8rem', color: w.isContrarian ? '#ec4899' : (w.isSurvival ? '#10b981' : '#94a3b8') }}>
+                                            {w.secretWeapon || w.brief || 'Analyse en cours...'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* BASES SOLIDES */}
+                    {analysisData?.solidBases && (
+                        <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '25px', borderRadius: '15px', border: '1px solid rgba(251, 191, 36, 0.2)', marginBottom: '25px' }}>
+                            <h3 style={{ color: '#fbbf24', fontSize: '1.4rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '900' }}>
+                                🛡️ BASES SOLIDES
+                            </h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                                {analysisData.solidBases.filter(b => b.isSolid).map(b => (
+                                    <div key={b.id} style={{
+                                        background: 'rgba(16, 185, 129, 0.1)',
+                                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                                        borderRadius: '8px', padding: '12px 15px'
+                                    }}>
+                                        <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginBottom: '4px' }}>N°{b.id}</div>
+                                        <div style={{ fontWeight: '600', fontSize: '0.85rem' }}>{b.match}</div>
+                                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px', alignItems: 'center' }}>
+                                            <span style={{
+                                                background: '#10b981', color: '#000', fontWeight: '900',
+                                                padding: '2px 10px', borderRadius: '4px', fontSize: '0.85rem'
+                                            }}>{b.pick}</span>
+                                            <span style={{ color: '#10b981', fontSize: '0.8rem' }}>{b.confidence}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* STRATÉGIE */}
+                    {analysisData?.strategy && (
+                        <div style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '25px', borderRadius: '15px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                            <h3 style={{ color: '#3b82f6', fontSize: '1.4rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '900' }}>
+                                🎯 STRATÉGIE RECOMMANDÉE
+                            </h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '10px' }}>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>Budget max</div>
+                                    <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '1.5rem' }}>{analysisData.strategy.budgetMax}</div>
+                                </div>
+                                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '10px' }}>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>Prix / colonne</div>
+                                    <div style={{ color: '#10b981', fontWeight: 'bold', fontSize: '1.5rem' }}>{analysisData.strategy.prixColonne}</div>
+                                </div>
+                                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '10px' }}>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>Doubles recommandés</div>
+                                    <div style={{ color: '#ec4899', fontWeight: 'bold', fontSize: '1.5rem' }}>{analysisData.strategy.doublesRecommandes}</div>
+                                </div>
+                                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '10px', gridColumn: '1 / -1' }}>
+                                    <div style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '8px' }}>Conseil</div>
+                                    <div style={{ color: '#94a3b8', fontSize: '0.9rem' }}>{analysisData.strategy.conseil}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
             ) : (
                 <>
                     {loading && (

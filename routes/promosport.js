@@ -126,4 +126,110 @@ router.get('/gold-coupon', speedCache('promosport_gold', 300000, 1800000), async
   }
 })
 
+/**
+ * GET /api/promosport/secret-weapons
+ * Renvoie les "armes secrètes" : analyses contrarian, bases solides, enjeux réels.
+ */
+router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000), async (req, res) => {
+  try {
+    const scrapedMatches = await fetchOrFallback()
+    const grids = await generatePromosportGrids(scrapedMatches)
+    if (!grids || grids.length === 0) throw new Error('Grid generation failed')
+
+    const weapons = scrapedMatches.map((m, idx) => {
+      const gm = grids[0].matches[idx]
+      const p1 = gm.p1 || 0.33
+      const px = gm.px || 0.33
+      const p2 = gm.p2 || 0.33
+      const crowdFav = p1 > p2 ? '1' : (p2 > p1 ? '2' : 'X')
+      const realFav = p1 > 0.45 ? '1' : (p2 > 0.40 ? '2' : 'X')
+      const isContrarian = crowdFav !== realFav
+      const isDeadRubber = gm.isHighPressure === false && gm.entropy < 1.2
+      const isSurvival = gm.isHighPressure
+
+      return {
+        id: idx + 1,
+        home: m.homeTeam,
+        away: m.awayTeam,
+        crowdFav,
+        realFav,
+        isContrarian,
+        isDeadRubber,
+        isSurvival,
+        entropy: gm.entropy,
+        p1: (p1 * 100).toFixed(0),
+        px: (px * 100).toFixed(0),
+        p2: (p2 * 100).toFixed(0),
+        choices: grids.map(g => g.matches[idx].choices.join('')),
+        intel: gm.intel,
+        brief: gm.brief,
+        confidence: gm.confidence,
+        secretWeapon: isContrarian
+          ? `🔥 CONTRARIAN : La foule vote ${crowdFav === '1' ? m.homeTeam : (crowdFav === '2' ? m.awayTeam : 'Nul')} mais le modèle Titanium voit ${realFav === '1' ? m.homeTeam : (realFav === '2' ? m.awayTeam : 'Nul')}`
+          : (isDeadRubber ? '⚠️ DEAD RUBBER : Match sans enjeu, méfiance'
+             : (isSurvival ? '💪 SURVIE : Équipe sous pression, motivation max'
+                : '✅ Conforme au consensus'))
+      }
+    })
+
+    res.json({
+      success: true,
+      concours: scrapedMatches[0]?.concoursNumber || 'N/A',
+      date: scrapedMatches[0]?.concoursDate || new Date().toLocaleDateString(),
+      weapons,
+      stats: {
+        totalMatches: weapons.length,
+        contrarianCount: weapons.filter(w => w.isContrarian).length,
+        survivalCount: weapons.filter(w => w.isSurvival).length,
+        deadRubberCount: weapons.filter(w => w.isDeadRubber).length
+      }
+    })
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] Secret Weapons Error:', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * GET /api/promosport/analysis
+ * Analyse détaillée : bases solides + armes secrètes + conseils stratégiques
+ */
+router.get('/analysis', speedCache('promosport_analysis', 300000, 1800000), async (req, res) => {
+  try {
+    const scrapedMatches = await fetchOrFallback()
+    const grids = await generatePromosportGrids(scrapedMatches)
+
+    const solidBases = (scrapedMatches || []).map((m, idx) => {
+      const gm = grids?.[0]?.matches?.[idx]
+      const pMax = Math.max(gm?.p1 || 0, gm?.px || 0, gm?.p2 || 0)
+      const bestPick = gm?.p1 === pMax ? '1' : (gm?.p2 === pMax ? '2' : 'X')
+      const confidence = gm?.confidence || 50
+      return {
+        id: idx + 1,
+        match: `${m.homeTeam} - ${m.awayTeam}`,
+        pick: bestPick,
+        confidence: `${confidence}%`,
+        isSolid: confidence >= 70
+      }
+    })
+
+    res.json({
+      success: true,
+      concours: scrapedMatches[0]?.concoursNumber || 'N/A',
+      date: scrapedMatches[0]?.concoursDate || new Date().toLocaleDateString(),
+      solidBases,
+      strategy: {
+        budgetMax: '15 DT',
+        prixColonne: '0.850 DT',
+        colonnesMax: 17,
+        doublesRecommandes: 5,
+        conseil: 'Jouer 5 doubles sur les matchs à haute entropie avec 4 colonnes (3.40 DT). Utiliser le budget restant (11.60 DT) pour des colonnes supplémentaires couvrant plus de combinaisons.'
+      }
+    })
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] Analysis Error:', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
 module.exports = router;

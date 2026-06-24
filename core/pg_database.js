@@ -501,10 +501,12 @@ const pgDb = {
   getUpcomingPredictions: async () => [],
   insertPrediction: async (p) => p.id,
 
-  async getMatchesByStatus(status) {
+  async getMatchesByStatus(status, limit = null) {
     try {
       const parsedStatus = status === 'live' ? 'live' : (status === 'scheduled' ? 'scheduled' : status)
-      const result = await query(`SELECT * FROM matches WHERE status = $1 ORDER BY timestamp ASC`, [parsedStatus])
+      const sql = limit ? `SELECT * FROM matches WHERE status = $1 ORDER BY timestamp ASC LIMIT $2` : `SELECT * FROM matches WHERE status = $1 ORDER BY timestamp ASC`
+      const params = limit ? [parsedStatus, limit] : [parsedStatus]
+      const result = await query(sql, params)
       return result.rows.map(r => {
         try {
           const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}

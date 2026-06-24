@@ -106,12 +106,12 @@ async function enrichMatchNews(match, forceRefresh = false) {
  * Main batch run — processes all scheduled matches, skipping cached ones unless forceRefresh.
  * @param {boolean} forceRefresh
  */
-async function run(forceRefresh = false) {
+async function run(forceRefresh = false, limit = 20) {
     console.log(`\n📰 [EnrichNews] Starting batch... ${forceRefresh ? '(FORCE REFRESH)' : '(cache-aware)'}`);
     console.log(`📦 [NewsCache] Stats:`, newsCache.stats());
 
-    const matches = await db.getMatchesByStatus('scheduled');
-    console.log(`📋 Found ${matches.length} scheduled matches.`);
+    const matches = await db.getMatchesByStatus('scheduled', limit);
+    console.log(`📋 Found ${matches.length} scheduled matches (limit=${limit}).`);
 
     let enriched = 0, skipped = 0, errors = 0;
     const highImpact = [];
@@ -153,7 +153,9 @@ async function run(forceRefresh = false) {
 // Run directly if called from CLI
 if (require.main === module) {
     const force = process.argv.includes('--force');
-    run(force).then(() => process.exit(0));
+    const limitIdx = process.argv.indexOf('--limit');
+    const limit = limitIdx > -1 ? parseInt(process.argv[limitIdx + 1]) || 20 : null;
+    run(force, limit).then(() => process.exit(0));
 }
 
 module.exports = { run, enrichMatchNews };

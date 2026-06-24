@@ -1124,9 +1124,11 @@ const database = {
     },
     getUpcomingPredictions: async () => { return []; },
     insertPrediction: async (p) => { return p.id; },
-    getMatchesByStatus: async (status) => {
+    getMatchesByStatus: async (status, limit = null) => {
         const parsedStatus = status === 'live' ? 'live' : (status === 'scheduled' ? 'scheduled' : status);
-        const res = db.prepare(`SELECT * FROM matches WHERE status = ? ORDER BY timestamp ASC`).all(parsedStatus);
+        const sql = limit ? `SELECT * FROM matches WHERE status = ? ORDER BY timestamp ASC LIMIT ?` : `SELECT * FROM matches WHERE status = ? ORDER BY timestamp ASC`;
+        const params = limit ? [parsedStatus, limit] : [parsedStatus];
+        const res = db.prepare(sql).all(...params);
         return res.map(r => {
             try {
                 const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};

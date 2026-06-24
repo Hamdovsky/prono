@@ -24,11 +24,15 @@ async function callPythonSentiment(headlines, retryCount = 0) {
         return { score: 0, label: 'Neutral', subjectivity: 0 };
     }
 
+    // On Render, skip local gateway (port 3001) — return Neutral immediately
+    if (process.env.RENDER_SERVICE_ID || process.env.RENDER) {
+        return { score: 0, label: 'Neutral', subjectivity: 0 };
+    }
+
     try {
-        // 🚀 [TITANIUM GATEWAY] Use unified Port 3001 (Node API Gateway)
         const response = await axios.post('http://127.0.0.1:3001/api/sentiment', { headlines }, {
             ...pooledConfig,
-            timeout: 15000, // Sufficient for batch analysis in workers
+            timeout: 15000,
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.API_SECRET_KEY}`
@@ -41,10 +45,7 @@ async function callPythonSentiment(headlines, retryCount = 0) {
             throw new Error(response.data?.error || 'Gateway Error');
         }
     } catch (err) {
-        // [Reliability Fix] Fail-Safe Fallback: Neutral
-        // We only warn if it's the first retry failure
         if (retryCount === 0) {
-            // console.warn(`⚠️ [SentimentEngine] Gateway fallback: ${err.message}. Retrying...`);
             return await callPythonSentiment(headlines, retryCount + 1);
         }
         return { score: 0, label: 'Neutral', subjectivity: 0 };

@@ -186,8 +186,9 @@ router.post('/news-watch/refresh', async (req, res) => {
     try {
         const enrichNewsProcessor = require('../core/_enrich_news');
         const force = req.query.force === 'true';
-        res.json({ success: true, message: 'Enrichissement lancé en arrière-plan' });
-        enrichNewsProcessor.run(force).then(result => {
+        const limit = parseInt(req.query.limit) || 20;
+        res.json({ success: true, message: `Enrichissement lancé en arrière-plan (limit=${limit})` });
+        enrichNewsProcessor.run(force, limit).then(result => {
             console.log(`[NEWS-WATCH] Terminé: ${JSON.stringify(result)}`);
         }).catch(e => {
             console.error('[NEWS-WATCH] Erreur background:', e.message);

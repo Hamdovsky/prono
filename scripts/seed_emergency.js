@@ -62,11 +62,12 @@ async function seedDemoMatches(database) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     for (const m of matches) {
-      insert.run(m.id, m.homeTeam, m.awayTeam, m.league, m.status, m.prediction, m.confidence,
+      const result = insert.run(m.id, m.homeTeam, m.awayTeam, m.league, m.status, m.prediction, m.confidence,
         m.home_win_probability, m.draw_probability, m.away_win_probability,
         m.expected_score, m.ou_25_prob, m.btts_prob, m.xgboost_confidence,
         m.odds_home, m.odds_draw, m.odds_away, m.startTimestamp, m.timestamp, m.source,
         m.chaos_score, m.last_updated)
+      if (result && typeof result.then === 'function') await result
       count++
     }
   } else {

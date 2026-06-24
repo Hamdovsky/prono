@@ -75,7 +75,7 @@ async function getEnglishNews(teamName, maxHours = 48) {
         
         try {
             const items = await retry(async () => {
-                const res = await axios.get(url, { ...pooledConfig, timeout: 5000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+                const res = await axios.get(url, { ...pooledConfig, timeout: 3000, headers: { 'User-Agent': 'Mozilla/5.0' } });
                 const raw = res.data;
                 return [...raw.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => {
                     const block = m[1];
@@ -103,7 +103,7 @@ async function getArabicNews(teamName, maxHours = 48) {
         
         try {
             const items = await retry(async () => {
-                const res = await axios.get(url, { ...pooledConfig, timeout: 5000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+                const res = await axios.get(url, { ...pooledConfig, timeout: 3000, headers: { 'User-Agent': 'Mozilla/5.0' } });
                 const raw = res.data;
                 return [...raw.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => {
                     const block = m[1];
@@ -118,6 +118,25 @@ async function getArabicNews(teamName, maxHours = 48) {
     return allNews.slice(0, 10);
 }
 
+
+async function getNewsAPINews(teamName, maxHours = 48) {
+    const apiKey = process.env.NEWSAPI_KEY
+    if (!apiKey) return []
+    try {
+        const query = encodeURIComponent(`"${teamName}" football injury lineup match`)
+        const from = new Date(Date.now() - maxHours * 60 * 60 * 1000).toISOString().slice(0, 10)
+        const url = `https://newsapi.org/v2/everything?q=${query}&from=${from}&sortBy=relevancy&pageSize=8&language=en&apiKey=${apiKey}`
+        const res = await axios.get(url, { ...pooledConfig, timeout: 5000 })
+        const articles = res.data?.articles || []
+        return articles.map(a => ({
+            title: a.title || '',
+            pubDate: a.publishedAt || new Date().toUTCString(),
+            source: 'newsapi'
+        }))
+    } catch (e) {
+        return []
+    }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // [V50] DYNAMIC SQUAD HEALTH — 3-Source Tiered Engine
@@ -162,7 +181,7 @@ async function getSoccerwayInjuries(teamName) {
         const searchRes = await axios.get(searchUrl, {
             ...pooledConfig,
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/json, text/javascript, */*' },
-            timeout: 8000
+            timeout: 5000
         });
 
         // Soccerway search returns JSON with team suggestions
@@ -174,7 +193,7 @@ async function getSoccerwayInjuries(teamName) {
         const teamRes = await axios.get(teamUrl, {
             ...pooledConfig,
             headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://int.soccerway.com/' },
-            timeout: 8000
+            timeout: 5000
         });
 
         const html = teamRes.data;
@@ -238,7 +257,7 @@ async function getTransfermarktInjuries(teamName) {
     const url = `https://www.transfermarkt.com/${entry.slug}/verletzungen/verein/${entry.id}`;
     try {
         return await retry(async () => {
-            const res = await axios.get(url, { ...pooledConfig, headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000 });
+            const res = await axios.get(url, { ...pooledConfig, headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
             const injuries = [];
             const rowMatches = [...res.data.matchAll(/<tr[^>]*class="[^"]*zebra[^"]*"[^>]*>([\s\S]*?)<\/tr>/g)];
             for (const row of rowMatches.slice(0, 8)) {
@@ -358,17 +377,19 @@ async function computeTeamFormRating(lineup) {
 
 async function getNewsForTeam(teamName, maxHours = 48, options = {}) {
     const teamId = options.teamId || null;
-    const [arNews, enNews, squadHealth, goalNews] = await Promise.allSettled([
+    const [arNews, enNews, squadHealth, goalNews, newsAPI] = await Promise.allSettled([
         getArabicNews(teamName, maxHours),
         getEnglishNews(teamName, maxHours), 
         getSquadHealth(teamName, teamId),  // [V50] 3-tier dynamic engine
-        goalNewsService.getTeamNews(teamName, options.countryHint || '')
+        goalNewsService.getTeamNews(teamName, options.countryHint || ''),
+        getNewsAPINews(teamName, maxHours)
     ]);
     const itemsAr = arNews.status === 'fulfilled' ? arNews.value : [];
     const itemsEn = enNews.status === 'fulfilled' ? enNews.value : [];
     const injuries = squadHealth.status === 'fulfilled' ? squadHealth.value : [];
     const gNews = (goalNews.status === 'fulfilled' && goalNews.value) ? [{ title: goalNews.value.latestTitle, pubDate: goalNews.value.timestamp, source: 'goal_direct' }] : [];
-    const allNews = [...itemsAr, ...itemsEn, ...gNews];
+    const apiNews = newsAPI.status === 'fulfilled' ? newsAPI.value : [];
+    const allNews = [...itemsAr, ...itemsEn, ...gNews, ...apiNews];
     const intelligence = analyzeIntelligenceImpact(allNews.map(n => n.title), injuries);
     const sentiment = await callPythonSentiment(allNews.map(n => n.title));
     return { 

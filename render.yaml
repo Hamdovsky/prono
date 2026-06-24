@@ -123,5 +123,7 @@ services:
         sync: false
       - key: OPENWEATHER_KEY
         sync: false
+      - key: NEWSAPI_KEY
+        sync: false
 
   # ── Node.js Worker (prono-scraper, Compte 2 — render-account2.yaml) ──

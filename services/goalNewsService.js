@@ -15,7 +15,9 @@ class GoalNewsService {
             en: [
                 'https://www.skysports.com/rss/11095',
                 'https://push.api.bbci.co.uk/morph/data/bbc-morph-feeds-rss/feed/sport/football/rss.xml',
-                'https://www.espn.com/espn/rss/soccer/news'
+                'https://www.espn.com/espn/rss/soccer/news',
+                'https://www.theguardian.com/football/rss',
+                'https://sports.yahoo.com/football/rss'
             ],
             ar: [
                 'https://www.kooora.com/rss.aspx?c=0',

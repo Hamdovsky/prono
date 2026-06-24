@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const securityEngine = require('../core/securityEngine');
 const { readScraperProgress } = require('../core/utils');
+const enrichNewsProcessor = require('../core/_enrich_news');
 
 const localOrAuth = (req, res, next) => {
     const ip = req.ip || req.socket?.remoteAddress || ''
@@ -166,7 +167,7 @@ router.get('/news-watch', async (req, res) => {
       })
     }
 
-    const enrichStatus = require('../core/_enrich_news').getLastRunResult()
+    const enrichStatus = enrichNewsProcessor.getLastRunResult()
     res.json({
       success: true,
       precision: {
@@ -186,7 +187,6 @@ router.get('/news-watch', async (req, res) => {
  */
 router.post('/news-watch/refresh', async (req, res) => {
     try {
-        const enrichNewsProcessor = require('../core/_enrich_news');
         const force = req.query.force === 'true';
         const limit = parseInt(req.query.limit) || 20;
         res.json({ success: true, message: `Enrichissement lancé en arrière-plan (limit=${limit})` });

@@ -106,7 +106,7 @@ async function enrichMatchNews(match, forceRefresh = false) {
  * Main batch run — processes all scheduled matches, skipping cached ones unless forceRefresh.
  * @param {boolean} forceRefresh
  */
-async function run(forceRefresh = false, limit = 20) {
+async function run(forceRefresh = false, limit = 10) {
     console.log(`\n📰 [EnrichNews] Starting batch... ${forceRefresh ? '(FORCE REFRESH)' : '(cache-aware)'}`);
     console.log(`📦 [NewsCache] Stats:`, newsCache.stats());
 

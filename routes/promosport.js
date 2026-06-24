@@ -4,6 +4,7 @@ const logger = require('../core/logger');
 const { speedCache } = require('../core/speedCache');
 const { scrapePromosport } = require('../core/promosport_scraper');
 const { generatePromosportGrids, generateGoldCoupon } = require('../core/promosport_engine');
+const promosportIntelligence = require('../services/promosportIntelligence');
 
 async function fetchOrFallback() {
   try {
@@ -136,52 +137,38 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
     const grids = await generatePromosportGrids(scrapedMatches)
     if (!grids || grids.length === 0) throw new Error('Grid generation failed')
 
-    const weapons = scrapedMatches.map((m, idx) => {
-      const gm = grids[0].matches[idx]
-      const p1 = gm.p1 || 0.33
-      const px = gm.px || 0.33
-      const p2 = gm.p2 || 0.33
-      const crowdFav = p1 > p2 ? '1' : (p2 > p1 ? '2' : 'X')
-      const realFav = p1 > 0.45 ? '1' : (p2 > 0.40 ? '2' : 'X')
-      const isContrarian = crowdFav !== realFav
-      const isDeadRubber = gm.isHighPressure === false && gm.entropy < 1.2
-      const isSurvival = gm.isHighPressure
+    const enriched = scrapedMatches.map((m, idx) => ({
+      ...m,
+      p1: grids[0].matches[idx].p1 || m.homeWinProbability,
+      px: grids[0].matches[idx].px || m.drawProbability,
+      p2: grids[0].matches[idx].p2 || m.awayWinProbability,
+      entropy: grids[0].matches[idx].entropy || 1.5,
+      confidence: grids[0].matches[idx].confidence || 50,
+      isCrowdTrap: grids[0].matches[idx].isCrowdTrap || false,
+      isHighPressure: grids[0].matches[idx].isHighPressure || false,
+      intel: grids[0].matches[idx].intel,
+      tacticalBrief: grids[0].matches[idx].brief || ''
+    }))
 
-      return {
-        id: idx + 1,
-        home: m.homeTeam,
-        away: m.awayTeam,
-        crowdFav,
-        realFav,
-        isContrarian,
-        isDeadRubber,
-        isSurvival,
-        entropy: gm.entropy,
-        p1: (p1 * 100).toFixed(0),
-        px: (px * 100).toFixed(0),
-        p2: (p2 * 100).toFixed(0),
-        choices: grids.map(g => g.matches[idx].choices.join('')),
-        intel: gm.intel,
-        brief: gm.brief,
-        confidence: gm.confidence,
-        secretWeapon: isContrarian
-          ? `🔥 CONTRARIAN : La foule vote ${crowdFav === '1' ? m.homeTeam : (crowdFav === '2' ? m.awayTeam : 'Nul')} mais le modèle Titanium voit ${realFav === '1' ? m.homeTeam : (realFav === '2' ? m.awayTeam : 'Nul')}`
-          : (isDeadRubber ? '⚠️ DEAD RUBBER : Match sans enjeu, méfiance'
-             : (isSurvival ? '💪 SURVIE : Équipe sous pression, motivation max'
-                : '✅ Conforme au consensus'))
-      }
-    })
+    const weapons = await promosportIntelligence.generateSecretWeapons(enriched)
+
+    const weaponsWithChoices = weapons.map((w, idx) => ({
+      ...w,
+      choices: grids.map(g => g.matches[idx].choices.join('')),
+    }))
 
     res.json({
       success: true,
       concours: scrapedMatches[0]?.concoursNumber || 'N/A',
       date: scrapedMatches[0]?.concoursDate || new Date().toLocaleDateString(),
-      weapons,
+      weapons: weaponsWithChoices,
       stats: {
-        totalMatches: weapons.length,
-        contrarianCount: weapons.filter(w => w.isContrarian).length,
-        survivalCount: weapons.filter(w => w.isSurvival).length,
-        deadRubberCount: weapons.filter(w => w.isDeadRubber).length
+        totalMatches: weaponsWithChoices.length,
+        contrarianCount: weaponsWithChoices.filter(w => w.isContrarian).length,
+        survivalCount: weaponsWithChoices.filter(w => w.isSurvival).length,
+        deadRubberCount: weaponsWithChoices.filter(w => w.isDeadRubber).length,
+        bTeamCount: weaponsWithChoices.filter(w => w.bTeamHome?.isBTeam || w.bTeamAway?.isBTeam).length,
+        historicalConcours: promosportIntelligence.getConcoursCount ? 'N/A' : 0
       }
     })
   } catch (err) {

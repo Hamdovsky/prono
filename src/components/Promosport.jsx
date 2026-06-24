@@ -249,6 +249,10 @@ const Promosport = () => {
                                 <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '1.2rem' }}>{analysisData?.solidBases?.filter(b => b.isSolid).length || '?'}</span>
                                 <span style={{ color: '#94a3b8', marginLeft: '8px' }}>BASES SOLIDES</span>
                             </div>
+                            <div style={{ background: 'rgba(244, 63, 94, 0.1)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(244, 63, 94, 0.3)' }}>
+                                <span style={{ color: '#f43f5e', fontWeight: 'bold', fontSize: '1.2rem' }}>{weaponsData?.stats?.bTeamCount || '?'}</span>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>B TEAMS</span>
+                            </div>
                         </div>
 
                         <table className="promosport-table" style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
@@ -308,8 +312,29 @@ const Promosport = () => {
                                                 ))}
                                             </div>
                                         </td>
-                                        <td style={{ padding: '12px 10px', fontSize: '0.8rem', color: w.isContrarian ? '#ec4899' : (w.isSurvival ? '#10b981' : '#94a3b8') }}>
-                                            {w.secretWeapon || w.brief || 'Analyse en cours...'}
+                                        <td style={{ padding: '12px 10px', fontSize: '0.75rem' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                {w.bTeamHome?.isBTeam && (
+                                                    <span style={{ color: '#f43f5e', fontWeight: 'bold', fontSize: '0.7rem' }}>
+                                                        🔴 B TEAM {w.home}
+                                                    </span>
+                                                )}
+                                                {w.bTeamAway?.isBTeam && (
+                                                    <span style={{ color: '#f43f5e', fontWeight: 'bold', fontSize: '0.7rem' }}>
+                                                        🔴 B TEAM {w.away}
+                                                    </span>
+                                                )}
+                                                <span style={{
+                                                    color: w.isContrarian ? '#ec4899' : (w.isSurvival ? '#10b981' : (w.bTeamHome?.isBTeam || w.bTeamAway?.isBTeam ? '#f43f5e' : '#94a3b8'))
+                                                }}>
+                                                    {w.secretWeapon || 'Analyse en cours...'}
+                                                </span>
+                                                {(w.homeSurprise?.team || w.awaySurprise?.team) && (
+                                                    <span style={{ color: '#64748b', fontSize: '0.65rem' }}>
+                                                        📊 Histo: {w.homeSurprise?.team?.homeWinRate || '?'}%/{w.homeSurprise?.team?.homeDrawRate || '?'}%/{w.homeSurprise?.team?.homeLossRate || '?'}%
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

@@ -75,7 +75,7 @@ async function getEnglishNews(teamName, maxHours = 48) {
         
         try {
             const items = await retry(async () => {
-                const res = await axios.get(url, { ...pooledConfig, timeout: 3000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+                const res = await axios.get(url, { ...pooledConfig, timeout: 4000, headers: { 'User-Agent': 'Mozilla/5.0' } });
                 const raw = res.data;
                 return [...raw.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => {
                     const block = m[1];
@@ -103,7 +103,7 @@ async function getArabicNews(teamName, maxHours = 48) {
         
         try {
             const items = await retry(async () => {
-                const res = await axios.get(url, { ...pooledConfig, timeout: 3000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+                const res = await axios.get(url, { ...pooledConfig, timeout: 4000, headers: { 'User-Agent': 'Mozilla/5.0' } });
                 const raw = res.data;
                 return [...raw.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => {
                     const block = m[1];
@@ -123,7 +123,7 @@ async function getNewsAPINews(teamName, maxHours = 48) {
     const apiKey = process.env.NEWSAPI_KEY
     if (!apiKey) return []
     try {
-        const query = encodeURIComponent(`"${teamName}" football injury lineup match`)
+        const query = encodeURIComponent(`"${teamName}" football`)
         const from = new Date(Date.now() - maxHours * 60 * 60 * 1000).toISOString().slice(0, 10)
         const url = `https://newsapi.org/v2/everything?q=${query}&from=${from}&sortBy=relevancy&pageSize=8&language=en&apiKey=${apiKey}`
         const res = await axios.get(url, { ...pooledConfig, timeout: 5000 })

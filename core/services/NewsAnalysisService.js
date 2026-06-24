@@ -29,6 +29,13 @@ class NewsAnalysisService {
             return { score: 0, attack: 1.0, defense: 1.0, chaos: 0, critical: [] };
         }
 
+        // Minimum impact: if there are headlines at all, assign a small baseline score
+        const headlineCount = (headlines || []).length
+        let baselineScore = 0
+        if (headlineCount > 0) {
+            baselineScore = Math.min(headlineCount, 5) * 2 // up to +10 if 5+ headlines
+        }
+
         let totalScore = 0;
         let attMod = 1.0;
         let defMod = 1.0;
@@ -137,7 +144,7 @@ class NewsAnalysisService {
         const finalDef = Math.min(1.4, defMod);
 
         return { 
-            score: totalScore || 0, 
+            score: totalScore + baselineScore || 0, 
             attack: isNaN(finalAtt) ? 1.0 : finalAtt, 
             defense: isNaN(finalDef) ? 1.0 : finalDef, 
             chaos: chaosBoost || 0,

@@ -116,6 +116,7 @@ router.get('/scraper/status', async (req, res) => {
 router.get('/news-watch', async (req, res) => {
   try {
     const db = require('../core/database')
+    const dbType = process.env.DATABASE_URL ? 'postgres' : 'sqlite'
     const matches = await db.prepare(`
       SELECT id, "homeTeam", "awayTeam", league, "scoreHome", "scoreAway",
              "home_win_probability", "draw_probability", "away_win_probability",
@@ -170,6 +171,7 @@ router.get('/news-watch', async (req, res) => {
     const enrichStatus = enrichNewsProcessor.getLastRunResult()
     res.json({
       success: true,
+      dbType,
       precision: {
         accuracy: precisionMatches.length > 0 ? Math.round((correct / precisionMatches.length) * 100) : 0,
         total: precisionMatches.length,

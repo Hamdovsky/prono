@@ -86,19 +86,24 @@ class PromosportIntelligence {
                 weaponParts.push(`🔴 B TEAM`)
                 if (rotation.home.isBTeam) weaponParts.push(`${homeName}: ${rotation.home.reason}`)
                 if (rotation.away.isBTeam) weaponParts.push(`${awayName}: ${rotation.away.reason}`)
-            } else if (contextIntel.opponentContext?.home?.status === contextIntel.opponentContext?.away?.status) {
-                const s = contextIntel.opponentContext.home.status
-                if (s.includes('Qualifié')) weaponParts.push('🤝 Dead rubber, match amical')
-                else if (s.includes('Doit')) weaponParts.push('⚔️ MORT SUBITE : les deux doivent gagner')
-                else weaponParts.push('⚠️ Match sans enjeu clair')
-            } else if (contextIntel.opponentContext?.home?.status?.includes('Doit')) {
-                weaponParts.push(`💪 SURVIE: ${homeName} doit gagner`)
-            } else if (contextIntel.opponentContext?.away?.status?.includes('Doit')) {
-                weaponParts.push(`💪 SURVIE: ${awayName} doit gagner`)
-            } else if (contextIntel.opponentContext?.home?.status?.includes('Eliminé')) {
-                weaponParts.push(`❌ ${homeName} éliminé, motivation?`)
-            } else if (contextIntel.opponentContext?.away?.status?.includes('Eliminé')) {
-                weaponParts.push(`❌ ${awayName} éliminé, motivation?`)
+            }
+
+            const ocCtx = contextIntel.opponentContext
+            if (ocCtx && ocCtx.home && ocCtx.away) {
+                if (ocCtx.home.status === ocCtx.away.status) {
+                    const s = ocCtx.home.status
+                    if (s.includes('Qualifié')) weaponParts.push('🤝 Dead rubber, match amical')
+                    else if (s.includes('Doit')) weaponParts.push('⚔️ MORT SUBITE : les deux doivent gagner')
+                    else weaponParts.push(`⚠️ ${s}`)
+                } else if (ocCtx.home.status?.includes('Doit')) {
+                    weaponParts.push(`💪 SURVIE: ${homeName} doit gagner`)
+                } else if (ocCtx.away.status?.includes('Doit')) {
+                    weaponParts.push(`💪 SURVIE: ${awayName} doit gagner`)
+                } else if (ocCtx.home.status?.includes('Eliminé')) {
+                    weaponParts.push(`❌ ${homeName} éliminé, motivation?`)
+                } else if (ocCtx.away.status?.includes('Eliminé')) {
+                    weaponParts.push(`❌ ${awayName} éliminé, motivation?`)
+                }
             }
 
             if (crowdFav !== realFav) {

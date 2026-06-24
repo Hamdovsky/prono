@@ -292,8 +292,9 @@ const pgDb = {
           home_form_pts = $21::double precision,
           away_form_pts = $22::double precision,
           motivation_signature = $23::text,
+          news_impact = $24::double precision,
           insufficient_data = 0
-        WHERE id = $24::text
+        WHERE id = $25::text
       `
 
       await query(sql, [
@@ -303,6 +304,7 @@ const pgDb = {
         toNull(data.kelly_stake), toNull(data.true_prob_home), toNull(data.true_prob_draw), toNull(data.true_prob_away),
         toNull(data.weather_temp), toNull(data.weather_humidity), toNull(data.home_form_pts), toNull(data.away_form_pts),
         data.motivation_signature || enriched?.motivation_signature || 'Logique Standard',
+        toNull(data.news_impact),
         matchId
       ])
 

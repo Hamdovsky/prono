@@ -215,13 +215,13 @@ router.post('/system/clear-cache', localOnlyOrAuth, async (req, res) => {
 router.get('/db-stats', async (req, res) => {
     try {
         const db = database.db;
-        const total = db.prepare('SELECT COUNT(*) as cnt FROM matches').get();
-        const byStatus = db.prepare('SELECT status, COUNT(*) as cnt FROM matches GROUP BY status').all();
+        const total = await db.prepare('SELECT COUNT(*) as cnt FROM matches').get();
+        const byStatus = await db.prepare('SELECT status, COUNT(*) as cnt FROM matches GROUP BY status').all();
         const today = new Date().toISOString().split('T')[0];
         const todayStart = Math.floor(new Date(today + 'T00:00:00Z').getTime() / 1000);
         const todayEnd = todayStart + 86400;
-        const todayCount = db.prepare('SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp < ?').get(todayStart, todayEnd);
-        const sample = db.prepare('SELECT id, homeTeam, awayTeam, league, status, startTimestamp FROM matches ORDER BY startTimestamp DESC LIMIT 5').all();
+        const todayCount = await db.prepare('SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp < ?').get(todayStart, todayEnd);
+        const sample = await db.prepare('SELECT id, homeTeam, awayTeam, league, status, startTimestamp FROM matches ORDER BY startTimestamp DESC LIMIT 5').all();
         res.json({
             total: total?.cnt || 0,
             today: todayCount?.cnt || 0,

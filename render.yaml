@@ -48,6 +48,8 @@ services:
         value: "true"
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "true"
+      - key: BROWSERLESS_TOKEN
+        sync: false
       - key: BBS_ENABLED
         value: "true"
       - key: ODDSAPI_IO_ENABLED

@@ -1101,6 +1101,24 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match);
               logger.warn('⚠️ [CLOUD-SEED] Module load failed:', seedErr.message);
             }
 
+            // 🌱 [EMERGENCY SEED] If DB still has < 10 matches, seed with demo data
+            (async () => {
+              try {
+                const count = await database.query('SELECT COUNT(*) as cnt FROM matches')
+                const matchCount = count?.rows?.[0]?.cnt || 0
+                if (matchCount < 10) {
+                  logger.info(`[EMERGENCY-SEED] DB has ${matchCount} matches — seeding emergency data...`)
+                  const { seedDemoMatches } = require('./scripts/seed_emergency')
+                  const seeded = await seedDemoMatches(database)
+                  logger.info(`[EMERGENCY-SEED] Seeded ${seeded} demo matches`)
+                } else {
+                  logger.info(`[EMERGENCY-SEED] DB has ${matchCount} matches — skipping`)
+                }
+              } catch (e) {
+                logger.warn(`[EMERGENCY-SEED] Error: ${e.message}`)
+              }
+            })()
+
             // 🔁 [FALLBACK] Register API sources at startup
             const localDataUrl = process.env.LOCAL_DATA_URL || ''
             if (localDataUrl) {

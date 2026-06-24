@@ -110,14 +110,31 @@ async function run(forceRefresh = false, limit = 10) {
     console.log(`\n📰 [EnrichNews] Starting batch... ${forceRefresh ? '(FORCE REFRESH)' : '(cache-aware)'}`);
     console.log(`📦 [NewsCache] Stats:`, newsCache.stats());
 
-    const matches = await db.getMatchesByStatus('scheduled', limit);
-    console.log(`📋 Found ${matches.length} scheduled matches (limit=${limit}).`);
+    const matches = (await db.getMatchesByStatus('scheduled', limit))
+        .filter(m => !m.id.startsWith('seed_') && !m.id.startsWith('tr_') && !m.id.startsWith('test-') && !m.id.startsWith('update-') && !m.id.startsWith('find-'));
+
+    // Also fetch finished matches (FT, with real scores) for tracker enrichment
+    let finishedMatches = [];
+    try {
+        const ftResult = await db.query("SELECT * FROM matches WHERE status = 'FT' AND (\"news_impact\" IS NULL OR \"news_impact\" = 0) AND id NOT LIKE 'seed_%' AND id NOT LIKE 'tr_%' AND id NOT LIKE 'test-%' AND id NOT LIKE 'update-%' AND id NOT LIKE 'find-%' ORDER BY \"startTimestamp\" DESC LIMIT $1", [limit]);
+        finishedMatches = (ftResult.rows || [])
+            .filter(m => !m.id.startsWith('seed_') && !m.id.startsWith('tr_') && !m.id.startsWith('test-') && !m.id.startsWith('update-') && !m.id.startsWith('find-'));
+    } catch (e) {
+        // fallback for SQLite
+        try {
+            finishedMatches = (await db.getMatchesByStatuses(['FT']))
+                .filter(m => !m.id.startsWith('seed_') && !m.id.startsWith('tr_') && !m.id.startsWith('test-') && !m.id.startsWith('update-') && !m.id.startsWith('find-'));
+        } catch (_) {}
+    }
+
+    const allMatches = [...matches, ...finishedMatches].slice(0, limit);
+    console.log(`📋 Found ${matches.length} scheduled + ${finishedMatches.length} FT = ${allMatches.length} matches (limit=${limit}).`);
 
     let enriched = 0, skipped = 0, errors = 0;
     const highImpact = [];
 
-    for (let i = 0; i < matches.length; i++) {
-        const m = matches[i];
+    for (let i = 0; i < allMatches.length; i++) {
+        const m = allMatches[i];
         const cacheKey = `match_intel_${m.id}_${m.homeTeam}_${m.awayTeam}`;
 
         // Check if already cache-fresh and not force-refresh

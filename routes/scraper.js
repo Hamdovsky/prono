@@ -117,15 +117,23 @@ router.get('/news-watch', async (req, res) => {
   try {
     const db = require('../core/database')
 
-    const matches = await db.prepare(`
+    const sql = `
       SELECT id, "homeTeam", "awayTeam", league, "scoreHome", "scoreAway",
              "home_win_probability", "draw_probability", "away_win_probability",
              "startTimestamp", "news_impact"
       FROM matches
       WHERE "news_impact" IS NOT NULL AND "news_impact" != 0
+        AND id NOT LIKE 'seed_%' AND id NOT LIKE 'tr_%'
       ORDER BY "startTimestamp" DESC
       LIMIT 100
-    `).all()
+    `
+    let matches
+    if (typeof db.prepare === 'function') {
+      matches = db.prepare(sql).all()
+    } else {
+      const result = await db.query(sql)
+      matches = result.rows || result
+    }
 
     const precisionMatches = []
     let correct = 0

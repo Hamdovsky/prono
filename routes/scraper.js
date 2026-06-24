@@ -148,6 +148,7 @@ router.get('/news-watch', async (req, res) => {
       else predicted = 'A'
 
       const isFinished = m.status === 'FT' || m.status === 'finished' || m.status === 'Ended'
+      const isPast = m.startTimestamp && m.startTimestamp * 1000 < Date.now()
       const sH = parseInt(m.scoreHome)
       const sA = parseInt(m.scoreAway)
       let success = false
@@ -162,6 +163,8 @@ router.get('/news-watch', async (req, res) => {
         score = `${sH}-${sA}`
         totalJoues++
         if (success) correct++
+      } else if (isPast) {
+        score = 'inconnu'
       } else {
         score = 'en cours'
       }

@@ -133,6 +133,7 @@ router.get('/news-watch', async (req, res) => {
 
     const precisionMatches = []
     let correct = 0
+    let totalJoues = 0
 
     for (const m of matches) {
       const h = parseFloat(m.home_win_probability) || 0
@@ -149,16 +150,17 @@ router.get('/news-watch', async (req, res) => {
       const isFinished = m.status === 'FT' || m.status === 'finished' || m.status === 'Ended'
       const sH = parseInt(m.scoreHome)
       const sA = parseInt(m.scoreAway)
-      let actual = null
       let success = false
       let score = '-'
 
       if (isFinished && !isNaN(sH) && !isNaN(sA)) {
+        let actual
         if (sH > sA) actual = 'H'
         else if (sH < sA) actual = 'A'
         else actual = 'D'
         success = predicted === actual
         score = `${sH}-${sA}`
+        totalJoues++
         if (success) correct++
       } else {
         score = 'en cours'
@@ -174,11 +176,13 @@ router.get('/news-watch', async (req, res) => {
       })
     }
 
+    const base = totalJoues > 0 ? totalJoues : precisionMatches.length
+
     const enrichStatus = enrichNewsProcessor.getLastRunResult()
     res.json({
       success: true,
       precision: {
-        accuracy: precisionMatches.length > 0 ? Math.round((correct / precisionMatches.length) * 100) : 0,
+        accuracy: base > 0 ? Math.round((correct / base) * 100) : 0,
         total: precisionMatches.length,
         matches: precisionMatches
       },

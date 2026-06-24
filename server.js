@@ -79,7 +79,6 @@ const integrationRoutes = require('./routes/integration');
 const matchesRoutes = require('./routes/matches');
 const promosportRoutes = require('./routes/promosport');
 const dsRoutes = require('./routes/ds');
-const valueBetsRoutes = require('./routes/valueBets');
 
 console.log('🚀 [STARTUP] INITIALIZING TITANIUM SERVER V3.0...');
 
@@ -427,7 +426,6 @@ app.use('/api', matchesRoutes);
 app.use('/api/promosport', promosportRoutes);
 app.use('/api/ds', dsRoutes);
 app.use('/api/webhook', securityEngine.authenticate.bind(securityEngine), integrationRoutes);
-app.use('/api', valueBetsRoutes);
 
 // ── GLOBAL ERROR HANDLER ──────────────────
 app.use((err, req, res, next) => {

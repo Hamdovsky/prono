@@ -147,7 +147,8 @@ async function run(forceRefresh = false, limit = 20) {
     }
 
     newsCache.sweep();
-    return { enriched, skipped, errors, highImpact };
+    lastRunResult = { enriched, skipped, errors, highImpact, timestamp: Date.now() };
+    return lastRunResult;
 }
 
 // Run directly if called from CLI
@@ -158,4 +159,6 @@ if (require.main === module) {
     run(force, limit).then(() => process.exit(0));
 }
 
-module.exports = { run, enrichMatchNews };
+let lastRunResult = null
+
+module.exports = { run, enrichMatchNews, getLastRunResult: () => lastRunResult };

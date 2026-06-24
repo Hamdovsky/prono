@@ -166,13 +166,15 @@ router.get('/news-watch', async (req, res) => {
       })
     }
 
+    const enrichStatus = require('../core/_enrich_news').getLastRunResult()
     res.json({
       success: true,
       precision: {
         accuracy: precisionMatches.length > 0 ? Math.round((correct / precisionMatches.length) * 100) : 0,
         total: precisionMatches.length,
         matches: precisionMatches
-      }
+      },
+      lastRun: enrichStatus
     })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })

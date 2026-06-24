@@ -41,6 +41,7 @@ class DataService {
         this.promosportApiEndpoint = getApiUrl('/api/promosport');
         this.promosportWeaponsEndpoint = getApiUrl('/api/promosport/secret-weapons');
         this.promosportAnalysisEndpoint = getApiUrl('/api/promosport/analysis');
+        this.promosportDoubleSimEndpoint = getApiUrl('/api/promosport/double-sim');
 
         // Rate Limit State
         this.isRateLimited = false;
@@ -582,6 +583,15 @@ class DataService {
             return await this._get(this.promosportAnalysisEndpoint);
         } catch (error) {
             console.error('❌ [DATA] Failed to fetch Promosport analysis:', error.message);
+            return null;
+        }
+    }
+
+    async fetchPromosportDoubleSim() {
+        try {
+            return await this._get(this.promosportDoubleSimEndpoint);
+        } catch (error) {
+            console.error('❌ [DATA] Failed to fetch Promosport double sim:', error.message);
             return null;
         }
     }

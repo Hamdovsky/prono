@@ -5,6 +5,7 @@ const MotivationEnrichService = require('./MotivationEnrichService');
 const SharpIntelligenceService = require('./SharpIntelligenceService');
 const bTeamDetector = require('./bTeamDetector');
 const promosportSurpriseService = require('./promosportSurpriseService');
+const tacticalContextEngine = require('./tacticalContextEngine');
 const logger = require('../core/logger');
 
 class PromosportIntelligence {
@@ -50,55 +51,87 @@ class PromosportIntelligence {
         })
     }
 
+    getConcoursCount() {
+        return promosportSurpriseService.getConcoursCount()
+    }
+
     async generateSecretWeapons(matches) {
         promosportSurpriseService.computeSurpriseRates()
         return matches.map((m, idx) => {
             const isDeadRubber = m.isHighPressure === false && (m.entropy || 1.5) < 1.3
             const isSurvival = m.isHighPressure === true
-            const rotation = bTeamDetector.detectMatch(m.homeTeam, m.awayTeam, { isDeadRubber, isHighPressure: isSurvival })
+            const homeName = m.homeTeam || m.home || m.team1 || ''
+            const awayName = m.awayTeam || m.away || m.team2 || ''
+
+            const rotation = bTeamDetector.detectMatch(homeName, awayName, { isDeadRubber, isHighPressure: isSurvival })
 
             const p1 = m.p1 || m.homeWinProbability || 0.33
             const px = m.px || m.drawProbability || 0.33
             const p2 = m.p2 || m.awayWinProbability || 0.34
             const crowdFav = p1 > p2 ? '1' : (p2 > p1 ? '2' : 'X')
             const realFav = p1 > 0.45 ? '1' : (p2 > 0.40 ? '2' : 'X')
-            const isContrarian = crowdFav !== realFav
 
-            const homeSurprise = promosportSurpriseService.getSurpriseStats(m.homeTeam)
-            const awaySurprise = promosportSurpriseService.getSurpriseStats(m.awayTeam)
+            const homeSurprise = promosportSurpriseService.getSurpriseStats(homeName)
+            const awaySurprise = promosportSurpriseService.getSurpriseStats(awayName)
 
-            let weaponReason = ''
+            const contextIntel = tacticalContextEngine.generateMatchIntel(homeName, awayName, p1, p2)
+            const boldness = tacticalContextEngine.assessBoldness(
+                crowdFav, realFav, { p1, px, p2 },
+                rotation.home.isBTeam || rotation.away.isBTeam,
+                isDeadRubber
+            )
+
+            const weaponParts = []
             if (rotation.home.isBTeam || rotation.away.isBTeam) {
-                weaponReason = `B TEAM : ${rotation.home.isBTeam ? m.homeTeam + ' ' + rotation.home.reason : ''}${rotation.home.isBTeam && rotation.away.isBTeam ? ' | ' : ''}${rotation.away.isBTeam ? m.awayTeam + ' ' + rotation.away.reason : ''}`
-            } else if (isContrarian) {
-                weaponReason = `CONTRARIAN : La foule voit ${crowdFav === '1' ? m.homeTeam : (crowdFav === '2' ? m.awayTeam : 'Nul')} mais le modèle Titanium voit ${realFav === '1' ? m.homeTeam : (realFav === '2' ? m.awayTeam : 'Nul')}`
-            } else if (isDeadRubber) {
-                weaponReason = 'DEAD RUBBER : Match sans enjeu, méfiance'
-            } else if (isSurvival) {
-                weaponReason = 'SURVIE : Équipe sous pression, motivation max'
-            } else if (rotation.home.risk !== 'unknown' || rotation.away.risk !== 'unknown') {
-                weaponReason = `${rotation.home.reason}${rotation.home.reason && rotation.away.reason ? ' | ' : ''}${rotation.away.reason}`
-            } else {
-                weaponReason = 'PICK CONFORME'
+                weaponParts.push(`🔴 B TEAM`)
+                if (rotation.home.isBTeam) weaponParts.push(`${homeName}: ${rotation.home.reason}`)
+                if (rotation.away.isBTeam) weaponParts.push(`${awayName}: ${rotation.away.reason}`)
+            } else if (contextIntel.opponentContext?.home?.status === contextIntel.opponentContext?.away?.status) {
+                const s = contextIntel.opponentContext.home.status
+                if (s.includes('Qualifié')) weaponParts.push('🤝 Dead rubber, match amical')
+                else if (s.includes('Doit')) weaponParts.push('⚔️ MORT SUBITE : les deux doivent gagner')
+                else weaponParts.push('⚠️ Match sans enjeu clair')
+            } else if (contextIntel.opponentContext?.home?.status?.includes('Doit')) {
+                weaponParts.push(`💪 SURVIE: ${homeName} doit gagner`)
+            } else if (contextIntel.opponentContext?.away?.status?.includes('Doit')) {
+                weaponParts.push(`💪 SURVIE: ${awayName} doit gagner`)
+            } else if (contextIntel.opponentContext?.home?.status?.includes('Eliminé')) {
+                weaponParts.push(`❌ ${homeName} éliminé, motivation?`)
+            } else if (contextIntel.opponentContext?.away?.status?.includes('Eliminé')) {
+                weaponParts.push(`❌ ${awayName} éliminé, motivation?`)
+            }
+
+            if (crowdFav !== realFav) {
+                weaponParts.push(`🎯 Contrarian: foule→${crowdFav}, nous→${realFav}`)
+            }
+
+            if (contextIntel.pattern) {
+                weaponParts.push(`📊 ${contextIntel.pattern}`)
+            }
+            if (contextIntel.tip) {
+                weaponParts.push(`💡 ${contextIntel.tip}`)
             }
 
             return {
                 id: idx + 1,
-                home: m.homeTeam,
-                away: m.awayTeam,
+                home: homeName,
+                away: awayName,
                 p1: +(p1 * 100).toFixed(0),
                 px: +(px * 100).toFixed(0),
                 p2: +(p2 * 100).toFixed(0),
                 crowdFav,
                 realFav,
-                isContrarian,
+                isContrarian: crowdFav !== realFav,
                 isDeadRubber,
                 isSurvival,
                 bTeamHome: rotation.home,
                 bTeamAway: rotation.away,
                 homeSurprise,
                 awaySurprise,
-                secretWeapon: weaponReason,
+                secretWeapon: weaponParts.join(' | ') || 'PICK CONFORME',
+                boldness,
+                narrative: contextIntel.narrative,
+                tip: contextIntel.tip,
             }
         })
     }

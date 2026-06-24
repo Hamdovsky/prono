@@ -1,5 +1,6 @@
 const logger = require('./logger');
 const mlPredictionService = require('../services/mlPredictionService');
+const doubleOptimizer = require('../services/doubleOptimizerService');
 const db = require('./database');
 
 
@@ -117,20 +118,33 @@ function generateGridsWithStrategicCoverage(enrichedMatches) {
 
   const grids = [];
 
+  const optimalDoubles = doubleOptimizer.selectOptimalDoubles(enrichedMatches, 13)
+
   gridConfigs.forEach((config, gridIdx) => {
-    // Strategic Double Selection: Focus on tough matches but rotate which ones we cover
-    // and ALWAYS include Crowd Traps in the selection.
-    const doubleIds = [...enrichedMatches]
-        .sort((a, b) => {
-            // Crowd Traps get a massive priority boost for doubles
-            const trapBoostA = a.isCrowdTrap ? 10 : 0;
-            const trapBoostB = b.isCrowdTrap ? 10 : 0;
-            
-            const rotationBias = (Math.sin(gridIdx + (a.id * 0.7)) * 0.4);
-            return (b.entropy + trapBoostB + rotationBias) - (a.entropy + trapBoostA);
-        })
-        .slice(0, config.doubles)
-        .map(m => m.id);
+    let doubleIds
+    if (config.bias === 'safe') {
+      doubleIds = optimalDoubles.ranked.filter(m => m.bestSingle.prob >= 0.75).slice(0, config.doubles).map(m => m.id)
+      if (doubleIds.length < config.doubles) {
+        const extra = optimalDoubles.ranked.filter(m => !doubleIds.includes(m.id)).slice(0, config.doubles - doubleIds.length).map(m => m.id)
+        doubleIds = [...doubleIds, ...extra]
+      }
+    } else if (config.bias === 'draw') {
+      const drawCandidates = optimalDoubles.ranked.filter(m => m.px > 0.28 && m.gain > 0.20)
+      doubleIds = drawCandidates.slice(0, config.doubles).map(m => m.id)
+      if (doubleIds.length < config.doubles) {
+        const extra = optimalDoubles.ranked.filter(m => !doubleIds.includes(m.id)).slice(0, config.doubles - doubleIds.length).map(m => m.id)
+        doubleIds = [...doubleIds, ...extra]
+      }
+    } else if (config.bias === 'upset') {
+      const upsetCandidates = optimalDoubles.ranked.filter(m => m.isCrowdTrap || m.isContrarian)
+      doubleIds = upsetCandidates.slice(0, config.doubles).map(m => m.id)
+      if (doubleIds.length < config.doubles) {
+        const extra = optimalDoubles.ranked.filter(m => !doubleIds.includes(m.id)).sort((a, b) => b.gain - a.gain).slice(0, config.doubles - doubleIds.length).map(m => m.id)
+        doubleIds = [...doubleIds, ...extra]
+      }
+    } else {
+      doubleIds = optimalDoubles.ranked.slice(0, config.doubles).map(m => m.id)
+    }
 
     const gridMatches = enrichedMatches.map(m => {
       const isDouble = doubleIds.includes(m.id);

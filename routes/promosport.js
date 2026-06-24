@@ -5,6 +5,7 @@ const { speedCache } = require('../core/speedCache');
 const { scrapePromosport } = require('../core/promosport_scraper');
 const { generatePromosportGrids, generateGoldCoupon } = require('../core/promosport_engine');
 const promosportIntelligence = require('../services/promosportIntelligence');
+const doubleOptimizer = require('../services/doubleOptimizerService');
 
 async function fetchOrFallback() {
   try {
@@ -168,7 +169,9 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
         survivalCount: weaponsWithChoices.filter(w => w.isSurvival).length,
         deadRubberCount: weaponsWithChoices.filter(w => w.isDeadRubber).length,
         bTeamCount: weaponsWithChoices.filter(w => w.bTeamHome?.isBTeam || w.bTeamAway?.isBTeam).length,
-        historicalConcours: promosportIntelligence.getConcoursCount ? 'N/A' : 0
+        boldCount: weaponsWithChoices.filter(w => (w.boldness?.label || '').includes('BOLD')).length,
+        valueCount: weaponsWithChoices.filter(w => (w.boldness?.label || '').includes('VALUE')).length,
+        historicalConcours: promosportIntelligence.getConcoursCount() || 0
       }
     })
   } catch (err) {
@@ -304,6 +307,52 @@ router.get('/print', speedCache('promosport_print', 60000, 300000), async (req, 
   } catch (err) {
     logger.error('❌ [PROMOSPORT] Print Error:', err.message)
     res.status(500).send('<h1>Erreur</h1><p>' + err.message + '</p>')
+  }
+})
+
+/**
+ * GET /api/promosport/double-sim
+ * Simulation de l'impact des doubles-chances sur le taux de réussite attendu.
+ */
+router.get('/double-sim', speedCache('promosport_doublesim', 300000, 1800000), async (req, res) => {
+  try {
+    const scrapedMatches = await fetchOrFallback()
+    const grids = await generatePromosportGrids(scrapedMatches)
+    if (!grids || grids.length === 0) throw new Error('Grid generation failed')
+
+    const enriched = scrapedMatches.map((m, idx) => ({
+      ...m,
+      p1: grids[0].matches[idx].p1 || m.homeWinProbability,
+      px: grids[0].matches[idx].px || m.drawProbability,
+      p2: grids[0].matches[idx].p2 || m.awayWinProbability,
+    }))
+
+    const simulation = doubleOptimizer.simulateDoubleCounts(enriched)
+    const optimal = doubleOptimizer.selectOptimalDoubles(enriched, 5)
+
+    res.json({
+      success: true,
+      concours: scrapedMatches[0]?.concoursNumber || 'N/A',
+      simulation,
+      optimal,
+      recommendation: {
+        suggestedDoubles: 5,
+        expectedCorrectWith5: optimal.expectedCorrect.withDoubles,
+        expectedCorrectAllSingles: optimal.expectedCorrect.allSingles,
+        improvement: `+${((optimal.expectedCorrect.withDoubles / optimal.expectedCorrect.allSingles - 1) * 100).toFixed(1)}%`,
+        bestMatches: optimal.ranked.filter(m => m.selected).map(m => ({
+          id: m.id,
+          match: `${m.home} vs ${m.away}`,
+          single: m.bestSingle,
+          double: m.bestDouble,
+          gain: m.gainPct,
+          coverage: m.doubleCoverage,
+        })),
+      }
+    })
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] Double Sim Error:', err.message)
+    res.status(500).json({ success: false, error: err.message })
   }
 })
 

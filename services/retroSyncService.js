@@ -13,15 +13,30 @@ class RetroSyncService {
         try {
             const now = Date.now();
             const twoHoursAgo = now - (2.5 * 60 * 60 * 1000); // 2.5 hours threshold
-            
-            // Query matches that should have finished but are still 'scheduled'
-            const pendingMatches = await db.prepare(`
-                SELECT id, "homeTeam", "awayTeam", timestamp, "fullData"
-                FROM matches
-                WHERE (status = 'scheduled' OR status IS NULL)
-                AND timestamp < ?
-                LIMIT 50
-            `).all(twoHoursAgo);
+
+            let pendingMatches;
+
+            // Force PG-compatible query if using Postgres
+            const usingPG = process.env.DATABASE_URL && db.query && !db.db;
+            if (usingPG) {
+                const result = await db.query(`
+                    SELECT id, "homeTeam", "awayTeam", timestamp, "fullData"
+                    FROM matches
+                    WHERE (status = 'scheduled' OR status IS NULL)
+                    AND CAST("startTimestamp" AS bigint) < $1
+                    LIMIT 50
+                `, [Math.floor(twoHoursAgo / 1000)]);
+                pendingMatches = result.rows || [];
+            } else {
+                // SQLite: use `timestamp` field (ISO date string)
+                pendingMatches = await db.prepare(`
+                    SELECT id, "homeTeam", "awayTeam", timestamp, "fullData"
+                    FROM matches
+                    WHERE (status = 'scheduled' OR status IS NULL)
+                    AND timestamp < ?
+                    LIMIT 50
+                `).all(twoHoursAgo);
+            }
 
             if (pendingMatches.length === 0) {
                 logger.info('✅ [RETRO-SYNC] No past pending matches found.');

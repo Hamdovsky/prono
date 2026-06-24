@@ -219,4 +219,92 @@ router.get('/analysis', speedCache('promosport_analysis', 300000, 1800000), asyn
   }
 })
 
+/**
+ * GET /api/promosport/print
+ * HTML page imprimable pour le point de vente Promosport
+ */
+router.get('/print', speedCache('promosport_print', 60000, 300000), async (req, res) => {
+  try {
+    const scrapedMatches = await fetchOrFallback()
+    const grids = await generatePromosportGrids(scrapedMatches)
+    if (!grids || grids.length === 0) throw new Error('Grid generation failed')
+
+    const concours = scrapedMatches[0]?.concoursNumber || 'N/A'
+    const date = scrapedMatches[0]?.concoursDate || new Date().toLocaleDateString()
+
+    let rows = ''
+    scrapedMatches.forEach((m, idx) => {
+      const g0 = grids[0]?.matches[idx]?.choices?.join('') || '-'
+      const g1 = grids[1]?.matches[idx]?.choices?.join('') || '-'
+      const g2 = grids[2]?.matches[idx]?.choices?.join('') || '-'
+      const g3 = grids[3]?.matches[idx]?.choices?.join('') || '-'
+      const isDouble = [g0, g1, g2, g3].some(c => c.length > 1)
+      rows += `
+        <tr${isDouble ? " class='double'" : ''}>
+          <td class='num'>${idx + 1}</td>
+          <td class='team'>${m.homeTeam}</td>
+          <td class='pick'>${g0 || '-'}</td>
+          <td class='pick'>${g1 || '-'}</td>
+          <td class='pick'>${g2 || '-'}</td>
+          <td class='pick'>${g3 || '-'}</td>
+          <td class='team'>${m.awayTeam}</td>
+        </tr>`
+    })
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket Promosport N°${concours}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Courier New', monospace; background:#fff; color:#000; padding:20px; }
+    h1 { text-align:center; font-size:20px; margin-bottom:5px; }
+    h2 { text-align:center; font-size:14px; font-weight:normal; color:#555; margin-bottom:20px; }
+    table { width:100%; border-collapse:collapse; margin-bottom:20px; }
+    th { background:#e0e0e0; padding:8px 4px; font-size:10px; text-transform:uppercase; border:1px solid #ccc; }
+    td { padding:6px 4px; font-size:11px; border:1px solid #ccc; text-align:center; }
+    td.team { text-align:left; padding-left:8px; }
+    td.num { font-weight:bold; }
+    td.pick { font-weight:bold; font-size:14px; letter-spacing:2px; }
+    .double td { background:#e8f5e9; }
+    .double td.pick { color:#2e7d32; }
+    .footer { text-align:center; margin-top:20px; font-size:12px; }
+    .footer b { font-size:16px; }
+    .legend { font-size:11px; color:#666; margin-top:10px; }
+    @media print { body { padding:10px; } th { background:#e0e0e0 !important; } }
+  </style>
+</head>
+<body>
+  <h1>PROMOSPORT TUNISIE — CONCOURS N°${concours}</h1>
+  <h2>Grille imprimable — ${date} — 4 colonnes × 0,850 DT = 3,40 DT</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>N°</th>
+        <th>Équipe 1</th>
+        <th>G1</th>
+        <th>G2</th>
+        <th>G3</th>
+        <th>G4</th>
+        <th>Équipe 2</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class='footer'>
+    <p><b>3,40 DT</b> — 4 colonnes — Budget restant: 11,60 DT</p>
+    <p class='legend'>Lignes en vert = matchs en double chance. Cochez les cases correspondantes au point de vente.</p>
+  </div>
+</body>
+</html>`
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.send(html)
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] Print Error:', err.message)
+    res.status(500).send('<h1>Erreur</h1><p>' + err.message + '</p>')
+  }
+})
+
 module.exports = router;

@@ -6,6 +6,9 @@ const SharpIntelligenceService = require('./SharpIntelligenceService');
 const bTeamDetector = require('./bTeamDetector');
 const promosportSurpriseService = require('./promosportSurpriseService');
 const tacticalContextEngine = require('./tacticalContextEngine');
+const probabilityCalibrator = require('./probabilityCalibrator');
+const competitionAnalyzer = require('./competitionAnalyzer');
+const crowdHackerService = require('./crowdHackerService');
 const logger = require('../core/logger');
 
 class PromosportIntelligence {
@@ -68,8 +71,32 @@ class PromosportIntelligence {
             const p1 = m.p1 || m.homeWinProbability || 0.33
             const px = m.px || m.drawProbability || 0.33
             const p2 = m.p2 || m.awayWinProbability || 0.34
+            
+            const calibrated = probabilityCalibrator.calibrate(p1, px, p2)
+            const p1Cal = calibrated.p1
+            const pxCal = calibrated.px
+            const p2Cal = calibrated.p2
+            
             const crowdFav = p1 > p2 ? '1' : (p2 > p1 ? '2' : 'X')
-            const realFav = p1 > 0.45 ? '1' : (p2 > 0.40 ? '2' : 'X')
+            const realFav = p1Cal > 0.45 ? '1' : (p2Cal > 0.40 ? '2' : 'X')
+            
+            const competitionIntel = competitionAnalyzer.getMatchIntel(homeName, awayName, idx + 1)
+            const crowdSignal = crowdHackerService.getContrarianSignal(m)
+            
+            let crowdAnalysis = []
+            if (crowdSignal) {
+                crowdAnalysis.push(`Promosport: ${crowdSignal.promosportPick} (${crowdSignal.promosportAccuracy}%)`)
+                if (crowdSignal.modelAdvantage > 0) {
+                    crowdAnalysis.push(`🔥 Avantage modèle: +${crowdSignal.modelAdvantage}pts`)
+                }
+                if (crowdSignal.historicalEdge) {
+                    crowdAnalysis.push(`📊 Historique contrariant: ${crowdSignal.modelVersusPromosport.disagree}%`)
+                }
+            }
+            
+            if (competitionIntel.analysis.length > 0) {
+                crowdAnalysis.push(...competitionIntel.analysis)
+            }
 
             const homeSurprise = promosportSurpriseService.getSurpriseStats(homeName)
             const awaySurprise = promosportSurpriseService.getSurpriseStats(awayName)
@@ -82,6 +109,9 @@ class PromosportIntelligence {
             )
 
             const weaponParts = []
+            if (crowdAnalysis.length > 0) {
+                weaponParts.push(`👥 CROWD: ${crowdAnalysis.join(' | ')}`)
+            }
             if (rotation.home.isBTeam || rotation.away.isBTeam) {
                 weaponParts.push(`🔴 B TEAM`)
                 if (rotation.home.isBTeam) weaponParts.push(`${homeName}: ${rotation.home.reason}`)
@@ -124,6 +154,9 @@ class PromosportIntelligence {
                 p1: +(p1 * 100).toFixed(0),
                 px: +(px * 100).toFixed(0),
                 p2: +(p2 * 100).toFixed(0),
+                p1Cal: +(p1Cal * 100).toFixed(0),
+                pxCal: +(pxCal * 100).toFixed(0),
+                p2Cal: +(p2Cal * 100).toFixed(0),
                 crowdFav,
                 realFav,
                 isContrarian: crowdFav !== realFav,
@@ -137,6 +170,8 @@ class PromosportIntelligence {
                 boldness,
                 narrative: contextIntel.narrative,
                 tip: contextIntel.tip,
+                crowdAnalysis,
+                competitionIntel: competitionIntel.indexIntel,
             }
         })
     }

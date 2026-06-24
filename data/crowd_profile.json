@@ -1,0 +1,36 @@
+{
+  "promosportAccuracy": {
+    "1": {
+      "correct": 0,
+      "total": 0,
+      "rate": 0
+    },
+    "2": {
+      "correct": 0,
+      "total": 0,
+      "rate": 0
+    },
+    "X": {
+      "correct": 0,
+      "total": 0,
+      "rate": 0
+    }
+  },
+  "modelVersusPromosport": {
+    "agree": {
+      "correct": 0,
+      "total": 0,
+      "pct": 0
+    },
+    "disagree": {
+      "correct": 0,
+      "total": 0,
+      "pct": 0
+    }
+  },
+  "promosportBiasByConfidence": [],
+  "contrarianOpportunities": [],
+  "totalMatches": 4790,
+  "promosportOverallAccuracy": 0,
+  "contrarianHitRate": 0
+}

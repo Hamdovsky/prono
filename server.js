@@ -273,28 +273,9 @@ app.post('/api/seed/emergency', async (req, res) => {
     const db = require('./core/database')
     const { seedDemoMatches } = require('./scripts/seed_emergency')
     const count = await seedDemoMatches(db)
-    res.json({ success: true, message: `Seeded ${count} matches via emergency seed`, dbType: db.insertMatch ? 'pg' : 'sqlite' })
+    res.json({ success: true, message: `Seeded ${count} matches via emergency seed` })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
-  }
-})
-
-app.get('/api/db-check', async (req, res) => {
-  try {
-    const db = require('./core/database')
-    const isPg = !!db.insertMatch
-    let tables = []
-    let matchCount = 0
-    if (isPg) {
-      try { const r = await db.exec("SELECT table_name FROM information_schema.tables WHERE table_schema='public'"); tables = r.rows || [] } catch (e) {}
-      try { const r = await db.query('SELECT COUNT(*) as cnt FROM matches'); matchCount = r.rows?.[0]?.cnt || 0 } catch (e) { matchCount = -1 }
-    } else {
-      try { tables = db.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() } catch (e) {}
-      try { matchCount = db.db.prepare('SELECT COUNT(*) as c FROM matches').get()?.c || 0 } catch (e) { matchCount = -1 }
-    }
-    res.json({ dbType: isPg ? 'postgres' : 'sqlite', tables: tables.map(t => t.table_name || t.name), matchCount })
-  } catch (e) {
-    res.status(500).json({ error: e.message })
   }
 })
 

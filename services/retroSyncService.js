@@ -22,8 +22,9 @@ class RetroSyncService {
                 const result = await db.query(`
                     SELECT id, "homeTeam", "awayTeam", timestamp, "fullData"
                     FROM matches
-                    WHERE (status = 'scheduled' OR status IS NULL)
+                    WHERE (status IN ('scheduled', 'NOT_STARTED') OR status IS NULL)
                     AND CAST("startTimestamp" AS bigint) < $1
+                    ORDER BY "startTimestamp" ASC
                     LIMIT 50
                 `, [Math.floor(twoHoursAgo / 1000)]);
                 pendingMatches = result.rows || [];
@@ -32,8 +33,9 @@ class RetroSyncService {
                 pendingMatches = await db.prepare(`
                     SELECT id, "homeTeam", "awayTeam", timestamp, "fullData"
                     FROM matches
-                    WHERE (status = 'scheduled' OR status IS NULL)
+                    WHERE (status IN ('scheduled', 'NOT_STARTED') OR status IS NULL)
                     AND timestamp < ?
+                    ORDER BY timestamp ASC
                     LIMIT 50
                 `).all(twoHoursAgo);
             }

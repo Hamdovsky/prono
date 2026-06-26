@@ -90,7 +90,15 @@ class PromosportIntelligence {
                     crowdAnalysis.push(`🔥 Avantage modèle: +${crowdSignal.modelAdvantage}pts`)
                 }
                 if (crowdSignal.historicalEdge) {
-                    crowdAnalysis.push(`📊 Historique contrariant: ${crowdSignal.modelVersusPromosport.disagree}%`)
+                    crowdAnalysis.push(`📊 Contrariant: ${crowdSignal.modelVersusPromosport.disagreeAccuracy}% de réussite`)
+                }
+                if (crowdSignal.tunisianCrowd) {
+                    const tc = crowdSignal.tunisianCrowd
+                    if (tc.contrarianSignal) {
+                        crowdAnalysis.push(tc.contrarianSignal.reason)
+                    } else {
+                        crowdAnalysis.push(`Foule: ${tc.crowdFav}@${tc.favPct}% (${tc.crowdAccuracy}% fiable)`)
+                    }
                 }
             }
             
@@ -172,6 +180,7 @@ class PromosportIntelligence {
                 tip: contextIntel.tip,
                 crowdAnalysis,
                 competitionIntel: competitionIntel.indexIntel,
+                tunisianCrowd: crowdSignal?.tunisianCrowd || null,
             }
         })
     }

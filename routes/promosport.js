@@ -6,6 +6,8 @@ const { scrapePromosport } = require('../core/promosport_scraper');
 const { generatePromosportGrids, generateGoldCoupon } = require('../core/promosport_engine');
 const promosportIntelligence = require('../services/promosportIntelligence');
 const doubleOptimizer = require('../services/doubleOptimizerService');
+const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper');
+const crowdHackerService = require('../services/crowdHackerService');
 
 async function fetchOrFallback() {
   try {
@@ -352,6 +354,68 @@ router.get('/double-sim', speedCache('promosport_doublesim', 300000, 1800000), a
     })
   } catch (err) {
     logger.error('❌ [PROMOSPORT] Double Sim Error:', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * GET /api/promosport/tunisie/:grid
+ * Scrape a Tunisian Promosport grid and analyze crowd
+ */
+router.get('/tunisie/:grid', speedCache('promosport_tn', 120000, 600000), async (req, res) => {
+  try {
+    const gridNo = parseInt(req.params.grid)
+    if (isNaN(gridNo)) return res.status(400).json({ success: false, error: 'Invalid grid number' })
+
+    const grid = await scrapeTunisieGrid(gridNo)
+    if (!grid) return res.status(404).json({ success: false, error: `Grid ${gridNo} not found` })
+
+        const analysis = grid.matches.map((m) => {
+          const crowdSignal = crowdHackerService.getContrarianSignal({
+            publicVote: m.publicVote,
+            homeWinProbability: m.publicVote?.p1 ? m.publicVote.p1 / 100 : undefined,
+            drawProbability: m.publicVote?.px ? m.publicVote.px / 100 : undefined,
+            awayWinProbability: m.publicVote?.p2 ? m.publicVote.p2 / 100 : undefined,
+          })
+
+          const picks = m.publicVote
+            ? Object.entries({ 1: m.publicVote.p1, X: m.publicVote.px, 2: m.publicVote.p2 })
+                .sort((a, b) => b[1] - a[1])
+            : null
+
+      return {
+        idx: m.idx,
+        home: m.home,
+        away: m.away,
+        score: `${m.scoreHome}-${m.scoreAway}`,
+        result: m.result,
+        crowdVote: m.publicVote,
+        crowdFavorite: picks ? picks[0][0] : null,
+        crowdFavoritePct: picks ? picks[0][1] : null,
+        crowdCorrect: picks ? picks[0][0] === m.result : null,
+        contrarianSignal: crowdSignal?.tunisianCrowd || null,
+      }
+    })
+
+    const withResult = analysis.filter(a => a.result && a.result !== 'N')
+    const crowdRight = withResult.filter(a => a.crowdCorrect).length
+    const crowdTotal = withResult.length
+
+    res.json({
+      success: true,
+      grid: grid.no,
+      cagnotte: grid.cagnotte,
+      cagnotteFormatted: grid.cagnotte ? `${grid.cagnotte.toLocaleString()} TND` : null,
+      matches: analysis,
+      crowdSummary: {
+        total: crowdTotal,
+        right: crowdRight,
+        wrong: crowdTotal - crowdRight,
+        accuracy: crowdTotal > 0 ? +(crowdRight / crowdTotal * 100).toFixed(1) : null,
+      },
+    })
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] Tunisian Grid Error:', err.message)
     res.status(500).json({ success: false, error: err.message })
   }
 })

@@ -1,0 +1,140 @@
+const fs = require('fs')
+const path = require('path')
+const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper')
+const logger = require('../core/logger')
+
+const CROWD_PATH = path.join(__dirname, '..', 'data', 'crowd_profile.json')
+const VOTE_HISTORY_PATH = path.join(__dirname, '..', 'data', 'tunisian_vote_history.json')
+
+async function collectLatestGrid() {
+  // Try current year (2026), fallback to 2025
+  let grid = await scrapeTunisieGrid(876) // latest known
+  if (!grid || grid.matches.length < 5) {
+    grid = await scrapeTunisieGrid(875)
+  }
+  if (!grid || grid.matches.length < 5) {
+    logger.warn('[CROWD-COLLECT] No valid grid found')
+    return null
+  }
+
+  // Load vote history
+  let history = []
+  if (fs.existsSync(VOTE_HISTORY_PATH)) {
+    try { history = JSON.parse(fs.readFileSync(VOTE_HISTORY_PATH, 'utf-8')) }
+    catch (e) { history = [] }
+  }
+
+  // Skip if already collected
+  if (history.some(h => h.grid === grid.no)) {
+    logger.info(`[CROWD-COLLECT] Grid ${grid.no} already collected (${history.filter(h => h.grid === grid.no).length} matches)`)
+    return null
+  }
+
+  // Collect only matches with results and votes
+  const collected = grid.matches
+    .filter(m => m.result && m.publicVote && m.result !== 'N')
+    .map(m => ({
+      grid: grid.no,
+      idx: m.idx,
+      home: m.home,
+      away: m.away,
+      scoreHome: m.scoreHome,
+      scoreAway: m.scoreAway,
+      result: m.result,
+      vote1: m.publicVote.p1,
+      voteX: m.publicVote.px,
+      vote2: m.publicVote.p2,
+      collectedAt: new Date().toISOString(),
+    }))
+
+  history.push(...collected)
+  fs.writeFileSync(VOTE_HISTORY_PATH, JSON.stringify(history, null, 2))
+
+  // Update crowd profile with new data
+  await rebuildCrowdProfile(history)
+
+  logger.info(`[CROWD-COLLECT] Grid ${grid.no}: collected ${collected.length} matches (total: ${history.length})`)
+  return { grid: grid.no, collected: collected.length, total: history.length }
+}
+
+async function rebuildCrowdProfile(allMatches) {
+  if (allMatches.length === 0) return
+
+  let total = 0
+  let right = 0
+  const byBin = {}
+
+  for (const m of allMatches) {
+    const picks = [
+      { label: '1', pct: m.vote1 },
+      { label: 'X', pct: m.voteX },
+      { label: '2', pct: m.vote2 },
+    ]
+    picks.sort((a, b) => b.pct - a.pct)
+    const crowdFav = picks[0].label
+    const favPct = picks[0].pct
+    const correct = crowdFav === m.result
+
+    const bin = Math.floor(favPct / 10) * 10
+    if (!byBin[bin]) byBin[bin] = { right: 0, total: 0 }
+    byBin[bin].total++
+    if (correct) byBin[bin].right++
+
+    total++
+    if (correct) right++
+  }
+
+  const weak = Object.entries(byBin).filter(([k]) => parseInt(k) < 70)
+    .reduce((s, [, d]) => ({ r: s.r + d.right, t: s.t + d.total }), { r: 0, t: 0 })
+  const strong = Object.entries(byBin).filter(([k]) => parseInt(k) >= 70)
+    .reduce((s, [, d]) => ({ r: s.r + d.right, t: s.t + d.total }), { r: 0, t: 0 })
+
+  // Load existing profile and update tunisianCrowd
+  let profile = {}
+  if (fs.existsSync(CROWD_PATH)) {
+    try { profile = JSON.parse(fs.readFileSync(CROWD_PATH, 'utf-8')) }
+    catch (e) { profile = {} }
+  }
+
+  profile.tunisianCrowd = {
+    totalMatches: total,
+    crowdRight: right,
+    crowdWrong: total - right,
+    crowdAccuracy: +(right / total * 100).toFixed(1),
+    byConfidence: Object.entries(byBin)
+      .sort((a, b) => a[0] - b[0])
+      .map(([bin, data]) => ({
+        bin: `${bin}-${parseInt(bin) + 9}%`,
+        total: data.total,
+        right: data.right,
+        accuracy: +(data.right / data.total * 100).toFixed(1),
+      })),
+    gridsAnalyzed: [...new Set(allMatches.map(m => m.grid))].sort(),
+    insight: {
+      weakConfidence_under70: {
+        accuracy: weak.t > 0 ? +(weak.r / weak.t * 100).toFixed(1) : 0,
+        action: 'CONTRARIAN - prendre l\'opposé du favori',
+      },
+      strongConfidence_70plus: {
+        accuracy: strong.t > 0 ? +(strong.r / strong.t * 100).toFixed(1) : 0,
+        action: 'SUIVRE la foule (prudence)',
+      },
+    },
+    lastUpdated: new Date().toISOString(),
+  }
+
+  fs.writeFileSync(CROWD_PATH, JSON.stringify(profile, null, 2))
+  logger.info(`[CROWD-COLLECT] Profile rebuilt: ${total} matches, ${right} right (${((right / total) * 100).toFixed(1)}%)`)
+}
+
+// Auto-run if called directly
+if (require.main === module) {
+  collectLatestGrid()
+    .then(r => {
+      if (r) console.log(`Collected grid ${r.grid}: ${r.collected} new matches (${r.total} total)`)
+      else console.log('No new grid data')
+    })
+    .catch(e => console.error(e))
+}
+
+module.exports = { collectLatestGrid, rebuildCrowdProfile }

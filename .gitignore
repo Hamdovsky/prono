@@ -105,6 +105,9 @@ __pycache__/
 # opencode config
 .opencode/
 
+# Credentials — DO NOT COMMIT
+AGENTS.md
+
 # Debug scratch files
 data/db_final.js
 data/db_query1.js

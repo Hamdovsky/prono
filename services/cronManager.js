@@ -86,6 +86,13 @@ class CronManager {
             }
         }, { timezone: 'Europe/Paris' });
 
+        // 9.5 Tunisian Promosport Crowd Collector (08:00 daily)
+        cron.schedule('0 8 * * *', () => {
+            logger.info('🇹🇳 [CRON] Launching Tunisian Crowd Collector...');
+            const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'crowd_collector.js')], { stdio: 'inherit', windowsHide: true });
+            proc.on('close', code => logger.info(`✅ [CRON] Tunisian Crowd finished (code ${code})`));
+        }, { timezone: 'Africa/Tunis' });
+
         // 10.1 Universal Omniscience Predictor (Every 2 hours for near-real-time tactical updates)
         cron.schedule('0 */2 * * *', () => {
             logger.info('🚀 [CRON] Launching Universal Bulk Predictor...');

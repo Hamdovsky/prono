@@ -169,6 +169,9 @@ class CrowdHackerService {
 
     const modelEdge = biasBin && biasBin.modelAccuracy > biasBin.promosportAccuracy
 
+    // Tunisian crowd signal (real public vote data from promosport-pronostic.com)
+    const tunisianCrowd = this.getTunisianCrowdSignal(matchData)
+
     return {
       promosportPick,
       promosportAccuracy: this.promosportBiasProfile.promosportOverallAccuracy,
@@ -180,6 +183,62 @@ class CrowdHackerService {
       },
       historicalEdge: hasHistoricalEdge,
       modelAdvantage: modelEdge ? +(biasBin.modelAccuracy - biasBin.promosportAccuracy).toFixed(1) : 0,
+      tunisianCrowd,
+    }
+  }
+
+  getTunisianCrowdSignal(matchData) {
+    if (!matchData.publicVote && !matchData.homeWinProbability) return null
+
+    let p1, px, p2
+
+    if (matchData.publicVote) {
+      p1 = matchData.publicVote.p1
+      px = matchData.publicVote.px
+      p2 = matchData.publicVote.p2
+    } else {
+      const total = matchData.homeWinProbability + matchData.drawProbability + matchData.awayWinProbability
+      p1 = +(matchData.homeWinProbability / total * 100).toFixed(0)
+      px = +(matchData.drawProbability / total * 100).toFixed(0)
+      p2 = +(matchData.awayWinProbability / total * 100).toFixed(0)
+    }
+
+    const picks = [
+      { label: '1', pct: p1 },
+      { label: 'X', pct: px },
+      { label: '2', pct: p2 },
+    ]
+    picks.sort((a, b) => b.pct - a.pct)
+    const crowdFav = picks[0].label
+    const favPct = picks[0].pct
+
+    // Historical accuracy of Tunisian crowd at this confidence level (from 71 matches)
+    const bin = Math.floor(favPct / 10) * 10
+    const crowdAccByBin = {
+      30: 50.0, 40: 42.9, 50: 37.1,
+      60: 77.8, 70: 50.0, 80: 50.0, 90: 100.0,
+    }
+    const crowdAccuracy = bin <= 30 ? 50.0 : (crowdAccByBin[bin] ?? 46.5)
+
+    const modelPick = matchData.predictedWinner
+      ? (matchData.predictedWinner === 'home' ? '1' : matchData.predictedWinner === 'away' ? '2' : 'X')
+      : null
+
+    const modelAgreesWithCrowd = modelPick === crowdFav
+    const contrarianSignal = modelPick && !modelAgreesWithCrowd && favPct < 70
+      ? { type: 'STRONG_CONTRARIAN', reason: `Crowd only ${favPct}% on ${crowdFav} (historically ${crowdAccuracy}% accurate)` }
+      : null
+
+    return {
+      crowdFav,
+      favPct,
+      p1, px, p2,
+      crowdAccuracy,
+      modelAgreesWithCrowd,
+      contrarianSignal,
+      recommendation: favPct < 70
+        ? `Favori foule à ${favPct}% — historiquement ${crowdAccuracy}% correct. Considérer l'inverse.`
+        : `Favori foule à ${favPct}% — fiable dans ${crowdAccuracy}% des cas.`,
     }
   }
 

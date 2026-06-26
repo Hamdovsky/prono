@@ -1,3 +1,6 @@
+// NOTE: Il y a DEUX implémentations Redis (celle-ci + config/redis.config.js).
+// Celle-ci est utilisée par le cache de l'API ; l'autre par la config centralisée.
+// À terme, fusionner dans une seule. Pour l'instant les deux coexistent.
 const CircuitBreaker = require('./circuitBreaker');
 const redisBreaker = require('./circuitBreaker').breakers.redis;
 const Redis = require('ioredis');

@@ -23,6 +23,7 @@
     "seed": "node scripts/seed_emergency.js",
     "test": "jest --coverage --detectOpenHandles",
     "test:watch": "jest --watch",
+    "test:python": "python -m pytest tests/ -v",
     "cleanup:dry": "node archive/scripts_legacy/cleanup_root.js --dry",
     "cleanup": "node archive/scripts_legacy/cleanup_root.js",
     "optimize": "npm run db:optimize && npm run build"

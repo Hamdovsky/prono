@@ -297,6 +297,14 @@ class CronManager {
         this.scraperSchedule.running = true;
         this.scraperSchedule.lastRun = new Date().toISOString();
         
+        // ⏱️ Auto-reset after 30 minutes si le flag reste bloqué
+        const safetyTimer = setTimeout(() => {
+            if (this.scraperSchedule.running) {
+                logger.warn(`⚠️ [CRON] Scraper (${label}) safety timeout — auto-reset running flag`)
+                this.scraperSchedule.running = false
+            }
+        }, 30 * 60 * 1000)
+        
         logger.info(`📡 [CRON] Launching Scraper (${label}) via bridge...`);
         
         // Use scraper bridge: calls serverless worker if configured, otherwise runs locally
@@ -307,6 +315,7 @@ class CronManager {
             logger.error(`[CRON] Scraper bridge failed: ${err.message}`)
         }
         
+        clearTimeout(safetyTimer)
         this.scraperSchedule.running = false;
         await redisCache.setLastRun(Date.now()).catch(() => {});
         await redisCache.redis?.del('scraper:lock').catch(() => {});

@@ -6,7 +6,7 @@
 
 notifications:
   - type: email
-    to: hamdi@example.com  # ← Remplace par ton email Render
+    to: hamdi@example.com  # ← Remplace par ton email Render dans le Dashboard (Settings → Notifications)
     events:
       - deploy_failure
       - service_down

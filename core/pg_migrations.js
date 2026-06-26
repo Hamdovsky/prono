@@ -1,6 +1,16 @@
 const { getPool, usingPostgres, query } = require('./pg_connector')
 const logger = require('./logger')
 
+const MIGRATIONS_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS _migrations (
+    id SERIAL PRIMARY KEY,
+    version TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    applied_at TIMESTAMPTZ DEFAULT NOW(),
+    checksum TEXT
+);
+`
+
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS matches (
     id TEXT PRIMARY KEY,
@@ -580,6 +590,15 @@ async function runMigrations() {
       ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "${currentUser || 'your_user'}";`)
     }
 
+    // Track migration version
+    try {
+      await query(MIGRATIONS_TABLE_SQL)
+      const existing = await query(`SELECT 1 FROM _migrations WHERE version = '1.0.0'`)
+      if (existing.rows.length === 0) {
+        await query(`INSERT INTO _migrations (version, name) VALUES ('1.0.0', 'Initial schema')`)
+      }
+    } catch (_) {}
+
     return { applied: 1, skipped: false }
   } catch (err) {
     logger.error(`[PG MIGRATIONS] Failed: ${err.message}`)
@@ -587,4 +606,4 @@ async function runMigrations() {
   }
 }
 
-module.exports = { runMigrations, SCHEMA_SQL }
+module.exports = { runMigrations, SCHEMA_SQL, MIGRATIONS_TABLE_SQL }

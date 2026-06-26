@@ -1,24 +1,36 @@
-FROM node:20-slim
+# ─── Build stage ─────────────────────────────────────────
+FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Prebuilt binaries only — no g++/make/python3 needed for better-sqlite3
 COPY package*.json ./
-
-# CRITICAL: skip Chromium (400MB) and Redis binary downloads
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV REDISMS_DISABLE_POSTINSTALL=true
 RUN npm install
 
 COPY . .
+RUN npm run build
+RUN npm prune --omit=dev
+
+# ─── Production stage ────────────────────────────────────
+FROM node:20-slim
+
+WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV REDISMS_DISABLE_POSTINSTALL=true
 
-# Build frontend only if dist is missing (pre-built dist can be committed)
-RUN if [ ! -f dist/index.html ]; then npm run build; fi
-RUN npm prune --omit=dev
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/server.js ./
+COPY --from=build /app/core ./core
+COPY --from=build /app/services ./services
+COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/config ./config
+COPY --from=build /app/tools ./tools
+COPY --from=build /app/backup_service.js ./
+COPY --from=build /app/package.json ./
 
 EXPOSE 3001
 

@@ -8,15 +8,10 @@ envVarGroups:
 
 notifications:
   - type: email
-    to: hamdi@example.com  # ← Remplace par ton email Render
+    to: hamdi@example.com  # ← Remplace par ton email Render dans le Dashboard (Settings → Notifications)
     events:
       - deploy_failure
       - service_down
-  - type: slack
-    webhookUrl: https://hooks.slack.com/services/...  # ← Optionnel, à configurer depuis le Dashboard
-    events:
-      - deploy
-      - deploy_failure
 
 services:
   # ── Node.js Web App (prono-k6gc, Compte 1) ──────────────

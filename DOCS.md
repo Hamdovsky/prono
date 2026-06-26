@@ -10,11 +10,11 @@ This file serves as the main index for all project documentation.
 |----------|-------------|
 | [README.md](./README.md) | Main project overview, installation, usage |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture, data flows, components |
-| [API.md](./API.md) | Complete OpenAPI/Swagger documentation |
-| [DEPLOY.md](./DEPLOY.md) | Deployment guides (dev, staging, prod) |
-| [RUNBOOKS/](./RUNBOOKS/) | Incident response and operational procedures |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | Development guidelines, Git workflow |
-| [CHANGELOG.md](./CHANGELOG.md) | Version history and release notes |
+| [API.md](./API.md) | Complete API documentation *(à générer via Swagger/OpenAPI)* |
+| [DEPLOY.md](./DEPLOY.md) | Deployment guides *(à rédiger)* |
+| [RUNBOOKS/](./RUNBOOKS/) | Incident response and operational procedures *(à créer)* |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Development guidelines, Git workflow *(à rédiger)* |
+| [CHANGELOG.md](./CHANGELOG.md) | Version history and release notes *(à rédiger)* |
 
 ## 🏗️ Architecture
 

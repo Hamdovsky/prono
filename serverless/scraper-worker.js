@@ -85,30 +85,43 @@ function mergeFixtures(primary, secondary) {
   }
 }
 
+// ─── Helper: safe timed source fetch ────────────────────
+function timedFetch(promise, label, timeoutMs = 20000) {
+  const timer = new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs))
+  return Promise.race([promise, timer])
+}
+
 // ─── Scrape: fixtures via ALL available APIs ────────────
 app.post('/scrape', requireAuth, async (req, res) => {
   await runTask('scrape', async () => {
     const database = require('../core/database')
     const dateStr = req.body?.date || new Date().toISOString().split('T')[0]
 
-    // 1. Fire all primary sources in parallel
+    // 1. Fire all primary sources in parallel with timeouts
     const sources = []
     const httpScraperService = require('../services/httpScraperService')
-    if (httpScraperService.isAvailable()) sources.push(httpScraperService.fetchAllFixtures(dateStr))
+    if (httpScraperService.isAvailable()) {
+      sources.push(
+        timedFetch(httpScraperService.fetchAllFixtures(dateStr), 'api-football')
+          .catch(() => [])
+      )
+    }
 
     // BSD
     try {
       const bsdService = require('../services/bsdService')
       if (bsdService.isAvailable()) {
         sources.push(
-          bsdService.fetchEvents(dateStr).then(events => {
-            if (!events || events.length === 0) return []
-            return events.map(e => {
-              const m = bsdService._mapEventToMatch(e)
-              m.bsd_match_id = String(e.id || e.match_id || '')
-              return m
+          timedFetch(bsdService.fetchEvents(dateStr), 'bsd')
+            .then(events => {
+              if (!events || events.length === 0) return []
+              return events.map(e => {
+                const m = bsdService._mapEventToMatch(e)
+                m.bsd_match_id = String(e.id || e.match_id || '')
+                return m
+              })
             })
-          })
+            .catch(() => [])
         )
       }
     } catch (_) {}
@@ -117,7 +130,10 @@ app.post('/scrape', requireAuth, async (req, res) => {
     try {
       const openligadbService = require('../services/openligadbService')
       if (openligadbService.isAvailable()) {
-        sources.push(openligadbService.fetchEvents(dateStr))
+        sources.push(
+          timedFetch(openligadbService.fetchEvents(dateStr), 'openligadb')
+            .catch(() => [])
+        )
       }
     } catch (_) {}
 

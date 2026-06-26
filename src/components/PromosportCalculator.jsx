@@ -5,6 +5,32 @@ const TAX_RATE = 0.06
 
 const PICK_LABELS = { 1: '1', 2: 'X', 3: '2' }
 
+const getPickProb = (m, pick) => {
+  if (!m) return 0.33
+  const h = (m.mlProbs?.h ?? m.probs?.h ?? 33) / 100
+  const x = (m.mlProbs?.x ?? m.probs?.x ?? 33) / 100
+  const a = (m.mlProbs?.a ?? m.probs?.a ?? 34) / 100
+  if (pick === 1) return h
+  if (pick === 3) return a
+  return x
+}
+
+const bestPick = (m) => {
+  if (!m) return 1
+  const h = m.mlProbs?.h ?? m.probs?.h ?? 33
+  const x = m.mlProbs?.x ?? m.probs?.x ?? 33
+  const a = m.mlProbs?.a ?? m.probs?.a ?? 34
+  if (h >= x && h >= a) return 1
+  if (a >= h && a >= x) return 3
+  return 2
+}
+
+const doubleAlt = (pick) => {
+  if (pick === 1) return 2
+  if (pick === 3) return 2
+  return 1
+}
+
 export default function PromosportCalculator({ matches, fetcher }) {
   const [cols, setCols] = useState(4)
   const [doubles, setDoubles] = useState(5)
@@ -13,6 +39,7 @@ export default function PromosportCalculator({ matches, fetcher }) {
   const [error, setError] = useState(null)
   const [generatedCols, setGeneratedCols] = useState(null)
   const [showAllCols, setShowAllCols] = useState(false)
+  const [sortBy, setSortBy] = useState('index')
 
   const calcLocal = (c, d) => {
     const full = Math.pow(2, d)
@@ -77,57 +104,46 @@ export default function PromosportCalculator({ matches, fetcher }) {
     const numToGen = Math.min(cols, fullSystem, 256)
     const columns = []
 
-    const bestPick = (m) => {
-      if (!m) return 1
-      const h = m.mlProbs?.h ?? m.probs?.h ?? 33
-      const x = m.mlProbs?.x ?? m.probs?.x ?? 33
-      const a = m.mlProbs?.a ?? m.probs?.a ?? 34
-      if (h >= x && h >= a) return 1
-      if (a >= h && a >= x) return 3
-      return 2
-    }
-
-    const doubleAlt = (pick) => {
-      if (pick === 1) return 2
-      if (pick === 3) return 2
-      return 1
-    }
-
-    const indices = []
-    for (let i = 0; i < numToGen; i++) indices.push(i)
-
-    // Use the last `doubles` matches for covering
     const doubleMatchIndices = []
     for (let i = Math.max(0, matches.length - doubles); i < matches.length; i++) {
       doubleMatchIndices.push(i)
     }
 
-    indices.forEach(idx => {
-      const col = matches.map((m, mi) => {
+    for (let idx = 0; idx < numToGen; idx++) {
+      const picks = matches.map((m, mi) => {
         const di = doubleMatchIndices.indexOf(mi)
-        if (di === -1) {
-          return bestPick(m)
-        }
-        // This match is a double: vary based on idx bits
+        if (di === -1) return bestPick(m)
         const bit = (idx >> di) & 1
         const base = bestPick(m)
         return bit === 0 ? base : doubleAlt(base)
       })
-      columns.push(col)
-    })
+      const expected = picks.reduce((sum, pick, pi) => sum + getPickProb(matches[pi], pick), 0)
+      columns.push({ picks, expected })
+    }
 
     setGeneratedCols({ columns, count: numToGen, total: fullSystem })
   }
 
   const displayCols = useMemo(() => {
     if (!generatedCols) return null
-    const limit = showAllCols ? generatedCols.count : Math.min(32, generatedCols.count)
-    return {
-      cols: generatedCols.columns.slice(0, limit),
-      showing: limit,
-      total: generatedCols.count
-    }
-  }, [generatedCols, showAllCols])
+    let sorted = [...generatedCols.columns]
+    if (sortBy === 'expected') sorted.sort((a, b) => b.expected - a.expected)
+    else if (sortBy === 'index') sorted.sort((a, b) => generatedCols.columns.indexOf(a) - generatedCols.columns.indexOf(b))
+    const limit = showAllCols ? sorted.length : Math.min(32, sorted.length)
+    return { cols: sorted.slice(0, limit), showing: limit, total: generatedCols.count }
+  }, [generatedCols, showAllCols, sortBy])
+
+  const stats = useMemo(() => {
+    if (!generatedCols || generatedCols.columns.length === 0) return null
+    const expectedVals = generatedCols.columns.map(c => c.expected)
+    const avg = expectedVals.reduce((s, v) => s + v, 0) / expectedVals.length
+    const best = Math.max(...expectedVals)
+    const worst = Math.min(...expectedVals)
+    const bestIdx = expectedVals.indexOf(best)
+    const worstIdx = expectedVals.indexOf(worst)
+    const prob13 = expectedVals.filter(v => v >= 12.5).length / expectedVals.length * 100
+    return { avg, best, worst, bestIdx, worstIdx, prob13, count: expectedVals.length }
+  }, [generatedCols])
 
   return (
     <div className="promosport-calculator" style={{ padding: '20px' }}>
@@ -315,22 +331,53 @@ export default function PromosportCalculator({ matches, fetcher }) {
               🎲 GÉNÉRER LES COLONNES
             </button>
 
-            {displayCols && (
+            {displayCols && stats && (
               <div style={{ marginTop: '16px', background: 'rgba(0,0,0,0.25)', borderRadius: '12px', padding: '16px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700' }}>
-                    {displayCols.cols.length} colonnes générées sur {generatedCols.total} possibles
+                {/* Stats Dashboard */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ color: '#818cf8', fontSize: '1.4rem', fontWeight: '900' }}>{(stats.avg).toFixed(1)}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: '700' }}>Moyenne /13</div>
+                  </div>
+                  <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ color: '#34d399', fontSize: '1.4rem', fontWeight: '900' }}>{stats.best.toFixed(1)}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: '700' }}>Meilleure /13</div>
+                  </div>
+                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ color: '#f87171', fontSize: '1.4rem', fontWeight: '900' }}>{stats.worst.toFixed(1)}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: '700' }}>Pire /13</div>
+                  </div>
+                  <div style={{ background: 'rgba(251, 191, 36, 0.1)', padding: '10px', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ color: '#fbbf24', fontSize: '1.4rem', fontWeight: '900' }}>{stats.prob13.toFixed(1)}%</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: '700' }}>≥ 12.5/13</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: '700' }}>
+                    {displayCols.cols.length} colonnes affichées · {generatedCols.count} générées sur {generatedCols.total} possibles
                   </span>
-                  {generatedCols.count > 32 && (
-                    <button onClick={() => setShowAllCols(s => !s)}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button onClick={() => setSortBy(sortBy === 'expected' ? 'index' : 'expected')}
                       style={{
-                        background: 'transparent', border: '1px solid #818cf8', color: '#818cf8',
-                        padding: '4px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '700',
+                        background: sortBy === 'expected' ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                        border: '1px solid #818cf8', color: '#818cf8',
+                        padding: '4px 10px', borderRadius: '6px', fontSize: '0.65rem', fontWeight: '700',
                         cursor: 'pointer'
                       }}>
-                      {showAllCols ? 'Montrer moins' : 'Tout montrer'}
+                      {sortBy === 'expected' ? 'Tri: Score ↓' : 'Tri: Index'}
                     </button>
-                  )}
+                    {generatedCols.count > 32 && (
+                      <button onClick={() => setShowAllCols(s => !s)}
+                        style={{
+                          background: 'transparent', border: '1px solid #818cf8', color: '#818cf8',
+                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.65rem', fontWeight: '700',
+                          cursor: 'pointer'
+                        }}>
+                        {showAllCols ? 'Réduire' : 'Tout'}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.7rem' }}>
@@ -342,6 +389,9 @@ export default function PromosportCalculator({ matches, fetcher }) {
                             {i + 1}
                           </th>
                         ))}
+                        <th style={{ padding: '4px 8px', color: '#818cf8', textAlign: 'center', fontSize: '0.6rem', fontWeight: '700', minWidth: '50px', borderLeft: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                          SCORE
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -350,7 +400,7 @@ export default function PromosportCalculator({ matches, fetcher }) {
                           <td style={{ padding: '4px 6px', color: '#818cf8', fontWeight: '700', textAlign: 'center', position: 'sticky', left: 0, background: '#0f172a', zIndex: 1 }}>
                             {ci + 1}
                           </td>
-                          {col.map((pick, pi) => (
+                          {col.picks.map((pick, pi) => (
                             <td key={pi} style={{
                               padding: '4px 2px', textAlign: 'center', fontWeight: '700',
                               fontFamily: "'JetBrains Mono', monospace",
@@ -361,6 +411,14 @@ export default function PromosportCalculator({ matches, fetcher }) {
                               {PICK_LABELS[pick] || pick}
                             </td>
                           ))}
+                          <td style={{
+                            padding: '4px 8px', textAlign: 'center', fontWeight: '900',
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem',
+                            color: col.expected >= stats.avg ? '#34d399' : '#f87171',
+                            borderLeft: '1px solid rgba(99, 102, 241, 0.3)'
+                          }}>
+                            {col.expected.toFixed(1)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

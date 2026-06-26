@@ -3,6 +3,7 @@ import './Promosport.css';
 import dataService from '../services/dataService';
 import { generateAutoSystem, generateReduced7Doubles, selectBestDoubles } from '../utils/promosportUtils';
 import PromosportTerminal from './PromosportTerminal';
+import PromosportCalculator from './PromosportCalculator';
 
 const Promosport = () => {
     const [loading, setLoading] = useState(true);
@@ -423,6 +424,26 @@ const Promosport = () => {
                             }}
                         >
                             📊 COLONNES
+                        </button>
+                    </div>
+                    <div className="stat-item">
+                        <button 
+                            className="pro-toggle-btn" 
+                            onClick={() => setViewMode(viewMode === 'calculator' ? 'module' : 'calculator')}
+                            style={{
+                                background: viewMode === 'calculator' ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : 'rgba(99, 102, 241, 0.1)',
+                                color: viewMode === 'calculator' ? '#000' : '#818cf8',
+                                border: '1px solid #6366f1',
+                                padding: '10px 15px',
+                                borderRadius: '10px',
+                                fontWeight: '900',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s',
+                                fontSize: '0.8rem',
+                                letterSpacing: '1px'
+                            }}
+                        >
+                            🧮 CALCULATEUR
                         </button>
                     </div>
                 </div>
@@ -1105,6 +1126,8 @@ const Promosport = () => {
                         </p>
                     </div>
                 </div>
+            ) : viewMode === 'calculator' ? (
+                <PromosportCalculator matches={matches} fetcher={dataService} />
             ) : (
                 <>
                     {loading && (

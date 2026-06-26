@@ -605,6 +605,15 @@ class DataService {
         }
     }
 
+    async fetchPromosportCalculator(cols, doubles, triples = 0) {
+        try {
+            return await this._get(getApiUrl(`/api/promosport/calculator?cols=${cols}&doubles=${doubles}&triples=${triples}`));
+        } catch (error) {
+            console.error('❌ [DATA] Failed to fetch calculator:', error.message);
+            return null;
+        }
+    }
+
     async fetchHealth() {
         try {
             const health = await this._get(getApiUrl('/api/health'));

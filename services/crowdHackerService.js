@@ -302,6 +302,74 @@ class CrowdHackerService {
     }
   }
 
+  /**
+   * Analyse anti-piège public : détecte quand le public se trompe
+   * et recommande un pick contrarian.
+   */
+  detectPublicTrap(matchData) {
+    const p1 = matchData.homeWinProbability || (matchData.probs?.h / 100) || 0.33
+    const px = matchData.drawProbability || (matchData.probs?.x / 100) || 0.33
+    const p2 = matchData.awayWinProbability || (matchData.probs?.a / 100) || 0.34
+
+    const total = p1 + px + p2
+    const norm = (v) => v / total
+
+    const np1 = norm(p1), npx = norm(px), np2 = norm(p2)
+    const picks = [
+      { v: '1', pct: np1 },
+      { v: 'X', pct: npx },
+      { v: '2', pct: np2 },
+    ]
+    picks.sort((a, b) => b.pct - a.pct)
+    const publicFav = picks[0].v
+    const publicFavPct = picks[0].pct
+
+    const mlP1 = matchData.mlProbs?.h / 100 || matchData.p1 || np1
+    const mlPX = matchData.mlProbs?.x / 100 || matchData.px || npx
+    const mlP2 = matchData.mlProbs?.a / 100 || matchData.p2 || np2
+
+    const mlPicks = [
+      { v: '1', pct: mlP1 },
+      { v: 'X', pct: mlPX },
+      { v: '2', pct: mlP2 },
+    ]
+    mlPicks.sort((a, b) => b.pct - a.pct)
+    const mlFav = mlPicks[0].v
+
+    // Detecter les pièges
+    const isTrap = publicFavPct > 0.50 && mlFav !== publicFav
+    const isAwayTrap = publicFav === '2' && publicFavPct > 0.50 && mlFav !== '2'
+    const isHomeTrap = publicFav === '1' && publicFavPct > 0.50 && mlFav !== '1'
+
+    // Recommandation contrarian
+    let contrarianPick = null
+    let reason = null
+    if (isTrap) {
+      contrarianPick = mlFav
+      reason = `Le public est à ${(publicFavPct*100).toFixed(0)}% sur ${publicFav} mais le ML préfère ${mlFav}. Piège probable.`
+    } else if (publicFavPct > 0.55 && mlFav === publicFav) {
+      // ML agree with public but public is historically unreliable at high confidence
+      contrarianPick = picks[1].v
+      reason = `Public+ML d'accord sur ${publicFav} (${(publicFavPct*100).toFixed(0)}%) — Risque de piège, couvrir ${picks[1].v}`
+    }
+
+    return {
+      publicFav,
+      publicFavPct: +(publicFavPct * 100).toFixed(0),
+      mlFav,
+      isTrap,
+      isAwayTrap,
+      isHomeTrap,
+      contrarianPick,
+      reason,
+      recommendation: isTrap
+        ? `🔥 CONTRARIAN: Prendre ${contrarianPick} au lieu de ${publicFav} (public: ${(publicFavPct*100).toFixed(0)}%)`
+        : (publicFavPct > 0.55
+            ? `⚠️ PRUDENCE: Foule à ${(publicFavPct*100).toFixed(0)}% sur ${publicFav}, envisager double chance`
+            : `✅ Conforme: foule dispersée, suivre ML`),
+    }
+  }
+
   getDefaultProfile() {
     return {
       promosportAccuracy: { '1': { correct: 0, total: 0, rate: 0 }, 'X': { correct: 0, total: 0, rate: 0 }, '2': { correct: 0, total: 0, rate: 0 } },

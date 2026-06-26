@@ -66,9 +66,18 @@ async function generatePromosportGrids(scrapedMatches) {
             const confidence = pred.confidence || Math.max(50, 80 - (H * 15));
 
             let crowdP1 = m.homeWinProbability || 0.33;
+            let crowdP2 = m.awayWinProbability || 0.34;
             if (crowdP1 > 1) crowdP1 /= 100
+            if (crowdP2 > 1) crowdP2 /= 100
             const p1Delta = crowdP1 - p1;
+            const p2Delta = crowdP2 - p2;
             const isCrowdTrap = (p1Delta > 0.25 && p1 < 0.50);
+            const isAwayCrowdTrap = (p2Delta > 0.25 && p2 < 0.50);
+            const publicOverconfidence = (
+              (crowdP1 > 0.55 && p1 < crowdP1 * 0.7) ||
+              (crowdP2 > 0.55 && p2 < crowdP2 * 0.7)
+            );
+            const publicConfidence = Math.max(crowdP1, crowdP2, 1 - crowdP1 - crowdP2);
 
             return {
                 ...m,
@@ -78,15 +87,23 @@ async function generatePromosportGrids(scrapedMatches) {
                 confidence: confidence,
                 isHighPressure,
                 isCrowdTrap,
+                isAwayCrowdTrap,
+                publicOverconfidence,
+                publicConfidence,
+                crowdP1, crowdP2,
                 intel: pred.intel || {
                     form: 60 + seededRand(`${m.homeTeam}_form`) * 20,
                     logistics: 70 + seededRand(`${m.awayTeam}_logistics`) * 10,
                     motivation: isHighPressure ? 95 : 75,
                     sharp: confidence
                 },
-                tacticalBrief: isCrowdTrap 
-                    ? `🚨 ALERTE PIÈGE : Le public surestime ${m.homeTeam}.`
-                    : (pred.brief || (isHighPressure ? '⚠️ MATCH À HAUTE PRESSION.' : 'Analyse basée sur les probabilités de base.'))
+                tacticalBrief: isAwayCrowdTrap
+                    ? `🚨 ALERTE PIÈGE EXTERIEUR : Le public surestime ${m.awayTeam}.`
+                    : (isCrowdTrap 
+                        ? `🚨 ALERTE PIÈGE DOMICILE : Le public surestime ${m.homeTeam}.`
+                        : (publicOverconfidence
+                            ? `⚠️ PIÈGE POTENTIEL: Le public trop confiant (${(publicConfidence*100).toFixed(0)}%).`
+                            : (pred.brief || (isHighPressure ? '⚠️ MATCH À HAUTE PRESSION.' : 'Analyse basée sur les probabilités de base.'))))
             };
         } catch (e) {
             logger.error(`❌ [PROMOSPORT-ENGINE] Failed to enrich match ${m.homeTeam}:`, e.message);
@@ -207,6 +224,11 @@ function generateGridsWithStrategicCoverage(enrichedMatches) {
         entropy: m.entropy,
         confidence: m.confidence,
         isCrowdTrap: m.isCrowdTrap,
+        isAwayCrowdTrap: m.isAwayCrowdTrap,
+        publicOverconfidence: m.publicOverconfidence,
+        publicConfidence: m.publicConfidence,
+        crowdP1: m.crowdP1,
+        crowdP2: m.crowdP2,
         choices: choices,
         intel: m.intel,
         brief: m.tacticalBrief,
@@ -225,6 +247,47 @@ function generateGridsWithStrategicCoverage(enrichedMatches) {
       }
     });
   });
+
+  // DIVERSIFICATION PASS — Anti-piège public
+  // Quand les 4 grilles donnent le même pick pour un match ET que le public
+  // est trop confiant sur ce résultat, on force T4 (anti-crowd) à diverger
+  for (let mi = 0; mi < 13; mi++) {
+    const picksStr = grids.map(g => [...g.matches[mi].choices].sort().join(''))
+    const unique = [...new Set(picksStr)]
+
+    if (unique.length === 1 && unique[0].length === 1) {
+      const currentPick = unique[0]
+      const m = enrichedMatches[mi]
+
+      const crowdP = currentPick === '1' ? (m.crowdP1 || m.homeWinProbability || 0)
+                   : currentPick === '2' ? (m.crowdP2 || m.awayWinProbability || 0)
+                   : (m.drawProbability || 0)
+      const total = (m.homeWinProbability || 0.33) + (m.drawProbability || 0.33) + (m.awayWinProbability || 0.34)
+      const crowdPct = total > 0 ? crowdP / total : 0
+
+      const forceDiversify = (
+        crowdPct > 0.50 ||
+        m.publicOverconfidence ||
+        m.isCrowdTrap ||
+        m.isAwayCrowdTrap
+      )
+
+      if (forceDiversify) {
+        const alternatives = ['1', 'X', '2'].filter(p => p !== currentPick)
+        const mlProbs = { '1': m.p1 || 0.33, 'X': m.px || 0.33, '2': m.p2 || 0.34 }
+        alternatives.sort((a, b) => mlProbs[b] - mlProbs[a])
+
+        // Changer T4 (anti-crowd, index 3)
+        const gi = 3
+        const targetMatch = grids[gi].matches[mi]
+        targetMatch.choices = [alternatives[0]]
+        targetMatch.diversified = true
+        const reason = `🛡️ ANTI-PIÈGE PUBLIC: foule ${(crowdPct*100).toFixed(0)}% sur ${currentPick}, nous prenons ${alternatives[0]}`
+        targetMatch.diversifyReason = reason
+        targetMatch.brief = (targetMatch.brief || '') + ' | ' + reason
+      }
+    }
+  }
 
   return grids;
 }
@@ -257,8 +320,8 @@ function generateGoldCoupon(enrichedMatches) {
     ].sort((a, b) => b.p - a.p)
 
     // If crowd trap detected, double on the non-obvious side
-    if (m.isCrowdTrap) {
-      const crowdFav = m.homeWinProbability > 0.4 ? '1' : (m.awayWinProbability > 0.4 ? '2' : 'X')
+    if (m.isCrowdTrap || m.isAwayCrowdTrap) {
+      const crowdFav = m.crowdP1 > m.crowdP2 ? '1' : (m.crowdP2 > m.crowdP1 ? '2' : 'X')
       const remaining = probs.filter(x => x.v !== crowdFav).sort((a, b) => b.p - a.p)
       return [probs[0].v, remaining[0].v].sort(byOrder)
     }

@@ -54,6 +54,15 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
     const unifiedMatches = scrapedMatches.map((m, idx) => {
         const gridMatch = grids[0].matches[idx]; // Reference for intel/brief
         
+        // Check if any grid was diversified (anti-public trap)
+        let diversifyReason = null
+        for (let gi = 0; gi < 4; gi++) {
+          if (grids[gi].matches[idx].diversified) {
+            diversifyReason = grids[gi].matches[idx].diversifyReason
+            break
+          }
+        }
+        
         return {
             id: idx + 1,
             home: m.homeTeam.replace(/%/g, '').trim(),
@@ -61,18 +70,29 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
             comp: (m.leagueName || "Promosport").replace(/%/g, '').trim(),
             time: m.matchTime || '---',
             probs: {
-                h: Math.round((m.homeWinProbability || 0.33) * 100),
+                h: Math.round((gridMatch.crowdP1 || m.homeWinProbability || 0.33) * 100),
                 x: Math.round((m.drawProbability || 0.33) * 100),
-                a: Math.round((m.awayWinProbability || 0.33) * 100)
+                a: Math.round((gridMatch.crowdP2 || m.awayWinProbability || 0.33) * 100)
+            },
+            mlProbs: {
+                h: Math.round((gridMatch.p1 || 0.33) * 100),
+                x: Math.round((gridMatch.px || 0.33) * 100),
+                a: Math.round((gridMatch.p2 || 0.33) * 100)
             },
             cols: [
-                { pred: grids[0].matches[idx].choices.join('') },
-                { pred: grids[1].matches[idx].choices.join('') },
-                { pred: grids[2].matches[idx].choices.join('') },
-                { pred: grids[3].matches[idx].choices.join('') }
+                { pred: grids[0].matches[idx].choices.join(''), name: grids[0].name },
+                { pred: grids[1].matches[idx].choices.join(''), name: grids[1].name },
+                { pred: grids[2].matches[idx].choices.join(''), name: grids[2].name },
+                { pred: grids[3].matches[idx].choices.join(''), name: grids[3].name }
             ],
             intel: gridMatch.intel,
-            brief: gridMatch.brief
+            brief: gridMatch.brief,
+            diversifyReason,
+            crowdTraps: {
+              isCrowdTrap: gridMatch.isCrowdTrap || false,
+              isAwayCrowdTrap: gridMatch.isAwayCrowdTrap || false,
+              publicOverconfidence: gridMatch.publicOverconfidence || false
+            }
         };
     });
 
@@ -140,31 +160,65 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
     const grids = await generatePromosportGrids(scrapedMatches)
     if (!grids || grids.length === 0) throw new Error('Grid generation failed')
 
-    const enriched = scrapedMatches.map((m, idx) => ({
-      ...m,
-      p1: grids[0].matches[idx].p1 || m.homeWinProbability,
-      px: grids[0].matches[idx].px || m.drawProbability,
-      p2: grids[0].matches[idx].p2 || m.awayWinProbability,
-      entropy: grids[0].matches[idx].entropy || 1.5,
-      confidence: grids[0].matches[idx].confidence || 50,
-      isCrowdTrap: grids[0].matches[idx].isCrowdTrap || false,
-      isHighPressure: grids[0].matches[idx].isHighPressure || false,
-      intel: grids[0].matches[idx].intel,
-      tacticalBrief: grids[0].matches[idx].brief || ''
-    }))
+    const enriched = scrapedMatches.map((m, idx) => {
+      const gm = grids[0].matches[idx]
+      return {
+        ...m,
+        p1: gm.p1 || m.homeWinProbability,
+        px: gm.px || m.drawProbability,
+        p2: gm.p2 || m.awayWinProbability,
+        mlProbs: { h: gm.p1, x: gm.px, a: gm.p2 },
+        probs: { h: m.homeWinProbability, x: m.drawProbability, a: m.awayWinProbability },
+        entropy: gm.entropy || 1.5,
+        confidence: gm.confidence || 50,
+        isCrowdTrap: gm.isCrowdTrap || false,
+        isAwayCrowdTrap: gm.isAwayCrowdTrap || false,
+        publicOverconfidence: gm.publicOverconfidence || false,
+        isHighPressure: gm.isHighPressure || false,
+        intel: gm.intel,
+        tacticalBrief: gm.brief || ''
+      }
+    })
 
     const weapons = await promosportIntelligence.generateSecretWeapons(enriched)
 
-    const weaponsWithChoices = weapons.map((w, idx) => ({
-      ...w,
-      choices: grids.map(g => g.matches[idx].choices.join('')),
-    }))
+    const weaponsWithChoices = weapons.map((w, idx) => {
+      // Detecter les pièges publics pour chaque match
+      const gm = grids[0].matches[idx]
+      const trapAnalysis = crowdHackerService.detectPublicTrap({
+        homeWinProbability: enriched[idx].homeWinProbability,
+        drawProbability: enriched[idx].drawProbability,
+        awayWinProbability: enriched[idx].awayWinProbability,
+        p1: gm.p1, px: gm.px, p2: gm.p2,
+      })
+
+      // Vérifier la diversification
+      let diversifyReason = null
+      for (let gi = 0; gi < 4; gi++) {
+        if (grids[gi].matches[idx].diversified) {
+          diversifyReason = grids[gi].matches[idx].diversifyReason
+          break
+        }
+      }
+
+      return {
+        ...w,
+        choices: grids.map(g => g.matches[idx].choices.join('')),
+        trapAnalysis,
+        diversifyReason,
+      }
+    })
+
+    const trapCount = weaponsWithChoices.filter(w => w.trapAnalysis?.isTrap).length
+    const awayTrapCount = weaponsWithChoices.filter(w => w.trapAnalysis?.isAwayTrap).length
+    const diversifiedCount = weaponsWithChoices.filter(w => w.diversifyReason).length
 
     res.json({
       success: true,
       concours: scrapedMatches[0]?.concoursNumber || 'N/A',
       date: scrapedMatches[0]?.concoursDate || new Date().toLocaleDateString(),
       weapons: weaponsWithChoices,
+      gridNames: grids.map(g => g.name),
       stats: {
         totalMatches: weaponsWithChoices.length,
         contrarianCount: weaponsWithChoices.filter(w => w.isContrarian).length,
@@ -173,8 +227,14 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
         bTeamCount: weaponsWithChoices.filter(w => w.bTeamHome?.isBTeam || w.bTeamAway?.isBTeam).length,
         boldCount: weaponsWithChoices.filter(w => (w.boldness?.label || '').includes('BOLD')).length,
         valueCount: weaponsWithChoices.filter(w => (w.boldness?.label || '').includes('VALUE')).length,
-        historicalConcours: promosportIntelligence.getConcoursCount() || 0
-      }
+        trapCount,
+        awayTrapCount,
+        diversifiedCount,
+        historicalConcours: promosportIntelligence.getConcoursCount() || 0,
+      },
+      strategy: trapCount > 0
+        ? `🔥 ${trapCount} piège(s) public(s) détecté(s) — ${diversifiedCount} grille(s) diversifiée(s) — Jouer les picks CONTRARIAN`
+        : '✅ Aucun piège public majeur détecté cette semaine'
     })
   } catch (err) {
     logger.error('❌ [PROMOSPORT] Secret Weapons Error:', err.message)
@@ -416,6 +476,112 @@ router.get('/tunisie/:grid', speedCache('promosport_tn', 120000, 600000), async 
     })
   } catch (err) {
     logger.error('❌ [PROMOSPORT] Tunisian Grid Error:', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * GET /api/promosport/calculator
+ * Calculateur de combinaisons Promosport
+ * Query: cols (nb colonnes jouées), doubles (nb doubles), triples (nb triples, optionnel)
+ * Retourne le % global de couverture, coût, et probabilité de gain estimée
+ */
+router.get('/calculator', speedCache('promosport_calc', 60000, 300000), async (req, res) => {
+  try {
+    const cols = parseInt(req.query.cols) || 1
+    const doubles = parseInt(req.query.doubles) || 0
+    const triples = parseInt(req.query.triples) || 0
+
+    if (cols < 1 || cols > 1000) return res.status(400).json({ success: false, error: 'cols must be 1-1000' })
+    if (doubles < 0 || doubles > 13) return res.status(400).json({ success: false, error: 'doubles must be 0-13' })
+    if (triples < 0 || triples > 13) return res.status(400).json({ success: false, error: 'triples must be 0-13' })
+    if (doubles + triples > 13) return res.status(400).json({ success: false, error: 'doubles + triples must be ≤ 13' })
+
+    // Full system calculations
+    const fullCols = Math.pow(2, doubles) * Math.pow(3, triples)
+    const totalPossible = Math.pow(3, 13) // 3^13 = 1,594,323 combos possibles
+    const coveragePct = fullCols > 0 ? Math.min(100, +(cols / fullCols * 100).toFixed(2)) : 0
+    const coverageVsTotal = +((cols * (fullCols / Math.max(1, cols))) / totalPossible * 100).toFixed(6)
+    const pricePerCol = 0.850
+    const taxRate = 0.06
+    const costBeforeTax = +(cols * pricePerCol).toFixed(3)
+    const costWithTax = +(costBeforeTax * (1 + taxRate)).toFixed(3)
+
+    // Calculate reduction level
+    let systemType = 'INTÉGRAL'
+    if (fullCols > 0 && cols < fullCols) {
+      const ratio = fullCols / cols
+      if (ratio >= 16) systemType = `N-${Math.round(Math.log2(ratio))}`
+      else if (ratio >= 8) systemType = 'N-1'
+      else if (ratio >= 4) systemType = 'N-2 (approx)'
+      else systemType = 'RÉDUIT PERSONNALISÉ'
+    }
+
+    // Try to get current grid for real probabilities
+    let expectedCorrect = null
+    let prob13of13 = null
+    try {
+      const scraped = await scrapePromosport()
+      if (scraped && scraped.length === 13) {
+        // Use public vote as base probabilities
+        let totalProb = 0
+        let product13 = 1
+        for (const m of scraped) {
+          const p1 = m.homeWinProbability || 0.33
+          const px = m.drawProbability || 0.33
+          const p2 = m.awayWinProbability || 0.34
+          const bestProb = Math.max(p1, px, p2)
+          totalProb += bestProb
+          product13 *= bestProb
+        }
+        expectedCorrect = +(totalProb).toFixed(2)
+        prob13of13 = product13
+      }
+    } catch (_) {
+      // Fallback: use average probability
+      expectedCorrect = +(13 * 0.36).toFixed(2)
+      prob13of13 = Math.pow(0.36, 13)
+    }
+
+    res.json({
+      success: true,
+      input: { cols, doubles, triples },
+      combinations: {
+        fullSystem: fullCols,
+        played: cols,
+        totalPossible,
+        reduction: fullCols > 0 ? `${cols}/${fullCols}` : 'N/A',
+      },
+      coverage: {
+        systemCoverage: coveragePct,
+        vsTotalPossible: coverageVsTotal,
+        description: coveragePct >= 100
+          ? '🔵 SYSTÈME INTÉGRAL — Vous jouez toutes les combinaisons possibles de vos doubles'
+          : coveragePct >= 50
+            ? '🟢 COUVERTURE ÉLEVÉE — Plus de la moitié du système est couvert'
+            : coveragePct >= 25
+              ? '🟡 COUVERTURE MOYENNE — Risque modéré'
+              : '🔴 FAIBLE COUVERTURE — Système réduit, risque élevé',
+      },
+      pricing: {
+        pricePerCol,
+        costBeforeTax: `${costBeforeTax.toFixed(3)} DT`,
+        tax: `${(costBeforeTax * taxRate).toFixed(3)} DT`,
+        total: `${costWithTax} DT`,
+      },
+      expectedCorrect: expectedCorrect !== null ? expectedCorrect : 'N/A',
+      prob13of13: prob13of13 !== null ? prob13of13 : 'N/A',
+      systemType,
+      advice: coveragePct < 10
+        ? `⚠️ Réduction sévère (${coveragePct}%). Envisagez plus de colonnes ou moins de doubles.`
+        : coveragePct < 30
+          ? `📊 Réduction modérée. ${cols} colonnes pour ${doubles} doubles.`
+          : coveragePct >= 100
+            ? `✅ Système intégral — 100% de couverture de vos ${doubles} doubles.`
+            : `✅ Bonne couverture (${coveragePct}%).`,
+    })
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] Calculator Error:', err.message)
     res.status(500).json({ success: false, error: err.message })
   }
 })

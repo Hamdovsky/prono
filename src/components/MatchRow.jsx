@@ -391,6 +391,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     // 🏆 Value Score (computed after evNum declaration below)
 
     let resultIcon = null;
+    let resultBulb = null;
+    let actualScoreDisplay = null;
     if (status === "finished" || status === "ft" || status === "ended") {
         statusClass = "finished";
         if (match.scoreHome !== null && match.scoreAway !== null) {
@@ -411,6 +413,12 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                     <span title="TG (O/U)" style={{color: tgCorrect ? '#00ff66' : '#ff3333'}}>●</span>
                 </div>
             );
+            resultBulb = (
+                <span style={{fontSize: '20px', lineHeight: 1, marginLeft: '4px', cursor: 'help'}} title={smartCorrect ? 'PRONOSTIC CORRECT ✓' : 'PRONOSTIC FAUX ✗'}>
+                    {smartCorrect ? '🟢' : '🔴'}
+                </span>
+            );
+            actualScoreDisplay = `${h} - ${a}`;
         }
     } else if (status === "live" || match.isLive) {
         statusClass = "live";
@@ -520,9 +528,19 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                         </div>
 
                         {/* AI Correct Score Badge */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 255, 170, 0.08)', border: '1px solid rgba(0, 255, 170, 0.25)', borderRadius: '6px', padding: '4px 10px', minWidth: '60px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 255, 170, 0.08)', border: '1px solid rgba(0, 255, 170, 0.25)', borderRadius: '6px', padding: '4px 10px', minWidth: '60px', position: 'relative' }}>
                             <span style={{ fontSize: '8px', color: '#64748b', fontWeight: '900', letterSpacing: '0.5px' }}>SCORE IA</span>
                             <span style={{ fontSize: '15px', fontWeight: '900', color: 'var(--neon)', fontFamily: "'JetBrains Mono', monospace" }}>{cs}</span>
+                            {actualScoreDisplay && (
+                                <span style={{ fontSize: '12px', fontWeight: '900', color: '#f8fafc', fontFamily: "'JetBrains Mono', monospace", marginTop: '2px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '2px' }}>
+                                    {actualScoreDisplay}
+                                </span>
+                            )}
+                            {resultBulb && (
+                                <span style={{ position: 'absolute', top: '-6px', right: '-6px', filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.5))' }}>
+                                    {resultBulb}
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -691,7 +709,15 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
             {/* COLUMN 3: AI SCORE & FT confidence (12%) */}
             <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
-                <span className="onyx-cs" style={{fontSize: '16px', fontWeight: '900', color: '#00ffaa'}}>{cs}</span>
+                <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                    <span className="onyx-cs" style={{fontSize: '16px', fontWeight: '900', color: '#00ffaa'}}>{cs}</span>
+                    {resultBulb}
+                </div>
+                {actualScoreDisplay && (
+                    <span style={{fontSize: '13px', fontWeight: '900', color: '#f8fafc', fontFamily: "'JetBrains Mono', monospace", marginTop: '1px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1px', display: 'block'}}>
+                        {actualScoreDisplay}
+                    </span>
+                )}
                 <div style={{fontSize: '11px', color: '#fbbf24', fontWeight: 'bold'}}>
                     FT: {ftSignal}%
                 </div>

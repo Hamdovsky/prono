@@ -86,7 +86,7 @@ function mergeFixtures(primary, secondary) {
 }
 
 // ─── Helper: safe timed source fetch ────────────────────
-function timedFetch(promise, label, timeoutMs = 20000) {
+function timedFetch(promise, label, timeoutMs = 15000) {
   const timer = new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs))
   return Promise.race([promise, timer])
 }
@@ -168,25 +168,27 @@ app.post('/scrape', requireAuth, async (req, res) => {
       try { await database.insertMatch(match); inserted++ } catch (_) {}
     }
 
-    // 4. Auto-trigger enrichment
-    try {
-      const enrichedPredictions = require('../core/enriched_predictions')
-      const now = Date.now()
-      const twoDaysEnd = now + (2 * 24 * 60 * 60 * 1000)
-      const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
-      const needsEnrichment = matches.filter(m => {
-        const ts = m.startTimestamp ? m.startTimestamp * 1000 : 0
-        return ts > now - 3600000 && ts < twoDaysEnd
-      }).slice(0, 300)
-      if (needsEnrichment.length > 0) {
-        const enriched = await enrichedPredictions.enrichMatches(needsEnrichment, { fastMode: false, force: true })
-        for (const m of enriched) {
-          try { await database.updatePredictions(m.id, m) } catch (_) {}
+    // 4. Auto-trigger enrichment (fire-and-forget, don't block response)
+    setImmediate(async () => {
+      try {
+        const enrichedPredictions = require('../core/enriched_predictions')
+        const now = Date.now()
+        const twoDaysEnd = now + (2 * 24 * 60 * 60 * 1000)
+        const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
+        const needsEnrichment = matches.filter(m => {
+          const ts = m.startTimestamp ? m.startTimestamp * 1000 : 0
+          return ts > now - 3600000 && ts < twoDaysEnd
+        }).slice(0, 100)
+        if (needsEnrichment.length > 0) {
+          const enriched = await enrichedPredictions.enrichMatches(needsEnrichment, { fastMode: false, force: true })
+          for (const m of enriched) {
+            try { await database.updatePredictions(m.id, m) } catch (_) {}
+          }
         }
+      } catch (e) {
+        console.log('[SCRAPE] Auto-enrich skipped:', e.message)
       }
-    } catch (e) {
-      console.log('[SCRAPE] Auto-enrich skipped:', e.message)
-    }
+    })
 
     return {
       date: dateStr,

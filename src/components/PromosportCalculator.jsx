@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 
 const COLUMN_PRICE = 0.850
 const TAX_RATE = 0.06
+
+const PICK_LABELS = { 1: '1', 2: 'X', 3: '2' }
 
 export default function PromosportCalculator({ matches, fetcher }) {
   const [cols, setCols] = useState(4)
@@ -9,6 +11,8 @@ export default function PromosportCalculator({ matches, fetcher }) {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [generatedCols, setGeneratedCols] = useState(null)
+  const [showAllCols, setShowAllCols] = useState(false)
 
   const calcLocal = (c, d) => {
     const full = Math.pow(2, d)
@@ -25,7 +29,6 @@ export default function PromosportCalculator({ matches, fetcher }) {
       else systemType = 'RÉDUIT'
     }
 
-    // Expected correct based on match probabilities
     let expectedCorrect = null
     if (matches && matches.length > 0) {
       expectedCorrect = matches.reduce((sum, m) => {
@@ -54,6 +57,7 @@ export default function PromosportCalculator({ matches, fetcher }) {
 
   useEffect(() => {
     setResult(calcLocal(cols, doubles))
+    setGeneratedCols(null)
   }, [cols, doubles, matches])
 
   const presets = [
@@ -63,6 +67,67 @@ export default function PromosportCalculator({ matches, fetcher }) {
     { label: 'Confort', cols: 16, doubles: 7 },
     { label: 'Intégral', cols: 128, doubles: 7 },
   ]
+
+  const COL_QUICK = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+  const DOUBLE_VALS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+
+  const generateColumns = () => {
+    if (!matches || matches.length === 0) return
+    const fullSystem = Math.pow(2, doubles)
+    const numToGen = Math.min(cols, fullSystem, 256)
+    const columns = []
+
+    const bestPick = (m) => {
+      if (!m) return 1
+      const h = m.mlProbs?.h ?? m.probs?.h ?? 33
+      const x = m.mlProbs?.x ?? m.probs?.x ?? 33
+      const a = m.mlProbs?.a ?? m.probs?.a ?? 34
+      if (h >= x && h >= a) return 1
+      if (a >= h && a >= x) return 3
+      return 2
+    }
+
+    const doubleAlt = (pick) => {
+      if (pick === 1) return 2
+      if (pick === 3) return 2
+      return 1
+    }
+
+    const indices = []
+    for (let i = 0; i < numToGen; i++) indices.push(i)
+
+    // Use the last `doubles` matches for covering
+    const doubleMatchIndices = []
+    for (let i = Math.max(0, matches.length - doubles); i < matches.length; i++) {
+      doubleMatchIndices.push(i)
+    }
+
+    indices.forEach(idx => {
+      const col = matches.map((m, mi) => {
+        const di = doubleMatchIndices.indexOf(mi)
+        if (di === -1) {
+          return bestPick(m)
+        }
+        // This match is a double: vary based on idx bits
+        const bit = (idx >> di) & 1
+        const base = bestPick(m)
+        return bit === 0 ? base : doubleAlt(base)
+      })
+      columns.push(col)
+    })
+
+    setGeneratedCols({ columns, count: numToGen, total: fullSystem })
+  }
+
+  const displayCols = useMemo(() => {
+    if (!generatedCols) return null
+    const limit = showAllCols ? generatedCols.count : Math.min(32, generatedCols.count)
+    return {
+      cols: generatedCols.columns.slice(0, limit),
+      showing: limit,
+      total: generatedCols.count
+    }
+  }, [generatedCols, showAllCols])
 
   return (
     <div className="promosport-calculator" style={{ padding: '20px' }}>
@@ -74,42 +139,49 @@ export default function PromosportCalculator({ matches, fetcher }) {
           Simulez votre système Promosport : choisissez le nombre de colonnes et de doubles
         </p>
 
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '20px' }}>
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label style={{ color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block', marginBottom: '5px' }}>
+        {/* ---- Digit Dashboard ---- */}
+        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '24px' }}>
+          {/* Colonnes à jouer */}
+          <div style={{ flex: '1', minWidth: '240px' }}>
+            <label style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', display: 'block', marginBottom: '8px', fontWeight: '700', letterSpacing: '1px' }}>
               Colonnes à jouer
             </label>
-            <input
-              type="range"
-              min="1"
-              max="256"
-              value={cols}
-              onChange={e => setCols(parseInt(e.target.value))}
-              style={{ width: '100%', accentColor: '#6366f1' }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem' }}>
-              <span>1</span>
-              <span style={{ color: '#818cf8', fontWeight: 'bold', fontSize: '1.2rem' }}>{cols}</span>
-              <span>256</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+              {COL_QUICK.map(v => (
+                <button key={v} onClick={() => setCols(v)}
+                  style={{
+                    minWidth: '40px', padding: '8px 4px', borderRadius: '8px', border: cols === v ? '2px solid #818cf8' : '1px solid rgba(99, 102, 241, 0.25)',
+                    background: cols === v ? 'rgba(99, 102, 241, 0.3)' : 'rgba(99, 102, 241, 0.06)',
+                    color: cols === v ? '#c7d2fe' : '#94a3b8',
+                    cursor: 'pointer', fontSize: '0.85rem', fontWeight: '900', fontFamily: "'JetBrains Mono', monospace",
+                    transition: 'all 0.15s', flex: '0 0 auto',
+                    textAlign: 'center', boxShadow: cols === v ? '0 0 12px rgba(99, 102, 241, 0.3)' : 'none'
+                  }}>
+                  {v}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div style={{ flex: '1', minWidth: '200px' }}>
-            <label style={{ color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', display: 'block', marginBottom: '5px' }}>
+          {/* Doubles (0-13) */}
+          <div style={{ flex: '1', minWidth: '240px' }}>
+            <label style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', display: 'block', marginBottom: '8px', fontWeight: '700', letterSpacing: '1px' }}>
               Doubles (0-13)
             </label>
-            <input
-              type="range"
-              min="0"
-              max="13"
-              value={doubles}
-              onChange={e => setDoubles(parseInt(e.target.value))}
-              style={{ width: '100%', accentColor: '#6366f1' }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '0.75rem' }}>
-              <span>0</span>
-              <span style={{ color: '#818cf8', fontWeight: 'bold', fontSize: '1.2rem' }}>{doubles}</span>
-              <span>13</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '5px', background: 'rgba(0,0,0,0.25)', padding: '10px', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+              {DOUBLE_VALS.map(v => (
+                <button key={v} onClick={() => setDoubles(v)}
+                  style={{
+                    padding: '8px 0', borderRadius: '8px', border: doubles === v ? '2px solid #fbbf24' : '1px solid rgba(251, 191, 36, 0.2)',
+                    background: doubles === v ? 'rgba(251, 191, 36, 0.25)' : 'rgba(251, 191, 36, 0.04)',
+                    color: doubles === v ? '#fde68a' : '#94a3b8',
+                    cursor: 'pointer', fontSize: '0.85rem', fontWeight: '900', fontFamily: "'JetBrains Mono', monospace",
+                    transition: 'all 0.15s', textAlign: 'center',
+                    boxShadow: doubles === v ? '0 0 12px rgba(251, 191, 36, 0.25)' : 'none'
+                  }}>
+                  {v}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -223,6 +295,79 @@ export default function PromosportCalculator({ matches, fetcher }) {
         {error && (
           <div style={{ marginTop: '15px', color: '#f87171', fontSize: '0.85rem' }}>
             {error} — calcul local utilisé
+          </div>
+        )}
+
+        {/* ---- GÉNÉRATEUR DE COLONNES ---- */}
+        {matches && matches.length > 0 && (
+          <div style={{ marginTop: '28px' }}>
+            <button onClick={generateColumns}
+              style={{
+                width: '100%', padding: '14px', borderRadius: '12px',
+                background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                border: 'none', color: '#fff', fontWeight: '900', fontSize: '1rem',
+                cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase',
+                transition: 'all 0.2s', boxShadow: '0 4px 20px rgba(99, 102, 241, 0.3)'
+              }}
+              onMouseEnter={e => e.target.style.transform = 'translateY(-2px)'}
+              onMouseLeave={e => e.target.style.transform = 'none'}
+            >
+              🎲 GÉNÉRER LES COLONNES
+            </button>
+
+            {displayCols && (
+              <div style={{ marginTop: '16px', background: 'rgba(0,0,0,0.25)', borderRadius: '12px', padding: '16px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700' }}>
+                    {displayCols.cols.length} colonnes générées sur {generatedCols.total} possibles
+                  </span>
+                  {generatedCols.count > 32 && (
+                    <button onClick={() => setShowAllCols(s => !s)}
+                      style={{
+                        background: 'transparent', border: '1px solid #818cf8', color: '#818cf8',
+                        padding: '4px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '700',
+                        cursor: 'pointer'
+                      }}>
+                      {showAllCols ? 'Montrer moins' : 'Tout montrer'}
+                    </button>
+                  )}
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.7rem' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '4px 6px', color: '#64748b', textAlign: 'center', position: 'sticky', left: 0, background: '#0f172a', zIndex: 1 }}>N°</th>
+                        {matches.map((m, i) => (
+                          <th key={i} style={{ padding: '4px 4px', color: '#64748b', textAlign: 'center', fontSize: '0.6rem', fontWeight: '700', minWidth: '22px' }}>
+                            {i + 1}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayCols.cols.map((col, ci) => (
+                        <tr key={ci}>
+                          <td style={{ padding: '4px 6px', color: '#818cf8', fontWeight: '700', textAlign: 'center', position: 'sticky', left: 0, background: '#0f172a', zIndex: 1 }}>
+                            {ci + 1}
+                          </td>
+                          {col.map((pick, pi) => (
+                            <td key={pi} style={{
+                              padding: '4px 2px', textAlign: 'center', fontWeight: '700',
+                              fontFamily: "'JetBrains Mono', monospace",
+                              color: pick === 1 ? '#34d399' : pick === 3 ? '#f87171' : '#fbbf24',
+                              background: 'rgba(99, 102, 241, 0.04)',
+                              fontSize: '0.8rem'
+                            }}>
+                              {PICK_LABELS[pick] || pick}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

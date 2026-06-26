@@ -15,6 +15,7 @@ const Promosport = () => {
     const [tunisieData, setTunisieData] = useState(null);
     const [tunisieGrid, setTunisieGrid] = useState(876);
     const [tunisieLoading, setTunisieLoading] = useState(false);
+    const [tunisieError, setTunisieError] = useState(null);
     const [meta, setMeta] = useState({ 
         concours: '---', 
         date: '--/--/----',
@@ -57,21 +58,24 @@ const Promosport = () => {
         loadData();
     }, []);
 
-    const fetchTunisie = useCallback(async (gridNo) => {
+    const fetchTunisie = async (gridNo) => {
         setTunisieLoading(true);
+        setTunisieError(null);
+        setTunisieData(null);
         try {
             const data = await dataService.fetchPromosportTunisie(gridNo);
-            if (data && data.success) setTunisieData(data);
+            if (data && data.success) {
+                setTunisieData(data);
+            } else {
+                setTunisieError('Aucune donnée trouvée pour cette grille');
+            }
         } catch (err) {
+            setTunisieError(err.message || 'Erreur de chargement');
             console.error("❌ [PROMOSPORT] Tunisie fetch error:", err.message);
         } finally {
             setTunisieLoading(false);
         }
-    }, []);
-
-    useEffect(() => {
-        if (viewMode === 'tunisie') fetchTunisie(tunisieGrid);
-    }, [viewMode, tunisieGrid, fetchTunisie]);
+    };
 
     const handleGenerateReduced = (type = 'N-1') => {
         setSimulating(true);
@@ -258,7 +262,11 @@ const Promosport = () => {
                     <div className="stat-item">
                         <button 
                             className="pro-toggle-btn" 
-                            onClick={() => setViewMode(viewMode === 'tunisie' ? 'module' : 'tunisie')}
+                            onClick={() => {
+                                const next = viewMode === 'tunisie' ? 'module' : 'tunisie'
+                                setViewMode(next)
+                                if (next === 'tunisie') fetchTunisie(tunisieGrid)
+                            }}
                             style={{
                                 background: viewMode === 'tunisie' ? 'linear-gradient(135deg, #10b981 0%, #047857 100%)' : 'rgba(16, 185, 129, 0.1)',
                                 color: viewMode === 'tunisie' ? '#000' : '#10b981',
@@ -645,8 +653,8 @@ const Promosport = () => {
                         <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', flexWrap: 'wrap', alignItems: 'center' }}>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Grille n°</span>
-                                <input type="number" min={623} max={875} value={tunisieGrid}
-                                    onChange={e => setTunisieGrid(parseInt(e.target.value) || 623)}
+                                <input type="number" min={623} max={876} value={tunisieGrid}
+                                    onChange={e => setTunisieGrid(parseInt(e.target.value, 10) || 623)}
                                     style={{ width: '80px', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', fontWeight: 'bold', fontSize: '1rem' }} />
                                 <button onClick={() => fetchTunisie(tunisieGrid)}
                                     style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #10b981', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -672,7 +680,21 @@ const Promosport = () => {
                                     )}
                                 </>
                             )}
-                            {tunisieLoading && <span style={{ color: '#10b981' }}>⏳ Chargement...</span>}
+                            {tunisieLoading && (
+                                <div style={{ width: '100%', textAlign: 'center', padding: '30px 0' }}>
+                                    <div className="loader" style={{ margin: '0 auto 15px' }}></div>
+                                    <span style={{ color: '#10b981', fontSize: '0.95rem' }}>⏳ Chargement de la grille Tunisienne...</span>
+                                    <p style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '8px' }}>Scraping du site Promosport Tunisie en cours</p>
+                                </div>
+                            )}
+                            {tunisieError && !tunisieLoading && (
+                                <div style={{ width: '100%', textAlign: 'center', padding: '20px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                    <span style={{ color: '#f87171', fontWeight: 'bold' }}>❌ {tunisieError}</span>
+                                    <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '6px' }}>
+                                        Essaie un autre numéro de grille (623–726 ou 870–875)
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {tunisieData?.matches && (

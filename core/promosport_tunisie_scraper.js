@@ -6,7 +6,8 @@ const BASE_URL = 'https://www.promosport-pronostic.com/index.php/welcome/promo_r
 
 async function scrapeTunisieGrid(gridNo) {
   try {
-    const url = `${BASE_URL}?grille=${gridNo}&jeux=Promosport&imp_annee=2025`
+    const currentYear = new Date().getFullYear()
+    const url = `${BASE_URL}?grille=${gridNo}&jeux=Promosport&imp_annee=${currentYear}`
     const res = await axios.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',

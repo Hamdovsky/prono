@@ -1,26 +1,26 @@
 {
   "promosportAccuracy": {
     "1": {
-      "correct": 0,
-      "total": 0,
-      "rate": 0
+      "correct": 638,
+      "total": 1196,
+      "rate": 53.3
     },
     "2": {
-      "correct": 0,
-      "total": 0,
-      "rate": 0
+      "correct": 335,
+      "total": 684,
+      "rate": 49
     },
     "X": {
-      "correct": 0,
-      "total": 0,
-      "rate": 0
+      "correct": 157,
+      "total": 572,
+      "rate": 27.4
     }
   },
   "modelVersusPromosport": {
     "agree": {
-      "correct": 0,
-      "total": 0,
-      "pct": 0
+      "correct": 410,
+      "total": 595,
+      "pct": 68.9
     },
     "disagree": {
       "correct": 0,
@@ -28,57 +28,98 @@
       "pct": 0
     }
   },
-  "promosportBiasByConfidence": [],
+  "promosportBiasByConfidence": [
+    {
+      "bin": "65-80",
+      "correct": 209,
+      "total": 329,
+      "promosportAccuracy": 63.5,
+      "modelAccuracy": 71.6,
+      "modelCorrect": 199,
+      "modelTotal": 278,
+      "gap": 8.1
+    },
+    {
+      "bin": "50-65",
+      "correct": 446,
+      "total": 973,
+      "promosportAccuracy": 45.8,
+      "modelAccuracy": 62.2,
+      "modelCorrect": 166,
+      "modelTotal": 267,
+      "gap": 16.4
+    },
+    {
+      "bin": "80+",
+      "correct": 47,
+      "total": 56,
+      "promosportAccuracy": 83.9,
+      "modelAccuracy": 91.8,
+      "modelCorrect": 45,
+      "modelTotal": 49,
+      "gap": 7.9
+    },
+    {
+      "bin": "<50",
+      "correct": 428,
+      "total": 1094,
+      "promosportAccuracy": 39.1,
+      "modelAccuracy": 0,
+      "modelCorrect": 0,
+      "modelTotal": 1,
+      "gap": -39.1
+    }
+  ],
   "contrarianOpportunities": [],
-  "totalMatches": 4790,
-  "promosportOverallAccuracy": 0,
+  "totalMatches": 2452,
+  "promosportOverallAccuracy": 46.1,
   "contrarianHitRate": 0,
   "tunisianCrowd": {
-    "totalMatches": 999,
-    "crowdRight": 424,
-    "crowdWrong": 575,
-    "crowdAccuracy": 42.4,
+    "totalMatches": 2452,
+    "crowdRight": 1128,
+    "crowdWrong": 1324,
+    "crowdAccuracy": 46,
     "byConfidence": [
       {
         "bin": "30-39%",
-        "total": 83,
-        "right": 34,
-        "accuracy": 41
+        "total": 277,
+        "right": 94,
+        "accuracy": 33.9
       },
       {
         "bin": "40-49%",
-        "total": 355,
-        "right": 135,
-        "accuracy": 38
+        "total": 816,
+        "right": 332,
+        "accuracy": 40.7
       },
       {
         "bin": "50-59%",
-        "total": 306,
-        "right": 129,
-        "accuracy": 42.2
+        "total": 795,
+        "right": 343,
+        "accuracy": 43.1
       },
       {
         "bin": "60-69%",
-        "total": 149,
-        "right": 62,
-        "accuracy": 41.6
+        "total": 312,
+        "right": 175,
+        "accuracy": 56.1
       },
       {
         "bin": "70-79%",
-        "total": 79,
-        "right": 44,
-        "accuracy": 55.7
+        "total": 196,
+        "right": 137,
+        "accuracy": 69.9
       },
       {
         "bin": "80-89%",
-        "total": 23,
-        "right": 17,
-        "accuracy": 73.9
+        "total": 47,
+        "right": 39,
+        "accuracy": 83
       },
       {
         "bin": "90-99%",
-        "total": 2,
-        "right": 2,
+        "total": 7,
+        "right": 7,
         "accuracy": 100
       },
       {
@@ -167,6 +208,119 @@
       "724",
       "725",
       "726",
+      "727",
+      "728",
+      "729",
+      "730",
+      "731",
+      "732",
+      "733",
+      "734",
+      "735",
+      "737",
+      "740",
+      "741",
+      "742",
+      "743",
+      "744",
+      "745",
+      "746",
+      "747",
+      "748",
+      "749",
+      "750",
+      "751",
+      "752",
+      "753",
+      "754",
+      "755",
+      "756",
+      "757",
+      "758",
+      "759",
+      "760",
+      "761",
+      "766",
+      "767",
+      "768",
+      "769",
+      "770",
+      "771",
+      "772",
+      "773",
+      "774",
+      "775",
+      "776",
+      "777",
+      "778",
+      "779",
+      "780",
+      "781",
+      "782",
+      "783",
+      "784",
+      "785",
+      "786",
+      "787",
+      "788",
+      "789",
+      "790",
+      "791",
+      "792",
+      "793",
+      "794",
+      "795",
+      "796",
+      "797",
+      "798",
+      "799",
+      "802",
+      "803",
+      "804",
+      "805",
+      "806",
+      "807",
+      "808",
+      "809",
+      "810",
+      "811",
+      "812",
+      "813",
+      "814",
+      "815",
+      "817",
+      "818",
+      "819",
+      "820",
+      "821",
+      "822",
+      "823",
+      "825",
+      "826",
+      "827",
+      "828",
+      "829",
+      "830",
+      "831",
+      "833",
+      "834",
+      "835",
+      "836",
+      "837",
+      "838",
+      "843",
+      "844",
+      "858",
+      "859",
+      "860",
+      "861",
+      "862",
+      "863",
+      "864",
+      "866",
+      "867",
+      "868",
+      "869",
       "870",
       "871",
       "872",
@@ -176,14 +330,14 @@
     ],
     "insight": {
       "weakConfidence_under70": {
-        "accuracy": 40.3,
+        "accuracy": 42.9,
         "action": "CONTRARIAN - prendre l'opposé du favori"
       },
       "strongConfidence_70plus": {
-        "accuracy": 60.4,
+        "accuracy": 73,
         "action": "SUIVRE la foule (prudence)"
       }
     },
-    "lastUpdated": "2026-06-25T23:34:18.931Z"
+    "lastUpdated": "2026-06-26T11:11:30.389Z"
   }
 }

@@ -8,6 +8,94 @@
  * Full system = 128 cols, N-1 = 16 cols.
  * Guarantee: If 13/13 in base, at least 12/13 in one column.
  */
+const COLUMN_PRICE = 0.850
+
+/**
+ * Auto-adapted reduced system generator
+ * Picks the best reduction level (full / N-1 / N-2) to fit maxBudget TND
+ * Returns { columns, numCols, cost, systemType, description }
+ */
+export const generateAutoSystem = (basePicks, maxBudget = 100) => {
+  const doubleCount = basePicks.filter(p => p.length > 1).length
+  const fullCols = Math.pow(2, doubleCount)
+
+  // Find best reduction level
+  const levels = [
+    { type: 'INTÉGRAL', divisor: 1, min: 2 },
+    { type: 'N-1', divisor: 8, min: 2 },
+    { type: 'N-2', divisor: 16, min: 2 },
+  ]
+
+  let chosen = levels[0]
+  for (const level of levels) {
+    const cols = Math.max(level.min, Math.round(fullCols / level.divisor))
+    const cost = cols * COLUMN_PRICE * 1.06 // +6% tax
+    if (cost <= maxBudget) {
+      chosen = level
+      break
+    }
+  }
+
+  let numCols = Math.max(chosen.min, Math.round(fullCols / chosen.divisor))
+  const cost = numCols * COLUMN_PRICE * 1.06
+  const columns = generateColumns(basePicks, doubleCount, numCols)
+
+  return {
+    columns,
+    numCols,
+    cost: Math.round(cost * 100) / 100,
+    systemType: chosen.type,
+    doubleCount,
+    fullCols,
+    description: `${numCols} colonnes × ${COLUMN_PRICE} DT = ${(numCols * COLUMN_PRICE).toFixed(3)} DT + taxes = ${Math.round(cost * 100) / 100} DT`
+  }
+}
+
+function generateColumns(basePicks, doubleCount, numCols) {
+  if (doubleCount === 0) return [basePicks]
+
+  const matrix = buildReducedMatrix(doubleCount, numCols)
+  const columns = matrix.map(row => {
+    let doubleIdx = 0
+    return basePicks.map(p => {
+      if (p.length > 1) {
+        const choices = p.split('')
+        const pick = choices[row[doubleIdx]] || choices[0]
+        doubleIdx++
+        return pick
+      }
+      return p
+    })
+  })
+  return columns
+}
+
+function buildReducedMatrix(doubleCount, numCols) {
+  const fullCols = Math.pow(2, doubleCount)
+  const matrix = []
+
+  // Generate all binary combinations
+  const fullMatrix = []
+  for (let i = 0; i < fullCols; i++) {
+    const row = []
+    for (let j = 0; j < doubleCount; j++) {
+      row.push((i >> j) & 1)
+    }
+    fullMatrix.push(row)
+  }
+
+  // Pick evenly distributed rows
+  if (numCols >= fullCols) return fullMatrix
+
+  const step = fullCols / numCols
+  for (let i = 0; i < numCols; i++) {
+    const idx = Math.min(Math.round(i * step), fullCols - 1)
+    matrix.push(fullMatrix[idx])
+  }
+
+  return matrix
+}
+
 export const generateReduced7Doubles = (basePicks) => {
     // Standard Covering Design Matrix for 7 variables (Double Choices)
     // 0 = Pick 1, 1 = Pick 2

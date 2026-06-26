@@ -1,7 +1,6 @@
 const fs = require('fs')
 const path = require('path')
 const logger = require('../core/logger')
-const promosportSurpriseService = require('./promosportSurpriseService')
 
 class CrowdHackerService {
   constructor() {
@@ -36,11 +35,10 @@ class CrowdHackerService {
   }
 
   buildProfile() {
-    promosportSurpriseService.computeSurpriseRates()
-    const histPath = path.join(__dirname, '..', 'data', 'promosport_historical_results.json')
-    if (!fs.existsSync(histPath)) return this.getDefaultProfile()
+    const tunisianPath = path.join(__dirname, '..', 'data', 'tunisian_vote_history.json')
+    if (!fs.existsSync(tunisianPath)) return this.getDefaultProfile()
 
-    const data = JSON.parse(fs.readFileSync(histPath, 'utf-8'))
+    const data = JSON.parse(fs.readFileSync(tunisianPath, 'utf-8'))
     const profile = {
       promosportAccuracy: { '1': { correct: 0, total: 0 }, 'X': { correct: 0, total: 0 }, '2': { correct: 0, total: 0 } },
       modelVersusPromosport: { agree: { correct: 0, total: 0, pct: 0 }, disagree: { correct: 0, total: 0, pct: 0 } },
@@ -50,65 +48,59 @@ class CrowdHackerService {
       promosportOverallAccuracy: 0,
     }
 
-    for (const c of data) {
-      for (const m of c.matches) {
-        if (!['1', 'X', '2'].includes(m.res)) continue
-        profile.totalMatches++
+    for (const m of data) {
+      if (!['1', 'X', '2'].includes(m.result)) continue
+      profile.totalMatches++
 
-        const homeStat = promosportSurpriseService.getSurpriseStats(m.home)
-        const awayStat = promosportSurpriseService.getSurpriseStats(m.away)
-        const hRate = homeStat?.team?.homeWinRate != null ? homeStat.team.homeWinRate / 100 : 0.424
-        const aRate = awayStat?.team?.awayWinRate != null ? awayStat.team.awayWinRate / 100 : 0.317
-        const hRateL = homeStat?.team?.homeLossRate != null ? homeStat.team.homeLossRate / 100 : 0.317
-        const aRateL = awayStat?.team?.awayLossRate != null ? awayStat.team.awayLossRate / 100 : 0.424
+      const p1 = m.vote1 || 0
+      const px = m.voteX || 0
+      const p2 = m.vote2 || 0
+      const totalVotes = p1 + px + p2
+      if (totalVotes === 0) continue
 
-        let p1 = hRate * 0.6 + aRateL * 0.4
-        let px = (hRate != null ? homeStat.team.homeDrawRate / 100 : 0.259) * 0.5 + (aRate != null ? awayStat.team.awayDrawRate / 100 : 0.259) * 0.5
-        let p2 = hRateL * 0.6 + aRate * 0.4
-        const total = p1 + px + p2
-        p1 /= total; px /= total; p2 /= total
+      const promosportPick = p1 >= px && p1 >= p2 ? '1' : (p2 >= px && p2 >= p1 ? '2' : 'X')
+      const promosportProb = Math.max(p1, px, p2) / (totalVotes || 1)
 
-        const modelPick = p1 >= px && p1 >= p2 ? '1' : (p2 >= px && p2 >= p1 ? '2' : 'X')
-        const modelProb = Math.max(p1, px, p2)
+      // Model pick using crowd algorithm rules
+      const picks = [
+        { label: 'X', pct: px },
+        { label: '1', pct: p1 },
+        { label: '2', pct: p2 },
+      ]
+      picks.sort((a, b) => b.pct - a.pct)
+      const crowdFav = picks[0].label
+      const favPct = picks[0].pct
 
-        const promosportP1 = m.homeWinProbability ? (m.homeWinProbability > 1 ? m.homeWinProbability / 100 : m.homeWinProbability) : null
-        const promosportPX = m.drawProbability ? (m.drawProbability > 1 ? m.drawProbability / 100 : m.drawProbability) : null
-        const promosportP2 = m.awayWinProbability ? (m.awayWinProbability > 1 ? m.awayWinProbability / 100 : m.awayWinProbability) : null
+      // Algorithme gagnant v2 — 2452 matchs analysés
+      let modelPick = null
+      if (crowdFav === '1' && favPct >= 55) {
+        modelPick = '1'
+      } else if (crowdFav === '2' && favPct >= 60) {
+        modelPick = '2'
+      }
 
-        const hasPromosport = promosportP1 != null && promosportPX != null && promosportP2 != null
-        if (!hasPromosport) continue
-
-        const promosportPick = promosportP1 >= promosportPX && promosportP1 >= promosportP2 ? '1'
-          : (promosportP2 >= promosportPX && promosportP2 >= promosportP1 ? '2' : 'X')
-        const promosportProb = Math.max(promosportP1, promosportPX, promosportP2)
-
+      if (modelPick) {
         const agree = modelPick === promosportPick
-
         if (agree) {
           profile.modelVersusPromosport.agree.total++
-          if (modelPick === m.res) profile.modelVersusPromosport.agree.correct++
+          if (modelPick === m.result) profile.modelVersusPromosport.agree.correct++
         } else {
           profile.modelVersusPromosport.disagree.total++
-          if (modelPick === m.res) profile.modelVersusPromosport.disagree.correct++
+          if (modelPick === m.result) profile.modelVersusPromosport.disagree.correct++
 
           if (promosportProb > 0.50) {
             profile.contrarianOpportunities.push({
-              concours: c.no,
+              concours: m.grid,
               match: `${m.home} vs ${m.away}`,
-              result: m.res,
+              result: m.result,
               promosportPick,
               promosportProb: +(promosportProb * 100).toFixed(1),
               modelPick,
-              modelProb: +(modelProb * 100).toFixed(1),
-              modelCorrect: modelPick === m.res,
+              modelProb: +(promosportProb * 100).toFixed(1),
+              modelCorrect: modelPick === m.result,
             })
           }
         }
-
-        if (promosportPick === m.res) {
-          profile.promosportAccuracy[promosportPick].correct++
-        }
-        profile.promosportAccuracy[promosportPick].total++
 
         const confBin = promosportProb >= 0.80 ? '80+' : (promosportProb >= 0.65 ? '65-80' : (promosportProb >= 0.50 ? '50-65' : '<50'))
         let biasBin = profile.promosportBiasByConfidence.find(b => b.bin === confBin)
@@ -116,11 +108,23 @@ class CrowdHackerService {
           biasBin = { bin: confBin, correct: 0, total: 0, promosportAccuracy: 0, modelAccuracy: 0, modelCorrect: 0, modelTotal: 0 }
           profile.promosportBiasByConfidence.push(biasBin)
         }
-        biasBin.total++
-        if (promosportPick === m.res) biasBin.correct++
         biasBin.modelTotal++
-        if (modelPick === m.res) biasBin.modelCorrect++
+        if (modelPick === m.result) biasBin.modelCorrect++
       }
+
+      if (promosportPick === m.result) {
+        profile.promosportAccuracy[promosportPick].correct++
+      }
+      profile.promosportAccuracy[promosportPick].total++
+
+      const confBin = promosportProb >= 0.80 ? '80+' : (promosportProb >= 0.65 ? '65-80' : (promosportProb >= 0.50 ? '50-65' : '<50'))
+      let biasBin = profile.promosportBiasByConfidence.find(b => b.bin === confBin)
+      if (!biasBin) {
+        biasBin = { bin: confBin, correct: 0, total: 0, promosportAccuracy: 0, modelAccuracy: 0, modelCorrect: 0, modelTotal: 0 }
+        profile.promosportBiasByConfidence.push(biasBin)
+      }
+      biasBin.total++
+      if (promosportPick === m.result) biasBin.correct++
     }
 
     for (const [pick, acc] of Object.entries(profile.promosportAccuracy)) {
@@ -142,6 +146,62 @@ class CrowdHackerService {
     profile.contrarianHitRate = profile.contrarianOpportunities.length > 0
       ? +(profile.contrarianOpportunities.filter(o => o.modelCorrect).length / profile.contrarianOpportunities.length * 100).toFixed(1)
       : 0
+
+    // Compute tunisianCrowd section
+    const byBin = {}
+    let crowdRight = 0
+    for (const m of data) {
+      if (!['1', 'X', '2'].includes(m.result)) continue
+      const picks = [
+        { label: '1', pct: m.vote1 || 0 },
+        { label: 'X', pct: m.voteX || 0 },
+        { label: '2', pct: m.vote2 || 0 },
+      ]
+      picks.sort((a, b) => b.pct - a.pct)
+      const crowdFav = picks[0].label
+      const favPct = picks[0].pct
+      const correct = crowdFav === m.result
+
+      const bin = Math.floor(favPct / 10) * 10
+      if (!byBin[bin]) byBin[bin] = { right: 0, total: 0 }
+      byBin[bin].total++
+      if (correct) byBin[bin].right++
+
+      if (correct) crowdRight++
+    }
+
+    const weak = Object.entries(byBin).filter(([k]) => parseInt(k) < 70)
+      .reduce((s, [, d]) => ({ r: s.r + d.right, t: s.t + d.total }), { r: 0, t: 0 })
+
+    const strong = Object.entries(byBin).filter(([k]) => parseInt(k) >= 70)
+      .reduce((s, [, d]) => ({ r: s.r + d.right, t: s.t + d.total }), { r: 0, t: 0 })
+
+    profile.tunisianCrowd = {
+      totalMatches: profile.totalMatches,
+      crowdRight,
+      crowdWrong: profile.totalMatches - crowdRight,
+      crowdAccuracy: +(crowdRight / profile.totalMatches * 100).toFixed(1),
+      byConfidence: Object.entries(byBin)
+        .sort((a, b) => a[0] - b[0])
+        .map(([bin, data]) => ({
+          bin: `${bin}-${parseInt(bin) + 9}%`,
+          total: data.total,
+          right: data.right,
+          accuracy: +(data.right / data.total * 100).toFixed(1),
+        })),
+      gridsAnalyzed: [...new Set(data.map(m => m.grid))].sort(),
+      insight: {
+        weakConfidence_under70: {
+          accuracy: weak.t > 0 ? +(weak.r / weak.t * 100).toFixed(1) : 0,
+          action: "CONTRARIAN - prendre l'opposé du favori",
+        },
+        strongConfidence_70plus: {
+          accuracy: strong.t > 0 ? +(strong.r / strong.t * 100).toFixed(1) : 0,
+          action: 'SUIVRE la foule (prudence)',
+        },
+      },
+      lastUpdated: new Date().toISOString(),
+    }
 
     return profile
   }

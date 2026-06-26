@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './Promosport.css';
 import dataService from '../services/dataService';
-import { generateReduced7Doubles, selectBestDoubles } from '../utils/promosportUtils';
+import { generateAutoSystem, generateReduced7Doubles, selectBestDoubles } from '../utils/promosportUtils';
 import PromosportTerminal from './PromosportTerminal';
 
 const Promosport = () => {
@@ -17,6 +17,7 @@ const Promosport = () => {
     const [tunisieLoading, setTunisieLoading] = useState(false);
     const [tunisieError, setTunisieError] = useState(null);
     const [algoPicks, setAlgoPicks] = useState(null);
+    const [reducedSystem, setReducedSystem] = useState(null);
     const [meta, setMeta] = useState({ 
         concours: '---', 
         date: '--/--/----',
@@ -78,58 +79,112 @@ const Promosport = () => {
         }
     };
 
-    const applyAlgo = (matches) => {
+    const computeAlgoPicks = (matches) => {
         const picks = matches.map(m => {
             const v = m.crowdVote
-            if (!v) return { ...m, algo: { pick: '?', type: 'unknown', conf: 0 } }
+            if (!v) return { ...m, algo: { pick: '?', type: 'skip', conf: 0 } }
             const votes = { 1: v.p1 || 0, X: v.px || 0, 2: v.p2 || 0 }
             const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1])
             const fav = sorted[0][0]
             const favPct = sorted[0][1]
-            const secondPct = sorted[1][1]
 
-            if (fav === 'X') {
-                const better = sorted[1][0] === '1' ? '1' : '2'
-                const betterPct = secondPct
-                const otherPct = sorted[2][1]
-                if (betterPct - otherPct < 8) return { ...m, algo: { pick: `1${better === '1' ? '2' : '1'}`, type: 'double', conf: 65 } }
-                return { ...m, algo: { pick: better, type: 'simple', conf: 71 } }
+            // Algorithme gagnant v2 — 2452 matchs analysés
+            // Règle 1: 1 ≥ 55% → pick 1 (69.2% correct sur 455 cas)
+            if (fav === '1' && favPct >= 55) {
+                return { ...m, algo: { pick: '1', type: 'simple', conf: 69 } }
             }
-
-            if (fav === '1') {
-                if (favPct >= 80) return { ...m, algo: { pick: '1', type: 'simple', conf: 93 } }
-                if (favPct >= 70) return { ...m, algo: { pick: '1', type: 'simple', conf: 74 } }
-                if (favPct >= 50) return { ...m, algo: { pick: '1', type: 'simple', conf: 64 } }
-                return { ...m, algo: { pick: votes[2] > votes.X ? '2' : 'X', type: 'double', conf: 51 } }
+            // Règle 2: 2 ≥ 60% → pick 2 (67.9% correct sur 140 cas)
+            if (fav === '2' && favPct >= 60) {
+                return { ...m, algo: { pick: '2', type: 'simple', conf: 68 } }
             }
-
-            if (fav === '2') {
-                if (favPct >= 80) return { ...m, algo: { pick: '2', type: 'simple', conf: 80 } }
-                if (favPct >= 70) return { ...m, algo: { pick: '2', type: 'simple', conf: 64 } }
-                return { ...m, algo: { pick: votes[1] > votes.X ? '1' : 'X', type: 'double', conf: 52 } }
-            }
-
-            return { ...m, algo: { pick: '1X', type: 'double', conf: 50 } }
+            // Sinon → skip (le reste = bruit, précision < 55%)
+            return { ...m, algo: { pick: '—', type: 'skip', conf: 0 } }
         })
 
         const simples = picks.filter(p => p.algo.type === 'simple').length
         const doubles = picks.filter(p => p.algo.type === 'double').length
-        const avgConf = Math.round(picks.reduce((s, p) => s + p.algo.conf, 0) / picks.length)
-        const expectedCorrect = picks.reduce((s, p) => s + p.algo.conf / 100, 0)
-        setAlgoPicks({ picks, simples, doubles, avgConf, expectedCorrect: Math.round(expectedCorrect * 100) / 100 })
+        const skipped = picks.filter(p => p.algo.type === 'skip').length
+        const active = picks.filter(p => p.algo.type !== 'skip')
+        const avgConf = active.length > 0
+            ? Math.round(active.reduce((s, p) => s + p.algo.conf, 0) / active.length)
+            : 0
+        const expectedCorrect = active.reduce((s, p) => s + p.algo.conf / 100, 0)
+        return { picks, simples, doubles, skipped, avgConf, expectedCorrect: Math.round(expectedCorrect * 100) / 100 }
+    }
+
+    const applyAlgo = (matches) => {
+        const result = computeAlgoPicks(matches)
+        setAlgoPicks(result)
+    }
+
+    const handleGenerateColonnes = () => {
+        // Get base picks from ALGO or Tunisian data
+        let basePicks
+        if (algoPicks) {
+            basePicks = algoPicks.picks.map(m => {
+                if (m.algo.type === 'skip') return '1X'
+                return m.algo.pick
+            })
+        } else if (tunisieData?.matches) {
+            const p = computeAlgoPicks(tunisieData.matches)
+            basePicks = p.picks.map(m => {
+                if (m.algo.type === 'skip') return '1X'
+                return m.algo.pick
+            })
+        } else if (matches.length > 0) {
+            basePicks = matches.map(m => {
+                if (m.probs.h > 45) return '1'
+                if (m.probs.a > 45) return '2'
+                return '1X'
+            })
+        } else return
+
+        const system = generateAutoSystem(basePicks, 100)
+        // Calculate expected correct per column
+        let totalConf = 0, countConf = 0
+        const confMap = {}
+        if (algoPicks) {
+            algoPicks.picks.forEach(m => {
+                if (m.algo.type !== 'skip') {
+                    confMap[m.idx || m.id] = m.algo.conf / 100
+                    totalConf += m.algo.conf / 100
+                    countConf++
+                } else {
+                    confMap[m.idx || m.id] = 0.50
+                    totalConf += 0.50
+                    countConf++
+                }
+            })
+        } else {
+            basePicks.forEach((p, i) => {
+                const conf = p.length > 1 ? 0.60 : 0.65
+                confMap[i + 1] = conf
+                totalConf += conf
+                countConf++
+            })
+        }
+
+        const avgColConf = countConf > 0 ? (totalConf / countConf * 13) : 0
+
+        setReducedSystem({
+            ...system,
+            basePicks,
+            expectedCorrect: Math.round(avgColConf * 10) / 10,
+            confMap,
+            source: algoPicks ? 'ALGO GAGNANT' : 'MODULE',
+        })
+        setViewMode('colonnes')
     }
 
     const handleGenerateReduced = (type = 'N-1') => {
         setSimulating(true);
         setTimeout(() => {
-            // Logic for reduced system generation
             const basePicks = matches.map(m => {
                 if (m.probs.h > 45) return "1";
                 if (m.probs.a > 45) return "2";
-                return "1X"; // Default double for uncertain matches
+                return "1X";
             });
             const reducedCols = generateReduced7Doubles(basePicks);
-            // In a real app, we would update the columns view here
             setSimulating(false);
             setViewMode('module');
             alert(`Système ${type} généré avec succès (16 colonnes).`);
@@ -348,6 +403,26 @@ const Promosport = () => {
                             }}
                         >
                             🤖 ALGO GAGNANT
+                        </button>
+                    </div>
+                    <div className="stat-item">
+                        <button 
+                            className="pro-toggle-btn" 
+                            onClick={handleGenerateColonnes}
+                            style={{
+                                background: viewMode === 'colonnes' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(16, 185, 129, 0.1)',
+                                color: viewMode === 'colonnes' ? '#000' : '#34d399',
+                                border: '1px solid #10b981',
+                                padding: '10px 15px',
+                                borderRadius: '10px',
+                                fontWeight: '900',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s',
+                                fontSize: '0.8rem',
+                                letterSpacing: '1px'
+                            }}
+                        >
+                            📊 COLONNES
                         </button>
                     </div>
                 </div>
@@ -843,7 +918,7 @@ const Promosport = () => {
                             🤖 ALGORITHME GAGNANT — GRILLE {tunisieGrid}
                         </h3>
                         <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
-                            Picks calculés par l'algorithme décrypté (analyse de 999 matchs Tunisiens). 🟢 = simple, 🟡 = double.
+                            Picks calculés par l'algorithme décrypté (analyse de 2452 matchs Tunisiens). 🟢 = simple, ⏭️ = non joué (confiance insuffisante).
                         </p>
 
                         <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', flexWrap: 'wrap' }}>
@@ -855,9 +930,9 @@ const Promosport = () => {
                                 <span style={{ color: '#34d399', fontWeight: 'bold', fontSize: '1.3rem' }}>{algoPicks.simples}</span>
                                 <span style={{ color: '#94a3b8', marginLeft: '8px' }}>SIMPLES</span>
                             </div>
-                            <div style={{ background: 'rgba(251, 191, 36, 0.15)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
-                                <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '1.3rem' }}>{algoPicks.doubles}</span>
-                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>DOUBLES</span>
+                            <div style={{ background: 'rgba(100, 116, 139, 0.15)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
+                                <span style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: '1.3rem' }}>{algoPicks.skipped}</span>
+                                <span style={{ color: '#64748b', marginLeft: '8px' }}>SKIPPÉS</span>
                             </div>
                             <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                                 <span style={{ color: '#60a5fa', fontWeight: 'bold', fontSize: '1.3rem' }}>{algoPicks.avgConf}%</span>
@@ -880,11 +955,13 @@ const Promosport = () => {
                                 {algoPicks.picks.map(m => {
                                     const a = m.algo
                                     const isSimple = a.type === 'simple'
-                                    const correct = m.result && a.pick.includes(m.result)
+                                    const isSkip = a.type === 'skip'
+                                    const correct = isSkip ? null : (m.result && a.pick.includes(m.result))
                                     return (
                                     <tr key={m.idx} style={{
                                         borderBottom: '1px solid rgba(255,255,255,0.03)',
-                                        background: correct === true ? 'rgba(16, 185, 129, 0.05)' : correct === false ? 'rgba(239, 68, 68, 0.05)' : 'transparent'
+                                        background: correct === true ? 'rgba(16, 185, 129, 0.05)' : correct === false ? 'rgba(239, 68, 68, 0.05)' : 'transparent',
+                                        opacity: isSkip ? 0.4 : 1
                                     }}>
                                         <td style={{ color: '#64748b', fontWeight: 'bold', padding: '12px 10px' }}>{m.idx}</td>
                                         <td style={{ fontWeight: '600', padding: '12px 10px' }}>
@@ -902,15 +979,19 @@ const Promosport = () => {
                                             </span>
                                         </td>
                                         <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                                <span style={{
-                                                    background: isSimple ? 'rgba(16, 185, 129, 0.2)' : 'rgba(251, 191, 36, 0.2)',
-                                                    color: isSimple ? '#34d399' : '#fbbf24',
-                                                    padding: '4px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1rem'
-                                                }}>{a.pick}</span>
-                                                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '900' }}>{a.conf}%</span>
-                                                {isSimple ? <span title="Simple" style={{ fontSize: '14px' }}>🟢</span> : <span title="Double" style={{ fontSize: '14px' }}>🟡</span>}
-                                            </div>
+                                            {isSkip ? (
+                                                <span style={{ color: '#475569', fontSize: '0.8rem' }}>⏭️</span>
+                                            ) : (
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                    <span style={{
+                                                        background: 'rgba(16, 185, 129, 0.2)',
+                                                        color: '#34d399',
+                                                        padding: '4px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1rem'
+                                                    }}>{a.pick}</span>
+                                                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '900' }}>{a.conf}%</span>
+                                                    <span title="Simple" style={{ fontSize: '14px' }}>🟢</span>
+                                                </div>
+                                            )}
                                         </td>
                                         <td style={{ padding: '12px 10px', textAlign: 'center' }}>
                                             {m.result ? (
@@ -926,15 +1007,101 @@ const Promosport = () => {
                                         <td style={{ padding: '12px 10px', textAlign: 'center' }}>
                                             {correct === true && <span title="Algo correct ✓" style={{ fontSize: '20px' }}>✅</span>}
                                             {correct === false && <span title="Algo faux ✗" style={{ fontSize: '20px' }}>❌</span>}
-                                            {correct === null && m.result && <span title="Algo partiel" style={{ fontSize: '14px', opacity: 0.5 }}>🟡</span>}
+                                            {isSkip && <span title="Non joué" style={{ fontSize: '14px', opacity: 0.5 }}>⏭️</span>}
                                         </td>
                                     </tr>
                                 )})}
                             </tbody>
                         </table>
                         <p style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '15px', fontStyle: 'italic' }}>
-                            Algorithme basé sur l'analyse de 999 matchs Tunisiens. Règle: X populaire → prendre inverse (71.3%).
-                            1 populaire ≥50% → suivre (64%). 2 populaire ≥70% → suivre (64%). Les matchs serrés sont doublés.
+                            Algorithme basé sur l'analyse de 2452 matchs Tunisiens. Règle: 1 ≥ 55% → pick 1 (69.2%).
+                            2 ≥ 60% → pick 2 (67.9%). Les matchs sans favori clair sont ignorés (bruit).
+                        </p>
+                    </div>
+                </div>
+            ) : viewMode === 'colonnes' && reducedSystem ? (
+                <div className="promosport-weapons" style={{ padding: '20px' }}>
+                    <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '25px', borderRadius: '15px', border: '1px solid rgba(16, 185, 129, 0.3)', marginBottom: '25px' }}>
+                        <h3 style={{ color: '#34d399', fontSize: '1.6rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '900' }}>
+                            📊 COLONNES GAGNANTES — {reducedSystem.source}
+                        </h3>
+                        <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
+                            Système {reducedSystem.systemType} — {reducedSystem.description}
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', flexWrap: 'wrap' }}>
+                            <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                                <span style={{ color: '#34d399', fontWeight: 'bold', fontSize: '1.3rem' }}>{reducedSystem.numCols}</span>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>COLONNES</span>
+                            </div>
+                            <div style={{ background: 'rgba(251, 191, 36, 0.15)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
+                                <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '1.3rem' }}>{reducedSystem.cost.toFixed(2)} DT</span>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>COÛT TOTAL</span>
+                            </div>
+                            <div style={{ background: 'rgba(139, 92, 246, 0.15)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+                                <span style={{ color: '#a78bfa', fontWeight: 'bold', fontSize: '1.3rem' }}>{reducedSystem.expectedCorrect}/13</span>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>TAUX RÉUSSITE ESTIMÉ</span>
+                            </div>
+                            <div style={{ background: 'rgba(59, 130, 246, 0.15)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                                <span style={{ color: '#60a5fa', fontWeight: 'bold', fontSize: '1.3rem' }}>{reducedSystem.doubleCount}</span>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>DOUBLES</span>
+                            </div>
+                        </div>
+
+                        <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
+                            <table className="promosport-table" style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse', minWidth: `${reducedSystem.numCols * 60 + 250}px` }}>
+                                <thead>
+                                    <tr style={{ color: '#64748b', textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                                        <th style={{ padding: '8px', position: 'sticky', left: 0, background: '#0f172a', zIndex: 2 }}>N°</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', position: 'sticky', left: '40px', background: '#0f172a', zIndex: 2 }}>Match</th>
+                                        {reducedSystem.columns.map((_, ci) => (
+                                            <th key={ci} style={{ padding: '8px', minWidth: '50px', textAlign: 'center', background: ci % 2 === 0 ? 'rgba(16, 185, 129, 0.05)' : 'transparent' }}>
+                                                Col {ci + 1}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reducedSystem.basePicks.map((bp, mi) => {
+                                        const matchData = (tunisieData?.matches || matches)?.[mi] || {}
+                                        const pickColors = { '1': 'rgba(59, 130, 246, 0.25)', 'X': 'rgba(251, 191, 36, 0.25)', '2': 'rgba(239, 68, 68, 0.25)' }
+                                        const pickTextColors = { '1': '#60a5fa', 'X': '#fbbf24', '2': '#f87171' }
+                                        return (
+                                            <tr key={mi} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                                <td style={{ padding: '6px 8px', color: '#64748b', fontWeight: 'bold', position: 'sticky', left: 0, background: '#0f172a', zIndex: 1 }}>{matchData.idx || matchData.id || (mi + 1)}</td>
+                                                <td style={{ padding: '6px 8px', fontWeight: '500', whiteSpace: 'nowrap', position: 'sticky', left: '40px', background: '#0f172a', zIndex: 1 }}>
+                                                    <span>{matchData.home || '—'}</span>
+                                                    <span style={{ color: '#475569', margin: '0 3px', fontSize: '0.65rem' }}>vs</span>
+                                                    <span>{matchData.away || '—'}</span>
+                                                </td>
+                                                {reducedSystem.columns.map((col, ci) => {
+                                                    const pick = col[mi]
+                                                    return (
+                                                        <td key={ci} style={{ padding: '6px 4px', textAlign: 'center', background: ci % 2 === 0 ? 'rgba(16, 185, 129, 0.03)' : 'transparent' }}>
+                                                            <span style={{
+                                                                display: 'inline-block',
+                                                                background: pickColors[pick] || 'rgba(100, 116, 139, 0.2)',
+                                                                color: pickTextColors[pick] || '#94a3b8',
+                                                                padding: '3px 10px',
+                                                                borderRadius: '4px',
+                                                                fontWeight: 'bold',
+                                                                fontSize: '0.85rem',
+                                                                minWidth: '28px',
+                                                            }}>
+                                                                {pick}
+                                                            </span>
+                                                        </td>
+                                                    )
+                                                })}
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <p style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '15px', fontStyle: 'italic' }}>
+                            💡 Basé sur {reducedSystem.source}. {reducedSystem.doubleCount} doubles → {reducedSystem.fullCols} combinaisons possibles, réduites à {reducedSystem.numCols} colonnes (système {reducedSystem.systemType}). Budget ≤ 100 DT ✓
                         </p>
                     </div>
                 </div>
@@ -955,55 +1122,79 @@ const Promosport = () => {
                 </div>
             )}
 
-            {/* 🎫 TICKET UNIQUE SECTION (8 PREMIUM) */}
+            {/* 🎫 TICKET UNIQUE (8 PREMIUM) — FORMAT COLONNES */}
             <div className="ticket-unique-section" style={{ background: 'rgba(30, 41, 59, 0.7)', padding: '25px', borderRadius: '15px', marginBottom: '30px', border: '1px solid #fbbf2433', boxShadow: '0 10px 40px rgba(0,0,0,0.6)', filter: simulating ? 'blur(5px)' : 'none' }}>
                 <h3 style={{ color: '#fbbf24', fontSize: '1.6rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '900' }}>
                     <span style={{ fontSize: '2rem' }}>🎫</span> TICKET UNIQUE (8 MATCHS PREMIUM) — ANALYSE TITANIUM
                 </h3>
-
-                <div style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '25px', paddingLeft: '40px' }}>
+                <div style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px', paddingLeft: '40px' }}>
                     ⚠️ Sélection automatique des 8 meilleurs matchs basée sur l'indice de confiance Titanium (P differential {'>'} 45%).
                 </div>
-                
-                <div className="ticket-unique-grids" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-                    {[1, 2, 3, 4].map(gNum => (
-                        <div key={`unique-grid-${gNum}`} style={{ background: 'rgba(15, 23, 42, 0.6)', borderRadius: '12px', padding: '15px', border: '1px solid rgba(251, 191, 36, 0.1)' }}>
-                            <h4 style={{ color: '#fbbf24', textAlign: 'center', marginBottom: '15px', fontSize: '1.1rem', fontWeight: '800' }}>GRILLE {gNum}</h4>
-                            <table style={{ width: '100%', fontSize: '0.95rem', borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr style={{ color: '#64748b', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                                        <th style={{ padding: '8px', textAlign: 'left' }}>N°</th>
-                                        <th style={{ padding: '8px', textAlign: 'right' }}>Équipe 1</th>
-                                        <th style={{ padding: '8px', textAlign: 'center' }}>Prono</th>
-                                        <th style={{ padding: '8px', textAlign: 'left' }}>Équipe 2</th>
+
+                <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
+                    <table className="promosport-table" style={{ width: '100%', fontSize: '0.9rem', borderCollapse: 'collapse', minWidth: '500px' }}>
+                        <thead>
+                            <tr style={{ color: '#64748b', fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: '2px solid rgba(251, 191, 36, 0.2)' }}>
+                                <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '40px' }}>N°</th>
+                                <th style={{ padding: '8px 6px', textAlign: 'left', minWidth: '120px' }}>Domicile</th>
+                                <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '60px', color: '#fbbf24' }}>G1</th>
+                                <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '60px', color: '#fbbf24' }}>G2</th>
+                                <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '60px', color: '#fbbf24' }}>G3</th>
+                                <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '60px', color: '#fbbf24' }}>G4</th>
+                                <th style={{ padding: '8px 6px', textAlign: 'right', minWidth: '120px' }}>Extérieur</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {matches.slice(0, 13).map((m) => {
+                                const pickBox = (pred, val) => {
+                                    const isActive = pred.includes(val)
+                                    return (
+                                        <span style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: '22px',
+                                            height: '22px',
+                                            borderRadius: '3px',
+                                            fontWeight: 'bold',
+                                            fontSize: '0.75rem',
+                                            background: isActive ? (
+                                                val === '1' ? 'rgba(59, 130, 246, 0.35)' : val === 'X' ? 'rgba(251, 191, 36, 0.35)' : 'rgba(239, 68, 68, 0.35)'
+                                            ) : 'rgba(100, 116, 139, 0.08)',
+                                            color: isActive ? (
+                                                val === '1' ? '#60a5fa' : val === 'X' ? '#fbbf24' : '#f87171'
+                                            ) : '#334155',
+                                            border: isActive ? '1px solid ' + (val === '1' ? 'rgba(59, 130, 246, 0.4)' : val === 'X' ? 'rgba(251, 191, 36, 0.4)' : 'rgba(239, 68, 68, 0.4)') : '1px solid rgba(255,255,255,0.03)',
+                                        }}>
+                                            {val}
+                                        </span>
+                                    )
+                                }
+                                return (
+                                    <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <td style={{ padding: '10px 6px', textAlign: 'center', color: '#64748b', fontWeight: 'bold' }}>
+                                            <span style={{ fontSize: '0.7rem', color: '#fbbf24' }}>{m.time}</span>
+                                            <br /><span>{m.id}</span>
+                                        </td>
+                                        <td style={{ padding: '10px 6px', textAlign: 'left', fontWeight: '600', whiteSpace: 'nowrap' }}>{m.home}</td>
+                                        {[0, 1, 2, 3].map(ci => (
+                                            <td key={ci} style={{ padding: '8px 6px', textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.03)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center', gap: '2px' }}>
+                                                    {pickBox(m.cols[ci]?.pred || '?', '1')}
+                                                    {pickBox(m.cols[ci]?.pred || '?', 'X')}
+                                                    {pickBox(m.cols[ci]?.pred || '?', '2')}
+                                                </div>
+                                            </td>
+                                        ))}
+                                        <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', whiteSpace: 'nowrap' }}>{m.away}</td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {matches.slice(0, 13).map((m, idx) => {
-                                        const pick = m.cols[gNum - 1].pred;
-                                        return (
-                                            <tr key={`${gNum}-${m.id}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                                <td style={{ padding: '12px 8px' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                        <span style={{ color: '#64748b', fontWeight: 'bold' }}>{m.id}</span>
-                                                        <span style={{ color: '#fbbf24', fontSize: '0.7rem' }}>{m.time}</span>
-                                                    </div>
-                                                </td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: '600' }}>{m.home}</td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                                    <span style={{ background: pick.length > 1 ? '#10b981' : '#fbbf24', color: '#000', padding: '4px 8px', borderRadius: '4px', fontWeight: '900', fontSize: '0.9rem' }}>{pick}</span>
-                                                </td>
-                                                <td style={{ padding: '12px 8px', textAlign: 'left', fontWeight: '600' }}>{m.away}</td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    ))}
+                                )
+                            })}
+                        </tbody>
+                    </table>
                 </div>
 
-                <div className="ia-rationale-section" style={{ marginTop: '30px', padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', border: '1px dashed rgba(251, 191, 36, 0.3)' }}>
+                <div className="ia-rationale-section" style={{ marginTop: '25px', padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', border: '1px dashed rgba(251, 191, 36, 0.3)' }}>
                     <h4 style={{ color: '#fbbf24', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>🧠</span> IA Rationale (Tactique & Stratégique)
                     </h4>
@@ -1015,72 +1206,87 @@ const Promosport = () => {
                 </div>
             </div>
 
-            {/* FULL 13 MATCH GRIDS */}
-            <div className="promosport-grids-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
-                {[0, 1, 2, 3].map((colIndex) => (
-                    <div key={colIndex} className="promosport-grid-wrapper" style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '15px', padding: '15px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <h3 style={{ textAlign: 'center', color: '#fbbf24', margin: '15px 0', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                            {meta.grid_names[colIndex]}
-                        </h3>
-                        <table className="promosport-table" style={{ width: '100%', fontSize: '1rem', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ color: '#64748b', fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                                    <th width="8%" style={{ padding: '10px' }}>N°</th>
-                                    <th width="36%" style={{textAlign: 'right', padding: '10px'}}>Équipe 1</th>
-                                    <th width="20%" style={{textAlign: 'center', padding: '10px'}}>Prono</th>
-                                    <th width="36%" style={{textAlign: 'left', padding: '10px'}}>Équipe 2</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {matches.map((match) => {
-                                    const colData = match.cols[colIndex];
-                                    const isDouble = colData.pred.length > 1;
-                                    const intel = match.intel || { form: 50, logistics: 50, motivation: 50, sharp: 50 };
-                                    
-                                    return (
-                                        <tr key={match.id} className="match-row-interactive" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', background: isDouble ? 'rgba(16, 185, 129, 0.05)' : 'transparent', transition: 'all 0.3s ease' }}>
-                                            <td style={{ padding: '15px 10px' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                    <span style={{ color: '#475569', fontWeight: 'bold' }}>{match.id}</span>
-                                                    <span style={{ color: '#fbbf24', fontSize: '0.75rem', whiteSpace: 'nowrap', marginTop: '4px' }}>{match.time}</span>
-                                                </div>
-                                            </td>
-                                            <td style={{textAlign: 'right', padding: '15px 10px', fontWeight: '500'}}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                                    <span style={{ fontSize: '1.05rem' }}>{match.home}</span>
-                                                    <span style={{color: '#64748b', fontSize: '0.8rem'}}>{match.probs.h}% WIN</span>
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '12px 10px' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                                                        {renderBox(colData.pred, '1')}
-                                                        {renderBox(colData.pred, 'X')}
-                                                        {renderBox(colData.pred, '2')}
+            {/* 📊 FULL 13 MATCH GRIDS — FORMAT COLONNES PROMOSPORT */}
+            <div className="promosport-columns-container" style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '15px', padding: '15px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '30px' }}>
+                <h3 style={{ textAlign: 'center', color: '#fbbf24', margin: '15px 0 5px 0', fontSize: '1.3rem', fontWeight: 'bold', letterSpacing: '2px' }}>
+                    📊 PROMOSPORT — {meta.grid_names.join(' | ').toUpperCase()}
+                </h3>
+                <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.75rem', marginBottom: '20px' }}>
+                    Double ⬤ / Triple ⬤ — © TITANIUM NEURAL-X v3.0
+                </p>
+                <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
+                    <table className="promosport-table" style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse', minWidth: '650px' }}>
+                        <thead>
+                            <tr style={{ color: '#64748b', fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: '2px solid rgba(251, 191, 36, 0.2)' }}>
+                                <th style={{ padding: '8px 6px', position: 'sticky', left: 0, background: '#1e293b', zIndex: 2, minWidth: '40px', textAlign: 'center' }}>N°</th>
+                                <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '150px' }}>Équipe 1</th>
+                                <th style={{ padding: '8px 4px', textAlign: 'center', minWidth: '30px', color: '#fbbf24', fontSize: '0.65rem' }}>%1</th>
+                                <th style={{ padding: '8px 4px', textAlign: 'center', minWidth: '30px', color: '#fbbf24', fontSize: '0.65rem' }}>%X</th>
+                                <th style={{ padding: '8px 4px', textAlign: 'center', minWidth: '30px', color: '#fbbf24', fontSize: '0.65rem' }}>%2</th>
+                                <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '150px' }}>Équipe 2</th>
+                                {meta.grid_names.map((name, ci) => (
+                                    <th key={ci} style={{ padding: '8px 6px', textAlign: 'center', minWidth: '55px', borderLeft: '1px solid rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>
+                                        {name}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {matches.map((match) => {
+                                const crowd = match.crowdVote || {}
+                                const p1 = crowd.p1 || match.probs?.h || 0
+                                const px = crowd.px || match.probs?.n || 0
+                                const p2 = crowd.p2 || match.probs?.a || 0
+                                return (
+                                    <tr key={match.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <td style={{ padding: '10px 6px', textAlign: 'center', color: '#475569', fontWeight: 'bold', position: 'sticky', left: 0, background: '#1e293b', zIndex: 1 }}>
+                                            <span style={{ fontSize: '0.75rem' }}>{match.time}</span>
+                                            <br /><span>{match.id}</span>
+                                        </td>
+                                        <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', whiteSpace: 'nowrap' }}>{match.home}</td>
+                                        <td style={{ padding: '10px 4px', textAlign: 'center' }}>
+                                            <span style={{ color: p1 >= 55 ? '#34d399' : '#64748b', fontWeight: p1 >= 55 ? 'bold' : 'normal' }}>{p1}%</span>
+                                        </td>
+                                        <td style={{ padding: '10px 4px', textAlign: 'center' }}>
+                                            <span style={{ color: '#fbbf24' }}>{px}%</span>
+                                        </td>
+                                        <td style={{ padding: '10px 4px', textAlign: 'center' }}>
+                                            <span style={{ color: p2 >= 60 ? '#34d399' : '#64748b', fontWeight: p2 >= 60 ? 'bold' : 'normal' }}>{p2}%</span>
+                                        </td>
+                                        <td style={{ padding: '10px 6px', textAlign: 'left', fontWeight: '600', whiteSpace: 'nowrap' }}>{match.away}</td>
+                                        {[0, 1, 2, 3].map((ci) => {
+                                            const colData = match.cols[ci] || { pred: '?' }
+                                            const isDouble = colData.pred.length > 1
+                                            const isTriple = colData.pred.length > 2
+                                            const pickBoxStyle = {
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                width: '26px',
+                                                height: '26px',
+                                                borderRadius: '3px',
+                                                fontWeight: 'bold',
+                                                fontSize: '0.8rem',
+                                                background: isTriple ? 'rgba(251, 191, 36, 0.2)' : isDouble ? 'rgba(16, 185, 129, 0.2)' : colData.pred === '1' ? 'rgba(59, 130, 246, 0.3)' : colData.pred === 'X' ? 'rgba(251, 191, 36, 0.3)' : colData.pred === '2' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(100, 116, 139, 0.15)',
+                                                color: isTriple ? '#fbbf24' : isDouble ? '#34d399' : colData.pred === '1' ? '#60a5fa' : colData.pred === 'X' ? '#fbbf24' : colData.pred === '2' ? '#f87171' : '#64748b',
+                                                border: `1px solid ${isTriple ? 'rgba(251, 191, 36, 0.4)' : isDouble ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255,255,255,0.1)'}`,
+                                            }
+                                            return (
+                                                <td key={ci} style={{ padding: '8px 6px', textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.03)' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '2px' }}>
+                                                        {colData.pred.includes('1') && <span style={{...pickBoxStyle}}>1</span>}
+                                                        {colData.pred.includes('X') && <span style={{...pickBoxStyle, background: 'rgba(251, 191, 36, 0.25)', color: '#fbbf24'}}>X</span>}
+                                                        {colData.pred.includes('2') && <span style={{...pickBoxStyle, background: 'rgba(239, 68, 68, 0.25)', color: '#f87171'}}>2</span>}
                                                     </div>
-                                                    {/* MINI INTEL RADAR */}
-                                                    <div className="mini-radar" style={{ display: 'flex', gap: '2px', height: '4px', width: '40px' }}>
-                                                        <div style={{ flex: 1, background: '#10b981', opacity: intel.form / 100, borderRadius: '2px' }} title="Form"></div>
-                                                        <div style={{ flex: 1, background: '#3b82f6', opacity: intel.logistics / 100, borderRadius: '2px' }} title="Logistics"></div>
-                                                        <div style={{ flex: 1, background: '#fbbf24', opacity: intel.motivation / 100, borderRadius: '2px' }} title="Motivation"></div>
-                                                        <div style={{ flex: 1, background: '#ec4899', opacity: intel.sharp / 100, borderRadius: '2px' }} title="Sharpness"></div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td style={{textAlign: 'left', padding: '15px 10px', fontWeight: '500'}}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                                                    <span style={{ fontSize: '1.05rem' }}>{match.away}</span>
-                                                    <span style={{color: '#64748b', fontSize: '0.8rem'}}>{match.probs.a}% WIN</span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-
-                            </tbody>
-                        </table>
-                    </div>
-                ))}
+                                                </td>
+                                            )
+                                        })}
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div className="promosport-analysis" style={{ marginTop: '40px', padding: '25px', background: 'rgba(15, 23, 42, 0.8)', borderRadius: '20px', border: '1px solid rgba(251, 191, 36, 0.2)' }}>

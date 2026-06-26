@@ -127,14 +127,104 @@ async function rebuildCrowdProfile(allMatches) {
   logger.info(`[CROWD-COLLECT] Profile rebuilt: ${total} matches, ${right} right (${((right / total) * 100).toFixed(1)}%)`)
 }
 
-// Auto-run if called directly
-if (require.main === module) {
-  collectLatestGrid()
-    .then(r => {
-      if (r) console.log(`Collected grid ${r.grid}: ${r.collected} new matches (${r.total} total)`)
-      else console.log('No new grid data')
-    })
-    .catch(e => console.error(e))
+async function backfillGrids(start, end, delayMs = 3000) {
+  // Load existing history to skip already-collected grids
+  let history = []
+  if (fs.existsSync(VOTE_HISTORY_PATH)) {
+    try { history = JSON.parse(fs.readFileSync(VOTE_HISTORY_PATH, 'utf-8')) }
+    catch (e) { history = [] }
+  }
+  const existingGrids = new Set(history.map(h => h.grid))
+
+  const toScrape = []
+  for (let g = start; g <= end; g++) {
+    if (!existingGrids.has(String(g))) toScrape.push(g)
+  }
+
+  logger.info(`[BACKFILL] ${toScrape.length} grids missing in range ${start}-${end}`)
+  let collected = 0
+  let skipped = 0
+
+  for (let i = 0; i < toScrape.length; i++) {
+    const gridNo = toScrape[i]
+    try {
+      const grid = await scrapeTunisieGrid(gridNo)
+      if (grid && grid.matches && grid.matches.length >= 5) {
+        const newMatches = grid.matches
+          .filter(m => m.result && m.publicVote && m.result !== 'N')
+          .map(m => ({
+            grid: String(gridNo),
+            idx: m.idx,
+            home: m.home,
+            away: m.away,
+            scoreHome: m.scoreHome,
+            scoreAway: m.scoreAway,
+            result: m.result,
+            vote1: m.publicVote.p1,
+            voteX: m.publicVote.px,
+            vote2: m.publicVote.p2,
+            collectedAt: new Date().toISOString(),
+          }))
+
+        if (newMatches.length > 0) {
+          history.push(...newMatches)
+          collected += newMatches.length
+          logger.info(`[BACKFILL] Grid ${gridNo}: +${newMatches.length} matchs (total: ${history.length})`)
+        } else {
+          skipped++
+        }
+      } else {
+        skipped++
+      }
+    } catch (e) {
+      logger.warn(`[BACKFILL] Grid ${gridNo}: error (${e.message})`)
+      skipped++
+    }
+
+    // Progress every 10 grids
+    if ((i + 1) % 10 === 0) {
+      logger.info(`[BACKFILL] Progress: ${i + 1}/${toScrape.length} (${collected} matchs collects, ${skipped} vides)`)
+    }
+
+    // Save incrementally every 5 grids
+    if ((i + 1) % 5 === 0) {
+      fs.writeFileSync(VOTE_HISTORY_PATH, JSON.stringify(history, null, 2))
+    }
+
+    // Rate limit
+    if (i < toScrape.length - 1) {
+      await new Promise(r => setTimeout(r, delayMs))
+    }
+  }
+
+  // Final save
+  fs.writeFileSync(VOTE_HISTORY_PATH, JSON.stringify(history, null, 2))
+  logger.info(`[BACKFILL] Saved ${history.length} matchs to ${VOTE_HISTORY_PATH}`)
+
+  // Rebuild profile
+  await rebuildCrowdProfile(history)
+  logger.info(`[BACKFILL] Done: +${collected} matchs, ${skipped} grilles vides/erreurs`)
+
+  return { collected, skipped, total: history.length }
 }
 
-module.exports = { collectLatestGrid, rebuildCrowdProfile }
+// Auto-run if called directly
+if (require.main === module) {
+  const cmd = process.argv[2]
+  if (cmd === 'backfill') {
+    const start = parseInt(process.argv[3] || '623')
+    const end = parseInt(process.argv[4] || '875')
+    backfillGrids(start, end)
+      .then(r => console.log(`Backfill termine: ${r.collected} matchs collects (total: ${r.total})`))
+      .catch(e => console.error(e))
+  } else {
+    collectLatestGrid()
+      .then(r => {
+        if (r) console.log(`Collected grid ${r.grid}: ${r.collected} new matches (${r.total} total)`)
+        else console.log('No new grid data')
+      })
+      .catch(e => console.error(e))
+  }
+}
+
+module.exports = { collectLatestGrid, rebuildCrowdProfile, backfillGrids }

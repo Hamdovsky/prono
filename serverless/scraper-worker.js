@@ -53,23 +53,132 @@ async function runTask(taskLabel, taskFn, req, res) {
   }
 }
 
-// ─── Scrape: fixtures via HTTP API ────────────────────────
+// ─── Helpers: multi-source merge ─────────────────────────
+function normalizeName(name) {
+  return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim()
+}
+
+function sameFixture(a, b) {
+  const ha = normalizeName(a.homeTeam || a.home)
+  const aa = normalizeName(a.awayTeam || a.away)
+  const hb = normalizeName(b.homeTeam || b.home)
+  const ab = normalizeName(b.awayTeam || b.away)
+  if (ha === hb && aa === ab) {
+    const tsa = a.startTimestamp || 0
+    const tsb = b.startTimestamp || 0
+    return Math.abs(tsa - tsb) < 86400
+  }
+  return false
+}
+
+function mergeFixtures(primary, secondary) {
+  return {
+    ...primary,
+    odds_home: secondary.odds_home || primary.odds_home,
+    odds_draw: secondary.odds_draw || primary.odds_draw,
+    odds_away: secondary.odds_away || primary.odds_away,
+    home_xg: secondary.home_xg || primary.home_xg,
+    away_xg: secondary.away_xg || primary.away_xg,
+    bsd_match_id: secondary.bsd_match_id || primary.bsd_match_id,
+    tournament_id: secondary.tournament_id || primary.tournament_id,
+    source: primary.source
+  }
+}
+
+// ─── Scrape: fixtures via ALL available APIs ────────────
 app.post('/scrape', requireAuth, async (req, res) => {
   await runTask('scrape', async () => {
-    const httpScraperService = require('../services/httpScraperService')
-    if (!httpScraperService.isAvailable()) {
-      return { error: 'No API keys configured (RAPIDAPI_KEY or FOOTBALLDATA_KEY)' }
-    }
+    const database = require('../core/database')
     const dateStr = req.body?.date || new Date().toISOString().split('T')[0]
-    const fixtures = await httpScraperService.fetchAllFixtures(dateStr)
-    let inserted = 0
-    if (fixtures.length > 0) {
-      const database = require('../core/database')
-      for (const match of fixtures) {
-        try { await database.insertMatch(match); inserted++ } catch (_) {}
+
+    // 1. Fire all primary sources in parallel
+    const sources = []
+    const httpScraperService = require('../services/httpScraperService')
+    if (httpScraperService.isAvailable()) sources.push(httpScraperService.fetchAllFixtures(dateStr))
+
+    // BSD
+    try {
+      const bsdService = require('../services/bsdService')
+      if (bsdService.isAvailable()) {
+        sources.push(
+          bsdService.fetchEvents(dateStr).then(events => {
+            if (!events || events.length === 0) return []
+            return events.map(e => {
+              const m = bsdService._mapEventToMatch(e)
+              m.bsd_match_id = String(e.id || e.match_id || '')
+              return m
+            })
+          })
+        )
+      }
+    } catch (_) {}
+
+    // OpenLigaDB
+    try {
+      const openligadbService = require('../services/openligadbService')
+      if (openligadbService.isAvailable()) {
+        sources.push(openligadbService.fetchEvents(dateStr))
+      }
+    } catch (_) {}
+
+    const results = await Promise.allSettled(sources)
+    const allFixtures = results
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => r.value || [])
+
+    if (allFixtures.length === 0) {
+      return { date: dateStr, fetched: 0, inserted: 0, sources: results.filter(r => r.status === 'fulfilled').length }
+    }
+
+    // 2. Merge by fixture identity (prefer API-Football as primary)
+    const seen = new Map()
+    for (const fixture of allFixtures) {
+      let merged = false
+      for (const [key, existing] of seen) {
+        if (sameFixture(existing, fixture)) {
+          seen.set(key, mergeFixtures(existing, fixture))
+          merged = true
+          break
+        }
+      }
+      if (!merged) {
+        seen.set(fixture.id, fixture)
       }
     }
-    return { date: dateStr, fetched: fixtures.length, inserted }
+
+    // 3. Insert merged fixtures
+    let inserted = 0
+    for (const match of seen.values()) {
+      try { await database.insertMatch(match); inserted++ } catch (_) {}
+    }
+
+    // 4. Auto-trigger enrichment
+    try {
+      const enrichedPredictions = require('../core/enriched_predictions')
+      const now = Date.now()
+      const twoDaysEnd = now + (2 * 24 * 60 * 60 * 1000)
+      const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
+      const needsEnrichment = matches.filter(m => {
+        const ts = m.startTimestamp ? m.startTimestamp * 1000 : 0
+        return ts > now - 3600000 && ts < twoDaysEnd
+      }).slice(0, 300)
+      if (needsEnrichment.length > 0) {
+        const enriched = await enrichedPredictions.enrichMatches(needsEnrichment, { fastMode: false, force: true })
+        for (const m of enriched) {
+          try { await database.updatePredictions(m.id, m) } catch (_) {}
+        }
+      }
+    } catch (e) {
+      console.log('[SCRAPE] Auto-enrich skipped:', e.message)
+    }
+
+    return {
+      date: dateStr,
+      fetched: allFixtures.length,
+      inserted,
+      unique: seen.size,
+      sources: results.filter(r => r.status === 'fulfilled').length
+    }
   }, req, res)
 })
 

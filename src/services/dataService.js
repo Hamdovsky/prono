@@ -596,6 +596,15 @@ class DataService {
         }
     }
 
+    async fetchPromosportTunisie(gridNo) {
+        try {
+            return await this._get(getApiUrl(`/api/promosport/tunisie/${gridNo}`));
+        } catch (error) {
+            console.error('❌ [DATA] Failed to fetch Tunisian grid:', error.message);
+            return null;
+        }
+    }
+
     async fetchHealth() {
         try {
             const health = await this._get(getApiUrl('/api/health'));

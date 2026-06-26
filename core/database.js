@@ -555,12 +555,25 @@ const database = {
                 try {
                     const d = new Date(m.startTimestamp * 1000);
                     if (!isNaN(d.getTime())) timestamp = d.toISOString();
-                } catch (e) {}
+                } catch (e) {
+                    logger.warn(`[DB] Invalid timestamp for ${m.id}: ${m.startTimestamp}`)
+                }
             }
 
             const dataToSave = { ...m };
             delete dataToSave.fullData;
-            const fullData = JSON.stringify(dataToSave);
+
+            // Merge with existing fullData if match already exists
+            let mergedData = dataToSave
+            try {
+              const existing = db.prepare('SELECT fullData FROM matches WHERE id = ?').get(m.id)
+              if (existing && existing.fullData) {
+                const existingParsed = typeof existing.fullData === 'string' ? JSON.parse(existing.fullData) : existing.fullData
+                mergedData = { ...existingParsed, ...dataToSave }
+              }
+            } catch (_) {}
+
+            const fullData = JSON.stringify(mergedData);
             const stats = m.stats || m.statistics || {};
 
             // Best odds = max des sources disponibles
@@ -639,7 +652,7 @@ const database = {
                 m.odds_home_open || m.odds_home || null, m.odds_draw_open || m.odds_draw || null, m.odds_away_open || m.odds_away || null,
                 m.true_prob_home || null, m.true_prob_draw || null, m.true_prob_away || null, m.true_prob_ou25 || null, m.true_prob_btts || null,
                 m.clv_value || 0, m.kelly_stake || 0,
-                m.weather_temp || 15, m.weather_desc || 'clear sky', m.weather_humidity || 50,
+                m.weather_temp ?? null, m.weather_desc ?? null, m.weather_humidity ?? null,
                 m.home_form_pts || 0, m.away_form_pts || 0, m.insufficient_data || 0
             ];
 
@@ -768,14 +781,15 @@ const database = {
             const verdict = data.prediction || (data.enriched && data.enriched.prediction) || data.verdict || 'RISKY BET';
 
             // Extract scalar values to write into indexed SQLite columns
-            const hProb  = parseFloat(data.home_win_probability || enriched?.home_win_probability || fullData.home_win_probability || 0);
-            const dProb  = parseFloat(data.draw_probability    || enriched?.draw_probability    || fullData.draw_probability    || 0);
-            const aProb  = parseFloat(data.away_win_probability || enriched?.away_win_probability || fullData.away_win_probability || 0);
-            const ou25   = parseFloat(data.ou_25_prob  || enriched?.ou_25_prob  || data.ou_2_5_prob  || 0);
-            const bttsp  = parseFloat(data.btts_prob   || enriched?.btts_prob   || 0);
+            // Use null when no source provides a value (allows clearing)
+            const hProb  = data.home_win_probability !== undefined ? parseFloat(data.home_win_probability) : (enriched?.home_win_probability !== undefined ? parseFloat(enriched.home_win_probability) : (fullData.home_win_probability !== undefined ? parseFloat(fullData.home_win_probability) : null));
+            const dProb  = data.draw_probability !== undefined ? parseFloat(data.draw_probability) : (enriched?.draw_probability !== undefined ? parseFloat(enriched.draw_probability) : (fullData.draw_probability !== undefined ? parseFloat(fullData.draw_probability) : null));
+            const aProb  = data.away_win_probability !== undefined ? parseFloat(data.away_win_probability) : (enriched?.away_win_probability !== undefined ? parseFloat(enriched.away_win_probability) : (fullData.away_win_probability !== undefined ? parseFloat(fullData.away_win_probability) : null));
+            const ou25   = data.ou_25_prob !== undefined ? parseFloat(data.ou_25_prob) : (enriched?.ou_25_prob !== undefined ? parseFloat(enriched.ou_25_prob) : (data.ou_2_5_prob !== undefined ? parseFloat(data.ou_2_5_prob) : null));
+            const bttsp  = data.btts_prob !== undefined ? parseFloat(data.btts_prob) : (enriched?.btts_prob !== undefined ? parseFloat(enriched.btts_prob) : null);
             const expScr = data.expected_score || enriched?.expected_score || fullData.expected_score || null;
-            const conf   = parseFloat(data.confidence  || enriched?.confidence  || data.v22_success_rate || 0);
-            const xgbConf = parseFloat(data.xgboost_confidence || enriched?.xgboost_confidence || 0);
+            const conf   = data.confidence !== undefined ? parseFloat(data.confidence) : (enriched?.confidence !== undefined ? parseFloat(enriched.confidence) : (data.v22_success_rate !== undefined ? parseFloat(data.v22_success_rate) : null));
+            const xgbConf = data.xgboost_confidence !== undefined ? parseFloat(data.xgboost_confidence) : (enriched?.xgboost_confidence !== undefined ? parseFloat(enriched.xgboost_confidence) : null);
 
             // ⚡ Write BOTH fullData JSON AND individual indexed columns
             const sql = `
@@ -783,21 +797,21 @@ const database = {
                     "fullData" = ?,
                     prediction = ?,
                     last_updated = ?,
-                    "home_win_probability" = CASE WHEN ? > 0 THEN ? ELSE "home_win_probability" END,
-                    "draw_probability"     = CASE WHEN ? > 0 THEN ? ELSE "draw_probability" END,
-                    "away_win_probability" = CASE WHEN ? > 0 THEN ? ELSE "away_win_probability" END,
-                    "ou_25_prob"           = CASE WHEN ? > 0 THEN ? ELSE "ou_25_prob" END,
-                    "btts_prob"            = CASE WHEN ? > 0 THEN ? ELSE "btts_prob" END,
+                    "home_win_probability" = CASE WHEN ? IS NOT NULL THEN ? ELSE "home_win_probability" END,
+                    "draw_probability"     = CASE WHEN ? IS NOT NULL THEN ? ELSE "draw_probability" END,
+                    "away_win_probability" = CASE WHEN ? IS NOT NULL THEN ? ELSE "away_win_probability" END,
+                    "ou_25_prob"           = CASE WHEN ? IS NOT NULL THEN ? ELSE "ou_25_prob" END,
+                    "btts_prob"            = CASE WHEN ? IS NOT NULL THEN ? ELSE "btts_prob" END,
                     "expected_score"       = CASE WHEN ? IS NOT NULL THEN ? ELSE "expected_score" END,
-                    confidence           = CASE WHEN ? > 0 THEN ? ELSE confidence END,
-                    "xgboost_confidence"   = CASE WHEN ? > 0 THEN ? ELSE "xgboost_confidence" END,
+                    confidence           = CASE WHEN ? IS NOT NULL THEN ? ELSE confidence END,
+                    "xgboost_confidence"   = CASE WHEN ? IS NOT NULL THEN ? ELSE "xgboost_confidence" END,
                     "ev_home"              = CASE WHEN ? IS NOT NULL THEN ? ELSE "ev_home" END,
                     "ev_draw"              = CASE WHEN ? IS NOT NULL THEN ? ELSE "ev_draw" END,
                     "ev_away"              = CASE WHEN ? IS NOT NULL THEN ? ELSE "ev_away" END,
-                    "kelly_stake"          = CASE WHEN ? > 0 THEN ? ELSE "kelly_stake" END,
-                    "true_prob_home"       = CASE WHEN ? > 0 THEN ? ELSE "true_prob_home" END,
-                    "true_prob_draw"       = CASE WHEN ? > 0 THEN ? ELSE "true_prob_draw" END,
-                    "true_prob_away"       = CASE WHEN ? > 0 THEN ? ELSE "true_prob_away" END,
+                    "kelly_stake"          = CASE WHEN ? IS NOT NULL THEN ? ELSE "kelly_stake" END,
+                    "true_prob_home"       = CASE WHEN ? IS NOT NULL THEN ? ELSE "true_prob_home" END,
+                    "true_prob_draw"       = CASE WHEN ? IS NOT NULL THEN ? ELSE "true_prob_draw" END,
+                    "true_prob_away"       = CASE WHEN ? IS NOT NULL THEN ? ELSE "true_prob_away" END,
                     "weather_temp"         = CASE WHEN ? IS NOT NULL THEN ? ELSE "weather_temp" END,
                     "weather_humidity"     = CASE WHEN ? IS NOT NULL THEN ? ELSE "weather_humidity" END,
                     "home_form_pts"        = CASE WHEN ? IS NOT NULL THEN ? ELSE "home_form_pts" END,
@@ -820,10 +834,10 @@ const database = {
                 data.ev_home ?? null, data.ev_home ?? null,
                 data.ev_draw ?? null, data.ev_draw ?? null,
                 data.ev_away ?? null, data.ev_away ?? null,
-                data.kelly_stake || 0, data.kelly_stake || 0,
-                data.true_prob_home || 0, data.true_prob_home || 0,
-                data.true_prob_draw || 0, data.true_prob_draw || 0,
-                data.true_prob_away || 0, data.true_prob_away || 0,
+                data.kelly_stake ?? null, data.kelly_stake ?? null,
+                data.true_prob_home ?? null, data.true_prob_home ?? null,
+                data.true_prob_draw ?? null, data.true_prob_draw ?? null,
+                data.true_prob_away ?? null, data.true_prob_away ?? null,
                 data.weather_temp ?? null, data.weather_temp ?? null,
                 data.weather_humidity ?? null, data.weather_humidity ?? null,
                 data.home_form_pts ?? null, data.home_form_pts ?? null,

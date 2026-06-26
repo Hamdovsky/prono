@@ -289,7 +289,7 @@ class EnrichedPredictionService {
 
         // Gemma 4 (local) tactical briefing enrichment
         try {
-            const Gemma4Service = require('./services/gemma4Service');
+            const Gemma4Service = require('../services/gemma4Service');
             if (!Gemma4Service.isAvailable()) {
                 logger.debug('[GEMMA4] Skipped — service unavailable.')
             } else {
@@ -306,17 +306,23 @@ class EnrichedPredictionService {
             }
             }
         } catch (e) {
-            // Gemma 4 down — pas grave
+            logger.warn(`[GEMMA4] Failed: ${e.message}`)
         }
 
-        // Python/FastAPI optional enrichment (legacy fallback)
+        // Python/FastAPI optional enrichment — use results when available
         try {
             const py = await this.pythonService.predict(match, timeoutMs || 180000);
             if (py && py.success !== false) {
                 result.python_enriched = true;
+                if (py.home_win_probability !== undefined) result.home_win_probability = py.home_win_probability;
+                if (py.draw_probability !== undefined) result.draw_probability = py.draw_probability;
+                if (py.away_win_probability !== undefined) result.away_win_probability = py.away_win_probability;
+                if (py.expected_score) result.expected_score = py.expected_score;
+                if (py.verdict) result.verdict = py.verdict;
+                if (py.ai_source) result.ai_source = py.ai_source;
             }
         } catch (e) {
-            // Python down — pas grave
+            logger.warn(`[FASTAPI] predict failed: ${e.message}`)
         }
 
         return result
@@ -702,28 +708,14 @@ class EnrichedPredictionService {
     async enrichMatches(matches, options = {}) {
         const { fastMode = true, force = false } = options;
         
-        // ✅ Détection des scores stalés (fallback noise, hash collisions, xG manquant)
-        // Un score est suspect si:
-        //   - très bas (0-0, 1-0, 0-1) → probablement pas réel
-        //   - identique à plus de 5 autres matchs dans le batch → hash noise
-        //   - insufficient_data=1 → pas de données réelles
-        const scoreCounts = {}
-        for (const m of matches) {
-            const s = m.expected_score || ''
-            scoreCounts[s] = (scoreCounts[s] || 0) + 1
-        }
+        // Détection des matchs nécessitant enrichissement
+        // On enrichit uniquement les matchs sans probabilités ou marqués insufficient_data
         const needsEnrichment = force ? matches : matches.filter(m => {
-            const s = m.expected_score || ''
-            const parts = s.split(' - ').map(Number)
-            const isLowScore = parts.length === 2 && parts[0] + parts[1] <= 1
-            const isDuplicateScore = s && scoreCounts[s] > 3
             const isInsufficientData = parseInt(m.insufficient_data) === 1
             return (
                 !m.home_win_probability || 
                 m.home_win_probability === 0 || 
                 !m.expected_score || 
-                isLowScore ||
-                isDuplicateScore ||
                 isInsufficientData
             )
         });
@@ -746,20 +738,8 @@ class EnrichedPredictionService {
         }
         
         // Mode profond: Python FastAPI avec concurrence limitée
-        // Pre-check santé FastAPI avant de lancer les appels
-        const fastApiHealthy = await this.pythonService.checkHealth()
-        if (!fastApiHealthy) {
-            logger.warn(`[ENRICH] FastAPI non disponible (checkHealth=false), fallback fastMode`)
-            const fastResults = await Promise.all(needsEnrichment.map(async m => {
-                try {
-                    return await this.fastEnrichMatch(m);
-                } catch (err) {
-                    return m;
-                }
-            }));
-            return [...alreadyEnriched, ...fastResults];
-        }
-        logger.info(`[ENRICH] FastAPI OK, lancement deep enrich avec ML`)
+        // Pas de pre-check santé — on laisse chaque enrichMatch gérer le fallback
+        logger.info(`[ENRICH] Lancement deep enrich avec ML`)
         
         const CONCURRENCY = parseInt(process.env.ENRICH_CONCURRENCY || '3');
         const BULK_TIMEOUT = parseInt(process.env.ENRICH_TIMEOUT_MS || '45000');

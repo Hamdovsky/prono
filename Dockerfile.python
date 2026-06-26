@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY core/ /app/core/
 COPY inference/ /app/inference/
 COPY models/ /app/models/
+COPY data/ /app/data/
 
 # Set Python path so imports work correctly
 ENV PYTHONPATH=/app/core:/app

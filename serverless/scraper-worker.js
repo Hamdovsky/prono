@@ -307,7 +307,7 @@ app.post('/sync/goalmodel', requireAuth, async (req, res) => {
   await runTask('goalmodel-fit', async () => {
     const https = require('https')
     const path = require('path')
-    const fastApiUrl = process.env.FASTAPI_URL || 'https://prono-fastapi.onrender.com'
+    const fastApiUrl = process.env.INFERENCE_URL || process.env.FASTAPI_URL || 'https://prono-fastapi-cnxf.onrender.com'
 
     // Query local SQLite for recent match history
     let matchesData = {}

@@ -72,6 +72,7 @@ const redisCache = {
   init: () => Promise.resolve(), // redisClient has no init — connection is lazy
   ..._redisClient
 };
+const { validate } = require('./core/validation');
 const scraperApiService = require('./services/scraperApiService');
 const playerPropsService = require('./services/playerPropsService');
 const autoArchiver = require('./services/autoArchiver');
@@ -399,7 +400,7 @@ app.post('/api/re-enrich', async (req, res) => {
   }
 });
 
-app.post('/api/config', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
+app.post('/api/config', securityEngine.authenticate.bind(securityEngine), validate.deployConfig, async (req, res) => {
   try {
     const newConfig = req.body;
     const ALLOWED_KEYS = ['scraperUrl', 'SOURCE_MODE', 'thresholds', 'autoPurge', 'strategy'];

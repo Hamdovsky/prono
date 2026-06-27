@@ -21,13 +21,18 @@ class CronManager {
     init(socketService) {
         logger.info('â° [CRON] Initializing master scheduler...');
 
+        // Heartbeat — écrit un timestamp Redis toutes les 5 min
+        cron.schedule('*/5 * * * *', async () => {
+            try { await redisCache.set('cron:heartbeat', Date.now(), 300).catch(() => {}) } catch (_) {}
+        })
+
         // 1. Nightly accuracy analysis (23:00)
         cron.schedule('0 23 * * *', async () => {
             try {
                 const date = new Date().toISOString().split('T')[0];
                 const result = await runAnalysis(date);
-                if (result) logger.info(`âœ… [CRON] Accuracy: ${result.accuracy}%`);
-            } catch (e) { logger.error(`âŒ [CRON] Accuracy Error: ${e.message}`); }
+                if (result) logger.info(`✅ [CRON] Accuracy: ${result.accuracy}%`);
+            } catch (e) { logger.error(`❌ [CRON] Accuracy Error: ${e.message}`); }
         }, { timezone: 'Europe/Paris' });
 
         // 2. Auto-Scraper (toutes les 3h de 06:00 Ã  21:00)

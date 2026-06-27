@@ -118,6 +118,7 @@ try {
 // CORS - restrict in production but allow native smartphone containers
 const allowedOrigins = [
   'https://prono-k6gc.onrender.com',
+  'https://prono-k6gc-rxjf.onrender.com',
   'http://localhost',
   'https://localhost',
   'capacitor://localhost'

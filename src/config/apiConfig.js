@@ -5,7 +5,7 @@ const isNative = typeof window !== 'undefined' && (
   window.location.protocol === 'http-extension:'
 )
 
-const PRODUCTION_API_URL = 'https://prono-k6gc.onrender.com'
+const PRODUCTION_API_URL = 'https://prono-k6gc-rxjf.onrender.com'
 
 // API Base URL Configuration
 // Detect local dev: if serving from localhost in a browser, use same-origin (no prefix)

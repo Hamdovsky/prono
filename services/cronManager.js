@@ -19,45 +19,45 @@ class CronManager {
     }
 
     init(socketService) {
-        logger.info('⏰ [CRON] Initializing master scheduler...');
+        logger.info('â° [CRON] Initializing master scheduler...');
 
         // 1. Nightly accuracy analysis (23:00)
         cron.schedule('0 23 * * *', async () => {
             try {
                 const date = new Date().toISOString().split('T')[0];
                 const result = await runAnalysis(date);
-                if (result) logger.info(`✅ [CRON] Accuracy: ${result.accuracy}%`);
-            } catch (e) { logger.error(`❌ [CRON] Accuracy Error: ${e.message}`); }
+                if (result) logger.info(`âœ… [CRON] Accuracy: ${result.accuracy}%`);
+            } catch (e) { logger.error(`âŒ [CRON] Accuracy Error: ${e.message}`); }
         }, { timezone: 'Europe/Paris' });
 
-        // 2. Auto-Scraper (06:00, 12:00, 18:00)
-        cron.schedule('0 6,12,18 * * *', (label) => this.launchScraper(label), { timezone: 'Europe/Paris' });
+        // 2. Auto-Scraper (toutes les 3h de 06:00 Ã  21:00)
+        cron.schedule('0 6,9,12,15,18,21 * * *', (label) => this.launchScraper(label), { timezone: 'Europe/Paris' });
 
         // 3. Odds snapshot (Every 2 hours)
         cron.schedule('0 */2 * * *', async () => {
             try {
                 const matches = await database.getTodayMatches?.() || [];
                 if (matches.length > 0) snapshotOdds(matches);
-            } catch (e) { logger.error(`❌ [CRON] Odds Error: ${e.message}`); }
+            } catch (e) { logger.error(`âŒ [CRON] Odds Error: ${e.message}`); }
         }, { timezone: 'Europe/Paris' });
 
         // 4. Daily Auto-Archiver (04:00)
         cron.schedule('0 4 * * *', () => autoArchiver.runArchiver(2), { timezone: 'Europe/Paris' });
 
-        // 5. Online Learning Incremental Update (every 6 hours — after archiver at 04:00)
+        // 5. Online Learning Incremental Update (every 6 hours â€” after archiver at 04:00)
         cron.schedule('30 */6 * * *', () => {
-            logger.info('🧠 [CRON] Launching Online Learning Incremental Update...');
+            logger.info('ðŸ§  [CRON] Launching Online Learning Incremental Update...');
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'online_learning_update.js')], { stdio: 'inherit', windowsHide: true });
-            proc.on('close', code => logger.info(`✅ [CRON] Online Learning finished (code ${code})`));
+            proc.on('close', code => logger.info(`âœ… [CRON] Online Learning finished (code ${code})`));
         }, { timezone: 'Africa/Tunis' });
 
         // 6. Periodic H2H Reinforcement (05:00)
         cron.schedule('0 5 * * *', () => {
             const proc = spawn('node', [path.join(__dirname, '..', 'tools', 'reinject_h2h.js')], { stdio: 'inherit', windowsHide: true });
-            proc.on('close', code => logger.info(`✅ [CRON] H2H Success (code ${code})`));
+            proc.on('close', code => logger.info(`âœ… [CRON] H2H Success (code ${code})`));
         }, { timezone: 'Europe/Paris' });
 
-        // 6. Retro-Sync (Every 3 hours) — try Account 2 worker first
+        // 6. Retro-Sync (Every 3 hours) â€” try Account 2 worker first
         cron.schedule('0 */3 * * *', async () => {
             const result = await workerBridge.callWorker('sync/retro')
             if (!result?.success) {
@@ -78,7 +78,7 @@ class CronManager {
         // 9. Combo Refresh (Every hour)
         cron.schedule('0 * * * *', () => socketService.refreshCombos());
 
-        // 10. Proactive Future Enrichment (every 4 hours) — try Account 2 worker first
+        // 10. Proactive Future Enrichment (every 4 hours) â€” try Account 2 worker first
         cron.schedule('0 0,4,8,12,16,20 * * *', async () => {
             const result = await workerBridge.callWorker('enrich')
             if (!result?.success) {
@@ -88,40 +88,40 @@ class CronManager {
 
         // 9.5 Tunisian Promosport Crowd Collector (08:00 daily)
         cron.schedule('0 8 * * *', () => {
-            logger.info('🇹🇳 [CRON] Launching Tunisian Crowd Collector...');
+            logger.info('ðŸ‡¹ðŸ‡³ [CRON] Launching Tunisian Crowd Collector...');
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'crowd_collector.js')], { stdio: 'inherit', windowsHide: true });
-            proc.on('close', code => logger.info(`✅ [CRON] Tunisian Crowd finished (code ${code})`));
+            proc.on('close', code => logger.info(`âœ… [CRON] Tunisian Crowd finished (code ${code})`));
         }, { timezone: 'Africa/Tunis' });
 
         // 10.1 Universal Omniscience Predictor (Every 2 hours for near-real-time tactical updates)
         cron.schedule('0 */2 * * *', () => {
-            logger.info('🚀 [CRON] Launching Universal Bulk Predictor...');
+            logger.info('ðŸš€ [CRON] Launching Universal Bulk Predictor...');
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'universal_predictor.js')], { stdio: 'inherit', windowsHide: true });
-            proc.on('close', code => logger.info(`✅ [CRON] Universal Predictor finished (code ${code})`));
+            proc.on('close', code => logger.info(`âœ… [CRON] Universal Predictor finished (code ${code})`));
         }, { timezone: 'Europe/Paris' });
         
-        // 10.2 Daily Surgical Elite 50 — Main dispatch 10:00 AM (after 06:00 scraper)
+        // 10.2 Daily Surgical Elite 50 â€” Main dispatch 10:00 AM (after 06:00 scraper)
         cron.schedule('0 10 * * *', () => {
-            logger.info('🚀 [CRON] Launching Surgical Elite 50 Pronostic (10:00 AM)...');
+            logger.info('ðŸš€ [CRON] Launching Surgical Elite 50 Pronostic (10:00 AM)...');
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'surgical_elite_50.js')], { stdio: 'inherit', windowsHide: true });
-            proc.on('close', code => logger.info(`✅ [CRON] Surgical Elite 50 finished (code ${code})`));
+            proc.on('close', code => logger.info(`âœ… [CRON] Surgical Elite 50 finished (code ${code})`));
         }, { timezone: 'Europe/Paris' });
 
-        // 10.3 Afternoon Elite 50 refresh — 14:00 PM
+        // 10.3 Afternoon Elite 50 refresh â€” 14:00 PM
         cron.schedule('0 14 * * *', () => {
-            logger.info('🚀 [CRON] Launching Surgical Elite 50 Afternoon Refresh...');
+            logger.info('ðŸš€ [CRON] Launching Surgical Elite 50 Afternoon Refresh...');
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'surgical_elite_50.js')], { stdio: 'inherit', windowsHide: true });
-            proc.on('close', code => logger.info(`✅ [CRON] Elite 50 Afternoon finished (code ${code})`));
+            proc.on('close', code => logger.info(`âœ… [CRON] Elite 50 Afternoon finished (code ${code})`));
         }, { timezone: 'Europe/Paris' });
 
         // 10.2 Daily MR. X Draw Oracle Broadcast (10:00 AM)
         cron.schedule('0 10 * * *', () => {
-            logger.info('🚀 [CRON] Launching MR. X Daily Broadcast...');
+            logger.info('ðŸš€ [CRON] Launching MR. X Daily Broadcast...');
             const botService = require('./botService');
             botService.sendMrXBroadcast();
         }, { timezone: 'Europe/Paris' });
         
-        // 11. Database Maintenance (03:00 AM) — try Account 2 worker first
+        // 11. Database Maintenance (03:00 AM) â€” try Account 2 worker first
         cron.schedule('0 3 * * *', async () => {
             const result = await workerBridge.callWorker('db/maintenance')
             if (!result?.success) {
@@ -131,29 +131,29 @@ class CronManager {
         
         // 12. Monthly Auto-Retrain (04:00 AM 1st of every month)
         cron.schedule('0 4 1 * *', () => {
-            logger.info('🚀 [CRON] Launching Monthly XGBoost Auto-Retrain...');
+            logger.info('ðŸš€ [CRON] Launching Monthly XGBoost Auto-Retrain...');
             runAutoRetrain().then(res => {
                 if (res.success) {
                     const botService = require('./botService');
-                    botService.sendAlert(`🔥 <b>TITANIUM AUTO-RETRAIN (CRON)</b> 🔥\n\n${res.message}`);
+                    botService.sendAlert(`ðŸ”¥ <b>TITANIUM AUTO-RETRAIN (CRON)</b> ðŸ”¥\n\n${res.message}`);
                 }
             }).catch(e => logger.error(`[CRON] Auto-Retrain failed: ${e}`));
         }, { timezone: 'Africa/Tunis' });
 
         // 12b. Weekly Live Model Retrain (05:00 AM every Sunday)
         cron.schedule('0 5 * * 0', () => {
-            logger.info('🚀 [CRON] Launching Weekly Live Goal Model Retrain...');
+            logger.info('ðŸš€ [CRON] Launching Weekly Live Goal Model Retrain...');
             const { runLiveModelRetrain } = require('../scripts/auto_retrain_worker');
             runLiveModelRetrain().then(res => {
                 if (res.success) {
-                    logger.info('✅ [CRON] Live goal model retrained successfully')
+                    logger.info('âœ… [CRON] Live goal model retrained successfully')
                 }
             })
         }, { timezone: 'Africa/Tunis' });
 
         // 12c. Weekly Dixon-Coles MLE GoalModel Fit (06:00 AM every Sunday)
         cron.schedule('0 6 * * 0', async () => {
-            logger.info('📐 [CRON] Launching Weekly Dixon-Coles GoalModel MLE Fit...');
+            logger.info('ðŸ“ [CRON] Launching Weekly Dixon-Coles GoalModel MLE Fit...');
             try {
                 const http = require('http')
                 const body = JSON.stringify({})
@@ -175,40 +175,40 @@ class CronManager {
                     req.end()
                 })
                 if (result?.success) {
-                    logger.info(`✅ [CRON] GoalModel fit started: ${result.total} leagues`)
+                    logger.info(`âœ… [CRON] GoalModel fit started: ${result.total} leagues`)
                 } else {
-                    logger.warn(`⚠️ [CRON] GoalModel fit issue: ${JSON.stringify(result)}`)
+                    logger.warn(`âš ï¸ [CRON] GoalModel fit issue: ${JSON.stringify(result)}`)
                 }
             } catch (e) {
-                logger.error(`❌ [CRON] GoalModel fit failed: ${e.message}`)
+                logger.error(`âŒ [CRON] GoalModel fit failed: ${e.message}`)
             }
         }, { timezone: 'Africa/Tunis' })
 
         // 13. [TITANIUM] Daily Surgical Dispatch (09:00 AM)
         cron.schedule('0 9 * * *', () => {
-            logger.info('🚀 [CRON] Launching Daily Surgical Dispatch...');
+            logger.info('ðŸš€ [CRON] Launching Daily Surgical Dispatch...');
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'surgical_daily_dispatch.js')], { stdio: 'inherit', windowsHide: true });
-            proc.on('close', code => logger.info(`✅ [CRON] Surgical Dispatch finished (code ${code})`));
+            proc.on('close', code => logger.info(`âœ… [CRON] Surgical Dispatch finished (code ${code})`));
         }, { timezone: 'Africa/Tunis' });
 
         // 14. [TITANIUM] Hourly Results Update (Every hour at :15 to catch finished matches)
         cron.schedule('15 * * * *', () => {
-            logger.info('🚀 [CRON] Launching Hourly Results Report...');
+            logger.info('ðŸš€ [CRON] Launching Hourly Results Report...');
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'surgical_results_report.js')], { stdio: 'inherit', windowsHide: true });
-            proc.on('close', code => logger.info(`✅ [CRON] Results Report finished (code ${code})`));
+            proc.on('close', code => logger.info(`âœ… [CRON] Results Report finished (code ${code})`));
         }, { timezone: 'Africa/Tunis' });
 
-        // 15. [AUTOHEAL] Autopilot system patrol (Every 15 minutes) — includes stale xG detection & fix
+        // 15. [AUTOHEAL] Autopilot system patrol (Every 15 minutes) â€” includes stale xG detection & fix
         cron.schedule('*/15 * * * *', () => {
             try {
                 const autoHealAgent = require('./autoHealAgent');
                 autoHealAgent.patrol();
             } catch (e) {
-                logger.error(`❌ [CRON] AutoHeal patrol error: ${e.message}`);
+                logger.error(`âŒ [CRON] AutoHeal patrol error: ${e.message}`);
             }
         });
 
-        // 16. PredixSport Sync (Every 6 hours) — try Account 2 worker first
+        // 16. PredixSport Sync (Every 6 hours) â€” try Account 2 worker first
         cron.schedule('0 */6 * * *', async () => {
           const result = await workerBridge.callWorker('sync/predixsport')
           if (!result?.success) {
@@ -221,7 +221,7 @@ class CronManager {
           }
         }, { timezone: 'Europe/Paris' })
 
-        // 17. Big Balls Data Sync (Every 12 hours) — try Account 2 worker first
+        // 17. Big Balls Data Sync (Every 12 hours) â€” try Account 2 worker first
         cron.schedule('0 */12 * * *', async () => {
           const result = await workerBridge.callWorker('sync/bigballsdata')
           if (!result?.success) {
@@ -234,15 +234,15 @@ class CronManager {
           }
         }, { timezone: 'Europe/Paris' })
 
-        // 18. BSD Sync (Every 6 hours) — via Account 2 worker
+        // 18. BSD Sync (Every 6 hours) â€” via Account 2 worker
         cron.schedule('0 */6 * * *', async () => {
           const result = await workerBridge.callWorker('sync/bsd')
           if (!result?.success) {
-            logger.info('[CRON] BSD sync skipped — no local fallback available')
+            logger.info('[CRON] BSD sync skipped â€” no local fallback available')
           }
         }, { timezone: 'Europe/Paris' })
 
-        // 19. Archive finished matches (Daily at 04:30) — via Account 2 worker
+        // 19. Archive finished matches (Daily at 04:30) â€” via Account 2 worker
         cron.schedule('30 4 * * *', async () => {
           const result = await workerBridge.callWorker('sync/archive')
           if (!result?.success) {
@@ -254,12 +254,12 @@ class CronManager {
           }
         }, { timezone: 'Europe/Paris' })
 
-        // 20. OpenLigaDB Sync (Daily at 05:00) — via Account 2 worker
+        // 20. OpenLigaDB Sync (Daily at 05:00) â€” via Account 2 worker
         cron.schedule('0 5 * * *', async () => {
           await workerBridge.callWorker('sync/openligadb')
         }, { timezone: 'Europe/Paris' })
 
-        // 21. Live Value Alerts (Every 5 min, 9:00-23:59) — detects EV+ live bets
+        // 21. Live Value Alerts (Every 5 min, 9:00-23:59) â€” detects EV+ live bets
         cron.schedule('*/5 9-23 * * *', () => {
           const scriptPath = path.join(__dirname, '..', 'scripts', 'live_value_alerts.js')
           if (require('fs').existsSync(scriptPath)) {
@@ -268,12 +268,12 @@ class CronManager {
           }
         }, { timezone: 'Europe/Paris' })
 
-        logger.info('✅ [CRON] Scheduler active');
+        logger.info('âœ… [CRON] Scheduler active');
 
-        // 🚀 [RESUME] Disabled to avoid conflict with standalone scraper process
+        // ðŸš€ [RESUME] Disabled to avoid conflict with standalone scraper process
         /*
         setTimeout(() => {
-            logger.info('🔄 [CRON] Resuming scraper from where it left off on server startup...');
+            logger.info('ðŸ”„ [CRON] Resuming scraper from where it left off on server startup...');
             this.launchScraper('startup-resume');
         }, 30000);
         */
@@ -282,30 +282,30 @@ class CronManager {
     async launchScraper(label) {
         if (this.scraperSchedule.running) return;
         
-        // 🔒 [LOCK CHECK] If the external scraper process already holds the Redis lock,
+        // ðŸ”’ [LOCK CHECK] If the external scraper process already holds the Redis lock,
         // skip spawning a duplicate.
         try {
             const isLocked = await redisCache.get('scraper:lock');
             if (isLocked) {
-                logger.info(`🚫 [CRON] Scraper (${label}) skipped — external instance already active (Redis lock held).`);
+                logger.info(`ðŸš« [CRON] Scraper (${label}) skipped â€” external instance already active (Redis lock held).`);
                 return;
             }
         } catch (lockErr) {
-            logger.warn(`⚠️ [CRON] Could not check scraper lock: ${lockErr.message}. Proceeding with launch.`);
+            logger.warn(`âš ï¸ [CRON] Could not check scraper lock: ${lockErr.message}. Proceeding with launch.`);
         }
 
         this.scraperSchedule.running = true;
         this.scraperSchedule.lastRun = new Date().toISOString();
         
-        // ⏱️ Auto-reset after 30 minutes si le flag reste bloqué
+        // â±ï¸ Auto-reset after 30 minutes si le flag reste bloquÃ©
         const safetyTimer = setTimeout(() => {
             if (this.scraperSchedule.running) {
-                logger.warn(`⚠️ [CRON] Scraper (${label}) safety timeout — auto-reset running flag`)
+                logger.warn(`âš ï¸ [CRON] Scraper (${label}) safety timeout â€” auto-reset running flag`)
                 this.scraperSchedule.running = false
             }
         }, 30 * 60 * 1000)
         
-        logger.info(`📡 [CRON] Launching Scraper (${label}) via bridge...`);
+        logger.info(`ðŸ“¡ [CRON] Launching Scraper (${label}) via bridge...`);
         
         // Use scraper bridge: calls serverless worker if configured, otherwise runs locally
         const scraperBridge = require('./scraperBridge')
@@ -319,7 +319,7 @@ class CronManager {
         this.scraperSchedule.running = false;
         await redisCache.setLastRun(Date.now()).catch(() => {});
         await redisCache.redis?.del('scraper:lock').catch(() => {});
-        logger.info(`✅ [CRON] Scraper (${label}) finished via bridge.`);
+        logger.info(`âœ… [CRON] Scraper (${label}) finished via bridge.`);
     }
 
     async runAdaptiveLearning() {
@@ -327,12 +327,12 @@ class CronManager {
             const db = database.db;
             const rows = db.prepare("SELECT * FROM matches WHERE status IN ('FT','Finished') LIMIT 200").all();
             if (rows.length > 0) await adaptiveLearning.processBatch(rows);
-        } catch (e) { logger.error(`❌ [CRON] Learning Error: ${e.message}`); }
+        } catch (e) { logger.error(`âŒ [CRON] Learning Error: ${e.message}`); }
     }
 
     async runProactiveEnrichment() {
         try {
-            logger.info('🧠 [CRON] Starting proactive 4-hour enrichment cycle...');
+            logger.info('ðŸ§  [CRON] Starting proactive 4-hour enrichment cycle...');
             const now = Date.now();
             const lookupEnd = now + (3 * 24 * 60 * 60 * 1000);
             
@@ -343,7 +343,7 @@ class CronManager {
                 const isFuture = ts > now - 3600000 && ts < lookupEnd;
                 const isStale = !m.home_win_probability || parseFloat(m.home_win_probability) === 0;
                 return isFuture && isStale;
-            }).slice(0, 300); // 🚀 Increased from 50 to 300 to fulfill the "minimum 50" requirement across all markets
+            }).slice(0, 300); // ðŸš€ Increased from 50 to 300 to fulfill the "minimum 50" requirement across all markets
 
             let filteredNeedsEnrichment = needsEnrichment;
             if (process.env.RAPIDAPI_ENABLED === 'true') {
@@ -351,12 +351,12 @@ class CronManager {
                 const quotaStatus = rapidApiQuotaManager.getQuotaStatus();
                 
                 if (quotaStatus.remaining <= 0) {
-                    logger.warn('🛑 [CRON] Proactive enrichment skipped — RapidAPI quota is exhausted. Running FootballData.io fallback...');
+                    logger.warn('ðŸ›‘ [CRON] Proactive enrichment skipped â€” RapidAPI quota is exhausted. Running FootballData.io fallback...');
                     try {
                         const footballDataService = require('./footballDataService');
                         await footballDataService.processFallbackFixtures();
                     } catch (fdErr) {
-                        logger.error(`❌ [CRON] FootballData fallback failed: ${fdErr.message}`);
+                        logger.error(`âŒ [CRON] FootballData fallback failed: ${fdErr.message}`);
                     }
                     return;
                 }
@@ -371,21 +371,21 @@ class CronManager {
                     if (filteredNeedsEnrichment.length >= quotaStatus.remaining) break;
                 }
                 
-                logger.info(`🧠 [CRON] RapidAPI active: filtered enrichment to ${filteredNeedsEnrichment.length} matches within remaining quota (${quotaStatus.remaining}).`);
+                logger.info(`ðŸ§  [CRON] RapidAPI active: filtered enrichment to ${filteredNeedsEnrichment.length} matches within remaining quota (${quotaStatus.remaining}).`);
             }
 
             if (filteredNeedsEnrichment.length > 0) {
-                logger.info(`🧠 [CRON] Enriching ${filteredNeedsEnrichment.length} future matches...`);
+                logger.info(`ðŸ§  [CRON] Enriching ${filteredNeedsEnrichment.length} future matches...`);
                 const enriched = await enrichedPredictions.enrichMatches(filteredNeedsEnrichment);
                 for (const m of enriched) {
                     await database.updatePredictions(m.id, m);
                 }
-                logger.info('✅ [CRON] Proactive enrichment cycle complete.');
+                logger.info('âœ… [CRON] Proactive enrichment cycle complete.');
             } else {
-                logger.info('✅ [CRON] All future matches are already up to date.');
+                logger.info('âœ… [CRON] All future matches are already up to date.');
             }
         } catch (e) {
-            logger.error(`❌ [CRON] Proactive Enrichment Error: ${e.message}`);
+            logger.error(`âŒ [CRON] Proactive Enrichment Error: ${e.message}`);
         }
     }
 }

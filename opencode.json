@@ -22,5 +22,10 @@
         }
       }
     }
+  },
+  "permission": {
+    "skill": {
+      "*": "allow"
+    }
   }
 }

@@ -1474,10 +1474,11 @@ def process_prediction(match_obj: dict) -> dict:
     from ml_features import get_team_history
     h_hist = get_team_history(home_name, limit=30)
     a_hist = get_team_history(away_name, limit=30)
+    features = {'h_hist_len': len(h_hist), 'a_hist_len': len(a_hist)}
     
     # 📊 Baseline Feature Extraction — let extract_ml_features handle history internally
     # (matches training: fetch_history=True, 5-match limit)
-    features = extract_ml_features(match_obj, fetch_history=True)
+    features.update(extract_ml_features(match_obj, fetch_history=True))
 
     raw_features = dict(features)
 
@@ -2505,6 +2506,14 @@ def process_prediction(match_obj: dict) -> dict:
         # Scale: 1.5 motivation -> +5% boost, 0.6 motivation -> -10% penalty
         confidence *= (1.0 + (mot_factor - 1.0) * 0.1)
 
+    # 7.4b V110 No-History Penalty (International teams without recent data)
+    h_hist_len = features.get('h_hist_len', 0)
+    a_hist_len = features.get('a_hist_len', 0)
+    if h_hist_len + a_hist_len < 5:
+        hist_penalty = 1.0 - ((5 - (h_hist_len + a_hist_len)) / 5.0) * 0.25
+        confidence *= hist_penalty
+        analysis["NoHistoryPenalty"] = f"Penalty: {hist_penalty:.0%} (hist={h_hist_len}+{a_hist_len})"
+
     # 7.5 V26 Reliability Index (Elite Verification)
     completeness = features.get('data_completeness', 50.0)
     liquidity = features.get('liquidity_index', 0.5)
@@ -2594,12 +2603,12 @@ def process_prediction(match_obj: dict) -> dict:
 
         if has_rank:
             rank_diff = rank_a - rank_h
-            if abs(rank_diff) > 20:
+            if abs(rank_diff) > 10:
                 winner_idx = 0 if rank_diff > 0 else 2
-                boost = min(0.15, abs(rank_diff) / 500.0)
+                boost = min(0.25, abs(rank_diff) / 150.0)
                 outcomes_probs = [p_h, p_d, p_a]
                 outcomes_probs[winner_idx] = min(0.85, outcomes_probs[winner_idx] + boost)
-                outcomes_probs[1 - winner_idx] = max(0.02, outcomes_probs[1 - winner_idx] - boost * 0.7)
+                outcomes_probs[1 - winner_idx] = max(0.02, outcomes_probs[1 - winner_idx] - boost * 0.75)
                 total = sum(outcomes_probs)
                 p_h, p_d, p_a = [x / total for x in outcomes_probs]
                 analysis["FIFARankBoost"] = f"{'Home' if rank_diff > 0 else 'Away'} +{boost:.1%} (rank diff={abs(rank_diff)})"
@@ -2867,7 +2876,7 @@ def process_prediction(match_obj: dict) -> dict:
     # Friendlies often lack depth data; we lower the bar to 5% to ensure they get predicted
     data_completeness_score = features.get('data_completeness', 50.0)
     tournament_tag = str(match_obj.get('league', '')).lower()
-    is_friendly_match = any(x in tournament_tag for x in ['friendly', 'amical', 'world', 'international'])
+    is_friendly_match = any(x in tournament_tag for x in ['friendly', 'amical', 'friendlies'])
     comp_threshold = 5.0 if is_friendly_match else 20.0
 
     # [V52.2] TIER1 Competitive Baseline (Bypass for AFCON/Elite)

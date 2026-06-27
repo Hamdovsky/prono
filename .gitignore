@@ -1,4 +1,4 @@
-# dependencies
+﻿# dependencies
 node_modules/
 node_modules
 .pnp/
@@ -9,8 +9,6 @@ coverage/
 coverage
 
 # production
-dist/
-dist
 
 # misc
 .DS_Store
@@ -66,7 +64,6 @@ coverage/
 !/src/**/*.svg
 *.html
 !index.html
-dist/
 .github/
 
 # package managers
@@ -105,7 +102,7 @@ __pycache__/
 # opencode config
 .opencode/
 
-# Credentials — DO NOT COMMIT
+# Credentials â€” DO NOT COMMIT
 AGENTS.md
 
 # Debug scratch files

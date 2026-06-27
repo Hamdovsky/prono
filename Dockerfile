@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=deps /usr/local/bin /usr/local/bin
 COPY core/ /app/core/
 COPY inference/ /app/inference/
 COPY models/ /app/models/

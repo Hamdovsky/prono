@@ -56,22 +56,18 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
   try {
     const { exec } = require('child_process')
     const killProcessOnPort = (port) => new Promise((resolve) => {
-      if (process.platform !== 'win32') return resolve()
-      const cmd = `netstat -ano | findstr LISTENING | findstr :${port}`
+      const cmd = process.platform === 'win32'
+        ? `netstat -ano | findstr LISTENING | findstr :${port}`
+        : `lsof -ti :${port} 2>/dev/null`
       exec(cmd, (err, stdout) => {
         if (err || !stdout) return resolve()
-        const lines = stdout.trim().split(/\r?\n/)
-        const pidsToKill = new Set()
-        for (const line of lines) {
-          const parts = line.trim().split(/\s+/)
-          const pid = parts[parts.length - 1]
-          if (pid && pid !== '0' && parseInt(pid) !== process.pid && /^\d+$/.test(pid)) {
-            pidsToKill.add(pid)
-          }
-        }
-        if (pidsToKill.size === 0) return resolve()
-        logger.warn(`⚠️  Port ${port} occupied by PID(s) [${[...pidsToKill].join(', ')}]. Releasing...`)
-        const kills = [...pidsToKill].map(pid => new Promise(r => exec(`taskkill /F /PID ${pid} /T`, () => r())))
+        const pids = stdout.trim().split(/\r?\n/).filter(Boolean)
+        if (pids.length === 0) return resolve()
+        logger.warn(`⚠️  Port ${port} occupied by PID(s) [${pids.join(', ')}]. Releasing...`)
+        const kills = pids.map(pid => new Promise(r => exec(
+          process.platform === 'win32' ? `taskkill /F /PID ${pid} /T` : `kill -9 ${pid}`,
+          () => r()
+        )))
         Promise.all(kills).then(() => setTimeout(resolve, 1200))
       })
     })
@@ -212,8 +208,9 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
     }, 5000)
 
     const startServer = (retries = 5) => {
+      console.log(`[PORT] Attempting to bind to PORT=${PORT} on 0.0.0.0 (retries left: ${retries})`)
       server.listen(PORT, '0.0.0.0', () => {
-        console.log(`🚀 Titanium Server listening at http://127.0.0.1:${PORT}`);
+        console.log(`🚀 Titanium Server listening at http://0.0.0.0:${PORT}`);
         logger.info('✅ API GATEWAY ACTIVE');
 
         setTimeout(async () => {
@@ -463,6 +460,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
           }
         }, 500);
       }).on('error', async (err) => {
+        console.log(`[PORT] Error binding: ${err.code} - ${err.message}`)
         if (err.code === 'EADDRINUSE') {
           if (retries > 0) {
             logger.warn(`⚠️  Port ${PORT} in use, retrying in 2s... (${retries} retries left)`);
@@ -482,8 +480,12 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
     startServer();
 
   } catch (e) {
-    console.error('💥 FATAL STARTUP ERROR:', e);
-    process.exit(1);
+    console.error('💥 FATAL STARTUP ERROR:', e.message);
+    // Still try to start server even if init failed
+    try { startServer(); } catch (e2) {
+      console.error('💥 FATAL startServer error:', e2.message);
+      process.exit(1);
+    }
   }
 })();
 

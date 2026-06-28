@@ -266,6 +266,7 @@ function initSchema() {
                 last_seen  BIGINT
             );
             CREATE INDEX IF NOT EXISTS idx_team_registry_normalized ON team_registry(normalized);
+            CREATE INDEX IF NOT EXISTS idx_team_registry_name ON team_registry(name);
 
             CREATE TABLE IF NOT EXISTS player_stats (
                 player_id   INTEGER PRIMARY KEY,
@@ -286,6 +287,9 @@ function initSchema() {
 
             CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status);
             CREATE INDEX IF NOT EXISTS idx_matches_timestamp ON matches(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_matches_status_timestamp ON matches(status, timestamp);
+            CREATE INDEX IF NOT EXISTS idx_matches_home_team ON matches(homeTeam);
+            CREATE INDEX IF NOT EXISTS idx_matches_away_team ON matches(awayTeam);
             CREATE INDEX IF NOT EXISTS idx_history_match_id ON prediction_history(match_id);
             CREATE INDEX IF NOT EXISTS idx_patterns_league ON winning_patterns(league);
 

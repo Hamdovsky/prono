@@ -8,6 +8,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
+    "start": "node --max-old-space-size=512 server.js",
     "dev": "concurrently \"npm run server\" \"vite\" --names \"api,vite\" --prefix-colors \"cyan,magenta\"",
     "server": "node --max-old-space-size=512 server.js",
     "scraper": "node SofascoreScraping/index.js",

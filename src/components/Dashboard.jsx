@@ -451,8 +451,8 @@ const Dashboard = () => {
                             <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                                 AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
-                                MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16%", minWidth: "120px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                                MARCHÉS (BTTS + O/U + DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
                             <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
                                 PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
@@ -813,8 +813,8 @@ const Dashboard = () => {
                             <div style={{width:"12%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                                 AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
-                                MARCHÉS (BTTS + O/U) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16%", minWidth: "120px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                                MARCHÉS (BTTS + O/U + DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
                             <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
                                 PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}

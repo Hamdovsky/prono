@@ -60,6 +60,7 @@ const futpythonService = require('./services/futpythonService');
 const clearSportsService = require('./services/clearSportsService');
 const sportApiService = require('./services/sportApiService');
 const apiNinjasService = require('./services/apiNinjasService');
+const marketAnalysis = require('./services/marketAnalysisService');
 
 // Secondary Services
 const _redisClient = require('./core/redisClient');
@@ -687,7 +688,33 @@ app.get('/api/upcoming', async (req, res) => {
       const ts = m.startTimestamp || 0
       return ts >= now - 86400 && ts <= maxTs
     })
-    res.json({ success: true, count: upcoming.length, matches: upcoming })
+
+    const enriched = upcoming.map(m => {
+      try {
+        const xgH = parseFloat(m.home_avg_scored || m.xg_home || 1.2)
+        const xgA = parseFloat(m.away_avg_scored || m.xg_away || 1.0)
+        const hProb = parseFloat(m.home_win_probability || 0.33)
+        const dProb = parseFloat(m.draw_probability || 0.33)
+        const aProb = parseFloat(m.away_win_probability || 0.33)
+
+        const mkts = marketAnalysis.analyzeAll(m, {
+          xgH, xgA, h: hProb, d: dProb, a: aProb,
+        })
+
+        m.marketAnalysis = {
+          overUnder: mkts.overUnder,
+          btts: mkts.btts,
+          doubleChance: mkts.doubleChance,
+          htFt: mkts.htFt.topPick,
+          corners: mkts.corners,
+          cards: mkts.cards,
+          playerProps: mkts.playerProps.slice(0, 3),
+        }
+      } catch (_) {}
+      return m
+    })
+
+    res.json({ success: true, count: enriched.length, matches: enriched })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
   }

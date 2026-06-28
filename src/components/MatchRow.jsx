@@ -26,6 +26,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     const pBTTS = Number(match.btts_prob || enriched?.btts_prob || 0);
     const quantObj = match.quant || (enriched && enriched.quant);
     const mainPick = (quantObj?.main_pick || '').toString().trim().toUpperCase();
+    const marketAnalysis = match.marketAnalysis || {}
+    const dcOdds = marketAnalysis.doubleChance || null
 
     const bttsPct = Math.round(normalizePct(quantObj?.probs?.btts || pBTTS));
     const over25Pct = Math.round(normalizePct(quantObj?.probs?.over25 || pOU25));
@@ -728,9 +730,9 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 4: MARCHÉS (BTTS + O/U) (14%) */}
-            <div style={{width: "14%", minWidth: "100px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
+            {/* COLUMN 4: MARCHÉS (BTTS + O/U + DC) (16%) */}
+            <div style={{width: "16%", minWidth: "120px"}} className="onyx-virtual-cell centered">
+                <div style={{display: 'flex', flexDirection: 'row', gap: '6px', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
                         <span style={{
                             fontSize: '10px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px',
@@ -758,6 +760,13 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                         </span>
                     </div>
                 </div>
+                {dcOdds && (
+                    <div style={{display: 'flex', gap: '3px', marginTop: '2px', justifyContent: 'center'}}>
+                        <span style={{fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: 'rgba(168,85,247,0.15)', color: '#a855f7', fontWeight: '700'}}>1X {dcOdds['1X']}</span>
+                        <span style={{fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: 'rgba(59,130,246,0.15)', color: '#3b82f6', fontWeight: '700'}}>12 {dcOdds['12']}</span>
+                        <span style={{fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700'}}>X2 {dcOdds['X2']}</span>
+                    </div>
+                )}
             </div>
 
             {/* COLUMN 5: PRECISION & RISK (11%) */}

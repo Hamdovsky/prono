@@ -125,9 +125,6 @@ src/data/news_cache.json
 # Binary ML model files (regenerated during training)
 *.pkl
 
-# Antigravity skills (installed from npm)
-.agents/
-
 # Python virtual environment
 .venv/
 venv/

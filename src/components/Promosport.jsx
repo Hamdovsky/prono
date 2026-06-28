@@ -20,6 +20,7 @@ const Promosport = () => {
     const [tunisieError, setTunisieError] = useState(null);
     const [algoPicks, setAlgoPicks] = useState(null);
     const [reducedSystem, setReducedSystem] = useState(null);
+    const [trapFilter, setTrapFilter] = useState(false);
     const [meta, setMeta] = useState({ 
         concours: '---', 
         date: '--/--/----',
@@ -453,6 +454,24 @@ const Promosport = () => {
                             }}
                         >
                             ⚡ SKILLS
+                        </button>
+                        <button
+                            className="pro-toggle-btn"
+                            onClick={() => setTrapFilter(!trapFilter)}
+                            style={{
+                                background: trapFilter ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'rgba(239, 68, 68, 0.1)',
+                                color: trapFilter ? '#000' : '#ef4444',
+                                border: '1px solid #ef4444',
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s',
+                                fontSize: '0.7rem',
+                                letterSpacing: '0.5px'
+                            }}
+                        >
+                            🚨 PIÈGES {trapFilter ? 'ACTIF' : 'OFF'}
                         </button>
                     </div>
                 </div>
@@ -1266,16 +1285,22 @@ const Promosport = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {matches.map((match) => {
+                            {(trapFilter ? matches.filter(m => m.diversifyReason || m.crowdTraps?.isCrowdTrap) : matches).map((match) => {
                                 const crowd = match.crowdVote || {}
                                 const p1 = crowd.p1 || match.probs?.h || 0
                                 const px = crowd.px || match.probs?.n || 0
                                 const p2 = crowd.p2 || match.probs?.a || 0
+                                const isTrap = match.diversifyReason || match.crowdTraps?.isCrowdTrap
                                 return (
-                                    <tr key={match.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <tr key={match.id} style={{
+                                        borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                        background: isTrap ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+                                        boxShadow: isTrap ? 'inset 0 0 20px rgba(239, 68, 68, 0.1)' : 'none'
+                                    }}>
                                         <td style={{ padding: '10px 6px', textAlign: 'center', color: '#475569', fontWeight: 'bold', position: 'sticky', left: 0, background: '#1e293b', zIndex: 1 }}>
                                             <span style={{ fontSize: '0.75rem' }}>{match.time}</span>
                                             <br /><span>{match.id}</span>
+                                            {isTrap && <div style={{ color: '#ef4444', fontSize: '0.6rem', marginTop: '2px' }}>🚨 PIÈGE</div>}
                                         </td>
                                         <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', whiteSpace: 'nowrap' }}>{match.home}</td>
                                         <td style={{ padding: '10px 4px', textAlign: 'center' }}>

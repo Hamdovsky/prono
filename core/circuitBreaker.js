@@ -97,9 +97,9 @@ module.exports = CircuitBreaker;
 // Create named breakers for critical services
 const sofacoreBreaker = new CircuitBreaker({
   name: 'sofacore-api',
-  timeout: 10000,
-  errorThreshold: 5,
-  resetTimeout: 30000
+  timeout: 20000,
+  errorThreshold: 10,
+  resetTimeout: 60000
 });
 
 const redisBreaker = new CircuitBreaker({

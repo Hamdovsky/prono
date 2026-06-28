@@ -9,7 +9,7 @@ const sofacoreBreaker = require('./circuitBreaker').breakers.sofacore;
 async function scrapePromosport() {
   try {
     return await sofacoreBreaker.call(async () => {
-      const url = config.promosportUrl || 'http://www.promosportplus.com/promosport-concours-de-la-semaine';
+      const url = config.promosportUrl || 'https://www.promosportplus.com/promosport-concours-de-la-semaine';
       logger.info(`📡 [SCRAPER] Requesting Promosport grid from: ${url}`);
       
       const response = await axios.get(url, {

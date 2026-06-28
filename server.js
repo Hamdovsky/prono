@@ -41,7 +41,7 @@ const redisCache = {
 
 const PORT = process.env.PORT || 3001
 
-console.log('🚀 [STARTUP] INITIALIZING TITANIUM SERVER V3.0...')
+console.log(`🚀 [STARTUP] INITIALIZING TITANIUM SERVER V3.0... PORT=${PORT}`)
 
 const server = http.createServer(app)
 
@@ -53,27 +53,32 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
 
 // ── SERVER STARTUP & LIFECYCLE ─────────
 ;(async () => {
+  console.log('🔍 [DEBUG] IIFE started')
   try {
     const { exec } = require('child_process')
     const killProcessOnPort = (port) => new Promise((resolve) => {
-      const cmd = process.platform === 'win32'
-        ? `netstat -ano | findstr LISTENING | findstr :${port}`
-        : `lsof -ti :${port} 2>/dev/null`
-      exec(cmd, (err, stdout) => {
+      if (process.platform !== 'win32') return resolve()
+      exec(`netstat -ano | findstr LISTENING | findstr :${port}`, (err, stdout) => {
         if (err || !stdout) return resolve()
-        const pids = stdout.trim().split(/\r?\n/).filter(Boolean)
-        if (pids.length === 0) return resolve()
-        logger.warn(`⚠️  Port ${port} occupied by PID(s) [${pids.join(', ')}]. Releasing...`)
-        const kills = pids.map(pid => new Promise(r => exec(
-          process.platform === 'win32' ? `taskkill /F /PID ${pid} /T` : `kill -9 ${pid}`,
-          () => r()
-        )))
+        const lines = stdout.trim().split(/\r?\n/)
+        const pidsToKill = new Set()
+        for (const line of lines) {
+          const parts = line.trim().split(/\s+/)
+          const pid = parts[parts.length - 1]
+          if (pid && pid !== '0' && parseInt(pid) !== process.pid && /^\d+$/.test(pid)) {
+            pidsToKill.add(pid)
+          }
+        }
+        if (pidsToKill.size === 0) return resolve()
+        logger.warn(`⚠️  Port ${port} occupied by PID(s) [${[...pidsToKill].join(', ')}]. Releasing...`)
+        const kills = [...pidsToKill].map(pid => new Promise(r => exec(`taskkill /F /PID ${pid} /T`, () => r())))
         Promise.all(kills).then(() => setTimeout(resolve, 1200))
       })
     })
 
     await killProcessOnPort(PORT)
     await new Promise(resolve => setTimeout(resolve, 500)) // Small grace period
+    console.log('🔍 [DEBUG] IIFE past grace period')
 
     try {
       const { redis } = require('./core/redisClient')
@@ -207,10 +212,10 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
       }
     }, 5000)
 
-    const startServer = (retries = 5) => {
-      console.log(`[PORT] Attempting to bind to PORT=${PORT} on 0.0.0.0 (retries left: ${retries})`)
-      server.listen(PORT, '0.0.0.0', () => {
-        console.log(`🚀 Titanium Server listening at http://0.0.0.0:${PORT}`);
+    const startServer = (retries = 5, host = '0.0.0.0') => {
+      console.log(`[PORT] Attempting to bind to PORT=${PORT} host=${host} (retries left: ${retries})`)
+      server.listen(PORT, host, () => {
+        console.log(`🚀 Titanium Server listening at http://${host}:${PORT}`);
         logger.info('✅ API GATEWAY ACTIVE');
 
         setTimeout(async () => {
@@ -470,6 +475,9 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
             logger.error(`💥 [FATAL] Port ${PORT} is persistently occupied. Manual intervention required.`);
             process.exit(1);
           }
+        } else if (host === '0.0.0.0') {
+          console.log(`[PORT] Address error, retrying without hostname...`)
+          setTimeout(() => startServer(retries, undefined), 500)
         } else {
           logger.error(`💥 [FATAL] Server Error: ${err.message}`);
           process.exit(1);
@@ -477,7 +485,9 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
       });
     };
 
-    startServer();
+    console.log(`🔍 [DEBUG] PORT=${PORT} typeof=${typeof PORT} calling startServer()`)
+    startServer()
+    console.log('🔍 [DEBUG] startServer() returned')
 
   } catch (e) {
     console.error('💥 FATAL STARTUP ERROR:', e.message);

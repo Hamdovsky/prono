@@ -6,6 +6,7 @@ import PromosportTerminal from './PromosportTerminal';
 import PromosportCalculator from './PromosportCalculator';
 import SkillsPanel from './SkillsPanel';
 import AccuracyDashboard from './AccuracyDashboard';
+import EdgePanel from './EdgePanel';
 
 const Promosport = () => {
     const [loading, setLoading] = useState(true);
@@ -455,6 +456,24 @@ const Promosport = () => {
                             }}
                         >
                             📊 ACCURACY
+                        </button>
+                        <button
+                            className="pro-toggle-btn"
+                            onClick={() => setViewMode(viewMode === 'edge' ? 'module' : 'edge')}
+                            style={{
+                                background: viewMode === 'edge' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'rgba(245, 158, 11, 0.1)',
+                                color: viewMode === 'edge' ? '#000' : '#f59e0b',
+                                border: '1px solid #f59e0b',
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s',
+                                fontSize: '0.7rem',
+                                letterSpacing: '0.5px'
+                            }}
+                        >
+                            💎 EDGE
                         </button>
                         <button
                             className="pro-toggle-btn"
@@ -1179,6 +1198,8 @@ const Promosport = () => {
                 <SkillsPanel />
             ) : viewMode === 'accuracy' ? (
                 <AccuracyDashboard />
+            ) : viewMode === 'edge' ? (
+                <EdgePanel />
             ) : (
                 <>
                     {loading && (

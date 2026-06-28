@@ -454,6 +454,7 @@ app.get('/api/skills', (req, res) => {
 })
 app.use('/api/ds', dsRoutes);
 app.use('/api/webhook', securityEngine.authenticate.bind(securityEngine), integrationRoutes);
+app.use('/api', require('./routes/edge'));
 
 // ── GLOBAL ERROR HANDLER ──────────────────
 app.use((err, req, res, next) => {

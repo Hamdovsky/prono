@@ -19,6 +19,7 @@ const EdgePanel = () => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('value')
+  const [mktTab, setMktTab] = useState('overUnder')
 
   useEffect(() => {
     const load = async () => {
@@ -58,6 +59,9 @@ const EdgePanel = () => {
         </TabBtn>
         <TabBtn active={tab === 'ah'} onClick={() => setTab('ah')} color="#a855f7">
           🏟️ AH ({data.totalAsianHandicaps})
+        </TabBtn>
+        <TabBtn active={tab === 'markets'} onClick={() => setTab('markets')} color="#3b82f6">
+          🎯 MARKETS ({Object.values(data.totalMarkets || {}).reduce((a, b) => a + b, 0)})
         </TabBtn>
       </div>
 
@@ -196,6 +200,203 @@ const EdgePanel = () => {
           )}
         </div>
       )}
+
+      {tab === 'markets' && (
+        <div>
+          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            <MktTabBtn active={mktTab === 'overUnder'} onClick={() => setMktTab('overUnder')} label="O/U" n={data.totalMarkets?.overUnder} />
+            <MktTabBtn active={mktTab === 'btts'} onClick={() => setMktTab('btts')} label="BTTS" n={data.totalMarkets?.btts} />
+            <MktTabBtn active={mktTab === 'doubleChance'} onClick={() => setMktTab('doubleChance')} label="DC" n={data.totalMarkets?.doubleChance} />
+            <MktTabBtn active={mktTab === 'htFt'} onClick={() => setMktTab('htFt')} label="HT/FT" n={data.totalMarkets?.htFt} />
+            <MktTabBtn active={mktTab === 'corners'} onClick={() => setMktTab('corners')} label="CORNERS" n={data.totalMarkets?.corners} />
+            <MktTabBtn active={mktTab === 'cards'} onClick={() => setMktTab('cards')} label="CARDS" n={data.totalMarkets?.cards} />
+            <MktTabBtn active={mktTab === 'playerProps'} onClick={() => setMktTab('playerProps')} label="PROPS" n={data.totalMarkets?.playerProps} />
+          </div>
+
+          {mktTab === 'overUnder' && <OUView items={data.markets?.overUnder || []} />}
+          {mktTab === 'btts' && <BTTSView items={data.markets?.btts || []} />}
+          {mktTab === 'doubleChance' && <DCView items={data.markets?.doubleChance || []} />}
+          {mktTab === 'htFt' && <HTFTView items={data.markets?.htFt || []} />}
+          {mktTab === 'corners' && <CornersView items={data.markets?.corners || []} />}
+          {mktTab === 'cards' && <CardsView items={data.markets?.cards || []} />}
+          {mktTab === 'playerProps' && <PropsView items={data.markets?.playerProps || []} />}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MktTabBtn({ active, onClick, label, n }) {
+  return (
+    <button onClick={onClick} style={{
+      background: active ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.03)',
+      color: active ? '#60a5fa' : '#64748b',
+      border: `1px solid ${active ? '#3b82f6' : '#334155'}`,
+      padding: '4px 10px',
+      borderRadius: '6px',
+      fontWeight: active ? 800 : 600,
+      cursor: 'pointer',
+      fontSize: '0.7rem',
+      transition: 'all 0.2s',
+    }}>
+      {label} {n > 0 && <span style={{ color: '#22c55e' }}>({n})</span>}
+    </button>
+  )
+}
+
+function OUView({ items }) {
+  if (!items.length) return <p style={{ color: '#64748b' }}>Aucun Over/Under disponible</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+      {items.map((m, i) => (
+        <div key={i} style={{
+          background: 'rgba(59,130,246,0.06)', border: '1px solid #3b82f6', borderRadius: '8px', padding: '0.6rem 0.8rem',
+        }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.85rem' }}>{m.homeTeam} vs {m.awayTeam}</div>
+          <div style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+            <span>Ligne: <strong style={{ color: '#60a5fa' }}>{m.line}</strong></span>
+            <span>Over: <strong style={{ color: '#22c55e' }}>{m.fairOver}</strong></span>
+            <span>Under: <strong style={{ color: '#f59e0b' }}>{m.fairUnder}</strong></span>
+            <span>Prob Over: <strong>{(m.overProb * 100).toFixed(0)}%</strong></span>
+            <span style={{ color: '#64748b' }}>{m.league}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function BTTSView({ items }) {
+  if (!items.length) return <p style={{ color: '#64748b' }}>Aucun BTTS disponible</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+      {items.map((m, i) => (
+        <div key={i} style={{
+          background: 'rgba(34,197,94,0.06)', border: '1px solid #22c55e', borderRadius: '8px', padding: '0.6rem 0.8rem',
+        }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.85rem' }}>{m.homeTeam} vs {m.awayTeam}</div>
+          <div style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'flex', gap: '0.8rem', marginTop: '0.2rem' }}>
+            <span>BTTS: <strong style={{ color: '#22c55e' }}>{(m.bttsProb * 100).toFixed(0)}%</strong></span>
+            <span>Fair Odds: <strong>{m.fairBttsOdds}</strong></span>
+            <span style={{ color: '#64748b' }}>{m.league}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DCView({ items }) {
+  if (!items.length) return <p style={{ color: '#64748b' }}>Aucun Double Chance disponible</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+      {items.map((m, i) => {
+        const opts = Object.values(m.options || {})
+        return (
+          <div key={i} style={{
+            background: 'rgba(168,85,247,0.06)', border: '1px solid #a855f7', borderRadius: '8px', padding: '0.6rem 0.8rem',
+          }}>
+            <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.85rem' }}>{m.homeTeam} vs {m.awayTeam}</div>
+            <div style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+              {opts.map(o => (
+                <span key={o.outcome} style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>
+                  {o.outcome}: <strong style={{ color: '#22c55e' }}>{o.fairOdds}</strong>
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function HTFTView({ items }) {
+  if (!items.length) return <p style={{ color: '#64748b' }}>Aucun HT/FT disponible</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+      {items.map((m, i) => (
+        <div key={i} style={{
+          background: 'rgba(245,158,11,0.06)', border: '1px solid #f59e0b', borderRadius: '8px', padding: '0.6rem 0.8rem',
+        }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.85rem' }}>{m.homeTeam} vs {m.awayTeam}</div>
+          <div style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+            {m.topPicks?.map(p => (
+              <span key={p.outcome} style={{ background: 'rgba(245,158,11,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                {p.outcome}: <strong>{(p.prob * 100).toFixed(0)}%</strong> @ {p.fairOdds}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CornersView({ items }) {
+  if (!items.length) return <p style={{ color: '#64748b' }}>Aucun Corners disponible</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+      {items.map((m, i) => (
+        <div key={i} style={{
+          background: 'rgba(59,130,246,0.06)', border: '1px solid #3b82f6', borderRadius: '8px', padding: '0.6rem 0.8rem',
+        }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.85rem' }}>{m.homeTeam} vs {m.awayTeam}</div>
+          <div style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+            {m.lines?.slice(0, 3).map(l => (
+              <span key={l.line} style={{ background: 'rgba(59,130,246,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                >{l.line} @ <strong>{l.fairOver}</strong> ({(l.overProb * 100).toFixed(0)}%)
+              </span>
+            ))}
+            <span style={{ color: '#64748b' }}>Exp: {m.lines?.[0]?.expectedTotal}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CardsView({ items }) {
+  if (!items.length) return <p style={{ color: '#64748b' }}>Aucun Cards disponible</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+      {items.map((m, i) => (
+        <div key={i} style={{
+          background: 'rgba(239,68,68,0.06)', border: '1px solid #ef4444', borderRadius: '8px', padding: '0.6rem 0.8rem',
+        }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.85rem' }}>{m.homeTeam} vs {m.awayTeam}</div>
+          <div style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+            {m.lines?.slice(0, 3).map(l => (
+              <span key={l.line} style={{ background: 'rgba(239,68,68,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                >{l.line} @ <strong>{l.fairOver}</strong> ({(l.overProb * 100).toFixed(0)}%)
+              </span>
+            ))}
+            <span style={{ color: '#64748b' }}>Exp: {m.lines?.[0]?.expectedTotal}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PropsView({ items }) {
+  if (!items.length) return <p style={{ color: '#64748b' }}>Aucun Player Prop disponible</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+      {items.map((m, i) => (
+        <div key={i} style={{
+          background: 'rgba(236,72,153,0.06)', border: '1px solid #ec4899', borderRadius: '8px', padding: '0.6rem 0.8rem',
+        }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.85rem' }}>{m.homeTeam} vs {m.awayTeam}</div>
+          <div style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.2rem' }}>
+            {m.props?.map(p => (
+              <span key={p.player} style={{ background: 'rgba(236,72,153,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
+                {p.player} ({p.position}) — Score: <strong style={{ color: '#22c55e' }}>{(p.goalProb * 100).toFixed(0)}%</strong> @ {p.fairOdds}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

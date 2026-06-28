@@ -20,7 +20,7 @@ services:
     env: node
     plan: free
     healthCheckPath: /health
-    buildCommand: PUPPETEER_SKIP_DOWNLOAD=true npm install --omit=dev && npm run build
+    buildCommand: PUPPETEER_SKIP_DOWNLOAD=true npm install && npm run build
     startCommand: node --expose-gc --max-old-space-size=384 server.js
     envVars:
       - fromGroup: prono-database

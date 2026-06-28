@@ -56,6 +56,9 @@ const EdgePanel = () => {
         <TabBtn active={tab === 'suspicious'} onClick={() => setTab('suspicious')} color="#ef4444">
           🔍 SUSPECT ({data.totalSuspicious})
         </TabBtn>
+        <TabBtn active={tab === 'ah'} onClick={() => setTab('ah')} color="#a855f7">
+          🏟️ AH ({data.totalAsianHandicaps})
+        </TabBtn>
       </div>
 
       {tab === 'value' && (
@@ -140,6 +143,52 @@ const EdgePanel = () => {
                   </div>
                   <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>
                     Risque: {s.score}/10 · {s.risks.map(r => r.tag).join(', ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'ah' && (
+        <div>
+          {data.asianHandicaps.length === 0 ? (
+            <p style={{ color: '#64748b' }}>Aucune opportunité Asian Handicap aujourd'hui</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {data.asianHandicaps.map((ah, i) => (
+                <div key={i} style={{
+                  background: 'rgba(168,85,247,0.08)',
+                  border: '1px solid #a855f7',
+                  borderRadius: '10px',
+                  padding: '0.75rem 1rem',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.9rem' }}>
+                      {ah.homeTeam} vs {ah.awayTeam}
+                    </span>
+                    <span style={{
+                      color: '#a855f7',
+                      fontWeight: 800,
+                      fontSize: '0.75rem',
+                      background: 'rgba(168,85,247,0.15)',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                    }}>
+                      {ah.league}
+                    </span>
+                  </div>
+                  <div style={{ color: '#94a3b8', fontSize: '0.8rem', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                    <span>Marché: <strong style={{ color: '#cbd5e1' }}>{ah.marketLine > 0 ? '+' : ''}{ah.marketLine}</strong></span>
+                    <span>Modèle: <strong style={{ color: '#22c55e' }}>{ah.modelLine > 0 ? '+' : ''}{ah.modelLine}</strong></span>
+                    <span>Écart: <strong style={{ color: '#f59e0b' }}>{ah.lineDisagreement}</strong></span>
+                    <span>Confiance: <strong style={{ color: ah.modelConfidence === 'HIGH' ? '#22c55e' : ah.modelConfidence === 'MED' ? '#f59e0b' : '#ef4444' }}>{ah.modelConfidence}</strong></span>
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '0.25rem', display: 'flex', gap: '1rem' }}>
+                    {ah.homeAHodds && <span>Home AH @ {ah.homeAHodds}</span>}
+                    {ah.awayAHodds && <span>Away AH @ {ah.awayAHodds}</span>}
+                    {ah.steam && <span style={{ color: '#f59e0b' }}>🚨 Steam: {ah.steam.direction} ({ah.steam.shift})</span>}
                   </div>
                 </div>
               ))}

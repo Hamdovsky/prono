@@ -5,6 +5,7 @@ const database = require('../core/database')
 const valueBetEnricher = require('../services/valueBetEnricher')
 const IntegrityService = require('../services/integrity_service')
 const oddsMovement = require('../services/oddsMovementService')
+const asianHandicap = require('../services/asianHandicapService')
 
 router.get('/edge', async (req, res) => {
   try {
@@ -17,6 +18,7 @@ router.get('/edge', async (req, res) => {
     const valueBets = []
     const suspicious = []
     const alerts = []
+    const asianHandicaps = []
 
     for (const match of matches) {
       const enriched = await valueBetEnricher.enrichMatch(match).catch(() => null)
@@ -52,6 +54,28 @@ router.get('/edge', async (req, res) => {
           }
         }
       }
+
+      const ah = asianHandicap.analyzeMatch(match, {
+        h: enriched?.fairOdds?.home ? 1 / enriched.fairOdds.home : null,
+        a: enriched?.fairOdds?.away ? 1 / enriched.fairOdds.away : null,
+        xgH: enriched?.homeXG ?? null,
+        xgA: enriched?.awayXG ?? null,
+      })
+      if (ah && ah.isValue) {
+        asianHandicaps.push({
+          id: match.id,
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
+          league: match.league || match.competition,
+          marketLine: ah.marketLine,
+          modelLine: ah.modelLine,
+          modelConfidence: ah.modelConfidence,
+          homeAHodds: ah.homeAHodds,
+          awayAHodds: ah.awayAHodds,
+          lineDisagreement: ah.lineDisagreement,
+          steam: ah.steam,
+        })
+      }
     }
 
     const oddsAlerts = oddsMovement.snapshotOdds(matches)
@@ -72,6 +96,7 @@ router.get('/edge', async (req, res) => {
     }
 
     valueBets.sort((a, b) => b.valuePercent - a.valuePercent)
+    asianHandicaps.sort((a, b) => b.lineDisagreement - a.lineDisagreement)
 
     res.json({
       success: true,
@@ -79,9 +104,11 @@ router.get('/edge', async (req, res) => {
       totalValueBets: valueBets.length,
       totalAlerts: alerts.length,
       totalSuspicious: suspicious.length,
+      totalAsianHandicaps: asianHandicaps.length,
       valueBets: valueBets.slice(0, 30),
       alerts: alerts.slice(0, 10),
       suspicious: suspicious.slice(0, 10),
+      asianHandicaps: asianHandicaps.slice(0, 15),
     })
   } catch (e) {
     logger.error('[EDGE] Error:', e.message)

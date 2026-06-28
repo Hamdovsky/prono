@@ -1,49 +1,22 @@
 const logger = require('./logger');
 
-const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 60; // 1 req/sec average
+const rateLimit = require('express-rate-limit')
 
-// NOTE: rateLimits est en mémoire (Map). Sur Render free tier, les compteurs
-// sont perdus à chaque restart. Pour une persistence Redis, remplacer par:
-//   const redis = require('ioredis')
-//   const key = `ratelimit:${ip}`
-//   const count = await redis.incr(key)
-//   await redis.expire(key, 60)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too Many Requests' },
+  keyGenerator: req => req.ip || req.socket.remoteAddress || '127.0.0.1',
+  skip: req => req.ip && (req.ip.includes('127.0.0.1') || req.ip === '::ffff:127.0.0.1'),
+})
 
 class SecurityEngine {
-    constructor() {
-        this.rateLimits = new Map();
-    }
-
-    checkRateLimit(ip) {
-        // 🛡️ [WHITELIST] Allow Localhost Unrestricted
-        if (ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1') {
-            return true;
-        }
-
-        const now = Date.now();
-        if (!this.rateLimits.has(ip)) {
-            this.rateLimits.set(ip, [now]);
-            return true;
-        }
-
-        const timestamps = this.rateLimits.get(ip).filter(ts => now - ts < RATE_LIMIT_WINDOW);
-        if (timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
-            return false;
-        }
-
-        timestamps.push(now);
-        this.rateLimits.set(ip, timestamps);
-        return true;
-    }
+    constructor() {}
 
     middleware(req, res, next) {
-        const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
-        if (!this.checkRateLimit(ip)) {
-            logger.warn(`🚫 [SECURITY] Rate limit exceeded for IP: ${ip}`);
-            return res.status(429).json({ error: 'Too Many Requests' });
-        }
-        next();
+        apiLimiter(req, res, next)
     }
 
     /**
@@ -60,6 +33,7 @@ class SecurityEngine {
       const origin = req.headers.origin || req.headers.referer || ''
       const allowed = [
         'https://prono-k6gc.onrender.com',
+        'https://prono-k6gc-rxjf.onrender.com',
         'http://localhost:3001',
         'http://localhost:5173',
         'capacitor://',

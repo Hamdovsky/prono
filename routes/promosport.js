@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
+const https = require('https');
 const logger = require('../core/logger');
 const { speedCache } = require('../core/speedCache');
 const { scrapePromosport } = require('../core/promosport_scraper');
@@ -9,6 +11,65 @@ const doubleOptimizer = require('../services/doubleOptimizerService');
 const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper');
 const crowdHackerService = require('../services/crowdHackerService');
 
+function parsePromosportPronostic(html) {
+  let concoursNumber = '878'
+  let concoursDate = new Date().toISOString().slice(0, 10)
+
+  const titleMatch = html.match(/Promosport N[°]\s*(\d+)/i)
+  if (titleMatch) concoursNumber = titleMatch[1]
+  const dateMatch = html.match(/Du\s+(\d{4}-\d{2}-\d{2})\s+/i)
+  if (dateMatch) concoursDate = dateMatch[1]
+
+  // Find the second f_table (user prediction form) by looking for "<p class=\"u11\">P</p>"
+  const formMarker = '<p class="u11">P</p>'
+  const formIdx = html.indexOf(formMarker)
+  if (formIdx === -1) return []
+
+  const formHtml = html.slice(formIdx)
+  const trBlocks = formHtml.split(/<tr[^>]*>/i).slice(2)
+
+  const matches = []
+
+  for (const block of trBlocks) {
+    const tdCells = block.split(/<td[^>]*>/i)
+    if (tdCells.length < 6) continue
+
+    const idMatch = tdCells[0].match(/(?:<a[^>]*>|>)\s*(\d+)\s*(?:<\/a>)?\s*<\/p>/i)
+    if (!idMatch) continue
+    const id = parseInt(idMatch[1])
+    if (id < 1 || id > 13) continue
+
+    const homeA = tdCells[1].match(/<a[^>]*>([^<]+)<\/a>/i)
+    const awayA = tdCells[5].match(/<a[^>]*>([^<]+)<\/a>/i)
+    if (!homeA || !awayA) continue
+
+    const probNums = []
+    for (let i = 2; i <= 4; i++) {
+      const numMatch = tdCells[i].match(/>(\d+)</)
+      if (numMatch) probNums.push(parseInt(numMatch[1]) / 100)
+    }
+
+    matches.push({
+      id,
+      homeTeam: homeA[1].trim().toUpperCase(),
+      awayTeam: awayA[1].trim().toUpperCase(),
+      leagueName: 'Promosport',
+      homeWinProbability: probNums[0] || 0.33,
+      drawProbability: probNums[1] || 0.33,
+      awayWinProbability: probNums[2] || 0.34,
+      matchTime: '---',
+      concoursDate,
+      concoursNumber
+    })
+  }
+
+  // Validate: 13 unique match IDs (1-13) required
+  const uniqueIds = new Set(matches.map(m => m.id))
+  if (uniqueIds.size !== 13) return []
+
+  return matches.sort((a, b) => a.id - b.id)
+}
+
 async function fetchOrFallback() {
   try {
     const scraped = await scrapePromosport()
@@ -16,21 +77,42 @@ async function fetchOrFallback() {
   } catch (e) {
     logger.error('❌ [PROMOSPORT] Scraper crashed:', e.message)
   }
+  // Backup: try promosport-pronostic.com
+  try {
+    const backupUrl = 'https://www.promosport-pronostic.com/index.php/welcome/promo_pronostic'
+    logger.info('📡 [PROMOSPORT] Trying backup source:', backupUrl)
+    const resp = await axios.get(backupUrl, {
+      httpsAgent: new https.Agent({ keepAlive: true }),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'fr-FR,fr;q=0.9'
+      },
+      timeout: 15000
+    })
+    const html = resp.data
+    const backupMatches = parsePromosportPronostic(html)
+    if (backupMatches && backupMatches.length === 13) {
+      logger.info(`✅ [PROMOSPORT] Backup scrape returned ${backupMatches.length} matches`)
+      return backupMatches
+    }
+  } catch (e) {
+    logger.error('❌ [PROMOSPORT] Backup scrape failed:', e.message)
+  }
   logger.warn('⚠️ [PROMOSPORT] Using 13-match fallback data.')
   return [
-    { id: 1, homeTeam: "VALENCE", awayTeam: "ATLETICO MADRID", homeWinProbability: 0.18, drawProbability: 0.18, awayWinProbability: 0.64, matchTime: "sam 15:15", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 2, homeTeam: "DEPORTIVO ALAVES", awayTeam: "ATHLETIC BILBAO", homeWinProbability: 0.44, drawProbability: 0.14, awayWinProbability: 0.42, matchTime: "sam 17:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 3, homeTeam: "LEVERKUSEN", awayTeam: "RB LEIPZIG", homeWinProbability: 0.42, drawProbability: 0.18, awayWinProbability: 0.40, matchTime: "sam 17:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 4, homeTeam: "HOFFENHEIM", awayTeam: "STUTTGART", homeWinProbability: 0.30, drawProbability: 0.32, awayWinProbability: 0.38, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 5, homeTeam: "EINTRACHT FRANCFORT", awayTeam: "HAMBOURG", homeWinProbability: 0.68, drawProbability: 0.23, awayWinProbability: 0.09, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 6, homeTeam: "UNION BERLIN", awayTeam: "FC COLOGNE", homeWinProbability: 0.41, drawProbability: 0.44, awayWinProbability: 0.15, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 7, homeTeam: "WERDER BREME", awayTeam: "AUGSBURG", homeWinProbability: 0.33, drawProbability: 0.33, awayWinProbability: 0.34, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 8, homeTeam: "BAYERN MUNICH", awayTeam: "HEIDENHEIM", homeWinProbability: 0.72, drawProbability: 0.21, awayWinProbability: 0.07, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 9, homeTeam: "WOLVERHAMPTON", awayTeam: "SUNDERLAND", homeWinProbability: 0.27, drawProbability: 0.18, awayWinProbability: 0.55, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 10, homeTeam: "BRENTFORD", awayTeam: "WEST HAM", homeWinProbability: 0.34, drawProbability: 0.17, awayWinProbability: 0.49, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 11, homeTeam: "EVERTON", awayTeam: "IPSWICH TOWN", homeWinProbability: 0.17, drawProbability: 0.36, awayWinProbability: 0.47, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 12, homeTeam: "ARSENAL", awayTeam: "MANCHESTER CITY", homeWinProbability: 0.66, drawProbability: 0.20, awayWinProbability: 0.14, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" },
-    { id: 13, homeTeam: "BRIGHTON", awayTeam: "MANCHESTER UTD", homeWinProbability: 0.38, drawProbability: 0.24, awayWinProbability: 0.38, matchTime: "sam 14:30", concoursNumber: "856", concoursDate: "02/05/2026" }
+    { id: 1, homeTeam: "AUSTRALIE", awayTeam: "EGYPTE", homeWinProbability: 0.29, drawProbability: 0.31, awayWinProbability: 0.40, matchTime: "sam 19:00", concoursNumber: "878", concoursDate: "03/07/2026" },
+    { id: 2, homeTeam: "SUISSE", awayTeam: "ALGERIE", homeWinProbability: 0.52, drawProbability: 0.26, awayWinProbability: 0.22, matchTime: "sam 04:00", concoursNumber: "878", concoursDate: "03/07/2026" },
+    { id: 3, homeTeam: "PORTUGAL", awayTeam: "CROATIE", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "jeu 00:00", concoursNumber: "878", concoursDate: "02/07/2026" },
+    { id: 4, homeTeam: "ESPAGNE", awayTeam: "AUTRICHE", homeWinProbability: 0.73, drawProbability: 0.19, awayWinProbability: 0.08, matchTime: "jeu 20:00", concoursNumber: "878", concoursDate: "02/07/2026" },
+    { id: 5, homeTeam: "ARGENTINE", awayTeam: "CAP-VERT", homeWinProbability: 0.80, drawProbability: 0.14, awayWinProbability: 0.06, matchTime: "sam 23:00", concoursNumber: "878", concoursDate: "03/07/2026" },
+    { id: 6, homeTeam: "COLOMBIE", awayTeam: "GHANA", homeWinProbability: 0.61, drawProbability: 0.26, awayWinProbability: 0.13, matchTime: "dim 02:30", concoursNumber: "878", concoursDate: "04/07/2026" },
+    { id: 7, homeTeam: "CUIABA", awayTeam: "AMERICA MINEIRO", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "jeu 00:00", concoursNumber: "878", concoursDate: "02/07/2026" },
+    { id: 8, homeTeam: "FORTALEZA EC", awayTeam: "PONTE PRETA", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "sam 01:00", concoursNumber: "878", concoursDate: "03/07/2026" },
+    { id: 9, homeTeam: "O'HIGGINS", awayTeam: "COLO COLO", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "sam 01:30", concoursNumber: "878", concoursDate: "03/07/2026" },
+    { id: 10, homeTeam: "HUACHIPATO", awayTeam: "CONCEPCION", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "jeu 23:00", concoursNumber: "878", concoursDate: "02/07/2026" },
+    { id: 11, homeTeam: "BRESIL", awayTeam: "JAPON", homeWinProbability: 0.56, drawProbability: 0.25, awayWinProbability: 0.19, matchTime: "jeu 18:00", concoursNumber: "878", concoursDate: "02/07/2026" },
+    { id: 12, homeTeam: "ALLEMAGNE", awayTeam: "PARAGUAY", homeWinProbability: 0.67, drawProbability: 0.21, awayWinProbability: 0.12, matchTime: "jeu 21:30", concoursNumber: "878", concoursDate: "02/07/2026" },
+    { id: 13, homeTeam: "RIVER PLATE", awayTeam: "FLAMENGO", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "sam 19:30", concoursNumber: "878", concoursDate: "03/07/2026" }
   ]
 }
 
@@ -97,7 +179,7 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
     });
 
     const firstMatch = scrapedMatches[0] || {};
-    const finalConcours = firstMatch.concoursNumber || '855';
+    const finalConcours = firstMatch.concoursNumber || '878';
     const finalDate = firstMatch.concoursDate || new Date().toLocaleDateString();
 
     console.log(`✅ [PROMOSPORT] Sending ${unifiedMatches.length} matches to frontend for Concours ${finalConcours}`);

@@ -40,7 +40,6 @@ const redisCache = {
 }
 
 const PORT = process.env.PORT || 3001
-console.log(`[DIAG] PORT env = "${process.env.PORT}", using PORT = ${PORT}`)
 
 console.log('🚀 [STARTUP] INITIALIZING TITANIUM SERVER V3.0...')
 
@@ -55,7 +54,6 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
 // ── SERVER STARTUP & LIFECYCLE ─────────
 ;(async () => {
   try {
-    console.log('[DIAG] IIFE started')
     const { exec } = require('child_process')
     const killProcessOnPort = (port) => new Promise((resolve) => {
       if (process.platform !== 'win32') return resolve()
@@ -80,7 +78,6 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
 
     await killProcessOnPort(PORT)
     await new Promise(resolve => setTimeout(resolve, 500)) // Small grace period
-    console.log('[DIAG] After 500ms wait, calling startServer...')
 
     try {
       const { redis } = require('./core/redisClient')
@@ -215,7 +212,6 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
     }, 5000)
 
     const startServer = (retries = 5) => {
-      console.log(`[DIAG] startServer called, retries left: ${retries}, calling server.listen(${PORT}, '0.0.0.0')...`)
       server.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 Titanium Server listening at http://127.0.0.1:${PORT}`);
         logger.info('✅ API GATEWAY ACTIVE');

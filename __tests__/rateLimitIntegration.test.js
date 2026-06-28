@@ -14,13 +14,12 @@ jest.mock('../services/playerPropsService', () => ({
 let app
 
 beforeAll(() => {
-  app = require('../server')
+  process.env.API_SECRET_KEY = 'test-secret-key'
+  app = require('../app')
 })
 
-beforeEach(() => {
-  // Clean rate limits so tests don't interfere
-  const securityEngine = require('../core/securityEngine')
-  securityEngine.rateLimits.clear()
+afterAll(() => {
+  delete process.env.API_SECRET_KEY
 })
 
 describe('Global rate-limit on /api routes', () => {

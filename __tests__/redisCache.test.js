@@ -198,7 +198,7 @@ describe('RedisCache', () => {
   });
 
   describe('Error suppression', () => {
-    it('should suppress repeated Redis errors', () => {
+    it('should suppress repeated Redis errors', async () => {
       const mockRedis = {
         set: jest.fn().mockRejectedValue(new Error('Connection error')),
         get: jest.fn().mockRejectedValue(new Error('Connection error'))

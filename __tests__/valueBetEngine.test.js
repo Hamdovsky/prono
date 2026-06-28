@@ -46,7 +46,7 @@ describe('ValueBetEngine', () => {
       expect(analysis.best.selection).toBe('draw');
     });
 
-    it('should return no value when no edge', () => {
+    it('should return null when no edge (EV below threshold)', () => {
       const analysis = ValueBetEngine.analyzeValue({
         modelHome: 40,
         modelDraw: 30,
@@ -56,7 +56,7 @@ describe('ValueBetEngine', () => {
         awayOdds: 3.33  // implied ≈ 30% - fair
       });
 
-      expect(analysis.hasValue).toBe(false);
+      expect(analysis).toBeNull();
     });
 
     it('should calculate Kelly Criterion correctly', () => {

@@ -8,7 +8,6 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too Many Requests' },
-  keyGenerator: req => req.ip || req.socket.remoteAddress || '127.0.0.1',
   skip: req => req.ip && (req.ip.includes('127.0.0.1') || req.ip === '::ffff:127.0.0.1'),
 })
 

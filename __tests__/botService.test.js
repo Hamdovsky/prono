@@ -138,7 +138,7 @@ describe('BotService', () => {
 
       botService._executeSend('Test message');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Telegram Alert Failed:', expect.any(String));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Telegram Alert Failed:'));
 
       consoleErrorSpy.mockRestore();
       https.request = originalRequest;

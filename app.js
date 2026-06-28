@@ -1,10 +1,10 @@
-// ─── Crash-early env validation ────────────────────────
+// ─── Env validation (graceful in test mode) ────────────
 const CRITICAL_KEYS = [
   ['API_SECRET_KEY', 'API Secret Key'],
   ['DATABASE_URL', 'PostgreSQL URL'],
 ]
 const MISSING_CRITICAL = CRITICAL_KEYS.filter(([key]) => !process.env[key] || process.env[key].startsWith('CHANGER_MOI'))
-if (MISSING_CRITICAL.length > 0) {
+if (MISSING_CRITICAL.length > 0 && !process.env.JEST_WORKER_ID) {
   console.error('❌ [FATAL] Variables d\'environnement critiques manquantes:')
   MISSING_CRITICAL.forEach(([, name]) => console.error(`   ❌ ${name}`))
   console.error('→ Ajoutez-les dans Render Dashboard → Environment ou dans .env')

@@ -62,6 +62,7 @@ coverage/
 !/src/**/*.jpg
 !/src/**/*.jpeg
 !/src/**/*.svg
+!/src/**/*.webp
 *.html
 !index.html
 .github/
@@ -134,3 +135,6 @@ venv/
 # OS files
 Thumbs.db
 Desktop.ini
+
+# Build output
+dist/

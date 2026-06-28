@@ -10,18 +10,24 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    sourcemap: false,          // No sourcemaps in prod → smaller bundle
+    sourcemap: false,
     minify: 'esbuild',
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            return 'vendor';
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'vendor-react'
+            if (id.includes('/react-router')) return 'vendor-react'
+            if (id.includes('/recharts/')) return 'vendor-charts'
+            if (id.includes('/framer-motion/') || id.includes('/lucide-react/')) return 'vendor-ui'
+            if (id.includes('/socket.io')) return 'vendor-socket'
+            return 'vendor-other'
           }
         }
       }
-    }
+    },
+    assetsInlineLimit: 4096, // inline small assets as base64; keep larger ones as files
   },
   server: {
     port: 5173,

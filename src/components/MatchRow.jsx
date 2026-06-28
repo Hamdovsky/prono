@@ -1,6 +1,6 @@
 import React from 'react';
-import SuspiciousIcon from '../assets/suspicious_match.png';
-import SafeBetIcon from '../assets/safe_bet.png';
+import SuspiciousIcon from '../assets/suspicious_match.webp';
+import SafeBetIcon from '../assets/safe_bet.webp';
 
 const MatchRow = ({ match, isElite, onClick, style, now }) => {
     // Shared reference to enriched sub-object

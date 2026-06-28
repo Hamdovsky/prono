@@ -5,6 +5,7 @@ import { generateAutoSystem, generateReduced7Doubles, selectBestDoubles } from '
 import PromosportTerminal from './PromosportTerminal';
 import PromosportCalculator from './PromosportCalculator';
 import SkillsPanel from './SkillsPanel';
+import AccuracyDashboard from './AccuracyDashboard';
 
 const Promosport = () => {
     const [loading, setLoading] = useState(true);
@@ -436,6 +437,24 @@ const Promosport = () => {
                             }}
                         >
                             🧮 CALCULATEUR
+                        </button>
+                        <button
+                            className="pro-toggle-btn"
+                            onClick={() => setViewMode(viewMode === 'accuracy' ? 'module' : 'accuracy')}
+                            style={{
+                                background: viewMode === 'accuracy' ? 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)' : 'rgba(168, 85, 247, 0.1)',
+                                color: viewMode === 'accuracy' ? '#000' : '#a855f7',
+                                border: '1px solid #a855f7',
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s',
+                                fontSize: '0.7rem',
+                                letterSpacing: '0.5px'
+                            }}
+                        >
+                            📊 ACCURACY
                         </button>
                         <button
                             className="pro-toggle-btn"
@@ -1158,6 +1177,8 @@ const Promosport = () => {
                 <PromosportCalculator matches={matches} fetcher={dataService} />
             ) : viewMode === 'skills' ? (
                 <SkillsPanel />
+            ) : viewMode === 'accuracy' ? (
+                <AccuracyDashboard />
             ) : (
                 <>
                     {loading && (

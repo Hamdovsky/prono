@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Target, Zap, Shield, TrendingUp } from 'lucide-react';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
+import { RadarChartSVG } from './MiniChart';
 import './DeepStatsModal.css';
 
 const DeepStatsModal = ({ match, onClose }) => {
@@ -61,26 +61,7 @@ const DeepStatsModal = ({ match, onClose }) => {
                                 Tactical Radar Comparison
                             </h3>
                             <div className="radar-wrapper">
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                                        <PolarGrid stroke="#334155" />
-                                        <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                                        <Radar
-                                            name={match.homeTeam}
-                                            dataKey="A"
-                                            stroke="#38bdf8"
-                                            fill="#38bdf8"
-                                            fillOpacity={0.4}
-                                        />
-                                        <Radar
-                                            name={match.awayTeam}
-                                            dataKey="B"
-                                            stroke="#f59e0b"
-                                            fill="#f59e0b"
-                                            fillOpacity={0.4}
-                                        />
-                                    </RadarChart>
-                                </ResponsiveContainer>
+                                <RadarChartSVG data={radarData} height={300} color="#f59e0b" />
                             </div>
                             <div className="radar-legend">
                                 <div className="legend-item"><span className="dot home" /> {match.homeTeam}</div>

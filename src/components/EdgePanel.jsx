@@ -345,7 +345,7 @@ function CornersView({ items }) {
           <div style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
             {m.lines?.slice(0, 3).map(l => (
               <span key={l.line} style={{ background: 'rgba(59,130,246,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
-                >{l.line} @ <strong>{l.fairOver}</strong> ({(l.overProb * 100).toFixed(0)}%)
+                {'>'}{l.line} @ <strong>{l.fairOver}</strong> ({(l.overProb * 100).toFixed(0)}%)
               </span>
             ))}
             <span style={{ color: '#64748b' }}>Exp: {m.lines?.[0]?.expectedTotal}</span>
@@ -368,7 +368,7 @@ function CardsView({ items }) {
           <div style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
             {m.lines?.slice(0, 3).map(l => (
               <span key={l.line} style={{ background: 'rgba(239,68,68,0.08)', padding: '2px 6px', borderRadius: '4px' }}>
-                >{l.line} @ <strong>{l.fairOver}</strong> ({(l.overProb * 100).toFixed(0)}%)
+                {'>'}{l.line} @ <strong>{l.fairOver}</strong> ({(l.overProb * 100).toFixed(0)}%)
               </span>
             ))}
             <span style={{ color: '#64748b' }}>Exp: {m.lines?.[0]?.expectedTotal}</span>

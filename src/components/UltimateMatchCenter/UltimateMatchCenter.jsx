@@ -3,7 +3,29 @@ import './UltimateMatchCenter.css';
 import { calculateEV } from '../../services/InsightEngine';
 import PlayerProps from '../PlayerProps/PlayerProps';
 import SimulationEngine from '../../services/SimulationEngine';
-import { BarChart, Bar, ReferenceLine, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+
+function PressureWave({ data }) {
+  if (!data?.length) return null
+  const maxV = Math.max(...data.flatMap(d => [Math.abs(d.homePressure || 0), Math.abs(d.awayPressure || 0)]), 1)
+  const h = 120, w = 600, barW = Math.max(3, (w / data.length) * 0.6)
+  const mid = h / 2
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: h }}>
+      <line x1={0} y1={mid} x2={w} y2={mid} stroke="#475569" strokeWidth={2} />
+      {data.map((d, i) => {
+        const x = (i / data.length) * w + (w / data.length - barW) / 2
+        const hh = (d.homePressure / maxV) * (mid - 5)
+        const ha = (d.awayPressure / maxV) * (mid - 5)
+        return (
+          <g key={i}>
+            {hh > 0 && <rect x={x} y={mid - hh} width={barW} height={hh} rx={2} fill="#3b82f6" opacity={0.7} />}
+            {ha > 0 && <rect x={x} y={mid} width={barW} height={ha} rx={2} fill="#ef4444" opacity={0.7} />}
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
 
 const UltimateMatchCenter = ({ match, onClose }) => {
     const [oracleData, setOracleData] = useState(null);
@@ -116,22 +138,7 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                                 <div className="oracle-analysis-zone">
                                     <h4 style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 15 }}>⚡ منحنى الضغط والأهداف المتوقعة</h4>
                                     {oracleData?.pressureWave?.length > 0 && (
-                                        <div style={{ width: '100%', height: 120, minHeight: 0, overflow: 'hidden' }}>
-                                            <ResponsiveContainer width="100%" height={120}>
-                                                <BarChart data={oracleData.pressureWave} margin={{ top: 5, right: 0, left: 0, bottom: 5 }} barCategoryGap="5%" barGap={0}>
-                                                    <ChartTooltip 
-                                                        contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px', color: '#f8fafc' }}
-                                                        itemStyle={{ fontWeight: 800 }}
-                                                        formatter={(value) => [Math.abs(value), 'Pression']}
-                                                        labelFormatter={(label) => `Minute ${label}`}
-                                                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                                    />
-                                                    <ReferenceLine y={0} stroke="#475569" strokeWidth={2} />
-                                                    <Bar dataKey="homePressure" fill="#3b82f6" />
-                                                    <Bar dataKey="awayPressure" fill="#ef4444" />
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </div>
+                                        <PressureWave data={oracleData.pressureWave} />
                                     )}
                                     <div style={{ marginTop: 15, background: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 10, fontSize: '0.8rem' }}>
                                         <div>🎯 الأهداف المتوقعة الإجمالية: <b style={{color: '#10b981'}}>{oracleData?.expectedTotal}</b></div>

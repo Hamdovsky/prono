@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, Legend, BarChart, Bar
-} from 'recharts';
+import { AreaChartSVG } from './MiniChart';
 import { getApiUrl } from '../config/apiConfig';
 import './AccuracyLab.css';
 
@@ -126,21 +123,7 @@ export default function AccuracyLab() {
                 {activeTab === 'trend' && (
                     <div className="lab-chart-container">
                         <h3>منحنى الدقة التاريخي (آخر 7 أيام)</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={history}>
-                                <defs>
-                                    <linearGradient id="colorAcc" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} domain={[0, 100]} />
-                                <Tooltip content={<CustomTooltip />} />
-                                <Area type="monotone" dataKey="accuracy" name="Accuracy" stroke="#6366f1" fillOpacity={1} fill="url(#colorAcc)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                        <AreaChartSVG data={history} xKey="date" yKey="accuracy" height={300} color="#6366f1" />
                     </div>
                 )}
 

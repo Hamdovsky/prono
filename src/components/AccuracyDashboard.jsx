@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, BarChart, Bar, Cell, Legend,
-    PieChart, Pie, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
-} from 'recharts';
+import { AreaChartSVG, RadarChartSVG } from './MiniChart';
 import { getApiUrl } from '../config/apiConfig';
 import './AccuracyDashboard.css';
 
@@ -70,14 +66,7 @@ const SurgicalAutopsy = ({ data }) => {
         <div className="surgical-report animate-in">
             <div className="surgical-grid">
                 <div className="surgical-radar">
-                    <ResponsiveContainer width="100%" height={220}>
-                        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
-                            <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                            <Radar name="الواقع" dataKey="B" stroke="#ef4444" fill="#ef4444" fillOpacity={0.6} />
-                            <Radar name="الخطة" dataKey="A" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
-                        </RadarChart>
-                    </ResponsiveContainer>
+                    <RadarChartSVG data={chartData} height={220} color="#ef4444" />
                 </div>
                 <div className="surgical-details">
                     <h5 className="surgical-title">🩸 خط زمني للإخفاق التكتيكي</h5>
@@ -198,18 +187,7 @@ export default function AccuracyDashboard() {
             {activeTab === 'trend' && (
                 <div className="acc-chart-card">
                     <h3>📈 تطور المحفظة (الربح التاريخي المتراكم)</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={last30}>
-                            <defs>
-                                <linearGradient id="rGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                            <XAxis dataKey="date" tick={{fontSize: 10}} />
-                            <YAxis />
-                            <Tooltip />
-                            <Area type="monotone" dataKey="cumulativeRoi" stroke="#10b981" fill="url(#rGrad)" strokeWidth={3} />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    <AreaChartSVG data={last30} xKey="date" yKey="cumulativeRoi" height={300} color="#10b981" />
                 </div>
             )}
 

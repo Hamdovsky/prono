@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, RadarChart, Radar, PolarGrid,
-    PolarAngleAxis, PolarRadiusAxis, Cell, PieChart, Pie, Legend
-} from 'recharts';
+import { RadarChartSVG, BarChartSVG, PieChartSVG } from './MiniChart';
 import { getApiUrl } from '../config/apiConfig';
 import './LearningDashboard.css';
 
@@ -79,24 +75,12 @@ function TagBadge({ tag }) {
 // ── Weight radar ─────────────────────────────────────────────────────────────
 function WeightRadar({ weights }) {
     const data = Object.entries(weights || {}).map(([k, v]) => ({
-        feature: FEATURE_LABELS[k] || k,
-        value:   Math.round(v * 100),
+        subject: FEATURE_LABELS[k] || k,
+        A: Math.round(v * 100),
+        B: 0,
         fullMark: 35,
     }));
-    return (
-        <ResponsiveContainer width="100%" height={280}>
-            <RadarChart cx="50%" cy="50%" outerRadius="75%" data={data}>
-                <PolarGrid stroke="rgba(255,255,255,0.08)" />
-                <PolarAngleAxis dataKey="feature" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                <PolarRadiusAxis angle={30} domain={[0, 35]} tick={{ fill: '#64748b', fontSize: 9 }} />
-                <Radar name="Weight %" dataKey="value"
-                    stroke="#6366f1" fill="#6366f1" fillOpacity={0.35}
-                    dot={{ r: 3, fill: '#818cf8' }} />
-                <Tooltip formatter={(v) => [`${v}%`, 'Weight']}
-                    contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }} />
-            </RadarChart>
-        </ResponsiveContainer>
-    );
+    return <RadarChartSVG data={data} height={280} color="#6366f1" />
 }
 
 // ── Error distribution bar ────────────────────────────────────────────────────
@@ -107,19 +91,22 @@ function ErrorDistribBar({ distrib }) {
         color: ERROR_COLORS[k] || '#64748b',
     }));
     if (!data.length) return <div className="ld-empty">No data yet.</div>;
+    const maxCount = Math.max(...data.map(d => d.count), 1)
+    const h = 35
     return (
-        <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={data} layout="vertical" margin={{ left: 10, right: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                <YAxis type="category" dataKey="name" width={145} tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }} />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                    {data.map((d, i) => <Cell key={i} fill={d.color} />)}
-                </Bar>
-            </BarChart>
-        </ResponsiveContainer>
-    );
+        <svg viewBox={`0 0 600 ${data.length * h + 20}`} style={{ width: '100%', height: data.length * h + 20 }}>
+            {data.map((d, i) => {
+                const bw = (d.count / maxCount) * 400
+                return (
+                    <g key={i}>
+                        <text x={5} y={i * h + h * 0.7} fill="#94a3b8" fontSize={10}>{d.name}</text>
+                        <rect x={150} y={i * h + 5} width={Math.max(bw, 2)} height={h * 0.6} rx={4} fill={d.color} />
+                        <text x={155 + bw} y={i * h + h * 0.7} fill={d.color} fontSize={10}>{d.count}</text>
+                    </g>
+                )
+            })}
+        </svg>
+    )
 }
 
 // ── Cause pie ─────────────────────────────────────────────────────────────────
@@ -129,21 +116,7 @@ function CausePie({ distrib }) {
         .sort((a, b) => b.value - a.value)
         .slice(0, 8);
     if (!data.length) return <div className="ld-empty">No cause data yet.</div>;
-    return (
-        <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-                <Pie data={data} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={100}
-                    label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                >
-                    {data.map((d, i) => <Cell key={i} fill={d.color} />)}
-                </Pie>
-                <Legend formatter={(v) => <span style={{ color: '#94a3b8', fontSize: 11 }}>{v}</span>} />
-                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }} />
-            </PieChart>
-        </ResponsiveContainer>
-    );
+    return <PieChartSVG data={data} height={280} />
 }
 
 // ── Rules table ───────────────────────────────────────────────────────────────

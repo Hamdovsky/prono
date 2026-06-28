@@ -21,12 +21,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=deps /usr/local/bin /usr/local/bin
-COPY core/ /app/core/
-COPY inference/ /app/inference/
-COPY models/ /app/models/
-COPY data/ /app/data/
+COPY --from=deps --chown=appuser:appgroup /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=deps --chown=appuser:appgroup /usr/local/bin /usr/local/bin
+COPY --chown=appuser:appgroup core/ /app/core/
+COPY --chown=appuser:appgroup inference/ /app/inference/
+COPY --chown=appuser:appgroup models/ /app/models/
+COPY --chown=appuser:appgroup data/ /app/data/
 
 ENV PYTHONPATH=/app/core:/app
 

@@ -4,6 +4,7 @@ import dataService from '../services/dataService';
 import { generateAutoSystem, generateReduced7Doubles, selectBestDoubles } from '../utils/promosportUtils';
 import PromosportTerminal from './PromosportTerminal';
 import PromosportCalculator from './PromosportCalculator';
+import SkillsPanel from './SkillsPanel';
 
 const Promosport = () => {
     const [loading, setLoading] = useState(true);
@@ -434,6 +435,24 @@ const Promosport = () => {
                             }}
                         >
                             🧮 CALCULATEUR
+                        </button>
+                        <button
+                            className="pro-toggle-btn"
+                            onClick={() => setViewMode(viewMode === 'skills' ? 'module' : 'skills')}
+                            style={{
+                                background: viewMode === 'skills' ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' : 'rgba(34, 197, 94, 0.1)',
+                                color: viewMode === 'skills' ? '#000' : '#22c55e',
+                                border: '1px solid #22c55e',
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s',
+                                fontSize: '0.7rem',
+                                letterSpacing: '0.5px'
+                            }}
+                        >
+                            ⚡ SKILLS
                         </button>
                     </div>
                 </div>
@@ -1118,6 +1137,8 @@ const Promosport = () => {
                 </div>
             ) : viewMode === 'calculator' ? (
                 <PromosportCalculator matches={matches} fetcher={dataService} />
+            ) : viewMode === 'skills' ? (
+                <SkillsPanel />
             ) : (
                 <>
                     {loading && (

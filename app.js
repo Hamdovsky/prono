@@ -434,6 +434,24 @@ app.use('/api/evolution', evolutionRoutes);
 app.use('/api', scraperRoutes);
 app.use('/api', matchesRoutes);
 app.use('/api/promosport', promosportRoutes);
+
+// ── SKILLS ENDPOINT ─────────────────────
+app.get('/api/skills', (req, res) => {
+  const skillsDir = path.join(__dirname, '.agents', 'skills')
+  try {
+    if (!fs.existsSync(skillsDir)) {
+      return res.json({ skills: [] })
+    }
+    const items = fs.readdirSync(skillsDir, { withFileTypes: true })
+    const skills = items
+      .filter(d => d.isDirectory())
+      .map(d => ({ name: d.name }))
+    res.json({ skills })
+  } catch (err) {
+    logger.error('[SKILLS] Failed to read skills directory', err)
+    res.json({ skills: [] })
+  }
+})
 app.use('/api/ds', dsRoutes);
 app.use('/api/webhook', securityEngine.authenticate.bind(securityEngine), integrationRoutes);
 

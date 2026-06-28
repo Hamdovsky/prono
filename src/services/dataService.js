@@ -614,6 +614,15 @@ class DataService {
         }
     }
 
+    async fetchSkills() {
+        try {
+            return await this._get(getApiUrl('/api/skills'));
+        } catch (error) {
+            console.error('❌ [DATA] Failed to fetch skills:', error.message);
+            return { skills: [] };
+        }
+    }
+
     async fetchHealth() {
         try {
             const health = await this._get(getApiUrl('/api/health'));

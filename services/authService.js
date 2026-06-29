@@ -13,24 +13,23 @@ class AuthService {
 
     getDb() {
         if (!this.db) {
-            const database = require('../core/database');
-            this.db = database.db || database;
+            this.db = require('../core/database');
         }
         return this.db;
     }
 
     async register(username, email, password, role = 'user') {
-        const db = this.getDb();
-        const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+        const database = this.getDb();
+        const existing = database.prepare('SELECT id FROM users WHERE username = ?').get(username);
         if (existing) throw new Error('Username already exists');
 
         if (email) {
-            const emailExists = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+            const emailExists = database.prepare('SELECT id FROM users WHERE email = ?').get(email);
             if (emailExists) throw new Error('Email already registered');
         }
 
         const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-        const result = db.prepare(
+        const result = database.prepare(
             'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)'
         ).run(username, email || null, passwordHash, role);
 
@@ -42,14 +41,14 @@ class AuthService {
     }
 
     async login(username, password) {
-        const db = this.getDb();
-        const user = db.prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(username);
+        const database = this.getDb();
+        const user = database.prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(username);
         if (!user) throw new Error('Invalid credentials');
 
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) throw new Error('Invalid credentials');
 
-        db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
+        database.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
 
         const token = this.generateToken({ id: user.id, username: user.username, role: user.role });
         logger.info(`✅ [AUTH] User logged in: ${user.username}`);

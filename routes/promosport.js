@@ -99,22 +99,8 @@ async function fetchOrFallback() {
   } catch (e) {
     logger.error('❌ [PROMOSPORT] Backup scrape failed:', e.message)
   }
-    logger.warn('⚠️ [PROMOSPORT] Using 13-match fallback data.')
-  return [
-    { id: 1, homeTeam: "AUSTRALIE", awayTeam: "EGYPTE", leagueName: "Coupe du Monde 2026", homeWinProbability: 0.29, drawProbability: 0.31, awayWinProbability: 0.40, matchTime: "sam 19:00", concoursNumber: "878", concoursDate: "03/07/2026" },
-    { id: 2, homeTeam: "SUISSE", awayTeam: "ALGERIE", leagueName: "Coupe du Monde 2026", homeWinProbability: 0.52, drawProbability: 0.26, awayWinProbability: 0.22, matchTime: "sam 04:00", concoursNumber: "878", concoursDate: "03/07/2026" },
-    { id: 3, homeTeam: "PORTUGAL", awayTeam: "CROATIE", leagueName: "Coupe du Monde 2026", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "jeu 00:00", concoursNumber: "878", concoursDate: "02/07/2026" },
-    { id: 4, homeTeam: "ESPAGNE", awayTeam: "AUTRICHE", leagueName: "Coupe du Monde 2026", homeWinProbability: 0.73, drawProbability: 0.19, awayWinProbability: 0.08, matchTime: "jeu 20:00", concoursNumber: "878", concoursDate: "02/07/2026" },
-    { id: 5, homeTeam: "ARGENTINE", awayTeam: "CAP-VERT", leagueName: "Coupe du Monde 2026", homeWinProbability: 0.80, drawProbability: 0.14, awayWinProbability: 0.06, matchTime: "sam 23:00", concoursNumber: "878", concoursDate: "03/07/2026" },
-    { id: 6, homeTeam: "COLOMBIE", awayTeam: "GHANA", leagueName: "Coupe du Monde 2026", homeWinProbability: 0.61, drawProbability: 0.26, awayWinProbability: 0.13, matchTime: "dim 02:30", concoursNumber: "878", concoursDate: "04/07/2026" },
-    { id: 7, homeTeam: "CUIABA", awayTeam: "AMERICA MINEIRO", leagueName: "Brazil Serie B", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "jeu 00:00", concoursNumber: "878", concoursDate: "02/07/2026" },
-    { id: 8, homeTeam: "FORTALEZA EC", awayTeam: "PONTE PRETA", leagueName: "Brazil Serie B", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "sam 01:00", concoursNumber: "878", concoursDate: "03/07/2026" },
-    { id: 9, homeTeam: "O'HIGGINS", awayTeam: "COLO COLO", leagueName: "Chile Primera", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "sam 01:30", concoursNumber: "878", concoursDate: "03/07/2026" },
-    { id: 10, homeTeam: "HUACHIPATO", awayTeam: "CONCEPCION", leagueName: "Chile Primera", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "jeu 23:00", concoursNumber: "878", concoursDate: "02/07/2026" },
-    { id: 11, homeTeam: "BRESIL", awayTeam: "JAPON", leagueName: "Coupe du Monde 2026", homeWinProbability: 0.56, drawProbability: 0.25, awayWinProbability: 0.19, matchTime: "jeu 18:00", concoursNumber: "878", concoursDate: "02/07/2026" },
-    { id: 12, homeTeam: "ALLEMAGNE", awayTeam: "PARAGUAY", leagueName: "Coupe du Monde 2026", homeWinProbability: 0.67, drawProbability: 0.21, awayWinProbability: 0.12, matchTime: "jeu 21:30", concoursNumber: "878", concoursDate: "02/07/2026" },
-    { id: 13, homeTeam: "RIVER PLATE", awayTeam: "FLAMENGO", leagueName: "Club Amical", homeWinProbability: 0.25, drawProbability: 0.50, awayWinProbability: 0.25, matchTime: "sam 19:30", concoursNumber: "878", concoursDate: "03/07/2026" }
-  ]
+    logger.error('❌ [PROMOSPORT] Aucun scrape réussi — grille indisponible.')
+  return []
 }
 
 /**

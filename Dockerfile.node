@@ -4,7 +4,6 @@ FROM node:20-slim AS build
 WORKDIR /app
 
 COPY package*.json ./
-ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV REDISMS_DISABLE_POSTINSTALL=true
 RUN npm install
 
@@ -18,7 +17,6 @@ FROM node:20-slim
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV REDISMS_DISABLE_POSTINSTALL=true
 
 COPY --from=build /app/node_modules ./node_modules

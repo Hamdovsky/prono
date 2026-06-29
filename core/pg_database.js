@@ -379,7 +379,7 @@ const pgDb = {
           else if ((val.includes('draw') || val.includes('x')) && actual === 'D') success = true
         })
         if (success) hits++
-        matches.push({ id: Math.random().toString(), homeTeam: r.homeTeam, awayTeam: r.awayTeam, impact: 'High', success })
+        matches.push({ id: `${r.homeTeam}_${r.awayTeam}_${Date.now()}`, homeTeam: r.homeTeam, awayTeam: r.awayTeam, impact: 'High', success })
       }
       return { total, accuracy: total > 0 ? Math.round((hits / total) * 100) : 0, matches: matches.slice(0, 10) }
     } catch { return { total: 0, accuracy: 0, matches: [] } }

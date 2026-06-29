@@ -38,10 +38,10 @@ def get_xgb():
             import xgboost as xgb
             _xgb = xgb
         except Exception as e:
-            print(f"CRITICAL WARNING: Lazy xgboost import failed: {e}")
-            class MockXGB:
-                def __init__(self): self.DMatrix = lambda *args, **kwargs: None
-            _xgb = MockXGB()
+            print(f"❌ XGBOOST NON DISPONIBLE: {e}")
+            print("❌ Les prédictions ML seront désactivées jusqu'à ce que xgboost soit installé.")
+            print("❌ Installe avec: pip install xgboost")
+            _xgb = None
     return _xgb
 
 import pickle # Added import
@@ -355,6 +355,9 @@ def simulate_match_mc(model, base_features, num_simulations=500, feature_names=N
         
     fn = feature_names if feature_names and len(feature_names) == X_simulated.shape[1] else None
     xgb = get_xgb()
+    if xgb is None:
+        print("❌ [MONTE-CARLO] XGBoost non disponible — utilisation des probabilités brutes")
+        return None, None, None, None
     dmatrix = xgb.DMatrix(X_simulated, feature_names=fn)
     predictions = model.predict(dmatrix)
     
@@ -1932,7 +1935,7 @@ def process_prediction(match_obj: dict) -> dict:
             # [V110 PRECISION UPGRADE] Increased from 500 to 1000 simulations for
             # statistically robust confidence intervals (±1.5% vs ±2.1% std error)
             _mc_sims = 1500 if injuries[0] >= 3.0 or injuries[1] >= 3.0 else 1000
-            p_h_xgb, p_d_xgb, p_a_xgb = simulate_match_mc(
+            mc_result = simulate_match_mc(
                 XGB_BOOSTER, 
                 active_feature_vector, 
                 num_simulations=_mc_sims, 
@@ -1945,31 +1948,38 @@ def process_prediction(match_obj: dict) -> dict:
             # 2. Poisson Dixon-Coles Probabilities (Goal-based)
             p_h_poi, p_d_poi, p_a_poi = sim['p_h'], sim['p_d'], sim['p_a']
 
-            # 3. Market Psychology Layer (Implied Odds)
-            odds_h = _safe_float(match_obj.get('odds_home'), 2.0)
-            implied_h = 1.0 / odds_h if odds_h > 0 else 0.33
-            n_sent = _safe_float(features.get('news_sent'), 0)
-            
-            # [TRAP DETECTION]
-            if p_h_xgb > (implied_h + 0.15) and n_sent < -0.2:
-                p_h_xgb *= 0.85
+            if mc_result[0] is not None:
+                p_h_xgb, p_d_xgb, p_a_xgb = mc_result
+
+                # 3. Market Psychology Layer (Implied Odds)
+                odds_h = _safe_float(match_obj.get('odds_home'), 2.0)
+                implied_h = 1.0 / odds_h if odds_h > 0 else 0.33
+                n_sent = _safe_float(features.get('news_sent'), 0)
                 
-            # 4. FINAL WEIGHTED CONSENSUS
-            # [V102] Dynamic Blending: Adjust dominance based on league strategy
-            l_strat = LEAGUE_WEIGHT_MATRIX.get(league_name, LEAGUE_WEIGHT_MATRIX.get(league_tier, LEAGUE_WEIGHT_MATRIX['DEFAULT']))
-            w_xgb = l_strat['xgb_weight']
-            w_poi = 1.0 - w_xgb
-            
-            p_h_ai = (p_h_xgb * w_xgb) + (p_h_poi * w_poi)
-            p_d_ai = (p_d_xgb * w_xgb) + (p_d_poi * w_poi)
-            p_a_ai = (p_a_xgb * w_xgb) + (p_a_poi * w_poi)
-            
-            has_xgb = True  # XGBoost prediction succeeded
-            
-            # [V102] News Intelligence Injection (Tier-specific sensitivity)
-            if n_sent != 0:
-                n_boost = l_strat['news_boost'] * n_sent
-                p_h_ai = max(0.01, min(0.95, p_h_ai * (1.0 + n_boost)))
+                # [TRAP DETECTION]
+                if p_h_xgb > (implied_h + 0.15) and n_sent < -0.2:
+                    p_h_xgb *= 0.85
+                    
+                # 4. FINAL WEIGHTED CONSENSUS
+                l_strat = LEAGUE_WEIGHT_MATRIX.get(league_name, LEAGUE_WEIGHT_MATRIX.get(league_tier, LEAGUE_WEIGHT_MATRIX['DEFAULT']))
+                w_xgb = l_strat['xgb_weight']
+                w_poi = 1.0 - w_xgb
+                
+                p_h_ai = (p_h_xgb * w_xgb) + (p_h_poi * w_poi)
+                p_d_ai = (p_d_xgb * w_xgb) + (p_d_poi * w_poi)
+                p_a_ai = (p_a_xgb * w_xgb) + (p_a_poi * w_poi)
+                
+                has_xgb = True
+                
+                # [V102] News Intelligence Injection
+                if n_sent != 0:
+                    n_boost = l_strat['news_boost'] * n_sent
+                    p_h_ai = max(0.01, min(0.95, p_h_ai * (1.0 + n_boost)))
+            else:
+                print("⚠️ [PREDICTION] XGBoost/Monte-Carlo indisponible, Poisson uniquement")
+                p_h_ai, p_d_ai, p_a_ai = p_h_poi, p_d_poi, p_a_poi
+                has_xgb = False
+                ai_source = "Poisson-only (no XGBoost)"
 
             # --- [TITANIUM ALPHA] NEURAL META-REFINER (الرقابة الذكية) ---
             from meta_refiner import refine_prediction

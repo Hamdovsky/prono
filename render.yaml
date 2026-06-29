@@ -36,7 +36,7 @@ services:
       - key: VITE_API_URL
         value: https://prono-k6gc.onrender.com
       - key: DISABLE_SOFASCORE
-        value: "true"
+        value: "false"
       - key: SCRAPING_BYPASS_ENABLED
         value: "true"
       - key: HTTP_SCRAPER_ENABLED

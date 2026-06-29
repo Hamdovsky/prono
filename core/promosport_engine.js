@@ -46,10 +46,14 @@ async function generatePromosportGrids(scrapedMatches) {
                 return {};
             }) || {};
           
-            let p1 = pred.probabilities?.home || m.homeWinProbability || 0.33;
-            let px = pred.probabilities?.draw || m.drawProbability || 0.33;
-            let p2 = pred.probabilities?.away || m.awayWinProbability || 0.34;
+            let p1 = pred.probabilities?.home || m.homeWinProbability || null;
+            let px = pred.probabilities?.draw || m.drawProbability || null;
+            let p2 = pred.probabilities?.away || m.awayWinProbability || null;
           
+            if (p1 === null || px === null || p2 === null) {
+                return { ...m, p1: null, px: null, p2: null, entropy: null, confidence: null, hasData: false, tacticalBrief: 'Prédiction ML indisponible — pas assez de données.' }
+            }
+
             // Normalize probabilities if in 0-100% format
             if (p1 > 1.0 || px > 1.0 || p2 > 1.0) {
                 p1 = p1 / 100;
@@ -107,8 +111,7 @@ async function generatePromosportGrids(scrapedMatches) {
             };
         } catch (e) {
             logger.error(`❌ [PROMOSPORT-ENGINE] Failed to enrich match ${m.homeTeam}:`, e.message);
-            // Return minimal fallback for this match to keep the grid intact
-            return { ...m, p1: 0.33, px: 0.33, p2: 0.34, entropy: 1.5, confidence: 50, intel: { form: 50, logistics: 50, motivation: 50, sharp: 50 }, tacticalBrief: 'Enrichment failed.' };
+            return { ...m, p1: null, px: null, p2: null, entropy: null, confidence: null, hasData: false, intel: { form: null, logistics: null, motivation: null, sharp: null }, tacticalBrief: 'Enrichment failed.' };
         }
     }));
 

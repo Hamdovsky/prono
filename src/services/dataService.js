@@ -27,6 +27,7 @@ class DataService {
         this.statusSubscribers = []; // V33 Status Observer
         this.scraperStatusCache = null; // Cache for scraper progress
         this.healthCache = null; // Cache for health data
+        this._idCounter = 0;
 
 
         this.matches = [];
@@ -299,7 +300,7 @@ class DataService {
         return {
             ...match,
             // Ensure unique ID is used
-            id: match.id || match.matchId || `temp_${Date.now()}_${Math.random()}`,
+            id: match.id || match.matchId || `temp_${Date.now()}_${this._idCounter++}`,
 
             // Normalize Timestamp to UNIX Seconds
             startTimestamp: ts || 0,
@@ -309,8 +310,8 @@ class DataService {
             league: this._normalizeName(match.league || match.league_name || match.leagueName || (typeof match.league === 'object' ? match.league.name : 'Unknown')),
             rawHomeTeam: match.homeTeam || match.hometeam || match.home_team || '',
             rawAwayTeam: match.awayTeam || match.awayteam || match.away_team || '',
-            homeTeam: normalizeTeamName(match.homeTeam || match.hometeam || match.home_team || (typeof match.homeTeam === 'object' ? match.homeTeam.name : 'Home')),
-            awayTeam: normalizeTeamName(match.awayTeam || match.awayteam || match.away_team || (typeof match.awayTeam === 'object' ? match.awayTeam.name : 'Away')),
+            homeTeam: normalizeTeamName(match.homeTeam || match.hometeam || match.home_team || (typeof match.homeTeam === 'object' ? match.homeTeam.name : '')),
+            awayTeam: normalizeTeamName(match.awayTeam || match.awayteam || match.away_team || (typeof match.awayTeam === 'object' ? match.awayTeam.name : '')),
             homeTeamNormalized: normalizeTeamName(match.homeTeam || match.hometeam || match.home_team),
             awayTeamNormalized: normalizeTeamName(match.awayTeam || match.awayteam || match.away_team),
 

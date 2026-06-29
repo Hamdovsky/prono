@@ -47,8 +47,8 @@ const MegaTicket1000 = ({ matches }) => {
 
         if (upcoming.length < (riskLevel === 'DIAMOND' ? 1 : 3)) return null;
 
-        // Shuffle for variety
-        upcoming = [...upcoming].sort(() => Math.random() - 0.5);
+        // Sort by confidence descending (most confident first)
+        upcoming = [...upcoming].sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
 
         let selections = [];
         let totalMultiplier = 1.0;
@@ -186,7 +186,7 @@ const MegaTicket1000 = ({ matches }) => {
 
                     <div className="mega-slip-header">
                         <div className="mega-logo">TITANIUM<span>RADAR</span> {riskLevel === 'DIAMOND' && <span className="logo-sparkle">✨</span>}</div>
-                        <div className="mega-slip-id">SLIP #{(Math.random()*1000000).toFixed(0)}</div>
+                        <div className="mega-slip-id">{riskLevel} RADAR</div>
                     </div>
 
                     <div className="mega-level-indicator">

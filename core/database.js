@@ -955,7 +955,7 @@ const database = {
 
                 if (success) hits++;
                 matches.push({
-                    id: Math.random().toString(),
+                    id: r.id?.toString() || `${r.homeTeam}_${r.awayTeam}_${Date.now()}`,
                     homeTeam: r.homeTeam,
                     awayTeam: r.awayTeam,
                     impact: 'High',

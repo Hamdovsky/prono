@@ -61,7 +61,7 @@ router.get('/live-lab', async (req, res) => {
                     homePossession: m.possession_home || m.stats?.possession?.home || 50,
                     alertLevel: prediction?.alertLevel || 'NORMAL',
                     source: m.source || 'unknown'
-                }).catch(() => {})
+                }).catch(e => logger.warn(`[LIVE] Log prediction failed: ${e.message}`))
             }
 
             return {
@@ -227,7 +227,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
                     const enriched = await enrichedPredictions.fastEnrichMatch(m);
                     const idx = rawMatches.findIndex(rm => rm.id === m.id);
                     if (idx !== -1) rawMatches[idx] = enriched;
-                    database.updatePredictions(enriched.id, enriched).catch(() => {});
+                    database.updatePredictions(enriched.id, enriched).catch(e => logger.warn(`[JIT] Update predictions failed: ${e.message}`));
                 } catch (err) {
                     logger.error(`❌ [JIT] Enrichment failed for ${m.id}: ${err.message}`);
                 }

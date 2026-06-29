@@ -3,6 +3,13 @@ const path = require('path')
 const logger = require('../core/logger')
 const promosportSurpriseService = require('./promosportSurpriseService')
 
+// Tournaments played on neutral ground — home/away stats are meaningless
+const NEUTRAL_VENUE_TOURNAMENTS = [
+  'world cup', 'coupe du monde', 'euro', 'copa america',
+  'africa cup of nations', 'asian cup', 'concacaf gold cup',
+  'club friendly', 'amical', 'international friendly',
+]
+
 class CompetitionAnalyzer {
   constructor() {
     this.profile = null
@@ -128,7 +135,7 @@ class CompetitionAnalyzer {
     return s.surprises / s.total
   }
 
-  getMatchIntel(homeTeam, awayTeam, idx) {
+  getMatchIntel(homeTeam, awayTeam, idx, leagueName) {
     const p = this.getProfile()
     const trapLvl = this.getIndexTrapLevel((idx || 1) - 1)
     const homeStat = promosportSurpriseService.getSurpriseStats(homeTeam)
@@ -136,10 +143,14 @@ class CompetitionAnalyzer {
     const hRate = homeStat?.team?.homeWinRate != null ? homeStat.team.homeWinRate / 100 : null
     const aRate = awayStat?.team?.awayWinRate != null ? awayStat.team.awayWinRate / 100 : null
 
+    const isNeutral = leagueName && NEUTRAL_VENUE_TOURNAMENTS.some(t => leagueName.toLowerCase().includes(t))
+
     let analysis = []
     if (trapLvl > 0.35) analysis.push(`⚠️ Index piégeux (#${idx}): ${(trapLvl*100).toFixed(0)}% de surprises`)
-    if (hRate != null && hRate > 0.60) analysis.push(`🏠 Domicile solide (${(hRate*100).toFixed(0)}% de victoires)`)
-    if (aRate != null && aRate > 0.40) analysis.push(`✈️ Extérieur compétitif (${(aRate*100).toFixed(0)}% de victoires)`)
+    if (!isNeutral) {
+      if (hRate != null && hRate > 0.60) analysis.push(`🏠 Domicile solide (${(hRate*100).toFixed(0)}% de victoires)`)
+      if (aRate != null && aRate > 0.40) analysis.push(`✈️ Extérieur compétitif (${(aRate*100).toFixed(0)}% de victoires)`)
+    }
 
     return {
       profile: {

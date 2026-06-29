@@ -80,7 +80,7 @@ class PromosportIntelligence {
             const crowdFav = p1 > p2 ? '1' : (p2 > p1 ? '2' : 'X')
             const realFav = p1Cal > 0.45 ? '1' : (p2Cal > 0.40 ? '2' : 'X')
             
-            const competitionIntel = competitionAnalyzer.getMatchIntel(homeName, awayName, idx + 1)
+            const competitionIntel = competitionAnalyzer.getMatchIntel(homeName, awayName, idx + 1, m.leagueName)
             const crowdSignal = crowdHackerService.getContrarianSignal(m)
             
             let crowdAnalysis = []

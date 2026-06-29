@@ -272,6 +272,19 @@ router.post('/seed', async (req, res) => {
 });
 
 /**
+ * POST /api/seed/purge — Remove fake/empty matches (homeTeam null, FIFA placeholders)
+ */
+router.post('/seed/purge', async (req, res) => {
+    try {
+        const { purgeFakeMatches } = require('../core/cloudSeed');
+        const removed = await purgeFakeMatches();
+        res.json({ success: true, removed });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
  * GET /api/test-seed — Diagnostic test to make a direct Sofascore API call
  */
 router.get('/test-seed', localOrAuth, async (req, res) => {

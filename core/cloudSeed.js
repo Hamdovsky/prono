@@ -42,8 +42,12 @@ async function fetchSofascoreEvents(date) {
       },
       timeout: 20000
     })
+    if (data?.events?.length > 0) {
+      console.log(`[SOFASCORE] ${date}: ${data.events.length} events trouvés`)
+    }
     return data?.events || []
   } catch (e) {
+    console.warn(`[SOFASCORE] Fetch failed for ${date}: ${e.message}`)
     return []
   }
 }
@@ -260,17 +264,38 @@ async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
   }
 }
 
+async function purgeFakeMatches() {
+  const db = database.db
+  if (!db) return 0
+  try {
+    if (db.pragma) {
+      const result = db.prepare("DELETE FROM matches WHERE \"homeTeam\" IS NULL OR \"homeTeam\" = '' OR league = 'FIFA'").run()
+      if (result.changes > 0) console.log(`[CLOUD-SEED/PURGE] Removed ${result.changes} fake/empty matches (SQLite)`)
+      return result.changes
+    } else {
+      const result = await db.prepare("DELETE FROM matches WHERE \"homeTeam\" IS NULL OR \"homeTeam\" = '' OR league = 'FIFA'").run()
+      if (result.changes > 0) console.log(`[CLOUD-SEED/PURGE] Removed ${result.changes} fake/empty matches (PG)`)
+      return result.changes
+    }
+  } catch (e) {
+    console.warn(`[CLOUD-SEED/PURGE] Error: ${e.message}`)
+  }
+  return 0
+}
+
 async function runCloudSeed() {
   const localDataUrl = process.env.LOCAL_DATA_URL || ''
   const isPG = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')
 
-  // Skip if DB already has enough matches (local mode or already seeded)
+  await purgeFakeMatches()
+
+  // Skip if DB already has enough REAL matches (local mode or already seeded)
   if (!isPG && !localDataUrl) {
     try {
       const db = database.db
-      const count = db.prepare('SELECT COUNT(*) as cnt FROM matches').get()
+      const count = db.prepare('SELECT COUNT(*) as cnt FROM matches WHERE "homeTeam" IS NOT NULL AND "homeTeam" != \'\'').get()
       if (count && count.cnt >= 100) {
-        console.log(`[CLOUD-SEED] DB already has ${count.cnt} matches — skipping seed`)
+        console.log(`[CLOUD-SEED] DB already has ${count.cnt} real matches — skipping seed`)
         return
       }
     } catch (_) {}
@@ -313,7 +338,7 @@ async function runCloudSeed() {
   } else {
     console.log('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
     try {
-      const datesToFetch = [today, getDateStr(1)]
+      const datesToFetch = [today, getDateStr(1), getDateStr(2), getDateStr(3), getDateStr(4), getDateStr(5), getDateStr(6)]
       for (const dateStr of datesToFetch) {
         const events = await fetchSofascoreEvents(dateStr)
         const notstarted = events.filter(e => (e.status?.type || '').toLowerCase() === 'notstarted')
@@ -395,7 +420,7 @@ async function runCloudSeed() {
   }
 
   const fbFallbackSources = [
-    { name: 'Sofascore', fetch: () => fetchSofascoreEvents(today).then(events => events.map(mapSofascoreEventToMatch)), available: () => process.env.DISABLE_SOFASCORE !== 'true' && process.env.NODE_ENV !== 'development' },
+    { name: 'Sofascore', fetch: () => fetchSofascoreEvents(today).then(events => events.map(mapSofascoreEventToMatch)), available: () => process.env.DISABLE_SOFASCORE !== 'true' },
     { name: 'TheRundown', fetch: () => therundownService.fetchSoccerEvents(today).then(events => events.map(e => therundownService.mapEventToMatch(e))), available: () => therundownService.isAvailable() },
     { name: 'OddsPapi',   fetch: () => oddspapiService.fetchEvents(today),              available: () => oddspapiService.isAvailable() },
     { name: 'Sportmonks', fetch: () => sportmonksService.fetchEvents(today),            available: () => sportmonksService.isAvailable() },
@@ -458,4 +483,4 @@ async function runCloudSeed() {
   }
 }
 
-module.exports = { runCloudSeed }
+module.exports = { runCloudSeed, purgeFakeMatches }

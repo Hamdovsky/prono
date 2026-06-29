@@ -8,7 +8,7 @@ const fs = require('fs')
 
 process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
-const dbPath = path.join(__dirname, '..', 'data', 'titanium.db')
+const dbPath = path.join(__dirname, '..', 'data', 'tactical.db')
 if (!fs.existsSync(dbPath)) {
   console.log('❌ [HEALTH] DB not found at', dbPath)
   process.exit(1)

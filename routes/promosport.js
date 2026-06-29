@@ -71,10 +71,22 @@ function parsePromosportPronostic(html) {
   return matches.sort((a, b) => a.id - b.id)
 }
 
+let _fallbackCache = null
+let _fallbackCacheTime = 0
+const FALLBACK_CACHE_TTL = 300000 // 5 min
+
 async function fetchOrFallback() {
+  const now = Date.now()
+  if (_fallbackCache && (now - _fallbackCacheTime) < FALLBACK_CACHE_TTL) {
+    return _fallbackCache
+  }
   try {
     const scraped = await scrapePromosport()
-    if (scraped && scraped.length === 13) return scraped
+    if (scraped && scraped.length === 13) {
+      _fallbackCache = scraped
+      _fallbackCacheTime = now
+      return scraped
+    }
   } catch (e) {
     logger.error('❌ [PROMOSPORT] Scraper crashed:', e.message)
   }
@@ -94,6 +106,8 @@ async function fetchOrFallback() {
     const backupMatches = parsePromosportPronostic(html)
     if (backupMatches && backupMatches.length === 13) {
       logger.info(`✅ [PROMOSPORT] Backup scrape returned ${backupMatches.length} matches`)
+      _fallbackCache = backupMatches
+      _fallbackCacheTime = now
       return backupMatches
     }
   } catch (e) {

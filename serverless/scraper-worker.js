@@ -6,7 +6,8 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-const API_SECRET_KEY = process.env.API_SECRET_KEY || 'dev-secret-key-change-in-prod'
+const API_SECRET_KEY = process.env.API_SECRET_KEY
+if (!API_SECRET_KEY) { console.error('[FATAL] API_SECRET_KEY not set'); process.exit(1) }
 const PORT = process.env.PORT || 4000
 
 let isRunning = false

@@ -1924,62 +1924,61 @@ def process_prediction(match_obj: dict) -> dict:
     feature_vector = [_f_feat(f, features, 0) for f in FEATURE_NAMES]
     
     has_xgb = False
+    p_h_poi, p_d_poi, p_a_poi = sim['p_h'], sim['p_d'], sim['p_a']
+    p_h_ai, p_d_ai, p_a_ai = p_h_poi, p_d_poi, p_a_poi
+
     if XGB_BOOSTER:
         try:
-            # --- MONTE CARLO SIMULATION ---
-            # Extract new metrics for advanced MC injection
-            fatigue = (features.get('h_fatigue_cumulative', 1.0), features.get('a_fatigue_cumulative', 1.0))
-            injuries = (features.get('home_injury_impact', 0.0), features.get('away_injury_impact', 0.0))
-            # ── [TITANIUM ULTRA-ENSEMBLE V25] ──
-            # 1. XGBoost Probabilities
-            # [V110 PRECISION UPGRADE] Increased from 500 to 1000 simulations for
-            # statistically robust confidence intervals (±1.5% vs ±2.1% std error)
-            _mc_sims = 1500 if injuries[0] >= 3.0 or injuries[1] >= 3.0 else 1000
-            mc_result = simulate_match_mc(
-                XGB_BOOSTER, 
-                active_feature_vector, 
-                num_simulations=_mc_sims, 
-                feature_names=active_feature_names, 
-                fatigue_impact=fatigue,
-                injury_impact=injuries,
-                league_name=league_name
-            )
-
-            # 2. Poisson Dixon-Coles Probabilities (Goal-based)
-            p_h_poi, p_d_poi, p_a_poi = sim['p_h'], sim['p_d'], sim['p_a']
-
-            if mc_result[0] is not None:
-                p_h_xgb, p_d_xgb, p_a_xgb = mc_result
-
-                # 3. Market Psychology Layer (Implied Odds)
-                odds_h = _safe_float(match_obj.get('odds_home'), 2.0)
-                implied_h = 1.0 / odds_h if odds_h > 0 else 0.33
-                n_sent = _safe_float(features.get('news_sent'), 0)
-                
-                # [TRAP DETECTION]
-                if p_h_xgb > (implied_h + 0.15) and n_sent < -0.2:
-                    p_h_xgb *= 0.85
-                    
-                # 4. FINAL WEIGHTED CONSENSUS
-                l_strat = LEAGUE_WEIGHT_MATRIX.get(league_name, LEAGUE_WEIGHT_MATRIX.get(league_tier, LEAGUE_WEIGHT_MATRIX['DEFAULT']))
-                w_xgb = l_strat['xgb_weight']
-                w_poi = 1.0 - w_xgb
-                
-                p_h_ai = (p_h_xgb * w_xgb) + (p_h_poi * w_poi)
-                p_d_ai = (p_d_xgb * w_xgb) + (p_d_poi * w_poi)
-                p_a_ai = (p_a_xgb * w_xgb) + (p_a_poi * w_poi)
-                
-                has_xgb = True
-                
-                # [V102] News Intelligence Injection
-                if n_sent != 0:
-                    n_boost = l_strat['news_boost'] * n_sent
-                    p_h_ai = max(0.01, min(0.95, p_h_ai * (1.0 + n_boost)))
+            expected_features = getattr(XGB_BOOSTER, 'num_features', lambda: len(active_feature_vector))()
+            if len(active_feature_vector) != expected_features:
+                print(f'[PRED-ENGINE] WARN: Feature vector mismatch: expected {expected_features}, got {len(active_feature_vector)} — falling back to Poisson')
+                ai_source = "Poisson-only (feature mismatch)"
             else:
-                print("⚠️ [PREDICTION] XGBoost/Monte-Carlo indisponible, Poisson uniquement")
-                p_h_ai, p_d_ai, p_a_ai = p_h_poi, p_d_poi, p_a_poi
-                has_xgb = False
-                ai_source = "Poisson-only (no XGBoost)"
+                # --- MONTE CARLO SIMULATION ---
+                fatigue = (features.get('h_fatigue_cumulative', 1.0), features.get('a_fatigue_cumulative', 1.0))
+                injuries = (features.get('home_injury_impact', 0.0), features.get('away_injury_impact', 0.0))
+                _mc_sims = 1000 if injuries[0] >= 3.0 or injuries[1] >= 3.0 else 500
+                mc_result = simulate_match_mc(
+                    XGB_BOOSTER, 
+                    active_feature_vector, 
+                    num_simulations=_mc_sims, 
+                    feature_names=active_feature_names, 
+                    fatigue_impact=fatigue,
+                    injury_impact=injuries,
+                    league_name=league_name
+                )
+
+                # 2. Poisson Dixon-Coles Probabilities (Goal-based)
+                if mc_result[0] is not None:
+                    p_h_xgb, p_d_xgb, p_a_xgb = mc_result
+
+                    # 3. Market Psychology Layer (Implied Odds)
+                    odds_h = _safe_float(match_obj.get('odds_home'), 2.0)
+                    implied_h = 1.0 / odds_h if odds_h > 0 else 0.33
+                    n_sent = _safe_float(features.get('news_sent'), 0)
+                    
+                    # [TRAP DETECTION]
+                    if p_h_xgb > (implied_h + 0.15) and n_sent < -0.2:
+                        p_h_xgb *= 0.85
+                        
+                    # 4. FINAL WEIGHTED CONSENSUS
+                    l_strat = LEAGUE_WEIGHT_MATRIX.get(league_name, LEAGUE_WEIGHT_MATRIX.get(league_tier, LEAGUE_WEIGHT_MATRIX['DEFAULT']))
+                    w_xgb = l_strat['xgb_weight']
+                    w_poi = 1.0 - w_xgb
+                    
+                    p_h_ai = (p_h_xgb * w_xgb) + (p_h_poi * w_poi)
+                    p_d_ai = (p_d_xgb * w_xgb) + (p_d_poi * w_poi)
+                    p_a_ai = (p_a_xgb * w_xgb) + (p_a_poi * w_poi)
+                    
+                    has_xgb = True
+                    
+                    # [V102] News Intelligence Injection
+                    if n_sent != 0:
+                        n_boost = l_strat['news_boost'] * n_sent
+                        p_h_ai = max(0.01, min(0.95, p_h_ai * (1.0 + n_boost)))
+                else:
+                    print("⚠️ [PREDICTION] XGBoost/Monte-Carlo indisponible, Poisson uniquement")
+                    ai_source = "Poisson-only (MC failed)"
 
             # --- [TITANIUM ALPHA] NEURAL META-REFINER (الرقابة الذكية) ---
             from meta_refiner import refine_prediction

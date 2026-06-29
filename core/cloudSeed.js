@@ -1,5 +1,6 @@
 const axios = require('axios')
 const database = require('./database')
+const logger = require('./logger')
 const { createQuotaManager } = require('../services/sourceQuotaManager')
 const rapidApiQuotaManager = require('../services/rapidApiQuotaManager')
 const bsdService = require('../services/bsdService')
@@ -43,11 +44,11 @@ async function fetchSofascoreEvents(date) {
       timeout: 20000
     })
     if (data?.events?.length > 0) {
-      console.log(`[SOFASCORE] ${date}: ${data.events.length} events trouvés`)
+      logger.info(`[SOFASCORE] ${date}: ${data.events.length} events trouvés`)
     }
     return data?.events || []
   } catch (e) {
-    console.warn(`[SOFASCORE] Fetch failed for ${date}: ${e.message}`)
+    logger.warn(`[SOFASCORE] Fetch failed for ${date}: ${e.message}`)
     return []
   }
 }
@@ -198,8 +199,6 @@ async function upsertMatch(match) {
     if (['finished', 'canceled', 'postponed'].includes(match.status)) return false
     const isPG = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')
     if (isPG) {
-      const existing = await db.prepare('SELECT id FROM matches WHERE id = $1').get(match.id)
-      if (existing) return false
       const cols = ['id', '"homeTeam"', '"awayTeam"', 'league', 'category_name', 'tournament_name',
         'tournament_id', 'home_team_id', 'away_team_id',
         '"startTimestamp"', 'timestamp', 'status',
@@ -213,8 +212,6 @@ async function upsertMatch(match) {
       ).run(params)
       return true
     }
-    const existing = await db.prepare('SELECT id FROM matches WHERE id = ?').get(match.id)
-    if (existing) return false
     await db.prepare(`
       INSERT OR IGNORE INTO matches (
         id, homeTeam, awayTeam, league, category_name, tournament_name,
@@ -234,7 +231,7 @@ async function upsertMatch(match) {
     `).run(match)
     return true
   } catch (e) {
-    console.warn(`[CLOUD-SEED] upsertMatch error (${match.id}):`, e.message)
+    logger.warn(`[CLOUD-SEED] upsertMatch error (${match.id}):`, e.message)
     return false
   }
 }
@@ -270,15 +267,15 @@ async function purgeFakeMatches() {
   try {
     if (db.pragma) {
       const result = db.prepare("DELETE FROM matches WHERE \"homeTeam\" IS NULL OR \"homeTeam\" = '' OR league = 'FIFA'").run()
-      if (result.changes > 0) console.log(`[CLOUD-SEED/PURGE] Removed ${result.changes} fake/empty matches (SQLite)`)
+      if (result.changes > 0) logger.info(`[CLOUD-SEED/PURGE] Removed ${result.changes} fake/empty matches (SQLite)`)
       return result.changes
     } else {
       const result = await db.prepare("DELETE FROM matches WHERE \"homeTeam\" IS NULL OR \"homeTeam\" = '' OR league = 'FIFA'").run()
-      if (result.changes > 0) console.log(`[CLOUD-SEED/PURGE] Removed ${result.changes} fake/empty matches (PG)`)
+      if (result.changes > 0) logger.info(`[CLOUD-SEED/PURGE] Removed ${result.changes} fake/empty matches (PG)`)
       return result.changes
     }
   } catch (e) {
-    console.warn(`[CLOUD-SEED/PURGE] Error: ${e.message}`)
+    logger.warn(`[CLOUD-SEED/PURGE] Error: ${e.message}`)
   }
   return 0
 }
@@ -295,52 +292,58 @@ async function runCloudSeed() {
       const db = database.db
       const count = db.prepare('SELECT COUNT(*) as cnt FROM matches WHERE "homeTeam" IS NOT NULL AND "homeTeam" != \'\'').get()
       if (count && count.cnt >= 100) {
-        console.log(`[CLOUD-SEED] DB already has ${count.cnt} real matches — skipping seed`)
+        logger.info(`[CLOUD-SEED] DB already has ${count.cnt} real matches — skipping seed`)
         return
       }
     } catch (_) {}
   }
 
   if (localDataUrl) {
-    console.log('[CLOUD-SEED] LOCAL_DATA_URL detected — using ngrok tunnel as ONLY source. All external APIs SKIPPED.')
+    logger.info('[CLOUD-SEED] LOCAL_DATA_URL detected — using ngrok tunnel as ONLY source. All external APIs SKIPPED.')
     try {
       const { data } = await axios.get(`${localDataUrl}/api/local/matches`, { timeout: 20000 })
       if (!data?.success || !Array.isArray(data.matches)) {
-        console.warn('[CLOUD-SEED/LOCAL] Invalid response from local server')
+        logger.warn('[CLOUD-SEED/LOCAL] Invalid response from local server')
         return
       }
       const matches = data.matches
-      console.log(`[CLOUD-SEED/LOCAL] ${matches.length} matches fetched from localhost via ngrok`)
+      logger.info(`[CLOUD-SEED/LOCAL] ${matches.length} matches fetched from localhost via ngrok`)
       let inserted = 0
       for (const match of matches) {
         if (await upsertMatch(match)) inserted++
       }
-      console.log(`[CLOUD-SEED/LOCAL] Inserted ${inserted}/${matches.length} matches`)
+      logger.info(`[CLOUD-SEED/LOCAL] Inserted ${inserted}/${matches.length} matches`)
     } catch (e) {
-      console.warn(`[CLOUD-SEED/LOCAL] Error: ${e.message}`)
+      logger.warn(`[CLOUD-SEED/LOCAL] Error: ${e.message}`)
     }
     return
   }
 
-  console.log('[CLOUD-SEED] Starting multi-source seeding (Sofascore → FootballData → BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)...')
+  logger.info('[CLOUD-SEED] Starting multi-source seeding (Sofascore → FootballData → BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)...')
 
   const today = getDateStr(0)
   const existingToday = await countMatchesForPeriod(0, 0)
   const existingTomorrow = await countMatchesForPeriod(1, 1)
-  console.log(`[CLOUD-SEED] Existing: ${existingToday} today / ${existingTomorrow} tomorrow`)
+  logger.info(`[CLOUD-SEED] Existing: ${existingToday} today / ${existingTomorrow} tomorrow`)
 
   let fdInserted = 0
   let rapidApiInserted = 0
   let sofascoreInserted = 0
 
   if (process.env.DISABLE_SOFASCORE === 'true') {
-    console.log('[CLOUD-SEED/SOFASCORE] Skipped — DISABLE_SOFASCORE is set.')
+    logger.info('[CLOUD-SEED/SOFASCORE] Skipped — DISABLE_SOFASCORE is set.')
   } else {
-    console.log('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
+    logger.info('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
     try {
       const datesToFetch = [today, getDateStr(1), getDateStr(2), getDateStr(3), getDateStr(4), getDateStr(5), getDateStr(6)]
-      for (const dateStr of datesToFetch) {
-        const events = await fetchSofascoreEvents(dateStr)
+      const results = await Promise.allSettled(datesToFetch.map(dateStr => fetchSofascoreEvents(dateStr)))
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i]
+        if (result.status === 'rejected') {
+          logger.warn(`[CLOUD-SEED/SOFASCORE] ${datesToFetch[i]} failed: ${result.reason?.message || result.reason}`)
+          continue
+        }
+        const events = result.value || []
         const notstarted = events.filter(e => (e.status?.type || '').toLowerCase() === 'notstarted')
         for (const event of notstarted) {
           const match = mapSofascoreEventToMatch(event)
@@ -348,9 +351,9 @@ async function runCloudSeed() {
           if (await upsertMatch(match)) sofascoreInserted++
         }
       }
-      console.log(`[CLOUD-SEED/SOFASCORE] Inserted ${sofascoreInserted} free matches total.`)
+      logger.info(`[CLOUD-SEED/SOFASCORE] Inserted ${sofascoreInserted} free matches total.`)
       if (sofascoreInserted > 0) {
-        console.log('[CLOUD-SEED/SOFASCORE] Fetching SofaScore odds...')
+        logger.info('[CLOUD-SEED/SOFASCORE] Fetching SofaScore odds...')
         try {
           const { data: oddsData } = await axios.get(`${SOFASCORE_BASE}/sport/football/scheduled-events/${today}/odds/1x2`, {
             headers: {
@@ -374,14 +377,14 @@ async function runCloudSeed() {
                 if (result.changes > 0) updated++
               } catch (_) {}
             }
-            console.log(`[CLOUD-SEED/SOFASCORE] Updated odds for ${updated} matches`)
+            logger.info(`[CLOUD-SEED/SOFASCORE] Updated odds for ${updated} matches`)
           }
         } catch (oddsErr) {
-          console.warn(`[CLOUD-SEED/SOFASCORE] Odds not available: ${oddsErr.message}`)
+          logger.warn(`[CLOUD-SEED/SOFASCORE] Odds not available: ${oddsErr.message}`)
         }
       }
     } catch (e) {
-      console.warn(`[CLOUD-SEED/SOFASCORE] Error: ${e.message}`)
+      logger.warn(`[CLOUD-SEED/SOFASCORE] Error: ${e.message}`)
     }
   }
 
@@ -402,7 +405,7 @@ async function runCloudSeed() {
         fdInserted++
       }
     }
-    console.log(`[CLOUD-SEED/FD] Inserted ${fdInserted} primary matches.`)
+    logger.info(`[CLOUD-SEED/FD] Inserted ${fdInserted} primary matches.`)
   }
 
   try {
@@ -410,13 +413,13 @@ async function runCloudSeed() {
       try {
         const bsdCount = await bsdService.fullSync()
         const enriched = await bsdService.enrichAllMatchesOdds()
-        console.log(`[CLOUD-SEED/BSD] Inserted ${bsdCount} matches, enriched ${enriched}`)
+        logger.info(`[CLOUD-SEED/BSD] Inserted ${bsdCount} matches, enriched ${enriched}`)
       } catch (bsdErr) {
-        console.warn(`[CLOUD-SEED/BSD] Error: ${bsdErr.message}`)
+        logger.warn(`[CLOUD-SEED/BSD] Error: ${bsdErr.message}`)
       }
     }
   } catch (outerErr) {
-    console.warn(`[CLOUD-SEED/BSD] Outer error: ${outerErr.message}`)
+    logger.warn(`[CLOUD-SEED/BSD] Outer error: ${outerErr.message}`)
   }
 
   const fbFallbackSources = [
@@ -441,10 +444,10 @@ async function runCloudSeed() {
           if (match.status !== 'scheduled') continue
           if (await upsertMatch(match)) inserted++
         }
-        console.log(`[CLOUD-SEED/FALLBACK] ${src.name}: inserted ${inserted}/${matches.length} matches`)
+        logger.info(`[CLOUD-SEED/FALLBACK] ${src.name}: inserted ${inserted}/${matches.length} matches`)
         await sleep(500)
       } catch (e) {
-        console.warn(`[CLOUD-SEED/FALLBACK] ${src.name}: error — ${e.message}`)
+        logger.warn(`[CLOUD-SEED/FALLBACK] ${src.name}: error — ${e.message}`)
       }
     }
   }
@@ -471,15 +474,15 @@ async function runCloudSeed() {
       }
       await sleep(200)
     }
-    console.log(`[CLOUD-SEED/RAPID] Inserted ${rapidApiInserted} fallback matches.`)
+    logger.info(`[CLOUD-SEED/RAPID] Inserted ${rapidApiInserted} fallback matches.`)
   }
 
   const finalToday = await countMatchesForPeriod(0, 0)
   const finalTomorrow = await countMatchesForPeriod(1, 1)
-  console.log(`[CLOUD-SEED] Complete. Sofascore: ${sofascoreInserted}, FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`)
+  logger.info(`[CLOUD-SEED] Complete. Sofascore: ${sofascoreInserted}, FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`)
 
   if (finalToday + finalTomorrow === 0) {
-    console.warn('[CLOUD-SEED] WARNING: No scheduled matches found.')
+    logger.warn('[CLOUD-SEED] WARNING: No scheduled matches found.')
   }
 }
 

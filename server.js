@@ -491,6 +491,49 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
             setTimeout(() => {
               autoHealAgent.patrol().catch(e => logger.warn('⚠️ [AUTOHEAL] Initial patrol error:', e.message))
             }, 30000)
+
+            // 📊 [HEALTH] Schedule daily health report at 07:00 UTC
+            const scheduleHealthReport = () => {
+              const now = new Date()
+              const target = new Date()
+              target.setUTCHours(7, 0, 0, 0)
+              if (target <= now) target.setDate(target.getDate() + 1)
+              const delay = target.getTime() - now.getTime()
+              setTimeout(async () => {
+                try {
+                  const { execSync } = require('child_process')
+                  const report = execSync('node scripts/daily_health_report.js', { timeout: 30000, encoding: 'utf-8' })
+                  logger.info('[HEALTH] Daily report:\n' + report.slice(-500))
+                } catch (e) {
+                  logger.warn('[HEALTH] Daily report failed:', e.message)
+                }
+                scheduleHealthReport()
+              }, delay)
+            }
+            scheduleHealthReport()
+
+            // 🔍 [STARTUP] Log API availability
+            setTimeout(() => {
+              const sources = [
+                { name: 'SofaScore', check: () => !process.env.DISABLE_SOFASCORE },
+                { name: 'BSD', check: () => !!process.env.BSD_API_KEY },
+                { name: 'FootballData', check: () => !!process.env.FOOTBALLDATA_KEY },
+                { name: 'RapidAPI', check: () => !!process.env.RAPIDAPI_KEY },
+                { name: 'Sportmonks', check: () => !!process.env.SPORTMONKS_KEY },
+                { name: 'APIFootball', check: () => !!process.env.APIFOOTBALL_KEY },
+                { name: 'OddsPapi', check: () => !!process.env.ODDSPAPI_KEY },
+                { name: 'TheRundown', check: () => !!process.env.THERUNDOWN_KEY },
+                { name: 'PredixSport', check: () => !!process.env.PREDIXSPORT_API_KEY },
+                { name: 'GROQ', check: () => !!process.env.GROQ_API_KEY },
+                { name: 'DeepSeek', check: () => !!process.env.DEEPSEEK_API_KEY },
+                { name: 'OpenLigaDB', check: () => true },
+                { name: 'Promosport', check: () => true },
+              ]
+              const available = sources.filter(s => s.check()).map(s => s.name)
+              const missing = sources.filter(s => !s.check()).map(s => s.name)
+              logger.info(`[STARTUP] APIs available: ${available.join(', ')}`)
+              if (missing.length) logger.warn(`[STARTUP] APIs missing keys: ${missing.join(', ')}`)
+            }, 5000)
           } catch (initErr) {
             logger.error('💥 [CRITICAL] Service Initialization Error:', initErr.message);
           }

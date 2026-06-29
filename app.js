@@ -220,7 +220,7 @@ app.get('/metrics', async (req, res) => {
   res.end(await register.metrics());
 });
 
-app.get('/api/diag', async (req, res) => {
+app.get('/api/diag', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   const db = database.db
   async function q(sql) {
     try { const r = await db?.prepare(sql).all(); return { ok: true, rows: r } }
@@ -239,7 +239,7 @@ app.get('/api/diag', async (req, res) => {
   })
 })
 
-app.post('/api/debug/test-bsd', async (req, res) => {
+app.post('/api/debug/test-bsd', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const bsd = require('./services/bsdService')
     // Test the BSD API directly with a simple fetch
@@ -262,7 +262,7 @@ app.post('/api/debug/test-bsd', async (req, res) => {
   }
 })
 
-app.post('/api/seed/emergency', async (req, res) => {
+app.post('/api/seed/emergency', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const db = require('./core/database')
     const { seedDemoMatches } = require('./scripts/seed_emergency')
@@ -273,7 +273,7 @@ app.post('/api/seed/emergency', async (req, res) => {
   }
 })
 
-app.post('/api/seed/purge', async (req, res) => {
+app.post('/api/seed/purge', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const { purgeFakeMatches } = require('./core/cloudSeed')
     const removed = await purgeFakeMatches()
@@ -283,7 +283,7 @@ app.post('/api/seed/purge', async (req, res) => {
   }
 })
 
-app.post('/api/seed-match', async (req, res) => {
+app.post('/api/seed-match', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const match = req.body
     if (!match.homeTeam || !match.awayTeam) {
@@ -315,7 +315,7 @@ app.post('/api/seed-match', async (req, res) => {
   }
 })
 
-app.post('/api/debug/backfill', async (req, res) => {
+app.post('/api/debug/backfill', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   const { query: pgQuery } = require('./core/pg_connector')
   try {
     const test1 = await pgQuery('SELECT id, "fullData", "startTimestamp" FROM matches WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL LIMIT 3')
@@ -669,7 +669,7 @@ app.post('/api/elo/update', async (req, res) => {
 });
 
 // ── LOCAL DATA ENDPOINTS for Render cloud seed (only source) ──
-app.get('/api/upcoming', async (req, res) => {
+app.get('/api/upcoming', redisMiddleware, async (req, res) => {
   try {
     const db = require('./core/database')
     const days = parseInt(req.query.days) || 7

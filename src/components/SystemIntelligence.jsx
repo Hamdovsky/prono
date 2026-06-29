@@ -1,54 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, Cpu, Zap, Activity, Globe, Database, Settings, Terminal } from 'lucide-react';
-import './SystemIntelligence.css';
+import React, { useState, useEffect } from 'react'
+import { Shield, Cpu, Zap, Activity, Globe, Database, Settings, Terminal } from 'lucide-react'
+import './SystemIntelligence.css'
 
 const SystemIntelligence = () => {
-    const [intel, setIntel] = useState(null);
-    const [history, setHistory] = useState([]);
+    const [intel, setIntel] = useState(null)
+    const [history, setHistory] = useState([])
     const [consoleLogs, setConsoleLogs] = useState([
         '>> INITIALIZING NEURAL COMMAND CENTER...',
-        '>> LOADING XGBOOST WEIGHTS... [OK]',
-        '>> SYNCING POISSON MATRIX... [OK]',
-        '>> ATTACHING SHIELD PROXIES... [OK]'
-    ]);
-    const [loading, setLoading] = useState(true);
+    ])
+    const [loading, setLoading] = useState(true)
 
     const fetchIntel = async () => {
         try {
-            const res = await fetch('/api/system/intel');
-            const data = await res.json();
-            setIntel(data);
+            const res = await fetch('/api/system/intel')
+            const data = await res.json()
+            setIntel(data)
             if (data?.telemetry?.latency !== undefined) {
-                setHistory(prev => [...prev.slice(-29), data.telemetry.latency]);
+                setHistory(prev => [...prev.slice(-29), data.telemetry.latency])
             }
-            
-            // Random console log simulation
-            if (Math.random() > 0.7) {
-                const logs = [
-                    `>> ANALYZING MATCH ${Math.floor(Math.random() * 1000)}... DONE`,
-                    `>> DETECTED EDGE: +${(Math.random() * 0.15).toFixed(2)}`,
-                    `>> NEURAL MAPPING COMPLETE.`,
-                    `>> SHIELD: LATENCY ${data.telemetry.latency}ms`,
-                    `>> QUANT: RECALIBRATING POISSON...`
-                ];
-                setConsoleLogs(prev => [...prev.slice(-7), logs[Math.floor(Math.random() * logs.length)]]);
+            const ts = new Date().toLocaleTimeString()
+            const newLogs = []
+            if (data?.telemetry?.latency) {
+                newLogs.push(`[${ts}] LATENCY: ${data.telemetry.latency}ms | Proxy: ${data.telemetry.activeProxy || 'N/A'}`)
             }
-            
-            setLoading(false);
+            if (data?.database?.totalMatches) {
+                newLogs.push(`[${ts}] DB: ${data.database.totalMatches} matches | RAM: ${Math.round((data.memory || 0) / 1024 / 1024)}MB`)
+            }
+            if (data?.ai_workers) {
+                newLogs.push(`[${ts}] AI WORKERS: ${data.ai_workers.busy ? 'BUSY' : 'READY'} | Queue: ${data.ai_workers.queue || 0}`)
+            }
+            if (newLogs.length > 0) {
+                setConsoleLogs(prev => [...prev.slice(-7), ...newLogs])
+            }
+            setLoading(false)
         } catch (e) {
-            console.error('Failed to fetch system intel:', e);
+            console.error('Failed to fetch system intel:', e)
+            setConsoleLogs(prev => [...prev.slice(-7), `[${new Date().toLocaleTimeString()}] ⚠️ ERREUR: API système inaccessible`])
         }
-    };
+    }
 
     useEffect(() => {
-        fetchIntel();
-        const interval = setInterval(fetchIntel, 3000);
-        return () => clearInterval(interval);
-    }, []);
+        fetchIntel()
+        const interval = setInterval(fetchIntel, 5000)
+        return () => clearInterval(interval)
+    }, [])
 
     const updateStrategy = async (strategy) => {
         try {
-            const token = localStorage.getItem('admin_token');
+            const token = localStorage.getItem('admin_token')
             const res = await fetch('/api/config', {
                 method: 'POST',
                 headers: { 
@@ -56,17 +55,17 @@ const SystemIntelligence = () => {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ strategy })
-            });
+            })
             if (res.ok) {
-                setConsoleLogs(prev => [...prev, `>> STRATEGY UPDATED: ${strategy.toUpperCase()}`]);
-                fetchIntel();
+                setConsoleLogs(prev => [...prev, `>> STRATEGY UPDATED: ${strategy.toUpperCase()}`])
+                fetchIntel()
             }
         } catch (e) {
-            console.error('Failed to update strategy:', e);
+            console.error('Failed to update strategy:', e)
         }
-    };
+    }
 
-    if (loading) return <div className="intel-loading">Initializing Neural Command Center...</div>;
+    if (loading) return <div className="intel-loading">Initializing Neural Command Center...</div>
 
     const { 
         telemetry = {}, 
@@ -75,7 +74,7 @@ const SystemIntelligence = () => {
         database = {}, 
         uptime = 0, 
         memory = 0 
-    } = intel || {};
+    } = intel || {}
 
     return (
         <div className="intel-container">
@@ -89,9 +88,9 @@ const SystemIntelligence = () => {
                 <section className="intel-card">
                     <h3><Shield size={16} /> Neural Telemetry</h3>
                     <div className="intel-stat-main" style={{color: telemetry.latency < 100 ? '#00ffaa' : '#fbbf24'}}>
-                        {telemetry.latency}ms
+                        {telemetry.latency || 'N/A'}ms
                     </div>
-                    <div className="stat-label">Response Time | Node: {telemetry.activeProxy}</div>
+                    <div className="stat-label">Response Time | Node: {telemetry.activeProxy || 'N/A'}</div>
                     <div className="telemetry-bar">
                         {history.map((h, i) => (
                             <div 
@@ -107,7 +106,7 @@ const SystemIntelligence = () => {
                 <section className="intel-card">
                     <h3><Cpu size={16} /> AI Engine Cluster</h3>
                     <div className="intel-stat-main">{ai_workers.busy ? 'ANALYZING' : 'READY'}</div>
-                    <div className="stat-label">Queue: {ai_workers.queue} | Cache Hits: {ai_workers.cacheHits}</div>
+                    <div className="stat-label">Queue: {ai_workers.queue || 0} | Cache Hits: {ai_workers.cacheHits || 0}</div>
                     <div className="worker-pool">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map(id => (
                             <div key={id} className={`worker-node ${ai_workers.busy && id <= 2 ? 'busy' : ''}`}>
@@ -121,7 +120,7 @@ const SystemIntelligence = () => {
                 {/* 3. STRATEGIC ENGINE */}
                 <section className="intel-card">
                     <h3><Settings size={16} /> Strategic Core</h3>
-                    <div className="intel-stat-main" style={{color: '#38bdf8'}}>{strategy.label}</div>
+                    <div className="intel-stat-main" style={{color: '#38bdf8'}}>{strategy.label || 'DEFAULT'}</div>
                     <div className="stat-label">Risk Profile | Multi-Market Mode</div>
                     <div className="strategy-controls">
                         {['Defensive', 'Balanced', 'Aggressive'].map(s => (
@@ -139,10 +138,10 @@ const SystemIntelligence = () => {
                 {/* 4. QUANT PERSISTENCE */}
                 <section className="intel-card">
                     <h3><Database size={16} /> Data Persistence</h3>
-                    <div className="intel-stat-main">{database.totalMatches}</div>
-                    <div className="stat-label">V4 Enriched Matches | RAM: {Math.round(memory / 1024 / 1024)}MB</div>
+                    <div className="intel-stat-main">{database.totalMatches || 0}</div>
+                    <div className="stat-label">V4 Enriched Matches | RAM: {Math.round((memory || 0) / 1024 / 1024)}MB</div>
                     <div style={{marginTop: '12px', fontSize: '9px', color: '#475569', fontFamily: 'monospace'}}>
-                        {" >> "} LAST SYNC: {new Date(database.lastSync).toLocaleTimeString()}
+                        {" >> "} LAST SYNC: {database.lastSync ? new Date(database.lastSync).toLocaleTimeString() : 'N/A'}
                     </div>
                 </section>
             </div>
@@ -154,7 +153,7 @@ const SystemIntelligence = () => {
                 ))}
             </div>
         </div>
-    );
-};
+    )
+}
 
-export default SystemIntelligence;
+export default SystemIntelligence

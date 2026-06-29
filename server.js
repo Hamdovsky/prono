@@ -322,18 +322,17 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               logger.warn('⚠️ [CLOUD-SEED] Module load failed:', seedErr.message);
             }
 
-            // 🌱 [EMERGENCY SEED] If DB still has < 10 matches, seed with demo data
+            // ⚠️ [EMERGENCY SEED] Vérifie que des données réelles existent
             (async () => {
               try {
                 const count = await database.query('SELECT COUNT(*) as cnt FROM matches')
                 const matchCount = count?.rows?.[0]?.cnt || 0
                 if (matchCount < 10) {
-                  logger.info(`[EMERGENCY-SEED] DB has ${matchCount} matches — seeding emergency data...`)
-                  const { seedDemoMatches } = require('./scripts/seed_emergency')
-                  const seeded = await seedDemoMatches(database)
-                  logger.info(`[EMERGENCY-SEED] Seeded ${seeded} demo matches`)
+                  logger.warn(`[EMERGENCY-SEED] ⚠️ DB n'a que ${matchCount} matchs — aucune donnée réelle disponible. Vérifie les APIs.`)
+                  logger.warn(`[EMERGENCY-SEED] Les APIs suivantes nécessitent des clés : BSD, APIFootball, Sportmonks, TheRundown, etc.`)
+                  logger.warn(`[EMERGENCY-SEED] Les sources gratuites (SofaScore, OpenLigaDB) ont échoué ou sont indisponibles.`)
                 } else {
-                  logger.info(`[EMERGENCY-SEED] DB has ${matchCount} matches — skipping`)
+                  logger.info(`[EMERGENCY-SEED] DB OK: ${matchCount} matchs réels`)
                 }
               } catch (e) {
                 logger.warn(`[EMERGENCY-SEED] Error: ${e.message}`)

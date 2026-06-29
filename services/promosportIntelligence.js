@@ -19,15 +19,36 @@ class PromosportIntelligence {
         this.iterations = 50000
     }
 
-    calculateExpectedValue(p1, px, p2) {
-        const PROMOSPORT_PAYOUT = 7.0
-        const expectedReturn = (p1 * PROMOSPORT_PAYOUT - 1) + (px * PROMOSPORT_PAYOUT - 1) + (p2 * PROMOSPORT_PAYOUT - 1)
+    calculateModelEdge(p1Cal, pxCal, p2Cal, p1, px, p2) {
+        const edge1 = +(p1Cal - p1).toFixed(3)
+        const edgeX = +(pxCal - px).toFixed(3)
+        const edge2 = +(p2Cal - p2).toFixed(3)
+
+        const calPicks = [
+            { v: '1', p: p1Cal, edge: edge1 },
+            { v: 'X', p: pxCal, edge: edgeX },
+            { v: '2', p: p2Cal, edge: edge2 },
+        ]
+        calPicks.sort((a, b) => b.p - a.p)
+        const best = calPicks[0]
+
+        const crowdPicks = [
+            { v: '1', p: p1 },
+            { v: 'X', p: px },
+            { v: '2', p: p2 },
+        ]
+        crowdPicks.sort((a, b) => b.p - a.p)
+        const crowdBest = crowdPicks[0]
+
         return {
-            ev1: +(p1 * PROMOSPORT_PAYOUT - 1).toFixed(3),
-            evX: +(px * PROMOSPORT_PAYOUT - 1).toFixed(3),
-            ev2: +(p2 * PROMOSPORT_PAYOUT - 1).toFixed(3),
-            maxEV: +Math.max(p1 * PROMOSPORT_PAYOUT - 1, px * PROMOSPORT_PAYOUT - 1, p2 * PROMOSPORT_PAYOUT - 1).toFixed(3),
-            bestPick: p1 > p2 ? (p1 > px ? '1' : 'X') : (p2 > px ? '2' : 'X'),
+            edge1,
+            edgeX,
+            edge2,
+            maxEdge: best.edge,
+            bestPick: best.v,
+            bestProb: best.p,
+            crowdFavProb: crowdBest.p,
+            edgeOverCrowd: +(best.p - crowdBest.p).toFixed(3),
         }
     }
 
@@ -121,7 +142,7 @@ class PromosportIntelligence {
             const crowdFav = p1 > p2 ? '1' : (p2 > p1 ? '2' : 'X')
             const realFav = p1Cal > 0.45 ? '1' : (p2Cal > 0.40 ? '2' : 'X')
 
-            const ev = this.calculateExpectedValue(p1, px, p2)
+            const edge = this.calculateModelEdge(p1Cal, pxCal, p2Cal, p1, px, p2)
             const contrarianStrength = this.calculateContrarianStrength(p1, px, p2, p1Cal, pxCal, p2Cal)
             
             const competitionIntel = competitionAnalyzer.getMatchIntel(homeName, awayName, idx + 1, m.leagueName)
@@ -192,8 +213,9 @@ class PromosportIntelligence {
                 weaponParts.push(`🎯 Contrarian: foule→${crowdFav}, nous→${realFav} (${contrarianStrength.label})`)
             }
 
-            if (ev.maxEV > 0.5) {
-                weaponParts.push(`💰 Value: ${ev.bestPick}@${(ev.maxEV+1).toFixed(2)} (EV:+${(ev.maxEV*100).toFixed(0)}%)`)
+            if (edge.maxEdge > 0.02) {
+                const pct = (edge.maxEdge * 100).toFixed(1)
+                weaponParts.push(`📊 Edge: ${edge.bestPick} (modèle ${pct}pts > foule)`)
             }
 
             if (contextIntel.pattern) {
@@ -217,7 +239,7 @@ class PromosportIntelligence {
                 realFav,
                 isContrarian: contrarianStrength.isContrarian,
                 contrarianStrength,
-                ev,
+                edge,
                 isDeadRubber,
                 isSurvival,
                 bTeamHome: rotation.home,
@@ -240,8 +262,8 @@ class PromosportIntelligence {
     }
 
     getGridOptimizationHints(matches, weapons) {
-        const sortedByEV = [...weapons].sort((a, b) => b.ev.maxEV - a.ev.maxEV)
-        const bestEV = sortedByEV.slice(0, 5).map(w => w.id)
+        const sortedByEdge = [...weapons].sort((a, b) => b.edge.maxEdge - a.edge.maxEdge)
+        const bestEdge = sortedByEdge.slice(0, 5).map(w => w.id)
 
         const sortedByContrarian = [...weapons].sort((a, b) => b.contrarianStrength.score - a.contrarianStrength.score)
         const bestContrarian = sortedByContrarian.filter(w => w.contrarianStrength.isContrarian).slice(0, 5).map(w => w.id)
@@ -266,10 +288,10 @@ class PromosportIntelligence {
         return {
             doubleCandidates,
             bestContrarian: bestContrarian.map(id => ({ id, match: weapons.find(w => w.id === id) ? `${weapons.find(w => w.id === id).home} vs ${weapons.find(w => w.id === id).away}` : '' })),
-            bestEV: bestEV.map(id => ({ id, match: weapons.find(w => w.id === id) ? `${weapons.find(w => w.id === id).home} vs ${weapons.find(w => w.id === id).away}` : '' })),
+            bestEdge: bestEdge.map(id => ({ id, match: weapons.find(w => w.id === id) ? `${weapons.find(w => w.id === id).home} vs ${weapons.find(w => w.id === id).away}` : '' })),
             safePicks,
             totalContrarian: weapons.filter(w => w.contrarianStrength.isContrarian).length,
-            avgEV: +(weapons.reduce((s, w) => s + w.ev.maxEV, 0) / weapons.length).toFixed(3),
+            avgEdge: +(weapons.reduce((s, w) => s + w.edge.maxEdge, 0) / weapons.length).toFixed(3),
         }
     }
 

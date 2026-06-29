@@ -47,19 +47,6 @@ const supabaseService = require('./services/supabaseService');
 
 // API Fallback Manager
 const apiFallbackManager = require('./services/apiFallbackManager');
-const bsdService = require('./services/bsdService');
-const therundownService = require('./services/therundownService');
-const oddspapiService = require('./services/oddspapiService');
-const openligadbService = require('./services/openligadbService');
-const sportmonksService = require('./services/sportmonksService');
-const apifootballService = require('./services/apifootballService');
-const bigBallsDataService = require('./services/bigBallsDataService');
-const oddsApiIoService = require('./services/oddsApiIoService');
-const predixSportService = require('./services/predixSportService');
-const futpythonService = require('./services/futpythonService');
-const clearSportsService = require('./services/clearSportsService');
-const sportApiService = require('./services/sportApiService');
-const apiNinjasService = require('./services/apiNinjasService');
 const marketAnalysis = require('./services/marketAnalysisService');
 
 // Secondary Services
@@ -74,10 +61,6 @@ const redisCache = {
 const { validate } = require('./core/validation');
 const scraperApiService = require('./services/scraperApiService');
 const playerPropsService = require('./services/playerPropsService');
-const autoArchiver = require('./services/autoArchiver');
-const retroSync = require('./services/retroSyncService');
-const clvService = require('./services/clvService');
-const adaptiveLearning = require('./services/adaptiveLearningEngine');
 
 // Import Modular Routers
 const learnRoutes = require('./routes/learn');

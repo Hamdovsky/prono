@@ -342,7 +342,7 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
         awayTrapCount,
         diversifiedCount,
         historicalConcours: promosportIntelligence.getConcoursCount() || 0,
-        avgEV: gridHints.avgEV,
+        avgEdge: gridHints.avgEdge,
         hasLLM: !!llmAnalyses,
       },
       strategy: trapCount > 0

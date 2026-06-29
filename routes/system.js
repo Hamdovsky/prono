@@ -69,10 +69,27 @@ router.get('/system/intel', async (req, res) => {
         const mlStatus = mlPredictionService.getStatus();
         const strategyParams = configEngine.getStrategyParams();
         
-        // Use database.get which is the proper async-wrapped method if available, 
-        // or just use prepare().get() synchronously without await if it's sync.
-        const lastSyncRow = database.prepare("SELECT last_updated as lastSync FROM matches WHERE source = 'africanobet' ORDER BY last_updated DESC LIMIT 1").get();
-        const totalMatchesRow = database.prepare("SELECT COUNT(*) as count FROM matches WHERE source = 'africanobet'").get();
+        const totalMatchesRow = database.prepare("SELECT COUNT(*) as count FROM matches").get();
+        const lastSyncRow = database.prepare("SELECT MAX(last_updated) as lastSync FROM matches").get();
+        const bySource = database.prepare("SELECT source, COUNT(*) as count FROM matches WHERE source IS NOT NULL GROUP BY source").all();
+        const liveCount = database.prepare("SELECT COUNT(*) as count FROM matches WHERE status = 'live'").get();
+
+        const apiServices = {}
+        const apiChecks = [
+            { name: 'BSD', key: process.env.BSD_API_KEY, check: process.env.BSD_API_KEY && !process.env.BSD_API_KEY.includes('CHANGER') },
+            { name: 'PredixSport', key: process.env.PREDIXSPORT_API_KEY, check: !!process.env.PREDIXSPORT_API_KEY },
+            { name: 'FootballData', key: process.env.FOOTBALLDATA_KEY, check: process.env.FOOTBALLDATA_ENABLED === 'true' },
+            { name: 'DeepSeek/Groq', key: process.env.DEEPSEEK_API_KEY || process.env.GROQ_API_KEY, check: !!(process.env.DEEPSEEK_API_KEY || process.env.GROQ_API_KEY) },
+            { name: 'RapidAPI', key: process.env.RAPIDAPI_KEY, check: !!process.env.RAPIDAPI_KEY && process.env.RAPIDAPI_ENABLED === 'true' },
+            { name: 'SofaScore', key: null, check: true },
+            { name: 'Promosport', key: null, check: true },
+        ]
+        for (const svc of apiChecks) {
+            apiServices[svc.name] = {
+                configured: svc.check,
+                keyPresent: !!svc.key,
+            }
+        }
 
         res.json({
             telemetry: {
@@ -93,8 +110,11 @@ router.get('/system/intel', async (req, res) => {
             },
             database: {
                 totalMatches: totalMatchesRow?.count || 0,
-                lastSync: lastSyncRow?.lastSync || 0
+                lastSync: lastSyncRow?.lastSync || 0,
+                liveCount: liveCount?.count || 0,
+                sources: bySource,
             },
+            apiServices,
             uptime: process.uptime(),
             memory: process.memoryUsage().heapUsed
         });
@@ -109,9 +129,9 @@ router.get('/system/intel', async (req, res) => {
  */
 router.get('/status', async (req, res) => {
     try {
-        const lastSyncRow = database.prepare("SELECT last_updated as lastSync FROM matches WHERE source = 'africanobet' ORDER BY last_updated DESC LIMIT 1").get();
-        const totalMatchesRow = database.prepare("SELECT COUNT(*) as count FROM matches WHERE source = 'africanobet'").get();
-        const liveMatchesRow = database.prepare("SELECT COUNT(*) as count FROM matches WHERE status = 'live' AND source = 'africanobet'").get();
+        const totalMatchesRow = database.prepare("SELECT COUNT(*) as count FROM matches").get();
+        const liveMatchesRow = database.prepare("SELECT COUNT(*) as count FROM matches WHERE status = 'live'").get();
+        const lastSyncRow = database.prepare("SELECT MAX(last_updated) as lastSync FROM matches").get();
         
         res.json({
             status: 'ONLINE',

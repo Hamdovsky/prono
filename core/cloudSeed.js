@@ -31,12 +31,16 @@ async function fetchSofascoreEvents(date) {
   try {
     const { data } = await axios.get(`${SOFASCORE_BASE}/sport/football/scheduled-events/${date}`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
         'Origin': 'https://www.sofascore.com',
-        'Referer': 'https://www.sofascore.com/'
+        'Referer': 'https://www.sofascore.com/',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
       },
-      timeout: 15000
+      timeout: 20000
     })
     return data?.events || []
   } catch (e) {
@@ -48,10 +52,16 @@ function mapSofascoreEventToMatch(event) {
   const ts = event.startTimestamp || Math.floor(Date.now() / 1000)
   const rawStatus = (event.status?.type || '').toLowerCase()
   const status = ['finished', 'canceled', 'postponed', 'inprogress'].includes(rawStatus) ? rawStatus : 'scheduled'
+
+  const homeName = event.homeTeam?.name || event.homeTeam?.slug || 'Home'
+  const awayName = event.awayTeam?.name || event.awayTeam?.slug || 'Away'
+
+  if (homeName === 'Home' || awayName === 'Away' || !event.id) return null
+
   return {
     id: `sofascore_${event.id}`,
-    homeTeam: event.homeTeam?.name || 'Home',
-    awayTeam: event.awayTeam?.name || 'Away',
+    homeTeam: homeName,
+    awayTeam: awayName,
     league: event.tournament?.uniqueTournament?.name || event.tournament?.name || 'Unknown',
     category_name: event.tournament?.category?.name || '',
     tournament_name: event.tournament?.name || '',
@@ -70,7 +80,7 @@ function mapSofascoreEventToMatch(event) {
     last_updated: Date.now(),
     insufficient_data: 1,
     source: 'sofascore',
-    fullData: JSON.stringify({ id: event.id, homeTeam: event.homeTeam?.name, awayTeam: event.awayTeam?.name, league: event.tournament?.name, startTimestamp: ts, status })
+    fullData: JSON.stringify({ id: event.id, homeTeam: homeName, awayTeam: awayName, league: event.tournament?.name, startTimestamp: ts, status })
   }
 }
 
@@ -298,8 +308,8 @@ async function runCloudSeed() {
   let rapidApiInserted = 0
   let sofascoreInserted = 0
 
-  if (process.env.DISABLE_SOFASCORE === 'true' || process.env.NODE_ENV === 'development') {
-    console.log('[CLOUD-SEED/SOFASCORE] Skipped — disabled in dev/local mode.')
+  if (process.env.DISABLE_SOFASCORE === 'true') {
+    console.log('[CLOUD-SEED/SOFASCORE] Skipped — DISABLE_SOFASCORE is set.')
   } else {
     console.log('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
     try {
@@ -308,11 +318,43 @@ async function runCloudSeed() {
         const events = await fetchSofascoreEvents(dateStr)
         const notstarted = events.filter(e => (e.status?.type || '').toLowerCase() === 'notstarted')
         for (const event of notstarted) {
-          if (!event.id || !event.homeTeam?.name || !event.awayTeam?.name) continue
-          if (await upsertMatch(mapSofascoreEventToMatch(event))) sofascoreInserted++
+          const match = mapSofascoreEventToMatch(event)
+          if (!match) continue
+          if (await upsertMatch(match)) sofascoreInserted++
         }
       }
       console.log(`[CLOUD-SEED/SOFASCORE] Inserted ${sofascoreInserted} free matches total.`)
+      if (sofascoreInserted > 0) {
+        console.log('[CLOUD-SEED/SOFASCORE] Fetching SofaScore odds...')
+        try {
+          const { data: oddsData } = await axios.get(`${SOFASCORE_BASE}/sport/football/scheduled-events/${today}/odds/1x2`, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+              'Accept': 'application/json',
+              'Origin': 'https://www.sofascore.com',
+              'Referer': 'https://www.sofascore.com/',
+            },
+            timeout: 20000
+          })
+          if (oddsData?.data && Array.isArray(oddsData.data)) {
+            const db = database.db
+            let updated = 0
+            for (const odd of oddsData.data) {
+              if (!odd.id || !odd.homeOdds) continue
+              try {
+                const result = db.prepare(`
+                  UPDATE matches SET odds_home = ?, odds_draw = ?, odds_away = ?
+                  WHERE id = ? AND odds_home IS NULL
+                `).run(odd.homeOdds, odd.drawOdds, odd.awayOdds, `sofascore_${odd.id}`)
+                if (result.changes > 0) updated++
+              } catch (_) {}
+            }
+            console.log(`[CLOUD-SEED/SOFASCORE] Updated odds for ${updated} matches`)
+          }
+        } catch (oddsErr) {
+          console.warn(`[CLOUD-SEED/SOFASCORE] Odds not available: ${oddsErr.message}`)
+        }
+      }
     } catch (e) {
       console.warn(`[CLOUD-SEED/SOFASCORE] Error: ${e.message}`)
     }

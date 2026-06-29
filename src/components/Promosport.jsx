@@ -12,7 +12,7 @@ const Promosport = () => {
     const [loading, setLoading] = useState(true);
     const [simulating, setSimulating] = useState(false);
     const [viewMode, setViewMode] = useState('module');
-    const [selectedStrategy, setSelectedStrategy] = useState('EV OPTIMIZED');
+    const [selectedStrategy, setSelectedStrategy] = useState('EDGE OPTIMIZED');
     const [weaponsData, setWeaponsData] = useState(null);
     const [analysisData, setAnalysisData] = useState(null);
     const [doubleSimData, setDoubleSimData] = useState(null);
@@ -28,7 +28,7 @@ const Promosport = () => {
     const [meta, setMeta] = useState({ 
         concours: '---', 
         date: '--/--/----',
-        grid_names: ['EV OPTIMIZED', 'HIGH VALUE', 'SECURE', 'ANTI-CROWD']
+        grid_names: ['EDGE OPTIMIZED', 'HIGH VALUE', 'SECURE', 'ANTI-CROWD']
     });
 
     const [matches, setMatches] = useState([]);
@@ -723,8 +723,8 @@ const Promosport = () => {
                                 <span style={{ color: '#94a3b8', marginLeft: '8px' }}>SURVIE</span>
                             </div>
                             <div style={{ background: 'rgba(251, 191, 36, 0.1)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
-                                <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '1.2rem' }}>{(weaponsData?.stats?.avgEV * 100 || 0).toFixed(0)}%</span>
-                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>EV MOYEN</span>
+                                <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '1.2rem' }}>{(weaponsData?.stats?.avgEdge !== undefined ? (weaponsData.stats.avgEdge * 100).toFixed(1) : '?')}pts</span>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>EDGE MOYEN</span>
                             </div>
                             <div style={{ background: 'rgba(244, 63, 94, 0.1)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(244, 63, 94, 0.3)' }}>
                                 <span style={{ color: '#f43f5e', fontWeight: 'bold', fontSize: '1.2rem' }}>{weaponsData?.stats?.bTeamCount || '?'}</span>
@@ -794,7 +794,7 @@ const Promosport = () => {
                                     <th style={{ padding: '10px' }}>Vote foule</th>
                                     <th style={{ padding: '10px' }}>Pick AI</th>
                                     <th style={{ padding: '10px' }} title="Niveau d'audace du pick">🎲 Audace</th>
-                                    <th style={{ padding: '10px' }}>💰 EV</th>
+                                    <th style={{ padding: '10px' }}>📊 Edge</th>
                                     <th style={{ padding: '10px' }}>🎯 Contrarian</th>
                                     <th style={{ padding: '10px' }}>Arme secrète</th>
                                 </tr>
@@ -807,8 +807,8 @@ const Promosport = () => {
                                         boldLabel.includes('VALUE') ? { bg: 'rgba(251, 191, 36, 0.2)', color: '#fbbf24' } :
                                         { bg: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }
                                     const cs = w.contrarianStrength || {}
-                                    const ev = w.ev || {}
-                                    const evColor = ev.maxEV > 0.5 ? '#34d399' : (ev.maxEV > 0.2 ? '#fbbf24' : '#64748b')
+                                    const edge = w.edge || {}
+                                    const edgeColor = edge.maxEdge > 0.1 ? '#34d399' : (edge.maxEdge > 0.03 ? '#fbbf24' : '#64748b')
                                     const csColor = cs.isContrarian ? (cs.score > 0.3 ? '#f87171' : '#fbbf24') : '#64748b'
                                     const isHighlighted = cs.isContrarian || w.bTeamHome?.isBTeam || w.bTeamAway?.isBTeam || w.isSurvival
                                     return (
@@ -861,9 +861,9 @@ const Promosport = () => {
                                                 </span>
                                             )}
                                         </td>
-                                        <td style={{ padding: '12px 10px', color: evColor, fontWeight: 'bold', fontSize: '0.8rem' }}>
-                                            {ev.maxEV != null ? `${(ev.maxEV * 100).toFixed(0)}%` : '-'}
-                                            {ev.bestPick && <span style={{ color: '#64748b', fontSize: '0.65rem', display: 'block' }}>{ev.bestPick}@{(ev.maxEV + 1).toFixed(2)}</span>}
+                                        <td style={{ padding: '12px 10px', color: edgeColor, fontWeight: 'bold', fontSize: '0.8rem' }}>
+                                            {edge.maxEdge != null ? `${(edge.maxEdge * 100).toFixed(1)}pts` : '-'}
+                                            {edge.bestPick && <span style={{ color: '#64748b', fontSize: '0.65rem', display: 'block' }}>{edge.bestPick}  (modèle +{(edge.maxEdge * 100).toFixed(1)}pts)</span>}
                                         </td>
                                         <td style={{ padding: '12px 10px' }}>
                                             {cs.isContrarian ? (
@@ -1592,8 +1592,8 @@ const Promosport = () => {
                 <h3 style={{ color: '#fbbf24', fontSize: '1.4rem', marginBottom: '20px', fontWeight: '900' }}>🧠 IA Rationale (Tactique & Stratégique)</h3>
                 <div className="rationale-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                     <div className="rationale-card" style={{ background: 'rgba(30, 41, 59, 0.5)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <h4 style={{ color: '#10b981', fontSize: '1rem', marginBottom: '8px' }}>STRATÉGIE EV OPTIMIZED</h4>
-                        <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Utilise les 5 doubles chances sur les matchs avec l'entropie la plus élevée (H {'>'} 1.55). Maximise le rendement long terme en couvrant les derbies tunisiens et le choc Atletico/Arsenal.</p>
+                        <h4 style={{ color: '#10b981', fontSize: '1rem', marginBottom: '8px' }}>STRATÉGIE EDGE OPTIMIZED</h4>
+                        <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Sélectionne les matchs où le modèle a le plus d'avance sur la foule (edge {'>'} 5pts). Maximise la valeur réelle en jouant les picks où l'IA voit mieux que le public.</p>
                     </div>
                     <div className="rationale-card" style={{ background: 'rgba(30, 41, 59, 0.5)', padding: '15px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <h4 style={{ color: '#fbbf24', fontSize: '1rem', marginBottom: '8px' }}>STRATÉGIE HIGH VALUE</h4>

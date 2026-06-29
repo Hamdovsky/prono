@@ -1876,20 +1876,24 @@ def process_prediction(match_obj: dict) -> dict:
 
     # V553 PREMIUM — enriched model, preferred when both teams have WC2026 data
     is_wc2026_match = (V553_PREMIUM_BOOSTER is not None or V553_BOOSTER is not None) and features.get('fifa_rank_h', 999) < 999 and features.get('fifa_rank_a', 999) < 999
+    # V553/V552 models were trained before draw_deadlock/draw_defensive_eq were added,
+    # so those 2 features must be excluded to match the 202/218-column boosters
+    EXCLUDED_FEATURES = {'draw_deadlock', 'draw_defensive_eq'}
+
     if is_wc2026_match:
         if V553_PREMIUM_BOOSTER is not None:
-            active_feature_names = FEATURE_NAMES_V553
-            active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V553]
+            active_feature_names = [f for f in FEATURE_NAMES_V553 if f not in EXCLUDED_FEATURES]
+            active_feature_vector = [float(features.get(f, 0)) for f in active_feature_names]
             ai_source = "V553-PREMIUM"
             XGB_BOOSTER = V553_PREMIUM_BOOSTER
         else:
-            active_feature_names = FEATURE_NAMES_V553
-            active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V553]
+            active_feature_names = [f for f in FEATURE_NAMES_V553 if f not in EXCLUDED_FEATURES]
+            active_feature_vector = [float(features.get(f, 0)) for f in active_feature_names]
             ai_source = "V553-WC2026"
             XGB_BOOSTER = V553_BOOSTER
     elif V552_BOOSTER:
-        active_feature_names = FEATURE_NAMES_V552
-        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V552]
+        active_feature_names = [f for f in FEATURE_NAMES_V552 if f not in EXCLUDED_FEATURES]
+        active_feature_vector = [float(features.get(f, 0)) for f in active_feature_names]
         ai_source = "V552-CHRONO-2026"
         XGB_BOOSTER = V552_BOOSTER
     elif V551_BOOSTER:

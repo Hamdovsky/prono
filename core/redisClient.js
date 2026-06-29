@@ -12,19 +12,13 @@ console.log('Redis type:', typeof Redis, 'keys:', Object.keys(Redis || {}));
 let redis = null;
 try {
   console.log('Creating new Redis with opts...');
-  redis = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT || 6379,
-    password: process.env.REDIS_PASSWORD || undefined,
-    retryStrategy: (times) => {
-      // Keep reconnecting, cap delay at 3 seconds
-      return Math.min(times * 200, 3000);
-    },
-    maxRetriesPerRequest: 5,
-    enableReadyCheck: true,
-    lazyConnect: true,
-    enableOfflineQueue: true
-  });
+  const redisUrl = process.env.REDIS_URL
+  const opts = redisUrl
+    ? { retryStrategy: (t) => Math.min(t * 200, 3000), maxRetriesPerRequest: 5, enableReadyCheck: true, lazyConnect: true, enableOfflineQueue: true }
+    : { host: process.env.REDIS_HOST || 'localhost', port: process.env.REDIS_PORT || 6379, password: process.env.REDIS_PASSWORD || undefined, retryStrategy: (t) => Math.min(t * 200, 3000), maxRetriesPerRequest: 5, enableReadyCheck: true, lazyConnect: true, enableOfflineQueue: true }
+  redis = redisUrl
+    ? new Redis(redisUrl, opts)
+    : new Redis(opts)
   console.log('Redis instance created:', !!redis, redis && typeof redis);
 
   redis.on('error', () => {});

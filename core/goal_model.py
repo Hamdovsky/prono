@@ -411,6 +411,7 @@ def load_or_fit_goalmodel_parameters(league_name, db_conn=None, force_refit=Fals
 
     try:
         cursor = db_conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS historical_matches (id TEXT PRIMARY KEY, homeTeam TEXT, awayTeam TEXT, scoreHome INTEGER, scoreAway INTEGER, league TEXT, fullData TEXT, timestamp TEXT, archived_at DATETIME DEFAULT CURRENT_TIMESTAMP)")
         rows = cursor.execute(
             """SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp
                FROM historical_matches

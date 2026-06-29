@@ -11,7 +11,7 @@ class Gemma4Service {
   isAvailable() {
     if (process.env.GEMMA4_DISABLED === 'true') return false
     if (this.baseUrl.includes('127.0.0.1') || this.baseUrl.includes('localhost')) {
-        return true
+        return !!process.env.GEMMA4_URL && !!this.apiKey
     }
     return !!this.apiKey
   }

@@ -40,21 +40,24 @@ function speedCache(key, ttlMs = 60_000, staleMs = 300_000) {
                 res.json(cached.data);
                 if (!_revalidating.has(cacheKey)) {
                     _revalidating.add(cacheKey);
-                    const originalUrl = req.originalUrl
-                    const fakeReq = { ...req, originalUrl }
-                    const fakeRes = {
-                        statusCode: 200,
-                        json: (body) => {
-                            CACHE_STORE.set(cacheKey, { data: body, timestamp: Date.now() });
-                            _revalidating.delete(cacheKey);
-                        },
-                        status(code) { this.statusCode = code; return this; },
-                        set() { return this; },
-                        send(body) { this.json(body); },
-                        get() { return this; },
-                        header() { return this; }
-                    };
-                    next(fakeRes)
+                    const routeHandler = req.route?.stack?.[0]?.handle
+                    if (routeHandler) {
+                        const fakeRes = {
+                            statusCode: 200,
+                            json: (body) => {
+                                CACHE_STORE.set(cacheKey, { data: body, timestamp: Date.now() });
+                                _revalidating.delete(cacheKey);
+                            },
+                            status(code) { this.statusCode = code; return this; },
+                            set() { return this; },
+                            send(body) { this.json(body); },
+                            get() { return this; },
+                            header() { return this; }
+                        };
+                        routeHandler(req, fakeRes, () => {})
+                    } else {
+                        _revalidating.delete(cacheKey)
+                    }
                 }
                 return;
             }

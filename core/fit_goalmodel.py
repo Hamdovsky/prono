@@ -28,6 +28,7 @@ DB_ARCHIVE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data
 
 def get_active_leagues(conn):
     cursor = conn.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS historical_matches (id TEXT PRIMARY KEY, homeTeam TEXT, awayTeam TEXT, scoreHome INTEGER, scoreAway INTEGER, league TEXT, fullData TEXT, timestamp TEXT, archived_at DATETIME DEFAULT CURRENT_TIMESTAMP)")
     rows = cursor.execute(
         """SELECT league, COUNT(*) as cnt
            FROM historical_matches

@@ -273,6 +273,16 @@ app.post('/api/seed/emergency', async (req, res) => {
   }
 })
 
+app.post('/api/seed/purge', async (req, res) => {
+  try {
+    const { purgeFakeMatches } = require('./core/cloudSeed')
+    const removed = await purgeFakeMatches()
+    res.json({ success: true, removed })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
 app.post('/api/seed-match', async (req, res) => {
   try {
     const match = req.body

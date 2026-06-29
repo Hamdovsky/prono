@@ -10,6 +10,7 @@ const promosportIntelligence = require('../services/promosportIntelligence');
 const doubleOptimizer = require('../services/doubleOptimizerService');
 const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper');
 const crowdHackerService = require('../services/crowdHackerService');
+const secretWeaponsTracker = require('../services/secretWeaponsTracker');
 
 function parsePromosportPronostic(html) {
   let concoursNumber = '878'
@@ -262,10 +263,13 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
       }
     })
 
-    const weapons = await promosportIntelligence.generateSecretWeapons(enriched)
+    const result = await promosportIntelligence.generateSecretWeapons(enriched)
+    const weapons = result.weapons
+    const gridHints = result.gridHints
+
+    const llmAnalyses = await promosportIntelligence.generateLLMSecretWeapons(enriched)
 
     const weaponsWithChoices = weapons.map((w, idx) => {
-      // Detecter les pièges publics pour chaque match
       const gm = grids[0].matches[idx]
       const trapAnalysis = crowdHackerService.detectPublicTrap({
         homeWinProbability: enriched[idx].homeWinProbability,
@@ -274,7 +278,6 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
         p1: gm.p1, px: gm.px, p2: gm.p2,
       })
 
-      // Vérifier la diversification
       let diversifyReason = null
       for (let gi = 0; gi < 4; gi++) {
         if (grids[gi].matches[idx].diversified) {
@@ -283,11 +286,23 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
         }
       }
 
+      const llm = llmAnalyses ? llmAnalyses.find(a => a.id === w.id) : null
+
+      let llmSecretWeapon = null
+      if (llm && llm.secretWeapon) {
+        llmSecretWeapon = {
+          text: llm.secretWeapon,
+          confidence: llm.confidence || null,
+          risk: llm.risk || null,
+        }
+      }
+
       return {
         ...w,
         choices: grids.map(g => g.matches[idx].choices.join('')),
         trapAnalysis,
         diversifyReason,
+        llmSecretWeapon,
       }
     })
 
@@ -295,12 +310,26 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
     const awayTrapCount = weaponsWithChoices.filter(w => w.trapAnalysis?.isAwayTrap).length
     const diversifiedCount = weaponsWithChoices.filter(w => w.diversifyReason).length
 
+    const concours = scrapedMatches[0]?.concoursNumber || 'N/A'
+    secretWeaponsTracker.recordPrediction(concours, weapons)
+
+    try {
+      const socketService = require('../services/socketService')
+      socketService.broadcast('promosport_weapons_update', {
+        concours,
+        weaponsCount: weaponsWithChoices.length,
+        contrarianCount: weaponsWithChoices.filter(w => w.isContrarian).length,
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {}
+
     res.json({
       success: true,
-      concours: scrapedMatches[0]?.concoursNumber || 'N/A',
+      concours,
       date: scrapedMatches[0]?.concoursDate || new Date().toLocaleDateString(),
       weapons: weaponsWithChoices,
       gridNames: grids.map(g => g.name),
+      gridHints,
       stats: {
         totalMatches: weaponsWithChoices.length,
         contrarianCount: weaponsWithChoices.filter(w => w.isContrarian).length,
@@ -313,6 +342,8 @@ router.get('/secret-weapons', speedCache('promosport_weapons', 300000, 1800000),
         awayTrapCount,
         diversifiedCount,
         historicalConcours: promosportIntelligence.getConcoursCount() || 0,
+        avgEV: gridHints.avgEV,
+        hasLLM: !!llmAnalyses,
       },
       strategy: trapCount > 0
         ? `🔥 ${trapCount} piège(s) public(s) détecté(s) — ${diversifiedCount} grille(s) diversifiée(s) — Jouer les picks CONTRARIAN`
@@ -664,6 +695,45 @@ router.get('/calculator', speedCache('promosport_calc', 60000, 300000), async (r
     })
   } catch (err) {
     logger.error('❌ [PROMOSPORT] Calculator Error:', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * GET /api/promosport/weapons-history
+ * Historique des prédictions armes secrètes et leur précision.
+ */
+router.get('/weapons-history', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10
+    const history = secretWeaponsTracker.getHistory(limit)
+    const stats = secretWeaponsTracker.getStats()
+    res.json({ success: true, history, stats })
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] Weapons History Error:', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
+ * POST /api/promosport/weapons-results
+ * Enregistrer les résultats réels d'un concours pour calculer la précision.
+ * Body: { concours: "878", results: [{ id: 1, result: "1" }, ...] }
+ */
+router.post('/weapons-results', async (req, res) => {
+  try {
+    const { concours, results } = req.body
+    if (!concours || !results) {
+      return res.status(400).json({ success: false, error: 'Missing concours or results' })
+    }
+    const outcome = secretWeaponsTracker.recordResults(concours, results)
+    if (!outcome) {
+      return res.status(404).json({ success: false, error: `Concours ${concours} not found` })
+    }
+    logger.info(`[PROMOSPORT] Results recorded for concours ${concours}: ${outcome.correct}/${outcome.total} correct (${outcome.accuracy}%)`)
+    res.json({ success: true, outcome })
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] Weapons Results Error:', err.message)
     res.status(500).json({ success: false, error: err.message })
   }
 })

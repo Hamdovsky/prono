@@ -587,6 +587,27 @@ class DataService {
         }
     }
 
+    async fetchPromosportWeaponsHistory() {
+        try {
+            return await this._get(getApiUrl('/api/promosport/weapons-history'));
+        } catch (error) {
+            return null;
+        }
+    }
+
+    async submitPromosportResults(concours, results) {
+        try {
+            const res = await fetch(getApiUrl('/api/promosport/weapons-results'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ concours, results }),
+            });
+            return await res.json();
+        } catch (error) {
+            return null;
+        }
+    }
+
     async fetchPromosportDoubleSim() {
         try {
             return await this._get(this.promosportDoubleSimEndpoint);

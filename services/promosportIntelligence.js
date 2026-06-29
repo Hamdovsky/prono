@@ -1,3 +1,5 @@
+const fs = require('fs')
+const path = require('path')
 const expertEngine = require('./expertEngine');
 const DeepFormService = require('./DeepFormService');
 const LogisticsService = require('./LogisticsService');
@@ -9,11 +11,50 @@ const tacticalContextEngine = require('./tacticalContextEngine');
 const probabilityCalibrator = require('./probabilityCalibrator');
 const competitionAnalyzer = require('./competitionAnalyzer');
 const crowdHackerService = require('./crowdHackerService');
+const deepSeekService = require('./DeepSeekService');
 const logger = require('../core/logger');
 
 class PromosportIntelligence {
     constructor() {
         this.iterations = 50000
+    }
+
+    calculateExpectedValue(p1, px, p2) {
+        const PROMOSPORT_PAYOUT = 7.0
+        const expectedReturn = (p1 * PROMOSPORT_PAYOUT - 1) + (px * PROMOSPORT_PAYOUT - 1) + (p2 * PROMOSPORT_PAYOUT - 1)
+        return {
+            ev1: +(p1 * PROMOSPORT_PAYOUT - 1).toFixed(3),
+            evX: +(px * PROMOSPORT_PAYOUT - 1).toFixed(3),
+            ev2: +(p2 * PROMOSPORT_PAYOUT - 1).toFixed(3),
+            maxEV: +Math.max(p1 * PROMOSPORT_PAYOUT - 1, px * PROMOSPORT_PAYOUT - 1, p2 * PROMOSPORT_PAYOUT - 1).toFixed(3),
+            bestPick: p1 > p2 ? (p1 > px ? '1' : 'X') : (p2 > px ? '2' : 'X'),
+        }
+    }
+
+    calculateContrarianStrength(p1, px, p2, p1Cal, pxCal, p2Cal) {
+        const crowdFavIdx = p1 > p2 ? (p1 > px ? 0 : 1) : (p2 > px ? 2 : 1)
+        const calFavIdx = p1Cal > p2Cal ? (p1Cal > pxCal ? 0 : 1) : (p2Cal > pxCal ? 2 : 1)
+
+        const crowdProbs = [p1, px, p2]
+        const calProbs = [p1Cal, pxCal, p2Cal]
+
+        if (crowdFavIdx === calFavIdx) {
+            const agreement = crowdProbs[crowdFavIdx]
+            return {
+                score: +(1 - agreement).toFixed(3),
+                label: agreement > 0.55 ? '⚠️ Conforme mais Risqué' : (agreement > 0.45 ? '✅ Conforme' : '🟡 Leger désaccord'),
+                isContrarian: false,
+                divergence: 0,
+            }
+        }
+
+        const divergence = Math.abs(crowdProbs[crowdFavIdx] - calProbs[calFavIdx])
+        return {
+            score: +Math.min(1, divergence * 1.5).toFixed(3),
+            label: divergence > 0.20 ? '🔥 CONTRARIAN FORT' : (divergence > 0.10 ? '⚡ Contrarian Modéré' : '🔵 Léger Contrarian'),
+            isContrarian: true,
+            divergence: +divergence.toFixed(3),
+        }
     }
 
     async optimizeGrid(matches, strategy = 'balanced') {
@@ -60,7 +101,7 @@ class PromosportIntelligence {
 
     async generateSecretWeapons(matches) {
         promosportSurpriseService.computeSurpriseRates()
-        return matches.map((m, idx) => {
+        const weapons = matches.map((m, idx) => {
             const isDeadRubber = m.isHighPressure === false && (m.entropy || 1.5) < 1.3
             const isSurvival = m.isHighPressure === true
             const homeName = m.homeTeam || m.home || m.team1 || ''
@@ -79,6 +120,9 @@ class PromosportIntelligence {
             
             const crowdFav = p1 > p2 ? '1' : (p2 > p1 ? '2' : 'X')
             const realFav = p1Cal > 0.45 ? '1' : (p2Cal > 0.40 ? '2' : 'X')
+
+            const ev = this.calculateExpectedValue(p1, px, p2)
+            const contrarianStrength = this.calculateContrarianStrength(p1, px, p2, p1Cal, pxCal, p2Cal)
             
             const competitionIntel = competitionAnalyzer.getMatchIntel(homeName, awayName, idx + 1, m.leagueName)
             const crowdSignal = crowdHackerService.getContrarianSignal(m)
@@ -144,8 +188,12 @@ class PromosportIntelligence {
                 }
             }
 
-            if (crowdFav !== realFav) {
-                weaponParts.push(`🎯 Contrarian: foule→${crowdFav}, nous→${realFav}`)
+            if (contrarianStrength.isContrarian) {
+                weaponParts.push(`🎯 Contrarian: foule→${crowdFav}, nous→${realFav} (${contrarianStrength.label})`)
+            }
+
+            if (ev.maxEV > 0.5) {
+                weaponParts.push(`💰 Value: ${ev.bestPick}@${(ev.maxEV+1).toFixed(2)} (EV:+${(ev.maxEV*100).toFixed(0)}%)`)
             }
 
             if (contextIntel.pattern) {
@@ -167,7 +215,9 @@ class PromosportIntelligence {
                 p2Cal: +(p2Cal * 100).toFixed(0),
                 crowdFav,
                 realFav,
-                isContrarian: crowdFav !== realFav,
+                isContrarian: contrarianStrength.isContrarian,
+                contrarianStrength,
+                ev,
                 isDeadRubber,
                 isSurvival,
                 bTeamHome: rotation.home,
@@ -183,6 +233,173 @@ class PromosportIntelligence {
                 tunisianCrowd: crowdSignal?.tunisianCrowd || null,
             }
         })
+
+        const gridHints = this.getGridOptimizationHints(matches, weapons)
+
+        return { weapons, gridHints }
+    }
+
+    getGridOptimizationHints(matches, weapons) {
+        const sortedByEV = [...weapons].sort((a, b) => b.ev.maxEV - a.ev.maxEV)
+        const bestEV = sortedByEV.slice(0, 5).map(w => w.id)
+
+        const sortedByContrarian = [...weapons].sort((a, b) => b.contrarianStrength.score - a.contrarianStrength.score)
+        const bestContrarian = sortedByContrarian.filter(w => w.contrarianStrength.isContrarian).slice(0, 5).map(w => w.id)
+
+        const sortedByEntropy = [...weapons].sort((a, b) => {
+            const eA = matches.find(m => (m.homeTeam || m.home) === a.home)?.entropy || 0
+            const eB = matches.find(m => (m.homeTeam || m.home) === b.home)?.entropy || 0
+            return eB - eA
+        })
+        const doubleCandidates = sortedByEntropy.slice(0, 5).map(w => ({
+            id: w.id,
+            match: `${w.home} vs ${w.away}`,
+            reason: w.bTeamHome?.isBTeam || w.bTeamAway?.isBTeam ? 'B-Team incertaine' : (w.isDeadRubber ? 'Dead rubber' : 'Entropie élevée (incertain)'),
+        }))
+
+        const safePicks = weapons.filter(w => !w.isContrarian && !w.bTeamHome?.isBTeam && !w.bTeamAway?.isBTeam && !w.isDeadRubber)
+            .sort((a, b) => Math.max(a.p1Cal, a.pxCal, a.p2Cal) - Math.max(b.p1Cal, b.pxCal, b.p2Cal))
+            .reverse()
+            .slice(0, 5)
+            .map(w => ({ id: w.id, match: `${w.home} vs ${w.away}` }))
+
+        return {
+            doubleCandidates,
+            bestContrarian: bestContrarian.map(id => ({ id, match: weapons.find(w => w.id === id) ? `${weapons.find(w => w.id === id).home} vs ${weapons.find(w => w.id === id).away}` : '' })),
+            bestEV: bestEV.map(id => ({ id, match: weapons.find(w => w.id === id) ? `${weapons.find(w => w.id === id).home} vs ${weapons.find(w => w.id === id).away}` : '' })),
+            safePicks,
+            totalContrarian: weapons.filter(w => w.contrarianStrength.isContrarian).length,
+            avgEV: +(weapons.reduce((s, w) => s + w.ev.maxEV, 0) / weapons.length).toFixed(3),
+        }
+    }
+
+    _getLLMCacheKey(matches) {
+        const concours = matches[0]?.concoursNumber || matches[0]?.grid || 'unknown'
+        const date = matches[0]?.concoursDate || new Date().toISOString().slice(0, 10)
+        const hash = require('crypto').createHash('md5').update(`${concours}-${date}`).digest('hex').slice(0, 8)
+        return { key: `llm_weapons_${concours}_${hash}`, concours, date }
+    }
+
+    _readLLMCache(key) {
+        try {
+            const cachePath = path.join(__dirname, '..', 'data', `${key}.json`)
+            if (!fs.existsSync(cachePath)) return null
+            const cached = JSON.parse(fs.readFileSync(cachePath, 'utf-8'))
+            if (cached.ttl && Date.now() > cached.ttl) {
+                fs.unlinkSync(cachePath)
+                return null
+            }
+            logger.info(`[PROMOSPORT LLM] Cache HIT: ${key}`)
+            return cached.data
+        } catch (e) {
+            return null
+        }
+    }
+
+    _writeLLMCache(key, data) {
+        try {
+            const cachePath = path.join(__dirname, '..', 'data', `${key}.json`)
+            fs.writeFileSync(cachePath, JSON.stringify({
+                data,
+                ttl: Date.now() + 86400000,
+                created: new Date().toISOString(),
+            }, null, 2))
+            logger.info(`[PROMOSPORT LLM] Cache WRITE: ${key}`)
+        } catch (e) {
+            logger.warn(`[PROMOSPORT LLM] Cache write failed: ${e.message}`)
+        }
+    }
+
+    async generateLLMSecretWeapons(matches) {
+        const { key, concours } = this._getLLMCacheKey(matches)
+
+        const cached = this._readLLMCache(key)
+        if (cached) return cached
+
+        if (!deepSeekService.isQuotaAvailable()) {
+            logger.info('[PROMOSPORT LLM] Quota épuisé, skip LLM enhancement')
+            return null
+        }
+
+        const matchData = matches.map((m, idx) => {
+            const homeName = m.homeTeam || m.home || m.team1 || ''
+            const awayName = m.awayTeam || m.away || m.team2 || ''
+            const p1 = m.p1 || m.homeWinProbability || 0.33
+            const p2 = m.p2 || m.awayWinProbability || 0.34
+            const crowdFav = p1 > p2 ? '1' : (p2 > p1 ? '2' : 'X')
+            const rotation = bTeamDetector.detectMatch(homeName, awayName, {})
+            const homeStats = promosportSurpriseService.getSurpriseStats(homeName)
+            const awayStats = promosportSurpriseService.getSurpriseStats(awayName)
+
+            return {
+                id: idx + 1,
+                home: homeName,
+                away: awayName,
+                probs: `${+(p1*100).toFixed(0)}/${+(m.px || m.drawProbability || 0.33)*100}${+(p2*100).toFixed(0)}`,
+                league: m.leagueName || m.tournament_name || 'Inconnu',
+                crowdFav,
+                bTeam: rotation.home.isBTeam || rotation.away.isBTeam ? `B-Team: ${rotation.home.reason || ''} ${rotation.away.reason || ''}`.trim() : null,
+                homeHisto: homeStats.team ? `${homeStats.team.homeWinRate}%V ${homeStats.team.homeDrawRate}%N ${homeStats.team.homeLossRate}%D` : null,
+                awayHisto: awayStats.team ? `${awayStats.team.awayWinRate}%V ${awayStats.team.awayDrawRate}%N ${awayStats.team.awayLossRate}%D` : null,
+            }
+        })
+
+        const crowdProfile = crowdHackerService.promosportBiasProfile || {}
+        const contrarianHitRate = crowdProfile.contrarianHitRate || 0
+        const crowdAccuracy = crowdProfile.promosportOverallAccuracy || 0
+
+        const systemPrompt = `Tu es l'analyste tactique en chef de Titanium AI, expert en pronostics Promosport. Tu analyses des grilles de 13 matchs et tu identifies LE facteur clé de chaque match. Sois concis, percutant, direct.`
+
+        const userPrompt = `CONCOURS PROMOSPORT N°${concours}
+CONTEXTE GLOBAL:
+- Précision historique de la foule Promosport: ${crowdAccuracy}%
+- Taux de réussite des picks contrarian: ${contrarianHitRate}%
+- La foule a tort dans ${(100-crowdAccuracy).toFixed(0)}% des cas quand elle est confiante >50%
+
+Matchs à analyser:
+${JSON.stringify(matchData, null, 2)}
+
+Pour CHACUN des ${matchData.length} matchs, retourne:
+1. "secretWeapon": UNE phrase clé (max 120 caractères) qui révèle le facteur décisif
+2. "confidence": 0-100 (ta confiance dans ce facteur)
+3. "risk": "high" | "medium" | "low" (risque que ce soit un piège)
+
+Format JSON obligatoire:
+{
+  "analyses": [
+    { "id": 1, "secretWeapon": "...", "confidence": 85, "risk": "low" },
+    ...
+  ]
+}
+
+RÈGLES STRICTES:
+- 120 caractères MAX par secretWeapon
+- Facteur DIFFÉRENT pour chaque match (ne te répète pas)
+- Explique POURQUOI ce facteur est décisif
+- Utilise les données fournies (B-Team, historique, etc.)
+- En français uniquement
+- EXEMPLE: "Milan sans 3 titulaires en défense, Leao incertain → avantage Inter"
+- EXEMPLE: "Foule à 68% sur 1 mais l'équipe a déjà validé son billet → B-team probable"
+- EXEMPLE: "Paris doit gagner à tout prix (2ème, 1pt du leader) → pression maximale"`
+
+        const result = await deepSeekService._queryDeepSeek(systemPrompt, userPrompt)
+        if (!result || !result.analyses) {
+            logger.warn('[PROMOSPORT LLM] LLM returned invalid data')
+            return null
+        }
+
+        this._writeLLMCache(key, result.analyses)
+
+        try {
+            const socketService = require('./socketService')
+            socketService.broadcast('promosport_llm_ready', {
+                concours,
+                count: result.analyses.length,
+                timestamp: new Date().toISOString(),
+            })
+        } catch (e) {}
+
+        return result.analyses
     }
 }
 

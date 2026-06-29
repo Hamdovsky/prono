@@ -149,6 +149,8 @@ try {
   console.warn('⚠️ [SECURITY] helmet not installed — run: npm install helmet');
 }
 
+const { predictLimiter, writeLimiter } = require('./core/securityEngine');
+
 // Global rate-limit on all /api/ routes
 app.use('/api', securityEngine.middleware.bind(securityEngine))
 // Origin validation for non-GET, non-authed requests
@@ -239,7 +241,7 @@ app.get('/api/diag', securityEngine.authenticate.bind(securityEngine), async (re
   })
 })
 
-app.post('/api/debug/test-bsd', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
+app.post('/api/debug/test-bsd', writeLimiter, securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const bsd = require('./services/bsdService')
     // Test the BSD API directly with a simple fetch
@@ -262,7 +264,7 @@ app.post('/api/debug/test-bsd', securityEngine.authenticate.bind(securityEngine)
   }
 })
 
-app.post('/api/seed/emergency', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
+app.post('/api/seed/emergency', writeLimiter, securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const db = require('./core/database')
     const { seedDemoMatches } = require('./scripts/seed_emergency')
@@ -273,7 +275,7 @@ app.post('/api/seed/emergency', securityEngine.authenticate.bind(securityEngine)
   }
 })
 
-app.post('/api/seed/purge', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
+app.post('/api/seed/purge', writeLimiter, securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const { purgeFakeMatches } = require('./core/cloudSeed')
     const removed = await purgeFakeMatches()
@@ -283,7 +285,7 @@ app.post('/api/seed/purge', securityEngine.authenticate.bind(securityEngine), as
   }
 })
 
-app.post('/api/seed-match', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
+app.post('/api/seed-match', writeLimiter, securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const match = req.body
     if (!match.homeTeam || !match.awayTeam) {
@@ -315,7 +317,7 @@ app.post('/api/seed-match', securityEngine.authenticate.bind(securityEngine), as
   }
 })
 
-app.post('/api/debug/backfill', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
+app.post('/api/debug/backfill', writeLimiter, securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   const { query: pgQuery } = require('./core/pg_connector')
   try {
     const test1 = await pgQuery('SELECT id, "fullData", "startTimestamp" FROM matches WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL LIMIT 3')
@@ -353,7 +355,7 @@ app.get('/api/audit/performance', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/predict', async (req, res) => {
+app.post('/api/predict', predictLimiter, async (req, res) => {
   try {
     const match = req.body;
     const enrichedPredictions = require('./core/enriched_predictions');
@@ -428,6 +430,7 @@ app.use('/api/evolution', evolutionRoutes);
 app.use('/api', scraperRoutes);
 app.use('/api', matchesRoutes);
 app.use('/api/promosport', promosportRoutes);
+app.use('/api/auth', require('./routes/auth'));
 
 // ── SKILLS ENDPOINT ─────────────────────
 app.get('/api/skills', (req, res) => {

@@ -7,6 +7,7 @@
 import { getApiUrl } from '../config/apiConfig.js';
 import { io } from 'socket.io-client';
 import { normalizeTeamName, isReserveTeam, deduplicateMatches } from '../utils/teamNameNormalizer.js';
+const logger = require('../../core/logger');
 
 class DataService {
     _handleUpcomingUpdate(data) {
@@ -76,7 +77,7 @@ class DataService {
             });
 
             this.socket.on('connect', () => {
-                console.log('🔌 [WS] Connected to Titanium Server');
+                logger.info('🔌 [WS] Connected to Titanium Server');
                 this.isRateLimited = false;
             });
 
@@ -106,12 +107,12 @@ class DataService {
             });
 
             this.socket.on('connect_error', (err) => {
-                console.warn('🔌 [WS] Connection Error:', err.message);
+                logger.warn('🔌 [WS] Connection Error:', err.message);
                 // Fallback will continue via polling
             });
 
         } catch (e) {
-            console.warn('Socket.io not available or failed to init. Using polling only.');
+            logger.warn('Socket.io not available or failed to init. Using polling only.');
         }
     }
 
@@ -178,7 +179,7 @@ class DataService {
             this._checkEliteNotifications();
             this.subscribers.forEach(cb => cb(this.matches));
         } catch (e) {
-            console.warn('❌ [WS] Failed to apply patch:', e);
+            logger.warn('❌ [WS] Failed to apply patch:', e);
         }
     }
 
@@ -199,7 +200,7 @@ class DataService {
 
         // 🚀 [DEDUPLICATION] Return existing promise if request is already in flight
         if (this._pendingRequests.has(url)) {
-            console.log(`🚀 [DEDUPLICATOR] Joining existing request for: ${url}`);
+            logger.info(`🚀 [DEDUPLICATOR] Joining existing request for: ${url}`);
             return this._pendingRequests.get(url);
         }
 
@@ -222,7 +223,7 @@ class DataService {
                 if (url.includes('/api/scraper/status')) this.scraperStatusCache = data;
                 if (url.includes('/api/health')) this.healthCache = data;
 
-                console.log(`✅ [FETCHER] Parse complete for ${url} (${Date.now() - (startTime + fetchTime)}ms)`);
+                logger.info(`✅ [FETCHER] Parse complete for ${url} (${Date.now() - (startTime + fetchTime)}ms)`);
                 return data;
             } finally {
                 this._pendingRequests.delete(url);
@@ -236,7 +237,7 @@ class DataService {
     _handleRateLimit() {
         if (!this.isRateLimited) {
             this.isRateLimited = true;
-            console.warn('⚠️ API Rate Limit Triggered. Pausing updates...');
+            logger.warn('⚠️ API Rate Limit Triggered. Pausing updates...');
             this.subscribers.forEach(cb => cb({ error: 'RATE_LIMIT', message: 'Rate Limit Active. Retrying...' }));
         }
     }
@@ -290,7 +291,7 @@ class DataService {
         const pastWindow = 100 * 24 * 60 * 60 * 1000; // 100 Days
 
         if (tsMs && (tsMs < now - pastWindow || tsMs > now + futureWindow)) {
-            console.warn(`🚫 [SANITY] Rejecting match with invalid date range: ${match.homeTeam} vs ${match.awayTeam} (${new Date(tsMs).toLocaleDateString()})`);
+            logger.warn(`🚫 [SANITY] Rejecting match with invalid date range: ${match.homeTeam} vs ${match.awayTeam} (${new Date(tsMs).toLocaleDateString()})`);
             return null;
         }
 
@@ -482,7 +483,7 @@ class DataService {
                         try {
                             return this._normalizeMatch(m);
                         } catch (e) {
-                            console.warn('❌ [NORMALIZER] Failed to normalize match:', m?.id || 'unknown', e);
+                            logger.warn('❌ [NORMALIZER] Failed to normalize match:', m?.id || 'unknown', e);
                             return null;
                         }
                     })
@@ -507,7 +508,7 @@ class DataService {
 
             this.subscribers.forEach(cb => cb(this.matches));
         } catch (error) {
-            console.error('Failed to fetch live updates:', error);
+            logger.error('Failed to fetch live updates:', error);
         } finally {
             this._liveFetchPromise = null;
         }
@@ -521,7 +522,7 @@ class DataService {
             this.combos = await this._get(this.comboApiEndpoint);
             this.comboSubscribers.forEach(cb => cb(this.combos));
         } catch (error) {
-            console.error('Failed to fetch combos:', error);
+            logger.error('Failed to fetch combos:', error);
         }
     }
 
@@ -531,10 +532,10 @@ class DataService {
         this._upcomingFetchPromise = (async () => {
             try {
                 const endpoint = force ? `${getApiUrl('/api/upcoming')}?days=14&force=true` : this.upcomingApiEndpoint;
-                console.log('📡 [DATA] Fetching upcoming matches from:', endpoint);
+                logger.info('📡 [DATA] Fetching upcoming matches from:', endpoint);
                 const raw = await this._get(endpoint);
 
-            console.log(`📊 [DATA] Received ${Array.isArray(raw) ? raw.length : 'non-array'} raw matches.`);
+            logger.info(`📊 [DATA] Received ${Array.isArray(raw) ? raw.length : 'non-array'} raw matches.`);
 
             const rawMatches = Array.isArray(raw) ? raw : (raw?.matches || [])
             this.upcomingPredictions = rawMatches.map(m => {
@@ -548,11 +549,11 @@ class DataService {
             // ✅ Dédoublonnage aussi sur les matchs à venir
             this.upcomingPredictions = deduplicateMatches(this.upcomingPredictions);
             
-            console.log(`✅ [DATA] Normalized ${this.upcomingPredictions.length} matches.`);
+            logger.info(`✅ [DATA] Normalized ${this.upcomingPredictions.length} matches.`);
             
             this.upcomingSubscribers.forEach(cb => cb(this.upcomingPredictions));
         } catch (error) {
-            console.error('❌ [DATA] Failed to fetch upcoming predictions:', error.message);
+            logger.error('❌ [DATA] Failed to fetch upcoming predictions:', error.message);
         } finally {
             this._upcomingFetchPromise = null;
         }
@@ -565,7 +566,7 @@ class DataService {
         try {
             return await this._get(this.promosportApiEndpoint);
         } catch (error) {
-            console.error('❌ [DATA] Failed to fetch Promosport grid:', error.message);
+            logger.error('❌ [DATA] Failed to fetch Promosport grid:', error.message);
             return null;
         }
     }
@@ -574,7 +575,7 @@ class DataService {
         try {
             return await this._get(this.promosportWeaponsEndpoint);
         } catch (error) {
-            console.error('❌ [DATA] Failed to fetch Promosport weapons:', error.message);
+            logger.error('❌ [DATA] Failed to fetch Promosport weapons:', error.message);
             return null;
         }
     }
@@ -583,7 +584,7 @@ class DataService {
         try {
             return await this._get(this.promosportAnalysisEndpoint);
         } catch (error) {
-            console.error('❌ [DATA] Failed to fetch Promosport analysis:', error.message);
+            logger.error('❌ [DATA] Failed to fetch Promosport analysis:', error.message);
             return null;
         }
     }
@@ -613,7 +614,7 @@ class DataService {
         try {
             return await this._get(this.promosportDoubleSimEndpoint);
         } catch (error) {
-            console.error('❌ [DATA] Failed to fetch Promosport double sim:', error.message);
+            logger.error('❌ [DATA] Failed to fetch Promosport double sim:', error.message);
             return null;
         }
     }
@@ -622,7 +623,7 @@ class DataService {
         try {
             return await this._get(getApiUrl(`/api/promosport/tunisie/${gridNo}`));
         } catch (error) {
-            console.error('❌ [DATA] Failed to fetch Tunisian grid:', error.message);
+            logger.error('❌ [DATA] Failed to fetch Tunisian grid:', error.message);
             return null;
         }
     }
@@ -631,7 +632,7 @@ class DataService {
         try {
             return await this._get(getApiUrl(`/api/promosport/calculator?cols=${cols}&doubles=${doubles}&triples=${triples}`));
         } catch (error) {
-            console.error('❌ [DATA] Failed to fetch calculator:', error.message);
+            logger.error('❌ [DATA] Failed to fetch calculator:', error.message);
             return null;
         }
     }
@@ -640,7 +641,7 @@ class DataService {
         try {
             return await this._get(getApiUrl('/api/skills'));
         } catch (error) {
-            console.error('❌ [DATA] Failed to fetch skills:', error.message);
+            logger.error('❌ [DATA] Failed to fetch skills:', error.message);
             return { skills: [] };
         }
     }
@@ -650,7 +651,7 @@ class DataService {
             const health = await this._get(getApiUrl('/api/health'));
             this.healthSubscribers.forEach(sub => sub(health));
         } catch (error) {
-            console.error('Failed to fetch health updates:', error);
+            logger.error('Failed to fetch health updates:', error);
         }
     }
 
@@ -660,7 +661,7 @@ class DataService {
         try {
             return await this._get(getApiUrl(`/api/stats/${id}`));
         } catch (error) {
-            console.error('Failed to fetch match stats:', error);
+            logger.error('Failed to fetch match stats:', error);
             return null;
         }
     }
@@ -669,7 +670,7 @@ class DataService {
         try {
             return await this._get(getApiUrl('/api/patterns'));
         } catch (error) {
-            console.error('Failed to fetch patterns:', error);
+            logger.error('Failed to fetch patterns:', error);
             return [];
         }
     }
@@ -678,7 +679,7 @@ class DataService {
         try {
             return await this._get(getApiUrl(`/api/backtest?strategy=${strategy}`));
         } catch (error) {
-            console.error('Backtest failed:', error);
+            logger.error('Backtest failed:', error);
             return null;
         }
     }
@@ -687,17 +688,17 @@ class DataService {
         try {
             return await this._post(getApiUrl('/api/config'), config);
         } catch (error) {
-            console.error('Config deployment failed:', error);
+            logger.error('Config deployment failed:', error);
             throw error;
         }
     }
 
     async forceRefresh() {
         try {
-            console.log('🔄 Triggering Manual Refresh (Live)...');
+            logger.info('🔄 Triggering Manual Refresh (Live)...');
             return await this._post(getApiUrl('/api/refresh'), {});
         } catch (error) {
-            console.error('Manual refresh failed:', error);
+            logger.error('Manual refresh failed:', error);
             throw error;
         }
     }
@@ -706,28 +707,28 @@ class DataService {
         try {
             await this.fetchUpcomingPredictions(true);
         } catch (error) {
-            console.error('Upcoming refresh failed:', error);
+            logger.error('Upcoming refresh failed:', error);
             throw error;
         }
     }
 
     async triggerScanToday() {
         try {
-            console.log('⚡ Triggering Sofascore Scan (Today)...');
+            logger.info('⚡ Triggering Sofascore Scan (Today)...');
             return await this._post(getApiUrl('/api/scan-today'), {});
         } catch (error) {
-            console.error('Scan trigger failed:', error);
+            logger.error('Scan trigger failed:', error);
             throw error;
         }
     }
 
     async triggerHttpScan(date) {
         try {
-            console.log('⚡ Triggering HTTP API Scan...');
+            logger.info('⚡ Triggering HTTP API Scan...');
             const qs = date ? `?date=${date}` : '';
             return await this._post(getApiUrl(`/api/http-scan${qs}`), {});
         } catch (error) {
-            console.error('HTTP Scan trigger failed:', error);
+            logger.error('HTTP Scan trigger failed:', error);
             throw error;
         }
     }
@@ -736,7 +737,7 @@ class DataService {
         try {
             return await this._get(getApiUrl('/api/scraper/status'));
         } catch (error) {
-            console.error('Failed to fetch scraper progress:', error);
+            logger.error('Failed to fetch scraper progress:', error);
             return null;
         }
     }
@@ -750,7 +751,7 @@ class DataService {
         if (!('Notification' in window)) return;
         if (Notification.permission === 'default') {
             Notification.requestPermission().then(perm => {
-                console.log(`🔔 Notification permission: ${perm}`);
+                logger.info(`🔔 Notification permission: ${perm}`);
             });
         }
     }
@@ -796,7 +797,7 @@ class DataService {
             audio.play().catch(() => { });
         } catch (e) { /* audio blocked */ }
 
-        console.log(`🔔 [NOTIFICATION] Elite Target: ${homeTeam} vs ${awayTeam} @ ${match.winProb}%`);
+        logger.info(`🔔 [NOTIFICATION] Elite Target: ${homeTeam} vs ${awayTeam} @ ${match.winProb}%`);
     }
 
     // 10s when live matches are active, 60s when idle/scheduled only

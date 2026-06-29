@@ -7,6 +7,77 @@ const db = require('../core/database');
  * Provides deep insights into failure patterns and model performance.
  */
 
+router.get('/accuracy', async (req, res) => {
+    try {
+        const days = parseInt(req.query.days) || 30;
+        const since = new Date(Date.now() - days * 86400000).toISOString();
+
+        const overall = await db.prepare(`
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
+                SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) as lost,
+                SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending,
+                ROUND(100.0 * SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) / 
+                    NULLIF(SUM(CASE WHEN status IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
+            FROM prediction_history
+            WHERE timestamp >= ?
+        `).get(since);
+
+        const byLeague = await db.prepare(`
+            SELECT 
+                league,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
+                ROUND(100.0 * SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) / 
+                    NULLIF(SUM(CASE WHEN status IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
+            FROM prediction_history
+            WHERE timestamp >= ?
+            GROUP BY league
+            HAVING total >= 3
+            ORDER BY win_rate DESC
+        `).all(since);
+
+        const daily = await db.prepare(`
+            SELECT 
+                DATE(timestamp) as date,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
+                ROUND(100.0 * SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) / 
+                    NULLIF(SUM(CASE WHEN status IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
+            FROM prediction_history
+            WHERE timestamp >= ?
+            GROUP BY DATE(timestamp)
+            ORDER BY date ASC
+        `).all(since);
+
+        const byType = await db.prepare(`
+            SELECT 
+                prediction_type,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
+                ROUND(AVG(probability), 1) as avg_prob,
+                ROUND(100.0 * SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) / 
+                    NULLIF(SUM(CASE WHEN status IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
+            FROM prediction_history
+            WHERE timestamp >= ?
+            GROUP BY prediction_type
+            ORDER BY total DESC
+        `).all(since);
+
+        res.json({
+            success: true,
+            period: { days, since },
+            overall: overall || { total: 0, won: 0, lost: 0, pending: 0, win_rate: 0 },
+            byLeague,
+            daily,
+            byType
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 router.get('/intelligence', async (req, res) => {
     try {
         const topFailures = await db.prepare(`

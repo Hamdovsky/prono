@@ -373,6 +373,17 @@ function initSchema() {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(tournament_name, team_name)
             );
+
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT DEFAULT 'user',
+                is_active INTEGER DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_login DATETIME
+            );
         `);
         logger.info('🛡️ [DB] Tactical Schema validated with INDICES (SQLite)');
     } catch (e) {

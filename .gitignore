@@ -66,6 +66,7 @@ coverage/
 !/src/**/*.webp
 *.html
 !index.html
+!public/offline.html
 
 # package managers
 bun.lock

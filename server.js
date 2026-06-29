@@ -41,7 +41,7 @@ const redisCache = {
 
 const PORT = process.env.PORT || 3001
 
-console.log(`🚀 [STARTUP] INITIALIZING TITANIUM SERVER V3.0... PORT=${PORT}`)
+logger.info(`🚀 [STARTUP] INITIALIZING TITANIUM SERVER V3.0... PORT=${PORT}`)
 
 const server = http.createServer(app)
 
@@ -53,7 +53,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
 
 // ── SERVER STARTUP & LIFECYCLE ─────────
 ;(async () => {
-  console.log('🔍 [DEBUG] IIFE started')
+  logger.info('🔍 [DEBUG] IIFE started')
   try {
     const { exec } = require('child_process')
     const killProcessOnPort = (port) => new Promise((resolve) => {
@@ -78,17 +78,17 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
 
     await killProcessOnPort(PORT)
     await new Promise(resolve => setTimeout(resolve, 500)) // Small grace period
-    console.log('🔍 [DEBUG] IIFE past grace period')
+    logger.info('🔍 [DEBUG] IIFE past grace period')
 
     try {
       const { redis } = require('./core/redisClient')
       if (redis) {
         redis.ping()
-          .then(() => console.log('✅ [STARTUP] Redis connection confirmed.'))
-          .catch(() => console.warn('⚠️ [STARTUP] Redis not reachable. Caching will degrade to fallback.'))
+          .then(() => logger.info('✅ [STARTUP] Redis connection confirmed.'))
+          .catch(() => logger.warn('⚠️ [STARTUP] Redis not reachable. Caching will degrade to fallback.'))
       }
     } catch (redisErr) {
-      console.warn('⚠️ [STARTUP] Redis client check failed.')
+      logger.warn('⚠️ [STARTUP] Redis client check failed.')
     }
 
     // Download historical archive if missing (Render ephemeral fs)
@@ -96,7 +96,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
     if (!fs.existsSync(archivePath)) {
       const ARCHIVE_URL = process.env.ARCHIVE_DOWNLOAD_URL || ''
       if (ARCHIVE_URL) {
-        console.log('[STARTUP] historical_archive.sqlite missing — downloading...')
+        logger.info('[STARTUP] historical_archive.sqlite missing — downloading...')
         ;(async () => {
           try {
             const https = require('https')
@@ -112,17 +112,17 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               }).on('error', reject)
             })
             fs.renameSync(tmp, archivePath)
-            console.log(`[STARTUP] Archive downloaded (${(fs.statSync(archivePath).size / 1024 / 1024).toFixed(1)} MB)`)
+            logger.info(`[STARTUP] Archive downloaded (${(fs.statSync(archivePath).size / 1024 / 1024).toFixed(1)} MB)`)
           } catch (e) {
-            console.warn(`[STARTUP] Archive download failed: ${e.message}`)
+            logger.warn(`[STARTUP] Archive download failed: ${e.message}`)
             if (fs.existsSync(archivePath + '.download')) fs.unlinkSync(archivePath + '.download')
           }
         })()
       } else {
-        console.log('[STARTUP] ARCHIVE_DOWNLOAD_URL not set — skipping archive download')
+        logger.info('[STARTUP] ARCHIVE_DOWNLOAD_URL not set — skipping archive download')
       }
     } else {
-      console.log(`[STARTUP] Archive found locally (${(fs.statSync(archivePath).size / 1024 / 1024).toFixed(1)} MB)`)
+      logger.info(`[STARTUP] Archive found locally (${(fs.statSync(archivePath).size / 1024 / 1024).toFixed(1)} MB)`)
     }
 
     // Download premium CSV if missing (Render ephemeral fs)
@@ -130,7 +130,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
     if (!fs.existsSync(premiumCsvPath)) {
       const PREMIUM_CSV_URL = process.env.PREMIUM_CSV_URL || ''
       if (PREMIUM_CSV_URL) {
-        console.log('[STARTUP] v553_wc2026_premium.csv missing — downloading...')
+        logger.info('[STARTUP] v553_wc2026_premium.csv missing — downloading...')
         ;(async () => {
           try {
             const https = require('https')
@@ -144,17 +144,17 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               }).on('error', reject)
             })
             fs.renameSync(tmp, premiumCsvPath)
-            console.log(`[STARTUP] Premium CSV downloaded (${(fs.statSync(premiumCsvPath).size / 1024 / 1024).toFixed(1)} MB)`)
+            logger.info(`[STARTUP] Premium CSV downloaded (${(fs.statSync(premiumCsvPath).size / 1024 / 1024).toFixed(1)} MB)`)
           } catch (e) {
-            console.warn(`[STARTUP] Premium CSV download failed: ${e.message}`)
+            logger.warn(`[STARTUP] Premium CSV download failed: ${e.message}`)
             if (fs.existsSync(premiumCsvPath + '.download')) fs.unlinkSync(premiumCsvPath + '.download')
           }
         })()
       } else {
-        console.log('[STARTUP] PREMIUM_CSV_URL not set — skipping premium CSV download')
+        logger.info('[STARTUP] PREMIUM_CSV_URL not set — skipping premium CSV download')
       }
     } else {
-      console.log(`[STARTUP] Premium CSV found locally (${(fs.statSync(premiumCsvPath).size / 1024 / 1024).toFixed(1)} MB)`)
+      logger.info(`[STARTUP] Premium CSV found locally (${(fs.statSync(premiumCsvPath).size / 1024 / 1024).toFixed(1)} MB)`)
     }
 
     // Bootstrap: fetch fixtures + stats from working APIs at startup
@@ -162,11 +162,11 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
       try {
         const bsd = require('./services/bsdService')
         if (bsd.isAvailable()) {
-          console.log('[STARTUP] BSD API available — syncing fixtures...')
-          await bsd.fullSync().then(n => console.log(`[STARTUP] BSD sync complete: ${n} matches`))
+          logger.info('[STARTUP] BSD API available — syncing fixtures...')
+          await bsd.fullSync().then(n => logger.info(`[STARTUP] BSD sync complete: ${n} matches`))
         }
       } catch (e) {
-        console.warn(`[STARTUP] BSD sync skipped: ${e.message}`)
+        logger.warn(`[STARTUP] BSD sync skipped: ${e.message}`)
       }
 
       // Fetch WC2026 match data from Football-Data.org (has real scores + standings)
@@ -177,7 +177,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
           const db = require('./core/database')
           const today = new Date().toISOString().split('T')[0]
           const url = `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${today}&dateTo=${today}`
-          console.log('[STARTUP] Fetching WC2026 data from Football-Data.org...')
+          logger.info('[STARTUP] Fetching WC2026 data from Football-Data.org...')
           const body = await new Promise((resolve, reject) => {
             https.get(url, { headers: { 'X-Auth-Token': fdKey } }, res => {
               let d = ''
@@ -187,7 +187,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
           })
           const data = JSON.parse(body)
           const matches = data.matches || []
-          console.log(`[STARTUP] Football-Data: ${matches.length} WC2026 matches today`)
+          logger.info(`[STARTUP] Football-Data: ${matches.length} WC2026 matches today`)
           for (const m of matches) {
             const home = m.homeTeam.name
             const away = m.awayTeam.name
@@ -205,17 +205,17 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               }
             } catch (_) {}
           }
-          console.log('[STARTUP] Football-Data sync done')
+          logger.info('[STARTUP] Football-Data sync done')
         }
       } catch (e) {
-        console.warn(`[STARTUP] Football-Data sync failed: ${e.message}`)
+        logger.warn(`[STARTUP] Football-Data sync failed: ${e.message}`)
       }
     }, 5000)
 
     const startServer = (retries = 5, host = '0.0.0.0') => {
-      console.log(`[PORT] Attempting to bind to PORT=${PORT} host=${host} (retries left: ${retries})`)
+      logger.info(`[PORT] Attempting to bind to PORT=${PORT} host=${host} (retries left: ${retries})`)
       server.listen(PORT, host, () => {
-        console.log(`🚀 Titanium Server listening at http://${host}:${PORT}`);
+        logger.info(`🚀 Titanium Server listening at http://${host}:${PORT}`);
         logger.info('✅ API GATEWAY ACTIVE');
 
         setTimeout(async () => {
@@ -241,14 +241,14 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               ]
               const missing = requiredKeys.filter(([key]) => !process.env[key] || process.env[key].startsWith('CHANGER_MOI'))
               if (missing.length > 0) {
-                console.log('🔍 [DIAGNOSTIC] API keys manquantes sur Render Dashboard:')
-                missing.forEach(([, name]) => console.log(`   ❌ ${name}`))
-                console.log('   → Allez sur https://dashboard.render.com → Environment → ajoutez ces clés')
+                logger.info('🔍 [DIAGNOSTIC] API keys manquantes sur Render Dashboard:')
+                missing.forEach(([, name]) => logger.info(`   ❌ ${name}`))
+                logger.info('   → Allez sur https://dashboard.render.com → Environment → ajoutez ces clés')
               } else {
-                console.log('✅ [DIAGNOSTIC] Toutes les clés API sont configurées')
+                logger.info('✅ [DIAGNOSTIC] Toutes les clés API sont configurées')
               }
             } else {
-              console.log('🔍 [DIAGNOSTIC] LOCAL_DATA_URL actif — API keys ignorées, tout passe par ngrok')
+              logger.info('🔍 [DIAGNOSTIC] LOCAL_DATA_URL actif — API keys ignorées, tout passe par ngrok')
             }
 
             if (process.env.DISABLE_BACKUP !== 'true') backupService.startAutomatedBackups();
@@ -512,6 +512,48 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
             }
             scheduleHealthReport()
 
+            // 💾 [BACKUP] Schedule daily DB backup at 03:00 UTC
+            const scheduleBackup = () => {
+              const now = new Date()
+              const target = new Date()
+              target.setUTCHours(3, 0, 0, 0)
+              if (target <= now) target.setDate(target.getDate() + 1)
+              const delay = target.getTime() - now.getTime()
+              setTimeout(async () => {
+                try {
+                  const { execSync } = require('child_process')
+                  const result = execSync('node scripts/auto_backup_db.js', { timeout: 60000, encoding: 'utf-8' })
+                  logger.info('[BACKUP] Daily backup:\n' + result.slice(-300))
+                } catch (e) {
+                  logger.warn('[BACKUP] Daily backup failed:', e.message)
+                }
+                scheduleBackup()
+              }, delay)
+            }
+            scheduleBackup()
+
+            // 🧠 [AUTO-RETRAIN] Schedule weekly XGBoost retraining (Sunday 04:00 UTC)
+            const scheduleRetrain = () => {
+              const now = new Date()
+              const target = new Date()
+              target.setUTCHours(4, 0, 0, 0)
+              const daysUntilSunday = (7 - target.getDay()) % 7 || 7
+              target.setDate(target.getDate() + daysUntilSunday)
+              if (target <= now) target.setDate(target.getDate() + 7)
+              const delay = target.getTime() - now.getTime()
+              setTimeout(async () => {
+                try {
+                  const { execSync } = require('child_process')
+                  const result = execSync('node scripts/auto_retrain_worker.js', { timeout: 300000, encoding: 'utf-8' })
+                  logger.info('[AUTO-RETRAIN] Weekly retrain:\n' + result.slice(-500))
+                } catch (e) {
+                  logger.warn('[AUTO-RETRAIN] Weekly retrain failed:', e.message)
+                }
+                scheduleRetrain()
+              }, delay)
+            }
+            scheduleRetrain()
+
             // 🔍 [STARTUP] Log API availability
             setTimeout(() => {
               const sources = [
@@ -539,7 +581,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
           }
         }, 500);
       }).on('error', async (err) => {
-        console.log(`[PORT] Error binding: ${err.code} - ${err.message}`)
+        logger.info(`[PORT] Error binding: ${err.code} - ${err.message}`)
         if (err.code === 'EADDRINUSE') {
           if (retries > 0) {
             logger.warn(`⚠️  Port ${PORT} in use, retrying in 2s... (${retries} retries left)`);
@@ -550,7 +592,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
             process.exit(1);
           }
         } else if (host === '0.0.0.0') {
-          console.log(`[PORT] Address error, retrying without hostname...`)
+          logger.info(`[PORT] Address error, retrying without hostname...`)
           setTimeout(() => startServer(retries, undefined), 500)
         } else {
           logger.error(`💥 [FATAL] Server Error: ${err.message}`);
@@ -559,15 +601,15 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
       });
     };
 
-    console.log(`🔍 [DEBUG] PORT=${PORT} typeof=${typeof PORT} calling startServer()`)
+    logger.info(`🔍 [DEBUG] PORT=${PORT} typeof=${typeof PORT} calling startServer()`)
     startServer()
-    console.log('🔍 [DEBUG] startServer() returned')
+    logger.info('🔍 [DEBUG] startServer() returned')
 
   } catch (e) {
-    console.error('💥 FATAL STARTUP ERROR:', e.message);
+    logger.error('💥 FATAL STARTUP ERROR:', e.message);
     // Still try to start server even if init failed
     try { startServer(); } catch (e2) {
-      console.error('💥 FATAL startServer error:', e2.message);
+      logger.error('💥 FATAL startServer error:', e2.message);
       process.exit(1);
     }
   }
@@ -575,13 +617,13 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
 
 process.on('uncaughtException', (err) => {
   const msg = `💥 [FATAL] Uncaught Exception: ${err.message}`
-  try { logger.error(msg, { stack: err.stack }) } catch (_) { console.error(msg) }
+  try { logger.error(msg, { stack: err.stack }) } catch (_) { logger.error(msg) }
   setTimeout(() => process.exit(1), 1000)
 })
 
 process.on('unhandledRejection', (reason) => {
   const msg = `⚠️  UNHANDLED REJECTION: ${reason instanceof Error ? reason.message : String(reason)}`
-  try { logger.error(msg) } catch (_) { console.error(msg) }
+  try { logger.error(msg) } catch (_) { logger.error(msg) }
 })
 
 const shutDown = () => {

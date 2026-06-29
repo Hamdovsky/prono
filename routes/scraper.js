@@ -5,6 +5,7 @@ const fs = require('fs');
 const securityEngine = require('../core/securityEngine');
 const { readScraperProgress } = require('../core/utils');
 const enrichNewsProcessor = require('../core/_enrich_news');
+const logger = require('../core/logger');
 
 const localOrAuth = (req, res, next) => {
     const ip = req.ip || req.socket?.remoteAddress || ''
@@ -31,7 +32,7 @@ async function getBrowser() {
             const pages = await globalBrowser.pages();
             if (pages.length > 0) return globalBrowser;
         } catch (e) {
-            console.log('[SCRAPER] Browser disconnected, restarting...');
+            logger.info('[SCRAPER] Browser disconnected, restarting...');
             globalBrowser = null;
         }
     }
@@ -205,12 +206,12 @@ router.post('/news-watch/refresh', async (req, res) => {
         const limit = parseInt(req.query.limit) || 20;
         res.json({ success: true, message: `Enrichissement lancé en arrière-plan (limit=${limit})` });
         enrichNewsProcessor.run(force, limit).then(result => {
-            console.log(`[NEWS-WATCH] Terminé: ${JSON.stringify(result)}`);
+            logger.info(`[NEWS-WATCH] Terminé: ${JSON.stringify(result)}`);
         }).catch(e => {
-            console.error('[NEWS-WATCH] Erreur background:', e.message);
+            logger.error('[NEWS-WATCH] Erreur background:', e.message);
         });
     } catch (e) {
-        console.error('[NEWS-WATCH REFRESH ERROR]', e.message);
+        logger.error('[NEWS-WATCH REFRESH ERROR]', e.message);
         res.status(500).json({ error: e.message });
     }
 });
@@ -224,20 +225,20 @@ router.post('/scan-today', async (req, res) => {
         const { exec } = require('child_process');
         const scriptPath = path.join(__dirname, '..', 'update_today.js');
         
-        console.log('⚡ [API] Triggering manual SofaScore scan...');
+        logger.info('⚡ [API] Triggering manual SofaScore scan...');
         
         // Execute in background to avoid timeout
         exec(`node "${scriptPath}"`, (error, stdout, stderr) => {
             if (error) {
-                console.error('❌ [SCAN-TODAY] Error:', error.message);
+                logger.error('❌ [SCAN-TODAY] Error:', error.message);
                 return;
             }
-            console.log('✅ [SCAN-TODAY] Scan complete.');
+            logger.info('✅ [SCAN-TODAY] Scan complete.');
         });
         
         res.json({ success: true, message: 'Scan started in background' });
     } catch (e) {
-        console.error('[SCAN-TODAY ERROR]', e.message);
+        logger.error('[SCAN-TODAY ERROR]', e.message);
         res.status(500).json({ error: e.message });
     }
 });
@@ -248,13 +249,13 @@ router.post('/scan-today', async (req, res) => {
  */
 router.post('/http-scan', async (req, res) => {
     try {
-        console.log('⚡ [API] Triggering HTTP-only API scan...');
+        logger.info('⚡ [API] Triggering HTTP-only API scan...');
         const httpScraperService = require('../services/httpScraperService');
         const date = req.query.date || new Date().toISOString().split('T')[0];
         const count = await httpScraperService.processFallback(date);
         res.json({ success: true, message: `HTTP scan complete`, matchesInserted: count });
     } catch (e) {
-        console.error('[HTTP-SCAN ERROR]', e.message);
+        logger.error('[HTTP-SCAN ERROR]', e.message);
         res.status(500).json({ error: e.message });
     }
 });
@@ -285,7 +286,7 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
             'Upgrade-Insecure-Requests': '1'
         });
 
-        console.log('[BETX2] Loading main page...');
+        logger.info('[BETX2] Loading main page...');
         await mainPage.goto('https://betx2.com/fr/sport', { waitUntil: 'domcontentloaded', timeout: 45000 });
         await new Promise(r => setTimeout(r, 4000));
 
@@ -297,7 +298,7 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
             }
             return null;
         });
-        console.log('[BETX2] Sport iframe URL found:', !!sportIframeUrl);
+        logger.info('[BETX2] Sport iframe URL found:', !!sportIframeUrl);
         await mainPage.close();
 
         // ── الخطوة 2: فتح الـ iframe مباشرةً في صفحة جديدة ──
@@ -312,11 +313,11 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
         const targetUrl = sportIframeUrl ||
             'https://sport.betx2.com/afdb6836-2b81-4931-a030-8a97d61a13d6/SportsBook/Home?token=-&d=d&l=fr&tz=&parent=betx2.com&sportsBookView=europeanView';
 
-        console.log('[BETX2] Navigating to sport page...');
+        logger.info('[BETX2] Navigating to sport page...');
         await sportPage.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 45000 });
         await new Promise(r => setTimeout(r, 5000));
 
-        console.log('[BETX2] Clicking coupon button...');
+        logger.info('[BETX2] Clicking coupon button...');
         const couponOpened = await sportPage.evaluate(() => {
             // 1. Primary Selectors
             const primarySelectors = [
@@ -361,12 +362,12 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
             }
             return false;
         });
-        console.log('[BETX2] Coupon open result:', couponOpened);
-        console.log('[BETX2] Coupon open result:', couponOpened);
+        logger.info('[BETX2] Coupon open result:', couponOpened);
+        logger.info('[BETX2] Coupon open result:', couponOpened);
         await new Promise(r => setTimeout(r, 3000));
 
         // ── الخطوة 4: البحث عن حقل إدخال رقم التذكرة (Self-Healing) ──
-        console.log('[BETX2] Searching for ticket input...');
+        logger.info('[BETX2] Searching for ticket input...');
         const inputTyped = await sportPage.evaluate((ticketId) => {
             // 1. محاولة استخدام الـ selectors المعروفة
             const known = [
@@ -409,12 +410,12 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
         if (!inputTyped) {
             throw new Error('Self-healing failed: No ticket input found even with dynamic discovery.');
         }
-        console.log('[BETX2] Input result:', inputTyped);
+        logger.info('[BETX2] Input result:', inputTyped);
 
         await new Promise(r => setTimeout(r, 500));
 
         // ── الخطوة 5: النقر على زر Confirmer ──
-        console.log('[BETX2] Clicking Confirmer...');
+        logger.info('[BETX2] Clicking Confirmer...');
         const confirmClicked = await sportPage.evaluate(() => {
             const sels = [
                 'button.dg_bs_book_btn', '[class*="book_btn"]', '[class*="confirm_btn"]',
@@ -436,7 +437,7 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
             return false;
         });
         if (!confirmClicked) await sportPage.keyboard.press('Enter');
-        console.log('[BETX2] Confirm result:', confirmClicked);
+        logger.info('[BETX2] Confirm result:', confirmClicked);
 
         // ── الخطوة 6: انتظار النتيجة ──
         await new Promise(r => setTimeout(r, 6000));
@@ -494,7 +495,7 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
         });
 
     } catch (e) {
-        console.error('[SCRAPER TICKET ERROR]', e.message);
+        logger.error('[SCRAPER TICKET ERROR]', e.message);
         res.status(500).json({ error: e.message });
     } finally {
         if (browser) {
@@ -503,7 +504,7 @@ router.post('/scraper/betx2-ticket', async (req, res) => {
                 for (const p of pages) {
                     if (p.url() !== 'about:blank') await p.close();
                 }
-            } catch (e) { console.error('[SCRAPER] Error closing pages:', e.message); }
+            } catch (e) { logger.error('[SCRAPER] Error closing pages:', e.message); }
         }
     }
 });
@@ -530,13 +531,13 @@ router.post('/scraper/bibeet-ticket', async (req, res) => {
             'Upgrade-Insecure-Requests': '1'
         });
 
-        console.log('[BIBEET] Loading parent page...');
+        logger.info('[BIBEET] Loading parent page...');
         await page.goto('https://bibeet.com/betting#/overview', {
             waitUntil: 'domcontentloaded', timeout: 60000
         });
         await new Promise(r => setTimeout(r, 6000));
 
-        console.log('[BIBEET] Searching for Altenar iframe...');
+        logger.info('[BIBEET] Searching for Altenar iframe...');
         let sportFrame = null;
         const frames = page.frames();
         for (const f of frames) {
@@ -548,11 +549,11 @@ router.post('/scraper/bibeet-ticket', async (req, res) => {
         }
 
         const target = sportFrame || page;
-        console.log(`[BIBEET] Target: ${sportFrame ? 'Altenar Frame' : 'Main Page'}`);
+        logger.info(`[BIBEET] Target: ${sportFrame ? 'Altenar Frame' : 'Main Page'}`);
 
         // ── Étape 1: Saisir le code (Booking Code ou Bet ID) ──
         const isBookingCode = mode === 'bookingcode' || (ticketId && ticketId.length <= 8);
-        console.log(`[BIBEET] Strategy: ${isBookingCode ? 'Fast Code (Booking)' : 'Bet ID'} Mode`);
+        logger.info(`[BIBEET] Strategy: ${isBookingCode ? 'Fast Code (Booking)' : 'Bet ID'} Mode`);
 
         const inputResult = await target.evaluate((tid, isBooking) => {
             // Sélecteurs pour Bibeet / Altenar
@@ -614,7 +615,7 @@ router.post('/scraper/bibeet-ticket', async (req, res) => {
         }
 
         // ── Étape 2: Attendre le résultat ──
-        console.log('[BIBEET] Waiting for result...');
+        logger.info('[BIBEET] Waiting for result...');
         await new Promise(r => setTimeout(r, 8000));
 
         // ── Étape 3: Extraire les données ──
@@ -660,7 +661,7 @@ router.post('/scraper/bibeet-ticket', async (req, res) => {
         });
 
     } catch (e) {
-        console.error('[BIBEET SCRAPER ERROR]', e.message);
+        logger.error('[BIBEET SCRAPER ERROR]', e.message);
         return res.status(500).json({ error: e.message });
     } finally {
         if (browser) {
@@ -669,7 +670,7 @@ router.post('/scraper/bibeet-ticket', async (req, res) => {
                 for (const p of pages) {
                     if (p.url() !== 'about:blank') await p.close();
                 }
-            } catch (e) { console.error('[SCRAPER] Error closing pages:', e.message); }
+            } catch (e) { logger.error('[SCRAPER] Error closing pages:', e.message); }
         }
     }
 });
@@ -702,7 +703,7 @@ router.post('/bibeet/scrape', (req, res) => {
         
         exec(`node "${scriptPath}"`, { timeout: 120000 }, (error, stdout, stderr) => {
             if (error) {
-                console.error('[BIBEET SCRAPE ERROR]', stderr);
+                logger.error('[BIBEET SCRAPE ERROR]', stderr);
                 return res.status(500).json({ error: error.message });
             }
             
@@ -808,7 +809,7 @@ router.post('/booking-codes/add', localOrAuth, (req, res) => {
         db.codes.unshift(newEntry);
         saveBookingDB(db);
 
-        console.log(`[BOOKING] New code added: ${newEntry.platform} — ${newEntry.code}`);
+        logger.info(`[BOOKING] New code added: ${newEntry.platform} — ${newEntry.code}`);
         res.json({ success: true, entry: newEntry });
     } catch (e) {
         res.status(500).json({ error: e.message });

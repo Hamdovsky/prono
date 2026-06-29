@@ -11,6 +11,26 @@ const apiLimiter = rateLimit({
   skip: req => req.ip && (req.ip.includes('127.0.0.1') || req.ip === '::ffff:127.0.0.1'),
 })
 
+// Stricter limiter for expensive compute endpoints (predict, re-enrich)
+const predictLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Prediction rate limit exceeded (15/min)' },
+  skip: req => req.ip && (req.ip.includes('127.0.0.1') || req.ip === '::ffff:127.0.0.1'),
+})
+
+// Limiter for write/seed endpoints (very restrictive)
+const writeLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Write rate limit exceeded (10/5min)' },
+  skip: req => req.ip && (req.ip.includes('127.0.0.1') || req.ip === '::ffff:127.0.0.1'),
+})
+
 class SecurityEngine {
     constructor() {}
 
@@ -78,3 +98,5 @@ class SecurityEngine {
 }
 
 module.exports = new SecurityEngine();
+module.exports.predictLimiter = predictLimiter;
+module.exports.writeLimiter = writeLimiter;

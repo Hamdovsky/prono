@@ -207,7 +207,7 @@ class EnrichedPredictionService {
                 draw_probability: pythonResult?.draw_probability || match.draw_probability || 0,
                 away_win_probability: pythonResult?.away_win_probability || match.away_win_probability || 0,
                 expected_score: pythonResult?.expected_score || match.expected_score || null,
-                xgboost_confidence: pythonResult?.xgboost_confidence || match.xgboost_confidence || 0,
+                xgboost_confidence: pythonResult?.xgboost_confidence || pythonResult?.confidence || match.xgboost_confidence || 0,
                 surgical_market: pythonResult?.surgical_market || match.surgical_market || null,
                 surgical_confidence: pythonResult?.surgical_confidence || match.surgical_confidence || null,
                 backup_market: pythonResult?.backup_market || match.backup_market || null,
@@ -222,7 +222,7 @@ class EnrichedPredictionService {
                     predictedCards: StatisticalEngine.predictCards(match),
                     predictedGoals: StatisticalEngine.predictGoals(match, winProb),
                     bankroll_advice: bankrollService.calculateOptimalBet(winProb, match.odds_home || 2.0),
-                    is_confirmed: (match.xgboost_confidence >= 0.85),
+                    is_confirmed: ((pythonResult?.xgboost_confidence || pythonResult?.confidence || 0) >= 0.85),
                     trap_alert: trapData?.isTrap || false,
                     trap_details: trapData?.msg || null,
                     master_v20: await correlationEngine.analyze({ 
@@ -282,6 +282,7 @@ class EnrichedPredictionService {
                 verdict: quantResult.risk_label,
                 prediction: quantResult.main_pick,
                 confidence: quantResult.confidence,
+                xgboost_confidence: (quantResult.confidence || 50) / 100,
                 power_score: quantResult.confidence,
                 quantum: quantResult
             }
@@ -320,6 +321,8 @@ class EnrichedPredictionService {
                 if (py.expected_score) result.expected_score = py.expected_score;
                 if (py.verdict) result.verdict = py.verdict;
                 if (py.ai_source) result.ai_source = py.ai_source;
+                if (py.xgboost_confidence) result.xgboost_confidence = py.xgboost_confidence;
+                if (py.confidence) result.confidence = py.confidence;
             }
         } catch (e) {
             logger.warn(`[FASTAPI] predict failed: ${e.message}`)
@@ -354,6 +357,7 @@ class EnrichedPredictionService {
                     prediction: label,
                     verdict: label === '1' ? 'Home' : (label === 'X' ? 'Draw' : 'Away'),
                     confidence: py.confidence || 0,
+                    xgboost_confidence: py.confidence || 0,
                     power_score: py.confidence || 0,
                     model: 'V553_PREMIUM',
                     elapsed: py.elapsed,

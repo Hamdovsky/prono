@@ -12,7 +12,6 @@ coverage
 
 # misc
 .DS_Store
-.github/
 .env
 .env.local
 .env.development.local
@@ -45,7 +44,9 @@ replay_pid*.log
 .antigravity
 .gemini
 
-# Tools & Zips
+# Tools & Zips (111 MB portable Git)
+tools/
+/tools/
 /tools/git/
 /tools/mingit_v2.zip
 /tools/mingit.zip

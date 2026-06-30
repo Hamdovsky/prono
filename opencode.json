@@ -1,6 +1,24 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "zyloo/claude-opus-4-7",
   "provider": {
+    "zyloo": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Zyloo",
+      "options": {
+        "baseURL": "https://api.zyloo.io/v1",
+        "apiKey": "sk-zy-53a14b9af2f93986a8ca87f8e44245dcacfce2a6f93a5eac"
+      },
+      "models": {
+        "claude-opus-4-7": {
+          "name": "Claude Opus 4.7",
+          "limit": {
+            "context": 200000,
+            "output": 32000
+          }
+        }
+      }
+    },
     "bynara": {
       "name": "Bynara Router",
       "api": "openai",

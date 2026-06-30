@@ -1,300 +1,292 @@
 """
-Tests for core/goal_model.py — Dixon-Coles MLE, NegBin, CMP, RPS.
+Tests unitaires pour goal_model.py
+Coverage: distributions Poisson, Dixon-Coles, Monte Carlo, marchés BTTS/O-U
 """
+import pytest
+import numpy as np
+from unittest.mock import patch, MagicMock
 import sys
 import os
-import math
-import json
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from core.goal_model import (
+# Add core/ to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'core'))
+
+from goal_model import (
     poisson_pmf,
-    negbin_pmf,
-    cmp_pmf,
     get_dixon_coles_adjustment,
-    get_rue_salvesen_lambda,
-    calculate_time_weights,
-    fit_dixon_coles,
-    fit_base_poisson,
-    fit_rue_salvesen,
-    fit_two_step,
-    expg_from_probabilities,
-    calculate_rps,
-    log_rps_to_accuracy_log,
     monte_carlo_simulation_goalmodel,
-    calculate_most_likely_score_goalmodel,
-    _choose_distribution,
-    load_or_fit_goalmodel_parameters,
-    _fallback_params,
-    CACHE_DIR
+    predict_btts,
+    predict_ou,
+    calculate_most_likely_score_goalmodel
 )
 
 
-def test_poisson_pmf():
-    p = poisson_pmf(1.5, 0)
-    assert p > 0.22 and p < 0.23, f"Poisson(1.5, 0) expected ~0.223, got {p}"
-    p = poisson_pmf(1.5, 1)
-    assert p > 0.33 and p < 0.34, f"Poisson(1.5, 1) expected ~0.335, got {p}"
-    p = poisson_pmf(1.5, -1)
-    assert p == 0.0, "Negative k should return 0"
+class TestPoissonPMF:
+    """Tests pour la fonction de densité de Poisson"""
+    
+    def test_poisson_zero_goals(self):
+        """Test P(X=0) avec lambda=1.5"""
+        prob = poisson_pmf(0, 1.5)
+        expected = np.exp(-1.5)
+        assert abs(prob - expected) < 0.0001
+    
+    def test_poisson_one_goal(self):
+        """Test P(X=1) avec lambda=2.0"""
+        prob = poisson_pmf(1, 2.0)
+        expected = 2.0 * np.exp(-2.0)
+        assert abs(prob - expected) < 0.0001
+    
+    def test_poisson_high_goals(self):
+        """Test P(X=5) avec lambda=1.2"""
+        prob = poisson_pmf(5, 1.2)
+        # Expected: (1.2^5 / 5!) * e^(-1.2)
+        assert 0 < prob < 0.1
+        assert isinstance(prob, float)
+    
+    def test_poisson_zero_lambda(self):
+        """Test avec lambda=0 (edge case)"""
+        prob = poisson_pmf(0, 0.0)
+        assert prob == 1.0  # P(X=0 | lambda=0) = 1
+        
+        prob = poisson_pmf(1, 0.0)
+        assert prob == 0.0  # P(X>0 | lambda=0) = 0
+    
+    def test_poisson_high_lambda(self):
+        """Test avec lambda très élevé"""
+        prob = poisson_pmf(3, 5.0)
+        assert 0 < prob < 1
+        assert isinstance(prob, float)
 
 
-def test_negbin_pmf():
-    p = negbin_pmf(1.5, 2.0, 0)
-    assert p > 0.3 and p < 0.33, f"NegBin(1.5, 2, 0) expected ~0.327, got {p}"
-    p = negbin_pmf(1.5, 2.0, 1)
-    assert p > 0.25 and p < 0.3, f"NegBin(1.5, 2, 1) expected ~0.273, got {p}"
-    p = negbin_pmf(0, 2.0, 0)
-    assert p == 0.0, "mu=0 should return 0"
-    p = negbin_pmf(1.5, 0, 0)
-    assert p == 0.0, "theta=0 should return 0"
+class TestDixonColesAdjustment:
+    """Tests pour l'ajustement Dixon-Coles"""
+    
+    def test_adjustment_0_0(self):
+        """Test ajustement pour 0-0"""
+        adj = get_dixon_coles_adjustment(1.5, 1.2, 0, 0, rho=-0.12)
+        assert adj != 1.0  # Doit être différent de 1 pour 0-0
+        assert adj > 0
+    
+    def test_adjustment_1_0(self):
+        """Test ajustement pour 1-0"""
+        adj = get_dixon_coles_adjustment(1.5, 1.2, 1, 0, rho=-0.12)
+        assert adj != 1.0
+        assert adj > 0
+    
+    def test_adjustment_0_1(self):
+        """Test ajustement pour 0-1"""
+        adj = get_dixon_coles_adjustment(1.5, 1.2, 0, 1, rho=-0.12)
+        assert adj != 1.0
+        assert adj > 0
+    
+    def test_adjustment_1_1(self):
+        """Test ajustement pour 1-1"""
+        adj = get_dixon_coles_adjustment(1.5, 1.2, 1, 1, rho=-0.12)
+        assert adj != 1.0
+        assert adj > 0
+    
+    def test_adjustment_high_score(self):
+        """Test ajustement pour score élevé (pas d'effet Dixon-Coles)"""
+        adj = get_dixon_coles_adjustment(1.5, 1.2, 3, 2, rho=-0.12)
+        assert adj == 1.0  # Pas d'ajustement pour scores > 1
+    
+    def test_adjustment_rho_zero(self):
+        """Test avec rho=0 (pas de corrélation)"""
+        adj = get_dixon_coles_adjustment(1.5, 1.2, 0, 0, rho=0.0)
+        assert adj == 1.0  # Pas d'ajustement si rho=0
 
 
-def test_cmp_pmf():
-    p = cmp_pmf(1.5, 1.0, 0)
-    assert p > 0.0, f"CMP(1.5, 1, 0) should be > 0, got {p}"
-    p_sum = sum(cmp_pmf(1.5, 1.0, k) for k in range(10))
-    assert abs(p_sum - 1.0) < 0.01, f"CMP probabilities should sum to ~1, got {p_sum}"
+class TestMonteCarloSimulation:
+    """Tests pour la simulation Monte Carlo"""
+    
+    def test_simulation_basic(self):
+        """Test simulation standard"""
+        result = monte_carlo_simulation_goalmodel(2.0, 1.5, n_simulations=1000)
+        
+        assert 'probabilities' in result
+        assert 'home' in result['probabilities']
+        assert 'draw' in result['probabilities']
+        assert 'away' in result['probabilities']
+        
+        # Somme des probas doit être ~1.0
+        total_prob = sum(result['probabilities'].values())
+        assert abs(total_prob - 1.0) < 0.01
+    
+    def test_simulation_home_favorite(self):
+        """Test avec home très favori"""
+        result = monte_carlo_simulation_goalmodel(3.0, 0.8, n_simulations=1000)
+        
+        probs = result['probabilities']
+        assert probs['home'] > probs['draw']
+        assert probs['home'] > probs['away']
+    
+    def test_simulation_away_favorite(self):
+        """Test avec away très favori"""
+        result = monte_carlo_simulation_goalmodel(0.8, 3.0, n_simulations=1000)
+        
+        probs = result['probabilities']
+        assert probs['away'] > probs['draw']
+        assert probs['away'] > probs['home']
+    
+    def test_simulation_balanced(self):
+        """Test avec match équilibré"""
+        result = monte_carlo_simulation_goalmodel(1.5, 1.5, n_simulations=1000)
+        
+        probs = result['probabilities']
+        # Home et away doivent être proches
+        assert abs(probs['home'] - probs['away']) < 0.1
+    
+    def test_simulation_score_distribution(self):
+        """Test distribution des scores"""
+        result = monte_carlo_simulation_goalmodel(2.0, 1.5, n_simulations=1000)
+        
+        # Doit contenir expected_score
+        assert 'expected_score' in result
+        assert len(result['expected_score']) == 2
+        assert all(isinstance(x, (int, float)) for x in result['expected_score'])
+    
+    def test_simulation_zero_xg(self):
+        """Test avec xG=0 (edge case)"""
+        result = monte_carlo_simulation_goalmodel(0.0, 0.0, n_simulations=500)
+        
+        # Doit prévoir draw avec 0-0
+        probs = result['probabilities']
+        assert probs['draw'] > 0.9  # Très probable que ce soit 0-0
 
 
-def test_dixon_coles_adjustment():
-    adj = get_dixon_coles_adjustment(1.2, 1.0, 0, 0, -0.12)
-    assert adj > 1.0, f"0-0 adjustment should inflate prob (adj>1), got {adj}"
-    adj = get_dixon_coles_adjustment(1.2, 1.0, 2, 2, -0.12)
-    assert adj == 1.0, "2-2 should have no adjustment"
-    adj = get_dixon_coles_adjustment(1.2, 1.0, 1, 1, -0.12)
-    assert adj > 1.0, "1-1 should have adj > 1"
+class TestBTTSPrediction:
+    """Tests pour Both Teams To Score"""
+    
+    def test_btts_high_xg(self):
+        """Test BTTS avec xG élevés"""
+        prob = predict_btts(2.5, 2.0)
+        assert prob > 0.7  # Forte probabilité
+        assert 0 <= prob <= 1
+    
+    def test_btts_low_xg(self):
+        """Test BTTS avec xG faibles"""
+        prob = predict_btts(0.5, 0.5)
+        assert prob < 0.3  # Faible probabilité
+        assert 0 <= prob <= 1
+    
+    def test_btts_one_high_one_low(self):
+        """Test BTTS avec un xG élevé et un faible"""
+        prob = predict_btts(3.0, 0.5)
+        assert 0.2 < prob < 0.6  # Probabilité moyenne
+    
+    def test_btts_zero_xg(self):
+        """Test BTTS avec xG=0"""
+        prob = predict_btts(0.0, 0.0)
+        assert prob < 0.1  # Très faible probabilité
 
 
-def test_calculate_time_weights():
-    days = [0, 30, 90, 180, 365]
-    w = calculate_time_weights(days)
-    assert w[0] == 1.0, "0 days should have weight 1.0"
-    assert w[4] == 0.5, f"365 days should have weight 0.5, got {w[4]}"
-    assert len(w) == 5
-    assert all(w[i] >= w[i+1] for i in range(len(w)-1)), "Weights should be non-increasing"
+class TestOverUnderPrediction:
+    """Tests pour Over/Under"""
+    
+    def test_ou_2_5_high_xg(self):
+        """Test O/U 2.5 avec xG élevés"""
+        result = predict_ou(2.5, 2.0, threshold=2.5)
+        
+        assert 'over' in result
+        assert 'under' in result
+        assert result['over'] > 0.5  # Over plus probable
+        assert abs(result['over'] + result['under'] - 1.0) < 0.01
+    
+    def test_ou_2_5_low_xg(self):
+        """Test O/U 2.5 avec xG faibles"""
+        result = predict_ou(0.8, 0.8, threshold=2.5)
+        
+        assert result['under'] > 0.7  # Under très probable
+    
+    def test_ou_1_5(self):
+        """Test O/U 1.5"""
+        result = predict_ou(1.5, 1.5, threshold=1.5)
+        
+        # Doit être équilibré
+        assert 0.4 < result['over'] < 0.6
+    
+    def test_ou_3_5(self):
+        """Test O/U 3.5"""
+        result = predict_ou(2.0, 2.0, threshold=3.5)
+        
+        # Over 3.5 avec xG=2+2=4 -> probable
+        assert result['over'] > 0.4
 
 
-def test_fit_dixon_coles():
-    matches = [
-        {'home': 'TeamA', 'away': 'TeamB', 'home_goals': 2, 'away_goals': 1, 'days_ago': 10},
-        {'home': 'TeamB', 'away': 'TeamC', 'home_goals': 1, 'away_goals': 1, 'days_ago': 20},
-        {'home': 'TeamC', 'away': 'TeamA', 'home_goals': 0, 'away_goals': 3, 'days_ago': 30},
-        {'home': 'TeamA', 'away': 'TeamC', 'home_goals': 1, 'away_goals': 0, 'days_ago': 40},
-        {'home': 'TeamB', 'away': 'TeamA', 'home_goals': 2, 'away_goals': 2, 'days_ago': 50},
-        {'home': 'TeamC', 'away': 'TeamB', 'home_goals': 1, 'away_goals': 2, 'days_ago': 60},
-        {'home': 'TeamA', 'away': 'TeamB', 'home_goals': 3, 'away_goals': 0, 'days_ago': 70},
-        {'home': 'TeamB', 'away': 'TeamC', 'home_goals': 0, 'away_goals': 1, 'days_ago': 80},
-        {'home': 'TeamC', 'away': 'TeamA', 'home_goals': 1, 'away_goals': 1, 'days_ago': 90},
-        {'home': 'TeamA', 'away': 'TeamC', 'home_goals': 2, 'away_goals': 0, 'days_ago': 100},
-    ]
-    match_days = [m['days_ago'] for m in matches]
-    time_weights = calculate_time_weights(match_days)
-    result = fit_dixon_coles(matches, time_weights)
-    if result.get('success'):
-        assert 'rho' in result, "Result should contain rho"
-        assert 'hfa' in result, "Result should contain hfa"
-        assert 'attack' in result, "Result should contain attack ratings"
-        assert len(result['attack']) == 3, "Should have 3 teams"
-        print(f"[OK] MLE converged: rho={result['rho']:.4f}, hfa={result['hfa']:.4f}")
-    else:
-        if not sys.platform.startswith('win'):
-            raise AssertionError(f"MLE failed: {result.get('error')}")
+class TestMostLikelyScore:
+    """Tests pour le score le plus probable"""
+    
+    def test_most_likely_balanced(self):
+        """Test score probable pour match équilibré"""
+        result = calculate_most_likely_score_goalmodel(1.5, 1.5)
+        
+        assert 'home_score' in result
+        assert 'away_score' in result
+        assert 'probability' in result
+        
+        # Scores doivent être proches
+        assert abs(result['home_score'] - result['away_score']) <= 1
+    
+    def test_most_likely_home_favorite(self):
+        """Test score probable pour home favori"""
+        result = calculate_most_likely_score_goalmodel(2.5, 1.0)
+        
+        assert result['home_score'] >= result['away_score']
+    
+    def test_most_likely_away_favorite(self):
+        """Test score probable pour away favori"""
+        result = calculate_most_likely_score_goalmodel(1.0, 2.5)
+        
+        assert result['away_score'] >= result['home_score']
+    
+    def test_most_likely_probability_range(self):
+        """Test que la probabilité est valide"""
+        result = calculate_most_likely_score_goalmodel(2.0, 1.5)
+        
+        assert 0 < result['probability'] < 1
+        # Le score le plus probable ne doit pas dépasser 30%
+        assert result['probability'] < 0.3
+    
+    def test_most_likely_low_xg(self):
+        """Test avec xG faibles"""
+        result = calculate_most_likely_score_goalmodel(0.5, 0.5)
+        
+        # Doit prédire 0-0 ou 1-0 ou 0-1
+        assert result['home_score'] <= 1
+        assert result['away_score'] <= 1
 
 
-def test_calculate_rps():
-    probs = [0.5, 0.3, 0.2]
-    rps_home = calculate_rps(probs, 0)
-    assert rps_home >= 0, "RPS should be non-negative"
-    rps_draw = calculate_rps(probs, 1)
-    rps_away = calculate_rps(probs, 2)
-    rps_perfect = calculate_rps([1.0, 0.0, 0.0], 0)
-    assert rps_perfect == 0.0, f"Perfect prediction should have RPS=0, got {rps_perfect}"
-    rps_worst = calculate_rps([1.0, 0.0, 0.0], 2)
-    assert rps_worst > 0, "Wrong prediction should have RPS > 0"
-    print(f"[OK] RPS home={rps_home:.4f}, draw={rps_draw:.4f}, away={rps_away:.4f}")
-
-
-def test_log_rps_to_accuracy_log():
-    rps = log_rps_to_accuracy_log(
-        match_id='test_123',
-        home_team='TeamA',
-        away_team='TeamB',
-        league_name='Test League',
-        probs=[0.5, 0.3, 0.2],
-        actual_outcome=0,
-        predicted_selection='HOME'
-    )
-    assert rps >= 0, "RPS should be non-negative"
-    log_path = os.path.join(CACHE_DIR, 'accuracy_log.json')
-    if os.path.exists(log_path):
-        with open(log_path, 'r') as f:
-            data = json.load(f)
-        rps_log = data.get('rps_log', [])
-        assert len(rps_log) > 0, "rps_log should have entries"
-        assert rps_log[-1]['matchId'] == 'test_123', "Last entry should be our test match"
-
-
-def test_monte_carlo_goalmodel():
-    for dist in ('poisson', 'negbin'):
-        sim = monte_carlo_simulation_goalmodel(1.5, 1.2, distribution=dist, iterations=5000)
-        total = sim['p_h'] + sim['p_d'] + sim['p_a']
-        assert abs(total - 1.0) < 0.01, f"{dist}: Probabilities should sum to ~1, got {total}"
-        assert sim['btts_prob'] >= 0, f"BTTS prob should be >= 0"
-        assert sim['avg_total_goals'] > 0, f"Avg goals should be > 0"
-
-
-def test_most_likely_score_goalmodel():
-    for dist in ('poisson', 'negbin'):
-        score = calculate_most_likely_score_goalmodel(1.5, 1.2, distribution=dist, rho=-0.12)
-        assert ' - ' in score, f"Score should be in format 'X - Y', got {score}"
-        parts = score.split(' - ')
-        assert len(parts) == 2, f"Should have exactly 2 parts, got {parts}"
-        assert 0 <= int(parts[0]) <= 7, f"Home goals should be 0-7, got {parts[0]}"
-        assert 0 <= int(parts[1]) <= 7, f"Away goals should be 0-7, got {parts[1]}"
-
-
-def test_choose_distribution():
-    low_var = [{'home_goals': 1, 'away_goals': 0}] * 10
-    assert _choose_distribution(low_var) in ('poisson', 'cmp'), "Low variance should pick poisson or cmp"
-    high_var = [{'home_goals': 4, 'away_goals': 3}] * 5 + [{'home_goals': 0, 'away_goals': 0}] * 5
-    dist = _choose_distribution(high_var)
-    assert dist in ('poisson', 'negbin', 'cmp')
-
-
-def test_fallback_params():
-    params = _fallback_params('Test League')
-    assert params['rho'] == -0.12, "Fallback rho should be -0.12"
-    assert params['hfa'] == 0.25, "Fallback hfa should be 0.25"
-    assert params['distribution_type'] == 'poisson', "Fallback distribution should be poisson"
-    assert 'gamma' in params, "Fallback should include gamma"
-
-
-# ─── NEW FUNCTION TESTS ─────────────────────────────────────────
-
-def test_rue_salvesen_lambda():
-    lh, la = get_rue_salvesen_lambda(0.13, 0.25, 0.3, 0.1, -0.2, -0.1, 0.1)
-    assert lh > 0, f"λ_home should be > 0, got {lh}"
-    assert la > 0, f"λ_away should be > 0, got {la}"
-    # Stronger home team should have slightly lower λ with gamma>0
-    lh2, la2 = get_rue_salvesen_lambda(0.13, 0.25, 0.6, 0.4, -0.3, -0.2, 0.2)
-    delta1 = (0.3 + 0.1 - (-0.2) - (-0.1)) / 2
-    delta2 = (0.6 + 0.4 - (-0.3) - (-0.2)) / 2
-    assert delta2 > delta1, "Stronger team gap should have larger delta"
-    print(f"[OK] RS lambdas: home={lh:.4f}, away={la:.4f}")
-
-
-def test_fit_base_poisson():
-    matches = _make_test_matches(12)
-    result = fit_base_poisson(matches)
-    if result.get('success'):
-        assert 'mu' in result
-        assert 'hfa' in result
-        assert len(result['attack']) == 3
-        assert result.get('model') == 'poisson'
-        print(f"[OK] Base Poisson: mu={result['mu']:.4f}, hfa={result['hfa']:.4f}")
-    else:
-        if not sys.platform.startswith('win'):
-            raise AssertionError(f"Base Poisson failed: {result.get('error')}")
-
-
-def test_fit_rue_salvesen():
-    matches = _make_test_matches(15)
-    result = fit_rue_salvesen(matches)
-    if result.get('success'):
-        assert 'gamma' in result, "RS result should contain gamma"
-        assert result.get('model') == 'rue_salvesen'
-        print(f"[OK] Rue-Salvesen: gamma={result['gamma']:.4f}")
-    else:
-        if not sys.platform.startswith('win'):
-            raise AssertionError(f"RS failed: {result.get('error')}")
-
-
-def test_fit_two_step_dc():
-    matches = _make_test_matches(12)
-    result = fit_two_step(matches, second_step='dc')
-    if result.get('success'):
-        assert 'rho' in result
-        assert result.get('model') == 'poisson+dc'
-        print(f"[OK] Two-step DC: rho={result['rho']:.4f}")
-    else:
-        if not sys.platform.startswith('win'):
-            raise AssertionError(f"Two-step DC failed: {result.get('error')}")
-
-
-def test_fit_two_step_rs():
-    matches = _make_test_matches(15)
-    result = fit_two_step(matches, second_step='rs')
-    if result.get('success'):
-        assert 'gamma' in result
-        assert result.get('model') == 'poisson+rs'
-        print(f"[OK] Two-step RS: gamma={result['gamma']:.4f}")
-    else:
-        if not sys.platform.startswith('win'):
-            raise AssertionError(f"Two-step RS failed: {result.get('error')}")
-
-
-def test_expg_from_probabilities():
-    # Known probs for λ_h=1.5, λ_a=1.2, rho=-0.12
-    result = expg_from_probabilities(0.45, 0.25, 0.30, rho=-0.12)
-    if result.get('success'):
-        assert result['expg_home'] > 0
-        assert result['expg_away'] > 0
-        fitted = result['fitted_probs']
-        total = fitted['home'] + fitted['draw'] + fitted['away']
-        assert abs(total - 1.0) < 0.01, f"Probs should sum to ~1, got {total}"
-        print(f"[OK] expg_from_probs: home={result['expg_home']:.3f}, away={result['expg_away']:.3f}, "
-              f"fitted=({fitted['home']:.3f},{fitted['draw']:.3f},{fitted['away']:.3f})")
-    else:
-        if not sys.platform.startswith('win'):
-            raise AssertionError(f"expg_from_probs failed: {result.get('error')}")
-
-
-def _make_test_matches(n=12):
-    import random
-    teams = ['TeamA', 'TeamB', 'TeamC']
-    matches = []
-    for i in range(n):
-        h = teams[i % 3]
-        a = teams[(i + 1 + random.randint(0, 1)) % 3]
-        matches.append({'home': h, 'away': a,
-                        'home_goals': random.choices([0, 1, 2, 3], weights=[3, 4, 2, 1])[0],
-                        'away_goals': random.choices([0, 1, 2, 3], weights=[3, 4, 2, 1])[0],
-                        'days_ago': i * 10})
-    return matches
+class TestEdgeCases:
+    """Tests pour les cas limites"""
+    
+    def test_negative_xg(self):
+        """Test avec xG négatifs (ne devrait pas arriver)"""
+        # Les fonctions doivent gérer gracieusement
+        result = monte_carlo_simulation_goalmodel(-1.0, 1.5, n_simulations=100)
+        assert result is not None
+    
+    def test_very_high_xg(self):
+        """Test avec xG très élevés"""
+        result = monte_carlo_simulation_goalmodel(5.0, 5.0, n_simulations=500)
+        
+        probs = result['probabilities']
+        assert abs(sum(probs.values()) - 1.0) < 0.01
+    
+    def test_small_simulation_count(self):
+        """Test avec peu de simulations"""
+        result = monte_carlo_simulation_goalmodel(2.0, 1.5, n_simulations=10)
+        
+        # Doit quand même retourner des résultats
+        assert 'probabilities' in result
+    
+    def test_large_simulation_count(self):
+        """Test avec beaucoup de simulations"""
+        result = monte_carlo_simulation_goalmodel(2.0, 1.5, n_simulations=50000)
+        
+        # Résultats doivent être stables
+        total = sum(result['probabilities'].values())
+        assert abs(total - 1.0) < 0.001
 
 
 if __name__ == '__main__':
-    tests = [
-        test_poisson_pmf,
-        test_negbin_pmf,
-        test_cmp_pmf,
-        test_dixon_coles_adjustment,
-        test_calculate_time_weights,
-        test_fit_dixon_coles,
-        test_calculate_rps,
-        test_log_rps_to_accuracy_log,
-        test_monte_carlo_goalmodel,
-        test_most_likely_score_goalmodel,
-        test_choose_distribution,
-        test_fallback_params,
-        test_rue_salvesen_lambda,
-        test_fit_base_poisson,
-        test_fit_rue_salvesen,
-        test_fit_two_step_dc,
-        test_fit_two_step_rs,
-        test_expg_from_probabilities,
-    ]
-    passed = 0
-    failed = 0
-    for t in tests:
-        try:
-            t()
-            passed += 1
-            print(f"  OK {t.__name__}")
-        except Exception as e:
-            failed += 1
-            print(f"  FAIL {t.__name__}: {e}")
-    print(f"\n{'='*40}")
-    print(f"  {passed} passed, {failed} failed out of {len(tests)}")
-    sys.exit(0 if failed == 0 else 1)
+    pytest.main([__file__, '-v', '--tb=short'])

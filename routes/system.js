@@ -171,12 +171,56 @@ router.get('/rapidapi/status', (req, res) => {
 
 router.get('/health', async (req, res) => {
     try {
-        res.json({
+        const memUsage = process.memoryUsage();
+        
+        // Health check response
+        const health = {
             status: 'ONLINE',
-            diagnostic: 'Simplified Response Active',
-            uptime: process.uptime(),
-            memory: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`
-        });
+            uptime: Math.floor(process.uptime()),
+            memory: {
+                heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+                heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+                rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+                external: `${Math.round(memUsage.external / 1024 / 1024)}MB`
+            },
+            node: process.version,
+            env: process.env.NODE_ENV || 'development',
+            timestamp: Date.now()
+        };
+        
+        // Add model_manager stats if available (Python via child process or ENV flag)
+        try {
+            const useModelManager = process.env.USE_MODEL_MANAGER === 'true';
+            if (useModelManager) {
+                health.model_manager = {
+                    enabled: true,
+                    mode: 'optimized'
+                };
+            } else {
+                health.model_manager = {
+                    enabled: false,
+                    mode: 'legacy'
+                };
+            }
+        } catch (e) {
+            // Model manager not available - OK
+        }
+        
+        // Database check (optional)
+        try {
+            const totalMatchesRow = database.prepare("SELECT COUNT(*) as count FROM matches").get();
+            health.database = {
+                connected: true,
+                matches: totalMatchesRow?.count || 0
+            };
+        } catch (dbErr) {
+            health.database = {
+                connected: false,
+                error: dbErr.message
+            };
+        }
+        
+        res.json(health);
     } catch (fatalErr) {
         logger.error('CRITICAL ERROR in /api/health route', fatalErr);
         res.status(500).json({ status: 'error', message: fatalErr.message });

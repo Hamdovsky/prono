@@ -1,20 +1,36 @@
-FROM node:18-alpine
+FROM python:3.10-slim
 
-RUN apk add --no-cache python3 make g++ sqlite-dev
+# Minimal system deps
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN PUPPETEER_SKIP_DOWNLOAD=true npm install --omit=dev && npm cache clean --force
+# Install Python dependencies (cached layer)
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir \
+        fastapi \
+        uvicorn[standard] \
+        pydantic \
+        psycopg2-binary \
+        redis \
+        aioredis \
+        httpx
 
-COPY . .
-RUN npm run build
+# Copy application code
+COPY core/ /app/core/
+COPY inference/ /app/inference/
+COPY models/ /app/models/
+COPY data/ /app/data/
 
-ENV NODE_ENV=production
-ENV SERVER_PORT=3001
+# Set Python path so imports work correctly
+ENV PYTHONPATH=/app/core:/app
 
-EXPOSE 3001
+EXPOSE 8000
 
 STOPSIGNAL SIGTERM
 
-CMD ["node", "--expose-gc", "--max-old-space-size=384", "server.js"]
+CMD ["uvicorn", "core.fastapi_server:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--timeout-keep-alive", "30"]

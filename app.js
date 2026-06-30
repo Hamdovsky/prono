@@ -469,11 +469,24 @@ app.use('/api/ds', dsRoutes);
 app.use('/api/webhook', securityEngine.authenticate.bind(securityEngine), integrationRoutes);
 app.use('/api', require('./routes/edge'));
 
+// ── IN-MEMORY ERROR TRACKER (lightweight, no external deps) ─────
+const errorTracker = { errors: [], maxEntries: 200 }
+function trackError(status, method, url, message) {
+  errorTracker.errors.unshift({ status, method, url, message, at: new Date().toISOString() })
+  if (errorTracker.errors.length > errorTracker.maxEntries) errorTracker.errors.length = errorTracker.maxEntries
+}
+
+app.get('/api/errors/recent', securityEngine.authenticate.bind(securityEngine), (req, res) => {
+  const since = req.query.since ? new Date(req.query.since).getTime() : Date.now() - 3600000
+  const filtered = errorTracker.errors.filter(e => new Date(e.at).getTime() >= since)
+  res.json({ total: filtered.length, errors: filtered.slice(0, 50) })
+})
+
 // ── GLOBAL ERROR HANDLER ──────────────────
 app.use((err, req, res, next) => {
   const status = err.status || err.statusCode || 500;
   
-  // Log more details about the error
+  trackError(status, req.method, req.url, err.message);
   logger.error(`💥 [GLOBAL ERROR] ${req.method} ${req.url} - Status: ${status}`, err);
   
   if (res.headersSent) {
@@ -493,7 +506,7 @@ app.get('/api/autoheal/status', (req, res) => {
   res.json(autoHealAgent.getStatus())
 })
 
-app.post('/api/autoheal/patrol', async (req, res) => {
+app.post('/api/autoheal/patrol', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const result = await autoHealAgent.triggerPatrol()
     res.json(result)
@@ -609,7 +622,7 @@ app.post('/api/goalmodel/fit', securityEngine.authenticate.bind(securityEngine),
 })
 
 // ─── Callback: receive fitted GoalModel params from FastAPI → DB ──
-app.post('/api/goalmodel/callback', async (req, res) => {
+app.post('/api/goalmodel/callback', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const { league, mu, hfa, rho, gamma, model, distribution_type, num_matches, teams, attack_ratings, defense_ratings } = req.body
     if (!league) return res.status(400).json({ error: 'league required' })
@@ -673,7 +686,7 @@ app.get('/api/elo', async (req, res) => {
   }
 });
 
-app.post('/api/elo/update', async (req, res) => {
+app.post('/api/elo/update', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const eloService = require('./services/eloRatingService');
     const { homeTeam, awayTeam, scoreHome, scoreAway } = req.body;
@@ -768,7 +781,7 @@ app.get('/api/scrape/odds', async (req, res) => {
   }
 })
 
-app.post('/api/scrape/trigger', express.json(), async (req, res) => {
+app.post('/api/scrape/trigger', securityEngine.authenticate.bind(securityEngine), express.json(), async (req, res) => {
   try {
     const { url, type } = req.body
     if (!url) return res.status(400).json({ success: false, error: 'Missing url' })
@@ -803,7 +816,7 @@ app.get('/api/scraper/status', (req, res) => {
   }
 })
 
-app.post('/api/scraper/toggle', express.json(), async (req, res) => {
+app.post('/api/scraper/toggle', securityEngine.authenticate.bind(securityEngine), express.json(), async (req, res) => {
   try {
     const router = require('./services/scrapers')
     const { mode } = req.body
@@ -817,7 +830,7 @@ app.post('/api/scraper/toggle', express.json(), async (req, res) => {
   }
 })
 
-app.post('/api/scraper/reset', (req, res) => {
+app.post('/api/scraper/reset', securityEngine.authenticate.bind(securityEngine), (req, res) => {
   try {
     const router = require('./services/scrapers')
     router.resetHealth()

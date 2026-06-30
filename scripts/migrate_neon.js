@@ -6,9 +6,14 @@ const BASE = path.resolve(__dirname, '..')
 const sqlite = new Database(path.join(BASE, 'data', 'tactical.db'))
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_oy3uDHmnCE8P@ep-wandering-wave-atp6q80z-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+  connectionString: process.env.DATABASE_URL,
   max: 5,
 })
+
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL env var required')
+  process.exit(1)
+}
 
 function convertVal(col, val, neonDataType) {
   if (val === null || val === undefined) return null

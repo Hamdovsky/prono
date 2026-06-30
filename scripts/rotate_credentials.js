@@ -6,10 +6,15 @@ const { execSync } = require('child_process');
 
 const NEW_API_SECRET = crypto.randomBytes(32).toString('hex');
 
-const OLD_API_SECRET = process.env.OLD_API_SECRET || '8d6b2de5208b41f34b15fb93121dd72bd5eee734dc3b29c9';
-const OLD_RENDER_KEY_1 = process.env.OLD_RENDER_KEY_1 || 'rnd_BjMptWe5fHH766B8wNBCs9vGQHZj';
-const OLD_RENDER_KEY_2 = process.env.OLD_RENDER_KEY_2 || 'rnd_9qe0wyfpN1GEBRX4ELHx2BqnMtJ1';
-const NEON_PROJECT_ID = process.env.NEON_PROJECT_ID || 'ep-wandering-wave-atp6q80z';
+const OLD_API_SECRET = process.env.OLD_API_SECRET;
+const OLD_RENDER_KEY_1 = process.env.OLD_RENDER_KEY_1;
+const OLD_RENDER_KEY_2 = process.env.OLD_RENDER_KEY_2;
+const NEON_PROJECT_ID = process.env.NEON_PROJECT_ID;
+
+if (!OLD_API_SECRET || !OLD_RENDER_KEY_1 || !OLD_RENDER_KEY_2) {
+  console.error('Required env vars: OLD_API_SECRET, OLD_RENDER_KEY_1, OLD_RENDER_KEY_2');
+  process.exit(1);
+}
 
 async function main() {
   console.log('=== ROTATION DES CREDENTIALS ===\n');

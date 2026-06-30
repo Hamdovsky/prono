@@ -1,81 +1,29 @@
-# ============================================================
-# TITANIUM SYSTEM — .dockerignore
-# ============================================================
-
-# Node
-node_modules/
-npm-debug.log*
-bun.lock
-
-# Python
-.venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-
-# Git
-.git/
-.gitignore
-.github/
-
-# IDE
-.vscode/
-.idea/
-
-# Secrets (never in image)
+node_modules
+dist
+.git
 .env
 .env.*
-!.env.example
-
-# Databases (volumes gèrent les données persistantes)
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
-*.sqlite3
-
-# Logs (volume monté)
 logs/
-*.log
-ai_server_startup.log
-replay_pid*.log
-hs_err_pid*.log
-
-# Dev / test
-scratch/
-__tests__/
-__mocks__/
-tests/
-coverage/
-.dockerignore
-
-# Debug / dump files
-*.html
-*.png
-debug_*
-betslip_*
-bibeet_*
-africanobet_*
-promosport_*
-shadow_*
-betx2_*
-
-# Archives / backups
-archive/
 backups/
-tmp/
-
-# Build artifacts
-dist_test/
-# Note: dist/ is intentionally NOT ignored — Node container needs it
-
-# Android
-android/
-
-# Misc
-research/
-reports/
+data/raw/
+data/accuracy_log.json
+data/deepseek_usage.json
+data/scraper_progress.json
+data/scraper_state.json
+data/autoheal_state.json
+models/*.pkl
+__pycache__
+.venv
+venv
+*.pyc
+SofascoreScraping/
+archive/
 k8s/
-$null
-0.6
+opencode/
+.agents/
+.vscode
+.idea

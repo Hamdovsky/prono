@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const logger = require('../core/logger');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'titanium-dev-secret-change-in-prod';
+const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(32).toString('hex');
 const JWT_EXPIRES = '7d';
 const SALT_ROUNDS = 10;
 

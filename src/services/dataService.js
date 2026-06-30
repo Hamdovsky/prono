@@ -7,7 +7,11 @@
 import { getApiUrl } from '../config/apiConfig.js';
 import { io } from 'socket.io-client';
 import { normalizeTeamName, isReserveTeam, deduplicateMatches } from '../utils/teamNameNormalizer.js';
-const logger = require('../../core/logger');
+const logger = {
+  info: (...args) => console.log('[INFO]', ...args),
+  warn: (...args) => console.warn('[WARN]', ...args),
+  error: (...args) => console.error('[ERROR]', ...args),
+};
 
 class DataService {
     _handleUpcomingUpdate(data) {

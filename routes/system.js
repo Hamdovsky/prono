@@ -190,7 +190,8 @@ router.get('/health', async (req, res) => {
         
         // Add model_manager stats if available (Python via child process or ENV flag)
         try {
-            const useModelManager = process.env.USE_MODEL_MANAGER === 'true';
+            // Default to true for production RAM optimization
+            const useModelManager = (process.env.USE_MODEL_MANAGER !== 'false');
             if (useModelManager) {
                 health.model_manager = {
                     enabled: true,

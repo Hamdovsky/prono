@@ -74,6 +74,16 @@ const matchesRoutes = require('./routes/matches');
 const promosportRoutes = require('./routes/promosport');
 const dsRoutes = require('./routes/ds');
 
+// Swagger API Documentation
+let swaggerUi, swaggerSpecs;
+try {
+  const swaggerConfig = require('./config/swagger');
+  swaggerUi = swaggerConfig.swaggerUi;
+  swaggerSpecs = swaggerConfig.specs;
+} catch (err) {
+  logger.warn('⚠️ Swagger config not found - API docs disabled');
+}
+
 const app = express();
 app.set('trust proxy', 1); // Honor X-Forwarded-For (Render proxy)
 
@@ -447,6 +457,16 @@ app.use('/api', scraperRoutes);
 app.use('/api', matchesRoutes);
 app.use('/api/promosport', promosportRoutes);
 app.use('/api/auth', require('./routes/auth'));
+
+// ── SWAGGER API DOCUMENTATION ─────────────────
+if (swaggerUi && swaggerSpecs) {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Titanium AI API Docs',
+    customfavIcon: '/favicon.ico'
+  }));
+  logger.info('📚 [SWAGGER] API Documentation available at /api-docs');
+}
 
 // ── SKILLS ENDPOINT ─────────────────────
 app.get('/api/skills', (req, res) => {

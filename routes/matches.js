@@ -213,6 +213,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
 
         // 🚀 [JIT FAST PASS] Force re-enrichment only for matches missing predictions
         const needsFastPass = rawMatches.filter(m => 
+            req.query.force === 'true' ||
             !m.home_win_probability ||
             m.home_win_probability === 0 ||
             !m.expected_score

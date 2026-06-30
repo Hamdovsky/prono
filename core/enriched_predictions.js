@@ -369,7 +369,19 @@ class EnrichedPredictionService {
                     power_score: py.power_score || conf,
                     model: 'V553_PREMIUM',
                     ai_source: py.ai_source || 'V553_PREMIUM',
-                    // Pass through the full Python response for downstream use
+                    ou_25_prob: py.ou_25_prob ? Math.round(py.ou_25_prob * 100) : undefined,
+                    btts_prob: py.btts_prob ? Math.round(py.btts_prob * 100) : undefined,
+                    surgical_market: py.surgical_market,
+                    surgical_confidence: py.surgical_confidence,
+                    backup_market: py.backup_market,
+                    dc_probs: py.dc_probs,
+                    dnb_probs: py.dnb_probs,
+                    kelly_stake: py.kelly_stake,
+                    v22_success_rate: py.v22_success_rate,
+                    precision_bets: py.precision_bets,
+                    main_predictions: py.main_predictions,
+                    strategic_brief: py.strategic_brief,
+                    is_confirmed: py.is_confirmed,
                     py_full: py,
                 }
             }

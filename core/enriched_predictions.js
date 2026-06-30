@@ -350,7 +350,9 @@ class EnrichedPredictionService {
             const py = await pythonService.predict(pyMatch, timeoutMs || 30000)
             if (py && py.success) {
                 const labelMap = { '1': '1', 'X': 'X', '2': '2', 'Home': '1', 'Draw': 'X', 'Away': '2', 'Home Win': '1', 'Away Win': '2' }
-                const rawLabel = py.prediction || py.direct_prediction || py.verdict || 'X'
+                // Extract first word from direct_prediction ("Home | Trend..." -> "Home")
+                const dpFirstWord = (py.direct_prediction || '').split('|')[0].trim().split(' ')[0]
+                const rawLabel = py.prediction || dpFirstWord || py.verdict || 'X'
                 const label = labelMap[rawLabel] || rawLabel
                 const conf = py.confidence || py.surgical_confidence || 0
                 return {

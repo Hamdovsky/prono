@@ -204,16 +204,32 @@ const redisMiddleware = async (req, res, next) => {
 };
 
 // ── CORE API ENDPOINTS ─────────────────────────────────────────
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
+app.get('/health', async (req, res) => {
+  const checks = { uptime: process.uptime(), memory: {
+    heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+    heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
+  }};
+  let healthy = true;
+
+  // DB check
+  try { await database.db?.prepare('SELECT 1').get(); checks.database = 'ok' }
+  catch (e) { checks.database = 'fail'; healthy = false }
+
+  // Redis check
+  try { await redisCache.get('_health_check'); checks.redis = 'ok' }
+  catch (e) { checks.redis = 'fail' }
+
+  // FastAPI check
+  try {
+    const r = await fetch(process.env.INFERENCE_URL + '/health', { signal: AbortSignal.timeout(5000) });
+    checks.fastapi = r.ok ? 'ok' : 'fail'
+  } catch (e) { checks.fastapi = 'fail' }
+
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'degraded',
     environment: process.env.NODE_ENV || 'development',
-    memory: {
-      heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
-      heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
-    }
+    timestamp: new Date().toISOString(),
+    ...checks
   });
 });
 
@@ -367,7 +383,7 @@ app.post('/api/predict', predictLimiter, async (req, res) => {
   }
 });
 
-app.post('/api/re-enrich', async (req, res) => {
+app.post('/api/re-enrich', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const database = require('./core/database');
     const enrichedPredictions = require('./core/enriched_predictions');
@@ -500,7 +516,7 @@ app.get('/api/leagues', async (req, res) => {
 });
 
 // ─── GoalModel MLE Fit (queries local DB, fits on FastAPI) ──
-app.post('/api/goalmodel/fit', async (req, res) => {
+app.post('/api/goalmodel/fit', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const Database = require('better-sqlite3')
     const leagueFilter = req.body?.leagues || []

@@ -31,7 +31,8 @@ class ShieldEngine {
         }
         
         // Start background health checks every 15 minutes
-        setInterval(() => this.checkProxyHealth(), 15 * 60 * 1000);
+        const _proxyTimer = setInterval(() => this.checkProxyHealth(), 15 * 60 * 1000);
+        _proxyTimer.unref();
     }
 
     loadProxies() {

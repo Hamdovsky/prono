@@ -190,6 +190,7 @@ class LiveMatchService {
     if (this.pollInterval) clearInterval(this.pollInterval)
     this.syncLive()
     this.pollInterval = setInterval(() => this.syncLive(), intervalMs)
+    this.pollInterval.unref()
     logger.info(`[LIVE] Polling started every ${intervalMs / 1000}s`)
   }
 

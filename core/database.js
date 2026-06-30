@@ -26,11 +26,12 @@ try {
 
 // Periodic WAL checkpoint (no-op if SQLite unavailable)
 const WAL_CHECKPOINT_INTERVAL = 5 * 60 * 1000
-setInterval(() => {
+const _walTimer = setInterval(() => {
   try {
     if (db) db.exec('PRAGMA wal_checkpoint(TRUNCATE)')
   } catch (_) {}
 }, WAL_CHECKPOINT_INTERVAL)
+_walTimer.unref()
 
 // 🚀 [PERFORMANCE] Statement Cache to avoid constant regex/parsing
 const statementCache = new Map();

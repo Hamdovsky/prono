@@ -134,6 +134,7 @@ class SocketService {
 
         // Start polling interval
         this._liveInterval = setInterval(poll, POLL_INTERVAL);
+        this._liveInterval.unref();
         // Immediate first poll
         poll();
     }

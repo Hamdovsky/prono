@@ -300,7 +300,8 @@ function scheduleDailyArchiver() {
     
     setTimeout(async () => {
         await runArchiver(2); // Archive last 2 days
-        setInterval(() => runArchiver(2), 24 * 60 * 60 * 1000); // Then every 24h
+        const _dailyTimer = setInterval(() => runArchiver(2), 24 * 60 * 60 * 1000); // Then every 24h
+        _dailyTimer.unref();
     }, msUntilNextRun);
 }
 

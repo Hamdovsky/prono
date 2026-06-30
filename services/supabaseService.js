@@ -335,6 +335,7 @@ class SupabaseService {
 
     sync()
     this._syncTimer = setInterval(sync, SYNC_INTERVAL)
+    this._syncTimer.unref()
     logger.info(`⏰ [SUPABASE] Periodic sync every ${SYNC_INTERVAL / 60000}min started`)
   }
 

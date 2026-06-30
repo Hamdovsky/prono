@@ -28,7 +28,8 @@ class CLVService {
         this.isRunning = true;
         logger.info('🚀 [CLV] Closing Line Value monitor started.');
         
-        setInterval(() => this.captureClosingOdds(), 10 * 60 * 1000);
+        const _clvTimer = setInterval(() => this.captureClosingOdds(), 10 * 60 * 1000);
+        _clvTimer.unref();
         this.captureClosingOdds();
     }
 

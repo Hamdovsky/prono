@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import GlobalErrorBoundary from './components/GlobalErrorBoundary'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -7,6 +7,8 @@ import Dashboard from './components/Dashboard'
 import './App.css'
 import './styles/themes.css'
 
+const AccuracyDashboard = lazy(() => import('./components/AccuracyDashboard'))
+
 function App() {
     return (
         <BrowserRouter>
@@ -14,9 +16,12 @@ function App() {
                 <I18nProvider>
                     <GlobalErrorBoundary>
                         <div className="app-container">
-                            <Routes>
-                                <Route path="*" element={<Dashboard />} />
-                            </Routes>
+                            <Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#888'}}>Loading...</div>}>
+                                <Routes>
+                                    <Route path="/accuracy" element={<AccuracyDashboard />} />
+                                    <Route path="*" element={<Dashboard />} />
+                                </Routes>
+                            </Suspense>
                         </div>
                     </GlobalErrorBoundary>
                 </I18nProvider>

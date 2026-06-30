@@ -5,13 +5,12 @@ const CircuitBreaker = require('./circuitBreaker');
 const redisBreaker = require('./circuitBreaker').breakers.redis;
 const Redis = require('ioredis');
 const { performance } = require('perf_hooks');
-console.log('Redis type:', typeof Redis, 'keys:', Object.keys(Redis || {}));
+const logger = require('./logger');
 
 
 // Redis client instance
 let redis = null;
 try {
-  console.log('Creating new Redis with opts...');
   const redisUrl = process.env.REDIS_URL
   const opts = redisUrl
     ? { retryStrategy: (t) => Math.min(t * 200, 3000), maxRetriesPerRequest: 5, enableReadyCheck: true, lazyConnect: true, enableOfflineQueue: true }
@@ -19,11 +18,11 @@ try {
   redis = redisUrl
     ? new Redis(redisUrl, opts)
     : new Redis(opts)
-  console.log('Redis instance created:', !!redis, redis && typeof redis);
+  logger.info('[REDIS] Client created')
 
   redis.on('error', () => {});
 } catch (e) {
-  console.error('Redis init error:', e.message);
+  logger.warn(`[REDIS] Init failed: ${e.message}`)
   redis = null;
 }
 

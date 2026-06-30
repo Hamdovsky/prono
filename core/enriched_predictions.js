@@ -17,7 +17,7 @@ const { analyzeValue } = require('../src/services/ValueBetEngine');
 const DeepFormService = require('../services/DeepFormService');
 const PlayerPropsService = require('../services/playerPropsService');
 const pythonService = require('./pythonService');
-const pythonBridgeService = require('../services/pythonBridgeService');
+
 const goalNewsService = require('../services/goalNewsService');
 const sharpService = require('../services/SharpIntelligenceService');
 const correlationEngine = require('../services/MarketCorrelationEngine');
@@ -310,7 +310,8 @@ class EnrichedPredictionService {
             logger.warn(`[GEMMA4] Failed: ${e.message}`)
         }
 
-        // Python/FastAPI optional enrichment — use results when available
+        // Python/FastAPI optional enrichment — skip if V553 already succeeded (avoids double HTTP call)
+        if (!result.v553) {
         try {
             const py = await this.pythonService.predict(match, timeoutMs || 180000);
             if (py && py.success !== false) {
@@ -327,12 +328,14 @@ class EnrichedPredictionService {
         } catch (e) {
             logger.warn(`[FASTAPI] predict failed: ${e.message}`)
         }
+        } // end if (!result.v553)
 
         return result
     }
 
     async _tryV553(match, timeoutMs) {
         try {
+            const pythonService = require('../core/pythonService')
             const pyMatch = {
                 homeTeam: match.homeTeam,
                 awayTeam: match.awayTeam,
@@ -342,25 +345,30 @@ class EnrichedPredictionService {
                 odds_home: match.odds_home,
                 odds_draw: match.odds_draw,
                 odds_away: match.odds_away,
+                task: 'PREDICTION'
             }
-            const py = await pythonBridgeService.predict(pyMatch, timeoutMs || 120000)
-            if (py && py.success && py.prediction) {
-                const labelMap = { '1': '1', 'X': 'X', '2': '2' }
-                const label = labelMap[py.prediction] || py.prediction
+            const py = await pythonService.predict(pyMatch, timeoutMs || 30000)
+            if (py && py.success) {
+                const labelMap = { '1': '1', 'X': 'X', '2': '2', 'Home': '1', 'Draw': 'X', 'Away': '2', 'Home Win': '1', 'Away Win': '2' }
+                const rawLabel = py.prediction || py.direct_prediction || py.verdict || 'X'
+                const label = labelMap[rawLabel] || rawLabel
+                const conf = py.confidence || py.surgical_confidence || 0
                 return {
                     success: true,
                     v553: true,
-                    home_win_probability: py.home_win_prob,
-                    draw_probability: py.draw_prob,
-                    away_win_probability: py.away_win_prob,
+                    home_win_probability: py.home_win_probability || py.home_win_prob || 0,
+                    draw_probability: py.draw_probability || py.draw_prob || 0,
+                    away_win_probability: py.away_win_probability || py.away_win_prob || 0,
                     expected_score: py.expected_score || '0 - 0',
                     prediction: label,
-                    verdict: label === '1' ? 'Home' : (label === 'X' ? 'Draw' : 'Away'),
-                    confidence: py.confidence || 0,
-                    xgboost_confidence: py.confidence || 0,
-                    power_score: py.confidence || 0,
+                    verdict: py.verdict || (label === '1' ? 'Home' : (label === 'X' ? 'Draw' : 'Away')),
+                    confidence: conf,
+                    xgboost_confidence: conf / 100,
+                    power_score: py.power_score || conf,
                     model: 'V553_PREMIUM',
-                    elapsed: py.elapsed,
+                    ai_source: py.ai_source || 'V553_PREMIUM',
+                    // Pass through the full Python response for downstream use
+                    py_full: py,
                 }
             }
             return { success: false, fallback: true }

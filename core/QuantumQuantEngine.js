@@ -49,7 +49,7 @@ class QuantumQuantEngine {
             risk_label: this._getRiskLabel(ranked.main.prob),
             expected_score: StatisticalEngine.findMostProbableScore(xgHadj, xgAadj, { rho: gmParams.rho, gamma: gmParams.gamma }),
             confidence: m.insufficient_data === 1 
-                ? Math.round(ranked.main.prob * 90) // Pénalité de 10% si données faibles
+                ? Math.round(ranked.main.prob * 50) // Forte pénalité si aucune donnée (odds+xG+forme absents)
                 : Math.round(ranked.main.prob * 100),
             bsd_boosted: ranked.bsd_boosted || false,
             momentum: {
@@ -153,7 +153,22 @@ class QuantumQuantEngine {
         }
 
         const matchResultMarkets = ranked.filter(r => r.cat === 'match_result');
-        const mainPick = matchResultMarkets.sort((a, b) => b.prob - a.prob)[0];
+        const sortedMR = matchResultMarkets.sort((a, b) => b.prob - a.prob);
+        const best1X2 = sortedMR[0];
+
+        // Smart MAIN pick: DC if it beats best 1X2 by >20 points
+        const dcMarkets = ranked.filter(r => r.cat === 'double_chance');
+        const bestDC = dcMarkets.sort((a, b) => b.prob - a.prob)[0];
+        let mainPick = best1X2;
+        if (bestDC && best1X2 && (bestDC.prob - best1X2.prob) > 0.20 && bestDC.prob > 0.60) {
+            mainPick = { ...bestDC, _promotedFrom: 'double_chance' };
+        }
+        // HT O0.5 if it's very strong and 1X2 is weak
+        const htMarkets = ranked.filter(r => r.cat === 'first_half' && r.val === 'O0.5');
+        const bestHT = htMarkets[0];
+        if (bestHT && best1X2 && (bestHT.prob - best1X2.prob) > 0.25 && bestHT.prob > 0.70) {
+            mainPick = { ...bestHT, _promotedFrom: 'first_half' };
+        }
 
         const secondaryPool = ranked.filter(r =>
             r.label !== mainPick.label &&

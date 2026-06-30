@@ -608,12 +608,18 @@ class EnrichedPredictionService {
                 quantResult = QuantumQuantEngine.analyze(m, xgH, xgA)
                 probs = { h: quantResult.markets.match_result['1'].prob, d: quantResult.markets.match_result['X'].prob, a: quantResult.markets.match_result['2'].prob }
             }
-            // ── 2. FINAL ASSEMBLY ──
+            // ── 2. DETECT INSUFFICIENT DATA ──
+            const hasOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0;
+            const hasXg = parseFloat(m.home_xg) > 0.3 && parseFloat(m.away_xg) > 0.3;
+            const hasForm = parseFloat(m.home_form_pts) > 0 || parseFloat(m.away_form_pts) > 0;
+            const insufficient = (!hasOdds && !hasXg && !hasForm) ? 1 : 0;
+
+            // ── 3. FINAL ASSEMBLY ──
             const resultData = {
                 ...m,
 
                 success: true,
-                insufficient_data: 0,
+                insufficient_data: insufficient,
                 ai_source: aiSource,
                 expected_score: quantResult.expected_score,
                 home_win_probability: (probs.h * 100),

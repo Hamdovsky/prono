@@ -2,10 +2,18 @@ import React, { useMemo } from 'react';
 
 const PerformanceHub = ({ matches }) => {
     const stats = useMemo(() => {
-        const finished = matches.filter(m =>
-            m.status === 'finished' || m.status === 'ft' ||
-            (m.scoreHome !== null && m.scoreAway !== null)
-        );
+        const finished = matches.filter(m => {
+            const st = (m.status || '').toUpperCase();
+            if (st === 'NOT_STARTED' || st === 'SCHEDULED' || st === '' || st === 'NS') return false;
+            if (st === 'IN_PLAY' || st === 'LIVE' || st === '1H' || st === '2H' || st === 'HT') return false;
+            if (st !== 'FT' && st !== 'FINISHED' && st !== 'ENDED') {
+                const sh = m.scoreHome ?? m.score?.home;
+                const sa = m.scoreAway ?? m.score?.away;
+                if ((sh === null || sh === undefined) && (sa === null || sa === undefined)) return false;
+                if (Number(sh) === 0 && Number(sa) === 0) return false;
+            }
+            return true;
+        });
 
         if (finished.length === 0) return null;
 
@@ -23,7 +31,15 @@ const PerformanceHub = ({ matches }) => {
             if (isNaN(h) || isNaN(a)) return;
             const total = h + a;
 
-            let pick = String(m.prediction || '').toLowerCase();
+            let pick = '';
+            const q = m.quant || m._quant;
+            if (q && q.main_pick) {
+                pick = String(q.main_pick).toLowerCase();
+            } else if (m.predictions && m.predictions[0] && m.predictions[0].val) {
+                pick = String(m.predictions[0].val).toLowerCase();
+            } else {
+                pick = String(m.prediction || '').toLowerCase();
+            }
             let isVerifiable = true;
             let isWin = false;
 
@@ -57,7 +73,13 @@ const PerformanceHub = ({ matches }) => {
             }
 
             if (isVerifiable) {
-                if (pick.includes('home') || pick.includes('dom') || pick === '1' || pick.includes(' 1 ')) isWin = h > a;
+                if (pick.includes('ht:') || pick.includes('first_half') || pick === 'ht: o0.5' || pick === 'ht: o1.5') {
+                    isVerifiable = false; // Pas de score MT disponible pour vérifier
+                }
+                else if (pick === '1x' || pick === 'dc: 1x' || pick === 'dc:1x') isWin = h >= a;
+                else if (pick === 'x2' || pick === 'dc: x2' || pick === 'dc:x2') isWin = a >= h;
+                else if (pick === '12' || pick === 'dc: 12' || pick === 'dc:12') isWin = h !== a;
+                else if (pick.includes('home') || pick.includes('dom') || pick === '1' || pick.includes(' 1 ')) isWin = h > a;
                 else if (pick.includes('away') || pick.includes('ext') || pick === '2' || pick.includes(' 2 ')) isWin = a > h;
                 else if (pick.includes('draw') || pick.includes('nul') || pick === 'x' || pick.includes(' x ')) isWin = h === a;
                 else if (pick.includes('+1.5') || pick.includes('over 1.5')) isWin = total > 1.5;

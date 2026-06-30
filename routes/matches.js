@@ -366,4 +366,16 @@ router.post('/invalidate-cache', (req, res) => {
     res.json({ invalidated: prefixes })
 });
 
+// Quick V553 test endpoint
+router.get('/test-v553', async (req, res) => {
+    const enrichedPredictions = require('../core/enriched_predictions');
+    const match = { homeTeam: 'Paris Saint-Germain', awayTeam: 'Olympique de Marseille', league: 'Ligue 1', match_date: '2026-06-30', odds_home: 1.50, odds_draw: 4.00, odds_away: 5.50, startTimestamp: Date.now()/1000 };
+    try {
+        const result = await enrichedPredictions._tryV553(match, 30000);
+        res.json(result);
+    } catch (e) {
+        res.json({ error: e.message, stack: e.stack });
+    }
+});
+
 module.exports = router;

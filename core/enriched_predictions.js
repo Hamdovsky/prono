@@ -643,6 +643,7 @@ class EnrichedPredictionService {
                 success: true,
                 insufficient_data: insufficient,
                 ai_source: aiSource,
+                v553: !!v553.success,
                 expected_score: quantResult.expected_score,
                 home_win_probability: (probs.h * 100),
                 draw_probability: (probs.d * 100),
@@ -650,6 +651,7 @@ class EnrichedPredictionService {
                 btts_prob: quantResult.probs.btts,
                 ou_25_prob: quantResult.probs.over25,
                 ht_goal_prob: quantResult.probs.ht_goal,
+                xgboost_confidence: v553.success ? v553.confidence : 0,
                 
                 // Professional Quant Metrics
                 quant: quantResult,

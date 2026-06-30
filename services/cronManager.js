@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+﻿const cron = require('node-cron');
 const { spawn } = require('child_process');
 const path = require('path');
 const logger = require('../core/logger');
@@ -260,18 +260,19 @@ class CronManager {
         }, { timezone: 'Europe/Paris' })
 
         
-        // 19b. Quick archive check (Every 2h, 8-23,0-2) � updates prediction results
+        // 19b. Quick archive check (Every 2h, 8-23,0-2) � updates prediction results
         cron.schedule('0 8-23,0-2 * * *', async () => {
           try {
             const res = await database.archiveFinishedMatches()
             if (res?.archivedCount > 0) {
-              logger.info([CRON] Quick archive: $res.archivedCount matches)
+              logger.info(`[CRON] Quick archive: ${res.archivedCount} matches`)
             }
           } catch (e) {
-            logger.error([CRON] Quick archive error: $e.message")
+            logger.error(`[CRON] Quick archive error: ${e.message}`)
           }
         }, { timezone: 'Europe/Paris' })
-// 20. OpenLigaDB Sync (Daily at 05:00) â€” via Account 2 worker
+
+        // 20. OpenLigaDB Sync (Daily at 05:00) â€” via Account 2 worker
         cron.schedule('0 5 * * *', async () => {
           await workerBridge.callWorker('sync/openligadb')
         }, { timezone: 'Europe/Paris' })

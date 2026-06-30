@@ -348,7 +348,6 @@ class EnrichedPredictionService {
                 task: 'PREDICTION'
             }
             const py = await pythonService.predict(pyMatch, timeoutMs || 30000)
-            logger.info(`[V553] HTTP response success=${py?.success} ai_source=${py?.ai_source} from ${match.homeTeam} vs ${match.awayTeam}`)
             if (py && py.success) {
                 const labelMap = { '1': '1', 'X': 'X', '2': '2', 'Home': '1', 'Draw': 'X', 'Away': '2', 'Home Win': '1', 'Away Win': '2' }
                 // Extract first word from direct_prediction ("Home | Trend..." -> "Home")
@@ -386,7 +385,6 @@ class EnrichedPredictionService {
                     py_full: py,
                 }
             }
-            logger.warn(`[V553] HTTP returned success=false or null for ${match.homeTeam} vs ${match.awayTeam}: ${JSON.stringify(py || {}).substring(0, 200)}`)
             return { success: false, fallback: true }
         } catch (e) {
             logger.warn(`[V553] Bridge error: ${e.message}`)

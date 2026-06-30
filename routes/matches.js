@@ -212,12 +212,20 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         logger.info(`✅ [QUALITY GATE] ${rawMatches.length} quality matches retained.`);
 
         // 🚀 [JIT FAST PASS] Force re-enrichment only for matches missing predictions
+        const maxForce = Math.min(parseInt(req.query.force_count) || 5, 20)
         const needsFastPass = rawMatches.filter(m => 
-            req.query.force === 'true' ||
             !m.home_win_probability ||
             m.home_win_probability === 0 ||
             !m.expected_score
         );
+        
+        if (req.query.force === 'true') {
+            const forceMatches = rawMatches.slice(0, maxForce)
+            forceMatches.forEach(m => {
+                if (!needsFastPass.find(n => n.id === m.id)) needsFastPass.push(m)
+            })
+            logger.info(`🔧 [JIT] Force re-enrichment of ${forceMatches.length} matches`)
+        }
         
         if (needsFastPass.length > 0) {
             logger.info(`✨ [JIT] Batch Quant Enrichment for ${needsFastPass.length} matches (concurrency: 5)...`);
@@ -364,18 +372,6 @@ router.post('/invalidate-cache', (req, res) => {
         invalidateCache(p)
     }
     res.json({ invalidated: prefixes })
-});
-
-// Quick V553 test endpoint
-router.get('/test-v553', async (req, res) => {
-    const enrichedPredictions = require('../core/enriched_predictions');
-    const match = { homeTeam: 'Paris Saint-Germain', awayTeam: 'Olympique de Marseille', league: 'Ligue 1', match_date: '2026-06-30', odds_home: 1.50, odds_draw: 4.00, odds_away: 5.50, startTimestamp: Date.now()/1000 };
-    try {
-        const result = await enrichedPredictions._tryV553(match, 30000);
-        res.json(result);
-    } catch (e) {
-        res.json({ error: e.message, stack: e.stack });
-    }
 });
 
 module.exports = router;

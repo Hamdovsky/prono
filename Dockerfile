@@ -1,32 +1,22 @@
 FROM python:3.10-slim
 
-# Minimal system deps
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     libpq-dev \
-    wget \
+    libxml2-dev \
+    libxslt1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python dependencies (cached layer)
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir \
-        fastapi \
-        uvicorn[standard] \
-        pydantic \
-        psycopg2-binary \
-        redis \
-        aioredis \
-        httpx
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY core/ /app/core/
 COPY inference/ /app/inference/
 COPY models/ /app/models/
 COPY data/ /app/data/
 
-# Set Python path so imports work correctly
 ENV PYTHONPATH=/app/core:/app
 
 EXPOSE 8000

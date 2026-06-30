@@ -1005,6 +1005,7 @@ const database = {
                         WHEN prediction_type = 'Home' AND ? > ? THEN 'won'
                         WHEN prediction_type = 'Away' AND ? < ? THEN 'won'
                         WHEN prediction_type = 'Draw' AND ? = ? THEN 'won'
+                        ELSE 'lost'
                     END
                 WHERE match_id = ? AND prediction_type IN ('Home', 'Away', 'Draw')
             `);

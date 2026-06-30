@@ -41,7 +41,7 @@ class FootballDataService {
     // ── PUBLIC API ──────────────────────────────────────────────────────────
 
     isAvailable() {
-      return false
+      return !!this.apiKey && process.env.FOOTBALLDATA_ENABLED !== 'false'
     }
 
     async fetchOdds(match) {

@@ -15,11 +15,11 @@ router.get('/accuracy', async (req, res) => {
         const overall = await db.prepare(`
             SELECT 
                 COUNT(*) as total,
-                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
-                SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) as lost,
-                SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending,
-                ROUND(100.0 * SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) / 
-                    NULLIF(SUM(CASE WHEN status IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
+                SUM(CASE WHEN result = 'won' THEN 1 ELSE 0 END) as won,
+                SUM(CASE WHEN result = 'lost' THEN 1 ELSE 0 END) as lost,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                ROUND(100.0 * SUM(CASE WHEN result = 'won' THEN 1 ELSE 0 END) / 
+                    NULLIF(SUM(CASE WHEN result IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
             FROM prediction_history
             WHERE timestamp >= ?
         `).get(since);
@@ -28,9 +28,9 @@ router.get('/accuracy', async (req, res) => {
             SELECT 
                 league,
                 COUNT(*) as total,
-                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
-                ROUND(100.0 * SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) / 
-                    NULLIF(SUM(CASE WHEN status IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
+                SUM(CASE WHEN result = 'won' THEN 1 ELSE 0 END) as won,
+                ROUND(100.0 * SUM(CASE WHEN result = 'won' THEN 1 ELSE 0 END) / 
+                    NULLIF(SUM(CASE WHEN result IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
             FROM prediction_history
             WHERE timestamp >= ?
             GROUP BY league
@@ -42,9 +42,9 @@ router.get('/accuracy', async (req, res) => {
             SELECT 
                 DATE(timestamp) as date,
                 COUNT(*) as total,
-                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
-                ROUND(100.0 * SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) / 
-                    NULLIF(SUM(CASE WHEN status IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
+                SUM(CASE WHEN result = 'won' THEN 1 ELSE 0 END) as won,
+                ROUND(100.0 * SUM(CASE WHEN result = 'won' THEN 1 ELSE 0 END) / 
+                    NULLIF(SUM(CASE WHEN result IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
             FROM prediction_history
             WHERE timestamp >= ?
             GROUP BY DATE(timestamp)
@@ -55,10 +55,10 @@ router.get('/accuracy', async (req, res) => {
             SELECT 
                 prediction_type,
                 COUNT(*) as total,
-                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
+                SUM(CASE WHEN result = 'won' THEN 1 ELSE 0 END) as won,
                 ROUND(AVG(probability), 1) as avg_prob,
-                ROUND(100.0 * SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) / 
-                    NULLIF(SUM(CASE WHEN status IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
+                ROUND(100.0 * SUM(CASE WHEN result = 'won' THEN 1 ELSE 0 END) / 
+                    NULLIF(SUM(CASE WHEN result IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
             FROM prediction_history
             WHERE timestamp >= ?
             GROUP BY prediction_type

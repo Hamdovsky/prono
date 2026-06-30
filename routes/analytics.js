@@ -35,7 +35,7 @@ router.get('/accuracy', async (req, res) => {
 /**
  * POST /api/accuracy/run
  */
-router.post('/api/accuracy/run', async (req, res) => {
+router.post('/accuracy/run', async (req, res) => {
     try {
         const date = req.body?.date || new Date().toISOString().split('T')[0];
         const result = await runAnalysis(date);

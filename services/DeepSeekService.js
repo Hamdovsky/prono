@@ -23,7 +23,7 @@ class DeepSeekService {
         if (process.env.GROQ_API_KEY) {
             this.apiKey = process.env.GROQ_API_KEY;
             this.apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-            this.model = 'llama-3.3-70b-versatile';
+            this.model = 'openai/gpt-oss-120b';
             this.isGroq = true;
         } else {
             this.apiKey = process.env.DEEPSEEK_API_KEY || '';

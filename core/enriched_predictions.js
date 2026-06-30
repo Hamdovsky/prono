@@ -621,7 +621,7 @@ class EnrichedPredictionService {
                 quantResult.risk_label = v553.verdict
                 quantResult.confidence = v553.confidence
                 quantResult.expected_score = v553.expected_score
-                probs = { h: v553.home_win_prob / 100, d: v553.draw_prob / 100, a: v553.away_win_prob / 100 }
+                probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
             } else {
                 // JS ENGINE — fallback
                 aiSource = 'TITANIUM_QUANT_V4'

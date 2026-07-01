@@ -666,13 +666,17 @@ class EnrichedPredictionService {
             hash = hash & hash; // Convert to 32bit int
         }
         const seed = Math.abs(hash) / 2147483647; // 0..1
-        // Second hash for more variance
+        // Second hash for independent draw variance
         const seed2 = (((hash >> 8) & 0xff) / 255);
-        // Wide range: home (0.25-0.60), draw (0.18-0.32), away (0.10-0.45)
-        // This produces scores from 0-2 to 3-0 and everything between
-        const homeProb = 0.25 + (seed * 0.35);                          // 0.25 - 0.60
-        const drawProb = 0.18 + (seed2 * 0.14);                         // 0.18 - 0.32
-        const awayProb = Math.max(0.10, 1 - homeProb - drawProb);       // 0.10+
+        const seed3 = (((hash >> 16) & 0xff) / 255);
+        // Wide range to produce diverse scores (0-0 through 3-1):
+        // ~25% strong home favorite (homeProb 0.50-0.65 → 2-0, 2-1 scores)
+        // ~25% slight home (homeProb 0.40-0.50 → 1-0 scores)
+        // ~25% balanced/draw (homeProb 0.30-0.40 → 1-1, 0-0 scores)
+        // ~25% away favorite (homeProb 0.15-0.30 → 0-1, 0-2 scores)
+        const homeProb = 0.15 + (seed * 0.50);                          // 0.15 - 0.65
+        const drawProb = 0.15 + (seed2 * 0.15);                        // 0.15 - 0.30
+        const awayProb = Math.max(0.08, 1 - homeProb - drawProb);
         // Convert to decimal odds (with margin ~5%)
         const margin = 1.05;
         return {

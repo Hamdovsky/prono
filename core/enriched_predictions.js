@@ -507,10 +507,14 @@ class EnrichedPredictionService {
             const py = await pythonService.predict(pyMatch, timeoutMs || 30000)
             if (py && py.success) {
                 const labelMap = { '1': '1', 'X': 'X', '2': '2', 'Home': '1', 'Draw': 'X', 'Away': '2', 'Home Win': '1', 'Away Win': '2' }
-                // Extract first word from direct_prediction ("Home | Trend..." -> "Home")
-                const dpFirstWord = (py.direct_prediction || '').split('|')[0].trim().split(' ')[0]
-                const rawLabel = py.prediction || dpFirstWord || py.verdict || 'X'
-                const label = labelMap[rawLabel] || rawLabel
+                // Determine label from Python probabilities
+                const pyProbs = [
+                    { label: '1', prob: parseFloat(py.home_win_probability || py.home_win_prob || 0) },
+                    { label: 'X', prob: parseFloat(py.draw_probability || py.draw_prob || 0) },
+                    { label: '2', prob: parseFloat(py.away_win_probability || py.away_win_prob || 0) }
+                ]
+                const bestPy = pyProbs.sort((a, b) => b.prob - a.prob)[0]
+                const label = bestPy && bestPy.prob > 0 ? bestPy.label : 'X'
                 const conf = py.confidence || py.surgical_confidence || 0
                 return {
                     success: true,
@@ -829,39 +833,31 @@ class EnrichedPredictionService {
             let quantResult, aiSource, xgH, xgA, probs
             if (v553.success) {
                 aiSource = 'V553_PREMIUM'
-                xgH = parseFloat((v553.expected_score || '0 - 0').split(' - ')[0]) || 0
-                xgA = parseFloat((v553.expected_score || '0 - 0').split(' - ')[1]) || 0
-                // If V553 returned generic 1-1 and we have odds, override with odds-implied xG
-                const isGenericScore = (xgH === 1 && xgA === 1) || v553.insufficient_data;
+                // Derive main pick from Python probabilities
+                const pyProbs = [
+                    { label: '1', prob: v553.home_win_probability || v553.home_win_prob || 0 },
+                    { label: 'X', prob: v553.draw_probability || v553.draw_prob || 0 },
+                    { label: '2', prob: v553.away_win_probability || v553.away_win_prob || 0 }
+                ]
+                const bestPy = pyProbs.sort((a, b) => b.prob - a.prob)[0]
+                const v553Prediction = bestPy && bestPy.prob > 0 ? bestPy.label : (v553.prediction || 'X')
+                // Always use odds-implied xG for QuantumQuantEngine when odds exist
                 const hasOdds = m.odds_home && m.odds_draw && m.odds_away;
-                // Generate synthetic odds when real odds are missing
-                if (isGenericScore && !hasOdds) {
-                    const synth = this._generateSyntheticOdds(m.homeTeam, m.awayTeam);
-                    m.odds_home = synth.home;
-                    m.odds_draw = synth.draw;
-                    m.odds_away = synth.away;
-                }
-                if (isGenericScore && m.odds_home && m.odds_draw && m.odds_away) {
+                if (hasOdds) {
                     const odH = 1 / parseFloat(m.odds_home);
                     const odD = 1 / parseFloat(m.odds_draw);
                     const odA = 1 / parseFloat(m.odds_away);
                     const oSum = odH + odD + odA;
                     xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0));
                     xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0));
-                    aiSource = 'V553_ODDS_ADJUSTED'
+                } else {
+                    xgH = 1.0; xgA = 1.0
                 }
                 quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
-                quantResult.main_pick = v553.prediction
-                quantResult.risk_label = v553.verdict
+                quantResult.main_pick = v553Prediction
+                quantResult.expected_score = v553.expected_score || quantResult.expected_score
                 quantResult.confidence = v553.confidence
-                // Use odds-implied score/probs when xG was overridden (not V553's default 1-1)
-                if (isGenericScore && m.odds_home && m.odds_draw && m.odds_away) {
-                    // Let QuantumQuantEngine's expected_score stand (computed from odds-implied xG)
-                    probs = { h: quantResult.markets.match_result['1'].prob, d: quantResult.markets.match_result['X'].prob, a: quantResult.markets.match_result['2'].prob }
-                } else {
-                    quantResult.expected_score = v553.expected_score
-                    probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
-                }
+                probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
             } else {
                 // JS ENGINE — fallback: ALWAYS use odds-implied xG for differentiation
                 aiSource = 'TITANIUM_QUANT_V4'

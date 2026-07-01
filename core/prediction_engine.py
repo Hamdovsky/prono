@@ -308,8 +308,17 @@ def process_prediction(match_obj: dict) -> dict:
     precision_bets.extend(dnb_ah_bets)
 
     # === PHASE 4: SURGICAL MARKET + CONFIDENCE ===
+    outcomes_tmp = [
+        ("Home", p_h),
+        ("Draw", p_d),
+        ("Away", p_a)
+    ]
+    best_outcome_tmp = max(outcomes_tmp, key=lambda x: x[1])
+    surgical_selection = best_outcome_tmp[0]
+    surgical_prob = best_outcome_tmp[1]
+
     surgical_verdict, backup_verdict = get_best_surgical_market(
-        match_obj, selection, selection_label, selection_prob,
+        match_obj, surgical_selection, surgical_selection, surgical_prob,
         p_h, p_d, p_a, xg_h, xg_a, mc_ou25,
         league_tier, home_name, away_name,
         _f_feat('home_big_chances', features, 1.0), _f_feat('away_big_chances', features, 1.0),

@@ -127,14 +127,49 @@ def calculate_most_likely_score(xg_h, xg_a, distribution='poisson',
 
 def calculate_exact_score(xg_h, xg_a, p_home, p_away, distribution='poisson',
                           theta=2.0, nu=1.0, rho=-0.12, gamma=0.0):
-    """Derive most likely scoreline from xG and adjust for high win confidence."""
+    """Derive most likely scoreline from xG + win probability imbalance.
+
+    When xG are close (majority of matches), Poisson mode gives 1-1 for
+    everything.  This function uses the win-probability ratio to produce
+    differentiated scores that match the actual prediction strength.
+    """
+    p_draw = max(0, 100 - p_home - p_away)
+
+    # Phase 1 — try pure Poisson from xG
     score_str = calculate_most_likely_score(xg_h, xg_a, distribution=distribution,
                                             theta=theta, nu=nu, rho=rho)
     h_f, a_f = map(int, score_str.split(' - '))
+
+    # Phase 2 — if score is a draw (most common failure mode) or very low
+    # scoring, derive winner and margin from probability distribution.
+    if h_f == a_f or (h_f + a_f) < 2:
+        # Which team is the favourite?
+        if p_home > max(p_draw, p_away) and (p_home - max(p_draw, p_away)) > 3:
+            margin = p_home - max(p_draw, p_away)
+            if margin > 25:
+                h_f, a_f = 2, 0
+            elif margin > 12:
+                h_f, a_f = 2, 1
+            else:
+                h_f, a_f = 1, 0
+        elif p_away > max(p_draw, p_home) and (p_away - max(p_draw, p_home)) > 3:
+            margin = p_away - max(p_draw, p_home)
+            if margin > 25:
+                h_f, a_f = 0, 2
+            elif margin > 12:
+                h_f, a_f = 1, 2
+            else:
+                h_f, a_f = 0, 1
+        else:
+            # True draw — bump total goals if xG support it
+            h_f, a_f = (1, 1)
+
+    # Phase 3 — override for very high win confidence (> 70 %)
     if p_home > 70 and h_f == a_f:
         h_f = a_f + 1
     elif p_away > 70 and h_f == a_f:
         a_f = h_f + 1
+
     return f"{max(0, min(7, h_f))} - {max(0, min(7, a_f))}"
 
 

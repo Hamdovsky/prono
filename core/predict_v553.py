@@ -149,25 +149,36 @@ def predict(match):
         if p_sum > 0:
             p_h_ratio = probs_map['1'] / p_sum
             draw_factor = probs_map['X'] / 100.0
-            balance = min(1.0, draw_factor * 3.0)
+            normalized_draw = max(0, (draw_factor - 0.25) / 0.25)
+            balance = min(1.0, normalized_draw)
             xg_h = total_xg * (balance * 0.5 + (1.0 - balance) * (0.4 + 0.6 * p_h_ratio))
             xg_a = max(0.3, total_xg - xg_h)
             xg_h = max(0.4, min(4.0, xg_h))
 
-    # Poisson most likely score instead of naive round(xG)
-    from math import exp, factorial
-    def _poisson_mode(lam):
-        lam = max(0.1, min(5.0, lam))
-        k, best_p, best_k = 0, 0, 0
-        while k < 8:
-            p = (lam ** k) * exp(-lam) / factorial(k)
-            if p > best_p:
-                best_p, best_k = p, k
-            k += 1
-        return best_k
+    # Probability-aware expected score — derive from probs not just xG
+    p_home = probs_map['1']
+    p_draw = probs_map['X']
+    p_away = probs_map['2']
 
-    score_h = _poisson_mode(xg_h)
-    score_a = _poisson_mode(xg_a)
+    if p_home > max(p_draw, p_away) and (p_home - max(p_draw, p_away)) > 3:
+        margin = p_home - max(p_draw, p_away)
+        if margin > 25:
+            score_h, score_a = 2, 0
+        elif margin > 12:
+            score_h, score_a = 2, 1
+        else:
+            score_h, score_a = 1, 0
+    elif p_away > max(p_draw, p_home) and (p_away - max(p_draw, p_home)) > 3:
+        margin = p_away - max(p_draw, p_home)
+        if margin > 25:
+            score_h, score_a = 0, 2
+        elif margin > 12:
+            score_h, score_a = 1, 2
+        else:
+            score_h, score_a = 0, 1
+    else:
+        score_h, score_a = 1, 1
+
     expected_score = f'{score_h} - {score_a}'
 
     return {

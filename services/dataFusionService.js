@@ -117,9 +117,13 @@ class DataFusionService {
 
   async _getSofaId(match) {
     if (match.sofascore_id) return match.sofascore_id
+    // Extract from match ID format: "sofascore_12345"
+    if (match.id && typeof match.id === 'string' && match.id.startsWith('sofascore_')) {
+      return match.id.replace('sofascore_', '')
+    }
     try {
       const fd = typeof match.fullData === 'string' ? JSON.parse(match.fullData) : (match.fullData || {})
-      return fd.sofascoreId || fd.sofa_id || fd.sofascore_id || null
+      return fd.sofascoreId || fd.sofa_id || fd.sofascore_id || fd.sofaMatchId || null
     } catch { return null }
   }
 

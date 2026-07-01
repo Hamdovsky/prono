@@ -682,6 +682,19 @@ class EnrichedPredictionService {
         try {
             const m = { ...match };
 
+            // ── FETCH ODDS (critical for odds-implied xG differentiation) ──
+            if (!m.odds_home || !m.odds_draw || !m.odds_away) {
+                try {
+                    const dataFusionService = require('../services/dataFusionService');
+                    const liveOdds = await dataFusionService.fetchOdds(m);
+                    if (liveOdds) {
+                        m.odds_home = liveOdds.home;
+                        m.odds_draw = liveOdds.draw;
+                        m.odds_away = liveOdds.away;
+                    }
+                } catch (_) { /* odds fetch failed — continue without odds */ }
+            }
+
             // ── SOFASCORE TEAM DATA (form, xG) ──
             if (!m._sofaTeamDataFetched && (m.home_team_id || m._homeTeamId || m.sofascore_id || (typeof m.id === 'string' && m.id.startsWith('sofascore_')))) {
                 await this._fetchSofaTeamData(m);

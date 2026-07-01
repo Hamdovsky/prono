@@ -28,23 +28,7 @@ from goal_model import (
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Lazy import helpers
-_xgb = None
-
-def get_xgb():
-    global _xgb
-    if _xgb is None:
-        try:
-            import xgboost as xgb
-            _xgb = xgb
-        except Exception as e:
-            print(f"❌ XGBOOST NON DISPONIBLE: {e}")
-            print("❌ Les prédictions ML seront désactivées jusqu'à ce que xgboost soit installé.")
-            print("❌ Installe avec: pip install xgboost")
-            _xgb = None
-    return _xgb
-
-import pickle # Added import
+import pickle
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -53,9 +37,7 @@ import logging
 logging.getLogger('absl').setLevel(logging.ERROR)
 
 from ml_features import extract_ml_features, FEATURE_NAMES, FEATURE_NAMES_V24, FEATURE_NAMES_V55, FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553, FEATURE_NAMES_TITANIUM, calculate_rolling_averages, FEATURE_VOLATILITY
-
 from top_analyst_engine import process_match_for_top_analyst
-
 from leagues_master import classify_league
 
 # --- Module imports (refactored) ---
@@ -79,6 +61,23 @@ from feature_engineer import (
     calculate_composite_defense, get_stylistic_clash_modifier,
     get_referee_discipline_profile, apply_tactical_intelligence,
 )
+from model_manager import (
+    get_xgb,
+    get_titanium_booster, get_titanium_v4_booster,
+    get_v55_booster, get_v551_booster, get_v552_booster,
+    get_v553_booster, get_v553_premium_booster,
+    get_main_booster, get_corners_model, get_cards_model,
+    simulate_match_mc,
+    XGB_MODEL_PATH, V55_MODEL_PATH, V551_MODEL_PATH,
+    V552_MODEL_PATH, V553_MODEL_PATH, V553_PREMIUM_MODEL_PATH,
+    CORNERS_MODEL_PATH, CARDS_MODEL_PATH,
+    TITANIUM_MODEL_PATH, TITANIUM_V4_MODEL_PATH,
+)
+
+# --- CACHE FOR STATISTICAL LOOKUPS (kept for backward compat) ---
+_LEAGUE_DRAW_CACHE = {}
+_TEAM_STRENGTH_CACHE = {}
+_LEAGUE_HA_CACHE = {}
 
 # --- CACHE FOR STATISTICAL LOOKUPS (kept for backward compat) ---
 _LEAGUE_DRAW_CACHE = {}
@@ -108,161 +107,9 @@ LEAGUE_WEIGHT_MATRIX = {
 
 # apply_tactical_intelligence now imported from feature_engineer.py
 
-# --- MONTE CARLO AI SIMULATION ---
-def simulate_match_mc(model, base_features, num_simulations=500, feature_names=None, fatigue_impact=(1.0, 1.0), injury_impact=(0.0, 0.0), match_seed=None, league_name=None):
-    """
-    [TITANIUM V20] Quantum Monte Carlo Simulation.
-    Injects tiered Gaussian noise into feature vectors to model performance variance and uncertainty.
-    
-    Args:
-        model: Loaded XGBoost booster object.
-        base_features: NumPy array or list of original feature values.
-        num_simulations: Number of paths to simulate (default 200 for performance).
-        feature_names: List of strings for column mapping (optional but recommended).
-        fatigue_impact: Tuple (Home, Away) for physiological performance decay.
-        injury_impact: Tuple (Home, Away) representing absentee severity.
-        match_seed: Optional seed for deterministic reproducibility.
-        
-    Returns:
-        Tuple: (p_home, p_draw, p_away) averaged over all simulations.
-    """
-    # [DETERMINISM FIX] Seed the RNG with a hash of the base features vector
-    # This guarantees identical results for identical match data across all runs.
-    if match_seed is None:
-        match_seed = int(abs(hash(tuple(round(float(x), 4) for x in base_features)))) % (2**31)
-    rng = np.random.default_rng(seed=match_seed)
+# simulate_match_mc now imported from model_manager.py
 
-    X_base = np.array(base_features, dtype=float)
-    if X_base.ndim > 1: X_base = X_base.flatten()
-    
-    # Apply physiological penalties to the base feature vector before noise
-    # This simulates a "depleted" baseline capability
-    if feature_names:
-        for idx, fname in enumerate(feature_names):
-            if fname.startswith('h_') or 'home_' in fname:
-                # Fatigue reduces performance linearly
-                X_base[idx] *= fatigue_impact[0]
-                # Injury acts as a capped negative weight (max 10% drop to avoid model shock)
-                if injury_impact[0] > 0:
-                    penalty = min(0.10, injury_impact[0] * 0.02)
-                    X_base[idx] *= (1.0 - penalty)
-            elif fname.startswith('a_') or 'away_' in fname:
-                X_base[idx] *= fatigue_impact[1]
-                if injury_impact[1] > 0:
-                    penalty = min(0.10, injury_impact[1] * 0.02)
-                    X_base[idx] *= (1.0 - penalty)
-                    
-    # --- V75 ADVANCED LOGISTICS & REFEREE BIAS ---
-    weather_impact = 1.0
-    ref_bias = 0.45
-    if feature_names:
-        if 'weather_impact' in feature_names:
-            weather_impact = _safe_float(X_base[feature_names.index('weather_impact')])
-        if 'ref_bias' in feature_names:
-            ref_bias = _safe_float(X_base[feature_names.index('ref_bias')])
-    
-    num_features = len(X_base)
-    # Generate noise matrix [num_simulations, num_features]
-    noise_matrix = np.zeros((num_simulations, num_features))
-    
-    for i in range(num_features):
-        fname = feature_names[i] if feature_names and i < len(feature_names) else "unknown"
-        # Get volatility from FEATURE_VOLATILITY, default to 0.05
-        vol = FEATURE_VOLATILITY.get(fname, 0.05)
-        # [V120] Cap volatility to prevent probability flattening with rich feature set
-        vol = min(vol, 0.08)
-        
-        # [V75] Scale noise by weather impact (higher impact = more chaos/variance)
-        if weather_impact > 1.05 and vol > 0.02: # Only scale volatile features
-            vol *= min(1.5, weather_impact)
-            
-        # [New] Scale noise if a key player is missing (Injury impact > 3 implies Key Player)
-        if (fname.startswith('h_') or 'home_' in fname) and injury_impact[0] >= 3.0 and vol > 0.02:
-            vol *= 1.25 # 25% more chaotic due to missing key player
-        elif (fname.startswith('a_') or 'away_' in fname) and injury_impact[1] >= 3.0 and vol > 0.02:
-            vol *= 1.25
-            
-        # Generate gaussian noise for this specific feature
-        noise_matrix[:, i] = rng.normal(0, vol, num_simulations)
-    
-    # Apply noise: X_sim = X_base * (1 + noise)
-    # Special handling for binary features (don't inject noise into 0/1)
-    X_simulated = np.tile(X_base, (num_simulations, 1))
-    for i in range(num_features):
-        if X_base[i] != 0 and X_base[i] != 1: # Only noise non-binary
-            X_simulated[:, i] *= (1.0 + noise_matrix[:, i])
-    
-    # [V80] CRISIS MODE: If many key players are missing, the match becomes extremely unpredictable.
-    if (injury_impact[0] > 6.0 or injury_impact[1] > 6.0) and num_simulations < 1000:
-        # Automatic boost in simulations for higher precision in crisis
-        num_simulations = 1000
-        rng = np.random.default_rng(seed=match_seed + 1) # re-seed for extra entropy
-        
-    fn = feature_names if feature_names and len(feature_names) == X_simulated.shape[1] else None
-    xgb = get_xgb()
-    if xgb is None:
-        print("❌ [MONTE-CARLO] XGBoost non disponible — utilisation des probabilités brutes")
-        return None, None, None, None
-    dmatrix = xgb.DMatrix(X_simulated, feature_names=fn)
-    predictions = model.predict(dmatrix)
-    
-    if predictions.ndim == 2 and predictions.shape[1] >= 3:
-        win_probability = np.mean(predictions[:, 0])
-        draw_probability = np.mean(predictions[:, 1])
-        loss_probability = np.mean(predictions[:, 2])
-        
-        # [V75 REFEREE BIAS ADJUSTMENT]
-        # Shift probability slightly towards Home/Away based on Ref historical bias
-        if ref_bias > 0.52: # Home favorist
-            shift = (ref_bias - 0.50) * 0.15 # Small 1-3% shift
-            win_probability += shift
-            loss_probability -= shift
-        elif ref_bias < 0.40: # Away favorist (uncommon)
-            shift = (0.45 - ref_bias) * 0.15
-            loss_probability += shift
-            win_probability -= shift
-
-        # [V70 REALISM — LEAGUE-AWARE] XGBoost Draw Bias Correction
-        # Classifiers trained on rare outcomes (draws) often underestimate them.
-        # Draw correction multiplier is now sourced from real league historical data
-        # instead of a hardcoded global constant.
-        if draw_probability < 0.26 and abs(win_probability - loss_probability) < 0.25:
-            league_draw_mult = _get_league_draw_multiplier(feature_names, base_features, league_name=league_name)
-            draw_probability *= league_draw_mult
-            
-    else:
-        # Voter Approach
-        win_probability = np.mean(predictions == 0)
-        draw_probability = np.mean(predictions == 1)
-        loss_probability = np.mean(predictions == 2)
-        
-        if draw_probability < 0.18:
-            league_draw_mult = _get_league_draw_multiplier(feature_names, base_features, league_name=league_name)
-            draw_probability *= min(1.15, league_draw_mult)
-
-    # Re-normalize to ensure sum is exactly 1.0
-    total_p = win_probability + draw_probability + loss_probability
-    win_probability /= total_p
-    draw_probability /= total_p
-    loss_probability /= total_p
-    
-    return float(win_probability), float(draw_probability), float(loss_probability)
-def get_dixon_coles_adjustment(lh, la, h, a, rho=-0.12):
-    """
-    Apply Dixon-Coles adjustment for low-scoring matches (0-0, 0-1, 1-0, 1-1).
-    Basic Poisson models tend to underestimate draws in low-scoring games.
-    """
-    if h == 0 and a == 0:
-        return 1 - (lh * la * rho)
-    elif h == 1 and a == 0:
-        return 1 + (la * rho)
-    elif h == 0 and a == 1:
-        return 1 + (lh * rho)
-    elif h == 1 and a == 1:
-        return 1 - rho
-    return 1.0
-
-def calculate_ah_dnb_probs(p_h, p_d, p_a):
+def calculate_most_likely_score(xg_h, xg_a, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
     """
     Calculate professional market probabilities:
     - Draw No Bet (AH 0.0)
@@ -329,174 +176,24 @@ def generate_strategic_brief(features, home_name, away_name, selection, match_ob
     except Exception:
         return "Analyse tactique complexe : Équilibre des forces en présence avec variables multiples."
 
-# --- MODELS AND SCALERS CACHE ---
-# Data paths now imported from data_loader.py
-# Model paths (still needed locally for XGBoost loading)
-XGB_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v24_hybrid.json')
-V55_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v55_optimized.json')
-V551_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v551_optimized.json')
-V552_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v552_optimized.json')
-V553_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v553_optimized.json')
-V553_PREMIUM_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v553_premium.json')
-
-# V18 Secondary Markets
-CORNERS_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_corners_v1.json')
-CARDS_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_cards_v1.json')
-TITANIUM_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'titanium_v2.json')
-TITANIUM_V4_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'titanium_v4.json')
-
-# STATS_KEYS_V4, FEATURE_NAMES_V4, STYLISTIC_MATRIX now imported from feature_engineer.py
+# Model paths and get_*_booster() functions now imported from model_manager.py
+# Duplicate model paths removed to avoid shadowing imports
 
 ELO_DATA = get_elo_data()
 
-# AI Boosters (Lazy Loaded)
-_XGB_BOOSTER = None
-_XGB_V55_BOOSTER = None
-_XGB_V551_BOOSTER = None
-_XGB_V552_BOOSTER = None
-_XGB_V553_BOOSTER = None
-_XGB_V553_PREMIUM_BOOSTER = None
-_CORNERS_MODEL = None
-_CARDS_MODEL = None
-_TITANIUM_BOOSTER = None
-_TITANIUM_V4_BOOSTER = None
-
-def get_titanium_booster():
-    global _TITANIUM_BOOSTER
-    if _TITANIUM_BOOSTER is None and os.path.exists(TITANIUM_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _TITANIUM_BOOSTER = xgb.Booster()
-            _TITANIUM_BOOSTER.load_model(TITANIUM_MODEL_PATH)
-        except Exception as e:
-            sys.stderr.write(f"⚠️ [XGB] Failed to load Titanium model: {str(e)}\n")
-            _TITANIUM_BOOSTER = None
-    return _TITANIUM_BOOSTER
-
-def get_titanium_v4_booster():
-    global _TITANIUM_V4_BOOSTER
-    if _TITANIUM_V4_BOOSTER is None and os.path.exists(TITANIUM_V4_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _TITANIUM_V4_BOOSTER = xgb.Booster()
-            _TITANIUM_V4_BOOSTER.load_model(TITANIUM_V4_MODEL_PATH)
-        except Exception as e:
-            sys.stderr.write(f"⚠️ [XGB] Failed to load Titanium V4 model: {str(e)}\n")
-            _TITANIUM_V4_BOOSTER = None
-    return _TITANIUM_V4_BOOSTER
-
-def get_v55_booster():
-    global _XGB_V55_BOOSTER
-    if _XGB_V55_BOOSTER is None and os.path.exists(V55_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _XGB_V55_BOOSTER = xgb.Booster()
-            _XGB_V55_BOOSTER.load_model(V55_MODEL_PATH)
-        except Exception as e:
-            sys.stderr.write(f"⚠️ [XGB] Failed to load V55 model: {str(e)}\n")
-            _XGB_V55_BOOSTER = None
-    return _XGB_V55_BOOSTER
-
-def get_v551_booster():
-    global _XGB_V551_BOOSTER
-    if _XGB_V551_BOOSTER is None and os.path.exists(V551_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _XGB_V551_BOOSTER = xgb.Booster()
-            _XGB_V551_BOOSTER.load_model(V551_MODEL_PATH)
-        except Exception as e:
-            sys.stderr.write(f"⚠️ [XGB] Failed to load V551 model: {str(e)}\n")
-            _XGB_V551_BOOSTER = None
-    return _XGB_V551_BOOSTER
-
-def get_v552_booster():
-    global _XGB_V552_BOOSTER
-    if _XGB_V552_BOOSTER is None and os.path.exists(V552_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _XGB_V552_BOOSTER = xgb.Booster()
-            _XGB_V552_BOOSTER.load_model(V552_MODEL_PATH)
-        except Exception as e:
-            sys.stderr.write(f"⚠️ [XGB] Failed to load V552 model: {str(e)}\n")
-            _XGB_V552_BOOSTER = None
-    return _XGB_V552_BOOSTER
-
-def get_v553_booster():
-    global _XGB_V553_BOOSTER
-    if _XGB_V553_BOOSTER is None and os.path.exists(V553_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _XGB_V553_BOOSTER = xgb.Booster()
-            _XGB_V553_BOOSTER.load_model(V553_MODEL_PATH)
-        except Exception as e:
-            sys.stderr.write(f"[XGB] Failed to load V553 model: {str(e)}\n")
-            _XGB_V553_BOOSTER = None
-    return _XGB_V553_BOOSTER
-
-def get_v553_premium_booster():
-    global _XGB_V553_PREMIUM_BOOSTER
-    if _XGB_V553_PREMIUM_BOOSTER is None and os.path.exists(V553_PREMIUM_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _XGB_V553_PREMIUM_BOOSTER = xgb.Booster()
-            _XGB_V553_PREMIUM_BOOSTER.load_model(V553_PREMIUM_MODEL_PATH)
-        except Exception as e:
-            sys.stderr.write(f"[XGB] Failed to load V553 Premium model: {str(e)}\n")
-            _XGB_V553_PREMIUM_BOOSTER = None
-    return _XGB_V553_PREMIUM_BOOSTER
-
-# extract_v4_features now imported from feature_engineer.py
-
-def get_main_booster():
-    global _XGB_BOOSTER
-    if _XGB_BOOSTER is None and os.path.exists(XGB_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _XGB_BOOSTER = xgb.Booster()
-            _XGB_BOOSTER.load_model(XGB_MODEL_PATH)
-        except Exception as e:
-            sys.stderr.write(f"⚠️ [XGB] Failed to load model v24: {str(e)}\n")
-            _XGB_BOOSTER = None
-    return _XGB_BOOSTER
-
-def get_corners_model():
-    global _CORNERS_MODEL
-    if _CORNERS_MODEL is None and os.path.exists(CORNERS_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _CORNERS_MODEL = xgb.Booster()
-            _CORNERS_MODEL.load_model(CORNERS_MODEL_PATH)
-        except Exception: pass
-    return _CORNERS_MODEL
-
-def get_cards_model():
-    global _CARDS_MODEL
-    if _CARDS_MODEL is None and os.path.exists(CARDS_MODEL_PATH):
-        try:
-            xgb = get_xgb()
-            _CARDS_MODEL = xgb.Booster()
-            _CARDS_MODEL.load_model(CARDS_MODEL_PATH)
-        except Exception: pass
-    return _CARDS_MODEL
-
-# SHAP EXPLAINER DISABLED
-SHAP_EXPLAINER = None
+# All booster functions (get_titanium_booster, get_v55*_booster, etc.)
+# now imported from model_manager.py
 
 # calculate_team_strength, get_league_volatility_penalty, get_league_home_advantage,
 # get_h2h_modifier now imported from data_loader.py
-
-# --- V50: Advanced Algorithmic Concepts ---
-# --- V50+ SURGICAL INTELLIGENCE: Refined Mathematical Models ---
 
 # calculate_dmf_hafiz, calculate_xg_perf_delta, impute_missing_match_data,
 # calculate_composite_confidence, calculate_fatigue_mod now imported from feature_engineer.py
 
 # get_league_goals_multiplier now imported from data_loader.py
-
 # calculate_composite_defense now imported from feature_engineer.py
-
-
 # get_advanced_xg_adjustment now imported from data_loader.py
+# simulate_match_mc now imported from model_manager.py
 
 def calculate_most_likely_score(xg_h, xg_a, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
     """Find the most probable exact score using Dixon-Coles and alternative goal distributions."""

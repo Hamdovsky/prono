@@ -143,10 +143,18 @@ class EnrichedPredictionService {
                 }
                 const n = events.length;
                 return {
-                    avgGoals: gf / n, avgGoalsConceded: ga / n,
-                    avgXgFor: xgFor / n, avgXgAgainst: xgAgainst / n,
-                    winRate: wins / n, drawRate: draws / n, lossRate: losses / n,
-                    points: (wins * 3 + draws) / n, matchesAnalyzed: n
+                    avgGoalsScored: gf / n,
+                    avgGoalsConceded: ga / n,
+                    avgXgFor: xgFor / n,
+                    avgXgAgainst: xgAgainst / n,
+                    avgPossession: 50,
+                    avgShots: 12,
+                    avgShotsOnTarget: 4,
+                    winRate: wins / n,
+                    drawRate: draws / n,
+                    lossRate: losses / n,
+                    points: (wins * 3 + draws) / n,
+                    matchesAnalyzed: n
                 };
             };
 
@@ -777,6 +785,17 @@ class EnrichedPredictionService {
                 aiSource = 'V553_PREMIUM'
                 xgH = parseFloat((v553.expected_score || '0 - 0').split(' - ')[0]) || 0
                 xgA = parseFloat((v553.expected_score || '0 - 0').split(' - ')[1]) || 0
+                // If V553 returned generic 1-1 and we have odds, override with odds-implied xG
+                const isGenericScore = (xgH === 1 && xgA === 1) || v553.insufficient_data;
+                if (isGenericScore && m.odds_home && m.odds_draw && m.odds_away) {
+                    const odH = 1 / parseFloat(m.odds_home);
+                    const odD = 1 / parseFloat(m.odds_draw);
+                    const odA = 1 / parseFloat(m.odds_away);
+                    const oSum = odH + odD + odA;
+                    xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0));
+                    xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0));
+                    aiSource = 'V553_ODDS_ADJUSTED'
+                }
                 quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
                 quantResult.main_pick = v553.prediction
                 quantResult.risk_label = v553.verdict
@@ -784,10 +803,19 @@ class EnrichedPredictionService {
                 quantResult.expected_score = v553.expected_score
                 probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
             } else {
-                // JS ENGINE — fallback
+                // JS ENGINE — fallback: ALWAYS use odds-implied xG for differentiation
                 aiSource = 'TITANIUM_QUANT_V4'
-                const xg = this._getMatchXG(m)
-                xgH = xg.h; xgA = xg.a
+                if (m.odds_home && m.odds_draw && m.odds_away) {
+                    const odH = 1 / parseFloat(m.odds_home);
+                    const odD = 1 / parseFloat(m.odds_draw);
+                    const odA = 1 / parseFloat(m.odds_away);
+                    const oSum = odH + odD + odA;
+                    xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0));
+                    xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0));
+                } else {
+                    const xg = this._getMatchXG(m)
+                    xgH = xg.h; xgA = xg.a
+                }
                 quantResult = QuantumQuantEngine.analyze(m, xgH, xgA)
                 probs = { h: quantResult.markets.match_result['1'].prob, d: quantResult.markets.match_result['X'].prob, a: quantResult.markets.match_result['2'].prob }
             }

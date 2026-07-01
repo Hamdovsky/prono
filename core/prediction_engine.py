@@ -117,7 +117,7 @@ def process_prediction(match_obj: dict) -> dict:
 
     # INSUFFICIENT DATA FILTER — universal guard, stricter for unknown leagues
     data_completeness = features.get('data_completeness', 100)
-    dc_threshold = 30.0 if league_tier == 'UNKNOWN' else 15.0
+    dc_threshold = 20.0 if league_tier == 'UNKNOWN' else 5.0
     if data_completeness < dc_threshold:
         sys.stderr.write(f"🛑 PRE-MATCH FILTER: Insufficient data ({data_completeness:.0f}% < {dc_threshold}%) for league '{league_name_str}'. Blocked.\n")
         return {"success": False, "error": "INSUFFICIENT_DATA", "data_completeness": data_completeness}

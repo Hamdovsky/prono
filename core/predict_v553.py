@@ -113,16 +113,22 @@ def predict(match):
         xg_h = base_feats.get('expected_goals_home', 1.0)
         xg_a = base_feats.get('expected_goals_away', 1.0)
 
-    # Odds-implied xG fallback: reverse-engineer from 1X2 odds when xG still default
-    if xg_h <= 0.5 and xg_a <= 0.5:
-        odds_h = float(match.get('odds_home', 0) or 0)
-        odds_d = float(match.get('odds_draw', 0) or 0)
-        odds_a = float(match.get('odds_away', 0) or 0)
-        if odds_h > 1.1 and odds_d > 1.1 and odds_a > 1.1:
-            implied_h = 1.0 / odds_h
-            implied_a = 1.0 / odds_a
-            xg_h = max(0.4, min(3.0, -np.log(1 - implied_h) if implied_h < 1 else 1.2))
-            xg_a = max(0.4, min(3.0, -np.log(1 - implied_a) if implied_a < 1 else 1.0))
+    # Detect if xG is a default (no real data) — check data_completeness
+    dc = base_feats.get('data_completeness', 100)
+    is_default_xg = dc < 30.0 or (xg_h == 1.0 and xg_a == 1.0)
+
+    # Odds-implied xG: always use when data is thin
+    odds_h = float(match.get('odds_home', 0) or 0)
+    odds_d = float(match.get('odds_draw', 0) or 0)
+    odds_a = float(match.get('odds_away', 0) or 0)
+    if is_default_xg and odds_h > 1.1 and odds_d > 1.1 and odds_a > 1.1:
+        implied_h = 1.0 / odds_h
+        implied_d = 1.0 / odds_d
+        implied_a = 1.0 / odds_a
+        total = implied_h + implied_d + implied_a
+        nh, nd, na = implied_h / total, implied_d / total, implied_a / total
+        xg_h = max(0.4, min(3.0, nh * 3.0))
+        xg_a = max(0.4, min(3.0, na * 3.0))
 
     # Poisson most likely score instead of naive round(xG)
     from math import exp, factorial

@@ -127,14 +127,17 @@ def safe_float(v, default=0.0):
     try: return float(v) if v is not None else default
     except: return default
 
-def compute_ou_btts(exp):
-    try:
-        xg_h = float(exp.split(' - ')[0]) if ' - ' in exp else 1.2
-        xg_a = float(exp.split(' - ')[1]) if ' - ' in exp else 1.0
-    except:
-        xg_h, xg_a = 1.2, 1.0
-    if xg_h < 0.3: xg_h = 1.2
-    if xg_a < 0.3: xg_a = 1.0
+def compute_ou_btts(exp, xg_h=None, xg_a=None):
+    if xg_h is not None and xg_a is not None and xg_h > 0 and xg_a > 0:
+        pass
+    else:
+        try:
+            xg_h = float(exp.split(' - ')[0]) if ' - ' in exp else 1.2
+            xg_a = float(exp.split(' - ')[1]) if ' - ' in exp else 1.0
+        except:
+            xg_h, xg_a = 1.2, 1.0
+    if xg_h < 0.3: xg_h = 0.5
+    if xg_a < 0.3: xg_a = 0.5
     
     ou25 = 1.0
     for k in range(0, 3):
@@ -239,8 +242,10 @@ def run():
                 result = pred['prediction']
                 conf = max(hp, dp, ap)
                 exp = pred.get('expected_score', '1.2 - 1.0')
+                xg_h = pred.get('home_xg')
+                xg_a = pred.get('away_xg')
                 
-                ou25, btts = compute_ou_btts(exp)
+                ou25, btts = compute_ou_btts(exp, xg_h, xg_a)
                 
                 if result == '1': odds = match['odds_home']; prob = hp
                 elif result == 'X': odds = match['odds_draw']; prob = dp
@@ -269,6 +274,8 @@ def run():
                     'odds_away': match['odds_away'],
                     'odds_source': match.get('odds_source', 'default'),
                     'expected_score': exp,
+                    'home_xg': round(xg_h, 2) if xg_h else 0,
+                    'away_xg': round(xg_a, 2) if xg_a else 0,
                     'ou25': round(ou25, 1),
                     'btts': round(btts, 1),
                     'ev': ev,

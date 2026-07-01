@@ -130,6 +130,30 @@ def predict(match):
         xg_h = max(0.4, min(3.0, nh * 3.0))
         xg_a = max(0.4, min(3.0, na * 3.0))
 
+    # If xG is still default after odds-implied fallback, derive from XGBoost probs
+    if is_default_xg or (xg_h == 1.0 and xg_a == 1.0):
+        odds_h = float(match.get('odds_home', 0) or 0)
+        odds_d = float(match.get('odds_draw', 0) or 0)
+        odds_a = float(match.get('odds_away', 0) or 0)
+        if odds_h > 1.1 and odds_d > 1.1 and odds_a > 1.1:
+            implied_h = 1.0 / odds_h
+            implied_d = 1.0 / odds_d
+            implied_a = 1.0 / odds_a
+            total_imp = implied_h + implied_d + implied_a
+            nh, nd, na = implied_h / total_imp, implied_d / total_imp, implied_a / total_imp
+            max_implied = max(nh, na)
+            total_xg = 1.5 + 1.5 * max_implied
+        else:
+            total_xg = 2.0
+        p_sum = probs_map['1'] + probs_map['2']
+        if p_sum > 0:
+            p_h_ratio = probs_map['1'] / p_sum
+            draw_factor = probs_map['X'] / 100.0
+            balance = min(1.0, draw_factor * 3.0)
+            xg_h = total_xg * (balance * 0.5 + (1.0 - balance) * (0.4 + 0.6 * p_h_ratio))
+            xg_a = max(0.3, total_xg - xg_h)
+            xg_h = max(0.4, min(4.0, xg_h))
+
     # Poisson most likely score instead of naive round(xG)
     from math import exp, factorial
     def _poisson_mode(lam):

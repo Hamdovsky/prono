@@ -139,7 +139,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
         }
 
         if (match.insufficient_data === 1) coherence = Math.min(coherence, 75);
-        return Math.max(35, Math.min(92, Math.round(coherence)));
+        return Math.max(8, Math.min(95, Math.round(coherence)));
     })();
     const pHT05 = Math.min(89, Math.round((pOU25 * 0.5) + (pBTTS * 0.5) + 5));
     const markets = [];

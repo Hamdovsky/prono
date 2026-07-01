@@ -219,13 +219,22 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             logger.info(`🧹 [SANITIZER] ${sanitStats.rejected} zombie/corrupted matches removed. Reasons:`, sanitStats.reasons)
         }
 
-        // 🚀 [JIT FAST PASS] Force re-enrichment only for matches missing predictions
+        // 🚀 [JIT FAST PASS] Force re-enrichment for matches missing predictions or with stale buggy data
         const maxForce = Math.min(parseInt(req.query.force_count) || 5, 20)
-        const needsFastPass = rawMatches.filter(m => 
-            !m.home_win_probability ||
-            m.home_win_probability === 0 ||
-            !m.expected_score
-        );
+        const needsFastPass = rawMatches.filter(m => {
+            const quantMain = m.quant?.main_pick || m.prediction || ''
+            const hWP = parseFloat(m.home_win_probability || 0)
+            const aWP = parseFloat(m.away_win_probability || 0)
+            const dWP = parseFloat(m.draw_probability || 0)
+            const maxP = Math.max(hWP, aWP, dWP)
+            const minP = Math.min(hWP, aWP, dWP)
+            const isFlat = hWP > 0 && (maxP - minP) < 5
+            return (
+                !hWP || hWP === 0 || !m.expected_score ||
+                quantMain === 'X' && isFlat && dWP >= aWP && dWP >= hWP ||
+                quantMain === 'UNDER ANALYSIS' || quantMain === 'WAITING'
+            )
+        });
         
         if (req.query.force === 'true') {
             const forceMatches = rawMatches.slice(0, maxForce)

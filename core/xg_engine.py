@@ -24,7 +24,8 @@ from feature_engineer import (
     calculate_composite_defense, get_stylistic_clash_modifier,
     apply_tactical_intelligence,
 )
-from data_loader import get_tactical_connection
+from ml_features import get_detailed_team_style
+from data_loader import get_tactical_connection, calculate_h2h_dominance
 from goal_model import load_or_fit_goalmodel_parameters
 
 
@@ -97,7 +98,6 @@ def compute_base_xg(match_obj, features, raw_features, h_hist, a_hist,
 
 def apply_style_and_time_machine(xg_h, xg_a, h_stats, a_stats, home_name, away_name, match_month):
     """Apply tactical style matching + time machine historical patterns."""
-    from ml_features import get_detailed_team_style
     h_style = get_detailed_team_style(h_stats)
     a_style = get_detailed_team_style(a_stats)
     style_h_mod, style_a_mod = get_stylistic_clash_modifier(h_style, a_style)
@@ -271,7 +271,6 @@ def apply_environmental_and_tactical(xg_h, xg_a, base_xg_h, base_xg_a,
     analysis["Tactical"] = tactical_alerts
 
     # H2H Bête Noire
-    from data_loader import calculate_h2h_dominance
     h2h = calculate_h2h_dominance(h_hist, a_hist, home_name, away_name)
     if isinstance(h2h, dict) and h2h['total'] >= 3:
         if h2h['h'] > 0.7:

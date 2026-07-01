@@ -32,7 +32,7 @@ __prob_trace__ = []
 import logging
 logging.getLogger('absl').setLevel(logging.ERROR)
 
-from ml_features import extract_ml_features, FEATURE_NAMES, calculate_rolling_averages
+from ml_features import extract_ml_features, FEATURE_NAMES, calculate_rolling_averages, get_team_history, calculate_glicko_momentum
 from top_analyst_engine import process_match_for_top_analyst
 from leagues_master import classify_league
 
@@ -106,7 +106,6 @@ def process_prediction(match_obj: dict) -> dict:
     sys.stderr.write(f"  [LeagueTier] {league_name_str} -> {league_tier}/{confidence_tag}\n")
 
     # --- SEEDING: History + Features ---
-    from ml_features import get_team_history
     h_hist = get_team_history(home_name, limit=30)
     a_hist = get_team_history(away_name, limit=30)
     features = {'h_hist_len': len(h_hist), 'a_hist_len': len(a_hist)}
@@ -208,7 +207,6 @@ def process_prediction(match_obj: dict) -> dict:
     p_h_poi, p_d_poi, p_a_poi = sim['p_h'], sim['p_d'], sim['p_a']
 
     # Glicko Momentum
-    from ml_features import calculate_glicko_momentum
     h_mom = calculate_glicko_momentum(h_hist, window=5)
     a_mom = calculate_glicko_momentum(a_hist, window=5)
     if h_mom > a_mom * 1.5: p_h_poi *= 1.05

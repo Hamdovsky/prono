@@ -16,7 +16,7 @@ import sys
 from data_loader import (
     safe_float as _safe_float, f_feat as _f_feat,
     apply_gap_learning_weight, get_league_draw_multiplier,
-    get_league_volatility_penalty,
+    get_league_volatility_penalty, get_h2h_modifier,
 )
 from feature_engineer import calculate_composite_confidence
 
@@ -345,7 +345,6 @@ def build_analysis_report(features, home_name, away_name, selection, selection_l
                   (f"QoP (xG-Elo) Delta {perf_delta_h:+.2f} {home_name}." if abs(perf_delta_h) > 0.1 else f"Dynamique stable ({selection_label}).")
     }
 
-    from data_loader import get_h2h_modifier
     h2h_h_mod, _ = get_h2h_modifier(home_name, away_name)
     analysis["2_H2H"] = {
         "score": int(features_dict.get('h2h_win_rate', 0)),

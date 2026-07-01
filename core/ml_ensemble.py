@@ -18,6 +18,7 @@ from ml_features import (
     FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553,
     FEATURE_NAMES_TITANIUM, FEATURE_NAMES,
 )
+from meta_refiner import refine_prediction
 from model_manager import (
     get_xgb, get_titanium_booster, get_titanium_v4_booster,
     get_v55_booster, get_v551_booster, get_v552_booster,
@@ -175,7 +176,6 @@ def run_xgboost_inference(active_feature_vector, active_feature_names, XGB_BOOST
                 ai_source = "Poisson-only (MC failed)"
 
         # Neural Meta-Refiner
-        from meta_refiner import refine_prediction
         p_h_refined, h_factor = refine_prediction(league_name, "Home", p_h_ai)
         p_a_refined, a_factor = refine_prediction(league_name, "Away", p_a_ai)
         p_d_refined, d_factor = refine_prediction(league_name, "Draw", p_d_ai)
@@ -299,7 +299,6 @@ def predict_secondary_markets(features, feature_vector):
     expected_cards = round(float(features.get('home_cards', 2.0) + features.get('away_cards', 2.0)), 1)
 
     try:
-        from ml_features import FEATURE_NAMES
         CORNERS_MODEL = get_corners_model()
         if CORNERS_MODEL:
             xgb = get_xgb()

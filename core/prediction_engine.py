@@ -1,34 +1,18 @@
 import json
 import sys
 import math
-import random
 import os
-import sqlite3
 import numpy as np
 
 from goal_model import (
-    get_dixon_coles_adjustment,
-    calculate_time_weights,
-    fit_dixon_coles,
     load_or_fit_goalmodel_parameters,
-    monte_carlo_simulation_goalmodel,
-    calculate_most_likely_score_goalmodel,
-    calculate_rps,
-    log_rps_to_accuracy_log,
-    poisson_pmf as gm_poisson_pmf,
-    negbin_pmf,
-    cmp_pmf,
     expg_from_probabilities,
-    predict_btts as gm_predict_btts,
-    predict_ou as gm_predict_ou,
-    predict_hurdle
 )
 
 # Fix relative import paths
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import pickle
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -36,30 +20,27 @@ __prob_trace__ = []
 import logging
 logging.getLogger('absl').setLevel(logging.ERROR)
 
-from ml_features import extract_ml_features, FEATURE_NAMES, FEATURE_NAMES_V24, FEATURE_NAMES_V55, FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553, FEATURE_NAMES_TITANIUM, calculate_rolling_averages, FEATURE_VOLATILITY
+from ml_features import extract_ml_features, FEATURE_NAMES, FEATURE_NAMES_V55, FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553, calculate_rolling_averages
 from top_analyst_engine import process_match_for_top_analyst
 from leagues_master import classify_league
 
 # --- Module imports (refactored) ---
 from data_loader import (
     safe_float as _safe_float, f_feat as _f_feat,
-    get_db_connection, get_tactical_connection,
-    load_elo_ratings, get_elo_data,
-    calculate_team_strength,
-    get_league_volatility_penalty, get_league_home_advantage,
+    get_elo_data,
+    get_league_volatility_penalty,
     get_league_goals_multiplier, get_league_draw_multiplier,
     get_h2h_modifier, calculate_h2h_dominance,
     find_twin_matches, get_historical_patterns,
     apply_gap_learning_weight, get_advanced_xg_adjustment,
-    ELO_PATH, DB_ARCHIVE_PATH, TACTICAL_DB_PATH, ACCURACY_LOG_PATH,
 )
 from feature_engineer import (
-    STATS_KEYS_V4, FEATURE_NAMES_V4, STYLISTIC_MATRIX,
+    FEATURE_NAMES_V4,
     extract_v4_features, impute_missing_match_data,
     calculate_composite_confidence, calculate_dmf_hafiz,
     calculate_xg_perf_delta, calculate_fatigue_mod,
     calculate_composite_defense, get_stylistic_clash_modifier,
-    get_referee_discipline_profile, apply_tactical_intelligence,
+    apply_tactical_intelligence,
 )
 from model_manager import (
     get_xgb,
@@ -68,27 +49,15 @@ from model_manager import (
     get_v553_booster, get_v553_premium_booster,
     get_main_booster, get_corners_model, get_cards_model,
     simulate_match_mc,
-    XGB_MODEL_PATH, V55_MODEL_PATH, V551_MODEL_PATH,
-    V552_MODEL_PATH, V553_MODEL_PATH, V553_PREMIUM_MODEL_PATH,
-    CORNERS_MODEL_PATH, CARDS_MODEL_PATH,
-    TITANIUM_MODEL_PATH, TITANIUM_V4_MODEL_PATH,
 )
 from predictor import (
-    poisson_prob, monte_carlo_simulation,
-    calculate_most_likely_score, calculate_exact_score,
+    monte_carlo_simulation,
+    calculate_exact_score,
     apply_live_event_adjustment, calculate_ah_dnb_probs,
 )
 from post_processor import (
     generate_strategic_brief, calculate_poisson_cs, get_tube_pct,
-    detect_risk_flags, detect_market_trap, calibrate_confidence,
-    calculate_kelly_stake, generate_value_insight, generate_security_insight,
-    CONF_TAG_ADJ,
 )
-
-# --- CACHE FOR STATISTICAL LOOKUPS (kept for backward compat) ---
-_LEAGUE_DRAW_CACHE = {}
-_TEAM_STRENGTH_CACHE = {}
-_LEAGUE_HA_CACHE = {}
 
 # --- CACHE FOR STATISTICAL LOOKUPS (kept for backward compat) ---
 _LEAGUE_DRAW_CACHE = {}
@@ -112,20 +81,6 @@ LEAGUE_WEIGHT_MATRIX = {
     "T3": {"xgb_weight": 0.45, "news_boost": 0.85},
     "DEFAULT": {"xgb_weight": 0.75, "news_boost": 0.30}
 }
-
-# _get_league_draw_multiplier, find_twin_matches, calculate_h2h_dominance
-# now imported from data_loader.py
-
-# apply_tactical_intelligence now imported from feature_engineer.py
-
-# simulate_match_mc now imported from model_manager.py
-
-# calculate_most_likely_score, calculate_exact_score, poisson_prob,
-# monte_carlo_simulation, apply_live_event_adjustment, calculate_ah_dnb_probs,
-# generate_strategic_brief now imported from predictor.py and post_processor.py
-
-# Model paths and get_*_booster() functions now imported from model_manager.py
-# Duplicate model paths removed to avoid shadowing imports
 
 ELO_DATA = get_elo_data()
 

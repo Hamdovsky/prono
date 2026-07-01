@@ -10,7 +10,7 @@ import time
 SERVICES = [
     {"name": "prono-k6gc (Node)", "url": "https://prono-k6gc.onrender.com/api/health", "expect": "ONLINE"},
     {"name": "prono-fastapi (Python)", "url": "https://prono-fastapi.onrender.com/health", "expect": "healthy"},
-    {"name": "prono-scraper", "url": "https://prono-scraper.onrender.com/api/health", "expect": "ONLINE"},
+    {"name": "prono-scraper", "url": "https://prono-scraper.onrender.com/health", "expect": "ok"},
     {"name": "Swagger UI", "url": "https://prono-k6gc.onrender.com/api-docs", "expect": None},
 ]
 
@@ -43,9 +43,8 @@ def main():
                     ok = status_field == svc["expect"]
                     if ok:
                         mem = data.get("memory", {})
-                        rss = mem.get("rss", "?")
-                        print(f"  {svc['name']}: OK (status={status_field}, rss={rss}MB)")
-
+                        rss = str(mem.get("rss", "?"))
+                        print(f"  {svc['name']}: OK (status={status_field}, rss={rss})")
                     else:
                         print(f"  {svc['name']}: FAIL (status={status_field}, expected={svc['expect']})")
                 except:

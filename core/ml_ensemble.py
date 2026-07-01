@@ -1,0 +1,342 @@
+"""
+ml_ensemble.py — XGBoost Model Chain, Ensemble Blending & SHAP Explainability
+Extracted from prediction_engine.py (Lines 570-800)
+
+Responsibilities:
+  1. Select best available booster (V553 premium → V553 → V552 → V551 → V55 → Titanium → Legacy)
+  2. Run XGBoost inference + Monte Carlo simulation
+  3. Blend with Poisson via league weight matrix
+  4. Apply V4 ensemble, PredixSport external blend
+  5. Neural Meta-Refiner bias correction
+  6. SHAP-Lite explainability
+"""
+import sys
+import numpy as np
+
+from ml_features import (
+    FEATURE_NAMES_V53, FEATURE_NAMES_V54, FEATURE_NAMES_V55,
+    FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553,
+    FEATURE_NAMES_TITANIUM, FEATURE_NAMES,
+)
+from model_manager import (
+    get_xgb, get_titanium_booster, get_titanium_v4_booster,
+    get_v55_booster, get_v551_booster, get_v552_booster,
+    get_v553_booster, get_v553_premium_booster,
+    get_main_booster, simulate_match_mc,
+)
+from feature_engineer import extract_v4_features, FEATURE_NAMES_V4
+from data_loader import safe_float as _safe_float
+
+# V102 League Strategy Matrix (kept here for ensemble blending)
+LEAGUE_WEIGHT_MATRIX = {
+    "Premier League": {"xgb_weight": 0.95, "news_boost": 0.15},
+    "LaLiga": {"xgb_weight": 0.92, "news_boost": 0.25},
+    "Serie A": {"xgb_weight": 0.88, "news_boost": 0.30},
+    "Bundesliga": {"xgb_weight": 0.90, "news_boost": 0.15},
+    "Saudi Pro League": {"xgb_weight": 0.65, "news_boost": 0.65},
+    "Stoiximan Super League": {"xgb_weight": 0.55, "news_boost": 0.75},
+    "Ligue 1": {"xgb_weight": 0.85, "news_boost": 0.35},
+    "Primeira Liga": {"xgb_weight": 0.82, "news_boost": 0.45},
+    "Eredivisie": {"xgb_weight": 0.88, "news_boost": 0.20},
+    "T1": {"xgb_weight": 0.90, "news_boost": 0.20},
+    "T2": {"xgb_weight": 0.70, "news_boost": 0.45},
+    "T3": {"xgb_weight": 0.45, "news_boost": 0.85},
+    "DEFAULT": {"xgb_weight": 0.75, "news_boost": 0.30}
+}
+
+
+def select_model_booster(features, league_tier):
+    """
+    Select the best available XGBoost booster from the fallback chain.
+    Returns: (active_feature_names, active_feature_vector, ai_source, XGB_BOOSTER)
+    """
+    V553_PREMIUM_BOOSTER = get_v553_premium_booster()
+    V553_BOOSTER = get_v553_booster()
+    V552_BOOSTER = get_v552_booster()
+    V551_BOOSTER = get_v551_booster()
+    V55_BOOSTER = get_v55_booster()
+    TITANIUM_BOOSTER = get_titanium_booster()
+    XGB_BOOSTER = TITANIUM_BOOSTER if TITANIUM_BOOSTER else get_main_booster()
+
+    EXCLUDED_FEATURES = {'draw_deadlock', 'draw_defensive_eq'}
+
+    is_wc2026_match = (V553_PREMIUM_BOOSTER is not None or V553_BOOSTER is not None) and features.get('fifa_rank_h', 999) < 999 and features.get('fifa_rank_a', 999) < 999
+
+    if is_wc2026_match:
+        if V553_PREMIUM_BOOSTER is not None:
+            active_feature_names = [f for f in FEATURE_NAMES_V553 if f not in EXCLUDED_FEATURES]
+            active_feature_vector = [float(features.get(f, 0)) for f in active_feature_names]
+            ai_source = "V553-PREMIUM"
+            XGB_BOOSTER = V553_PREMIUM_BOOSTER
+        else:
+            active_feature_names = [f for f in FEATURE_NAMES_V553 if f not in EXCLUDED_FEATURES]
+            active_feature_vector = [float(features.get(f, 0)) for f in active_feature_names]
+            ai_source = "V553-WC2026"
+            XGB_BOOSTER = V553_BOOSTER
+    elif V552_BOOSTER:
+        active_feature_names = [f for f in FEATURE_NAMES_V552 if f not in EXCLUDED_FEATURES]
+        active_feature_vector = [float(features.get(f, 0)) for f in active_feature_names]
+        ai_source = "V552-CHRONO-2026"
+        XGB_BOOSTER = V552_BOOSTER
+    elif V551_BOOSTER:
+        active_feature_names = FEATURE_NAMES_V551
+        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V551]
+        ai_source = "V551-PRUNED+2010"
+        XGB_BOOSTER = V551_BOOSTER
+    elif V55_BOOSTER:
+        active_feature_names = FEATURE_NAMES_V55
+        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V55]
+        ai_source = "V55-OPTIMIZED"
+        XGB_BOOSTER = V55_BOOSTER
+    elif TITANIUM_BOOSTER:
+        active_feature_names = FEATURE_NAMES_TITANIUM
+        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_TITANIUM]
+        ai_source = "TITANIUM-ELITE-V3"
+    elif XGB_BOOSTER:
+        active_feature_names = FEATURE_NAMES_V54
+        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V54]
+    else:
+        active_feature_names = FEATURE_NAMES
+        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES]
+
+    return active_feature_names, active_feature_vector, ai_source, XGB_BOOSTER
+
+
+def run_xgboost_inference(active_feature_vector, active_feature_names, XGB_BOOSTER,
+                          sim, features, match_obj, league_name, league_tier):
+    """
+    Run XGBoost Monte Carlo simulation and blend with Poisson.
+    Returns: dict with p_h_xgb, p_d_xgb, p_a_xgb, p_h_ai, p_d_ai, p_a_ai,
+             has_xgb, ai_source, explainer_data, analysis
+    """
+    analysis = {}
+    p_h_poi, p_d_poi, p_a_poi = sim['p_h'], sim['p_d'], sim['p_a']
+    p_h_xgb, p_d_xgb, p_a_xgb = p_h_poi, p_d_poi, p_a_poi
+    p_h_ai, p_d_ai, p_a_ai = p_h_poi, p_d_poi, p_a_poi
+    ai_source = "Standard-Poisson"
+    has_xgb = False
+    explainer_data = []
+
+    if not XGB_BOOSTER:
+        return {
+            'p_h_xgb': p_h_xgb, 'p_d_xgb': p_d_xgb, 'p_a_xgb': p_a_xgb,
+            'p_h_ai': p_h_ai, 'p_d_ai': p_d_ai, 'p_a_ai': p_a_ai,
+            'has_xgb': False, 'ai_source': "Poisson-Tactical-V11 (AI Offline)",
+            'explainer_data': [], 'analysis': {}
+        }
+
+    try:
+        expected_features = getattr(XGB_BOOSTER, 'num_features', lambda: len(active_feature_vector))()
+        if len(active_feature_vector) != expected_features:
+            print(f'[PRED-ENGINE] WARN: Feature vector mismatch: expected {expected_features}, got {len(active_feature_vector)} — falling back to Poisson')
+            ai_source = "Poisson-only (feature mismatch)"
+        else:
+            fatigue = (features.get('h_fatigue_cumulative', 1.0), features.get('a_fatigue_cumulative', 1.0))
+            injuries = (features.get('home_injury_impact', 0.0), features.get('away_injury_impact', 0.0))
+            _mc_sims = 1000 if injuries[0] >= 3.0 or injuries[1] >= 3.0 else 500
+            mc_result = simulate_match_mc(
+                XGB_BOOSTER,
+                active_feature_vector,
+                num_simulations=_mc_sims,
+                feature_names=active_feature_names,
+                fatigue_impact=fatigue,
+                injury_impact=injuries,
+                league_name=league_name
+            )
+
+            if mc_result[0] is not None:
+                p_h_xgb, p_d_xgb, p_a_xgb = mc_result
+
+                # Market Psychology Layer
+                odds_h = _safe_float(match_obj.get('odds_home'), 2.0)
+                implied_h = 1.0 / odds_h if odds_h > 0 else 0.33
+                n_sent = _safe_float(features.get('news_sent'), 0)
+
+                if p_h_xgb > (implied_h + 0.15) and n_sent < -0.2:
+                    p_h_xgb *= 0.85
+
+                # Weighted Consensus
+                l_strat = LEAGUE_WEIGHT_MATRIX.get(league_name, LEAGUE_WEIGHT_MATRIX.get(league_tier, LEAGUE_WEIGHT_MATRIX['DEFAULT']))
+                w_xgb = l_strat['xgb_weight']
+                w_poi = 1.0 - w_xgb
+
+                p_h_ai = (p_h_xgb * w_xgb) + (p_h_poi * w_poi)
+                p_d_ai = (p_d_xgb * w_xgb) + (p_d_poi * w_poi)
+                p_a_ai = (p_a_xgb * w_xgb) + (p_a_poi * w_poi)
+
+                has_xgb = True
+
+                # V102 News Intelligence Injection
+                if n_sent != 0:
+                    n_boost = l_strat['news_boost'] * n_sent
+                    p_h_ai = max(0.01, min(0.95, p_h_ai * (1.0 + n_boost)))
+            else:
+                print("⚠️ [PREDICTION] XGBoost/Monte-Carlo indisponible, Poisson uniquement")
+                ai_source = "Poisson-only (MC failed)"
+
+        # Neural Meta-Refiner
+        from meta_refiner import refine_prediction
+        p_h_refined, h_factor = refine_prediction(league_name, "Home", p_h_ai)
+        p_a_refined, a_factor = refine_prediction(league_name, "Away", p_a_ai)
+        p_d_refined, d_factor = refine_prediction(league_name, "Draw", p_d_ai)
+
+        if abs(h_factor - 1.0) > 0.02 or abs(a_factor - 1.0) > 0.02:
+            p_h_ai, p_d_ai, p_a_ai = p_h_refined, p_d_refined, p_a_refined
+            s_ref = p_h_ai + p_d_ai + p_a_ai
+            p_h_ai, p_d_ai, p_a_ai = p_h_ai/s_ref, p_d_ai/s_ref, p_a_ai/s_ref
+            analysis["Meta-Refiner"] = f"الرقابة الذكية: تم تعديل الاحتمالات بناءً على الأداء التاريخي للدوري ({h_factor:.2f}x H, {a_factor:.2f}x A)."
+
+        has_xgb = True
+    except Exception as e:
+        import traceback
+        sys.stderr.write(f"⚠️ [XGB-INF] Error: {traceback.format_exc()}\n")
+
+    return {
+        'p_h_xgb': p_h_xgb, 'p_d_xgb': p_d_xgb, 'p_a_xgb': p_a_xgb,
+        'p_h_ai': p_h_ai, 'p_d_ai': p_d_ai, 'p_a_ai': p_a_ai,
+        'has_xgb': has_xgb, 'ai_source': ai_source,
+        'explainer_data': explainer_data, 'analysis': analysis
+    }
+
+
+def apply_v4_ensemble(p_h_ai, p_d_ai, p_a_ai, match_obj, has_xgb):
+    """Blend V2+V4 ensemble (85% V4 stats-based + 15% V2 historical)."""
+    analysis = {}
+    xgb = get_xgb()
+    v4_booster = get_titanium_v4_booster()
+    hp = match_obj.get('home_possession', 0)
+    ap = match_obj.get('away_possession', 0)
+    stats = match_obj.get('stats')
+    has_v4_stats = (hp and hp > 0) or (ap and ap > 0) or (stats and len(stats) > 0)
+
+    if v4_booster and has_v4_stats and has_xgb:
+        try:
+            v4_feats = extract_v4_features(match_obj)
+            v4_vec = np.array([[v4_feats.get(f, 0.0) for f in FEATURE_NAMES_V4]], dtype=float)
+            v4_vec = np.nan_to_num(v4_vec, nan=0.0)
+            v4_probs = v4_booster.predict(xgb.DMatrix(v4_vec))[0]
+            p_h_v4, p_d_v4, p_a_v4 = float(v4_probs[2]), float(v4_probs[1]), float(v4_probs[0])
+
+            v4_weight = 0.85
+            p_h_ai = (p_h_v4 * v4_weight) + (p_h_ai * (1.0 - v4_weight))
+            p_d_ai = (p_d_v4 * v4_weight) + (p_d_ai * (1.0 - v4_weight))
+            p_a_ai = (p_a_v4 * v4_weight) + (p_a_ai * (1.0 - v4_weight))
+
+            s_ens = p_h_ai + p_d_ai + p_a_ai
+            if s_ens > 0:
+                p_h_ai, p_d_ai, p_a_ai = p_h_ai/s_ens, p_d_ai/s_ens, p_a_ai/s_ens
+
+            analysis["V4-Ensemble"] = f"V2+V4 blend: {v4_weight*100:.0f}% V4 (stats-based) + {(1-v4_weight)*100:.0f}% V2 (historical)"
+        except Exception as _v4_err:
+            sys.stderr.write(f"⚠️ [V4-Ensemble] {_v4_err}\n")
+
+    return p_h_ai, p_d_ai, p_a_ai, "+V4-Ensemble" if "V4-Ensemble" in analysis else "", analysis
+
+
+def apply_predixsport_blend(p_h_ai, p_d_ai, p_a_ai, match_obj):
+    """Blend external PredixSport API predictions (20% weight for top-5 leagues)."""
+    analysis = {}
+    _predixsport = match_obj.get('predixsport', None)
+    _ps_home = _safe_float(_predixsport.get('home_win') if isinstance(_predixsport, dict) else None, None)
+    _ps_draw = _safe_float(_predixsport.get('draw') if isinstance(_predixsport, dict) else None, None)
+    _ps_away = _safe_float(_predixsport.get('away_win') if isinstance(_predixsport, dict) else None, None)
+
+    if _ps_home and _ps_draw and _ps_away and _ps_home + _ps_draw + _ps_away > 0:
+        ps_sum = _ps_home + _ps_draw + _ps_away
+        _ps_home /= ps_sum
+        _ps_draw /= ps_sum
+        _ps_away /= ps_sum
+        ps_weight = 0.20
+        p_h_ai = (p_h_ai * (1.0 - ps_weight)) + (_ps_home * ps_weight)
+        p_d_ai = (p_d_ai * (1.0 - ps_weight)) + (_ps_draw * ps_weight)
+        p_a_ai = (p_a_ai * (1.0 - ps_weight)) + (_ps_away * ps_weight)
+        s_ps = p_h_ai + p_d_ai + p_a_ai
+        if s_ps > 0:
+            p_h_ai, p_d_ai, p_a_ai = p_h_ai/s_ps, p_d_ai/s_ps, p_a_ai/s_ps
+        analysis["PredixSport"] = f"External model blend (20%): H={_ps_home:.3f} D={_ps_draw:.3f} A={_ps_away:.3f}"
+        return p_h_ai, p_d_ai, p_a_ai, "+PredixSport", analysis
+
+    return p_h_ai, p_d_ai, p_a_ai, "", analysis
+
+
+def run_shap_explainability(active_feature_vector, active_feature_names, XGB_BOOSTER,
+                            p_h_xgb, p_d_xgb, p_a_xgb):
+    """Run SHAP-Lite explainability to get top 5 feature impacts."""
+    try:
+        xgb = get_xgb()
+        dmat_explain = xgb.DMatrix(np.array([active_feature_vector]), feature_names=active_feature_names)
+        preds = XGB_BOOSTER.predict(dmat_explain, pred_contribs=True)[0]
+
+        winner_idx = 0 if p_h_xgb > p_a_xgb and p_h_xgb > p_d_xgb else (2 if p_a_xgb > p_h_xgb and p_a_xgb > p_d_xgb else 1)
+
+        num_f = len(active_feature_names)
+        if len(preds) == num_f + 1:
+            class_contribs = preds
+        else:
+            class_contribs = preds[winner_idx * (num_f + 1) : (winner_idx + 1) * (num_f + 1)]
+
+        feature_impacts = []
+        for i in range(num_f):
+            if i < len(class_contribs):
+                val = class_contribs[i]
+                if isinstance(val, (list, tuple, np.ndarray)):
+                    val = val[winner_idx] if len(val) > winner_idx else val[0]
+                feature_impacts.append({
+                    "name": active_feature_names[i],
+                    "impact": float(val)
+                })
+
+        feature_impacts.sort(key=lambda x: abs(x['impact']), reverse=True)
+        return feature_impacts[:5]
+    except Exception as e:
+        sys.stderr.write(f"⚠️ [SHAP-Lite] {e}\n")
+        return []
+
+
+def predict_secondary_markets(features, feature_vector):
+    """Predict corners and cards using dedicated XGBoost models."""
+    expected_corners = round(float(features.get('home_corners', 4.5) + features.get('away_corners', 4.5)), 1)
+    expected_cards = round(float(features.get('home_cards', 2.0) + features.get('away_cards', 2.0)), 1)
+
+    try:
+        from ml_features import FEATURE_NAMES
+        CORNERS_MODEL = get_corners_model()
+        if CORNERS_MODEL:
+            xgb = get_xgb()
+            dmat_c = xgb.DMatrix(np.array([feature_vector]), feature_names=FEATURE_NAMES)
+            expected_corners = round(float(CORNERS_MODEL.predict(dmat_c)[0]), 1)
+
+        CARDS_MODEL = get_cards_model()
+        if CARDS_MODEL:
+            xgb = get_xgb()
+            dmat_ca = xgb.DMatrix(np.array([feature_vector]), feature_names=FEATURE_NAMES)
+            expected_cards = round(float(CARDS_MODEL.predict(dmat_ca)[0]), 1)
+    except Exception as e:
+        sys.stderr.write(f"⚠️ [Secondary-INF] Error: {str(e)}\n")
+
+    return expected_corners, expected_cards
+
+
+def blend_final_probabilities(p_h_ai, p_d_ai, p_a_ai, p_h_poi, p_d_poi, p_a_poi, has_xgb):
+    """
+    Global blending: AI Modules + Poisson Base.
+    Returns: (p_h, p_d, p_a, ai_fusion_weight, ai_source_label)
+    """
+    if has_xgb:
+        ai_fusion_weight = 0.95
+        ai_source_label = "Titanium-XGB-Core-V54"
+    else:
+        ai_fusion_weight = 0.0
+        ai_source_label = "Poisson-Tactical-V11 (AI Offline)"
+
+    p_h = (p_h_ai * ai_fusion_weight) + (p_h_poi * (1.0 - ai_fusion_weight))
+    p_d = (p_d_ai * ai_fusion_weight) + (p_d_poi * (1.0 - ai_fusion_weight))
+    p_a = (p_a_ai * ai_fusion_weight) + (p_a_poi * (1.0 - ai_fusion_weight))
+
+    p_sum = p_h + p_d + p_a
+    if p_sum > 0:
+        p_h, p_d, p_a = p_h/p_sum, p_d/p_sum, p_a/p_sum
+    else:
+        p_h, p_d, p_a = 0.33, 0.33, 0.34
+
+    return p_h, p_d, p_a, ai_fusion_weight, ai_source_label

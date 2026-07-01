@@ -56,28 +56,31 @@ from ml_features import extract_ml_features, FEATURE_NAMES, FEATURE_NAMES_V24, F
 
 from top_analyst_engine import process_match_for_top_analyst
 
-from leagues_master import classify_league# --- Core V11: Hybrid Ultra Engine (Pre-match + Live Module + Time Machine + Gap Learning) ---
+from leagues_master import classify_league
 
-# --- ABSOLUTE DEFENSE: Global Sanitizers ---
-def _safe_float(val, default=0.0):
-    try:
-        if val is None or str(val).lower() in ['none', 'null', '', 'nan']: return 0.0 if default is None else float(default)
-        return float(val)
-    except Exception:
-        return 0.0 if default is None else float(default)
+# --- Module imports (refactored) ---
+from data_loader import (
+    safe_float as _safe_float, f_feat as _f_feat,
+    get_db_connection, get_tactical_connection,
+    load_elo_ratings, get_elo_data,
+    calculate_team_strength,
+    get_league_volatility_penalty, get_league_home_advantage,
+    get_league_goals_multiplier, get_league_draw_multiplier,
+    get_h2h_modifier, calculate_h2h_dominance,
+    find_twin_matches, get_historical_patterns,
+    apply_gap_learning_weight, get_advanced_xg_adjustment,
+    ELO_PATH, DB_ARCHIVE_PATH, TACTICAL_DB_PATH, ACCURACY_LOG_PATH,
+)
+from feature_engineer import (
+    STATS_KEYS_V4, FEATURE_NAMES_V4, STYLISTIC_MATRIX,
+    extract_v4_features, impute_missing_match_data,
+    calculate_composite_confidence, calculate_dmf_hafiz,
+    calculate_xg_perf_delta, calculate_fatigue_mod,
+    calculate_composite_defense, get_stylistic_clash_modifier,
+    get_referee_discipline_profile, apply_tactical_intelligence,
+)
 
-def _f_feat(key, source, default=0.0):
-    if source is None: return float(default)
-    try:
-        if isinstance(source, dict):
-            val = source.get(key)
-        else:
-            val = getattr(source, key, default)
-        return _safe_float(val, default)
-    except Exception:
-        return float(default)
-
-# --- CACHE FOR STATISTICAL LOOKUPS ---
+# --- CACHE FOR STATISTICAL LOOKUPS (kept for backward compat) ---
 _LEAGUE_DRAW_CACHE = {}
 _TEAM_STRENGTH_CACHE = {}
 _LEAGUE_HA_CACHE = {}
@@ -100,168 +103,10 @@ LEAGUE_WEIGHT_MATRIX = {
     "DEFAULT": {"xgb_weight": 0.75, "news_boost": 0.30}
 }
 
-def _get_league_draw_multiplier(feature_names, base_features, league_name=None):
-    """
-    [LEAGUE-AWARE DRAW CORRECTION] Computes a league-specific draw boost multiplier
-    from historical data rather than using a global constant.
-    Falls back to a safe default of 1.10 if data is unavailable.
-    """
-    try:
-        global _LEAGUE_DRAW_CACHE
-        cache_key = str(league_name) if league_name else 'global'
-        if cache_key in _LEAGUE_DRAW_CACHE:
-            return _LEAGUE_DRAW_CACHE[cache_key]
-            
-        conn = get_db_connection()
-        if not conn:
-            return 1.10  # safe default
+# _get_league_draw_multiplier, find_twin_matches, calculate_h2h_dominance
+# now imported from data_loader.py
 
-        # Query historical draw rate for this specific league
-        query = """
-            SELECT ROUND(SUM(CASE WHEN scoreHome = scoreAway THEN 1.0 ELSE 0 END) / COUNT(*), 3) as draw_rate
-            FROM archive_matches
-            WHERE scoreHome IS NOT NULL
-        """
-        params = []
-        if league_name:
-            query += " AND tournament_name = ?"
-            params.append(league_name)
-            
-        row = conn.execute(query, params).fetchone()
-        if row and row[0]:
-            real_draw_rate = float(row[0])
-            # Expected XGBoost draw underestimation vs real rate
-            expected_xgb_rate = max(0.18, real_draw_rate * 0.80)
-            mult = min(1.25, real_draw_rate / expected_xgb_rate)
-            _LEAGUE_DRAW_CACHE[cache_key] = round(mult, 3)
-            return _LEAGUE_DRAW_CACHE[cache_key]
-    except Exception:
-        pass
-    return 1.10  # safe default
-
-def find_twin_matches(odds_h, odds_d, odds_a, xg_gap):
-    """
-    [TITANIUM TWIN-MATCH ORACLE]
-    Finds historical matches with similar Odds DNA and xG profiles.
-    Returns statistical distribution of outcomes.
-    """
-    try:
-        conn = get_db_connection()
-        if not conn: return None
-        
-        # Tolerance range for "Similarity"
-        odds_tol = 0.25
-        xg_tol = 0.35
-        
-        query = """
-            SELECT scoreHome, scoreAway, tournament_name
-            FROM archive_matches
-            WHERE oddsHome BETWEEN ? AND ?
-              AND oddsDraw BETWEEN ? AND ?
-              AND oddsAway BETWEEN ? AND ?
-              AND scoreHome IS NOT NULL
-            LIMIT 50
-        """
-        params = (odds_h - odds_tol, odds_h + odds_tol, 
-                  odds_d - odds_tol, odds_d + odds_tol, 
-                  odds_a - odds_tol, odds_a + odds_tol)
-        
-        rows = conn.execute(query, params).fetchall()
-        if not rows: return None
-        
-        results = {"home": 0, "draw": 0, "away": 0, "total": 0, "over25": 0}
-        for r in rows:
-            sh, sa = r['scoreHome'], r['scoreAway']
-            results['total'] += 1
-            if sh > sa: results['home'] += 1
-            elif sh < sa: results['away'] += 1
-            else: results['draw'] += 1
-            if (sh + sa) > 2.5: results['over25'] += 1
-            
-        return results
-    except Exception:
-        return None
-
-def calculate_h2h_dominance(h_hist, a_hist, home_name, away_name):
-    """[TACTICAL SECRET] Detects psychological dominance (Bête Noire)."""
-    h_wins = 0
-    a_wins = 0
-    total = 0
-    # Search for direct clashes in history
-    combined = (h_hist or []) + (a_hist or [])
-    seen = set()
-    for m in combined:
-        m_id = m.get('id')
-        if m_id in seen: continue
-        seen.add(m_id)
-        
-        m_h = m.get('homeTeam')
-        m_a = m.get('awayTeam')
-        sh = m.get('homeGoals')
-        sa = m.get('awayGoals')
-        
-        if sh is None or sa is None: continue
-        
-        if (m_h == home_name and m_a == away_name):
-            total += 1
-            if sh > sa: h_wins += 1
-            elif sa > sh: a_wins += 1
-        elif (m_h == away_name and m_a == home_name):
-            total += 1
-            if sa > sh: h_wins += 1
-            elif sh > sa: a_wins += 1
-            
-    if total < 3: return 1.0
-    h_dominance = h_wins / total
-    a_dominance = a_wins / total
-    return {"h": h_dominance, "a": a_dominance, "total": total}
-
-def apply_tactical_intelligence(match_obj, features, xg_h, xg_a):
-    """
-    [TITANIUM TACTICAL V3] Deep analysis of midfield, possession, and motivation.
-    """
-    tactical_alerts = []
-    h_mod, a_mod = 1.0, 1.0
-    
-    # 1. Sterile Possession Check
-    h_pos = _f_feat('h_pos', features, 50.0)
-    h_sot = _f_feat('h_sot', features, 4.0)
-    a_pos = _f_feat('a_pos', features, 50.0)
-    a_sot = _f_feat('a_sot', features, 4.0)
-    
-    if h_pos > 58.0 and h_sot < 3.0:
-        h_mod *= 0.82
-        tactical_alerts.append("⚠️ POSSESSION STÉRILE (H): Domination sans danger.")
-    if a_pos > 58.0 and a_sot < 3.0:
-        a_mod *= 0.82
-        tactical_alerts.append("⚠️ POSSESSION STÉRILE (A): Domination sans danger.")
-        
-    # 2. Midfield Engine Check (Roles over Stars)
-    intel_h = match_obj.get('news_data', {}).get('home', {}).get('intelligence', {}) if isinstance(match_obj.get('news_data'), dict) else {}
-    intel_a = match_obj.get('news_data', {}).get('away', {}).get('intelligence', {}) if isinstance(match_obj.get('news_data'), dict) else {}
-    
-    if intel_h.get('is_missing_midfielder') or match_obj.get('is_missing_midfielder'):
-        h_mod *= 0.88
-        xg_a *= 1.12 # Opponent gets more freedom
-        tactical_alerts.append("💔 RUPTURE DU MILIEU (H): Absence du récupérateur clé.")
-    if intel_a.get('is_missing_midfielder') or match_obj.get('is_missing_midfielder_away'):
-        a_mod *= 0.88
-        xg_h *= 1.12
-        tactical_alerts.append("💔 RUPTURE DU MILIEU (A): Absence du récupérateur clé.")
-        
-    # 3. European/Relegation Enjeu Booster
-    h_pos_rank = _f_feat('home_rank', match_obj, 10)
-    a_pos_rank = _f_feat('away_rank', match_obj, 10)
-    
-    # High stakes: 1-4 (Europe) or 17-20 (Relegation)
-    if h_pos_rank <= 4 or h_pos_rank >= 17:
-        h_mod *= 1.08
-        tactical_alerts.append("🔥 ENJEU MAXIMUM (H): Bataille pour l'Europe ou le Maintien.")
-    if a_pos_rank <= 4 or a_pos_rank >= 17:
-        a_mod *= 1.08
-        tactical_alerts.append("🔥 ENJEU MAXIMUM (A): Bataille pour l'Europe ou le Maintien.")
-
-    return xg_h * h_mod, xg_a * a_mod, tactical_alerts
+# apply_tactical_intelligence now imported from feature_engineer.py
 
 # --- MONTE CARLO AI SIMULATION ---
 def simulate_match_mc(model, base_features, num_simulations=500, feature_names=None, fatigue_impact=(1.0, 1.0), injury_impact=(0.0, 0.0), match_seed=None, league_name=None):
@@ -485,16 +330,14 @@ def generate_strategic_brief(features, home_name, away_name, selection, match_ob
         return "Analyse tactique complexe : Équilibre des forces en présence avec variables multiples."
 
 # --- MODELS AND SCALERS CACHE ---
-ELO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'elo_ratings.json')
-DB_ARCHIVE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'historical_archive.sqlite')
+# Data paths now imported from data_loader.py
+# Model paths (still needed locally for XGBoost loading)
 XGB_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v24_hybrid.json')
 V55_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v55_optimized.json')
 V551_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v551_optimized.json')
 V552_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v552_optimized.json')
 V553_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v553_optimized.json')
 V553_PREMIUM_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v553_premium.json')
-ACCURACY_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'accuracy_log.json')
-TACTICAL_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'tactical.db')
 
 # V18 Secondary Markets
 CORNERS_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_corners_v1.json')
@@ -502,73 +345,9 @@ CARDS_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'mod
 TITANIUM_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'titanium_v2.json')
 TITANIUM_V4_MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'titanium_v4.json')
 
-STATS_KEYS_V4 = [
-    'ball_possession', 'expected_goals', 'total_shots', 'shots_on_target',
-    'shots_off_target', 'corner_kicks', 'fouls', 'yellow_cards',
-    'goalkeeper_saves', 'tackles', 'interceptions', 'clearances',
-    'accurate_passes', 'passes', 'shots_inside_box', 'shots_outside_box',
-    'ground_duels_won', 'aerial_duels_won', 'big_chances'
-]
+# STATS_KEYS_V4, FEATURE_NAMES_V4, STYLISTIC_MATRIX now imported from feature_engineer.py
 
-FEATURE_NAMES_V4 = [
-    # DB columns
-    'h_poss', 'a_poss', 'poss_diff',
-    'h_shots', 'a_shots', 'shots_diff',
-    'h_sot', 'a_sot', 'sot_diff',
-    'h_soff', 'a_soff',
-    'h_corners', 'a_corners',
-    'h_fouls', 'a_fouls',
-    'h_xg', 'a_xg', 'xg_diff',
-    'total_shots', 'total_sot', 'total_xg',
-    'h_sot_rate', 'a_sot_rate',
-    'h_xg_per_shot', 'a_xg_per_shot',
-    'h_efficiency', 'a_efficiency',
-    # Stats blob keys
-] + [f"sb_{k}_{s}" for k in STATS_KEYS_V4 for s in ('h', 'a')] + [
-    # H2H
-    'h2h_home_wins', 'h2h_draws', 'h2h_away_wins', 'h2h_total',
-    'h2h_avg_goals', 'h2h_home_rate', 'h2h_draw_rate'
-]
-
-STYLISTIC_MATRIX = {
-    # attacker_style: { defender_style: multiplier }
-    "Possession": {"Low Block": 0.85, "Counter-Attack": 1.15, "High Press": 1.0, "Balanced": 1.0},
-    "Counter-Attack": {"Possession": 1.25, "High Press": 1.20, "Low Block": 0.70, "Balanced": 1.0},
-    "High Press": {"Low Block": 1.15, "Possession": 1.10, "Counter-Attack": 0.90, "Balanced": 1.0},
-    "Low Block": {"High Press": 0.80, "Counter-Attack": 1.10, "Possession": 1.20, "Balanced": 1.0}
-}
-
-def load_elo_ratings():
-    if os.path.exists(ELO_PATH):
-        try:
-            with open(ELO_PATH, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception: return {}
-    return {}
-
-ELO_DATA = load_elo_ratings()
-
-# --- Persistent Database Connections ---
-_DB_CONN = None
-_TACTICAL_CONN = None
-
-def get_db_connection():
-    global _DB_CONN
-    if _DB_CONN is None:
-        try:
-            _DB_CONN = sqlite3.connect(DB_ARCHIVE_PATH, check_same_thread=False)
-            _DB_CONN.row_factory = sqlite3.Row
-        except Exception: return None
-    return _DB_CONN
-
-def get_tactical_connection():
-    global _TACTICAL_CONN
-    if _TACTICAL_CONN is None:
-        try:
-            _TACTICAL_CONN = sqlite3.connect(TACTICAL_DB_PATH, check_same_thread=False)
-            _TACTICAL_CONN.row_factory = sqlite3.Row
-        except Exception: return None
-    return _TACTICAL_CONN
+ELO_DATA = get_elo_data()
 
 # AI Boosters (Lazy Loaded)
 _XGB_BOOSTER = None
@@ -666,114 +445,7 @@ def get_v553_premium_booster():
             _XGB_V553_PREMIUM_BOOSTER = None
     return _XGB_V553_PREMIUM_BOOSTER
 
-def extract_v4_features(match_obj):
-    """Extract V4 features from match object (requires match stats)."""
-    rd = dict(match_obj)
-    feats = {}
-    
-    def _f(val, default=0.0):
-        try:
-            if val is None: return float(default)
-            if isinstance(val, str):
-                s = val.strip()
-                if not s or s.lower() in ('none', 'null', 'nan', ''): return float(default)
-                return float(s.replace('%', '').split('/')[0])
-            return float(val)
-        except: return float(default)
-    
-    def safe_div(a, b):
-        return a / b if b and b != 0 else 0.0
-    
-    # 1. DB columns
-    feats['h_poss'] = _f(rd.get('home_possession'))
-    feats['a_poss'] = _f(rd.get('away_possession'))
-    feats['h_shots'] = _f(rd.get('home_shots'))
-    feats['a_shots'] = _f(rd.get('away_shots'))
-    feats['h_sot'] = _f(rd.get('home_shots_on_target'))
-    feats['a_sot'] = _f(rd.get('away_shots_on_target'))
-    feats['h_soff'] = _f(rd.get('home_shots_off'))
-    feats['a_soff'] = _f(rd.get('away_shots_off'))
-    feats['h_corners'] = _f(rd.get('home_corners'))
-    feats['a_corners'] = _f(rd.get('away_corners'))
-    feats['h_fouls'] = _f(rd.get('home_fouls'))
-    feats['a_fouls'] = _f(rd.get('away_fouls'))
-    feats['h_xg'] = _f(rd.get('home_xg'))
-    feats['a_xg'] = _f(rd.get('away_xg'))
-    
-    # 2. Differences & ratios
-    feats['poss_diff'] = feats['h_poss'] - feats['a_poss']
-    feats['shots_diff'] = feats['h_shots'] - feats['a_shots']
-    feats['sot_diff'] = feats['h_sot'] - feats['a_sot']
-    feats['xg_diff'] = feats['h_xg'] - feats['a_xg']
-    feats['total_shots'] = feats['h_shots'] + feats['a_shots']
-    feats['total_sot'] = feats['h_sot'] + feats['a_sot']
-    feats['total_xg'] = feats['h_xg'] + feats['a_xg']
-    feats['h_sot_rate'] = safe_div(feats['h_sot'], feats['h_shots'])
-    feats['a_sot_rate'] = safe_div(feats['a_sot'], feats['a_shots'])
-    feats['h_xg_per_shot'] = safe_div(feats['h_xg'], feats['h_shots'])
-    feats['a_xg_per_shot'] = safe_div(feats['a_xg'], feats['a_shots'])
-    feats['h_efficiency'] = safe_div(_f(rd.get('scoreHome')), feats['h_xg']) if feats['h_xg'] > 0 else 1.0
-    feats['a_efficiency'] = safe_div(_f(rd.get('scoreAway')), feats['a_xg']) if feats['a_xg'] > 0 else 1.0
-    
-    # 3. Stats blob keys
-    stats = {}
-    sb = rd.get('stats')
-    if sb:
-        try:
-            if isinstance(sb, str):
-                data = json.loads(sb)
-            elif isinstance(sb, dict):
-                data = sb
-            elif isinstance(sb, list):
-                for item in sb:
-                    if isinstance(item, dict):
-                        for k, v in item.items():
-                            stats[k] = _f(v)
-                data = None
-            else:
-                data = None
-            
-            if isinstance(data, dict):
-                for k, v in data.items():
-                    stats[k] = _f(v)
-        except: pass
-    
-    for key in STATS_KEYS_V4:
-        hk, ak = f"{key}_home", f"{key}_away"
-        feats[f"sb_{key}_h"] = stats.get(hk, 0.0)
-        feats[f"sb_{key}_a"] = stats.get(ak, 0.0)
-    
-    # 4. H2H data
-    feats['h2h_home_wins'] = 0
-    feats['h2h_draws'] = 0
-    feats['h2h_away_wins'] = 0
-    feats['h2h_total'] = 0
-    feats['h2h_avg_goals'] = 0
-    h2h_raw = rd.get('h2h_data')
-    if h2h_raw:
-        try:
-            if isinstance(h2h_raw, str):
-                h2h = json.loads(h2h_raw)
-            else:
-                h2h = h2h_raw
-            if isinstance(h2h, dict):
-                matches = h2h.get('matches', h2h.get('results', []))
-                if isinstance(matches, list) and len(matches) > 0:
-                    for m in matches:
-                        hs = _f(m.get('homeScore', m.get('scoreHome'), 0))
-                        aw = _f(m.get('awayScore', m.get('scoreAway'), 0))
-                        if hs > aw: feats['h2h_home_wins'] += 1
-                        elif hs == aw: feats['h2h_draws'] += 1
-                        else: feats['h2h_away_wins'] += 1
-                    feats['h2h_total'] = len(matches)
-                    total_goals = sum(_f(m.get('homeScore', m.get('scoreHome'), 0)) + _f(m.get('awayScore', m.get('scoreAway'), 0)) for m in matches)
-                    feats['h2h_avg_goals'] = safe_div(total_goals, len(matches))
-        except: pass
-    
-    feats['h2h_home_rate'] = safe_div(feats['h2h_home_wins'], max(feats['h2h_total'], 1))
-    feats['h2h_draw_rate'] = safe_div(feats['h2h_draws'], max(feats['h2h_total'], 1))
-    
-    return feats
+# extract_v4_features now imported from feature_engineer.py
 
 def get_main_booster():
     global _XGB_BOOSTER
@@ -810,387 +482,21 @@ def get_cards_model():
 # SHAP EXPLAINER DISABLED
 SHAP_EXPLAINER = None
 
-def calculate_team_strength(team_name, venue='overall'):
-    """[VENUE-AWARE] Calculates team strength using exponential decay weighting.
-    venue: 'home', 'away', or 'overall'
-    """
-    try:
-        cache_key = f"{team_name}_{venue}"
-        if cache_key in _TEAM_STRENGTH_CACHE:
-            return _TEAM_STRENGTH_CACHE[cache_key]
-            
-        conn = get_db_connection()
-        if not conn: return 1.0, 1.0
-
-        if venue == 'home':
-            where = "homeTeam = ?"
-            score_for = "scoreHome"
-            score_against = "scoreAway"
-            params = (team_name,)
-        elif venue == 'away':
-            where = "awayTeam = ?"
-            score_for = "scoreAway"
-            score_against = "scoreHome"
-            params = (team_name,)
-        else:
-            where = "(homeTeam = ? OR awayTeam = ?)"
-            params = (team_name, team_name)
-
-        query = f"""
-            SELECT homeTeam, awayTeam, scoreHome, scoreAway
-            FROM archive_matches
-            WHERE {where}
-              AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL
-            ORDER BY startTimestamp DESC
-            LIMIT 10
-        """
-        rows = conn.execute(query, params).fetchall()
-        if not rows: return 1.2, 1.2
-
-        scored_w = 0.0
-        conceded_w = 0.0
-        total_w = 0.0
-        ALPHA = 0.75  # Exponential decay factor
-
-        for i, row in enumerate(rows):
-            w = ALPHA ** i  # Weight decays exponentially: 1, 0.75, 0.56, 0.42...
-            total_w += w
-            if venue == 'overall':
-                is_home = row['homeTeam'] == team_name
-                s = row['scoreHome'] if is_home else row['scoreAway']
-                c = row['scoreAway'] if is_home else row['scoreHome']
-                # Venue-aware goal weighting
-                goal_mult = 1.0 if is_home else 1.1
-                concede_mult = 1.1 if is_home else 1.0
-            else:
-                s = row[score_for]
-                c = row[score_against]
-                goal_mult = 1.0
-                concede_mult = 1.0
-
-            scored_w += _safe_float(s) * w * goal_mult
-            conceded_w += _safe_float(c) * w * concede_mult
-
-        avg_scored = scored_w / total_w if total_w > 0 else 1.2
-        avg_conceded = conceded_w / total_w if total_w > 0 else 1.2
-        _TEAM_STRENGTH_CACHE[cache_key] = (avg_scored, avg_conceded)
-        return avg_scored, avg_conceded
-    except Exception:
-        return 1.2, 1.2
-
-def get_league_volatility_penalty(league_name):
-    """
-    Categorizes leagues and returns a confidence penalty and a volatility flag.
-    Returns: (penalty_percentage, is_volatile)
-    """
-    if not league_name:
-        return 10.0, True
-        
-    league = str(league_name).lower()
-    
-    # Elite Leagues - No penalty
-    elite_leagues = [
-        'premier league', 'la liga', 'serie a', 'bundesliga', 'ligue 1',
-        'champions league', 'world cup', 'euro',
-        # African elite
-        'africa cup of nations', 'afcon', 'caf champions league',
-        'african nations championship', 'chan',
-    ]
-    if any(e in league for e in elite_leagues):
-        return 0.0, False
-        
-    # Standard Leagues - Minimal penalty
-    standard_leagues = ['championship', 'eredivisie', 'primeira liga', 'mls', 'brasileirao', 'liga mx', 'europa league', 'super lig', 'pro league', '1st division', 'serie b', 'segunda']
-    if any(s in league for s in standard_leagues):
-        return 5.0, False
-        
-    # Volatile Leagues - High penalty (Youth, Women, State leagues, Obscure)
-    volatile_keywords = ['u19', 'u20', 'u21', 'u23', 'women', 'w-league', 'kvinner', 'nadeshiko', 'state', 'premier league 1', 'premier league 2', 'premier league 3', 'npl', 'reserve', 'amateur', 'friendly']
-    if any(v in league for v in volatile_keywords):
-        return 16.0, True
-        
-    # Default (Unknown/Obscure) - Moderate penalty
-    return 10.0, True
-
-def get_league_home_advantage(league_name):
-    """Calculates real Home Advantage for a specific league from archive data."""
-    try:
-        if league_name in _LEAGUE_HA_CACHE:
-            return _LEAGUE_HA_CACHE[league_name]
-            
-        conn = get_db_connection()
-        if not conn: return 1.15
-
-        # Average goals scored by Home vs Away teams in this league (last 200 games)
-        query = """
-            SELECT AVG(scoreHome) as avg_h, AVG(scoreAway) as avg_a
-            FROM archive_matches
-            WHERE tournament_name = ? AND scoreHome IS NOT NULL
-            ORDER BY id DESC LIMIT 200
-        """
-        res = conn.execute(query, (league_name,)).fetchone()
-        if res and res['avg_h'] and res['avg_a']:
-            # Ratio of home superiority
-            _LEAGUE_HA_CACHE[league_name] = float(res['avg_h'] / res['avg_a'])
-            return _LEAGUE_HA_CACHE[league_name]
-    except Exception: pass
-    return 1.15 # Fallback to standard 15%
-
-def get_h2h_modifier(home_name, away_name):
-    """Detects 'Bête Noire' (Black Beast) effect from last 5 direct encounters."""
-    try:
-        conn = get_db_connection()
-        if not conn: return 1.0, 1.0
-        query = """
-            SELECT homeTeam, awayTeam, scoreHome, scoreAway
-            FROM archive_matches
-            WHERE ((homeTeam = ? AND awayTeam = ?) OR (homeTeam = ? AND awayTeam = ?))
-            AND scoreHome IS NOT NULL
-            ORDER BY id DESC LIMIT 5
-        """
-        rows = conn.execute(query, (home_name, away_name, away_name, home_name)).fetchall()
-        
-        if not rows: return 1.0, 1.0
-        
-        home_points = 0
-        total_possible = len(rows) * 3
-        for r in rows:
-            is_home = (r['homeTeam'] == home_name)
-            sh, sa = r['scoreHome'], r['scoreAway']
-            if sh == sa: home_points += 1
-            elif (is_home and sh > sa) or (not is_home and sa > sh): home_points += 3
-        
-        win_rate = home_points / total_possible
-        # If one team dominates (>70% points), apply modifier
-        if win_rate > 0.7: return 1.15, 0.85 # Strong H2H edge
-        if win_rate < 0.3: return 0.85, 1.15 # Strong H2H disadvantage
-    except Exception: pass
-    return 1.0, 1.0
+# calculate_team_strength, get_league_volatility_penalty, get_league_home_advantage,
+# get_h2h_modifier now imported from data_loader.py
 
 # --- V50: Advanced Algorithmic Concepts ---
 # --- V50+ SURGICAL INTELLIGENCE: Refined Mathematical Models ---
 
-def calculate_dmf_hafiz(target_weight, distance_target, matches_rem, matches_played, is_dead_zone=False):
-    """
-    [TITANIUM V50+] Hafiz Dynamic Motivation Factor (DMF).
-    Quantifies team urgency using an exponential pressure gradient based on ranking/points proximity.
-    
-    Formula: DMF = 1.0 + (Pressure * Gamma_Scarcity)
-    where Pressure = weight * exp(-lambda * distance)
-    
-    Args:
-        target_weight: Importance of the current objective (0.0 to 1.0).
-        distance_target: Points or ranking distance from target.
-        matches_rem: Remaining matches in the season.
-        matches_played: Matches already completed.
-        is_dead_zone: Boolean flag for teams with mathematically zero stakes.
-        
-    Returns:
-        float: Multiplier between 0.85 (Dead Zone) and ~2.5 (Maximum Urgency).
-    """
-    if is_dead_zone: return 0.85 # Penalization for Dead Zone teams (low motivation)
-    
-    # Scarcity factor: pressure increases as season ends (gamma)
-    gamma = 1.0 + (matches_played / max(1, matches_played + matches_rem)) * 0.5
-    
-    # Pressure Gradient (exponential decay)
-    # lambda = 0.1 means pressure drops by ~10% per point away from target
-    pressure = target_weight * math.exp(-0.15 * max(0, distance_target))
-    
-    return round(1.0 + (pressure * gamma), 3)
+# calculate_dmf_hafiz, calculate_xg_perf_delta, impute_missing_match_data,
+# calculate_composite_confidence, calculate_fatigue_mod now imported from feature_engineer.py
 
-def calculate_xg_perf_delta(history, is_home=True):
-    """
-    V50+ xG-Elo Layer: Measures 'Quality of Play' (QoP) delta.
-    Compares actual results vs expected performance (xG) in last 5 games.
-    """
-    if not history: return 0.0
-    recent = history[:5]
-    delta_sum = 0.0
-    weights = [1.0, 0.8, 0.6, 0.4, 0.2] # Recency weighting
-    
-    for i, m in enumerate(recent):
-        # xG Delta = (xG For - xG Against) - (Goals For - Goals Against)
-        # Positive delta = Under-rewarded (good performance, bad result)
-        # Negative delta = Over-rewarded (lucky win)
-        xg_f = _safe_float(m.get('h_xg' if is_home else 'a_xg'), 1.0)
-        xg_a = _safe_float(m.get('a_xg' if is_home else 'h_xg'), 1.0)
-        g_f = _safe_float(m.get('score_for'), 1.0)
-        g_a = _safe_float(m.get('score_against'), 1.0)
-        
-        qop = (xg_f - xg_a) - (g_f - g_a)
-        delta_sum += qop * weights[i]
-        
-    return delta_sum / sum(weights[:len(recent)])
+# get_league_goals_multiplier now imported from data_loader.py
 
-def impute_missing_match_data(features, match_obj):
-    """
-    V50+ Imputation Protocol: Ensures zero-crash for missing travel/rest data.
-    Now extended to robustly handle the 115 variables, specifically missing players.
-    """
-    # 1. Rest Imputation: Default to 7 days (standard week) if unknown
-    if features.get('rest_h', 0) <= 0: features['rest_h'] = 7.0
-    if features.get('rest_a', 0) <= 0: features['rest_a'] = 7.0
-    
-    # 2. Travel Imputation: If travel_f is 0 but teams are different countries
-    if features.get('travel_f', 0) == 0:
-        # Basic proxy: if it's an international match, assume travel fatigue
-        if match_obj.get('is_international') or 'world' in str(match_obj.get('category_name', '')).lower():
-            features['travel_f'] = 2.5 # Average intl travel fatigue
-            
-    # 3. Secure Core Intelligence Flags (V46 Arabic/News intel)
-    # Missing this could crash Composite Confidence or XGBoost. Defualt to 0.0
-    intel_keys = ['news_is_missing_gk', 'news_is_missing_scorer', 'news_is_missing_captain', 'news_is_missing_star']
-    for k in intel_keys:
-        if features.get(k) is None or str(features.get(k)) == 'nan':
-            features[k] = 0.0
-
-    # 4. Data Completeness Check
-    essential = ['h_xg', 'a_xg', 'h_pos', 'a_pos']
-    
-    # [V76] Friendly Imputation — conservative defaults, data-driven detection
-    # Friendlies average ~0.8-1.0 xG/team; avoid keyword overmatch on 'World Cup', 'International Cup'
-    tournament = str(match_obj.get('league', '')).lower() + " " + str(match_obj.get('tournament_name', '')).lower()
-    is_friendly = any(x in tournament for x in ['friendly', 'amical', 'club matches', 'friendlies'])
-    
-    if is_friendly:
-        if features.get('h_xg', 0) <= 0: features['h_xg'] = 0.9
-        if features.get('a_xg', 0) <= 0: features['a_xg'] = 0.9
-        if features.get('h_pos', 0) <= 0: features['h_pos'] = 50.0
-        if features.get('a_pos', 0) <= 0: features['a_pos'] = 50.0
-        if features.get('h_sot', 0) <= 0: features['h_sot'] = 3.0
-        if features.get('a_sot', 0) <= 0: features['a_sot'] = 3.0
-
-    completeness = sum(1 for f in essential if features.get(f, 0) > 0) / len(essential)
-    features['data_completeness'] = completeness * 100
-    
-    return features
-
-def calculate_composite_confidence(p_xgb, h_dmf, a_dmf, lineups_confirmed, data_completeness=100.0):
-    """
-    V50+ Composite Confidence Level.
-    [TITANIUM V85] Optimized scaling to avoid mid-range clusters.
-    """
-    # 1. Model Clarity: Distance from random 33% 
-    # Use a quadratic boost to reward clear favorites
-    clarity_base = abs(p_xgb - 0.33) / 0.67
-    clarity = math.pow(clarity_base, 0.7) # Boost low-mid range clarity
-    
-    # 2. Motivation Synergy
-    mot_polarity = abs(h_dmf - a_dmf) / 2.0
-    
-    # 3. Lineup Bonus (15% boost)
-    lineup_factor = 0.15 if lineups_confirmed else 0.0
-    
-    # [TITANIUM V85] Base confidence starts at 45% if we have any clarity
-    base_boost = 35.0 if clarity > 0.05 else 10.0
-    
-    conf = (clarity * 45.0) + (mot_polarity * 20.0) + (lineup_factor * 100.0) + base_boost
-    conf_pct = max(10.0, min(98.5, conf))
-    
-    # [V80] Data Sparsity Penalization (Relaxed)
-    if data_completeness < 60.0:
-        penalty = ((60.0 - data_completeness) / 60.0) * 20.0
-        conf_pct -= penalty
-        
-    return max(5.0, min(99.0, conf_pct))
-
-def calculate_fatigue_mod(days_rest):
-    if days_rest is None: return 1.0
-    if days_rest <= 3: return 0.92 # High fatigue
-    if days_rest >= 7: return 1.05 # Well rested
-    return 1.0
-
-def get_league_goals_multiplier(league_name):
-    """
-    [TITANIUM V88] League-Specific Goal Density Mapping.
-    Returns a multiplier for total goal expectancy based on historical league behavior.
-    """
-    league = str(league_name).lower()
-    
-    # High Scoring Leagues (Over 2.5 heavy)
-    high_scoring = [
-        'bundesliga', 'eredivisie', 'pro league', 'a-league', 'super lig', 
-        'mls', 'allsvenskan', 'eliteserien', '1. liga', 'bundesliga 2'
-    ]
-    # Low Scoring Leagues (Under 2.5 heavy)
-    low_scoring = [
-        'ligue 2', 'serie b', 'segunda', 'primeira liga', 'greek', 'egypt',
-        'morocco', 'iran', 'south africa', 'argentina', 'colombia', 'romania'
-    ]
-    
-    if any(x in league for x in high_scoring): return 1.12
-    if any(x in league for x in low_scoring): return 0.86
-    return 1.0
-
-def calculate_composite_defense(features, is_home=True):
-    """
-    Calculates a defensive solidity index (0.5 to 1.5).
-    Lower is better (tighter defense).
-    """
-    prefix = 'h_' if is_home else 'a_'
-    opp_prefix = 'a_' if is_home else 'h_'
-    
-    # 1. Historical Goals Against (weighted)
-    ga = float(features.get(f'{prefix}ga', 1.2))
-    
-    # 2. Goalkeeper Effectiveness (Saves)
-    saves = float(features.get(f'{prefix}saves', 3.0))
-    save_factor = 1.0 - (min(5, saves) * 0.03) # Up to 15% reduction if saves are high
-    
-    # 3. Defensive Actions (Tackles/Interceptions if available)
-    tackles = float(features.get(f'{prefix}tackles', 15.0))
-    tackle_factor = 1.0 - (min(25, tackles) * 0.01) # Up to 25% reduction
-    
-    # 4. Big Chances conceded (The real danger)
-    bc_conceded = float(features.get(f'{opp_prefix}bc', 1.5))
-    bc_factor = 1.0 + (min(4, bc_conceded) * 0.1) # Up to 40% increase if conceding many BC
-    
-    base_def = (ga / 1.2) * save_factor * tackle_factor * bc_factor
-    return max(0.6, min(1.4, base_def))
+# calculate_composite_defense now imported from feature_engineer.py
 
 
-def get_advanced_xg_adjustment(home_name, away_name, league_name, features=None):
-    """Returns (xg_home, xg_away) based on weighted historical strength with dynamic HA and H2H."""
-    h_scored, h_conceded = calculate_team_strength(home_name)
-    a_scored, a_conceded = calculate_team_strength(away_name)
-    
-    # Dynamic Home Advantage
-    ha_ratio = get_league_home_advantage(league_name)
-    
-    # Base calculation
-    xg_h = (h_scored + a_conceded) / 2 * ha_ratio
-    xg_a = (a_scored + h_conceded) / 2 * (1.0 / ha_ratio)
-    
-    # H2H Modifier
-    h2h_h, h2h_a = get_h2h_modifier(home_name, away_name)
-    xg_h *= h2h_h
-    xg_a *= h2h_a
-    
-    # Physiological Modifiers [V80 Explicit Degradation]
-    if features:
-        h_inj = features.get('home_injury_impact', 0)
-        a_inj = features.get('away_injury_impact', 0)
-        if h_inj >= 3.0: xg_h *= 0.85
-        elif h_inj > 0: xg_h *= 0.95
-            
-        if a_inj >= 3.0: xg_a *= 0.85
-        elif a_inj > 0: xg_a *= 0.95
-            
-        rest_h = features.get('rest_h', 7.0)
-        rest_a = features.get('rest_a', 7.0)
-        if rest_h <= 3.0: xg_h *= (1.0 - (4.0 - rest_h) * 0.1)
-        if rest_a <= 3.0: xg_a *= (1.0 - (4.0 - rest_a) * 0.1)
-    
-    # ELO Boost
-    h_elo = ELO_DATA.get(home_name, 1500)
-    a_elo = ELO_DATA.get(away_name, 1500)
-    elo_diff = h_elo - a_elo
-    
-    xg_h *= (1.0 + elo_diff / 2000.0)
-    xg_a *= (1.0 - elo_diff / 2000.0)
-    
-    return max(0.4, xg_h), max(0.4, xg_a)
+# get_advanced_xg_adjustment now imported from data_loader.py
 
 def calculate_most_likely_score(xg_h, xg_a, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
     """Find the most probable exact score using Dixon-Coles and alternative goal distributions."""
@@ -1222,25 +528,8 @@ def calculate_exact_score(xg_h, xg_a, p_home, p_away, distribution='poisson', th
         a_f = h_f + 1
     return f"{max(0, min(7, h_f))} - {max(0, min(7, a_f))}"
 
-def get_stylistic_clash_modifier(home_style, away_style, home_momentum=1.0, away_momentum=1.0):
-    """V13 Style Matcher + V80 Form Scaling: Adjusts xG based on how playstyles interact."""
-    h_mod = STYLISTIC_MATRIX.get(home_style, {}).get(away_style, 1.0)
-    a_mod = STYLISTIC_MATRIX.get(away_style, {}).get(home_style, 1.0)
-    
-    if h_mod > 1.0 and home_momentum < 0.9: h_mod = 1.0 + (h_mod - 1.0) * home_momentum
-    elif h_mod < 1.0 and home_momentum > 1.2: h_mod = 1.0 - (1.0 - h_mod) * 0.5
-        
-    if a_mod > 1.0 and away_momentum < 0.9: a_mod = 1.0 + (a_mod - 1.0) * away_momentum
-    elif a_mod < 1.0 and away_momentum > 1.2: a_mod = 1.0 - (1.0 - a_mod) * 0.5
-        
-    return h_mod, a_mod
-
-def get_referee_discipline_profile(ref_name):
-    """V13 Discipline Engine: Detects referee's strictness."""
-    if not ref_name: return 1.0
-    # Simple proxy: if multiple penalties or reds in history, increase strictness
-    # In a full build, this would query a referee database
-    return 1.2 if "Strict" in str(ref_name) else 1.0
+# get_stylistic_clash_modifier, get_referee_discipline_profile
+# now imported from feature_engineer.py
 
 def poisson_prob(lam, k):
     if k < 0: return 0
@@ -1342,59 +631,8 @@ def apply_live_event_adjustment(match_obj, p_h, p_d, p_a):
     if s_total == 0: return 0.33, 0.33, 0.34, alerts
     return p_h/s_total, p_d/s_total, p_a/s_total, alerts
 
-def get_historical_patterns(home_team, away_team, match_month):
-    """Time Machine Engine: Detects Monthly Curses or Peaks."""
-    if not os.path.exists(TACTICAL_DB_PATH): return None, None
-    try:
-        conn = get_tactical_connection()
-        if not conn: return None, None
-        query = "SELECT * FROM historical_patterns WHERE is_active = 1 AND (team_name = ? OR team_name = ?)"
-        rows = conn.execute(query, (home_team, away_team)).fetchall()
-        
-        home_pattern, away_pattern = None, None
-        for r in rows:
-            name, ptype = r['team_name'], r['pattern_type']
-            is_valid = False
-            if ptype.startswith("MONTH_"):
-                try:
-                    pat_month = int(ptype.split('_')[-1])
-                    if pat_month == int(match_month): is_valid = True
-                except Exception: pass
-            else: is_valid = True
-            if is_valid:
-                if name == home_team: home_pattern = dict(r)
-                elif name == away_team: away_pattern = dict(r)
-        return home_pattern, away_pattern
-    except Exception: return None, None
-
-def apply_gap_learning_weight(prob_dict, league_name):
-    """Refines probabilities based on historical performance in this specific league."""
-    if not os.path.exists(ACCURACY_LOG_PATH): return prob_dict, 0.0
-    try:
-        with open(ACCURACY_LOG_PATH, 'r', encoding='utf-8') as f:
-            log_data = json.load(f)
-        
-        league_log = log_data.get(str(league_name), [])
-        if not league_log: return prob_dict, 0.0
-        
-        # Calculate recent failure rate (last 10 matches)
-        recent_matches = league_log[-10:]
-        failures = sum(1 for m in recent_matches if m.get('vote_was_misleading'))
-        
-        if failures >= 2:
-            # Scale penalty: 2 failures = 5%, 5 failures = 15%, max 25%
-            penalty_strength = min(0.25, (failures / 10.0) * 0.5)
-            
-            max_key = max(prob_dict, key=prob_dict.get)
-            min_key = min(prob_dict, key=prob_dict.get)
-            
-            discount = prob_dict[max_key] * penalty_strength
-            prob_dict[max_key] -= discount
-            prob_dict[min_key] += discount
-            return prob_dict, penalty_strength
-            
-    except Exception: pass
-    return prob_dict, 0.0
+# get_historical_patterns, apply_gap_learning_weight
+# now imported from data_loader.py
 
 def process_prediction(match_obj: dict) -> dict:
     home_name = match_obj.get('homeTeam', 'Home')

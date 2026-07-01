@@ -113,13 +113,42 @@ def predict(match):
         xg_h = base_feats.get('expected_goals_home', 1.0)
         xg_a = base_feats.get('expected_goals_away', 1.0)
 
+    # Odds-implied xG fallback: reverse-engineer from 1X2 odds when xG still default
+    if xg_h <= 0.5 and xg_a <= 0.5:
+        odds_h = float(match.get('odds_home', 0) or 0)
+        odds_d = float(match.get('odds_draw', 0) or 0)
+        odds_a = float(match.get('odds_away', 0) or 0)
+        if odds_h > 1.1 and odds_d > 1.1 and odds_a > 1.1:
+            implied_h = 1.0 / odds_h
+            implied_a = 1.0 / odds_a
+            xg_h = max(0.4, min(3.0, -np.log(1 - implied_h) if implied_h < 1 else 1.2))
+            xg_a = max(0.4, min(3.0, -np.log(1 - implied_a) if implied_a < 1 else 1.0))
+
+    # Poisson most likely score instead of naive round(xG)
+    from math import exp, factorial
+    def _poisson_mode(lam):
+        lam = max(0.1, min(5.0, lam))
+        k, best_p, best_k = 0, 0, 0
+        while k < 8:
+            p = (lam ** k) * exp(-lam) / factorial(k)
+            if p > best_p:
+                best_p, best_k = p, k
+            k += 1
+        return best_k
+
+    score_h = _poisson_mode(xg_h)
+    score_a = _poisson_mode(xg_a)
+    expected_score = f'{score_h} - {score_a}'
+
     return {
         'success': True,
         'prediction': label_map[pred_class],
         'home_win_prob': probs_map['1'],
         'draw_prob': probs_map['X'],
         'away_win_prob': probs_map['2'],
-        'expected_score': f'{round(xg_h)} - {round(xg_a)}',
+        'expected_score': expected_score,
+        'home_xg': round(xg_h, 2),
+        'away_xg': round(xg_a, 2),
         'confidence': max(probs_map.values()),
         'model': 'V553_PREMIUM',
     }

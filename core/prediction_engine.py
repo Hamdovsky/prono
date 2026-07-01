@@ -73,6 +73,17 @@ from model_manager import (
     CORNERS_MODEL_PATH, CARDS_MODEL_PATH,
     TITANIUM_MODEL_PATH, TITANIUM_V4_MODEL_PATH,
 )
+from predictor import (
+    poisson_prob, monte_carlo_simulation,
+    calculate_most_likely_score, calculate_exact_score,
+    apply_live_event_adjustment, calculate_ah_dnb_probs,
+)
+from post_processor import (
+    generate_strategic_brief, calculate_poisson_cs, get_tube_pct,
+    detect_risk_flags, detect_market_trap, calibrate_confidence,
+    calculate_kelly_stake, generate_value_insight, generate_security_insight,
+    CONF_TAG_ADJ,
+)
 
 # --- CACHE FOR STATISTICAL LOOKUPS (kept for backward compat) ---
 _LEAGUE_DRAW_CACHE = {}
@@ -109,72 +120,9 @@ LEAGUE_WEIGHT_MATRIX = {
 
 # simulate_match_mc now imported from model_manager.py
 
-def calculate_most_likely_score(xg_h, xg_a, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
-    """
-    Calculate professional market probabilities:
-    - Draw No Bet (AH 0.0)
-    - Double Chance
-    """
-    total_non_draw = p_h + p_a
-    if total_non_draw == 0: return 0.5, 0.5, 0.5, 0.5, 1.0
-    
-    dnb_h = p_h / total_non_draw
-    dnb_a = p_a / total_non_draw
-    
-    dc_h = p_h + p_d
-    dc_a = p_a + p_d
-    dc_12 = p_h + p_a
-    
-    return dnb_h, dnb_a, dc_h, dc_a, dc_12
-
-def generate_strategic_brief(features, home_name, away_name, selection, match_obj=None):
-    """
-    V22: Professional Strategic Tactical Narrative.
-    Integrates referee bias, weather impact, and squad depth.
-    """
-    try:
-        styles = {
-            1: "Contre-attaque éclair",
-            2: "Possession patiente",
-            3: "Pressing intensif",
-            4: "Jeu direct/Long ball",
-            5: "Défense regroupée",
-            6: "Transition rapide",
-            0: "Standard équilibré"
-        }
-        h_style = styles.get(int(features.get('h_style_enc', 0)), "Standard")
-        a_style = styles.get(int(features.get('a_style_enc', 0)), "Standard")
-        
-        brief = f"Analyse Tactique : Opposition entre {home_name} ({h_style}) et {away_name} ({a_style}). "
-        
-        # Motivation & Pressure
-        mot = _safe_float(features.get('motivation_context'), 1.0)
-        if mot > 1.3: brief += "Enjeu de haute intensité détecté (Pression maximale). "
-        elif mot < 0.8: brief += "Contexte de match avec rotation probable/faible enjeu. "
-        
-        # 🏛️ Referee Impact
-        ref_hwr = _safe_float(features.get('referee_home_win_rate'), 0.45)
-        if ref_hwr > 0.55: brief += "Arbitrage statistiquement favorable à l'avantage du terrain. "
-        
-        # 🌦️ Weather Impact
-        weather = str(features.get('weather_desc', '')).lower()
-        if 'rain' in weather or 'snow' in weather:
-            brief += "Conditions météorologiques défavorables pouvant limiter la fluidité du jeu. "
-
-        # 🚨 Key Absences
-        h_inj = _safe_float(features.get('home_injury_impact'), 0)
-        a_inj = _safe_float(features.get('away_injury_impact'), 0)
-        if h_inj >= 3.0: brief += f"Absence critique pour {home_name} (Impact structurel -15%). "
-        if a_inj >= 3.0: brief += f"Absence critique pour {away_name} (Impact structurel -15%). "
-
-        # Verdict logic
-        if selection == "Home": brief += f"Conclusion : Supériorité dans les transitions pour {home_name}."
-        elif selection == "Away": brief += f"Conclusion : Capacité de rupture élevée pour {away_name}."
-        else: brief += "Conclusion : Neutralisation tactique attendue dans l'entrejeu."
-        
-        return brief
-    except Exception:
-        return "Analyse tactique complexe : Équilibre des forces en présence avec variables multiples."
+# calculate_most_likely_score, calculate_exact_score, poisson_prob,
+# monte_carlo_simulation, apply_live_event_adjustment, calculate_ah_dnb_probs,
+# generate_strategic_brief now imported from predictor.py and post_processor.py
 
 # Model paths and get_*_booster() functions now imported from model_manager.py
 # Duplicate model paths removed to avoid shadowing imports
@@ -195,138 +143,9 @@ ELO_DATA = get_elo_data()
 # get_advanced_xg_adjustment now imported from data_loader.py
 # simulate_match_mc now imported from model_manager.py
 
-def calculate_most_likely_score(xg_h, xg_a, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
-    """Find the most probable exact score using Dixon-Coles and alternative goal distributions."""
-    best_score = (1, 1)
-    best_prob = -1
-    for h in range(8):
-        for a in range(8):
-            if distribution == 'negbin':
-                prob = negbin_pmf(xg_h, theta, h) * negbin_pmf(xg_a, theta, a)
-            elif distribution == 'cmp':
-                prob = cmp_pmf(xg_h, nu, h) * cmp_pmf(xg_a, nu, a)
-            else:
-                prob = poisson_prob(xg_h, h) * poisson_prob(xg_a, a)
-            prob *= get_dixon_coles_adjustment(xg_h, xg_a, h, a, rho)
-            
-            if prob > best_prob:
-                best_prob = prob
-                best_score = (h, a)
-    return f"{best_score[0]} - {best_score[1]}"
-
-def calculate_exact_score(xg_h, xg_a, p_home, p_away, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12, gamma=0.0):
-    """Derive most likely scoreline from xG and adjust for high win confidence."""
-    score_str = calculate_most_likely_score(xg_h, xg_a, distribution=distribution, theta=theta, nu=nu, rho=rho)
-    h_f, a_f = map(int, score_str.split(' - '))
-    # If win probability is very high but score doesn't reflect it, adjust
-    if p_home > 70 and h_f == a_f:
-        h_f = a_f + 1
-    elif p_away > 70 and h_f == a_f:
-        a_f = h_f + 1
-    return f"{max(0, min(7, h_f))} - {max(0, min(7, a_f))}"
-
-# get_stylistic_clash_modifier, get_referee_discipline_profile
-# now imported from feature_engineer.py
-
-def poisson_prob(lam, k):
-    if k < 0: return 0
-    if lam <= 0: return 1.0 if k == 0 else 0.0
-    return (math.exp(-lam) * (lam**k)) / math.factorial(k)
-
-def monte_carlo_simulation(xg_h, xg_a, iterations=1000, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12):
-    """Simulates match outcomes using Bivariate Poisson (or NegBin/CMP) with Dixon-Coles adjustment.
-    V80 REALISM: Simulates goal co-dependence (shared variance) to accurately price draws.
-    """
-    h_wins = 0
-    draws = 0
-    a_wins = 0
-    total_goals_list = []
-    btts_count = 0
-    
-    cov = 0.15 * min(max(0, xg_h), max(0, xg_a))
-    if math.isnan(cov) or math.isinf(cov): cov = 0.0
-    
-    base_h = max(0, xg_h - cov)
-    base_a = max(0, xg_a - cov)
-    
-    if distribution == 'negbin':
-        p_h = theta / (theta + base_h) if base_h > 0 else 1.0
-        p_a = theta / (theta + base_a) if base_a > 0 else 1.0
-        home_base = np.random.negative_binomial(theta, p_h, iterations)
-        away_base = np.random.negative_binomial(theta, p_a, iterations)
-    elif distribution == 'cmp':
-        home_base = np.array([np.random.poisson(base_h) for _ in range(iterations)])
-        away_base = np.array([np.random.poisson(base_a) for _ in range(iterations)])
-    else:
-        home_base = np.random.poisson(base_h, iterations)
-        away_base = np.random.poisson(base_a, iterations)
-    
-    shared_goals = np.random.poisson(cov, iterations)
-    
-    for i in range(iterations):
-        gh = int(home_base[i]) + int(shared_goals[i])
-        ga = int(away_base[i]) + int(shared_goals[i])
-        
-        if gh > ga: h_wins += 1
-        elif gh < ga: a_wins += 1
-        else: draws += 1
-        
-        total_goals_list.append(gh + ga)
-        if gh > 0 and ga > 0: btts_count += 1
-            
-    return {
-        "p_h": h_wins / iterations,
-        "p_d": draws / iterations,
-        "p_a": a_wins / iterations,
-        "avg_total_goals": sum(total_goals_list) / iterations,
-        "btts_prob": btts_count / iterations,
-        "ou_25_prob": sum(1 for g in total_goals_list if g > 2.5) / iterations,
-        "ou_15_prob": sum(1 for g in total_goals_list if g > 1.5) / iterations,
-        "ou_35_prob": sum(1 for g in total_goals_list if g > 3.5) / iterations
-    }
-
-def apply_live_event_adjustment(match_obj, p_h, p_d, p_a):
-    is_live = match_obj.get('status') == 'LIVE' or match_obj.get('is_live', False)
-    if not is_live: return p_h, p_d, p_a, []
-
-    alerts = []
-    stats_raw = match_obj.get('stats_blob', '[]')
-    if isinstance(stats_raw, str):
-        try: stats = json.loads(stats_raw)
-        except Exception: stats = []
-    else: stats = stats_raw
-    
-    red_h = 0
-    red_a = 0
-    for s in stats:
-        cat = s.get('category', '').lower()
-        if 'red cards' in cat:
-            red_h = int(s.get('homeValue', 0))
-            red_a = int(s.get('awayValue', 0))
-
-    if red_h > 0:
-        penalty = 0.25 * red_h
-        p_h -= p_h * penalty
-        p_a += (p_h * penalty * 0.7)
-        p_d += (p_h * penalty * 0.3)
-        alerts.append({"type": "LIVE_RED", "team": "home", "msg": f"⚠️ RED CARD (HOME) x{red_h} - STITCH ADJUSTING LIVE..."})
-
-    if red_a > 0:
-        penalty = 0.25 * red_a
-        p_a -= p_a * penalty
-        p_h += (p_a * penalty * 0.7)
-        p_d += (p_a * penalty * 0.3)
-        alerts.append({"type": "LIVE_RED", "team": "away", "msg": f"⚠️ RED CARD (AWAY) x{red_a} - STITCH ADJUSTING LIVE..."})
-
-    # --- V25 EMERGENCY PROTOCOL: RED CARD OVERRIDE ---
-    if red_h > 0 or red_a > 0:
-        alerts.append({"type": "V25_EMERGENCY", "msg": "🚨 [V25] Red Card Emergency Protocol: Normalizing historical bias..."})
-        # Note: In a full V25 build, this would trigger a specialized XGBoost DMatrix inference.
-        # Here we simulate the effect by increasing defensive resilience weight.
-    
-    s_total = p_h + p_d + p_a
-    if s_total == 0: return 0.33, 0.33, 0.34, alerts
-    return p_h/s_total, p_d/s_total, p_a/s_total, alerts
+# calculate_most_likely_score, calculate_exact_score, poisson_prob,
+# monte_carlo_simulation, apply_live_event_adjustment, calculate_ah_dnb_probs,
+# generate_strategic_brief now imported from predictor.py and post_processor.py
 
 # get_historical_patterns, apply_gap_learning_weight
 # now imported from data_loader.py

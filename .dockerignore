@@ -6,6 +6,9 @@ dist
 *.db
 *.db-wal
 *.db-shm
+!data/tactical.db
+!data/tactical.db-wal
+!data/tactical.db-shm
 *.sqlite
 *.sqlite.gz
 logs/

@@ -27,6 +27,7 @@ from leagues_master import classify_league
 # --- Module imports (refactored) ---
 from data_loader import (
     safe_float as _safe_float, f_feat as _f_feat,
+    get_tactical_connection,
     get_elo_data,
     get_league_volatility_penalty,
     get_league_goals_multiplier, get_league_draw_multiplier,

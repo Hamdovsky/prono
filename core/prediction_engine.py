@@ -1352,7 +1352,7 @@ def process_prediction(match_obj: dict) -> dict:
     # Final Safety Clamp
     confidence = max(0.1, min(100.0, confidence + (conf_mod)))
     
-    draw_mult = _get_league_draw_multiplier(None, None, league_name=league_name_str)
+    draw_mult = get_league_draw_multiplier(None, None, league_name=league_name_str)
     p_d_raw = p_d
     p_d = min(0.60, p_d * draw_mult)
     total = p_h + p_d + p_a

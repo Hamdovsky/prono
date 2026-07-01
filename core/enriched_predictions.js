@@ -813,8 +813,14 @@ class EnrichedPredictionService {
                 quantResult.main_pick = v553.prediction
                 quantResult.risk_label = v553.verdict
                 quantResult.confidence = v553.confidence
-                quantResult.expected_score = v553.expected_score
-                probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
+                // Use odds-implied score/probs when xG was overridden (not V553's default 1-1)
+                if (isGenericScore && m.odds_home && m.odds_draw && m.odds_away) {
+                    // Let QuantumQuantEngine's expected_score stand (computed from odds-implied xG)
+                    probs = { h: quantResult.markets.match_result['1'].prob, d: quantResult.markets.match_result['X'].prob, a: quantResult.markets.match_result['2'].prob }
+                } else {
+                    quantResult.expected_score = v553.expected_score
+                    probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
+                }
             } else {
                 // JS ENGINE — fallback: ALWAYS use odds-implied xG for differentiation
                 aiSource = 'TITANIUM_QUANT_V4'

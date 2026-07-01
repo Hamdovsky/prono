@@ -27,6 +27,7 @@ const database = require('./core/database');
 const configEngine = require('./core/configEngine');
 const securityEngine = require('./core/securityEngine');
 const shieldEngine = require('./core/shieldEngine');
+const { sanitizeMatches } = require('./core/matchSanitizer');
 
 // Metrics
 const { httpRequestsTotal, activeConnections, circuitBreakerState, cacheHits, cacheMisses, register } = require('./core/metrics');
@@ -734,7 +735,13 @@ app.get('/api/upcoming', redisMiddleware, async (req, res) => {
       return ts >= now - 86400 && ts <= maxTs
     })
 
-    const enriched = upcoming.map(m => {
+    // 🧹 [DATA SANITIZER] Remove zombie/frozen/corrupted matches
+    const { sanitized: cleanMatches, stats: sanitStats } = sanitizeMatches(upcoming)
+    if (sanitStats.rejected > 0) {
+      logger.info(`🧹 [SANITIZER] ${sanitStats.rejected} zombie/corrupted matches removed from upcoming`)
+    }
+
+    const enriched = cleanMatches.map(m => {
       try {
         const xgH = parseFloat(m.home_avg_scored || m.xg_home || 1.2)
         const xgA = parseFloat(m.away_avg_scored || m.xg_away || 1.0)

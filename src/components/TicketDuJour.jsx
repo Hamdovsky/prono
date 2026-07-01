@@ -11,6 +11,69 @@ const TicketDuJour = ({ matches }) => {
     const ticket = useMemo(() => {
         if (!matches || matches.length === 0) return null;
 
+        // Helper: compute boosted accuracy — faithful replica of MatchRow.jsx logic
+        const computeBoostedAcc = (m) => {
+            const enriched = m.enriched || {};
+
+            const normalizePct = (v) => {
+                const n = Number(v || 0);
+                if (!Number.isFinite(n) || n <= 0) return 0;
+                return n > 1 ? n : n * 100;
+            };
+
+            const hPct = parseFloat(m.home_win_probability || enriched.home_win_probability || 0);
+            const aPct = parseFloat(m.away_win_probability || enriched.away_win_probability || 0);
+            const pOU25 = Number(m.ou_25_prob || enriched?.ou_25_prob || 0);
+            const pBTTS = Number(m.btts_prob || enriched?.btts_prob || 0);
+
+            const rawAcc = m.v22_success_rate || enriched.v22_success_rate || m.confidence;
+            const pOU25_pct = pOU25 > 1 ? pOU25 : pOU25 * 100;
+
+            // Build validMarkets exactly as MatchRow.jsx does (using raw pBTTS/pOU25 for conditions)
+            const markets = [];
+            if (hPct >= 65) {
+                markets.push({ prob: hPct - 12 });
+                markets.push({ prob: hPct - 5 });
+            }
+            if (aPct >= 65) {
+                markets.push({ prob: aPct - 12 });
+                markets.push({ prob: aPct - 5 });
+            }
+            const pHT05 = Math.min(89, Math.round((pOU25 * 0.5) + (pBTTS * 0.5) + 5));
+            if (pBTTS >= 58 && pOU25 >= 58) {
+                markets.push({ prob: pHT05 });
+                markets.push({ prob: (pBTTS + pOU25) / 2 });
+            } else if (pOU25 <= 40 && pBTTS <= 40) {
+                markets.push({ prob: 100 - pOU25 });
+                markets.push({ prob: 100 - pBTTS });
+            }
+            markets.push({ prob: Math.max(hPct, aPct) });
+            markets.push({ prob: pBTTS });
+            markets.forEach(mk => { mk.prob = Math.min(99, mk.prob); });
+            const validMarkets = markets.filter(mk => mk.prob > 0 && !isNaN(mk.prob));
+            validMarkets.sort((a, b) => b.prob - a.prob);
+            const bestMktProb = validMarkets[0] ? validMarkets[0].prob : 0;
+            const marketConf = bestMktProb > 1 ? bestMktProb : Math.round(bestMktProb * 100);
+
+            let acc;
+            if (rawAcc && rawAcc > 0) {
+                let base = rawAcc > 1 ? rawAcc : Math.round(rawAcc * 100);
+                if (base === 50 && bestMktProb > 55) base = Math.round(bestMktProb);
+                if (bestMktProb > base + 15 && bestMktProb > 60) base = Math.round(bestMktProb);
+                if (Math.abs(base - marketConf) < 10 && base > 60) base = Math.min(97, base + 4);
+                if (pBTTS > 70 && pOU25_pct > 70) base = Math.min(97, base + 3);
+                if (m.insufficient_data === 1) base = Math.min(base, 64);
+                acc = Math.round(base);
+            } else {
+                const bestProb = validMarkets[0] ? validMarkets[0].prob : Math.max(hPct, aPct);
+                acc = bestProb > 1 ? Math.round(bestProb) : Math.round(bestProb * 100);
+                if (pBTTS > 65 && pOU25_pct > 65) acc = Math.min(97, acc + 4);
+                if (m.insufficient_data === 1) acc = Math.min(acc, 64);
+                if (acc === 0) acc = 50;
+            }
+            return Math.max(1, Math.min(99, acc));
+        };
+
         // 1. Filter out finished matches or irrelevant ones
         const now = Date.now();
         const activeMatches = matches.filter(m => {
@@ -27,18 +90,14 @@ const TicketDuJour = ({ matches }) => {
             // Only upcoming or short-term live
             if (matchTime && matchTime < now - (3 * 60 * 60 * 1000)) return false; 
             
-            const conf = Math.round(m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0);
+            const conf = computeBoostedAcc(m);
             return conf >= 75; // Only reliable matches
         });
 
         if (activeMatches.length === 0) return null;
 
-        // 2. Sort by highest confidence first
-        activeMatches.sort((a, b) => {
-            const confA = a.v22_success_rate || a.enriched?.v22_success_rate || a.confidence || 0;
-            const confB = b.v22_success_rate || b.enriched?.v22_success_rate || b.confidence || 0;
-            return confB - confA;
-        });
+        // 2. Sort by highest boosted confidence first
+        activeMatches.sort((a, b) => computeBoostedAcc(b) - computeBoostedAcc(a));
 
         // Helper to extract prediction and odds
         const extractPick = (match) => {

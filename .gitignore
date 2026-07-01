@@ -104,6 +104,7 @@ __pycache__/
 
 # opencode config
 .opencode/
+opencode.json
 
 # Credentials â€” DO NOT COMMIT
 AGENTS.md

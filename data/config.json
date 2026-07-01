@@ -18,7 +18,4 @@
   "WEBHOOK_ENABLED": true,
   "SYNC_PRIORITY": "HIGH",
   "DEEP_NEWS_ENABLED": true
-}  "testKey2": "second"
-},
-  "testKey2": "second"
 }

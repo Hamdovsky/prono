@@ -4,6 +4,7 @@ const logger = require('../core/logger');
 const database = require('../core/database');
 const { speedCache, invalidateCache } = require('../core/speedCache');
 const enrichedPredictions = require('../core/enriched_predictions');
+const { sanitizeMatches } = require('../core/matchSanitizer');
 const liveGoalPredictor = require('../services/LiveGoalPredictor');
 const liveMatchService = require('../services/liveMatchService');
 
@@ -210,6 +211,13 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         });
 
         logger.info(`✅ [QUALITY GATE] ${rawMatches.length} quality matches retained.`);
+
+        // 🧹 [DATA SANITIZER] Remove zombie/frozen/corrupted matches before enrichment
+        const { sanitized, stats: sanitStats } = sanitizeMatches(rawMatches)
+        rawMatches = sanitized
+        if (sanitStats.rejected > 0) {
+            logger.info(`🧹 [SANITIZER] ${sanitStats.rejected} zombie/corrupted matches removed. Reasons:`, sanitStats.reasons)
+        }
 
         // 🚀 [JIT FAST PASS] Force re-enrichment only for matches missing predictions
         const maxForce = Math.min(parseInt(req.query.force_count) || 5, 20)

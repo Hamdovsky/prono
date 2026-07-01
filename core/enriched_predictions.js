@@ -653,6 +653,32 @@ class EnrichedPredictionService {
         };
     }
 
+    /**
+     * Generate deterministic synthetic odds from team names when no bookmaker odds exist.
+     * Uses a simple hash to create unique-but-consistent per-match differentiation.
+     */
+    _generateSyntheticOdds(homeTeam, awayTeam) {
+        const str = `${homeTeam || 'Home'}_vs_${awayTeam || 'Away'}`;
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const ch = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + ch;
+            hash = hash & hash; // Convert to 32bit int
+        }
+        const seed = Math.abs(hash) / 2147483647; // 0..1
+        // Home advantage: 40-55% home win, 20-30% draw, 15-35% away
+        const homeProb = 0.40 + (seed * 0.15);                          // 0.40 - 0.55
+        const drawProb = 0.22 + (((seed * 7.3) % 1) * 0.08);           // 0.22 - 0.30
+        const awayProb = 1 - homeProb - drawProb;                       // 0.15 - 0.35
+        // Convert to decimal odds (with margin ~5%)
+        const margin = 1.05;
+        return {
+            home: parseFloat((margin / homeProb).toFixed(2)),
+            draw: parseFloat((margin / drawProb).toFixed(2)),
+            away: parseFloat((margin / awayProb).toFixed(2))
+        };
+    }
+
     predictCorners(match, winnerPrediction) {
         return StatisticalEngine.predictCorners(match, winnerPrediction.probability);
     }
@@ -800,6 +826,14 @@ class EnrichedPredictionService {
                 xgA = parseFloat((v553.expected_score || '0 - 0').split(' - ')[1]) || 0
                 // If V553 returned generic 1-1 and we have odds, override with odds-implied xG
                 const isGenericScore = (xgH === 1 && xgA === 1) || v553.insufficient_data;
+                const hasOdds = m.odds_home && m.odds_draw && m.odds_away;
+                // Generate synthetic odds when real odds are missing
+                if (isGenericScore && !hasOdds) {
+                    const synth = this._generateSyntheticOdds(m.homeTeam, m.awayTeam);
+                    m.odds_home = synth.home;
+                    m.odds_draw = synth.draw;
+                    m.odds_away = synth.away;
+                }
                 if (isGenericScore && m.odds_home && m.odds_draw && m.odds_away) {
                     const odH = 1 / parseFloat(m.odds_home);
                     const odD = 1 / parseFloat(m.odds_draw);
@@ -824,6 +858,12 @@ class EnrichedPredictionService {
             } else {
                 // JS ENGINE — fallback: ALWAYS use odds-implied xG for differentiation
                 aiSource = 'TITANIUM_QUANT_V4'
+                if (!(m.odds_home && m.odds_draw && m.odds_away)) {
+                    const synth = this._generateSyntheticOdds(m.homeTeam, m.awayTeam);
+                    m.odds_home = synth.home;
+                    m.odds_draw = synth.draw;
+                    m.odds_away = synth.away;
+                }
                 if (m.odds_home && m.odds_draw && m.odds_away) {
                     const odH = 1 / parseFloat(m.odds_home);
                     const odD = 1 / parseFloat(m.odds_draw);

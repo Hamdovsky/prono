@@ -109,9 +109,9 @@ class TestCalculateAhDnbProbs:
         # Should return default values
         assert dnb_h == 0.5
         assert dnb_a == 0.5
-        assert dc_h == 1.0
-        assert dc_a == 1.0
-        assert dc_12 == 0.0
+        assert dc_h == 0.5
+        assert dc_a == 0.5
+        assert dc_12 == 1.0
     
     def test_calculate_ah_dnb_strong_favorite(self):
         """Should handle strong favorite scenario"""
@@ -123,8 +123,8 @@ class TestCalculateAhDnbProbs:
         
         assert dnb_h > 0.8  # Strong home favorite
         assert dnb_a < 0.2  # Weak away
-        assert dc_h == 0.9  # Very high home or draw
-        assert dc_a == 0.3  # Low away or draw
+        assert abs(dc_h - 0.9) < 0.01  # p_h + p_d = 0.9
+        assert abs(dc_a - 0.3) < 0.01  # p_a + p_d = 0.3
     
     def test_calculate_ah_dnb_balanced(self):
         """Should handle balanced match"""
@@ -173,8 +173,10 @@ class TestPredictionEngineHelpers:
         # DNB probabilities should sum to 1
         assert abs((dnb_h + dnb_a) - 1.0) < 0.001
         
-        # DC probabilities should overlap correctly
-        assert abs((dc_h + dc_a + dc_12) - (p_h + p_d + p_a + p_h + p_a)) < 0.001
+        # DC: dc_h + dc_a = 1 + p_d, dc_12 = 1 - p_d
+        assert abs(dc_h - (p_h + p_d)) < 0.001
+        assert abs(dc_a - (p_a + p_d)) < 0.001
+        assert abs(dc_12 - (p_h + p_a)) < 0.001
 
 
 if __name__ == '__main__':

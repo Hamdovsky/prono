@@ -74,8 +74,13 @@ _TITANIUM_BOOSTER = None
 _TITANIUM_V4_BOOSTER = None
 
 
+_BOOSTER_CACHE = {}
+
+
 def _load_booster(path, name):
-    """Generic lazy loader for XGBoost model files."""
+    """Generic lazy loader for XGBoost model files with path-level singleton cache."""
+    if path in _BOOSTER_CACHE:
+        return _BOOSTER_CACHE[path]
     xgb = get_xgb()
     if xgb is None:
         return None
@@ -84,6 +89,7 @@ def _load_booster(path, name):
     try:
         model = xgb.Booster()
         model.load_model(path)
+        _BOOSTER_CACHE[path] = model
         return model
     except Exception as e:
         sys.stderr.write(f"[XGB] Failed to load {name}: {str(e)}\n")

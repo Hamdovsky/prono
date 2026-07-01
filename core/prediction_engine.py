@@ -115,10 +115,12 @@ def process_prediction(match_obj: dict) -> dict:
     # --- V50+ Imputation & QoP ---
     features = impute_missing_match_data(features, match_obj)
 
-    # INSUFFICIENT DATA FILTER
-    if league_tier == 'UNKNOWN' and features.get('data_completeness', 100) < 30.0:
-        sys.stderr.write(f"🛑 PRE-MATCH FILTER: UNKNOWN tournament with insufficient data ({features.get('data_completeness')}%) blocked.\n")
-        return {"success": False, "error": "INSUFFICIENT_DATA"}
+    # INSUFFICIENT DATA FILTER — universal guard, stricter for unknown leagues
+    data_completeness = features.get('data_completeness', 100)
+    dc_threshold = 30.0 if league_tier == 'UNKNOWN' else 15.0
+    if data_completeness < dc_threshold:
+        sys.stderr.write(f"🛑 PRE-MATCH FILTER: Insufficient data ({data_completeness:.0f}% < {dc_threshold}%) for league '{league_name_str}'. Blocked.\n")
+        return {"success": False, "error": "INSUFFICIENT_DATA", "data_completeness": data_completeness}
 
     perf_delta_h = calculate_xg_perf_delta(h_hist, is_home=True)
     perf_delta_a = calculate_xg_perf_delta(a_hist, is_home=False)

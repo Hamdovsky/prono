@@ -455,6 +455,11 @@ class EnrichedPredictionService {
 
     async _tryV553(match, timeoutMs) {
         try {
+            // Pre-fetch SofaScore team data if not already populated
+            if (!match._sofaTeamDataFetched && (match.home_team_id || match._homeTeamId || match.sofascore_id || (typeof match.id === 'string' && match.id.startsWith('sofascore_')))) {
+                await this._fetchSofaTeamData(match);
+            }
+
             const pythonService = require('../core/pythonService')
             const pyMatch = {
                 homeTeam: match.homeTeam,
@@ -668,6 +673,18 @@ class EnrichedPredictionService {
     async fastEnrichMatch(match) {
         try {
             const m = { ...match };
+
+            // ── SOFASCORE TEAM DATA (form, xG) ──
+            if (!m._sofaTeamDataFetched && (m.home_team_id || m._homeTeamId || m.sofascore_id || (typeof m.id === 'string' && m.id.startsWith('sofascore_')))) {
+                await this._fetchSofaTeamData(m);
+                // Use team form xG as fallback when DB xG is missing
+                if (!parseFloat(m.home_xg) > 0.5) {
+                    const ts = m.teamStats;
+                    if (ts?.home?.avgXgFor > 0) m.home_xg = ts.home.avgXgFor;
+                    if (ts?.away?.avgXgFor > 0) m.away_xg = ts.away.avgXgFor;
+                }
+            }
+
             // ── EXTERNAL XG FETCH ──
             // Try multiple external sources when DB xG is missing or stale
             const hasRealXg = parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5;

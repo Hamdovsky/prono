@@ -85,7 +85,7 @@ function mapSofascoreEventToMatch(event) {
     last_updated: Date.now(),
     insufficient_data: 1,
     source: 'sofascore',
-    fullData: JSON.stringify({ id: event.id, homeTeam: homeName, awayTeam: awayName, league: event.tournament?.name, startTimestamp: ts, status })
+    fullData: JSON.stringify({ id: event.id, homeTeam: homeName, awayTeam: awayName, league: event.tournament?.name, startTimestamp: ts, status, seasonId: event.season?.id, sofaMatchId: event.id })
   }
 }
 

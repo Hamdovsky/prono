@@ -73,6 +73,120 @@ class EnrichedPredictionService {
     }
 
     /**
+     * Fetch SofaScore team stats (form, H2H, season stats) to populate
+     * match.teamStats, match.form_context, match.h2h_data before ML prediction.
+     * Requires home_team_id / away_team_id on the match object.
+     */
+    async _fetchSofaTeamData(match) {
+        const homeId = match.home_team_id || match._homeTeamId;
+        const awayId = match.away_team_id || match._awayTeamId;
+        const sofaId = match.sofascore_id || match._sofaMatchId ||
+            (typeof match.id === 'string' && match.id.startsWith('sofascore_') ? match.id.replace('sofascore_', '') : null);
+
+        if (!homeId || !awayId) return;
+
+        try {
+            const headers = {
+                ...SOFA_HEADERS,
+                'Referer': `https://www.sofascore.com/team/football/team/${homeId}`,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+            };
+
+            const fetchJson = async (url) => {
+                const resp = await axiosModule.get(url, { headers, timeout: 8000 });
+                return resp.data;
+            };
+
+            // 1. Fetch match details to get tournament/season IDs
+            let tournamentId = match.tournament_id || null;
+            let seasonId = match._seasonId || null;
+            if (sofaId && (!tournamentId || !seasonId)) {
+                try {
+                    const details = await fetchJson(`${SOFA_API}/event/${sofaId}`);
+                    const ev = details.event || details;
+                    tournamentId = tournamentId || ev.tournament?.uniqueTournament?.id;
+                    seasonId = seasonId || ev.season?.id;
+                } catch (_) {}
+            }
+
+            // 2. Parallel: team form (last 5) + H2H
+            const [homeFormResp, awayFormResp, h2hResp] = await Promise.all([
+                tournamentId && seasonId
+                    ? fetchJson(`${SOFA_API}/team/${homeId}/unique-tournament/${tournamentId}/season/${seasonId}/events/last/5`).catch(() => null)
+                    : Promise.resolve(null),
+                tournamentId && seasonId
+                    ? fetchJson(`${SOFA_API}/team/${awayId}/unique-tournament/${tournamentId}/season/${seasonId}/events/last/5`).catch(() => null)
+                    : Promise.resolve(null),
+                sofaId
+                    ? fetchJson(`${SOFA_API}/event/${sofaId}/h2h/events`).catch(() => null)
+                    : Promise.resolve(null)
+            ]);
+
+            // 3. Parse form averages
+            const _avgForm = (resp, teamId) => {
+                const events = resp?.events || [];
+                if (!events.length) return null;
+                let gf = 0, ga = 0, wins = 0, draws = 0, losses = 0, xgFor = 0, xgAgainst = 0;
+                for (const ev of events) {
+                    const isHome = ev.homeTeam?.id === teamId;
+                    const hs = ev.homeScore?.current ?? 0;
+                    const as = ev.awayScore?.current ?? 0;
+                    const hxg = ev.homeXg || ev.homeScore?.expectedGoals || 0;
+                    const axg = ev.awayXg || ev.awayScore?.expectedGoals || 0;
+                    gf += isHome ? hs : as;
+                    ga += isHome ? as : hs;
+                    xgFor += isHome ? hxg : axg;
+                    xgAgainst += isHome ? axg : hxg;
+                    if ((isHome && hs > as) || (!isHome && as > hs)) wins++;
+                    else if (hs === as) draws++;
+                    else losses++;
+                }
+                const n = events.length;
+                return {
+                    avgGoals: gf / n, avgGoalsConceded: ga / n,
+                    avgXgFor: xgFor / n, avgXgAgainst: xgAgainst / n,
+                    winRate: wins / n, drawRate: draws / n, lossRate: losses / n,
+                    points: (wins * 3 + draws) / n, matchesAnalyzed: n
+                };
+            };
+
+            const homeForm = _avgForm(homeFormResp, homeId);
+            const awayForm = _avgForm(awayFormResp, awayId);
+
+            // 4. Parse H2H
+            const h2hEvents = (h2hResp?.events || []).slice(0, 5);
+            const h2hData = {
+                teamDuel: {
+                    lastMeetings: h2hEvents.map(ev => ({
+                        homeTeam: ev.homeTeam?.name, awayTeam: ev.awayTeam?.name,
+                        homeScore: ev.homeScore?.current, awayScore: ev.awayScore?.current,
+                        startTimestamp: ev.startTimestamp
+                    }))
+                }
+            };
+
+            // 5. Populate match object for Python ML
+            match.teamStats = match.teamStats || {};
+            if (typeof match.teamStats === 'string') {
+                try { match.teamStats = JSON.parse(match.teamStats); } catch (_) { match.teamStats = {}; }
+            }
+            if (homeForm) match.teamStats.home = { ...match.teamStats.home, ...homeForm };
+            if (awayForm) match.teamStats.away = { ...match.teamStats.away, ...awayForm };
+
+            match.form_context = {
+                home: homeForm ? { standing: { points: Math.round(homeForm.points * 30), wins: Math.round(homeForm.winRate * 5), draws: Math.round(homeForm.drawRate * 5), losses: Math.round(homeForm.lossRate * 5) } } : {},
+                away: awayForm ? { standing: { points: Math.round(awayForm.points * 30), wins: Math.round(awayForm.winRate * 5), draws: Math.round(awayForm.drawRate * 5), losses: Math.round(awayForm.lossRate * 5) } } : {}
+            };
+
+            match.h2h_data = h2hData;
+            match.insufficient_data = 0;
+            match._sofaTeamDataFetched = true;
+        } catch (e) {
+            logger.debug(`[SOFA-TEAM] Fetch failed for ${match.homeTeam} vs ${match.awayTeam}: ${e.message}`);
+        }
+    }
+
+    /**
      * Génère des prédictions enrichies pour un match
      */
     async enrichMatch(match, timeoutMs = null) {
@@ -83,6 +197,12 @@ class EnrichedPredictionService {
             // 0. Validate and Normalize
             match = Schemas.validateMatch(match);
             trace.step('Normalization');
+
+            // 0.2 Fetch SofaScore team data (form, H2H) for ML features
+            if (!match.teamStats && (match.home_team_id || match._homeTeamId)) {
+                await this._fetchSofaTeamData(match);
+                trace.step('SofaTeamData');
+            }
 
             // 0.1 Weather Enrichment (if missing)
             if (!match.weather_temp || !match.weather_desc) {

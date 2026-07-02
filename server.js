@@ -375,6 +375,28 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               }
             }, 8000)
 
+                  // 📋 [DIAGNOSTIC] Manually trigger early enrich
+            const app = require('./app')
+            app.get('/api/debug/enrich-now', async (req, res) => {
+              try {
+                const enrichedPredictions = require('./core/enriched_predictions');
+                const matches = await database.query("SELECT * FROM matches WHERE insufficient_data = 1 AND status = 'scheduled'")
+                const matchList = matches?.rows || []
+                if (matchList.length === 0) return res.json({ ok: false, reason: 'no matches found' })
+                const enriched = await enrichedPredictions.enrichMatches(matchList, { fastMode: true, force: true });
+                let updated = 0, errors = 0
+                for (const m of enriched) {
+                  if (m.expected_score && m.expected_score !== 'N/A') {
+                    try {
+                      await database.updatePredictions(m.id, m)
+                      updated++
+                    } catch (e) { errors++ }
+                  }
+                }
+                res.json({ ok: true, total: matchList.length, updated, errors, sample: enriched[0] ? { id: enriched[0].id, insufficient_data: enriched[0].insufficient_data, expected_score: enriched[0].expected_score, ai_source: enriched[0].ai_source } : null })
+              } catch (e) { res.status(500).json({ ok: false, error: e.message }) }
+            })
+
             // 📊 [DIAGNOSTIC COMPLET] Rapport sur les données réelles
             setTimeout(() => {
               try {

@@ -58,29 +58,11 @@ function buildMatch(row) {
 async function seedDemoMatches(database) {
   let count = 0
   const matches = MATCHES.map(buildMatch)
-  if (database.db) {
-    const insert = database.db.prepare(`
-      INSERT OR REPLACE INTO matches
-      (id, homeTeam, awayTeam, league, status, prediction, confidence,
-       home_win_probability, draw_probability, away_win_probability,
-       expected_score, ou_25_prob, btts_prob, xgboost_confidence,
-       odds_home, odds_draw, odds_away, startTimestamp, timestamp, source,
-       chaos_score, insufficient_data, last_updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    for (const m of matches) {
-      const result = insert.run(m.id, m.homeTeam, m.awayTeam, m.league, m.status, m.prediction, m.confidence,
-        m.home_win_probability, m.draw_probability, m.away_win_probability,
-        m.expected_score, m.ou_25_prob, m.btts_prob, m.xgboost_confidence,
-        m.odds_home, m.odds_draw, m.odds_away, m.startTimestamp, m.timestamp, m.source,
-        m.chaos_score, m.insufficient_data, m.last_updated)
-      if (result && typeof result.then === 'function') await result
+  for (const m of matches) {
+    try {
+      await database.insertMatch(m)
       count++
-    }
-  } else {
-    for (const m of matches) {
-      try { await database.insertMatch(m); count++ } catch (_) {}
-    }
+    } catch (_) {}
   }
   return count
 }

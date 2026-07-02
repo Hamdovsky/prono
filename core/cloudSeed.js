@@ -487,11 +487,8 @@ async function runCloudSeed() {
 
   // 🌱 Always seed emergency matches (purge old first) so new leagues (Botola, etc.) appear
   try {
-    const db = database.db
-    if (db) {
-      db.prepare("DELETE FROM matches WHERE source = 'seed'").run()
-      logger.info('[CLOUD-SEED/FALLBACK] Purged old seed matches')
-    }
+    await database.exec("DELETE FROM matches WHERE source = 'seed'")
+    logger.info('[CLOUD-SEED/FALLBACK] Purged old seed matches')
     const { seedDemoMatches } = require('../scripts/seed_emergency')
     const seeded = await seedDemoMatches(database)
     logger.info(`[CLOUD-SEED/FALLBACK] Seeded ${seeded} emergency matches with insufficient_data=1`)

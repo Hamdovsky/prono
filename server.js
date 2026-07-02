@@ -300,7 +300,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
                 const seeded = await seedDemoMatches(database)
                 logger.info(`[EMERGENCY SEED] Upserted ${seeded} matches`)
                 // 2. Force insufficient_data=0 on ALL seed matches using database.query()
-                const upd = await database.query("UPDATE matches SET insufficient_data = 0, ai_source = 'EMERGENCY_SEED' WHERE source = 'seed'")
+                const upd = await database.query("UPDATE matches SET insufficient_data = 0 WHERE source = 'seed' AND insufficient_data = 1")
                 logger.info(`[EMERGENCY SEED] Force-enriched seed matches (changed=${upd.changes ?? '?'})`)
               } catch (e) {
                 logger.warn(`[EMERGENCY SEED] Error: ${e.message}`)

@@ -363,3 +363,52 @@ async def goalmodel_fit(req: GoalModelFitRequest, background_tasks: BackgroundTa
         import traceback
         traceback.print_exc()
         return {"success": False, "error": str(e)}
+
+@app.get("/health/neon")
+async def health_neon():
+    """Check Neon PostgreSQL connection and stats."""
+    from pg_connector import query, using_postgres
+    if not using_postgres():
+        return {"success": False, "error": "Neon not configured (DATABASE_URL missing)"}
+    tables = ['soccer_fixtures', 'soccer_match_stats', 'soccer_odds', 'soccer_teams', 'soccer_leagues', 'archive_football_data', 'league_model_parameters']
+    stats = {}
+    for t in tables:
+        r = query(f"SELECT COUNT(*) as cnt FROM {t}")
+        stats[t] = r[0]['cnt'] if r else 0
+    return {"success": True, "using_neon": True, "stats": stats}
+
+@app.get("/backtest")
+async def backtest_endpoint(limit: int = 100, league: str = ""):
+    """Run simplified backtest on historical Neon fixtures."""
+    from pg_connector import query, using_postgres
+    if not using_postgres():
+        return {"success": False, "error": "Neon required"}
+    sql = """
+        SELECT f.home_team, f.away_team, f.goals_home, f.goals_away,
+               f.odds_home, f.odds_away, f.odds_draw, l.name as league_name
+        FROM soccer_fixtures f
+        LEFT JOIN soccer_leagues l ON f.league_id = l.id
+        WHERE f.goals_home IS NOT NULL AND f.goals_away IS NOT NULL
+          AND f.odds_home IS NOT NULL
+    """
+    params = []
+    if league:
+        sql += " AND LOWER(l.name) ILIKE %s"
+        params.append(f'%{league}%')
+    sql += " ORDER BY f.date DESC NULLS LAST LIMIT %s"
+    params.append(limit)
+    fixtures = query(sql, params) or []
+    total = len(fixtures)
+    correct = 0
+    for f in fixtures:
+        home_score = f.get('goals_home') or 0
+        away_score = f.get('goals_away') or 0
+        actual = 'H' if home_score > away_score else ('A' if home_score < away_score else 'D')
+        odds_h = float(f.get('odds_home', 2.0))
+        odds_a = float(f.get('odds_away', 2.0))
+        odds_d = float(f.get('odds_draw', 3.0))
+        imp_total = 1/odds_h + 1/odds_d + 1/odds_a
+        pred = ['H', 'D', 'A'][max(enumerate([1/odds_h/imp_total, 1/odds_d/imp_total, 1/odds_a/imp_total]), key=lambda x: x[1])[0]]
+        if pred == actual:
+            correct += 1
+    return {"success": True, "total": total, "correct": correct, "accuracy": round(correct/total, 4) if total > 0 else 0}

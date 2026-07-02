@@ -81,7 +81,7 @@ class PromosportIntelligence {
     async optimizeGrid(matches, strategy = 'balanced') {
         logger.info(`[PROMOSPORT AI] Optimizing grid with strategy: ${strategy}`)
         const enrichedMatches = await Promise.all(matches.map(async (m) => {
-            const intelligence = expertEngine.getMatchIntelligence(m)
+            const intelligence = await expertEngine.getMatchIntelligence(m)
             const form = await DeepFormService.getDeepForm(m.homeTeam, m.awayTeam)
             const logistics = LogisticsService.calculateFatigue(m.awayCity, m.homeCity, m.daysRestA || 4)
             const motivation = MotivationEnrichService.getMotivation(m)

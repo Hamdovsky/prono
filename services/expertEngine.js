@@ -1,47 +1,42 @@
-const path = require('path');
 const logger = require('../core/logger');
 const database = require('../core/database');
 const TeamRegistry = require('./teamRegistry');
 const SeededRandom = require('../core/deterministic');
+const { query, usingPostgres } = require('../core/pg_connector');
 
 // 🔐 [INTEGRITY] Team name validator (linked to main DB)
 const teamRegistry = new TeamRegistry(database);
 
-// --- ARCHIVE DATABASE CONNECTION ---
-const ARCHIVE_DB_PATH = path.join(__dirname, '..', 'data', 'historical_archive.sqlite');
-let archiveDb;
-try {
-    archiveDb = new (require('better-sqlite3'))(ARCHIVE_DB_PATH, { readonly: true });
-    logger.info(`📚 Expert Engine: Historical Archive linked: ${ARCHIVE_DB_PATH}`);
-} catch (e) {
-    logger.warn(`⚠️ Expert Engine: Historical Archive not found at ${ARCHIVE_DB_PATH}. Similarity checks disabled.`);
-}
-
 /**
- * Perform a similarity lookup in the historical archive
+ * Perform a similarity lookup in the Neon historical archive
+ * Uses soccer_match_stats (possession, shots) joined with soccer_fixtures (goals)
  */
-function getHistoricalSimilarity(daRatio, possessionRatio) {
-    if (!archiveDb) return { count: 0, goalProb: 0.5 };
+async function getHistoricalSimilarity(daRatio, possessionRatio) {
+    if (!usingPostgres()) return { count: 0, goalProb: 0.5 }
     try {
-        // 🛡️ [OPTIMIZATION] Avoid json_extract on 1GB archive if possible.
-        // For now, we will use a simpler check or skip if memory is tight.
-        // In a real production scenario, these stats should be regular columns with indices.
+        const possPct = Math.round((possessionRatio || 50) * 100)
+        const searchMin = Math.max(0, possPct - 5)
+        const searchMax = Math.min(100, possPct + 5)
 
-        // Skip expensive scan if it's too risky for now
-        return { count: 0, goalProb: 0.5 };
+        const res = await query(`
+            SELECT COUNT(*) as count,
+                   AVG(CASE WHEN f.goals_home + f.goals_away > 0 THEN 1.0 ELSE 0.0 END) as goal_prob
+            FROM soccer_match_stats s
+            JOIN soccer_fixtures f ON s.fixture_id = f.id
+            WHERE s.home_possession BETWEEN $1 AND $2
+              AND f.goals_home IS NOT NULL AND f.goals_away IS NOT NULL
+        `, [searchMin, searchMax])
 
-        /* 
-        const row = archiveDb.prepare(`
-            SELECT count(*) as count, avg(scoreHome + scoreAway > 0) as goalProb
-            FROM archive_matches
-            WHERE abs((CAST(json_extract(stats_blob, '$."Dangerous Attacks"[0]') AS FLOAT) / 
-                  (json_extract(stats_blob, '$."Dangerous Attacks"[0]') + json_extract(stats_blob, '$."Dangerous Attacks"[1]'))) - ?) < 0.05
-            AND abs((CAST(json_extract(stats_blob, '$."Ball Possession"[0]') AS FLOAT) / 100) - ?) < 0.05
-        `).get(daRatio, possessionRatio);
-        return { count: row.count, goalProb: row.goalProb || 0.5 };
-        */
+        if (res.rows && res.rows[0]) {
+            return {
+                count: parseInt(res.rows[0].count) || 0,
+                goalProb: parseFloat(res.rows[0].goal_prob) || 0.5
+            }
+        }
+        return { count: 0, goalProb: 0.5 }
     } catch (e) {
-        return { count: 0, goalProb: 0.5 };
+        logger.warn(`[EXPERT] Neon similarity query failed: ${e.message}`)
+        return { count: 0, goalProb: 0.5 }
     }
 }
 
@@ -72,10 +67,11 @@ function calculateStrikeScore(w, m, c) {
 }
 
 /**
- * 🎯 EXPERT PREDICTION ENGINE v4.2 [LETHAL]
+ * 🎯 EXPERT PREDICTION ENGINE v5.0 [NEON LETHAL]
  * Generates full tactical intelligence for a match object.
+ * Now uses Neon historical archive for similarity lookups.
  */
-function getMatchIntelligence(m) {
+async function getMatchIntelligence(m) {
     try {
         const rawData = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData || {};
         const statsSource = rawData.statistics || rawData.stats || m.stats || {};
@@ -156,9 +152,9 @@ function getMatchIntelligence(m) {
         
         const travelFatigue = LogisticsService.calculateFatigue(awayCity, homeCity, daysRestA);
         
-        // 4. Similarity
+        // 4. Similarity (Neon archive)
         const daRatio = totalDA > 0 ? daHome / totalDA : 0.5;
-        const similarity = getHistoricalSimilarity(daRatio, possHome);
+        const similarity = await getHistoricalSimilarity(daRatio, possHome);
         const historicalGoalProb = similarity.count > 3 ? similarity.goalProb : 0.5;
 
         // 5. Boosts & Adjustments

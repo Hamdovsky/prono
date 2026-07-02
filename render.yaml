@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────
+# render.yaml
+# Compte principal Render (Promosport)
+# Services : Node.js Web + Python FastAPI
+# ─────────────────────────────────────────────────────────
+services:
+  # ── Node.js Main Server ─────────────────────────
+  - type: web
+    name: prono-k6gc
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.production
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: API_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: FOOTBALLDATA_KEY
+        sync: false
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: RAPIDAPI_HOST
+        value: sportapi7.p.rapidapi.com
+      - key: BSD_API_KEY
+        sync: false
+      - key: PREDIXSPORT_API_KEY
+        sync: false
+      - key: SCRAPERAPI_KEY
+        sync: false
+      - key: ARCHIVE_DOWNLOAD_URL
+        sync: false
+      - key: INFERENCE_URL
+        value: https://prono-fastapi-cnxf.onrender.com
+      - key: USE_MODEL_MANAGER
+        value: "true"
+
+  # ── Python FastAPI Inference ──────────────────
+  - type: web
+    name: prono-fastapi
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: API_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false

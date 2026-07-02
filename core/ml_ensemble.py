@@ -318,7 +318,7 @@ def predict_secondary_markets(features, feature_vector):
 
 def blend_final_probabilities(p_h_ai, p_d_ai, p_a_ai, p_h_poi, p_d_poi, p_a_poi, has_xgb):
     """
-    Global blending: AI Modules + Poisson Base.
+    Global blending: AI Modules + Poisson Base + Platt Calibration.
     Returns: (p_h, p_d, p_a, ai_fusion_weight, ai_source_label)
     """
     if has_xgb:
@@ -337,5 +337,13 @@ def blend_final_probabilities(p_h_ai, p_d_ai, p_a_ai, p_h_poi, p_d_poi, p_a_poi,
         p_h, p_d, p_a = p_h/p_sum, p_d/p_sum, p_a/p_sum
     else:
         p_h, p_d, p_a = 0.33, 0.33, 0.34
+
+    # Platt scaling calibration for XGBoost outputs
+    if has_xgb:
+        try:
+            from calibration import calibrate_probs
+            p_h, p_d, p_a = calibrate_probs(p_h, p_d, p_a, model_version='v54')
+        except Exception:
+            pass
 
     return p_h, p_d, p_a, ai_fusion_weight, ai_source_label

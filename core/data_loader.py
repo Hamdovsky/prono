@@ -28,6 +28,8 @@ DB_ARCHIVE_PATH = os.path.join(PROJECT_DIR, 'data', 'historical_archive.sqlite')
 TACTICAL_DB_PATH = os.path.join(PROJECT_DIR, 'data', 'tactical.db')
 ACCURACY_LOG_PATH = os.path.join(PROJECT_DIR, 'data', 'accuracy_log.json')
 
+from pg_connector import using_postgres, get_pg_connection, query as pg_query
+
 # --- Global State ---
 _ELO_DATA = None
 _DB_CONN = None
@@ -95,8 +97,16 @@ def get_elo_data():
 # ============================================================================
 
 def get_db_connection():
-    """Get or create persistent SQLite connection to archive DB."""
+    """Get or create persistent SQLite/PostgreSQL connection to archive DB."""
     global _DB_CONN
+    
+    # Use Neon PostgreSQL if DATABASE_URL is set
+    if using_postgres():
+        pg_conn = get_pg_connection()
+        if pg_conn:
+            return pg_conn
+    
+    # Fallback to local SQLite
     if _DB_CONN is None:
         try:
             _DB_CONN = sqlite3.connect(DB_ARCHIVE_PATH, check_same_thread=False)

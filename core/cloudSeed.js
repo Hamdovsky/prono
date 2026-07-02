@@ -265,15 +265,15 @@ async function purgeFakeMatches() {
   const db = database.db
   if (!db) return 0
   try {
+    let result
     if (db.pragma) {
-      const result = db.prepare("DELETE FROM matches WHERE \"homeTeam\" IS NULL OR \"homeTeam\" = '' OR league = 'FIFA'").run()
-      if (result.changes > 0) logger.info(`[CLOUD-SEED/PURGE] Removed ${result.changes} fake/empty matches (SQLite)`)
-      return result.changes
+      result = db.prepare(`DELETE FROM matches WHERE "homeTeam" IS NULL OR "homeTeam" = '' OR "homeTeam" = 'null' OR league = 'FIFA'`).run()
     } else {
-      const result = await db.prepare("DELETE FROM matches WHERE \"homeTeam\" IS NULL OR \"homeTeam\" = '' OR league = 'FIFA'").run()
-      if (result.changes > 0) logger.info(`[CLOUD-SEED/PURGE] Removed ${result.changes} fake/empty matches (PG)`)
-      return result.changes
+      result = await db.prepare(`DELETE FROM matches WHERE "homeTeam" IS NULL OR "homeTeam" = '' OR "homeTeam" = 'null' OR league = 'FIFA'`).run()
     }
+    const removed = result.changes || result.rowCount || 0
+    if (removed > 0) logger.info(`[CLOUD-SEED/PURGE] Removed ${removed} fake/empty/FIFA matches`)
+    return removed
   } catch (e) {
     logger.warn(`[CLOUD-SEED/PURGE] Error: ${e.message}`)
   }
@@ -484,6 +484,12 @@ async function runCloudSeed() {
   if (finalToday + finalTomorrow === 0) {
     logger.warn('[CLOUD-SEED] WARNING: No scheduled matches found.')
   }
+
+  // Auto-calibrate league params after seeding (non-blocking)
+  try {
+    const { calibrate } = require('../services/leagueCalibrator')
+    calibrate().catch(e => logger.warn(`[CALIBRATE] Auto-calibration error: ${e.message}`))
+  } catch (e) {}
 
   // 🌱 Emergency seed handled EARLY in server.js (async IIFE before cloud seed starts)
   // so it runs before the 8s early auto-enrich and works on PostgreSQL via database.exec()

@@ -1,51 +1,68 @@
 /**
- * thetaOptimizer.js — Auto-θ tuning for Negative Binomial
+ * thetaOptimizer.js — Auto-θ tuning for Negative Binomial v5.0 (Neon)
  *
  * Finds optimal NB dispersion theta per league via method-of-moments:
  *   θ = μ² / (σ² - μ)
  *
+ * Now queries Neon PostgreSQL (soccer_fixtures + archive_matches) for 
+ * 400K+ historical match outcomes instead of local SQLite.
+ *
  * Falls back to league defaults when insufficient data (< 20 matches).
  */
 
-const path = require('path')
-const fs = require('fs')
+const { query, usingPostgres } = require('../core/pg_connector')
+const logger = require('../core/logger')
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 let _cache = { theta: {}, timestamp: 0 }
 
-function _getDB() {
-  const Database = require('better-sqlite3')
-  const files = [
-    path.join(__dirname, '..', 'data', 'historical_archive.sqlite'),
-    path.join(__dirname, '..', 'data', 'tactical.db')
-  ]
-  for (const f of files) {
-    if (fs.existsSync(f)) {
-      try { return new Database(f, { readonly: true }) } catch (e) {}
+async function _queryGoalData() {
+  const allData = {}
+
+  // 1. Query soccer_fixtures (378K rows) via Neon
+  if (usingPostgres()) {
+    try {
+      const leagueMapRes = await query('SELECT id, name FROM soccer_leagues')
+      const leagueNameById = {}
+      if (leagueMapRes.rows) {
+        for (const r of leagueMapRes.rows) {
+          leagueNameById[r.id] = (r.name || 'Unknown').trim()
+        }
+      }
+
+      const fixturesRes = await query(
+        `SELECT f.league_id, f.goals_home, f.goals_away, l.name as league_name
+         FROM soccer_fixtures f
+         LEFT JOIN soccer_leagues l ON f.league_id = l.id
+         WHERE f.goals_home IS NOT NULL AND f.goals_away IS NOT NULL`
+      )
+      if (fixturesRes.rows) {
+        for (const r of fixturesRes.rows) {
+          const league = r.league_name || leagueNameById[r.league_id] || 'Unknown'
+          if (!allData[league]) allData[league] = []
+          allData[league].push({ h: r.goals_home, a: r.goals_away })
+        }
+      }
+    } catch (e) {
+      logger.warn(`[θ OPT] Neon query error: ${e.message}`)
     }
   }
-  return null
-}
 
-function _queryGoalData(db) {
-  const tables = ['archive_matches', 'historical_matches', 'matches', 'historical_batch']
-  const allData = {}
-  for (const tbl of tables) {
-    try {
-      const cols = db.prepare(`PRAGMA table_info(${tbl})`).all().map(c => c.name)
-      if (!cols.includes('scoreHome') || !cols.includes('scoreAway') || !cols.includes('homeTeam')) continue
-      const leagueCol = cols.includes('tournament_name') ? 'tournament_name' : (cols.includes('league') ? 'league' : null)
-      if (!leagueCol) continue
-      const rows = db.prepare(
-        `SELECT "${leagueCol}" AS league, scoreHome, scoreAway FROM ${tbl} WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL`
-      ).all()
-      for (const r of rows) {
-        const league = r.league || 'unknown'
+  // 2. Fallback: also query archive_matches if available
+  try {
+    const archiveRes = await query(
+      `SELECT league, "scoreHome", "scoreAway" FROM archive_matches 
+       WHERE "scoreHome" IS NOT NULL AND "scoreAway" IS NOT NULL`
+    )
+    if (archiveRes.rows) {
+      for (const r of archiveRes.rows) {
+        const league = r.league || 'Unknown'
         if (!allData[league]) allData[league] = []
         allData[league].push({ h: r.scoreHome, a: r.scoreAway })
       }
-    } catch (e) {}
-  }
+    }
+  } catch (e) {}
+
   return allData
 }
 
@@ -78,43 +95,40 @@ function _matchDefault(league) {
   return 5.0
 }
 
-function optimize() {
-  const db = _getDB()
-  if (!db) return {}
-  const raw = _queryGoalData(db)
-  try { db.close() } catch (e) {}
+async function optimize() {
+  const raw = await _queryGoalData()
   const result = {}
   for (const [league, goals] of Object.entries(raw)) {
     const estimated = _estimateThetaFromGoals(goals)
     result[league] = estimated || _matchDefault(league)
   }
+  _cache.theta = result
+  _cache.timestamp = Date.now()
   return result
 }
 
 function getThetaForLeague(league) {
-  if (Date.now() - _cache.timestamp > CACHE_TTL_MS || !_cache.timestamp) {
-    try {
-      _cache.theta = optimize()
-      _cache.timestamp = Date.now()
-    } catch (e) {
-      if (!_cache.timestamp) _cache.theta = {}
-      _cache.timestamp = Date.now()
-    }
-  }
-  return _cache.theta[league] || _matchDefault(league)
+  const key = (league || '').toLowerCase().trim()
+  if (_cache.theta[key]) return _cache.theta[key]
+  return _matchDefault(league)
 }
 
 function getOptimizedMap() {
-  if (Date.now() - _cache.timestamp > CACHE_TTL_MS || !_cache.timestamp) {
-    try {
-      _cache.theta = optimize()
-      _cache.timestamp = Date.now()
-    } catch (e) {
-      if (!_cache.timestamp) _cache.theta = {}
-      _cache.timestamp = Date.now()
-    }
-  }
-  return { ..._cache.theta }
+  return _cache.timestamp ? { ..._cache.theta } : {}
 }
 
-module.exports = { getThetaForLeague, getOptimizedMap, optimize }
+async function init() {
+  if (usingPostgres()) {
+    try {
+      await optimize()
+      logger.info(`[θ OPT] Calibrated ${Object.keys(_cache.theta).length} leagues from Neon archive (378K+ fixtures)`)
+    } catch (e) {
+      logger.warn(`[θ OPT] Init failed: ${e.message}`)
+    }
+  }
+}
+
+// Warm cache on startup
+init()
+
+module.exports = { getThetaForLeague, getOptimizedMap, optimize, init }

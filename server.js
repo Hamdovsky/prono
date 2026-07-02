@@ -157,6 +157,23 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
       logger.info(`[STARTUP] Premium CSV found locally (${(fs.statSync(premiumCsvPath).size / 1024 / 1024).toFixed(1)} MB)`)
     }
 
+    // Warm theta optimizer + league calibrator from Neon archive
+    setTimeout(async () => {
+      try {
+        const thetaOptimizer = require('./services/thetaOptimizer')
+        await thetaOptimizer.optimize()
+        logger.info('[STARTUP] Theta optimizer calibrated from Neon archive')
+      } catch (e) {
+        logger.warn(`[STARTUP] Theta init: ${e.message}`)
+      }
+      try {
+        const { calibrate } = require('./services/leagueCalibrator')
+        calibrate().catch(() => {})
+      } catch (e) {
+        logger.warn(`[STARTUP] Calibrator init: ${e.message}`)
+      }
+    }, 2000)
+
     // Bootstrap: fetch fixtures + stats from working APIs at startup
     setTimeout(async () => {
       try {
@@ -292,14 +309,12 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               try { supabaseService.cleanupPlaceholderTeams() } catch (_) {}
             }, 15000)
 
-            // 🌱 [EMERGENCY SEED] Seed all ligues + force insufficient_data=0
+            // 🌱 [EMERGENCY SEED] Seed matches + force insufficient_data=0 (column + fullData)
             (async () => {
               try {
-                // 1. Insert 19 seed matches using database.insertMatch() (handles ON CONFLICT)
                 const { seedDemoMatches } = require('./scripts/seed_emergency')
                 const seeded = await seedDemoMatches(database)
                 logger.info(`[EMERGENCY SEED] Upserted ${seeded} matches`)
-                // 2. Update both column AND fullData JSON — fullData overrides column in getAllMatches()
                 const { query: pgRaw } = require('./core/pg_connector')
                 await pgRaw(`UPDATE matches SET insufficient_data = 0, "fullData" = ("fullData"::jsonb || '{"insufficient_data":0}')::text WHERE source = 'seed'`)
               } catch (e) {

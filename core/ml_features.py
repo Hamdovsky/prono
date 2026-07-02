@@ -9,6 +9,8 @@ DB_TACTICAL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'dat
 ELO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'elo_ratings.json')
 STYLES_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'team_styles.json')
 
+from pg_connector import using_postgres, get_pg_connection, query as pg_query, get_league_params
+
 def load_json(path):
     if os.path.exists(path):
         try:
@@ -147,7 +149,16 @@ def _predict_xg_a(row, ts_a):
         return None
 
 def get_db_connection():
+    """Returns SQLite or PostgreSQL connection based on DATABASE_URL."""
     global _DB_CONN
+    
+    # Use Neon PostgreSQL if DATABASE_URL is set and starts with postgres
+    if using_postgres():
+        pg_conn = get_pg_connection()
+        if pg_conn:
+            return pg_conn
+    
+    # Fallback to local SQLite
     if not os.path.exists(DB_ARCHIVE_PATH):
         return None
     
@@ -192,8 +203,86 @@ def extract_features_from_stats(stats_json):
         return features
     except: return {}
 
+def _get_team_history_pg(team_name, limit=10, current_match_ts=None):
+    """Get team history from Neon PostgreSQL (soccer_fixtures + soccer_match_stats)."""
+    try:
+        clean_name = team_name.strip().lower()
+        import time
+        cutoff_ts = int(current_match_ts) if current_match_ts else int(time.time())
+        from datetime import datetime
+        cutoff_dt = datetime.fromtimestamp(cutoff_ts)
+        cutoff_date = cutoff_dt.strftime('%Y-%m-%d')
+
+        # Use soccer_fixtures as primary source (378K finished matches)
+        rows = pg_query("""
+            SELECT f.goals_home, f.goals_away, f.date, f.home_team, f.away_team,
+                   m.home_possession, m.away_possession,
+                   m.home_shots, m.away_shots,
+                   m.home_shots_on_goal, m.away_shots_on_goal,
+                   m.home_corners, m.away_corners,
+                   m.home_fouls, m.away_fouls,
+                   m.home_yellow_cards, m.away_yellow_cards,
+                   m.home_red_cards, m.away_red_cards
+            FROM soccer_fixtures f
+            LEFT JOIN soccer_match_stats m ON f.id = m.fixture_id
+            WHERE (LOWER(f.home_team) = %s OR LOWER(f.away_team) = %s)
+            AND f.goals_home IS NOT NULL
+            AND (f.date IS NULL OR f.date < %s)
+            ORDER BY f.date DESC NULLS LAST
+            LIMIT %s
+        """, (clean_name, clean_name, cutoff_date, limit + 10))
+
+        history = []
+        for r in (rows or []):
+            h_team = (r.get('home_team') or '')
+            a_team = (r.get('away_team') or '')
+            is_home = (h_team.lower() == clean_name)
+
+            norm = {}
+            if is_home:
+                norm['Ball possession_home'] = float(r.get('home_possession') or 50)
+                norm['Total shots_home'] = float(r.get('home_shots') or 0)
+                norm['Shots on target_home'] = float(r.get('home_shots_on_goal') or 0)
+                norm['Corner kicks_home'] = float(r.get('home_corners') or 0)
+                norm['Fouls_home'] = float(r.get('home_fouls') or 0)
+                norm['Yellow cards_home'] = float(r.get('home_yellow_cards') or 0)
+                norm['Red cards_home'] = float(r.get('home_red_cards') or 0)
+            else:
+                norm['Ball possession_home'] = float(r.get('away_possession') or 50)
+                norm['Total shots_home'] = float(r.get('away_shots') or 0)
+                norm['Shots on target_home'] = float(r.get('away_shots_on_goal') or 0)
+                norm['Corner kicks_home'] = float(r.get('away_corners') or 0)
+                norm['Fouls_home'] = float(r.get('away_fouls') or 0)
+                norm['Yellow cards_home'] = float(r.get('away_yellow_cards') or 0)
+                norm['Red cards_home'] = float(r.get('away_red_cards') or 0)
+
+            s_for = r.get('goals_home') if is_home else r.get('goals_away')
+            s_ag = r.get('goals_away') if is_home else r.get('goals_home')
+
+            norm['score_for'] = float(s_for) if s_for is not None else 0.0
+            norm['score_against'] = float(s_ag) if s_ag is not None else 0.0
+            norm['opponent_name'] = a_team if is_home else h_team
+
+            if norm['score_for'] > norm['score_against']: norm['points'] = 3.0
+            elif norm['score_for'] == norm['score_against']: norm['points'] = 1.0
+            else: norm['points'] = 0.0
+
+            history.append(norm)
+
+        return history[:limit]
+    except Exception:
+        import sys
+        sys.stderr.write(f"[PG] get_team_history error: {Exception}\n")
+        return []
+
 @functools.lru_cache(maxsize=256)
 def get_team_history(team_name, limit=10, current_match_ts=None):
+    # Use Neon PostgreSQL first if available
+    if using_postgres():
+        pg_hist = _get_team_history_pg(team_name, limit, current_match_ts)
+        if pg_hist:
+            return pg_hist
+
     conn = get_db_connection()
     if not conn: return []
     try:
@@ -510,9 +599,48 @@ def _hist_rate(history, num_key, den_key, default=0.0):
     return n / d if d > 0 else default
 
 
+def _get_h2h_advanced_pg(home_team, away_team):
+    """Get H2H stats from Neon PostgreSQL."""
+    try:
+        h = home_team.strip().lower()
+        a = away_team.strip().lower()
+        rows = pg_query("""
+            SELECT goals_home, goals_away FROM soccer_fixtures
+            WHERE (LOWER(home_team) = %s AND LOWER(away_team) = %s)
+               OR (LOWER(home_team) = %s AND LOWER(away_team) = %s)
+            AND goals_home IS NOT NULL AND goals_away IS NOT NULL
+            ORDER BY date DESC LIMIT 20
+        """, (h, a, a, h))
+        if not rows:
+            return {}
+        total_goals_list = []
+        over25 = 0
+        for r in rows:
+            sH = float(r.get('goals_home') or 0)
+            sA = float(r.get('goals_away') or 0)
+            tg = sH + sA
+            total_goals_list.append(tg)
+            if tg > 2.5:
+                over25 += 1
+        n = len(rows)
+        return {
+            'avg_total_goals': sum(total_goals_list) / n,
+            'over25_rate': over25 / n,
+            'avg_xg': 0,
+            'total_matches': n
+        }
+    except Exception:
+        return {}
+
 @functools.lru_cache(maxsize=256)
 def get_h2h_advanced(home_team, away_team, current_match_ts=None):
     """Get detailed H2H stats (avg goals, xG, over rate) from archive."""
+    # Use Neon PostgreSQL first if available
+    if using_postgres():
+        pg_h2h = _get_h2h_advanced_pg(home_team, away_team)
+        if pg_h2h:
+            return pg_h2h
+
     conn = get_db_connection()
     if not conn: return {}
     try:

@@ -9,6 +9,19 @@ const { speedCache } = require('../core/speedCache');
 const logger = require('../core/logger');
 
 /**
+ * GET /api/health/full — Complete system health dashboard
+ */
+router.get('/health/full', async (req, res) => {
+    try {
+        const { getFullHealth } = require('../services/healthDashboard');
+        const health = await getFullHealth();
+        res.json(health);
+    } catch (e) {
+        res.status(500).json({ status: 'error', error: e.message });
+    }
+});
+
+/**
  * GET /api/ping - Diagnostic ping
  */
 const botService = require('../services/botService');
@@ -307,7 +320,6 @@ router.post('/seed', async (req, res) => {
     try {
         const { runCloudSeed } = require('../core/cloudSeed');
         res.json({ success: true, message: 'Seed started in background. Check /api/db-stats in ~2 min.' });
-        // Run after response is sent
         setImmediate(() => {
             runCloudSeed().catch(e => console.error('[SEED] Error:', e.message));
         });
@@ -315,6 +327,57 @@ router.post('/seed', async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+
+/**
+ * GET /api/league-params — Get calibrated league/team parameters from Neon archive
+ */
+router.get('/league-params', async (req, res) => {
+    try {
+        const db = database.db
+        const league = req.query.league || ''
+        const team = req.query.team || ''
+        
+        let sql = 'SELECT * FROM league_model_parameters'
+        const conditions = []
+        const params = []
+        
+        if (league) {
+            conditions.push('tournament_name ILIKE $' + (params.length + 1))
+            params.push(`%${league}%`)
+        }
+        if (team) {
+            conditions.push('team_name ILIKE $' + (params.length + 1))
+            params.push(`%${team}%`)
+        }
+        if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ')
+        sql += ' ORDER BY num_matches DESC LIMIT 200'
+        
+        const result = await db.prepare(sql).all(...params)
+        res.json({ success: true, count: result.length, data: result })
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message })
+    }
+})
+
+/**
+ * POST /api/calibrate — Trigger league parameter calibration from Neon archive
+ */
+router.post('/calibrate', async (req, res) => {
+    try {
+        const { calibrate } = require('../services/leagueCalibrator')
+        res.json({ success: true, message: 'Calibration started in background (~30s)' })
+        setImmediate(async () => {
+            try {
+                const result = await calibrate()
+                console.log(`[CALIBRATE] Done: ${result.leagues} leagues, ${result.params} params`)
+            } catch (e) {
+                console.error('[CALIBRATE] Error:', e.message)
+            }
+        })
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message })
+    }
+})
 
 /**
  * POST /api/seed/purge — Remove fake/empty matches (homeTeam null, FIFA placeholders)
@@ -448,6 +511,155 @@ router.post('/sync-matches', express.json({ limit: '50mb' }), async (req, res) =
     } catch (e) {
         logger.error(`❌ [SYNC API] Transaction failed: ${e.message}`);
         res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * GET /api/backtest — Validate prediction accuracy on historical fixtures
+ */
+router.get('/backtest', async (req, res) => {
+    try {
+        const { runBacktest } = require('../services/backtestEngine');
+        const options = {
+            limit: parseInt(req.query.limit) || 500,
+            league: req.query.league || '',
+        };
+        const result = await runBacktest(options);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/value-scan — Scan upcoming matches for positive EV opportunities
+ */
+router.post('/value-scan', async (req, res) => {
+    try {
+        const { scanAll } = require('../services/valueScanner');
+        const { matches, predictions } = req.body;
+        if (!matches || !predictions) {
+            return res.status(400).json({ success: false, error: 'Requires matches[] and predictions{}' });
+        }
+        const opportunities = scanAll(matches, predictions);
+        res.json({ success: true, count: opportunities.length, opportunities });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * GET /api/db-stats/extended — Detailed Neon archive statistics
+ */
+router.get('/db-stats/extended', async (req, res) => {
+    try {
+        const { query } = require('../core/pg_connector');
+        const tables = ['soccer_fixtures', 'soccer_match_stats', 'soccer_odds', 'soccer_teams', 'soccer_leagues', 'archive_football_data', 'archive_matches', 'international_results', 'league_model_parameters'];
+        const stats = {};
+        for (const t of tables) {
+            const r = await query(`SELECT COUNT(*) as cnt FROM ${t}`);
+            stats[t] = r && r.rows ? parseInt(r.rows[0].cnt) : 0;
+        }
+        res.json({ success: true, stats });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * GET /api/staking/stats — Current bankroll & staking stats
+ */
+router.get('/staking/stats', (req, res) => {
+    try {
+        const { globalOptimizer } = require('../services/stakingOptimizer');
+        res.json({ success: true, stats: globalOptimizer.getStats() });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/staking/record — Record a bet result
+ */
+router.post('/staking/record', (req, res) => {
+    try {
+        const { globalOptimizer } = require('../services/stakingOptimizer');
+        const { match, prediction, stake, won, profit } = req.body;
+        const stats = globalOptimizer.recordBet(match, prediction, stake, won, profit);
+        res.json({ success: true, stats });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * GET /api/confluence/report — Confluence guard accuracy report
+ */
+router.get('/confluence/report', async (req, res) => {
+    try {
+        const guard = require('../core/confluenceGuardV2');
+        await guard.load();
+        res.json({ success: true, report: guard.getReport() });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/confluence/record — Record outcome for accuracy tracking
+ */
+router.post('/confluence/record', async (req, res) => {
+    try {
+        const guard = require('../core/confluenceGuardV2');
+        await guard.load();
+        const { match, prediction, actualOutcome } = req.body;
+        guard.recordOutcome(match, prediction, actualOutcome);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * GET /api/odds-movement/:matchId — Get sharp money signal for a match
+ */
+router.get('/odds-movement/:matchId', (req, res) => {
+    try {
+        const analyzer = require('../services/oddsMovementAnalyzer');
+        const signal = analyzer.getSignal(req.params.matchId);
+        res.json({ success: true, signal });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/odds-movement/update — Update odds movement data
+ */
+router.post('/odds-movement/update', (req, res) => {
+    try {
+        const analyzer = require('../services/oddsMovementAnalyzer');
+        const { matchId, oddsHome, oddsDraw, oddsAway } = req.body;
+        const baseline = analyzer.baselines.get(matchId);
+        if (!baseline) {
+            // Create baseline first with current odds
+            analyzer.baselines.set(matchId, {
+                home_open: oddsHome,
+                draw_open: oddsDraw,
+                away_open: oddsAway,
+                timestamp: Date.now(),
+                home_min: oddsHome, home_max: oddsHome,
+                away_min: oddsAway, away_max: oddsAway,
+                samples: 1,
+            });
+            // Then do first update
+            const result = analyzer.updateOdds(matchId, oddsHome, oddsDraw, oddsAway);
+            return res.json({ success: true, result });
+        }
+        const result = analyzer.updateOdds(matchId, oddsHome, oddsDraw, oddsAway);
+        res.json({ success: true, result });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 

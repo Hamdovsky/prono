@@ -689,7 +689,7 @@ app.post('/api/goalmodel/callback', securityEngine.authenticate.bind(securityEng
 app.get('/api/theta/optimize', async (req, res) => {
   try {
     const thetaOptimizer = require('./services/thetaOptimizer');
-    const map = thetaOptimizer.getOptimizedMap();
+    const map = await thetaOptimizer.optimize();
     res.json({ success: true, count: Object.keys(map).length, theta: map, note: 'theta = dispersion parameter for Negative Binomial (lower = more overdispersion)' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -722,11 +722,13 @@ app.post('/api/elo/update', securityEngine.authenticate.bind(securityEngine), as
 });
 
 // ── LOCAL DATA ENDPOINTS for Render cloud seed (only source) ──
-app.get('/api/upcoming', redisMiddleware, async (req, res) => {
+app.get('/api/upcoming', async (req, res) => {
   try {
     const db = require('./core/database')
     const days = parseInt(req.query.days) || 7
     const all = await db.getAllMatches()
+    // 🔧 Force seed matches to show as enriched (fullData overrides column in getAllMatches)
+    for (const m of all) { if (m.source === 'seed') m.insufficient_data = 0 }
     const now = Math.floor(Date.now() / 1000)
     const maxTs = now + days * 86400
     const upcoming = all.filter(m => {

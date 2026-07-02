@@ -52,6 +52,43 @@ class MLPredictionService {
 
                 const result = await pythonService.predict(matchData);
 
+                // Apply Confluence Guard V2 (adaptive veto shield)
+                if (result && result.success) {
+                    try {
+                        const guard = require('../core/confluenceGuardV2');
+                        await guard.load();
+                        const { veto, reason, adjustedConfidence, adjustments } = guard.evaluate(match, result);
+                        if (veto) {
+                            logger.warn(`🛡️ [CONFLUENCE] VETO for ${matchId}: ${reason}`);
+                            result.success = false;
+                            result.error = `CONFLUENCE_VETO: ${reason}`;
+                            result.veto_reason = reason;
+                        } else {
+                            result.surgical_confidence = adjustedConfidence;
+                            result.confluence_adjustments = adjustments;
+                        }
+                    } catch (e) {
+                        logger.warn(`⚠️ [CONFLUENCE] Error: ${e.message}`);
+                    }
+                }
+
+                // Apply odds movement sharp money analysis
+                if (result && result.success) {
+                    try {
+                        const analyzer = require('./oddsMovementAnalyzer');
+                        const matchId2 = match.id || `${match.homeTeam}_${match.awayTeam}`;
+                        const signal = analyzer.getSignal(matchId2);
+                        if (signal && signal.signals.length > 0) {
+                            const adjusted = analyzer.applyToPrediction(matchId2, result);
+                            if (adjusted !== result) {
+                                Object.assign(result, adjusted);
+                            }
+                        }
+                    } catch (e) {
+                        // Non-critical
+                    }
+                }
+
                 // Only cache genuine successes
                 if (result && result.success !== false && !result.error) {
                     await setCache(cacheKey, result, PREDICTION_CACHE_TTL_SEC);

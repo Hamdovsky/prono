@@ -27,7 +27,7 @@ function buildMatch(row) {
   const now = Math.floor(Date.now() / 1000)
   const ts = now + offsetHours * HOUR
   return {
-    id: `seed_${home.replace(/\s/g,'')}_${away.replace(/\s/g,'')}_${Date.now()}`,
+    id: `seed_${home.replace(/\s/g,'')}_${away.replace(/\s/g,'')}`,
     homeTeam: home,
     awayTeam: away,
     league,

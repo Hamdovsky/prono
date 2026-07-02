@@ -12,6 +12,12 @@ const MATCHES = [
   ['Lyon', 'Lille', 'Ligue 1', 'live', '1', 52, 25, 23, '2 - 1', 62, 65, 79, 1.75, 3.80, 4.50, -1, 25],
   ['Roma', 'Lazio', 'Serie A', 'live', 'X', 32, 42, 26, '1 - 1', 35, 40, 73, 2.60, 3.10, 2.85, -2, 45],
   ['Monaco', 'Rennes', 'Ligue 1', 'FT', '1', 55, 24, 21, '2 - 0', 55, 48, 85, 1.85, 3.60, 3.90, -12, 20],
+  ['Wydad Casablanca', 'Raja Casablanca', 'Botola Pro', 'scheduled', 'X', 33, 38, 29, '1 - 1', 42, 46, 70, 2.60, 3.10, 2.80, 33, 35],
+  ['FAR Rabat', 'Renaissance Berkane', 'Botola Pro', 'scheduled', '1', 44, 30, 26, '1 - 0', 38, 44, 68, 2.20, 3.20, 3.30, 34, 30],
+  ['FUS Rabat', 'Hassania Agadir', 'Botola Pro', 'scheduled', '1', 42, 32, 26, '1 - 0', 40, 43, 65, 2.30, 3.15, 3.20, 35, 32],
+  ['Al Ahly', 'Zamalek', 'Egyptian Premier League', 'scheduled', '1', 48, 30, 22, '2 - 1', 50, 52, 75, 1.80, 3.40, 4.20, 36, 35],
+  ['Esperance Tunis', 'Club Africain', 'Ligue 1 Tunisia', 'scheduled', '1', 44, 32, 24, '1 - 0', 42, 48, 72, 2.10, 3.20, 3.50, 37, 30],
+  ['MC Alger', 'JS Kabylie', 'Ligue 1 Algeria', 'scheduled', 'X', 34, 38, 28, '1 - 1', 40, 44, 68, 2.50, 3.10, 2.90, 38, 32],
 ]
 
 const HOUR = 3600

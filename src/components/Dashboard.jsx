@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar"
 import UltimateMatchCenter from "./UltimateMatchCenter/UltimateMatchCenter"
 import MatchRow from "./MatchRow"
 import TicketDuJour from "./TicketDuJour"
+import MarketTerminal from "./MarketTerminal"
 import PerformanceHub from "./PerformanceHub.jsx"
 import dataService from "../services/dataService"
 import { List } from 'react-window'
@@ -501,6 +502,8 @@ const Dashboard = () => {
         }
 
         if (activeView === 'promosport') return <Suspense fallback={<LoadingSkeleton type="table" label="Promosport IA..." />}><Promosport /></Suspense>;
+
+        if (activeView === 'markets') return <MarketTerminal matches={sortedMatches} />;
 
         if (activeView === 'all-matches') {
             return (

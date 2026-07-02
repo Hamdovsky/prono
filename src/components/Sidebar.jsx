@@ -191,14 +191,31 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                   style={{
                     marginTop: '4px',
                     background: activeView === 'promosport'
-                        ? 'linear-gradient(90deg, rgba(16,185,129,0.15) 0%, transparent 100%)'
-                        : 'transparent',
+                      ? 'linear-gradient(90deg, rgba(16,185,129,0.15) 0%, transparent 100%)'
+                      : 'transparent',
                     borderLeft: activeView === 'promosport' ? '2px solid #10b981' : 'none',
                     color: '#10b981'
                   }}
                 >
                     <span className="flash-icon">💰</span>
                     <span className="flash-label" style={{ fontWeight: 'bold' }}>PROMOSPORT</span>
+                </button>
+
+                {/* ── MARCHÉS ─────────────────── */}
+                <button 
+                  className={`flash-nav-item ${activeView === 'markets' ? 'active' : ''}`}
+                  onClick={() => handleNav('markets')}
+                  style={{
+                    marginTop: '4px',
+                    background: activeView === 'markets'
+                      ? 'linear-gradient(90deg, rgba(168,85,247,0.15) 0%, transparent 100%)'
+                      : 'transparent',
+                    borderLeft: activeView === 'markets' ? '2px solid #a855f7' : 'none',
+                    color: '#a855f7'
+                  }}
+                >
+                    <span className="flash-icon">📊</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>MARCHÉS</span>
                 </button>
             </div>
 

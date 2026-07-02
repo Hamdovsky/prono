@@ -3,6 +3,7 @@ export const ROUTES = {
   'all-matches': '/all-matches',
   millionaire: '/millionaire',
   promosport: '/promosport',
+  markets: '/markets',
 }
 
 export const PATH_TO_VIEW = Object.fromEntries(

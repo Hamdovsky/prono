@@ -472,6 +472,11 @@ class EnrichedPredictionService {
 
     async _tryV553(match, timeoutMs) {
         try {
+            // Skip V553 for seed/emergency matches — no real ML data to process
+            if (match.source === 'seed' || match.source === 'emergency') {
+                return { success: false, source: 'seed_skip' }
+            }
+
             // Pre-fetch SofaScore team data if not already populated
             if (!match._sofaTeamDataFetched && (match.home_team_id || match._homeTeamId || match.sofascore_id || (typeof match.id === 'string' && match.id.startsWith('sofascore_')))) {
                 await this._fetchSofaTeamData(match);

@@ -485,15 +485,18 @@ async function runCloudSeed() {
     logger.warn('[CLOUD-SEED] WARNING: No scheduled matches found.')
   }
 
-  // 🌱 Fallback: if fewer than 5 matches exist, seed emergency matches so UI shows leagues
-  if (finalToday + finalTomorrow < 5) {
-    try {
-      const { seedDemoMatches } = require('../scripts/seed_emergency')
-      const seeded = await seedDemoMatches(database)
-      logger.info(`[CLOUD-SEED/FALLBACK] Seeded ${seeded} emergency matches with insufficient_data=1`)
-    } catch (seedErr) {
-      logger.warn(`[CLOUD-SEED/FALLBACK] Emergency seed failed: ${seedErr.message}`)
+  // 🌱 Always seed emergency matches (purge old first) so new leagues (Botola, etc.) appear
+  try {
+    const db = database.db
+    if (db) {
+      db.prepare("DELETE FROM matches WHERE source = 'seed'").run()
+      logger.info('[CLOUD-SEED/FALLBACK] Purged old seed matches')
     }
+    const { seedDemoMatches } = require('../scripts/seed_emergency')
+    const seeded = await seedDemoMatches(database)
+    logger.info(`[CLOUD-SEED/FALLBACK] Seeded ${seeded} emergency matches with insufficient_data=1`)
+  } catch (seedErr) {
+    logger.warn(`[CLOUD-SEED/FALLBACK] Emergency seed failed: ${seedErr.message}`)
   }
 
   // 🔄 [AUTO-ENRICH] Force enrichment on all matches with insufficient data

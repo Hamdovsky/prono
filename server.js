@@ -292,6 +292,29 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               try { supabaseService.cleanupPlaceholderTeams() } catch (_) {}
             }, 15000)
 
+            // 🧹 Reset old seed matches so enrichment can refresh them
+            try {
+              const db = database.db
+              if (db) {
+                const result = db.prepare(`
+                  UPDATE matches SET
+                    insufficient_data = 1,
+                    expected_score = NULL,
+                    home_win_probability = NULL,
+                    draw_probability = NULL,
+                    away_win_probability = NULL,
+                    btts_prob = NULL,
+                    ou_25_prob = NULL,
+                    confidence = 50,
+                    last_updated = ?
+                  WHERE source IN ('seed', 'emergency')
+                `).run(Date.now())
+                if (result.changes > 0) {
+                  logger.info(`[CLEANUP] Reset ${result.changes} seed matches for re-enrichment`)
+                }
+              }
+            } catch (_) {}
+
             // 🌱 [CLOUD-SEED] Auto-populate DB on fresh Render deployment (no Puppeteer needed)
             try {
               const { runCloudSeed } = require('./core/cloudSeed');

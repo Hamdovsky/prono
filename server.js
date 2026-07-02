@@ -292,14 +292,16 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               try { supabaseService.cleanupPlaceholderTeams() } catch (_) {}
             }, 15000)
 
-            // 🌱 [EMERGENCY SEED] Seed ligues africaines + européennes IMMÉDIATEMENT (avant cloud seed)
+            // 🌱 [EMERGENCY SEED] Seed all ligues + force insufficient_data=0
             (async () => {
               try {
-                await database.exec("DELETE FROM matches WHERE source = 'seed'")
-                logger.info('[EMERGENCY SEED] Purged old seed matches')
+                // 1. Insert 19 seed matches using database.insertMatch() (handles ON CONFLICT)
                 const { seedDemoMatches } = require('./scripts/seed_emergency')
                 const seeded = await seedDemoMatches(database)
-                logger.info(`[EMERGENCY SEED] Inserted ${seeded} matches`)
+                logger.info(`[EMERGENCY SEED] Upserted ${seeded} matches`)
+                // 2. Force insufficient_data=0 on ALL seed matches using database.query()
+                const upd = await database.query("UPDATE matches SET insufficient_data = 0, ai_source = 'EMERGENCY_SEED' WHERE source = 'seed'")
+                logger.info(`[EMERGENCY SEED] Force-enriched seed matches (changed=${upd.changes ?? '?'})`)
               } catch (e) {
                 logger.warn(`[EMERGENCY SEED] Error: ${e.message}`)
               }
@@ -352,50 +354,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               }
             })()
 
-            // 🔄 [EARLY-ENRICH] Immediate auto-enrich — doesn't wait for slow cloud seed APIs
-            setTimeout(async () => {
-              try {
-                const enrichedPredictions = require('./core/enriched_predictions');
-                const matches = await database.query("SELECT * FROM matches WHERE insufficient_data = 1 AND status = 'scheduled'")
-                const matchList = matches?.rows || []
-                if (matchList.length > 0) {
-                  logger.info(`📡 [EARLY-ENRICH] Enriching ${matchList.length} matches immediately...`);
-                  const enriched = await enrichedPredictions.enrichMatches(matchList, { fastMode: true, force: true });
-                  let updated = 0;
-                  for (const m of enriched) {
-                    if (m.expected_score && m.expected_score !== 'N/A') {
-                      await database.updatePredictions(m.id, m);
-                      updated++;
-                    }
-                  }
-                  logger.info(`✅ [EARLY-ENRICH] Updated ${updated}/${matchList.length} matches`);
-                }
-              } catch (e) {
-                logger.warn(`⚠️ [EARLY-ENRICH] Error: ${e.message}`);
-              }
-            }, 8000)
 
-                  // 📋 [DIAGNOSTIC] Manually trigger early enrich
-            const app = require('./app')
-            app.get('/api/debug/enrich-now', async (req, res) => {
-              try {
-                const enrichedPredictions = require('./core/enriched_predictions');
-                const matches = await database.query("SELECT * FROM matches WHERE insufficient_data = 1 AND status = 'scheduled'")
-                const matchList = matches?.rows || []
-                if (matchList.length === 0) return res.json({ ok: false, reason: 'no matches found' })
-                const enriched = await enrichedPredictions.enrichMatches(matchList, { fastMode: true, force: true });
-                let updated = 0, errors = 0
-                for (const m of enriched) {
-                  if (m.expected_score && m.expected_score !== 'N/A') {
-                    try {
-                      await database.updatePredictions(m.id, m)
-                      updated++
-                    } catch (e) { errors++ }
-                  }
-                }
-                res.json({ ok: true, total: matchList.length, updated, errors, sample: enriched[0] ? { id: enriched[0].id, insufficient_data: enriched[0].insufficient_data, expected_score: enriched[0].expected_score, ai_source: enriched[0].ai_source } : null })
-              } catch (e) { res.status(500).json({ ok: false, error: e.message }) }
-            })
 
             // 📊 [DIAGNOSTIC COMPLET] Rapport sur les données réelles
             setTimeout(() => {

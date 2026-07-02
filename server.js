@@ -299,11 +299,16 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
                 const { seedDemoMatches } = require('./scripts/seed_emergency')
                 const seeded = await seedDemoMatches(database)
                 logger.info(`[EMERGENCY SEED] Upserted ${seeded} matches`)
-                // 2. Force insufficient_data=0 on ALL seed matches using database.query()
-                // Force insufficient_data=0 — try database.exec() which handles PG quoting
-                await database.exec("UPDATE matches SET insufficient_data = 0 WHERE source = 'seed'")
-                logger.info('[EMERGENCY SEED] Force-enriched seed matches')
-                logger.info(`[EMERGENCY SEED] Force-enriched seed matches (changed=${upd.changes ?? '?'})`)
+                // 2. Raw PG UPDATE via pg_connector — bypass sqliteToPg
+                const { query: pgRaw } = require('./core/pg_connector')
+                const updResult = await pgRaw("UPDATE matches SET insufficient_data = 0 WHERE source = 'seed'")
+                logger.info(`[EMERGENCY SEED] Raw PG UPDATE: rowCount=${updResult.rowCount}`)
+                // 3. Verify with a count query
+                const checkResult = await pgRaw("SELECT COUNT(*) as cnt FROM matches WHERE source = 'seed' AND insufficient_data = 1")
+                logger.info(`[EMERGENCY SEED] Still insufficient=1: ${checkResult.rows?.[0]?.cnt}`)
+                // 4. Also try via database.query (which wraps pg_connector)
+                const dqResult = await database.query("UPDATE matches SET insufficient_data = 0 WHERE source = 'seed'")
+                logger.info(`[EMERGENCY SEED] database.query result: changes=${dqResult.changes}`)
               } catch (e) {
                 logger.warn(`[EMERGENCY SEED] Error: ${e.message}`)
               }

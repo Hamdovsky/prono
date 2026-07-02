@@ -50,7 +50,7 @@ function buildMatch(row) {
     timestamp: new Date(ts * 1000).toISOString(),
     source: 'seed',
     chaos_score: chaos || 50,
-    insufficient_data: 1,
+    insufficient_data: 0,
     last_updated: Date.now(),
   }
 }

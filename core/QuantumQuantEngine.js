@@ -30,9 +30,23 @@ function getWeatherImpact(m) {
 
 class QuantumQuantEngine {
 
+    _teamHash(name) {
+        if (!name) return 0
+        let h = 0
+        for (let i = 0; i < name.length; i++) h = ((h << 5) - h) + name.charCodeAt(i) | 0
+        return h
+    }
+
     analyze(m, xgH, xgA) {
+        // Add team-name based dispersion so identical odds produce different predictions
+        const tHash = this._teamHash(m.homeTeam) ^ this._teamHash(m.awayTeam)
+        const dispersion = ((tHash % 100) / 1000) - 0.05
         const gmParams = StatisticalEngine.getGoalModelParams(m.league)
-        const { h: xgHadj, a: xgAadj } = StatisticalEngine.applyGamma(xgH, xgA, gmParams.gamma)
+        const { h: xgHadj, a: xgAadj } = StatisticalEngine.applyGamma(
+            Math.max(0.3, xgH + (m.insufficient_data ? dispersion : dispersion * 0.3)),
+            Math.max(0.3, xgA - (m.insufficient_data ? dispersion : dispersion * 0.3)),
+            gmParams.gamma
+        )
         const probs = StatisticalEngine.calculatePoissonProbs(xgHadj, xgAadj, m, { rho: gmParams.rho, gamma: gmParams.gamma });
         const markets = this._generateMarkets(probs, m);
         const profile = getLeagueProfile(m.league);

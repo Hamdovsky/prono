@@ -78,6 +78,15 @@ class EnrichedPredictionService {
      * Requires home_team_id / away_team_id on the match object.
      */
     async _fetchSofaTeamData(match) {
+        // Try to extract team IDs from fullData JSON if columns are missing
+        if (!match.home_team_id && !match._homeTeamId) {
+            try {
+                const fd = typeof match.fullData === 'string' ? JSON.parse(match.fullData) : (match.fullData || {})
+                if (fd.homeTeamId) match._homeTeamId = fd.homeTeamId
+                if (fd.awayTeamId) match._awayTeamId = fd.awayTeamId
+                if (fd.sofaMatchId) match._sofaMatchId = fd.sofaMatchId
+            } catch (_) {}
+        }
         const homeId = match.home_team_id || match._homeTeamId;
         const awayId = match.away_team_id || match._awayTeamId;
         const sofaId = match.sofascore_id || match._sofaMatchId ||
@@ -468,6 +477,13 @@ class EnrichedPredictionService {
                 await this._fetchSofaTeamData(match);
             }
 
+            // Retry up to 2 times with 1s delay
+            let lastError = null
+            for (let attempt = 0; attempt < 2; attempt++) {
+                if (attempt > 0) {
+                    await new Promise(r => setTimeout(r, 1000))
+                }
+
             const pythonService = require('../core/pythonService')
             const pyMatch = {
                 homeTeam: match.homeTeam,
@@ -507,7 +523,6 @@ class EnrichedPredictionService {
             const py = await pythonService.predict(pyMatch, timeoutMs || 30000)
             if (py && py.success) {
                 const labelMap = { '1': '1', 'X': 'X', '2': '2', 'Home': '1', 'Draw': 'X', 'Away': '2', 'Home Win': '1', 'Away Win': '2' }
-                // Determine label from Python probabilities
                 const pyProbs = [
                     { label: '1', prob: parseFloat(py.home_win_probability || py.home_win_prob || 0) },
                     { label: 'X', prob: parseFloat(py.draw_probability || py.draw_prob || 0) },
@@ -546,9 +561,19 @@ class EnrichedPredictionService {
                     py_full: py,
                 }
             }
+            // If we get here, this attempt failed — log and retry
+            if (py && py.error) {
+                lastError = py.error
+                logger.warn(`[V553] Attempt ${attempt + 1}/2 failed: ${py.error}`)
+            } else {
+                lastError = 'unknown'
+            }
+            } // end retry loop
+
+            logger.warn(`[V553] All retries exhausted: ${lastError}`)
             return { success: false, fallback: true }
         } catch (e) {
-            logger.warn(`[V553] Bridge error: ${e.message}`)
+            logger.warn(`[V553] Bridge error after retries: ${e.message}`)
             return { success: false, fallback: true }
         }
     }
@@ -661,27 +686,31 @@ class EnrichedPredictionService {
      * Generate deterministic synthetic odds from team names when no bookmaker odds exist.
      * Uses a simple hash to create unique-but-consistent per-match differentiation.
      */
-    _generateSyntheticOdds(homeTeam, awayTeam) {
-        const str = `${homeTeam || 'Home'}_vs_${awayTeam || 'Away'}`;
+    _generateSyntheticOdds(homeTeam, awayTeam, league) {
+        const str = `${homeTeam || 'Home'}_vs_${awayTeam || 'Away'}_${league || ''}`;
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             const ch = str.charCodeAt(i);
             hash = ((hash << 5) - hash) + ch;
-            hash = hash & hash; // Convert to 32bit int
+            hash = hash & hash;
         }
-        const seed = Math.abs(hash) / 2147483647; // 0..1
-        // Second hash for independent draw variance
+        const seed = Math.abs(hash) / 2147483647;
         const seed2 = (((hash >> 8) & 0xff) / 255);
-        const seed3 = (((hash >> 16) & 0xff) / 255);
-        // Wide range to produce diverse scores (0-0 through 3-1):
-        // ~25% strong home favorite (homeProb 0.50-0.65 → 2-0, 2-1 scores)
-        // ~25% slight home (homeProb 0.40-0.50 → 1-0 scores)
-        // ~25% balanced/draw (homeProb 0.30-0.40 → 1-1, 0-0 scores)
-        // ~25% away favorite (homeProb 0.15-0.30 → 0-1, 0-2 scores)
-        const homeProb = 0.15 + (seed * 0.50);                          // 0.15 - 0.65
-        const drawProb = 0.15 + (seed2 * 0.15);                        // 0.15 - 0.30
+
+        // League-based base adjustment: top leagues have wider differentiation
+        const leagueLower = (league || '').toLowerCase()
+        let baseRange = 0.50
+        if (/champions league|premier|liga|laliga|bundesliga|serie a|ligue 1|eredivisie/i.test(leagueLower)) {
+            baseRange = 0.60
+        } else if (/championship|serie b|ligue 2|a league|mls|botola|allsvenskan/i.test(leagueLower)) {
+            baseRange = 0.45
+        } else {
+            baseRange = 0.35
+        }
+
+        const homeProb = 0.15 + (seed * baseRange);
+        const drawProb = 0.12 + (seed2 * 0.20);
         const awayProb = Math.max(0.08, 1 - homeProb - drawProb);
-        // Convert to decimal odds (with margin ~5%)
         const margin = 1.05;
         return {
             home: parseFloat((margin / homeProb).toFixed(2)),
@@ -728,8 +757,11 @@ class EnrichedPredictionService {
                         m.odds_home = liveOdds.home;
                         m.odds_draw = liveOdds.draw;
                         m.odds_away = liveOdds.away;
+                        m._oddsWereFetched = true
                     }
                 } catch (_) { /* odds fetch failed — continue without odds */ }
+            } else {
+                m._oddsWereFetched = true
             }
 
             // ── SOFASCORE TEAM DATA (form, xG) ──
@@ -859,14 +891,14 @@ class EnrichedPredictionService {
                 quantResult.confidence = v553.confidence
                 probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
             } else {
-                // JS ENGINE — fallback: ALWAYS use odds-implied xG for differentiation
-                aiSource = 'TITANIUM_QUANT_V4'
-                if (!(m.odds_home && m.odds_draw && m.odds_away)) {
-                    const synth = this._generateSyntheticOdds(m.homeTeam, m.awayTeam);
-                    m.odds_home = synth.home;
-                    m.odds_draw = synth.draw;
-                    m.odds_away = synth.away;
+                // V553 ML failed — check if we have any REAL data to fall back on
+                const hasRealOdds = m.odds_home && m.odds_draw && m.odds_away && m._oddsWereFetched
+                const hasRealXg   = parseFloat(m.home_xg) > 0.4 && parseFloat(m.away_xg) > 0.4
+                if (!hasRealOdds && !hasRealXg) {
+                    return this._buildOfflineState(m)
                 }
+                // JS ENGINE — fallback with REAL data only
+                aiSource = 'TITANIUM_QUANT_V4'
                 if (m.odds_home && m.odds_draw && m.odds_away) {
                     const odH = 1 / parseFloat(m.odds_home);
                     const odD = 1 / parseFloat(m.odds_draw);

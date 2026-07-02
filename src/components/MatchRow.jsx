@@ -530,9 +530,9 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                         </div>
 
                         {/* AI Correct Score Badge */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 255, 170, 0.08)', border: '1px solid rgba(0, 255, 170, 0.25)', borderRadius: '6px', padding: '4px 10px', minWidth: '60px', position: 'relative' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: match.insufficient_data === 1 ? 'rgba(245, 158, 11, 0.08)' : 'rgba(0, 255, 170, 0.08)', border: `1px solid ${match.insufficient_data === 1 ? 'rgba(245, 158, 11, 0.25)' : 'rgba(0, 255, 170, 0.25)'}`, borderRadius: '6px', padding: '4px 10px', minWidth: '60px', position: 'relative' }}>
                             <span style={{ fontSize: '8px', color: '#64748b', fontWeight: '900', letterSpacing: '0.5px' }}>SCORE IA</span>
-                            <span style={{ fontSize: '15px', fontWeight: '900', color: 'var(--neon)', fontFamily: "'JetBrains Mono', monospace" }}>{cs}</span>
+                            <span style={{ fontSize: '11px', fontWeight: '900', color: match.insufficient_data === 1 ? '#f59e0b' : 'var(--neon)', fontFamily: "'JetBrains Mono', monospace" }}>{match.insufficient_data === 1 ? '⏳ ATTENTE' : cs}</span>
                             {actualScoreDisplay && (
                                 <span style={{ fontSize: '12px', fontWeight: '900', color: '#f8fafc', fontFamily: "'JetBrains Mono', monospace", marginTop: '2px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '2px' }}>
                                     {actualScoreDisplay}
@@ -712,22 +712,33 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
             {/* COLUMN 3: AI SCORE & FT confidence (12%) */}
             <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                    <span className="onyx-cs" style={{fontSize: '16px', fontWeight: '900', color: '#00ffaa'}}>{cs}</span>
-                    {resultBulb}
+                    <span className="onyx-cs" style={{fontSize: '16px', fontWeight: '900', color: match.insufficient_data === 1 ? '#f59e0b' : '#00ffaa'}}>
+                        {match.insufficient_data === 1 ? '⏳ ATTENTE' : cs}
+                    </span>
+                    {!match.insufficient_data && resultBulb}
                 </div>
-                {actualScoreDisplay && (
+                {!match.insufficient_data && actualScoreDisplay && (
                     <span style={{fontSize: '13px', fontWeight: '900', color: '#f8fafc', fontFamily: "'JetBrains Mono', monospace", marginTop: '1px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1px', display: 'block'}}>
                         {actualScoreDisplay}
                     </span>
                 )}
+                {!match.insufficient_data && (
                 <div style={{fontSize: '11px', color: '#fbbf24', fontWeight: 'bold'}}>
                     FT: {ftSignal}%
                 </div>
+                )}
+                {!match.insufficient_data && (
                 <div style={{display: 'flex', gap: '2px', width: '100%', height: '4px', marginTop: '2px', borderRadius: '2px', overflow: 'hidden'}}>
                     <div style={{flex: `${Math.round(hBar)}`, height: '100%', background: '#22c55e', minWidth: hBar > 0 ? '2px' : '0'}}></div>
                     <div style={{flex: `${Math.round(dBar)}`, height: '100%', background: '#94a3b8', minWidth: dBar > 0 ? '2px' : '0'}}></div>
                     <div style={{flex: `${Math.round(aBar)}`, height: '100%', background: '#3b82f6', minWidth: aBar > 0 ? '2px' : '0'}}></div>
                 </div>
+                )}
+                {match.insufficient_data === 1 && (
+                <div style={{fontSize: '9px', color: '#f59e0b', fontWeight: '700', marginTop: '4px'}}>
+                    ⚠️ DONNÉES INSUFFISANTES
+                </div>
+                )}
             </div>
 
             {/* COLUMN 4: MARCHÉS (BTTS + O/U + DC) (16%) */}

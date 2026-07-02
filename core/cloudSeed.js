@@ -484,6 +484,50 @@ async function runCloudSeed() {
   if (finalToday + finalTomorrow === 0) {
     logger.warn('[CLOUD-SEED] WARNING: No scheduled matches found.')
   }
+
+  // 🔄 [AUTO-ENRICH] Force enrichment on all matches with insufficient data
+  try {
+    const db = database.db
+    if (db) {
+      const needsEnrich = db.prepare("SELECT COUNT(*) as c FROM matches WHERE insufficient_data = 1").get()
+      if (needsEnrich && needsEnrich.c > 0) {
+        logger.info(`[CLOUD-SEED/ENRICH] ${needsEnrich.c} matches have insufficient_data — triggering background enrichment`)
+        const enrichedPredictions = require('./enriched_predictions')
+        const matches = db.prepare("SELECT * FROM matches WHERE insufficient_data = 1 AND status = 'scheduled'").all()
+        if (matches.length > 0) {
+          enrichedPredictions.enrichMatches(matches, { fastMode: true, force: true }).then(enriched => {
+            let updated = 0
+            for (const m of enriched) {
+              if (m.expected_score && m.expected_score !== 'N/A') {
+                try {
+                  const db = database.db
+                  if (db) {
+                    const stmt = db.prepare(`
+                      UPDATE matches SET
+                        home_win_probability = ?, draw_probability = ?, away_win_probability = ?,
+                        expected_score = ?, btts_prob = ?, ou_25_prob = ?,
+                        confidence = ?, insufficient_data = ?, last_updated = ?
+                      WHERE id = ?
+                    `)
+                    stmt.run(
+                      m.home_win_probability || 0, m.draw_probability || 0, m.away_win_probability || 0,
+                      m.expected_score || null, m.btts_prob || 0, m.ou_25_prob || 0,
+                      m.confidence || 50, m.insufficient_data || 0, Date.now(),
+                      m.id
+                    )
+                    updated++
+                  }
+                } catch (_) {}
+              }
+            }
+            logger.info(`[CLOUD-SEED/ENRICH] Updated ${updated}/${enriched.length} matches`)
+          }).catch(e => logger.warn(`[CLOUD-SEED/ENRICH] Error: ${e.message}`))
+        }
+      }
+    }
+  } catch (enrichErr) {
+    logger.warn(`[CLOUD-SEED/ENRICH] Setup error: ${enrichErr.message}`)
+  }
 }
 
 module.exports = { runCloudSeed, purgeFakeMatches }

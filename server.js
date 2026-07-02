@@ -292,7 +292,8 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               try { supabaseService.cleanupPlaceholderTeams() } catch (_) {}
             }, 15000)
 
-            // 🧹 Reset old seed matches so enrichment can refresh them
+            // 🧹 Reset only matches that still have real probabilities but no data source
+            // (old seed matches that got enriched with synthetic data before the fix)
             try {
               const db = database.db
               if (db) {
@@ -308,6 +309,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
                     confidence = 50,
                     last_updated = ?
                   WHERE source IN ('seed', 'emergency')
+                    AND (insufficient_data IS NULL OR insufficient_data = 0)
                 `).run(Date.now())
                 if (result.changes > 0) {
                   logger.info(`[CLEANUP] Reset ${result.changes} seed matches for re-enrichment`)

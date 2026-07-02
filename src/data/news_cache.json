@@ -1,5 +1,5 @@
 {
-  "match_intel_v50_0_Unknown Home_Unknown Away": {
+  "match_intel_v50_0_HJK_Ilves": {
     "data": {
       "lineups": null,
       "home": {
@@ -26,7 +26,7 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781795453289
+        "fetched_at": 1782928832621
       },
       "away": {
         "headlines": [],
@@ -52,413 +52,22 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781795453624
+        "fetched_at": 1782928831886
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781795453624
+      "fetched_at": 1782928832621
     },
-    "expiresAt": 1781802653624
+    "expiresAt": 1782936032622
   },
-  "match_intel_v50_537404_Uzbekistan_Colombia": {
+  "match_intel_v50_0_G1_3A/3E/3H/3I/3J": {
     "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
+      "lineups": null,
       "home": {
-        "headlines": [
-          "Uzbekistan vs Colombia Predictions, Picks &amp; Odds – 18/06/2026 - ToffeeWeb",
-          "Uzbekistan vs Colombia Predictions &amp; Goalscorer Picks (Jun 17) - Sports Betting Dime",
-          "2026 World Cup Predictions - Silver Bulletin",
-          "Portugal 2026 World Cup preview: Squad, fixtures and prediction | Can Cristiano Ronaldo finally land the biggest prize of all? - Sports Mole",
-          "Uzbekistan vs. Colombia: Lineups, Stats, Schedule, and How to Watch - news.bet365.com"
-        ],
-        "items": [
-          {
-            "title": "Uzbekistan vs Colombia Predictions, Picks &amp; Odds – 18/06/2026 - ToffeeWeb",
-            "pubDate": "Thu, 18 Jun 2026 00:07:56 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Uzbekistan vs Colombia Predictions &amp; Goalscorer Picks (Jun 17) - Sports Betting Dime",
-            "pubDate": "Wed, 17 Jun 2026 23:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "2026 World Cup Predictions - Silver Bulletin",
-            "pubDate": "Wed, 17 Jun 2026 07:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Portugal 2026 World Cup preview: Squad, fixtures and prediction | Can Cristiano Ronaldo finally land the biggest prize of all? - Sports Mole",
-            "pubDate": "Tue, 16 Jun 2026 16:23:38 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Uzbekistan vs. Colombia: Lineups, Stats, Schedule, and How to Watch - news.bet365.com",
-            "pubDate": "Wed, 17 Jun 2026 17:18:18 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "CRITICAL",
-          "impactScore": -0.25,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 1,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 5
-          },
-          "summary": "⚠️ غيابات جوهرية مؤثرة على التوقع",
-          "label_ar": "حرج"
-        },
-        "sentiment": {
-          "score": -0.25,
-          "verdict": "CRITICAL",
-          "label": "حرج",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781799084792
-      },
-      "away": {
-        "headlines": [
-          "توقعات مباراة أوزبكستان ضد كولومبيا، الساعة 9:00 صباحاً يوم 18 يونيو: معركة على المركز الثاني. - Vietnam.vn",
-          "Uzbekistan vs Colombia Predictions, Picks &amp; Odds – 18/06/2026 - ToffeeWeb",
-          "Uzbekistan vs Colombia Predictions &amp; Goalscorer Picks (Jun 17) - Sports Betting Dime",
-          "Portugal 2026 World Cup preview: Squad, fixtures and prediction | Can Cristiano Ronaldo finally land the biggest prize of all? - Sports Mole"
-        ],
-        "items": [
-          {
-            "title": "توقعات مباراة أوزبكستان ضد كولومبيا، الساعة 9:00 صباحاً يوم 18 يونيو: معركة على المركز الثاني. - Vietnam.vn",
-            "pubDate": "Wed, 17 Jun 2026 15:18:15 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "Uzbekistan vs Colombia Predictions, Picks &amp; Odds – 18/06/2026 - ToffeeWeb",
-            "pubDate": "Thu, 18 Jun 2026 00:07:56 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Uzbekistan vs Colombia Predictions &amp; Goalscorer Picks (Jun 17) - Sports Betting Dime",
-            "pubDate": "Wed, 17 Jun 2026 23:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Portugal 2026 World Cup preview: Squad, fixtures and prediction | Can Cristiano Ronaldo finally land the biggest prize of all? - Sports Mole",
-            "pubDate": "Tue, 16 Jun 2026 16:23:38 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "CRITICAL",
-          "impactScore": -0.25,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 1,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 4
-          },
-          "summary": "⚠️ غيابات جوهرية مؤثرة على التوقع",
-          "label_ar": "حرج"
-        },
-        "sentiment": {
-          "score": -0.25,
-          "verdict": "CRITICAL",
-          "label": "حرج",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781799100856
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "HIGH_INTEL",
-      "fetched_at": 1781799100856
-    },
-    "expiresAt": 1781806300856
-  },
-  "match_intel_v50_537329_Czechia_South Africa": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "Czechia vs South Africa Prediction, Picks, Best Bets &amp; Lineups for World Cup 2026 - fanduel.com",
-          "Czechia vs. South Africa—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-          "South Africa predicted lineup and team news vs Czechia - Yahoo Sports",
-          "Czechia vs South Africa Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group A - RotoWire",
-          "Czechia vs South Africa – Prediction, Where to Watch, Kick-off Time and Lineups 18-06 - Odds Scanner",
-          "Czechia vs South Africa Prediction, Preview, Picks, Best Bets &amp; Lineups for World Cup 2026 - fanduel.com",
-          "Czechia vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
-          "Mexico vs South Korea: Lineups, Prediction, Betting Tips &amp; Odds - WhoScored.com",
-          "Czechia vs South Africa Predictions, Goalscorer Picks &amp; Injuries (June 18) - Sports Betting Dime",
-          "Both sides are searching for their first points in Group A - ibtimes.sg"
-        ],
-        "items": [
-          {
-            "title": "Czechia vs South Africa Prediction, Picks, Best Bets &amp; Lineups for World Cup 2026 - fanduel.com",
-            "pubDate": "Thu, 18 Jun 2026 13:59:26 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs. South Africa—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-            "pubDate": "Thu, 18 Jun 2026 00:00:01 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "South Africa predicted lineup and team news vs Czechia - Yahoo Sports",
-            "pubDate": "Thu, 18 Jun 2026 05:30:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group A - RotoWire",
-            "pubDate": "Wed, 17 Jun 2026 07:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa – Prediction, Where to Watch, Kick-off Time and Lineups 18-06 - Odds Scanner",
-            "pubDate": "Thu, 18 Jun 2026 10:02:05 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa Prediction, Preview, Picks, Best Bets &amp; Lineups for World Cup 2026 - fanduel.com",
-            "pubDate": "Thu, 18 Jun 2026 03:44:56 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
-            "pubDate": "Wed, 17 Jun 2026 13:36:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Mexico vs South Korea: Lineups, Prediction, Betting Tips &amp; Odds - WhoScored.com",
-            "pubDate": "Wed, 17 Jun 2026 12:20:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa Predictions, Goalscorer Picks &amp; Injuries (June 18) - Sports Betting Dime",
-            "pubDate": "Thu, 18 Jun 2026 08:25:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Both sides are searching for their first points in Group A - ibtimes.sg",
-            "pubDate": "Thu, 18 Jun 2026 14:44:39 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "CRITICAL",
-          "impactScore": -0.25,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 1,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 10
-          },
-          "summary": "⚠️ غيابات جوهرية مؤثرة على التوقع",
-          "label_ar": "حرج"
-        },
-        "sentiment": {
-          "score": -0.25,
-          "verdict": "CRITICAL",
-          "label": "حرج",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781799536266
-      },
-      "away": {
-        "headlines": [
-          "Czechia vs South Africa Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group A - RotoWire",
-          "Czechia vs South Africa – Prediction, Where to Watch, Kick-off Time and Lineups 18-06 - Odds Scanner",
-          "Czechia vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
-          "Czechia vs South Africa prediction, tips and odds | World Cup 2026 - TNT Sports",
-          "Preview: Czech Republic vs South Africa- prediction, team news, lineups | World Cup 2026 - Sports Mole",
-          "Czechia vs South Africa, 2026 FIFA World Cup – Preview, Prediction, Head to Head, Predicted Lineups, Team ... - Time Bulletin",
-          "Dream start for Czech Republic as Sadilek nets vs South Africa LIVE!"
-        ],
-        "items": [
-          {
-            "title": "Czechia vs South Africa Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group A - RotoWire",
-            "pubDate": "Wed, 17 Jun 2026 07:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa – Prediction, Where to Watch, Kick-off Time and Lineups 18-06 - Odds Scanner",
-            "pubDate": "Thu, 18 Jun 2026 10:02:05 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
-            "pubDate": "Wed, 17 Jun 2026 13:36:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa prediction, tips and odds | World Cup 2026 - TNT Sports",
-            "pubDate": "Wed, 17 Jun 2026 16:18:16 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Preview: Czech Republic vs South Africa- prediction, team news, lineups | World Cup 2026 - Sports Mole",
-            "pubDate": "Tue, 16 Jun 2026 22:59:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa, 2026 FIFA World Cup – Preview, Prediction, Head to Head, Predicted Lineups, Team ... - Time Bulletin",
-            "pubDate": "Thu, 18 Jun 2026 08:56:35 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Dream start for Czech Republic as Sadilek nets vs South Africa LIVE!",
-            "pubDate": "2026-06-18T16:16:51.426Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "CRITICAL",
-          "impactScore": -0.25,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 1,
-            "absentee_count": 0,
-            "news_intensity": 7
-          },
-          "summary": "⚠️ غيابات جوهرية مؤثرة على التوقع",
-          "label_ar": "حرج"
-        },
-        "sentiment": {
-          "score": -0.25,
-          "verdict": "CRITICAL",
-          "label": "حرج",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781799552176
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "HIGH_INTEL",
-      "fetched_at": 1781799552176
-    },
-    "expiresAt": 1781806752176
-  },
-  "match_intel_v50_537335_Switzerland_Bosnia-Herzegovina": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "Switzerland vs Bosnia and Herzegovina Predictions, Picks &amp; Odds – 19/06/2026 - ToffeeWeb",
-          "Switzerland vs Bosnia and Herzegovina: Lineups, Prediction, Betting Tips &amp; Odds - Oddschecker",
-          "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - FotMob",
-          "Which players are out of World Cup 2026? - FourFourTwo",
-          "Switzerland vs Bosnia and Herzegovina: Prediction and Odds, World Cup, 18/06/2026 - The Playoffs",
-          "Switzerland vs Bosnia and Herzegovina Prediction: Bosnia can keep this tight - Telecom Asia Sport",
-          "Austria vs Jordan: Prediction and Odds, World Cup, 17/06/2026 - The Playoffs",
-          "Switzerland vs Bosnia and Herzegovina prediction 19 Jun 2026 - TheTopBookies"
-        ],
-        "items": [
-          {
-            "title": "Switzerland vs Bosnia and Herzegovina Predictions, Picks &amp; Odds – 19/06/2026 - ToffeeWeb",
-            "pubDate": "Thu, 18 Jun 2026 14:54:59 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs Bosnia and Herzegovina: Lineups, Prediction, Betting Tips &amp; Odds - Oddschecker",
-            "pubDate": "Thu, 18 Jun 2026 12:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - FotMob",
-            "pubDate": "Thu, 18 Jun 2026 02:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Which players are out of World Cup 2026? - FourFourTwo",
-            "pubDate": "Wed, 17 Jun 2026 11:01:38 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs Bosnia and Herzegovina: Prediction and Odds, World Cup, 18/06/2026 - The Playoffs",
-            "pubDate": "Wed, 17 Jun 2026 00:04:48 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs Bosnia and Herzegovina Prediction: Bosnia can keep this tight - Telecom Asia Sport",
-            "pubDate": "Wed, 17 Jun 2026 20:57:54 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Austria vs Jordan: Prediction and Odds, World Cup, 17/06/2026 - The Playoffs",
-            "pubDate": "Wed, 17 Jun 2026 00:04:48 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs Bosnia and Herzegovina prediction 19 Jun 2026 - TheTopBookies",
-            "pubDate": "Wed, 17 Jun 2026 15:44:50 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -469,7 +78,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 8
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -480,55 +89,11 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781799961010
+        "fetched_at": 1782928875356
       },
       "away": {
-        "headlines": [
-          "معاينة وتوقعات مباراة سويسرا ضد البوسنة: من يملك الأفضلية في سباق التأهل؟ - Vietnam.vn",
-          "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-          "Switzerland vs Bosnia and Herzegovina: Lineups, Prediction, Betting Tips &amp; Odds - Oddschecker",
-          "Canada vs. Bosnia &amp; Herzegovina Prediction, Betting Tips, &amp; Odds (6/12/26) - Canada Sports Betting",
-          "Canada vs Qatar: Preview and Prediction - TheHardTackle.com",
-          "Alphonso Davies Returns as Canada Faces Qatar in World Cup Match - asatunews.co.id"
-        ],
-        "items": [
-          {
-            "title": "معاينة وتوقعات مباراة سويسرا ضد البوسنة: من يملك الأفضلية في سباق التأهل؟ - Vietnam.vn",
-            "pubDate": "Thu, 18 Jun 2026 02:40:50 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-            "pubDate": "Thu, 18 Jun 2026 02:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs Bosnia and Herzegovina: Lineups, Prediction, Betting Tips &amp; Odds - Oddschecker",
-            "pubDate": "Thu, 18 Jun 2026 12:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Canada vs. Bosnia &amp; Herzegovina Prediction, Betting Tips, &amp; Odds (6/12/26) - Canada Sports Betting",
-            "pubDate": "Tue, 16 Jun 2026 22:29:12 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Canada vs Qatar: Preview and Prediction - TheHardTackle.com",
-            "pubDate": "Wed, 17 Jun 2026 13:15:21 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Alphonso Davies Returns as Canada Faces Qatar in World Cup Match - asatunews.co.id",
-            "pubDate": "Thu, 18 Jun 2026 07:00:45 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -539,7 +104,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 6
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -550,113 +115,22 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781799986471
+        "fetched_at": 1782928874645
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781799986471
+      "fetched_at": 1782928875356
     },
-    "expiresAt": 1781807186471
+    "expiresAt": 1782936075356
   },
-  "match_intel_v50_537336_Canada_Qatar": {
+  "match_intel_v50_0_1L_3E/3H/3I/3J/3K": {
     "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
+      "lineups": null,
       "home": {
-        "headlines": [
-          "جدول مباريات كندا ضد قطر (الساعة 5 صباحًا، 19 يونيو، بث مباشر على قناة VTV6): كسر الجمود - Vietnam.vn",
-          "Ghana vs. Panama—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-          "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-          "Ghana vs. Panama live stream: How to watch FIFA World Cup, odds, prediction, pick, lineups, channel - CBS Sports",
-          "Canada vs Qatar Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group B - RotoWire",
-          "Which players are out of World Cup 2026? - FourFourTwo",
-          "2026 World Cup: Mexico vs. South Korea Match Prediction, Betting Tips, And Odds (6/18/26) - Canada Sports Betting",
-          "Austria vs Jordan: Prediction and Odds, World Cup, 17/06/2026 - The Playoffs",
-          "Ghana vs Panama: Prediction and Odds, World Cup, 17/06/2026 - The Playoffs",
-          "Switzerland vs Bosnia and Herzegovina Prediction: Bosnia can keep this tight - Telecom Asia Sport",
-          "Alphonso Davies Returns as Canada Faces Qatar in World Cup Match - asatunews.co.id",
-          "Ivory Coast's Wahi denied Canada WCup visa"
-        ],
-        "items": [
-          {
-            "title": "جدول مباريات كندا ضد قطر (الساعة 5 صباحًا، 19 يونيو، بث مباشر على قناة VTV6): كسر الجمود - Vietnam.vn",
-            "pubDate": "Thu, 18 Jun 2026 01:02:27 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "Ghana vs. Panama—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-            "pubDate": "Wed, 17 Jun 2026 01:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-            "pubDate": "Thu, 18 Jun 2026 02:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Ghana vs. Panama live stream: How to watch FIFA World Cup, odds, prediction, pick, lineups, channel - CBS Sports",
-            "pubDate": "Wed, 17 Jun 2026 14:43:10 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Canada vs Qatar Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group B - RotoWire",
-            "pubDate": "Wed, 17 Jun 2026 00:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Which players are out of World Cup 2026? - FourFourTwo",
-            "pubDate": "Wed, 17 Jun 2026 11:01:38 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "2026 World Cup: Mexico vs. South Korea Match Prediction, Betting Tips, And Odds (6/18/26) - Canada Sports Betting",
-            "pubDate": "Tue, 16 Jun 2026 18:42:55 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Austria vs Jordan: Prediction and Odds, World Cup, 17/06/2026 - The Playoffs",
-            "pubDate": "Wed, 17 Jun 2026 00:04:48 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Ghana vs Panama: Prediction and Odds, World Cup, 17/06/2026 - The Playoffs",
-            "pubDate": "Thu, 18 Jun 2026 02:01:24 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs Bosnia and Herzegovina Prediction: Bosnia can keep this tight - Telecom Asia Sport",
-            "pubDate": "Wed, 17 Jun 2026 20:57:54 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Alphonso Davies Returns as Canada Faces Qatar in World Cup Match - asatunews.co.id",
-            "pubDate": "Thu, 18 Jun 2026 07:00:45 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Ivory Coast's Wahi denied Canada WCup visa",
-            "pubDate": "2026-06-18T16:31:52.890Z",
-            "source": "goal_direct"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -667,7 +141,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 12
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -678,55 +152,11 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781800418663
+        "fetched_at": 1782928900884
       },
       "away": {
-        "headlines": [
-          "جدول مباريات كندا ضد قطر (الساعة 5 صباحًا، 19 يونيو، بث مباشر على قناة VTV6): كسر الجمود - Vietnam.vn",
-          "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-          "Canada vs Qatar Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group B - RotoWire",
-          "Canada vs Qatar – Prediction, Where to Watch, Kick-off Time and Lineups 18-06 - Odds Scanner",
-          "Switzerland vs Bosnia and Herzegovina Prediction: Bosnia can keep this tight - Telecom Asia Sport",
-          "Alphonso Davies Returns as Canada Faces Qatar in World Cup Match - asatunews.co.id"
-        ],
-        "items": [
-          {
-            "title": "جدول مباريات كندا ضد قطر (الساعة 5 صباحًا، 19 يونيو، بث مباشر على قناة VTV6): كسر الجمود - Vietnam.vn",
-            "pubDate": "Thu, 18 Jun 2026 01:02:27 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-            "pubDate": "Thu, 18 Jun 2026 02:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Canada vs Qatar Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group B - RotoWire",
-            "pubDate": "Wed, 17 Jun 2026 00:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Canada vs Qatar – Prediction, Where to Watch, Kick-off Time and Lineups 18-06 - Odds Scanner",
-            "pubDate": "Thu, 18 Jun 2026 16:05:27 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs Bosnia and Herzegovina Prediction: Bosnia can keep this tight - Telecom Asia Sport",
-            "pubDate": "Wed, 17 Jun 2026 20:57:54 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Alphonso Davies Returns as Canada Faces Qatar in World Cup Match - asatunews.co.id",
-            "pubDate": "Thu, 18 Jun 2026 07:00:45 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -737,7 +167,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 6
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -748,71 +178,22 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781800438615
+        "fetched_at": 1782928899739
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781800438615
+      "fetched_at": 1782928900884
     },
-    "expiresAt": 1781807638615
+    "expiresAt": 1782936100884
   },
-  "match_intel_v50_537330_Mexico_South Korea": {
+  "match_intel_v50_0_2K_2L": {
     "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
+      "lineups": null,
       "home": {
-        "headlines": [
-          "Mexico vs South Korea: Lineups, Prediction, Betting Tips &amp; Odds - WhoScored.com",
-          "Mexico vs Portugal: predictions, stats, tips &amp; odds - Squawka",
-          "Czechia vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
-          "2026 World Cup: Mexico vs. South Korea Match Prediction, Betting Tips, And Odds (6/18/26) - Canada Sports Betting",
-          "Czechia vs South Africa, 2026 FIFA World Cup – Preview, Prediction, Head to Head, Predicted Lineups, Team ... - Time Bulletin",
-          "Chicago to Chivas: Gutiérrez is the American leadi..."
-        ],
-        "items": [
-          {
-            "title": "Mexico vs South Korea: Lineups, Prediction, Betting Tips &amp; Odds - WhoScored.com",
-            "pubDate": "Wed, 17 Jun 2026 12:20:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Mexico vs Portugal: predictions, stats, tips &amp; odds - Squawka",
-            "pubDate": "Tue, 16 Jun 2026 22:33:19 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
-            "pubDate": "Wed, 17 Jun 2026 13:36:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "2026 World Cup: Mexico vs. South Korea Match Prediction, Betting Tips, And Odds (6/18/26) - Canada Sports Betting",
-            "pubDate": "Tue, 16 Jun 2026 18:42:55 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa, 2026 FIFA World Cup – Preview, Prediction, Head to Head, Predicted Lineups, Team ... - Time Bulletin",
-            "pubDate": "Thu, 18 Jun 2026 08:56:35 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Chicago to Chivas: Gutiérrez is the American leadi...",
-            "pubDate": "2026-06-18T16:38:50.185Z",
-            "source": "goal_direct"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -823,7 +204,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 6
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -834,83 +215,11 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781800871385
+        "fetched_at": 1782928925657
       },
       "away": {
-        "headlines": [
-          "Czechia vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
-          "2026 World Cup: Mexico vs. South Korea Match Prediction, Betting Tips, And Odds (6/18/26) - Canada Sports Betting",
-          "Which players are out of World Cup 2026? - FourFourTwo",
-          "Mexico vs. South Korea—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-          "Czechia vs. South Africa—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-          "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-          "Czechia vs South Africa Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group A - RotoWire",
-          "Czechia vs South Africa – Prediction, Where to Watch, Kick-off Time and Lineups 18-06 - Odds Scanner",
-          "Czechia vs South Africa prediction, tips and odds | World Cup 2026 - TNT Sports",
-          "Preview: Czech Republic vs South Africa- prediction, team news, lineups | World Cup 2026 - Sports Mole"
-        ],
-        "items": [
-          {
-            "title": "Czechia vs South Africa Predictions, Bet Builder Tips, Lineups, Odds - WhoScored.com",
-            "pubDate": "Wed, 17 Jun 2026 13:36:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "2026 World Cup: Mexico vs. South Korea Match Prediction, Betting Tips, And Odds (6/18/26) - Canada Sports Betting",
-            "pubDate": "Tue, 16 Jun 2026 18:42:55 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Which players are out of World Cup 2026? - FourFourTwo",
-            "pubDate": "Wed, 17 Jun 2026 11:01:38 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Mexico vs. South Korea—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-            "pubDate": "Thu, 18 Jun 2026 01:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs. South Africa—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-            "pubDate": "Thu, 18 Jun 2026 00:00:01 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Switzerland vs. Bosnia &amp; Herzegovina—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-            "pubDate": "Thu, 18 Jun 2026 02:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group A - RotoWire",
-            "pubDate": "Wed, 17 Jun 2026 07:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa – Prediction, Where to Watch, Kick-off Time and Lineups 18-06 - Odds Scanner",
-            "pubDate": "Thu, 18 Jun 2026 10:02:05 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa prediction, tips and odds | World Cup 2026 - TNT Sports",
-            "pubDate": "Wed, 17 Jun 2026 16:18:16 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Preview: Czech Republic vs South Africa- prediction, team news, lineups | World Cup 2026 - Sports Mole",
-            "pubDate": "Tue, 16 Jun 2026 22:59:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -921,7 +230,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 10
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -932,64 +241,22 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781800871963
+        "fetched_at": 1782928926644
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781800871963
+      "fetched_at": 1782928926644
     },
-    "expiresAt": 1781808071963
+    "expiresAt": 1782936126644
   },
-  "match_intel_v50_537348_United States_Australia": {
+  "match_intel_v50_0_Cuiabá_América Mineiro": {
     "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
+      "lineups": null,
       "home": {
-        "headlines": [
-          "Portugal vs Congo DR Predictions, Picks &amp; Odds – 17/06/2026 - ToffeeWeb",
-          "Ghana vs. Panama—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-          "Which players are out of World Cup 2026? - FourFourTwo",
-          "Czechia vs South Africa, 2026 FIFA World Cup – Preview, Prediction, Head to Head, Predicted Lineups, Team ... - Time Bulletin",
-          "Pulisic training solo in race to be fit vs. Austra..."
-        ],
-        "items": [
-          {
-            "title": "Portugal vs Congo DR Predictions, Picks &amp; Odds – 17/06/2026 - ToffeeWeb",
-            "pubDate": "Tue, 16 Jun 2026 18:17:39 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Ghana vs. Panama—World Cup: Preview, Predictions and Lineups - Sports Illustrated",
-            "pubDate": "Wed, 17 Jun 2026 01:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Which players are out of World Cup 2026? - FourFourTwo",
-            "pubDate": "Wed, 17 Jun 2026 11:01:38 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Czechia vs South Africa, 2026 FIFA World Cup – Preview, Prediction, Head to Head, Predicted Lineups, Team ... - Time Bulletin",
-            "pubDate": "Thu, 18 Jun 2026 08:56:35 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Pulisic training solo in race to be fit vs. Austra...",
-            "pubDate": "2026-06-18T16:46:20.780Z",
-            "source": "goal_direct"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -1000,7 +267,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 5
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -1011,85 +278,11 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781801286468
+        "fetched_at": 1782928957336
       },
       "away": {
-        "headlines": [
-          "USMNT Projected Starting Lineup vs. Australia—Should Pochettino Change a Winning Formula? - Sports Illustrated"
-        ],
-        "items": [
-          {
-            "title": "USMNT Projected Starting Lineup vs. Australia—Should Pochettino Change a Winning Formula? - Sports Illustrated",
-            "pubDate": "Wed, 17 Jun 2026 09:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "CRITICAL",
-          "impactScore": -0.25,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 1,
-            "absentee_count": 0,
-            "news_intensity": 1
-          },
-          "summary": "⚠️ غيابات جوهرية مؤثرة على التوقع",
-          "label_ar": "حرج"
-        },
-        "sentiment": {
-          "score": -0.25,
-          "verdict": "CRITICAL",
-          "label": "حرج",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781801321795
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "HIGH_INTEL",
-      "fetched_at": 1781801321795
-    },
-    "expiresAt": 1781808521795
-  },
-  "match_intel_v50_537342_Scotland_Morocco": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "Scotland vs Morocco Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group C - RotoWire",
-          "Scotland vs Morocco prediction 20 Jun 2026 - TheTopBookies",
-          "Scotland latest: Clarke and Robertson address media ahead of Morocco game"
-        ],
-        "items": [
-          {
-            "title": "Scotland vs Morocco Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group C - RotoWire",
-            "pubDate": "Thu, 18 Jun 2026 05:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Scotland vs Morocco prediction 20 Jun 2026 - TheTopBookies",
-            "pubDate": "Thu, 18 Jun 2026 16:43:41 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Scotland latest: Clarke and Robertson address media ahead of Morocco game",
-            "pubDate": "2026-06-18T16:54:07.213Z",
-            "source": "goal_direct"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -1100,7 +293,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 3
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -1111,76 +304,140 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1781801773508
-      },
-      "away": {
-        "headlines": [
-          "تفاصيل إصابة إسماعيل صيباري وموقفه من مباراة اسكتلندا - أخبار السعودية | saudi news",
-          "Scotland vs Morocco Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group C - RotoWire",
-          "Morocco vs Norway - live score, predicted lineups and H2H stats - FotMob",
-          "Scotland vs Morocco prediction 20 Jun 2026 - TheTopBookies",
-          "Scotland latest: Clarke and Robertson address media ahead of Morocco game"
-        ],
-        "items": [
-          {
-            "title": "تفاصيل إصابة إسماعيل صيباري وموقفه من مباراة اسكتلندا - أخبار السعودية | saudi news",
-            "pubDate": "Tue, 16 Jun 2026 22:40:30 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "Scotland vs Morocco Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Group C - RotoWire",
-            "pubDate": "Thu, 18 Jun 2026 05:00:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Morocco vs Norway - live score, predicted lineups and H2H stats - FotMob",
-            "pubDate": "Wed, 17 Jun 2026 14:59:13 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Scotland vs Morocco prediction 20 Jun 2026 - TheTopBookies",
-            "pubDate": "Thu, 18 Jun 2026 16:43:41 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Scotland latest: Clarke and Robertson address media ahead of Morocco game",
-            "pubDate": "2026-06-18T16:54:07.205Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 5
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1781801790788
+        "fetched_at": 1782928951344
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1781801790788
+      "fetched_at": 1782928957336
     },
-    "expiresAt": 1781808990788
+    "expiresAt": 1782936157336
+  },
+  "match_intel_v50_0_H1_2J": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1782928983136
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1782928983426
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1782928983426
+    },
+    "expiresAt": 1782936183426
+  },
+  "match_intel_v50_0_Renaissance Zemamra_Fath Union Sport": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1782929008197
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1782929011288
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1782929011288
+    },
+    "expiresAt": 1782936211288
   }
 }

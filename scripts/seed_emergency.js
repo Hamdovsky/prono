@@ -44,6 +44,7 @@ function buildMatch(row) {
     timestamp: new Date(ts * 1000).toISOString(),
     source: 'seed',
     chaos_score: chaos || 50,
+    insufficient_data: 1,
     last_updated: Date.now(),
   }
 }
@@ -58,15 +59,15 @@ async function seedDemoMatches(database) {
        home_win_probability, draw_probability, away_win_probability,
        expected_score, ou_25_prob, btts_prob, xgboost_confidence,
        odds_home, odds_draw, odds_away, startTimestamp, timestamp, source,
-       chaos_score, last_updated)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       chaos_score, insufficient_data, last_updated)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     for (const m of matches) {
       const result = insert.run(m.id, m.homeTeam, m.awayTeam, m.league, m.status, m.prediction, m.confidence,
         m.home_win_probability, m.draw_probability, m.away_win_probability,
         m.expected_score, m.ou_25_prob, m.btts_prob, m.xgboost_confidence,
         m.odds_home, m.odds_draw, m.odds_away, m.startTimestamp, m.timestamp, m.source,
-        m.chaos_score, m.last_updated)
+        m.chaos_score, m.insufficient_data, m.last_updated)
       if (result && typeof result.then === 'function') await result
       count++
     }
@@ -107,8 +108,8 @@ if (require.main === module) {
      home_win_probability, draw_probability, away_win_probability,
      expected_score, ou_25_prob, btts_prob, xgboost_confidence,
      odds_home, odds_draw, odds_away, startTimestamp, timestamp, source,
-     chaos_score, last_updated)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     chaos_score, insufficient_data, last_updated)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const matches = MATCHES.map(buildMatch)
   for (const m of matches) {
@@ -116,7 +117,7 @@ if (require.main === module) {
       m.home_win_probability, m.draw_probability, m.away_win_probability,
       m.expected_score, m.ou_25_prob, m.btts_prob, m.xgboost_confidence,
       m.odds_home, m.odds_draw, m.odds_away, m.startTimestamp, m.timestamp, m.source,
-      m.chaos_score, m.last_updated)
+      m.chaos_score, m.insufficient_data, m.last_updated)
   }
   db.exec('CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status)')
   db.exec('CREATE INDEX IF NOT EXISTS idx_matches_timestamp ON matches(timestamp)')

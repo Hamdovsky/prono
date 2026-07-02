@@ -366,6 +366,29 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               }
             })()
 
+            // 🔄 [EARLY-ENRICH] Immediate auto-enrich — doesn't wait for slow cloud seed APIs
+            setTimeout(async () => {
+              try {
+                const enrichedPredictions = require('./core/enriched_predictions');
+                const matches = await database.query("SELECT * FROM matches WHERE insufficient_data = 1 AND status = 'scheduled'")
+                const matchList = matches?.rows || []
+                if (matchList.length > 0) {
+                  logger.info(`📡 [EARLY-ENRICH] Enriching ${matchList.length} matches immediately...`);
+                  const enriched = await enrichedPredictions.enrichMatches(matchList, { fastMode: true, force: true });
+                  let updated = 0;
+                  for (const m of enriched) {
+                    if (m.expected_score && m.expected_score !== 'N/A') {
+                      await database.updatePredictions(m.id, m);
+                      updated++;
+                    }
+                  }
+                  logger.info(`✅ [EARLY-ENRICH] Updated ${updated}/${matchList.length} matches`);
+                }
+              } catch (e) {
+                logger.warn(`⚠️ [EARLY-ENRICH] Error: ${e.message}`);
+              }
+            }, 8000)
+
             // 📊 [DIAGNOSTIC COMPLET] Rapport sur les données réelles
             setTimeout(() => {
               try {

@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
 import sys
 import os
 import json
+import subprocess
 import numpy as np
 import threading
 
@@ -378,31 +379,30 @@ async def health_neon():
     return {"success": True, "using_neon": True, "stats": stats}
 
 @app.get("/backtest")
-async def backtest_endpoint(limit: int = 100, league: str = ""):
-    """Run simplified backtest on historical Neon fixtures."""
+async def backtest_endpoint(limit: int = Query(100, le=5000), league: str = ""):
+    """Run simplified backtest on archive_football_data (has scores + odds)."""
     from pg_connector import query, using_postgres
     if not using_postgres():
         return {"success": False, "error": "Neon required"}
     sql = """
-        SELECT f.home_team, f.away_team, f.goals_home, f.goals_away,
-               f.odds_home, f.odds_away, f.odds_draw, l.name as league_name
-        FROM soccer_fixtures f
-        LEFT JOIN soccer_leagues l ON f.league_id = l.id
-        WHERE f.goals_home IS NOT NULL AND f.goals_away IS NOT NULL
+        SELECT f.home_team, f.away_team, f.score_home, f.score_away,
+               f.odds_home, f.odds_away, f.odds_draw, f.league_code as league_name
+        FROM archive_football_data f
+        WHERE f.score_home IS NOT NULL AND f.score_away IS NOT NULL
           AND f.odds_home IS NOT NULL
     """
     params = []
     if league:
-        sql += " AND LOWER(l.name) ILIKE %s"
+        sql += " AND LOWER(f.league_code) ILIKE %s"
         params.append(f'%{league}%')
-    sql += " ORDER BY f.date DESC NULLS LAST LIMIT %s"
+    sql += " ORDER BY f.match_date DESC NULLS LAST LIMIT %s"
     params.append(limit)
     fixtures = query(sql, params) or []
     total = len(fixtures)
     correct = 0
     for f in fixtures:
-        home_score = f.get('goals_home') or 0
-        away_score = f.get('goals_away') or 0
+        home_score = f.get('score_home') or 0
+        away_score = f.get('score_away') or 0
         actual = 'H' if home_score > away_score else ('A' if home_score < away_score else 'D')
         odds_h = float(f.get('odds_home', 2.0))
         odds_a = float(f.get('odds_away', 2.0))
@@ -412,3 +412,51 @@ async def backtest_endpoint(limit: int = 100, league: str = ""):
         if pred == actual:
             correct += 1
     return {"success": True, "total": total, "correct": correct, "accuracy": round(correct/total, 4) if total > 0 else 0}
+
+@app.post("/calibrate")
+async def calibrate_endpoint():
+    """Fit Platt scaling params using XGBoost vs actual outcomes from Neon."""
+    from pg_connector import query, using_postgres
+    from calibration import fit_calibration, load_calibration
+    if not using_postgres():
+        return {"success": False, "error": "Neon required"}
+    try:
+        result = query("""
+            SELECT f.score_home, f.score_away, f.odds_home, f.odds_draw, f.odds_away
+            FROM archive_football_data f
+            WHERE f.score_home IS NOT NULL AND f.score_away IS NOT NULL
+              AND f.odds_home IS NOT NULL AND f.odds_draw IS NOT NULL AND f.odds_away IS NOT NULL
+            ORDER BY f.match_date DESC NULLS LAST LIMIT 50000
+        """)
+        if not result or len(result) < 100:
+            return {"success": False, "error": f"Only {len(result) if result else 0} fixtures, need >=100"}
+        home_probs, draw_probs, away_probs, outcomes = [], [], [], []
+        for f in result:
+            imp_h, imp_d, imp_a = 1/float(f['odds_home']), 1/float(f['odds_draw']), 1/float(f['odds_away'])
+            margin = imp_h + imp_d + imp_a
+            fair_h, fair_d, fair_a = imp_h/margin, imp_d/margin, imp_a/margin
+            home_probs.append(fair_h)
+            draw_probs.append(fair_d)
+            away_probs.append(fair_a)
+            hs, aws = int(f['score_home']), int(f['score_away'])
+            outcomes.append('H' if hs > aws else ('A' if hs < aws else 'D'))
+        params = fit_calibration(home_probs, draw_probs, away_probs, outcomes)
+        return {"success": True, "params": params, "samples": len(result)}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+@app.post("/retrain")
+async def retrain_endpoint():
+    """Trigger XGBoost retrain in background (runs scripts/auto_retrain.py)."""
+    try:
+        script = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'auto_retrain.py')
+        if not os.path.exists(script):
+            return {"success": False, "error": "auto_retrain.py not found"}
+        def _run():
+            subprocess.run([sys.executable, script, '--validate-only'], capture_output=True, timeout=600)
+        threading.Thread(target=_run, daemon=True).start()
+        return {"success": True, "message": "Retrain started in background"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}

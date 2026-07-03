@@ -281,6 +281,8 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
             
             await retroSync.syncPastMatches().catch(e => logger.warn(`[RETROSYNC] Error: ${e.message}`));
             clvService.start().catch(e => logger.warn(`[CLV] Error: ${e.message}`));
+            const scrapedOddsService = require('./services/scrapedOddsService');
+            scrapedOddsService.ensureTable().catch(e => logger.warn(`[SCRAPED_ODDS] Init: ${e.message}`));
             logger.info('🧠 [AI] Background enrichment logic active');
 
             // 🗄️ [SUPABASE] PostgreSQL cloud persistence — dual-sync startup

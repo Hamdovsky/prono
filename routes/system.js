@@ -636,6 +636,76 @@ router.get('/odds-movement/:matchId', (req, res) => {
 /**
  * POST /api/odds-movement/update — Update odds movement data
  */
+router.get('/scraped-odds', async (req, res) => {
+  try {
+    const scrapedOdds = require('../services/scrapedOddsService')
+    const { home, away, league } = req.query
+    if (home && away && league) {
+      const odds = await scrapedOdds.getLatestOdds(home, away, league)
+      return res.json({ success: true, odds })
+    }
+    const stats = await scrapedOdds.getStats()
+    res.json({ success: true, stats })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+router.post('/scraped-odds/store', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
+  try {
+    const scrapedOdds = require('../services/scrapedOddsService')
+    const { homeTeam, awayTeam, league, oddsHome, oddsDraw, oddsAway, bookmaker } = req.body
+    if (!homeTeam || !awayTeam) return res.status(400).json({ success: false, error: 'homeTeam, awayTeam required' })
+    await scrapedOdds.storeOdds(homeTeam, awayTeam, league, oddsHome, oddsDraw, oddsAway, bookmaker)
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+router.post('/pipeline/value-scan', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
+  try {
+    const database = require('../core/database')
+    const enrichedPredictions = require('../core/enriched_predictions')
+    const { scanAll } = require('../services/valueScanner')
+    const { globalOptimizer } = require('../services/stakingOptimizer')
+
+    const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
+    if (!matches || matches.length === 0) return res.json({ success: true, count: 0, message: 'No matches to scan' })
+
+    const limited = matches.slice(0, 100)
+    const enriched = await enrichedPredictions.enrichMatches(limited)
+    const predictions = {}
+    for (const m of enriched) {
+      if (m.expected_score && m.expected_score !== 'N/A') {
+        predictions[m.id] = m
+        await database.updatePredictions(m.id, m)
+      }
+    }
+
+    const opportunities = await scanAll(limited, predictions)
+    const staked = []
+    for (const opp of opportunities) {
+      const kelly = globalOptimizer.calculateStake(opp.ev, opp.odds)
+      if (kelly > 0) {
+        staked.push({ matchId: opp.matchId, selection: opp.selection, kelly, ev: opp.ev, odds: opp.odds })
+      }
+    }
+
+    res.json({
+      success: true,
+      totalMatches: limited.length,
+      enrichedCount: Object.keys(predictions).length,
+      opportunitiesCount: opportunities.length,
+      stakedCount: staked.length,
+      staked: staked.slice(0, 20),
+      opportunities: opportunities.slice(0, 30)
+    })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
 router.post('/odds-movement/update', (req, res) => {
     try {
         const analyzer = require('../services/oddsMovementAnalyzer');

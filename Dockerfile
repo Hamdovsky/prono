@@ -10,7 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY requirements-fastapi.txt ./
-RUN pip install --no-cache-dir -r requirements-fastapi.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --only-binary :all: -r requirements-fastapi.txt || \
+    pip install --no-cache-dir -r requirements-fastapi.txt
 
 COPY core/ /app/core/
 COPY inference/ /app/inference/

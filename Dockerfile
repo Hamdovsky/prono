@@ -1,14 +1,20 @@
-FROM python:3.11
+FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     libpq-dev \
+    libxml2-dev \
+    libxslt1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements-fastapi.txt ./
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements-fastapi.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements-fastapi.txt 2>&1 || \
+    (echo "=== First pip failed, retrying without version pins ===" && \
+     sed -i 's/==.*//' requirements-fastapi.txt && \
+     pip install --no-cache-dir -r requirements-fastapi.txt)
 
 COPY core/ /app/core/
 COPY inference/ /app/inference/

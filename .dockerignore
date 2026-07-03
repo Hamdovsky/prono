@@ -8,9 +8,10 @@ node_modules
 __pycache__
 *.pyc
 .DS_Store
-data/
+data/raw/
+data/cache/
 logs/
-models/
 *.sqlite
 *.sqlite3
 dist/
+personal/

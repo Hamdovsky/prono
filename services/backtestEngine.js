@@ -31,14 +31,19 @@ async function runBacktest(options = {}) {
 
   // Fetch finished fixtures from Neon with odds
   let sql = `
-    SELECT f.id, f.home_team, f.away_team, f.goals_home, f.goals_away,
-           f.odds_home, f.odds_away, f.odds_draw, f.date, l.name as league_name
+    SELECT f.id, ht.name as home_team, at.name as away_team,
+           f.goals_home, f.goals_away,
+           o.odds_home, o.odds_away, o.odds_draw,
+           f.date, l.name as league_name
     FROM soccer_fixtures f
     LEFT JOIN soccer_leagues l ON f.league_id = l.id
+    LEFT JOIN soccer_teams ht ON f.home_team_id = ht.id
+    LEFT JOIN soccer_teams at ON f.away_team_id = at.id
+    LEFT JOIN soccer_odds o ON f.id = o.fixture_id
     WHERE f.goals_home IS NOT NULL
       AND f.goals_away IS NOT NULL
-      AND f.odds_home IS NOT NULL
-      AND f.odds_away IS NOT NULL
+      AND o.odds_home IS NOT NULL
+      AND o.odds_away IS NOT NULL
   `
   const params = []
   let paramIdx = 0

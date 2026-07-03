@@ -458,6 +458,7 @@ app.use('/api', scraperRoutes);
 app.use('/api', matchesRoutes);
 app.use('/api/promosport', promosportRoutes);
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api', require('./routes/valueBets'));
 
 // ── SWAGGER API DOCUMENTATION ─────────────────
 if (swaggerUi && swaggerSpecs) {

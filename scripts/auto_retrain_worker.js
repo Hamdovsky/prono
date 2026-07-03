@@ -157,4 +157,44 @@ if (require.main === module) {
         });
 }
 
-module.exports = { runAutoRetrain, runLiveModelRetrain };
+/**
+ * Runs the V56 Auto-Retrain Pipeline (chronological split, 22 features).
+ * Spawns scripts/auto_retrain.py and logs results.
+ */
+function runV56Retrain() {
+    return new Promise((resolve) => {
+        logger.info(`[V56-RETRAIN] Starting V56 model retraining...`);
+
+        let pythonPath = 'python';
+        const venvPythonPath = path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe');
+        if (fs.existsSync(venvPythonPath)) {
+            pythonPath = venvPythonPath;
+        }
+
+        const script = path.join(__dirname, 'auto_retrain.py');
+        const proc = spawn(pythonPath, [script], {
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            windowsHide: true,
+            timeout: 600000,
+        });
+
+        let stdout = '';
+        proc.stdout.on('data', d => { const s = d.toString(); stdout += s; logger.info(`[V56] ${s.trim()}`) });
+        proc.stderr.on('data', d => logger.warn(`[V56-WARN] ${d.toString().trim()}`));
+        proc.on('close', (code) => {
+            if (code === 0) {
+                logger.info(`✅ [V56-RETRAIN] V56 model updated successfully`)
+                resolve({ success: true, message: `V56 retrained (exit 0)` })
+            } else {
+                logger.warn(`⚠️ [V56-RETRAIN] exited with code ${code}`)
+                resolve({ success: false, message: `V56 exit code ${code}` })
+            }
+        });
+        proc.on('error', (e) => {
+            logger.error(`[V56-RETRAIN] spawn error: ${e.message}`)
+            resolve({ success: false, message: e.message })
+        });
+    });
+}
+
+module.exports = { runAutoRetrain, runLiveModelRetrain, runV56Retrain };

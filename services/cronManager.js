@@ -11,7 +11,7 @@ const autoArchiver = require('./autoArchiver');
 const retroSync = require('./retroSyncService');
 const adaptiveLearning = require('./adaptiveLearningEngine');
 const enrichedPredictions = require('../core/enriched_predictions');
-const { runAutoRetrain } = require('../scripts/auto_retrain_worker');
+const { runAutoRetrain, runV56Retrain } = require('../scripts/auto_retrain_worker');
 
 class CronManager {
     constructor() {
@@ -136,13 +136,18 @@ class CronManager {
         
         // 12. Monthly Auto-Retrain (04:00 AM 1st of every month)
         cron.schedule('0 4 1 * *', () => {
-            logger.info('ðŸš€ [CRON] Launching Monthly XGBoost Auto-Retrain...');
+            logger.info('🚀 [CRON] Launching Monthly XGBoost Auto-Retrain (V24 + V56)...');
+            // Train V24 legacy model (existing worker)
             runAutoRetrain().then(res => {
                 if (res.success) {
                     const botService = require('./botService');
-                    botService.sendAlert(`ðŸ”¥ <b>TITANIUM AUTO-RETRAIN (CRON)</b> ðŸ”¥\n\n${res.message}`);
+                    botService.sendAlert(`🔥 <b>TITANIUM AUTO-RETRAIN (CRON)</b> 🔥\n\n${res.message}`);
                 }
-            }).catch(e => logger.error(`[CRON] Auto-Retrain failed: ${e}`));
+            }).catch(e => logger.error(`[CRON] V24 Auto-Retrain failed: ${e}`));
+            // Train V56 model (chronological split, 22 features)
+            runV56Retrain().then(res => {
+                logger.info(`[CRON] V56 retrain: ${res.success ? 'OK' : 'FAIL'} — ${res.message}`);
+            });
         }, { timezone: 'Africa/Tunis' });
 
         // 12b. Weekly Live Model Retrain (05:00 AM every Sunday)

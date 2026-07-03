@@ -489,6 +489,7 @@ app.get('/api/skills', (req, res) => {
 app.use('/api/ds', dsRoutes);
 app.use('/api/webhook', securityEngine.authenticate.bind(securityEngine), integrationRoutes);
 app.use('/api', require('./routes/edge'));
+app.use('/dashboard', require('./routes/dashboard'));
 
 // ── IN-MEMORY ERROR TRACKER (lightweight, no external deps) ─────
 const errorTracker = { errors: [], maxEntries: 200 }

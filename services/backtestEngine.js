@@ -62,7 +62,7 @@ async function runBacktest(options = {}) {
   sql += ` ORDER BY f.date DESC NULLS LAST LIMIT $${paramIdx + 1}`
   params.push(limit)
 
-  const result = await query(sql, ...params)
+  const result = await query(sql, params)
   if (!result || !result.rows || result.rows.length === 0) {
     return { success: false, error: 'No finished fixtures found', sql, params }
   }

@@ -29,42 +29,39 @@ async function runBacktest(options = {}) {
 
   await thetaOptimizer.init()
 
-  // Fetch finished fixtures from Neon with odds
+  // Fetch finished fixtures from Neon archive
+  // Uses archive_football_data which has teams, scores, and odds in one table
   let sql = `
-    SELECT f.id, ht.name as home_team, at.name as away_team,
-           f.goals_home, f.goals_away,
-           o.odds_home, o.odds_away, o.odds_draw,
-           f.date, l.name as league_name
-    FROM soccer_fixtures f
-    LEFT JOIN soccer_leagues l ON f.league_id = l.id
-    LEFT JOIN soccer_teams ht ON f.home_team_id = ht.id
-    LEFT JOIN soccer_teams at ON f.away_team_id = at.id
-    LEFT JOIN soccer_odds o ON f.id = o.fixture_id
-    WHERE f.goals_home IS NOT NULL
-      AND f.goals_away IS NOT NULL
-      AND o.odds_home IS NOT NULL
-      AND o.odds_away IS NOT NULL
+    SELECT f.id, f.home_team, f.away_team,
+           f.score_home as goals_home, f.score_away as goals_away,
+           f.odds_home, f.odds_away, f.odds_draw,
+           f.match_date as date, f.league_code as league_name
+    FROM archive_football_data f
+    WHERE f.score_home IS NOT NULL
+      AND f.score_away IS NOT NULL
+      AND f.odds_home IS NOT NULL
+      AND f.odds_away IS NOT NULL
   `
   const params = []
   let paramIdx = 0
 
   if (league) {
     paramIdx++
-    sql += ` AND LOWER(l.name) ILIKE $${paramIdx}`
+    sql += ` AND LOWER(f.league_code) ILIKE $${paramIdx}`
     params.push(`%${league}%`)
   }
   if (minGoals > 0) {
     paramIdx++
-    sql += ` AND (f.goals_home + f.goals_away) >= $${paramIdx}`
+    sql += ` AND (f.score_home + f.score_away) >= $${paramIdx}`
     params.push(minGoals)
   }
   if (maxGoals < 10) {
     paramIdx++
-    sql += ` AND (f.goals_home + f.goals_away) <= $${paramIdx}`
+    sql += ` AND (f.score_home + f.score_away) <= $${paramIdx}`
     params.push(maxGoals)
   }
 
-  sql += ` ORDER BY f.date DESC NULLS LAST LIMIT $${paramIdx + 1}`
+  sql += ` ORDER BY f.match_date DESC NULLS LAST LIMIT $${paramIdx + 1}`
   params.push(limit)
 
   const result = await query(sql, params)

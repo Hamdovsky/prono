@@ -364,10 +364,10 @@ async def backtest_trend_endpoint(league: str = ""):
     if not using_postgres():
         return {"success": False, "error": "Neon required"}
     sql = """SELECT f.odds_home, f.odds_away, f.odds_draw, f.score_home, f.score_away,
-                    TO_CHAR(f.match_date, 'YYYY-MM') as month
+                    f.match_date as match_date_raw
              FROM archive_football_data f
              WHERE f.score_home IS NOT NULL AND f.score_away IS NOT NULL
-               AND f.odds_home IS NOT NULL AND f.odds_draw IS NOT NULL AND f.odds_away IS NOT NULL"""
+               AND f.odds_home IS NOT NULL"""
     params = []
     if league:
         sql += " AND LOWER(f.league_code) ILIKE %s"
@@ -376,7 +376,8 @@ async def backtest_trend_endpoint(league: str = ""):
     fixtures = query(sql, params) or []
     monthly = {}
     for f in fixtures:
-        month = f.get('month', 'unknown')
+        md = f.get('match_date_raw', '')
+        month = str(md)[:7] if md else 'unknown'
         if month not in monthly:
             monthly[month] = {'total': 0, 'correct': 0}
         monthly[month]['total'] += 1

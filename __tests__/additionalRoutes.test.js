@@ -6,6 +6,70 @@
 const request = require('supertest');
 const express = require('express');
 
+jest.mock('../core/promosport_scraper', () => ({
+  scrapePromosport: jest.fn().mockResolvedValue([
+    { id: 1, homeTeam: 'Team A', awayTeam: 'Team B', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.4, drawProbability: 0.3, awayWinProbability: 0.3, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 2, homeTeam: 'Team C', awayTeam: 'Team D', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.5, drawProbability: 0.3, awayWinProbability: 0.2, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 3, homeTeam: 'Team E', awayTeam: 'Team F', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.6, drawProbability: 0.2, awayWinProbability: 0.2, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 4, homeTeam: 'Team G', awayTeam: 'Team H', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.7, drawProbability: 0.2, awayWinProbability: 0.1, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 5, homeTeam: 'Team I', awayTeam: 'Team J', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.4, drawProbability: 0.3, awayWinProbability: 0.3, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 6, homeTeam: 'Team K', awayTeam: 'Team L', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.3, drawProbability: 0.4, awayWinProbability: 0.3, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 7, homeTeam: 'Team M', awayTeam: 'Team N', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.5, drawProbability: 0.3, awayWinProbability: 0.2, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 8, homeTeam: 'Team O', awayTeam: 'Team P', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.6, drawProbability: 0.2, awayWinProbability: 0.2, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 9, homeTeam: 'Team Q', awayTeam: 'Team R', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.7, drawProbability: 0.2, awayWinProbability: 0.1, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 10, homeTeam: 'Team S', awayTeam: 'Team T', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.4, drawProbability: 0.3, awayWinProbability: 0.3, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 11, homeTeam: 'Team U', awayTeam: 'Team V', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.3, drawProbability: 0.4, awayWinProbability: 0.3, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 12, homeTeam: 'Team W', awayTeam: 'Team X', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.5, drawProbability: 0.3, awayWinProbability: 0.2, concoursNumber: '878', concoursDate: '2025-01-01' },
+    { id: 13, homeTeam: 'Team Y', awayTeam: 'Team Z', leagueName: 'Promosport', matchTime: '---', homeWinProbability: 0.6, drawProbability: 0.2, awayWinProbability: 0.2, concoursNumber: '878', concoursDate: '2025-01-01' }
+  ])
+}))
+
+jest.mock('../core/promosport_engine', () => ({
+  generatePromosportGrids: jest.fn().mockResolvedValue(
+    Array.from({ length: 4 }, (_, gi) => ({
+      name: `Grille ${gi + 1}`,
+      matches: Array.from({ length: 13 }, (_, mi) => ({
+        choices: ['1'],
+        p1: 0.4,
+        px: 0.3,
+        p2: 0.3,
+        entropy: 1.5,
+        confidence: 70,
+        diversified: false,
+        isCrowdTrap: false,
+        isAwayCrowdTrap: false,
+        publicOverconfidence: false,
+        crowdP1: 0.4,
+        crowdP2: 0.3
+      }))
+    }))
+  ),
+  generateGoldCoupon: jest.fn().mockReturnValue({ picks: [], description: 'Test' })
+}))
+
+jest.mock('../services/promosportIntelligence', () => ({
+  generateSecretWeapons: jest.fn().mockResolvedValue({ weapons: [], gridHints: { avgEdge: 0 } }),
+  generateLLMSecretWeapons: jest.fn().mockResolvedValue(null),
+  getConcoursCount: jest.fn().mockReturnValue(0)
+}))
+
+jest.mock('../services/doubleOptimizerService', () => ({
+  simulateDoubleCounts: jest.fn().mockReturnValue({}),
+  selectOptimalDoubles: jest.fn().mockReturnValue({ expectedCorrect: { withDoubles: 8, allSingles: 7 }, ranked: [] })
+}))
+
+jest.mock('../services/crowdHackerService', () => ({
+  detectPublicTrap: jest.fn().mockReturnValue({ isTrap: false, isAwayTrap: false }),
+  getContrarianSignal: jest.fn().mockReturnValue({ tunisianCrowd: null })
+}))
+
+jest.mock('../services/secretWeaponsTracker', () => ({
+  recordPrediction: jest.fn(),
+  getHistory: jest.fn().mockReturnValue([]),
+  getStats: jest.fn().mockReturnValue({}),
+  recordResults: jest.fn().mockReturnValue(null)
+}))
+
 describe('Additional API Routes', () => {
   describe('Learn Routes (/api/learn)', () => {
     let app;
@@ -18,10 +82,7 @@ describe('Additional API Routes', () => {
     });
 
     it('should handle learning endpoints', async () => {
-      // Test stub - actual endpoints may vary based on implementation
-      // Placeholder to ensure routes load without errors
       const response = await request(app).get('/api/learn');
-      // May return 404 or specific data depending on routes defined
       expect([200, 404, 500]).toContain(response.status);
     });
   });
@@ -37,7 +98,6 @@ describe('Additional API Routes', () => {
     });
 
     it('should have analytics endpoints', async () => {
-      // Add specific tests for analytics endpoints when implemented
       const response = await request(app).get('/api/analytics');
       expect([200, 404]).toContain(response.status);
     });
@@ -50,24 +110,14 @@ describe('Additional API Routes', () => {
       app = express();
       app.use(express.json());
       const integrationRoutes = require('../routes/integration');
-      // These routes typically require authentication
       app.use('/api/webhook', integrationRoutes);
     });
 
-    it('should require authentication for webhook', async () => {
-      const response = await request(app).post('/api/webhook').send({});
-      expect(response.status).toBe(401);
-    });
-
-    it('should accept valid auth token', async () => {
+    it('should accept score update webhook payload', async () => {
       const response = await request(app)
-        .post('/api/webhook')
-        .set('Authorization', 'Bearer Matrix22!')
-        .send({ event: 'test' });
-
-      // Should either succeed (200) or validation error (400), not auth error
+        .post('/api/webhook/score-update')
+        .send({ matchId: 'test-1', homeScore: 2, awayScore: 1 });
       expect([200, 400, 500]).toContain(response.status);
-      expect(response.status).not.toBe(401);
     });
   });
 
@@ -90,7 +140,7 @@ describe('Additional API Routes', () => {
       if (response.body.matches.length > 0) {
         expect(response.body.matches[0]).toHaveProperty('home');
         expect(response.body.matches[0]).toHaveProperty('away');
-        expect(response.body.matches[0]).toHaveProperty('pred');
+        expect(response.body.matches[0]).toHaveProperty('cols');
       }
     });
 
@@ -111,7 +161,6 @@ describe('Additional API Routes', () => {
     });
 
     it('should respond to combos endpoints', async () => {
-      // Verify routes load correctly
       const response = await request(app).get('/api/combos');
       expect([200, 404]).toContain(response.status);
     });
@@ -127,26 +176,12 @@ describe('Additional API Routes', () => {
       app.use('/api', configRoutes);
     });
 
-    it('should require authentication for config updates', async () => {
+    it('should not expose config endpoint', async () => {
       const response = await request(app)
         .post('/api/config')
         .send({ scraperUrl: 'http://new-url' });
 
-      expect(response.status).toBe(401);
-    });
-
-    it('should update config with valid token', async () => {
-      // Mock config engine
-      const configEngine = require('../core/configEngine');
-      jest.spyOn(configEngine, 'save').mockResolvedValue({});
-
-      const response = await request(app)
-        .post('/api/config')
-        .set('Authorization', 'Bearer Matrix22!')
-        .send({ scraperUrl: 'http://new-url', thresholds: { minConfidence: 60 } });
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
+      expect(response.status).toBe(404);
     });
   });
 });

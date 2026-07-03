@@ -810,7 +810,7 @@ router.post('/booking-codes/add', localOrAuth, (req, res) => {
         saveBookingDB(db);
 
         logger.info(`[BOOKING] New code added: ${newEntry.platform} — ${newEntry.code}`);
-        res.json({ success: true, entry: newEntry });
+        res.status(201).json({ success: true, entry: newEntry });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

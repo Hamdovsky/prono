@@ -28,19 +28,19 @@ describe('LRU Eviction', () => {
   it('should evict oldest entries (by timestamp) when cache is full', async () => {
     const fn = jest.fn().mockResolvedValue('v')
 
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 100; i++) {
       const wrapped = speedCache.wrap(`ts-${i}`, 60000)
       await wrapped(fn)()
     }
-    expect(speedCache.cache.size).toBe(200)
+    expect(speedCache.cache.size).toBe(100)
     expect(speedCache.cache.has('ts-0')).toBe(true)
 
     // Add one more — oldest key should be evicted
-    const wrapped = speedCache.wrap('ts-200', 60000)
+    const wrapped = speedCache.wrap('ts-100', 60000)
     await wrapped(fn)()
 
     expect(speedCache.cache.has('ts-0')).toBe(false)
-    expect(speedCache.cache.has('ts-200')).toBe(true)
+    expect(speedCache.cache.has('ts-100')).toBe(true)
   })
 })
 

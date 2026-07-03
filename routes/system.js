@@ -106,10 +106,10 @@ router.get('/system/intel', async (req, res) => {
 
         res.json({
             telemetry: {
-                latency: stats.avgLatency || 0,
-                shieldActive: stats.shieldLevel > 0,
-                activeProxy: stats.currentProxy || 'DIRECT',
-                level: stats.shieldLevel || 0
+                latency: stats.latency || 0,
+                shieldActive: stats.shieldActive || false,
+                activeProxy: stats.activeProxy || 'DIRECT',
+                level: stats.shieldActive ? 1 : 0
             },
             ai_workers: {
                 queue: mlStatus.queueSize || 0,

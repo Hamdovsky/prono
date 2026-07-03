@@ -13,17 +13,27 @@ Usage:
 Requires: DATABASE_URL env var pointing to Neon PostgreSQL
 """
 import os, sys, json, math, argparse
-from datetime import datetime
+from datetime import datetime, timezone
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'core'))
 
+# Load .env for local dev (harmless in production — python-dotenv no-op if missing)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from pg_connector import query, using_postgres
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
 MODEL_PATH = os.path.join(MODELS_DIR, 'xgboost_v55.json')
+MODEL_METADATA_PATH = os.path.join(MODELS_DIR, 'model_metadata.json')
 os.makedirs(MODELS_DIR, exist_ok=True)
+
+REGRESSION_THRESHOLD = 0.03  # Reject if accuracy drops more than 3pp
 
 V56_HYPERPARAMS = {
     'max_depth': 6,
@@ -45,10 +55,16 @@ def fetch_training_data():
     Returns rows ordered ASC by date (oldest first) for chronological integrity."""
     print("Fetching training data from Neon...")
     rows = query("""
-        SELECT f.id, f.home_team, f.away_team, f.goals_home, f.goals_away,
-               f.odds_home, f.odds_away, f.odds_draw, f.date,
-               m.home_shots_total as home_shots,
-               m.away_shots_total as away_shots,
+        SELECT f.id,
+               ht.name AS home_team,
+               at.name AS away_team,
+               f.goals_home, f.goals_away,
+               o.home_win AS odds_home,
+               o.draw AS odds_draw,
+               o.away_win AS odds_away,
+               f.date,
+               m.home_shots_total AS home_shots,
+               m.away_shots_total AS away_shots,
                m.home_shots_on_goal, m.away_shots_on_goal,
                m.home_shots_inside_box, m.away_shots_inside_box,
                m.home_corners, m.away_corners,
@@ -56,11 +72,31 @@ def fetch_training_data():
                m.home_yellow_cards, m.away_yellow_cards,
                m.home_red_cards, m.away_red_cards,
                m.home_possession, m.away_possession,
-               p.attack_rating as home_attack_rating,
-               p.defense_rating as home_defense_rating
+               hp.attack_rating AS home_attack_rating,
+               hp.defense_rating AS home_defense_rating,
+               ap.attack_rating AS away_attack_rating,
+               ap.defense_rating AS away_defense_rating
         FROM soccer_fixtures f
+        LEFT JOIN soccer_teams ht ON ht.id = f.home_team_id
+        LEFT JOIN soccer_teams at ON at.id = f.away_team_id
         LEFT JOIN soccer_match_stats m ON f.id = m.fixture_id
-        LEFT JOIN league_model_parameters p ON p.team_name = f.home_team
+        LEFT JOIN (
+            SELECT DISTINCT ON (fixture_id) fixture_id, home_win, draw, away_win
+            FROM soccer_odds
+            ORDER BY fixture_id, CASE bookmaker WHEN 'Pinnacle' THEN 0 WHEN 'Bet365' THEN 1 ELSE 2 END
+        ) o ON o.fixture_id = f.id
+        LEFT JOIN (
+            SELECT DISTINCT ON (team_name) team_name, attack_rating, defense_rating
+            FROM league_model_parameters
+            WHERE team_name IS NOT NULL AND attack_rating IS NOT NULL
+            ORDER BY team_name, num_matches DESC
+        ) hp ON hp.team_name = ht.name
+        LEFT JOIN (
+            SELECT DISTINCT ON (team_name) team_name, attack_rating, defense_rating
+            FROM league_model_parameters
+            WHERE team_name IS NOT NULL AND attack_rating IS NOT NULL
+            ORDER BY team_name, num_matches DESC
+        ) ap ON ap.team_name = at.name
         WHERE f.goals_home IS NOT NULL AND f.goals_away IS NOT NULL
           AND m.home_shots_total IS NOT NULL
         ORDER BY f.date ASC
@@ -99,7 +135,11 @@ def train_v56(X_train, y_train, X_val, y_val):
     import xgboost as xgb
     from sklearn.metrics import accuracy_score
 
-    params = dict(V56_HYPERPARAMS)
+    # Remove meta-params that xgb.train handles as kwargs
+    hp = dict(V56_HYPERPARAMS)
+    n_estimators = hp.pop('n_estimators', 500)
+    early_stopping = hp.pop('early_stopping_rounds', 50)
+    params = hp
     unique = len(np.unique(y_train))
     if unique == 2:
         params['objective'] = 'binary:logistic'
@@ -113,14 +153,11 @@ def train_v56(X_train, y_train, X_val, y_val):
     print(f"  Training V56... train={len(X_train)} val={len(X_val)}")
     model = xgb.train(
         params, dtrain,
-        num_boost_round=params.get('n_estimators', 500),
+        num_boost_round=n_estimators,
         evals=[(dval, 'val')],
-        early_stopping_rounds=params.get('early_stopping_rounds', 50),
+        early_stopping_rounds=early_stopping,
         verbose_eval=100,
     )
-
-    model.save_model(MODEL_PATH)
-    print(f"  Saved to {MODEL_PATH}")
 
     y_pred = model.predict(dval)
     if y_pred.ndim > 1:
@@ -152,7 +189,10 @@ def walk_forward_validate(X, y, n_splits=5):
         X_t, y_t = X[:train_end], y[:train_end]
         X_v, y_v = X[val_start:val_end], y[val_start:val_end]
 
-        params = {**V56_HYPERPARAMS, 'objective': 'multi:softprob', 'num_class': 3}
+        hp = dict(V56_HYPERPARAMS)
+        hp.pop('n_estimators', None)
+        hp.pop('early_stopping_rounds', None)
+        params = {**hp, 'objective': 'multi:softprob', 'num_class': 3}
         dtrain = xgb.DMatrix(X_t, label=y_t)
         dval = xgb.DMatrix(X_v, label=y_v)
         m = xgb.train(params, dtrain, num_boost_round=200,
@@ -194,17 +234,76 @@ def retrain():
 
     model, val_acc = train_v56(X_train, y_train, X_val, y_val)
 
+    # --- Regression guard: compare with previous model accuracy ---
+    prev_acc = None
+    if os.path.exists(MODEL_METADATA_PATH):
+        try:
+            with open(MODEL_METADATA_PATH) as f:
+                meta = json.load(f)
+            prev_acc = meta.get('val_accuracy')
+            if prev_acc is not None:
+                drop = prev_acc - val_acc
+                if drop > REGRESSION_THRESHOLD:
+                    print(f"\n[WARN] REGRESSION DETECTED: {prev_acc:.4f} -> {val_acc:.4f} (drop={drop:.4f})")
+                    print(f"   Reverting to previous model (threshold={REGRESSION_THRESHOLD})")
+                    if os.path.exists(MODEL_PATH + '.bak'):
+                        import shutil
+                        shutil.copy2(MODEL_PATH + '.bak', MODEL_PATH)
+                        print(f"   Restored {MODEL_PATH} from backup")
+                    print("\n[ABORT] V56 auto-retrain ABORTED due to regression")
+                    sys.exit(1)
+                else:
+                    print(f"   Previous accuracy: {prev_acc:.4f} -> current: {val_acc:.4f} (drop={drop:.4f}) OK")
+        except Exception as e:
+            print(f"   Could not read metadata: {e}")
+
+    # Backup previous model before overwriting
+    if os.path.exists(MODEL_PATH):
+        import shutil
+        shutil.copy2(MODEL_PATH, MODEL_PATH + '.bak')
+
+    model.save_model(MODEL_PATH)
+    print(f"  Saved to {MODEL_PATH}")
+
+    # Save accuracy metadata
+    meta = {
+        'val_accuracy': round(float(val_acc), 4),
+        'train_samples': len(X_train),
+        'val_samples': len(X_val),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'prev_accuracy': prev_acc,
+    }
+    with open(MODEL_METADATA_PATH, 'w') as f:
+        json.dump(meta, f, indent=2)
+
     print("\n--- Walk-Forward Validation ---")
     walk_forward_validate(X, y, n_splits=5)
 
-    # Update calibration reference
+    # Update calibration with validation predictions
     try:
         from calibration import fit_calibration
-        print("Updating calibration after retrain...")
-    except ImportError:
-        print("Calibration update skipped")
+        import xgboost as xgb
+        print("\nUpdating calibration after retrain...")
+        y_pred_proba = model.predict(xgb.DMatrix(X_val))
+        if y_pred_proba.ndim == 1:
+            # Binary case: convert to 3-class probabilities
+            home_probs = y_pred_proba.tolist()
+            draw_probs = [0.0] * len(y_pred_proba)
+            away_probs = [1.0 - p for p in y_pred_proba]
+        elif y_pred_proba.shape[1] == 3:
+            home_probs = y_pred_proba[:, 0].tolist()
+            draw_probs = y_pred_proba[:, 1].tolist()
+            away_probs = y_pred_proba[:, 2].tolist()
+        else:
+            raise ValueError(f"Unexpected prediction shape: {y_pred_proba.shape}")
 
-    print(f"\n✅ V56 auto-retrain complete! Accuracy: {val_acc:.4f}")
+        outcome_map = {0: 'H', 1: 'D', 2: 'A'}
+        outcomes = [outcome_map[int(y)] for y in y_val]
+        fit_calibration(home_probs, draw_probs, away_probs, outcomes)
+    except Exception as e:
+        print(f"  Calibration update skipped: {e}")
+
+    print(f"\n[OK] V56 auto-retrain complete! Accuracy: {val_acc:.4f}")
 
 
 def validate_only():

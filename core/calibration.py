@@ -88,8 +88,10 @@ def fit_calibration(model_home_probs, model_draw_probs, model_away_probs, outcom
 
         A = lr.coef_[0][0]
         B = lr.intercept_[0]
-        params[f'v54_{label}'] = {'A': round(A, 4), 'B': round(B, 4)}
-        print(f"  {label}: A={A:.4f}, B={B:.4f}")
+        # Negate because sklearn uses P=1/(1+exp(-(w*x+b))) while
+        # platt_scale uses P=1/(1+exp(A*x+B))
+        params[f'v54_{label}'] = {'A': round(-A, 4), 'B': round(-B, 4)}
+        print(f"  {label}: raw_A={A:.4f} raw_B={B:.4f} -> calibrated A={-A:.4f} B={-B:.4f}")
 
     save_calibration(params)
     print(f"Saved calibration to {CALIBRATION_PATH}")
@@ -115,17 +117,31 @@ if __name__ == '__main__':
         if not using_postgres():
             print("DATABASE_URL required for fitting")
             sys.exit(1)
-        print("Fitting calibration from Neon historical data...")
+        print("Fitting calibration from Neon historical data (odds→probs proxy)...")
         probs = query("""
-            SELECT p_h, p_d, p_a, outcome FROM xgboost_calibration_data
-            WHERE p_h IS NOT NULL AND outcome IS NOT NULL
+            SELECT odds_home, odds_draw, odds_away, goals_home, goals_away
+            FROM soccer_fixtures
+            WHERE odds_home IS NOT NULL AND odds_home > 0
+              AND odds_draw IS NOT NULL AND odds_draw > 0
+              AND odds_away IS NOT NULL AND odds_away > 0
+              AND goals_home IS NOT NULL AND goals_away IS NOT NULL
+            ORDER BY date DESC
             LIMIT 10000
         """)
         if probs and len(probs) > 100:
-            home_probs = [r['p_h'] for r in probs]
-            draw_probs = [r['p_d'] for r in probs]
-            away_probs = [r['p_a'] for r in probs]
-            outcomes = [r['outcome'] for r in probs]
+            import math
+            home_probs, draw_probs, away_probs, outcomes = [], [], [], []
+            for r in probs:
+                oh = float(r['odds_home'])
+                od = float(r['odds_draw'])
+                oa = float(r['odds_away'])
+                total_implied = 1.0/oh + 1.0/od + 1.0/oa
+                home_probs.append((1.0/oh) / total_implied)
+                draw_probs.append((1.0/od) / total_implied)
+                away_probs.append((1.0/oa) / total_implied)
+                gh = float(r['goals_home'])
+                ga = float(r['goals_away'])
+                outcomes.append('H' if gh > ga else ('A' if gh < ga else 'D'))
             fit_calibration(home_probs, draw_probs, away_probs, outcomes)
         else:
             print("Not enough calibration data. Using defaults.")

@@ -7,6 +7,10 @@ const enrichedPredictions = require('../core/enriched_predictions');
 const { sanitizeMatches } = require('../core/matchSanitizer');
 const liveGoalPredictor = require('../services/LiveGoalPredictor');
 const liveMatchService = require('../services/liveMatchService');
+const { getSteamForMatch } = require('../services/oddsMovementService');
+const ValueBetEngine = require('../src/services/ValueBetEngine');
+const IntegrityService = require('../services/integrity_service');
+const newsService = require('../src/services/newsService');
 
 /**
  * GET /api/live

@@ -3,8 +3,14 @@
  * Tests for services/redisCache.js - High-level caching service with fallback
  */
 
+jest.mock('../config/redis.config', () => ({
+  connect: jest.fn(),
+  isReady: jest.fn().mockReturnValue(true),
+  disconnect: jest.fn()
+}))
+
 const redisCache = require('../services/redisCache');
-const { RedisMemoryServer } = require('redis-memory-server');
+const redisConfig = require('../config/redis.config');
 
 describe('RedisCache', () => {
   beforeEach(() => {
@@ -20,8 +26,7 @@ describe('RedisCache', () => {
       const mockRedis = {
         ping: jest.fn().mockResolvedValue('PONG')
       };
-      const redisConfig = require('../../config/redis.config');
-      redisConfig.connect = jest.fn().mockResolvedValue(mockRedis);
+      redisConfig.connect.mockResolvedValue(mockRedis);
 
       await redisCache.init();
 
@@ -30,35 +35,15 @@ describe('RedisCache', () => {
     });
 
     it('should fall back to in-memory Redis server if config fails', async () => {
-      const redisConfig = require('../../config/redis.config');
-      redisConfig.connect = jest.fn().mockRejectedValue(new Error('Connection failed'));
-
-      // Mock RedisMemoryServer
-      const mockMemoryServer = {
-        getHost: jest.fn().mockResolvedValue('127.0.0.1'),
-        getPort: jest.fn().mockResolvedValue(6379),
-        start: jest.fn().mockResolvedValue(undefined)
-      };
-      RedisMemoryServer.mockImplementation(() => mockMemoryServer);
-
-      const mockRedis = { ping: jest.fn().mockResolvedValue('PONG') };
-      const RealRedis = require('ioredis');
-      jest.mocked(RealRedis).mockImplementation(() => mockRedis);
+      redisConfig.connect.mockRejectedValue(new Error('Connection failed'));
 
       await redisCache.init();
 
-      expect(RedisMemoryServer).toHaveBeenCalled();
-      expect(redisCache.redis).toBe(mockRedis);
+      expect(redisCache.redis).toBeNull();
     });
 
-    it('should handle RedisMemoryServer failure and use Map fallback', async () => {
-      const redisConfig = require('../../config/redis.config');
-      redisConfig.connect = jest.fn().mockRejectedValue(new Error('Failed'));
-
-      // Make RedisMemoryServer fail
-      RedisMemoryServer.mockImplementation(() => {
-        throw new Error('Cannot start memory server');
-      });
+    it('should handle fallback when Redis fails', async () => {
+      redisConfig.connect.mockRejectedValue(new Error('Failed'));
 
       await redisCache.init();
       // Should not crash, redis stays null
@@ -130,7 +115,7 @@ describe('RedisCache', () => {
 
   describe('Specialized methods', () => {
     beforeEach(() => {
-      redisCache.redis = { setex: jest.fn().mockResolvedValue('OK'), get: jest.fn().mockResolvedValue(null) };
+      redisCache.redis = { setex: jest.fn().mockResolvedValue('OK'), get: jest.fn().mockResolvedValue(null), expire: jest.fn().mockResolvedValue('OK') };
     });
 
     it('setLiveMatches() should store with correct key pattern', async () => {
@@ -188,8 +173,7 @@ describe('RedisCache', () => {
     });
 
     it('close() should disconnect Redis and clear fallback', async () => {
-      const redisConfig = require('../../config/redis.config');
-      redisConfig.disconnect = jest.fn().mockResolvedValue(undefined);
+      redisConfig.disconnect.mockResolvedValue(undefined);
       
       await redisCache.close();
       expect(redisConfig.disconnect).toHaveBeenCalled();

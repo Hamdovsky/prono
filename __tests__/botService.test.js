@@ -6,71 +6,94 @@
 const botService = require('../services/botService');
 const https = require('https');
 
+jest.mock('../core/database', () => ({
+  getMatchesByStatuses: jest.fn().mockResolvedValue([
+    { id: 'm1', homeTeam: 'Team A', awayTeam: 'Team B', startTimestamp: Date.now() + 3600000, home_win_probability: 60, away_win_probability: 25, draw_probability: 15, expected_score: '2-0', ou_25_prob: 70, enriched: { confidence: 80 } }
+  ])
+}))
+
 describe('BotService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    botService.isPolling = false
+    delete botService.lastUpdateId
   });
 
   describe('startPolling()', () => {
     it('should not start polling if token is missing', () => {
-      const originalToken = process.env.TELEGRAM_BOT_TOKEN;
-      delete process.env.TELEGRAM_BOT_TOKEN;
+      const origToken = botService.token
+      const origChatId = botService.chatId
+      botService.token = null
+      botService.chatId = 'test-chat'
 
       botService.startPolling();
-      // Should log warning and return, no polling started
-      expect(botService.isPolling).toBeUndefined();
+      expect(botService.isPolling).toBeFalsy();
 
-      process.env.TELEGRAM_BOT_TOKEN = originalToken;
+      botService.token = origToken
+      botService.chatId = origChatId
     });
 
     it('should not start polling if chatId is missing', () => {
-      const originalToken = process.env.TELEGRAM_BOT_TOKEN;
-      const originalChatId = process.env.TELEGRAM_CHAT_ID;
-      process.env.TELEGRAM_BOT_TOKEN = 'token';
-      delete process.env.TELEGRAM_CHAT_ID;
+      const origToken = botService.token
+      const origChatId = botService.chatId
+      botService.token = 'test-token'
+      botService.chatId = null
 
       botService.startPolling();
-      expect(botService.isPolling).toBeUndefined();
+      expect(botService.isPolling).toBeFalsy();
 
-      process.env.TELEGRAM_BOT_TOKEN = originalToken;
-      process.env.TELEGRAM_CHAT_ID = originalChatId;
+      botService.token = origToken
+      botService.chatId = origChatId
     });
 
     it('should start polling with valid credentials', () => {
-      process.env.TELEGRAM_BOT_TOKEN = 'test-token';
-      process.env.TELEGRAM_CHAT_ID = 'test-chat';
+      const origToken = botService.token
+      const origChatId = botService.chatId
+      botService.token = 'test-token'
+      botService.chatId = 'test-chat'
 
       botService.startPolling();
       
       expect(botService.isPolling).toBe(true);
       expect(botService.lastUpdateId).toBe(0);
+
+      botService.token = origToken
+      botService.chatId = origChatId
     });
 
     it('should not start multiple polling instances', () => {
-      process.env.TELEGRAM_BOT_TOKEN = 'test-token';
-      process.env.TELEGRAM_CHAT_ID = 'test-chat';
+      const origToken = botService.token
+      const origChatId = botService.chatId
+      botService.token = 'test-token'
+      botService.chatId = 'test-chat'
 
       botService.startPolling();
       const firstId = botService.lastUpdateId;
       
-      // Call startPolling again - should not reset
       botService.startPolling();
       expect(botService.lastUpdateId).toBe(firstId);
+
+      botService.token = origToken
+      botService.chatId = origChatId
     });
   });
 
   describe('_executeSend()', () => {
     it('should send message to Telegram API', () => {
-      process.env.TELEGRAM_BOT_TOKEN = 'test-token';
-      process.env.TELEGRAM_CHAT_ID = 'test-chat';
+      const origToken = botService.token
+      const origChatId = botService.chatId
+      botService.token = 'test-token'
+      botService.chatId = 'test-chat'
 
       const originalRequest = https.request;
+      let mockReq
       const mockRequest = jest.fn().mockImplementation((url, options, callback) => {
         const res = { statusCode: 200, on: (event, handler) => {
           if (event === 'data') handler(Buffer.from('{"ok":true}'));
         }};
         setTimeout(() => callback(res), 0);
-        return { write: jest.fn(), end: jest.fn(), on: jest.fn() };
+        mockReq = { write: jest.fn(), end: jest.fn(), on: jest.fn() }
+        return mockReq
       });
 
       https.request = mockRequest;
@@ -87,18 +110,22 @@ describe('BotService', () => {
       );
 
       https.request = originalRequest;
+      botService.token = origToken
+      botService.chatId = origChatId
     });
 
     it('should handle keyboard markup', () => {
-      process.env.TELEGRAM_BOT_TOKEN = 'test-token';
-      process.env.TELEGRAM_CHAT_ID = 'test-chat';
+      const origToken = botService.token
+      const origChatId = botService.chatId
+      botService.token = 'test-token'
+      botService.chatId = 'test-chat'
 
       const originalRequest = https.request;
-      const mockRequest = jest.fn().mockImplementation(() => ({
-        write: jest.fn(),
-        end: jest.fn(),
-        on: jest.fn()
-      }));
+      let mockReq
+      const mockRequest = jest.fn().mockImplementation(() => {
+        mockReq = { write: jest.fn(), end: jest.fn(), on: jest.fn() }
+        return mockReq
+      });
 
       https.request = mockRequest;
 
@@ -113,16 +140,19 @@ describe('BotService', () => {
         expect.any(Function)
       );
 
-      const callArgs = mockRequest.mock.calls[0];
-      const parsedBody = JSON.parse(callArgs[0].write.mock.calls[0][0]);
+      const parsedBody = JSON.parse(mockReq.write.mock.calls[0][0]);
       expect(parsedBody.reply_markup).toEqual(keyboard);
 
       https.request = originalRequest;
+      botService.token = origToken
+      botService.chatId = origChatId
     });
 
     it('should log errors on failed Telegram request', () => {
-      process.env.TELEGRAM_BOT_TOKEN = 'test-token';
-      process.env.TELEGRAM_CHAT_ID = 'test-chat';
+      const origToken = botService.token
+      const origChatId = botService.chatId
+      botService.token = 'test-token'
+      botService.chatId = 'test-chat'
 
       const originalRequest = https.request;
       const mockRequest = jest.fn().mockImplementation(() => ({
@@ -142,31 +172,36 @@ describe('BotService', () => {
 
       consoleErrorSpy.mockRestore();
       https.request = originalRequest;
+      botService.token = origToken
+      botService.chatId = origChatId
     });
   });
 
   describe('sendAlert()', () => {
     it('should send system alert with proper formatting', () => {
-      process.env.TELEGRAM_BOT_TOKEN = 'test-token';
-      process.env.TELEGRAM_CHAT_ID = 'test-chat';
+      const origToken = botService.token
+      const origChatId = botService.chatId
+      botService.token = 'test-token'
+      botService.chatId = 'test-chat'
 
       const originalRequest = https.request;
-      const mockRequest = jest.fn().mockImplementation(() => ({
-        write: jest.fn(),
-        end: jest.fn(),
-        on: jest.fn()
-      }));
+      let mockReq
+      const mockRequest = jest.fn().mockImplementation(() => {
+        mockReq = { write: jest.fn(), end: jest.fn(), on: jest.fn() }
+        return mockReq
+      });
 
       https.request = mockRequest;
 
       botService.sendAlert('Server overload detected');
 
-      const callArgs = mockRequest.mock.calls[0];
-      const parsedBody = JSON.parse(callArgs[0].write.mock.calls[0][0]);
+      const parsedBody = JSON.parse(mockReq.write.mock.calls[0][0]);
       expect(parsedBody.text).toContain('SYSTEM ALERT');
       expect(parsedBody.text).toContain('Server overload detected');
 
       https.request = originalRequest;
+      botService.token = origToken
+      botService.chatId = origChatId
     });
   });
 
@@ -229,28 +264,29 @@ describe('BotService', () => {
 
   describe('Command handlers', () => {
     it('_handleGoldenCoupon should send formatted message', async () => {
-      process.env.TELEGRAM_BOT_TOKEN = 'test-token';
-      process.env.TELEGRAM_CHAT_ID = 'test-chat';
+      const origToken = botService.token
+      const origChatId = botService.chatId
+      botService.token = 'test-token'
+      botService.chatId = 'test-chat'
 
       const originalRequest = https.request;
-      const mockRequest = jest.fn().mockImplementation(() => ({
-        write: jest.fn(),
-        end: jest.fn(),
-        on: jest.fn()
-      }));
+      let mockReq
+      const mockRequest = jest.fn().mockImplementation(() => {
+        mockReq = { write: jest.fn(), end: jest.fn(), on: jest.fn() }
+        return mockReq
+      });
 
       https.request = mockRequest;
 
       await botService._handleGoldenCoupon('test-chat-id');
 
       expect(mockRequest).toHaveBeenCalled();
-      const callArgs = mockRequest.mock.calls[0];
-      const parsedBody = JSON.parse(callArgs[0].write.mock.calls[0][0]);
+      const parsedBody = JSON.parse(mockReq.write.mock.calls[0][0]);
       expect(parsedBody.text).toContain('GOLDEN COUPON');
 
       https.request = originalRequest;
+      botService.token = origToken
+      botService.chatId = origChatId
     });
-
-    // Additional command handler tests can be added similarly
   });
 });

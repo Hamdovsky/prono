@@ -118,6 +118,9 @@ data/online_learning_state.json
 
 # Model files (generated, not source)
 models/titanium_v2.json
+models/xgboost_v55.json
+models/xgboost_v55.json.bak
+models/model_metadata.json
 
 # Generated CSV (uploaded to catbox, downloaded at runtime)
 data/v553_wc2026_premium.csv

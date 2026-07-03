@@ -686,7 +686,7 @@ app.post('/api/goalmodel/callback', securityEngine.authenticate.bind(securityEng
 })
 
 // ─── Theta Optimizer: run MLE and return per-league NB dispersion params ──
-app.get('/api/theta/optimize', async (req, res) => {
+app.get('/api/theta/optimize', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const thetaOptimizer = require('./services/thetaOptimizer');
     const map = await thetaOptimizer.optimize();
@@ -697,7 +697,7 @@ app.get('/api/theta/optimize', async (req, res) => {
 });
 
 // ─── Elo ratings ──
-app.get('/api/elo', async (req, res) => {
+app.get('/api/elo', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const eloService = require('./services/eloRatingService');
     const ratings = eloService.getAllRatings();

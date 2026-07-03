@@ -286,23 +286,49 @@ class CronManager {
           }
         }, { timezone: 'Europe/Paris' })
 
-        // 22. FastAPI Keepalive (Every 10 min) — prevents cold start on free tier
-        cron.schedule('*/10 * * * *', async () => {
-          const http = require('http')
-          const urls = [
-            process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com',
-            'https://prono-scraper.onrender.com'
-          ]
+        // 22. FastAPI Keepalive (Every 5 min) — prevents cold start on free tier + warm engines
+        cron.schedule('*/5 * * * *', async () => {
+          const https = require('https')
+          const fastApiUrl = process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com'
+          const urls = [fastApiUrl + '/health', fastApiUrl + '/warmup', 'https://prono-scraper.onrender.com/health']
           for (const url of urls) {
             try {
               await new Promise((resolve, reject) => {
-                const req = http.get(url + '/health', { timeout: 15000 }, (res) => { res.resume(); resolve() })
-                req.on('error', reject)
+                const req = https.get(url, { timeout: 15000 }, (res) => { res.resume(); resolve() })
+                req.on('error', () => resolve())
                 req.on('timeout', () => { req.destroy(); resolve() })
               })
             } catch (_) {}
           }
         }, { timezone: 'Europe/Paris' })
+
+        // 23. Weekly Platt Calibration + XGBoost Retrain (Sunday 03:00 UTC)
+        cron.schedule('0 3 * * 0', async () => {
+          logger.info('[CRON] Launching weekly Platt calibration...')
+          const https = require('https')
+          const fastApiUrl = process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com'
+          const apiKey = process.env.API_SECRET_KEY || ''
+          const postJson = (path, body) => new Promise((resolve) => {
+            const data = JSON.stringify(body)
+            const urlObj = new URL(fastApiUrl.replace(/\/+$/, '') + path)
+            const opts = {
+              hostname: urlObj.hostname, port: 443, path: urlObj.pathname,
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+              timeout: 300000
+            }
+            if (apiKey) opts.headers['Authorization'] = 'Bearer ' + apiKey
+            const req = https.request(opts, (res) => { let d = ''; res.on('data', c => d += c); res.on('end', () => { try { resolve(JSON.parse(d)) } catch (_) { resolve({ raw: d }) } }) })
+            req.on('error', () => resolve({}))
+            req.on('timeout', () => { req.destroy(); resolve({}) })
+            req.write(data)
+            req.end()
+          })
+          let calRes = await postJson('/calibrate', {})
+          logger.info(`[CRON] Calibrate: ${calRes.success ? 'OK' : 'FAIL'} (${calRes.samples || 0} samples)`)
+          let retrainRes = await postJson('/retrain', {})
+          logger.info(`[CRON] Retrain: ${retrainRes.success ? 'OK' : 'FAIL'} — ${retrainRes.message || ''}`)
+        }, { timezone: 'UTC' })
 
         logger.info('âœ… [CRON] Scheduler active');
 

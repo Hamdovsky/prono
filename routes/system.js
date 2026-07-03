@@ -316,7 +316,7 @@ router.get('/db-stats', async (req, res) => {
 /**
  * POST /api/seed — Manually trigger cloud seed (for Render deployments)
  */
-router.post('/seed', async (req, res) => {
+router.post('/seed', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
     try {
         const { runCloudSeed } = require('../core/cloudSeed');
         res.json({ success: true, message: 'Seed started in background. Check /api/db-stats in ~2 min.' });
@@ -362,7 +362,7 @@ router.get('/league-params', async (req, res) => {
 /**
  * POST /api/calibrate — Trigger league parameter calibration from Neon archive
  */
-router.post('/calibrate', async (req, res) => {
+router.post('/calibrate', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
     try {
         const { calibrate } = require('../services/leagueCalibrator')
         res.json({ success: true, message: 'Calibration started in background (~30s)' })
@@ -382,7 +382,7 @@ router.post('/calibrate', async (req, res) => {
 /**
  * POST /api/seed/purge — Remove fake/empty matches (homeTeam null, FIFA placeholders)
  */
-router.post('/seed/purge', async (req, res) => {
+router.post('/seed/purge', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
     try {
         const { purgeFakeMatches } = require('../core/cloudSeed');
         const removed = await purgeFakeMatches();

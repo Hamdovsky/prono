@@ -286,6 +286,24 @@ class CronManager {
           }
         }, { timezone: 'Europe/Paris' })
 
+        // 22. FastAPI Keepalive (Every 10 min) — prevents cold start on free tier
+        cron.schedule('*/10 * * * *', async () => {
+          const http = require('http')
+          const urls = [
+            process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com',
+            'https://prono-scraper.onrender.com'
+          ]
+          for (const url of urls) {
+            try {
+              await new Promise((resolve, reject) => {
+                const req = http.get(url + '/health', { timeout: 15000 }, (res) => { res.resume(); resolve() })
+                req.on('error', reject)
+                req.on('timeout', () => { req.destroy(); resolve() })
+              })
+            } catch (_) {}
+          }
+        }, { timezone: 'Europe/Paris' })
+
         logger.info('âœ… [CRON] Scheduler active');
 
         // ðŸš€ [RESUME] Disabled to avoid conflict with standalone scraper process

@@ -1632,6 +1632,199 @@ FEATURE_NAMES_V55 = FEATURE_NAMES_V54 + [
     'is_modern_football_era', 'data_completeness_score'
 ]
 
+# V56 — Auto-Retrain Feature Set: simple match stats + form + H2H
+# Designed for weekly auto-retrain from soccer_fixtures + soccer_match_stats
+FEATURE_NAMES_V56 = [
+    'pos_diff',
+    'shots_diff',
+    'sot_diff',
+    'corners_diff',
+    'fouls_diff',
+    'yellow_diff',
+    'red_diff',
+    'inside_box_shots_diff',
+    'home_attack_rating',
+    'home_defense_rating',
+    'odds_h',
+    'odds_a',
+    'form_diff',
+    'h2h_home_win_rate',
+    'h2h_total_matches',
+    'form_shots_diff',
+    'form_sot_diff',
+    'form_corners_diff',
+    'form_poss_h',
+    'form_poss_a',
+    'month_sin',
+    'month_cos',
+]
+
+
+def extract_v56_features(row_or_feats, rows=None, match_idx=None):
+    """Extract V56 feature vector (22 floats matching FEATURE_NAMES_V56).
+
+    Two modes:
+    1. Training: pass raw (row, rows, match_idx) for temporal feature engineering
+    2. Inference: pass features dict from extract_ml_features() as row_or_feats
+
+    Inference mode maps from the rich features dict to V56 features.
+    Training mode computes form + H2H from historical rows.
+    """
+    def _f(v, default=0.0):
+        try:
+            if v is None or str(v).lower() in ['none', 'null', '', 'nan']:
+                return float(default)
+            return float(v)
+        except:
+            return float(default)
+
+    # Detect mode: if rows are provided, it's training mode (raw row)
+    if rows is not None and match_idx is not None:
+        row = row_or_feats
+        _pos_diff = _f(row.get('home_possession'), 50) - _f(row.get('away_possession'), 50)
+        _shots_diff = _f(row.get('home_shots') or row.get('home_shots_total')) - _f(row.get('away_shots') or row.get('away_shots_total'))
+        _sot_diff = _f(row.get('home_shots_on_goal') or row.get('home_shots_on_target')) - _f(row.get('away_shots_on_goal') or row.get('away_shots_on_target'))
+        _corners_diff = _f(row.get('home_corners')) - _f(row.get('away_corners'))
+        _fouls_diff = _f(row.get('home_fouls')) - _f(row.get('away_fouls'))
+        _yellow_diff = _f(row.get('home_yellow_cards')) - _f(row.get('away_yellow_cards'))
+        _red_diff = _f(row.get('home_red_cards')) - _f(row.get('away_red_cards'))
+        _inside_box_shots_diff = _f(row.get('home_shots_inside_box')) - _f(row.get('away_shots_inside_box'))
+        _home_attack_rating = _f(row.get('home_attack_rating'), 1.0)
+        _home_defense_rating = _f(row.get('home_defense_rating'), 1.0)
+        _odds_h = _f(row.get('odds_home'), 2.0)
+        _odds_a = _f(row.get('odds_away'), 2.0)
+
+        _form_diff = 0.0
+        _h2h_win_rate = 0.0
+        _h2h_total = 0
+        _form_shots_diff = 0.0
+        _form_sot_diff = 0.0
+        _form_corners_diff = 0.0
+        _form_poss_h = 50.0
+        _form_poss_a = 50.0
+        _month_sin = 0.0
+        _month_cos = 0.0
+
+        if match_idx > 10:
+            home_team = str(row.get('home_team', '') or row.get('homeTeam', ''))
+            away_team = str(row.get('away_team', '') or row.get('awayTeam', ''))
+
+            h_shots, a_shots = [], []
+            h_sot, a_sot = [], []
+            h_corners, a_corners = [], []
+            h_poss, a_poss = [], []
+            h_wins, a_wins = 0, 0
+            h_games, a_games = 0, 0
+            h2h_h_wins = 0
+            h2h_total = 0
+
+            for i in range(match_idx - 1, max(-1, match_idx - 50), -1):
+                r = rows[i]
+                r_home = str(r.get('home_team', '') or r.get('homeTeam', ''))
+                r_away = str(r.get('away_team', '') or r.get('awayTeam', ''))
+                gh = _f(r.get('goals_home') or r.get('scoreHome') or r.get('score_home'))
+                ga = _f(r.get('goals_away') or r.get('scoreAway') or r.get('score_away'))
+                if gh + ga == 0:
+                    continue
+
+                if r_home == home_team:
+                    h_shots.append(_f(r.get('home_shots') or r.get('home_shots_total')))
+                    h_sot.append(_f(r.get('home_shots_on_goal') or r.get('home_shots_on_target')))
+                    h_corners.append(_f(r.get('home_corners')))
+                    h_poss.append(_f(r.get('home_possession'), 50))
+                    h_games += 1
+                    if gh > ga: h_wins += 1
+                elif r_away == home_team:
+                    h_shots.append(_f(r.get('away_shots') or r.get('away_shots_total')))
+                    h_sot.append(_f(r.get('away_shots_on_goal') or r.get('away_shots_on_target')))
+                    h_corners.append(_f(r.get('away_corners')))
+                    h_poss.append(_f(r.get('away_possession'), 50))
+                    h_games += 1
+                    if ga > gh: h_wins += 1
+
+                if r_home == away_team:
+                    a_shots.append(_f(r.get('home_shots') or r.get('home_shots_total')))
+                    a_sot.append(_f(r.get('home_shots_on_goal') or r.get('home_shots_on_target')))
+                    a_corners.append(_f(r.get('home_corners')))
+                    a_poss.append(_f(r.get('home_possession'), 50))
+                    a_games += 1
+                    if gh > ga: a_wins += 1
+                elif r_away == away_team:
+                    a_shots.append(_f(r.get('away_shots') or r.get('away_shots_total')))
+                    a_sot.append(_f(r.get('away_shots_on_goal') or r.get('away_shots_on_target')))
+                    a_corners.append(_f(r.get('away_corners')))
+                    a_poss.append(_f(r.get('away_possession'), 50))
+                    a_games += 1
+                    if ga > gh: a_wins += 1
+
+                if (r_home == home_team and r_away == away_team) or (r_home == away_team and r_away == home_team):
+                    h2h_total += 1
+                    if (r_home == home_team and gh > ga) or (r_home == away_team and ga > gh):
+                        h2h_h_wins += 1
+
+                if len(h_shots) >= 5 and len(a_shots) >= 5 and h2h_total >= 3:
+                    break
+
+            if h_shots:
+                _form_shots_diff = (sum(h_shots[-5:]) / len(h_shots[-5:])) - (sum(a_shots[-5:]) / len(a_shots[-5:]) if a_shots else 0)
+            if h_sot:
+                _form_sot_diff = (sum(h_sot[-5:]) / len(h_sot[-5:])) - (sum(a_sot[-5:]) / len(a_sot[-5:]) if a_sot else 0)
+            if h_corners:
+                _form_corners_diff = (sum(h_corners[-5:]) / len(h_corners[-5:])) - (sum(a_corners[-5:]) / len(a_corners[-5:]) if a_corners else 0)
+            if h_poss:
+                _form_poss_h = sum(h_poss[-5:]) / len(h_poss[-5:])
+            if a_poss:
+                _form_poss_a = sum(a_poss[-5:]) / len(a_poss[-5:])
+
+            _form_diff = (h_wins / max(h_games, 1)) - (a_wins / max(a_games, 1))
+            _h2h_win_rate = h2h_h_wins / max(h2h_total, 1)
+            _h2h_total = h2h_total
+
+        date_str = str(row.get('date', '') or row.get('match_date', '') or row.get('startTimestamp', ''))
+        if date_str and len(date_str) >= 7 and '-' in date_str:
+            try:
+                month = int(date_str[5:7])
+                _month_sin = math.sin(2 * math.pi * month / 12)
+                _month_cos = math.cos(2 * math.pi * month / 12)
+            except:
+                pass
+    else:
+        feats = row_or_feats
+        _pos_diff = _f(feats.get('pos_diff'), 0)
+        _shots_diff = _f(feats.get('shots_diff'), 0)
+        _sot_diff = _f(feats.get('sot_diff'), 0)
+        _corners_diff = _f(feats.get('corner_diff'), 0)
+        _fouls_diff = _f(feats.get('foul_diff'), 0)
+        _yellow_diff = _f(feats.get('yellow_diff'), 0)
+        _red_diff = _f(feats.get('red_diff'), 0)
+        _inside_box_shots_diff = _f(feats.get('h_inner_shots'), 0) - _f(feats.get('a_inner_shots'), 0)
+        _home_attack_rating = _f(feats.get('h_att_imp', feats.get('ta_h_rating', 1.0)), 1.0)
+        _home_defense_rating = _f(feats.get('a_att_imp', feats.get('ta_a_rating', 1.0)), 1.0)
+        _odds_h = _f(feats.get('odds_h'), 2.0)
+        _odds_a = _f(feats.get('odds_a'), 2.0)
+        _form_diff = _f(feats.get('h_mom_gicko', feats.get('form_diff', 0)), 0)
+        _h2h_win_rate = _f(feats.get('h2h_home_win_rate', feats.get('h2h_win_rate', 0)), 0)
+        _h2h_total = int(_f(feats.get('h2h_total_matches', feats.get('h2h_total', 0)), 0))
+        _form_shots_diff = _f(feats.get('form_shots_diff', 0), 0)
+        _form_sot_diff = _f(feats.get('form_sot_diff', 0), 0)
+        _form_corners_diff = _f(feats.get('form_corners_diff', 0), 0)
+        _form_poss_h = _f(feats.get('form_poss_h', 50), 50)
+        _form_poss_a = _f(feats.get('form_poss_a', 50), 50)
+        _month_sin = _f(feats.get('month_sin'), 0)
+        _month_cos = _f(feats.get('month_cos'), 0)
+
+    return [
+        _pos_diff, _shots_diff, _sot_diff, _corners_diff,
+        _fouls_diff, _yellow_diff, _red_diff, _inside_box_shots_diff,
+        _home_attack_rating, _home_defense_rating,
+        _odds_h, _odds_a,
+        _form_diff, _h2h_win_rate, float(_h2h_total),
+        _form_shots_diff, _form_sot_diff, _form_corners_diff,
+        _form_poss_h, _form_poss_a,
+        _month_sin, _month_cos,
+    ]
+
+
 # V551 — Pruned V55: only features that proved valuable (xg_per_shot + market mispricing)
 FEATURE_NAMES_V551 = FEATURE_NAMES_V54 + [
     'xg_per_shot_h', 'xg_per_shot_a',

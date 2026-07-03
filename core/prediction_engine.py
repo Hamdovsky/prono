@@ -172,7 +172,7 @@ def process_prediction(match_obj: dict) -> dict:
     xg_h, xg_a, gm_rho, gm_gamma, gm_dist = apply_dixon_coles_gamma(xg_h, xg_a, league_name_str)
 
     # === PHASE 2: ML ENSEMBLE ===
-    active_feature_names, active_feature_vector, ai_source, XGB_BOOSTER = select_model_booster(features, league_tier)
+    active_feature_names, active_feature_vector, ai_source, XGB_BOOSTER = select_model_booster(features, league_tier, match_obj)
 
     sim = monte_carlo_simulation(xg_h, xg_a, distribution=gm_dist, rho=gm_rho)
 

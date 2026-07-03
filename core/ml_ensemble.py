@@ -16,13 +16,14 @@ import numpy as np
 from ml_features import (
     FEATURE_NAMES_V53, FEATURE_NAMES_V54, FEATURE_NAMES_V55,
     FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553,
-    FEATURE_NAMES_TITANIUM, FEATURE_NAMES,
+    FEATURE_NAMES_V56, FEATURE_NAMES_TITANIUM, FEATURE_NAMES,
+    extract_v56_features,
 )
 from meta_refiner import refine_prediction
 from model_manager import (
     get_xgb, get_titanium_booster, get_titanium_v4_booster,
     get_v55_booster, get_v551_booster, get_v552_booster,
-    get_v553_booster, get_v553_premium_booster,
+    get_v553_booster, get_v553_premium_booster, get_v56_booster,
     get_main_booster, simulate_match_mc,
 )
 from feature_engineer import extract_v4_features, FEATURE_NAMES_V4
@@ -46,7 +47,7 @@ LEAGUE_WEIGHT_MATRIX = {
 }
 
 
-def select_model_booster(features, league_tier):
+def select_model_booster(features, league_tier, match_obj=None):
     """
     Select the best available XGBoost booster from the fallback chain.
     Returns: (active_feature_names, active_feature_vector, ai_source, XGB_BOOSTER)
@@ -56,6 +57,7 @@ def select_model_booster(features, league_tier):
     V552_BOOSTER = get_v552_booster()
     V551_BOOSTER = get_v551_booster()
     V55_BOOSTER = get_v55_booster()
+    V56_BOOSTER = get_v56_booster()
     TITANIUM_BOOSTER = get_titanium_booster()
     XGB_BOOSTER = TITANIUM_BOOSTER if TITANIUM_BOOSTER else get_main_booster()
 
@@ -89,10 +91,18 @@ def select_model_booster(features, league_tier):
         active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V55]
         ai_source = "V55-OPTIMIZED"
         XGB_BOOSTER = V55_BOOSTER
+    elif V56_BOOSTER:
+        active_feature_names = FEATURE_NAMES_V56
+        active_feature_vector = extract_v56_features(
+            match_obj if match_obj else features.get('__raw_row__', features)
+        )
+        ai_source = "V56-RETRAINED"
+        XGB_BOOSTER = V56_BOOSTER
     elif TITANIUM_BOOSTER:
         active_feature_names = FEATURE_NAMES_TITANIUM
         active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_TITANIUM]
         ai_source = "TITANIUM-ELITE-V3"
+        XGB_BOOSTER = TITANIUM_BOOSTER
     elif XGB_BOOSTER:
         active_feature_names = FEATURE_NAMES_V54
         active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V54]

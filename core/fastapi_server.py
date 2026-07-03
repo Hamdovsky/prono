@@ -437,9 +437,23 @@ async def retrain_endpoint(_=Depends(require_auth)):
         if not os.path.exists(script):
             return {"success": False, "error": "auto_retrain.py not found"}
         def _run():
-            subprocess.run([sys.executable, script, '--validate-only'], capture_output=True, timeout=600)
+            subprocess.run([sys.executable, script], capture_output=True, timeout=600)
         threading.Thread(target=_run, daemon=True).start()
-        return {"success": True, "message": "Retrain started in background"}
+        return {"success": True, "message": "V56 retrain started in background"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/train/v56")
+async def train_v56_endpoint(_=Depends(require_auth)):
+    """Explicitly train V56 model with chronological split."""
+    try:
+        script = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'auto_retrain.py')
+        if not os.path.exists(script):
+            return {"success": False, "error": "auto_retrain.py not found"}
+        def _run():
+            subprocess.run([sys.executable, script], capture_output=True, timeout=600)
+        threading.Thread(target=_run, daemon=True).start()
+        return {"success": True, "message": "V56 retrain started in background"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

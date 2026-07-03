@@ -52,6 +52,7 @@ V551_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v551_optimized.jso
 V552_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v552_optimized.json')
 V553_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v553_optimized.json')
 V553_PREMIUM_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v553_premium.json')
+V56_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'xgboost_v55.json')
 CORNERS_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_corners_v1.json')
 CARDS_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_cards_v1.json')
 TITANIUM_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'titanium_v2.json')
@@ -68,6 +69,7 @@ _XGB_V551_BOOSTER = None
 _XGB_V552_BOOSTER = None
 _XGB_V553_BOOSTER = None
 _XGB_V553_PREMIUM_BOOSTER = None
+_XGB_V56_BOOSTER = None
 _CORNERS_MODEL = None
 _CARDS_MODEL = None
 _TITANIUM_BOOSTER = None
@@ -143,6 +145,13 @@ def get_v553_premium_booster():
     if _XGB_V553_PREMIUM_BOOSTER is None:
         _XGB_V553_PREMIUM_BOOSTER = _load_booster(V553_PREMIUM_MODEL_PATH, "V553 Premium")
     return _XGB_V553_PREMIUM_BOOSTER
+
+
+def get_v56_booster():
+    global _XGB_V56_BOOSTER
+    if _XGB_V56_BOOSTER is None:
+        _XGB_V56_BOOSTER = _load_booster(V56_MODEL_PATH, "V56")
+    return _XGB_V56_BOOSTER
 
 
 def get_main_booster():

@@ -64,6 +64,7 @@ if USE_MODEL_MANAGER:
         """Get model cache statistics for monitoring"""
         return get_model_manager().get_cache_stats()
     
+        
     sys.stderr.write("✅ [MODEL MANAGER] Using optimized model loading\n")
 
 else:

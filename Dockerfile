@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 
 COPY core/ /app/core/
 COPY inference/ /app/inference/
+COPY scripts/ /app/scripts/
 COPY models/ /app/models/
 COPY data/ /app/data/
 

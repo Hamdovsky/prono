@@ -236,24 +236,26 @@ async function upsertMatch(match) {
   }
 }
 
-async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd) {
+async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd, opts = {}) {
   try {
     const db = database.db
+    const excludeSeed = opts.excludeSeed !== false // default: exclude seed/emergency from counts
     const startDate = getDateStr(dayOffsetStart)
     const endDate   = getDateStr(dayOffsetEnd)
     const startTs = Math.floor(new Date(startDate + 'T00:00:00Z').getTime() / 1000)
     const endTs   = Math.floor(new Date(endDate   + 'T23:59:59Z').getTime() / 1000)
+    const sourceFilter = excludeSeed ? ` AND source NOT IN ('seed', 'emergency')` : ''
     const isPG = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')
     if (isPG) {
       const { query: pgQuery } = require('./pg_connector')
       const result = await pgQuery(
-        `SELECT COUNT(*) as cnt FROM matches WHERE COALESCE("startTimestamp", SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) >= $1 AND COALESCE("startTimestamp", SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) <= $2 AND status = 'scheduled'`,
+        `SELECT COUNT(*) as cnt FROM matches WHERE COALESCE("startTimestamp", SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) >= $1 AND COALESCE("startTimestamp", SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) <= $2 AND status = 'scheduled'${excludeSeed ? ` AND source NOT IN ('seed', 'emergency')` : ''}`,
         [startTs, endTs]
       )
       return parseInt(result.rows?.[0]?.cnt || '0')
     }
     const row = await db.prepare(
-      `SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp <= ? AND status = 'scheduled'`
+      `SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp <= ? AND status = 'scheduled'${sourceFilter}`
     ).get(startTs, endTs)
     return row?.cnt || 0
   } catch (e) {

@@ -332,9 +332,7 @@ async function runCloudSeed() {
   let rapidApiInserted = 0
   let sofascoreInserted = 0
 
-  if (process.env.DISABLE_SOFASCORE === 'true') {
-    logger.info('[CLOUD-SEED/SOFASCORE] Skipped — DISABLE_SOFASCORE is set.')
-  } else {
+  {
     logger.info('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
     try {
       const datesToFetch = [today, getDateStr(1), getDateStr(2), getDateStr(3), getDateStr(4), getDateStr(5), getDateStr(6)]

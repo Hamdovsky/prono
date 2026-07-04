@@ -311,27 +311,8 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               try { supabaseService.cleanupPlaceholderTeams() } catch (_) {}
             }, 15000)
 
-            // 🌱 [EMERGENCY SEED] Seed matches ONLY if no real data exists
-            (async () => {
-              try {
-                const result = await database.query("SELECT COUNT(*) AS cnt FROM matches WHERE source NOT IN ('seed', 'emergency')")
-                const realCount = result?.rows?.[0]?.cnt || 0
-                if (realCount === 0) {
-                  const { seedDemoMatches } = require('./scripts/seed_emergency')
-                  const seeded = await seedDemoMatches(database)
-                  logger.warn(`[EMERGENCY SEED] ⚠️ Seulement ${realCount} match(s) réel(s) — ${seeded} matchs démo seedés en attendant. Configurez les clés API pour des données réelles.`)
-                  const { query: pgRaw } = require('./core/pg_connector')
-                  await pgRaw(`UPDATE matches SET insufficient_data = 0, "fullData" = ("fullData"::jsonb || '{"insufficient_data":0}')::text WHERE source = 'seed'`)
-                } else {
-                  logger.info(`[EMERGENCY SEED] ✅ ${realCount} matchs réels trouvés — nettoyage des anciens seeds`)
-                  await database.exec("DELETE FROM matches WHERE source IN ('seed', 'emergency')").catch(() => {})
-                  const { query: pgRaw } = require('./core/pg_connector')
-                  await pgRaw(`DELETE FROM matches WHERE source IN ('seed', 'emergency')`).catch(() => {})
-                }
-              } catch (e) {
-                logger.warn(`[EMERGENCY SEED] Error: ${e.message}`)
-              }
-            })()
+            // 🧹 [EMERGENCY SEED SUPPRIMÉ] Les données persistent via Supabase/PostgreSQL + cloud seed
+            // Seeder des matchs démo empêchait la récupération des vrais matchs.
 
             // 🌱 [CLOUD-SEED] Auto-populate DB on fresh Render deployment (no Puppeteer needed)
             try {

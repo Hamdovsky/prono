@@ -21,47 +21,60 @@ function parsePromosportPronostic(html) {
   const dateMatch = html.match(/Du\s+(\d{4}-\d{2}-\d{2})\s+/i)
   if (dateMatch) concoursDate = dateMatch[1]
 
-  // Find the second f_table (user prediction form) by looking for "<p class=\"u11\">P</p>"
-  const formMarker = '<p class="u11">P</p>'
-  const formIdx = html.indexOf(formMarker)
-  if (formIdx === -1) return []
+  // Find the first f_table (match grid)
+  const tableId = 'id="f_table"'
+  const idPos = html.indexOf(tableId)
+  if (idPos === -1) return []
 
-  const formHtml = html.slice(formIdx)
-  const trBlocks = formHtml.split(/<tr[^>]*>/i).slice(2)
+  const tableOpen = html.lastIndexOf('<table', idPos)
+  const tableClose = html.indexOf('</table>', idPos)
+  if (tableOpen === -1 || tableClose === -1) return []
+
+  const tableHtml = html.substring(tableOpen, tableClose + 8)
 
   const matches = []
+  let pos = 0
+  let rowNum = 0
 
-  for (const block of trBlocks) {
-    const tdCells = block.split(/<td[^>]*>/i)
-    if (tdCells.length < 6) continue
+  while ((pos = tableHtml.indexOf('<tr', pos)) !== -1) {
+    const trEnd = tableHtml.indexOf('</tr>', pos)
+    if (trEnd === -1) break
+    const row = tableHtml.substring(pos, trEnd + 5)
+    rowNum++
+    if (rowNum === 1) { pos = trEnd + 5; continue }
 
-    const idMatch = tdCells[0].match(/(?:<a[^>]*>|>)\s*(\d+)\s*(?:<\/a>)?\s*<\/p>/i)
-    if (!idMatch) continue
-    const id = parseInt(idMatch[1])
-    if (id < 1 || id > 13) continue
+    // Extract match number
+    const numMatch = row.match(/<p[^>]*style=['"][^'"]*text-align:\s*center[^'"]*['"][^>]*>\s*(?:<a[^>]*>\s*)?(\d+)\s*(?:<\/a>\s*)?<\/p>/i)
+    if (!numMatch) { pos = trEnd + 5; continue }
+    const id = parseInt(numMatch[1])
+    if (id < 1 || id > 13) { pos = trEnd + 5; continue }
 
-    const homeA = tdCells[1].match(/<a[^>]*>([^<]+)<\/a>/i)
-    const awayA = tdCells[5].match(/<a[^>]*>([^<]+)<\/a>/i)
-    if (!homeA || !awayA) continue
-
-    const probNums = []
-    for (let i = 2; i <= 4; i++) {
-      const numMatch = tdCells[i].match(/>(\d+)</)
-      if (numMatch) probNums.push(parseInt(numMatch[1]) / 100)
+    // Extract team names: find all <a class="nline"> with text length > 1
+    const teamLinks = []
+    const linkRegex = /<a[^>]*class="nline"[^>]*>([^<]+)<\/a>/gi
+    let linkMatch
+    while ((linkMatch = linkRegex.exec(row)) !== null) {
+      const text = linkMatch[1].trim()
+      if (text.length > 1) teamLinks.push(text)
     }
+
+    if (teamLinks.length < 2) { pos = trEnd + 5; continue }
 
     matches.push({
       id,
-      homeTeam: homeA[1].trim().toUpperCase(),
-      awayTeam: awayA[1].trim().toUpperCase(),
+      homeTeam: teamLinks[0].toUpperCase(),
+      awayTeam: teamLinks[1].toUpperCase(),
       leagueName: 'Promosport',
-      homeWinProbability: probNums[0] || 0.33,
-      drawProbability: probNums[1] || 0.33,
-      awayWinProbability: probNums[2] || 0.34,
+      homeWinProbability: 0.33,
+      drawProbability: 0.33,
+      awayWinProbability: 0.34,
       matchTime: '---',
       concoursDate,
       concoursNumber
     })
+
+    pos = trEnd + 5
+    if (matches.length >= 13) break
   }
 
   // Validate: 13 unique match IDs (1-13) required
@@ -90,9 +103,9 @@ async function fetchOrFallback() {
   } catch (e) {
     logger.error('❌ [PROMOSPORT] Scraper crashed:', e.message)
   }
-  // Backup: try promosport-pronostic.com
-  try {
-    const backupUrl = 'https://www.promosport-pronostic.com/index.php/welcome/promo_pronostic'
+    // Backup: try promosport-pronostic.com
+    try {
+        const backupUrl = 'https://www.promosport-pronostic.com/index.php/welcome/promo_pronostic?jeux=Promosport'
     logger.info('📡 [PROMOSPORT] Trying backup source:', backupUrl)
     const resp = await axios.get(backupUrl, {
       httpsAgent: new https.Agent({ keepAlive: true }),
@@ -100,7 +113,7 @@ async function fetchOrFallback() {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'fr-FR,fr;q=0.9'
       },
-      timeout: 15000
+      timeout: 30000
     })
     const html = resp.data
     const backupMatches = parsePromosportPronostic(html)
@@ -182,6 +195,28 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
     const firstMatch = scrapedMatches[0] || {};
     const finalConcours = firstMatch.concoursNumber || '878';
     const finalDate = firstMatch.concoursDate || new Date().toLocaleDateString();
+
+    // Archive predictions in Neon PostgreSQL
+    try {
+      const { Pool } = require('pg')
+      const dbUrl = process.env.DATABASE_URL
+      if (dbUrl) {
+        const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false }, max: 1 })
+        const payload = JSON.stringify({
+          date: finalDate,
+          matches: unifiedMatches.map(m => ({
+            id: m.id, home: m.home, away: m.away,
+            cols: m.cols.map(c => ({ pred: c.pred, name: c.name }))
+          }))
+        })
+        await pool.query(
+          `INSERT INTO promosport_predictions (concours, date, data) VALUES ($1, $2, $3::jsonb)
+           ON CONFLICT (concours) DO UPDATE SET data = $3::jsonb, date_archived = NOW()`,
+          [finalConcours, finalDate, payload]
+        )
+        await pool.end()
+      }
+    } catch (_) {}
 
     console.log(`✅ [PROMOSPORT] Sending ${unifiedMatches.length} matches to frontend for Concours ${finalConcours}`);
     res.json({

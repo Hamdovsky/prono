@@ -29,9 +29,9 @@ async function scrapePromosport() {
       if (!html || typeof html !== 'string') return [];
 
       // 1. Extract Concours Metadata
-      const concoursMatch = html.match(/Concours\s+Promosport\s+No\s+(\d+)\s+du\s+([\d/]+)\s+\(([\d:]+)\)/i);
-      const concoursDate = concoursMatch ? `${concoursMatch[2]} ${concoursMatch[3]}` : new Date().toLocaleDateString();
-      const concoursNumber = concoursMatch ? concoursMatch[1] : '855';
+      const concoursMatch = html.match(/(?:Concours\s+)?Promosport\s+N[°o]?\s*(\d+)\s+du\s+(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})/i);
+      const concoursDate = concoursMatch ? concoursMatch[2] : new Date().toLocaleDateString();
+      const concoursNumber = concoursMatch ? concoursMatch[1] : '878';
 
       // 2. Identify Match Rows
       // Each match is in a <tr> with <span class='num_match'>

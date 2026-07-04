@@ -295,7 +295,12 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
                   await supabaseService.restoreToSQLite(database)
                   // Phase 2: push latest SQLite data → cloud
                   await supabaseService.syncFromSQLite(database)
-                  // Phase 3: continuous sync every 5 min
+                  // Phase 3: purge old demo seeds from both PG and SQLite
+                  const { query: pgRaw } = require('./core/pg_connector')
+                  await pgRaw(`DELETE FROM matches WHERE source IN ('seed', 'emergency')`).catch(() => {})
+                  await database.exec("DELETE FROM matches WHERE source IN ('seed', 'emergency')").catch(() => {})
+                  logger.info('🧹 [SUPABASE] Purged old demo seeds from PG + SQLite')
+                  // Phase 4: continuous sync every 5 min
                   supabaseService.startPeriodicSync(database)
                   logger.info('✅ [SUPABASE] Dual-sync active — data survives redeploys')
                 }

@@ -323,7 +323,10 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
                   const { query: pgRaw } = require('./core/pg_connector')
                   await pgRaw(`UPDATE matches SET insufficient_data = 0, "fullData" = ("fullData"::jsonb || '{"insufficient_data":0}')::text WHERE source = 'seed'`)
                 } else {
-                  logger.info(`[EMERGENCY SEED] ✅ ${realCount} matchs réels trouvés — pas de seed démo nécessaire`)
+                  logger.info(`[EMERGENCY SEED] ✅ ${realCount} matchs réels trouvés — nettoyage des anciens seeds`)
+                  await database.exec("DELETE FROM matches WHERE source IN ('seed', 'emergency')").catch(() => {})
+                  const { query: pgRaw } = require('./core/pg_connector')
+                  await pgRaw(`DELETE FROM matches WHERE source IN ('seed', 'emergency')`).catch(() => {})
                 }
               } catch (e) {
                 logger.warn(`[EMERGENCY SEED] Error: ${e.message}`)

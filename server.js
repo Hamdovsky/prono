@@ -311,14 +311,20 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               try { supabaseService.cleanupPlaceholderTeams() } catch (_) {}
             }, 15000)
 
-            // 🌱 [EMERGENCY SEED] Seed matches + force insufficient_data=0 (column + fullData)
+            // 🌱 [EMERGENCY SEED] Seed matches ONLY if no real data exists
             (async () => {
               try {
-                const { seedDemoMatches } = require('./scripts/seed_emergency')
-                const seeded = await seedDemoMatches(database)
-                logger.info(`[EMERGENCY SEED] Upserted ${seeded} matches`)
-                const { query: pgRaw } = require('./core/pg_connector')
-                await pgRaw(`UPDATE matches SET insufficient_data = 0, "fullData" = ("fullData"::jsonb || '{"insufficient_data":0}')::text WHERE source = 'seed'`)
+                const result = await database.query("SELECT COUNT(*) AS cnt FROM matches WHERE source NOT IN ('seed', 'emergency')")
+                const realCount = result?.rows?.[0]?.cnt || 0
+                if (realCount < 3) {
+                  const { seedDemoMatches } = require('./scripts/seed_emergency')
+                  const seeded = await seedDemoMatches(database)
+                  logger.warn(`[EMERGENCY SEED] ⚠️ Seulement ${realCount} match(s) réel(s) — ${seeded} matchs démo seedés en attendant. Configurez les clés API pour des données réelles.`)
+                  const { query: pgRaw } = require('./core/pg_connector')
+                  await pgRaw(`UPDATE matches SET insufficient_data = 0, "fullData" = ("fullData"::jsonb || '{"insufficient_data":0}')::text WHERE source = 'seed'`)
+                } else {
+                  logger.info(`[EMERGENCY SEED] ✅ ${realCount} matchs réels trouvés — pas de seed démo nécessaire`)
+                }
               } catch (e) {
                 logger.warn(`[EMERGENCY SEED] Error: ${e.message}`)
               }

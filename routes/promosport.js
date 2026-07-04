@@ -773,4 +773,48 @@ router.post('/weapons-results', async (req, res) => {
   }
 })
 
+/**
+ * GET /api/promosport/history
+ * Historique des concours passés avec leurs résultats (1/X/2).
+ * Query: limit (default 10), offset (default 0)
+ */
+router.get('/history', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10
+    const offset = parseInt(req.query.offset) || 0
+
+    // Try PostgreSQL first (Neon)
+    try {
+      const { Pool } = require('pg')
+      const dbUrl = process.env.DATABASE_URL
+      if (dbUrl) {
+        const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false }, max: 1 })
+        const result = await pool.query(
+          'SELECT concours, date, matches FROM promosport_historical_grids ORDER BY concours DESC LIMIT $1 OFFSET $2',
+          [limit, offset]
+        )
+        await pool.end()
+        return res.json({ success: true, count: result.rowCount, history: result.rows })
+      }
+    } catch (pgErr) {
+      // Fallback to local file
+    }
+
+    // Fallback: read from local JSON file
+    const fs = require('fs')
+    const path = require('path')
+    const historyPath = path.join(__dirname, '..', 'data', 'promosport_historical_results.json')
+    if (fs.existsSync(historyPath)) {
+      const data = JSON.parse(fs.readFileSync(historyPath, 'utf8'))
+      const paginated = data.slice(offset, offset + limit)
+      return res.json({ success: true, count: data.length, history: paginated })
+    }
+
+    res.status(404).json({ success: false, error: 'Historical data not found' })
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] History Error:', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
 module.exports = router;

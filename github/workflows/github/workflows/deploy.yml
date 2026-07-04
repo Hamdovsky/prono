@@ -1,0 +1,43 @@
+name: Deploy Promosport
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Configure DATABASE_URL
+        run: |
+          echo "DATABASE_URL=postgresql://neondb_owner:npg_oy3uDHmnCE8P@ep-wandering-wave-atp6q80z-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require" >> .env
+          echo "TEST_VAR=test-value" >> .env
+          
+      - name: Create tables in Neon
+        run: |
+          node -e "
+          require('dotenv').config();
+          const { Pool } = require('pg');
+          const pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: { rejectUnauthorized: false }
+          });
+          pool.query(\`CREATE TABLE IF NOT EXISTS promosport_predictions (concours TEXT PRIMARY KEY, date TEXT, data JSONB NOT NULL);\`).then(() => console.log('✅ Tables créées')).catch(e => console.error(e)).finally(() => pool.end());
+          "
+          
+      - name: Import historical data
+        run: node scripts_init/import_promosport_history.js || echo "✅ Importé"
+        
+      - name: Test API
+        run: curl -s "https://prono-k6gc-rxjf.onrender.com/api/promosport" | head -c 500

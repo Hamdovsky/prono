@@ -316,7 +316,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               try {
                 const result = await database.query("SELECT COUNT(*) AS cnt FROM matches WHERE source NOT IN ('seed', 'emergency')")
                 const realCount = result?.rows?.[0]?.cnt || 0
-                if (realCount < 3) {
+                if (realCount === 0) {
                   const { seedDemoMatches } = require('./scripts/seed_emergency')
                   const seeded = await seedDemoMatches(database)
                   logger.warn(`[EMERGENCY SEED] ⚠️ Seulement ${realCount} match(s) réel(s) — ${seeded} matchs démo seedés en attendant. Configurez les clés API pour des données réelles.`)

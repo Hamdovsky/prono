@@ -896,13 +896,10 @@ class EnrichedPredictionService {
                 quantResult.confidence = v553.confidence
                 probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
             } else {
-                // V553 ML failed — check if we have any REAL data to fall back on
-                const hasRealOdds = m.odds_home && m.odds_draw && m.odds_away
-                const hasRealXg   = parseFloat(m.home_xg) > 0.4 && parseFloat(m.away_xg) > 0.4
-                if (!hasRealOdds && !hasRealXg) {
-                    return this._buildOfflineState(m)
-                }
-                // JS ENGINE — fallback with REAL data only
+                // V553 ML failed — fallback to JS engine
+                // StatisticalEngine.getMatchXG has a full fallback chain (historical data,
+                // league defaults, odds-derived) so we NEVER return _buildOfflineState here
+                // The insufficient_data flag at step 2 will still reflect data quality
                 aiSource = 'TITANIUM_QUANT_V4'
                 if (m.odds_home && m.odds_draw && m.odds_away) {
                     const odH = 1 / parseFloat(m.odds_home);

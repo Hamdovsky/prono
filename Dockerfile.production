@@ -1,37 +1,64 @@
-FROM python:3.11
-
+# ─── Stage 1: Node.js dependencies ───────────────────────────
+FROM node:18-slim AS node-deps
 WORKDIR /app
-
-# Install Node.js 18
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Copy dependency manifests
 COPY package.json package-lock.json* ./
-COPY requirements.txt ./
+RUN npm ci --only=production
+RUN npm rebuild better-sqlite3
 
-# Install Node.js dependencies
-RUN npm ci --only=production --ignore-scripts
+# ─── Stage 2: Python FastAPI dependencies ───────────────────
+FROM python:3.11-slim AS python-deps
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt requirements-fastapi.txt ./
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements-fastapi.txt 2>&1 || \
+    (echo "=== Retrying without version pins ===" && \
+     sed -i 's/==.*//' requirements-fastapi.txt && \
+     pip install --no-cache-dir -r requirements-fastapi.txt)
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
-COPY . .
-
-# Build frontend
+# ─── Stage 3: Frontend build ────────────────────────────────
+FROM node:18-slim AS frontend-build
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production
+COPY vite.config.js index.html ./
+COPY src/ ./src/
+COPY public/ ./public/
 RUN npm run build
 
-# Create data directories
-RUN mkdir -p /app/data /app/logs /app/models
+# ─── Stage 4: Production image ──────────────────────────────
+FROM nikolaik/python-nodejs:python3.11-nodejs18-slim
+WORKDIR /app
+
+# Copy Node.js deps
+COPY --from=node-deps /app/node_modules ./node_modules
+# Copy Python deps
+COPY --from=python-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-deps /usr/local/bin /usr/local/bin
+# Copy frontend build
+COPY --from=frontend-build /app/dist ./dist
+
+# Copy application code
+COPY package.json package-lock.json* ./
+COPY app.js server.js ./
+COPY core/ ./core/
+COPY routes/ ./routes/
+COPY services/ ./services/
+COPY scripts/ ./scripts/
+COPY config/ ./config/
+COPY data/ ./data/
+COPY models/ ./models/
+COPY inference/ ./inference/
+
+# Create required directories
+RUN mkdir -p /app/logs /app/data
 
 # Environment
 ENV NODE_ENV=production
 ENV PORT=10000
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/core:/app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

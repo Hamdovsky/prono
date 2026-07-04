@@ -1,13 +1,12 @@
+# -*- coding: utf-8 -*-
 import json
 import sys
 import os
 
-# Add core to path
 sys.path.append(os.path.join(os.getcwd(), 'core'))
 
 from prediction_engine import process_prediction
 
-# Sample match with stats for DNN
 test_match = {
     "homeTeam": "Real Madrid",
     "awayTeam": "Barcelona",
@@ -26,17 +25,21 @@ test_match = {
     "away_xg": 1.2
 }
 
-print("🧪 Testing V15 Deep Prime Hybrid Integration...")
+# Set UTF-8 encoding for stdout
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
+print("[TEST] Testing V15 Deep Prime Hybrid Integration...")
 res = process_prediction(test_match)
 
 if res['success']:
-    print(f"✅ AI Source: {res['ai_source']}")
-    print(f"📊 Predictions:")
-    for p in res['predictions']:
-        print(f"  - {p['label']}: {p['val']} ({p['color']})")
-    
-    print(f"\n🧬 Metrics:")
-    print(f"  - Win Prob (H/D/A): {res['metrics']['home_win_probability']}% / {res['metrics']['draw_probability']}% / {res['metrics']['away_win_probability']}%")
-    print(f"  - Expected Score: {res['metrics']['expected_score']}")
+    print(f"[OK] AI Source: {res['ai_source']}")
+    print("[OK] Main Predictions:")
+    for p in res.get('main_predictions', []):
+        print(f"  - {p.get('type', p.get('label', '?'))}: {p.get('prediction', p.get('val', '?'))}")
+    print()
+    print("[OK] Probabilities:")
+    print(f"  - Win Prob (H/D/A): {res.get('home_win_probability', 0)*100:.1f}% / {res.get('draw_probability', 0)*100:.1f}% / {res.get('away_win_probability', 0)*100:.1f}%")
+    print(f"  - Expected Score: {res.get('expected_score', 'N/A')}")
 else:
-    print(f"❌ Error: {res.get('error')}")
+    print(f"[ERR] Error: {res.get('error')}")

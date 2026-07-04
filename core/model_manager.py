@@ -303,3 +303,87 @@ def simulate_match_mc(model, base_features, num_simulations=500, feature_names=N
         loss_probability /= total_p
 
     return win_probability, draw_probability, loss_probability
+
+
+# ============================================================================
+# MODELMANAGER SINGLETON CLASS
+# ============================================================================
+
+_MODEL_NAMES = {
+    'v24': ('v24', XGB_MODEL_PATH),
+    'v55': ('v55', V55_MODEL_PATH),
+    'v551': ('v551', V551_MODEL_PATH),
+    'v552': ('v552', V552_MODEL_PATH),
+    'v553': ('v553', V553_MODEL_PATH),
+    'v553_premium': ('v553_premium', V553_PREMIUM_MODEL_PATH),
+    'v56': ('v56', V56_MODEL_PATH),
+    'titanium_v2': ('titanium_v2', TITANIUM_MODEL_PATH),
+    'titanium_v4': ('titanium_v4', TITANIUM_V4_MODEL_PATH),
+    'corners': ('corners', CORNERS_MODEL_PATH),
+    'cards': ('cards', CARDS_MODEL_PATH),
+}
+
+_MODEL_TIER_MAP = {
+    'T1': ['v55', 'v24'],
+    'T2': ['v55', 'v24'],
+    'T3': ['v55'],
+    'UNKNOWN': ['v55'],
+}
+
+
+class ModelManager:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._models = {}
+        return cls._instance
+
+    def get_model(self, name):
+        if name in self._models:
+            return self._models[name]
+        entry = _MODEL_NAMES.get(name)
+        if entry is None:
+            return None
+        label, path = entry
+        model = _load_booster(path, label)
+        if model is not None:
+            self._models[name] = model
+        return model
+
+    def get_required_models(self, league_tier, is_wc2026=False):
+        model_keys = list(_MODEL_TIER_MAP.get(league_tier, ['v55']))
+        if is_wc2026 and 'v553_premium' not in model_keys:
+            model_keys.append('v553_premium')
+        models = {}
+        for key in model_keys:
+            m = self.get_model(key)
+            if m is not None:
+                models[key] = m
+        return models
+
+    def unload_model(self, name):
+        self._models.pop(name, None)
+
+    def clear_cache(self):
+        self._models.clear()
+
+    def get_cache_stats(self):
+        return {
+            'count': len(self._models),
+            'loaded_models': list(self._models.keys()),
+            'available_models': sorted(_MODEL_NAMES.keys()),
+        }
+
+
+def get_model_manager():
+    return ModelManager()
+
+
+def get_model(name):
+    return get_model_manager().get_model(name)
+
+
+def get_required_models(league_tier, is_wc2026=False):
+    return get_model_manager().get_required_models(league_tier, is_wc2026=is_wc2026)

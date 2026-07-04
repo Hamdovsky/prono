@@ -9,18 +9,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements-fastapi.txt ./
+# Copy both requirements files
+COPY requirements-fastapi.txt requirements.txt ./
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements-fastapi.txt 2>&1 || \
-    (echo "=== First pip failed, retrying without version pins ===" && \
+    (echo "=== Retrying fastapi deps without version pins ===" && \
      sed -i 's/==.*//' requirements-fastapi.txt && \
-     pip install --no-cache-dir -r requirements-fastapi.txt)
+     pip install --no-cache-dir -r requirements-fastapi.txt) && \
+    pip install --no-cache-dir python-dotenv
 
+# Copy application code
 COPY core/ /app/core/
 COPY inference/ /app/inference/
 COPY scripts/ /app/scripts/
 COPY models/ /app/models/
 COPY data/ /app/data/
+COPY config/ /app/config/
 
 ENV PYTHONPATH=/app/core:/app
 

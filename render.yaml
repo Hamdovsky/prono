@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────
 # render.yaml
 # Compte principal Render (Promosport)
-# Services : Node.js Web + Python FastAPI
+# Services : Node.js Web + Python FastAPI + Redis
 # ─────────────────────────────────────────────────────────
 services:
   # ── Node.js Main Server ─────────────────────────
@@ -34,12 +34,18 @@ services:
         sync: false
       - key: SCRAPERAPI_KEY
         sync: false
+      - key: BBS_API_KEY
+        sync: false
       - key: ARCHIVE_DOWNLOAD_URL
         sync: false
       - key: INFERENCE_URL
-        value: https://prono-fastapi-cnxf.onrender.com
+        value: http://prono-fastapi:8000
       - key: USE_MODEL_MANAGER
         value: "true"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
 
   # ── Python FastAPI Inference ──────────────────
   - type: web

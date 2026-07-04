@@ -24,7 +24,8 @@ from model_manager import (
     get_xgb, get_titanium_booster, get_titanium_v4_booster,
     get_v55_booster, get_v551_booster, get_v552_booster,
     get_v553_booster, get_v553_premium_booster, get_v56_booster,
-    get_main_booster, simulate_match_mc,
+    get_main_booster, get_corners_model, get_cards_model,
+    simulate_match_mc,
 )
 from feature_engineer import extract_v4_features, FEATURE_NAMES_V4
 from data_loader import safe_float as _safe_float

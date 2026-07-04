@@ -1,11 +1,9 @@
 import sys
 import os
 
-# Append core directory to path to import modules
-core_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'core')
-sys.path.append(core_path)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'core'))
 
-from prediction_engine import calculate_dmf_hafiz, calculate_xg_perf_delta, impute_missing_match_data
+from feature_engineer import calculate_dmf_hafiz, calculate_xg_perf_delta, impute_missing_match_data
 
 def test_v50_models():
     print("🚀 [TEST_V50_V2.PY] Executing Advanced V50+ Mathematical Model Tests...")

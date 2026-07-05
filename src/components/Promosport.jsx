@@ -13,6 +13,7 @@ const Promosport = () => {
     const [loadingStep, setLoadingStep] = useState(0);
     const [simulating, setSimulating] = useState(false);
     const [viewMode, setViewMode] = useState('weapons');
+    const [showGrid, setShowGrid] = useState(false);
     const [selectedStrategy, setSelectedStrategy] = useState('EDGE OPTIMIZED');
     const [weaponsData, setWeaponsData] = useState(null);
     const [analysisData, setAnalysisData] = useState(null);
@@ -913,6 +914,118 @@ const Promosport = () => {
                                     <div style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '8px' }}>Conseil</div>
                                     <div style={{ color: '#94a3b8', fontSize: '0.9rem' }}>{analysisData.strategy.conseil}</div>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div style={{ textAlign: 'center', margin: '30px 0 10px' }}>
+                        <button
+                            onClick={() => setShowGrid(!showGrid)}
+                            style={{
+                                background: showGrid ? 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)' : 'rgba(251, 191, 36, 0.1)',
+                                color: showGrid ? '#000' : '#fbbf24',
+                                border: '1px solid #fbbf24',
+                                padding: '8px 20px',
+                                borderRadius: '8px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                letterSpacing: '0.5px'
+                            }}
+                        >
+                            📊 {showGrid ? 'MASQUER' : 'VOIR'} LES GRILLES T1-T4
+                        </button>
+                    </div>
+
+                    {showGrid && (
+                        <div className="promosport-columns-container" style={{ background: 'rgba(30, 41, 59, 0.4)', borderRadius: '15px', padding: '15px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '10px' }}>
+                            <h3 style={{ textAlign: 'center', color: '#fbbf24', margin: '15px 0 5px 0', fontSize: '1.3rem', fontWeight: 'bold', letterSpacing: '2px' }}>
+                                📊 PROMOSPORT — {meta.grid_names.join(' | ').toUpperCase()}
+                            </h3>
+                            <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.75rem', marginBottom: '20px' }}>
+                                Double ⬤ / Triple ⬤ — © TITANIUM NEURAL-X v3.0
+                            </p>
+                            <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
+                                <table className="promosport-table" style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse', minWidth: '650px' }}>
+                                    <thead>
+                                        <tr style={{ color: '#64748b', fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: '2px solid rgba(251, 191, 36, 0.2)' }}>
+                                            <th style={{ padding: '8px 6px', position: 'sticky', left: 0, background: '#1e293b', zIndex: 2, minWidth: '40px', textAlign: 'center' }}>N°</th>
+                                            <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '150px' }}>Équipe 1</th>
+                                            <th style={{ padding: '8px 4px', textAlign: 'center', minWidth: '30px', color: '#fbbf24', fontSize: '0.65rem' }}>%1</th>
+                                            <th style={{ padding: '8px 4px', textAlign: 'center', minWidth: '30px', color: '#fbbf24', fontSize: '0.65rem' }}>%X</th>
+                                            <th style={{ padding: '8px 4px', textAlign: 'center', minWidth: '30px', color: '#fbbf24', fontSize: '0.65rem' }}>%2</th>
+                                            <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '150px' }}>Équipe 2</th>
+                                            {meta.grid_names.map((name, ci) => {
+                                                const gs = meta.gridStats?.[ci];
+                                                return (
+                                                <th key={ci} style={{ padding: '8px 6px', textAlign: 'center', minWidth: '55px', borderLeft: '1px solid rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>
+                                                    {name}
+                                                    {gs && <div style={{ fontSize: '0.6rem', color: '#10b981', marginTop: '2px' }}>{gs.doubles} doubles</div>}
+                                                </th>
+                                                );
+                                            })}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {matches.map((match) => {
+                                            const crowd = match.crowdVote || {}
+                                            const p1 = crowd.p1 || match.probs?.h || 0
+                                            const px = crowd.px || match.probs?.n || 0
+                                            const p2 = crowd.p2 || match.probs?.a || 0
+                                            return (
+                                                <tr key={match.id} style={{
+                                                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                                }}>
+                                                    <td style={{ padding: '10px 6px', textAlign: 'center', color: '#475569', fontWeight: 'bold', position: 'sticky', left: 0, background: '#1e293b', zIndex: 1 }}>
+                                                        <span style={{ fontSize: '0.75rem' }}>{match.time}</span>
+                                                        <br /><span>{match.id}</span>
+                                                    </td>
+                                                    <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: '600', whiteSpace: 'nowrap' }}>{match.home}</td>
+                                                    <td style={{ padding: '10px 4px', textAlign: 'center' }}>
+                                                        <span style={{ color: p1 >= 55 ? '#34d399' : '#64748b', fontWeight: p1 >= 55 ? 'bold' : 'normal' }}>{p1}%</span>
+                                                    </td>
+                                                    <td style={{ padding: '10px 4px', textAlign: 'center' }}>
+                                                        <span style={{ color: '#fbbf24' }}>{px}%</span>
+                                                    </td>
+                                                    <td style={{ padding: '10px 4px', textAlign: 'center' }}>
+                                                        <span style={{ color: p2 >= 60 ? '#34d399' : '#64748b', fontWeight: p2 >= 60 ? 'bold' : 'normal' }}>{p2}%</span>
+                                                    </td>
+                                                    <td style={{ padding: '10px 6px', textAlign: 'left', fontWeight: '600', whiteSpace: 'nowrap' }}>{match.away}</td>
+                                                    {[0, 1, 2, 3].map((ci) => {
+                                                        const colData = match.cols[ci] || { pred: '?' }
+                                                        const isDouble = colData.pred.length > 1
+                                                        const isTriple = colData.pred.length > 2
+                                                        const pickBoxStyle = {
+                                                            display: 'inline-flex',
+                                                            width: '24px', height: '24px',
+                                                            alignItems: 'center', justifyContent: 'center',
+                                                            borderRadius: '4px',
+                                                            fontWeight: '900',
+                                                            fontSize: '0.8rem',
+                                                            background: 'rgba(16, 185, 129, 0.2)',
+                                                            color: '#34d399',
+                                                            margin: '0 1px'
+                                                        }
+                                                        return (
+                                                            <td key={ci} style={{
+                                                                padding: '10px 4px',
+                                                                textAlign: 'center',
+                                                                borderLeft: '1px solid rgba(251, 191, 36, 0.08)',
+                                                                background: isTriple ? 'rgba(139, 92, 246, 0.06)' : isDouble ? 'rgba(251, 191, 36, 0.04)' : 'transparent'
+                                                            }}>
+                                                                <div style={{ display: 'flex', gap: '1px', justifyContent: 'center', alignItems: 'center' }}>
+                                                                    {colData.pred.includes('1') && <span style={{...pickBoxStyle}}>1</span>}
+                                                                    {colData.pred.includes('X') && <span style={{...pickBoxStyle, background: 'rgba(251, 191, 36, 0.25)', color: '#fbbf24'}}>X</span>}
+                                                                    {colData.pred.includes('2') && <span style={{...pickBoxStyle, background: 'rgba(239, 68, 68, 0.25)', color: '#f87171'}}>2</span>}
+                                                                </div>
+                                                            </td>
+                                                        )
+                                                    })}
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     )}

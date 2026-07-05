@@ -202,7 +202,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
  * Advanced Strategic Coverage: Ensures the 4 grids complement each other.
  */
 function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
-  const defaults = [4, 4, 4, 4];
+  const defaults = [6, 6, 6, 6];
   const cd = (Array.isArray(customDoubles) && customDoubles.length === 4)
     ? customDoubles.map((d, i) => Math.max(0, Math.min(13, parseInt(d) || defaults[i])))
     : defaults;

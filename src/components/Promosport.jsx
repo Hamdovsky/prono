@@ -29,12 +29,12 @@ const Promosport = () => {
     const [meta, setMeta] = useState({ 
         concours: '---', 
         date: '--/--/----',
-        grid_names: ['EDGE OPTIMIZED', 'HIGH VALUE', 'SECURE', 'ANTI-CROWD'],
+        grid_names: ['EDGE OPTIMIZED', 'ANTI-CROWD'],
         gridStats: null
     });
 
     const [matches, setMatches] = useState([]);
-    const [doubleCounts, setDoubleCounts] = useState([5, 4, 3, 3]);
+    const [doubleCounts, setDoubleCounts] = useState([4, 4]);
 
     const loadingMessages = [
         'Scraping des données Promosport',
@@ -991,7 +991,7 @@ const Promosport = () => {
                                                         <span style={{ color: p2 >= 60 ? '#34d399' : '#64748b', fontWeight: p2 >= 60 ? 'bold' : 'normal' }}>{p2}%</span>
                                                     </td>
                                                     <td style={{ padding: '10px 6px', textAlign: 'left', fontWeight: '600', whiteSpace: 'nowrap' }}>{match.away}</td>
-                                                    {[0, 1, 2, 3].map((ci) => {
+                                                    {[0, 1].map((ci) => {
                                                         const colData = match.cols[ci] || { pred: '?' }
                                                         const isDouble = colData.pred.length > 1
                                                         const isTriple = colData.pred.length > 2

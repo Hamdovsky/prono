@@ -569,7 +569,7 @@ class DataService {
     async fetchPromosport(customDoubles) {
         try {
             let url = this.promosportApiEndpoint;
-            if (customDoubles && customDoubles.length === 4) {
+            if (customDoubles && customDoubles.length === 2) {
                 const qs = customDoubles.map((d, i) => `d${i+1}=${d}`).join('&');
                 url = this.promosportApiEndpoint + '?' + qs;
             }

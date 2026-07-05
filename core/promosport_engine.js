@@ -147,15 +147,13 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
  * Advanced Strategic Coverage: Ensures the 4 grids complement each other.
  */
 function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
-  const defaults = [5, 4, 3, 3];
-  const cd = (Array.isArray(customDoubles) && customDoubles.length === 4)
+  const defaults = [4, 4];
+  const cd = (Array.isArray(customDoubles) && customDoubles.length === 2)
     ? customDoubles.map((d, i) => Math.max(0, Math.min(13, parseInt(d) || defaults[i])))
     : defaults;
   const gridConfigs = [
-    { id: 'T1', name: 'TITANIUM AI (OPTIMIZED)', doubles: cd[0], bias: 'fav' },
-    { id: 'T2', name: 'EXPERT VALUE (DRAW BIAS)', doubles: cd[1], bias: 'draw' },
-    { id: 'T3', name: 'SECURITY (BANKER FOCUS)', doubles: cd[2], bias: 'safe' },
-    { id: 'T4', name: 'COVERAGE (ANTI-CROWD)', doubles: cd[3], bias: 'upset' }
+    { id: 'T1', name: 'EDGE OPTIMIZED', doubles: cd[0], bias: 'fav' },
+    { id: 'T2', name: 'ANTI-CROWD', doubles: cd[1], bias: 'upset' }
   ];
 
   const grids = [];

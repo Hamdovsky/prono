@@ -218,33 +218,41 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
   const obstacleAnalysis = analyseObstacles(enrichedMatches)
   logger.info(`🧠 [OBSTACLES] Avg score: ${(obstacleAnalysis.reduce((a,o) => a + o.avgScore, 0) / 13).toFixed(2)}/5`)
 
-  const optimalDoubles = doubleOptimizer.selectOptimalDoubles(enrichedMatches, 13)
+  // ── Cross-Distribution of doubles across 4 grids ────────────────
+  // Rank matches by uncertainty (entropy + crowd traps - confidence)
+  const rankedByUncertainty = enrichedMatches
+    .map(m => ({
+      id: m.id,
+      uncertainty: m.entropy + (m.isCrowdTrap || m.isAwayCrowdTrap ? 2 : 0) + (m.publicOverconfidence ? 1 : 0) - (m.confidence / 100) * 0.5
+    }))
+    .sort((a, b) => b.uncertainty - a.uncertainty)
+
+  // Top 3 most uncertain → doubled by ALL 4 grids (core)
+  const coreDoubles = rankedByUncertainty.slice(0, 3).map(m => m.id)
+  // Next 6 → doubled by exactly 2 grids each (medium)
+  const mediumPool = rankedByUncertainty.slice(3, 9).map(m => m.id)
+  // Bottom 4 → singles (easiest)
+  const singlesList = rankedByUncertainty.slice(9, 13).map(m => m.id)
+
+  // Round-robin: each medium match covered by 2 grids
+  // Grid 0: A,B,C  Grid 1: C,D,E  Grid 2: E,F,A  Grid 3: B,D,F
+  const mediumAssignments = [
+    [0, 1, 2],
+    [2, 3, 4],
+    [4, 5, 0],
+    [1, 3, 5]
+  ]
+
+  const gridDoubleMap = {}
+  gridConfigs.forEach((_, gi) => {
+    gridDoubleMap[gi] = [
+      ...coreDoubles,
+      ...mediumAssignments[gi].map(idx => mediumPool[idx])
+    ]
+  })
 
   gridConfigs.forEach((config, gridIdx) => {
-    let doubleIds
-    if (config.bias === 'safe') {
-      doubleIds = optimalDoubles.ranked.filter(m => m.bestSingle.prob >= 0.75).slice(0, config.doubles).map(m => m.id)
-      if (doubleIds.length < config.doubles) {
-        const extra = optimalDoubles.ranked.filter(m => !doubleIds.includes(m.id)).slice(0, config.doubles - doubleIds.length).map(m => m.id)
-        doubleIds = [...doubleIds, ...extra]
-      }
-    } else if (config.bias === 'draw') {
-      const drawCandidates = optimalDoubles.ranked.filter(m => m.px > 0.28 && m.gain > 0.20)
-      doubleIds = drawCandidates.slice(0, config.doubles).map(m => m.id)
-      if (doubleIds.length < config.doubles) {
-        const extra = optimalDoubles.ranked.filter(m => !doubleIds.includes(m.id)).slice(0, config.doubles - doubleIds.length).map(m => m.id)
-        doubleIds = [...doubleIds, ...extra]
-      }
-    } else if (config.bias === 'upset') {
-      const upsetCandidates = optimalDoubles.ranked.filter(m => m.isCrowdTrap || m.isContrarian)
-      doubleIds = upsetCandidates.slice(0, config.doubles).map(m => m.id)
-      if (doubleIds.length < config.doubles) {
-        const extra = optimalDoubles.ranked.filter(m => !doubleIds.includes(m.id)).sort((a, b) => b.gain - a.gain).slice(0, config.doubles - doubleIds.length).map(m => m.id)
-        doubleIds = [...doubleIds, ...extra]
-      }
-    } else {
-      doubleIds = optimalDoubles.ranked.slice(0, config.doubles).map(m => m.id)
-    }
+    const doubleIds = gridDoubleMap[gridIdx]
 
     const gridMatches = enrichedMatches.map(m => {
       const isDouble = doubleIds.includes(m.id);

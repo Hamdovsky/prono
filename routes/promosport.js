@@ -312,7 +312,7 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
         concours: finalConcours,
         date: finalDate,
         matches: unifiedMatches,
-        gridStats: grids.map(g => ({ name: g.name, doubles: g.stats.totalDoubles }))
+        gridStats: grids.map(g => ({ name: g.name, doubles: g.stats.totalDoubles, avgConfidence: parseFloat(g.stats.avgConfidence) }))
     });
 
   } catch (err) {

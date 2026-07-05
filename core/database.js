@@ -1296,6 +1296,59 @@ const database = {
             logger.error(`[DB QUERY ERROR] ${sql} | ${e.message}`);
             return { rows: [] };
         }
+    },
+    getTeamPromosportStats: (teamName) => {
+        try {
+            const archivePath = path.resolve(__dirname, '../data/historical_archive.sqlite');
+            if (!fs.existsSync(archivePath)) {
+                return null;
+            }
+            const ArchiveDB = require('better-sqlite3');
+            const adb = new ArchiveDB(archivePath);
+            const key = teamName.toUpperCase().trim();
+
+            const homeResults = adb.prepare(`
+                SELECT COUNT(*) as total,
+                       SUM(CASE WHEN result = '1' THEN 1 ELSE 0 END) as wins,
+                       SUM(CASE WHEN result = 'X' THEN 1 ELSE 0 END) as draws,
+                       SUM(CASE WHEN result = '2' THEN 1 ELSE 0 END) as losses
+                FROM promosport_archive
+                WHERE UPPER(homeTeam) = ? AND is_finished = 1
+            `).get(key);
+
+            const awayResults = adb.prepare(`
+                SELECT COUNT(*) as total,
+                       SUM(CASE WHEN result = '2' THEN 1 ELSE 0 END) as wins,
+                       SUM(CASE WHEN result = 'X' THEN 1 ELSE 0 END) as draws,
+                       SUM(CASE WHEN result = '1' THEN 1 ELSE 0 END) as losses
+                FROM promosport_archive
+                WHERE UPPER(awayTeam) = ? AND is_finished = 1
+            `).get(key);
+
+            adb.close();
+
+            const homeTotal = homeResults?.total || 0;
+            const awayTotal = awayResults?.total || 0;
+
+            if (homeTotal + awayTotal < 3) return null;
+
+            const homeWinRate = homeTotal > 0 ? (homeResults.wins || 0) / homeTotal : null;
+            const homeDrawRate = homeTotal > 0 ? (homeResults.draws || 0) / homeTotal : null;
+            const awayWinRate = awayTotal > 0 ? (awayResults.wins || 0) / awayTotal : null;
+            const awayDrawRate = awayTotal > 0 ? (awayResults.draws || 0) / awayTotal : null;
+
+            return {
+                homeGames: homeTotal,
+                awayGames: awayTotal,
+                homeWinRate,
+                homeDrawRate,
+                awayWinRate,
+                awayDrawRate
+            };
+        } catch (e) {
+            logger.warn(`[DB] getTeamPromosportStats failed for ${teamName}: ${e.message}`);
+            return null;
+        }
     }
 };
 

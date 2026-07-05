@@ -85,46 +85,50 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             // Detect flat/stale probabilities (33/33/34 from scraper default)
             const isFlat = (
               p1 !== null && px !== null && p2 !== null &&
-              Math.abs(p1 - 0.33) < 0.02 && Math.abs(px - 0.33) < 0.02 && Math.abs(p2 - 0.34) < 0.02
+              Math.abs(p1 - 0.33) < 0.05 && Math.abs(px - 0.33) < 0.05 && Math.abs(p2 - 0.34) < 0.05
             );
 
+            // Try team-specific historical Promosport stats from archive
+            let teamStats = null;
+            if (isFlat || p1 === null || px === null || p2 === null) {
+                teamStats = db.getTeamPromosportStats(m.homeTeam) || db.getTeamPromosportStats(m.awayTeam);
+            }
+
             if (isFlat) {
-              // Try xG-based smart fallback from tactical.db
-              const xgFallback = await smartFallbackWithXg(m);
-              if (xgFallback) {
-                p1 = xgFallback.p1; px = xgFallback.px; p2 = xgFallback.p2;
-                logger.info(`🧪 [PROMOSPORT-ENGINE] xG fallback used for ${m.homeTeam} vs ${m.awayTeam}`);
+              if (teamStats) {
+                const p1Team = teamStats.homeWinRate !== null ? teamStats.homeWinRate : 0.424;
+                const pxTeamHome = teamStats.homeDrawRate !== null ? teamStats.homeDrawRate : 0.259;
+                const p2Team = teamStats.awayWinRate !== null ? teamStats.awayWinRate : 0.317;
+                const pxTeamAway = teamStats.awayDrawRate !== null ? teamStats.awayDrawRate : 0.259;
+
+                p1 = (p1Team * 0.7 + 0.424 * 0.3);
+                px = (pxTeamHome * 0.35 + pxTeamAway * 0.35 + 0.259 * 0.3);
+                p2 = (p2Team * 0.7 + 0.317 * 0.3);
+                logger.info(`🧪 [PROMOSPORT-ENGINE] Archive stats used for ${m.homeTeam} (${teamStats.homeGames}H/${teamStats.awayGames}A)`);
               } else {
-                // Second fallback: historic Promosport distribution + seeded variance
-                const rHome = seededRand(`${m.homeTeam}_win`);
-                const rAway = seededRand(`${m.awayTeam}_win`);
-                const rDraw = seededRand(`${m.homeTeam}_${m.awayTeam}_draw`);
-                const total = rHome + rAway + rDraw;
-                p1 = 0.30 + (rHome / total) * 0.26;
-                p2 = 0.20 + (rAway / total) * 0.26;
-                px = 1.0 - p1 - p2;
-                logger.info(`🧪 [PROMOSPORT-ENGINE] Seeded variance fallback used for ${m.homeTeam}`);
+                // Try xG-based smart fallback from tactical.db
+                const xgFallback = await smartFallbackWithXg(m);
+                if (xgFallback) {
+                  p1 = xgFallback.p1; px = xgFallback.px; p2 = xgFallback.p2;
+                  logger.info(`🧪 [PROMOSPORT-ENGINE] xG fallback used for ${m.homeTeam} vs ${m.awayTeam}`);
+                } else {
+                  p1 = 0.424; px = 0.259; p2 = 0.317;
+                  logger.info(`🧪 [PROMOSPORT-ENGINE] Historical distribution used for ${m.homeTeam}`);
+                }
               }
             }
 
             // If null, safe fallback with REAL historical distribution (4,790 match analysis)
             if (p1 === null || px === null || p2 === null) {
-                p1 = 0.424;
-                px = 0.259;
-                p2 = 0.317;
-            }
-
-            // If flat/default, inject stable seeded variance to generate high-quality prediction columns
-            if (Math.abs(p1 - 0.424) < 0.01 && Math.abs(px - 0.259) < 0.01 && Math.abs(p2 - 0.317) < 0.01) {
-                const rHome = seededRand(`${m.homeTeam}_win`);
-                const rAway = seededRand(`${m.awayTeam}_win`);
-                const rDraw = seededRand(`${m.homeTeam}_${m.awayTeam}_draw`);
-                const total = rHome + rAway + rDraw;
-                
-                // Distribute around real distribution with stable deterministic variance
-                p1 = 0.30 + (rHome / total) * 0.26;
-                p2 = 0.20 + (rAway / total) * 0.26;
-                px = 1.0 - p1 - p2;
+                if (teamStats) {
+                  p1 = teamStats.homeWinRate !== null ? teamStats.homeWinRate : 0.424;
+                  px = (teamStats.homeDrawRate || 0.259) * 0.5 + (teamStats.awayDrawRate || 0.259) * 0.5;
+                  p2 = teamStats.awayWinRate !== null ? teamStats.awayWinRate : 0.317;
+                } else {
+                  p1 = 0.424;
+                  px = 0.259;
+                  p2 = 0.317;
+                }
             }
 
             // Normalize probabilities if in 0-100% format

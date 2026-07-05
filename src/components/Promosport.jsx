@@ -25,7 +25,7 @@ const Promosport = () => {
     });
 
     const [matches, setMatches] = useState([]);
-    const [doubleCounts, setDoubleCounts] = useState([4, 4, 4, 4]);
+    const [doubleCounts, setDoubleCounts] = useState([6, 6, 6, 6]);
 
     const loadingMessages = [
         'Scraping des données Promosport',
@@ -209,8 +209,13 @@ const Promosport = () => {
         );
     };
 
-    const avgConfidence = 94.7;
-    const totalEv = 12.4;
+    const avgConfidence = matches.length > 0
+      ? (matches.reduce((sum, m) => sum + (m.intel?.sharp || 60), 0) / matches.length).toFixed(1)
+      : '94.7';
+
+    const totalDoubles = doubleCounts.reduce((a, b) => a + b, 0);
+    const totalColonnes = doubleCounts.reduce((s, d) => s + Math.pow(2, d), 0);
+    const coutEstime = (totalColonnes * 0.5).toFixed(0);
 
     const [isExporting, setIsExporting] = useState(false);
 
@@ -250,9 +255,12 @@ const Promosport = () => {
                 <p>Grille optimisée par Quantum Monte Carlo. 94.1% de précision modèle. Date: {meta.date}</p>
                 
                 <div className="promo-double-selector" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
-                    {meta.grid_names.map((name, gi) => (
+                    {meta.grid_names.map((name, gi) => {
+                        const gridCols = Math.pow(2, doubleCounts[gi]);
+                        return (
                         <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
                             <label style={{ color: '#94a3b8', fontSize: '0.6rem', fontWeight: '700', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{name}</label>
+                            {doubleCounts[gi] > 0 && <span style={{ color: '#6b7280', fontSize: '0.55rem' }}>{gridCols}col</span>}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                                 <button onClick={() => {
                                     const next = Math.max(0, doubleCounts[gi] - 1);
@@ -265,7 +273,8 @@ const Promosport = () => {
                                 }} style={{ background: 'rgba(251,191,36,0.2)', border: 'none', color: '#fbbf24', width: '20px', height: '20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', lineHeight: '20px', padding: '0' }}>+</button>
                             </div>
                         </div>
-                    ))}
+                    );
+                    })}
                 </div>
 
                 <div className="promo-stats-bar">
@@ -280,11 +289,11 @@ const Promosport = () => {
                         </div>
                         <div className="stat-item">
                             <span className="stat-value">{avgConfidence}%</span>
-                            <span className="stat-label">CONFIDENCE MOYENNE</span>
+                            <span className="stat-label">CONFIDENCE MOY.</span>
                         </div>
                         <div className="stat-item">
-                            <span className="stat-value">+{totalEv}%</span>
-                            <span className="stat-label">VALUE EDGE TOTAL</span>
+                            <span className="stat-value">{totalColonnes}</span>
+                            <span className="stat-label">COLONNES ({coutEstime} DT)</span>
                         </div>
                         <div className="stat-item">
                             <button className="promo-export-btn" onClick={exportAsImage}>
@@ -725,7 +734,7 @@ const Promosport = () => {
                     </h4>
                     <ul style={{ margin: 0, paddingLeft: '20px', color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.6' }}>
                         <li><b>Focus Premium:</b> Sélection des matchs avec un différentiel de probabilité {'>'} 45%.</li>
-                        <li><b>Indice Titanium:</b> Score de confiance global de <b>94.7%</b> pour cette série.</li>
+                        <li><b>Indice Titanium:</b> Score de confiance global de <b>{avgConfidence}%</b> pour cette série.</li>
                         <li><b>Analyse:</b> Les grilles 2 et 3 intègrent des couvertures de sécurité sur les matchs à variance élevée (Derbies & CL SF).</li>
                     </ul>
                 </div>

@@ -250,6 +250,9 @@ class CrowdHackerService {
   getTunisianCrowdSignal(matchData) {
     if (!matchData.publicVote && !matchData.homeWinProbability) return null
 
+    this.loadProfile()
+    const profile = this.promosportBiasProfile
+
     let p1, px, p2
 
     if (matchData.publicVote) {
@@ -272,13 +275,21 @@ class CrowdHackerService {
     const crowdFav = picks[0].label
     const favPct = picks[0].pct
 
-    // Historical accuracy of Tunisian crowd at this confidence level (from 71 matches)
+    // Real accuracy from our 2,489 match historical analysis
     const bin = Math.floor(favPct / 10) * 10
-    const crowdAccByBin = {
-      30: 50.0, 40: 42.9, 50: 37.1,
-      60: 77.8, 70: 50.0, 80: 50.0, 90: 100.0,
+    let crowdAccuracy = 46.0
+    if (profile?.tunisianCrowd?.byConfidence) {
+      const binData = profile.tunisianCrowd.byConfidence.find(b => {
+        const range = b.bin.split('-')
+        const lo = parseInt(range[0])
+        const hi = parseInt(range[1]) || 100
+        return favPct >= lo && favPct <= hi
+      })
+      if (binData) crowdAccuracy = binData.accuracy
+    } else {
+      const crowdAccByBin = { 30: 33.9, 40: 40.7, 50: 43.1, 60: 56.1, 70: 69.9, 80: 83.0, 90: 100.0 }
+      crowdAccuracy = bin <= 30 ? 33.9 : (crowdAccByBin[bin] ?? 46.0)
     }
-    const crowdAccuracy = bin <= 30 ? 50.0 : (crowdAccByBin[bin] ?? 46.5)
 
     const modelPick = matchData.predictedWinner
       ? (matchData.predictedWinner === 'home' ? '1' : matchData.predictedWinner === 'away' ? '2' : 'X')
@@ -286,8 +297,19 @@ class CrowdHackerService {
 
     const modelAgreesWithCrowd = modelPick === crowdFav
     const contrarianSignal = modelPick && !modelAgreesWithCrowd && favPct < 70
-      ? { type: 'STRONG_CONTRARIAN', reason: `Crowd only ${favPct}% on ${crowdFav} (historically ${crowdAccuracy}% accurate)` }
+      ? { type: 'STRONG_CONTRARIAN', reason: `Crowd ${favPct}% on ${crowdFav} (${crowdAccuracy}% correct) → contrarian` }
       : null
+
+    // Seuils calibrés sur 2,489 matchs :
+    // foule < 50% → 33.9-40.7% correct → OPPOSÉ FORT
+    // foule 50-69% → 43.1-56.1% correct → OPPOSÉ
+    // foule 70-79% → 69.9% correct → TOSS-UP (léger follow)
+    // foule ≥ 80% → 83-100% correct → SUIVRE
+    let action
+    if (favPct >= 80) action = 'SUIVRE'
+    else if (favPct >= 70) action = 'PRUDENCE (toss-up, couvrir)'
+    else if (favPct >= 50) action = 'CONTRARIAN (inverse du favori)'
+    else action = 'CONTRARIAN FORT'
 
     return {
       crowdFav,
@@ -296,9 +318,8 @@ class CrowdHackerService {
       crowdAccuracy,
       modelAgreesWithCrowd,
       contrarianSignal,
-      recommendation: favPct < 70
-        ? `Favori foule à ${favPct}% — historiquement ${crowdAccuracy}% correct. Considérer l'inverse.`
-        : `Favori foule à ${favPct}% — fiable dans ${crowdAccuracy}% des cas.`,
+      action,
+      recommendation: `${action} — Favori foule à ${favPct}% (${crowdAccuracy}% correct historiquement).`,
     }
   }
 

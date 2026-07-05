@@ -10,6 +10,7 @@ import EdgePanel from './EdgePanel';
 
 const Promosport = () => {
     const [loading, setLoading] = useState(true);
+    const [loadingStep, setLoadingStep] = useState(0);
     const [simulating, setSimulating] = useState(false);
     const [viewMode, setViewMode] = useState('module');
     const [selectedStrategy, setSelectedStrategy] = useState('EDGE OPTIMIZED');
@@ -35,9 +36,22 @@ const Promosport = () => {
     const [matches, setMatches] = useState([]);
     const [doubleCounts, setDoubleCounts] = useState([5, 4, 3, 3]);
 
+    const loadingMessages = [
+        'Scraping des données Promosport',
+        'Analyse des matchs par IA Titanium',
+        'Calcul des probabilités historiques',
+        'Détection des pièges foule tunisienne',
+        'Génération des grilles T1-T4',
+        'Optimisation des doubles stratégiques'
+    ];
+
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
+            setLoadingStep(0);
+            const stepInterval = setInterval(() => {
+                setLoadingStep(s => Math.min(s + 1, loadingMessages.length - 1));
+            }, 4000);
             try {
                 console.log("📡 [PROMOSPORT] Initializing data fetch...");
                 const [data, weapons, analysis, doubleSim] = await Promise.all([
@@ -64,6 +78,7 @@ const Promosport = () => {
             } catch (err) {
                 console.error("❌ [PROMOSPORT] Failed to load data:", err.message);
             } finally {
+                clearInterval(stepInterval);
                 setLoading(false);
             }
         };
@@ -1427,8 +1442,12 @@ const Promosport = () => {
                 <>
                     {loading && (
                         <div className="promo-loading">
-                            <div className="loader"></div>
-                            <p>CHARGEMENT DU CONCOURS EN COURS...</p>
+                            <div className="loader-ring"></div>
+                            <div className="loading-progress-bar">
+                                <div className="loading-progress-fill"></div>
+                            </div>
+                            <p style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 4 }}>ANALYSE TITANIUM EN COURS</p>
+                            <div className="loading-step">{loadingMessages[loadingStep]}...</div>
                         </div>
                     )}
 

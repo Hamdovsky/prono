@@ -894,4 +894,77 @@ router.get('/history', async (req, res) => {
   }
 })
 
+/**
+ * GET /api/promosport/feedback/stats
+ * Returns accuracy stats per strategy from historical archive
+ */
+router.get('/feedback/stats', async (req, res) => {
+  try {
+    const db = new Database(ARCHIVE_PATH);
+    
+    const totalMatches = db.prepare(`SELECT COUNT(*) as c FROM promosport_archive`).get();
+    const finishedMatches = db.prepare(`SELECT COUNT(*) as c FROM promosport_archive WHERE is_finished = 1`).get();
+    const pendingMatches = db.prepare(`SELECT COUNT(*) as c FROM promosport_archive WHERE is_finished = 0 OR result IS NULL`).get();
+    const concoursCount = db.prepare(`SELECT COUNT(DISTINCT concours) as c FROM promosport_archive`).get();
+    
+    // Crowd accuracy stats
+    const crowdStats = db.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN 
+          (CASE 
+            WHEN vote_home >= vote_draw AND vote_home >= vote_away THEN '1'
+            WHEN vote_draw >= vote_home AND vote_draw >= vote_away THEN 'X'
+            ELSE '2'
+          END) = result THEN 1 ELSE 0 END
+        ) as correct
+      FROM promosport_archive 
+      WHERE result IS NOT NULL AND vote_home IS NOT NULL AND is_finished = 1
+    `).get();
+
+    // Per-confidence-bin crowd accuracy
+    const byConfidence = db.prepare(`
+      SELECT 
+        CAST(ROUND(maxVote / 10) * 10 AS INTEGER) as bin,
+        COUNT(*) as total,
+        SUM(CASE WHEN crowdFav = result THEN 1 ELSE 0 END) as correct
+      FROM (
+        SELECT 
+          result,
+          MAX(vote_home, vote_draw, vote_away) as maxVote,
+          (CASE 
+            WHEN vote_home >= vote_draw AND vote_home >= vote_away THEN '1'
+            WHEN vote_draw >= vote_home AND vote_draw >= vote_away THEN 'X'
+            ELSE '2'
+          END) as crowdFav
+        FROM promosport_archive 
+        WHERE result IS NOT NULL AND vote_home IS NOT NULL AND is_finished = 1
+      ) GROUP BY bin ORDER BY bin
+    `).all();
+
+    db.close();
+
+    res.json({
+      success: true,
+      totalMatches: totalMatches.c,
+      finishedMatches: finishedMatches.c,
+      pendingMatches: pendingMatches.c,
+      concoursCount: concoursCount.c,
+      crowdAccuracy: crowdStats.total > 0 ? +(crowdStats.correct / crowdStats.total * 100).toFixed(1) : 0,
+      crowdTotal: crowdStats.total,
+      crowdCorrect: crowdStats.correct,
+      byConfidence: byConfidence.map(b => ({
+        bin: `${b.bin}-${b.bin + 9}%`,
+        total: b.total,
+        correct: b.correct,
+        accuracy: b.total > 0 ? +(b.correct / b.total * 100).toFixed(1) : 0
+      })),
+      lastUpdated: new Date().toISOString()
+    });
+  } catch (err) {
+    logger.error('[FEEDBACK] Stats error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -12,7 +12,7 @@ const Promosport = () => {
     const [loading, setLoading] = useState(true);
     const [loadingStep, setLoadingStep] = useState(0);
     const [simulating, setSimulating] = useState(false);
-    const [viewMode, setViewMode] = useState('module');
+    const [viewMode, setViewMode] = useState('weapons');
     const [selectedStrategy, setSelectedStrategy] = useState('EDGE OPTIMIZED');
     const [weaponsData, setWeaponsData] = useState(null);
     const [analysisData, setAnalysisData] = useState(null);
@@ -374,28 +374,10 @@ const Promosport = () => {
                     <div className="promo-buttons-row">
                         <button 
                             className="pro-toggle-btn" 
-                            onClick={() => setViewMode(viewMode === 'module' ? 'terminal' : 'module')}
+                            onClick={() => setViewMode('weapons')}
                             style={{
-                                background: viewMode === 'terminal' ? 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)' : 'rgba(56, 189, 248, 0.1)',
-                                color: viewMode === 'terminal' ? '#000' : '#38bdf8',
-                                border: '1px solid #38bdf8',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.5px'
-                            }}
-                        >
-                            {viewMode === 'module' ? '🖥️ PRO TERMINAL' : '📱 MODULE VIEW'}
-                        </button>
-                        <button 
-                            className="pro-toggle-btn" 
-                            onClick={() => setViewMode(viewMode === 'weapons' ? 'module' : 'weapons')}
-                            style={{
-                                background: viewMode === 'weapons' ? 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)' : 'rgba(236, 72, 153, 0.1)',
-                                color: viewMode === 'weapons' ? '#000' : '#ec4899',
+                                background: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
+                                color: '#000',
                                 border: '1px solid #ec4899',
                                 padding: '6px 12px',
                                 borderRadius: '8px',
@@ -407,159 +389,6 @@ const Promosport = () => {
                             }}
                         >
                             🔥 ARMES SECRÈTES
-                        </button>
-                        <button 
-                            className="pro-toggle-btn" 
-                            onClick={() => setViewMode(viewMode === 'doubles' ? 'module' : 'doubles')}
-                            style={{
-                                background: viewMode === 'doubles' ? 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)' : 'rgba(251, 191, 36, 0.1)',
-                                color: viewMode === 'doubles' ? '#000' : '#fbbf24',
-                                border: '1px solid #fbbf24',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.5px'
-                            }}
-                        >
-                            🎲 SIM DOUBLES
-                        </button>
-                        <button 
-                            className="pro-toggle-btn" 
-                            onClick={() => {
-                                const next = viewMode === 'tunisie' ? 'module' : 'tunisie'
-                                setViewMode(next)
-                                if (next === 'tunisie') fetchTunisie(tunisieGrid)
-                            }}
-                            style={{
-                                background: viewMode === 'tunisie' ? 'linear-gradient(135deg, #10b981 0%, #047857 100%)' : 'rgba(16, 185, 129, 0.1)',
-                                color: viewMode === 'tunisie' ? '#000' : '#10b981',
-                                border: '1px solid #10b981',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.5px'
-                            }}
-                        >
-                            🇹🇳 FOULE TUNISIE
-                        </button>
-                        <button 
-                            className="pro-toggle-btn" 
-                            onClick={() => {
-                                const next = viewMode === 'algo' ? 'module' : 'algo'
-                                setViewMode(next)
-                                if (next === 'algo' && tunisieData?.matches) applyAlgo(tunisieData.matches)
-                                else if (next === 'algo') { fetchTunisie(tunisieGrid); setTunisieData(null) }
-                            }}
-                            style={{
-                                background: viewMode === 'algo' ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' : 'rgba(139, 92, 246, 0.1)',
-                                color: viewMode === 'algo' ? '#000' : '#a78bfa',
-                                border: '1px solid #8b5cf6',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.5px'
-                            }}
-                        >
-                            🤖 ALGO GAGNANT
-                        </button>
-                        <button 
-                            className="pro-toggle-btn" 
-                            onClick={handleGenerateColonnes}
-                            style={{
-                                background: viewMode === 'colonnes' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(16, 185, 129, 0.1)',
-                                color: viewMode === 'colonnes' ? '#000' : '#34d399',
-                                border: '1px solid #10b981',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.5px'
-                            }}
-                        >
-                            📊 COLONNES
-                        </button>
-                        <button 
-                            className="pro-toggle-btn" 
-                            onClick={() => setViewMode(viewMode === 'calculator' ? 'module' : 'calculator')}
-                            style={{
-                                background: viewMode === 'calculator' ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : 'rgba(99, 102, 241, 0.1)',
-                                color: viewMode === 'calculator' ? '#000' : '#818cf8',
-                                border: '1px solid #6366f1',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.5px'
-                            }}
-                        >
-                            🧮 CALCULATEUR
-                        </button>
-                        <button
-                            className="pro-toggle-btn"
-                            onClick={() => setViewMode(viewMode === 'accuracy' ? 'module' : 'accuracy')}
-                            style={{
-                                background: viewMode === 'accuracy' ? 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)' : 'rgba(168, 85, 247, 0.1)',
-                                color: viewMode === 'accuracy' ? '#000' : '#a855f7',
-                                border: '1px solid #a855f7',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.5px'
-                            }}
-                        >
-                            📊 ACCURACY
-                        </button>
-                        <button
-                            className="pro-toggle-btn"
-                            onClick={() => setViewMode(viewMode === 'edge' ? 'module' : 'edge')}
-                            style={{
-                                background: viewMode === 'edge' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'rgba(245, 158, 11, 0.1)',
-                                color: viewMode === 'edge' ? '#000' : '#f59e0b',
-                                border: '1px solid #f59e0b',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.5px'
-                            }}
-                        >
-                            💎 EDGE
-                        </button>
-                        <button
-                            className="pro-toggle-btn"
-                            onClick={() => setViewMode(viewMode === 'skills' ? 'module' : 'skills')}
-                            style={{
-                                background: viewMode === 'skills' ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' : 'rgba(34, 197, 94, 0.1)',
-                                color: viewMode === 'skills' ? '#000' : '#22c55e',
-                                border: '1px solid #22c55e',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s',
-                                fontSize: '0.7rem',
-                                letterSpacing: '0.5px'
-                            }}
-                        >
-                            ⚡ SKILLS
                         </button>
                     </div>
                 </div>

@@ -75,46 +75,46 @@
   "promosportOverallAccuracy": 46.1,
   "contrarianHitRate": 0,
   "tunisianCrowd": {
-    "totalMatches": 2452,
-    "crowdRight": 1128,
-    "crowdWrong": 1324,
-    "crowdAccuracy": 46,
+    "totalMatches": 2489,
+    "crowdRight": 1148,
+    "crowdWrong": 1341,
+    "crowdAccuracy": 46.1,
     "byConfidence": [
       {
         "bin": "30-39%",
-        "total": 277,
+        "total": 279,
         "right": 94,
-        "accuracy": 33.9
+        "accuracy": 33.7
       },
       {
         "bin": "40-49%",
-        "total": 816,
-        "right": 332,
+        "total": 827,
+        "right": 337,
         "accuracy": 40.7
       },
       {
         "bin": "50-59%",
-        "total": 795,
-        "right": 343,
-        "accuracy": 43.1
+        "total": 812,
+        "right": 353,
+        "accuracy": 43.5
       },
       {
         "bin": "60-69%",
-        "total": 312,
-        "right": 175,
-        "accuracy": 56.1
+        "total": 315,
+        "right": 177,
+        "accuracy": 56.2
       },
       {
         "bin": "70-79%",
-        "total": 196,
-        "right": 137,
-        "accuracy": 69.9
+        "total": 199,
+        "right": 140,
+        "accuracy": 70.4
       },
       {
         "bin": "80-89%",
-        "total": 47,
+        "total": 48,
         "right": 39,
-        "accuracy": 83
+        "accuracy": 81.3
       },
       {
         "bin": "90-99%",
@@ -326,11 +326,14 @@
       "872",
       "873",
       "874",
-      "875"
+      "875",
+      "876",
+      "877",
+      "878"
     ],
     "insight": {
       "weakConfidence_under70": {
-        "accuracy": 42.9,
+        "accuracy": 43,
         "action": "CONTRARIAN - prendre l'opposé du favori"
       },
       "strongConfidence_70plus": {
@@ -338,6 +341,6 @@
         "action": "SUIVRE la foule (prudence)"
       }
     },
-    "lastUpdated": "2026-06-26T11:11:30.389Z"
+    "lastUpdated": "2026-07-05T15:02:17.821Z"
   }
 }

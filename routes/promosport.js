@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const https = require('https');
+const Database = require('better-sqlite3');
 const logger = require('../core/logger');
 const { speedCache } = require('../core/speedCache');
 const { scrapePromosport } = require('../core/promosport_scraper');
@@ -11,6 +12,33 @@ const doubleOptimizer = require('../services/doubleOptimizerService');
 const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper');
 const crowdHackerService = require('../services/crowdHackerService');
 const secretWeaponsTracker = require('../services/secretWeaponsTracker');
+
+// ─── Archive Helper ──────────────────────────────────────────────────────────
+const ARCHIVE_PATH = require('path').join(__dirname, '..', 'data', 'historical_archive.sqlite');
+function archiveScrapedMatches(concours, date, matches) {
+  try {
+    const db = new Database(ARCHIVE_PATH);
+    const insertMatch = db.prepare(`
+      INSERT OR IGNORE INTO promosport_archive 
+        (concours, date, homeTeam, awayTeam, match_idx, archived_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `);
+    const insertGrid = db.prepare(`
+      INSERT OR REPLACE INTO promosport_grids (concours, date, grid_data, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
+    `);
+    const tx = db.transaction(() => {
+      matches.forEach((m, idx) => {
+        insertMatch.run(concours, date, m.homeTeam, m.awayTeam, idx + 1);
+      });
+      insertGrid.run(concours, date, JSON.stringify(matches));
+    });
+    tx();
+    db.close();
+  } catch (e) {
+    logger.warn(`[ARCHIVE] Failed to archive concours ${concours}: ${e.message}`);
+  }
+}
 
 function parsePromosportPronostic(html) {
   let concoursNumber = '878'
@@ -148,6 +176,12 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
   try {
     logger.info('🚀 [PROMOSPORT] Fetching grid data...')
     const scrapedMatches = await fetchOrFallback()
+
+    // Archive this scrape for historical analysis
+    if (scrapedMatches && scrapedMatches.length === 13) {
+      const first = scrapedMatches[0] || {};
+      archiveScrapedMatches(first.concoursNumber || 'unknown', first.concoursDate || new Date().toISOString(), scrapedMatches);
+    }
 
     // Custom doubles per grid from query params: ?d1=5&d2=4&d3=3&d4=3
     const customDoubles = [
@@ -599,7 +633,29 @@ router.get('/tunisie/:grid', speedCache('promosport_tn', 120000, 600000), async 
     const grid = await scrapeTunisieGrid(gridNo)
     if (!grid) return res.status(404).json({ success: false, error: `Grid ${gridNo} not found` })
 
-        const analysis = grid.matches.map((m) => {
+        // Archive the scraped grid
+    try {
+      const db = new Database(ARCHIVE_PATH);
+      const insertMatch = db.prepare(`
+        INSERT OR IGNORE INTO promosport_archive 
+          (concours, grid_no, date, homeTeam, awayTeam, match_idx, result, vote_home, vote_draw, vote_away, score_home, score_away, is_finished, archived_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
+      `);
+      const insertGrid = db.prepare(`
+        INSERT OR REPLACE INTO promosport_grids (concours, date, grid_data, updated_at)
+        VALUES (?, ?, ?, datetime('now'))
+      `);
+      const tx = db.transaction(() => {
+        grid.matches.forEach(m => {
+          insertMatch.run(grid.no, grid.no, null, m.home, m.away, m.idx, m.result || null, m.publicVote?.p1 || null, m.publicVote?.px || null, m.publicVote?.p2 || null, m.scoreHome, m.scoreAway);
+        });
+        insertGrid.run(grid.no, null, JSON.stringify(grid.matches));
+      });
+      tx();
+      db.close();
+    } catch (_) {}
+
+    const analysis = grid.matches.map((m) => {
           const crowdSignal = crowdHackerService.getContrarianSignal({
             publicVote: m.publicVote,
             homeWinProbability: m.publicVote?.p1 ? m.publicVote.p1 / 100 : undefined,

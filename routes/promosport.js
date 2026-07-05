@@ -202,7 +202,7 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
         
         // Check if any grid was diversified (anti-public trap)
         let diversifyReason = null
-        for (let gi = 0; gi < 4; gi++) {
+        for (let gi = 0; gi < grids.length; gi++) {
           if (grids[gi].matches[idx].diversified) {
             diversifyReason = grids[gi].matches[idx].diversifyReason
             break
@@ -227,12 +227,7 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
                 n: Math.round((gridMatch.px || 0.33) * 100),
                 a: Math.round((gridMatch.p2 || 0.33) * 100)
             },
-            cols: [
-                { pred: grids[0].matches[idx].choices.join(''), name: grids[0].name },
-                { pred: grids[1].matches[idx].choices.join(''), name: grids[1].name },
-                { pred: grids[2].matches[idx].choices.join(''), name: grids[2].name },
-                { pred: grids[3].matches[idx].choices.join(''), name: grids[3].name }
-            ],
+            cols: grids.map(g => ({ pred: g.matches[idx].choices.join(''), name: g.name })),
             intel: gridMatch.intel,
             brief: gridMatch.brief,
             diversifyReason,

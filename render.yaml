@@ -40,6 +40,7 @@ services:
         sync: false
       - key: INFERENCE_URL
         value: http://prono-fastapi:8000
+        sync: true
       - key: USE_MODEL_MANAGER
         value: "true"
       - key: TELEGRAM_BOT_TOKEN

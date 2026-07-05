@@ -988,6 +988,20 @@ const database = {
     },
     seedLeagues: async (leagues) => { return true; },
     getTeamMatchHistory: async (teamName, limit=5) => { return []; },
+    getTeamAvgXg: async (teamName) => {
+        try {
+            const name = teamName?.toLowerCase()?.trim();
+            if (!name) return null;
+            const row = db.prepare(`
+                SELECT AVG(home_xg) as avg_h, AVG(away_xg) as avg_a
+                FROM matches
+                WHERE (LOWER(homeTeam) = ? OR LOWER(awayTeam) = ?)
+                  AND home_xg IS NOT NULL AND away_xg IS NOT NULL
+            `).get(name, name);
+            if (!row) return null;
+            return { homeAvg: row.avg_h, awayAvg: row.avg_a, overallAvg: ((row.avg_h || 0) + (row.avg_a || 0)) / 2 };
+        } catch (e) { return null; }
+    },
     archiveFinishedMatches: async () => {
         try {
             const finished = db.prepare("SELECT * FROM matches WHERE status IN ('FT', 'finished', 'Finished', 'Ended')").all();

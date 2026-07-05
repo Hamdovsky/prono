@@ -3,6 +3,37 @@ const mlPredictionService = require('../services/mlPredictionService');
 const doubleOptimizer = require('../services/doubleOptimizerService');
 const db = require('./database');
 
+// ─── xG→Probabilities (Poisson Approximation) ────────────────────────────────
+function xgToProbs(xgHome, xgAvgHome, xgAvgAway) {
+  const λh = Math.max(0.1, xgHome);
+  const λa = Math.max(0.1, xgAvgAway || xgHome * 0.7);
+  const d = λh - λa;
+  const t = λh + λa;
+  const drawP = 0.26 * Math.exp(-Math.abs(d) / 3.0);
+  const scaling = 1.0 - drawP;
+  const p1 = scaling * λh / (λh + λa);
+  const p2 = scaling * λa / (λh + λa);
+  return { p1, px: drawP, p2 };
+}
+
+// ─── Smart Fallback: xG DB → Poisson → Probabilities ─────────────────────────
+async function smartFallbackWithXg(match) {
+  try {
+    const xgHome = await db.getTeamAvgXg(match.homeTeam);
+    const xgAway = await db.getTeamAvgXg(match.awayTeam);
+    const xgH = xgHome?.overallAvg;
+    const xgA = xgAway?.overallAvg;
+    if (xgH && xgA) {
+      const { p1, px, p2 } = xgToProbs(xgH, xgH, xgA);
+      logger.info(`🧪 [xG Fallback] ${match.homeTeam} vs ${match.awayTeam}: xG ${xgH.toFixed(2)}-${xgA.toFixed(2)} → ${(p1*100).toFixed(0)}/${(px*100).toFixed(0)}/${(p2*100).toFixed(0)}`);
+      return { p1, px, p2 };
+    }
+  } catch (e) {
+    logger.warn(`⚠️ [xG Fallback] DB query failed for ${match.homeTeam}: ${e.message}`);
+  }
+  return null;
+}
+
 
 /**
  * Deterministic pseudo-random number based on a string seed.
@@ -51,8 +82,32 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             let px = pred.probabilities?.draw || m.drawProbability || null;
             let p2 = pred.probabilities?.away || m.awayWinProbability || null;
           
-            // Safe fallback with REAL historical distribution (4,790 match analysis)
-            // 42.4% domiciles, 25.9% nuls, 31.7% extérieurs
+            // Detect flat/stale probabilities (33/33/34 from scraper default)
+            const isFlat = (
+              p1 !== null && px !== null && p2 !== null &&
+              Math.abs(p1 - 0.33) < 0.02 && Math.abs(px - 0.33) < 0.02 && Math.abs(p2 - 0.34) < 0.02
+            );
+
+            if (isFlat) {
+              // Try xG-based smart fallback from tactical.db
+              const xgFallback = await smartFallbackWithXg(m);
+              if (xgFallback) {
+                p1 = xgFallback.p1; px = xgFallback.px; p2 = xgFallback.p2;
+                logger.info(`🧪 [PROMOSPORT-ENGINE] xG fallback used for ${m.homeTeam} vs ${m.awayTeam}`);
+              } else {
+                // Second fallback: historic Promosport distribution + seeded variance
+                const rHome = seededRand(`${m.homeTeam}_win`);
+                const rAway = seededRand(`${m.awayTeam}_win`);
+                const rDraw = seededRand(`${m.homeTeam}_${m.awayTeam}_draw`);
+                const total = rHome + rAway + rDraw;
+                p1 = 0.30 + (rHome / total) * 0.26;
+                p2 = 0.20 + (rAway / total) * 0.26;
+                px = 1.0 - p1 - p2;
+                logger.info(`🧪 [PROMOSPORT-ENGINE] Seeded variance fallback used for ${m.homeTeam}`);
+              }
+            }
+
+            // If null, safe fallback with REAL historical distribution (4,790 match analysis)
             if (p1 === null || px === null || p2 === null) {
                 p1 = 0.424;
                 px = 0.259;
@@ -307,28 +362,30 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
         const mlProbs = { '1': m.p1 || 0.33, 'X': m.px || 0.33, '2': m.p2 || 0.34 }
         alternatives.sort((a, b) => mlProbs[b] - mlProbs[a])
 
-        // Which grid to change: T4 (anti-crowd) for crowd traps, T3 (security) for high obstacles
-        const gi = highObstacleRisk && !m.isCrowdTrap && !m.isAwayCrowdTrap ? 2 : 3
-        const targetMatch = grids[gi].matches[mi]
-        targetMatch.choices = [alternatives[0]]
-        targetMatch.diversified = true
-        const reason = highObstacleRisk
-          ? `🛡️ OBSTACLE ${obs.avgScore}/5: foule ${(crowdPct*100).toFixed(0)}% sur ${currentPick}, diversification ${alternatives[0]}`
-          : `🛡️ ANTI-PIÈGE PUBLIC: foule ${(crowdPct*100).toFixed(0)}% sur ${currentPick}, nous prenons ${alternatives[0]}`
-        targetMatch.diversifyReason = reason
-        targetMatch.brief = (targetMatch.brief || '') + ' | ' + reason
+        // Diversify ANTI-CROWD grid (index 1) on crowd traps, EDGE OPTIMIZED (0) on high obstacles
+        const gi = (highObstacleRisk && !m.isCrowdTrap && !m.isAwayCrowdTrap) ? 0 : 1
+        if (grids[gi]) {
+          const targetMatch = grids[gi].matches[mi]
+          targetMatch.choices = [alternatives[0]]
+          targetMatch.diversified = true
+          const reason = highObstacleRisk
+            ? `🛡️ OBSTACLE ${obs.avgScore}/5: foule ${(crowdPct*100).toFixed(0)}% sur ${currentPick}, diversification ${alternatives[0]}`
+            : `🛡️ ANTI-PIÈGE PUBLIC: foule ${(crowdPct*100).toFixed(0)}% sur ${currentPick}, nous prenons ${alternatives[0]}`
+          targetMatch.diversifyReason = reason
+          targetMatch.brief = (targetMatch.brief || '') + ' | ' + reason
+        }
       }
     }
 
-    // Also add an extra double on high-obstacle matches in T4 (anti-crowd)
-    if (highObstacleRisk && obs.avgScore > 4.0) {
-      const t4 = grids[3].matches[mi]
-      if (t4.choices.length === 1) {
-        const current = t4.choices[0]
+    // Extra double on high-obstacle matches in ANTI-CROWD grid (index 1)
+    if (highObstacleRisk && obs.avgScore > 4.0 && grids[1]) {
+      const antiCrowdMatch = grids[1].matches[mi]
+      if (antiCrowdMatch.choices.length === 1) {
+        const current = antiCrowdMatch.choices[0]
         const alt = ['1', 'X', '2'].filter(p => p !== current)
-        t4.choices.push(alt[0])
-        t4.diversified = true
-        t4.diversifyReason = (t4.diversifyReason || '') + ` | 🔴 OBSTACLE CRITIQUE ${obs.avgScore}/5 — double forcé`
+        antiCrowdMatch.choices.push(alt[0])
+        antiCrowdMatch.diversified = true
+        antiCrowdMatch.diversifyReason = (antiCrowdMatch.diversifyReason || '') + ` | 🔴 OBSTACLE CRITIQUE ${obs.avgScore}/5 — double forcé`
       }
     }
   }

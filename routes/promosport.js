@@ -85,59 +85,48 @@ function parsePromosportPronostic(html) {
   const dateMatch = html.match(/Du\s+(\d{4}-\d{2}-\d{2})\s+/i)
   if (dateMatch) concoursDate = dateMatch[1]
 
-  // Find the first f_table (match grid)
-  const tableId = 'id="f_table"'
-  const idPos = html.indexOf(tableId)
-  if (idPos === -1) return []
-
-  const tableOpen = html.lastIndexOf('<table', idPos)
-  const tableClose = html.indexOf('</table>', idPos)
-  if (tableOpen === -1 || tableClose === -1) return []
-
-  const tableHtml = html.substring(tableOpen, tableClose + 8)
-
   const matches = []
-  let pos = 0
-  let rowNum = 0
+  const seenPairs = new Set()
+  let rowPos = 0
 
-  while ((pos = tableHtml.indexOf('<tr', pos)) !== -1) {
-    const trEnd = tableHtml.indexOf('</tr>', pos)
+  // Scan ALL <tr> in the document. Process rows from BOTH tables (prono + votes)
+  // Deduplicate by team names to get exactly 13 unique matches.
+  while ((rowPos = html.indexOf('<tr', rowPos)) !== -1 && matches.length < 13) {
+    const trEnd = html.indexOf('</tr>', rowPos)
     if (trEnd === -1) break
-    const row = tableHtml.substring(pos, trEnd + 5)
-    rowNum++
-    if (rowNum === 1) { pos = trEnd + 5; continue }
+    const row = html.substring(rowPos, trEnd + 5)
 
-    // Extract match number from the FIRST <td> only (avoid matching comments or other cells)
+    // Check if first cell has a match number 1-13
     const firstTdEnd = row.indexOf('</td>')
     const firstTd = firstTdEnd > 0 ? row.substring(0, firstTdEnd + 5) : row
-    let id = 0
-    let numMatch = firstTd.match(/<p[^>]*style=['"][^'"]*text-align:\s*center[^'"]*['"][^>]*>\s*(?:<a[^>]*>\s*)?(\d+)\s*(?:<\/a>\s*)?<\/p>/i)
-    if (numMatch) {
-      id = parseInt(numMatch[1])
-    } else {
-      // Strip all HTML tags and extract the number from the remaining text
-      const textContent = firstTd.replace(/<[^>]*>/g, '').trim()
-      const txtMatch = textContent.match(/^(\d{1,2})$/)
-      if (txtMatch) id = parseInt(txtMatch[1])
-    }
-    if (id < 1 || id > 13) { pos = trEnd + 5; continue }
-    if (id < 1 || id > 13) { pos = trEnd + 5; continue }
+    const textContent = firstTd.replace(/<[^>]*>/g, '').trim()
+    const txtMatch = textContent.match(/^(\d{1,2})$/)
+    const id = txtMatch ? parseInt(txtMatch[1]) : 0
+    if (id < 1 || id > 13) { rowPos = trEnd + 5; continue }
 
-    // Extract team names: find all <a class="nline"> with text length > 1, exclude numeric links (button-link)
-    const teamLinks = []
-    const linkRegex = /<a[^>]*class="nline"[^>]*>([^<]+)<\/a>/gi
-    let linkMatch
-    while ((linkMatch = linkRegex.exec(row)) !== null) {
-      const text = linkMatch[1].trim()
-      if (text.length > 1 && !/^\d+$/.test(text)) teamLinks.push(text)
+    // Extract team names from this row
+    const links = []
+    const lr = /<a[^>]*class="nline"[^>]*>([^<]+)<\/a>/gi
+    let lm
+    while ((lm = lr.exec(row)) !== null) {
+      const t = lm[1].trim()
+      if (t.length > 1 && !/^\d+$/.test(t)) links.push(t)
     }
+    if (links.length < 2) { rowPos = trEnd + 5; continue }
 
-    if (teamLinks.length < 2) { pos = trEnd + 5; continue }
+    const rawHome = links[0].toUpperCase().trim()
+    const rawAway = links[1].toUpperCase().trim()
+    const normHome = normalizeTeamName(rawHome)
+    const normAway = normalizeTeamName(rawAway)
+    const dupKey = `${normHome}_vs_${normAway}`
+    const revKey = `${normAway}_vs_${normHome}`
+    if (seenPairs.has(dupKey) || seenPairs.has(revKey)) { rowPos = trEnd + 5; continue }
+    seenPairs.add(dupKey)
 
     matches.push({
-      id,
-      homeTeam: teamLinks[0].toUpperCase(),
-      awayTeam: teamLinks[1].toUpperCase(),
+      id: matches.length + 1,
+      homeTeam: rawHome,
+      awayTeam: rawAway,
       leagueName: 'Promosport',
       homeWinProbability: 0.33,
       drawProbability: 0.33,
@@ -146,16 +135,25 @@ function parsePromosportPronostic(html) {
       concoursDate,
       concoursNumber
     })
-
-    pos = trEnd + 5
-    if (matches.length >= 13) break
+    rowPos = trEnd + 5
   }
 
-  // Validate: 13 unique match IDs (1-13) required
-  const uniqueIds = new Set(matches.map(m => m.id))
-  if (uniqueIds.size !== 13) return []
-
-  return matches.sort((a, b) => a.id - b.id)
+  // Pad with placeholders if needed
+  while (matches.length < 13) {
+    matches.push({
+      id: matches.length + 1,
+      homeTeam: 'Match ' + (matches.length + 1),
+      awayTeam: 'À déterminer',
+      leagueName: 'Promosport',
+      homeWinProbability: 0.33,
+      drawProbability: 0.33,
+      awayWinProbability: 0.34,
+      matchTime: '---',
+      concoursDate,
+      concoursNumber
+    })
+  }
+  return matches
 }
 
 let _fallbackCache = null

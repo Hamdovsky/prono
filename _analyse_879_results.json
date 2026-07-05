@@ -1,0 +1,279 @@
+{
+  "concours": "879",
+  "date": "2026-07-04",
+  "analysis": [
+    {
+      "id": 1,
+      "home": "CANADA",
+      "away": "MAROC",
+      "avgObstacleScore": 3,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 3,
+        "statistiques": 4,
+        "psychologie": 4,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    },
+    {
+      "id": 2,
+      "home": "CANADA",
+      "away": "MOROCCO",
+      "avgObstacleScore": 2.82,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 2,
+        "terrain": 3,
+        "statistiques": 4,
+        "psychologie": 4,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    },
+    {
+      "id": 3,
+      "home": "BRAZIL",
+      "away": "NORVÈGE",
+      "avgObstacleScore": 3.09,
+      "maxObstacleScore": 4,
+      "riskLevel": "MEDIUM",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 3,
+        "statistiques": 4,
+        "psychologie": 4,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 3
+      }
+    },
+    {
+      "id": 4,
+      "home": "BRAZIL",
+      "away": "NORWAY",
+      "avgObstacleScore": 2.73,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 2,
+        "terrain": 3,
+        "statistiques": 3,
+        "psychologie": 4,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    },
+    {
+      "id": 5,
+      "home": "MEXICO",
+      "away": "ENGLAND",
+      "avgObstacleScore": 3,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 3,
+        "statistiques": 4,
+        "psychologie": 4,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    },
+    {
+      "id": 6,
+      "home": "PORTUGAL",
+      "away": "SPAIN",
+      "avgObstacleScore": 3,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 3,
+        "statistiques": 4,
+        "psychologie": 4,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    },
+    {
+      "id": 7,
+      "home": "PARAGUAY",
+      "away": "FRANCE",
+      "avgObstacleScore": 3.09,
+      "maxObstacleScore": 4,
+      "riskLevel": "MEDIUM",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 3,
+        "statistiques": 4,
+        "psychologie": 4,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 3
+      }
+    },
+    {
+      "id": 8,
+      "home": "USA",
+      "away": "BELGIUM",
+      "avgObstacleScore": 3,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 3,
+        "statistiques": 4,
+        "psychologie": 4,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    },
+    {
+      "id": 9,
+      "home": "CRICIUMA",
+      "away": "SPORT RECIFE",
+      "avgObstacleScore": 2.82,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 2,
+        "statistiques": 4,
+        "psychologie": 3,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    },
+    {
+      "id": 10,
+      "home": "LONDRINA",
+      "away": "CRB",
+      "avgObstacleScore": 3,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 3,
+        "statistiques": 4,
+        "psychologie": 3,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 3
+      }
+    },
+    {
+      "id": 11,
+      "home": "NOVORIZONTINO",
+      "away": "ATLETICO GOIANIENSE",
+      "avgObstacleScore": 2.91,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 3,
+        "statistiques": 4,
+        "psychologie": 3,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    },
+    {
+      "id": 12,
+      "home": "GOIAS",
+      "away": "CEARA",
+      "avgObstacleScore": 2.82,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 2,
+        "statistiques": 4,
+        "psychologie": 3,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    },
+    {
+      "id": 13,
+      "home": "NAUTICO RECIFE",
+      "away": "JUVENTUDE",
+      "avgObstacleScore": 2.82,
+      "maxObstacleScore": 4,
+      "riskLevel": "LOW",
+      "obstacles": {
+        "bookmaker": 4,
+        "terrain": 2,
+        "statistiques": 4,
+        "psychologie": 3,
+        "public": 2,
+        "meteo": 3,
+        "blessures": 3,
+        "arbitrage": 3,
+        "cotes": 3,
+        "historique": 2,
+        "valeur": 2
+      }
+    }
+  ]
+}

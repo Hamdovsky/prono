@@ -41,14 +41,12 @@ function normalizeTeamName(name) {
   return n
 }
 
-function deduplicateMatches(matches) {
-  const seen = new Set()
-  return matches.filter(m => {
-    const key = `${normalizeTeamName(m.homeTeam)}_${normalizeTeamName(m.awayTeam)}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+function normalizeMatchNames(matches) {
+  return matches.map(m => ({
+    ...m,
+    homeTeam: normalizeTeamName(m.homeTeam),
+    awayTeam: normalizeTeamName(m.awayTeam)
+  }))
 }
 
 // ─── Archive Helper ──────────────────────────────────────────────────────────
@@ -215,13 +213,10 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
     logger.info('🚀 [PROMOSPORT] Fetching grid data...')
     let scrapedMatches = await fetchOrFallback()
 
-    // Deduplicate matches with normalized team names (MAROC → MOROCCO, NORVÈGE → NORWAY)
+    // Normalize team names consistently (MAROC → MOROCCO, NORVÈGE → NORWAY)
     if (scrapedMatches && scrapedMatches.length > 0) {
-      const before = scrapedMatches.length
-      scrapedMatches = deduplicateMatches(scrapedMatches)
-      if (scrapedMatches.length < before) {
-        logger.info(`🧹 [PROMOSPORT] Deduplicated ${before - scrapedMatches.length} duplicate matches (${before} → ${scrapedMatches.length})`)
-      }
+      scrapedMatches = normalizeMatchNames(scrapedMatches)
+      logger.info(`🧹 [PROMOSPORT] Normalised ${scrapedMatches.length} matches`)
     }
 
     // Archive this scrape for historical analysis

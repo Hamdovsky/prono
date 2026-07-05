@@ -43,19 +43,29 @@ function parsePromosportPronostic(html) {
     rowNum++
     if (rowNum === 1) { pos = trEnd + 5; continue }
 
-    // Extract match number
-    const numMatch = row.match(/<p[^>]*style=['"][^'"]*text-align:\s*center[^'"]*['"][^>]*>\s*(?:<a[^>]*>\s*)?(\d+)\s*(?:<\/a>\s*)?<\/p>/i)
-    if (!numMatch) { pos = trEnd + 5; continue }
-    const id = parseInt(numMatch[1])
+    // Extract match number from the FIRST <td> only (avoid matching comments or other cells)
+    const firstTdEnd = row.indexOf('</td>')
+    const firstTd = firstTdEnd > 0 ? row.substring(0, firstTdEnd + 5) : row
+    let id = 0
+    let numMatch = firstTd.match(/<p[^>]*style=['"][^'"]*text-align:\s*center[^'"]*['"][^>]*>\s*(?:<a[^>]*>\s*)?(\d+)\s*(?:<\/a>\s*)?<\/p>/i)
+    if (numMatch) {
+      id = parseInt(numMatch[1])
+    } else {
+      // Strip all HTML tags and extract the number from the remaining text
+      const textContent = firstTd.replace(/<[^>]*>/g, '').trim()
+      const txtMatch = textContent.match(/^(\d{1,2})$/)
+      if (txtMatch) id = parseInt(txtMatch[1])
+    }
+    if (id < 1 || id > 13) { pos = trEnd + 5; continue }
     if (id < 1 || id > 13) { pos = trEnd + 5; continue }
 
-    // Extract team names: find all <a class="nline"> with text length > 1
+    // Extract team names: find all <a class="nline"> with text length > 1, exclude numeric links (button-link)
     const teamLinks = []
     const linkRegex = /<a[^>]*class="nline"[^>]*>([^<]+)<\/a>/gi
     let linkMatch
     while ((linkMatch = linkRegex.exec(row)) !== null) {
       const text = linkMatch[1].trim()
-      if (text.length > 1) teamLinks.push(text)
+      if (text.length > 1 && !/^\d+$/.test(text)) teamLinks.push(text)
     }
 
     if (teamLinks.length < 2) { pos = trEnd + 5; continue }
@@ -168,11 +178,13 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
             probs: {
                 h: Math.round((gridMatch.crowdP1 || m.homeWinProbability || 0.33) * 100),
                 x: Math.round((m.drawProbability || 0.33) * 100),
+                n: Math.round((m.drawProbability || 0.33) * 100),
                 a: Math.round((gridMatch.crowdP2 || m.awayWinProbability || 0.33) * 100)
             },
             mlProbs: {
                 h: Math.round((gridMatch.p1 || 0.33) * 100),
                 x: Math.round((gridMatch.px || 0.33) * 100),
+                n: Math.round((gridMatch.px || 0.33) * 100),
                 a: Math.round((gridMatch.p2 || 0.33) * 100)
             },
             cols: [

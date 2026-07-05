@@ -232,7 +232,7 @@ app.get('/health', async (req, res) => {
 
   // FastAPI check
   try {
-    const r = await fetch(process.env.INFERENCE_URL + '/health', { signal: AbortSignal.timeout(5000) });
+    const r = await fetch((process.env.INFERENCE_URL || 'http://127.0.0.1:8000') + '/health', { signal: AbortSignal.timeout(5000) });
     checks.fastapi = r.ok ? 'ok' : 'fail'
   } catch (e) { checks.fastapi = 'fail' }
 

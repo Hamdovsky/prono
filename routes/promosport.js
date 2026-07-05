@@ -149,9 +149,17 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
     logger.info('🚀 [PROMOSPORT] Fetching grid data...')
     const scrapedMatches = await fetchOrFallback()
 
+    // Custom doubles per grid from query params: ?d1=5&d2=4&d3=3&d4=3
+    const customDoubles = [
+      parseInt(req.query.d1) || null,
+      parseInt(req.query.d2) || null,
+      parseInt(req.query.d3) || null,
+      parseInt(req.query.d4) || null
+    ].map(d => d !== null && !isNaN(d) ? d : null);
+
     // UNIFY DATA STRUCTURE for Frontend
     // Convert backend grids array into a single matches array with cols
-    const grids = await generatePromosportGrids(scrapedMatches);
+    const grids = await generatePromosportGrids(scrapedMatches, customDoubles);
     
     if (!grids || grids.length === 0) {
         throw new Error("Grid generation failed");
@@ -234,7 +242,8 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
     res.json({
         concours: finalConcours,
         date: finalDate,
-        matches: unifiedMatches
+        matches: unifiedMatches,
+        gridStats: grids.map(g => ({ name: g.name, doubles: g.stats.totalDoubles }))
     });
 
   } catch (err) {

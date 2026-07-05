@@ -28,10 +28,12 @@ const Promosport = () => {
     const [meta, setMeta] = useState({ 
         concours: '---', 
         date: '--/--/----',
-        grid_names: ['EDGE OPTIMIZED', 'HIGH VALUE', 'SECURE', 'ANTI-CROWD']
+        grid_names: ['EDGE OPTIMIZED', 'HIGH VALUE', 'SECURE', 'ANTI-CROWD'],
+        gridStats: null
     });
 
     const [matches, setMatches] = useState([]);
+    const [doubleCounts, setDoubleCounts] = useState([5, 4, 3, 3]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -39,7 +41,7 @@ const Promosport = () => {
             try {
                 console.log("📡 [PROMOSPORT] Initializing data fetch...");
                 const [data, weapons, analysis, doubleSim] = await Promise.all([
-                    dataService.fetchPromosport(),
+                    dataService.fetchPromosport(doubleCounts),
                     dataService.fetchPromosportWeapons().catch(() => null),
                     dataService.fetchPromosportAnalysis().catch(() => null),
                     dataService.fetchPromosportDoubleSim().catch(() => null)
@@ -52,7 +54,8 @@ const Promosport = () => {
                     setMeta(prev => ({ 
                         ...prev, 
                         concours: data.concours || '855', 
-                        date: data.date || new Date().toLocaleDateString() 
+                        date: data.date || new Date().toLocaleDateString(),
+                        gridStats: data.gridStats || prev.gridStats
                     }));
                     console.log("✅ [PROMOSPORT] Data loaded successfully:", data.matches.length, "matches");
                 } else {
@@ -66,6 +69,9 @@ const Promosport = () => {
         };
         loadData();
 
+    }, [doubleCounts]);
+
+    useEffect(() => {
         dataService.fetchPromosportWeaponsHistory().then(h => {
             if (h && h.success) setWeaponsHistory(h)
         })
@@ -308,6 +314,25 @@ const Promosport = () => {
                     ))}
                 </div>
 
+                <div className="promo-double-selector" style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '15px', flexWrap: 'wrap' }}>
+                    {meta.grid_names.map((name, gi) => (
+                        <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '6px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <label style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{name}</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <button onClick={() => {
+                                    const next = Math.max(0, doubleCounts[gi] - 1);
+                                    const newD = [...doubleCounts]; newD[gi] = next; setDoubleCounts(newD);
+                                }} style={{ background: 'rgba(251,191,36,0.2)', border: 'none', color: '#fbbf24', width: '24px', height: '24px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>−</button>
+                                <span style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1rem', minWidth: '20px', textAlign: 'center' }}>{doubleCounts[gi]}</span>
+                                <button onClick={() => {
+                                    const next = Math.min(13, doubleCounts[gi] + 1);
+                                    const newD = [...doubleCounts]; newD[gi] = next; setDoubleCounts(newD);
+                                }} style={{ background: 'rgba(251,191,36,0.2)', border: 'none', color: '#fbbf24', width: '24px', height: '24px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>+</button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
                 <div className="promo-stats-bar">
                     <div className="promo-stats-row">
                         <div className="stat-item">
@@ -315,8 +340,8 @@ const Promosport = () => {
                             <span className="stat-label">MATCHES</span>
                         </div>
                         <div className="stat-item">
-                            <span className="stat-value highlight">5 DOUBLES</span>
-                            <span className="stat-label">PER GRID</span>
+                            <span className="stat-value highlight">{doubleCounts.reduce((a, b) => a + b, 0)}</span>
+                            <span className="stat-label">DOUBLES TOTAL</span>
                         </div>
                         <div className="stat-item">
                             <span className="stat-value">{avgConfidence}%</span>
@@ -1517,11 +1542,15 @@ const Promosport = () => {
                                 <th style={{ padding: '8px 4px', textAlign: 'center', minWidth: '30px', color: '#fbbf24', fontSize: '0.65rem' }}>%X</th>
                                 <th style={{ padding: '8px 4px', textAlign: 'center', minWidth: '30px', color: '#fbbf24', fontSize: '0.65rem' }}>%2</th>
                                 <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '150px' }}>Équipe 2</th>
-                                {meta.grid_names.map((name, ci) => (
+                                {meta.grid_names.map((name, ci) => {
+                                    const gs = meta.gridStats?.[ci];
+                                    return (
                                     <th key={ci} style={{ padding: '8px 6px', textAlign: 'center', minWidth: '55px', borderLeft: '1px solid rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}>
                                         {name}
+                                        {gs && <div style={{ fontSize: '0.6rem', color: '#10b981', marginTop: '2px' }}>{gs.doubles} doubles</div>}
                                     </th>
-                                ))}
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody>

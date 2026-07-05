@@ -566,9 +566,14 @@ class DataService {
 }
 
 
-    async fetchPromosport() {
+    async fetchPromosport(customDoubles) {
         try {
-            return await this._get(this.promosportApiEndpoint);
+            let url = this.promosportApiEndpoint;
+            if (customDoubles && customDoubles.length === 4) {
+                const qs = customDoubles.map((d, i) => `d${i+1}=${d}`).join('&');
+                url = this.promosportApiEndpoint + '?' + qs;
+            }
+            return await this._get(url);
         } catch (error) {
             logger.error('❌ [DATA] Failed to fetch Promosport grid:', error.message);
             return null;

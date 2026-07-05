@@ -18,7 +18,7 @@ function seededRand(seed) {
     return ((hash >>> 0) % 100000) / 100000;
 }
 
-async function generatePromosportGrids(scrapedMatches) {
+async function generatePromosportGrids(scrapedMatches, customDoubles) {
   if (!scrapedMatches || scrapedMatches.length === 0) {
     logger.warn('[PROMOSPORT-ENGINE] No scraped matches provided');
     return null;
@@ -134,7 +134,7 @@ async function generatePromosportGrids(scrapedMatches) {
 
 
     // 2. Generate the 4 specialized grids with STRATEGIC DIVERSIFICATION
-    const result = generateGridsWithStrategicCoverage(enrichedMatches);
+    const result = generateGridsWithStrategicCoverage(enrichedMatches, customDoubles);
     return result;
   } catch (err) {
     logger.error('[PROMOSPORT-ENGINE] Grid generation failed:', err.message);
@@ -145,12 +145,16 @@ async function generatePromosportGrids(scrapedMatches) {
 /**
  * Advanced Strategic Coverage: Ensures the 4 grids complement each other.
  */
-function generateGridsWithStrategicCoverage(enrichedMatches) {
+function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
+  const defaults = [5, 4, 3, 3];
+  const cd = (Array.isArray(customDoubles) && customDoubles.length === 4)
+    ? customDoubles.map((d, i) => Math.max(0, Math.min(13, parseInt(d) || defaults[i])))
+    : defaults;
   const gridConfigs = [
-    { id: 'T1', name: 'TITANIUM AI (OPTIMIZED)', doubles: 5, bias: 'fav' },
-    { id: 'T2', name: 'EXPERT VALUE (DRAW BIAS)', doubles: 4, bias: 'draw' },
-    { id: 'T3', name: 'SECURITY (BANKER FOCUS)', doubles: 3, bias: 'safe' },
-    { id: 'T4', name: 'COVERAGE (ANTI-CROWD)', doubles: 3, bias: 'upset' }
+    { id: 'T1', name: 'TITANIUM AI (OPTIMIZED)', doubles: cd[0], bias: 'fav' },
+    { id: 'T2', name: 'EXPERT VALUE (DRAW BIAS)', doubles: cd[1], bias: 'draw' },
+    { id: 'T3', name: 'SECURITY (BANKER FOCUS)', doubles: cd[2], bias: 'safe' },
+    { id: 'T4', name: 'COVERAGE (ANTI-CROWD)', doubles: cd[3], bias: 'upset' }
   ];
 
   const grids = [];

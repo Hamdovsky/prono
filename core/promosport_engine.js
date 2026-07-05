@@ -202,13 +202,15 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
  * Advanced Strategic Coverage: Ensures the 4 grids complement each other.
  */
 function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
-  const defaults = [4, 4];
-  const cd = (Array.isArray(customDoubles) && customDoubles.length === 2)
+  const defaults = [4, 4, 4, 4];
+  const cd = (Array.isArray(customDoubles) && customDoubles.length === 4)
     ? customDoubles.map((d, i) => Math.max(0, Math.min(13, parseInt(d) || defaults[i])))
     : defaults;
   const gridConfigs = [
     { id: 'T1', name: 'EDGE OPTIMIZED', doubles: cd[0], bias: 'fav' },
-    { id: 'T2', name: 'ANTI-CROWD', doubles: cd[1], bias: 'upset' }
+    { id: 'T2', name: 'ANTI-CROWD', doubles: cd[1], bias: 'upset' },
+    { id: 'T3', name: 'HIGH VALUE', doubles: cd[2], bias: 'draw' },
+    { id: 'T4', name: 'SECURE BANKER', doubles: cd[3], bias: 'safe' }
   ];
 
   const grids = [];
@@ -362,8 +364,8 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
         const mlProbs = { '1': m.p1 || 0.33, 'X': m.px || 0.33, '2': m.p2 || 0.34 }
         alternatives.sort((a, b) => mlProbs[b] - mlProbs[a])
 
-        // Diversify ANTI-CROWD grid (index 1) on crowd traps, EDGE OPTIMIZED (0) on high obstacles
-        const gi = (highObstacleRisk && !m.isCrowdTrap && !m.isAwayCrowdTrap) ? 0 : 1
+        // Diversify HIGH VALUE grid (index 2) on high obstacles, SECURE BANKER (3) on crowd traps
+        const gi = (highObstacleRisk && !m.isCrowdTrap && !m.isAwayCrowdTrap) ? 2 : 3
         if (grids[gi]) {
           const targetMatch = grids[gi].matches[mi]
           targetMatch.choices = [alternatives[0]]
@@ -377,8 +379,8 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
       }
     }
 
-    // Extra double on high-obstacle matches in ANTI-CROWD grid (index 1)
-    if (highObstacleRisk && obs.avgScore > 4.0 && grids[1]) {
+    // Extra double on high-obstacle matches in SECURE BANKER grid (index 3)
+    if (highObstacleRisk && obs.avgScore > 4.0 && grids[3]) {
       const antiCrowdMatch = grids[1].matches[mi]
       if (antiCrowdMatch.choices.length === 1) {
         const current = antiCrowdMatch.choices[0]

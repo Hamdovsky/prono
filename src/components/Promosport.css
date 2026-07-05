@@ -352,3 +352,25 @@
     75% { content: '...'; }
     100% { content: ''; }
 }
+
+/* Compact Grid */
+.promosport-columns-container.compact .promosport-table {
+    font-size: 0.7rem;
+}
+.promosport-columns-container.compact th,
+.promosport-columns-container.compact td {
+    padding: 2px 3px !important;
+    line-height: 1.2;
+}
+.promosport-columns-container.compact .pick-box {
+    width: 16px !important;
+    height: 16px !important;
+    font-size: 0.55rem !important;
+    min-width: unset !important;
+}
+.promosport-columns-container.compact th[style*="min-width"] {
+    min-width: 40px !important;
+}
+.promosport-columns-container.compact td[style*="padding"] {
+    padding: 2px 3px !important;
+}

@@ -225,10 +225,12 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
       archiveScrapedMatches(first.concoursNumber || 'unknown', first.concoursDate || new Date().toISOString(), scrapedMatches);
     }
 
-    // Custom doubles per grid from query params: ?d1=4&d2=4
+    // Custom doubles per grid from query params: ?d1=4&d2=4&d3=4&d4=4
     const customDoubles = [
       parseInt(req.query.d1) || null,
-      parseInt(req.query.d2) || null
+      parseInt(req.query.d2) || null,
+      parseInt(req.query.d3) || null,
+      parseInt(req.query.d4) || null
     ];
 
     // UNIFY DATA STRUCTURE for Frontend

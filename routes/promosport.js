@@ -13,6 +13,44 @@ const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper');
 const crowdHackerService = require('../services/crowdHackerService');
 const secretWeaponsTracker = require('../services/secretWeaponsTracker');
 
+// ─── Team Name Normalization ──────────────────────────────────────────────
+const TEAM_ALIASES = {
+  'maroc': 'morocco', 'norvège': 'norway', 'norvege': 'norway',
+  'suisse': 'switzerland', 'suéde': 'sweden', 'suede': 'sweden',
+  'allemagne': 'germany', 'angleterre': 'england', 'espagne': 'spain',
+  'italie': 'italy', 'portugal': 'portugal', 'belgique': 'belgium',
+  'pays-bas': 'netherlands', 'pays bas': 'netherlands', 'holanda': 'netherlands',
+  'í¡rabe': 'saudi arabia', 'arabe saoudite': 'saudi arabia',
+  'japon': 'japan', 'corée': 'south korea', 'coree': 'south korea',
+  'états-unis': 'usa', 'etats unis': 'usa', 'etats-unis': 'usa',
+  'brésil': 'brazil', 'bresil': 'brazil', 'mexique': 'mexico',
+  'tunisie': 'tunisia', 'algérie': 'algeria', 'algerie': 'algeria',
+  'cameroun': 'cameroon', 'côte d\'ivoire': 'ivory coast',
+  'sénégal': 'senegal', 'senegal': 'senegal',
+  'ní¨mes': 'nimes', 'nimes': 'nimes',
+  'marseille': 'olympique marseille', 'om': 'olympique marseille',
+  'psg': 'paris saint germain', 'paris sg': 'paris saint germain',
+}
+
+function normalizeTeamName(name) {
+  let n = name.toLowerCase().trim()
+  // Remove accents
+  n = n.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  // Apply aliases
+  n = TEAM_ALIASES[n] || n
+  return n
+}
+
+function deduplicateMatches(matches) {
+  const seen = new Set()
+  return matches.filter(m => {
+    const key = `${normalizeTeamName(m.homeTeam)}_${normalizeTeamName(m.awayTeam)}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 // ─── Archive Helper ──────────────────────────────────────────────────────────
 const ARCHIVE_PATH = require('path').join(__dirname, '..', 'data', 'historical_archive.sqlite');
 function archiveScrapedMatches(concours, date, matches) {
@@ -175,10 +213,19 @@ async function fetchOrFallback() {
 router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
   try {
     logger.info('🚀 [PROMOSPORT] Fetching grid data...')
-    const scrapedMatches = await fetchOrFallback()
+    let scrapedMatches = await fetchOrFallback()
+
+    // Deduplicate matches with normalized team names (MAROC → MOROCCO, NORVÈGE → NORWAY)
+    if (scrapedMatches && scrapedMatches.length > 0) {
+      const before = scrapedMatches.length
+      scrapedMatches = deduplicateMatches(scrapedMatches)
+      if (scrapedMatches.length < before) {
+        logger.info(`🧹 [PROMOSPORT] Deduplicated ${before - scrapedMatches.length} duplicate matches (${before} → ${scrapedMatches.length})`)
+      }
+    }
 
     // Archive this scrape for historical analysis
-    if (scrapedMatches && scrapedMatches.length === 13) {
+    if (scrapedMatches && scrapedMatches.length > 0) {
       const first = scrapedMatches[0] || {};
       archiveScrapedMatches(first.concoursNumber || 'unknown', first.concoursDate || new Date().toISOString(), scrapedMatches);
     }
@@ -187,7 +234,7 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
     const customDoubles = [
       parseInt(req.query.d1) || null,
       parseInt(req.query.d2) || null
-    ].map(d => d !== null && !isNaN(d) ? d : null);
+    ];
 
     // UNIFY DATA STRUCTURE for Frontend
     // Convert backend grids array into a single matches array with cols

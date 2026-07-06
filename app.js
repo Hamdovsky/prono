@@ -1,14 +1,11 @@
-// ─── Env validation (graceful in test mode) ────────────
-const CRITICAL_KEYS = [
+// ─── Env validation (non-blocking) ────────────────────
+const MISSING_CRITICAL = [
   ['API_SECRET_KEY', 'API Secret Key'],
   ['DATABASE_URL', 'PostgreSQL URL'],
-]
-const MISSING_CRITICAL = CRITICAL_KEYS.filter(([key]) => !process.env[key] || process.env[key].startsWith('CHANGER_MOI'))
-if (MISSING_CRITICAL.length > 0 && !process.env.JEST_WORKER_ID && process.env.NODE_ENV === 'production') {
-  console.error('❌ [FATAL] Variables d\'environnement critiques manquantes:')
-  MISSING_CRITICAL.forEach(([, name]) => console.error(`   ❌ ${name}`))
-  console.error('→ Ajoutez-les dans Render Dashboard → Environment ou dans .env')
-  process.exit(1)
+].filter(([key]) => !process.env[key] || process.env[key].startsWith('CHANGER_MOI'))
+if (MISSING_CRITICAL.length > 0 && !process.env.JEST_WORKER_ID) {
+  console.warn('⚠️  [ENV] Variables d\'environnement critiques manquantes:')
+  MISSING_CRITICAL.forEach(([, name]) => console.warn(`   ⚠️  ${name}`))
 }
 
 const http = require('http');

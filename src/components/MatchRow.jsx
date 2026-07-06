@@ -437,10 +437,11 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
     const getOddsForPick = (pick) => {
         if (!pick) return null;
-        const p = pick.trim();
+        const p = pick.trim().toUpperCase();
         if (p === '1' || p === 'HOME') return displayOddsH;
         if (p === '2' || p === 'AWAY') return displayOddsA;
         if (p === 'X' || p === 'N' || p === 'DRAW') return match.odds_draw;
+        if (dcOdds && dcOdds[p]) return parseFloat(dcOdds[p]);
         return null;
     };
     const mainOdds = getOddsForPick(quant.main_pick);
@@ -451,6 +452,9 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
         if (pick === '1' || pick === 'HOME') return hPct / 100;
         if (pick === '2' || pick === 'AWAY') return aPct / 100;
         if (pick === 'X' || pick === 'N' || pick === 'DRAW') return dPct / 100;
+        if (pick === '12') return (hPct + aPct) / 100;
+        if (pick === '1X') return (hPct + dPct) / 100;
+        if (pick === 'X2') return (aPct + dPct) / 100;
         return acc / 100;
     })();
     const mainPickEdge = mainOdds ? (mainPickProb - (1 / mainOdds)) : 0;

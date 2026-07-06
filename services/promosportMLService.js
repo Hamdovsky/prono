@@ -13,6 +13,12 @@ class PromosportMLService {
     this._attempted = false;
   }
 
+  reloadModel() {
+    this._attempted = false
+    this.ready = false
+    return this.loadModel()
+  }
+
   loadModel() {
     if (this._attempted) return this.ready;
     this._attempted = true;

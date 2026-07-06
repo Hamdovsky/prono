@@ -75,9 +75,9 @@ async function checkAndFetchResults(concoursNumber) {
     const db = getDb();
     const upsert = db.prepare(`
       INSERT OR REPLACE INTO promosport_archive
-        (concours, grid_no, date, homeTeam, awayTeam, match_idx, result,
-         vote_home, vote_draw, vote_away, score_home, score_away, is_finished, archived_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
+        (concours, match_idx, homeTeam, awayTeam, result,
+         vote_home, vote_draw, vote_away, score_home, score_away, date, is_finished, archived_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
     `);
 
     const tx = db.transaction(() => {
@@ -85,17 +85,16 @@ async function checkAndFetchResults(concoursNumber) {
         if (!m.result || m.result === 'N') continue;
         upsert.run(
           String(concoursNumber),
-          String(concoursNumber),
-          new Date().toISOString().slice(0, 10),
+          m.idx,
           m.home.toUpperCase(),
           m.away.toUpperCase(),
-          m.idx,
           m.result,
           m.publicVote?.p1 || null,
           m.publicVote?.px || null,
           m.publicVote?.p2 || null,
           m.scoreHome || null,
-          m.scoreAway || null
+          m.scoreAway || null,
+          new Date().toISOString().slice(0, 10)
         );
       }
     });

@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'historical_archive.sqlite')
 RESULTS_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'promosport_historical_results.json')
@@ -14,7 +14,7 @@ conn.executescript('''
   CREATE TABLE promosport_archive (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     concours TEXT,
-    idx INTEGER,
+    match_idx INTEGER,
     homeTeam TEXT,
     awayTeam TEXT,
     result TEXT,
@@ -23,6 +23,8 @@ conn.executescript('''
     vote_home REAL,
     vote_draw REAL,
     vote_away REAL,
+    date TEXT,
+    is_finished INTEGER DEFAULT 0,
     archived_at DATETIME
   );
   CREATE INDEX idx_pa_team ON promosport_archive(homeTeam, awayTeam);
@@ -32,7 +34,9 @@ conn.executescript('''
 
 print('Table promosport_archive created')
 
-# 1st source: historical_results.json (no votes, just results)
+now = datetime.now(timezone.utc).isoformat()
+
+# 1st source: historical_results.json (no votes, no scores, just results)
 if not os.path.exists(RESULTS_PATH):
     print(f'WARNING: {RESULTS_PATH} not found, skipping historical results')
     results = []
@@ -45,13 +49,13 @@ for concours in results:
     cno = concours['no']
     for m in concours['matches']:
         conn.execute('''
-            INSERT INTO promosport_archive (concours, idx, homeTeam, awayTeam, result, archived_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (cno, m['idx'], m['home'], m['away'], m['res'], datetime.utcnow().isoformat()))
+            INSERT INTO promosport_archive (concours, match_idx, homeTeam, awayTeam, result, archived_at, is_finished)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+        ''', (cno, m['idx'], m['home'], m['away'], m['res'], now))
         count += 1
 print(f'Imported {count} rows from historical_results.json')
 
-# 2nd source: tunisian_vote_history.json (has votes + results)
+# 2nd source: tunisian_vote_history.json (has votes + scores + results)
 if not os.path.exists(VOTES_PATH):
     print(f'WARNING: {VOTES_PATH} not found, skipping votes')
     votes = []
@@ -62,13 +66,13 @@ else:
 count2 = 0
 for v in votes:
     conn.execute('''
-        INSERT INTO promosport_archive (concours, idx, homeTeam, awayTeam, score_home, score_away, result, vote_home, vote_draw, vote_away, archived_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO promosport_archive (concours, match_idx, homeTeam, awayTeam, score_home, score_away, result, vote_home, vote_draw, vote_away, archived_at, is_finished)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     ''', (
         str(v['grid']), v['idx'], v['home'], v['away'],
         v.get('scoreHome'), v.get('scoreAway'),
         v.get('result'), v.get('vote1'), v.get('voteX'), v.get('vote2'),
-        v.get('collectedAt', datetime.utcnow().isoformat())
+        v.get('collectedAt', now)
     ))
     count2 += 1
 print(f'Imported {count2} rows from tunisian_vote_history.json')

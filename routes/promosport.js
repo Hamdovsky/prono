@@ -13,6 +13,7 @@ const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper');
 const crowdHackerService = require('../services/crowdHackerService');
 const secretWeaponsTracker = require('../services/secretWeaponsTracker');
 const promosportResultService = require('../services/promosportResultService');
+const promosportMLService = require('../services/promosportMLService');
 
 // ─── Team Name Normalization ──────────────────────────────────────────────
 const TEAM_ALIASES = {
@@ -1103,6 +1104,52 @@ router.get('/gold-coupon', async (req, res) => {
     res.json({ success: true, coupon });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/promosport/retrain
+ * Re-import data from JSON, retrain XGBoost, and hot-reload the model.
+ */
+const { execSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+router.post('/retrain', async (req, res) => {
+  const scriptsDir = path.join(__dirname, '..', 'scripts');
+  const importScript = path.join(scriptsDir, 'import_promosport_archive.py');
+  const trainScript = path.join(scriptsDir, 'train_promosport_xgboost.py');
+  const steps = [];
+
+  try {
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+
+    // Step 1: import data
+    logger.info('[RETRAIN] Importing data...');
+    const importOut = execSync(`${pythonCmd} "${importScript}"`, { timeout: 60000, encoding: 'utf8', windowsHide: true });
+    steps.push({ step: 'import', output: importOut.trim().split('\n').pop() });
+
+    // Step 2: train model
+    logger.info('[RETRAIN] Training XGBoost...');
+    const trainOut = execSync(`${pythonCmd} "${trainScript}"`, { timeout: 600000, encoding: 'utf8', maxBuffer: 1024 * 1024, windowsHide: true });
+    const accMatch = trainOut.match(/Accuracy: ([\d.]+)%/);
+    const llMatch = trainOut.match(/Log Loss: ([\d.]+)/);
+    const cmMatch = trainOut.match(/confusion_matrix:\s*\n(.*)/s);
+    steps.push({
+      step: 'train',
+      accuracy: accMatch ? parseFloat(accMatch[1]) : null,
+      logLoss: llMatch ? parseFloat(llMatch[1]) : null,
+      confusionMatrix: cmMatch ? cmMatch[1].trim() : null
+    });
+
+    // Step 3: hot-reload model
+    const reloaded = promosportMLService.reloadModel();
+    steps.push({ step: 'reload', success: reloaded });
+
+    logger.info('[RETRAIN] Complete');
+    res.json({ success: true, steps });
+  } catch (err) {
+    logger.error(`[RETRAIN] Failed: ${err.message}`);
+    res.status(500).json({ success: false, error: err.message, steps });
   }
 });
 

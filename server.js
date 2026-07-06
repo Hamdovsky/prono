@@ -125,6 +125,19 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
       logger.info(`[STARTUP] Archive found locally (${(fs.statSync(archivePath).size / 1024 / 1024).toFixed(1)} MB)`)
     }
 
+    // Import promosport archive from JSON files (async, non-blocking)
+    setTimeout(() => {
+      const importScript = path.join(__dirname, 'scripts', 'import_promosport_archive.py')
+      if (fs.existsSync(importScript)) {
+        const { spawn } = require('child_process')
+        const py = spawn('python3', [importScript], { cwd: __dirname, stdio: 'ignore', timeout: 120000 })
+        py.on('close', code => {
+          if (code === 0) logger.info('[STARTUP] Promosport archive import OK')
+          else logger.warn(`[STARTUP] Promosport archive import exited ${code}`)
+        })
+      }
+    }, 5000)
+
     // Download premium CSV if missing (Render ephemeral fs)
     const premiumCsvPath = path.join(__dirname, 'data', 'v553_wc2026_premium.csv')
     if (!fs.existsSync(premiumCsvPath)) {

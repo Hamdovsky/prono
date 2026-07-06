@@ -420,7 +420,7 @@ const Dashboard = () => {
     const renderMatchList = (list, title, isElite = false) => {
         if (list.length === 0) return null
 
-        const ROW_H = isMobile ? 110 : 90
+        const ROW_H = isMobile ? 120 : 105
         const HEADER_H = isMobile ? 0 : 42
         const listHeight = isElite
             ? Math.min(list.length * ROW_H, 600)

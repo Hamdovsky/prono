@@ -686,39 +686,39 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
             </div>
 
             {/* COLUMN 2: PRONOSTIC — BASE SOLIDE + MARCHÉS (26%) */}
-            <div style={{width: "26%", minWidth: "190px", overflow: 'hidden'}} className="onyx-virtual-cell">
+            <div style={{width: "26%", minWidth: "190px", overflow: 'hidden', padding: '1px 8px'}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
 
                     {/* ─── BASE SOLIDE ─── */}
                     <div style={{
                         background: 'linear-gradient(135deg, rgba(0,255,170,0.07) 0%, rgba(0,255,170,0.01) 100%)',
-                        borderRadius: '5px', padding: '4px 7px',
+                        borderRadius: '4px', padding: '3px 6px',
                         border: '1px solid rgba(0,255,170,0.08)'
                     }}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px'}}>
-                            <span style={{fontSize: '8px', fontWeight: '900', color: 'var(--neon)', letterSpacing: '0.3px', flexShrink: 0}}>BASE</span>
-                            <span style={{fontSize: '14px', color: '#f8fafc', fontWeight: '800', marginLeft: 'auto'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '3px'}}>
+                            <span style={{fontSize: '7px', fontWeight: '900', color: 'var(--neon)', letterSpacing: '0.3px', flexShrink: 0}}>BASE</span>
+                            <span style={{fontSize: '13px', color: '#f8fafc', fontWeight: '800', marginLeft: 'auto', lineHeight: 1.2}}>
                                 {mainPickClean}
                             </span>
-                            <span style={{fontSize: '11px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', flexShrink: 0}}>
+                            <span style={{fontSize: '10px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', flexShrink: 0}}>
                                 {acc}%
                             </span>
                         </div>
-                        <div style={{width: '100%', height: '2px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
+                        <div style={{width: '100%', height: '2px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden', margin: '1px 0'}}>
                             <div style={{width: `${Math.min(100, Math.max(5, acc))}%`, height: '100%', background: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
                         </div>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px'}}>
-                            <span style={{fontSize: '9px', fontWeight: '900', color: acc >= 70 ? '#00ffaa' : acc >= 55 ? '#fbbf24' : '#f87171', whiteSpace: 'nowrap'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '3px'}}>
+                            <span style={{fontSize: '8px', fontWeight: '900', color: acc >= 70 ? '#00ffaa' : acc >= 55 ? '#fbbf24' : '#f87171', whiteSpace: 'nowrap'}}>
                                 {acc >= 70 ? '🟢 SOLIDE' : acc >= 55 ? '🟡 MOYEN' : '🔴 RISQUÉ'}
                             </span>
                             {mainOdds && (
-                                <span style={{fontSize: '9px', color: '#fbbf24', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                                <span style={{fontSize: '8px', color: '#fbbf24', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
                                     {formatOdds(mainOdds)}
                                 </span>
                             )}
                             {mainOdds && mainPickEdge > 0 && (
                                 <span style={{
-                                    fontSize: '8px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px',
+                                    fontSize: '7px', fontWeight: '900', padding: '0px 4px', borderRadius: '3px',
                                     color: '#fbbf24', background: 'rgba(251,191,36,0.12)',
                                     border: '1px solid rgba(251,191,36,0.2)', whiteSpace: 'nowrap', marginLeft: 'auto'
                                 }}>
@@ -727,7 +727,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                             )}
                             {mainOdds && mainPickEdge <= 0 && (
                                 <span style={{
-                                    fontSize: '8px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px',
+                                    fontSize: '7px', fontWeight: '900', padding: '0px 4px', borderRadius: '3px',
                                     color: '#f87171', background: 'rgba(248,113,113,0.1)',
                                     border: '1px solid rgba(248,113,113,0.2)', whiteSpace: 'nowrap', marginLeft: 'auto'
                                 }}>
@@ -737,63 +737,43 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                         </div>
                     </div>
 
-                    {/* ─── MARCHÉS (BTTS / O/U / HT / HCP) ─── */}
+                    {/* ─── MARCHÉS ─── */}
                     <div style={{
                         background: 'linear-gradient(135deg, rgba(167,139,250,0.06) 0%, rgba(167,139,250,0.01) 100%)',
-                        borderRadius: '5px', padding: '4px 7px',
+                        borderRadius: '4px', padding: '2px 6px',
                         border: '1px solid rgba(167,139,250,0.07)'
                     }}>
-                        <span style={{fontSize: '9px', fontWeight: '900', color: '#a78bfa', letterSpacing: '0.3px', display: 'block', marginBottom: '3px'}}>MARCHÉS</span>
-                        <div style={{display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center'}}>
+                        <div style={{fontSize: '7px', fontWeight: '900', color: '#a78bfa', letterSpacing: '0.3px', marginBottom: '1px', lineHeight: 1.2}}>MARCHÉS</div>
 
-                            {/* BTTS */}
-                            <span style={{
-                                fontSize: '9px', padding: '1px 5px', borderRadius: '3px',
-                                background: bttsBadgeBg, color: bttsBadgeColor, fontWeight: '700',
-                                border: `1px solid ${bttsBadgeBorder}`, whiteSpace: 'nowrap',
-                                display: 'inline-flex', alignItems: 'center', gap: '3px'
-                            }}>
-                                BTTS <span style={{fontWeight: '900'}}>{bttsLabel} {bttsDisplayPct}%</span>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', lineHeight: 1.3}}>
+                            <span style={{fontSize: '9px', color: bttsBadgeColor, fontWeight: '700'}}>⚽ BTTS</span>
+                            <span style={{fontSize: '9px', color: bttsBadgeColor, fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
+                                {bttsLabel} {bttsDisplayPct}%
                             </span>
-
-                            {/* O/U — both Over and Under */}
-                            <span style={{
-                                fontSize: '9px', padding: '1px 5px', borderRadius: '3px',
-                                background: over25Pct >= 60 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(148,163,184,0.1)',
-                                color: over25Pct >= 60 ? '#10b981' : '#94a3b8', fontWeight: '700',
-                                border: `1px solid ${over25Pct >= 60 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(148,163,184,0.2)'}`,
-                                whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '3px'
-                            }}>
-                                O/U <span style={{fontWeight: '900'}}>O2.5 {over25Pct}%</span>
-                                <span style={{color: '#475569', fontWeight: '600'}}>/</span>
-                                <span style={{fontWeight: '900'}}>U2.5 {100 - over25Pct}%</span>
-                            </span>
-
-                            {/* HT +0.5 */}
-                            <span style={{
-                                fontSize: '9px', padding: '1px 5px', borderRadius: '3px',
-                                background: htGoalPct >= 65 ? 'rgba(0,255,170,0.12)' : htGoalPct >= 50 ? 'rgba(251,191,36,0.12)' : 'rgba(248,113,113,0.1)',
-                                color: htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171', fontWeight: '700',
-                                border: `1px solid ${
-                                    htGoalPct >= 65 ? 'rgba(0,255,170,0.3)' : htGoalPct >= 50 ? 'rgba(251,191,36,0.3)' : 'rgba(248,113,113,0.2)'
-                                }`, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '3px'
-                            }}>
-                                HT <span style={{fontWeight: '900'}}>+0.5 {htGoalPct}%</span>
-                            </span>
-
-                            {/* HCP (conditional) */}
-                            {hasHandicap && (
-                                <span style={{
-                                    fontSize: '9px', padding: '1px 5px', borderRadius: '3px',
-                                    background: handicapProb >= 65 ? 'rgba(249,115,22,0.12)' : 'rgba(148,163,184,0.1)',
-                                    color: handicapProb >= 65 ? '#f97316' : '#94a3b8', fontWeight: '700',
-                                    border: `1px solid ${handicapProb >= 65 ? 'rgba(249,115,22,0.3)' : 'rgba(148,163,184,0.2)'}`,
-                                    whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '3px'
-                                }}>
-                                    HCP <span style={{fontWeight: '900'}}>(-1) {handicapProb}%</span>
-                                </span>
-                            )}
                         </div>
+
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', lineHeight: 1.3}}>
+                            <span style={{fontSize: '9px', color: over25Pct >= 60 ? '#10b981' : '#94a3b8', fontWeight: '700'}}>📊 O/U</span>
+                            <span style={{fontSize: '9px', color: over25Pct >= 60 ? '#10b981' : '#94a3b8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                                O2.5 {over25Pct}% / U2.5 {100 - over25Pct}%
+                            </span>
+                        </div>
+
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', lineHeight: 1.3}}>
+                            <span style={{fontSize: '9px', color: htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171', fontWeight: '700'}}>⏱ HT +0.5</span>
+                            <span style={{fontSize: '9px', color: htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
+                                {htGoalPct}%
+                            </span>
+                        </div>
+
+                        {hasHandicap && (
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', lineHeight: 1.3}}>
+                                <span style={{fontSize: '9px', color: handicapProb >= 65 ? '#f97316' : '#94a3b8', fontWeight: '700'}}>🛡️ HCP (-1)</span>
+                                <span style={{fontSize: '9px', color: handicapProb >= 65 ? '#f97316' : '#94a3b8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
+                                    {handicapProb}%
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

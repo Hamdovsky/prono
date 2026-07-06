@@ -5,19 +5,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --only=production
 RUN npm rebuild better-sqlite3
 
-# ─── Stage 2: Python FastAPI dependencies ───────────────────
-FROM python:3.11-slim AS python-deps
-WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
-COPY requirements.txt requirements-fastapi.txt ./
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements-fastapi.txt 2>&1 || \
-    (echo "=== Retrying without version pins ===" && \
-     sed -i 's/==.*//' requirements-fastapi.txt && \
-     pip install --no-cache-dir -r requirements-fastapi.txt)
-
-# ─── Stage 3: Frontend build ────────────────────────────────
+# ─── Stage 2: Frontend build ────────────────────────────────
 FROM node:18-slim AS frontend-build
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -27,15 +15,27 @@ COPY src/ ./src/
 COPY public/ ./public/
 RUN npm run build
 
-# ─── Stage 4: Production image ──────────────────────────────
+# ─── Stage 3: Production image ──────────────────────────────
 FROM nikolaik/python-nodejs:python3.11-nodejs18-slim
 WORKDIR /app
 
+# Install Python ML / data deps directly (paths differ from python:3.11-slim)
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir \
+        numpy==1.26.4 \
+        pandas==3.0.2 \
+        scipy==1.17.1 \
+        xgboost==2.1.0 \
+        scikit-learn==1.8.0 \
+        joblib==1.5.3 \
+        optuna>=4.0.0 \
+        matplotlib==3.10.8 \
+        seaborn>=0.13.0 \
+        requests==2.33.1 \
+        beautifulsoup4>=4.12.0
+
 # Copy Node.js deps
 COPY --from=node-deps /app/node_modules ./node_modules
-# Copy Python deps
-COPY --from=python-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=python-deps /usr/local/bin /usr/local/bin
 # Copy frontend build
 COPY --from=frontend-build /app/dist ./dist
 

@@ -76,7 +76,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 if (aPct > hPct + 12) return highScoring ? '1 - 2' : '0 - 1';
                 return bttsPct > 58 ? '1 - 1' : (hPct >= aPct ? '1 - 0' : '0 - 1');
             })();
-            return derivePreciseFTScore(baseScore);
+            return baseScore;
         }
         return '1 - 1';
     };

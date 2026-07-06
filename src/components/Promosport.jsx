@@ -93,37 +93,40 @@ const Promosport = () => {
         }
     };
 
+    const calcEntropy = (h, x, a) => {
+        const ph = (h || 1) / 100, px = (x || 1) / 100, pa = (a || 1) / 100
+        return -(ph * Math.log2(ph + 0.001) + px * Math.log2(px + 0.001) + pa * Math.log2(pa + 0.001))
+    }
+
     const computeAlgoPicks = (matches) => {
         const picks = matches.map(m => {
-            const v = m.crowdVote
-            if (!v) return { ...m, algo: { pick: '?', type: 'skip', conf: 0 } }
-            const votes = { 1: v.p1 || 0, X: v.px || 0, 2: v.p2 || 0 }
-            const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1])
-            const fav = sorted[0][0]
-            const favPct = sorted[0][1]
+            const hp = m.mlProbs?.h ?? m.probs?.h ?? 33
+            const xp = m.mlProbs?.x ?? m.probs?.x ?? 33
+            const ap = m.mlProbs?.a ?? m.probs?.a ?? 34
 
-            // Algorithme gagnant v2 — 2452 matchs analysés
-            // Règle 1: 1 ≥ 55% → pick 1 (69.2% correct sur 455 cas)
-            if (fav === '1' && favPct >= 55) {
-                return { ...m, algo: { pick: '1', type: 'simple', conf: 69 } }
+            const entries = [['1', hp], ['X', xp], ['2', ap]]
+            const sorted = [...entries].sort((a, b) => b[1] - a[1])
+            const [fav, favPct] = sorted[0]
+            const [sec, secPct] = sorted[1] || ['X', 0]
+            const margin = favPct - secPct
+            const entropy = calcEntropy(hp, xp, ap)
+
+            if (favPct >= 55 && margin >= 15) {
+                return { ...m, algo: { pick: fav, type: 'simple', conf: Math.round(favPct), entropy } }
             }
-            // Règle 2: 2 ≥ 60% → pick 2 (67.9% correct sur 140 cas)
-            if (fav === '2' && favPct >= 60) {
-                return { ...m, algo: { pick: '2', type: 'simple', conf: 68 } }
+            if (favPct >= 48 && margin >= 8) {
+                return { ...m, algo: { pick: fav, type: 'simple', conf: Math.round(favPct * 0.9), entropy } }
             }
-            // Sinon → skip (le reste = bruit, précision < 55%)
-            return { ...m, algo: { pick: '—', type: 'skip', conf: 0 } }
+            // Uncertain → double (top 2 outcomes)
+            const doublePick = [fav, sec].sort((a, b) => ['1','X','2'].indexOf(a) - ['1','X','2'].indexOf(b)).join('')
+            return { ...m, algo: { pick: doublePick, type: 'double', conf: Math.round((favPct + secPct) * 0.85), entropy } }
         })
 
         const simples = picks.filter(p => p.algo.type === 'simple').length
         const doubles = picks.filter(p => p.algo.type === 'double').length
-        const skipped = picks.filter(p => p.algo.type === 'skip').length
-        const active = picks.filter(p => p.algo.type !== 'skip')
-        const avgConf = active.length > 0
-            ? Math.round(active.reduce((s, p) => s + p.algo.conf, 0) / active.length)
-            : 0
-        const expectedCorrect = active.reduce((s, p) => s + p.algo.conf / 100, 0)
-        return { picks, simples, doubles, skipped, avgConf, expectedCorrect: Math.round(expectedCorrect * 100) / 100 }
+        const avgConf = picks.length > 0 ? Math.round(picks.reduce((s, p) => s + p.algo.conf, 0) / picks.length) : 0
+        const expectedCorrect = picks.reduce((s, p) => s + p.algo.conf / 100, 0)
+        return { picks, simples, doubles, skipped: 0, avgConf, expectedCorrect: Math.round(expectedCorrect * 100) / 100 }
     }
 
     const applyAlgo = (matches) => {
@@ -132,60 +135,54 @@ const Promosport = () => {
     }
 
     const handleGenerateColonnes = () => {
-        // Get base picks from ALGO or Tunisian data
-        let basePicks
-        if (algoPicks) {
-            basePicks = algoPicks.picks.map(m => {
-                if (m.algo.type === 'skip') return '1X'
-                return m.algo.pick
-            })
-        } else if (tunisieData?.matches) {
-            const p = computeAlgoPicks(tunisieData.matches)
-            basePicks = p.picks.map(m => {
-                if (m.algo.type === 'skip') return '1X'
-                return m.algo.pick
-            })
+        const src = algoPicks || (tunisieData?.matches ? computeAlgoPicks(tunisieData.matches) : null)
+        let picksArray
+        if (src) {
+            picksArray = src.picks
         } else if (matches.length > 0) {
-            basePicks = matches.map(m => {
-                if (m.probs.h > 45) return '1'
-                if (m.probs.a > 45) return '2'
-                return '1X'
+            picksArray = matches.map(m => {
+                const hp = m.mlProbs?.h ?? m.probs?.h ?? 33
+                const xp = m.mlProbs?.x ?? m.probs?.x ?? 33
+                const ap = m.mlProbs?.a ?? m.probs?.a ?? 34
+                const entries = [['1', hp], ['X', xp], ['2', ap]].sort((a, b) => b[1] - a[1])
+                const [fav, favPct] = entries[0]
+                const [sec, secPct] = entries[1]
+                const margin = favPct - secPct
+                const entropy = calcEntropy(hp, xp, ap)
+                if (favPct >= 55 && margin >= 15) {
+                    return { ...m, algo: { pick: fav, type: 'simple', conf: Math.round(favPct), entropy } }
+                }
+                const doublePick = [fav, sec].sort((a, b) => ['1','X','2'].indexOf(a) - ['1','X','2'].indexOf(b)).join('')
+                return { ...m, algo: { pick: doublePick, type: 'double', conf: Math.round((favPct + secPct) * 0.85), entropy } }
             })
         } else return
 
-        const system = generateAutoSystem(basePicks, 100)
-        // Calculate expected correct per column
-        let totalConf = 0, countConf = 0
-        const confMap = {}
-        if (algoPicks) {
-            algoPicks.picks.forEach(m => {
-                if (m.algo.type !== 'skip') {
-                    confMap[m.idx || m.id] = m.algo.conf / 100
-                    totalConf += m.algo.conf / 100
-                    countConf++
-                } else {
-                    confMap[m.idx || m.id] = 0.50
-                    totalConf += 0.50
-                    countConf++
-                }
-            })
-        } else {
-            basePicks.forEach((p, i) => {
-                const conf = p.length > 1 ? 0.60 : 0.65
-                confMap[i + 1] = conf
-                totalConf += conf
-                countConf++
-            })
-        }
+        // Limit doubles: pick up to 7 most uncertain matches as doubles, rest as singles
+        const doubleCandidates = picksArray.filter(p => p.algo.type === 'double').sort((a, b) => b.algo.entropy - a.algo.entropy)
+        const maxDoubles = 7
+        const doubleIds = new Set(doubleCandidates.slice(0, maxDoubles).map(p => p.idx ?? p.id ?? p.matchId))
+        const basePicks = picksArray.map(m => {
+            const id = m.idx ?? m.id ?? m.matchId
+            if (doubleIds.has(id)) return m.algo.pick
+            return m.algo.pick.length > 1 ? m.algo.pick[0] : m.algo.pick
+        })
 
-        const avgColConf = countConf > 0 ? (totalConf / countConf * 13) : 0
+        const system = generateAutoSystem(basePicks, 100)
+        const confMap = {}
+        let totalConf = 0
+        picksArray.forEach(m => {
+            const id = m.idx ?? m.id ?? m.matchId
+            confMap[id] = m.algo.conf / 100
+            totalConf += m.algo.conf / 100
+        })
+        const avgColConf = picksArray.length > 0 ? (totalConf / picksArray.length * 13) : 0
 
         setReducedSystem({
             ...system,
             basePicks,
             expectedCorrect: Math.round(avgColConf * 10) / 10,
             confMap,
-            source: algoPicks ? 'ALGO GAGNANT' : 'MODULE',
+            source: src ? 'TITANIUM ML HYBRID' : 'MODULE',
         })
         setViewMode('colonnes')
     }
@@ -193,9 +190,13 @@ const Promosport = () => {
     const handleGenerateReduced = (type = 'N-1') => {
         setTimeout(() => {
             const basePicks = matches.map(m => {
-                if (m.probs.h > 45) return "1";
-                if (m.probs.a > 45) return "2";
-                return "1X";
+                const hp = m.mlProbs?.h ?? m.probs?.h ?? 33
+                const xp = m.mlProbs?.x ?? m.probs?.x ?? 33
+                const ap = m.mlProbs?.a ?? m.probs?.a ?? 34
+                if (hp > 55) return "1"
+                if (ap > 55) return "2"
+                if (xp > 40) return "X"
+                return "1X"
             });
             const reducedCols = generateReduced7Doubles(basePicks);
             setViewMode('module');
@@ -508,7 +509,7 @@ const Promosport = () => {
                             🤖 ALGORITHME GAGNANT — GRILLE {tunisieGrid}
                         </h3>
                         <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
-                            Picks calculés par l'algorithme décrypté (analyse de 2452 matchs Tunisiens). 🟢 = simple, ⏭️ = non joué (confiance insuffisante).
+                            Picks calculés par TITANIUM ML HYBRID (XGBoost + foule Tunisienne). 🟢 = simple, 🟡 = double (entropy élevée).
                         </p>
 
                         <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', flexWrap: 'wrap' }}>
@@ -520,9 +521,9 @@ const Promosport = () => {
                                 <span style={{ color: '#34d399', fontWeight: 'bold', fontSize: '1.3rem' }}>{algoPicks.simples}</span>
                                 <span style={{ color: '#94a3b8', marginLeft: '8px' }}>SIMPLES</span>
                             </div>
-                            <div style={{ background: 'rgba(100, 116, 139, 0.15)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(100, 116, 139, 0.3)' }}>
-                                <span style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: '1.3rem' }}>{algoPicks.skipped}</span>
-                                <span style={{ color: '#64748b', marginLeft: '8px' }}>SKIPPÉS</span>
+                            <div style={{ background: 'rgba(251, 191, 36, 0.15)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(251, 191, 36, 0.3)' }}>
+                                <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '1.3rem' }}>{algoPicks.doubles}</span>
+                                <span style={{ color: '#fbbf24', marginLeft: '8px' }}>DOUBLES</span>
                             </div>
                             <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '12px 20px', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                                 <span style={{ color: '#60a5fa', fontWeight: 'bold', fontSize: '1.3rem' }}>{algoPicks.avgConf}%</span>
@@ -544,14 +545,13 @@ const Promosport = () => {
                             <tbody>
                                 {algoPicks.picks.map(m => {
                                     const a = m.algo
+                                    const isDouble = a.type === 'double'
                                     const isSimple = a.type === 'simple'
-                                    const isSkip = a.type === 'skip'
-                                    const correct = isSkip ? null : (m.result && a.pick.includes(m.result))
+                                    const correct = m.result ? a.pick.includes(m.result) : null
                                     return (
                                     <tr key={m.idx} style={{
                                         borderBottom: '1px solid rgba(255,255,255,0.03)',
-                                        background: correct === true ? 'rgba(16, 185, 129, 0.05)' : correct === false ? 'rgba(239, 68, 68, 0.05)' : 'transparent',
-                                        opacity: isSkip ? 0.4 : 1
+                                        background: correct === true ? 'rgba(16, 185, 129, 0.05)' : correct === false ? 'rgba(239, 68, 68, 0.05)' : 'transparent'
                                     }}>
                                         <td style={{ color: '#64748b', fontWeight: 'bold', padding: '12px 10px' }}>{m.idx}</td>
                                         <td style={{ fontWeight: '600', padding: '12px 10px' }}>
@@ -560,28 +560,22 @@ const Promosport = () => {
                                             <span>{m.away}</span>
                                         </td>
                                         <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                                            <span style={{
-                                                background: m.crowdFavorite === '1' ? 'rgba(59, 130, 246, 0.2)' : m.crowdFavorite === '2' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)',
-                                                color: m.crowdFavorite === '1' ? '#60a5fa' : m.crowdFavorite === '2' ? '#f87171' : '#fbbf24',
-                                                padding: '4px 10px', borderRadius: '4px', fontWeight: 'bold'
-                                            }}>
-                                                {m.crowdFavorite} {m.crowdFavoritePct ? `${m.crowdFavoritePct}%` : ''}
-                                            </span>
+                                            {m.mlProbs && (
+                                                <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+                                                    1:{Math.round(m.mlProbs.h)}% X:{Math.round(m.mlProbs.x)}% 2:{Math.round(m.mlProbs.a)}%
+                                                </span>
+                                            )}
                                         </td>
                                         <td style={{ padding: '12px 10px', textAlign: 'center' }}>
-                                            {isSkip ? (
-                                                <span style={{ color: '#475569', fontSize: '0.8rem' }}>⏭️</span>
-                                            ) : (
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                                    <span style={{
-                                                        background: 'rgba(16, 185, 129, 0.2)',
-                                                        color: '#34d399',
-                                                        padding: '4px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1rem'
-                                                    }}>{a.pick}</span>
-                                                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '900' }}>{a.conf}%</span>
-                                                    <span title="Simple" style={{ fontSize: '14px' }}>🟢</span>
-                                                </div>
-                                            )}
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                <span style={{
+                                                    background: isDouble ? 'rgba(251, 191, 36, 0.25)' : 'rgba(16, 185, 129, 0.2)',
+                                                    color: isDouble ? '#fbbf24' : '#34d399',
+                                                    padding: '4px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1rem'
+                                                }}>{a.pick}</span>
+                                                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '900' }}>{a.conf}%</span>
+                                                <span title={isDouble ? 'Double' : 'Simple'} style={{ fontSize: '14px' }}>{isDouble ? '🟡' : '🟢'}</span>
+                                            </div>
                                         </td>
                                         <td style={{ padding: '12px 10px', textAlign: 'center' }}>
                                             {m.result ? (
@@ -597,7 +591,7 @@ const Promosport = () => {
                                         <td style={{ padding: '12px 10px', textAlign: 'center' }}>
                                             {correct === true && <span title="Algo correct ✓" style={{ fontSize: '20px' }}>✅</span>}
                                             {correct === false && <span title="Algo faux ✗" style={{ fontSize: '20px' }}>❌</span>}
-                                            {isSkip && <span title="Non joué" style={{ fontSize: '14px', opacity: 0.5 }}>⏭️</span>}
+                                            {a.entropy && <span title={`Entropy: ${a.entropy.toFixed(2)}`} style={{ fontSize: '12px', color: '#64748b', marginLeft: '4px' }}>🎲</span>}
                                         </td>
                                     </tr>
                                 )})}

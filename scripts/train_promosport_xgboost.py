@@ -487,8 +487,8 @@ def train_model():
     for i, (feat, imp) in enumerate(sorted_imp[:20]):
         print(f"  {i + 1:2d}. {feat}: {imp:.3f}")
 
-    # Save model (with feature names)
-    model.get_booster().feature_names = FEATURE_NAMES
+    # Save model with feature names
+    model.get_booster().set_param('feature_names', ','.join(FEATURE_NAMES))
     model.get_booster().save_model(MODEL_PATH)
     print(f"\nModel saved: {MODEL_PATH}")
 

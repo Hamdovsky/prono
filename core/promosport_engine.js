@@ -143,15 +143,6 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
           
             const H = - (p1 * Math.log2(Math.max(0.01, p1)) + px * Math.log2(Math.max(0.01, px)) + p2 * Math.log2(Math.max(0.01, p2)));
           
-            // If entropy near-maximum (> 1.55), model is guessing → use crowd data (real votes)
-            if (H > 1.55) {
-              let crowdDraw = m.drawProbability || 0.33
-              if (crowdDraw > 1) crowdDraw /= 100
-              p1 = crowdP1; px = crowdDraw; p2 = crowdP2
-              const t = p1 + px + p2
-              p1 /= t; px /= t; p2 /= t
-            }
-          
             const isHighPressure = dbMatch?.is_high_pressure || (m.intel?.motivation > 85);
             const pressureMultiplier = isHighPressure ? 1.12 : 1.0;
             const confidence = pred.confidence || Math.max(50, 80 - (H * 15));
@@ -221,7 +212,18 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
         logger.info(`🧪 [PROMOSPORT-ENGINE] XGBoost batch blend: ${xgbResults.filter(Boolean).length}/${enrichedMatches.length}`);
       }
     } catch (_) {}
-
+    
+    // 1c. Final entropy guard: if model is guessing (H > 1.50), use crowd data
+    for (const m of enrichedMatches) {
+      if ((m.entropy || 0) > 1.50 && m.crowdP1 != null) {
+        let crowdDraw = m.drawProbability || 0.33
+        if (crowdDraw > 1) crowdDraw /= 100
+        m.p1 = m.crowdP1; m.px = crowdDraw; m.p2 = m.crowdP2
+        const t = m.p1 + m.px + m.p2
+        m.p1 /= t; m.px /= t; m.p2 /= t
+      }
+    }
+    
     // 2. Generate the 4 specialized grids with STRATEGIC DIVERSIFICATION
     const result = generateGridsWithStrategicCoverage(enrichedMatches, customDoubles);
     return result;

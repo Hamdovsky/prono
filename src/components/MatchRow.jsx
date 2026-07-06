@@ -141,7 +141,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
         if (match.insufficient_data === 1) coherence = Math.min(coherence, 75);
         return Math.max(8, Math.min(95, Math.round(coherence)));
     })();
-    const pHT05 = Math.min(89, Math.round((pOU25 * 0.5) + (pBTTS * 0.5) + 5));
+    const htGoalPct = Math.min(89, Math.round((over25Pct + bttsPct) / 2 + 5));
     const markets = [];
     
     const hNameLabel = match.homeTeam;
@@ -157,7 +157,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     }
 
     if (pBTTS >= 58 && pOU25 >= 58) {
-        markets.push({ prob: pHT05, label: `⚡ But Mi-temps (+0.5 HT)` });
+        markets.push({ prob: htGoalPct, label: `⚡ But Mi-temps (+0.5 HT)` });
         markets.push({ prob: (pBTTS + pOU25) / 2, label: `🔥 BTTS & +2.5 buts` });
     } else if (pOU25 <= 40 && pBTTS <= 40) {
         markets.push({ prob: 100 - pOU25, label: `📉 -2.5 buts (Under)` });
@@ -461,6 +461,11 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     const mainPickEdgePct = (mainPickEdge * 100).toFixed(1);
     const bttsOuStrength = Math.round((bttsPct + over25Pct) / 2);
 
+    const domProbH = Math.max(hPct, aPct);
+    const domTeamNameH = hPct >= aPct ? match.homeTeam : match.awayTeam;
+    const hasHandicap = domProbH >= 65;
+    const handicapProb = Math.round(Math.max(1, domProbH - 12));
+
     const totalPct = hPct + dPct + aPct;
     const hBar = totalPct > 0 ? (hPct / totalPct) * 100 : 33.3;
     const dBar = totalPct > 0 ? (dPct / totalPct) * 100 : 33.3;
@@ -732,29 +737,51 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                         </div>
                     </div>
 
-                    {/* ─── MARCHÉS (BTTS + O/U 2.5) ─── */}
+                    {/* ─── MARCHÉS (BTTS + O/U + HT + HCP) ─── */}
                     <div style={{
                         background: 'linear-gradient(135deg, rgba(167,139,250,0.07) 0%, rgba(167,139,250,0.01) 100%)',
                         borderRadius: '5px', padding: '5px 7px',
                         border: '1px solid rgba(167,139,250,0.08)'
                     }}>
                         <span style={{fontSize: '9px', fontWeight: '900', color: '#a78bfa', letterSpacing: '0.3px', display: 'block', marginBottom: '4px'}}>MARCHÉS</span>
-                        <div style={{display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '3px'}}>
-                            <span style={{fontSize: '11px', color: bttsBadgeColor, fontWeight: '700', whiteSpace: 'nowrap'}}>
-                                BTTS <span style={{fontWeight: '900'}}>{bttsLabel}</span>
-                            </span>
-                            <span style={{fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", color: bttsBadgeColor, fontWeight: '700'}}>
-                                {bttsDisplayPct}%
-                            </span>
-                            <span style={{color: '#475569', fontSize: '10px'}}>|</span>
-                            <span style={{fontSize: '11px', color: tgBadgeColor, fontWeight: '700', whiteSpace: 'nowrap'}}>
-                                {ouLabel}
-                            </span>
-                            <span style={{fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", color: tgBadgeColor, fontWeight: '700'}}>
-                                {ouDisplayPct}%
+
+                        {/* BTTS */}
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
+                            <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '600', flexShrink: 0}}>⚽ BTTS</span>
+                            <span style={{fontSize: '10px', color: bttsBadgeColor, fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                                {bttsLabel} {bttsDisplayPct}%
                             </span>
                         </div>
-                        <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
+
+                        {/* O/U */}
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
+                            <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '600', flexShrink: 0}}>📊 O/U</span>
+                            <span style={{fontSize: '10px', color: tgBadgeColor, fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                                {ouLabel} {ouDisplayPct}%
+                            </span>
+                        </div>
+
+                        {/* HT +0.5 */}
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
+                            <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '600', flexShrink: 0}}>⏱ HT +0.5</span>
+                            <span style={{fontSize: '10px', color: '#38bdf8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                                {htGoalPct}%
+                            </span>
+                        </div>
+
+                        {/* Handicap (conditional) */}
+                        {hasHandicap && (
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
+                                <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '600', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                                    🛡️ HCP {domTeamNameH}
+                                </span>
+                                <span style={{fontSize: '10px', color: handicapProb >= 65 ? '#f97316' : '#94a3b8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                                    (-1) {handicapProb}%
+                                </span>
+                            </div>
+                        )}
+
+                        <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden', marginTop: '3px'}}>
                             <div style={{width: `${Math.min(100, Math.max(5, bttsOuStrength))}%`, height: '100%', background: bttsOuStrength >= 65 ? '#a78bfa' : bttsOuStrength >= 50 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
                         </div>
                     </div>

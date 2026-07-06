@@ -756,18 +756,22 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
                     {/* ─── O/U ─── */}
                     <div style={{
-                        background: 'linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(16,185,129,0.01) 100%)',
+                        background: 'linear-gradient(135deg, rgba(251,191,36,0.05) 0%, rgba(251,191,36,0.01) 100%)',
                         borderRadius: '5px', padding: '4px 7px',
-                        border: '1px solid rgba(16,185,129,0.07)'
+                        border: '1px solid rgba(251,191,36,0.07)'
                     }}>
+                        <div style={{fontSize: '10px', fontWeight: '900', color: '#f59e0b', letterSpacing: '0.3px', marginBottom: '3px'}}>O/U</div>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
-                            <span style={{fontSize: '10px', fontWeight: '900', color: tgBadgeColor, letterSpacing: '0.3px'}}>O/U</span>
-                            <span style={{fontSize: '11px', color: tgBadgeColor, fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
-                                {ouLabel} {ouDisplayPct}%
+                            <span style={{fontSize: '10px', color: over25Pct >= 60 ? '#10b981' : '#94a3b8', fontWeight: '700'}}>O2.5</span>
+                            <span style={{fontSize: '11px', color: over25Pct >= 60 ? '#10b981' : '#94a3b8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
+                                {over25Pct}%
                             </span>
                         </div>
-                        <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
-                            <div style={{width: `${Math.min(100, Math.max(5, ouDisplayPct))}%`, height: '100%', background: tgBadgeColor, borderRadius: '2px'}}></div>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                            <span style={{fontSize: '10px', color: (100 - over25Pct) >= 60 ? '#3b82f6' : '#94a3b8', fontWeight: '700'}}>U2.5</span>
+                            <span style={{fontSize: '11px', color: (100 - over25Pct) >= 60 ? '#3b82f6' : '#94a3b8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
+                                {100 - over25Pct}%
+                            </span>
                         </div>
                     </div>
 
@@ -779,12 +783,12 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                     }}>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
                             <span style={{fontSize: '10px', fontWeight: '900', color: '#38bdf8', letterSpacing: '0.3px'}}>HT +0.5</span>
-                            <span style={{fontSize: '11px', color: '#38bdf8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
+                            <span style={{fontSize: '11px', color: htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
                                 {htGoalPct}%
                             </span>
                         </div>
                         <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
-                            <div style={{width: `${Math.min(100, Math.max(5, htGoalPct))}%`, height: '100%', background: '#38bdf8', borderRadius: '2px'}}></div>
+                            <div style={{width: `${Math.min(100, Math.max(5, htGoalPct))}%`, height: '100%', background: htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
                         </div>
                     </div>
 
@@ -796,11 +800,9 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                             border: '1px solid rgba(249,115,22,0.07)'
                         }}>
                             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
-                                <span style={{fontSize: '10px', fontWeight: '900', color: '#f97316', letterSpacing: '0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
-                                    HCP {domTeamNameH}
-                                </span>
+                                <span style={{fontSize: '10px', fontWeight: '900', color: '#f97316', letterSpacing: '0.3px'}}>HCP (-1)</span>
                                 <span style={{fontSize: '11px', color: handicapProb >= 65 ? '#f97316' : '#94a3b8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
-                                    (-1) {handicapProb}%
+                                    {handicapProb}%
                                 </span>
                             </div>
                             <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
@@ -808,24 +810,6 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                             </div>
                         </div>
                     )}
-
-                    {/* ─── FORCE ─── */}
-                    <div style={{
-                        background: 'rgba(148,163,184,0.04)', borderRadius: '5px', padding: '4px 7px',
-                        border: '1px solid rgba(148,163,184,0.06)'
-                    }}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
-                            <span style={{fontSize: '12px', fontWeight: '900', color: msColor, flexShrink: 0}}>{msLabel || '-'}</span>
-                            <div style={{flex: 1, height: '4px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
-                                <div style={{width: `${(ms || 0) * 10}%`, height: '100%', background: msColor, borderRadius: '2px'}}></div>
-                            </div>
-                            <span style={{fontSize: '9px', color: msColor, fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{quant.market_strength || msDesc}</span>
-                            <span style={{marginLeft: 'auto', display: 'flex', gap: '3px', alignItems: 'center', flexShrink: 0}}>
-                            <span style={{fontSize: '10px'}}>{dataQuality}</span>
-                            {statusIcon}{resultIcon}
-                        </span>
-                        </div>
-                    </div>
                 </div>
             </div>
 

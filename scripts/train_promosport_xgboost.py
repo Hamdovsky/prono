@@ -4,6 +4,7 @@ for _p in ['pandas', 'numpy', 'optuna', 'xgboost', 'sklearn', 'joblib']:
         importlib.import_module(_p)
     except ImportError:
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir',
+                               '--break-system-packages',
                                {'sklearn': 'scikit-learn'}.get(_p, _p)],
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

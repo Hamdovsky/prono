@@ -42,7 +42,7 @@ print(json.dumps(probs.tolist()))
       }
 
       execSync(
-        `python -c "import xgboost as xgb; b=xgb.Booster(); b.load_model('${MODEL_PATH.replace(/\\/g, '\\\\')}'); print(len(b.feature_names))"`,
+        `python3 -c "import xgboost as xgb; b=xgb.Booster(); b.load_model('${MODEL_PATH.replace(/\\/g, '\\\\')}'); print('OK')"`,
         { timeout: 5000, encoding: 'utf8', windowsHide: true }
       );
 

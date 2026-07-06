@@ -9,7 +9,7 @@ function backfillPredictions() {
   const db = new Database(ARCHIVE_PATH)
 
   // Ensure predictions table exists
-  db.prepare(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS promosport_predictions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       concours TEXT NOT NULL,
@@ -19,10 +19,10 @@ function backfillPredictions() {
       home_team TEXT,
       away_team TEXT,
       choices TEXT,
-      created_at DATETIME DEFAULT datetime('now'),
+      created_at DATETIME DEFAULT (datetime('now')),
       UNIQUE(concours, grid_name, match_idx)
     )
-  `).run()
+  `)
 
   // Read all archive matches with results that don't have a prediction yet
   const rows = db.prepare(`

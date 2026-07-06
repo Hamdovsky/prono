@@ -446,6 +446,16 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     const mainOdds = getOddsForPick(quant.main_pick);
     const mainPickClean = (quant.main_pick || '').replace(/🛡️|⚽|⚡|🔥|🏠|✈️|AH_|EH_|COMBOS: |SMART VALUE: /g, '').trim();
     const secondPickClean = (quant.secondary_pick || '-').replace(/🛡️|⚽|⚡|🔥|🏠|✈️|AH_|EH_|COMBOS: |SMART VALUE: /g, '').trim();
+    const mainPickProb = (() => {
+        const pick = (quant.main_pick || '').toString().trim().toUpperCase();
+        if (pick === '1' || pick === 'HOME') return hPct / 100;
+        if (pick === '2' || pick === 'AWAY') return aPct / 100;
+        if (pick === 'X' || pick === 'N' || pick === 'DRAW') return dPct / 100;
+        return acc / 100;
+    })();
+    const mainPickEdge = mainOdds ? (mainPickProb - (1 / mainOdds)) : 0;
+    const mainPickEdgePct = (mainPickEdge * 100).toFixed(1);
+    const bttsOuStrength = Math.round((bttsPct + over25Pct) / 2);
 
     const totalPct = hPct + dPct + aPct;
     const hBar = totalPct > 0 ? (hPct / totalPct) * 100 : 33.3;
@@ -666,51 +676,102 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (17%) */}
-            <div style={{width: "17%", minWidth: "120px"}} className="onyx-virtual-cell">
-                <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                        <span style={{fontSize: '10px', color: 'var(--neon)', fontWeight: '900', minWidth: '32px'}}>MAIN</span>
-                        <span style={{fontSize: '12px', color: '#f1f5f9', fontWeight: '800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                            {mainPickClean}
-                        </span>
-                        {mainOdds && (
-                            <span style={{fontSize: '10px', color: '#fbbf24', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", background: 'rgba(251,191,36,0.08)', padding: '0 4px', borderRadius: '3px'}}>
-                                @{formatOdds(mainOdds)}
+            {/* COLUMN 2: PRONOSTIC — BASE SOLIDE + MARCHÉS + FORCE (24%) */}
+            <div style={{width: "24%", minWidth: "160px"}} className="onyx-virtual-cell">
+                <div style={{display: 'flex', flexDirection: 'column', gap: '2px'}}>
+
+                    {/* ─── BASE SOLIDE ─── */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(0,255,170,0.07) 0%, rgba(0,255,170,0.01) 100%)',
+                        borderRadius: '4px', padding: '3px 5px',
+                        border: '1px solid rgba(0,255,170,0.08)'
+                    }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <span style={{fontSize: '9px', fontWeight: '900', color: 'var(--neon)', letterSpacing: '0.3px'}}>BASE</span>
+                            <span style={{fontSize: '14px', color: '#f8fafc', fontWeight: '800'}}>
+                                {mainPickClean}
                             </span>
-                        )}
-                    </div>
-                    <div style={{width: '100%', height: '2px', background: 'rgba(148,163,184,0.15)', borderRadius: '2px', overflow: 'hidden'}}>
-                        <div style={{width: `${Math.min(100, Math.max(5, acc))}%`, height: '100%', background: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
-                    </div>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                        {(() => {
-                            const raw = quant.secondary_pick || '';
-                            const isHT = raw.startsWith('HT:');
-                            const isBTTS = raw.startsWith('BTTS:');
-                            const isOU = raw.startsWith('O/U');
-                            const isDC = raw.startsWith('DC:');
-                            const badgeColor = isHT ? '#38bdf8' : isBTTS ? '#a78bfa' : isOU ? '#f59e0b' : '#64748b';
-                            const badgeLabel = isHT ? 'HT' : isBTTS ? 'BTTS' : isOU ? 'O/U' : isDC ? 'DC' : '';
-                            return (
-                                <>
-                                    {badgeLabel && (
-                                        <span style={{fontSize: '8px', fontWeight: '900', color: badgeColor, border: `1px solid ${badgeColor}33`, borderRadius: '3px', padding: '0 4px', background: `${badgeColor}11`, letterSpacing: '0.5px'}}>
-                                            {badgeLabel}
-                                        </span>
-                                    )}
-                                    <span style={{fontSize: '11px', color: badgeColor || '#94a3b8', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                                        {secondPickClean}
+                            <span style={{marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px'}}>
+                                {mainOdds && (
+                                    <span style={{fontSize: '11px', color: '#fbbf24', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace"}}>
+                                        @{formatOdds(mainOdds)}
                                     </span>
-                                </>
-                            );
-                        })()}
+                                )}
+                                <span style={{fontSize: '12px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>
+                                    {acc}%
+                                </span>
+                            </span>
+                        </div>
+                        <div style={{width: '100%', height: '2px', marginTop: '2px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
+                            <div style={{width: `${Math.min(100, Math.max(5, acc))}%`, height: '100%', background: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
+                        </div>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px'}}>
+                            <span style={{fontSize: '10px', fontWeight: '900', color: acc >= 70 ? '#00ffaa' : acc >= 55 ? '#fbbf24' : '#f87171'}}>
+                                {acc >= 70 ? '🟢 SOLIDE' : acc >= 55 ? '🟡 MOYEN' : '🔴 RISQUÉ'}
+                            </span>
+                            {mainOdds && mainPickEdge > 0 && (
+                                <span style={{
+                                    fontSize: '10px', fontWeight: '900', padding: '0 5px', borderRadius: '3px',
+                                    color: '#fbbf24', background: 'rgba(251,191,36,0.12)',
+                                    border: '1px solid rgba(251,191,36,0.2)'
+                                }}>
+                                    🎯 EDGE +{mainPickEdgePct}%
+                                </span>
+                            )}
+                            {mainOdds && mainPickEdge <= 0 && (
+                                <span style={{
+                                    fontSize: '10px', fontWeight: '900', padding: '0 5px', borderRadius: '3px',
+                                    color: '#f87171', background: 'rgba(248,113,113,0.1)',
+                                    border: '1px solid rgba(248,113,113,0.2)'
+                                }}>
+                                    ⚠️ EDGE {mainPickEdgePct}%
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ─── MARCHÉS (BTTS + O/U 2.5) ─── */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(167,139,250,0.07) 0%, rgba(167,139,250,0.01) 100%)',
+                        borderRadius: '4px', padding: '3px 5px',
+                        border: '1px solid rgba(167,139,250,0.08)'
+                    }}>
+                        <span style={{fontSize: '9px', fontWeight: '900', color: '#a78bfa', letterSpacing: '0.3px', display: 'block', marginBottom: '1px'}}>MARCHÉS</span>
+                        <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                            <span style={{fontSize: '11px', color: bttsBadgeColor, fontWeight: '700'}}>
+                                BTTS <span style={{fontWeight: '900'}}>{bttsLabel}</span> <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '10px'}}>{bttsDisplayPct}%</span>
+                            </span>
+                            <span style={{fontSize: '11px', color: tgBadgeColor, fontWeight: '700'}}>
+                                {ouLabel} <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '10px'}}>{ouDisplayPct}%</span>
+                            </span>
+                        </div>
+                        <div style={{width: '100%', height: '2px', marginTop: '2px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
+                            <div style={{width: `${Math.min(100, Math.max(5, bttsOuStrength))}%`, height: '100%', background: bttsOuStrength >= 65 ? '#a78bfa' : bttsOuStrength >= 50 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
+                        </div>
+                    </div>
+
+                    {/* ─── FORCE ─── */}
+                    <div style={{
+                        background: 'rgba(148,163,184,0.04)', borderRadius: '4px', padding: '2px 5px',
+                        border: '1px solid rgba(148,163,184,0.06)'
+                    }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <span style={{fontSize: '12px', fontWeight: '900', color: msColor}}>{msLabel || '-'}</span>
+                            <div style={{flex: 1, height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
+                                <div style={{width: `${(ms || 0) * 10}%`, height: '100%', background: msColor, borderRadius: '2px'}}></div>
+                            </div>
+                            <span style={{fontSize: '9px', color: msColor, fontWeight: '700', whiteSpace: 'nowrap'}}>{quant.market_strength || msDesc}</span>
+                            <span style={{marginLeft: 'auto', display: 'flex', gap: '2px', alignItems: 'center'}}>
+                            <span style={{fontSize: '10px'}}>{dataQuality}</span>
+                            {statusIcon}{resultIcon}
+                        </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* COLUMN 3: AI SCORE & FT confidence (12%) */}
-            <div style={{width: "12%", minWidth: "90px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 3: AI SCORE & FT confidence (14%) */}
+            <div style={{width: "14%", minWidth: "100px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                     <span className="onyx-cs" style={{fontSize: '16px', fontWeight: '900', color: match.insufficient_data === 1 ? '#f59e0b' : '#00ffaa'}}>
                         {match.insufficient_data === 1 ? '⏳ ATTENTE' : cs}
@@ -741,63 +802,26 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 )}
             </div>
 
-            {/* COLUMN 4: MARCHÉS (BTTS + O/U + DC) (16%) */}
+            {/* COLUMN 4: MARCHÉS (DC only) (16%) */}
             <div style={{width: "16%", minWidth: "120px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'row', gap: '6px', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
-                        <span style={{
-                            fontSize: '10px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px',
-                            background: bttsBadgeBg, color: bttsBadgeColor,
-                            border: `1px solid ${bttsBadgeBorder}`,
-                            textTransform: 'uppercase', letterSpacing: '0.2px', whiteSpace: 'nowrap'
-                        }}>
-                            {bttsLabel}
-                        </span>
-                        <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
-                            {bttsDisplayPct}%
-                        </span>
-                    </div>
-                    <div style={{width:'1px', height:'24px', background:'rgba(148,163,184,0.2)'}}></div>
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
-                        <span style={{
-                            fontSize: '10px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px',
-                            background: tgBadgeBg, color: tgBadgeColor,
-                            border: `1px solid ${tgBadgeBorder}`, whiteSpace: 'nowrap'
-                        }}>
-                            {tg}
-                        </span>
-                        <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
-                            {ouLabel}: {ouDisplayPct}%
-                        </span>
-                    </div>
-                </div>
-                {dcOdds && (
-                    <div style={{display: 'flex', gap: '3px', marginTop: '2px', justifyContent: 'center'}}>
-                        <span style={{fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: 'rgba(168,85,247,0.15)', color: '#a855f7', fontWeight: '700'}}>1X {dcOdds['1X']}</span>
-                        <span style={{fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: 'rgba(59,130,246,0.15)', color: '#3b82f6', fontWeight: '700'}}>12 {dcOdds['12']}</span>
-                        <span style={{fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700'}}>X2 {dcOdds['X2']}</span>
-                    </div>
-                )}
-            </div>
-
-            {/* COLUMN 5: PRECISION & RISK (11%) */}
-            <div style={{width: "11%", minWidth: "80px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
-                    <span style={{fontSize: '18px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>{acc}%</span>
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
-                        <span style={{fontSize: '10px', fontWeight: '900', color: acc >= 70 ? '#00ffaa' : acc >= 55 ? '#fbbf24' : '#f87171'}}>
-                            {acc >= 70 ? 'SOLIDE' : acc >= 55 ? 'MOYEN' : 'RISQUÉ'}
-                        </span>
-                        <div style={{display: 'flex', gap: '2px', alignItems: 'center'}}>
-                            <span style={{fontSize: '10px'}}>{dataQuality}</span>
-                            {statusIcon}{resultIcon}
-                        </div>
-                    </div>
+                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'}}>
+                    {dcOdds ? (
+                        <>
+                            <span style={{fontSize: '9px', fontWeight: '900', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.5px'}}>DOUBLE CHANCE</span>
+                            <div style={{display: 'flex', gap: '4px'}}>
+                                <span style={{fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(168,85,247,0.15)', color: '#a855f7', fontWeight: '700'}}>1X {dcOdds['1X']}</span>
+                                <span style={{fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(59,130,246,0.15)', color: '#3b82f6', fontWeight: '700'}}>12 {dcOdds['12']}</span>
+                                <span style={{fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700'}}>X2 {dcOdds['X2']}</span>
+                            </div>
+                        </>
+                    ) : (
+                        <span style={{fontSize: '11px', color: '#475569', fontWeight: '700'}}>—</span>
+                    )}
                 </div>
             </div>
 
-            {/* COLUMN 6: SIGNAL & EV + VALUE SCORE (14%) */}
-            <div style={{width: "14%", minWidth: "100px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 5: SIGNAL & EV + VALUE SCORE (16%) */}
+            <div style={{width: "16%", minWidth: "110px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center'}}>
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
@@ -823,7 +847,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 7: FORCE (10%) */}
+            {/* COLUMN 6: FORCE (10%) */}
             <div style={{width: "10%", minWidth: "60px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>

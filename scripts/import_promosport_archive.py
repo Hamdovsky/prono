@@ -33,8 +33,12 @@ conn.executescript('''
 print('Table promosport_archive created')
 
 # 1st source: historical_results.json (no votes, just results)
-with open(RESULTS_PATH) as f:
-    results = json.load(f)
+if not os.path.exists(RESULTS_PATH):
+    print(f'WARNING: {RESULTS_PATH} not found, skipping historical results')
+    results = []
+else:
+    with open(RESULTS_PATH) as f:
+        results = json.load(f)
 
 count = 0
 for concours in results:
@@ -48,8 +52,12 @@ for concours in results:
 print(f'Imported {count} rows from historical_results.json')
 
 # 2nd source: tunisian_vote_history.json (has votes + results)
-with open(VOTES_PATH) as f:
-    votes = json.load(f)
+if not os.path.exists(VOTES_PATH):
+    print(f'WARNING: {VOTES_PATH} not found, skipping votes')
+    votes = []
+else:
+    with open(VOTES_PATH) as f:
+        votes = json.load(f)
 
 count2 = 0
 for v in votes:

@@ -737,54 +737,77 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                         </div>
                     </div>
 
-                    {/* ─── MARCHÉS (BTTS + O/U + HT + HCP) ─── */}
+                    {/* ─── BTTS ─── */}
                     <div style={{
-                        background: 'linear-gradient(135deg, rgba(167,139,250,0.07) 0%, rgba(167,139,250,0.01) 100%)',
-                        borderRadius: '5px', padding: '5px 7px',
-                        border: '1px solid rgba(167,139,250,0.08)'
+                        background: 'linear-gradient(135deg, rgba(0,255,170,0.05) 0%, rgba(0,255,170,0.01) 100%)',
+                        borderRadius: '5px', padding: '4px 7px',
+                        border: '1px solid rgba(0,255,170,0.07)'
                     }}>
-                        <span style={{fontSize: '9px', fontWeight: '900', color: '#a78bfa', letterSpacing: '0.3px', display: 'block', marginBottom: '4px'}}>MARCHÉS</span>
-
-                        {/* BTTS */}
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
-                            <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '600', flexShrink: 0}}>⚽ BTTS</span>
-                            <span style={{fontSize: '10px', color: bttsBadgeColor, fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                            <span style={{fontSize: '10px', fontWeight: '900', color: bttsBadgeColor, letterSpacing: '0.3px'}}>BTTS</span>
+                            <span style={{fontSize: '11px', color: bttsBadgeColor, fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
                                 {bttsLabel} {bttsDisplayPct}%
                             </span>
                         </div>
+                        <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
+                            <div style={{width: `${Math.min(100, Math.max(5, bttsDisplayPct))}%`, height: '100%', background: bttsBadgeColor, borderRadius: '2px'}}></div>
+                        </div>
+                    </div>
 
-                        {/* O/U */}
+                    {/* ─── O/U ─── */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(16,185,129,0.01) 100%)',
+                        borderRadius: '5px', padding: '4px 7px',
+                        border: '1px solid rgba(16,185,129,0.07)'
+                    }}>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
-                            <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '600', flexShrink: 0}}>📊 O/U</span>
-                            <span style={{fontSize: '10px', color: tgBadgeColor, fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                            <span style={{fontSize: '10px', fontWeight: '900', color: tgBadgeColor, letterSpacing: '0.3px'}}>O/U</span>
+                            <span style={{fontSize: '11px', color: tgBadgeColor, fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
                                 {ouLabel} {ouDisplayPct}%
                             </span>
                         </div>
+                        <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
+                            <div style={{width: `${Math.min(100, Math.max(5, ouDisplayPct))}%`, height: '100%', background: tgBadgeColor, borderRadius: '2px'}}></div>
+                        </div>
+                    </div>
 
-                        {/* HT +0.5 */}
+                    {/* ─── HT +0.5 ─── */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(56,189,248,0.05) 0%, rgba(56,189,248,0.01) 100%)',
+                        borderRadius: '5px', padding: '4px 7px',
+                        border: '1px solid rgba(56,189,248,0.07)'
+                    }}>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
-                            <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '600', flexShrink: 0}}>⏱ HT +0.5</span>
-                            <span style={{fontSize: '10px', color: '#38bdf8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                            <span style={{fontSize: '10px', fontWeight: '900', color: '#38bdf8', letterSpacing: '0.3px'}}>HT +0.5</span>
+                            <span style={{fontSize: '11px', color: '#38bdf8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace"}}>
                                 {htGoalPct}%
                             </span>
                         </div>
+                        <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
+                            <div style={{width: `${Math.min(100, Math.max(5, htGoalPct))}%`, height: '100%', background: '#38bdf8', borderRadius: '2px'}}></div>
+                        </div>
+                    </div>
 
-                        {/* Handicap (conditional) */}
-                        {hasHandicap && (
+                    {/* ─── HCP (Handicap, conditional) ─── */}
+                    {hasHandicap && (
+                        <div style={{
+                            background: 'linear-gradient(135deg, rgba(249,115,22,0.05) 0%, rgba(249,115,22,0.01) 100%)',
+                            borderRadius: '5px', padding: '4px 7px',
+                            border: '1px solid rgba(249,115,22,0.07)'
+                        }}>
                             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px'}}>
-                                <span style={{fontSize: '10px', color: '#94a3b8', fontWeight: '600', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                                    🛡️ HCP {domTeamNameH}
+                                <span style={{fontSize: '10px', fontWeight: '900', color: '#f97316', letterSpacing: '0.3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                                    HCP {domTeamNameH}
                                 </span>
-                                <span style={{fontSize: '10px', color: handicapProb >= 65 ? '#f97316' : '#94a3b8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
+                                <span style={{fontSize: '11px', color: handicapProb >= 65 ? '#f97316' : '#94a3b8', fontWeight: '800', fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap'}}>
                                     (-1) {handicapProb}%
                                 </span>
                             </div>
-                        )}
-
-                        <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden', marginTop: '3px'}}>
-                            <div style={{width: `${Math.min(100, Math.max(5, bttsOuStrength))}%`, height: '100%', background: bttsOuStrength >= 65 ? '#a78bfa' : bttsOuStrength >= 50 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
+                            <div style={{width: '100%', height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
+                                <div style={{width: `${Math.min(100, Math.max(5, handicapProb))}%`, height: '100%', background: handicapProb >= 65 ? '#f97316' : '#94a3b8', borderRadius: '2px'}}></div>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* ─── FORCE ─── */}
                     <div style={{

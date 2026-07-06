@@ -224,6 +224,30 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
       archiveScrapedMatches(first.concoursNumber || 'unknown', first.concoursDate || new Date().toISOString(), scrapedMatches);
     }
 
+    // Check if any matches already have results (matchs déjà joués)
+    try {
+      const firstMatch = scrapedMatches[0] || {};
+      const concoursNo = firstMatch.concoursNumber || '878';
+      const tunisieGrid = await scrapeTunisieGrid(concoursNo);
+      if (tunisieGrid && tunisieGrid.matches) {
+        let foundFinished = 0;
+        for (const tm of tunisieGrid.matches) {
+          if (!tm.result || tm.result === 'N') continue;
+          const sm = scrapedMatches.find(m => 
+            (m.homeTeam && m.awayTeam && 
+             m.homeTeam.toUpperCase().includes(tm.home?.slice(0, 4).toUpperCase() || '') &&
+             m.awayTeam.toUpperCase().includes(tm.away?.slice(0, 4).toUpperCase() || ''))
+          );
+          if (sm) {
+            sm.isFinished = true;
+            sm.actualResult = tm.result;
+            foundFinished++;
+          }
+        }
+        if (foundFinished > 0) logger.info(`🏁 [PROMOSPORT] ${foundFinished} matchs déjà joués détectés (résultats intégrés)`);
+      }
+    } catch (_) {}
+
     // Custom doubles per grid from query params: ?d1=4&d2=4&d3=4&d4=4
     const customDoubles = [
       parseInt(req.query.d1) || null,

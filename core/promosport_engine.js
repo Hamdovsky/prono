@@ -237,12 +237,19 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
 
   const grids = [];
 
+  // Separate finished matches (already played) from unknowns
+  const finishedMatches = enrichedMatches.filter(m => m.isFinished && m.actualResult)
+  const unknownMatches = enrichedMatches.filter(m => !m.isFinished || !m.actualResult)
+  if (finishedMatches.length > 0) {
+    logger.info(`🏁 [PROMOSPORT-ENGINE] ${finishedMatches.length} matchs terminés, ${unknownMatches.length} à pronostiquer`)
+  }
+
   const obstacleAnalysis = analyseObstacles(enrichedMatches)
   logger.info(`🧠 [OBSTACLES] Avg score: ${(obstacleAnalysis.reduce((a,o) => a + o.avgScore, 0) / 13).toFixed(2)}/5`)
 
   // ── Cross-Distribution of doubles across 4 grids ────────────────
-  // Rank matches by uncertainty (entropy + crowd traps - confidence)
-  const rankedByUncertainty = enrichedMatches
+  // Rank UNKNOWN matches by uncertainty (finished matches excluded)
+  const rankedByUncertainty = unknownMatches
     .map(m => ({
       id: m.id,
       uncertainty: m.entropy + (m.isCrowdTrap || m.isAwayCrowdTrap ? 2 : 0) + (m.publicOverconfidence ? 1 : 0) - (m.confidence / 100) * 0.5
@@ -293,6 +300,26 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
     const doubleIds = gridDoubleMap[gridIdx]
 
     const gridMatches = enrichedMatches.map(m => {
+      // Match déjà joué → pick forcé sur le résultat réel
+      if (m.isFinished && m.actualResult) {
+        return {
+          id: m.id,
+          home: m.homeTeam,
+          away: m.awayTeam,
+          p1: m.p1, px: m.px, p2: m.p2,
+          entropy: m.entropy,
+          confidence: 100,
+          isCrowdTrap: false, isAwayCrowdTrap: false,
+          publicOverconfidence: false, publicConfidence: 1,
+          crowdP1: m.crowdP1, crowdP2: m.crowdP2,
+          choices: [m.actualResult],
+          intel: { form: 99, logistics: 99, motivation: 99, sharp: 100 },
+          brief: '🏁 Match déjà joué — résultat connu',
+          isHighPressure: false,
+          isFinished: true
+        };
+      }
+
       const isDouble = doubleIds.includes(m.id);
       let choices = [];
 

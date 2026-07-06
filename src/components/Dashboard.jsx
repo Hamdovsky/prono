@@ -5,7 +5,8 @@ import UltimateMatchCenter from "./UltimateMatchCenter/UltimateMatchCenter"
 import MatchRow from "./MatchRow"
 import TicketDuJour from "./TicketDuJour"
 import MarketTerminal from "./MarketTerminal"
-import PerformanceHub from "./PerformanceHub.jsx"
+import PerformanceAnalytics from "./PerformanceAnalytics.jsx"
+import TrackRecord from "./TrackRecord.jsx"
 import dataService from "../services/dataService"
 import { List } from 'react-window'
 import { ROUTES, PATH_TO_VIEW } from "../config/routes"
@@ -116,7 +117,11 @@ const Dashboard = () => {
     const [scraperProgress, setScraperProgress] = useState(null)
     const [isScraping, setIsScraping] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
+    const [statusFilter, setStatusFilter] = useState("ALL")
+    const [confFilter, setConfFilter] = useState(0)
     const [now, setNow] = useState(Date.now())
+    const [showTrackRecord, setShowTrackRecord] = useState(false)
+    const [perfFilter, setPerfFilter] = useState('ALL')
 
     // 1-second timer for countdowns
     useEffect(() => {
@@ -273,6 +278,50 @@ const Dashboard = () => {
             .slice(0, 5)
     }, [matches])
 
+    // Performance-based league accuracy (from finished match results)
+    const perfLeagueAccuracy = useMemo(() => {
+        const finished = matches.filter(m => {
+            const st = (m.status || '').toUpperCase()
+            if (st === 'NOT_STARTED' || st === 'SCHEDULED' || st === '' || st === 'NS') return false
+            if (st === 'IN_PLAY' || st === 'LIVE' || st === '1H' || st === '2H' || st === 'HT') return false
+            const sh = m.scoreHome ?? m.score?.home
+            const sa = m.scoreAway ?? m.score?.away
+            if ((sh === null || sh === undefined) && (sa === null || sa === undefined)) return false
+            if (Number(sh) === 0 && Number(sa) === 0) return false
+            return true
+        })
+        const groups = {}
+        finished.forEach(m => {
+            const league = m.league || 'Unknown'
+            if (!groups[league]) groups[league] = { total: 0, wins: 0 }
+            groups[league].total++
+            const h = Number(m.scoreHome !== undefined ? m.scoreHome : m.score?.home || 0)
+            const a = Number(m.scoreAway !== undefined ? m.scoreAway : m.score?.away || 0)
+            let pick = ''
+            const q = m.quant || m._quant
+            if (q && q.main_pick) pick = String(q.main_pick).toLowerCase()
+            else if (m.predictions && m.predictions[0] && m.predictions[0].val) pick = String(m.predictions[0].val).toLowerCase()
+            else pick = String(m.prediction || '').toLowerCase()
+            if (!pick || pick.includes('skip') || pick.includes('no bet')) return
+            let isWin = false
+            if (pick.includes('home') || pick === '1') isWin = h > a
+            else if (pick.includes('away') || pick === '2') isWin = a > h
+            else if (pick.includes('draw') || pick === 'x') isWin = h === a
+            else if (pick.includes('btts')) isWin = h > 0 && a > 0
+            else if (pick.includes('+2.5') || pick.includes('over 2.5')) isWin = (h + a) > 2.5
+            else if (pick.includes('-2.5') || pick.includes('under 2.5')) isWin = (h + a) < 2.5
+            else if (pick.includes('+1.5') || pick.includes('over 1.5')) isWin = (h + a) > 1.5
+            else if (pick.includes('-1.5') || pick.includes('under 1.5')) isWin = (h + a) < 1.5
+            if (isWin) groups[league].wins++
+        })
+        return Object.entries(groups).map(([league, data]) => ({
+            league,
+            total: data.total,
+            wins: data.wins,
+            winRate: Math.round((data.wins / data.total) * 100),
+        })).filter(l => l.total >= 3).sort((a, b) => b.winRate - a.winRate)
+    }, [matches])
+
     // Date Constants for filtering
     const getToday = () => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); };
     const getTomorrow = () => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + 1); return d.getTime(); };
@@ -394,6 +443,15 @@ const Dashboard = () => {
 
     // Separate list for all-matches view: no date/league/signal filter, only search + finished removal
     const allMatchesList = useMemo(() => {
+        // Build set of leagues that meet performance threshold
+        const perfLeagues = new Set()
+        if (perfFilter !== 'ALL') {
+            const minRate = parseInt(perfFilter)
+            perfLeagueAccuracy.forEach(l => {
+                if (l.winRate >= minRate) perfLeagues.add(l.league)
+            })
+        }
+
         return matches.filter(m => {
             // 🔍 Search filter on team/league (raw + normalized)
             if (searchQuery) {
@@ -405,8 +463,20 @@ const Dashboard = () => {
                 const league = (m.league || m.tournament_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                 if (!home.includes(q) && !away.includes(q) && !rawHome.includes(q) && !rawAway.includes(q) && !league.includes(q)) return false
             }
-            // Remove finished/completed matches
+            // Status filter
             const s = String(m.status || '').toLowerCase()
+            const isLive = s === 'live' || m.isLive || (m.minute && String(m.minute).includes("'"))
+            if (statusFilter === 'LIVE' && !isLive) return false
+            if (statusFilter === 'UPCOMING' && (isLive || ['finished','ft','ended','closed','played','aet','pen','postponed','canceled'].includes(s))) return false
+            // Confidence filter
+            const mConf = m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0
+            if (confFilter > 0 && mConf < confFilter) return false
+            // Performance filter (only leagues with >= X% win rate historically)
+            if (perfFilter !== 'ALL') {
+                const league = m.league || m.tournament_name || ''
+                if (!perfLeagues.has(league)) return false
+            }
+            // Remove finished/completed matches
             if (['finished', 'ft', 'ended', 'closed', 'played', 'aet', 'pen', 'postponed', 'canceled'].includes(s)) return false
             if (m.actualResult && m.actualResult !== 'N/A' && m.actualResult.trim() !== '') return false
             return true
@@ -415,7 +485,17 @@ const Dashboard = () => {
             const bTime = b._ts || (b._ts = b.startTimestamp ? (b.startTimestamp > 1e11 ? b.startTimestamp : b.startTimestamp * 1000) : 0)
             return aTime - bTime
         })
-    }, [matches, searchQuery])
+    }, [matches, searchQuery, statusFilter, confFilter, perfFilter, perfLeagueAccuracy])
+
+    // Available leagues for filter (from active matches)
+    const leagueOptions = useMemo(() => {
+        const leagues = new Set()
+        matches.forEach(m => {
+            const l = m.league || m.tournament_name
+            if (l) leagues.add(l)
+        })
+        return Array.from(leagues).sort()
+    }, [matches])
 
     const renderMatchList = (list, title, isElite = false) => {
         if (list.length === 0) return null
@@ -445,21 +525,28 @@ const Dashboard = () => {
                             fontWeight: '800',
                             letterSpacing: '0.8px',
                             background: 'rgba(0,0,0,0.3)',
-                            cursor: 'pointer'
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 5
                         }}>
-                            <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
-                            <div style={{width:"26%", minWidth: "190px", padding:"0 8px"}}>PRONOSTIC</div>
-                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
-                                AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", display: 'flex', alignItems: 'center', gap: '4px'}}>
+                                <span>📅</span>
+                                <span>MATCH / FORME</span>
                             </div>
-                            <div style={{width:"16%", minWidth: "120px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
-                                MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", cursor: 'pointer', display: 'flex', alignItems: 'center'}} onClick={() => handleSort('PRONOSTIC')}>
+                                <span>PRONOSTIC {activeSort === 'PRONOSTIC' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
                             </div>
-                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
-                                SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('AI_SCORE')}>
+                                <span>SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
                             </div>
-                            <div style={{width:"10%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
-                                FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('MARCHES')}>
+                                <span>MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            </div>
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('EV')}>
+                                <span>SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            </div>
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('STRENGTH')}>
+                                <span>FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
                             </div>
                         </div>
                     )}
@@ -500,59 +587,140 @@ const Dashboard = () => {
         if (activeView === 'markets') return <MarketTerminal matches={sortedMatches} />;
 
         if (activeView === 'all-matches') {
+            const liveCount = allMatchesList.filter(m => {
+                const s = String(m.status || '').toLowerCase()
+                return s === 'live' || m.isLive || (m.minute && String(m.minute).includes("'"))
+            }).length
+            const nowMs = now
             return (
                 <div className="onyx-grid-container">
-                    {/* Toolbar: Search + Refresh + CSV + League Accuracy */}
+                    {/* Toolbar: Search + Filters + Stats */}
                     <div style={{
-                        display: 'flex', alignItems: 'center', gap: '10px',
+                        display: 'flex', alignItems: 'center', gap: '8px',
                         padding: '8px 14px', background: 'rgba(0,0,0,0.25)',
-                        borderRadius: '8px', marginBottom: '10px', flexWrap: 'wrap'
+                        borderRadius: '8px', marginBottom: '8px', flexWrap: 'wrap'
                     }}>
-                        <input
-                            type="text"
-                            placeholder="🔍 Équipe / Ligue..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            autoFocus
-                            style={{
-                                flex: '1 1 160px', minWidth: '120px', padding: '6px 10px',
-                                background: 'rgba(15,23,42,0.8)', border: '1px solid #334155',
-                                borderRadius: '6px', color: '#f1f5f9', fontSize: '12px', outline: 'none'
-                            }}
-                        />
+                        {/* Search */}
+                        <div style={{position: 'relative', flex: '1 1 140px', minWidth: '100px'}}>
+                            <input
+                                type="text"
+                                placeholder="🔍 Équipe / Ligue..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                style={{
+                                    width: '100%', padding: '5px 28px 5px 10px',
+                                    background: 'rgba(15,23,42,0.8)', border: '1px solid #334155',
+                                    borderRadius: '6px', color: '#f1f5f9', fontSize: '12px', outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                            {searchQuery && (
+                                <span onClick={() => setSearchQuery('')} style={{position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#64748b', fontSize: '14px', fontWeight: '700'}}>✕</span>
+                            )}
+                        </div>
+
+                        {/* Status filter */}
+                        <div style={{display: 'flex', gap: '3px', alignItems: 'center'}}>
+                            {['ALL', 'LIVE', 'UPCOMING'].map(st => (
+                                <button key={st} onClick={() => setStatusFilter(st)} style={{
+                                    padding: '4px 8px', borderRadius: '5px', border: 'none',
+                                    background: statusFilter === st ? (st === 'LIVE' ? 'rgba(239,68,68,0.25)' : 'rgba(56,189,248,0.2)') : 'rgba(148,163,184,0.08)',
+                                    color: statusFilter === st ? (st === 'LIVE' ? '#ef4444' : '#38bdf8') : '#94a3b8',
+                                    fontWeight: statusFilter === st ? '900' : '600',
+                                    fontSize: '10px', cursor: 'pointer', whiteSpace: 'nowrap'
+                                }}>
+                                    {st === 'ALL' ? '📋 Tous' : st === 'LIVE' ? `🔴 LIVE (${liveCount})` : '⏳ À venir'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Confidence filter */}
+                        <select value={confFilter} onChange={e => setConfFilter(Number(e.target.value))} style={{
+                            padding: '4px 8px', background: 'rgba(15,23,42,0.8)', border: '1px solid #334155',
+                            borderRadius: '6px', color: '#f1f5f9', fontSize: '10px', outline: 'none', cursor: 'pointer'
+                        }}>
+                            <option value={0}>🎯 Toute confiance</option>
+                            <option value={50}>≥ 50%</option>
+                            <option value={60}>≥ 60%</option>
+                            <option value={70}>≥ 70%</option>
+                            <option value={80}>≥ 80%</option>
+                            <option value={90}>≥ 90%</option>
+                        </select>
+
+                        {/* League filter */}
+                        <select value={activeLeague} onChange={e => handleLeagueChange(e.target.value)} style={{
+                            padding: '4px 8px', background: 'rgba(15,23,42,0.8)', border: '1px solid #334155',
+                            borderRadius: '6px', color: '#f1f5f9', fontSize: '10px', outline: 'none', cursor: 'pointer', maxWidth: '140px'
+                        }}>
+                            <option value="ALL">🏆 Toutes ligues</option>
+                            {leagueOptions.slice(0, 30).map(l => (
+                                <option key={l} value={l}>{l}</option>
+                            ))}
+                        </select>
+
+                        {/* Performance filter */}
+                        <select value={perfFilter} onChange={e => setPerfFilter(e.target.value)} style={{
+                            padding: '4px 8px', background: 'rgba(15,23,42,0.8)', border: '1px solid #334155',
+                            borderRadius: '6px', color: '#f1f5f9', fontSize: '10px', outline: 'none', cursor: 'pointer'
+                        }}>
+                            <option value="ALL">📈 Toute performance</option>
+                            <option value="40">≥ 40% win rate</option>
+                            <option value="50">≥ 50% win rate</option>
+                            <option value="60">≥ 60% win rate</option>
+                            <option value="70">≥ 70% win rate</option>
+                        </select>
+
+                        {/* Action buttons */}
                         <button onClick={handleRefresh} style={{
-                            padding: '6px 12px', background: 'rgba(0,255,170,0.08)',
+                            padding: '4px 10px', background: 'rgba(0,255,170,0.08)',
                             border: '1px solid rgba(0,255,170,0.2)', borderRadius: '6px',
-                            color: '#00ffaa', fontWeight: '700', fontSize: '11px', cursor: 'pointer'
+                            color: '#00ffaa', fontWeight: '700', fontSize: '10px', cursor: 'pointer'
                         }}>
                             🔄 RAFRAÎCHIR
                         </button>
                         <button onClick={handleExportCSV} style={{
-                            padding: '6px 12px', background: 'rgba(56,189,248,0.08)',
+                            padding: '4px 10px', background: 'rgba(56,189,248,0.08)',
                             border: '1px solid rgba(56,189,248,0.2)', borderRadius: '6px',
-                            color: '#38bdf8', fontWeight: '700', fontSize: '11px', cursor: 'pointer'
+                            color: '#38bdf8', fontWeight: '700', fontSize: '10px', cursor: 'pointer'
                         }}>
                             📥 CSV
                         </button>
-                        {leagueAccuracy.length > 0 && (
-                            <div style={{
-                                display: 'flex', alignItems: 'center', gap: '6px',
-                                padding: '4px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', flexWrap: 'wrap'
-                            }}>
-                                <span style={{fontSize: '10px', color: '#64748b', fontWeight: '700'}}>🎯</span>
-                                {leagueAccuracy.slice(0, 5).map((la, i) => (
-                                    <span key={i} style={{
-                                        fontSize: '10px', fontWeight: '700',
-                                        color: la.pct >= 70 ? '#00ffaa' : la.pct >= 55 ? '#fbbf24' : '#f87171',
-                                        background: `${la.pct >= 70 ? 'rgba(0,255,170,0.08)' : la.pct >= 55 ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)'}`,
-                                        padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap'
-                                    }}>
-                                        {la.league.split(' ').slice(0, 2).join(' ')}: {la.pct}%
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+
+                        {/* Match count + live badge */}
+                        <span style={{
+                            fontSize: '10px', color: '#64748b', fontWeight: '700', marginLeft: 'auto',
+                            display: 'flex', alignItems: 'center', gap: '6px'
+                        }}>
+                            {allMatchesList.length} matchs
+                            {liveCount > 0 && (
+                                <span style={{color: '#ef4444', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '3px'}}>
+                                    <span style={{display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', animation: liveCount > 0 ? 'pulse 1.5s infinite' : 'none'}}></span>
+                                    {liveCount} EN DIRECT
+                                </span>
+                            )}
+                        </span>
                     </div>
+
+                    {/* League accuracy badges */}
+                    {leagueAccuracy.length > 0 && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            padding: '4px 14px', marginBottom: '8px', flexWrap: 'wrap'
+                        }}>
+                            <span style={{fontSize: '10px', color: '#64748b', fontWeight: '700'}}>🎯 Précision ligues:</span>
+                            {leagueAccuracy.slice(0, 8).map((la, i) => (
+                                <span key={i} style={{
+                                    fontSize: '9px', fontWeight: '700',
+                                    color: la.pct >= 70 ? '#00ffaa' : la.pct >= 55 ? '#fbbf24' : '#f87171',
+                                    background: `${la.pct >= 70 ? 'rgba(0,255,170,0.08)' : la.pct >= 55 ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)'}`,
+                                    padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap'
+                                }}>
+                                    {la.league.split(' ').slice(0, 2).join(' ')}: {la.pct}%
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
                     {renderMatchList(allMatchesList, `📊 TOUS LES MATCHS`, false)}
                 </div>
             );
@@ -668,7 +836,18 @@ const Dashboard = () => {
                 )}
 
                 {/* 🔥 PERFORMANCE & SURGICAL BANNER */}
-                {activeView === 'matches' && <PerformanceHub matches={sortedMatches} />}
+                {activeView === 'matches' && (
+                    <PerformanceAnalytics
+                        matches={sortedMatches}
+                        onTrackRecord={() => setShowTrackRecord(true)}
+                    />
+                )}
+                {activeView === 'all-matches' && (
+                    <PerformanceAnalytics
+                        matches={allMatchesList}
+                        onTrackRecord={() => setShowTrackRecord(true)}
+                    />
+                )}
 
                 {/* Search Bar for matches view */}
                 {activeView === 'matches' && (
@@ -803,21 +982,24 @@ const Dashboard = () => {
                             fontWeight: '800',
                             letterSpacing: '0.8px',
                             background: 'rgba(0,0,0,0.3)',
-                            cursor: 'pointer'
                         }}>
-                            <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
-                            <div style={{width:"26%", minWidth: "190px", padding:"0 8px"}}>PRONOSTIC</div>
-                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
-                                AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", display: 'flex', alignItems: 'center'}}>
+                                <span>MATCH / FORME</span>
                             </div>
-                            <div style={{width:"16%", minWidth: "120px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
-                                MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", cursor: 'pointer', display: 'flex', alignItems: 'center'}} onClick={() => handleSort('PRONOSTIC')}>
+                                <span>PRONOSTIC {activeSort === 'PRONOSTIC' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
                             </div>
-                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
-                                SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('AI_SCORE')}>
+                                <span>AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
                             </div>
-                            <div style={{width:"10%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
-                                FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('MARCHES')}>
+                                <span>MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            </div>
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('EV')}>
+                                <span>SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            </div>
+                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('STRENGTH')}>
+                                <span>FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
                             </div>
                         </div>
                     )}
@@ -913,6 +1095,12 @@ const Dashboard = () => {
                 <UltimateMatchCenter 
                     match={selectedMatchForUltimateView} 
                     onClose={() => setSelectedMatchForUltimateView(null)} 
+                />
+            )}
+            {showTrackRecord && (
+                <TrackRecord
+                    matches={matches}
+                    onClose={() => setShowTrackRecord(false)}
                 />
             )}
         </div>

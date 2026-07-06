@@ -599,13 +599,23 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
     return (
         <div style={{ ...style, ...rowStyle, display: 'flex', alignItems: 'center', minWidth: 'fit-content' }} className="onyx-virtual-row" onClick={() => onClick(match)}>
-            {/* COLUMN 1: MATCH & LEAGUE (20%) */}
-            <div style={{width: "20%", minWidth: "160px", overflow: 'hidden'}} className="onyx-virtual-cell">
+            {/* COLUMN 1: MATCH & LEAGUE (16.66%) */}
+            <div style={{width: "16.66%", minWidth: "110px", overflow: 'hidden'}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px', minWidth: 0}}>
                     <span className={`status-dot ${statusClass}`} style={{flexShrink: 0}}></span>
                     {formattedTime && (
                         <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#fbbf24', fontWeight: '800', background: 'rgba(251, 191, 36, 0.1)', padding: '1px 3px', borderRadius: '4px', flexShrink: 0}}>
                             {formattedTime}
+                        </span>
+                    )}
+                    {countdownStr && countdownStr.includes("EN COURS") && (
+                        <span style={{
+                            fontSize: '8px', fontWeight: '900', padding: '1px 5px', borderRadius: '3px',
+                            background: 'rgba(239,68,68,0.2)', color: '#ef4444',
+                            border: '1px solid rgba(239,68,68,0.3)', flexShrink: 0,
+                            animation: 'pulse 1.5s infinite'
+                        }}>
+                            🔴 LIVE
                         </span>
                     )}
                     {countdownStr && !countdownStr.includes("EN COURS") && (
@@ -685,8 +695,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 2: PRONOSTIC — BASE SOLIDE + MARCHÉS (26%) */}
-            <div style={{width: "26%", minWidth: "190px", overflow: 'hidden', padding: '1px 8px'}} className="onyx-virtual-cell">
+            {/* COLUMN 2: PRONOSTIC (16.66%) */}
+            <div style={{width: "16.66%", minWidth: "110px", overflow: 'hidden', padding: '1px 8px'}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
 
                     {/* ─── BASE SOLIDE ─── */}
@@ -778,8 +788,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 3: AI SCORE & FT confidence (14%) */}
-            <div style={{width: "14%", minWidth: "100px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
+            {/* COLUMN 3: AI SCORE & FT confidence (16.66%) */}
+            <div style={{width: "16.66%", minWidth: "110px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                     <span className="onyx-cs" style={{fontSize: '16px', fontWeight: '900', color: match.insufficient_data === 1 ? '#f59e0b' : '#00ffaa'}}>
                         {match.insufficient_data === 1 ? '⏳ ATTENTE' : cs}
@@ -810,8 +820,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 )}
             </div>
 
-            {/* COLUMN 4: MARCHÉS (DC only) (16%) */}
-            <div style={{width: "16%", minWidth: "120px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
+            {/* COLUMN 4: MARCHÉS (DC only) (16.66%) */}
+            <div style={{width: "16.66%", minWidth: "110px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'}}>
                     {dcOdds ? (
                         <>
@@ -828,8 +838,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 5: SIGNAL & EV + VALUE SCORE (14%) */}
-            <div style={{width: "14%", minWidth: "100px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
+            {/* COLUMN 5: SIGNAL & EV + VALUE SCORE (16.66%) */}
+            <div style={{width: "16.66%", minWidth: "110px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center'}}>
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
@@ -855,8 +865,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 6: FORCE (10%) */}
-            <div style={{width: "10%", minWidth: "60px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
+            {/* COLUMN 6: FORCE (16.66%) */}
+            <div style={{width: "16.66%", minWidth: "110px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                         <span style={{fontSize: '16px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>

@@ -341,11 +341,14 @@ def load_training_data():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
 
-    df = pd.read_sql_query("""
+    limit = int(os.environ.get('PROMOSPORT_TRAIN_LIMIT', '2000'))
+    df = pd.read_sql_query(f"""
         SELECT * FROM promosport_archive
         WHERE result IS NOT NULL AND result != 'N'
-        ORDER BY archived_at ASC
+        ORDER BY archived_at DESC
+        LIMIT {limit}
     """, conn)
+    df = df.sort_values('archived_at').reset_index(drop=True)
 
     conn.close()
     return df

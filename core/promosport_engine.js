@@ -3,6 +3,8 @@ const mlPredictionService = require('../services/mlPredictionService');
 const doubleOptimizer = require('../services/doubleOptimizerService');
 const db = require('./database');
 const promosportMLService = require('../services/promosportMLService');
+const axios = require('axios');
+const FASTAPI_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000';
 
 // ─── xG→Probabilities (Poisson Approximation) ────────────────────────────────
 function xgToProbs(xgHome, xgAvgHome, xgAvgAway) {
@@ -213,14 +215,29 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
       }
     } catch (_) {}
     
-    // 1c. Final entropy guard: if model is guessing (H > 1.50), use crowd data
-    for (const m of enrichedMatches) {
-      if ((m.entropy || 0) > 1.50 && m.crowdP1 != null) {
-        let crowdDraw = m.drawProbability || 0.33
-        if (crowdDraw > 1) crowdDraw /= 100
-        m.p1 = m.crowdP1; m.px = crowdDraw; m.p2 = m.crowdP2
-        const t = m.p1 + m.px + m.p2
-        m.p1 /= t; m.px /= t; m.p2 /= t
+    // 1c. Final entropy guard: try FBref xG, then fall back to crowd data
+    const highEntropy = enrichedMatches.filter(m => (m.entropy || 0) > 1.50 && m.crowdP1 != null)
+    if (highEntropy.length > 0) {
+      const fbrefResults = await Promise.allSettled(highEntropy.map(m =>
+        axios.post(`${FASTAPI_URL}/fbref/search-xg`, {
+          homeTeam: m.homeTeam || m.home,
+          awayTeam: m.awayTeam || m.away
+        }, { timeout: 10000 }).then(r => r.data).catch(() => ({}))
+      ))
+      for (let i = 0; i < highEntropy.length; i++) {
+        const m = highEntropy[i]
+        const fb = fbrefResults[i]?.value
+        if (fb?.success && fb.home_xg) {
+          const p = xgToProbs(fb.home_xg, fb.home_xg, fb.away_xg)
+          m.p1 = p.p1; m.px = p.px; m.p2 = p.p2
+          logger.info(`🧪 [FBREF] xG Poisson for ${m.homeTeam || m.home} vs ${m.awayTeam || m.away}: ${(p.p1*100).toFixed(0)}/${(p.px*100).toFixed(0)}/${(p.p2*100).toFixed(0)}`)
+        } else {
+          let crowdDraw = m.drawProbability || 0.33
+          if (crowdDraw > 1) crowdDraw /= 100
+          m.p1 = m.crowdP1; m.px = crowdDraw; m.p2 = m.crowdP2
+          const t = m.p1 + m.px + m.p2
+          m.p1 /= t; m.px /= t; m.p2 /= t
+        }
       }
     }
     

@@ -192,6 +192,23 @@ async def fbref_xg(payload: dict):
         traceback.print_exc()
         return {"success": False, "error": str(e)}
 
+@app.post("/fbref/search-xg")
+async def fbref_search_xg(payload: dict):
+    try:
+        from fbref_service import search_match_xg
+        home = payload.get('homeTeam', payload.get('home', ''))
+        away = payload.get('awayTeam', payload.get('away', ''))
+        if not home or not away:
+            return {"success": False, "error": "Missing homeTeam or awayTeam"}
+        result = search_match_xg(home, away)
+        if result:
+            return {"success": True, **result}
+        return {"success": False, "error": "xG not found in any league"}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
 @app.post("/fbref/team-stats")
 async def fbref_team_stats(payload: dict):
     try:

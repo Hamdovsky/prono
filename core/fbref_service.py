@@ -245,6 +245,18 @@ def get_team_stats(league, force_refresh=False):
     return _load_team_stats(league, force_refresh)
 
 
+def search_match_xg(home_team, away_team):
+    """Search ALL mapped leagues for a match between home_team and away_team.
+    Returns first xG match found, or None."""
+    for league_name in LEAGUE_MAP.keys():
+        result = get_match_xg(home_team, away_team, league_name)
+        if result:
+            logger.info(f"[FBREF] Found xG for {home_team} vs {away_team} in '{league_name}': {result}")
+            return result
+    logger.info(f"[FBREF] No xG found for {home_team} vs {away_team} in any league")
+    return None
+
+
 def get_odds(home_team, away_team, league):
     logger.info(f"[FBREF] Odds not available from FBref (scores/fixtures page has no odds columns). Use other data sources.")
     return None

@@ -48,7 +48,7 @@ function EvolutionHeatmap() {
         <span className="legend-item average">60-74%</span>
         <span className="legend-item below-avg">45-59%</span>
         <span className="legend-item poor">30-44%</span>
-        <span className="legend-item very-poor">< 30%</span>
+        <span className="legend-item very-poor">{'< 30%'}</span>
         <span className="legend-item no-data">N/A</span>
       </div>
     </div>

@@ -654,8 +654,6 @@ const Promosport = () => {
                                 <tbody>
                                     {reducedSystem.basePicks.map((bp, mi) => {
                                         const matchData = (tunisieData?.matches || matches)?.[mi] || {}
-                                        const pickColors = { '1': 'rgba(59, 130, 246, 0.25)', 'X': 'rgba(251, 191, 36, 0.25)', '2': 'rgba(239, 68, 68, 0.25)' }
-                                        const pickTextColors = { '1': '#60a5fa', 'X': '#fbbf24', '2': '#f87171' }
                                         return (
                                             <tr key={mi} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                                                 <td style={{ padding: '6px 8px', color: '#64748b', fontWeight: 'bold', position: 'sticky', left: 0, background: '#0f172a', zIndex: 1 }}>{matchData.idx || matchData.id || (mi + 1)}</td>
@@ -666,12 +664,11 @@ const Promosport = () => {
                                                 </td>
                                                 {reducedSystem.columns.map((col, ci) => {
                                                     const pick = col[mi]
+                                                    const pickClass = pick === '1' ? 'pick-1' : pick === 'X' ? 'pick-X' : pick === '2' ? 'pick-2' : ''
                                                     return (
                                                         <td key={ci} style={{ padding: '6px 4px', textAlign: 'center', background: ci % 2 === 0 ? 'rgba(16, 185, 129, 0.03)' : 'transparent' }}>
-                                                            <span style={{
+                                                            <span className={pickClass} style={{
                                                                 display: 'inline-block',
-                                                                background: pickColors[pick] || 'rgba(100, 116, 139, 0.2)',
-                                                                color: pickTextColors[pick] || '#94a3b8',
                                                                 padding: '3px 10px',
                                                                 borderRadius: '4px',
                                                                 fontWeight: 'bold',
@@ -690,6 +687,20 @@ const Promosport = () => {
                             </table>
                         </div>
 
+                        <div className="promo-legend">
+                            <div className="promo-legend-item">
+                                <span className="promo-legend-dot one">1</span>
+                                <span style={{ color: '#34d399' }}>Domicile</span>
+                            </div>
+                            <div className="promo-legend-item">
+                                <span className="promo-legend-dot double">X</span>
+                                <span style={{ color: '#fbbf24' }}>Double (Nul)</span>
+                            </div>
+                            <div className="promo-legend-item">
+                                <span className="promo-legend-dot two">2</span>
+                                <span style={{ color: '#f87171' }}>Extérieur</span>
+                            </div>
+                        </div>
                         <p style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '15px', fontStyle: 'italic' }}>
                             💡 Basé sur {reducedSystem.source}. {reducedSystem.doubleCount} doubles → {reducedSystem.fullCols} combinaisons possibles, réduites à {reducedSystem.numCols} colonnes (système {reducedSystem.systemType}). Budget ≤ 100 DT ✓
                         </p>

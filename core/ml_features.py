@@ -857,6 +857,157 @@ def get_tactical_synergy(home_name, away_name):
         return 0.8
     return 1.0
 
+# Tunisia Crowdsourcing Features
+_TUNISIAN_VOTES_CACHE = None
+
+def _load_tunisian_votes():
+    """Load Tunisian vote history from disk (cached)."""
+    global _TUNISIAN_VOTES_CACHE
+    if _TUNISIAN_VOTES_CACHE is None:
+        try:
+            vote_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'tunisian_vote_history.json')
+            if os.path.exists(vote_path):
+                with open(vote_path, 'r', encoding='utf-8') as f:
+                    _TUNISIAN_VOTES_CACHE = json.load(f)
+            else:
+                _TUNISIAN_VOTES_CACHE = []
+        except Exception:
+            _TUNISIAN_VOTES_CACHE = []
+    return _TUNISIAN_VOTES_CACHE
+
+def _find_tunisian_votes_for_match(home_team, away_team):
+    """Find Tunisian crowd votes for a specific match."""
+    votes = _load_tunisian_votes()
+    for entry in votes:
+        if entry.get('home') == home_team and entry.get('away') == away_team:
+            return entry
+    return None
+
+def _calculate_vote_consent(vote1, voteX, vote2):
+    """
+    Calculate vote consensus ratio.
+    Returns: ratio of dominant vote (0.5 = neutral, 1.0 = full consensus)
+    """
+    if vote1 is None or voteX is None or vote2 is None:
+        return 0.5
+    total = vote1 + voteX + vote2
+    if total == 0:
+        return 0.5
+    max_vote = max(vote1, voteX, vote2)
+    return max_vote / total
+
+def _calculate_vote_sentiment(vote1, voteX, vote2):
+    """
+    Calculate vote sentiment (0 = away bias, 0.5 = neutral, 1 = home bias)
+    """
+    if vote1 is None or voteX is None or vote2 is None:
+        return 0.5
+    total = vote1 + voteX + vote2
+    if total == 0:
+        return 0.5
+    # Weighted: 1 > X > 2 for sentiment toward home
+    return (vote1 + 0.5 * voteX) / total
+
+def _calculate_vote_divergence(vote1, voteX, vote2):
+    """
+    Calculate vote divergence (entropy-based).
+    Returns: 0 = full consensus, 1 = maximum divergence
+    """
+    if vote1 is None or voteX is None or vote2 is None:
+        return 0.5
+    total = vote1 + voteX + vote2
+    if total == 0:
+        return 0.5
+    p1, px, p2 = vote1/total, voteX/total, vote2/total
+    # Shannon entropy normalized to [0, 1]
+    entropy = 0
+    for p in [p1, px, p2]:
+        if p > 0:
+            entropy -= p * math.log2(p)
+    max_entropy = math.log2(3)  # Maximum entropy for 3 outcomes
+    return entropy / max_entropy if max_entropy > 0 else 0.5
+
+def _calculate_jackpot_pressure(cagnotte):
+    """
+    Calculate jackpot pressure (inverse of normalized cagnotte).
+    Higher cagnotte = lower pressure (people play it safe).
+    Returns: 0 to 1 scale (1 = maximum pressure, low jackpot)
+    """
+    if cagnotte is None:
+        return 0.5
+    # Normalize: assume 10000 TND is "normal", above is low pressure, below is high pressure
+    # Pressure = 1 - min(cagnotte/10000, 1)
+    return max(0, 1 - min(cagnotte / 10000, 1))
+
+def _calculate_crowd_conviction(vote1, voteX, vote2):
+    """
+    Calculate crowd conviction (how confident the crowd is).
+    Returns: 0 to 1 scale (higher = more confident consensus)
+    """
+    consent = _calculate_vote_consent(vote1, voteX, vote2)
+    divergence = _calculate_vote_divergence(vote1, voteX, vote2)
+    # Conviction = consensus * (1 - divergence)
+    return consent * (1 - divergence)
+
+def extract_tunisian_features(home_team, away_team):
+    """
+    Extract Tunisia-specific crowd features for a match.
+    Returns dict with all Tunisia features or zeros if no data.
+    """
+    entry = _find_tunisian_votes_for_match(home_team, away_team)
+    
+    if not entry:
+        return {
+            'h_tn_vote_consent': 0.5, 'a_tn_vote_consent': 0.5, 'tn_vote_consent_diff': 0.0,
+            'h_tn_vote_sentiment': 0.5, 'a_tn_vote_sentiment': 0.5, 'tn_vote_sentiment_diff': 0.0,
+            'h_tn_vote_divergence': 0.5, 'a_tn_vote_divergence': 0.5, 'tn_vote_divergence_diff': 0.0,
+            'h_tn_vote_volatility': 0.0, 'a_tn_vote_volatility': 0.0, 'tn_vote_volatility_diff': 0.0,
+            'h_tn_jackpot_pressure': 0.5, 'a_tn_jackpot_pressure': 0.5, 'tn_jackpot_pressure_diff': 0.0,
+            'h_tn_crowd_conviction': 0.5, 'a_tn_crowd_conviction': 0.5, 'tn_crowd_conviction_diff': 0.0
+        }
+    
+    # Extract vote data
+    public_vote = entry.get('publicVote') or entry.get('vote_data') or {}
+    vote1 = public_vote.get('p1') if isinstance(public_vote, dict) else entry.get('vote1')
+    voteX = public_vote.get('px') if isinstance(public_vote, dict) else entry.get('voteX')
+    vote2 = public_vote.get('p2') if isinstance(public_vote, dict) else entry.get('vote2')
+    cagnotte = entry.get('cagnotte')
+    
+    # Home team features (assuming home team is the focus)
+    h_consent = _calculate_vote_consent(vote1, voteX, vote2)
+    a_consent = 1 - h_consent  # Away consent is complementary
+    h_sentiment = _calculate_vote_sentiment(vote1, voteX, vote2)
+    a_sentiment = 1 - h_sentiment
+    h_divergence = _calculate_vote_divergence(vote1, voteX, vote2)
+    a_divergence = h_divergence  # Divergence is symmetric
+    h_volatility = 0.1  # Base volatility (would need historical data for real calculation)
+    a_volatility = h_volatility
+    h_jackpot = _calculate_jackpot_pressure(cagnotte)
+    a_jackpot = h_jackpot  # Same pressure for both teams
+    h_conviction = _calculate_crowd_conviction(vote1, voteX, vote2)
+    a_conviction = h_conviction
+    
+    return {
+        'h_tn_vote_consent': h_consent,
+        'a_tn_vote_consent': a_consent,
+        'tn_vote_consent_diff': h_consent - a_consent,
+        'h_tn_vote_sentiment': h_sentiment,
+        'a_tn_vote_sentiment': a_sentiment,
+        'tn_vote_sentiment_diff': h_sentiment - a_sentiment,
+        'h_tn_vote_divergence': h_divergence,
+        'a_tn_vote_divergence': a_divergence,
+        'tn_vote_divergence_diff': h_divergence - a_divergence,
+        'h_tn_vote_volatility': h_volatility,
+        'a_tn_vote_volatility': a_volatility,
+        'tn_vote_volatility_diff': h_volatility - a_volatility,
+        'h_tn_jackpot_pressure': h_jackpot,
+        'a_tn_jackpot_pressure': a_jackpot,
+        'tn_jackpot_pressure_diff': h_jackpot - a_jackpot,
+        'h_tn_crowd_conviction': h_conviction,
+        'a_tn_crowd_conviction': a_conviction,
+        'tn_crowd_conviction_diff': h_conviction - a_conviction
+    }
+
 def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     features = {}
     
@@ -1349,6 +1500,10 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     if abs(features.get('pts_diff', 0)) < 0.5 and features.get('h_pts', 0) > 0: imp_score += 0.2
     features['match_importance'] = imp_score
 
+    # 10. Tunisia Crowdsourcing Features (TITANIUM V3)
+    tn_features = extract_tunisian_features(home_name, away_name)
+    features.update(tn_features)
+
     # --- V55 FEATURE CROSSES & COMPOSITE METRICS ---
     def _safe_div(a, b):
         return a / b if b and b != 0 else 0.0
@@ -1577,6 +1732,141 @@ FEATURE_NAMES_V53 = FEATURE_NAMES_V52 + [
     'h_accurate_crosses', 'a_accurate_crosses',
     'h_opp_half_passes', 'a_opp_half_passes',
     'h_duels_won_pct', 'a_duels_won_pct',
+    'h_accurate_opp_half_passes', 'a_accurate_opp_half_passes',
+    'h_acc_own_half_passes', 'a_acc_own_half_passes',
+    'h_long_ball_pct', 'a_long_ball_pct',
+    'h_cross_pct', 'a_cross_pct',
+    'h_ground_duels', 'a_ground_duels',
+    'h_aerial_duel_pct', 'a_aerial_duel_pct',
+    'h_total_duels', 'a_total_duels',
+    'h_ball_recovery', 'a_ball_recovery',
+    'h_blocked_shots', 'a_blocked_shots',
+    'h_assists', 'a_assists',
+    'h_shots_sot_faced', 'a_shots_sot_faced',
+    'h_bc_conceded', 'a_bc_conceded',
+    'h_ppda', 'a_ppda',
+    'h_prog_passes', 'a_prog_passes',
+    'h_sca', 'a_sca',
+    'h_xg_per_shot', 'a_xg_per_shot',
+    'h_sot_per_possession', 'a_sot_per_possession',
+    'h_goals_per_xg', 'a_goals_per_xg',
+    'h_elo_x_home_advantage', 'a_elo_x_home_advantage',
+    'h_sharp_money_x_odds_move', 'a_sharp_money_x_odds_move'
+]
+
+# V54 FBref + Cross Features
+FEATURE_NAMES_V54 = FEATURE_NAMES_V53 + [
+    'h_sin_day', 'a_sin_day', 'h_cos_day', 'a_cos_day',
+    'h_sin_month', 'a_sin_month', 'h_cos_month', 'a_cos_month',
+    'h_data_quality_gate', 'a_data_quality_gate',
+    'h_implied_prob_h', 'a_implied_prob_h',
+    'h_implied_prob_d', 'a_implied_prob_d',
+    'h_implied_prob_a', 'a_implied_prob_a'
+]
+
+# V55 Bayesian Shrinkage + Football Efficiency Crosses
+FEATURE_NAMES_V55 = FEATURE_NAMES_V54 + [
+    'h_bayesian_shrink', 'a_bayesian_shrink',
+    'h_day_sin', 'a_day_sin', 'h_day_cos', 'a_day_cos',
+    'h_month_sin', 'a_month_sin', 'h_month_cos', 'a_month_cos',
+    'h_is_derby', 'a_is_derby',
+    'h_news_missing_gk', 'a_news_missing_gk',
+    'h_news_missing_scorer', 'a_news_missing_scorer',
+    'h_news_missing_captain', 'a_news_missing_captain',
+    'h_news_missing_star', 'a_news_missing_star'
+]
+
+# V551 Pruned Features
+FEATURE_NAMES_V551 = FEATURE_NAMES_V55 + [
+    'h_xg_per_shot', 'a_xg_per_shot'
+]
+
+# V552 Draw Deadlock
+FEATURE_NAMES_V552 = FEATURE_NAMES_V551 + [
+    'h_draw_deadlock', 'a_draw_deadlock'
+]
+
+# V553 WC2026 Context
+FEATURE_NAMES_V553 = FEATURE_NAMES_V552 + [
+    'h_fifa_rank', 'a_fifa_rank', 'fifa_rank_diff',
+    'h_fifa_pts', 'a_fifa_pts', 'fifa_pts_diff',
+    'h_fifa_confederation', 'a_fifa_confederation',
+    'h_squad_value', 'a_squad_value', 'squad_value_diff',
+    'h_squad_size', 'a_squad_size', 'squad_size_diff',
+    'h_squad_age_avg', 'a_squad_age_avg', 'squad_age_avg_diff'
+]
+
+# V56 Auto-Retrain Set (30 features)
+FEATURE_NAMES_V56 = [
+    # 10 Base Stats Diffs
+    'h_pos_diff', 'a_pos_diff',
+    'h_xg_diff', 'a_xg_diff',
+    'h_sot_diff', 'a_sot_diff',
+    'h_bc_diff', 'a_bc_diff',
+    'h_corners_diff', 'a_corners_diff',
+    # 4 Ratings
+    'h_rating_diff', 'a_rating_diff',
+    # 8 Form/H2H
+    'h_last5_win', 'a_last5_win',
+    'h_last5_draw', 'a_last5_draw',
+    'h_last5_loss', 'a_last5_loss',
+    'h2h_homes', 'h2h_aways',
+    # 4 Efficiency
+    'h_xg_per_shot_diff', 'a_xg_per_shot_diff',
+    'h_sot_per_poss_diff', 'a_sot_per_poss_diff',
+    'h_goals_per_xg_diff', 'a_goals_per_xg_diff',
+    # 4 Temporal
+    'h_rest_days_diff', 'a_rest_days_diff',
+    'h_travel_km', 'a_travel_km',
+    'h_time_diff_hours', 'a_time_diff_hours',
+    'h_home_field_adv_diff', 'a_home_field_adv_diff'
+]
+
+# TITANIUM V3 Elite Features (V54 + Tunisia Specific)
+FEATURE_NAMES_TITANIUM = FEATURE_NAMES_V54 + [
+    'h_pts', 'a_pts', 'pts_diff',
+    'humidity',
+    'ip_h', 'ip_d', 'ip_a',
+    'is_extreme_weather',
+    'news_is_missing_gk', 'news_is_missing_scorer', 'news_is_missing_captain', 'news_is_missing_star',
+    'odds_velocity', 'is_derby',
+    # Tunisia Specific Features
+    'h_tn_vote_consent', 'a_tn_vote_consent', 'tn_vote_consent_diff',
+    'h_tn_vote_sentiment', 'a_tn_vote_sentiment', 'tn_vote_sentiment_diff',
+    'h_tn_vote_divergence', 'a_tn_vote_divergence', 'tn_vote_divergence_diff',
+    'h_tn_vote_volatility', 'a_tn_vote_volatility', 'tn_vote_volatility_diff',
+    'h_tn_jackpot_pressure', 'a_tn_jackpot_pressure', 'tn_jackpot_pressure_diff',
+    'h_tn_crowd_conviction', 'a_tn_crowd_conviction', 'tn_crowd_conviction_diff'
+]
+
+# V52 Line Movement Intelligence (Market Psychology)
+FEATURE_NAMES_V52 = FEATURE_NAMES_V51 + [
+    'h_odds_move_24h',
+    'a_odds_move_24h',
+    'd_odds_move_24h',
+    'market_reliability'
+]
+
+# V53 Enhanced Features (xGA, xPTS, Efficiency, Streaks, H2H Advanced, Bayesian Shrink)
+FEATURE_NAMES_V53 = FEATURE_NAMES_V52 + [
+    'h_xga', 'a_xga', 'xga_diff',
+    'h_xg_overperformance', 'a_xg_overperformance',
+    'h_xpts', 'a_xpts',
+    'h_conversion_rate', 'a_conversion_rate',
+    'h_sot_rate', 'a_sot_rate',
+    'h_shot_volume', 'a_shot_volume',
+    'h_clean_streak', 'a_clean_streak',
+    'h_scoring_streak', 'a_scoring_streak',
+    'h_win_streak', 'a_win_streak',
+    'h2h_avg_goals', 'h2h_over25_rate', 'h2h_avg_xg', 'h2h_archive_matches',
+    'h_shrink_factor', 'a_shrink_factor',
+    'day_of_week', 'kickoff_hour',
+    'match_importance',
+    'h_successful_dribbles', 'a_successful_dribbles',
+    'h_accurate_long_balls', 'a_accurate_long_balls',
+    'h_accurate_crosses', 'a_accurate_crosses',
+    'h_opp_half_passes', 'a_opp_half_passes',
+    'h_duels_won_pct', 'a_duels_won_pct',
     'h_errors_leading_to_shot', 'a_errors_leading_to_shot'
 ]
 
@@ -1635,6 +1925,7 @@ FEATURE_NAMES_V55 = FEATURE_NAMES_V54 + [
 # V56 — Auto-Retrain Feature Set: simple match stats + form + H2H
 # Designed for weekly auto-retrain from soccer_fixtures + soccer_match_stats
 FEATURE_NAMES_V56 = [
+    # Base stats (10)
     'pos_diff',
     'shots_diff',
     'sot_diff',
@@ -1643,10 +1934,14 @@ FEATURE_NAMES_V56 = [
     'yellow_diff',
     'red_diff',
     'inside_box_shots_diff',
+    'xg_diff',
+    'xg_per_shot_diff',
+    # Team ratings (4)
     'home_attack_rating',
     'home_defense_rating',
-    'odds_h',
-    'odds_a',
+    'attack_x_defense',
+    'odds_ratio',
+    # Form & H2H (8)
     'form_diff',
     'h2h_home_win_rate',
     'h2h_total_matches',
@@ -1655,13 +1950,29 @@ FEATURE_NAMES_V56 = [
     'form_corners_diff',
     'form_poss_h',
     'form_poss_a',
+    # Efficiency ratios (4)
+    'sot_ratio_h',
+    'sot_ratio_a',
+    'possession_efficiency_h',
+    'possession_efficiency_a',
+    # Temporal (4)
     'month_sin',
     'month_cos',
+    'home_avg_goals_scored',
+    'away_avg_goals_conceded',
 ]
 
 
+def _f(v, default=0.0):
+    try:
+        if v is None or str(v).lower() in ['none', 'null', '', 'nan']:
+            return float(default)
+        return float(v)
+    except:
+        return float(default)
+
 def extract_v56_features(row_or_feats, rows=None, match_idx=None):
-    """Extract V56 feature vector (22 floats matching FEATURE_NAMES_V56).
+    """Extract V56 feature vector (30 floats matching FEATURE_NAMES_V56).
 
     Two modes:
     1. Training: pass raw (row, rows, match_idx) for temporal feature engineering
@@ -1670,17 +1981,11 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
     Inference mode maps from the rich features dict to V56 features.
     Training mode computes form + H2H from historical rows.
     """
-    def _f(v, default=0.0):
-        try:
-            if v is None or str(v).lower() in ['none', 'null', '', 'nan']:
-                return float(default)
-            return float(v)
-        except:
-            return float(default)
 
     # Detect mode: if rows are provided, it's training mode (raw row)
     if rows is not None and match_idx is not None:
         row = row_or_feats
+        # Base stats
         _pos_diff = _f(row.get('home_possession'), 50) - _f(row.get('away_possession'), 50)
         _shots_diff = _f(row.get('home_shots') or row.get('home_shots_total')) - _f(row.get('away_shots') or row.get('away_shots_total'))
         _sot_diff = _f(row.get('home_shots_on_goal') or row.get('home_shots_on_target')) - _f(row.get('away_shots_on_goal') or row.get('away_shots_on_target'))
@@ -1689,11 +1994,34 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
         _yellow_diff = _f(row.get('home_yellow_cards')) - _f(row.get('away_yellow_cards'))
         _red_diff = _f(row.get('home_red_cards')) - _f(row.get('away_red_cards'))
         _inside_box_shots_diff = _f(row.get('home_shots_inside_box')) - _f(row.get('away_shots_inside_box'))
+        h_xg = _f(row.get('home_xg'), 0)
+        a_xg = _f(row.get('away_xg'), 0)
+        _xg_diff = h_xg - a_xg
+        h_shots_total = _f(row.get('home_shots') or row.get('home_shots_total'), 1)
+        a_shots_total = _f(row.get('away_shots') or row.get('away_shots_total'), 1)
+        _xg_per_shot_diff = (h_xg / max(h_shots_total, 0.01)) - (a_xg / max(a_shots_total, 0.01))
+
+        # Team ratings
         _home_attack_rating = _f(row.get('home_attack_rating'), 1.0)
         _home_defense_rating = _f(row.get('home_defense_rating'), 1.0)
+        _away_attack_rating = _f(row.get('away_attack_rating'), 1.0)
+        _away_defense_rating = _f(row.get('away_defense_rating'), 1.0)
+        _attack_x_defense = _home_attack_rating * (1.0 / max(_away_defense_rating, 0.1))
         _odds_h = _f(row.get('odds_home'), 2.0)
         _odds_a = _f(row.get('odds_away'), 2.0)
+        _odds_ratio = _odds_a / max(_odds_h, 0.01)
 
+        # Efficiency ratios (from current match only — form versions from loops)
+        h_sot_val = _f(row.get('home_shots_on_goal') or row.get('home_shots_on_target'), 0)
+        a_sot_val = _f(row.get('away_shots_on_goal') or row.get('away_shots_on_target'), 0)
+        h_poss_val = _f(row.get('home_possession'), 50)
+        a_poss_val = _f(row.get('away_possession'), 50)
+        _sot_ratio_h = h_sot_val / max(h_shots_total, 0.01)
+        _sot_ratio_a = a_sot_val / max(a_shots_total, 0.01)
+        _possession_efficiency_h = h_xg / max(h_poss_val / 100.0, 0.01)
+        _possession_efficiency_a = a_xg / max(a_poss_val / 100.0, 0.01)
+
+        # Form state (will be computed from historical rows)
         _form_diff = 0.0
         _h2h_win_rate = 0.0
         _h2h_total = 0
@@ -1702,6 +2030,8 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
         _form_corners_diff = 0.0
         _form_poss_h = 50.0
         _form_poss_a = 50.0
+        _home_avg_goals_scored = 0.0
+        _away_avg_goals_conceded = 0.0
         _month_sin = 0.0
         _month_cos = 0.0
 
@@ -1713,6 +2043,9 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
             h_sot, a_sot = [], []
             h_corners, a_corners = [], []
             h_poss, a_poss = [], []
+            h_goals_scored, a_goals_scored = [], []
+            h_goals_conceded, a_goals_conceded = [], []
+            h_xg_list, a_xg_list = [], []
             h_wins, a_wins = 0, 0
             h_games, a_games = 0, 0
             h2h_h_wins = 0
@@ -1732,6 +2065,9 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
                     h_sot.append(_f(r.get('home_shots_on_goal') or r.get('home_shots_on_target')))
                     h_corners.append(_f(r.get('home_corners')))
                     h_poss.append(_f(r.get('home_possession'), 50))
+                    h_goals_scored.append(gh)
+                    h_goals_conceded.append(ga)
+                    h_xg_list.append(_f(r.get('home_xg'), 0))
                     h_games += 1
                     if gh > ga: h_wins += 1
                 elif r_away == home_team:
@@ -1739,6 +2075,9 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
                     h_sot.append(_f(r.get('away_shots_on_goal') or r.get('away_shots_on_target')))
                     h_corners.append(_f(r.get('away_corners')))
                     h_poss.append(_f(r.get('away_possession'), 50))
+                    h_goals_scored.append(ga)
+                    h_goals_conceded.append(gh)
+                    h_xg_list.append(_f(r.get('away_xg'), 0))
                     h_games += 1
                     if ga > gh: h_wins += 1
 
@@ -1747,6 +2086,8 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
                     a_sot.append(_f(r.get('home_shots_on_goal') or r.get('home_shots_on_target')))
                     a_corners.append(_f(r.get('home_corners')))
                     a_poss.append(_f(r.get('home_possession'), 50))
+                    a_goals_scored.append(gh)
+                    a_goals_conceded.append(ga)
                     a_games += 1
                     if gh > ga: a_wins += 1
                 elif r_away == away_team:
@@ -1754,6 +2095,8 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
                     a_sot.append(_f(r.get('away_shots_on_goal') or r.get('away_shots_on_target')))
                     a_corners.append(_f(r.get('away_corners')))
                     a_poss.append(_f(r.get('away_possession'), 50))
+                    a_goals_scored.append(ga)
+                    a_goals_conceded.append(gh)
                     a_games += 1
                     if ga > gh: a_wins += 1
 
@@ -1766,7 +2109,8 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
                     break
 
             if h_shots:
-                _form_shots_diff = (sum(h_shots[-5:]) / len(h_shots[-5:])) - (sum(a_shots[-5:]) / len(a_shots[-5:]) if a_shots else 0)
+                recent_h = h_shots[-5:]
+                _form_shots_diff = (sum(recent_h) / len(recent_h)) - (sum(a_shots[-5:]) / len(a_shots[-5:]) if a_shots else 0)
             if h_sot:
                 _form_sot_diff = (sum(h_sot[-5:]) / len(h_sot[-5:])) - (sum(a_sot[-5:]) / len(a_sot[-5:]) if a_sot else 0)
             if h_corners:
@@ -1775,6 +2119,10 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
                 _form_poss_h = sum(h_poss[-5:]) / len(h_poss[-5:])
             if a_poss:
                 _form_poss_a = sum(a_poss[-5:]) / len(a_poss[-5:])
+            if h_goals_scored:
+                _home_avg_goals_scored = sum(h_goals_scored[-5:]) / len(h_goals_scored[-5:])
+            if a_goals_conceded:
+                _away_avg_goals_conceded = sum(a_goals_conceded[-5:]) / len(a_goals_conceded[-5:])
 
             _form_diff = (h_wins / max(h_games, 1)) - (a_wins / max(a_games, 1))
             _h2h_win_rate = h2h_h_wins / max(h2h_total, 1)
@@ -1790,6 +2138,7 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
                 pass
     else:
         feats = row_or_feats
+        # Base stats
         _pos_diff = _f(feats.get('pos_diff'), 0)
         _shots_diff = _f(feats.get('shots_diff'), 0)
         _sot_diff = _f(feats.get('sot_diff'), 0)
@@ -1798,10 +2147,24 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
         _yellow_diff = _f(feats.get('yellow_diff'), 0)
         _red_diff = _f(feats.get('red_diff'), 0)
         _inside_box_shots_diff = _f(feats.get('h_inner_shots'), 0) - _f(feats.get('a_inner_shots'), 0)
+        h_xg = _f(feats.get('h_xg'), 0)
+        a_xg = _f(feats.get('a_xg'), 0)
+        _xg_diff = h_xg - a_xg
+        _xg_per_shot_diff = _f(feats.get('xg_per_shot_diff'), 0)
+        # Team ratings
         _home_attack_rating = _f(feats.get('h_att_imp', feats.get('ta_h_rating', 1.0)), 1.0)
-        _home_defense_rating = _f(feats.get('a_att_imp', feats.get('ta_a_rating', 1.0)), 1.0)
+        _home_defense_rating = _f(feats.get('h_def_imp', feats.get('ta_h_rating', 1.0)), 1.0)
+        _away_defense_rating = _f(feats.get('a_def_imp', feats.get('ta_a_rating', 1.0)), 1.0)
+        _attack_x_defense = _home_attack_rating / max(_away_defense_rating, 0.1)
         _odds_h = _f(feats.get('odds_h'), 2.0)
         _odds_a = _f(feats.get('odds_a'), 2.0)
+        _odds_ratio = _odds_a / max(_odds_h, 0.01)
+        # Efficiency
+        _sot_ratio_h = _f(feats.get('sot_ratio_h', 0), 0)
+        _sot_ratio_a = _f(feats.get('sot_ratio_a', 0), 0)
+        _possession_efficiency_h = _f(feats.get('poss_eff_h', feats.get('possession_efficiency_h', 0)), 0)
+        _possession_efficiency_a = _f(feats.get('poss_eff_a', feats.get('possession_efficiency_a', 0)), 0)
+        # Form & H2H
         _form_diff = _f(feats.get('h_mom_gicko', feats.get('form_diff', 0)), 0)
         _h2h_win_rate = _f(feats.get('h2h_home_win_rate', feats.get('h2h_win_rate', 0)), 0)
         _h2h_total = int(_f(feats.get('h2h_total_matches', feats.get('h2h_total', 0)), 0))
@@ -1810,18 +2173,25 @@ def extract_v56_features(row_or_feats, rows=None, match_idx=None):
         _form_corners_diff = _f(feats.get('form_corners_diff', 0), 0)
         _form_poss_h = _f(feats.get('form_poss_h', 50), 50)
         _form_poss_a = _f(feats.get('form_poss_a', 50), 50)
+        _home_avg_goals_scored = _f(feats.get('home_avg_goals_scored', 0), 0)
+        _away_avg_goals_conceded = _f(feats.get('away_avg_goals_conceded', 0), 0)
+        # Temporal
         _month_sin = _f(feats.get('month_sin'), 0)
         _month_cos = _f(feats.get('month_cos'), 0)
 
     return [
         _pos_diff, _shots_diff, _sot_diff, _corners_diff,
         _fouls_diff, _yellow_diff, _red_diff, _inside_box_shots_diff,
+        _xg_diff, _xg_per_shot_diff,
         _home_attack_rating, _home_defense_rating,
-        _odds_h, _odds_a,
+        _attack_x_defense, _odds_ratio,
         _form_diff, _h2h_win_rate, float(_h2h_total),
         _form_shots_diff, _form_sot_diff, _form_corners_diff,
         _form_poss_h, _form_poss_a,
+        _sot_ratio_h, _sot_ratio_a,
+        _possession_efficiency_h, _possession_efficiency_a,
         _month_sin, _month_cos,
+        _home_avg_goals_scored, _away_avg_goals_conceded,
     ]
 
 
@@ -1849,14 +2219,21 @@ FEATURE_NAMES_V553 = FEATURE_NAMES_V552 + [
     'conf_uefa_a', 'conf_conmebol_a'
 ]
 
-# [TITANIUM V3] ELITE AI FEATURES - Full Environmental Intelligence (V54)
+# [TITANIUM V3] ELITE AI FEATURES - Full Environmental Intelligence (V54) + Tunisia Crowdsourcing
 FEATURE_NAMES_TITANIUM = FEATURE_NAMES_V54 + [
     'h_pts', 'a_pts', 'pts_diff',
     'humidity',
     'ip_h', 'ip_d', 'ip_a',
     'is_extreme_weather',
     'news_is_missing_gk', 'news_is_missing_scorer', 'news_is_missing_captain', 'news_is_missing_star',
-    'odds_velocity', 'is_derby'
+    'odds_velocity', 'is_derby',
+    # Tunisia Crowdsourcing Features
+    'h_tn_vote_consent', 'a_tn_vote_consent', 'tn_vote_consent_diff',
+    'h_tn_vote_sentiment', 'a_tn_vote_sentiment', 'tn_vote_sentiment_diff',
+    'h_tn_vote_divergence', 'a_tn_vote_divergence', 'tn_vote_divergence_diff',
+    'h_tn_vote_volatility', 'a_tn_vote_volatility', 'tn_vote_volatility_diff',
+    'h_tn_jackpot_pressure', 'a_tn_jackpot_pressure', 'tn_jackpot_pressure_diff',
+    'h_tn_crowd_conviction', 'a_tn_crowd_conviction', 'tn_crowd_conviction_diff'
 ]
 
 
@@ -2012,7 +2389,16 @@ FEATURE_VOLATILITY = {
     "ta_market_confidence_indicator": 0.08,
     "ta_team_strength_indicator": 0.06, "ta_momentum_indicator": 0.20,
     "ta_goal_expectation_indicator": 0.10,
-    "ta_h_rating": 0.06, "ta_a_rating": 0.06, "ta_rating_diff": 0.08
+    "ta_h_rating": 0.06, "ta_a_rating": 0.06, "ta_rating_diff": 0.08,
+
+    # Tunisia Crowdsourcing Features (TITANIUM V3)
+    # High volatility: crowd sentiment changes rapidly, influenced by news
+    "h_tn_vote_consent": 0.25, "a_tn_vote_consent": 0.25, "tn_vote_consent_diff": 0.30,
+    "h_tn_vote_sentiment": 0.30, "a_tn_vote_sentiment": 0.30, "tn_vote_sentiment_diff": 0.35,
+    "h_tn_vote_divergence": 0.20, "a_tn_vote_divergence": 0.20, "tn_vote_divergence_diff": 0.25,
+    "h_tn_vote_volatility": 0.35, "a_tn_vote_volatility": 0.35, "tn_vote_volatility_diff": 0.40,
+    "h_tn_jackpot_pressure": 0.15, "a_tn_jackpot_pressure": 0.15, "tn_jackpot_pressure_diff": 0.20,
+    "h_tn_crowd_conviction": 0.28, "a_tn_crowd_conviction": 0.28, "tn_crowd_conviction_diff": 0.32,
 }
 
 

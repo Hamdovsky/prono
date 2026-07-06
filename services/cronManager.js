@@ -94,9 +94,25 @@ class CronManager {
 
         // 9.5 Tunisian Promosport Crowd Collector (08:00 daily)
         cron.schedule('0 8 * * *', () => {
-            logger.info('ðŸ‡¹ðŸ‡³ [CRON] Launching Tunisian Crowd Collector...');
+            logger.info('🌍 [CRON] Launching Tunisian Crowd Collector...');
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'crowd_collector.js')], { stdio: 'inherit', windowsHide: true });
-            proc.on('close', code => logger.info(`âœ… [CRON] Tunisian Crowd finished (code ${code})`));
+            proc.on('close', code => logger.info(`✅ [CRON] Tunisian Crowd finished (code ${code})`));
+        }, { timezone: 'Africa/Tunis' });
+
+        // 9.6 Weekly XGBoost TITANIUM V3 Retrain (Saturday 23:30) — after archive update with Tunisia data
+        cron.schedule('30 23 * * 6', async () => {
+            logger.info('🚀 [CRON] Launching Weekly XGBoost TITANIUM V3 Retrain...');
+            try {
+                const { runV56Retrain } = require('../scripts/auto_retrain_worker');
+                const res = await runV56Retrain();
+                if (res.success) {
+                    logger.info(`✅ [CRON] TITANIUM V3 retrained: ${res.message}`);
+                } else {
+                    logger.warn(`⚠️ [CRON] TITANIUM V3 retrain issue: ${res.message}`);
+                }
+            } catch (e) {
+                logger.error(`❌ [CRON] TITANIUM V3 retrain failed: ${e.message || e}`);
+            }
         }, { timezone: 'Africa/Tunis' });
 
         // 9.6 Promosport Results Checker (20:00 daily, after matches finish)

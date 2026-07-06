@@ -374,3 +374,71 @@
 .promosport-columns-container.compact td[style*="padding"] {
     padding: 2px 3px !important;
 }
+
+/* Pick styles for column generator */
+.pick-1 {
+    background: rgba(16, 185, 129, 0.35) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.5) !important;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3) !important;
+}
+.pick-X {
+    background: rgba(251, 191, 36, 0.4) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(251, 191, 36, 0.6) !important;
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.5) !important;
+    animation: pulse-x 1.5s ease-in-out infinite !important;
+}
+.pick-2 {
+    background: rgba(239, 68, 68, 0.35) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.5) !important;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.3) !important;
+}
+@keyframes pulse-x {
+    0%, 100% { box-shadow: 0 0 8px rgba(251, 191, 36, 0.3); }
+    50% { box-shadow: 0 0 24px rgba(251, 191, 36, 0.8), 0 0 40px rgba(251, 191, 36, 0.3); }
+}
+.promo-legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 15px;
+    padding: 10px 20px;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+.promo-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.promo-legend-dot {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    font-weight: 900;
+    font-size: 0.8rem;
+}
+.promo-legend-dot.one {
+    background: rgba(16, 185, 129, 0.35);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.5);
+}
+.promo-legend-dot.double {
+    background: rgba(251, 191, 36, 0.4);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.6);
+    animation: pulse-x 1.5s ease-in-out infinite;
+}
+.promo-legend-dot.two {
+    background: rgba(239, 68, 68, 0.35);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.5);
+}

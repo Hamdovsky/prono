@@ -1,13 +1,13 @@
 """
-auto_retrain.py — Automated XGBoost retraining for V56 model
-Scheduled weekly via cronManager, trains V56 on soccer_fixtures + soccer_match_stats
+auto_retrain.py — Automated XGBoost retraining for TITANIUM V3 (with Tunisia Crowdsourcing)
+Scheduled weekly via cronManager, trains TITANIUM V3 on soccer_fixtures + soccer_match_stats
 using chronological split (85% old → train, 15% recent → validate).
 
-Saves to: models/xgboost_v55.json (loaded by get_v56_booster as V56)
-Feature set: FEATURE_NAMES_V56 (22 raw match-stat features + form + H2H)
+Saves to: models/titanium_v3.json (loaded by get_titanium_booster as TITANIUM)
+Feature set: FEATURE_NAMES_TITANIUM (150+ features + Tunisia crowd features)
 
 Usage:
-    python scripts/auto_retrain.py                           # Train V56
+    python scripts/auto_retrain.py                           # Train TITANIUM V3
     python scripts/auto_retrain.py --validate-only            # Validate only
 
 Requires: DATABASE_URL env var pointing to Neon PostgreSQL
@@ -29,8 +29,8 @@ except ImportError:
 from pg_connector import query, using_postgres
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
-MODEL_PATH = os.path.join(MODELS_DIR, 'xgboost_v55.json')
-MODEL_METADATA_PATH = os.path.join(MODELS_DIR, 'model_metadata.json')
+MODEL_PATH = os.path.join(MODELS_DIR, 'titanium_v3.json')
+MODEL_METADATA_PATH = os.path.join(MODELS_DIR, 'titanium_metadata.json')
 os.makedirs(MODELS_DIR, exist_ok=True)
 
 REGRESSION_THRESHOLD = 0.03  # Reject if accuracy drops more than 3pp
@@ -71,8 +71,9 @@ def fetch_training_data():
                m.home_fouls, m.away_fouls,
                m.home_yellow_cards, m.away_yellow_cards,
                m.home_red_cards, m.away_red_cards,
-               m.home_possession, m.away_possession,
-               hp.attack_rating AS home_attack_rating,
+                m.home_possession, m.away_possession,
+                m.home_xg, m.away_xg,
+                hp.attack_rating AS home_attack_rating,
                hp.defense_rating AS home_defense_rating,
                ap.attack_rating AS away_attack_rating,
                ap.defense_rating AS away_defense_rating
@@ -108,8 +109,11 @@ def fetch_training_data():
 
 def build_v56_dataset(rows):
     """Build feature matrix + labels using only past data for each match.
-    Chronological integrity: match i only sees data from indices < i."""
-    from ml_features import extract_v56_features
+    Chronological integrity: match i only sees data from indices < i.
+    
+    Updated for TITANIUM V3: Uses FEATURE_NAMES_TITANIUM with Tunisia crowd features.
+    """
+    from ml_features import extract_ml_features, FEATURE_NAMES_TITANIUM
 
     X, y = [], []
     for i in range(len(rows)):
@@ -120,18 +124,20 @@ def build_v56_dataset(rows):
         ga = float(r.get('goals_away', 0) or 0)
         label = 0 if gh > ga else (2 if gh < ga else 1)
 
-        feat = extract_v56_features(r, rows, i)
-        if any(math.isnan(v) or math.isinf(v) for v in feat):
-            feat = [0.0 if (math.isnan(v) or math.isinf(v)) else v for v in feat]
-
-        X.append(feat)
+        feat = extract_ml_features(r, fetch_history=True, current_match_ts=r.get('startTimestamp'))
+        if any(math.isnan(v) or math.isinf(v) for v in feat.values()):
+            feat = {k: 0.0 if (v is None or math.isnan(v) or math.isinf(v)) else float(v) for k, v in feat.items()}
+        
+        # Convert to ordered list based on FEATURE_NAMES_TITANIUM
+        ordered_feats = [feat.get(name, 0.0) for name in FEATURE_NAMES_TITANIUM]
+        X.append(ordered_feats)
         y.append(label)
 
     return np.array(X, dtype=np.float32), np.array(y, dtype=np.int32)
 
 
 def train_v56(X_train, y_train, X_val, y_val):
-    """Train and save V56 XGBoost model with chronological validation."""
+    """Train and save TITANIUM V3 XGBoost model with chronological validation."""
     import xgboost as xgb
     from sklearn.metrics import accuracy_score
 
@@ -150,7 +156,7 @@ def train_v56(X_train, y_train, X_val, y_val):
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dval = xgb.DMatrix(X_val, label=y_val)
 
-    print(f"  Training V56... train={len(X_train)} val={len(X_val)}")
+    print(f"  Training TITANIUM V3... train={len(X_train)} val={len(X_val)}, features={X_train.shape[1]}")
     model = xgb.train(
         params, dtrain,
         num_boost_round=n_estimators,
@@ -209,7 +215,7 @@ def walk_forward_validate(X, y, n_splits=5):
 
 
 def retrain():
-    """Main retrain: fetch data → build V56 features → chrono split → train."""
+    """Main retrain: fetch data → build TITANIUM V3 features → chrono split → train."""
     if not using_postgres():
         print("ERROR: DATABASE_URL not set or not PostgreSQL")
         sys.exit(1)

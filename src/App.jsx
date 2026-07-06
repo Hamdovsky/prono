@@ -4,6 +4,7 @@ import GlobalErrorBoundary from './components/GlobalErrorBoundary'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { I18nProvider } from './contexts/I18nContext'
 import Dashboard from './components/Dashboard'
+import EvolutionHeatmap from './components/EvolutionHeatmap'
 import './App.css'
 import './styles/themes.css'
 
@@ -19,6 +20,7 @@ function App() {
                             <Suspense fallback={<div style={{padding:40,textAlign:'center',color:'#888'}}>Loading...</div>}>
                                 <Routes>
                                     <Route path="/accuracy" element={<AccuracyDashboard />} />
+                                    <Route path="/evolution" element={<EvolutionHeatmap />} />
                                     <Route path="*" element={<Dashboard />} />
                                 </Routes>
                             </Suspense>

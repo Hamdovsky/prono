@@ -1,11 +1,4 @@
-# ─── Stage 1: Node.js dependencies ───────────────────────────
-FROM node:18-slim AS node-deps
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
-RUN npm rebuild better-sqlite3
-
-# ─── Stage 2: Frontend build ────────────────────────────────
+# ─── Stage 1: Frontend build ────────────────────────────────
 FROM node:18-slim AS frontend-build
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -15,17 +8,10 @@ COPY src/ ./src/
 COPY public/ ./public/
 RUN npm run build
 
-# ─── Stage 3: Production image ──────────────────────────────
-FROM node:18-slim
+# ─── Stage 2: Production image ──────────────────────────────
+FROM nikolaik/python-nodejs:python3.11-nodejs18
 WORKDIR /app
 
-# Install Python 3 + pip (lightweight - ML deps auto-installed by scripts)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Copy Node.js deps
-COPY --from=node-deps /app/node_modules ./node_modules
 # Copy frontend build
 COPY --from=frontend-build /app/dist ./dist
 
@@ -41,19 +27,19 @@ COPY data/ ./data/
 COPY models/ ./models/
 COPY inference/ ./inference/
 
-# Create required directories
 RUN mkdir -p /app/logs /app/data
 
-# Environment
+# Install npm deps at runtime for faster build
+RUN npm ci --only=production && npm rebuild better-sqlite3
+
 ENV NODE_ENV=production
 ENV PORT=10000
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/core:/app
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD node -e "require('http').get('http://localhost:10000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 EXPOSE 10000
 
-CMD python3 scripts/import_promosport_archive.py && node --max-old-space-size=512 server.js
+CMD python scripts/import_promosport_archive.py && node --max-old-space-size=512 server.js

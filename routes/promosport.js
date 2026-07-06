@@ -1217,4 +1217,23 @@ router.post('/retrain', async (req, res) => {
   }
 });
 
+// ─── Diagnostic: test Python + dependencies ────────────
+router.get('/diagnostic', async (req, res) => {
+  const { execSync } = require('child_process')
+  const diag = { python: null, pip: null, deps: {} }
+  try {
+    diag.python = execSync('python3 --version', { timeout: 5000, encoding: 'utf8' }).trim()
+  } catch (e) { diag.python = `ERROR: ${e.message}` }
+  try {
+    diag.pip = execSync('python3 -m pip --version', { timeout: 5000, encoding: 'utf8' }).trim()
+  } catch (e) { diag.pip = `ERROR: ${e.message}` }
+  for (const pkg of ['pandas', 'numpy', 'optuna', 'xgboost', 'sklearn', 'joblib']) {
+    try {
+      const out = execSync(`python3 -c "import ${pkg}; print(${pkg}.__version__)"`, { timeout: 10000, encoding: 'utf8' }).trim()
+      diag.deps[pkg] = out
+    } catch (e) { diag.deps[pkg] = `ERROR: ${e.message.trim().split('\n')[0]}` }
+  }
+  res.json(diag)
+})
+
 module.exports = router;

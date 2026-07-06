@@ -79,19 +79,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             });
             if (!pred) pred = {};
 
-            // D. Blend with Promosport-specific XGBoost model (if available)
             let p1 = pred.probabilities?.home ?? pred.home_win_probability ?? m.homeWinProbability ?? null;
-            let px = pred.probabilities?.draw ?? pred.draw_probability ?? m.drawProbability ?? null;
-            let p2 = pred.probabilities?.away ?? pred.away_win_probability ?? m.awayWinProbability ?? null;
-
-            const pspred = await promosportMLService.predict(m).catch(() => null);
-            if (pspred && pspred.p1 > 0) {
-              const blendWeight = 0.25
-              if (p1 !== null) p1 = p1 * (1 - blendWeight) + pspred.p1 * blendWeight
-              if (px !== null) px = px * (1 - blendWeight) + pspred.px * blendWeight
-              if (p2 !== null) p2 = p2 * (1 - blendWeight) + pspred.p2 * blendWeight
-              logger.info(`🧪 [PROMOSPORT-ENGINE] XGBoost blend applied for ${m.homeTeam} (${(pspred.p1*100).toFixed(0)}/${(pspred.px*100).toFixed(0)}/${(pspred.p2*100).toFixed(0)})`);
-            }
           
             // Detect flat/stale probabilities (33/33/34 from scraper default)
             const isFlat = (
@@ -203,6 +191,25 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
         }
     }));
 
+    // 1b. Batch Promosport XGBoost blend
+    try {
+      const xgbResults = promosportMLService.predictBatch(enrichedMatches);
+      if (xgbResults) {
+        const blendWeight = 0.25;
+        for (let i = 0; i < enrichedMatches.length; i++) {
+          const m = enrichedMatches[i];
+          const p = xgbResults[i];
+          if (p && p.p1 > 0) {
+            m.p1 = m.p1 * (1 - blendWeight) + p.p1 * blendWeight;
+            m.px = m.px * (1 - blendWeight) + p.px * blendWeight;
+            m.p2 = m.p2 * (1 - blendWeight) + p.p2 * blendWeight;
+            const t = m.p1 + m.px + m.p2;
+            m.p1 /= t; m.px /= t; m.p2 /= t;
+          }
+        }
+        logger.info(`🧪 [PROMOSPORT-ENGINE] XGBoost batch blend: ${xgbResults.filter(Boolean).length}/${enrichedMatches.length}`);
+      }
+    } catch (_) {}
 
     // 2. Generate the 4 specialized grids with STRATEGIC DIVERSIFICATION
     const result = generateGridsWithStrategicCoverage(enrichedMatches, customDoubles);

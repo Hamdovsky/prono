@@ -1,190 +1,259 @@
 const path = require('path');
+const Database = require('better-sqlite3');
+const { execSync } = require('child_process');
 const logger = require('../core/logger');
 
 const MODEL_PATH = path.join(__dirname, '..', 'models', 'promosport_xgb.json');
 const ARCHIVE_PATH = path.join(__dirname, '..', 'data', 'historical_archive.sqlite');
-
-let xgb = null;
-let model = null;
-let featureNames = null;
-
-function ensureModel() {
-  if (model) return true;
-  try {
-    xgb = require('xgboost-js') || require('@nxgboost');
-  } catch (_) {
-    // Fallback: use the Python process if xgboost-js not available
-    return false;
-  }
-  return false;
-}
+const PYTHON_SCRIPT = path.join(__dirname, '..', 'scripts', 'predict_promosport_batch.py');
 
 class PromosportMLService {
   constructor() {
     this.ready = false;
-    this.model = null;
-    this.featureNames = null;
-    this._loadAttempted = false;
+    this._attempted = false;
   }
 
-  async loadModel() {
-    if (this._loadAttempted) return this.ready;
-    this._loadAttempted = true;
+  loadModel() {
+    if (this._attempted) return this.ready;
+    this._attempted = true;
 
     try {
       const fs = require('fs');
       if (!fs.existsSync(MODEL_PATH)) {
         logger.warn('[PROMOSPORT-ML] Model not found at', MODEL_PATH);
-        logger.warn('[PROMOSPORT-ML] Train with: python scripts/train_promosport_xgboost.py');
         return false;
       }
+      if (!fs.existsSync(PYTHON_SCRIPT)) {
+        fs.writeFileSync(PYTHON_SCRIPT, `import json, sys, xgboost as xgb
+model_path = sys.argv[1]
+booster = xgb.Booster()
+booster.load_model(model_path)
+input_data = json.loads(sys.stdin.read())
+dmatrix = xgb.DMatrix(input_data, feature_names=booster.feature_names)
+probs = booster.predict(dmatrix)
+print(json.dumps(probs.tolist()))
+`);
+      }
 
-      const { execSync } = require('child_process');
-      const result = execSync(
-        `python -c "import xgboost as xgb; b = xgb.Booster(); b.load_model('${MODEL_PATH.replace(/\\/g, '\\\\')}'); print(b.feature_names); print(b.predict(xgb.DMatrix([[0]*${44}]))[0].tolist())"`,
-        { timeout: 10000, encoding: 'utf8', windowsHide: true }
+      execSync(
+        `python -c "import xgboost as xgb; b=xgb.Booster(); b.load_model('${MODEL_PATH.replace(/\\/g, '\\\\')}'); print(len(b.feature_names))"`,
+        { timeout: 5000, encoding: 'utf8', windowsHide: true }
       );
 
-      const lines = result.trim().split('\n');
-      this.featureNames = JSON.parse(lines[0]);
       this.ready = true;
-      logger.info(`[PROMOSPORT-ML] Model loaded (${this.featureNames.length} features)`);
+      logger.info('[PROMOSPORT-ML] Model ready');
       return true;
     } catch (e) {
-      logger.warn(`[PROMOSPORT-ML] Cannot load model (Python xgboost required): ${e.message}`);
+      logger.warn(`[PROMOSPORT-ML] Model unavailable: ${e.message}`);
       return false;
     }
   }
 
-  async predict(match) {
-    if (!this.ready && !(await this.loadModel())) return null;
+  predictBatch(matches) {
+    if (!this.ready && !this.loadModel()) return null;
+
+    const db = new Database(ARCHIVE_PATH, { readonly: true });
+    const features = matches.map(m => this._extractFeatures(m, db));
+    db.close();
 
     try {
-      const features = this._extractFeatures(match);
-      const featureStr = JSON.stringify(features);
-
-      const { execSync } = require('child_process');
-      const result = execSync(
-        `python -c "import json, xgboost as xgb; b = xgb.Booster(); b.load_model('${MODEL_PATH.replace(/\\/g, '\\\\')}'); import sys; sys.path.insert(0, '.'); probs = b.predict(xgb.DMatrix([${featureStr}]))[0].tolist(); print(json.dumps([round(p,4) for p in probs]))"`,
-        { timeout: 5000, encoding: 'utf8', windowsHide: true, cwd: path.join(__dirname, '..') }
+      const inputJson = JSON.stringify(features);
+      const result = execSync(`python "${PYTHON_SCRIPT.replace(/\\/g, '\\\\')}" "${MODEL_PATH.replace(/\\/g, '\\\\')}"`,
+        { input: inputJson, timeout: 10000, encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024 }
       );
 
-      const probs = JSON.parse(result.trim());
-      if (probs.length === 3) {
-        return { p1: probs[2], px: probs[1], p2: probs[0], source: 'promosport_xgb' };
-      }
+      const allProbs = JSON.parse(result.trim());
+      return matches.map((m, i) => {
+        if (!allProbs[i]) return null;
+        const [pAway, pDraw, pHome] = allProbs[i];
+        return { p1: pHome, px: pDraw, p2: pAway, source: 'promosport_xgb' };
+      });
     } catch (e) {
-      logger.debug(`[PROMOSPORT-ML] Predict failed: ${e.message}`);
+      logger.debug(`[PROMOSPORT-ML] Batch predict failed: ${e.message}`);
+      return null;
     }
-    return null;
   }
 
-  async predictBatch(matches) {
-    const results = [];
-    for (const m of matches) {
-      const pred = await this.predict(m);
-      results.push(pred);
-    }
-    return results;
+  predict(match) {
+    const results = this.predictBatch([match]);
+    return results ? results[0] : null;
   }
 
-  _extractFeatures(match) {
-    const voteH = match.homeWinPercent ?? match.vote_home ?? 50;
-    const voteD = match.drawPercent ?? match.vote_draw ?? 33;
-    const voteA = match.awayWinPercent ?? match.vote_away ?? 17;
-    const totalVotes = voteH + voteD + voteA;
+  _getTeamStats(db, team, beforeDate) {
+    const params = [team, team];
+    let dateFilter = '';
+    if (beforeDate) { dateFilter = ' AND archived_at < ?'; params.push(beforeDate); }
 
-    const p1Base = match.p1 ?? 0.424;
-    const pxBase = match.px ?? 0.259;
-    const p2Base = match.p2 ?? 0.317;
+    const all = db.prepare(`
+      SELECT result, score_home, score_away, homeTeam
+      FROM promosport_archive
+      WHERE (homeTeam = ? OR awayTeam = ?) AND result IS NOT NULL AND result != 'N' ${dateFilter}
+    `).all(...params);
 
-    const features = {};
-    features['vote_home'] = voteH;
-    features['vote_draw'] = voteD;
-    features['vote_away'] = voteA;
-    features['vote_home_norm'] = voteH / totalVotes;
-    features['vote_draw_norm'] = voteD / totalVotes;
-    features['vote_away_norm'] = voteA / totalVotes;
-    features['vote_advantage_home'] = voteH - voteA;
-    features['vote_advantage_away'] = voteA - voteH;
+    if (!all.length) return null;
 
-    const fill = (name, val) => { features[name] = val ?? 0.33; };
-    fill('home_win_rate_5', p1Base + (Math.random() - 0.5) * 0.05);
-    fill('home_draw_rate_5', pxBase + (Math.random() - 0.5) * 0.03);
-    fill('home_loss_rate_5', p2Base + (Math.random() - 0.5) * 0.05);
-    fill('away_win_rate_5', p2Base + (Math.random() - 0.5) * 0.05);
-    fill('away_draw_rate_5', pxBase + (Math.random() - 0.5) * 0.03);
-    fill('away_loss_rate_5', p1Base + (Math.random() - 0.5) * 0.05);
-    fill('home_win_rate_10', p1Base);
-    fill('home_draw_rate_10', pxBase);
-    fill('home_loss_rate_10', p2Base);
-    fill('away_win_rate_10', p2Base);
-    fill('away_draw_rate_10', pxBase);
-    fill('away_loss_rate_10', p1Base);
-    fill('home_win_rate_all', p1Base);
-    fill('home_draw_rate_all', pxBase);
-    fill('home_loss_rate_all', p2Base);
-    fill('away_win_rate_all', p2Base);
-    fill('away_draw_rate_all', pxBase);
-    fill('away_loss_rate_all', p1Base);
-    fill('h2h_home_wins', 0);
-    fill('h2h_draws', 0);
-    fill('h2h_away_wins', 0);
-    fill('h2h_matches', 0);
-    fill('home_pts_per_match_10', p1Base * 3 + pxBase);
-    fill('away_pts_per_match_10', p2Base * 3 + pxBase);
-    fill('home_pts_per_match_all', p1Base * 3 + pxBase);
-    fill('away_pts_per_match_all', p2Base * 3 + pxBase);
-    features['pts_diff_10'] = features['home_pts_per_match_10'] - features['away_pts_per_match_10'];
-    features['pts_diff_all'] = features['home_pts_per_match_all'] - features['away_pts_per_match_all'];
-    fill('home_avg_scored_5', 1.2);
-    fill('home_avg_conceded_5', 1.0);
-    fill('away_avg_scored_5', 1.0);
-    fill('away_avg_conceded_5', 1.2);
-    fill('home_avg_scored_10', 1.2);
-    fill('home_avg_conceded_10', 1.0);
-    fill('away_avg_scored_10', 1.0);
-    fill('away_avg_conceded_10', 1.2);
-    fill('home_form_score', p1Base * 10);
-    fill('away_form_score', p2Base * 10);
-    fill('home_last_result', p1Base > 0.5 ? 3 : (pxBase > 0.33 ? 1 : 0));
-    fill('away_last_result', p2Base > 0.5 ? 3 : (pxBase > 0.33 ? 1 : 0));
-    fill('home_matches_in_period', 5);
-    fill('away_matches_in_period', 5);
-    features['total_concours_for_pair'] = 10;
-    features['vote_x_home_form'] = features['vote_home'] * features['home_form_score'];
-    features['vote_x_pts_diff'] = features['vote_home'] * features['pts_diff_10'];
-    features['home_vote_x_winrate'] = features['vote_home_norm'] * features['home_win_rate_10'];
+    let wins = 0, draws = 0, losses = 0, pts = 0, gf = 0, ga = 0, scoredCount = 0;
+    for (const r of all) {
+      const isHome = r.homeTeam === team;
+      if (r.result === '1') { wins += (isHome ? 1 : 0); losses += (isHome ? 0 : 1); pts += isHome ? 3 : 0; }
+      else if (r.result === '2') { losses += (isHome ? 1 : 0); wins += (isHome ? 0 : 1); pts += isHome ? 0 : 3; }
+      else { draws++; pts += 1; }
+      if (r.score_home != null) {
+        gf += isHome ? r.score_home : r.score_away;
+        ga += isHome ? r.score_away : r.score_home;
+        scoredCount++;
+      }
+    }
+    const n = all.length;
+    return { n, wins, draws, losses, pts, gf, ga, scoredCount,
+      winRate: wins / n, drawRate: draws / n, lossRate: losses / n,
+      ptsPerMatch: pts / n, avgScored: scoredCount ? gf / scoredCount : 0.5, avgConceded: scoredCount ? ga / scoredCount : 0.5 };
+  }
 
-    // Ensure all features are present
-    const allFeatures = this.featureNames || [
-      'home_win_rate_5', 'home_draw_rate_5', 'home_loss_rate_5',
-      'away_win_rate_5', 'away_draw_rate_5', 'away_loss_rate_5',
-      'home_win_rate_10', 'home_draw_rate_10', 'home_loss_rate_10',
-      'away_win_rate_10', 'away_draw_rate_10', 'away_loss_rate_10',
-      'home_win_rate_all', 'home_draw_rate_all', 'home_loss_rate_all',
-      'away_win_rate_all', 'away_draw_rate_all', 'away_loss_rate_all',
-      'vote_home', 'vote_draw', 'vote_away',
-      'vote_home_norm', 'vote_draw_norm', 'vote_away_norm',
-      'vote_advantage_home', 'vote_advantage_away',
-      'h2h_home_wins', 'h2h_draws', 'h2h_away_wins', 'h2h_matches',
-      'home_pts_per_match_10', 'away_pts_per_match_10',
-      'home_pts_per_match_all', 'away_pts_per_match_all',
-      'pts_diff_10', 'pts_diff_all',
-      'home_avg_scored_5', 'home_avg_conceded_5',
-      'away_avg_scored_5', 'away_avg_conceded_5',
-      'home_avg_scored_10', 'home_avg_conceded_10',
-      'away_avg_scored_10', 'away_avg_conceded_10',
-      'home_form_score', 'away_form_score',
-      'home_last_result', 'away_last_result',
-      'home_matches_in_period', 'away_matches_in_period',
+  _getRecentStats(db, team, limit, beforeDate) {
+    const params = [team, team];
+    let dateFilter = '';
+    if (beforeDate) { dateFilter = ' AND archived_at < ?'; params.push(beforeDate); }
+    params.push(limit);
+
+    const rows = db.prepare(`
+      SELECT result, homeTeam, score_home, score_away
+      FROM promosport_archive
+      WHERE (homeTeam = ? OR awayTeam = ?) AND result IS NOT NULL AND result != 'N' ${dateFilter}
+      ORDER BY archived_at DESC LIMIT ?
+    `).all(...params);
+
+    if (!rows.length) return null;
+
+    let wins = 0, draws = 0, pts = 0, gf = 0, ga = 0, sc = 0, formScore = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]; const isHome = r.homeTeam === team;
+      let matchPts = 0;
+      if (r.result === '1') { wins += isHome ? 1 : 0; matchPts = isHome ? 3 : 0; }
+      else if (r.result === '2') { wins += isHome ? 0 : 1; matchPts = isHome ? 0 : 3; }
+      else { draws++; matchPts = 1; }
+      pts += matchPts;
+      formScore += matchPts * (1 / (i + 1));
+      if (r.score_home != null) {
+        gf += isHome ? r.score_home : r.score_away;
+        ga += isHome ? r.score_away : r.score_home;
+        sc++;
+      }
+    }
+    const n = rows.length;
+    return { n, wins, draws, losses: n - wins - draws, pts, gf, ga, scoredCount: sc,
+      winRate: wins / n, drawRate: draws / n, lossRate: (n - wins - draws) / n,
+      ptsPerMatch: pts / n, formScore, lastResult: pts > 0 ? (pts > 1 ? 3 : 1) : 0,
+      avgScored: sc ? gf / sc : 0.5, avgConceded: sc ? ga / sc : 0.5 };
+  }
+
+  _getH2H(db, home, away, beforeDate) {
+    const params = [home, away, home, away];
+    let dateFilter = '';
+    if (beforeDate) { dateFilter = ' AND archived_at < ?'; params.push(beforeDate); }
+
+    const rows = db.prepare(`
+      SELECT result FROM promosport_archive
+      WHERE ((homeTeam = ? AND awayTeam = ?) OR (homeTeam = ? AND awayTeam = ?))
+        AND result IS NOT NULL AND result != 'N' ${dateFilter}
+    `).all(...params);
+
+    let hw = 0, d = 0, aw = 0;
+    for (const r of rows) {
+      r.result === '1' ? hw++ : r.result === 'X' ? d++ : aw++;
+    }
+    return { homeWins: hw, draws: d, awayWins: aw, total: rows.length };
+  }
+
+  _extractFeatures(match, db) {
+    const f = {};
+    const home = (match.homeTeam || '').toUpperCase();
+    const away = (match.awayTeam || '').toUpperCase();
+    const voteH = match.publicP1 ?? match.homeWinPercent ?? match.vote_home ?? 50;
+    const voteD = match.publicPX ?? match.drawPercent ?? match.vote_draw ?? 33;
+    const voteA = match.publicP2 ?? match.awayWinPercent ?? match.vote_away ?? 17;
+    const totalV = voteH + voteD + voteA;
+
+    f['vote_home'] = voteH; f['vote_draw'] = voteD; f['vote_away'] = voteA;
+    f['vote_home_norm'] = totalV > 0 ? voteH / totalV : 0.5;
+    f['vote_draw_norm'] = totalV > 0 ? voteD / totalV : 0.33;
+    f['vote_away_norm'] = totalV > 0 ? voteA / totalV : 0.17;
+    f['vote_advantage_home'] = voteH - voteA;
+    f['vote_advantage_away'] = voteA - voteH;
+
+    for (const s5 of [this._getRecentStats(db, home, 5), this._getRecentStats(db, away, 5)]) {
+      // handled below with prefix
+    }
+    for (const [team, prefix] of [[home, 'home'], [away, 'away']]) {
+      const all = this._getTeamStats(db, team);
+      const r5 = this._getRecentStats(db, team, 5);
+      const r10 = this._getRecentStats(db, team, 10);
+
+      for (const [s, suffix] of [[r5, '5'], [r10, '10'], [all, 'all']]) {
+        if (s) {
+          f[`${prefix}_win_rate_${suffix}`] = s.winRate;
+          f[`${prefix}_draw_rate_${suffix}`] = s.drawRate;
+          f[`${prefix}_loss_rate_${suffix}`] = s.lossRate;
+          f[`${prefix}_pts_per_match_${suffix}`] = s.ptsPerMatch;
+          f[`${prefix}_avg_scored_${suffix}`] = s.avgScored;
+          f[`${prefix}_avg_conceded_${suffix}`] = s.avgConceded;
+        } else {
+          f[`${prefix}_win_rate_${suffix}`] = 0.33; f[`${prefix}_draw_rate_${suffix}`] = 0.33; f[`${prefix}_loss_rate_${suffix}`] = 0.33;
+          f[`${prefix}_pts_per_match_${suffix}`] = 1.0; f[`${prefix}_avg_scored_${suffix}`] = 1.0; f[`${prefix}_avg_conceded_${suffix}`] = 1.0;
+        }
+      }
+
+      if (r5) {
+        f[`${prefix}_form_score`] = r5.formScore;
+        f[`${prefix}_last_result`] = r5.lastResult;
+      } else {
+        f[`${prefix}_form_score`] = 5; f[`${prefix}_last_result`] = 1;
+      }
+
+      f[`${prefix}_matches_in_period`] = all ? all.n : 0;
+    }
+
+    f['pts_diff_10'] = (f['home_pts_per_match_10'] || 1.0) - (f['away_pts_per_match_10'] || 1.0);
+    f['pts_diff_all'] = (f['home_pts_per_match_all'] || 1.0) - (f['away_pts_per_match_all'] || 1.0);
+
+    const h2h = this._getH2H(db, home, away);
+    f['h2h_home_wins'] = h2h.homeWins;
+    f['h2h_draws'] = h2h.draws;
+    f['h2h_away_wins'] = h2h.awayWins;
+    f['h2h_matches'] = h2h.total;
+
+    f['total_concours_for_pair'] = (f['home_matches_in_period'] || 0) + (f['away_matches_in_period'] || 0);
+    f['vote_x_home_form'] = f['vote_home'] * (f['home_form_score'] || 5);
+    f['vote_x_pts_diff'] = f['vote_home'] * (f['pts_diff_10'] || 0);
+    f['home_vote_x_winrate'] = f['vote_home_norm'] * (f['home_win_rate_10'] || 0.33);
+
+    const FEATURE_NAMES = [
+      'home_win_rate_5','home_draw_rate_5','home_loss_rate_5',
+      'away_win_rate_5','away_draw_rate_5','away_loss_rate_5',
+      'home_win_rate_10','home_draw_rate_10','home_loss_rate_10',
+      'away_win_rate_10','away_draw_rate_10','away_loss_rate_10',
+      'home_win_rate_all','home_draw_rate_all','home_loss_rate_all',
+      'away_win_rate_all','away_draw_rate_all','away_loss_rate_all',
+      'vote_home','vote_draw','vote_away',
+      'vote_home_norm','vote_draw_norm','vote_away_norm',
+      'vote_advantage_home','vote_advantage_away',
+      'h2h_home_wins','h2h_draws','h2h_away_wins','h2h_matches',
+      'home_pts_per_match_10','away_pts_per_match_10',
+      'home_pts_per_match_all','away_pts_per_match_all',
+      'pts_diff_10','pts_diff_all',
+      'home_avg_scored_5','home_avg_conceded_5',
+      'away_avg_scored_5','away_avg_conceded_5',
+      'home_avg_scored_10','home_avg_conceded_10',
+      'away_avg_scored_10','away_avg_conceded_10',
+      'home_form_score','away_form_score',
+      'home_last_result','away_last_result',
+      'home_matches_in_period','away_matches_in_period',
       'total_concours_for_pair',
-      'vote_x_home_form', 'vote_x_pts_diff', 'home_vote_x_winrate'
+      'vote_x_home_form','vote_x_pts_diff','home_vote_x_winrate'
     ];
 
-    return allFeatures.map(f => features[f] ?? 0.0);
+    return FEATURE_NAMES.map(k => f[k] ?? 0.0);
   }
 }
 
-const instance = new PromosportMLService();
-module.exports = instance;
+module.exports = new PromosportMLService();

@@ -294,12 +294,60 @@ function backtest() {
   return { concoursCount: concoursList.length, totalMatches, totalCorrect, overallAccuracy: overall };
 }
 
+function backtestGoldCoupon() {
+  console.log('\n========================================');
+  console.log('  GOLD COUPON BACKTEST (6 doubles)');
+  console.log('========================================');
+
+  const db = getDb();
+  const concoursList = db.prepare(`SELECT DISTINCT concours FROM promosport_archive WHERE result IS NOT NULL AND result != 'N' ORDER BY concours`).all().map(r => r.concours);
+  let totalMatches = 0, totalCorrect = 0;
+
+  for (let ci = 0; ci < concoursList.length; ci++) {
+    const concours = concoursList[ci];
+    const matches = db.prepare(`SELECT * FROM promosport_archive WHERE concours = ? AND result IS NOT NULL AND result != 'N' ORDER BY match_idx`).all(String(concours));
+    if (matches.length < 10) continue;
+
+    const processed = matches.map(m => {
+      const probs = computeProbsFromVotes(m.vote_home || 33, m.vote_draw || 33, m.vote_away || 34);
+      const entropy = computeEntropy(probs);
+      const confidence = Math.max(50, 80 - (entropy * 15));
+      return { idx: m.match_idx, actual: m.result, probs, entropy, confidence };
+    }).sort((a, b) => b.entropy - a.entropy);
+
+    // Top 6 by entropy → doubles, bottom 7 → singles
+    const doubles = processed.slice(0, 6);
+    const singles = processed.slice(6);
+
+    let correct = 0, total = 0;
+    for (const m of doubles) {
+      const top2 = m.probs[0] > m.probs[2] ? ['1', m.probs[1] > m.probs[2] ? 'X' : '2'] : [m.probs[2] > m.probs[1] ? '2' : 'X', '1'];
+      if (top2.includes(m.actual)) correct++;
+      total++;
+    }
+    for (const m of singles) {
+      const pick = m.probs[0] > 0.6 ? '1' : m.probs[2] > 0.6 ? '2' : 'X';
+      if (pick === m.actual) correct++;
+      total++;
+    }
+
+    totalMatches += total;
+    totalCorrect += correct;
+  }
+
+  db.close();
+  const acc = totalMatches > 0 ? (totalCorrect / totalMatches) * 100 : 0;
+  console.log(`  Concours: ${concoursList.length} | Exact: ${totalCorrect}/${totalMatches} = ${acc.toFixed(2)}%`);
+  return { concoursCount: concoursList.length, totalMatches, totalCorrect, accuracy: acc };
+}
+
 if (require.main === module) {
-  if (process.argv.includes('--detailed')) {
-    const result = backtest();
-    console.log(`\nBacktest complete: ${result.overallAccuracy.toFixed(2)}% across ${result.concoursCount} concours`);
+  const result = backtest();
+  if (process.argv.includes('--gold')) {
+    const gold = backtestGoldCoupon();
+    console.log(`\nGrid 4×6: ${result.overallAccuracy.toFixed(2)}% | Gold 6D: ${gold.accuracy.toFixed(2)}%`);
   } else {
-    backtest();
+    backtestGoldCoupon();
   }
 }
 

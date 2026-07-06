@@ -203,6 +203,21 @@ const Promosport = () => {
         }, 1500);
     };
 
+    const [goldCoupon, setGoldCoupon] = useState(null);
+    const handleGenerateGoldCoupon = async () => {
+        try {
+            const data = await dataService.fetchPromosportGoldCoupon();
+            if (data && data.success && data.coupon) {
+                setGoldCoupon(data.coupon);
+                setViewMode('gold');
+            } else {
+                alert('Impossible de générer le Gold Coupon');
+            }
+        } catch (e) {
+            alert('Erreur: ' + e.message);
+        }
+    };
+
     const renderBox = (pred, val) => {
         const isSelected = pred.includes(val);
         return (
@@ -680,6 +695,31 @@ const Promosport = () => {
                         </p>
                     </div>
                 </div>
+            ) : viewMode === 'gold' && goldCoupon ? (
+                <div style={{ padding: '16px' }}>
+                    <div style={{ background: 'rgba(34,197,94,0.06)', padding: '20px', borderRadius: '12px', border: '1px solid rgba(34,197,94,0.2)' }}>
+                        <h3 style={{ color: '#22c55e', fontSize: '1.4rem', marginBottom: '6px' }}>🥇 GOLD COUPON — 6 DOUBLES</h3>
+                        <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginBottom: '16px' }}>
+                            {goldCoupon.stats?.totalSingles || 7} simples + {goldCoupon.stats?.totalDoubles || 6} doubles = {Math.pow(2, goldCoupon.stats?.totalDoubles || 6)} colonnes · Backtest: 56.97% précision
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '6px' }}>
+                            {goldCoupon.matches?.map((m, i) => {
+                                const isDouble = m.choices?.length > 1;
+                                return (
+                                    <div key={i} style={{ padding: '8px 12px', background: isDouble ? 'rgba(251,191,36,0.06)' : 'rgba(255,255,255,0.03)', borderRadius: '6px', border: `1px solid ${isDouble ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
+                                        <div style={{ fontSize: '0.5rem', color: isDouble ? '#fbbf24' : '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>{isDouble ? 'DOUBLE' : 'SIMPLE'} · N°{i + 1}</div>
+                                        <div style={{ color: '#e2e8f0', fontSize: '0.75rem', fontWeight: '500' }}>{m.home ?? '?'} vs {m.away ?? '?'}</div>
+                                        <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                                            {['1', 'X', '2'].map(v => (
+                                                <span key={v} style={{ width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '3px', fontSize: '0.6rem', fontWeight: '700', background: m.choices?.includes(v) ? '#fbbf24' : 'rgba(255,255,255,0.05)', color: m.choices?.includes(v) ? '#0f172a' : '#475569' }}>{v}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
             ) : viewMode === 'calculator' ? (
                 <PromosportCalculator matches={matches} fetcher={dataService} />
             ) : viewMode === 'skills' ? (
@@ -859,7 +899,22 @@ const Promosport = () => {
                                                         {colData.pred.includes('1') && <span style={{...pickBoxStyle}}>1</span>}
                                                         {colData.pred.includes('X') && <span style={{...pickBoxStyle, background: 'rgba(251, 191, 36, 0.25)', color: '#fbbf24'}}>X</span>}
                                                         {colData.pred.includes('2') && <span style={{...pickBoxStyle, background: 'rgba(239, 68, 68, 0.25)', color: '#f87171'}}>2</span>}
-                                                    </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', margin: '8px 0' }}>
+                    <button onClick={() => setViewMode(viewMode === 'terminal' ? 'grid' : 'terminal')}
+                        style={{ padding: '4px 12px', fontSize: '0.6rem', background: viewMode === 'terminal' ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: viewMode === 'terminal' ? '#fbbf24' : '#94a3b8', cursor: 'pointer', fontWeight: '600', textTransform: 'uppercase' }}>
+                        📟 Terminal
+                    </button>
+                    <button onClick={() => setViewMode(viewMode === 'calculator' ? 'grid' : 'calculator')}
+                        style={{ padding: '4px 12px', fontSize: '0.6rem', background: viewMode === 'calculator' ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: viewMode === 'calculator' ? '#fbbf24' : '#94a3b8', cursor: 'pointer', fontWeight: '600', textTransform: 'uppercase' }}>
+                        🧮 Calculator
+                    </button>
+                    <button onClick={handleGenerateGoldCoupon}
+                        style={{ padding: '4px 12px', fontSize: '0.6rem', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '6px', color: '#22c55e', cursor: 'pointer', fontWeight: '600', textTransform: 'uppercase' }}>
+                        🥇 Gold 6D (56.9%)
+                    </button>
+                </div>
                                                 </td>
                                             )
                                         })}

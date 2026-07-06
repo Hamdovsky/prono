@@ -1049,4 +1049,37 @@ router.post('/check-results/:concours', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/promosport/gold-coupon
+ * Generate a single Gold Coupon (6 doubles, 7 singles).
+ */
+router.get('/gold-coupon', async (req, res) => {
+  try {
+    const speedCache = require('../core/speedCache');
+    const { scrapePromosport } = require('../core/promosport_scraper');
+    const { generatePromosportGrids, generateGoldCoupon } = require('../core/promosport_engine');
+
+    let scrapedMatches = speedCache.get('promosport_matches');
+    if (!scrapedMatches) {
+      scrapedMatches = await scrapePromosport();
+      if (scrapedMatches && scrapedMatches.length > 0) speedCache.set('promosport_matches', scrapedMatches, 300);
+    }
+    if (!scrapedMatches || scrapedMatches.length === 0) {
+      return res.status(503).json({ success: false, error: 'Aucune donnée disponible' });
+    }
+
+    const grids = await generatePromosportGrids(scrapedMatches, [6, 6, 6, 6]);
+    if (!grids || grids.length === 0) throw new Error("Grid generation failed");
+
+    const coupon = generateGoldCoupon(grids[0].matches.map((m, i) => ({
+      ...m, id: i + 1, homeTeam: m.home, awayTeam: m.away,
+      homeWinProbability: m.crowdP1, awayWinProbability: m.crowdP2, drawProbability: m.px
+    })));
+
+    res.json({ success: true, coupon });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

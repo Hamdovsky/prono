@@ -1,72 +1,11 @@
-# ─── Stage 1: Node.js dependencies ───────────────────────────
-FROM node:22-slim AS node-deps
+FROM node:22-slim
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+RUN npm ci --only=production && npm rebuild better-sqlite3
+COPY . .
 RUN npm rebuild better-sqlite3
-
-# ─── Stage 2: Python ML packages ──────────────────────────
-FROM python:3.11-slim AS python-deps
-WORKDIR /app
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir \
-        numpy==1.26.4 \
-        pandas==3.0.2 \
-        scipy==1.17.1 \
-        xgboost==2.1.0 \
-        scikit-learn==1.8.0 \
-        joblib==1.5.3 \
-        optuna>=4.0.0
-
-# ─── Stage 3: Frontend build ────────────────────────────────
-FROM node:22-slim AS frontend-build
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
-COPY vite.config.js index.html ./
-COPY src/ ./src/
-COPY public/ ./public/
-RUN npm run build
-
-# ─── Stage 4: Production image ──────────────────────────────
-FROM nikolaik/python-nodejs:python3.11-nodejs22-slim
-WORKDIR /app
-
-# Copy python ML packages (site-packages → dist-packages for deadsnakes Python)
-COPY --from=python-deps /usr/local/lib/python3.11/site-packages /usr/lib/python3.11/dist-packages
-# Also keep a copy at the standard path as fallback
-COPY --from=python-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-
-# Copy Node.js deps
-COPY --from=node-deps /app/node_modules ./node_modules
-# Copy frontend build
-COPY --from=frontend-build /app/dist ./dist
-
-# Copy application code
-COPY package.json package-lock.json* ./
-COPY app.js server.js ./
-COPY core/ ./core/
-COPY routes/ ./routes/
-COPY services/ ./services/
-COPY scripts/ ./scripts/
-COPY config/ ./config/
-COPY data/ ./data/
-COPY models/ ./models/
-COPY inference/ ./inference/
-
-# Create required directories
 RUN mkdir -p /app/logs /app/data
-
-# Environment
 ENV NODE_ENV=production
 ENV PORT=10000
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app/core:/app:/usr/lib/python3.11/dist-packages
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:10000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
 EXPOSE 10000
-
-CMD python3 scripts/import_promosport_archive.py && node --max-old-space-size=512 server.js
+CMD node server.js

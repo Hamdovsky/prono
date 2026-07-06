@@ -2,6 +2,7 @@ import soccerdata as sd
 from datetime import datetime
 import os
 import logging
+import difflib
 from pathlib import Path
 
 logger = logging.getLogger('fbref_service')
@@ -160,12 +161,17 @@ def _get_fbref_league(league_name):
     return None
 
 
-def _normalize_team(name):
+def _normalize_team(name, known_names=None):
     n = name.lower().strip()
-    n = n.replace('fc ', '').replace(' f c', '').replace('  ', ' ')
+    n = n.replace('fc ', '').replace(' f c', '').replace('sk ', '').replace('fk ', '').replace('  ', ' ')
     for key, val in TEAM_MAP.items():
         if n == key or n in key or key in n:
             return val
+    if known_names:
+        matches = difflib.get_close_matches(n, [x.lower().strip().replace('fc ','').replace('sk ','').replace('fk ','') for x in known_names], n=1, cutoff=0.6)
+        if matches:
+            idx = [x.lower().strip().replace('fc ','').replace('sk ','').replace('fk ','') for x in known_names].index(matches[0])
+            return known_names[idx]
     return name.strip()
 
 
@@ -267,12 +273,17 @@ def get_match_xg(home_team, away_team, league):
     if df is None or df.empty:
         return None
 
-    home_norm = _normalize_team(home_team)
-    away_norm = _normalize_team(away_team)
+    known_teams = set()
+    for idx, row in df.iterrows():
+        known_teams.add(str(row.get('home_team', '')))
+        known_teams.add(str(row.get('away_team', '')))
+
+    home_norm = _normalize_team(home_team, known_teams)
+    away_norm = _normalize_team(away_team, known_teams)
 
     for idx, row in df.iterrows():
-        h = _normalize_team(str(row.get('home_team', '')))
-        a = _normalize_team(str(row.get('away_team', '')))
+        h = _normalize_team(str(row.get('home_team', '')), known_teams)
+        a = _normalize_team(str(row.get('away_team', '')), known_teams)
         if (h == home_norm and a == away_norm) or (a == home_norm and h == away_norm):
             home_xg = _to_float(row.get('home_xg'))
             away_xg = _to_float(row.get('away_xg'))

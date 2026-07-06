@@ -933,6 +933,10 @@ const Promosport = () => {
                         style={{ padding: '4px 12px', fontSize: '0.6rem', background: viewMode === 'calculator' ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: viewMode === 'calculator' ? '#fbbf24' : '#94a3b8', cursor: 'pointer', fontWeight: '600', textTransform: 'uppercase' }}>
                         🧮 Calculator
                     </button>
+                    <button onClick={handleGenerateColonnes}
+                        style={{ padding: '4px 12px', fontSize: '0.6rem', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '6px', color: '#34d399', cursor: 'pointer', fontWeight: '600', textTransform: 'uppercase' }}>
+                        📊 Colonnes ML
+                    </button>
                     <button onClick={handleGenerateGoldCoupon}
                         style={{ padding: '4px 12px', fontSize: '0.6rem', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '6px', color: '#22c55e', cursor: 'pointer', fontWeight: '600', textTransform: 'uppercase' }}>
                         🥇 Gold 6D (56.9%)

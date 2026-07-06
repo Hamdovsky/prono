@@ -74,6 +74,7 @@ const integrationRoutes = require('./routes/integration');
 const matchesRoutes = require('./routes/matches');
 const promosportRoutes = require('./routes/promosport');
 const dsRoutes = require('./routes/ds');
+const gridRoutes = require('./routes/gridRoutes');
 
 // Swagger API Documentation
 let swaggerUi, swaggerSpecs;
@@ -457,6 +458,7 @@ app.use('/api/evolution', evolutionRoutes);
 app.use('/api', scraperRoutes);
 app.use('/api', matchesRoutes);
 app.use('/api/promosport', promosportRoutes);
+app.use('/api/grids', gridRoutes);
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api', require('./routes/valueBets'));
 

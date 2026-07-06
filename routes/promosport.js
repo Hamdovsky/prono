@@ -1238,6 +1238,15 @@ router.get('/diagnostic', async (req, res) => {
     const spy = require('path').join(__dirname, '..', 'scripts', 'import_promosport_archive.py')
     diag.importTest = es(`python3 "${spy}"`, { timeout: 60000, encoding: 'utf8' }).trim()
   } catch (e) { diag.importTest = `ERROR: ${e.message}` }
+  // Quick pip install test for one package
+  if (req.query.install) {
+    const pkg = req.query.install
+    const start = Date.now()
+    try {
+      const out = es(`python3 -m pip install --no-cache-dir ${pkg} 2>&1 | tail -5`, { timeout: 300000, encoding: 'utf8' }).trim()
+      diag.installTest = { pkg, ok: true, ms: Date.now() - start, output: out }
+    } catch (e) { diag.installTest = { pkg, ok: false, ms: Date.now() - start, error: e.message } }
+  }
   res.json(diag)
 })
 

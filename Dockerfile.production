@@ -16,30 +16,13 @@ COPY public/ ./public/
 RUN npm run build
 
 # ─── Stage 3: Production image ──────────────────────────────
-FROM python:3.11-slim
+FROM node:18-slim
 WORKDIR /app
 
-# Install Node.js 18 (official NodeSource)
+# Install Python 3 + pip (lightweight - ML deps auto-installed by scripts)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
+    python3 python3-pip python3-venv \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Install Python ML / data deps
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir \
-        numpy==1.26.4 \
-        pandas==3.0.2 \
-        scipy==1.17.1 \
-        xgboost==2.1.0 \
-        scikit-learn==1.8.0 \
-        joblib==1.5.3 \
-        optuna>=4.0.0 \
-        matplotlib==3.10.8 \
-        seaborn>=0.13.0 \
-        requests==2.33.1 \
-        beautifulsoup4>=4.12.0
 
 # Copy Node.js deps
 COPY --from=node-deps /app/node_modules ./node_modules
@@ -73,4 +56,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 EXPOSE 10000
 
-CMD python scripts/import_promosport_archive.py && node scripts/backfill_promosport_predictions.js && node --max-old-space-size=512 server.js
+CMD python3 scripts/import_promosport_archive.py && node --max-old-space-size=512 server.js

@@ -1,3 +1,16 @@
+import subprocess, importlib, sys, os
+
+# ─── Self-bootstrap: auto-install missing deps ──────────────
+_REQUIRED = ['pandas', 'numpy', 'optuna', 'xgboost', 'sklearn', 'joblib']
+for _pkg in _REQUIRED:
+    try:
+        importlib.import_module(_pkg)
+    except ImportError:
+        _pip_name = {'sklearn': 'scikit-learn', 'cv2': 'opencv-python'}.get(_pkg, _pkg)
+        print(f"[BOOTSTRAP] Installing {_pip_name}...", flush=True)
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', _pip_name],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 import sqlite3
 import pandas as pd
 import numpy as np

@@ -448,14 +448,14 @@ const Dashboard = () => {
                             cursor: 'pointer'
                         }}>
                             <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
-                            <div style={{width:"24%", minWidth: "160px", padding:"0 8px"}}>PRONOSTIC</div>
+                            <div style={{width:"26%", minWidth: "190px", padding:"0 8px"}}>PRONOSTIC</div>
                             <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                                 AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
                             <div style={{width:"16%", minWidth: "120px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
                                 MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
                                 SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
                             <div style={{width:"10%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
@@ -806,14 +806,14 @@ const Dashboard = () => {
                             cursor: 'pointer'
                         }}>
                             <div style={{width:"20%", minWidth: "160px", padding:"0 8px"}}>MATCH / FORME</div>
-                            <div style={{width:"24%", minWidth: "160px", padding:"0 8px"}}>PRONOSTIC</div>
+                            <div style={{width:"26%", minWidth: "190px", padding:"0 8px"}}>PRONOSTIC</div>
                             <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
                                 AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
                             <div style={{width:"16%", minWidth: "120px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
                                 MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                            <div style={{width:"14%", minWidth: "100px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
                                 SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
                             <div style={{width:"10%", minWidth: "60px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>

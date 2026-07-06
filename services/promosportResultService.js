@@ -186,14 +186,53 @@ function getRecentHistory(limit = 20) {
 function getOverallStats() {
   try {
     const db = getDb();
+
+    // Check if predictions table exists and has data
+    const tables = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='promosport_predictions'`).get();
+    if (!tables) {
+      db.close();
+      // Fallback: return crowd-based accuracy from archive
+      const archiveStats = db.prepare(`SELECT COUNT(*) as total FROM promosport_archive WHERE result IS NOT NULL AND result != 'N'`).get();
+      if (!archiveStats || archiveStats.total === 0) { db.close(); return null; }
+      db.close();
+      return {
+        concoursCount: 0,
+        totalMatches: 0,
+        totalCorrect: 0,
+        overallAccuracy: '0.0%',
+        perGrid: [],
+        recentConcours: []
+      };
+    }
+
     const concoursList = db.prepare(`
       SELECT DISTINCT pp.concours FROM promosport_predictions pp
       INNER JOIN promosport_archive pa ON pp.concours = pa.concours AND pa.is_finished = 1
     `).all().map(r => r.concours);
     db.close();
 
+    if (concoursList.length === 0) {
+      return {
+        concoursCount: 0,
+        totalMatches: 0,
+        totalCorrect: 0,
+        overallAccuracy: '0.0%',
+        perGrid: [],
+        recentConcours: []
+      };
+    }
+
     const accuracies = concoursList.map(c => computeAccuracy(c)).filter(Boolean);
-    if (accuracies.length === 0) return null;
+    if (accuracies.length === 0) {
+      return {
+        concoursCount: 0,
+        totalMatches: 0,
+        totalCorrect: 0,
+        overallAccuracy: '0.0%',
+        perGrid: [],
+        recentConcours: []
+      };
+    }
 
     const totalCorrect = accuracies.reduce((s, a) => s + a.totalCorrect, 0);
     const totalMatches = accuracies.reduce((s, a) => s + a.totalMatches, 0);
@@ -233,6 +272,8 @@ function getOverallStats() {
 function getConfusionMatrix() {
   try {
     const db = getDb();
+    const tables = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='promosport_predictions'`).get();
+    if (!tables) { db.close(); return null; }
     const rows = db.prepare(`
       SELECT pp.choices, pa.result
       FROM promosport_predictions pp
@@ -292,6 +333,8 @@ function getConfusionMatrix() {
 function simulateROI(stakePerMatch = 10) {
   try {
     const db = getDb();
+    const tables = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='promosport_predictions'`).get();
+    if (!tables) { db.close(); return null; }
     const rows = db.prepare(`
       SELECT pp.choices, pa.result, pa.match_idx, pp.grid_name, pp.concours
       FROM promosport_predictions pp

@@ -41,7 +41,7 @@ export default function PromosportAccuracy({ onClose }) {
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Chargement...</div>
 
-  const overallPct = stats ? (stats.totalCorrect / stats.totalMatches * 100).toFixed(1) : 'N/A'
+  const overallPct = stats && stats.totalMatches > 0 ? (stats.totalCorrect / stats.totalMatches * 100).toFixed(1) : '0.0'
   const color = parseFloat(overallPct) > 65 ? '#22c55e' : parseFloat(overallPct) > 50 ? '#f59e0b' : '#ef4444'
 
   return (
@@ -99,6 +99,11 @@ export default function PromosportAccuracy({ onClose }) {
             <KPI label="Crowd" value={crowd?.crowdAccuracy ? `${crowd.crowdAccuracy}%` : 'N/A'} color="#f59e0b" />
             {roi && <KPI label="ROI" value={roi.roi} color={parseFloat(roi.roi) > 0 ? '#22c55e' : '#ef4444'} />}
           </div>
+          {(!stats || stats.totalMatches === 0) && (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '0.75rem' }}>
+              Aucune prédiction enregistrée. Les statistiques apparaîtront après avoir visité la page Promosport (les pronostics sont stockés automatiquement).
+            </div>
+          )}
           <div style={{ marginTop: 8, background: 'rgba(15,23,42,0.6)', borderRadius: 8, padding: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
             <div style={{ fontSize: '0.6rem', color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>Répartition par confidence (crowd)</div>
             {crowd?.byConfidence?.map((b, i) => (

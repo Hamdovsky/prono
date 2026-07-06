@@ -233,19 +233,33 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
 
   // Top 3 most uncertain → doubled by ALL 4 grids (core)
   const coreDoubles = rankedByUncertainty.slice(0, 3).map(m => m.id)
-  // Next 6 → doubled by exactly 2 grids each (medium)
-  const mediumPool = rankedByUncertainty.slice(3, 9).map(m => m.id)
-  // Bottom 4 → singles (easiest)
-  const singlesList = rankedByUncertainty.slice(9, 13).map(m => m.id)
 
-  // Round-robin: each medium match covered by 2 grids
-  // Grid 0: A,B,C  Grid 1: C,D,E  Grid 2: E,F,A  Grid 3: B,D,F
-  const mediumAssignments = [
-    [0, 1, 2],
-    [2, 3, 4],
-    [4, 5, 0],
-    [1, 3, 5]
-  ]
+  // Dynamic singles: un match n'est simple que si confiance > 75%
+  const MIN_CONFIDENCE_SINGLE = 75
+  const candidateSingles = rankedByUncertainty.slice(3, 13)
+    .map(r => ({ id: r.id, match: enrichedMatches.find(m => m.id === r.id) }))
+  candidateSingles.sort((a, b) => (b.match.confidence || 0) - (a.match.confidence || 0))
+
+  const singlesList = candidateSingles
+    .filter(c => (c.match.confidence || 0) >= MIN_CONFIDENCE_SINGLE)
+    .slice(0, 4)
+    .map(c => c.id)
+
+  const singlesCount = singlesList.length
+  const mediumPool = candidateSingles
+    .filter(c => !singlesList.includes(c.id))
+    .map(c => c.id)
+
+  // Round-robin: chaque match medium est doublé par exactement 2 grilles
+  // On distribue uniformément pour que chaque grille ait ~mediumCount*2/4 doublons
+  const mediumAssignments = Array.from({ length: 4 }, () => [])
+  for (let mi = 0; mi < mediumPool.length; mi++) {
+    // Chaque match medium est assigné à 2 grilles décalées
+    const g1 = mi % 4
+    const g2 = (mi + 2) % 4
+    mediumAssignments[g1].push(mi)
+    mediumAssignments[g2].push(mi)
+  }
 
   const gridDoubleMap = {}
   gridConfigs.forEach((_, gi) => {
@@ -254,6 +268,8 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
       ...mediumAssignments[gi].map(idx => mediumPool[idx])
     ]
   })
+
+  logger.info(`[PROMOSPORT-ENGINE] Distribution: ${coreDoubles.length} core + ${mediumPool.length} medium + ${singlesList.length} singles`)
 
   gridConfigs.forEach((config, gridIdx) => {
     const doubleIds = gridDoubleMap[gridIdx]

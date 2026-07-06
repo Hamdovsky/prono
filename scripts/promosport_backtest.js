@@ -32,35 +32,54 @@ function splitMatchesIntoBands(matches) {
   };
 }
 
-function assignDoubles(bands) {
+function assignDoubles(processedMatches) {
   const choices = { T1: [], T2: [], T3: [], T4: [] };
   const assign = {};
 
-  // Hard matches (3): all 4 grids double them
-  for (const m of bands.hard) {
+  // Rank by uncertainty (entropy + confidence adjustment)
+  const ranked = processedMatches.map(m => ({
+    ...m,
+    uncertainty: m.entropy - (m.confidence / 100) * 0.5
+  })).sort((a, b) => b.uncertainty - a.uncertainty)
+
+  // Top 3 = core doubles (all 4 grids)
+  const core = ranked.slice(0, 3)
+
+  // Rest: determine singles based on confidence threshold
+  const candidates = ranked.slice(3)
+  candidates.sort((a, b) => b.confidence - a.confidence)
+  const MIN_CONF_SINGLE = 75
+  const singles = candidates.filter(c => c.confidence >= MIN_CONF_SINGLE).slice(0, 4)
+  const mediums = candidates.filter(c => !singles.find(s => s.idx === c.idx))
+
+  // Core: all 4 grids double
+  for (const m of core) {
     assign[m.idx] = [];
     for (const g of GRID_NAMES) {
-      const picks = m.probs[0] > 0.45 ? ['1'] : m.probs[2] > 0.45 ? ['2'] : ['1', 'X', '2'];
-      const top2 = picks.slice(0, 2);
+      const top2 = [m.probs[0] > m.probs[2] ? '1' : '2', m.probs[1] > Math.max(m.probs[0], m.probs[2]) ? 'X' : (m.probs[0] > m.probs[2] ? '2' : '1')]
+        .filter((v, i, a) => a.indexOf(v) === i).slice(0, 2)
+      if (top2.length < 2) top2.push(['1', 'X', '2'].find(v => v !== top2[0]))
       choices[g].push({ matchIdx: m.idx, picks: top2 });
       assign[m.idx].push(g);
     }
   }
 
-  // Medium matches (6): each gets doubled by 2 grids
-  for (let i = 0; i < bands.medium.length; i++) {
-    const m = bands.medium[i];
+  // Medium: each doubled by exactly 2 grids (round-robin)
+  for (let i = 0; i < mediums.length; i++) {
+    const m = mediums[i];
     const gridPair = [GRID_NAMES[i % 4], GRID_NAMES[(i + 2) % 4]];
-    const top2 = m.probs[0] > 0.5 ? ['1', 'X'] : m.probs[2] > 0.5 ? ['2', 'X'] : ['1', '2'];
+    const top2 = m.probs[0] > 0.5 ? ['1', m.probs[1] > m.probs[2] ? 'X' : '2']
+      : m.probs[2] > 0.5 ? ['2', m.probs[1] > m.probs[0] ? 'X' : '1']
+      : ['1', '2'];
     for (const g of gridPair) {
       choices[g].push({ matchIdx: m.idx, picks: top2 });
     }
     assign[m.idx] = gridPair;
   }
 
-  // Easy matches (4): singles, distributed round-robin
-  for (let i = 0; i < bands.easy.length; i++) {
-    const m = bands.easy[i];
+  // Singles: only 1 grid, 1 pick
+  for (let i = 0; i < singles.length; i++) {
+    const m = singles[i];
     const grid = GRID_NAMES[i];
     const pick = m.probs[0] > 0.6 ? ['1'] : m.probs[2] > 0.6 ? ['2'] : ['X'];
     choices[grid].push({ matchIdx: m.idx, picks: pick });
@@ -157,6 +176,7 @@ function backtest() {
     const processed = matches.map(m => {
       const probs = computeProbsFromVotes(m.vote_home || 33, m.vote_draw || 33, m.vote_away || 34);
       const entropy = computeEntropy(probs);
+      const confidence = Math.max(50, 80 - (entropy * 15));
       return {
         idx: m.match_idx,
         home: m.homeTeam,
@@ -164,14 +184,14 @@ function backtest() {
         actual: m.result,
         probs,
         entropy,
+        confidence,
         voteH: m.vote_home || 33,
         voteD: m.vote_draw || 33,
         voteA: m.vote_away || 34
       };
     }).sort((a, b) => a.idx - b.idx);
 
-    const bands = splitMatchesIntoBands(processed);
-    const gridChoices = assignDoubles(bands);
+    const gridChoices = assignDoubles(processed);
 
     const results = GRID_NAMES.map(gridName => {
       const gChoices = gridChoices[gridName];
@@ -257,19 +277,18 @@ function backtest() {
     console.log(`    Concours ${chunkConcours[0] || '?'}-${chunkConcours[chunkConcours.length - 1] || '?'}: ${chunkAcc.toFixed(2)}% (${chunkCorrect}/${chunkTotal})`);
   }
 
-  // Confidence bands
-  console.log(`\n  Accuracy by Match Difficulty:`);
-  const bands = { easy: { correct: 0, total: 0 }, medium: { correct: 0, total: 0 }, hard: { correct: 0, total: 0 } };
+  // Classification par type d'assignation
+  console.log(`\n  Accuracy by Assignment Type:`);
+  const bands = { single: { correct: 0, total: 0 }, double: { correct: 0, total: 0 } };
   for (const r of allResults) {
     for (const d of r.details) {
-      const matchProbs = d.picks.length > 1 ? 0.5 : 1.0;
-      const band = d.picks.length > 1 ? 'hard' : matchProbs > 0.6 ? 'easy' : 'medium';
+      const band = d.picks.length > 1 ? 'double' : 'single';
       bands[band].total++;
       if (d.isCorrect) bands[band].correct++;
     }
   }
   for (const [b, s] of Object.entries(bands)) {
-    if (s.total > 0) console.log(`    ${b}: ${((s.correct / s.total) * 100).toFixed(2)}% (${s.correct}/${s.total})`);
+    if (s.total > 0) console.log(`    ${b} (${s.total}): ${((s.correct / s.total) * 100).toFixed(2)}% (${s.correct}/${s.total})`);
   }
 
   return { concoursCount: concoursList.length, totalMatches, totalCorrect, overallAccuracy: overall };

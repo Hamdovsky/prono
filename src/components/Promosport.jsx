@@ -64,7 +64,6 @@ const Promosport = () => {
                     setAccuracyStats(accData.stats);
                 }
             } catch (err) {
-            } catch (err) {
                 console.error("❌ [PROMOSPORT] Failed to load data:", err.message);
             } finally {
                 clearInterval(stepInterval);

@@ -6,6 +6,7 @@ const logger = require('../core/logger')
 
 const LAST_CONCOURS_PATH = path.join(__dirname, '..', 'data', 'last_promosport_concours.txt')
 const CONFIG_PATH = path.join(__dirname, '..', 'config', 'promosport.json')
+const promosportResultService = require('../services/promosportResultService')
 
 function getLastKnownConcours() {
   try {
@@ -40,7 +41,6 @@ function fetchUrl(url, timeout = 15000) {
 }
 
 function extractConcoursNumber(html) {
-  // Try to find "CONCOURS N°XXX" or similar patterns
   const patterns = [
     /CONCOURS\s*N[°\s]*(\d{3,4})/i,
     /CONCOURS\s*(\d{3,4})/i,
@@ -51,7 +51,6 @@ function extractConcoursNumber(html) {
     const m = html.match(p)
     if (m) return parseInt(m[1], 10)
   }
-  // Try to find grid numbers in links
   const linkMatch = html.match(/grille[=\/](\d{3,4})/gi)
   if (linkMatch) {
     const nums = linkMatch.map(s => parseInt(s.match(/\d+/)[0], 10)).filter(n => n > 800)
@@ -60,11 +59,63 @@ function extractConcoursNumber(html) {
   return null
 }
 
+async function generateGridsForConcours(concoursNumber) {
+  try {
+    logger.info(`[DETECT] Auto-generating grids for concours ${concoursNumber}...`)
+    // Fetch the scraped matches for this concours via promosport_scraper
+    const { scrapePromosport } = require('../core/promosport_scraper')
+    const matches = await scrapePromosport()
+    if (!matches || matches.length === 0) {
+      logger.warn('[DETECT] No scraped matches available for grid generation')
+      return false
+    }
+
+    // Generate grids using the engine
+    const { generatePromosportGrids } = require('../core/promosport_engine')
+    const grids = await generatePromosportGrids(matches)
+    if (!grids || grids.length === 0) {
+      logger.warn('[DETECT] Grid generation failed')
+      return false
+    }
+
+    // Store predictions for accuracy tracking
+    const dateStr = new Date().toISOString().slice(0, 10)
+    promosportResultService.storePrediction(String(concoursNumber), dateStr, grids)
+
+    // Warm up Redis cache
+    try {
+      const redisCache = require('../services/redisCache')
+      const cacheKey = `promosport:${concoursNumber}`
+      await redisCache.set(cacheKey, { concours: concoursNumber, date: dateStr, grids: grids.map(g => g.name), generatedAt: Date.now() }, 86400)
+      logger.info('[DETECT] Redis cache warmed up for concours', concoursNumber)
+    } catch (_) {}
+
+    logger.info(`[DETECT] Grids generated and stored for concours ${concoursNumber}`)
+    return true
+  } catch (e) {
+    logger.error(`[DETECT] Grid generation error: ${e.message}`)
+    return false
+  }
+}
+
+async function sendTelegramNotification(concoursNumber, generated) {
+  try {
+    const botService = require('../services/botService')
+    let msg = `🎯 <b>Nouveau Concours Promosport Détecté</b>\nConcours: ${concoursNumber}\n`
+    if (generated) {
+      msg += `✅ 4 grilles générées et stockées automatiquement\n`
+      msg += `📊 Accuracy dashboard prêt`
+    } else {
+      msg += `⚠️ Grilles non générées (scraping indisponible)`
+    }
+    botService.sendAlert(msg)
+  } catch (_) {}
+}
+
 async function detectNewConcours() {
   const lastKnown = getLastKnownConcours()
   logger.info(`[DETECT] Last known concours: ${lastKnown}`)
 
-  // Check promosport-pronostic.com for the latest grid
   const sources = [
     `https://www.promosport-pronostic.com/index.php/welcome/promo_result?grille=${lastKnown + 1}&jeux=Promosport`,
     `https://www.promosport-pronostic.com/index.php/welcome/promo_result?grille=${lastKnown}&jeux=Promosport`,
@@ -79,7 +130,10 @@ async function detectNewConcours() {
       if (detected && detected > lastKnown) {
         logger.info(`[DETECT] New concours found: ${detected} (was ${lastKnown})`)
         saveLastConcours(detected)
-        return { found: true, concoursNumber: detected, previous: lastKnown }
+        // Auto-generate grids + cache warm-up
+        const gridsGenerated = await generateGridsForConcours(detected)
+        await sendTelegramNotification(detected, gridsGenerated)
+        return { found: true, concoursNumber: detected, previous: lastKnown, gridsGenerated }
       }
       if (detected && detected === lastKnown) {
         logger.info(`[DETECT] Latest concours still ${detected}, no change`)

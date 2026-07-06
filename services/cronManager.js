@@ -386,6 +386,25 @@ class CronManager {
           const scriptsDir = path.join(__dirname, '..', 'scripts')
           const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
 
+          // Guard: check dataset before retrain
+          try {
+            const { guardRetrain } = require(path.join(scriptsDir, 'promosport_guards.js'))
+            const guard = guardRetrain()
+            if (!guard.allowed) {
+              logger.warn(`[CRON] Retrain blocked by guard: ${guard.reason}`)
+              return
+            }
+            logger.info(`[CRON] Guard OK - ${guard.totalRows} rows in dataset`)
+          } catch (e) {
+            logger.error(`[CRON] Guard check failed: ${e.message}`)
+          }
+
+          // Backup DB before retrain
+          try {
+            const { backupDatabase } = require(path.join(scriptsDir, 'auto_save_db.js'))
+            backupDatabase()
+          } catch (_) {}
+
           // Step 1: re-import data
           try {
             const imprt = spawn(pythonCmd, ['scripts/import_promosport_archive.py'], {
@@ -417,9 +436,29 @@ class CronManager {
               train.on('error', reject)
             })
             const accMatch = trainOut.match(/Accuracy: ([\d.]+)%/)
-            logger.info(`[CRON] Promosport retrain OK — accuracy: ${accMatch ? accMatch[1] + '%' : 'N/A'}`)
+            const llMatch = trainOut.match(/Log Loss: ([\d.]+)/)
+            logger.info(`[CRON] Promosport retrain OK — accuracy: ${accMatch ? accMatch[1] + '%' : 'N/A'} log_loss: ${llMatch ? llMatch[1] : 'N/A'}`)
+
+            // Save log loss for drift detection
+            if (llMatch) {
+              try { require(path.join(scriptsDir, 'promosport_guards.js')).saveLogLoss(llMatch[1]) } catch (_) {}
+            }
+
+            // Backfill predictions
+            try {
+              const nodeCmd = process.platform === 'win32' ? 'node.exe' : 'node'
+              execSync(`${nodeCmd} "${path.join(scriptsDir, 'backfill_promosport_predictions.js')}"`, { timeout: 120000, encoding: 'utf8' })
+            } catch (_) {}
+
+            // Reload model
+            try {
+              const mlService = require('./promosportMLService')
+              mlService.reloadModel()
+            } catch (_) {}
           } catch (e) {
             logger.error(`[CRON] Promosport retrain failed: ${e.message}`)
+            // Restore backup on failure
+            try { const fs = require('fs'); const bkp = path.join(__dirname, '..', 'models', 'promosport_xgb.backup.json'); const mdl = path.join(__dirname, '..', 'models', 'promosport_xgb.json'); if (fs.existsSync(bkp)) fs.copyFileSync(bkp, mdl) } catch (_) {}
           }
         }, { timezone: 'Africa/Tunis' })
 
@@ -483,6 +522,52 @@ class CronManager {
             }
           } catch (e) {
             logger.error(`[CRON] New concours detection error: ${e.message}`)
+          }
+        }, { timezone: 'Africa/Tunis' })
+
+        // 28. Daily accuracy snapshot (23:00 Africa/Tunis)
+        cron.schedule('0 23 * * *', async () => {
+          logger.info('[CRON] Taking Promosport accuracy snapshot...')
+          try {
+            const { saveSnapshot } = require(path.join(__dirname, '..', 'scripts', 'accuracy_snapshot.js'))
+            const entry = saveSnapshot()
+            if (entry) logger.info(`[CRON] Snapshot: ${entry.accuracy}% (${entry.correct}/${entry.total})`)
+          } catch (e) {
+            logger.error(`[CRON] Accuracy snapshot error: ${e.message}`)
+          }
+        }, { timezone: 'Africa/Tunis' })
+
+        // 29. Weekly benchmark (Sunday 12:00 Africa/Tunis)
+        cron.schedule('0 12 * * 0', async () => {
+          logger.info('[CRON] Running Promosport weekly benchmark...')
+          try {
+            const { runBenchmark } = require(path.join(__dirname, '..', 'scripts', 'weekly_benchmark.js'))
+            const result = runBenchmark()
+            if (result) logger.info(`[CRON] Benchmark: model=${result.model.accuracy} crowd=${result.crowd.accuracy} random=${result.random.accuracy}`)
+          } catch (e) {
+            logger.error(`[CRON] Benchmark error: ${e.message}`)
+          }
+        }, { timezone: 'Africa/Tunis' })
+
+        // 30. Daily DB backup (03:00 Africa/Tunis)
+        cron.schedule('0 3 * * *', async () => {
+          logger.info('[CRON] Backing up Promosport database...')
+          try {
+            const { backupDatabase } = require(path.join(__dirname, '..', 'scripts', 'auto_save_db.js'))
+            backupDatabase()
+          } catch (e) {
+            logger.error(`[CRON] DB backup error: ${e.message}`)
+          }
+        }, { timezone: 'Africa/Tunis' })
+
+        // 31. Weekly backup pruning (Sunday 03:30)
+        cron.schedule('30 3 * * 0', async () => {
+          logger.info('[CRON] Pruning old DB backups...')
+          try {
+            const { pruneOldBackups } = require(path.join(__dirname, '..', 'scripts', 'auto_save_db.js'))
+            pruneOldBackups(30)
+          } catch (e) {
+            logger.error(`[CRON] Backup pruning error: ${e.message}`)
           }
         }, { timezone: 'Africa/Tunis' })
 

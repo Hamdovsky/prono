@@ -380,6 +380,49 @@ class CronManager {
           logger.info(`[CRON] Retrain: ${retrainRes.success ? 'OK' : 'FAIL'} — ${retrainRes.message || ''}`)
         }, { timezone: 'UTC' })
 
+        // 24. Weekly Promosport XGBoost Retrain (Saturday 04:00 Africa/Tunis)
+        cron.schedule('0 4 * * 6', async () => {
+          logger.info('[CRON] Launching weekly Promosport XGBoost retrain...')
+          const scriptsDir = path.join(__dirname, '..', 'scripts')
+          const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+
+          // Step 1: re-import data
+          try {
+            const imprt = spawn(pythonCmd, ['scripts/import_promosport_archive.py'], {
+              cwd: path.join(__dirname, '..'), shell: true,
+              stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000
+            })
+            let importOut = ''
+            imprt.stdout.on('data', d => importOut += d.toString())
+            await new Promise((resolve, reject) => {
+              imprt.on('close', code => code === 0 ? resolve() : reject(new Error(`Import exited ${code}: ${importOut.slice(-200)}`)))
+              imprt.on('error', reject)
+            })
+            logger.info('[CRON] Promosport data import OK')
+          } catch (e) {
+            logger.error(`[CRON] Promosport import failed: ${e.message}`)
+            return
+          }
+
+          // Step 2: retrain XGBoost
+          try {
+            const train = spawn(pythonCmd, ['scripts/train_promosport_xgboost.py'], {
+              cwd: path.join(__dirname, '..'), shell: true,
+              stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000
+            })
+            let trainOut = ''
+            train.stdout.on('data', d => trainOut += d.toString())
+            await new Promise((resolve, reject) => {
+              train.on('close', code => code === 0 ? resolve() : reject(new Error(`Train exited ${code}: ${trainOut.slice(-200)}`)))
+              train.on('error', reject)
+            })
+            const accMatch = trainOut.match(/Accuracy: ([\d.]+)%/)
+            logger.info(`[CRON] Promosport retrain OK — accuracy: ${accMatch ? accMatch[1] + '%' : 'N/A'}`)
+          } catch (e) {
+            logger.error(`[CRON] Promosport retrain failed: ${e.message}`)
+          }
+        }, { timezone: 'Africa/Tunis' })
+
         logger.info('âœ… [CRON] Scheduler active');
 
         // ðŸš€ [RESUME] Disabled to avoid conflict with standalone scraper process

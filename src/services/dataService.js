@@ -636,6 +636,14 @@ class DataService {
         }
     }
 
+    async fetchPromosportFeedbackStats() {
+        try {
+            return await this._get(getApiUrl('/api/promosport/feedback/stats'));
+        } catch (error) {
+            return null;
+        }
+    }
+
     async fetchPromosportGoldCoupon() {
         try {
             return await this._get(getApiUrl('/api/promosport/gold-coupon'));

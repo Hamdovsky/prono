@@ -232,6 +232,10 @@ print(json.dumps(probs.tolist()))
     f['h2h_matches'] = h2h.total;
 
     f['total_concours_for_pair'] = (f['home_matches_in_period'] || 0) + (f['away_matches_in_period'] || 0);
+    f['form_diff'] = (f['home_form_score'] || 5) - (f['away_form_score'] || 5);
+    f['win_rate_diff_all'] = (f['home_win_rate_all'] || 0.33) - (f['away_win_rate_all'] || 0.33);
+    f['avg_scored_diff_10'] = (f['home_avg_scored_10'] || 0.5) - (f['away_avg_scored_10'] || 0.5);
+    f['avg_conceded_diff_10'] = (f['home_avg_conceded_10'] || 0.5) - (f['away_avg_conceded_10'] || 0.5);
     f['vote_x_home_form'] = f['vote_home'] * (f['home_form_score'] || 5);
     f['vote_x_pts_diff'] = f['vote_home'] * (f['pts_diff_10'] || 0);
     f['home_vote_x_winrate'] = f['vote_home_norm'] * (f['home_win_rate_10'] || 0.33);
@@ -258,6 +262,7 @@ print(json.dumps(probs.tolist()))
       'home_last_result','away_last_result',
       'home_matches_in_period','away_matches_in_period',
       'total_concours_for_pair',
+      'form_diff','win_rate_diff_all','avg_scored_diff_10','avg_conceded_diff_10',
       'vote_x_home_form','vote_x_pts_diff','home_vote_x_winrate'
     ];
 

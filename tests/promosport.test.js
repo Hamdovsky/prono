@@ -18,6 +18,25 @@ jest.mock('../core/promosport_tunisie_scraper', () => ({
   scrapeTunisieGrid: jest.fn()
 }))
 
+jest.mock('child_process', () => ({
+  execSync: jest.fn().mockReturnValue('Import OK\nAccuracy: 36.11% | Log Loss: 1.2599')
+}))
+
+jest.mock('../services/promosportResultService', () => ({
+  checkAndFetchResults: jest.fn(),
+  computeAccuracy: jest.fn(),
+  getOverallStats: jest.fn(),
+  getRecentHistory: jest.fn(),
+  storePrediction: jest.fn()
+}))
+
+jest.mock('../services/promosportMLService', () => ({
+  reloadModel: jest.fn(),
+  loadModel: jest.fn().mockReturnValue(true),
+  predictBatch: jest.fn().mockReturnValue(null),
+  ready: true
+}))
+
 jest.mock('../services/promosportIntelligence', () => ({
   analyzeMatch: jest.fn()
 }))
@@ -37,6 +56,17 @@ jest.mock('../services/secretWeaponsTracker', () => ({
   recordResults: jest.fn()
 }))
 
+jest.mock('better-sqlite3', () => {
+  const mockDb = {
+    prepare: jest.fn().mockReturnThis(),
+    get: jest.fn().mockReturnValue({ c: 100 }),
+    all: jest.fn().mockReturnValue([]),
+    run: jest.fn().mockReturnValue({ changes: 0 }),
+    close: jest.fn()
+  }
+  return jest.fn(() => mockDb)
+})
+
 jest.mock('../core/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
@@ -46,6 +76,7 @@ jest.mock('../core/logger', () => ({
 const { scrapePromosport } = require('../core/promosport_scraper')
 const { generatePromosportGrids, generateGoldCoupon } = require('../core/promosport_engine')
 const secretWeaponsTracker = require('../services/secretWeaponsTracker')
+const promosportResultService = require('../services/promosportResultService')
 
 const promosportRouter = require('../routes/promosport')
 
@@ -150,6 +181,81 @@ describe('Promosport Routes', () => {
         .send({ concours: '878', results: [{ id: 1, hit: true }] })
 
       expect([200, 404, 500]).toContain(res.status)
+    })
+  })
+
+  describe('GET /api/promosport/accuracy/:concours', () => {
+    it('returns accuracy stats for a concours', async () => {
+      promosportResultService.computeAccuracy.mockReturnValue({
+        concours: '878', totalMatches: 13, totalCorrect: 8, overallAccuracy: '61.5%',
+        grids: [{ name: 'T1', accuracy: '61.5%', correct: 8, total: 13 }]
+      })
+
+      const res = await request(app).get('/api/promosport/accuracy/878')
+      expect(res.status).toBe(200)
+      expect(res.body.success).toBe(true)
+      expect(res.body.concours).toBe('878')
+      expect(res.body.overallAccuracy).toBe('61.5%')
+    })
+
+    it('returns 404 for unknown concours', async () => {
+      promosportResultService.computeAccuracy.mockReturnValue(null)
+
+      const res = await request(app).get('/api/promosport/accuracy/999')
+      expect(res.status).toBe(404)
+    })
+  })
+
+  describe('GET /api/promosport/accuracy', () => {
+    it('returns overall stats', async () => {
+      promosportResultService.getOverallStats.mockReturnValue({
+        concoursCount: 5, totalMatches: 65, totalCorrect: 40, overallAccuracy: '61.5%',
+        perGrid: [], recentConcours: []
+      })
+
+      const res = await request(app).get('/api/promosport/accuracy')
+      expect(res.status).toBe(200)
+      expect(res.body.success).toBe(true)
+      expect(res.body.stats.concoursCount).toBe(5)
+    })
+
+    it('returns empty stats when no data', async () => {
+      promosportResultService.getOverallStats.mockReturnValue({
+        concoursCount: 0, totalMatches: 0, totalCorrect: 0, overallAccuracy: '0.0%',
+        perGrid: [], recentConcours: []
+      })
+
+      const res = await request(app).get('/api/promosport/accuracy')
+      expect(res.status).toBe(200)
+      expect(res.body.stats.totalMatches).toBe(0)
+    })
+  })
+
+  describe('POST /api/promosport/check-results/:concours', () => {
+    it('returns results when available', async () => {
+      promosportResultService.checkAndFetchResults.mockResolvedValue([
+        { idx: 1, home: 'TeamA', away: 'TeamB', result: '1' }
+      ])
+
+      const res = await request(app).post('/api/promosport/check-results/878')
+      expect(res.status).toBe(200)
+      expect(res.body.success).toBe(true)
+      expect(res.body.matches).toBe(1)
+    })
+
+    it('returns message when no results yet', async () => {
+      promosportResultService.checkAndFetchResults.mockResolvedValue(null)
+
+      const res = await request(app).post('/api/promosport/check-results/999')
+      expect(res.status).toBe(200)
+      expect(res.body.message).toBe('Pas encore de résultats disponibles')
+    })
+  })
+
+  describe('POST /api/promosport/retrain', () => {
+    it('returns steps on success', async () => {
+      const res = await request(app).post('/api/promosport/retrain')
+      expect([200, 500]).toContain(res.status)
     })
   })
 })

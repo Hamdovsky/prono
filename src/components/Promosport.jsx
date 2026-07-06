@@ -6,6 +6,7 @@ import PromosportTerminal from './PromosportTerminal';
 import PromosportCalculator from './PromosportCalculator';
 import SkillsPanel from './SkillsPanel';
 import EdgePanel from './EdgePanel';
+import PromosportAccuracy from './PromosportAccuracy';
 
 const Promosport = () => {
     const [loading, setLoading] = useState(true);
@@ -385,7 +386,9 @@ const Promosport = () => {
                 </div>
             )}
 
-            {viewMode === 'terminal' ? (
+            {viewMode === 'accuracy' ? (
+                <PromosportAccuracy onClose={() => setViewMode('grid')} />
+            ) : viewMode === 'terminal' ? (
                 <PromosportTerminal matches={matches} onGenerateReduced={handleGenerateReduced} />
             ) : viewMode === 'tunisie' ? (
                 <div className="promosport-weapons" style={{ padding: '20px' }}>
@@ -940,6 +943,10 @@ const Promosport = () => {
                     <button onClick={handleGenerateGoldCoupon}
                         style={{ padding: '4px 12px', fontSize: '0.6rem', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '6px', color: '#22c55e', cursor: 'pointer', fontWeight: '600', textTransform: 'uppercase' }}>
                         🥇 Gold 6D (56.9%)
+                    </button>
+                    <button onClick={() => setViewMode(viewMode === 'accuracy' ? 'grid' : 'accuracy')}
+                        style={{ padding: '4px 12px', fontSize: '0.6rem', background: viewMode === 'accuracy' ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '6px', color: viewMode === 'accuracy' ? '#a78bfa' : '#94a3b8', cursor: 'pointer', fontWeight: '600', textTransform: 'uppercase' }}>
+                        📊 Précision
                     </button>
                 </div>
                                                 </td>

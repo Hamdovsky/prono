@@ -56,10 +56,13 @@ FEATURE_NAMES = [
     'home_matches_in_period', 'away_matches_in_period',
     'total_concours_for_pair',
 
+    # Differential features
+    'form_diff', 'win_rate_diff_all', 'avg_scored_diff_10', 'avg_conceded_diff_10',
+
     # Interaction features
     'vote_x_home_form', 'vote_x_pts_diff', 'home_vote_x_winrate'
 
-    # Total: ~44 features
+    # Total: ~48 features
 ]
 
 
@@ -306,6 +309,12 @@ def extract_features(row, conn, team_cache):
     f['away_matches_in_period'] = get_team_concours_count(conn, away, archived_at)
     f['total_concours_for_pair'] = f['home_matches_in_period'] + f['away_matches_in_period']
 
+    # Differential features
+    f['form_diff'] = f.get('home_form_score', 5) - f.get('away_form_score', 5)
+    f['win_rate_diff_all'] = f.get('home_win_rate_all', 0.33) - f.get('away_win_rate_all', 0.33)
+    f['avg_scored_diff_10'] = f.get('home_avg_scored_10', 0.5) - f.get('away_avg_scored_10', 0.5)
+    f['avg_conceded_diff_10'] = f.get('home_avg_conceded_10', 0.5) - f.get('away_avg_conceded_10', 0.5)
+
     # Interaction features
     f['vote_x_home_form'] = f['vote_home'] * f['home_form_score']
     f['vote_x_pts_diff'] = f['vote_home'] * f['pts_diff_10']
@@ -490,6 +499,25 @@ def train_model():
     model.get_booster().set_param('feature_names', ','.join(FEATURE_NAMES))
     model.get_booster().save_model(MODEL_PATH)
     print(f"\nModel saved: {MODEL_PATH}")
+
+    # Platt calibration — sklearn <1.0 workaround
+    try:
+        from sklearn.calibration import CalibratedClassifierCV, _SigmoidCalibration
+        from sklearn.linear_model import LogisticRegression
+        # Manual Platt scaling: train logistic regression on val set probabilities
+        val_probs = model.predict_proba(X_val)
+        cal_model = LogisticRegression(C=1e6, solver='lbfgs', multi_class='multinomial', max_iter=1000)
+        cal_model.fit(val_probs, y_val)
+        cal_probs = cal_model.predict_proba(model.predict_proba(X_test))
+        cal_acc = accuracy_score(y_test, np.argmax(cal_probs, axis=1))
+        cal_ll = log_loss(y_test, cal_probs)
+        print(f"Calibrated: acc={cal_acc*100:.2f}% log_loss={cal_ll:.4f}")
+        import joblib
+        calibrator_path = MODEL_PATH.replace('.json', '_platt.pkl')
+        joblib.dump(cal_model, calibrator_path)
+        print(f"Platt calibrator saved: {calibrator_path}")
+    except Exception as e:
+        print(f"Calibration skipped: {e}")
 
     # Verify model loads
     import json

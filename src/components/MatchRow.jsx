@@ -594,8 +594,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
     return (
         <div style={{ ...style, ...rowStyle, display: 'flex', alignItems: 'center', minWidth: 'fit-content' }} className="onyx-virtual-row" onClick={() => onClick(match)}>
-            {/* COLUMN 1: MATCH & LEAGUE (22%) */}
-            <div style={{width: "22%", minWidth: "160px"}} className="onyx-virtual-cell">
+            {/* COLUMN 1: MATCH & LEAGUE (20%) */}
+            <div style={{width: "20%", minWidth: "160px", overflow: 'hidden'}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1px', minWidth: 0}}>
                     <span className={`status-dot ${statusClass}`} style={{flexShrink: 0}}></span>
                     {formattedTime && (
@@ -681,27 +681,27 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
             </div>
 
             {/* COLUMN 2: PRONOSTIC — BASE SOLIDE + MARCHÉS + FORCE (24%) */}
-            <div style={{width: "24%", minWidth: "160px"}} className="onyx-virtual-cell">
-                <div style={{display: 'flex', flexDirection: 'column', gap: '2px'}}>
+            <div style={{width: "24%", minWidth: "180px", overflow: 'hidden'}} className="onyx-virtual-cell">
+                <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
 
                     {/* ─── BASE SOLIDE ─── */}
                     <div style={{
                         background: 'linear-gradient(135deg, rgba(0,255,170,0.07) 0%, rgba(0,255,170,0.01) 100%)',
-                        borderRadius: '4px', padding: '3px 5px',
+                        borderRadius: '4px', padding: '4px 6px',
                         border: '1px solid rgba(0,255,170,0.08)'
                     }}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                            <span style={{fontSize: '9px', fontWeight: '900', color: 'var(--neon)', letterSpacing: '0.3px'}}>BASE</span>
-                            <span style={{fontSize: '14px', color: '#f8fafc', fontWeight: '800'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '3px'}}>
+                            <span style={{fontSize: '8px', fontWeight: '900', color: 'var(--neon)', letterSpacing: '0.3px', flexShrink: 0}}>BASE</span>
+                            <span style={{fontSize: '13px', color: '#f8fafc', fontWeight: '800', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                                 {mainPickClean}
                             </span>
-                            <span style={{marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <span style={{marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0}}>
                                 {mainOdds && (
-                                    <span style={{fontSize: '11px', color: '#fbbf24', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace"}}>
+                                    <span style={{fontSize: '10px', color: '#fbbf24', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace"}}>
                                         @{formatOdds(mainOdds)}
                                     </span>
                                 )}
-                                <span style={{fontSize: '12px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>
+                                <span style={{fontSize: '11px', fontWeight: '900', color: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171'}}>
                                     {acc}%
                                 </span>
                             </span>
@@ -709,26 +709,26 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                         <div style={{width: '100%', height: '2px', marginTop: '2px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
                             <div style={{width: `${Math.min(100, Math.max(5, acc))}%`, height: '100%', background: acc >= 70 ? 'var(--neon)' : acc >= 55 ? '#fbbf24' : '#f87171', borderRadius: '2px'}}></div>
                         </div>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px'}}>
-                            <span style={{fontSize: '10px', fontWeight: '900', color: acc >= 70 ? '#00ffaa' : acc >= 55 ? '#fbbf24' : '#f87171'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', flexWrap: 'wrap'}}>
+                            <span style={{fontSize: '9px', fontWeight: '900', color: acc >= 70 ? '#00ffaa' : acc >= 55 ? '#fbbf24' : '#f87171', whiteSpace: 'nowrap'}}>
                                 {acc >= 70 ? '🟢 SOLIDE' : acc >= 55 ? '🟡 MOYEN' : '🔴 RISQUÉ'}
                             </span>
                             {mainOdds && mainPickEdge > 0 && (
                                 <span style={{
-                                    fontSize: '10px', fontWeight: '900', padding: '0 5px', borderRadius: '3px',
+                                    fontSize: '9px', fontWeight: '900', padding: '0 4px', borderRadius: '3px',
                                     color: '#fbbf24', background: 'rgba(251,191,36,0.12)',
-                                    border: '1px solid rgba(251,191,36,0.2)'
+                                    border: '1px solid rgba(251,191,36,0.2)', whiteSpace: 'nowrap'
                                 }}>
-                                    🎯 EDGE +{mainPickEdgePct}%
+                                    🎯 +{mainPickEdgePct}%
                                 </span>
                             )}
                             {mainOdds && mainPickEdge <= 0 && (
                                 <span style={{
-                                    fontSize: '10px', fontWeight: '900', padding: '0 5px', borderRadius: '3px',
+                                    fontSize: '9px', fontWeight: '900', padding: '0 4px', borderRadius: '3px',
                                     color: '#f87171', background: 'rgba(248,113,113,0.1)',
-                                    border: '1px solid rgba(248,113,113,0.2)'
+                                    border: '1px solid rgba(248,113,113,0.2)', whiteSpace: 'nowrap'
                                 }}>
-                                    ⚠️ EDGE {mainPickEdgePct}%
+                                    ⚠️ {mainPickEdgePct}%
                                 </span>
                             )}
                         </div>
@@ -737,16 +737,16 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                     {/* ─── MARCHÉS (BTTS + O/U 2.5) ─── */}
                     <div style={{
                         background: 'linear-gradient(135deg, rgba(167,139,250,0.07) 0%, rgba(167,139,250,0.01) 100%)',
-                        borderRadius: '4px', padding: '3px 5px',
+                        borderRadius: '4px', padding: '4px 6px',
                         border: '1px solid rgba(167,139,250,0.08)'
                     }}>
-                        <span style={{fontSize: '9px', fontWeight: '900', color: '#a78bfa', letterSpacing: '0.3px', display: 'block', marginBottom: '1px'}}>MARCHÉS</span>
-                        <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
-                            <span style={{fontSize: '11px', color: bttsBadgeColor, fontWeight: '700'}}>
-                                BTTS <span style={{fontWeight: '900'}}>{bttsLabel}</span> <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '10px'}}>{bttsDisplayPct}%</span>
+                        <span style={{fontSize: '8px', fontWeight: '900', color: '#a78bfa', letterSpacing: '0.3px', display: 'block', marginBottom: '2px'}}>MARCHÉS</span>
+                        <div style={{display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap'}}>
+                            <span style={{fontSize: '10px', color: bttsBadgeColor, fontWeight: '700', whiteSpace: 'nowrap'}}>
+                                BTTS <span style={{fontWeight: '900'}}>{bttsLabel}</span> <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '9px'}}>{bttsDisplayPct}%</span>
                             </span>
-                            <span style={{fontSize: '11px', color: tgBadgeColor, fontWeight: '700'}}>
-                                {ouLabel} <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '10px'}}>{ouDisplayPct}%</span>
+                            <span style={{fontSize: '10px', color: tgBadgeColor, fontWeight: '700', whiteSpace: 'nowrap'}}>
+                                {ouLabel} <span style={{fontFamily: "'JetBrains Mono', monospace", fontSize: '9px'}}>{ouDisplayPct}%</span>
                             </span>
                         </div>
                         <div style={{width: '100%', height: '2px', marginTop: '2px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
@@ -756,16 +756,16 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
                     {/* ─── FORCE ─── */}
                     <div style={{
-                        background: 'rgba(148,163,184,0.04)', borderRadius: '4px', padding: '2px 5px',
+                        background: 'rgba(148,163,184,0.04)', borderRadius: '4px', padding: '3px 6px',
                         border: '1px solid rgba(148,163,184,0.06)'
                     }}>
                         <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                            <span style={{fontSize: '12px', fontWeight: '900', color: msColor}}>{msLabel || '-'}</span>
+                            <span style={{fontSize: '11px', fontWeight: '900', color: msColor, flexShrink: 0}}>{msLabel || '-'}</span>
                             <div style={{flex: 1, height: '3px', background: 'rgba(148,163,184,0.1)', borderRadius: '2px', overflow: 'hidden'}}>
                                 <div style={{width: `${(ms || 0) * 10}%`, height: '100%', background: msColor, borderRadius: '2px'}}></div>
                             </div>
-                            <span style={{fontSize: '9px', color: msColor, fontWeight: '700', whiteSpace: 'nowrap'}}>{quant.market_strength || msDesc}</span>
-                            <span style={{marginLeft: 'auto', display: 'flex', gap: '2px', alignItems: 'center'}}>
+                            <span style={{fontSize: '8px', color: msColor, fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{quant.market_strength || msDesc}</span>
+                            <span style={{marginLeft: 'auto', display: 'flex', gap: '2px', alignItems: 'center', flexShrink: 0}}>
                             <span style={{fontSize: '10px'}}>{dataQuality}</span>
                             {statusIcon}{resultIcon}
                         </span>
@@ -775,7 +775,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
             </div>
 
             {/* COLUMN 3: AI SCORE & FT confidence (14%) */}
-            <div style={{width: "14%", minWidth: "100px"}} className="onyx-virtual-cell centered">
+            <div style={{width: "14%", minWidth: "100px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                     <span className="onyx-cs" style={{fontSize: '16px', fontWeight: '900', color: match.insufficient_data === 1 ? '#f59e0b' : '#00ffaa'}}>
                         {match.insufficient_data === 1 ? '⏳ ATTENTE' : cs}
@@ -807,7 +807,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
             </div>
 
             {/* COLUMN 4: MARCHÉS (DC only) (16%) */}
-            <div style={{width: "16%", minWidth: "120px"}} className="onyx-virtual-cell centered">
+            <div style={{width: "16%", minWidth: "120px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'}}>
                     {dcOdds ? (
                         <>
@@ -825,7 +825,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
             </div>
 
             {/* COLUMN 5: SIGNAL & EV + VALUE SCORE (16%) */}
-            <div style={{width: "16%", minWidth: "110px"}} className="onyx-virtual-cell centered">
+            <div style={{width: "16%", minWidth: "110px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center'}}>
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
@@ -852,7 +852,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
             </div>
 
             {/* COLUMN 6: FORCE (10%) */}
-            <div style={{width: "10%", minWidth: "60px"}} className="onyx-virtual-cell centered">
+            <div style={{width: "10%", minWidth: "60px", overflow: 'hidden'}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                         <span style={{fontSize: '16px', fontWeight: '900', color: msColor}}>{ms || '-'}</span>

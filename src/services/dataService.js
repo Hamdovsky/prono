@@ -628,6 +628,14 @@ class DataService {
         }
     }
 
+    async fetchPromosportAccuracy() {
+        try {
+            return await this._get(getApiUrl('/api/promosport/accuracy'));
+        } catch (error) {
+            return null;
+        }
+    }
+
     async fetchPromosportTunisie(gridNo) {
         try {
             return await this._get(getApiUrl(`/api/promosport/tunisie/${gridNo}`));

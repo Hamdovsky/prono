@@ -12,6 +12,7 @@ const doubleOptimizer = require('../services/doubleOptimizerService');
 const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper');
 const crowdHackerService = require('../services/crowdHackerService');
 const secretWeaponsTracker = require('../services/secretWeaponsTracker');
+const promosportResultService = require('../services/promosportResultService');
 
 // ─── Team Name Normalization ──────────────────────────────────────────────
 const TEAM_ALIASES = {
@@ -305,6 +306,11 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
         )
         await pool.end()
       }
+    } catch (_) {}
+
+    // Store predictions in local SQLite archive for accuracy tracking
+    try {
+      promosportResultService.storePrediction(finalConcours, finalDate, grids);
     } catch (_) {}
 
     console.log(`✅ [PROMOSPORT] Sending ${unifiedMatches.length} matches to frontend for Concours ${finalConcours}`);
@@ -998,6 +1004,47 @@ router.get('/feedback/stats', async (req, res) => {
     });
   } catch (err) {
     logger.error('[FEEDBACK] Stats error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/promosport/accuracy/:concours
+ * Compare predictions vs actual results for a specific concours.
+ */
+router.get('/accuracy/:concours', async (req, res) => {
+  try {
+    const result = promosportResultService.computeAccuracy(req.params.concours);
+    if (!result) return res.status(404).json({ success: false, error: 'Aucune donnée trouvée' });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/promosport/accuracy
+ * Overall accuracy stats across all concours with predictions.
+ */
+router.get('/accuracy', async (req, res) => {
+  try {
+    const stats = promosportResultService.getOverallStats();
+    res.json({ success: true, stats });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/promosport/check-results/:concours
+ * Manually trigger result check + fetch for a concours.
+ */
+router.post('/check-results/:concours', async (req, res) => {
+  try {
+    const results = await promosportResultService.checkAndFetchResults(req.params.concours);
+    if (!results) return res.json({ success: true, message: 'Pas encore de résultats disponibles' });
+    res.json({ success: true, matches: results.length, results });
+  } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });

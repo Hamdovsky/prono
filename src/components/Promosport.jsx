@@ -17,6 +17,7 @@ const Promosport = () => {
     const [tunisieError, setTunisieError] = useState(null);
     const [algoPicks, setAlgoPicks] = useState(null);
     const [reducedSystem, setReducedSystem] = useState(null);
+    const [accuracyStats, setAccuracyStats] = useState(null);
     const [meta, setMeta] = useState({ 
         concours: '---', 
         date: '--/--/----',
@@ -45,8 +46,9 @@ const Promosport = () => {
             }, 4000);
             try {
                 console.log("📡 [PROMOSPORT] Initializing data fetch...");
-                const [data] = await Promise.all([
-                    dataService.fetchPromosport(doubleCounts)
+                const [data, accData] = await Promise.all([
+                    dataService.fetchPromosport(doubleCounts),
+                    dataService.fetchPromosportAccuracy()
                 ]);
                 if (data && data.matches && data.matches.length > 0) {
                     setMatches(data.matches);
@@ -57,9 +59,11 @@ const Promosport = () => {
                         gridStats: data.gridStats || prev.gridStats
                     }));
                     console.log("✅ [PROMOSPORT] Data loaded successfully:", data.matches.length, "matches");
-                } else {
-                    console.warn("⚠️ [PROMOSPORT] API returned empty grid, using default state.");
                 }
+                if (accData && accData.success && accData.stats) {
+                    setAccuracyStats(accData.stats);
+                }
+            } catch (err) {
             } catch (err) {
                 console.error("❌ [PROMOSPORT] Failed to load data:", err.message);
             } finally {
@@ -287,6 +291,12 @@ const Promosport = () => {
                             <span className="stat-value highlight">{doubleCounts.reduce((a, b) => a + b, 0)}</span>
                             <span className="stat-label">DOUBLES TOTAL</span>
                         </div>
+                        {accuracyStats && (
+                        <div className="stat-item">
+                            <span className="stat-value">{accuracyStats.overallAccuracy}</span>
+                            <span className="stat-label">PRÉCISION HIST. ({accuracyStats.concoursCount} conc.)</span>
+                        </div>
+                        )}
                         <div className="stat-item">
                             <span className="stat-value">{avgConfidence}%</span>
                             <span className="stat-label">CONFIDENCE MOY.</span>

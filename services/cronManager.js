@@ -6,6 +6,7 @@ const database = require('../core/database');
 const redisCache = require('./redisCache');
 const workerBridge = require('./workerBridge');
 const { runAnalysis } = require('../scripts/today_analysis');
+const promosportResultService = require('./promosportResultService');
 const { snapshotOdds } = require('./oddsMovementService');
 const autoArchiver = require('./autoArchiver');
 const retroSync = require('./retroSyncService');
@@ -96,6 +97,34 @@ class CronManager {
             logger.info('ðŸ‡¹ðŸ‡³ [CRON] Launching Tunisian Crowd Collector...');
             const proc = spawn('node', [path.join(__dirname, '..', 'scripts', 'crowd_collector.js')], { stdio: 'inherit', windowsHide: true });
             proc.on('close', code => logger.info(`âœ… [CRON] Tunisian Crowd finished (code ${code})`));
+        }, { timezone: 'Africa/Tunis' });
+
+        // 9.6 Promosport Results Checker (20:00 daily, after matches finish)
+        cron.schedule('0 20 * * *', async () => {
+          logger.info('🏁 [CRON] Checking Promosport results for recent concours...');
+          try {
+            const history = promosportResultService.getRecentHistory(5);
+            for (const concours of history) {
+              await promosportResultService.checkAndFetchResults(concours);
+            }
+            logger.info(`✅ [CRON] Checked ${history.length} Promosport concours`);
+          } catch (e) {
+            logger.error(`❌ [CRON] Promosport results check error: ${e.message}`);
+          }
+        }, { timezone: 'Africa/Tunis' });
+
+        // 9.7 Promosport Results Overnight Recheck (00:30)
+        cron.schedule('30 0 * * *', async () => {
+          logger.info('🌙 [CRON] Overnight Promosport results recheck...');
+          try {
+            const history = promosportResultService.getRecentHistory(10);
+            for (const concours of history) {
+              await promosportResultService.checkAndFetchResults(concours);
+            }
+            logger.info(`✅ [CRON] Overnight check done for ${history.length} concours`);
+          } catch (e) {
+            logger.error(`❘ [CRON] Overnight results error: ${e.message}`);
+          }
         }, { timezone: 'Africa/Tunis' });
 
         // 10.1 Universal Omniscience Predictor (Every 2 hours for near-real-time tactical updates)

@@ -15,22 +15,6 @@ const getPickProb = (m, pick) => {
   return x
 }
 
-const bestPick = (m) => {
-  if (!m) return 1
-  const h = m.mlProbs?.h ?? m.probs?.h ?? 33
-  const x = m.mlProbs?.x ?? m.probs?.x ?? 33
-  const a = m.mlProbs?.a ?? m.probs?.a ?? 34
-  if (h >= x && h >= a) return 1
-  if (a >= h && a >= x) return 3
-  return 2
-}
-
-const doubleAlt = (pick) => {
-  if (pick === 1) return 2
-  if (pick === 3) return 2
-  return 1
-}
-
 export default function PromosportCalculator({ matches, fetcher }) {
   const [cols, setCols] = useState(4)
   const [doubles, setDoubles] = useState(5)
@@ -98,24 +82,47 @@ export default function PromosportCalculator({ matches, fetcher }) {
   const COL_QUICK = [1, 2, 4, 8, 16, 32, 64, 128, 256]
   const DOUBLE_VALS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
+  const pickVal = (s) => s === '1' ? 1 : s === 'X' ? 2 : 3
+
   const generateColumns = () => {
     if (!matches || matches.length === 0) return
     const fullSystem = Math.pow(2, doubles)
     const numToGen = Math.min(cols, fullSystem, 256)
     const columns = []
 
-    const doubleMatchIndices = []
-    for (let i = Math.max(0, matches.length - doubles); i < matches.length; i++) {
-      doubleMatchIndices.push(i)
-    }
+    // Analyse chaque match avec les probabilités ML (entropy + margin)
+    const analyzed = matches.map((m, i) => {
+      const hp = m.mlProbs?.h ?? m.probs?.h ?? 33
+      const xp = m.mlProbs?.x ?? m.probs?.x ?? 33
+      const ap = m.mlProbs?.a ?? m.probs?.a ?? 34
+      const entries = [['1', hp], ['X', xp], ['2', ap]]
+      const sorted = [...entries].sort((a, b) => b[1] - a[1])
+      const [fav, favPct] = sorted[0]
+      const [sec, secPct] = sorted[1] || ['X', 0]
+      const margin = favPct - secPct
+      const ph = hp / 100, px = xp / 100, pa = ap / 100
+      const entropy = -(ph * Math.log2(ph + 0.001) + px * Math.log2(px + 0.001) + pa * Math.log2(pa + 0.001))
+      const isUncertain = favPct < 55 || margin < 15
+      return { idx: i, fav, sec, favPct, margin, entropy, isUncertain }
+    })
+
+    // Sélection des doubles par entropy décroissante (max 7)
+    const maxDoubles = Math.min(doubles, 7)
+    const uncertainSorted = analyzed.filter(a => a.isUncertain).sort((a, b) => b.entropy - a.entropy)
+    const doubleIds = new Set(uncertainSorted.slice(0, maxDoubles).map(a => a.idx))
+
+    const configs = analyzed.map(a => ({
+      base: pickVal(a.fav),
+      alt: doubleIds.has(a.idx) ? pickVal(a.sec) : null
+    }))
+
+    const doubleIndices = configs.map((c, i) => c.alt !== null ? i : -1).filter(i => i !== -1)
 
     for (let idx = 0; idx < numToGen; idx++) {
-      const picks = matches.map((m, mi) => {
-        const di = doubleMatchIndices.indexOf(mi)
-        if (di === -1) return bestPick(m)
-        const bit = (idx >> di) & 1
-        const base = bestPick(m)
-        return bit === 0 ? base : doubleAlt(base)
+      const picks = configs.map((cfg, mi) => {
+        const di = doubleIndices.indexOf(mi)
+        if (di === -1) return cfg.base
+        return (idx >> di) & 1 ? cfg.alt : cfg.base
       })
       const expected = picks.reduce((sum, pick, pi) => sum + getPickProb(matches[pi], pick), 0)
       columns.push({ picks, expected })

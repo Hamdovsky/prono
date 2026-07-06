@@ -1143,79 +1143,91 @@ router.get('/gold-coupon', async (req, res) => {
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const retrainState = { running: false, lastResult: null }
+
 router.post('/retrain', async (req, res) => {
-  const scriptsDir = path.join(__dirname, '..', 'scripts');
-  const importScript = path.join(scriptsDir, 'import_promosport_archive.py');
-  const trainScript = path.join(scriptsDir, 'train_promosport_xgboost.py');
-  const backfillScript = path.join(scriptsDir, 'backfill_promosport_predictions.js');
-  const steps = [];
+  if (retrainState.running) return res.status(409).json({ success: false, error: 'Retrain already in progress' })
+  retrainState.running = true
+  retrainState.lastResult = null
+  res.json({ success: true, status: 'started' })
+
+  const scriptsDir = path.join(__dirname, '..', 'scripts')
+  const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+  const steps = []
+  const { spawn } = require('child_process')
+
+  async function runStep(name, cmd, args, timeout) {
+    logger.info(`[RETRAIN] ${name}...`)
+    return new Promise((resolve, reject) => {
+      const child = spawn(cmd, args, { cwd: __dirname, timeout, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+      let out = ''
+      child.stdout.on('data', d => { out += d })
+      child.stderr.on('data', d => { out += d })
+      child.on('close', code => code === 0 ? resolve(out) : reject(new Error(`${name} exited ${code}: ${out.slice(-200)}`)))
+      child.on('error', reject)
+    })
+  }
 
   try {
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const importOut = await runStep('Import', pythonCmd, [require('path').join(scriptsDir, 'import_promosport_archive.py')], 120000)
+    steps.push({ step: 'import', output: importOut.trim().split('\n').filter(l => l).slice(-2).join('; ') })
 
-    // Step 1: import data
-    logger.info('[RETRAIN] Importing data...');
-    const importOut = execSync(`${pythonCmd} "${importScript}"`, { timeout: 60000, encoding: 'utf8', windowsHide: true });
-    steps.push({ step: 'import', output: importOut.trim().split('\n').pop() });
-
-    // Step 2: train model (with rollback protection)
-    logger.info('[RETRAIN] Training XGBoost...');
-    const trainOut = execSync(`${pythonCmd} "${trainScript}"`, { timeout: 600000, encoding: 'utf8', maxBuffer: 1024 * 1024, windowsHide: true });
-    const accMatch = trainOut.match(/Accuracy: ([\d.]+)%/);
-    const llMatch = trainOut.match(/Log Loss: ([\d.]+)/);
-    const cmMatch = trainOut.match(/confusion_matrix:\s*\n(.*)/s);
-    const rollbackMatch = trainOut.match(/Rollback: old acc=([\d.]+)%.*new acc=([\d.]+)%/);
+    const trainOut = await runStep('Train', pythonCmd, [require('path').join(scriptsDir, 'train_promosport_xgboost.py')], 600000)
+    const accMatch = trainOut.match(/Accuracy: ([\d.]+)%/)
+    const llMatch = trainOut.match(/Log Loss: ([\d.]+)/)
+    const cmMatch = trainOut.match(/confusion_matrix:\s*\n(.*)/s)
+    const rollbackMatch = trainOut.match(/Rollback: old acc=([\d.]+)%.*new acc=([\d.]+)%/)
     steps.push({
       step: 'train',
       accuracy: accMatch ? parseFloat(accMatch[1]) : null,
       logLoss: llMatch ? parseFloat(llMatch[1]) : null,
       confusionMatrix: cmMatch ? cmMatch[1].trim() : null,
       rollback: rollbackMatch ? { old: parseFloat(rollbackMatch[1]), new: parseFloat(rollbackMatch[2]) } : null
-    });
+    })
 
-    // Step 3: backfill predictions for all archive matches
-    logger.info('[RETRAIN] Backfilling predictions...');
     try {
-      const backfillModule = require('./' + path.relative(__dirname, backfillScript).replace(/\\/g, '/'));
-      const backfillResult = backfillModule.backfillPredictions();
-      steps.push({ step: 'backfill', stored: backfillResult.stored, total: backfillResult.total });
+      const backfillModule = require('./' + require('path').relative(__dirname, require('path').join(scriptsDir, 'backfill_promosport_predictions.js')).replace(/\\/g, '/'))
+      const backfillResult = await backfillModule.backfillPredictions()
+      steps.push({ step: 'backfill', stored: backfillResult.stored, total: backfillResult.total })
     } catch (bfErr) {
-      logger.warn(`[RETRAIN] Backfill failed (non-fatal): ${bfErr.message}`);
-      steps.push({ step: 'backfill', error: bfErr.message });
+      logger.warn(`[RETRAIN] Backfill failed: ${bfErr.message}`)
+      steps.push({ step: 'backfill', error: bfErr.message })
     }
 
-    // Step 4: hot-reload model
-    const reloaded = promosportMLService.reloadModel();
-    steps.push({ step: 'reload', success: reloaded });
+    const reloaded = promosportMLService.reloadModel()
+    steps.push({ step: 'reload', success: reloaded })
 
-    // Notification
     try {
-      const botService = require('../services/botService');
-      const acc = steps.find(s => s.step === 'train')?.accuracy;
-      const ll = steps.find(s => s.step === 'train')?.logLoss;
-      const rb = steps.find(s => s.step === 'train')?.rollback;
+      const botService = require('../services/botService')
+      const acc = steps.find(s => s.step === 'train')?.accuracy
+      const ll = steps.find(s => s.step === 'train')?.logLoss
+      const rb = steps.find(s => s.step === 'train')?.rollback
       let msg = `🔄 <b>Promosport Retrain</b>\nAccuracy: ${acc ?? 'N/A'}%\nLog Loss: ${ll ?? 'N/A'}`
       if (rb) msg += `\n⚠️ Rollback: ancien ${rb.old}% > nouveau ${rb.new}%`
       botService.sendAlert(msg)
     } catch (_) {}
 
-    logger.info('[RETRAIN] Complete');
-    res.json({ success: true, steps });
+    retrainState.lastResult = { success: true, steps, finishedAt: new Date().toISOString() }
+    logger.info('[RETRAIN] Complete')
   } catch (err) {
-    // Restore backup if train failed
     try {
-      const backupPath = path.join(__dirname, '..', 'models', 'promosport_xgb.backup.json');
-      const modelPath = path.join(__dirname, '..', 'models', 'promosport_xgb.json');
-      if (fs.existsSync(backupPath)) {
-        fs.copyFileSync(backupPath, modelPath);
-        logger.info('[RETRAIN] Restored backup after failure');
-        steps.push({ step: 'rollback_restore', success: true });
+      const backupPath = path.join(__dirname, '..', 'models', 'promosport_xgb.backup.json')
+      const modelPath = path.join(__dirname, '..', 'models', 'promosport_xgb.json')
+      if (require('fs').existsSync(backupPath)) {
+        require('fs').copyFileSync(backupPath, modelPath)
+        steps.push({ step: 'rollback_restore', success: true })
       }
     } catch (_) {}
-    logger.error(`[RETRAIN] Failed: ${err.message}`);
-    res.status(500).json({ success: false, error: err.message, steps });
+    logger.error(`[RETRAIN] Failed: ${err.message}`)
+    retrainState.lastResult = { success: false, error: err.message, steps, finishedAt: new Date().toISOString() }
+  } finally {
+    retrainState.running = false
   }
-});
+})
+
+router.get('/retrain/status', (req, res) => {
+  res.json({ running: retrainState.running, lastResult: retrainState.lastResult })
+})
 
 // ─── Diagnostic: test Python + dependencies ────────────
 router.get('/diagnostic', async (req, res) => {

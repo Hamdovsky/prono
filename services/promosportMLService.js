@@ -169,9 +169,12 @@ print(json.dumps(probs.tolist()))
     const f = {};
     const home = (match.homeTeam || '').toUpperCase();
     const away = (match.awayTeam || '').toUpperCase();
-    const voteH = match.publicP1 ?? match.homeWinPercent ?? match.vote_home ?? 50;
-    const voteD = match.publicPX ?? match.drawPercent ?? match.vote_draw ?? 33;
-    const voteA = match.publicP2 ?? match.awayWinPercent ?? match.vote_away ?? 17;
+    let rawVoteH = match.publicP1 ?? match.homeWinPercent ?? match.crowdP1 ?? match.homeWinProbability ?? 50
+    let rawVoteD = match.publicPX ?? match.drawPercent ?? match.drawProbability ?? 33
+    let rawVoteA = match.publicP2 ?? match.awayWinPercent ?? match.crowdP2 ?? match.awayWinProbability ?? 17
+    const voteH = rawVoteH < 1 ? rawVoteH * 100 : rawVoteH
+    const voteD = rawVoteD < 1 ? rawVoteD * 100 : rawVoteD
+    const voteA = rawVoteA < 1 ? rawVoteA * 100 : rawVoteA
     const totalV = voteH + voteD + voteA;
 
     f['vote_home'] = voteH; f['vote_draw'] = voteD; f['vote_away'] = voteA;

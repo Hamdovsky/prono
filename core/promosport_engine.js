@@ -199,7 +199,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
     try {
       const xgbResults = promosportMLService.predictBatch(enrichedMatches);
       if (xgbResults) {
-        const blendWeight = 0.10;
+        const blendWeight = 0.25;
         for (let i = 0; i < enrichedMatches.length; i++) {
           const m = enrichedMatches[i];
           const p = xgbResults[i];

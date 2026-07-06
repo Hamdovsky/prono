@@ -97,7 +97,6 @@ def compute_team_stats(conn, team_name, before_date=None, limit_matches=None):
 
     for r in rows:
         result = r[0]
-        is_home = home_team_in_result(result, True) if False else None
         if result == '1':
             wins += 1
             pts_total += 3
@@ -146,7 +145,7 @@ def compute_team_stats(conn, team_name, before_date=None, limit_matches=None):
 
 
 def get_h2h_stats(conn, home_team, away_team, before_date=None):
-    """Head-to-head stats from promosport_archive."""
+    """Head-to-head stats from archive_matches."""
     date_filter = ''
     params = [home_team, away_team, home_team, away_team]
     if before_date:

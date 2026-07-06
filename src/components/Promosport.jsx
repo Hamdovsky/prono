@@ -321,6 +321,40 @@ const Promosport = () => {
                 </div>
             )}
 
+            {accuracyStats && (
+                <div className="promo-accuracy-panel" style={{ margin: '8px 16px', padding: '10px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'center', minWidth: '80px' }}>
+                            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: parseFloat(accuracyStats.overallAccuracy) > 70 ? '#22c55e' : parseFloat(accuracyStats.overallAccuracy) > 60 ? '#fbbf24' : '#ef4444' }}>{accuracyStats.overallAccuracy}</div>
+                            <div style={{ fontSize: '0.55rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Overall</div>
+                        </div>
+                        {accuracyStats.perGrid?.map(g => (
+                            <div key={g.name} style={{ minWidth: '90px', flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', marginBottom: '2px' }}>
+                                    <span style={{ color: '#94a3b8' }}>{g.name}</span>
+                                    <span style={{ color: '#fbbf24', fontWeight: '600' }}>{g.accuracy}</span>
+                                </div>
+                                <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                                    <div style={{ width: g.accuracy, height: '100%', background: parseFloat(g.accuracy) > 70 ? '#22c55e' : '#fbbf24', borderRadius: '2px', transition: 'width 0.5s' }} />
+                                </div>
+                            </div>
+                        ))}
+                        {accuracyStats.recentConcours?.length > 0 && (
+                            <div style={{ minWidth: '120px' }}>
+                                <div style={{ fontSize: '0.55rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Trend</div>
+                                <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '24px' }}>
+                                    {accuracyStats.recentConcours.map((c, i) => {
+                                        const pct = parseFloat(c.accuracy);
+                                        const h = Math.max(4, (pct / 100) * 24);
+                                        return <div key={i} style={{ flex: 1, height: `${h}px`, background: pct > 70 ? '#22c55e' : pct > 60 ? '#fbbf24' : '#ef4444', borderRadius: '1px', minWidth: '6px', position: 'relative' }} title={`${c.concours}: ${c.accuracy}`} />;
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {viewMode === 'terminal' ? (
                 <PromosportTerminal matches={matches} onGenerateReduced={handleGenerateReduced} />
             ) : viewMode === 'tunisie' ? (

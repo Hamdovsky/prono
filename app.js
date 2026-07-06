@@ -218,6 +218,7 @@ const redisMiddleware = async (req, res, next) => {
 // ── CORE API ENDPOINTS ─────────────────────────────────────────
 // Fast health check for Render (no DB/Redis/FastAPI dependency)
 app.get('/ping', (req, res) => res.status(200).send('pong'));
+app.get('/api/health', (req, res) => res.status(200).json({ status: 'ok' }));
 app.get('/health', async (req, res) => {
   const checks = { uptime: process.uptime(), memory: {
     heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',

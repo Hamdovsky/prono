@@ -431,13 +431,58 @@ class CronManager {
             const { getRecentHistory } = promosportResultService
             const recent = getRecentHistory(3)
             const latest = recent.length > 0 ? Math.max(...recent.map(Number)) : 877
+            let newResults = false
             for (let g = latest; g <= latest + 5; g++) {
               const results = await promosportResultService.checkAndFetchResults(g)
-              if (results) logger.info(`[CRON] Grid ${g}: ${results.length} nouveaux résultats`)
+              if (results) {
+                logger.info(`[CRON] Grid ${g}: ${results.length} nouveaux résultats`)
+                newResults = true
+              }
+            }
+            // Auto-retrain if new results found
+            if (newResults) {
+              logger.info('[CRON] New results found, triggering auto-retrain...')
+              promosportResultService.triggerAutoRetrain()
             }
             logger.info('[CRON] Tunisie results check complete')
           } catch (e) {
             logger.error(`[CRON] Tunisie results check error: ${e.message}`)
+          }
+        }, { timezone: 'Africa/Tunis' })
+
+        // 26. Promosport Tunisie crowd scraper (daily 10:00 Africa/Tunis)
+        cron.schedule('0 10 * * *', async () => {
+          logger.info('[CRON] Starting Promosport Tunisie crowd scrape...')
+          try {
+            const { execSync } = require('child_process')
+            const scriptsDir = path.join(__dirname, '..', 'scripts')
+            const nodeCmd = process.platform === 'win32' ? 'node.exe' : 'node'
+            execSync(`${nodeCmd} "${path.join(scriptsDir, 'crowd_collector.js')}" collect-latest`, { timeout: 60000, encoding: 'utf8' })
+            logger.info('[CRON] Tunisie crowd scrape done')
+          } catch (e) {
+            logger.error(`[CRON] Tunisie crowd scrape error: ${e.message}`)
+          }
+        }, { timezone: 'Africa/Tunis' })
+
+        // 27. New concours detection (Monday 08:00 Africa/Tunis)
+        cron.schedule('0 8 * * 1', async () => {
+          logger.info('[CRON] Checking for new Promosport concours...')
+          try {
+            const scriptsDir = path.join(__dirname, '..', 'scripts')
+            const detectScript = path.join(scriptsDir, 'detect_new_concours.js')
+            if (require('fs').existsSync(detectScript)) {
+              const detector = require(detectScript)
+              const result = await detector.detectNewConcours()
+              if (result && result.found) {
+                logger.info(`[CRON] New concours detected: ${result.concoursNumber}`)
+                const botService = require('./botService')
+                botService.sendAlert(`🎯 <b>Nouveau Concours Promosport Détecté</b>\nConcours: ${result.concoursNumber}\nGrilles générées automatiquement`)
+              } else {
+                logger.info('[CRON] No new concours detected')
+              }
+            }
+          } catch (e) {
+            logger.error(`[CRON] New concours detection error: ${e.message}`)
           }
         }, { timezone: 'Africa/Tunis' })
 

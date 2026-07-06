@@ -66,4 +66,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 EXPOSE 10000
 
-CMD python scripts/import_promosport_archive.py && node --max-old-space-size=512 server.js
+CMD python scripts/import_promosport_archive.py && node scripts/backfill_promosport_predictions.js && node --max-old-space-size=512 server.js

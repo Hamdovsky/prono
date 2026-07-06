@@ -529,10 +529,48 @@ def train_model():
     test_acc = accuracy_score(y_test, y_pred)
     print(f"Verification load OK - test acc: {test_acc * 100:.2f}%")
 
+    # ─── Rollback protection ───
+    if os.path.exists(BACKUP_PATH):
+        old_acc = None
+        try:
+            old_booster = xgb.Booster()
+            old_booster.load_model(BACKUP_PATH)
+            old_probs = old_booster.predict(dtest)
+            old_pred = np.argmax(old_probs, axis=1)
+            old_acc = accuracy_score(y_test, old_pred)
+            old_ll = log_loss(y_test, old_probs)
+            print(f"Old model: acc={old_acc*100:.2f}% log_loss={old_ll:.4f}")
+        except Exception as e:
+            print(f"Could not evaluate old model: {e}")
+
+        if old_acc is not None and old_acc >= test_acc:
+            import shutil
+            shutil.copy(BACKUP_PATH, MODEL_PATH)
+            print(f"Rollback: old acc={old_acc*100:.2f}% >= new acc={test_acc*100:.2f}%")
+        else:
+            print(f"New model accepted: {test_acc*100:.2f}% vs old {old_acc*100:.2f}%")
+    else:
+        print("No backup found, keeping new model")
+
     return model
+
+
+BACKUP_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'promosport_xgb.backup.json')
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'promosport_xgb.json')
+
+
+def backup_model():
+    import shutil
+    if os.path.exists(MODEL_PATH):
+        shutil.copy(MODEL_PATH, BACKUP_PATH)
+        print(f"Backup saved: {MODEL_PATH} -> {BACKUP_PATH}")
+        return True
+    print("No existing model to backup")
+    return False
 
 
 if __name__ == "__main__":
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(line_buffering=True)
+    backup_model()
     train_model()

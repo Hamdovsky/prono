@@ -398,4 +398,65 @@ function simulateROI(stakePerMatch = 10) {
   }
 }
 
-module.exports = { storePrediction, checkAndFetchResults, computeAccuracy, getRecentHistory, getOverallStats, getConfusionMatrix, simulateROI };
+function shouldAutoRetrain() {
+  try {
+    const flag = process.env.ENABLE_AUTO_RETRAIN
+    return flag !== 'false' && flag !== '0'
+  } catch (_) { return true }
+}
+
+function triggerAutoRetrain() {
+  if (!shouldAutoRetrain()) {
+    logger.info('[PROMOSPORT-RESULT] Auto-retrain disabled via ENABLE_AUTO_RETRAIN=false')
+    return
+  }
+  logger.info('[PROMOSPORT-RESULT] Triggering auto-retrain after new results...')
+  try {
+    const { execSync } = require('child_process')
+    const path = require('path')
+    const scriptsDir = path.join(__dirname, '..', 'scripts')
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+
+    // Import data to include new results
+    execSync(`${pythonCmd} "${path.join(scriptsDir, 'import_promosport_archive.py')}"`, { timeout: 60000, encoding: 'utf8', windowsHide: true })
+
+    // Train with rollback
+    const trainOut = execSync(`${pythonCmd} "${path.join(scriptsDir, 'train_promosport_xgboost.py')}"`, { timeout: 600000, encoding: 'utf8', maxBuffer: 1024 * 1024, windowsHide: true })
+
+    // Backfill predictions
+    try {
+      const { backfillPredictions } = require(path.join(scriptsDir, 'backfill_promosport_predictions.js'))
+      backfillPredictions()
+    } catch (_) {}
+
+    // Reload model
+    const mlService = require('./promosportMLService')
+    mlService.reloadModel()
+
+    // Notify
+    const accMatch = trainOut.match(/Accuracy: ([\d.]+)%/)
+    const llMatch = trainOut.match(/Log Loss: ([\d.]+)/)
+    const rbMatch = trainOut.match(/Rollback: old acc=([\d.]+)%.*new acc=([\d.]+)%/)
+    const botService = require('./botService')
+    let msg = `🔄 <b>Auto-Retrain (nouveaux résultats)</b>\nAccuracy: ${accMatch ? accMatch[1] + '%' : 'N/A'}\nLog Loss: ${llMatch ? llMatch[1] : 'N/A'}`
+    if (rbMatch) msg += `\n⚠️ Rollback: ancien ${rbMatch[1]}% > nouveau ${rbMatch[2]}%`
+    botService.sendAlert(msg)
+
+    logger.info(`[PROMOSPORT-RESULT] Auto-retrain complete — acc: ${accMatch ? accMatch[1] + '%' : 'N/A'}`)
+  } catch (e) {
+    logger.error(`[PROMOSPORT-RESULT] Auto-retrain failed: ${e.message}`)
+    // Restore backup
+    try { const fs = require('fs'); const backup = path.join(__dirname, '..', 'models', 'promosport_xgb.backup.json'); const model = path.join(__dirname, '..', 'models', 'promosport_xgb.json'); if (fs.existsSync(backup)) fs.copyFileSync(backup, model) } catch (_) {}
+  }
+}
+
+async function checkAndFetchResultsWithAutoRetrain(concoursNumber) {
+  const results = await checkAndFetchResults(concoursNumber)
+  if (results && results.length > 0) {
+    // Trigger auto-retrain asynchronously
+    setImmediate(() => triggerAutoRetrain())
+  }
+  return results
+}
+
+module.exports = { storePrediction, checkAndFetchResults, checkAndFetchResultsWithAutoRetrain, computeAccuracy, getRecentHistory, getOverallStats, getConfusionMatrix, simulateROI, triggerAutoRetrain, backfillPredictions: () => { try { return require('../scripts/backfill_promosport_predictions').backfillPredictions() } catch (e) { logger.error(`[PROMOSPORT-RESULT] backfillPredictions: ${e.message}`); return { total: 0, stored: 0 } } } };

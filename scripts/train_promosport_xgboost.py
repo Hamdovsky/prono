@@ -487,14 +487,19 @@ def train_model():
     for i, (feat, imp) in enumerate(sorted_imp[:20]):
         print(f"  {i + 1:2d}. {feat}: {imp:.3f}")
 
-    # Save model
+    # Save model (with feature names)
+    model.get_booster().feature_names = FEATURE_NAMES
     model.get_booster().save_model(MODEL_PATH)
     print(f"\nModel saved: {MODEL_PATH}")
 
     # Verify model loads
-    test_model = xgb.XGBClassifier()
-    test_model.load_model(MODEL_PATH)
-    test_acc = accuracy_score(y_test, np.argmax(test_model.predict_proba(X_test), axis=1))
+    import json
+    booster = xgb.Booster()
+    booster.load_model(MODEL_PATH)
+    dtest = xgb.DMatrix(X_test, feature_names=FEATURE_NAMES)
+    y_pred_proba = booster.predict(dtest)
+    y_pred = np.argmax(y_pred_proba, axis=1)
+    test_acc = accuracy_score(y_test, y_pred)
     print(f"Verification load OK - test acc: {test_acc * 100:.2f}%")
 
     return model

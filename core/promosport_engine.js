@@ -2,6 +2,7 @@ const logger = require('./logger');
 const mlPredictionService = require('../services/mlPredictionService');
 const doubleOptimizer = require('../services/doubleOptimizerService');
 const db = require('./database');
+const promosportMLService = require('../services/promosportMLService');
 
 // ─── xG→Probabilities (Poisson Approximation) ────────────────────────────────
 function xgToProbs(xgHome, xgAvgHome, xgAvgAway) {
@@ -77,10 +78,20 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
                 return {};
             });
             if (!pred) pred = {};
-          
+
+            // D. Blend with Promosport-specific XGBoost model (if available)
             let p1 = pred.probabilities?.home ?? pred.home_win_probability ?? m.homeWinProbability ?? null;
             let px = pred.probabilities?.draw ?? pred.draw_probability ?? m.drawProbability ?? null;
             let p2 = pred.probabilities?.away ?? pred.away_win_probability ?? m.awayWinProbability ?? null;
+
+            const pspred = await promosportMLService.predict(m).catch(() => null);
+            if (pspred && pspred.p1 > 0) {
+              const blendWeight = 0.25
+              if (p1 !== null) p1 = p1 * (1 - blendWeight) + pspred.p1 * blendWeight
+              if (px !== null) px = px * (1 - blendWeight) + pspred.px * blendWeight
+              if (p2 !== null) p2 = p2 * (1 - blendWeight) + pspred.p2 * blendWeight
+              logger.info(`🧪 [PROMOSPORT-ENGINE] XGBoost blend applied for ${m.homeTeam} (${(pspred.p1*100).toFixed(0)}/${(pspred.px*100).toFixed(0)}/${(pspred.p2*100).toFixed(0)})`);
+            }
           
             // Detect flat/stale probabilities (33/33/34 from scraper default)
             const isFlat = (

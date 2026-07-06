@@ -5,7 +5,7 @@
   "main": "server.js",
   "type": "commonjs",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0 <23"
   },
   "scripts": {
     "start": "node --max-old-space-size=512 server.js",

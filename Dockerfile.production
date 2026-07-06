@@ -1,5 +1,5 @@
 # ─── Stage 1: Node.js dependencies ───────────────────────────
-FROM node:18-slim AS node-deps
+FROM node:22-slim AS node-deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --only=production
@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
         optuna>=4.0.0
 
 # ─── Stage 3: Frontend build ────────────────────────────────
-FROM node:18-slim AS frontend-build
+FROM node:22-slim AS frontend-build
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --only=production
@@ -29,7 +29,7 @@ COPY public/ ./public/
 RUN npm run build
 
 # ─── Stage 4: Production image ──────────────────────────────
-FROM nikolaik/python-nodejs:python3.11-nodejs18-slim
+FROM nikolaik/python-nodejs:python3.11-nodejs22-slim
 WORKDIR /app
 
 # Copy python ML packages (site-packages → dist-packages for deadsnakes Python)

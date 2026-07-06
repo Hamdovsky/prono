@@ -230,4 +230,129 @@ function getOverallStats() {
   }
 }
 
-module.exports = { storePrediction, checkAndFetchResults, computeAccuracy, getRecentHistory, getOverallStats };
+function getConfusionMatrix() {
+  try {
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT pp.choices, pa.result
+      FROM promosport_predictions pp
+      INNER JOIN promosport_archive pa
+        ON pp.concours = pa.concours AND pp.match_idx = pa.match_idx
+      WHERE pa.result IS NOT NULL AND pa.result != 'N'
+    `).all();
+    db.close();
+
+    if (rows.length === 0) return null;
+
+    const matrix = { '1': { '1': 0, 'X': 0, '2': 0 }, 'X': { '1': 0, 'X': 0, '2': 0 }, '2': { '1': 0, 'X': 0, '2': 0 } };
+    const predictedDist = { '1': 0, 'X': 0, '2': 0 };
+    let total = 0, correct = 0;
+
+    for (const r of rows) {
+      const choices = JSON.parse(r.choices || '[]');
+      const result = r.result;
+      if (!matrix[result]) continue;
+      if (choices.length === 1) {
+        const pred = choices[0];
+        matrix[result][pred]++;
+        predictedDist[pred]++;
+        total++;
+        if (pred === result) correct++;
+      } else {
+        // Double/triple: pick most confident or first
+        const pred = choices[0];
+        matrix[result][pred] += 0.5;
+        predictedDist[pred] += 0.5;
+        total += 0.5;
+        if (choices.includes(result)) correct++;
+      }
+    }
+
+    return {
+      totalPredictions: rows.length,
+      totalSimple: total,
+      correct,
+      accuracy: ((correct / total) * 100).toFixed(1) + '%',
+      matrix,
+      predictedDistribution: predictedDist,
+      byResult: Object.entries(matrix).map(([actual, preds]) => ({
+        actual,
+        total: Object.values(preds).reduce((s, v) => s + v, 0),
+        correct: preds[actual],
+        precision: preds[actual] / Object.values(preds).reduce((s, v) => s + v, 0) * 100 || 0,
+        distribution: preds
+      }))
+    };
+  } catch (e) {
+    logger.error(`[PROMOSPORT-RESULT] getConfusionMatrix error: ${e.message}`);
+    return null;
+  }
+}
+
+function simulateROI(stakePerMatch = 10) {
+  try {
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT pp.choices, pa.result, pa.match_idx, pp.grid_name, pp.concours
+      FROM promosport_predictions pp
+      INNER JOIN promosport_archive pa
+        ON pp.concours = pa.concours AND pp.match_idx = pa.match_idx
+      WHERE pa.result IS NOT NULL AND pa.result != 'N'
+      ORDER BY pp.concours ASC
+    `).all();
+    db.close();
+
+    if (rows.length === 0) return null;
+
+    const odds = { '1': 2.5, 'X': 3.2, '2': 2.8 };
+    let totalStaked = 0, totalReturned = 0, wins = 0, losses = 0;
+    const byGrid = {};
+    const byConcours = {};
+
+    for (const r of rows) {
+      const choices = JSON.parse(r.choices || '[]');
+      if (choices.length !== 1) continue;
+      
+      const stake = stakePerMatch;
+      totalStaked += stake;
+      totalReturned += choices[0] === r.result ? stake * odds[choices[0]] : 0;
+      if (choices[0] === r.result) wins++; else losses++;
+
+      if (!byGrid[r.grid_name]) byGrid[r.grid_name] = { staked: 0, returned: 0, wins: 0, losses: 0 };
+      byGrid[r.grid_name].staked += stake;
+      byGrid[r.grid_name].returned += choices[0] === r.result ? stake * odds[choices[0]] : 0;
+      byGrid[r.grid_name].wins += choices[0] === r.result ? 1 : 0;
+      byGrid[r.grid_name].losses += choices[0] !== r.result ? 1 : 0;
+
+      if (!byConcours[r.concours]) byConcours[r.concours] = { staked: 0, returned: 0 };
+      byConcours[r.concours].staked += stake;
+      byConcours[r.concours].returned += choices[0] === r.result ? stake * odds[choices[0]] : 0;
+    }
+
+    const roi = totalStaked > 0 ? ((totalReturned - totalStaked) / totalStaked * 100) : 0;
+
+    return {
+      totalBets: wins + losses,
+      wins, losses, winRate: ((wins / (wins + losses)) * 100).toFixed(1) + '%',
+      totalStaked,
+      totalReturned,
+      profit: totalReturned - totalStaked,
+      roi: roi.toFixed(1) + '%',
+      byGrid: Object.entries(byGrid).map(([name, d]) => ({
+        name, staked: d.staked, returned: d.returned,
+        profit: d.returned - d.staked,
+        roi: d.staked > 0 ? ((d.returned - d.staked) / d.staked * 100).toFixed(1) + '%' : '0%',
+        wins: d.wins, losses: d.losses
+      })),
+      byConcours: Object.entries(byConcours).map(([c, d]) => ({
+        concours: c, staked: d.staked, returned: d.returned,
+        profit: d.returned - d.staked
+      }))
+    };
+  } catch (e) {
+    logger.error(`[PROMOSPORT-RESULT] simulateROI error: ${e.message}`);
+    return null;
+  }
+}
+
+module.exports = { storePrediction, checkAndFetchResults, computeAccuracy, getRecentHistory, getOverallStats, getConfusionMatrix, simulateROI };

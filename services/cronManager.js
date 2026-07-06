@@ -423,6 +423,24 @@ class CronManager {
           }
         }, { timezone: 'Africa/Tunis' })
 
+        // 25. Daily Promosport Tunisie results check (20:00 Africa/Tunis)
+        cron.schedule('0 20 * * *', async () => {
+          logger.info('[CRON] Checking new Promosport Tunisie results...')
+          try {
+            const promosportResultService = require('./promosportResultService')
+            const { getRecentHistory } = promosportResultService
+            const recent = getRecentHistory(3)
+            const latest = recent.length > 0 ? Math.max(...recent.map(Number)) : 877
+            for (let g = latest; g <= latest + 5; g++) {
+              const results = await promosportResultService.checkAndFetchResults(g)
+              if (results) logger.info(`[CRON] Grid ${g}: ${results.length} nouveaux résultats`)
+            }
+            logger.info('[CRON] Tunisie results check complete')
+          } catch (e) {
+            logger.error(`[CRON] Tunisie results check error: ${e.message}`)
+          }
+        }, { timezone: 'Africa/Tunis' })
+
         logger.info('âœ… [CRON] Scheduler active');
 
         // ðŸš€ [RESUME] Disabled to avoid conflict with standalone scraper process

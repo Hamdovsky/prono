@@ -1061,6 +1061,35 @@ router.get('/accuracy', async (req, res) => {
 });
 
 /**
+ * GET /api/promosport/accuracy/matrix
+ * Confusion matrix: predicted vs actual for all concours.
+ */
+router.get('/accuracy/matrix', async (req, res) => {
+  try {
+    const matrix = promosportResultService.getConfusionMatrix();
+    if (!matrix) return res.json({ success: false, error: 'Aucune donnée' });
+    res.json({ success: true, matrix });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/promosport/accuracy/roi
+ * ROI simulation: what if you bet 10DT on each pick.
+ */
+router.get('/accuracy/roi', async (req, res) => {
+  try {
+    const stake = parseFloat(req.query.stake) || 10;
+    const roi = promosportResultService.simulateROI(stake);
+    if (!roi) return res.json({ success: false, error: 'Aucune donnée' });
+    res.json({ success: true, roi });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
  * POST /api/promosport/check-results/:concours
  * Manually trigger result check + fetch for a concours.
  */

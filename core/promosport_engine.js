@@ -80,6 +80,8 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             if (!pred) pred = {};
 
             let p1 = pred.probabilities?.home ?? pred.home_win_probability ?? m.homeWinProbability ?? null;
+            let px = pred.probabilities?.draw ?? pred.draw_probability ?? m.drawProbability ?? null;
+            let p2 = pred.probabilities?.away ?? pred.away_win_probability ?? m.awayWinProbability ?? null;
           
             // Detect flat/stale probabilities (33/33/34 from scraper default)
             const isFlat = (

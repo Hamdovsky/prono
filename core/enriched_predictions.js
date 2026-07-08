@@ -894,10 +894,6 @@ class EnrichedPredictionService {
                 }
                 quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
                 if (v553HasRealProbs && v553Prediction !== 'X') quantResult.main_pick = v553Prediction
-                // 🛡️ Double chance conversion: draw > 45% → 1→1X / 2→X2
-                const v553DrawPct = (parseFloat(v553.draw_probability || v553.draw_prob || 0)) * 100;
-                if (v553DrawPct > 45 && quantResult.main_pick === '1') quantResult.main_pick = '1X';
-                if (v553DrawPct > 45 && quantResult.main_pick === '2') quantResult.main_pick = 'X2';
                 quantResult.expected_score = v553.expected_score || quantResult.expected_score
                 quantResult.confidence = v553.confidence
                 probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
@@ -921,6 +917,22 @@ class EnrichedPredictionService {
                 quantResult = QuantumQuantEngine.analyze(m, xgH, xgA)
                 probs = { h: quantResult.markets.match_result['1'].prob, d: quantResult.markets.match_result['X'].prob, a: quantResult.markets.match_result['2'].prob }
             }
+            // 🧠 [SKEWNESS RATE] Remplace DC automatique: garde straight pick si skewness > 0.55
+            const hPct = (probs.h || 0) * 100;
+            const dPct = (probs.d || 0) * 100;
+            const aPct = (probs.a || 0) * 100;
+            const maxTeamPct = Math.max(hPct, aPct);
+            const skewness = dPct === 0 ? 1 : maxTeamPct / (maxTeamPct + dPct);
+            if (skewness > 0.55) {
+                // Force straight pick: annule toute conversion DC précédente
+                if (quantResult.main_pick === '1X') quantResult.main_pick = hPct >= aPct ? '1' : 'X';
+                if (quantResult.main_pick === 'X2') quantResult.main_pick = aPct >= hPct ? '2' : 'X';
+            } else {
+                // Faible skewness: convertit en DC pour sécurité
+                if (quantResult.main_pick === '1') quantResult.main_pick = '1X';
+                if (quantResult.main_pick === '2') quantResult.main_pick = 'X2';
+            }
+
             // ── 2. DETECT INSUFFICIENT DATA ──
             const hasOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0;
             const hasXg = parseFloat(m.home_xg) > 0.3 && parseFloat(m.away_xg) > 0.3;
@@ -950,6 +962,15 @@ class EnrichedPredictionService {
                     const prec = Math.round(ovPct > 50 ? ovPct : (100 - ovPct));
                     return `${dir} 2.5 (${prec}% Precision)`;
                 })(),
+                draw_value_bet: (() => {
+                    const mp = quantResult.main_pick;
+                    if (mp !== 'X' && mp !== '1X' && mp !== 'X2' && mp !== '12') return false;
+                    const ev = parseFloat(quantResult.ev_score || 0);
+                    const drawOdds = parseFloat(m.odds_draw);
+                    if (ev < 0.40 || !drawOdds || drawOdds <= 3.20) return false;
+                    return true;
+                })(),
+                skewness: parseFloat(skewness.toFixed(3)),
                 ht_goal_prob: quantResult.probs.ht_goal,
                 xgboost_confidence: v553.success ? v553.confidence : 0,
                 

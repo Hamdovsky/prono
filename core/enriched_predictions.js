@@ -889,10 +889,11 @@ class EnrichedPredictionService {
                     xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0));
                     xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0));
                 } else {
-                    xgH = 1.0; xgA = 1.0
+                    const xg = this._getMatchXG(m)
+                    xgH = xg.h; xgA = xg.a
                 }
                 quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
-                if (v553HasRealProbs) quantResult.main_pick = v553Prediction
+                if (v553HasRealProbs && v553Prediction !== 'X') quantResult.main_pick = v553Prediction
                 quantResult.expected_score = v553.expected_score || quantResult.expected_score
                 quantResult.confidence = v553.confidence
                 probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }

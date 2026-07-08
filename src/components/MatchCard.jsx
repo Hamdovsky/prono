@@ -108,12 +108,11 @@ const MatchCard = ({ rawData }) => {
           const ouNum = parseFloat(match.ouProb) || 0;
           const dir = ouNum > 50 ? "OVER" : "UNDER";
           const prec = Math.round(ouNum > 50 ? ouNum : 100 - ouNum);
-          const ouDisplay = `${dir} 2.5 (${prec}% Precision)`;
           return (
             <div className="grid-cell">
-              <div className="cell-label">OVER / UNDER 2.5</div>
-              <div className="cell-value">{ouDisplay}</div>
-              <div className="cell-sub">PRECISION RATE</div>
+              <div className="cell-label">TOTAL 2.5</div>
+              <div className="cell-value">{dir} 2.5 ({prec}%)</div>
+              <div className="cell-sub">PRÉCISION</div>
             </div>
           );
         })()}

@@ -156,63 +156,8 @@
     font-weight: 600;
 }
 
-/* --- VIRTUAL ROW STYLES --- */
-.onyx-virtual-row {
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid var(--border-dark);
-    transition: background 0.2s;
-    cursor: pointer;
-    min-height: 65px; /* Reduced from 70px */
-    padding: 1px 0;
-}
-.onyx-virtual-row:hover {
-    background: #161b22 !important;
-}
-.onyx-virtual-cell {
-    padding: 4px 8px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-}
-
-.onyx-virtual-cell.centered {
-    align-items: center;
-    text-align: center;
-}
-.onyx-virtual-cell b {
-    font-family: 'JetBrains Mono', monospace;
-    color: #f8fafc;
-    font-weight: 700;
-    font-size: 13.5px; /* Reduced from 14.5px */
-    letter-spacing: 0.1px;
-}
-
-/* --- ONYX FUNCTIONAL COLORS --- */
-.onyx-win { color: var(--neon); font-weight: bold; }
-.onyx-lose { color: #ff4444; }
-.onyx-draw { color: #94a3b8; }
-
-.onyx-acc-high { 
-    color: #000; 
-    background: var(--neon); 
-    padding: 0 4px; 
-    border-radius: 2px; 
-    font-weight: 900; 
-}
-.onyx-acc-med { 
-    color: var(--neon); 
-    border: 1px solid var(--neon); 
-    padding: 0 3px; 
-}
-.onyx-acc-low {
-    color: #94a3b8;
-}
-
-.onyx-cs { color: var(--gold); font-weight: bold; }
-.onyx-impact { font-size: 13px; } /* Increased from 12px */
+/* --- ONYX IMPACT --- */
+.onyx-impact { font-size: 13px; }
 
 /* --- SPATIAL --- */
 .mb-2 { margin-bottom: 10px; }

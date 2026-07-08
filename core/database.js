@@ -667,7 +667,7 @@ const database = {
                 stats.corners?.home || m.corners_home || 0, stats.corners?.away || m.corners_away || 0,
                 m.source || 'flashscore', Date.now(),
                 m.home_win_probability || 0, m.draw_probability || 0, m.away_win_probability || 0,
-                m.expected_score || '1 - 1', m.chaos_score || 50, m.ou_25_prob || 0, m.btts_prob || 0,
+                m.expected_score || null, m.chaos_score || 50, m.ou_25_prob || 0, m.btts_prob || 0,
                 m.xgboost_confidence || 0, m.news_impact || 0,
                 m.odds_home || null, m.odds_draw || null, m.odds_away || null,
                 m.best_odds_home || null, m.best_odds_draw || null, m.best_odds_away || null,

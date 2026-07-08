@@ -17,7 +17,9 @@ const MatchCard = ({ rawData, style }) => {
     const pick = pickLine.replace('1X2:', '').trim();
     const dvbLine = lines.find(l => l.startsWith('DVB:')) || 'DVB:0';
     const dvb = dvbLine.replace('DVB:', '').trim() === '1';
-    return { league, home, away, edgeVal, ouPct, evVal, pick, dvb };
+    const bsmLine = lines.find(l => l.startsWith('BSM:')) || 'BSM:0';
+    const bsm = parseFloat(bsmLine.replace('BSM:', '').trim()) || 0;
+    return { league, home, away, edgeVal, ouPct, evVal, pick, dvb, bsm };
   };
 
   const d = parseRow(rawData);
@@ -40,7 +42,7 @@ const MatchCard = ({ rawData, style }) => {
 
   return (
     <div className="compact-row" style={style}>
-      <div className="compact-col-match">{label}{d.dvb && <span className="compact-dvb-badge">VALUE BET</span>}</div>
+      <div className="compact-col-match">{label}{d.dvb && <span className="compact-dvb-badge">VALUE BET</span>}{d.bsm >= 25 && <span className="compact-solid-badge">⚡SOLID</span>}</div>
       <div className={`compact-col-pick ${pickClass}`}>{d.pick} {d.edgeVal}%</div>
       <div className={`compact-col-ou compact-ou-${dir.toLowerCase()}`}>{dir} 2.5 ({prec}%)</div>
       <div className={`compact-col-ev ${evClass}`}>{d.evVal}</div>

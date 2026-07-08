@@ -917,18 +917,16 @@ class EnrichedPredictionService {
                 quantResult = QuantumQuantEngine.analyze(m, xgH, xgA)
                 probs = { h: quantResult.markets.match_result['1'].prob, d: quantResult.markets.match_result['X'].prob, a: quantResult.markets.match_result['2'].prob }
             }
-            // 🧠 [SKEWNESS RATE] Remplace DC automatique: garde straight pick si skewness > 0.55
+            // 🧠 [BASE SOLID INJECTOR] Home/Away domine les 2 autres par ≥25pp → pick direct
             const hPct = (probs.h || 0) * 100;
             const dPct = (probs.d || 0) * 100;
             const aPct = (probs.a || 0) * 100;
-            const maxTeamPct = Math.max(hPct, aPct);
-            const skewness = dPct === 0 ? 1 : maxTeamPct / (maxTeamPct + dPct);
-            if (skewness > 0.55) {
-                // Force straight pick: annule toute conversion DC précédente
-                if (quantResult.main_pick === '1X') quantResult.main_pick = hPct >= aPct ? '1' : 'X';
-                if (quantResult.main_pick === 'X2') quantResult.main_pick = aPct >= hPct ? '2' : 'X';
+            const hDominant = (hPct - dPct) >= 25 && (hPct - aPct) >= 25;
+            const aDominant = (aPct - dPct) >= 25 && (aPct - hPct) >= 25;
+            const baseSolidMargin = Math.max(hDominant ? hPct - Math.max(dPct, aPct) : 0, aDominant ? aPct - Math.max(dPct, hPct) : 0);
+            if (hDominant || aDominant) {
+                quantResult.main_pick = hDominant ? '1' : '2';
             } else {
-                // Faible skewness: convertit en DC pour sécurité
                 if (quantResult.main_pick === '1') quantResult.main_pick = '1X';
                 if (quantResult.main_pick === '2') quantResult.main_pick = 'X2';
             }
@@ -967,10 +965,10 @@ class EnrichedPredictionService {
                     if (mp !== 'X' && mp !== '1X' && mp !== 'X2' && mp !== '12') return false;
                     const ev = parseFloat(quantResult.ev_score || 0);
                     const drawOdds = parseFloat(m.odds_draw);
-                    if (ev < 0.40 || !drawOdds || drawOdds <= 3.20) return false;
+                    if (ev < 0.35 || !drawOdds || drawOdds <= 3.20) return false;
                     return true;
                 })(),
-                skewness: parseFloat(skewness.toFixed(3)),
+                base_solid_margin: parseFloat(baseSolidMargin.toFixed(1)),
                 ht_goal_prob: quantResult.probs.ht_goal,
                 xgboost_confidence: v553.success ? v553.confidence : 0,
                 

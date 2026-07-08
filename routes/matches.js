@@ -285,7 +285,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             const margin = probs[0] - probs[1];
             const isStable = rl === 'STABLE';
             const isEvDead = ev > 0 && Math.abs(ev - 0.32) < 0.001;
-            const isLowEv = ev > 0 && ev < 0.40;
+            const isLowEv = ev > 0 && ev < 0.35;
             const isFlat = margin < 5;
             if (isStable || isEvDead || isLowEv || isFlat) {
                 fallback_pool.push(m);

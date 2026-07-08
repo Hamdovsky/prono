@@ -283,11 +283,11 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             const aWP = parseFloat(m.away_win_probability || 0);
             const probs = [hWP, dWP, aWP].sort((a, b) => b - a);
             const margin = probs[0] - probs[1];
-            const isStable = rl === 'STABLE';
             const isEvDead = ev > 0 && Math.abs(ev - 0.32) < 0.001;
             const isLowEv = ev > 0 && ev < 0.20;
             const isFlat = margin < 5;
-            if (isStable || isEvDead || isLowEv || isFlat) {
+            const isStableLow = rl === 'STABLE' && (isLowEv || isFlat || Math.abs(ev) < 0.001);
+            if (isStableLow || isEvDead || isLowEv || isFlat) {
                 fallback_pool.push(m);
             } else {
                 elite.push(m);

@@ -183,7 +183,9 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         rawMatches.forEach(m => {
             const home = (m.homeTeam || '').toLowerCase().trim();
             const away = (m.awayTeam || '').toLowerCase().trim();
-            const pairKey = `${home}|${away}`;
+            // Sort pair alphabetically to catch reversed duplicates (ex: A vs B and B vs A)
+            const pair = [home, away].sort();
+            const pairKey = `${pair[0]}|${pair[1]}`;
             
             const mTs = m.startTimestamp > 1e11 ? m.startTimestamp : m.startTimestamp * 1000;
             
@@ -235,7 +237,6 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             const isFlat = hWP > 0 && (maxP - minP) < 5
             return (
                 !hWP || hWP === 0 || !m.expected_score ||
-                quantMain === 'X' && isFlat && dWP >= aWP && dWP >= hWP ||
                 quantMain === 'UNDER ANALYSIS' || quantMain === 'WAITING'
             )
         });
@@ -396,5 +397,47 @@ router.post('/invalidate-cache', (req, res) => {
 });
 
 
+
+// 🔬 [DIAGNOSTIC] Preview enrichment raw output for first N matches
+router.get('/debug-enrich', async (req, res) => {
+    try {
+        const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
+        const sample = matches.slice(0, 5);
+        const results = [];
+        for (const m of sample) {
+            const enriched = await enrichedPredictions.fastEnrichMatch(m);
+            const quant = enriched.quant || {};
+            results.push({
+                id: m.id,
+                home: m.homeTeam,
+                away: m.awayTeam,
+                league: m.league,
+                odds: { h: m.odds_home, d: m.odds_draw, a: m.odds_away },
+                home_xg: m.home_xg,
+                away_xg: m.away_xg,
+                enriched: {
+                    main_pick: quant.main_pick,
+                    confidence: quant.confidence,
+                    risk_label: quant.risk_label,
+                    expected_score: quant.expected_score,
+                    signal_strength: quant.signal_strength,
+                    market_strength: quant.market_strength,
+                    btts: quant.probs?.btts,
+                    over25: quant.probs?.over25,
+                    ev_score: quant.ev_score,
+                    massive_edge: quant.massive_edge,
+                },
+                enriched_home_win: enriched.home_win_probability,
+                enriched_draw: enriched.draw_probability,
+                enriched_away: enriched.away_win_probability,
+                ai_source: enriched.ai_source,
+                insufficient_data: enriched.insufficient_data,
+            });
+        }
+        res.json({ count: matches.length, sample: results });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 module.exports = router;

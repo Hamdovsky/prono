@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy, useRe
 import { useLocation } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import UltimateMatchCenter from "./UltimateMatchCenter/UltimateMatchCenter"
-import MatchRow from "./MatchRow"
+import MatchCard from "./MatchCard"
 import TicketDuJour from "./TicketDuJour"
 import MarketTerminal from "./MarketTerminal"
 import PerformanceAnalytics from "./PerformanceAnalytics.jsx"
@@ -21,12 +21,11 @@ const MatchRowMemo = React.memo(({ index, style, list, isElite, onClick, now: no
     const m = list[index];
     if (!m) return null;
     return (
-        <MatchRow
+        <MatchCard
             match={m}
             isElite={isElite}
             onClick={onClick}
             style={style}
-            now={nowProp}
         />
     );
 });
@@ -55,12 +54,11 @@ const UnifiedRowMemo = React.memo(({ index, style, unifiedList, onClick, now: no
         );
     }
     return (
-        <MatchRow 
+        <MatchCard 
             match={item} 
             style={style} 
             isElite={item._isElite} 
             onClick={onClick} 
-            now={nowProp}
         />
     );
 });

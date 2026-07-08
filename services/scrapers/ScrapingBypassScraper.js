@@ -5,7 +5,10 @@ const CACHE = new Map()
 const CACHE_TTL = 10 * 60 * 1000
 const BASE_DIR = path.resolve(__dirname, '..', '..')
 const PYTHON_SCRIPT = path.join(BASE_DIR, 'scripts', 'bypass_scraper.py')
-const VENV_PYTHON = path.join(BASE_DIR, '.venv', 'Scripts', 'python.exe')
+const isWin = process.platform === 'win32'
+const VENV_PYTHON = isWin
+  ? path.join(BASE_DIR, '.venv', 'Scripts', 'python.exe')
+  : path.join(BASE_DIR, '.venv', 'bin', 'python3')
 
 const BROWSER_FINGERPRINTS = [
   'chrome124',

@@ -24,13 +24,14 @@ async function triggerScrape() {
 }
 
 async function runLocalScraper() {
-  // 🛡️ Skip Puppeteer-based Workflow when DISABLE_SOFASCORE is set (Render)
-  // Full scan at 06h (morning), incremental for 12h/18h
+  // 🛡️ Skip Puppeteer-based Workflow on Render (node:22-slim has no Chromium)
+  // Detected via RENDER env var OR DISABLE_SOFASCORE flag
+  const onRender = !!process.env.RENDER || process.env.DISABLE_SOFASCORE === 'true'
   const hour = new Date().getHours()
   const fullScan = hour >= 4 && hour < 10
 
-  if (process.env.DISABLE_SOFASCORE === 'true') {
-    logger.info(`[SCRAPER BRIDGE] DISABLE_SOFASCORE=true — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`)
+  if (onRender) {
+    logger.info(`[SCRAPER BRIDGE] Render env detected — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`)
     try {
       const httpScraperService = require('./httpScraperService')
       const fallbackCount = await httpScraperService.processFallback({ fullScan })
@@ -61,7 +62,7 @@ async function runLocalScraper() {
     logger.info('[SCRAPER BRIDGE] Local scraper completed')
     return { success: true, result }
   } catch (err) {
-    logger.error(`[SCRAPER BRIDGE] Local scraper failed: ${err.message}`)
+    logger.error(`[SCRAPER BRIDGE] Local scraper failed: ${err.message} — falling back to HTTP scraper`)
     try {
       const httpScraperService = require('./httpScraperService')
       const fallbackCount = await httpScraperService.processFallback({ fullScan })

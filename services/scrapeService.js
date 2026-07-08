@@ -114,20 +114,25 @@ async function scrapeViaFirecrawl(targetUrl, schema) {
 // ── Tier 3: Python cloudscraper bridge ──────────────────────────
 // Calls the existing oddsFusionEngine.py directly
 async function scrapeViaPython(home, away, league) {
+  const pythonBin = process.platform === 'win32' ? 'python' : 'python3'
   return new Promise((resolve, reject) => {
+    const escapedBase = BASE_DIR.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    const escapedHome = home.replace(/'/g, "\\'")
+    const escapedAway = away.replace(/'/g, "\\'")
+    const escapedLeague = league.replace(/'/g, "\\'")
     const script = `
 import sys, json
-sys.path.insert(0, r'${BASE_DIR.replace(/\\/g, '\\\\')}\\\\services')
+sys.path.insert(0, r'${escapedBase}/services')
 sys.stdout.reconfigure(encoding='utf-8')
 from oddsFusionEngine import OddsFusionEngine
 engine = OddsFusionEngine()
 try:
-    o = engine.get_odds('''${home.replace(/'/g, "\\'")}''', '''${away.replace(/'/g, "\\'")}''', '''${league.replace(/'/g, "\\'")}''', prefer_real=True, use_soccerapi=False)
+    o = engine.get_odds('''${escapedHome}''', '''${escapedAway}''', '''${escapedLeague}''', prefer_real=True, use_soccerapi=False)
     print(json.dumps(o))
 except Exception as e:
     print(json.dumps({'error': str(e)}))
 `
-    const proc = spawn('python', ['-c', script], {
+    const proc = spawn(pythonBin, ['-c', script], {
       timeout: 60000,
       stdio: ['ignore', 'pipe', 'pipe'],
     })

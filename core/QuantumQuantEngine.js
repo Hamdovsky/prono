@@ -54,6 +54,8 @@ class QuantumQuantEngine {
         const weatherImpact = getWeatherImpact(m);
         const ranked = this._rankMarkets(markets, m, { profile, teamStyle, weatherImpact });
 
+        const mktStrength = ranked.market_strength || 'NORMAL';
+
         return {
             markets,
             main_pick: ranked.main.val,
@@ -66,6 +68,7 @@ class QuantumQuantEngine {
                 ? Math.round(ranked.main.prob * 50) // Forte pénalité si aucune donnée (odds+xG+forme absents)
                 : Math.round(ranked.main.prob * 100),
             bsd_boosted: ranked.bsd_boosted || false,
+            market_strength: mktStrength,
             momentum: {
                 home: MomentumEngine.getTrend(m.homeTeam),
                 away: MomentumEngine.getTrend(m.awayTeam)
@@ -205,12 +208,15 @@ class QuantumQuantEngine {
           }
         }
 
+        const marketStrength = signalStrength >= 80 ? 'HIGH' : signalStrength >= 50 ? 'NORMAL' : 'LOW';
+
         return {
             main: mainPick,
             secondary: bestValue,
             all: secondaryPicks,
             massive_edge: isMassive,
             signal_strength: signalStrength,
+            market_strength: marketStrength,
             bsd_boosted: bsd_boosted
         };
     }

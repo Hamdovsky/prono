@@ -40,6 +40,7 @@ class ApiFallbackManager {
       return null
     }
 
+    const TIMEOUT_MS = 15000
     const errors = []
     for (const source of available) {
       try {
@@ -49,7 +50,10 @@ class ApiFallbackManager {
           continue
         }
 
-        const result = await fn.apply(source, args)
+        const result = await Promise.race([
+          fn.apply(source, args),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), TIMEOUT_MS))
+        ])
         if (result && (Array.isArray(result) ? result.length > 0 : true)) {
           logger.info(`✅ [FALLBACK] ${source.name}.${fnName}() succeeded`)
           return { source: source.name, data: result }

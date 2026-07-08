@@ -877,7 +877,8 @@ class EnrichedPredictionService {
                     { label: '2', prob: v553.away_win_probability || v553.away_win_prob || 0 }
                 ]
                 const bestPy = pyProbs.sort((a, b) => b.prob - a.prob)[0]
-                const v553Prediction = bestPy && bestPy.prob > 0 ? bestPy.label : (v553.prediction || 'X')
+                const v553HasRealProbs = bestPy && bestPy.prob > 0
+                const v553Prediction = v553HasRealProbs ? bestPy.label : null
                 // Always use odds-implied xG for QuantumQuantEngine when odds exist
                 const hasOdds = m.odds_home && m.odds_draw && m.odds_away;
                 if (hasOdds) {
@@ -891,7 +892,7 @@ class EnrichedPredictionService {
                     xgH = 1.0; xgA = 1.0
                 }
                 quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
-                quantResult.main_pick = v553Prediction
+                if (v553HasRealProbs) quantResult.main_pick = v553Prediction
                 quantResult.expected_score = v553.expected_score || quantResult.expected_score
                 quantResult.confidence = v553.confidence
                 probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
@@ -919,9 +920,11 @@ class EnrichedPredictionService {
             const hasOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0;
             const hasXg = parseFloat(m.home_xg) > 0.3 && parseFloat(m.away_xg) > 0.3;
             const hasForm = parseFloat(m.home_form_pts) > 0 || parseFloat(m.away_form_pts) > 0;
-            const insufficient = (!hasOdds && !hasXg && !hasForm) ? 1 : 0;
+            const v553isDefault = v553.success && !parseFloat(v553.home_win_probability) && !parseFloat(v553.away_win_probability);
+            const insufficient = !hasOdds && (!hasXg || !hasForm || v553isDefault) ? 1 : 0;
 
             // ── 3. FINAL ASSEMBLY ──
+            if (insufficient && quantResult.risk_label === 'SAFE') quantResult.risk_label = 'STABLE';
             const resultData = {
                 ...m,
 

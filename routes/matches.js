@@ -237,7 +237,8 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             const isFlat = hWP > 0 && (maxP - minP) < 5
             return (
                 !hWP || hWP === 0 || !m.expected_score ||
-                quantMain === 'UNDER ANALYSIS' || quantMain === 'WAITING'
+                quantMain === 'UNDER ANALYSIS' || quantMain === 'WAITING' ||
+                (isFlat && quantMain === 'X')
             )
         });
         

@@ -695,8 +695,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (22%) */}
-            <div style={{width: "22%", minWidth: "160px"}} className="onyx-virtual-cell">
+            {/* COLUMN 2: PRONOSTICS (MAIN & SECONDARY) (26%) */}
+            <div style={{width: "26%", minWidth: "180px"}} className="onyx-virtual-cell">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '3px'}}>
 
                     {/* ─── BASE SOLIDE ─── */}
@@ -820,42 +820,16 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 )}
             </div>
 
-            {/* COLUMN 4: MARCHÉS (BTTS + O/U + DC) (14%) */}
-            <div style={{width: "14%", minWidth: "110px"}} className="onyx-virtual-cell centered">
-                <div style={{display: 'flex', flexDirection: 'row', gap: '6px', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
-                        <span style={{
-                            fontSize: '10px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px',
-                            background: bttsBadgeBg, color: bttsBadgeColor,
-                            border: `1px solid ${bttsBadgeBorder}`,
-                            textTransform: 'uppercase', letterSpacing: '0.2px', whiteSpace: 'nowrap'
-                        }}>
-                            {bttsLabel}
-                        </span>
-                        <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
-                            {bttsDisplayPct}%
-                        </span>
-                    </div>
-                    <div style={{width:'1px', height:'24px', background:'rgba(148,163,184,0.2)'}}></div>
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px'}}>
-                        <span style={{
-                            fontSize: '10px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px',
-                            background: tgBadgeBg, color: tgBadgeColor,
-                            border: `1px solid ${tgBadgeBorder}`, whiteSpace: 'nowrap'
-                        }}>
-                            {tg}
-                        </span>
-                        <span style={{fontSize: '10px', color: '#cbd5e1', fontFamily: "'JetBrains Mono', monospace", fontWeight: '700'}}>
-                            {ouLabel}: {ouDisplayPct}%
-                        </span>
-                    </div>
-                </div>
-                {dcOdds && (
-                    <div style={{display: 'flex', gap: '3px', marginTop: '2px', justifyContent: 'center'}}>
+            {/* COLUMN 4: DOUBLE CHANCE (6%) */}
+            <div style={{width: "6%", minWidth: "80px"}} className="onyx-virtual-cell centered">
+                {dcOdds ? (
+                    <div style={{display: 'flex', gap: '2px', justifyContent: 'center', flexWrap: 'wrap'}}>
                         <span style={{fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: 'rgba(168,85,247,0.15)', color: '#a855f7', fontWeight: '700'}}>1X {dcOdds['1X']}</span>
                         <span style={{fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: 'rgba(59,130,246,0.15)', color: '#3b82f6', fontWeight: '700'}}>12 {dcOdds['12']}</span>
                         <span style={{fontSize: '8px', padding: '1px 3px', borderRadius: '2px', background: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: '700'}}>X2 {dcOdds['X2']}</span>
                     </div>
+                ) : (
+                    <span style={{fontSize:'9px', color:'#475569'}}>—</span>
                 )}
             </div>
 
@@ -875,8 +849,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                 </div>
             </div>
 
-            {/* COLUMN 6: SIGNAL & EV + VALUE SCORE (14%) */}
-            <div style={{width: "14%", minWidth: "110px"}} className="onyx-virtual-cell centered">
+            {/* COLUMN 6: SIGNAL & EV + VALUE SCORE (18%) */}
+            <div style={{width: "18%", minWidth: "130px"}} className="onyx-virtual-cell centered">
                 <div style={{display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center'}}>
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',

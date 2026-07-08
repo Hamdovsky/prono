@@ -398,46 +398,4 @@ router.post('/invalidate-cache', (req, res) => {
 
 
 
-// 🔬 [DIAGNOSTIC] Preview enrichment raw output for first N matches
-router.get('/debug-enrich', async (req, res) => {
-    try {
-        const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
-        const sample = matches.slice(0, 5);
-        const results = [];
-        for (const m of sample) {
-            const enriched = await enrichedPredictions.fastEnrichMatch(m);
-            const quant = enriched.quant || {};
-            results.push({
-                id: m.id,
-                home: m.homeTeam,
-                away: m.awayTeam,
-                league: m.league,
-                odds: { h: m.odds_home, d: m.odds_draw, a: m.odds_away },
-                home_xg: m.home_xg,
-                away_xg: m.away_xg,
-                enriched: {
-                    main_pick: quant.main_pick,
-                    confidence: quant.confidence,
-                    risk_label: quant.risk_label,
-                    expected_score: quant.expected_score,
-                    signal_strength: quant.signal_strength,
-                    market_strength: quant.market_strength,
-                    btts: quant.probs?.btts,
-                    over25: quant.probs?.over25,
-                    ev_score: quant.ev_score,
-                    massive_edge: quant.massive_edge,
-                },
-                enriched_home_win: enriched.home_win_probability,
-                enriched_draw: enriched.draw_probability,
-                enriched_away: enriched.away_win_probability,
-                ai_source: enriched.ai_source,
-                insufficient_data: enriched.insufficient_data,
-            });
-        }
-        res.json({ count: matches.length, sample: results });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 module.exports = router;

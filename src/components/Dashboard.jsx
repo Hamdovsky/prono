@@ -529,24 +529,24 @@ const Dashboard = () => {
                             top: 0,
                             zIndex: 5
                         }}>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", display: 'flex', alignItems: 'center', gap: '4px'}}>
-                                <span>📅</span>
-                                <span>MATCH / FORME</span>
+                            <div style={{width:"14%", minWidth: "130px", padding:"0 8px"}}>MATCH / FORME</div>
+                            <div style={{width:"22%", minWidth: "160px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRONOSTIC')}>
+                                PRONOSTIC {activeSort === 'PRONOSTIC' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", cursor: 'pointer', display: 'flex', alignItems: 'center'}} onClick={() => handleSort('PRONOSTIC')}>
-                                <span>PRONOSTIC {activeSort === 'PRONOSTIC' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
+                                AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('AI_SCORE')}>
-                                <span>SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"14%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                                MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('MARCHES')}>
-                                <span>MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"12%", minWidth: "85px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
+                                PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('EV')}>
-                                <span>SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"14%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                                SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('STRENGTH')}>
-                                <span>FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"14%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                                FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
                         </div>
                     )}
@@ -983,23 +983,24 @@ const Dashboard = () => {
                             letterSpacing: '0.8px',
                             background: 'rgba(0,0,0,0.3)',
                         }}>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", display: 'flex', alignItems: 'center'}}>
-                                <span>MATCH / FORME</span>
+                            <div style={{width:"14%", minWidth: "130px", padding:"0 8px"}}>MATCH / FORME</div>
+                            <div style={{width:"22%", minWidth: "160px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRONOSTIC')}>
+                                PRONOSTIC {activeSort === 'PRONOSTIC' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", cursor: 'pointer', display: 'flex', alignItems: 'center'}} onClick={() => handleSort('PRONOSTIC')}>
-                                <span>PRONOSTIC {activeSort === 'PRONOSTIC' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
+                                AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('AI_SCORE')}>
-                                <span>AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"14%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
+                                MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('MARCHES')}>
-                                <span>MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"12%", minWidth: "85px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
+                                PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('EV')}>
-                                <span>SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"14%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
+                                SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
-                            <div style={{width:"16.66%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => handleSort('STRENGTH')}>
-                                <span>FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}</span>
+                            <div style={{width:"14%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
+                                FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
                             </div>
                         </div>
                     )}

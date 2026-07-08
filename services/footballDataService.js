@@ -7,31 +7,40 @@ const { createQuotaManager } = require('./sourceQuotaManager');
 class FootballDataService {
     constructor() {
         this.apiKey  = process.env.FOOTBALLDATA_KEY || '';
-        this.host    = process.env.FOOTBALLDATA_HOST || 'footballdata.io';
-        this.baseUrl = `https://${this.host}/api/v1`;
+        this.host    = process.env.FOOTBALLDATA_HOST || 'api.football-data.org';
+        this.baseUrl = this.host === 'api.football-data.org'
+            ? `https://${this.host}/v4`
+            : `https://${this.host}/api/v1`;
         this.quota = createQuotaManager('footballdata');
     }
 
     // ── INTERNAL FETCH ──────────────────────────────────────────────────────
 
-    async _fetch(endpoint) {
+    async _fetch(endpoint, dateStr) {
         if (!this.apiKey) {
             logger.warn('[FOOTBALLDATA] FOOTBALLDATA_KEY is missing.');
             return [];
         }
 
         try {
-            logger.info(`📡 [FOOTBALLDATA] GET ${endpoint}`);
-            const { data } = await axios.get(`${this.baseUrl}${endpoint}`, {
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Accept': 'application/json'
-                },
+            let url = `${this.baseUrl}${endpoint}`;
+            const headers = { 'Accept': 'application/json' };
+            if (this.host === 'api.football-data.org') {
+                headers['X-Auth-Token'] = this.apiKey;
+                if (dateStr) {
+                    url = `${this.baseUrl}/matches?dateFrom=${dateStr}&dateTo=${dateStr}`;
+                }
+            } else {
+                headers['Authorization'] = `Bearer ${this.apiKey}`;
+            }
+            logger.info(`📡 [FOOTBALLDATA] GET ${url}`);
+            const { data } = await axios.get(url, {
+                headers,
                 timeout: 15000
             });
             // Handle both { fixtures: [] } and { data: { fixtures: [] } }
             const root = data?.data || data;
-            return root?.fixtures || root?.matches || [];
+            return root?.matches || root?.fixtures || [];
         } catch (e) {
             logger.error(`❌ [FOOTBALLDATA] Request failed (${endpoint}): ${e.message}`);
             return [];
@@ -56,7 +65,8 @@ class FootballDataService {
             logger.warn('⚠️ [FOOTBALLDATA] Service is disabled in .env');
             return [];
         }
-        const fixtures = await this._fetch('/fixtures/today');
+        const today = new Date().toISOString().split('T')[0];
+        const fixtures = await this._fetch('/fixtures/today', today);
         logger.info(`✅ [FOOTBALLDATA] Today: ${fixtures.length} fixtures`);
         return fixtures;
     }
@@ -69,7 +79,9 @@ class FootballDataService {
             logger.warn('⚠️ [FOOTBALLDATA] Service is disabled in .env');
             return [];
         }
-        const fixtures = await this._fetch('/fixtures/upcoming');
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const fixtures = await this._fetch('/fixtures/upcoming', tomorrow.toISOString().split('T')[0]);
         logger.info(`✅ [FOOTBALLDATA] Upcoming: ${fixtures.length} fixtures`);
         return fixtures;
     }
@@ -79,16 +91,28 @@ class FootballDataService {
      */
     async fetchFixturesByDate(dateStr) {
         if (process.env.FOOTBALLDATA_ENABLED !== 'true') return [];
-        const fixtures = await this._fetch(`/matches/date/${dateStr}`);
+        const fixtures = await this._fetch(`/matches/date/${dateStr}`, dateStr);
         logger.info(`✅ [FOOTBALLDATA] ${dateStr}: ${fixtures.length} fixtures`);
         return fixtures;
     }
 
     // ── MAP FD fixture → DB schema ──────────────────────────────────────────
 
+    _parseTeam(t) {
+        if (!t) return '';
+        if (typeof t === 'string') return t;
+        return t.name || t.team_name || '';
+    }
+
+    _parseLeague(l) {
+        if (!l) return null;
+        if (typeof l === 'string') return l;
+        return l.name || l.competition_name || null;
+    }
+
     _mapFixture(f) {
         const matchId = f.match_id || f.id || `fd_${Date.now()}_${Math.random()}`;
-        const ts = f.date_unix || f.timestamp || Math.floor(Date.now() / 1000);
+        const ts = f.date_unix || f.timestamp || (f.utcDate ? Math.floor(new Date(f.utcDate).getTime() / 1000) : Math.floor(Date.now() / 1000));
         let timestamp = new Date().toISOString();
         try {
             const d = new Date(ts * 1000);
@@ -97,20 +121,23 @@ class FootballDataService {
 
         const rawStatus = (f.status || '').toLowerCase();
         let status = 'scheduled';
-        if (rawStatus === 'complete' || rawStatus === 'ft') status = 'finished';
-        else if (rawStatus === 'live' || rawStatus === 'inprogress') status = 'inprogress';
+        if (rawStatus === 'complete' || rawStatus === 'ft' || rawStatus === 'finished') status = 'finished';
+        else if (rawStatus === 'live' || rawStatus === 'inprogress' || rawStatus === 'in_play') status = 'inprogress';
+
+        const competition = f.competition || f.league || {};
+        const leagueName = this._parseLeague(competition) || 'Unknown';
 
         return {
             id: `fd_${matchId}`,
-            homeTeam: f.home_team?.team_name || f.home_team?.name || 'Home',
-            awayTeam: f.away_team?.team_name || f.away_team?.name || 'Away',
-            league: f.league?.competition_name || f.league?.name || 'Unknown',
-            category_name: f.league?.country || '',
-            tournament_name: f.league?.competition_name || f.league?.name || '',
-            tournament_id: f.league?.competition_id || null,
-            season_id: f.season_id || null,
-            home_team_id: f.home_team?.team_id || null,
-            away_team_id: f.away_team?.team_id || null,
+            homeTeam: this._parseTeam(f.homeTeam || f.home_team) || 'Home',
+            awayTeam: this._parseTeam(f.awayTeam || f.away_team) || 'Away',
+            league: leagueName,
+            category_name: competition.area?.name || competition.country || '',
+            tournament_name: leagueName,
+            tournament_id: competition.id || competition.competition_id || null,
+            season_id: f.season?.id || f.season_id || null,
+            home_team_id: (f.homeTeam || f.home_team)?.id || null,
+            away_team_id: (f.awayTeam || f.away_team)?.id || null,
             startTimestamp: ts,
             timestamp,
             status,
@@ -126,9 +153,9 @@ class FootballDataService {
             insufficient_data: 0,
             source: 'footballdata',
             fullData: JSON.stringify({
-                homeTeam: f.home_team?.team_name,
-                awayTeam: f.away_team?.team_name,
-                league: f.league?.competition_name,
+                homeTeam: this._parseTeam(f.homeTeam || f.home_team),
+                awayTeam: this._parseTeam(f.awayTeam || f.away_team),
+                league: leagueName,
                 startTimestamp: ts,
                 status
             })

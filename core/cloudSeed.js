@@ -142,14 +142,27 @@ function mapRapidEventToMatch(event) {
 }
 
 const FD_KEY  = process.env.FOOTBALLDATA_KEY || ''
-const FD_HOST = process.env.FOOTBALLDATA_HOST || 'footballdata.io'
-const FD_BASE = `https://${FD_HOST}/api/v1`
+const FD_HOST = process.env.FOOTBALLDATA_HOST || 'api.football-data.org'
+const FD_IS_FDORG = FD_HOST === 'api.football-data.org'
+const FD_BASE = FD_IS_FDORG
+  ? `https://${FD_HOST}/v4`
+  : `https://${FD_HOST}/api/v1`
 
-async function fetchFDFixtures(endpoint) {
+async function fetchFDFixtures(endpoint, dateStr) {
   if (!FD_KEY || process.env.FOOTBALLDATA_ENABLED !== 'true') return []
   try {
-    const { data } = await axios.get(`${FD_BASE}${endpoint}`, {
-      headers: { 'Authorization': `Bearer ${FD_KEY}`, 'Accept': 'application/json' },
+    const headers = { 'Accept': 'application/json' };
+    if (FD_IS_FDORG) {
+      headers['X-Auth-Token'] = FD_KEY;
+    } else {
+      headers['Authorization'] = `Bearer ${FD_KEY}`;
+    }
+    let url = `${FD_BASE}${endpoint}`
+    if (FD_IS_FDORG && dateStr) {
+      url = `${FD_BASE}/matches?dateFrom=${dateStr}&dateTo=${dateStr}`
+    }
+    const { data } = await axios.get(url, {
+      headers,
       timeout: 20000
     })
     const root = data?.data || data
@@ -159,23 +172,39 @@ async function fetchFDFixtures(endpoint) {
   }
 }
 
+function parseTeam(team) {
+  if (!team) return 'Home'
+  if (typeof team === 'string') return team
+  return team.name || team.team_name || team.slug || 'Home'
+}
+
+function parseLeague(league) {
+  if (!league) return null
+  if (typeof league === 'string') return league
+  return league.name || league.competition_name || null
+}
+
 function mapFDFixtureToMatch(f) {
   const matchId = f.match_id || f.id || `fd_${Date.now()}_${Math.random()}`
-  const ts = f.date_unix || f.timestamp || Math.floor(Date.now() / 1000)
+  const ts = f.date_unix || f.timestamp || (f.utcDate ? Math.floor(new Date(f.utcDate).getTime() / 1000) : Math.floor(Date.now() / 1000))
   const rawStatus = (f.status || '').toLowerCase()
   let status = 'scheduled'
-  if (rawStatus === 'complete' || rawStatus === 'ft') status = 'finished'
-  else if (rawStatus === 'live' || rawStatus === 'inprogress') status = 'inprogress'
+  if (rawStatus === 'complete' || rawStatus === 'ft' || rawStatus === 'finished') status = 'finished'
+  else if (rawStatus === 'live' || rawStatus === 'inprogress' || rawStatus === 'in_play') status = 'inprogress'
+
+  const competition = f.competition || f.league || {}
+  const leagueName = parseLeague(competition) || 'Unknown'
+
   return {
     id: `fd_${matchId}`,
-    homeTeam: f.home_team?.team_name || f.home_team?.name || f.homeTeam || 'Home',
-    awayTeam: f.away_team?.team_name || f.away_team?.name || f.awayTeam || 'Away',
-    league: f.league?.competition_name || f.league?.name || f.competition || 'Unknown',
-    category_name: f.league?.country || '',
-    tournament_name: f.league?.competition_name || f.league?.name || f.competition || 'Unknown',
-    tournament_id: f.league?.competition_id || null,
-    home_team_id: f.home_team?.team_id || null,
-    away_team_id: f.away_team?.team_id || null,
+    homeTeam: parseTeam(f.homeTeam || f.home_team),
+    awayTeam: parseTeam(f.awayTeam || f.away_team),
+    league: leagueName,
+    category_name: competition.area?.name || competition.country || '',
+    tournament_name: leagueName,
+    tournament_id: competition.id || competition.competition_id || null,
+    home_team_id: (f.homeTeam || f.home_team)?.id || null,
+    away_team_id: (f.awayTeam || f.away_team)?.id || null,
     startTimestamp: ts,
     timestamp: new Date(ts * 1000).toISOString(),
     status,
@@ -188,7 +217,7 @@ function mapFDFixtureToMatch(f) {
     last_updated: Date.now(),
     insufficient_data: 1,
     source: 'footballdata',
-    fullData: JSON.stringify({ home: f.home_team?.name || f.homeTeam || 'Home', away: f.away_team?.name || f.awayTeam || 'Away', league: f.league?.name || 'Unknown', startTimestamp: ts, status })
+    fullData: JSON.stringify({ home: parseTeam(f.homeTeam || f.home_team), away: parseTeam(f.awayTeam || f.away_team), league: leagueName, startTimestamp: ts, status })
   }
 }
 
@@ -390,9 +419,9 @@ async function runCloudSeed() {
 
   let fdQuotaStatus = fdQuotaManager.getQuotaStatus()
   if (existingToday < 20 && fdQuotaStatus.isActive && fdQuotaStatus.remaining > 0) {
-    const fixtures = await fetchFDFixtures('/fixtures/upcoming')
-    const filtered = fixtures.filter(f => {
-      const d = (f.match_date || f.date || '').substring(0, 10)
+    const fixtures = await fetchFDFixtures('/fixtures/upcoming', today)
+    const filtered = (fixtures || []).filter(f => {
+      const d = (f.match_date || f.date || f.utcDate || '').substring(0, 10)
       return d === today || d === getDateStr(1)
     })
     for (const f of filtered) {

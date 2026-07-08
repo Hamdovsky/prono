@@ -395,4 +395,44 @@ router.post('/invalidate-cache', (req, res) => {
     res.json({ invalidated: prefixes })
 });
 
+// 🐛 [DEBUG] Temporary endpoint to diagnose upcoming issues
+router.get('/debug-upcoming', async (req, res) => {
+    try {
+        const allMatches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
+        const startOfToday = new Date().setHours(0, 0, 0, 0);
+        const filtered = allMatches.filter(m => {
+            let rawTs = m.startTimestamp;
+            if (!rawTs || rawTs === 0) {
+                try {
+                    const data = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData;
+                    if (data && data.startTimestamp) rawTs = data.startTimestamp;
+                } catch(e) {}
+            }
+            if (!rawTs || rawTs === 0) return false;
+            let tsMs;
+            if (typeof rawTs === 'string' && rawTs.includes('T')) {
+                tsMs = new Date(rawTs).getTime();
+            } else {
+                tsMs = parseInt(rawTs) > 1e11 ? parseInt(rawTs) : parseInt(rawTs) * 1000;
+            }
+            if (isNaN(tsMs)) return false;
+            return tsMs >= startOfToday;
+        });
+        const sample = allMatches.slice(0, 3).map(m => ({
+            id: m.id, homeTeam: m.homeTeam, awayTeam: m.awayTeam, status: m.status,
+            startTimestamp: m.startTimestamp, tsType: typeof m.startTimestamp,
+            fullData_has_ts: (() => { try { const d = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData; return !!d?.startTimestamp } catch(e) { return 'parse_error' } })()
+        }));
+        res.json({
+            totalFromDb: allMatches.length,
+            filteredCount: filtered.length,
+            startOfToday,
+            startOfTodayDate: new Date(startOfToday).toISOString(),
+            sample: sample
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message, stack: err.stack?.slice(0, 500) });
+    }
+});
+
 module.exports = router;

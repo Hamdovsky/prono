@@ -418,17 +418,52 @@ router.get('/debug-upcoming', async (req, res) => {
             if (isNaN(tsMs)) return false;
             return tsMs >= startOfToday;
         });
-        const sample = allMatches.slice(0, 3).map(m => ({
-            id: m.id, homeTeam: m.homeTeam, awayTeam: m.awayTeam, status: m.status,
-            startTimestamp: m.startTimestamp, tsType: typeof m.startTimestamp,
-            fullData_has_ts: (() => { try { const d = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData; return !!d?.startTimestamp } catch(e) { return 'parse_error' } })()
-        }));
+
+        // Step-by-step trace of the upcoming pipeline
+        let step = filtered;
+
+        // Step 1: Dedup
+        const teamPairMap = new Map();
+        step.forEach(m => {
+            const home = (m.homeTeam || '').toLowerCase().trim();
+            const away = (m.awayTeam || '').toLowerCase().trim();
+            const pairKey = `${home}|${away}`;
+            const mTs = m.startTimestamp > 1e11 ? m.startTimestamp : m.startTimestamp * 1000;
+            if (!teamPairMap.has(pairKey) || mTs < teamPairMap.get(pairKey)._ts) {
+                m._ts = mTs;
+                teamPairMap.set(pairKey, m);
+            }
+        });
+        const afterDedup = Array.from(teamPairMap.values());
+
+        // Step 2: Quality gate
+        const RESERVE_RE = /\b(II|III|IV|B|C|U\d{2}|U-\d{2}|Reserves?|Youth|Academy|Reserve|Filial|Amateurs?|Dev(elopment)?|Juniors?)\b/i;
+        const isReserve = (name) => name && RESERVE_RE.test(name);
+        const afterQuality = afterDedup.filter(m => {
+            const home = m.homeTeam || '';
+            const away = m.awayTeam || '';
+            if (isReserve(home) || isReserve(away)) return false;
+            if (/\s(II|III|2|3)$/i.test(home) || /\s(II|III|2|3)$/i.test(away)) return false;
+            const oddsH = parseFloat(m.odds_home || 0);
+            const oddsA = parseFloat(m.odds_away || 0);
+            if ((oddsH > 0 && oddsH < 1.10) || (oddsA > 0 && oddsA < 1.10)) return false;
+            return true;
+        });
+
+        // Step 3: Sanitizer
+        const { sanitized: afterSanitizer, stats: sanitStats } = sanitizeMatches(afterQuality, { logRejections: false });
+
         res.json({
-            totalFromDb: allMatches.length,
-            filteredCount: filtered.length,
+            step0_db: allMatches.length,
+            step1_ts_filter: filtered.length,
+            step2_dedup: afterDedup.length,
+            step3_quality_gate: afterQuality.length,
+            step4_sanitizer: { kept: sanitStats.kept, rejected: sanitStats.rejected, reasons: sanitStats.reasons },
             startOfToday,
-            startOfTodayDate: new Date(startOfToday).toISOString(),
-            sample: sample
+            sample: allMatches.slice(0, 2).map(m => ({
+                id: m.id, odds_home: m.odds_home, odds_away: m.odds_away,
+                confidence: m.confidence, expected_score: m.expected_score
+            }))
         });
     } catch (err) {
         res.status(500).json({ error: err.message, stack: err.stack?.slice(0, 500) });

@@ -62,6 +62,7 @@ const toRawLines = (m) => {
         `${htPct}%`,
         `EV ${evScore}`,
         riskLabel,
+        `1X2: ${mainPick}`,
     ];
     if (edge <= 0) lines.push(`⚠️ ${edgePct}%`);
     if (m.status === 'live' || m.isLive) lines.push('LIVE');
@@ -1019,45 +1020,30 @@ const Dashboard = () => {
                     border: '1px solid #1e293b',
                     overflowX: 'auto'
                 }}>
-                    {/* TABLE HEADER */}
+                    {/* TABLE HEADER — compact 4 columns */}
                     {!isMobile && (
                         <div style={{
                             display: 'flex',
                             borderBottom: '2px solid #1e293b',
-                            padding: '8px 0',
-                            fontSize: '11px',
-                            color: '#64748b',
+                            padding: '6px 8px',
+                            fontSize: '9px',
+                            color: '#484f58',
                             textTransform: 'uppercase',
-                            fontWeight: '800',
-                            letterSpacing: '0.8px',
-                            background: 'rgba(0,0,0,0.3)',
+                            fontWeight: '700',
+                            letterSpacing: '0.6px',
+                            background: '#0d1117',
                         }}>
-                            <div style={{width:"14%", minWidth: "130px", padding:"0 8px"}}>MATCH / FORME</div>
-                            <div style={{width:"22%", minWidth: "160px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRONOSTIC')}>
-                                PRONOSTIC {activeSort === 'PRONOSTIC' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                            </div>
-                            <div style={{width:"10%", minWidth: "80px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('AI_SCORE')}>
-                                AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                            </div>
-                            <div style={{width:"14%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('MARCHES')}>
-                                MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                            </div>
-                            <div style={{width:"12%", minWidth: "85px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('PRECISION')}>
-                                PRÉCISION / RISK {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                            </div>
-                            <div style={{width:"14%", minWidth: "110px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('EV')}>
-                                SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                            </div>
-                            <div style={{width:"14%", minWidth: "90px", padding:"0 8px", textAlign: 'center', cursor: 'pointer'}} onClick={() => handleSort('STRENGTH')}>
-                                FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-                            </div>
+                            <div style={{flex: '0 0 56%', padding: '0 6px'}}>MATCH</div>
+                            <div style={{flex: '0 0 14%', padding: '0 6px', textAlign: 'center'}}>1X2</div>
+                            <div style={{flex: '0 0 18%', padding: '0 6px', textAlign: 'center'}}>OU 2.5</div>
+                            <div style={{flex: '0 0 12%', padding: '0 6px', textAlign: 'right'}}>EV</div>
                         </div>
                     )}
 
                     <List
                         height={isMobile ? Math.max(420, viewportHeight - 260) : Math.max(520, viewportHeight - 320)}
                         rowCount={unifiedList.length}
-                        rowHeight={isMobile ? 110 : 65}
+                        rowHeight={isMobile ? 36 : 24}
                         width="100%"
                         className="onyx-custom-scrollbar"
                         rowComponent={UnifiedRowMemo}

@@ -1,148 +1,74 @@
-.titanium-clean-card {
-  background: #0d1117;
-  border: 1px solid #21262d;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 14px;
+.compact-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  margin: 0;
+  background: transparent;
+  border-bottom: 1px solid #161b22;
   color: #c9d1d9;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
-.card-top-bar {
-  display: flex;
-  justify-content: space-between;
   font-size: 11px;
-  color: #8b949e;
-  border-bottom: 1px solid #21262d;
-  padding-bottom: 8px;
-  margin-bottom: 12px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  line-height: 1.2;
+  min-height: 22px;
 }
-
-.status-indicator {
-  color: #f87171;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.pulse-dot {
-  width: 6px;
-  height: 6px;
-  background-color: #f87171;
-  border-radius: 50%;
-  display: inline-block;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% { opacity: 0.4; }
-  50% { opacity: 1; }
-  100% { opacity: 0.4; }
-}
-
-.versus-display {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.team-name {
-  font-size: 14px;
-  font-weight: bold;
-  color: #f0f6fc;
-  width: 44%;
-  letter-spacing: 0.5px;
-}
-
-.vs-badge {
+.compact-row:hover {
   background: #161b22;
-  border: 1px solid #30363d;
-  padding: 3px 10px;
-  border-radius: 4px;
+}
+.compact-col-match {
+  flex: 0 0 56%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #e6edf3;
   font-size: 10px;
-  color: #00ffaa;
-  font-weight: 800;
+  padding-right: 6px;
 }
-
-/* 💠 شبكة الماركتس المعزولة تماماً */
-.independent-grids {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-@media (max-width: 650px) {
-  .independent-grids {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.grid-cell {
-  background: #161b22;
-  border: 1px solid #21262d;
-  border-radius: 6px;
-  padding: 10px;
+.compact-col-pick {
+  flex: 0 0 14%;
   text-align: center;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
 }
-
-.cell-label {
+.compact-col-ou {
+  flex: 0 0 18%;
+  text-align: center;
   font-size: 9px;
   color: #8b949e;
-  font-weight: 600;
-  margin-bottom: 4px;
-  letter-spacing: 0.3px;
 }
-
-.cell-value {
-  font-size: 15px;
-  font-weight: 800;
+.compact-col-ev {
+  flex: 0 0 12%;
+  text-align: right;
+  font-weight: 600;
+  font-size: 10px;
   color: #f0f6fc;
 }
-
-.cell-value-small {
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.cell-sub {
-  font-size: 9px;
-  color: #484f58;
-  margin-top: 3px;
-}
-
-/* استايلات الألوان الذكية للنظام بدون طباعة الأكواد */
-.main-market {
-  background: #0c2d6b;
-  border-color: #1f6feb;
-}
-.main-market .cell-value {
-  color: #58a6ff;
-}
-
-.color-green {
+.compact-pick-1 {
   color: #10b981;
 }
-
-/* إدارة كلاسات ألوان المخاطرة المدمجة */
-.risk-speculative {
-  border-color: #f0883e;
-  background: rgba(240, 136, 62, 0.05);
+.compact-pick-X {
+  color: #fbbf24;
 }
-.risk-speculative .cell-value-small { color: #f0883e; }
-
-.risk-balance {
-  border-color: #58a6ff;
-  background: rgba(88, 166, 255, 0.05);
+.compact-pick-2 {
+  color: #f87171;
 }
-.risk-balance .cell-value-small { color: #58a6ff; }
-
-.risk-moderate {
-  border-color: #fbbf24;
-  background: rgba(251, 191, 36, 0.05);
+.compact-pick-1X, .compact-pick-X2, .compact-pick-12 {
+  color: #58a6ff;
 }
-.risk-moderate .cell-value-small { color: #fbbf24; }
+.compact-ev-high {
+  color: #10b981;
+}
+.compact-ev-med {
+  color: #fbbf24;
+}
+.compact-ev-low {
+  color: #f87171;
+}
+.compact-ou {
+  font-weight: 600;
+}
+.compact-ou-under {
+  color: #f87171;
+}
+.compact-ou-over {
+  color: #10b981;
+}

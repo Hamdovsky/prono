@@ -601,10 +601,13 @@ const database = {
             m.best_odds_draw = Math.max(m.odds_draw || 0, m.best_odds_draw || 0) || m.odds_draw || null
             m.best_odds_away = Math.max(m.odds_away || 0, m.best_odds_away || 0) || m.odds_away || null
 
+            const timestampMs = m.timestamp ? new Date(m.timestamp).getTime() : null;
+            const startTs = m.startTimestamp != null ? m.startTimestamp : (timestampMs ? Math.floor(timestampMs / 1000) : null);
+
             const sql = `
                 INSERT INTO matches (
                     id, bsd_match_id, homeTeam, awayTeam, league, scoreHome, scoreAway, 
-                    minute, status, prediction, confidence, fullData, timestamp,
+                    minute, status, prediction, confidence, fullData, timestamp, startTimestamp,
                     possession_home, possession_away, dangerous_attacks_home, dangerous_attacks_away,
                     shots_on_target_home, shots_on_target_away, corners_home, corners_away,
                     source, last_updated, home_win_probability, draw_probability, away_win_probability,
@@ -616,7 +619,7 @@ const database = {
                     clv_value, kelly_stake,
                     weather_temp, weather_desc, weather_humidity, home_form_pts, away_form_pts, insufficient_data
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
@@ -657,7 +660,7 @@ const database = {
             const params = [
                 m.id, m.bsd_match_id || null, m.homeTeam, m.awayTeam, m.league, m.score?.home ?? 0, m.score?.away ?? 0,
                 m.minute || '0', m.status || (m.isLive ? 'live' : 'scheduled'), m.prediction, m.confidence,
-                fullData, timestamp,
+                fullData, timestamp, startTs,
                 stats.possession?.home || m.possession_home || 0, stats.possession?.away || m.possession_away || 0,
                 stats.dangerousAttacks?.home || m.dangerous_attacks_home || 0, stats.dangerousAttacks?.away || m.dangerous_attacks_away || 0,
                 stats.totalShots?.home || m.shots_on_target_home || 0, stats.totalShots?.away || m.shots_on_target_away || 0,

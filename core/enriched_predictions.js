@@ -965,7 +965,7 @@ class EnrichedPredictionService {
                     if (mp !== 'X' && mp !== '1X' && mp !== 'X2' && mp !== '12') return false;
                     const ev = parseFloat(quantResult.ev_score || 0);
                     const drawOdds = parseFloat(m.odds_draw);
-                    if (ev < 0.35 || !drawOdds || drawOdds <= 3.20) return false;
+                    if (ev < 0.20 || !drawOdds || drawOdds <= 3.20) return false;
                     return true;
                 })(),
                 base_solid_margin: parseFloat(baseSolidMargin.toFixed(1)),

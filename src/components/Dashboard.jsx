@@ -17,12 +17,63 @@ import "./Dashboard.css"
 // Lazy-loaded route components
 const Promosport = lazy(() => import("./Promosport"))
 
+const toRawLines = (m) => {
+    if (!m) return [];
+    const enriched = m.enriched || {};
+    const quant = m.quant || enriched?.quant || {};
+    const hPct = parseFloat(m.home_win_probability || enriched.home_win_probability || 0);
+    const aPct = parseFloat(m.away_win_probability || enriched.away_win_probability || 0);
+    const dPct = parseFloat(m.draw_probability || enriched.draw_probability || 0);
+    const normalizePct = (v) => { const n = Number(v||0); if(!Number.isFinite(n)||n<=0) return 0; return n>1 ? Math.round(n) : Math.round(n*100); };
+    const bttsPct = normalizePct(quant.probs?.btts || m.btts_prob || enriched?.btts_prob || 0);
+    const over25Pct = normalizePct(quant.probs?.over25 || m.ou_25_prob || enriched?.ou_25_prob || 0);
+    const htPct = Math.min(89, Math.round((over25Pct + bttsPct) / 2 + 5));
+    const evScore = quant.ev_score || '0.00';
+    const riskLabel = quant.risk_label || m.risk_label || 'Balance';
+
+    const mainPick = (quant.main_pick || '').toString().trim().toUpperCase();
+    const displayOddsH = m.display_odds_home || m.best_odds_home || m.odds_home;
+    const displayOddsA = m.display_odds_away || m.best_odds_away || m.odds_away;
+    const mainPickProb = (() => {
+        if (mainPick === '1' || mainPick === 'HOME') return hPct / 100;
+        if (mainPick === '2' || mainPick === 'AWAY') return aPct / 100;
+        if (mainPick === 'X' || mainPick === 'DRAW') return dPct / 100;
+        if (mainPick === '12') return (hPct + aPct) / 100;
+        if (mainPick === '1X') return (hPct + dPct) / 100;
+        if (mainPick === 'X2') return (aPct + dPct) / 100;
+        return 0.5;
+    })();
+    const mainOdds = (() => {
+        if (mainPick === '1' || mainPick === 'HOME') return displayOddsH;
+        if (mainPick === '2' || mainPick === 'AWAY') return displayOddsA;
+        if (mainPick === 'X' || mainPick === 'DRAW') return m.odds_draw;
+        return null;
+    })();
+    const edge = mainOdds ? (mainPickProb - (1 / mainOdds)) : 0;
+    const edgePct = (edge * 100).toFixed(1);
+
+    const lines = [
+        m.league || m.tournament_name || 'Ligue',
+        m.homeTeam || 'Home',
+        m.awayTeam || 'Away',
+        `🎯 ${edgePct}%`,
+        `${bttsPct}%`,
+        `${over25Pct}%`,
+        `${htPct}%`,
+        `EV ${evScore}`,
+        riskLabel,
+    ];
+    if (edge <= 0) lines.push(`⚠️ ${edgePct}%`);
+    if (m.status === 'live' || m.isLive) lines.push('LIVE');
+    return lines;
+};
+
 const MatchRowMemo = React.memo(({ index, style, list, isElite, onClick, now: nowProp }) => {
     const m = list[index];
     if (!m) return null;
     return (
         <MatchCard
-            match={m}
+            rawData={toRawLines(m)}
             isElite={isElite}
             onClick={onClick}
             style={style}
@@ -55,7 +106,7 @@ const UnifiedRowMemo = React.memo(({ index, style, unifiedList, onClick, now: no
     }
     return (
         <MatchCard 
-            match={item} 
+            rawData={toRawLines(item)} 
             style={style} 
             isElite={item._isElite} 
             onClick={onClick} 

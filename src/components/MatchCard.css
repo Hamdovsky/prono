@@ -1,175 +1,148 @@
 .titanium-clean-card {
-    background: #080c14;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    transition: all 0.2s ease;
-    cursor: pointer;
-}
-.titanium-clean-card.elite {
-    background: linear-gradient(135deg, rgba(0, 255, 170, 0.06), #030712);
-    border-color: rgba(0, 255, 170, 0.2);
-}
-.titanium-clean-card:hover {
-    background: #0f172a !important;
-    border-color: rgba(0, 255, 170, 0.15);
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 14px;
+  color: #c9d1d9;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
-/* TOP BAR */
 .card-top-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #8b949e;
+  border-bottom: 1px solid #21262d;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
 }
+
 .status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: #fbbf24;
-    font-weight: 800;
-    font-family: 'JetBrains Mono', monospace;
-    background: rgba(251, 191, 36, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
-    flex-shrink: 0;
+  color: #f87171;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
+
 .pulse-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #22c55e;
-    flex-shrink: 0;
-}
-.league-title {
-    color: #94a3b8;
-    font-weight: 700;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  width: 6px;
+  height: 6px;
+  background-color: #f87171;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 1.5s infinite;
 }
 
-/* VERSUS AREA */
+@keyframes pulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
 .versus-display {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 2px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
 }
+
 .team-name {
-    font-size: 14px;
-    font-weight: 900;
-    color: #f8fafc;
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: bold;
+  color: #f0f6fc;
+  width: 44%;
+  letter-spacing: 0.5px;
 }
-.team-name.text-left { text-align: left; }
-.team-name.text-right { text-align: right; }
+
 .vs-badge {
-    font-size: 10px;
-    font-weight: 900;
-    color: #64748b;
-    background: rgba(148, 163, 184, 0.1);
-    padding: 2px 8px;
-    border-radius: 4px;
-    flex-shrink: 0;
+  background: #161b22;
+  border: 1px solid #30363d;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: #00ffaa;
+  font-weight: 800;
 }
 
-/* GRID */
+/* 💠 شبكة الماركتس المعزولة تماماً */
 .independent-grids {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
+
+@media (max-width: 650px) {
+  .independent-grids {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .grid-cell {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    padding: 6px 4px;
-    min-height: 56px;
-    transition: border-color 0.2s;
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
-.grid-cell.main-market {
-    background: rgba(0, 255, 170, 0.05);
-    border-color: rgba(0, 255, 170, 0.12);
-}
+
 .cell-label {
-    font-size: 7px;
-    font-weight: 900;
-    color: #64748b;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    line-height: 1.2;
+  font-size: 9px;
+  color: #8b949e;
+  font-weight: 600;
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
 }
+
 .cell-value {
-    font-size: 18px;
-    font-weight: 900;
-    color: #f8fafc;
-    font-family: 'JetBrains Mono', monospace;
-    line-height: 1.2;
+  font-size: 15px;
+  font-weight: 800;
+  color: #f0f6fc;
 }
-.cell-value.color-green { color: #10b981; }
+
 .cell-value-small {
-    font-size: 11px;
-    font-weight: 900;
-    color: #f8fafc;
-    font-family: 'JetBrains Mono', monospace;
-    line-height: 1.2;
+  font-size: 11px;
+  font-weight: 700;
 }
+
 .cell-sub {
-    font-size: 8px;
-    font-weight: 700;
-    color: #475569;
-    line-height: 1.2;
+  font-size: 9px;
+  color: #484f58;
+  margin-top: 3px;
 }
-.cell-edge {
-    font-size: 8px;
-    font-weight: 800;
-    color: #fbbf24;
-    line-height: 1.2;
-}
-.cell-edge.warn { color: #f87171; }
 
-/* RISK THEMES */
-.grid-cell.risk-speculative {
-    border-color: rgba(249, 115, 22, 0.25);
-    background: rgba(249, 115, 22, 0.06);
+/* استايلات الألوان الذكية للنظام بدون طباعة الأكواد */
+.main-market {
+  background: #0c2d6b;
+  border-color: #1f6feb;
 }
-.grid-cell.risk-speculative .cell-value-small { color: #f97316; }
+.main-market .cell-value {
+  color: #58a6ff;
+}
 
-.grid-cell.risk-moderate {
-    border-color: rgba(251, 191, 36, 0.2);
-    background: rgba(251, 191, 36, 0.05);
+.color-green {
+  color: #10b981;
 }
-.grid-cell.risk-moderate .cell-value-small { color: #fbbf24; }
 
-.grid-cell.risk-balance {
-    border-color: rgba(56, 189, 248, 0.2);
-    background: rgba(56, 189, 248, 0.05);
+/* إدارة كلاسات ألوان المخاطرة المدمجة */
+.risk-speculative {
+  border-color: #f0883e;
+  background: rgba(240, 136, 62, 0.05);
 }
-.grid-cell.risk-balance .cell-value-small { color: #38bdf8; }
+.risk-speculative .cell-value-small { color: #f0883e; }
 
-.grid-cell.risk-low {
-    border-color: rgba(148, 163, 184, 0.15);
-    background: rgba(148, 163, 184, 0.04);
+.risk-balance {
+  border-color: #58a6ff;
+  background: rgba(88, 166, 255, 0.05);
 }
-.grid-cell.risk-low .cell-value-small { color: #94a3b8; }
+.risk-balance .cell-value-small { color: #58a6ff; }
 
-/* MOBILE */
-@media (max-width: 767px) {
-    .titanium-clean-card { padding: 8px; }
-    .independent-grids { grid-template-columns: repeat(2, 1fr); }
-    .team-name { font-size: 12px; }
-    .cell-value { font-size: 15px; }
+.risk-moderate {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.05);
 }
+.risk-moderate .cell-value-small { color: #fbbf24; }

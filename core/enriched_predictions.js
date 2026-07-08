@@ -894,6 +894,10 @@ class EnrichedPredictionService {
                 }
                 quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
                 if (v553HasRealProbs && v553Prediction !== 'X') quantResult.main_pick = v553Prediction
+                // 🛡️ Double chance conversion: draw > 45% → 1→1X / 2→X2
+                const v553DrawPct = (parseFloat(v553.draw_probability || v553.draw_prob || 0)) * 100;
+                if (v553DrawPct > 45 && quantResult.main_pick === '1') quantResult.main_pick = '1X';
+                if (v553DrawPct > 45 && quantResult.main_pick === '2') quantResult.main_pick = 'X2';
                 quantResult.expected_score = v553.expected_score || quantResult.expected_score
                 quantResult.confidence = v553.confidence
                 probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
@@ -939,6 +943,13 @@ class EnrichedPredictionService {
                 away_win_probability: (probs.a * 100),
                 btts_prob: quantResult.probs.btts,
                 ou_25_prob: quantResult.probs.over25,
+                ou_market: (() => {
+                    const op = quantResult.probs.over25 || 0;
+                    const ovPct = parseFloat(op);
+                    const dir = ovPct > 50 ? 'OVER' : 'UNDER';
+                    const prec = Math.round(ovPct > 50 ? ovPct : (100 - ovPct));
+                    return `${dir} 2.5 (${prec}% Precision)`;
+                })(),
                 ht_goal_prob: quantResult.probs.ht_goal,
                 xgboost_confidence: v553.success ? v553.confidence : 0,
                 

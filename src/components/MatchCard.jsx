@@ -104,11 +104,19 @@ const MatchCard = ({ rawData }) => {
         </div>
 
         {/* الخانة 4: إجمالي أهداف المباراة لقاء كامل */}
-        <div className="grid-cell">
-          <div className="cell-label">OVER / UNDER 2.5</div>
-          <div className="cell-value">{match.ouProb}</div>
-          <div className="cell-sub">PRECISION RATE</div>
-        </div>
+        {(() => {
+          const ouNum = parseFloat(match.ouProb) || 0;
+          const dir = ouNum > 50 ? "OVER" : "UNDER";
+          const prec = Math.round(ouNum > 50 ? ouNum : 100 - ouNum);
+          const ouDisplay = `${dir} 2.5 (${prec}% Precision)`;
+          return (
+            <div className="grid-cell">
+              <div className="cell-label">OVER / UNDER 2.5</div>
+              <div className="cell-value">{ouDisplay}</div>
+              <div className="cell-sub">PRECISION RATE</div>
+            </div>
+          );
+        })()}
 
         {/* الخانة 5: أهداف الشوط الأول السريعة */}
         <div className="grid-cell">

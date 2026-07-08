@@ -63,6 +63,8 @@ const toRawLines = (m) => {
         `EV ${evScore}`,
         riskLabel,
         `1X2: ${mainPick}`,
+        `DVB:${m.draw_value_bet === true ? 1 : 0}`,
+        `SKEW:${(m.skewness || 0)}`,
     ];
     if (edge <= 0) lines.push(`⚠️ ${edgePct}%`);
     if (m.status === 'live' || m.isLive) lines.push('LIVE');

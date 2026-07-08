@@ -15,7 +15,9 @@ const MatchCard = ({ rawData, style }) => {
     const evVal = evLine.replace('EV', '').trim();
     const pickLine = lines.find(l => l.startsWith('1X2:')) || '1X2: X';
     const pick = pickLine.replace('1X2:', '').trim();
-    return { league, home, away, edgeVal, ouPct, evVal, pick };
+    const dvbLine = lines.find(l => l.startsWith('DVB:')) || 'DVB:0';
+    const dvb = dvbLine.replace('DVB:', '').trim() === '1';
+    return { league, home, away, edgeVal, ouPct, evVal, pick, dvb };
   };
 
   const d = parseRow(rawData);
@@ -38,7 +40,7 @@ const MatchCard = ({ rawData, style }) => {
 
   return (
     <div className="compact-row" style={style}>
-      <div className="compact-col-match">{label}</div>
+      <div className="compact-col-match">{label}{d.dvb && <span className="compact-dvb-badge">VALUE BET</span>}</div>
       <div className={`compact-col-pick ${pickClass}`}>{d.pick} {d.edgeVal}%</div>
       <div className={`compact-col-ou compact-ou-${dir.toLowerCase()}`}>{dir} 2.5 ({prec}%)</div>
       <div className={`compact-col-ev ${evClass}`}>{d.evVal}</div>

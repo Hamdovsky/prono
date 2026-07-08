@@ -72,3 +72,16 @@
 .compact-ou-over {
   color: #10b981;
 }
+.compact-dvb-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  font-size: 8px;
+  font-weight: 800;
+  color: #0d1117;
+  background: #fbbf24;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  line-height: 1.4;
+  vertical-align: middle;
+}

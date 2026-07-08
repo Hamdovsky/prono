@@ -877,7 +877,7 @@ class EnrichedPredictionService {
                     { label: '2', prob: v553.away_win_probability || v553.away_win_prob || 0 }
                 ]
                 const bestPy = pyProbs.sort((a, b) => b.prob - a.prob)[0]
-                const v553HasRealProbs = bestPy && bestPy.prob > 0
+                const v553HasRealProbs = bestPy && bestPy.prob > 0.40
                 const v553Prediction = v553HasRealProbs ? bestPy.label : null
                 // Always use odds-implied xG for QuantumQuantEngine when odds exist
                 const hasOdds = m.odds_home && m.odds_draw && m.odds_away;

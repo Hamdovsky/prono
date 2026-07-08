@@ -271,19 +271,36 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             }
         }
 
-        // 🌟 [ELITE 500] Serving Top 500 best predicted matches
-        rawMatches.sort((a, b) => {
-            const getBestProb = (m) => Math.max(
-                parseFloat(m.home_win_probability || 0), 
-                parseFloat(m.draw_probability || 0), 
-                parseFloat(m.away_win_probability || 0)
-            );
-            return getBestProb(b) - getBestProb(a);
+        // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool
+        const elite = [];
+        const fallback_pool = [];
+        for (const m of rawMatches) {
+            const q = m.quant || {};
+            const ev = parseFloat(q.ev_score);
+            const rl = q.risk_label || '';
+            const hWP = parseFloat(m.home_win_probability || 0);
+            const dWP = parseFloat(m.draw_probability || 0);
+            const aWP = parseFloat(m.away_win_probability || 0);
+            const probs = [hWP, dWP, aWP].sort((a, b) => b - a);
+            const margin = probs[0] - probs[1];
+            const isStable = rl === 'STABLE';
+            const isEvDead = ev > 0 && Math.abs(ev - 0.32) < 0.001;
+            const isLowEv = ev > 0 && ev < 0.40;
+            const isFlat = margin < 5;
+            if (isStable || isEvDead || isLowEv || isFlat) {
+                fallback_pool.push(m);
+            } else {
+                elite.push(m);
+            }
+        }
+        // Sort elite by EV descending
+        elite.sort((a, b) => {
+            const evA = parseFloat((a.quant || {}).ev_score || 0);
+            const evB = parseFloat((b.quant || {}).ev_score || 0);
+            return evB - evA;
         });
-        rawMatches = rawMatches.slice(0, 500);
-
-        logger.info(`📊 [UPCOMING] Serving Top 500 Elite matches.`);
-        res.json(rawMatches);
+        logger.info(`📊 [UPCOMING] ${elite.length} elite + ${fallback_pool.length} fallback`);
+        res.json({ elite, fallback_pool, counts: { elite: elite.length, fallback: fallback_pool.length } });
 
         // 💡 [OPTIMIZATION] Background enrichment trigger removed. 
         // Enrichment is now handled strictly by the Scraper and Cron jobs to prevent API-driven OOM.

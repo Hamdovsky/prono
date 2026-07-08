@@ -541,7 +541,7 @@ class DataService {
 
             logger.info(`📊 [DATA] Received ${Array.isArray(raw) ? raw.length : 'non-array'} raw matches.`);
 
-            const rawMatches = Array.isArray(raw) ? raw : (raw?.matches || [])
+            const rawMatches = Array.isArray(raw) ? raw : (raw?.elite || raw?.matches || [])
             this.upcomingPredictions = rawMatches.map(m => {
                     try {
                         return this._normalizeMatch(m, 'upcoming');

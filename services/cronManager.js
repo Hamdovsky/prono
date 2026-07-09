@@ -13,6 +13,7 @@ const retroSync = require('./retroSyncService');
 const adaptiveLearning = require('./adaptiveLearningEngine');
 const enrichedPredictions = require('../core/enriched_predictions');
 const { runAutoRetrain, runV56Retrain } = require('../scripts/auto_retrain_worker');
+const { invalidateCache } = require('../core/speedCache');
 
 class CronManager {
     constructor() {
@@ -91,6 +92,28 @@ class CronManager {
                 await this.runProactiveEnrichment()
             }
         }, { timezone: 'Europe/Paris' });
+
+        // 10b. Ultra-Frequent Enrichment (every 20 min) — keeps elite cache fresh
+        cron.schedule('*/20 * * * *', async () => {
+            try {
+                const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
+                const stale = matches.filter(m => {
+                    const hasProbs = parseFloat(m.home_win_probability) > 0;
+                    const hasPick = m.quant?.main_pick || m.main_pick;
+                    return !hasProbs || !hasPick;
+                }).slice(0, 100);
+                if (stale.length === 0) return;
+                logger.info(`⏰ [CRON] 20-min enrich: ${stale.length} stale matches`);
+                const enriched = await enrichedPredictions.enrichMatches(stale, { fastMode: true });
+                for (const m of enriched) {
+                    try { await database.updatePredictions(m.id, m); } catch (_) {}
+                }
+                invalidateCache('upcoming');
+                logger.info(`✅ [CRON] 20-min enrich complete, cache invalidated`);
+            } catch (e) {
+                logger.error(`❌ [CRON] 20-min enrich error: ${e.message}`);
+            }
+        });
 
         // 9.5 Tunisian Promosport Crowd Collector (08:00 daily)
         cron.schedule('0 8 * * *', () => {

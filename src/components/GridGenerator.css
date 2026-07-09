@@ -1,0 +1,172 @@
+.grid-generator-container {
+  border: 1px solid #30363d;
+  border-top: none;
+}
+
+.grid-generator-btn {
+  width: 100%;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: none;
+  border-top: 1px solid #30363d;
+  color: #f0c040;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.2s;
+}
+.grid-generator-btn:hover {
+  background: linear-gradient(135deg, #24244a 0%, #1e3050 100%);
+  color: #ffd700;
+}
+
+.grid-panel {
+  background: #0d1117;
+  padding: 4px;
+  border-top: 1px solid #30363d;
+}
+
+.grid-header-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #161b22;
+  border-bottom: 1px solid #21262d;
+  font-size: 9px;
+}
+
+.grid-title {
+  color: #f0c040;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.grid-meta {
+  color: #8b949e;
+  font-weight: 600;
+}
+
+.grid-print-btn {
+  margin-left: auto;
+  padding: 2px 8px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 3px;
+  color: #c9d1d9;
+  font-size: 9px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.grid-print-btn:hover {
+  background: #30363d;
+}
+
+.grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9px;
+}
+
+.grid-table th {
+  background: #090d13;
+  color: #8b949e;
+  padding: 3px 4px;
+  border-bottom: 1px solid #30363d;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.grid-table td {
+  padding: 2px 4px;
+  border-bottom: 1px solid #161b22;
+  vertical-align: middle;
+}
+
+.grid-num {
+  color: #484f58;
+  font-weight: 700;
+}
+
+.grid-teams {
+  color: #f0f6fc;
+  white-space: nowrap;
+}
+
+.grid-league {
+  color: #8b949e;
+  font-size: 8px;
+}
+
+.grid-probs {
+  color: #8b949e;
+  font-size: 8px;
+}
+
+.grid-pick-primary {
+  color: #f0c040;
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.grid-pick-cover {
+  color: #58a6ff;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.grid-ev {
+  color: #58a6ff;
+  font-size: 8px;
+}
+
+.col-primary {
+  color: #f0c040;
+}
+
+.col-cover {
+  color: #58a6ff;
+}
+
+.grid-legend {
+  display: flex;
+  gap: 8px;
+  padding: 3px 8px;
+  background: #090d13;
+  font-size: 8px;
+  color: #8b949e;
+  flex-wrap: wrap;
+}
+
+.grid-legend strong {
+  color: #c9d1d9;
+}
+
+@media print {
+  .grid-generator-btn,
+  .grid-print-btn,
+  .radar-header,
+  .roi-tracker-container,
+  .elite-radar-container .radar-header {
+    display: none !important;
+  }
+  .grid-panel {
+    border: none;
+    padding: 0;
+  }
+  .grid-table th {
+    background: #f0f0f0;
+    color: #000;
+    border-color: #ccc;
+  }
+  .grid-table td {
+    border-color: #ddd;
+  }
+  .grid-teams, .grid-pick-primary, .grid-pick-cover {
+    color: #000;
+  }
+}

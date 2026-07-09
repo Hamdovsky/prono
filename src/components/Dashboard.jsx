@@ -8,6 +8,8 @@ import MarketTerminal from "./MarketTerminal"
 import PerformanceAnalytics from "./PerformanceAnalytics.jsx"
 import TrackRecord from "./TrackRecord.jsx"
 import EliteRadarDashboard from "./EliteRadarDashboard"
+import EliteROITracker from "./EliteROITracker"
+import GridGenerator from "./GridGenerator"
 import { List } from 'react-window'
 import dataService from "../services/dataService"
 import { ROUTES, PATH_TO_VIEW } from "../config/routes"
@@ -1018,6 +1020,8 @@ const Dashboard = () => {
                 })()}
 
                 <EliteRadarDashboard eliteMatches={sortedMatches} />
+                <EliteROITracker />
+                <GridGenerator eliteMatches={sortedMatches} />
             </div>
         );
     };

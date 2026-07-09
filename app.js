@@ -463,6 +463,7 @@ app.use('/api', scraperRoutes);
 app.use('/api', matchesRoutes);
 app.use('/api/promosport', promosportRoutes);
 app.use('/api/grids', gridRoutes);
+app.use('/api/results', require('./routes/results'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api', require('./routes/valueBets'));
 

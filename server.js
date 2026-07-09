@@ -316,6 +316,35 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               }
             }, 30000);
 
+            // 🏁 Inline settlement engine — runs every 15 min
+            const settlementService = require('./services/settlementService');
+            setInterval(async () => {
+              logger.info('[SERVER] ⏰ Settlement cycle...');
+              try {
+                const result = await settlementService.settleFinishedMatches();
+                if (result.settled > 0) {
+                  logger.info(`[SERVER] ✅ Settlement: ${result.settled}/${result.total} settled`);
+                }
+              } catch (e) {
+                logger.warn(`[SERVER] ⚠️ Settlement error: ${e.message}`);
+              }
+            }, 15 * 60 * 1000);
+            // Also fetch missing scores 90s after startup
+            setTimeout(async () => {
+              logger.info('[SERVER] ⏰ Initial missing-score fetch (startup)...');
+              try {
+                const result = await settlementService.fetchMissingScores();
+                if (result.fetched > 0) {
+                  logger.info(`[SERVER] ✅ Missing scores: ${result.fetched} fetched`);
+                }
+                // Then settle those new scores
+                const settleResult = await settlementService.settleFinishedMatches();
+                logger.info(`[SERVER] ✅ Initial settlement: ${settleResult.settled}/${settleResult.total} settled`);
+              } catch (e) {
+                logger.warn(`[SERVER] ⚠️ Initial settlement error: ${e.message}`);
+              }
+            }, 90000);
+
             await retroSync.syncPastMatches().catch(e => logger.warn(`[RETROSYNC] Error: ${e.message}`));
             clvService.start().catch(e => logger.warn(`[CLV] Error: ${e.message}`));
             const scrapedOddsService = require('./services/scrapedOddsService');

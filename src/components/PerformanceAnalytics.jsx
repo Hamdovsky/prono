@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect, useCallback } from 'react'
 
 const MARKET_LABELS = {
   '1X2': { icon: '⚽', label: '1X2' },
@@ -94,6 +94,28 @@ const CONFIDENCE_BRACKETS = [
 
 const PerformanceAnalytics = ({ matches, onTrackRecord }) => {
   const [expanded, setExpanded] = useState(false)
+  const [forceOpen, setForceOpen] = useState(false)
+  const [forceData, setForceData] = useState(null)
+  const [forceLoading, setForceLoading] = useState(false)
+  const [forceError, setForceError] = useState(null)
+
+  const fetchForceAnalysis = useCallback(async () => {
+    setForceLoading(true)
+    setForceError(null)
+    try {
+      const resp = await fetch('/api/analytics/performance')
+      const json = await resp.json()
+      if (json.success) {
+        setForceData(json)
+      } else {
+        setForceError(json.error || 'Unknown error')
+      }
+    } catch (e) {
+      setForceError(e.message)
+    } finally {
+      setForceLoading(false)
+    }
+  }, [])
 
   const stats = useMemo(() => {
     const finished = matches.filter(m => isFinished(m))
@@ -367,6 +389,13 @@ const PerformanceAnalytics = ({ matches, onTrackRecord }) => {
             📋 HISTORIQUE COMPLET
           </button>
         )}
+        <button onClick={() => { setForceOpen(true); fetchForceAnalysis() }} style={{
+          padding: '6px 14px', borderRadius: '6px', border: '1px solid rgba(249,115,22,0.3)',
+          background: 'rgba(249,115,22,0.08)', color: '#fb923c', fontWeight: '700', fontSize: '10px',
+          cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.5px',
+        }}>
+          🔬 FORCE ANALYSIS
+        </button>
       </div>
 
       {expanded && (
@@ -518,6 +547,169 @@ const PerformanceAnalytics = ({ matches, onTrackRecord }) => {
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Force Analysis Modal */}
+      {forceOpen && (
+        <div onClick={() => setForceOpen(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 99999,
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            maxWidth: '680px', width: '100%', maxHeight: '90vh', overflow: 'auto',
+            background: 'linear-gradient(145deg, rgba(8,14,28,0.99) 0%, rgba(13,20,38,0.96) 100%)',
+            borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)',
+            padding: '24px', position: 'relative',
+          }}>
+            <button onClick={() => setForceOpen(false)} style={{
+              position: 'absolute', top: 12, right: 16,
+              background: 'none', border: 'none', color: '#64748b', fontSize: '20px',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>✕</button>
+
+            <span style={{
+              fontSize: '10px', fontWeight: '900', letterSpacing: '2px',
+              textTransform: 'uppercase', color: '#2d3f56', marginBottom: '12px', display: 'block',
+            }}>🔬 FORCE ANALYSIS — Résultats Serveur</span>
+
+            {forceLoading && (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b', fontSize: '12px' }}>
+                Chargement...
+              </div>
+            )}
+
+            {forceError && (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#ef4444', fontSize: '12px' }}>
+                ❌ {forceError}
+              </div>
+            )}
+
+            {forceData && (
+              <>
+                {/* KPI row */}
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                  gap: '10px', marginBottom: '16px',
+                }}>
+                  {[
+                    { label: 'Réglés', value: forceData.total_settled, color: '#94a3b8' },
+                    { label: 'Gagnés', value: forceData.won, color: '#00ffaa' },
+                    { label: 'Perdus', value: forceData.lost, color: '#ef4444' },
+                    { label: 'Win Rate', value: `${forceData.win_rate}%`, color: forceData.win_rate >= 60 ? '#00ffaa' : '#fbbf24' },
+                    { label: 'ROI', value: `${forceData.roi_percent >= 0 ? '+' : ''}${forceData.roi_percent}%`, color: forceData.roi_percent >= 0 ? '#00ffaa' : '#ef4444' },
+                    { label: 'Profit', value: `${forceData.profit_units >= 0 ? '+' : ''}${forceData.profit_units}u`, color: forceData.profit_units >= 0 ? '#00ffaa' : '#ef4444' },
+                  ].map(kpi => (
+                    <div key={kpi.label} style={{
+                      background: 'rgba(0,0,0,0.4)', borderRadius: '10px',
+                      padding: '10px 12px', textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: '9px', fontWeight: '700', color: '#475569', marginBottom: '4px', letterSpacing: '0.5px' }}>{kpi.label}</div>
+                      <div style={{ fontSize: '20px', fontWeight: '900', color: kpi.color, fontFamily: "'JetBrains Mono', monospace" }}>{kpi.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* By Confidence */}
+                {forceData.by_confidence && (
+                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '10px', padding: '12px', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '9px', fontWeight: '800', color: '#a855f7', letterSpacing: '1px', marginBottom: '6px', display: 'block' }}>
+                      🎯 PAR CONFIANCE
+                    </span>
+                    <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ color: '#475569', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <th style={{ textAlign: 'left', padding: '4px 6px', fontWeight: '700' }}>Bracket</th>
+                          <th style={{ textAlign: 'center', padding: '4px 6px', fontWeight: '700' }}>W</th>
+                          <th style={{ textAlign: 'center', padding: '4px 6px', fontWeight: '700' }}>L</th>
+                          <th style={{ textAlign: 'center', padding: '4px 6px', fontWeight: '700' }}>Total</th>
+                          <th style={{ textAlign: 'right', padding: '4px 6px', fontWeight: '700' }}>Win Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(forceData.by_confidence).map(([bracket, data]) => (
+                          data.total > 0 && (
+                            <tr key={bracket} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                              <td style={{ padding: '4px 6px', color: '#e2e8f0' }}>{bracket}</td>
+                              <td style={{ textAlign: 'center', padding: '4px 6px', color: '#00ffaa' }}>{data.won}</td>
+                              <td style={{ textAlign: 'center', padding: '4px 6px', color: '#ef4444' }}>{data.lost}</td>
+                              <td style={{ textAlign: 'center', padding: '4px 6px', color: '#94a3b8' }}>{data.total}</td>
+                              <td style={{ textAlign: 'right', padding: '4px 6px', fontWeight: '700', color: data.win_rate >= 60 ? '#00ffaa' : data.win_rate >= 50 ? '#fbbf24' : '#ef4444' }}>{data.win_rate}%</td>
+                            </tr>
+                          )
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* By Market */}
+                {forceData.by_market && (
+                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '10px', padding: '12px', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '9px', fontWeight: '800', color: '#38bdf8', letterSpacing: '1px', marginBottom: '6px', display: 'block' }}>
+                      📊 PAR MARCHÉ
+                    </span>
+                    <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ color: '#475569', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <th style={{ textAlign: 'left', padding: '4px 6px', fontWeight: '700' }}>Marché</th>
+                          <th style={{ textAlign: 'center', padding: '4px 6px', fontWeight: '700' }}>W</th>
+                          <th style={{ textAlign: 'center', padding: '4px 6px', fontWeight: '700' }}>L</th>
+                          <th style={{ textAlign: 'center', padding: '4px 6px', fontWeight: '700' }}>Total</th>
+                          <th style={{ textAlign: 'right', padding: '4px 6px', fontWeight: '700' }}>Win Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(forceData.by_market).map(([market, data]) => (
+                          data.total > 0 && (
+                            <tr key={market} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                              <td style={{ padding: '4px 6px', color: '#e2e8f0' }}>{market}</td>
+                              <td style={{ textAlign: 'center', padding: '4px 6px', color: '#00ffaa' }}>{data.won}</td>
+                              <td style={{ textAlign: 'center', padding: '4px 6px', color: '#ef4444' }}>{data.lost}</td>
+                              <td style={{ textAlign: 'center', padding: '4px 6px', color: '#94a3b8' }}>{data.total}</td>
+                              <td style={{ textAlign: 'right', padding: '4px 6px', fontWeight: '700', color: data.win_rate >= 60 ? '#00ffaa' : data.win_rate >= 50 ? '#fbbf24' : '#ef4444' }}>{data.win_rate}%</td>
+                            </tr>
+                          )
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Weekly trend */}
+                {forceData.trend && forceData.trend.length > 0 && (
+                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '10px', padding: '12px' }}>
+                    <span style={{ fontSize: '9px', fontWeight: '800', color: '#fbbf24', letterSpacing: '1px', marginBottom: '6px', display: 'block' }}>
+                      📈 TENDANCE 7 JOURS
+                    </span>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end', height: '30px', marginBottom: '4px' }}>
+                      {forceData.trend.map((d, i) => {
+                        const maxTotal = Math.max(...forceData.trend.map(x => x.total), 1)
+                        const h = Math.max(4, (d.total / maxTotal) * 30)
+                        return (
+                          <div key={d.date} style={{
+                            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', justifyContent: 'flex-end',
+                          }}>
+                            <div style={{
+                              width: '100%', height: `${h}px`, borderRadius: '2px',
+                              background: d.win_rate >= 60 ? 'rgba(0,255,170,0.5)' : d.win_rate >= 50 ? 'rgba(251,191,36,0.5)' : 'rgba(239,68,68,0.5)',
+                              minWidth: '8px',
+                            }} title={`${d.date}: ${d.win_rate}% (${d.won}W ${d.lost}L)`} />
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ fontSize: '8px', color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{forceData.trend[0]?.date || ''}</span>
+                      <span>{forceData.trend[forceData.trend.length - 1]?.date || ''}</span>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

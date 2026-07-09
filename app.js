@@ -531,6 +531,7 @@ app.get('/api/fallback/status', (req, res) => {
 
 // ─── Fallback Enricher (pure JS — no Python dependency) ──
 const fallbackEnricher = require('./core/fallback_enricher');
+const settlementService = require('./services/settlementService');
 
 app.post('/api/cron/auto-enrich', async (req, res) => {
   logger.info('[API] ⏰ UptimeRobot triggered fallback enrichment...');
@@ -551,6 +552,40 @@ app.get('/api/cron/auto-enrich', async (req, res) => {
     return res.status(200).json({ success: true, ...result });
   } catch (e) {
     logger.error(`[API] auto-enrich GET failed: ${e.message}`);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── Settlement Engine (UptimeRobot / cron-job.org friendly) ──
+app.post('/api/cron/settle', async (req, res) => {
+  logger.info('[API] ⏰ Settlement triggered...');
+  try {
+    const result = await settlementService.settleFinishedMatches();
+    return res.status(200).json({ success: true, ...result });
+  } catch (e) {
+    logger.error(`[API] Settlement failed: ${e.message}`);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/cron/settle', async (req, res) => {
+  logger.info('[API] ⏰ Settlement triggered via GET...');
+  try {
+    const result = await settlementService.settleFinishedMatches();
+    return res.status(200).json({ success: true, ...result });
+  } catch (e) {
+    logger.error(`[API] Settlement GET failed: ${e.message}`);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── Analytics ──
+app.get('/api/analytics/performance', async (req, res) => {
+  try {
+    const data = settlementService.getPerformance();
+    return res.status(200).json({ success: true, ...data });
+  } catch (e) {
+    logger.error(`[API] /api/analytics/performance failed: ${e.message}`);
     return res.status(500).json({ success: false, error: e.message });
   }
 });

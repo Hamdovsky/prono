@@ -472,6 +472,9 @@ function runMigrations() {
         ['player_stats', 'xg_avg',                'REAL DEFAULT 0'],
         ['player_stats', 'xgot_avg',              'REAL DEFAULT 0'],
         ['player_stats', 'heatmap_danger',        'REAL DEFAULT 0'],
+        ['matches', 'result',                     'TEXT'],
+        ['matches', 'settled_at',                 'INTEGER'],
+        ['matches', 'market_type',                'TEXT'],
     ];
 
     let added = 0;

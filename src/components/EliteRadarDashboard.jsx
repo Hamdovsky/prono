@@ -95,7 +95,7 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
                     </span>
                   ) : (
                     <span className={`pick-badge ${isSolid ? 'solid' : isValueBet ? 'value-draw' : 'standard'}`}>
-                      {quant.main_pick || match.pick || 'N/A'}
+                      {quant.main_pick || match.prediction || match.pick || 'N/A'}
                     </span>
                   )}
                   {ouLabel && !locked && (

@@ -221,6 +221,15 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
 
         logger.info(`✅ [QUALITY GATE] ${rawMatches.length} quality matches retained.`);
 
+        // ✅ [QUANT INJECTOR] Ensure every match has a quant object from DB fields
+        rawMatches = rawMatches.map(m => {
+            if (!m.quant) m.quant = {};
+            if (!m.quant.main_pick && m.prediction) m.quant.main_pick = m.prediction;
+            if (!m.quant.ev_score && m.ev_score != null) m.quant.ev_score = m.ev_score;
+            if (!m.quant.expected_score && m.expected_score) m.quant.expected_score = m.expected_score;
+            return m;
+        });
+
         // 🧹 [DATA SANITIZER] Remove zombie/frozen/corrupted matches before enrichment
         const { sanitized, stats: sanitStats } = sanitizeMatches(rawMatches)
         rawMatches = sanitized

@@ -45,7 +45,7 @@ const GridGenerator = ({ eliteMatches }) => {
         golden = { pick: standardPick, type: '⚡ BASE', prob: Math.round(hProb > aProb ? hProb : aProb) };
       }
 
-      return { m, standardPick, golden, hProb, dProb, aProb, dvb, bsm };
+      return { m, standardPick, golden, hProb, dProb, aProb, dvb };
     });
   }, [promosportMatches]);
 

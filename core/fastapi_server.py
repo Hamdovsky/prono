@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, Header, Depends
 from pydantic import BaseModel
-import sys, os, json, subprocess, numpy as np, threading, math
+import sys, os, json, subprocess, numpy as np, threading, math, uvicorn
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -517,3 +517,8 @@ async def fallback_context_refresh(req: ContextRefreshRequest):
         import traceback
         traceback.print_exc()
         return {"success": False, "error": str(e)}
+
+if __name__ == '__main__':
+    port = int(os.environ.get('INFERENCE_PORT', 8000))
+    host = os.environ.get('INFERENCE_HOST', '127.0.0.1')
+    uvicorn.run(app, host=host, port=port, workers=1)

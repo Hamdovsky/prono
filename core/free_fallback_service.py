@@ -88,6 +88,9 @@ class FreeFallbackService:
         home = match.get('homeTeam', '')
         away = match.get('awayTeam', '')
         league = match.get('league', match.get('tournament_name', ''))
+        # Normalize league: 'Unknown' or similar garbage → empty (scrapers will try all leagues)
+        if league and league.lower() in ('unknown', 'na', 'n/a', '', 'undefined', 'null'):
+            league = ''
 
         if not home or not away:
             return {"id": match_id, "success": False, "error": "Missing homeTeam/awayTeam"}

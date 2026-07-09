@@ -29,7 +29,20 @@ class AutoHealRemedies {
           if (!fs.existsSync(pythonScript)) return { success: false, detail: 'fastapi_server.py not found' }
           try {
             if (process.platform === 'win32') {
-              exec('taskkill /f /im python.exe 2>nul || echo no process')
+              // kill any stale python process on port 8000 only, not all python.exe
+              exec('netstat -ano | findstr ":8000" | findstr "LISTENING"', (err, stdout) => {
+                if (stdout) {
+                  const lines = stdout.trim().split('\n');
+                  for (const line of lines) {
+                    const parts = line.trim().split(/\s+/);
+                    const pid = parts[parts.length - 1];
+                    if (pid && !isNaN(parseInt(pid))) {
+                      exec(`taskkill /f /pid ${pid} 2>nul || echo no process`);
+                    }
+                  }
+                }
+              });
+              await new Promise(r => setTimeout(r, 2000));
             }
             const proc = spawn('python', [pythonScript], {
               cwd: path.join(__dirname, '..'),
@@ -38,8 +51,8 @@ class AutoHealRemedies {
               detached: true
             })
             proc.unref()
-            await new Promise(r => setTimeout(r, 5000))
-            const res = await fetch('http://127.0.0.1:8000/health', { signal: AbortSignal.timeout(3000) })
+            await new Promise(r => setTimeout(r, 10000))
+            const res = await fetch('http://127.0.0.1:8000/health', { signal: AbortSignal.timeout(5000) })
             if (res.ok) return { success: true, detail: 'FastAPI restarted successfully' }
             return { success: false, detail: 'FastAPI still unreachable after restart' }
           } catch (e) {

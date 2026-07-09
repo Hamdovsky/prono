@@ -66,7 +66,23 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
             dateMs = new Date(m.date).getTime();
         }
 
-        if (!dateMs) return;
+        if (!dateMs) {
+            // No timestamp — assume today
+            const matchDayStr = new Date().toLocaleDateString();
+            if (activeDate === "Today" && matchDayStr !== todayStr) return;
+            if (activeDate === "Tomorrow" && matchDayStr !== tomorrowStr) return;
+            if (activeDate === "Next 3 Days") {
+                const threeDays = Date.now() + (3 * 24 * 60 * 60 * 1000);
+                if (Date.now() < Date.now() - 3600000 || Date.now() > threeDays) return;
+            }
+            if (activeDate === "Next 7 Days") {
+                const sevenDays = Date.now() + (7 * 24 * 60 * 60 * 1000);
+                if (Date.now() < Date.now() - 3600000 || Date.now() > sevenDays) return;
+            }
+            const l = (m.league || 'Unknown').toLowerCase();
+            activeCounts[l] = (activeCounts[l] || 0) + 1;
+            return;
+        }
         const matchDayStr = new Date(dateMs).toLocaleDateString();
 
         if (activeDate === "Today" && matchDayStr !== todayStr) return;

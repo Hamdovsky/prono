@@ -137,7 +137,10 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
                 } catch(e) {}
             }
             
-            if (!rawTs || rawTs === 0) return false;
+            // If still no timestamp, treat as "today" (match will show)
+            if (!rawTs || rawTs === 0) {
+                return true;
+            }
             
             let tsMs;
             if (typeof rawTs === 'string' && rawTs.includes('T')) {
@@ -146,7 +149,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
                 tsMs = parseInt(rawTs) > 1e11 ? parseInt(rawTs) : parseInt(rawTs) * 1000;
             }
             
-            if (isNaN(tsMs)) return false;
+            if (isNaN(tsMs)) return true; // can't parse → show anyway
             
             // Show matches from the start of today up to 72h in future
             return tsMs >= startOfToday && tsMs <= endOfRange;
@@ -164,7 +167,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
                         if (data && data.startTimestamp) rawTs = data.startTimestamp;
                     } catch(e) {}
                 }
-                if (!rawTs || rawTs === 0) return false;
+                if (!rawTs || rawTs === 0) return true; // null ts → show
                 let tsMs;
                 if (typeof rawTs === 'string' && rawTs.includes('T')) {
                     tsMs = new Date(rawTs).getTime();
@@ -187,7 +190,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             const pair = [home, away].sort();
             const pairKey = `${pair[0]}|${pair[1]}`;
             
-            const mTs = m.startTimestamp > 1e11 ? m.startTimestamp : m.startTimestamp * 1000;
+            const mTs = m.startTimestamp > 1e11 ? m.startTimestamp : (m.startTimestamp ? m.startTimestamp * 1000 : Infinity);
             
             if (!teamPairMap.has(pairKey) || mTs < teamPairMap.get(pairKey)._ts) {
                 m._ts = mTs;

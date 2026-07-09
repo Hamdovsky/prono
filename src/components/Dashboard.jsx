@@ -393,7 +393,14 @@ const Dashboard = () => {
             dateMs = new Date(m.date).getTime();
         }
 
-        if (!dateMs) return null;
+        if (!dateMs) {
+            // No timestamp available — assume today so match is still visible
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
         const d = new Date(dateMs);
         // Robust YYYY-MM-DD format
         const year = d.getFullYear();

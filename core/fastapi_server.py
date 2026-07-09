@@ -485,3 +485,20 @@ async def warmup():
         except Exception as e:
             results[name] = str(e)
     return {"success": True, "warmed": results}
+
+# ── FREE FALLBACK ENDPOINT ──────────────────────────────────────
+
+class FallbackEnrichRequest(BaseModel):
+    matches: list[dict] = []
+
+@app.post("/fallback/enrich-batch")
+async def fallback_enrich_batch(req: FallbackEnrichRequest):
+    try:
+        from free_fallback_service import FreeFallbackService
+        service = FreeFallbackService()
+        result = service.enrich_match_batch(req.matches)
+        return {"success": True, **result}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}

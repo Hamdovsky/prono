@@ -584,3 +584,58 @@ def get_advanced_xg_adjustment(home_name, away_name, league_name, features=None)
     xg_a *= (1.0 - elo_diff / 2000.0)
 
     return max(0.4, xg_h), max(0.4, xg_a)
+
+
+# ─── FREE FALLBACK — DB UPDATE HELPER ──────────────────────────
+
+def update_match_predictions(match_id, predictions):
+    """
+    Write computed predictions directly into tactical.db.
+    Used by free_fallback_service.py to bypass Node.js DB layer.
+
+    predictions dict keys:
+        home_win_probability, draw_probability, away_win_probability,
+        ou_25_prob, btts_prob, expected_score, prediction,
+        confidence, ev_home, home_xg, away_xg
+    """
+    import time
+    try:
+        conn = sqlite3.connect(TACTICAL_DB_PATH)
+        conn.execute("""
+            UPDATE matches SET
+                home_win_probability = ?,
+                draw_probability = ?,
+                away_win_probability = ?,
+                ou_25_prob = ?,
+                btts_prob = ?,
+                expected_score = ?,
+                prediction = ?,
+                confidence = ?,
+                ev_home = ?,
+                insufficient_data = 0,
+                source = 'free_fallback',
+                home_xg = ?,
+                away_xg = ?,
+                last_updated = ?
+            WHERE id = ?
+        """, (
+            predictions.get('home_win_probability', 33.3),
+            predictions.get('draw_probability', 33.3),
+            predictions.get('away_win_probability', 33.3),
+            predictions.get('ou_25_prob', 50.0),
+            predictions.get('btts_prob', 50.0),
+            predictions.get('expected_score', '1-1'),
+            predictions.get('prediction', 'X'),
+            predictions.get('confidence', 50.0),
+            predictions.get('ev_home', 0.0),
+            predictions.get('home_xg', 1.35),
+            predictions.get('away_xg', 1.15),
+            int(time.time()),
+            match_id
+        ))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"[DATA_LOADER] Fallback DB update failed for {match_id}: {e}")
+        return False

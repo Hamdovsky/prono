@@ -1211,6 +1211,27 @@ const database = {
         });
     },
 
+    getInsufficientDataMatches: async () => {
+        try {
+            const res = db.prepare(
+                `SELECT id, homeTeam, awayTeam, league, tournament_name
+                 FROM matches WHERE insufficient_data = 1
+                 AND status IN ('scheduled', 'upcoming')
+                 AND homeTeam IS NOT NULL AND awayTeam IS NOT NULL
+                 ORDER BY timestamp ASC`
+            ).all();
+            return res.map(r => {
+                try {
+                    const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
+                    return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league };
+                } catch (e) { return r; }
+            });
+        } catch (e) {
+            logger.error(`[DB] getInsufficientDataMatches failed: ${e.message}`);
+            return [];
+        }
+    },
+
     cleanupStaleMatches: async () => {
         try {
             // Delete matches older than 24 hours that are not LIVE

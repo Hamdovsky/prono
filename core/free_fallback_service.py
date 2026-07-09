@@ -62,6 +62,7 @@ class FreeFallbackService:
         self._fbref_xg_cache = {}
         self._openligadb_cache = {}
         self._sofascore_cache = {}
+        self._context_cache_last = {}
 
     # ── PUBLIC API ────────────────────────────────────────────────
 
@@ -100,6 +101,27 @@ class FreeFallbackService:
         if xg_h <= 0 or xg_a <= 0:
             xg_h, xg_a = 1.35, 1.15  # default football averages
 
+        # Step 2.5: Context & Lineup Intelligence — adjust xG for absences and formation bias
+        context = self._scrape_sofascore_context(home, away, league)
+        has_context = context.get('lineups_confirmed') or bool(context.get('missing_players', {}).get('home'))
+        h_att_mod, h_def_mod, a_att_mod, a_def_mod, ou_bias = 1.0, 1.0, 1.0, 1.0, 0
+        if has_context:
+            h_att_mod, h_def_mod, a_att_mod, a_def_mod, ou_bias = self._compute_absence_modifier(context)
+            xg_h *= (h_att_mod / h_def_mod)
+            xg_a *= (a_att_mod / a_def_mod)
+            xg_h = max(0.4, min(5.0, xg_h))
+            xg_a = max(0.4, min(5.0, xg_a))
+        self._context_cache_last = {
+            'formations': {
+                'home': context.get('formation_home', {}).get('label'),
+                'away': context.get('formation_away', {}).get('label'),
+            },
+            'missing_home': len(context.get('missing_players', {}).get('home', [])),
+            'missing_away': len(context.get('missing_players', {}).get('away', [])),
+            'lineups_confirmed': context.get('lineups_confirmed', False),
+            'ou_bias': ou_bias,
+        }
+
         # Step 3: Poisson → 1X2 probabilities
         build_score_matrix_fn, calculate_markets_fn = _lazy_import_score_matrix()
         matrix = build_score_matrix_fn(xg_h, xg_a, max_goals=8)
@@ -109,10 +131,11 @@ class FreeFallbackService:
         p_draw = round(markets.get('draw', 0.33) * 100, 1)
         p_away = round(markets.get('away', 0.33) * 100, 1)
 
-        # Step 4: O/U 2.5
+        # Step 4: O/U 2.5 (with formation bias)
         analyze_ou = _lazy_import_top_analyst()
         ou = analyze_ou(xg_h, xg_a)
         ou_25_prob = round(ou.get('over_25_prob', 0.5) * 100, 1)
+        ou_25_prob = min(98, max(2, ou_25_prob + ou_bias))
 
         # Step 5: Determine pick
         pick, prob, ev = self._determine_pick(p_home, p_draw, p_away)
@@ -377,6 +400,412 @@ class FreeFallbackService:
         xg_a = gf_a * 0.5 + ga_h * 0.5
 
         return {'xg_home': max(0.4, xg_h), 'xg_away': max(0.4, xg_a)}
+
+    # ── SOFASCORE CONTEXT & LINEUP SCRAPER ─────────────────────────
+
+    def _scrape_sofascore_context(self, home, away, league):
+        """
+        Fetch live lineups, missing players, and match context from SofaScore free API.
+        Returns dict with lineups_confirmed, formations, missing_players, etc.
+        """
+        import requests as r
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Referer': 'https://www.sofascore.com/',
+        }
+
+        # Search for team IDs
+        try:
+            search_h = r.get(
+                f"https://www.sofascore.com/api/v1/search/teams/{home}",
+                headers=headers, timeout=10
+            ).json()
+            search_a = r.get(
+                f"https://www.sofascore.com/api/v1/search/teams/{away}",
+                headers=headers, timeout=10
+            ).json()
+        except Exception:
+            return {}
+
+        h_teams = search_h.get('teams', [])
+        a_teams = search_a.get('teams', [])
+        if not h_teams or not a_teams:
+            return {}
+
+        h_id = h_teams[0].get('id')
+        a_id = a_teams[0].get('id')
+        if not h_id or not a_id:
+            return {}
+
+        # Find upcoming match between these teams
+        sofa_match_id = None
+        try:
+            events_h = r.get(
+                f"https://www.sofascore.com/api/v1/team/{h_id}/events/next/0",
+                headers=headers, timeout=10
+            ).json()
+            for e in events_h.get('events', []):
+                ht = (e.get('homeTeam', {}) or {}).get('id')
+                at = (e.get('awayTeam', {}) or {}).get('id')
+                if (ht == h_id and at == a_id) or (ht == a_id and at == h_id):
+                    sofa_match_id = e.get('id')
+                    break
+        except Exception:
+            pass
+
+        if not sofa_match_id:
+            return {}
+
+        context = {
+            'lineups_confirmed': False,
+            'formation_home': None,
+            'formation_away': None,
+            'is_attacking_home': None,
+            'is_attacking_away': None,
+            'is_ultra_attacking': False,
+            'is_defensive_home': None,
+            'is_defensive_away': None,
+            'missing_players': {'home': [], 'away': []},
+            'sofascore_match_id': sofa_match_id,
+            'home_team_id': h_id,
+            'away_team_id': a_id,
+        }
+
+        # Fetch lineups
+        try:
+            lineups_data = r.get(
+                f"https://www.sofascore.com/api/v1/event/{sofa_match_id}/lineups",
+                headers=headers, timeout=10
+            ).json()
+        except Exception:
+            return context
+
+        if 'error' in lineups_data:
+            return context
+
+        confirmed = lineups_data.get('confirmed', False)
+        context['lineups_confirmed'] = confirmed
+
+        def parse_players(team_data, side):
+            """Extract player positions from lineup data. SofaScore positions: G, D, M, F."""
+            players = team_data.get('players', []) if team_data else []
+            positions = []
+            names = []
+            for p in players:
+                pos = (p.get('player', {}) or {}).get('position', '') or p.get('position', '')
+                name = (p.get('player', {}) or {}).get('name', '')
+                substitute = p.get('substitute', False)
+                if not substitute and pos:
+                    positions.append(pos.upper())
+                    names.append(name)
+            return positions, names
+
+        def parse_missing(team_data, side):
+            """Extract missing players with their impact classification."""
+            missing = []
+            for mp in (team_data.get('missingPlayers', []) if team_data else []):
+                player_info = mp.get('player', {})
+                name = player_info.get('name', 'Unknown')
+                pos = (player_info.get('position', '') or '').upper()
+                reason = mp.get('type', 'INJURY')
+                impact = 'other'
+                if pos == 'G':
+                    impact = 'gk'
+                elif pos == 'F':
+                    impact = 'scorer'
+                elif pos in ('D', 'M'):
+                    impact = 'star'
+                missing.append({'name': name, 'position': pos, 'reason': reason, 'impact': impact})
+            return missing
+
+        home_data = lineups_data.get('home', {})
+        away_data = lineups_data.get('away', {})
+        home_positions, home_names = parse_players(home_data, 'home')
+        away_positions, away_names = parse_players(away_data, 'away')
+        context['missing_players']['home'] = parse_missing(home_data, 'home')
+        context['missing_players']['away'] = parse_missing(away_data, 'away')
+
+        # Also fetch missing-players API for additional absences
+        try:
+            mp_h = r.get(
+                f"https://www.sofascore.com/api/v1/team/{h_id}/missing-players",
+                headers=headers, timeout=10
+            ).json()
+            for mp in mp_h.get('players', []):
+                name = mp.get('name', 'Unknown')
+                pos = (mp.get('position', '') or '').upper()
+                # Avoid duplicates already in lineup missingPlayers
+                existing = [x for x in context['missing_players']['home'] if x['name'] == name]
+                if not existing:
+                    impact = 'gk' if pos == 'G' else ('scorer' if pos == 'F' else 'star')
+                    context['missing_players']['home'].append({
+                        'name': name, 'position': pos,
+                        'reason': mp.get('reason', 'INJURY'), 'impact': impact
+                    })
+        except Exception:
+            pass
+
+        try:
+            mp_a = r.get(
+                f"https://www.sofascore.com/api/v1/team/{a_id}/missing-players",
+                headers=headers, timeout=10
+            ).json()
+            for mp in mp_a.get('players', []):
+                name = mp.get('name', 'Unknown')
+                pos = (mp.get('position', '') or '').upper()
+                existing = [x for x in context['missing_players']['away'] if x['name'] == name]
+                if not existing:
+                    impact = 'gk' if pos == 'G' else ('scorer' if pos == 'F' else 'star')
+                    context['missing_players']['away'].append({
+                        'name': name, 'position': pos,
+                        'reason': mp.get('reason', 'INJURY'), 'impact': impact
+                    })
+        except Exception:
+            pass
+
+        # Infer formations from positions
+        if home_positions:
+            fh = self._infer_formation(home_positions)
+            context['formation_home'] = fh
+            context['is_attacking_home'] = fh.get('is_attacking', False) or fh.get('is_ultra_attacking', False)
+            context['is_defensive_home'] = fh.get('is_defensive', False)
+            context['is_ultra_attacking'] = fh.get('is_ultra_attacking', False)
+        if away_positions:
+            fa = self._infer_formation(away_positions)
+            context['formation_away'] = fa
+            context['is_attacking_away'] = fa.get('is_attacking', False) or fa.get('is_ultra_attacking', False)
+            context['is_defensive_away'] = fa.get('is_defensive', False)
+            if fa.get('is_ultra_attacking', False):
+                context['is_ultra_attacking'] = True
+
+        return context
+
+    def _infer_formation(self, positions):
+        """
+        Infer formation from player positions list.
+        positions: list of strings ['G', 'D', 'M', 'F', 'D', ...]
+        Returns (formation_label, is_attacking, is_defensive, is_ultra_attacking)
+        """
+        count_g = sum(1 for p in positions if p == 'G')
+        count_d = sum(1 for p in positions if p == 'D')
+        count_m = sum(1 for p in positions if p == 'M')
+        count_f = sum(1 for p in positions if p == 'F')
+
+        is_attacking = False
+        is_defensive = False
+        is_ultra_attacking = False
+        label = None
+
+        if count_d >= 5 and count_f <= 2:
+            label = f"{count_d}-{count_m}-{count_f}" if count_m > 0 else f"{count_d}-{count_f}"
+            is_defensive = True
+        elif count_d == 4 and count_f >= 3:
+            label = f"4-{count_m}-{count_f}"
+            is_attacking = True
+        elif count_d == 4 and count_f == 2:
+            label = "4-4-2"
+        elif count_d == 3 and count_f >= 3:
+            label = f"3-{count_m}-{count_f}"
+            is_ultra_attacking = True
+        elif count_d == 4 and count_f == 1:
+            label = "4-5-1"
+            is_defensive = True
+        elif count_d == 3 and count_f == 2:
+            label = "3-5-2"
+            is_attacking = True
+        elif count_f >= 4:
+            label = f"{count_d}-{count_m}-{count_f}"
+            is_ultra_attacking = True
+        else:
+            label = f"{count_d}-{count_m}-{count_f}"
+
+        return {
+            'label': label,
+            'is_attacking': is_attacking,
+            'is_defensive': is_defensive,
+            'is_ultra_attacking': is_ultra_attacking,
+            'counts': {'G': count_g, 'D': count_d, 'M': count_m, 'F': count_f}
+        }
+
+    def _compute_absence_modifier(self, context):
+        """
+        Compute xG modifiers and O/U bias from lineups and missing players.
+        Returns (h_att_mod, h_def_mod, a_att_mod, a_def_mod, ou_bias)
+        """
+        h_att_mod, h_def_mod = 1.0, 1.0
+        a_att_mod, a_def_mod = 1.0, 1.0
+        ou_bias = 0
+
+        if not context.get('lineups_confirmed'):
+            return h_att_mod, h_def_mod, a_att_mod, a_def_mod, ou_bias
+
+        # ── Missing players modifiers (same logic as xg_engine.py) ──
+        for mp in context['missing_players']['home']:
+            if mp['impact'] == 'gk':
+                h_def_mod *= 1.25
+            elif mp['impact'] == 'scorer':
+                h_att_mod *= 0.70
+            elif mp['impact'] == 'star':
+                h_att_mod *= 0.85
+                h_def_mod *= 1.15
+
+        for mp in context['missing_players']['away']:
+            if mp['impact'] == 'gk':
+                a_def_mod *= 1.25
+            elif mp['impact'] == 'scorer':
+                a_att_mod *= 0.70
+            elif mp['impact'] == 'star':
+                a_att_mod *= 0.85
+                a_def_mod *= 1.15
+
+        # Multi-absence penalty (3+ missing → likely B-team)
+        total_home_missing = len(context['missing_players']['home'])
+        total_away_missing = len(context['missing_players']['away'])
+        if total_home_missing >= 3:
+            h_att_mod *= 0.80
+        if total_home_missing >= 5:
+            h_att_mod *= 0.60
+        if total_away_missing >= 3:
+            a_att_mod *= 0.80
+        if total_away_missing >= 5:
+            a_att_mod *= 0.60
+
+        # ── Formation bias for O/U ──
+        form_h = context.get('formation_home') or {}
+        form_a = context.get('formation_away') or {}
+
+        h_attack = form_h.get('is_ultra_attacking', False) or form_h.get('is_attacking', False)
+        h_defend = form_h.get('is_defensive', False)
+        a_attack = form_a.get('is_ultra_attacking', False) or form_a.get('is_attacking', False)
+        a_defend = form_a.get('is_defensive', False)
+
+        if h_attack and a_attack:
+            ou_bias += 15
+        elif h_attack and a_defend:
+            ou_bias -= 5
+        elif h_defend and a_attack:
+            ou_bias -= 5
+        elif h_defend and a_defend:
+            ou_bias -= 10
+        if form_h.get('is_ultra_attacking', False) or form_a.get('is_ultra_attacking', False):
+            ou_bias += 20
+
+        return h_att_mod, h_def_mod, a_att_mod, a_def_mod, ou_bias
+
+    # ── CONTEXT REFRESH (for near-kickoff matches) ────────────────
+
+    def context_refresh_batch(self, matches):
+        """
+        Re-check context (lineups, missing players) for matches that already have
+        predictions. Only re-fetches SofaScore context, not FBref.
+        Updates DB if lineups have changed.
+        """
+        results = []
+        refreshed = 0
+        for m in matches:
+            try:
+                result = self._context_refresh_one(m)
+                if result.get('adjusted'):
+                    refreshed += 1
+                results.append(result)
+            except Exception as e:
+                logger.error(f"[CONTEXT] Error on {m.get('id','?')}: {e}")
+                results.append({"id": m.get('id'), "success": False, "error": str(e)})
+        return {"refreshed": refreshed, "total": len(matches), "results": results}
+
+    def _context_refresh_one(self, match):
+        match_id = match.get('id') or match.get('match_id') or ''
+        home = match.get('homeTeam', '')
+        away = match.get('awayTeam', '')
+        league = match.get('league', match.get('tournament_name', ''))
+
+        # Fetch context only
+        context = self._scrape_sofascore_context(home, away, league)
+        if not context.get('lineups_confirmed') and not context.get('missing_players', {}).get('home'):
+            return {"id": match_id, "adjusted": False, "reason": "no_lineups_yet"}
+
+        h_att_mod, h_def_mod, a_att_mod, a_def_mod, ou_bias = self._compute_absence_modifier(context)
+
+        # Read current predictions from DB
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT home_win_probability, draw_probability, away_win_probability, "
+                "ou_25_prob, home_xg, away_xg, prediction FROM matches WHERE id = ?",
+                (match_id,)
+            ).fetchone()
+            conn.close()
+        except Exception:
+            return {"id": match_id, "adjusted": False, "error": "db_read_failed"}
+
+        if not row:
+            return {"id": match_id, "adjusted": False, "error": "match_not_found"}
+
+        cur_ou = row['ou_25_prob'] or 50.0
+        cur_h_xg = row['home_xg'] or 1.35
+        cur_a_xg = row['away_xg'] or 1.15
+
+        adjusted = False
+        if h_att_mod != 1.0 or h_def_mod != 1.0 or a_att_mod != 1.0 or a_def_mod != 1.0 or ou_bias != 0:
+            adjusted = True
+
+        if not adjusted:
+            return {"id": match_id, "adjusted": False, "reason": "no_change"}
+
+        # Apply modifiers
+        new_xg_h = cur_h_xg * (h_att_mod / h_def_mod)
+        new_xg_a = cur_a_xg * (a_att_mod / a_def_mod)
+        new_xg_h = max(0.4, new_xg_h)
+        new_xg_a = max(0.4, new_xg_a)
+
+        # Recompute probs
+        build_score_matrix_fn, calculate_markets_fn = _lazy_import_score_matrix()
+        matrix = build_score_matrix_fn(new_xg_h, new_xg_a, max_goals=8)
+        markets = calculate_markets_fn(matrix)
+
+        p_home = round(markets.get('home', 0.33) * 100, 1)
+        p_draw = round(markets.get('draw', 0.33) * 100, 1)
+        p_away = round(markets.get('away', 0.33) * 100, 1)
+
+        analyze_ou = _lazy_import_top_analyst()
+        ou = analyze_ou(new_xg_h, new_xg_a)
+        new_ou = round(ou.get('over_25_prob', 0.5) * 100, 1)
+        new_ou = min(98, max(2, new_ou + ou_bias))
+
+        pick, prob, ev = self._determine_pick(p_home, p_draw, p_away)
+        expected_score = f"{ou.get('predicted_score_h', 1)} - {ou.get('predicted_score_a', 1)}"
+
+        predictions = {
+            'home_win_probability': p_home,
+            'draw_probability': p_draw,
+            'away_win_probability': p_away,
+            'ou_25_prob': new_ou,
+            'btts_prob': round(markets.get('btts_yes', 0.5) * 100, 1),
+            'expected_score': expected_score,
+            'prediction': pick,
+            'prediction_probability': prob,
+            'ev_score': ev,
+            'insufficient_data': 0,
+            'source': 'context_refresh',
+            'home_xg': round(new_xg_h, 2),
+            'away_xg': round(new_xg_a, 2),
+        }
+
+        self._update_db(match_id, predictions)
+
+        return {
+            "id": match_id, "adjusted": True,
+            "old_ou": cur_ou, "new_ou": new_ou,
+            "old_pick": row['prediction'], "new_pick": pick,
+            "formations": {
+                "home": context.get('formation_home', {}).get('label'),
+                "away": context.get('formation_away', {}).get('label'),
+            },
+            "missing_home": len(context['missing_players']['home']),
+            "missing_away": len(context['missing_players']['away']),
+        }
 
     def _scrape_local_history(self, home, away):
         """Try to find historical average goals from tactical.db or archive."""

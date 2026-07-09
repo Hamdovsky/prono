@@ -502,3 +502,18 @@ async def fallback_enrich_batch(req: FallbackEnrichRequest):
         import traceback
         traceback.print_exc()
         return {"success": False, "error": str(e)}
+
+class ContextRefreshRequest(BaseModel):
+    matches: list[dict] = []
+
+@app.post("/fallback/context-refresh")
+async def fallback_context_refresh(req: ContextRefreshRequest):
+    try:
+        from free_fallback_service import FreeFallbackService
+        service = FreeFallbackService()
+        result = service.context_refresh_batch(req.matches)
+        return {"success": True, **result}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}

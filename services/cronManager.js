@@ -126,6 +126,32 @@ class CronManager {
             } catch (e) {
                 logger.warn(`⚠️ [CRON] Free Fallback error: ${e.message}`);
             }
+
+            // 10d. Context & Lineup Refresh — adjust predictions for lineups/absences within 4h of kickoff
+            try {
+                const axios = require('axios');
+                const INFERENCE_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000';
+                const soonMatches = await database.getMatchesStartingSoon(4);
+                if (soonMatches && soonMatches.length > 0) {
+                    logger.info(`🌀 [CRON] Context refreshing ${soonMatches.length} near-kickoff matches...`);
+                    const result = await axios.post(`${INFERENCE_URL}/fallback/context-refresh`, {
+                        matches: soonMatches.map(m => ({
+                            id: m.id,
+                            homeTeam: m.homeTeam,
+                            awayTeam: m.awayTeam,
+                            league: m.league || m.tournament_name || ''
+                        }))
+                    }, { timeout: 120000 }).then(r => r.data).catch(e => ({ success: false, error: e.message }));
+
+                    if (result.success) {
+                        logger.info(`✅ [CRON] Context refresh: ${result.refreshed}/${result.total} matches adjusted`);
+                    } else {
+                        logger.warn(`⚠️ [CRON] Context refresh failed: ${result.error}`);
+                    }
+                }
+            } catch (e) {
+                logger.warn(`⚠️ [CRON] Context refresh error: ${e.message}`);
+            }
         });
 
         // 9.5 Tunisian Promosport Crowd Collector (08:00 daily)

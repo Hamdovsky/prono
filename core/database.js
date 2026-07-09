@@ -1232,6 +1232,42 @@ const database = {
         }
     },
 
+    getMatchesStartingSoon: async (hours = 4) => {
+        try {
+            const now = new Date();
+            const future = new Date(now.getTime() + hours * 3600 * 1000);
+            const nowIso = now.toISOString();
+            const futureIso = future.toISOString();
+            const res = db.prepare(
+                `SELECT id, homeTeam, awayTeam, league, tournament_name, startTimestamp, timestamp
+                 FROM matches
+                 WHERE status IN ('scheduled', 'upcoming')
+                 AND (startTimestamp IS NOT NULL OR timestamp IS NOT NULL)
+                 AND homeTeam IS NOT NULL AND awayTeam IS NOT NULL
+                 AND (
+                     (startTimestamp > 0 AND startTimestamp <= ? AND startTimestamp > ?)
+                     OR
+                     (timestamp >= ? AND timestamp <= ?)
+                 )
+                 ORDER BY startTimestamp ASC`
+            ).all(
+                Math.floor(future.getTime() / 1000),
+                Math.floor(now.getTime() / 1000) - 3600,
+                nowIso,
+                futureIso
+            );
+            return res.map(r => {
+                try {
+                    const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
+                    return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league };
+                } catch (e) { return r; }
+            });
+        } catch (e) {
+            logger.error(`[DB] getMatchesStartingSoon failed: ${e.message}`);
+            return [];
+        }
+    },
+
     cleanupStaleMatches: async () => {
         try {
             // Delete matches older than 24 hours that are not LIVE

@@ -241,6 +241,14 @@ async function upsertMatch(match) {
       ).run(params)
       return true
     }
+    const safe = {
+      ...match,
+      category_name: match.category_name || 'Soccer',
+      tournament_name: match.tournament_name || 'Unknown League',
+      tournament_id: match.tournament_id || null,
+      home_team_id: match.home_team_id || null,
+      away_team_id: match.away_team_id || null,
+    }
     await db.prepare(`
       INSERT OR IGNORE INTO matches (
         id, homeTeam, awayTeam, league, category_name, tournament_name,
@@ -257,7 +265,7 @@ async function upsertMatch(match) {
         @odds_home, @odds_draw, @odds_away,
         @last_updated, @insufficient_data, @source, @fullData
       )
-    `).run(match)
+    `).run(safe)
     return true
   } catch (e) {
     logger.warn(`[CLOUD-SEED] upsertMatch error (${match.id}):`, e.message)

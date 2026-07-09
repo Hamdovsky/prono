@@ -194,6 +194,10 @@ class TheRundownService {
       verdict: 'PENDING',
       last_updated: Date.now(),
       insufficient_data: 1,
+      category_name: event._sportName || event.sport_name || 'Soccer',
+      tournament_name: this.soccerNames[this.sportIds.soccer.indexOf(event.sport_id)] || `Sport_${event.sport_id}`,
+      home_team_id: home?.team_id || null,
+      away_team_id: away?.team_id || null,
       source: 'therundown',
       fullData: JSON.stringify({ eventId, teams: teams.map(t => ({ id: t.team_id, name: t.name })) })
     }

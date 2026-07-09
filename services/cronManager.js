@@ -93,9 +93,14 @@ class CronManager {
             }
         }, { timezone: 'Europe/Paris' });
 
-        // 10b. Ultra-Frequent Enrichment (every 20 min) — keeps elite cache fresh + Telegram broadcast
+        // 10b. Ultra-Frequent Enrichment (every 20 min) — keeps elite cache fresh + Telegram broadcast + auto-optimize
         const telegramBot = require('../core/telegramBot');
-        cron.schedule('*/20 * * * *', () => telegramBot.runEnrichmentAndBroadcast());
+        const autoOptimizer = require('../core/autoOptimizer');
+        cron.schedule('*/20 * * * *', async () => {
+            logger.info('🌀 [CRON] Starting Autonomous Cycle...')
+            await telegramBot.runEnrichmentAndBroadcast().catch(e => logger.warn(`[CRON] Telegram broadcast error: ${e.message}`))
+            await autoOptimizer.optimizeModelBasedOnROI().catch(e => logger.warn(`[CRON] Auto-optimizer error: ${e.message}`))
+        });
 
         // 9.5 Tunisian Promosport Crowd Collector (08:00 daily)
         cron.schedule('0 8 * * *', () => {

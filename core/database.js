@@ -1051,6 +1051,28 @@ const database = {
             return { success: false, error: e.message };
         }
     },
+    getRecentArchivedMatches: async (limit = 50) => {
+        try {
+            const rows = db.prepare("SELECT * FROM historical_matches WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY archived_at DESC LIMIT ?").all(limit);
+            return rows.map(r => {
+                const fd = (() => { try { return JSON.parse(r.fullData || '{}') } catch { return {} } })()
+                return {
+                    ...r,
+                    ...fd,
+                    id: r.id,
+                    homeTeam: r.homeTeam,
+                    awayTeam: r.awayTeam,
+                    scoreHome: r.scoreHome,
+                    scoreAway: r.scoreAway,
+                    league: r.league,
+                    timestamp: r.timestamp
+                }
+            })
+        } catch (e) {
+            logger.warn(`[DB] getRecentArchivedMatches error: ${e.message}`)
+            return []
+        }
+    },
     insertSnapshot: async (matchId, minute, stats) => { return true; },
     getSnapshotBefore: async (matchId, beforeTimestamp) => { return null; },
 

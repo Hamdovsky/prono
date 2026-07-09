@@ -1,73 +1,61 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import './GridGenerator.css';
-
-function computeGrid(matches) {
-  return matches.map((m, idx) => {
-    const enriched = m.enriched || {};
-    const quant = m.quant || enriched.quant || {};
-    const hPct = parseFloat(m.home_win_probability || enriched.home_win_probability || 0);
-    const dPct = parseFloat(m.draw_probability || enriched.draw_probability || 0);
-    const aPct = parseFloat(m.away_win_probability || enriched.away_win_probability || 0);
-
-    const pick = (quant.main_pick || m.main_pick || m.pick || '').toString().trim().toUpperCase();
-
-    let col1 = pick;
-    if (pick === '1X' || pick === 'X2' || pick === '12') {
-      col1 = pick;
-    } else if (!pick || pick === 'N/A') {
-      const maxPct = Math.max(hPct, dPct, aPct);
-      col1 = maxPct === hPct ? '1' : maxPct === aPct ? '2' : 'X';
-    }
-
-    const picks = [hPct, dPct, aPct];
-    const sortedIdx = [0, 1, 2].sort((a, b) => picks[b] - picks[a]);
-    const labels = ['1', 'X', '2'];
-
-    const col2 = (() => {
-      if (picks[sortedIdx[0]] >= 70) return null;
-      const coverage = sortedIdx[1];
-      const primary = sortedIdx[0];
-      return labels[Math.min(primary, coverage)] + labels[Math.max(primary, coverage)];
-    })();
-
-    const col3 = (() => {
-      if (picks[sortedIdx[0]] >= 55) return null;
-      const coverage = sortedIdx[2];
-      const primary = sortedIdx[0];
-      return labels[Math.min(primary, coverage)] + labels[Math.max(primary, coverage)];
-    })();
-
-    return {
-      num: idx + 1,
-      home: m.homeTeam,
-      away: m.awayTeam,
-      league: m.league || m.tournament_name || '',
-      col1,
-      col2,
-      col3,
-      probs: `${Math.round(hPct)}/${Math.round(dPct)}/${Math.round(aPct)}`,
-      ev: parseFloat(quant.ev_score || m.ev_score || 0).toFixed(2)
-    };
-  });
-}
-
-function computeCost(grid) {
-  const cols = [1, 0, 0]; // col1 always active
-  grid.forEach(g => {
-    if (g.col2) cols[1]++;
-    if (g.col3) cols[2]++;
-  });
-  const combos = (1 << cols[0]) * (1 << cols[1]) * (1 << cols[2]);
-  return Math.max(1, combos);
-}
 
 const GridGenerator = ({ eliteMatches }) => {
   const [showGrid, setShowGrid] = useState(false);
 
-  if (!eliteMatches || eliteMatches.length === 0) return null;
+  const promosportMatches = useMemo(() => {
+    if (!eliteMatches || eliteMatches.length === 0) return [];
+    return eliteMatches.slice(0, 13);
+  }, [eliteMatches]);
 
-  const grid = computeGrid(eliteMatches);
-  const cost = computeCost(grid);
+  const goldenData = useMemo(() => {
+    if (promosportMatches.length === 0) return [];
+    let dcUsed = 0;
+    return promosportMatches.map((m) => {
+      const quant = m.quant || {};
+      const hProb = parseFloat(m.home_win_probability || 0);
+      const dProb = parseFloat(m.draw_probability || 0);
+      const aProb = parseFloat(m.away_win_probability || 0);
+      const standardPick = quant.main_pick || m.main_pick || m.pick || '—';
+      const dvb = m.draw_value_bet === true || m.draw_value_bet === 'True' || m.draw_value_bet === 1;
+      const bsm = parseFloat(m.base_solid_margin || 0);
+      const isSolid = bsm > 0 && bsm >= 25;
+
+      let golden = { pick: standardPick, type: '⚡ BASE' };
+
+      if (dvb) {
+        if (dcUsed < 6) {
+          if (hProb > aProb && hProb - dProb < 25) {
+            golden = { pick: '1X', type: '🔥 PIÈGE (Double)' };
+          } else if (aProb > hProb && aProb - dProb < 25) {
+            golden = { pick: 'X2', type: '🔥 PIÈGE (Double)' };
+          } else {
+            golden = { pick: 'X', type: '💣 SURPRISE' };
+          }
+          dcUsed++;
+        } else {
+          golden = { pick: standardPick, type: '⚠️ RISQUE' };
+        }
+      } else if (hProb > 65 && dcUsed < 6) {
+        golden = { pick: '1X', type: '🛡️ COUVERTURE' };
+        dcUsed++;
+      } else if (aProb > 60 && dcUsed < 6) {
+        golden = { pick: 'X2', type: '🛡️ COUVERTURE' };
+        dcUsed++;
+      } else if (isSolid) {
+        golden = { pick: standardPick, type: '⚡ BASE' };
+      } else {
+        golden = { pick: standardPick, type: '⚡ BASE' };
+      }
+
+      return { m, standardPick, golden, hProb, dProb, aProb, dvb, bsm };
+    });
+  }, [promosportMatches]);
+
+  const dcCount = goldenData.filter(g => g.golden.pick.length > 1).length;
+
+  if (!eliteMatches || eliteMatches.length === 0) return null;
 
   return (
     <div className="grid-generator-container">
@@ -75,50 +63,60 @@ const GridGenerator = ({ eliteMatches }) => {
         className="grid-generator-btn"
         onClick={() => setShowGrid(s => !s)}
       >
-        {showGrid ? '✕ CACHER' : '🎰 GÉNÉRER TICKET PROMOSPORT'}
+        {showGrid ? '✕ CACHER' : '🎰 GRILLE PROMOSPORT TUNISIE — COLONNE D\'OR'}
       </button>
 
       {showGrid && (
-        <div className="grid-panel">
-          <div className="grid-header-info">
-            <span className="grid-title">📋 GRILLE PROMOSPORT — TITANIUM NEURAL-X</span>
-            <span className="grid-meta">{grid.length} MATCHS · {cost} COMBINAISONS</span>
-            <button className="grid-print-btn" onClick={() => window.print()}>🖨️ IMPRIMER</button>
+        <div className="promosport-container">
+          <div className="promosport-header">
+            <span className="promosport-title">🎰 GRILLE PROMOSPORT TUNISIE — ⚡ TITANIUM SELECTION</span>
+            <span className="golden-badge">🏆 LA COLONNE D'OR ACTIVÉE ({dcCount} DOUBLES CHANCES INJECTÉS)</span>
+            <button className="btn-print" onClick={() => window.print()}>🖨️ IMPRIMER</button>
           </div>
 
-          <table className="grid-table">
+          <table className="promosport-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>MATCH</th>
-                <th>LEAGUE</th>
-                <th className="text-center">PROBS</th>
-                <th className="text-center col-primary">COL 1</th>
-                <th className="text-center col-cover">COL 2</th>
-                <th className="text-center col-cover">COL 3</th>
-                <th className="text-center">EV</th>
+                <th className="text-center">N°</th>
+                <th>🏆 MATCHS DU CONCOURS</th>
+                <th className="text-center">BASE STANDARD</th>
+                <th className="text-center golden-header">✨ LA COLONNE D'OR (13/13)</th>
+                <th className="text-center">ℹ️ NATURE</th>
               </tr>
             </thead>
             <tbody>
-              {grid.map(g => (
-                <tr key={g.num}>
-                  <td className="text-center grid-num">{g.num}</td>
-                  <td className="grid-teams">{g.home} vs {g.away}</td>
-                  <td className="grid-league">{g.league}</td>
-                  <td className="text-center grid-probs">{g.probs}</td>
-                  <td className="text-center grid-pick-primary">{g.col1}</td>
-                  <td className="text-center grid-pick-cover">{g.col2 || '—'}</td>
-                  <td className="text-center grid-pick-cover">{g.col3 || '—'}</td>
-                  <td className="text-center grid-ev">EV {g.ev}</td>
-                </tr>
-              ))}
+              {goldenData.map((g, idx) => {
+                const isDouble = g.golden.pick.length > 1;
+                const isSurprise = g.golden.type.includes('SURPRISE');
+                const isTrapp = g.golden.type.includes('PIÈGE');
+                const isCover = g.golden.type.includes('COUVERTURE');
+                return (
+                  <tr key={idx} className={isTrapp || isSurprise ? 'row-trap' : isCover ? 'row-cover' : ''}>
+                    <td className="text-center match-num">{idx + 1}</td>
+                    <td className="match-names">
+                      <span className="match-league">[{g.m.league || g.m.tournament_name || 'INT'}]</span>
+                      {' '}{g.m.homeTeam} vs {g.m.awayTeam}
+                    </td>
+                    <td className="text-center standard-pick">{g.standardPick}</td>
+                    <td className="text-center golden-cell">
+                      <span className={`golden-badge-pick ${isDouble ? 'double-gold' : 'single-gold'}`}>
+                        {g.golden.pick}
+                      </span>
+                    </td>
+                    <td className="text-center text-nature">
+                      <span className={`nature-tag ${isTrapp ? 'tag-piege' : isSurprise ? 'tag-surprise' : isCover ? 'tag-cover' : 'tag-base'}`}>
+                        {g.golden.type}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
-          <div className="grid-legend">
-            <span><strong>COL 1</strong> — Pick principal (base de la grille)</span>
-            {grid.some(g => g.col2) && <span><strong>COL 2</strong> — Couverture double chance (&gt;70% sécurité)</span>}
-            {grid.some(g => g.col3) && <span><strong>COL 3</strong> — Couverture secondaire (&gt;55% sécurité)</span>}
+          <div className="promosport-footer">
+            <span>📊 Système Combinatoire: <b>{dcCount} Doubles</b> = <b>{Math.pow(2, dcCount)}</b> Colonnes Équivalentes Simple.</span>
+            <button className="btn-print" onClick={() => window.print()}>🖨️ IMPRIMER LA COLONNE D'OR</button>
           </div>
         </div>
       )}

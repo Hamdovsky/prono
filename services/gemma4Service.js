@@ -9,11 +9,13 @@ class Gemma4Service {
   }
 
   isAvailable() {
-    if (process.env.GEMMA4_DISABLED === 'true') return false
-    if (this.baseUrl.includes('127.0.0.1') || this.baseUrl.includes('localhost')) {
-        return !!process.env.GEMMA4_URL && !!this.apiKey
+    const url = this.baseUrl;
+    // si serveur local (Ollama), apiKey optionnel
+    if (url.includes('127.0.0.1') || url.includes('localhost')) {
+      return !!url;
     }
-    return !!this.apiKey
+    // serveur distant → clé obligatoire
+    return !!url && !!this.apiKey;
   }
 
   async _chat(systemPrompt, userPrompt) {

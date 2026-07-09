@@ -23,12 +23,28 @@ class AutoOptimizationEngine {
         }
     }
 
+    _isFallback(m) {
+        const q = m.quant || {}
+        const hp = parseFloat(q.home_win_probability ?? m.home_win_probability ?? -1)
+        const dp = parseFloat(q.draw_probability   ?? m.draw_probability   ?? -1)
+        const ap = parseFloat(q.away_win_probability ?? m.away_win_probability ?? -1)
+        if (hp < 0 || dp < 0 || ap < 0) return false
+        // distribution aveugle 33% → fallback
+        const eps = 0.02
+        return Math.abs(hp - 1/3) < eps && Math.abs(dp - 1/3) < eps && Math.abs(ap - 1/3) < eps
+    }
+
     async optimizeModelBasedOnROI() {
         logger.info('🤖 [AUTO-OPT] Analysing past results to self-heal...')
 
-        const pastMatches = await db.getRecentArchivedMatches(50)
+        let pastMatches = await db.getRecentArchivedMatches(50)
+        const totalRaw = pastMatches.length
+        pastMatches = pastMatches.filter(m => !this._isFallback(m))
+        const filteredOut = totalRaw - pastMatches.length
+        if (filteredOut > 0) logger.info(`🧹 [AUTO-OPT] Filtered out ${filteredOut} fallback matches (blind 33% distribution).`)
+
         if (pastMatches.length < 10) {
-            logger.info('📉 [AUTO-OPT] Not enough data yet to optimize.')
+            logger.info(`📉 [AUTO-OPT] Not enough valid matches (${pastMatches.length}/${totalRaw}) to optimize.`)
             return
         }
 

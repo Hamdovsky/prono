@@ -45,7 +45,18 @@ const GridGenerator = ({ eliteMatches }) => {
         golden = { pick: standardPick, type: '⚡ BASE', prob: Math.round(hProb > aProb ? hProb : aProb) };
       }
 
-      return { m, standardPick, golden, hProb, dProb, aProb, dvb };
+      const ouResult = (() => {
+        if (m.ou_25_prob && parseFloat(m.ou_25_prob) > 0) {
+          return parseFloat(m.ou_25_prob) >= 50
+            ? { label: '📈 OVER 2.5', pct: parseFloat(m.ou_25_prob).toFixed(0) + '%' }
+            : { label: '📉 UNDER 2.5', pct: (100 - parseFloat(m.ou_25_prob)).toFixed(0) + '%' }
+        }
+        if (hProb > 70 || aProb > 65) return { label: '📈 OVER 2.5', pct: '' }
+        if (dProb > 35 || (hProb < 45 && aProb < 45)) return { label: '📉 UNDER 2.5', pct: '' }
+        return { label: '⚖️ NEUTRE', pct: '' }
+      })()
+
+      return { m, standardPick, golden, hProb, dProb, aProb, dvb, ouResult };
     });
   }, [promosportMatches]);
 
@@ -77,6 +88,7 @@ const GridGenerator = ({ eliteMatches }) => {
                 <th>🏆 MATCHS DU CONCOURS</th>
                 <th className="text-center">BASE STANDARD</th>
                 <th className="text-center golden-header">✨ LA COLONNE D'OR (13/13)</th>
+                <th className="text-center goals-header">⚽ O/U 2.5</th>
                 <th className="text-center">ℹ️ NATURE</th>
               </tr>
             </thead>
@@ -98,6 +110,12 @@ const GridGenerator = ({ eliteMatches }) => {
                       <span className={`golden-badge-pick ${isDouble ? 'double-gold' : 'single-gold'}`}>
                         {g.golden.pick}
                         {g.golden.prob > 0 && <span className="golden-prob"> {g.golden.prob}%</span>}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      <span className={`goals-tag ${g.ouResult.label.includes('OVER') ? 'tag-over' : g.ouResult.label.includes('UNDER') ? 'tag-under' : 'tag-neutral'}`}>
+                        {g.ouResult.label}
+                        {g.ouResult.pct && <span className="goals-prob"> {g.ouResult.pct}</span>}
                       </span>
                     </td>
                     <td className="text-center text-nature">

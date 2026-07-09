@@ -73,6 +73,14 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
             const isVip = match._vip === true;
             const locked = isVip && !vipAvailable;
 
+            const ouProb = parseFloat(match.ou_25_prob || enriched.ou_25_prob || 0);
+            const ouLabel = ouProb > 0
+              ? ouProb >= 50 ? '📈 O2.5' : '📉 U2.5'
+              : hPct > 70 || aPct > 65 ? '📈 O2.5'
+              : dPct > 35 || (hPct < 45 && aPct < 45) ? '📉 U2.5'
+              : '';
+            const ouPct = ouProb > 0 ? (ouProb >= 50 ? ouProb : 100 - ouProb).toFixed(0) : '';
+
             return (
               <tr key={match.id || idx} className={`${isSolid && !locked ? 'row-solid' : ''} ${isValueBet && !locked ? 'row-value' : ''} ${locked ? 'row-locked' : ''}`}>
                 <td className="match-cell">
@@ -88,6 +96,11 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
                   ) : (
                     <span className={`pick-badge ${isSolid ? 'solid' : isValueBet ? 'value-draw' : 'standard'}`}>
                       {quant.main_pick || match.pick || 'N/A'}
+                    </span>
+                  )}
+                  {ouLabel && !locked && (
+                    <span className={`ou-mini ${ouLabel.includes('O2.5') ? 'ou-over' : 'ou-under'}`}>
+                      {ouLabel}{ouPct ? ` ${ouPct}%` : ''}
                     </span>
                   )}
                 </td>

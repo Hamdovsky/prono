@@ -252,6 +252,42 @@
   color: #f0c040;
 }
 
+.goals-header {
+  color: #58a6ff;
+  font-size: 9px;
+}
+
+.goals-tag {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.tag-over {
+  color: #39d353;
+  background: rgba(57,211,83,0.12);
+  border: 1px solid rgba(57,211,83,0.25);
+}
+
+.tag-under {
+  color: #f85149;
+  background: rgba(248,81,73,0.12);
+  border: 1px solid rgba(248,81,73,0.25);
+}
+
+.tag-neutral {
+  color: #8b949e;
+  background: rgba(139,148,158,0.08);
+  border: 1px solid rgba(139,148,158,0.15);
+}
+
+.goals-prob {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
 @media print {
   .grid-generator-btn,
   .btn-print,
@@ -272,6 +308,21 @@
     background: #fff3cd !important;
     color: #856404 !important;
   }
+  .goals-header {
+    color: #000 !important;
+  }
+  .goals-tag {
+    color: #000;
+    border-color: #000;
+    background: none !important;
+  }
+  .tag-over, .tag-under, .tag-neutral {
+    background: none !important;
+  }
+  .tag-over { color: #006600; }
+  .tag-under { color: #cc0000; }
+  .tag-neutral { color: #666; }
+  .goals-prob { color: #000; }
   .golden-badge-pick {
     border-color: #000 !important;
   }

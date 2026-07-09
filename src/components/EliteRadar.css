@@ -139,3 +139,23 @@
 .vip-cell-unlock:hover {
   background: rgba(240, 192, 64, 0.2);
 }
+
+.ou-mini {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-left: 4px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.ou-over {
+  color: #39d353;
+  background: rgba(57,211,83,0.12);
+  border: 1px solid rgba(57,211,83,0.25);
+}
+.ou-under {
+  color: #f85149;
+  background: rgba(248,81,73,0.12);
+  border: 1px solid rgba(248,81,73,0.25);
+}

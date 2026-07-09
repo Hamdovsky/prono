@@ -93,11 +93,11 @@ function mapLiveScoreEventToMatch(event, stage) {
     homeTeam: homeName,
     awayTeam: awayName,
     league,
-    category_name: country,
-    tournament_name: league,
-    tournament_id: null,
-    home_team_id: null,
-    away_team_id: null,
+    category_name: stage?.CompD || country,
+    tournament_name: stage?.CompN || league,
+    tournament_id: stage?.CompId ? Number(stage.CompId) : null,
+    home_team_id: event.T1?.[0]?.ID ? Number(event.T1[0].ID) : null,
+    away_team_id: event.T2?.[0]?.ID ? Number(event.T2[0].ID) : null,
     startTimestamp: ts,
     timestamp: new Date(ts * 1000).toISOString(),
     status,
@@ -112,7 +112,10 @@ function mapLiveScoreEventToMatch(event, stage) {
     source: 'livescore',
     fullData: JSON.stringify({
       id: event.Eid, homeTeam: homeName, awayTeam: awayName,
-      league, country, startTimestamp: ts, status,
+      league: stage?.CompN || league, country, startTimestamp: ts, status,
+      stageName: stage?.Snm, round: event.ErnInf,
+      homeTeamId: event.T1?.[0]?.ID, awayTeamId: event.T2?.[0]?.ID,
+      compId: stage?.CompId, compName: stage?.CompN,
       homeScore: event.Tr1, awayScore: event.Tr2
     })
   }

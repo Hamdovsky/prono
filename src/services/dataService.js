@@ -43,7 +43,7 @@ class DataService {
         this.intervalId = null;
         this.apiEndpoint = getApiUrl('/api/live');
         this.comboApiEndpoint = getApiUrl('/api/combos');
-        this.upcomingApiEndpoint = getApiUrl('/api/upcoming?days=14');
+        this.upcomingApiEndpoint = getApiUrl('/api/upcoming');
         this.promosportApiEndpoint = getApiUrl('/api/promosport');
         this.promosportWeaponsEndpoint = getApiUrl('/api/promosport/secret-weapons');
         this.promosportAnalysisEndpoint = getApiUrl('/api/promosport/analysis');
@@ -541,7 +541,11 @@ class DataService {
 
             logger.info(`📊 [DATA] Received ${Array.isArray(raw) ? raw.length : 'non-array'} raw matches.`);
 
-            const rawMatches = Array.isArray(raw) ? raw : (raw?.elite || raw?.matches || [])
+            const rawMatches = Array.isArray(raw) ? raw : (raw?.matches || [
+                ...(Array.isArray(raw?.elite) ? raw.elite : []),
+                ...(Array.isArray(raw?.vip_locked) ? raw.vip_locked : []),
+                ...(Array.isArray(raw?.fallback_pool) ? raw.fallback_pool : []),
+            ])
             this.upcomingPredictions = rawMatches.map(m => {
                     try {
                         return this._normalizeMatch(m, 'upcoming');

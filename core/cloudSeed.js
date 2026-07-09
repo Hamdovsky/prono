@@ -26,7 +26,7 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms))
 }
 
-const LIVESCORE_BASE = 'https://prod-public-api.livescore.com/v1/api/react/date/soccer'
+const LIVESCORE_BASE = 'https://prod-public-api.livescore.com/v1/api/app/date/soccer'
 
 const LIVESCORE_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -64,7 +64,7 @@ function mapLiveScoreEps(eps) {
 
 async function fetchLiveScoreEvents(dateStr) {
   const ymd = dateStr.replace(/-/g, '')
-  const url = `${LIVESCORE_BASE}/${ymd}/0.00?MD=1`
+  const url = `${LIVESCORE_BASE}/${ymd}/0?MD=1&countryCode=US&locale=en`
   try {
     const { data } = await axios.get(url, {
       headers: LIVESCORE_HEADERS,

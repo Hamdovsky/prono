@@ -7,8 +7,9 @@ import TicketDuJour from "./TicketDuJour"
 import MarketTerminal from "./MarketTerminal"
 import PerformanceAnalytics from "./PerformanceAnalytics.jsx"
 import TrackRecord from "./TrackRecord.jsx"
-import dataService from "../services/dataService"
+import EliteRadarDashboard from "./EliteRadarDashboard"
 import { List } from 'react-window'
+import dataService from "../services/dataService"
 import { ROUTES, PATH_TO_VIEW } from "../config/routes"
 import LoadingSkeleton from "./LoadingSkeleton"
 
@@ -1016,42 +1017,7 @@ const Dashboard = () => {
                     )
                 })()}
 
-                <div className="onyx-unified-list-container" style={{
-                    background: 'rgba(15, 23, 42, 0.6)',
-                    borderRadius: '12px',
-                    border: '1px solid #1e293b',
-                    overflowX: 'auto'
-                }}>
-                    {/* TABLE HEADER — compact 4 columns */}
-                    {!isMobile && (
-                        <div style={{
-                            display: 'flex',
-                            borderBottom: '2px solid #1e293b',
-                            padding: '6px 8px',
-                            fontSize: '9px',
-                            color: '#484f58',
-                            textTransform: 'uppercase',
-                            fontWeight: '700',
-                            letterSpacing: '0.6px',
-                            background: '#0d1117',
-                        }}>
-                            <div style={{flex: '0 0 56%', padding: '0 6px'}}>MATCH</div>
-                            <div style={{flex: '0 0 14%', padding: '0 6px', textAlign: 'center'}}>1X2</div>
-                            <div style={{flex: '0 0 18%', padding: '0 6px', textAlign: 'center'}}>OU 2.5</div>
-                            <div style={{flex: '0 0 12%', padding: '0 6px', textAlign: 'right'}}>EV</div>
-                        </div>
-                    )}
-
-                    <List
-                        height={isMobile ? Math.max(420, viewportHeight - 260) : Math.max(520, viewportHeight - 320)}
-                        rowCount={unifiedList.length}
-                        rowHeight={isMobile ? 36 : 24}
-                        width="100%"
-                        className="onyx-custom-scrollbar"
-                        rowComponent={UnifiedRowMemo}
-                        rowProps={{ unifiedList, onClick: setSelectedMatchForUltimateView, now }}
-                    />
-                </div>
+                <EliteRadarDashboard eliteMatches={sortedMatches} />
             </div>
         );
     };

@@ -1,0 +1,81 @@
+.elite-radar-container {
+  background-color: #0d1117;
+  color: #c9d1d9;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  padding: 2px;
+  border: 1px solid #30363d;
+}
+
+.radar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #161b22;
+  padding: 4px 8px;
+  border-bottom: 1px solid #30363d;
+  font-weight: bold;
+}
+
+.status-badge {
+  color: #39d353;
+  font-size: 10px;
+}
+
+.radar-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.radar-table th {
+  background-color: #090d13;
+  color: #8b949e;
+  font-size: 10px;
+  padding: 3px 6px;
+  text-align: left;
+  border-bottom: 1px solid #30363d;
+}
+
+.radar-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid #21262d;
+  vertical-align: middle;
+}
+
+.row-solid { background-color: rgba(35, 134, 54, 0.05); }
+.row-solid:hover { background-color: rgba(35, 134, 54, 0.1); }
+
+.row-value { background-color: rgba(56, 139, 253, 0.05); }
+.row-value:hover { background-color: rgba(56, 139, 253, 0.1); }
+
+.league-tag { color: #8b949e; margin-right: 4px; font-weight: bold; }
+.teams-text { color: #f0f6fc; font-weight: 500; }
+
+.pick-badge {
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-weight: bold;
+  display: inline-block;
+}
+.pick-badge.solid { background-color: #238636; color: #ffffff; }
+.pick-badge.value-draw { background-color: #1f6feb; color: #ffffff; }
+.pick-badge.standard { background-color: #30363d; color: #c9d1d9; }
+
+.technical-text { color: #8b949e; }
+.ev-highlight { color: #58a6ff; font-weight: bold; }
+
+.signal-tag {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-weight: bold;
+}
+.solid-signal { background-color: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.3); }
+.draw-signal { background-color: rgba(240, 139, 0, 0.15); color: #ff9e22; border: 1px solid rgba(240, 139, 0, 0.3); }
+.standard-signal { color: #8b949e; }
+
+.text-center { text-align: center; }
+
+.prob-h { color: #3fb950; }
+.prob-d { color: #d29922; }
+.prob-a { color: #f85149; }

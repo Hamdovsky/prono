@@ -43,7 +43,7 @@ class DataService {
         this.intervalId = null;
         this.apiEndpoint = getApiUrl('/api/live');
         this.comboApiEndpoint = getApiUrl('/api/combos');
-        this.upcomingApiEndpoint = getApiUrl('/api/upcoming');
+        this.upcomingApiEndpoint = getApiUrl('/api/upcoming?force=true&force_count=30');
         this.promosportApiEndpoint = getApiUrl('/api/promosport');
         this.promosportWeaponsEndpoint = getApiUrl('/api/promosport/secret-weapons');
         this.promosportAnalysisEndpoint = getApiUrl('/api/promosport/analysis');

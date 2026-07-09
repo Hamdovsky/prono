@@ -102,25 +102,30 @@ class FreeFallbackService:
             xg_h, xg_a = 1.35, 1.15  # default football averages
 
         # Step 2.5: Context & Lineup Intelligence — adjust xG for absences and formation bias
-        context = self._scrape_sofascore_context(home, away, league)
-        has_context = context.get('lineups_confirmed') or bool(context.get('missing_players', {}).get('home'))
-        h_att_mod, h_def_mod, a_att_mod, a_def_mod, ou_bias = 1.0, 1.0, 1.0, 1.0, 0
-        if has_context:
-            h_att_mod, h_def_mod, a_att_mod, a_def_mod, ou_bias = self._compute_absence_modifier(context)
-            xg_h *= (h_att_mod / h_def_mod)
-            xg_a *= (a_att_mod / a_def_mod)
-            xg_h = max(0.4, min(5.0, xg_h))
-            xg_a = max(0.4, min(5.0, xg_a))
-        self._context_cache_last = {
-            'formations': {
-                'home': context.get('formation_home', {}).get('label'),
-                'away': context.get('formation_away', {}).get('label'),
-            },
-            'missing_home': len(context.get('missing_players', {}).get('home', [])),
-            'missing_away': len(context.get('missing_players', {}).get('away', [])),
-            'lineups_confirmed': context.get('lineups_confirmed', False),
-            'ou_bias': ou_bias,
-        }
+        ou_bias = 0
+        try:
+            context = self._scrape_sofascore_context(home, away, league)
+            has_context = context.get('lineups_confirmed') or bool(context.get('missing_players', {}).get('home'))
+            h_att_mod, h_def_mod, a_att_mod, a_def_mod = 1.0, 1.0, 1.0, 1.0
+            if has_context:
+                h_att_mod, h_def_mod, a_att_mod, a_def_mod, ou_bias = self._compute_absence_modifier(context)
+                xg_h *= (h_att_mod / h_def_mod)
+                xg_a *= (a_att_mod / a_def_mod)
+                xg_h = max(0.4, min(5.0, xg_h))
+                xg_a = max(0.4, min(5.0, xg_a))
+            self._context_cache_last = {
+                'formations': {
+                    'home': context.get('formation_home', {}).get('label'),
+                    'away': context.get('formation_away', {}).get('label'),
+                },
+                'missing_home': len(context.get('missing_players', {}).get('home', [])),
+                'missing_away': len(context.get('missing_players', {}).get('away', [])),
+                'lineups_confirmed': context.get('lineups_confirmed', False),
+                'ou_bias': ou_bias,
+            }
+        except Exception as e:
+            logger.warning(f"[FALLBACK] Context scrape failed for {home} vs {away}: {e}")
+            self._context_cache_last = {}
 
         # Step 3: Poisson → 1X2 probabilities
         build_score_matrix_fn, calculate_markets_fn = _lazy_import_score_matrix()

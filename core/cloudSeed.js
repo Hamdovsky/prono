@@ -26,61 +26,78 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms))
 }
 
-const SOFASCORE_BASE = 'https://www.sofascore.com/api/v1'
+const LIVESCORE_BASE = 'https://prod-public-api.livescore.com/v1/api/react/date/soccer'
 
-const SOFA_HEADERS = {
+const LIVESCORE_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'Origin': 'https://www.sofascore.com',
-  'Referer': 'https://www.sofascore.com/',
-  'Cache-Control': 'no-cache',
-  'Pragma': 'no-cache',
-  'Sec-Fetch-Dest': 'empty',
-  'Sec-Fetch-Mode': 'cors',
-  'Sec-Fetch-Site': 'same-origin',
+  'Origin': 'https://www.livescore.com',
+  'Referer': 'https://www.livescore.com/',
 }
 
 function randomDelay() {
   return sleep(500 + Math.floor(Math.random() * 1000))
 }
 
-async function fetchSofascoreEvents(date) {
+function parseEsd(esd) {
+  const s = String(esd)
+  if (s.length < 14) return Math.floor(Date.now() / 1000)
+  const year = s.slice(0, 4)
+  const mon  = s.slice(4, 6)
+  const day  = s.slice(6, 8)
+  const hour = s.slice(8, 10)
+  const min  = s.slice(10, 12)
+  const sec  = s.slice(12, 14)
+  return Math.floor(new Date(`${year}-${mon}-${day}T${hour}:${min}:${sec}Z`).getTime() / 1000)
+}
+
+function mapLiveScoreEps(eps) {
+  if (!eps) return 'scheduled'
+  const s = eps.toUpperCase()
+  if (s === 'FT' || s === 'AET' || s === 'PEN') return 'finished'
+  if (s === 'LIVE' || s === 'IH' || s === 'HT' || s === 'ET') return 'inprogress'
+  if (s === 'RESC' || s === 'CANC') return 'canceled'
+  if (s === 'POST') return 'postponed'
+  if (s === 'ABAN') return 'postponed'
+  return 'scheduled'
+}
+
+async function fetchLiveScoreEvents(dateStr) {
+  const ymd = dateStr.replace(/-/g, '')
+  const url = `${LIVESCORE_BASE}/${ymd}/0.00?MD=1`
   try {
-    const { data } = await axios.get(`${SOFASCORE_BASE}/sport/football/scheduled-events/${date}`, {
-      headers: SOFA_HEADERS,
+    const { data } = await axios.get(url, {
+      headers: LIVESCORE_HEADERS,
       timeout: 20000
     })
-    if (data?.events?.length > 0) {
-      logger.info(`[SOFASCORE] ${date}: ${data.events.length} events trouvés`)
-    }
-    return data?.events || []
+    return data?.Stages || []
   } catch (e) {
-    logger.warn(`[SOFASCORE] Fetch failed for ${date}: ${e.message}`)
+    logger.warn(`[LIVESCORE] Fetch failed for ${dateStr}: ${e.message}`)
     return []
   }
 }
 
-function mapSofascoreEventToMatch(event) {
-  const ts = event.startTimestamp || Math.floor(Date.now() / 1000)
-  const rawStatus = (event.status?.type || '').toLowerCase()
-  const status = ['finished', 'canceled', 'postponed', 'inprogress'].includes(rawStatus) ? rawStatus : 'scheduled'
+function mapLiveScoreEventToMatch(event, stage) {
+  if (!event?.Eid) return null
+  const homeName = event.T1?.[0]?.Nm || 'Home'
+  const awayName = event.T2?.[0]?.Nm || 'Away'
+  if (homeName === 'Home' || awayName === 'Away') return null
 
-  const homeName = event.homeTeam?.name || event.homeTeam?.slug || 'Home'
-  const awayName = event.awayTeam?.name || event.awayTeam?.slug || 'Away'
-
-  if (homeName === 'Home' || awayName === 'Away' || !event.id) return null
+  const ts = event.Esd ? parseEsd(event.Esd) : Math.floor(Date.now() / 1000)
+  const status = mapLiveScoreEps(event.Eps)
+  const league = stage?.Snm || 'Unknown'
+  const country = stage?.Cnm || ''
 
   return {
-    id: `sofascore_${event.id}`,
+    id: `livescore_${event.Eid}`,
     homeTeam: homeName,
     awayTeam: awayName,
-    league: event.tournament?.uniqueTournament?.name || event.tournament?.name || 'Unknown',
-    category_name: event.tournament?.category?.name || '',
-    tournament_name: event.tournament?.name || '',
-    tournament_id: event.tournament?.uniqueTournament?.id || null,
-    home_team_id: event.homeTeam?.id || null,
-    away_team_id: event.awayTeam?.id || null,
+    league,
+    category_name: country,
+    tournament_name: league,
+    tournament_id: null,
+    home_team_id: null,
+    away_team_id: null,
     startTimestamp: ts,
     timestamp: new Date(ts * 1000).toISOString(),
     status,
@@ -92,8 +109,12 @@ function mapSofascoreEventToMatch(event) {
     odds_away: null,
     last_updated: Date.now(),
     insufficient_data: 1,
-    source: 'sofascore',
-    fullData: JSON.stringify({ id: event.id, homeTeam: homeName, awayTeam: awayName, league: event.tournament?.name, startTimestamp: ts, status, seasonId: event.season?.id, sofaMatchId: event.id })
+    source: 'livescore',
+    fullData: JSON.stringify({
+      id: event.Eid, homeTeam: homeName, awayTeam: awayName,
+      league, country, startTimestamp: ts, status,
+      homeScore: event.Tr1, awayScore: event.Tr2
+    })
   }
 }
 
@@ -366,7 +387,7 @@ async function runCloudSeed() {
     return
   }
 
-  logger.info('[CLOUD-SEED] Starting multi-source seeding (Sofascore → FootballData → BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)...')
+  logger.info('[CLOUD-SEED] Starting multi-source seeding (LiveScore → FootballData → BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)...')
 
   const today = getDateStr(0)
   const existingToday = await countMatchesForPeriod(0, 0)
@@ -375,56 +396,39 @@ async function runCloudSeed() {
 
   let fdInserted = 0
   let rapidApiInserted = 0
-  let sofascoreInserted = 0
+  let liveScoreInserted = 0
 
   {
-    logger.info('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
+    logger.info('[CLOUD-SEED/LIVESCORE] Seeding from LiveScore.com public API...')
     try {
       const datesToFetch = [today, getDateStr(1), getDateStr(2), getDateStr(3), getDateStr(4), getDateStr(5), getDateStr(6)]
       for (const dateStr of datesToFetch) {
         await randomDelay()
         try {
-          const events = await fetchSofascoreEvents(dateStr)
-          const notstarted = events.filter(e => (e.status?.type || '').toLowerCase() === 'notstarted')
-          for (const event of notstarted) {
-            const match = mapSofascoreEventToMatch(event)
-            if (!match) continue
-            if (await upsertMatch(match)) sofascoreInserted++
-          }
-        } catch (e) {
-          logger.warn(`[CLOUD-SEED/SOFASCORE] ${dateStr} failed: ${e.message}`)
-        }
-      }
-      logger.info(`[CLOUD-SEED/SOFASCORE] Inserted ${sofascoreInserted} free matches total.`)
-      if (sofascoreInserted > 0) {
-        logger.info('[CLOUD-SEED/SOFASCORE] Fetching SofaScore odds...')
-        await randomDelay()
-        try {
-          const { data: oddsData } = await axios.get(`${SOFASCORE_BASE}/sport/football/scheduled-events/${today}/odds/1x2`, {
-            headers: SOFA_HEADERS,
-            timeout: 20000
-          })
-          if (oddsData?.data && Array.isArray(oddsData.data)) {
-            const db = database.db
-            let updated = 0
-            for (const odd of oddsData.data) {
-              if (!odd.id || !odd.homeOdds) continue
-              try {
-                const result = db.prepare(`
-                  UPDATE matches SET odds_home = ?, odds_draw = ?, odds_away = ?
-                  WHERE id = ? AND odds_home IS NULL
-                `).run(odd.homeOdds, odd.drawOdds, odd.awayOdds, `sofascore_${odd.id}`)
-                if (result.changes > 0) updated++
-              } catch (_) {}
+          const stages = await fetchLiveScoreEvents(dateStr)
+          if (!stages.length) continue
+          let matchCount = 0
+          for (const stage of stages) {
+            const events = stage?.Events || []
+            for (const event of events) {
+              const eps = (event.Eps || '').toUpperCase()
+              if (eps !== 'NS' && eps !== '') continue
+              const match = mapLiveScoreEventToMatch(event, stage)
+              if (!match) continue
+              if (await upsertMatch(match)) {
+                liveScoreInserted++
+                matchCount++
+              }
             }
-            logger.info(`[CLOUD-SEED/SOFASCORE] Updated odds for ${updated} matches`)
           }
-        } catch (oddsErr) {
-          logger.warn(`[CLOUD-SEED/SOFASCORE] Odds not available: ${oddsErr.message}`)
+          if (matchCount > 0) logger.info(`[LIVESCORE] ${dateStr}: ${matchCount} matches insérés`)
+        } catch (e) {
+          logger.warn(`[CLOUD-SEED/LIVESCORE] ${dateStr} failed: ${e.message}`)
         }
       }
+      logger.info(`[CLOUD-SEED/LIVESCORE] Inserted ${liveScoreInserted} matches total.`)
     } catch (e) {
-      logger.warn(`[CLOUD-SEED/SOFASCORE] Error: ${e.message}`)
+      logger.warn(`[CLOUD-SEED/LIVESCORE] Error: ${e.message}`)
     }
   }
 
@@ -518,7 +522,7 @@ async function runCloudSeed() {
 
   const finalToday = await countMatchesForPeriod(0, 0)
   const finalTomorrow = await countMatchesForPeriod(1, 1)
-  logger.info(`[CLOUD-SEED] Complete. Sofascore: ${sofascoreInserted}, FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`)
+  logger.info(`[CLOUD-SEED] Complete. LiveScore: ${liveScoreInserted}, FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`)
 
   if (finalToday + finalTomorrow === 0) {
     logger.warn('[CLOUD-SEED] WARNING: No scheduled matches found.')

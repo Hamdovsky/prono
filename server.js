@@ -338,25 +338,27 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               runCloudSeed().then(async () => {
                 // Clean up any placeholder matches that might have been inserted
                 database.cleanupPlaceholderTeams()
-                // 🔄 Auto-enrich matches after seeding
-                try {
-                  const enrichedPredictions = require('./core/enriched_predictions');
-                  const matches = await database.getMatchesByStatus('scheduled');
-                  if (matches.length > 0) {
-                    logger.info(`📡 [AUTO-ENRICH] Enriching ${matches.length} matches after cloud seed...`);
-                    const enriched = await enrichedPredictions.enrichMatches(matches, { fastMode: true, force: true });
-                    let updated = 0;
-                    for (const m of enriched) {
-                      if (m.expected_score && m.expected_score !== 'N/A') {
-                        await database.updatePredictions(m.id, m);
-                        updated++;
+                // 🔄 Auto-enrich matches after seeding (deferred to avoid blocking health check)
+                setTimeout(async () => {
+                  try {
+                    const enrichedPredictions = require('./core/enriched_predictions');
+                    const matches = await database.getMatchesByStatus('scheduled');
+                    if (matches.length > 0) {
+                      logger.info(`📡 [AUTO-ENRICH] Enriching ${matches.length} matches after cloud seed...`);
+                      const enriched = await enrichedPredictions.enrichMatches(matches, { fastMode: true, force: true });
+                      let updated = 0;
+                      for (const m of enriched) {
+                        if (m.expected_score && m.expected_score !== 'N/A') {
+                          await database.updatePredictions(m.id, m);
+                          updated++;
+                        }
                       }
+                      logger.info(`✅ [AUTO-ENRICH] Updated ${updated}/${matches.length} matches`);
                     }
-                    logger.info(`✅ [AUTO-ENRICH] Updated ${updated}/${matches.length} matches`);
+                  } catch (enrichErr) {
+                    logger.warn(`⚠️ [AUTO-ENRICH] Error: ${enrichErr.message}`);
                   }
-                } catch (enrichErr) {
-                  logger.warn(`⚠️ [AUTO-ENRICH] Error: ${enrichErr.message}`);
-                }
+                }, 15000)
               }).catch(e => logger.warn('⚠️ [CLOUD-SEED] Error:', e.message));
             } catch (seedErr) {
               logger.warn('⚠️ [CLOUD-SEED] Module load failed:', seedErr.message);

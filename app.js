@@ -216,36 +216,11 @@ const redisMiddleware = async (req, res, next) => {
 // Fast health check for Render (no DB/Redis/FastAPI dependency)
 app.get('/ping', (req, res) => res.status(200).send('pong'));
 app.get('/api/health', (req, res) => res.status(200).json({ status: 'ok' }));
-app.get('/health', async (req, res) => {
-  const checks = { uptime: process.uptime(), memory: {
-    heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
-    heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
-  }};
-  let healthy = true;
-
-  // DB check — fail fast, don't block health
-  try { await database.db?.prepare('SELECT 1').get(); checks.database = 'ok' }
-  catch (e) { checks.database = 'starting'; }
-
-  // Redis check — skip if not connected
-  try { await redisCache.get('_health_check'); checks.redis = 'ok' }
-  catch (e) { checks.redis = 'starting' }
-
-  // FastAPI check — only if already warm
-  if (process.uptime() > 30) {
-    try {
-      const r = await fetch((process.env.INFERENCE_URL || 'http://127.0.0.1:8000') + '/health', { signal: AbortSignal.timeout(1500) });
-      checks.fastapi = r.ok ? 'ok' : 'fail'
-    } catch (e) { checks.fastapi = 'starting' }
-  } else {
-    checks.fastapi = 'starting'
-  }
-
+app.get('/health', (req, res) => {
   res.status(200).json({
-    status: 'ok',
-    environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString(),
-    ...checks
+    status: 'UP',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
   });
 });
 

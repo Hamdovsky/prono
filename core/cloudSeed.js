@@ -28,19 +28,27 @@ function sleep(ms) {
 
 const SOFASCORE_BASE = 'https://www.sofascore.com/api/v1'
 
+const SOFA_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Origin': 'https://www.sofascore.com',
+  'Referer': 'https://www.sofascore.com/',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
+}
+
+function randomDelay() {
+  return sleep(500 + Math.floor(Math.random() * 1000))
+}
+
 async function fetchSofascoreEvents(date) {
   try {
     const { data } = await axios.get(`${SOFASCORE_BASE}/sport/football/scheduled-events/${date}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
-        'Origin': 'https://www.sofascore.com',
-        'Referer': 'https://www.sofascore.com/',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-      },
+      headers: SOFA_HEADERS,
       timeout: 20000
     })
     if (data?.events?.length > 0) {
@@ -373,32 +381,27 @@ async function runCloudSeed() {
     logger.info('[CLOUD-SEED/SOFASCORE] Seeding from free public API...')
     try {
       const datesToFetch = [today, getDateStr(1), getDateStr(2), getDateStr(3), getDateStr(4), getDateStr(5), getDateStr(6)]
-      const results = await Promise.allSettled(datesToFetch.map(dateStr => fetchSofascoreEvents(dateStr)))
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i]
-        if (result.status === 'rejected') {
-          logger.warn(`[CLOUD-SEED/SOFASCORE] ${datesToFetch[i]} failed: ${result.reason?.message || result.reason}`)
-          continue
-        }
-        const events = result.value || []
-        const notstarted = events.filter(e => (e.status?.type || '').toLowerCase() === 'notstarted')
-        for (const event of notstarted) {
-          const match = mapSofascoreEventToMatch(event)
-          if (!match) continue
-          if (await upsertMatch(match)) sofascoreInserted++
+      for (const dateStr of datesToFetch) {
+        await randomDelay()
+        try {
+          const events = await fetchSofascoreEvents(dateStr)
+          const notstarted = events.filter(e => (e.status?.type || '').toLowerCase() === 'notstarted')
+          for (const event of notstarted) {
+            const match = mapSofascoreEventToMatch(event)
+            if (!match) continue
+            if (await upsertMatch(match)) sofascoreInserted++
+          }
+        } catch (e) {
+          logger.warn(`[CLOUD-SEED/SOFASCORE] ${dateStr} failed: ${e.message}`)
         }
       }
       logger.info(`[CLOUD-SEED/SOFASCORE] Inserted ${sofascoreInserted} free matches total.`)
       if (sofascoreInserted > 0) {
         logger.info('[CLOUD-SEED/SOFASCORE] Fetching SofaScore odds...')
+        await randomDelay()
         try {
           const { data: oddsData } = await axios.get(`${SOFASCORE_BASE}/sport/football/scheduled-events/${today}/odds/1x2`, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-              'Accept': 'application/json',
-              'Origin': 'https://www.sofascore.com',
-              'Referer': 'https://www.sofascore.com/',
-            },
+            headers: SOFA_HEADERS,
             timeout: 20000
           })
           if (oddsData?.data && Array.isArray(oddsData.data)) {

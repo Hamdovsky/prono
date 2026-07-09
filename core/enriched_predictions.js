@@ -38,10 +38,16 @@ const confidenceScorer = require('./confidenceScorer');
 
 const SOFA_API = 'https://www.sofascore.com/api/v1';
 const SOFA_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Origin': 'https://www.sofascore.com',
     'Referer': 'https://www.sofascore.com/',
-    'Origin': 'https://www.sofascore.com'
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-origin',
 };
 
 const NEG_KWS = ['injured', ' out ', 'out for', 'red card', 'suspended', 'ruled out', 'doubtful', 'sidelined', 'absent', 'unavailable', 'misses', 'missing'];

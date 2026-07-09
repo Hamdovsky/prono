@@ -264,6 +264,58 @@ const PerformanceAnalytics = ({ matches, onTrackRecord }) => {
                   ))}
                 </div>
 
+                {/* Confidence breakdown (6 components) */}
+                {forceData.confidence_breakdown && (
+                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 10 }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: '#f59e0b', letterSpacing: '0.8px', marginBottom: 8 }}>
+                      ⚡ FORCE DU PRONOSTIC — DÉCOMPOSITION
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
+                      {[
+                        { key: 'base_prob',      label: 'Probabilité de base', max: 40, icon: '📊' },
+                        { key: 'dominance_margin', label: 'Marge de dominance',  max: 30, icon: '📏' },
+                        { key: 'draw_bias',       label: 'Ajustement Nul',       max: 5,  icon: '⚖️', neg: true },
+                        { key: 'bsm_quality',     label: 'Qualité BSM',          max: 15, icon: '🛡️' },
+                        { key: 'data_quality',    label: 'Qualité données',      max: 10, icon: '📡' },
+                        { key: 'history_bonus',   label: 'Bonus historique',     max: 5,  icon: '📈', neg: true },
+                      ].map(c => {
+                        const val = forceData.confidence_breakdown[c.key] ?? 0;
+                        const pct = Math.min(100, Math.max(0, (val / c.max) * 100));
+                        const isNeg = val < 0;
+                        const barColor = isNeg ? '#fb7185' : val >= c.max * 0.8 ? '#00ffaa' : val >= c.max * 0.5 ? '#38bdf8' : '#64748b';
+                        const textColor = isNeg ? '#fb7185' : '#e2e8f0';
+                        return (
+                          <div key={c.key} style={{ marginBottom: 2 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94a3b8', marginBottom: 1 }}>
+                              <span>{c.icon} {c.label}</span>
+                              <span style={{ color: textColor, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                                {val > 0 ? '+' : ''}{val}/{c.max} pts
+                              </span>
+                            </div>
+                            <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                              <div style={{
+                                width: `${Math.max(0, pct)}%`, height: '100%',
+                                background: barColor, borderRadius: 2,
+                                transition: 'width 0.3s',
+                              }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Anti-overfit badge — triggered when dominance is very low */}
+                    {forceData.confidence_breakdown.dominance_margin <= 3 && (
+                      <div style={{
+                        marginTop: 6, fontSize: 9, color: '#fbbf24',
+                        background: 'rgba(251,191,36,0.08)', borderRadius: 4, padding: '2px 8px',
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                      }}>
+                        ⚠️ Plafonné à 75% (Edge non clair)
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Confidence brackets */}
                 {forceData.by_confidence && (
                   <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: 12, marginBottom: 10 }}>

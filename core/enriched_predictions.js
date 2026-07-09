@@ -1036,6 +1036,16 @@ class EnrichedPredictionService {
                 }
             };
 
+            // Embed confidence breakdown in fullData for API persistence
+            try {
+              const fd = typeof resultData.fullData === 'string'
+                ? JSON.parse(resultData.fullData) : (resultData.fullData || {});
+              fd._confidence_breakdown = quantResult._confidence_breakdown;
+              fd._confidence_score = quantResult.confidence;
+              fd._base_solid_margin = baseSolidMargin;
+              resultData.fullData = JSON.stringify(fd);
+            } catch (_) {}
+
             // Gemma 4 tactical briefing (fire-and-forget — non-blocking)
             const g4Service = require('../services/gemma4Service')
             g4Service.analyzePreMatchVIP(m).then(briefing => {

@@ -245,7 +245,8 @@ async function fetchMissingScores() {
 
 function getPerformance() {
     const settled = db.prepare(`
-        SELECT "result", prediction, "ou_25_prob", "home_win_probability", "scoreHome", "scoreAway"
+        SELECT "result", prediction, "ou_25_prob", "home_win_probability", "scoreHome", "scoreAway",
+               "fullData"
         FROM matches
         WHERE "result" IN ('WON', 'LOST')
     `).all();
@@ -310,6 +311,33 @@ function getPerformance() {
         trend.push({ date: day, won: counts.won, lost: counts.lost, total: dTotal, win_rate: dTotal > 0 ? Math.round(counts.won / dTotal * 1000) / 10 : 0 });
     }
 
+    // Confidence breakdown aggregation (from fullData._confidence_breakdown)
+    const breakdownAcc = { baseScore: 0, dominanceScore: 0, drawAdjust: 0, bsmScore: 0, dataScore: 0, historyBonus: 0, count: 0 };
+    for (const r of settled) {
+        try {
+            const fd = typeof r.fullData === 'string' ? JSON.parse(r.fullData) : (r.fullData || {});
+            const bd = fd._confidence_breakdown;
+            if (bd && typeof bd.baseScore === 'number') {
+                breakdownAcc.baseScore += bd.baseScore;
+                breakdownAcc.dominanceScore += bd.dominanceScore;
+                breakdownAcc.drawAdjust += bd.drawAdjust;
+                breakdownAcc.bsmScore += bd.bsmScore;
+                breakdownAcc.dataScore += bd.dataScore;
+                breakdownAcc.historyBonus += bd.historyBonus;
+                breakdownAcc.count++;
+            }
+        } catch (_) {}
+    }
+    const c = breakdownAcc.count;
+    const confidenceBreakdown = c > 0 ? {
+        base_prob:      Math.round(breakdownAcc.baseScore / c),
+        dominance_margin: Math.round(breakdownAcc.dominanceScore / c),
+        draw_bias:      Math.round(breakdownAcc.drawAdjust / c),
+        bsm_quality:    Math.round(breakdownAcc.bsmScore / c),
+        data_quality:   Math.round(breakdownAcc.dataScore / c),
+        history_bonus:  Math.round(breakdownAcc.historyBonus / c),
+    } : null;
+
     return {
         total_settled: total,
         won,
@@ -320,6 +348,7 @@ function getPerformance() {
         by_confidence: byConfidence,
         by_market: byMarket,
         trend,
+        confidence_breakdown: confidenceBreakdown,
     };
 }
 

@@ -19,34 +19,30 @@ const GridGenerator = ({ eliteMatches }) => {
       const aProb = parseFloat(m.away_win_probability || 0);
       const standardPick = quant.main_pick || m.main_pick || m.pick || '—';
       const dvb = m.draw_value_bet === true || m.draw_value_bet === 'True' || m.draw_value_bet === 1;
-      const bsm = parseFloat(m.base_solid_margin || 0);
-      const isSolid = bsm > 0 && bsm >= 25;
 
-      let golden = { pick: standardPick, type: '⚡ BASE' };
+      let golden = { pick: standardPick, type: '⚡ BASE', prob: 0 };
 
       if (dvb) {
         if (dcUsed < 6) {
           if (hProb > aProb && hProb - dProb < 25) {
-            golden = { pick: '1X', type: '🔥 PIÈGE (Double)' };
+            golden = { pick: '1X', type: '🔥 PIÈGE (Double)', prob: Math.round(hProb + dProb) };
           } else if (aProb > hProb && aProb - dProb < 25) {
-            golden = { pick: 'X2', type: '🔥 PIÈGE (Double)' };
+            golden = { pick: 'X2', type: '🔥 PIÈGE (Double)', prob: Math.round(dProb + aProb) };
           } else {
-            golden = { pick: 'X', type: '💣 SURPRISE' };
+            golden = { pick: 'X', type: '💣 SURPRISE', prob: Math.round(dProb) };
           }
           dcUsed++;
         } else {
-          golden = { pick: standardPick, type: '⚠️ RISQUE' };
+          golden = { pick: standardPick, type: '⚠️ RISQUE', prob: Math.round(hProb > aProb ? hProb : aProb) };
         }
       } else if (hProb > 65 && dcUsed < 6) {
-        golden = { pick: '1X', type: '🛡️ COUVERTURE' };
+        golden = { pick: '1X', type: '🛡️ COUVERTURE', prob: Math.round(hProb + dProb) };
         dcUsed++;
       } else if (aProb > 60 && dcUsed < 6) {
-        golden = { pick: 'X2', type: '🛡️ COUVERTURE' };
+        golden = { pick: 'X2', type: '🛡️ COUVERTURE', prob: Math.round(dProb + aProb) };
         dcUsed++;
-      } else if (isSolid) {
-        golden = { pick: standardPick, type: '⚡ BASE' };
       } else {
-        golden = { pick: standardPick, type: '⚡ BASE' };
+        golden = { pick: standardPick, type: '⚡ BASE', prob: Math.round(hProb > aProb ? hProb : aProb) };
       }
 
       return { m, standardPick, golden, hProb, dProb, aProb, dvb, bsm };
@@ -101,11 +97,13 @@ const GridGenerator = ({ eliteMatches }) => {
                     <td className="text-center golden-cell">
                       <span className={`golden-badge-pick ${isDouble ? 'double-gold' : 'single-gold'}`}>
                         {g.golden.pick}
+                        {g.golden.prob > 0 && <span className="golden-prob"> {g.golden.prob}%</span>}
                       </span>
                     </td>
                     <td className="text-center text-nature">
                       <span className={`nature-tag ${isTrapp ? 'tag-piege' : isSurprise ? 'tag-surprise' : isCover ? 'tag-cover' : 'tag-base'}`}>
                         {g.golden.type}
+                        {g.golden.prob > 0 && <span className="nature-prob"> — {g.golden.prob}%</span>}
                       </span>
                     </td>
                   </tr>

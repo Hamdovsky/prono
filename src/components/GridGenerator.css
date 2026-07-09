@@ -145,6 +145,18 @@
   font-family: 'Roboto Mono', monospace;
 }
 
+.golden-prob {
+  font-size: 11px;
+  color: #ffd700;
+  opacity: 0.85;
+}
+
+.nature-prob {
+  color: #8b949e;
+  font-size: 8px;
+  font-weight: 600;
+}
+
 .single-gold {
   color: #f0c040;
   background: rgba(240, 192, 64, 0.1);

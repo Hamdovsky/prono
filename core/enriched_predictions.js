@@ -34,6 +34,7 @@ const SmartOddsAnalyzer = require('../services/SmartOddsAnalyzer');
 const DiagnosticTrace = require('./utils/DiagnosticTrace');
 const Schemas = require('./utils/Schemas');
 const QuantumQuantEngine = require('./QuantumQuantEngine');
+const confidenceScorer = require('./confidenceScorer');
 
 const SOFA_API = 'https://www.sofascore.com/api/v1';
 const SOFA_HEADERS = {
@@ -937,6 +938,32 @@ class EnrichedPredictionService {
             const hasForm = parseFloat(m.home_form_pts) > 0 || parseFloat(m.away_form_pts) > 0;
             const v553isDefault = v553.success && !parseFloat(v553.home_win_probability) && !parseFloat(v553.away_win_probability);
             const insufficient = !hasOdds && (!hasXg || !hasForm || v553isDefault) ? 1 : 0;
+
+            // ── 2.5 CONFIDENCE SCORER (Force du Pronostic) ──
+            const sortedProbs = [
+              { label: '1', prob: probs.h },
+              { label: 'X', prob: probs.d },
+              { label: '2', prob: probs.a },
+            ].sort((a, b) => b.prob - a.prob);
+            const topPick = sortedProbs[0];
+            const secondPick = sortedProbs[1];
+            const mainPick = quantResult.main_pick || topPick.label;
+            const marketType = ['1X', 'X2', '12'].includes(mainPick) ? 'DC' : ['O2.5', 'U2.5'].includes(mainPick) ? 'OU' : '1X2';
+
+            const csResult = confidenceScorer.computeConfidence({
+              mainPick,
+              topProb: topPick.prob,
+              secondProb: secondPick.prob,
+              baseSolidMargin,
+              insufficientData: insufficient,
+              league: m.league || '',
+              marketType,
+            });
+
+            // override raw quant confidence with calibrated score
+            quantResult.confidence = csResult.confidence;
+            quantResult._confidence_breakdown = csResult.breakdown;
+            quantResult._confidence_margin_pct = csResult.breakdown.finalMarginPct;
 
             // ── 3. FINAL ASSEMBLY ──
             if (insufficient && quantResult.risk_label === 'SAFE') quantResult.risk_label = 'STABLE';

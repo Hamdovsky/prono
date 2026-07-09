@@ -9,6 +9,7 @@
 
 const db = require('../core/database');
 const logger = require('../core/logger');
+const confidenceScorer = require('../core/confidenceScorer');
 
 const SofaAPI = (() => {
     try { return require('../SofascoreScraping/src/apiClient').SofaAPI; } catch { return null; }
@@ -93,7 +94,7 @@ async function settleFinishedMatches() {
         // Get finished matches with scores that are NOT yet settled
         const rows = db.prepare(`
             SELECT id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", 
-                   prediction, "ou_25_prob", "home_win_probability", "draw_probability", "away_win_probability",
+                   prediction, league, "ou_25_prob", "home_win_probability", "draw_probability", "away_win_probability",
                    status, "insufficient_data"
             FROM matches
             WHERE status IN ('FT', 'finished', 'Finished', 'Ended')
@@ -153,6 +154,13 @@ async function settleFinishedMatches() {
                 `).run(histResult, row.id);
 
                 results.settled++;
+
+                // Feed back into confidence history for league+market calibration
+                try {
+                    const marketType = ['1X', 'X2', '12'].includes((row.prediction || '').toUpperCase()) ? 'DC' : '1X2';
+                    confidenceScorer.recordSettlement(row.league || 'Unknown', marketType, result === 'WON');
+                } catch (_) {}
+
                 logger.info(`[SETTLEMENT] ${row.homeTeam} ${scoreHome}-${scoreAway} ${row.awayTeam} → ${result} (prediction: ${row.prediction})`);
             } catch (e) {
                 logger.error(`[SETTLEMENT] Error settling ${row.id}: ${e.message}`);

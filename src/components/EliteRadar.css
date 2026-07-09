@@ -79,3 +79,63 @@
 .prob-h { color: #3fb950; }
 .prob-d { color: #d29922; }
 .prob-a { color: #f85149; }
+
+.row-locked { background: rgba(240, 192, 64, 0.03); }
+.row-locked:hover { background: rgba(240, 192, 64, 0.07); }
+
+.pick-badge.locked {
+  background-color: #1a1a2e;
+  color: #f0c040;
+  border: 1px solid rgba(240, 192, 64, 0.3);
+}
+
+.locked-blur {
+  color: #484f58;
+  filter: blur(3px);
+  user-select: none;
+}
+
+.vip-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: linear-gradient(90deg, rgba(240, 192, 64, 0.08), rgba(240, 192, 64, 0.02));
+  border-bottom: 1px solid rgba(240, 192, 64, 0.15);
+  font-size: 9px;
+  color: #f0c040;
+  font-weight: 700;
+}
+
+.vip-unlock-btn {
+  padding: 3px 10px;
+  background: rgba(240, 192, 64, 0.15);
+  border: 1px solid rgba(240, 192, 64, 0.3);
+  border-radius: 3px;
+  color: #f0c040;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+.vip-unlock-btn:hover {
+  background: rgba(240, 192, 64, 0.25);
+  border-color: #f0c040;
+}
+
+.vip-cell-unlock {
+  padding: 1px 6px;
+  background: rgba(240, 192, 64, 0.1);
+  border: 1px solid rgba(240, 192, 64, 0.2);
+  border-radius: 2px;
+  color: #f0c040;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.vip-cell-unlock:hover {
+  background: rgba(240, 192, 64, 0.2);
+}

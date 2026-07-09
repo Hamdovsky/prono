@@ -1,7 +1,23 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
+import VipPaywall, { isVipUnlocked } from './VipPaywall';
 import './EliteRadar.css';
 
 const EliteRadarDashboard = ({ eliteMatches }) => {
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [unlockKey, setUnlockKey] = useState(0);
+
+  const handleUnlock = useCallback(() => {
+    if (isVipUnlocked()) return;
+    setShowPaywall(true);
+  }, []);
+
+  const handlePaywallClose = useCallback(() => {
+    setShowPaywall(false);
+    setUnlockKey(k => k + 1);
+  }, []);
+
+  const vipAvailable = isVipUnlocked();
+
   if (!eliteMatches || eliteMatches.length === 0) {
     return (
       <div className="elite-radar-container">
@@ -16,12 +32,24 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
     );
   }
 
+  const vipCount = eliteMatches.filter(m => m._vip).length;
+  const freeCount = eliteMatches.length - vipCount;
+
   return (
-    <div className="elite-radar-container">
+    <div className="elite-radar-container" key={unlockKey}>
       <div className="radar-header">
         <div className="brand">Laboratoire Hamdi — ⚡ TITANIUM NEURAL-X v3.5</div>
-        <div className="status-badge">🟢 MODE CHIRURGICAL ACTIVE ({eliteMatches.length} ELITE)</div>
+        <div className="status-badge">
+          🟢 {eliteMatches.length} MATCHS {!vipAvailable && vipCount > 0 && `· ${vipCount} 🔒 VIP`}
+        </div>
       </div>
+
+      {!vipAvailable && vipCount > 0 && (
+        <div className="vip-strip">
+          <span>👑 {vipCount} pronostic{vipCount > 1 ? 's' : ''} VIP disponible{vipCount > 1 ? 's' : ''}</span>
+          <button className="vip-unlock-btn" onClick={handleUnlock}>DÉBLOQUER</button>
+        </div>
+      )}
 
       <table className="radar-table">
         <thead>
@@ -42,42 +70,56 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
             const aPct = Math.round(parseFloat(match.away_win_probability || enriched.away_win_probability || 0));
             const isSolid = (match.base_solid_margin || 0) > 0 && (match.base_solid_margin || 0) >= 25;
             const isValueBet = match.draw_value_bet === true || match.draw_value_bet === 'True' || match.draw_value_bet === 1;
+            const isVip = match._vip === true;
+            const locked = isVip && !vipAvailable;
 
             return (
-              <tr key={match.id || idx} className={isSolid ? 'row-solid' : isValueBet ? 'row-value' : ''}>
+              <tr key={match.id || idx} className={`${isSolid && !locked ? 'row-solid' : ''} ${isValueBet && !locked ? 'row-value' : ''} ${locked ? 'row-locked' : ''}`}>
                 <td className="match-cell">
                   <span className="league-tag">[{match.league || match.tournament_name || match.competition || 'INT'}]</span>
                   <span className="teams-text">{match.homeTeam} vs {match.awayTeam}</span>
                 </td>
 
                 <td className="text-center">
-                  <span className={`pick-badge ${isSolid ? 'solid' : isValueBet ? 'value-draw' : 'standard'}`}>
-                    {quant.main_pick || match.pick || 'N/A'}
-                  </span>
+                  {locked ? (
+                    <span className="pick-badge locked" onClick={handleUnlock} style={{cursor: 'pointer'}}>
+                      🔒 VIP
+                    </span>
+                  ) : (
+                    <span className={`pick-badge ${isSolid ? 'solid' : isValueBet ? 'value-draw' : 'standard'}`}>
+                      {quant.main_pick || match.pick || 'N/A'}
+                    </span>
+                  )}
                 </td>
 
                 <td className="text-center technical-text">
-                  <span className="prob-h">{hPct}%</span>/
-                  <span className="prob-d">{dPct}%</span>/
-                  <span className="prob-a">{aPct}%</span>
+                  {locked ? (
+                    <span className="locked-blur">—/—/—</span>
+                  ) : (
+                    <>
+                      <span className="prob-h">{hPct}%</span>/
+                      <span className="prob-d">{dPct}%</span>/
+                      <span className="prob-a">{aPct}%</span>
+                    </>
+                  )}
                 </td>
 
-                <td className="text-center technical-text ev-highlight">
-                  EV={parseFloat(quant.ev_score || match.ev_score || 0).toFixed(2)}
+                <td className={`text-center technical-text ${locked ? '' : 'ev-highlight'}`}>
+                  {locked ? <span className="locked-blur">EV=—</span> : `EV=${parseFloat(quant.ev_score || match.ev_score || 0).toFixed(2)}`}
                 </td>
 
                 <td className="text-center">
-                  {isSolid && (
+                  {locked ? (
+                    <button className="vip-cell-unlock" onClick={handleUnlock}>🔓 DÉBLOQUER</button>
+                  ) : isSolid ? (
                     <span className="signal-tag solid-signal">
                       ⚡ SOLID (BSM: {Math.round(match.base_solid_margin)}%)
                     </span>
-                  )}
-                  {isValueBet && (
+                  ) : isValueBet ? (
                     <span className="signal-tag draw-signal">
                       🎯 VALUE BET (Draw Sniffer)
                     </span>
-                  )}
-                  {!isSolid && !isValueBet && (
+                  ) : (
                     <span className="signal-tag standard-signal">DYNAMIC</span>
                   )}
                 </td>
@@ -86,6 +128,8 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
           })}
         </tbody>
       </table>
+
+      {showPaywall && <VipPaywall onClose={handlePaywallClose} />}
     </div>
   );
 };

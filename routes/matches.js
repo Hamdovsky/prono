@@ -299,8 +299,32 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
             const evB = parseFloat((b.quant || {}).ev_score || 0);
             return evB - evA;
         });
-        logger.info(`📊 [UPCOMING] ${elite.length} elite + ${fallback_pool.length} fallback`);
-        res.json({ elite, fallback_pool, counts: { elite: elite.length, fallback: fallback_pool.length } });
+
+        // 👑 [PAYWALL] Mark VIP content — SOLID picks ≥75% prob + VALUE BET draws
+        const vip = [];
+        const free = [];
+        for (const m of elite) {
+            const q = m.quant || {};
+            const pick = (q.main_pick || '').toString().trim().toUpperCase();
+            const hWP = parseFloat(m.home_win_probability || 0);
+            const aWP = parseFloat(m.away_win_probability || 0);
+            const dvb = m.draw_value_bet === true || m.draw_value_bet === 'True' || m.draw_value_bet === 1;
+            const isSolidPick = (pick === '1' && hWP >= 75) || (pick === '2' && aWP >= 75);
+            const isVip = isSolidPick || dvb;
+            m._vip = isVip;
+            if (isVip) vip.push(m); else free.push(m);
+        }
+
+        const tier = (req.query.tier || '').toLowerCase();
+        const responseElite = tier === 'free' ? free : elite;
+
+        logger.info(`📊 [UPCOMING] ${responseElite.length} elite + ${fallback_pool.length} fallback (${vip.length} VIP locked)`);
+        res.json({
+            elite: responseElite,
+            vip_locked: tier === 'free' ? vip : [],
+            fallback_pool,
+            counts: { elite: responseElite.length, fallback: fallback_pool.length, vip: vip.length }
+        });
 
         // 💡 [OPTIMIZATION] Background enrichment trigger removed. 
         // Enrichment is now handled strictly by the Scraper and Cron jobs to prevent API-driven OOM.

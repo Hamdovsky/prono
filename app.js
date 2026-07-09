@@ -529,6 +529,32 @@ app.get('/api/fallback/status', (req, res) => {
   res.json(apiFallbackManager.getAllStatus())
 })
 
+// ─── Fallback Enricher (pure JS — no Python dependency) ──
+const fallbackEnricher = require('./core/fallback_enricher');
+
+app.post('/api/cron/auto-enrich', async (req, res) => {
+  logger.info('[API] ⏰ UptimeRobot triggered fallback enrichment...');
+  try {
+    const result = await fallbackEnricher.enrichMatchesBatch();
+    return res.status(200).json({ success: true, ...result });
+  } catch (e) {
+    logger.error(`[API] auto-enrich failed: ${e.message}`);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Also expose a GET variant for simple uptime pings
+app.get('/api/cron/auto-enrich', async (req, res) => {
+  logger.info('[API] ⏰ Fallback enrichment triggered via GET...');
+  try {
+    const result = await fallbackEnricher.enrichMatchesBatch();
+    return res.status(200).json({ success: true, ...result });
+  } catch (e) {
+    logger.error(`[API] auto-enrich GET failed: ${e.message}`);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 app.get('/api/leagues', async (req, res) => {
   try { res.json(await database.getAllLeaguesConfig()); } catch (error) { res.status(500).json({ error: error.message }); }
 });

@@ -291,7 +291,31 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
             await redisCache.init().catch(e => logger.warn('Redis error:', e.message));
             
             cronManager.init(socketService);
-            
+
+            // ⏰ Inline fallback enricher (pure JS, no Python dependency) — runs every 20 min
+            const fallbackEnricher = require('./core/fallback_enricher');
+            setInterval(async () => {
+              logger.info('[SERVER] ⏰ Inline fallback enrichment cycle...');
+              try {
+                const result = await fallbackEnricher.enrichMatchesBatch();
+                if (result.enriched > 0) {
+                  logger.info(`[SERVER] ✅ Inline fallback: ${result.enriched}/${result.total} enriched`);
+                }
+              } catch (e) {
+                logger.warn(`[SERVER] ⚠️ Inline fallback error: ${e.message}`);
+              }
+            }, 20 * 60 * 1000);
+            // Also run once 30s after startup to clear any backlog
+            setTimeout(async () => {
+              logger.info('[SERVER] ⏰ Initial inline fallback enrichment (startup)...');
+              try {
+                const result = await fallbackEnricher.enrichMatchesBatch();
+                logger.info(`[SERVER] ✅ Initial fallback: ${result.enriched}/${result.total} enriched`);
+              } catch (e) {
+                logger.warn(`[SERVER] ⚠️ Initial fallback error: ${e.message}`);
+              }
+            }, 30000);
+
             await retroSync.syncPastMatches().catch(e => logger.warn(`[RETROSYNC] Error: ${e.message}`));
             clvService.start().catch(e => logger.warn(`[CLV] Error: ${e.message}`));
             const scrapedOddsService = require('./services/scrapedOddsService');

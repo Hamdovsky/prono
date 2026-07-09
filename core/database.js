@@ -1241,7 +1241,7 @@ const database = {
             const res = db.prepare(
                 `SELECT id, homeTeam, awayTeam, league, tournament_name, startTimestamp, timestamp
                  FROM matches
-                 WHERE status IN ('scheduled', 'upcoming')
+                 WHERE status IN ('scheduled', 'upcoming', 'NOT_STARTED', 'NS')
                  AND (startTimestamp IS NOT NULL OR timestamp IS NOT NULL)
                  AND homeTeam IS NOT NULL AND awayTeam IS NOT NULL
                  AND (

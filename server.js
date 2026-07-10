@@ -1,9 +1,17 @@
 if (process.env.NODE_ENV !== 'production') { require('dotenv').config(); }
 
-// ⏰ Force GC every 30s to prevent OOM on memory-constrained environments (Render free plan)
+// ⏰ Force GC every 20s and reduce heap limit to prevent OOM on Render free plan (512MB RAM)
 if (typeof global.gc === 'function') {
-  setInterval(() => { try { global.gc() } catch (_) {} }, 30000).unref()
+  setInterval(() => { try { global.gc() } catch (_) {} }, 20000).unref()
 }
+// Reduce V8 heap limit at runtime (increases headroom for native modules)
+try {
+  const v8 = require('v8');
+  if (typeof v8.setHeapSizeLimit === 'function') {
+    // Reduce from CLI --max-old-space-size=384 to 280MB, leaves ~232MB for native
+    v8.setHeapSizeLimit(280 * 1024 * 1024);
+  }
+} catch (_) {}
 
 const app = require('./app')
 

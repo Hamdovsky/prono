@@ -305,7 +305,11 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
             
             // Defer cron init to reduce startup memory pressure
             setTimeout(() => {
-              cronManager.init(socketService);
+              try {
+                cronManager.init(socketService);
+              } catch (e) {
+                logger.warn(`[CRON] Init error: ${e.message}`);
+              }
               if (typeof global.gc === 'function') global.gc();
             }, 10000);
 
@@ -354,13 +358,14 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
                 if (result.fetched > 0) {
                   logger.info(`[SERVER] ✅ Missing scores: ${result.fetched} fetched`);
                 }
+                if (typeof global.gc === 'function') global.gc();
                 // Then settle those new scores
                 const settleResult = await settlementService.settleFinishedMatches();
                 logger.info(`[SERVER] ✅ Initial settlement: ${settleResult.settled}/${settleResult.total} settled`);
               } catch (e) {
                 logger.warn(`[SERVER] ⚠️ Initial settlement error: ${e.message}`);
               }
-            }, 90000);
+            }, 180000);
 
             await retroSync.syncPastMatches().catch(e => logger.warn(`[RETROSYNC] Error: ${e.message}`));
             clvService.start().catch(e => logger.warn(`[CLV] Error: ${e.message}`));

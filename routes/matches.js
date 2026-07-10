@@ -263,25 +263,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         }
         
         if (needsFastPass.length > 0) {
-            logger.info(`✨ [JIT] Quant Enrichment for ${needsFastPass.length} matches (concurrency: 5)...`);
-            
-            const CONCURRENCY = 5
-            const enrichOne = async (m) => {
-                try {
-                    const enriched = await enrichedPredictions.fastEnrichMatch(m);
-                    const idx = rawMatches.findIndex(rm => rm.id === m.id);
-                    if (idx !== -1) rawMatches[idx] = enriched;
-                    await database.updatePredictions(enriched.id, enriched);
-                } catch (err) {
-                    logger.error(`❌ [JIT] Enrichment failed for ${m.id}: ${err.message}`);
-                }
-            }
-            
-            for (let i = 0; i < needsFastPass.length; i += CONCURRENCY) {
-                const batch = needsFastPass.slice(i, i + CONCURRENCY)
-                await Promise.allSettled(batch.map(enrichOne))
-            }
-            invalidateCache('upcoming');
+            logger.info(`✨ [JIT] ${needsFastPass.length} matches need enrichment (handled by cron jobs, not here to avoid OOM)`);
         }
 
         // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool

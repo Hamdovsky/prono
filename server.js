@@ -1,5 +1,10 @@
 if (process.env.NODE_ENV !== 'production') { require('dotenv').config(); }
 
+// ⏰ Force GC every 30s to prevent OOM on memory-constrained environments (Render free plan)
+if (typeof global.gc === 'function') {
+  setInterval(() => { try { global.gc() } catch (_) {} }, 30000).unref()
+}
+
 const app = require('./app')
 
 const http = require('http')
@@ -290,7 +295,11 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
             
             await redisCache.init().catch(e => logger.warn('Redis error:', e.message));
             
-            cronManager.init(socketService);
+            // Defer cron init to reduce startup memory pressure
+            setTimeout(() => {
+              cronManager.init(socketService);
+              if (typeof global.gc === 'function') global.gc();
+            }, 10000);
 
             // ⏰ Inline fallback enricher (pure JS, no Python dependency) — runs every 20 min
             const fallbackEnricher = require('./core/fallback_enricher');

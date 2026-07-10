@@ -1,0 +1,10 @@
+const Database = require('better-sqlite3');
+const db = new Database('data/tactical.db');
+const startOfToday = new Date().setHours(0,0,0,0);
+const endOfRange = startOfToday + (3 * 24 * 60 * 60 * 1000);
+const sevenDaysAgo = new Date(Date.now() - 7*24*60*60*1000).getTime();
+console.log('startOfToday:', new Date(startOfToday).toISOString());
+console.log('endOfRange:', new Date(endOfRange).toISOString());
+console.log('sevenDaysAgo:', new Date(sevenDaysAgo).toISOString());
+const all = db.prepare("SELECT * FROM matches WHERE status IN (\"scheduled\",\"NOT_STARTED\",\"NS\")").all();
+console.log('Count:', all.length);

@@ -1,3 +1,5 @@
+const path = require('path')
+const fs = require('fs')
 const { usingPostgres, query } = require('./pg_connector')
 const logger = require('./logger')
 
@@ -17,6 +19,87 @@ function sqliteToPg(sql) {
     .replace(/\bCURRENT_TIMESTAMP\b/gi, 'NOW()')
     .replace(/\bDATETIME\b/gi, 'TIMESTAMPTZ')
     .replace(/'[^']*'|(?<!")\b([a-z]+[A-Z]\w*)\b(?!")/g, (m, g1) => g1 === undefined ? m : `"${g1}"`)
+}
+
+// ── Synchronous query worker (compatibility layer for db.prepare().all/get/run) ──
+const { Worker } = require('worker_threads')
+
+const PG_SYNC_TIMEOUT_MS = 5000
+
+let syncWorker = null
+let _queryIdCounter = 0
+const _SYNC_FLAG = new Int32Array(new SharedArrayBuffer(4))
+let _syncResult = null
+
+function _getSyncWorker() {
+  if (syncWorker) return syncWorker
+  const dbUrl = process.env.DATABASE_URL || process.env.SUPABASE_URL
+  if (!dbUrl) return null
+
+  syncWorker = new Worker(path.join(__dirname, 'syncQueryWorker.js'), {
+    workerData: { databaseUrl: dbUrl, sab: _SYNC_FLAG.buffer }
+  })
+
+  syncWorker.on('message', (msg) => {
+    if (msg.type === 'ready') {
+      logger.info('[PG SYNC] Worker thread ready')
+    } else if (msg.type === 'result') {
+      _syncResult = msg
+      Atomics.store(_SYNC_FLAG, 0, 1)
+      Atomics.notify(_SYNC_FLAG, 0)
+    } else if (msg.type === 'error') {
+      logger.error(`[PG SYNC] Worker error: ${msg.error}`)
+    }
+  })
+
+  syncWorker.on('error', (err) => {
+    logger.error(`[PG SYNC] Worker thread error: ${err.message}`)
+  })
+
+  syncWorker.on('exit', (code) => {
+    logger.warn(`[PG SYNC] Worker exited (code ${code}) — will restart on next query`)
+    syncWorker = null
+  })
+
+  syncWorker.unref()
+  return syncWorker
+}
+
+function _syncPgQuery(text, params) {
+  const w = _getSyncWorker()
+  if (!w) {
+    const msg = '[PG SYNC] Cannot execute sync query — DATABASE_URL not set on main thread'
+    logger.error(msg)
+    throw new Error(msg)
+  }
+
+  _queryIdCounter++
+  const qid = _queryIdCounter
+
+  // Reset flag BEFORE sending, not after (race-free ordering)
+  _syncResult = null
+  Atomics.store(_SYNC_FLAG, 0, 0)
+
+  w.postMessage({ type: 'query', text, params: params || [], queryId: qid, originalSql: text })
+
+  // Block main thread until worker responds or timeout
+  const ret = Atomics.wait(_SYNC_FLAG, 0, 0, PG_SYNC_TIMEOUT_MS)
+
+  if (ret === 'timed-out') {
+    const msg = `[PG SYNC] Query timed out after ${PG_SYNC_TIMEOUT_MS}ms — SQL: ${(text || '').slice(0, 120)}`
+    logger.error(msg)
+    throw new Error(msg)
+  }
+
+  if (_syncResult?.error) {
+    const err = new Error(`[PG SYNC] Query failed: ${_syncResult.error}`)
+    err.code = _syncResult.code || 'PG_ERROR'
+    err.sql = _syncResult.sql || text
+    err.stack = _syncResult.stack || err.stack
+    throw err
+  }
+
+  return { rows: _syncResult?.rows || [], rowCount: _syncResult?.rowCount || 0 }
 }
 
 const pgDb = {
@@ -52,30 +135,33 @@ const pgDb = {
     let qIdx = 0
     const pgSql = sqliteToPg(sql).replace(/\?(?=(?:[^']*'[^']*')*[^']*$)/g, () => `$${++qIdx}`)
     return {
-      run: async (...args) => {
+      run: (...args) => {
         const params = Array.isArray(args[0]) ? args[0] : args
         try {
-          const result = await query(pgSql, params)
+          const result = _syncPgQuery(pgSql, params)
           return { lastInsertRowid: result.rows?.[0]?.id || null, changes: result.rowCount || 0 }
         } catch (e) {
+          logger.error(`[PG PREPARE] run error: ${e.message} | SQL: ${pgSql.slice(0, 100)}`)
           return { changes: 0 }
         }
       },
-      get: async (...args) => {
+      get: (...args) => {
         const params = Array.isArray(args[0]) ? args[0] : args
         try {
-          const result = await query(pgSql, params)
+          const result = _syncPgQuery(pgSql, params)
           return result.rows?.[0] || null
         } catch (e) {
+          logger.error(`[PG PREPARE] get error: ${e.message} | SQL: ${pgSql.slice(0, 100)}`)
           return null
         }
       },
-      all: async (...args) => {
+      all: (...args) => {
         const params = Array.isArray(args[0]) ? args[0] : args
         try {
-          const result = await query(pgSql, params)
+          const result = _syncPgQuery(pgSql, params)
           return result.rows || []
         } catch (e) {
+          logger.error(`[PG PREPARE] all error: ${e.message} | SQL: ${pgSql.slice(0, 100)}`)
           return []
         }
       }
@@ -388,6 +474,188 @@ const pgDb = {
   seedLeagues: async () => true,
   getTeamMatchHistory: async () => [],
 
+  async getInsufficientDataMatches() {
+    try {
+      const result = await query(
+        `SELECT id, "homeTeam", "awayTeam", league, tournament_name, "fullData"
+         FROM matches WHERE insufficient_data = 1
+         AND status IN ('scheduled', 'upcoming', 'NOT_STARTED', 'NS')
+         AND "homeTeam" IS NOT NULL AND "awayTeam" IS NOT NULL
+         ORDER BY timestamp ASC`
+      )
+      return result.rows.map(r => {
+        try {
+          const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
+          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
+        } catch (e) { return r }
+      })
+    } catch (e) {
+      logger.error(`[PG DB] getInsufficientDataMatches failed: ${e.message}`)
+      return []
+    }
+  },
+
+  async getMatchesStartingSoon(hours = 4) {
+    try {
+      const now = Math.floor(Date.now() / 1000)
+      const future = now + hours * 3600
+      const result = await query(
+        `SELECT id, "homeTeam", "awayTeam", league, tournament_name, "startTimestamp", timestamp, "fullData"
+         FROM matches
+         WHERE status IN ('scheduled', 'upcoming', 'NOT_STARTED', 'NS')
+         AND ("startTimestamp" IS NOT NULL OR timestamp IS NOT NULL)
+         AND "homeTeam" IS NOT NULL AND "awayTeam" IS NOT NULL
+         AND (
+             ("startTimestamp"::bigint > $1 AND "startTimestamp"::bigint <= $2)
+             OR
+             (timestamp >= $3 AND timestamp <= $4)
+         )
+         ORDER BY "startTimestamp" ASC`,
+        [now - 3600, future,
+         new Date(now * 1000).toISOString(), new Date(future * 1000).toISOString()]
+      )
+      return result.rows.map(r => {
+        try {
+          const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
+          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
+        } catch (e) { return r }
+      })
+    } catch (e) {
+      logger.error(`[PG DB] getMatchesStartingSoon failed: ${e.message}`)
+      return []
+    }
+  },
+
+  async getTeamAvgXg(teamName) {
+    try {
+      const name = teamName?.toLowerCase()?.trim()
+      if (!name) return null
+      const result = await query(
+        `SELECT AVG(home_xg) as avg_h, AVG(away_xg) as avg_a
+         FROM matches
+         WHERE (LOWER("homeTeam") = $1 OR LOWER("awayTeam") = $2)
+           AND home_xg IS NOT NULL AND away_xg IS NOT NULL`,
+        [name, name]
+      )
+      const row = result.rows?.[0]
+      if (!row) return null
+      return { homeAvg: row.avg_h, awayAvg: row.avg_a, overallAvg: ((row.avg_h || 0) + (row.avg_a || 0)) / 2 }
+    } catch (e) {
+      logger.error(`[PG DB] getTeamAvgXg failed: ${e.message}`)
+      return null
+    }
+  },
+
+  async getRecentArchivedMatches(limit = 50) {
+    try {
+      const result = await query(
+        `SELECT * FROM historical_matches WHERE "scoreHome" IS NOT NULL AND "scoreAway" IS NOT NULL ORDER BY archived_at DESC LIMIT $1`,
+        [limit]
+      )
+      return result.rows.map(r => {
+        const fd = (() => { try { return JSON.parse((r.fullData ?? r.fulldata) || '{}') } catch { return {} } })()
+        return { ...r, ...fd, id: r.id, homeTeam: r.homeTeam, awayTeam: r.awayTeam, scoreHome: r.scoreHome ?? r.scorehome, scoreAway: r.scoreAway ?? r.scoreaway, league: r.league, timestamp: r.timestamp }
+      })
+    } catch (e) {
+      logger.warn(`[PG DB] getRecentArchivedMatches error: ${e.message}`)
+      return []
+    }
+  },
+
+  async getGoalModelParameters(tournamentName) {
+    try {
+      const result = await query(
+        'SELECT * FROM league_model_parameters WHERE tournament_name = $1',
+        [tournamentName]
+      )
+      return result.rows || []
+    } catch (e) {
+      logger.error(`[PG DB] getGoalModelParameters error: ${e.message}`)
+      return []
+    }
+  },
+
+  async upsertGoalModelParameter(params) {
+    try {
+      const ts = params.updated_at || new Date().toISOString()
+      await query(
+        `INSERT INTO league_model_parameters (tournament_name, team_name, attack_rating, defense_rating, hfa, rho, mu, distribution_type, num_matches, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT(tournament_name, team_name) DO UPDATE SET
+           attack_rating = EXCLUDED.attack_rating,
+           defense_rating = EXCLUDED.defense_rating,
+           hfa = EXCLUDED.hfa,
+           rho = EXCLUDED.rho,
+           mu = EXCLUDED.mu,
+           distribution_type = EXCLUDED.distribution_type,
+           num_matches = EXCLUDED.num_matches,
+           updated_at = EXCLUDED.updated_at`,
+        [
+          params.tournament_name,
+          params.team_name || null,
+          params.attack_rating || 0,
+          params.defense_rating || 0,
+          params.hfa || 0.25,
+          params.rho || -0.12,
+          params.mu || 0.13,
+          params.distribution_type || 'poisson',
+          params.num_matches || 0,
+          ts
+        ]
+      )
+      return true
+    } catch (e) {
+      logger.error(`[PG DB] upsertGoalModelParameter error: ${e.message}`)
+      return false
+    }
+  },
+
+  async getTeamPromosportStats(teamName) {
+    try {
+      const archivePath = path.resolve(__dirname, '../data/historical_archive.sqlite')
+      if (!fs.existsSync(archivePath)) return null
+      const ArchiveDB = require('better-sqlite3')
+      const adb = new ArchiveDB(archivePath)
+      const key = teamName.toUpperCase().trim()
+
+      const homeResults = adb.prepare(`
+        SELECT COUNT(*) as total,
+               SUM(CASE WHEN result = '1' THEN 1 ELSE 0 END) as wins,
+               SUM(CASE WHEN result = 'X' THEN 1 ELSE 0 END) as draws,
+               SUM(CASE WHEN result = '2' THEN 1 ELSE 0 END) as losses
+        FROM promosport_archive
+        WHERE UPPER(homeTeam) = ? AND is_finished = 1
+      `).get(key)
+
+      const awayResults = adb.prepare(`
+        SELECT COUNT(*) as total,
+               SUM(CASE WHEN result = '2' THEN 1 ELSE 0 END) as wins,
+               SUM(CASE WHEN result = 'X' THEN 1 ELSE 0 END) as draws,
+               SUM(CASE WHEN result = '1' THEN 1 ELSE 0 END) as losses
+        FROM promosport_archive
+        WHERE UPPER(awayTeam) = ? AND is_finished = 1
+      `).get(key)
+
+      adb.close()
+
+      const homeTotal = homeResults?.total || 0
+      const awayTotal = awayResults?.total || 0
+      if (homeTotal + awayTotal < 3) return null
+
+      return {
+        homeGames: homeTotal,
+        awayGames: awayTotal,
+        homeWinRate: homeTotal > 0 ? (homeResults.wins || 0) / homeTotal : null,
+        homeDrawRate: homeTotal > 0 ? (homeResults.draws || 0) / homeTotal : null,
+        awayWinRate: awayTotal > 0 ? (awayResults.wins || 0) / awayTotal : null,
+        awayDrawRate: awayTotal > 0 ? (awayResults.draws || 0) / awayTotal : null
+      }
+    } catch (e) {
+      logger.warn(`[PG DB] getTeamPromosportStats failed for ${teamName}: ${e.message}`)
+      return null
+    }
+  },
+
   async archiveFinishedMatches() {
     try {
       const finished = await query(`SELECT * FROM matches WHERE status IN ('FT', 'finished', 'Finished', 'Ended')`)
@@ -569,7 +837,16 @@ const pgDb = {
     } catch { return [] }
   },
 
-  cleanupPlaceholderTeams: async () => 0
+  async cleanupPlaceholderTeams() {
+    try {
+      const result = await query(`DELETE FROM matches WHERE LOWER("homeTeam") = 'home' OR LOWER("awayTeam") = 'away'`)
+      if (result.rowCount > 0) logger.info(`[PG DB] Cleaned ${result.rowCount} placeholder matches`)
+      return result.rowCount || 0
+    } catch (e) {
+      logger.error(`[PG DB] Cleanup error: ${e.message}`)
+      return 0
+    }
+  }
 }
 
 // Backward compatibility: code that uses `database.db.prepare(...)` or `database.db.query(...)`

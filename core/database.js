@@ -2,7 +2,42 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('./logger');
 
-// Lazy SQLite init (Postgres-only environments don't need better-sqlite3)
+// 🚀 [DB TOGGLE] If DATABASE_URL is set, use Neon PostgreSQL directly — skip SQLite entirely
+if (process.env.DATABASE_URL) {
+  logger.info('[DB] DATABASE_URL detected — using Postgres (Neon/Supabase) instead of SQLite')
+  const pgConnector = require('./pg_connector')
+  const pgDb = require('./pg_database')
+  const pgMigrations = require('./pg_migrations')
+  pgConnector.getPool()
+  pgMigrations.runMigrations().catch(e => logger.error(`[DB] PG migration error: ${e.message}`))
+  // Backfill startTimestamp from "fullData" for existing rows
+  setTimeout(async () => {
+    try {
+      const { query: pgQuery } = require('./pg_connector')
+      const testResult = await pgQuery('SELECT id, "fullData", SUBSTRING("fullData" FROM \'"startTimestamp":([0-9]+)\') AS ts FROM matches WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL LIMIT 1')
+      if (testResult.rows.length > 0) {
+        const testRow = testResult.rows[0]
+        logger.info(`[DB] Backfill test: id=${testRow.id} ts_extracted=${testRow.ts} fullData_length=${(testRow.fullData || '').length}`)
+        if (testRow.ts) {
+          const result = await pgQuery(
+            `UPDATE matches SET "startTimestamp" = SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL AND "fullData" ~ '"startTimestamp":[0-9]+'`
+          )
+          logger.info(`[DB] Backfill result: rowCount=${result.rowCount}`)
+        } else {
+          logger.warn('[DB] Backfill: could not extract startTimestamp')
+        }
+      } else {
+        logger.info('[DB] Backfill: no rows need backfill')
+      }
+    } catch (e) {
+      logger.warn(`[DB] Backfill error: ${e.message}`)
+    }
+  }, 5000)
+  module.exports = pgDb
+  return
+}
+
+// ── SQLite initialization (only reached when DATABASE_URL is NOT set) ──
 let db = null
 const dbPath = path.resolve(__dirname, '../data/tactical.db')
 try {
@@ -21,7 +56,7 @@ try {
   db.pragma('foreign_keys = ON');
   logger.info('[DB] SQLite initialized')
 } catch (e) {
-  logger.warn(`[DB] SQLite not available: ${e.message}. Postgres-only mode.`)
+  logger.warn(`[DB] SQLite not available: ${e.message}.`)
 }
 
 // Periodic WAL checkpoint (no-op if SQLite unavailable)
@@ -1441,39 +1476,4 @@ const database = {
 // Removed redundant maintenance interval - handled by CronManager at 3 AM.
 
 database.db.query = database.query.bind(database);
-
-// ─── Auto-detect: Postgres (Neon/Supabase) vs SQLite ───
-if (process.env.DATABASE_URL) {
-  logger.info('[DB] DATABASE_URL detected — using Postgres (Neon/Supabase) instead of SQLite')
-  const pgConnector = require('./pg_connector')
-  const pgDb = require('./pg_database')
-  const pgMigrations = require('./pg_migrations')
-  pgConnector.getPool() // Ensure isPostgres=true BEFORE migration check
-  pgMigrations.runMigrations().catch(e => logger.error(`[DB] PG migration error: ${e.message}`))
-  // Direct backfill of startTimestamp from "fullData" for existing rows
-  setTimeout(async () => {
-    try {
-      const { query: pgQuery } = require('./pg_connector')
-      const testResult = await pgQuery('SELECT id, "fullData", SUBSTRING("fullData" FROM \'"startTimestamp":([0-9]+)\') AS ts FROM matches WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL LIMIT 1')
-      if (testResult.rows.length > 0) {
-        const testRow = testResult.rows[0]
-        logger.info(`[DB] Backfill test: id=${testRow.id} ts_extracted=${testRow.ts} fullData_length=${(testRow.fullData || '').length}`)
-        if (testRow.ts) {
-          const result = await pgQuery(
-            `UPDATE matches SET "startTimestamp" = SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL AND "fullData" ~ '"startTimestamp":[0-9]+'`
-          )
-          logger.info(`[DB] Backfill result: rowCount=${result.rowCount}`)
-        } else {
-          logger.warn(`[DB] Backfill: could not extract startTimestamp (format mismatch or fullData JSON missing field)`)
-        }
-      } else {
-        logger.info('[DB] Backfill: no rows need backfill')
-      }
-    } catch (e) {
-      logger.warn(`[DB] Backfill error: ${e.message} | stack: ${(e.stack || '').slice(0, 200)}`)
-    }
-  }, 5000)
-  module.exports = pgDb
-} else {
-  module.exports = database
-}
+module.exports = database

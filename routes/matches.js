@@ -330,6 +330,58 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
 });
 
 /**
+ * GET /api/predictions
+ * High-confidence predictions (>=75% confidence) from pre-enriched DB records.
+ * Uses ONLY the sync query layer — zero JIT network calls.
+ */
+router.get('/predictions', async (req, res) => {
+  try {
+    const db = require('../core/database')
+    const matches = await db.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
+    const minConf = parseFloat(req.query.min_confidence) || 75
+
+    const quality = matches.filter(m => {
+      const hWP = parseFloat(m.home_win_probability || 0)
+      const dWP = parseFloat(m.draw_probability || 0)
+      const aWP = parseFloat(m.away_win_probability || 0)
+      const pick = (m.prediction || '').toString().trim().toUpperCase()
+      if (pick === '1' && hWP >= minConf) return true
+      if (pick === '2' && aWP >= minConf) return true
+      return false
+    }).map(m => ({
+      id: m.id,
+      homeTeam: m.homeTeam,
+      awayTeam: m.awayTeam,
+      league: m.league,
+      startTimestamp: m.startTimestamp,
+      prediction: m.prediction,
+      home_win_probability: parseFloat(m.home_win_probability || 0),
+      draw_probability: parseFloat(m.draw_probability || 0),
+      away_win_probability: parseFloat(m.away_win_probability || 0),
+      expected_score: m.expected_score || 'N/A',
+      ev_score: parseFloat(m.ev_score || 0),
+      ou_25_prob: parseFloat(m.ou_25_prob || 0),
+      btts_prob: parseFloat(m.btts_prob || 0),
+      odds_home: parseFloat(m.odds_home || 0),
+      odds_draw: parseFloat(m.odds_draw || 0),
+      odds_away: parseFloat(m.odds_away || 0),
+    }))
+
+    quality.sort((a, b) => (b.home_win_probability + b.away_win_probability) - (a.home_win_probability + a.away_win_probability))
+
+    res.json({
+      success: true,
+      count: quality.length,
+      threshold: minConf,
+      predictions: quality,
+    })
+  } catch (e) {
+    logger.error(`[PREDICTIONS] Error: ${e.message}`)
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
  * POST /api/refresh-upcoming
  */
 router.post('/refresh-upcoming', async (req, res) => {

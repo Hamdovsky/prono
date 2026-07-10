@@ -313,29 +313,55 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
               if (typeof global.gc === 'function') global.gc();
             }, 10000);
 
-            // ⏰ Inline fallback enricher (pure JS, no Python dependency) — runs every 20 min
+            // ⏰ Inline fallback enricher — locked setTimeout loop (no overlap, GC after each cycle)
+            const v8 = require('v8');
             const fallbackEnricher = require('./core/fallback_enricher');
-            setInterval(async () => {
-              logger.info('[SERVER] ⏰ Inline fallback enrichment cycle...');
+            const discordService = require('./services/discordService');
+            let isEnricherRunning = false;
+
+            async function runEnrichmentCycle() {
+              if (isEnricherRunning) {
+                logger.warn('⚠️ [ENRICHER] Previous cycle still running — skipping to avoid memory stack.');
+                setTimeout(runEnrichmentCycle, 30000);
+                return;
+              }
+
+              isEnricherRunning = true;
+              logger.info('🧠 [ENRICHER] Starting locked 30s prediction enrichment cycle...');
+
               try {
                 const result = await fallbackEnricher.enrichMatchesBatch();
                 if (result.enriched > 0) {
-                  logger.info(`[SERVER] ✅ Inline fallback: ${result.enriched}/${result.total} enriched`);
+                  logger.info(`[ENRICHER] ✅ ${result.enriched}/${result.total} enriched`);
+                  // 🚀 Fire-and-forget: dispatch high-confidence picks to Discord
+                  discordService.sendComboTicket([]).catch(() => {})
+                  database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']).then(all => {
+                    const top = all.filter(m => {
+                      const h = parseFloat(m.home_win_probability || 0)
+                      const a = parseFloat(m.away_win_probability || 0)
+                      const p = (m.prediction || '').trim().toUpperCase()
+                      return (p === '1' && h >= 75) || (p === '2' && a >= 75)
+                    })
+                    if (top.length > 0) discordService.sendComboTicket(top).catch(() => {})
+                  }).catch(() => {})
                 }
               } catch (e) {
-                logger.warn(`[SERVER] ⚠️ Inline fallback error: ${e.message}`);
+                logger.warn(`[ENRICHER] ⚠️ Error: ${e.message}`);
+              } finally {
+                if (typeof global.gc === 'function') {
+                  logger.info('🧹 [ENRICHER] Executing forced GC after enrichment pass.');
+                  global.gc();
+                }
+                const heapStats = v8.getHeapStatistics();
+                logger.info(`📊 [MEM] Heap Used: ${(heapStats.used_heap_size / 1024 / 1024).toFixed(2)} MB / 280 MB`);
+
+                isEnricherRunning = false;
+                setTimeout(runEnrichmentCycle, 20 * 60 * 1000);
               }
-            }, 20 * 60 * 1000);
-            // Also run once 30s after startup to clear any backlog
-            setTimeout(async () => {
-              logger.info('[SERVER] ⏰ Initial inline fallback enrichment (startup)...');
-              try {
-                const result = await fallbackEnricher.enrichMatchesBatch();
-                logger.info(`[SERVER] ✅ Initial fallback: ${result.enriched}/${result.total} enriched`);
-              } catch (e) {
-                logger.warn(`[SERVER] ⚠️ Initial fallback error: ${e.message}`);
-              }
-            }, 30000);
+            }
+
+            // First run after 30s, then every 20min via locked loop
+            setTimeout(runEnrichmentCycle, 30000);
 
             // 🏁 Inline settlement engine — runs every 15 min
             const settlementService = require('./services/settlementService');

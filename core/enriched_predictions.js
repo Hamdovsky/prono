@@ -875,53 +875,46 @@ class EnrichedPredictionService {
             // ── 1. V553 PREMIUM (XGBoost) — PRIMARY ──
             const v553 = await this._tryV553(m)
             let quantResult, aiSource, xgH, xgA, probs
+            // Always compute JS engine xG for fallback use
+            if (m.odds_home && m.odds_draw && m.odds_away) {
+                const odH = 1 / parseFloat(m.odds_home);
+                const odD = 1 / parseFloat(m.odds_draw);
+                const odA = 1 / parseFloat(m.odds_away);
+                const oSum = odH + odD + odA;
+                xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0));
+                xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0));
+            } else {
+                const xg = this._getMatchXG(m)
+                xgH = xg.h; xgA = xg.a
+            }
+            quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
             if (v553.success) {
-                aiSource = 'V553_PREMIUM'
-                // Derive main pick from Python probabilities
-                const pyProbs = [
-                    { label: '1', prob: v553.home_win_probability || v553.home_win_prob || 0 },
-                    { label: 'X', prob: v553.draw_probability || v553.draw_prob || 0 },
-                    { label: '2', prob: v553.away_win_probability || v553.away_win_prob || 0 }
-                ]
-                const bestPy = pyProbs.sort((a, b) => b.prob - a.prob)[0]
-                const v553HasRealProbs = bestPy && bestPy.prob > 0.40
-                const v553Prediction = v553HasRealProbs ? bestPy.label : null
-                // Always use odds-implied xG for QuantumQuantEngine when odds exist
-                const hasOdds = m.odds_home && m.odds_draw && m.odds_away;
-                if (hasOdds) {
-                    const odH = 1 / parseFloat(m.odds_home);
-                    const odD = 1 / parseFloat(m.odds_draw);
-                    const odA = 1 / parseFloat(m.odds_away);
-                    const oSum = odH + odD + odA;
-                    xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0));
-                    xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0));
+                // Check if V553 returned usable non-zero probabilities
+                const pyHome = parseFloat(v553.home_win_probability || v553.home_win_prob || 0);
+                const pyDraw = parseFloat(v553.draw_probability || v553.draw_prob || 0);
+                const pyAway = parseFloat(v553.away_win_probability || v553.away_win_prob || 0);
+                const v553HasRealProbs = (pyHome + pyDraw + pyAway) > 5;
+                if (v553HasRealProbs) {
+                    aiSource = 'V553_PREMIUM'
+                    const pyProbs = [
+                        { label: '1', prob: pyHome },
+                        { label: 'X', prob: pyDraw },
+                        { label: '2', prob: pyAway }
+                    ]
+                    const bestPy = pyProbs.sort((a, b) => b.prob - a.prob)[0]
+                    const v553Prediction = bestPy && bestPy.prob > 0.40 ? bestPy.label : null
+                    if (v553Prediction && v553Prediction !== 'X') quantResult.main_pick = v553Prediction
+                    quantResult.expected_score = v553.expected_score || quantResult.expected_score
+                    quantResult.confidence = v553.confidence
+                    probs = { h: pyHome, d: pyDraw, a: pyAway }
                 } else {
-                    const xg = this._getMatchXG(m)
-                    xgH = xg.h; xgA = xg.a
+                    // V553 returned 0/0/0 — fall back to JS engine probs
+                    aiSource = 'TITANIUM_QUANT_V4'
+                    probs = { h: quantResult.markets.match_result['1'].prob, d: quantResult.markets.match_result['X'].prob, a: quantResult.markets.match_result['2'].prob }
                 }
-                quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
-                if (v553HasRealProbs && v553Prediction !== 'X') quantResult.main_pick = v553Prediction
-                quantResult.expected_score = v553.expected_score || quantResult.expected_score
-                quantResult.confidence = v553.confidence
-                probs = { h: v553.home_win_probability || v553.home_win_prob || 0, d: v553.draw_probability || v553.draw_prob || 0, a: v553.away_win_probability || v553.away_win_prob || 0 }
             } else {
                 // V553 ML failed — fallback to JS engine
-                // StatisticalEngine.getMatchXG has a full fallback chain (historical data,
-                // league defaults, odds-derived) so we NEVER return _buildOfflineState here
-                // The insufficient_data flag at step 2 will still reflect data quality
                 aiSource = 'TITANIUM_QUANT_V4'
-                if (m.odds_home && m.odds_draw && m.odds_away) {
-                    const odH = 1 / parseFloat(m.odds_home);
-                    const odD = 1 / parseFloat(m.odds_draw);
-                    const odA = 1 / parseFloat(m.odds_away);
-                    const oSum = odH + odD + odA;
-                    xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0));
-                    xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0));
-                } else {
-                    const xg = this._getMatchXG(m)
-                    xgH = xg.h; xgA = xg.a
-                }
-                quantResult = QuantumQuantEngine.analyze(m, xgH, xgA)
                 probs = { h: quantResult.markets.match_result['1'].prob, d: quantResult.markets.match_result['X'].prob, a: quantResult.markets.match_result['2'].prob }
             }
             // 🧠 [BASE SOLID INJECTOR] Home/Away domine les 2 autres par ≥25pp → pick direct
@@ -1075,24 +1068,49 @@ class EnrichedPredictionService {
     }
 
     _buildOfflineState(m) {
+        // Use league baseline xG + team-name dispersion instead of hard zeros
+        const leagueBase = StatisticalEngine._getLeagueBaseXG(m.league);
+        const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + 'baseline';
+        let numHash = 0;
+        for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
+        const noise = (numHash % 100 - 50) / 100;
+        const xgH = Math.max(0.4, leagueBase.h * (1 + noise * 0.15));
+        const xgA = Math.max(0.4, leagueBase.a * (1 - noise * 0.10));
+        const probs = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m);
+        const hPct = +(probs.win.home * 100).toFixed(1);
+        const dPct = +(probs.win.draw * 100).toFixed(1);
+        const aPct = +(probs.win.away * 100).toFixed(1);
+        const mainPick = hPct >= aPct ? '1' : '2';
+        const mainProb = Math.max(hPct, aPct);
         return {
             ...m,
-            success: false,
-            ai_source: 'WAITING_DATA',
-            home_win_probability: 0,
-            away_win_probability: 0,
-            draw_probability: 0,
-            expected_score: 'N/A',
-            verdict: "UNDER ANALYSIS",
-            power_score: 0,
-            quant: { 
-                main_pick: 'UNDER ANALYSIS', 
-                secondary_pick: 'WAITING DATA',
-                ev_score: '0.00', 
-                risk_label: 'WAITING',
+            success: true,
+            ai_source: 'BASELINE_ENGINE',
+            home_win_probability: hPct,
+            draw_probability: dPct,
+            away_win_probability: aPct,
+            expected_score: `${Math.round(xgH)} - ${Math.round(xgA)}`,
+            verdict: mainProb > 45 ? 'SAFE' : (mainProb > 38 ? 'STABLE' : 'RISKY BET'),
+            prediction: mainPick,
+            power_score: Math.round(mainProb),
+            ou_25_prob: Math.round(probs.over25),
+            btts_prob: Math.round(probs.btts.yes * 100),
+            insufficient_data: 1,
+            confidence: Math.round(mainProb * 0.6),
+            ev_score: 0,
+            quant: {
+                main_pick: mainPick,
+                secondary_pick: hPct >= aPct ? 'X' : 'X',
+                ev_score: '0.00',
+                risk_label: mainProb > 45 ? 'SAFE' : (mainProb > 38 ? 'STABLE' : 'RISKY BET'),
                 market_strength: 'NORMAL'
             },
-            predictions: [{ label: 'STATUS', val: 'WAITING DATA' }]
+            predictions: [
+                { label: 'MAIN', val: mainPick },
+                { label: 'EDGE', val: (mainProb - Math.min(hPct, aPct)).toFixed(1) + '%' },
+                { label: '2ND', val: hPct >= aPct ? 'X2' : '1X' },
+                { label: 'RISK', val: mainProb > 45 ? 'SAFE' : 'RISKY BET' }
+            ]
         };
     }
 

@@ -7,6 +7,7 @@
 
 const logger = require('./logger');
 const database = require('./database');
+const StatisticalEngine = require('./services/StatisticalEngine');
 
 // ── Math helpers ──────────────────────────────────────────────────
 
@@ -86,9 +87,11 @@ function enrichOne(match) {
     return { id: matchId, success: false, error: 'Missing homeTeam/awayTeam' };
   }
 
-  // Default xG values (with home advantage boost 1.08x, matching Python free_fallback_service)
-  const xgHome = 1.35 * 1.08;
-  const xgAway = 1.15;
+  // Use StatisticalEngine.getMatchXG — has full fallback chain:
+  // stored xG → teamStats → historical_matches → odds-derived → league baselines with noise
+  const xg = StatisticalEngine.getMatchXG(match);
+  const xgHome = xg.h;
+  const xgAway = xg.a;
 
   // Poisson score matrix + markets
   const matrix = buildScoreMatrix(xgHome, xgAway);

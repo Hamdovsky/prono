@@ -3,21 +3,9 @@ const mlPredictionService = require('../services/mlPredictionService');
 const doubleOptimizer = require('../services/doubleOptimizerService');
 const db = require('./database');
 const promosportMLService = require('../services/promosportMLService');
+const StatisticalEngine = require('./services/StatisticalEngine');
 const axios = require('axios');
 const FASTAPI_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000';
-
-// ─── xG→Probabilities (Poisson Approximation) ────────────────────────────────
-function xgToProbs(xgHome, xgAvgHome, xgAvgAway) {
-  const λh = Math.max(0.1, xgHome);
-  const λa = Math.max(0.1, xgAvgAway || xgHome * 0.7);
-  const d = λh - λa;
-  const t = λh + λa;
-  const drawP = 0.26 * Math.exp(-Math.abs(d) / 3.0);
-  const scaling = 1.0 - drawP;
-  const p1 = scaling * λh / (λh + λa);
-  const p2 = scaling * λa / (λh + λa);
-  return { p1, px: drawP, p2 };
-}
 
 // ─── Smart Fallback: xG DB → Poisson → Probabilities ─────────────────────────
 async function smartFallbackWithXg(match) {
@@ -27,14 +15,27 @@ async function smartFallbackWithXg(match) {
     const xgH = xgHome?.overallAvg;
     const xgA = xgAway?.overallAvg;
     if (xgH && xgA) {
-      const { p1, px, p2 } = xgToProbs(xgH, xgH, xgA);
-      logger.info(`🧪 [xG Fallback] ${match.homeTeam} vs ${match.awayTeam}: xG ${xgH.toFixed(2)}-${xgA.toFixed(2)} → ${(p1*100).toFixed(0)}/${(px*100).toFixed(0)}/${(p2*100).toFixed(0)}`);
+      const probs = StatisticalEngine.calculatePoissonProbs(xgH, xgA, match);
+      const p1 = probs.win.home;
+      const px = probs.win.draw;
+      const p2 = probs.win.away;
+      logger.info(`[xG Fallback] ${match.homeTeam} vs ${match.awayTeam}: xG ${xgH.toFixed(2)}-${xgA.toFixed(2)} → ${(p1*100).toFixed(0)}/${(px*100).toFixed(0)}/${(p2*100).toFixed(0)}`);
       return { p1, px, p2 };
     }
   } catch (e) {
-    logger.warn(`⚠️ [xG Fallback] DB query failed for ${match.homeTeam}: ${e.message}`);
+    logger.warn(`[xG Fallback] DB query failed for ${match.homeTeam}: ${e.message}`);
   }
   return null;
+}
+
+function fallbackProbsFromStatisticalEngine(match) {
+  try {
+    const xg = StatisticalEngine.getMatchXG(match);
+    const probs = StatisticalEngine.calculatePoissonProbs(xg.h, xg.a, match);
+    return { p1: probs.win.home, px: probs.win.draw, p2: probs.win.away };
+  } catch (e) {
+    return { p1: 0.424, px: 0.259, p2: 0.317 };
+  }
 }
 
 
@@ -115,8 +116,9 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
                   p1 = xgFallback.p1; px = xgFallback.px; p2 = xgFallback.p2;
                   logger.info(`🧪 [PROMOSPORT-ENGINE] xG fallback used for ${m.homeTeam} vs ${m.awayTeam}`);
                 } else {
-                  p1 = 0.424; px = 0.259; p2 = 0.317;
-                  logger.info(`🧪 [PROMOSPORT-ENGINE] Historical distribution used for ${m.homeTeam}`);
+                  const eng = fallbackProbsFromStatisticalEngine(m);
+                  p1 = eng.p1; px = eng.px; p2 = eng.p2;
+                  logger.info(`🧪 [PROMOSPORT-ENGINE] StatisticalEngine fallback used for ${m.homeTeam} vs ${m.awayTeam}`);
                 }
               }
             }
@@ -128,9 +130,8 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
                   px = (teamStats.homeDrawRate || 0.259) * 0.5 + (teamStats.awayDrawRate || 0.259) * 0.5;
                   p2 = teamStats.awayWinRate !== null ? teamStats.awayWinRate : 0.317;
                 } else {
-                  p1 = 0.424;
-                  px = 0.259;
-                  p2 = 0.317;
+                  const eng = fallbackProbsFromStatisticalEngine(m);
+                  p1 = eng.p1; px = eng.px; p2 = eng.p2;
                 }
             }
 

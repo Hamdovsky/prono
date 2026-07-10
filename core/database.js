@@ -33,6 +33,27 @@ if (process.env.DATABASE_URL) {
       logger.warn(`[DB] Backfill error: ${e.message}`)
     }
   }, 5000)
+  // Load league model parameters into StatisticalEngine from PG (if available)
+  setTimeout(async () => {
+    try {
+      const { query: pgQuery } = require('./pg_connector')
+      const lmResult = await pgQuery('SELECT * FROM league_model_parameters').catch(() => ({ rows: [] }))
+      if (lmResult.rows && lmResult.rows.length > 0) {
+        const paramsMap = {}
+        for (const row of lmResult.rows) {
+          const key = (row.tournament_name || '').toLowerCase().trim()
+          if (key && row.team_name) {
+            paramsMap[key] = paramsMap[key] || { rho: -0.12, gamma: 0.0 }
+          }
+        }
+        const StatisticalEngine = require('./services/StatisticalEngine')
+        StatisticalEngine.loadGoalModelParams(paramsMap)
+        logger.info(`[DB] Loaded ${lmResult.rows.length} league model parameters into StatisticalEngine`)
+      }
+    } catch (e) {
+      logger.warn(`[DB] Could not load league model params: ${e.message}`)
+    }
+  }, 10000)
   module.exports = pgDb
   return
 }

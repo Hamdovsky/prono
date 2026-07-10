@@ -400,6 +400,7 @@ class StatisticalEngine {
 
     _getLeagueBaseXG(league) {
         const key = (league || '').toLowerCase()
+        if (key.includes('club friendly') || key.includes('friendly') || key.includes('world cup') || key.includes('worldcup')) return { h: 1.55, a: 1.25 }
         if (key.includes('iceland') || key.includes('reykjavik') || key.includes('women')) return { h: 2.0, a: 1.6 }
         if (key.includes('bundesliga') || key.includes('netherlands') || key.includes('eredivisie') || key.includes('austria')) return { h: 1.85, a: 1.55 }
         if (key.includes('premier league') || key.includes('championship') || key.includes('norway') || key.includes('sweden')) return { h: 1.45, a: 1.25 }

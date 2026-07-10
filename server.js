@@ -4,69 +4,87 @@ if (process.env.NODE_ENV !== 'production') { require('dotenv').config(); }
 if (typeof global.gc === 'function') {
   setInterval(() => { try { global.gc() } catch (_) {} }, 20000).unref()
 }
-// Reduce V8 heap limit at runtime (increases headroom for native modules)
+// Reduce V8 heap limit at runtime (more headroom for native modules)
 try {
   const v8 = require('v8');
   if (typeof v8.setHeapSizeLimit === 'function') {
-    // Reduce from CLI --max-old-space-size=384 to 280MB, leaves ~232MB for native
-    v8.setHeapSizeLimit(280 * 1024 * 1024);
+    v8.setHeapSizeLimit(180 * 1024 * 1024);
   }
 } catch (_) {}
 
-const app = require('./app')
-
+// ── Immediate health-check HTTP server (responds BEFORE Express loads) ──
 const http = require('http')
-const fs = require('fs')
-const path = require('path')
 const logger = require('./core/logger')
-const database = require('./core/database')
-const socketService = require('./services/socketService')
-const mlPredictionService = require('./services/mlPredictionService')
-const cronManager = require('./services/cronManager')
-const backupService = require('./backup_service')
-const botService = require('./services/botService')
-const supabaseService = require('./services/supabaseService')
-const apiFallbackManager = require('./services/apiFallbackManager')
-const bsdService = require('./services/bsdService')
-const therundownService = require('./services/therundownService')
-const oddspapiService = require('./services/oddspapiService')
-const openligadbService = require('./services/openligadbService')
-const sportmonksService = require('./services/sportmonksService')
-const apifootballService = require('./services/apifootballService')
-const bigBallsDataService = require('./services/bigBallsDataService')
-const oddsApiIoService = require('./services/oddsApiIoService')
-const predixSportService = require('./services/predixSportService')
-const futpythonService = require('./services/futpythonService')
-const clearSportsService = require('./services/clearSportsService')
-const sportApiService = require('./services/sportApiService')
-const apiNinjasService = require('./services/apiNinjasService')
-const autoHealAgent = require('./services/autoHealAgent')
-const retroSync = require('./services/retroSyncService')
-const clvService = require('./services/clvService')
-const _redisClient = require('./core/redisClient')
+const PORT = process.env.PORT || 10000
 
-const redisCache = {
-  get: _redisClient.getCache,
-  set: (key, value, ttl) => _redisClient.setCache(key, value, ttl),
-  init: () => Promise.resolve(),
-  ..._redisClient
-}
+const server = http.createServer((req, res) => {
+  if (req.url === '/api/health' || req.url === '/health' || req.url === '/ping') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ status: 'ok', mode: 'loading', uptime: process.uptime() }))
+    return
+  }
+  if (server._expressApp) {
+    return server._expressApp(req, res)
+  }
+  res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '5' })
+  res.end(JSON.stringify({ error: 'Titanium AI initializing', retryAfter: 5 }))
+})
 
-const PORT = process.env.PORT || 3001
+server.listen(PORT, '0.0.0.0', () => {
+  if (process.env.LOG_DISABLED) return
+  console.log(`🚀 Health check listener ready on port ${PORT}`)
+})
 
-logger.info(`🚀 [STARTUP] INITIALIZING TITANIUM SERVER V3.0... PORT=${PORT}`)
+// ── Load Express app asynchronously (background, non-blocking) ──
+setTimeout(async () => {
+  try {
+    const app = require('./app')
+    server._expressApp = app
 
-const server = http.createServer(app)
+    const path = require('path')
+    const fs = require('fs')
+    const database = require('./core/database')
+    const socketService = require('./services/socketService')
+    const mlPredictionService = require('./services/mlPredictionService')
+    const cronManager = require('./services/cronManager')
+    const backupService = require('./backup_service')
+    const botService = require('./services/botService')
+    const supabaseService = require('./services/supabaseService')
+    const apiFallbackManager = require('./services/apiFallbackManager')
+    const bsdService = require('./services/bsdService')
+    const therundownService = require('./services/therundownService')
+    const oddspapiService = require('./services/oddspapiService')
+    const openligadbService = require('./services/openligadbService')
+    const sportmonksService = require('./services/sportmonksService')
+    const apifootballService = require('./services/apifootballService')
+    const bigBallsDataService = require('./services/bigBallsDataService')
+    const oddsApiIoService = require('./services/oddsApiIoService')
+    const predixSportService = require('./services/predixSportService')
+    const futpythonService = require('./services/futpythonService')
+    const clearSportsService = require('./services/clearSportsService')
+    const sportApiService = require('./services/sportApiService')
+    const apiNinjasService = require('./services/apiNinjasService')
+    const autoHealAgent = require('./services/autoHealAgent')
+    const retroSync = require('./services/retroSyncService')
+    const clvService = require('./services/clvService')
+    const _redisClient = require('./core/redisClient')
 
-// ⚡ Socket.io & Real-time Synchronization
-socketService.init(server)
+    const redisCache = {
+      get: _redisClient.getCache,
+      set: (key, value, ttl) => _redisClient.setCache(key, value, ttl),
+      init: () => Promise.resolve(),
+      ..._redisClient
+    }
 
-// 🧠 ML Prediction Service Bridge
-const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
+    // ⚡ Socket.io & Real-time Synchronization
+    socketService.init(server)
 
-// ── SERVER STARTUP & LIFECYCLE ─────────
-;(async () => {
-  logger.info('🔍 [DEBUG] IIFE started')
+    // 🧠 ML Prediction Service Bridge
+    const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
+
+    // ── SERVER STARTUP & LIFECYCLE ─────────
+    ;(async () => {
+      logger.info('🔍 [DEBUG] IIFE started')
   try {
     const { exec } = require('child_process')
     const killProcessOnPort = (port) => new Promise((resolve) => {
@@ -257,7 +275,7 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
 
     const startServer = (retries = 5, host = '0.0.0.0') => {
       logger.info(`[PORT] Attempting to bind to PORT=${PORT} host=${host} (retries left: ${retries})`)
-      server.listen(PORT, host, () => {
+      function afterListen() {
         logger.info(`🚀 Titanium Server listening at http://${host}:${PORT}`);
         logger.info('✅ API GATEWAY ACTIVE');
 
@@ -725,7 +743,12 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
             logger.error('💥 [CRITICAL] Service Initialization Error:', initErr.message);
           }
         }, 500);
-      }).on('error', async (err) => {
+      }
+      if (server.listening) {
+        afterListen()
+        return
+      }
+      server.listen(PORT, host, afterListen).on('error', async (err) => {
         logger.info(`[PORT] Error binding: ${err.code} - ${err.message}`)
         if (err.code === 'EADDRINUSE') {
           if (retries > 0) {
@@ -759,6 +782,10 @@ const getMLPrediction = (match) => mlPredictionService.getMLPrediction(match)
     }
   }
 })();
+  } catch (expressErr) {
+    logger.error(`💥 [EXPRESS] Async Express load error: ${expressErr.message}`);
+  }
+}, 2000);
 
 process.on('uncaughtException', (err) => {
   const msg = `💥 [FATAL] Uncaught Exception: ${err.message}`

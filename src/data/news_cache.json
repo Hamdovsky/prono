@@ -1,52 +1,10 @@
 {
-  "match_intel_v50_537430_Colombia_Ghana": {
+  "match_intel_v50_0_Spain U19_Germany U19": {
     "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
+      "lineups": null,
       "home": {
-        "headlines": [
-          "World Cup crypto plays heat up as Colombia prepares for crucial Ghana match - Crypto Briefing",
-          "Colombia vs Ghana – Prediction, Where to Watch, Kick-off Time and Lineups 04-07 - Odds Scanner",
-          "Colombia vs Ghana Predictions &amp; Picks: Who Will Win Tonight's World Cup Match? - Yahoo Sports",
-          "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-          "Jhon Arias goal sends Colombia into last 16 as Ghana bow out of World Cup"
-        ],
-        "items": [
-          {
-            "title": "World Cup crypto plays heat up as Colombia prepares for crucial Ghana match - Crypto Briefing",
-            "pubDate": "Sat, 04 Jul 2026 00:57:41 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Colombia vs Ghana – Prediction, Where to Watch, Kick-off Time and Lineups 04-07 - Odds Scanner",
-            "pubDate": "Fri, 03 Jul 2026 19:49:17 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Colombia vs Ghana Predictions &amp; Picks: Who Will Win Tonight's World Cup Match? - Yahoo Sports",
-            "pubDate": "Fri, 03 Jul 2026 22:09:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-            "pubDate": "Sat, 04 Jul 2026 12:49:02 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Jhon Arias goal sends Colombia into last 16 as Ghana bow out of World Cup",
-            "pubDate": "2026-07-05T19:03:38.384Z",
-            "source": "goal_direct"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -57,7 +15,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 5
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -68,47 +26,11 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1783278293368
+        "fetched_at": 1783677626839
       },
       "away": {
-        "headlines": [
-          "Colombia vs Ghana – Prediction, Where to Watch, Kick-off Time and Lineups 04-07 - Odds Scanner",
-          "Colombia vs Ghana Predictions &amp; Picks: Who Will Win Tonight's World Cup Match? - Covers.com",
-          "World Cup crypto plays heat up as Colombia prepares for crucial Ghana match - Crypto Briefing",
-          "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-          "Jhon Arias goal sends Colombia into last 16 as Ghana bow out of World Cup"
-        ],
-        "items": [
-          {
-            "title": "Colombia vs Ghana – Prediction, Where to Watch, Kick-off Time and Lineups 04-07 - Odds Scanner",
-            "pubDate": "Fri, 03 Jul 2026 19:49:17 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Colombia vs Ghana Predictions &amp; Picks: Who Will Win Tonight's World Cup Match? - Covers.com",
-            "pubDate": "Fri, 03 Jul 2026 22:09:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "World Cup crypto plays heat up as Colombia prepares for crucial Ghana match - Crypto Briefing",
-            "pubDate": "Sat, 04 Jul 2026 00:57:41 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-            "pubDate": "Sat, 04 Jul 2026 12:49:02 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Jhon Arias goal sends Colombia into last 16 as Ghana bow out of World Cup",
-            "pubDate": "2026-07-05T19:03:38.541Z",
-            "source": "goal_direct"
-          }
-        ],
+        "headlines": [],
+        "items": [],
         "injuries": [],
         "intelligence": {
           "severity": "MINOR",
@@ -119,7 +41,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 5
+            "news_intensity": 0
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -130,55 +52,573 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1783278292988
+        "fetched_at": 1783677628774
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "NORMAL",
-      "fetched_at": 1783278293368
+      "fetched_at": 1783677628774
     },
-    "expiresAt": 1783285493368
+    "expiresAt": 1783684828775
   },
-  "match_intel_v50_537376_Canada_Morocco": {
+  "match_intel_v50_0_CF Montréal_Toronto FC": {
     "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
+      "lineups": null,
       "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677651603
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677651413
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677651603
+    },
+    "expiresAt": 1783684851603
+  },
+  "match_intel_v50_0_Clube De Regatas Brasil_Náutico": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677674133
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677674592
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677674592
+    },
+    "expiresAt": 1783684874592
+  },
+  "match_intel_v50_0_Vitória_Vasco da Gama": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677698039
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677696722
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677698039
+    },
+    "expiresAt": 1783684898039
+  },
+  "match_intel_v50_0_Botafogo-SP_Santos": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677720834
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677720724
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677720834
+    },
+    "expiresAt": 1783684920834
+  },
+  "match_intel_v50_0_IF Vestri_Qarabağ FK": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677741667
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677742495
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677742495
+    },
+    "expiresAt": 1783684942496
+  },
+  "match_intel_v50_0_MŠK Žilina_HNK Hajduk Split": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677764602
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677765407
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677765408
+    },
+    "expiresAt": 1783684965408
+  },
+  "match_intel_v50_0_Ferencváros TC_FK Vojvodina": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677789302
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677789780
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677789780
+    },
+    "expiresAt": 1783684989780
+  },
+  "match_intel_v50_0_NK Aluminij Kidričevo_Sheriff Tiraspol": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677811656
+      },
+      "away": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677809912
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677811656
+    },
+    "expiresAt": 1783685011656
+  },
+  "match_intel_v50_0_FC Universitatea Cluj_Dynamo Kyiv": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677833911
+      },
+      "away": {
         "headlines": [
-          "كندا ضد المغرب.. إصابة إسماعيل صيباري وخروجه من ملعب المباراة - اليوم السابع",
-          "Canada vs Morocco Predictions, Lineups, Odds &amp; Tips: Value on three or more goals in Houston - Goal.com",
-          "Canada vs Morocco Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Round of 16 - RotoWire",
-          "Marsch on Canada exit: We were the better team"
+          "مباراة فرنسا والمغرب مباشرة: فرنسا لديها الأفضلية لكنها لم تُحدث فرقاً حتى الآن، حيث لم يتم تسجيل أي أهداف. - Vietnam.vn",
+          "Dynamo Kyiv vs Universitatea Cluj: Prediction and Odds, Europa League, 09/07/2026 - The Playoffs",
+          "France vs Morocco: Prediction and Odds, World Cup, 09/07/2026 - The Playoffs"
         ],
         "items": [
           {
-            "title": "كندا ضد المغرب.. إصابة إسماعيل صيباري وخروجه من ملعب المباراة - اليوم السابع",
-            "pubDate": "Sat, 04 Jul 2026 17:47:00 GMT",
+            "title": "مباراة فرنسا والمغرب مباشرة: فرنسا لديها الأفضلية لكنها لم تُحدث فرقاً حتى الآن، حيث لم يتم تسجيل أي أهداف. - Vietnam.vn",
+            "pubDate": "Thu, 09 Jul 2026 21:24:29 GMT",
             "lang": "ar",
             "source": "google_news_ar"
           },
           {
-            "title": "Canada vs Morocco Predictions, Lineups, Odds &amp; Tips: Value on three or more goals in Houston - Goal.com",
-            "pubDate": "Sat, 04 Jul 2026 12:05:31 GMT",
+            "title": "Dynamo Kyiv vs Universitatea Cluj: Prediction and Odds, Europa League, 09/07/2026 - The Playoffs",
+            "pubDate": "Wed, 08 Jul 2026 18:32:53 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
           {
-            "title": "Canada vs Morocco Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Round of 16 - RotoWire",
-            "pubDate": "Sat, 04 Jul 2026 07:44:00 GMT",
+            "title": "France vs Morocco: Prediction and Odds, World Cup, 09/07/2026 - The Playoffs",
+            "pubDate": "Wed, 08 Jul 2026 18:32:55 GMT",
             "lang": "en",
             "source": "google_news_en"
-          },
-          {
-            "title": "Marsch on Canada exit: We were the better team",
-            "pubDate": "2026-07-05T19:08:08.071Z",
-            "source": "goal_direct"
           }
         ],
         "injuries": [],
@@ -191,7 +631,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 0,
             "absentee_count": 0,
-            "news_intensity": 4
+            "news_intensity": 3
           },
           "summary": "✅ لا مؤشرات سلبية قوية",
           "label_ar": "طبيعي"
@@ -202,58 +642,215 @@
           "label": "طبيعي",
           "subjectivity": 0
         },
-        "fetched_at": 1783278557560
+        "fetched_at": 1783677833055
       },
-      "away": {
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677833911
+    },
+    "expiresAt": 1783685033911
+  },
+  "match_intel_v50_0_Derry City_CSKA Sofia": {
+    "data": {
+      "lineups": null,
+      "home": {
         "headlines": [
-          "ضربة موجعة لديشامب.. نجم فرنسا خارج مواجهة باراجواي - Kooora",
-          "بسبب إسماعيل صيباري.. صدمة لمنتخب المغرب في كأس العالم (فيديو) - العين الإخبارية",
-          "ضربة موجعة لإنجلترا.. وتوخيل في ورطة - Kooora",
-          "Canada vs Morocco Predictions, Lineups, Odds &amp; Tips: Canada vs Morocco: Value on three or more goals in Houston - Goal.com",
-          "Canada vs Morocco Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Round of 16 - RotoWire",
-          "Egypt beats Australia in World Cup penalty kicks thriller | Highlights - USA Today",
-          "Marsch on Canada exit: We were the better team"
+          "France vs Morocco: Prediction and Odds, World Cup, 09/07/2026 - The Playoffs",
+          "Preview: Galway United vs Sligo Rovers - prediction, team news, lineups - Sports Mole"
         ],
         "items": [
           {
-            "title": "ضربة موجعة لديشامب.. نجم فرنسا خارج مواجهة باراجواي - Kooora",
-            "pubDate": "Sat, 04 Jul 2026 03:58:33 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "بسبب إسماعيل صيباري.. صدمة لمنتخب المغرب في كأس العالم (فيديو) - العين الإخبارية",
-            "pubDate": "Sat, 04 Jul 2026 18:34:20 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "ضربة موجعة لإنجلترا.. وتوخيل في ورطة - Kooora",
-            "pubDate": "Sun, 05 Jul 2026 15:59:19 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "Canada vs Morocco Predictions, Lineups, Odds &amp; Tips: Canada vs Morocco: Value on three or more goals in Houston - Goal.com",
-            "pubDate": "Sat, 04 Jul 2026 13:00:21 GMT",
+            "title": "France vs Morocco: Prediction and Odds, World Cup, 09/07/2026 - The Playoffs",
+            "pubDate": "Wed, 08 Jul 2026 18:32:55 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
           {
-            "title": "Canada vs Morocco Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Round of 16 - RotoWire",
-            "pubDate": "Sat, 04 Jul 2026 07:44:00 GMT",
+            "title": "Preview: Galway United vs Sligo Rovers - prediction, team news, lineups - Sports Mole",
+            "pubDate": "Thu, 09 Jul 2026 22:59:00 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 2
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677856187
+      },
+      "away": {
+        "headlines": [
+          "France vs Morocco: Prediction and Odds, World Cup, 09/07/2026 - The Playoffs",
+          "Dynamo Kyiv vs Universitatea Cluj: Prediction and Odds, Europa League, 09/07/2026 - The Playoffs"
+        ],
+        "items": [
+          {
+            "title": "France vs Morocco: Prediction and Odds, World Cup, 09/07/2026 - The Playoffs",
+            "pubDate": "Wed, 08 Jul 2026 18:32:55 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
           {
-            "title": "Egypt beats Australia in World Cup penalty kicks thriller | Highlights - USA Today",
-            "pubDate": "Fri, 03 Jul 2026 22:19:00 GMT",
+            "title": "Dynamo Kyiv vs Universitatea Cluj: Prediction and Odds, Europa League, 09/07/2026 - The Playoffs",
+            "pubDate": "Wed, 08 Jul 2026 18:32:53 GMT",
             "lang": "en",
             "source": "google_news_en"
+          }
+        ],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 2
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677856708
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677856708
+    },
+    "expiresAt": 1783685056708
+  },
+  "match_intel_v50_0_Vålerenga IF_Aalesunds FK": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [],
+        "items": [],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 0
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677879070
+      },
+      "away": {
+        "headlines": [
+          "Aalesunds FK vs Molde FK Prediction &amp; Betting Tips | Norway Eliteserien - BettingTips4you.com"
+        ],
+        "items": [
+          {
+            "title": "Aalesunds FK vs Molde FK Prediction &amp; Betting Tips | Norway Eliteserien - BettingTips4you.com",
+            "pubDate": "Thu, 09 Jul 2026 06:45:23 GMT",
+            "lang": "en",
+            "source": "google_news_en"
+          }
+        ],
+        "injuries": [],
+        "intelligence": {
+          "severity": "MINOR",
+          "impactScore": 0,
+          "features": {
+            "is_missing_gk": 0,
+            "is_missing_scorer": 0,
+            "is_missing_captain": 0,
+            "is_missing_star": 0,
+            "absentee_count": 0,
+            "news_intensity": 1
+          },
+          "summary": "✅ لا مؤشرات سلبية قوية",
+          "label_ar": "طبيعي"
+        },
+        "sentiment": {
+          "score": 0,
+          "verdict": "MINOR",
+          "label": "طبيعي",
+          "subjectivity": 0
+        },
+        "fetched_at": 1783677880486
+      },
+      "confirmed": false,
+      "home_form_rating": 0,
+      "away_form_rating": 0,
+      "intelligence_verdict": "NORMAL",
+      "fetched_at": 1783677880486
+    },
+    "expiresAt": 1783685080486
+  },
+  "match_intel_v50_0_Spain_Belgium": {
+    "data": {
+      "lineups": null,
+      "home": {
+        "headlines": [
+          "تشكيلة فرنسا ضد المغرب: غياب نجمين كبيرين. - Vietnam.vn",
+          "مباشر: فرنسا ضد المغرب: التشكيلات الأساسية - Vietnam.vn",
+          "توقعات مباراة فرنسا والمغرب: التشكيلات المتوقعة - Vietnam.vn",
+          "Meet your World Cup quarterfinalists! How they got..."
+        ],
+        "items": [
+          {
+            "title": "تشكيلة فرنسا ضد المغرب: غياب نجمين كبيرين. - Vietnam.vn",
+            "pubDate": "Thu, 09 Jul 2026 12:24:37 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
           },
           {
-            "title": "Marsch on Canada exit: We were the better team",
-            "pubDate": "2026-07-05T19:08:08.638Z",
+            "title": "مباشر: فرنسا ضد المغرب: التشكيلات الأساسية - Vietnam.vn",
+            "pubDate": "Thu, 09 Jul 2026 20:01:01 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "توقعات مباراة فرنسا والمغرب: التشكيلات المتوقعة - Vietnam.vn",
+            "pubDate": "Thu, 09 Jul 2026 17:56:59 GMT",
+            "lang": "ar",
+            "source": "google_news_ar"
+          },
+          {
+            "title": "Meet your World Cup quarterfinalists! How they got...",
+            "pubDate": "2026-07-10T12:00:04.036Z",
             "source": "goal_direct"
           }
         ],
@@ -267,7 +864,7 @@
             "is_missing_captain": 0,
             "is_missing_star": 1,
             "absentee_count": 0,
-            "news_intensity": 7
+            "news_intensity": 4
           },
           "summary": "⚠️ غيابات جوهرية مؤثرة على التوقع",
           "label_ar": "حرج"
@@ -278,814 +875,65 @@
           "label": "حرج",
           "subjectivity": 0
         },
-        "fetched_at": 1783278566183
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "HIGH_INTEL",
-      "fetched_at": 1783278566183
-    },
-    "expiresAt": 1783285766183
-  },
-  "match_intel_v50_537375_Paraguay_France": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "توقعات مباراة البرازيل والنرويج: التشكيلات المتوقعة - Vietnam.vn",
-          "توقعات مباراة باراغواي ضد فرنسا، الساعة 4:00 صباحًا يوم 5 يوليو: في مواجهة مبابي، سيتعين على باراغواي \"قلب الطاولة\". - Vietnam.vn",
-          "Paraguay vs France Prediction, Picks, Lineups &amp; Best Bets Today World Cup 2026 Round of 16 - FanDuel",
-          "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-          "Paraguay vs France: 2026 World Cup Round of 16 Preview - footboom1.com",
-          "Paraguay vs France prediction and betting tips 04 July 2026 - Dailysports",
-          "France's Mbappé calls Paraguay tactics 'ugly'"
-        ],
-        "items": [
-          {
-            "title": "توقعات مباراة البرازيل والنرويج: التشكيلات المتوقعة - Vietnam.vn",
-            "pubDate": "Sun, 05 Jul 2026 17:35:55 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "توقعات مباراة باراغواي ضد فرنسا، الساعة 4:00 صباحًا يوم 5 يوليو: في مواجهة مبابي، سيتعين على باراغواي \"قلب الطاولة\". - Vietnam.vn",
-            "pubDate": "Sat, 04 Jul 2026 05:51:42 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "Paraguay vs France Prediction, Picks, Lineups &amp; Best Bets Today World Cup 2026 Round of 16 - FanDuel",
-            "pubDate": "Sat, 04 Jul 2026 19:20:45 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-            "pubDate": "Sat, 04 Jul 2026 12:49:02 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Paraguay vs France: 2026 World Cup Round of 16 Preview - footboom1.com",
-            "pubDate": "Fri, 03 Jul 2026 21:05:33 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Paraguay vs France prediction and betting tips 04 July 2026 - Dailysports",
-            "pubDate": "Sat, 04 Jul 2026 01:40:24 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "France's Mbappé calls Paraguay tactics 'ugly'",
-            "pubDate": "2026-07-05T19:12:42.984Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 7
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783278838856
+        "fetched_at": 1783684804040
       },
       "away": {
         "headlines": [
-          "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-          "France's Mbappé calls Paraguay tactics 'ugly'"
+          "إسبانيا ضد بلجيكا: نظرة مسبقة على كأس العالم 2026: كل ما تحتاج إلى معرفته - Goal.com",
+          "مباشر: فرنسا ضد المغرب: التشكيلات الأساسية - Vietnam.vn",
+          "تشكيلة فرنسا ضد المغرب: غياب نجمين كبيرين. - Vietnam.vn",
+          "توقعات مباراة فرنسا والمغرب: التشكيلات المتوقعة - Vietnam.vn",
+          "Spain vs Belgium Predictions, Picks &amp; Odds – 10/07/2026 - ToffeeWeb",
+          "Prediction: Spain vs Belgium - soccernews.com",
+          "Belgium lineup vs. Spain: Predicted XI for World Cup 2026 quarter-final as Kevin De Bruyne and Jeremy Doku await their fate - Sports Mole",
+          "Meet your World Cup quarterfinalists! How they got..."
         ],
         "items": [
           {
-            "title": "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-            "pubDate": "Sat, 04 Jul 2026 12:49:02 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "France's Mbappé calls Paraguay tactics 'ugly'",
-            "pubDate": "2026-07-05T19:12:42.987Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 2
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783278839483
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1783278839483
-    },
-    "expiresAt": 1783286039483
-  },
-  "match_intel_v50_537377_Brazil_Norway": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "تحليل وتوقع التشكيلة الأساسية لمباراة البرازيل ضد النرويج في تمام الساعة الثالثة صباحاً يوم 6 يوليو. - Vietnam.vn",
-          "توقعات مباراة البرازيل والنرويج: التشكيلات المتوقعة - Vietnam.vn",
-          "Brazil vs Norway Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Round of 16 - RotoWire",
-          "Brazil vs Norway Prediction: World Cup Round of 16 Preview &amp; Parlay Picks – 7/5/2026 - ATS.io",
-          "Brazil - TVC News",
-          "Casemiro Injury Update: Is Casemiro Playing Today vs. Norway in World Cup? - PrizePicks",
-          "Brazil vs Norway Prediction, Picks, Lineups, Preview &amp; Best Bets Tomorrow World Cup - FanDuel",
-          "Brazil vs Norway: Match Preview, Prediction and Lineups - 365Scores",
-          "Brazil vs Norway prediction, tips and odds | World Cup 2026 - TNT Sports",
-          "Brazil vs Norway team news LIVE! Winner could play England..."
-        ],
-        "items": [
-          {
-            "title": "تحليل وتوقع التشكيلة الأساسية لمباراة البرازيل ضد النرويج في تمام الساعة الثالثة صباحاً يوم 6 يوليو. - Vietnam.vn",
-            "pubDate": "Sun, 05 Jul 2026 07:30:20 GMT",
+            "title": "إسبانيا ضد بلجيكا: نظرة مسبقة على كأس العالم 2026: كل ما تحتاج إلى معرفته - Goal.com",
+            "pubDate": "Fri, 10 Jul 2026 07:23:00 GMT",
             "lang": "ar",
             "source": "google_news_ar"
           },
           {
-            "title": "توقعات مباراة البرازيل والنرويج: التشكيلات المتوقعة - Vietnam.vn",
-            "pubDate": "Sun, 05 Jul 2026 17:35:55 GMT",
+            "title": "مباشر: فرنسا ضد المغرب: التشكيلات الأساسية - Vietnam.vn",
+            "pubDate": "Thu, 09 Jul 2026 20:01:01 GMT",
             "lang": "ar",
             "source": "google_news_ar"
           },
           {
-            "title": "Brazil vs Norway Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Round of 16 - RotoWire",
-            "pubDate": "Sun, 05 Jul 2026 09:09:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway Prediction: World Cup Round of 16 Preview &amp; Parlay Picks – 7/5/2026 - ATS.io",
-            "pubDate": "Sun, 05 Jul 2026 09:14:29 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil - TVC News",
-            "pubDate": "Sun, 05 Jul 2026 10:15:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Casemiro Injury Update: Is Casemiro Playing Today vs. Norway in World Cup? - PrizePicks",
-            "pubDate": "Sun, 05 Jul 2026 18:02:37 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway Prediction, Picks, Lineups, Preview &amp; Best Bets Tomorrow World Cup - FanDuel",
-            "pubDate": "Sat, 04 Jul 2026 23:10:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway: Match Preview, Prediction and Lineups - 365Scores",
-            "pubDate": "Sun, 05 Jul 2026 16:17:36 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway prediction, tips and odds | World Cup 2026 - TNT Sports",
-            "pubDate": "Sat, 04 Jul 2026 20:10:58 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway team news LIVE! Winner could play England...",
-            "pubDate": "2026-07-05T19:17:15.577Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 10
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783279114779
-      },
-      "away": {
-        "headlines": [
-          "Casemiro Injury Update: Is Casemiro Playing Today vs. Norway in World Cup? - PrizePicks",
-          "Brazil vs Norway Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Round of 16 - RotoWire",
-          "Brazil vs Norway: Match Preview, Prediction and Lineups - 365Scores",
-          "Brazil vs Norway Prediction, Picks, Lineups, Preview &amp; Best Bets Tomorrow World Cup - FanDuel",
-          "Brazil - TVC News",
-          "Brazil vs Norway prediction, tips and odds | World Cup 2026 - TNT Sports",
-          "Brazil Receives Major Raphinha Injury Boost Ahead of Norway Clash - Sports Illustrated",
-          "Raphinha Injury Update: Is Raphinha Playing Today vs. Norway in World Cup? - PrizePicks",
-          "Brazil vs Norway Predictions &amp; Picks: Who Will Win Today's World Cup Match? - Covers.com",
-          "Brazil vs Norway Prediction: World Cup Round of 16 Preview &amp; Parlay Picks – 7/5/2026 - ATS.io",
-          "Brazil vs Norway team news LIVE! Winner could play England..."
-        ],
-        "items": [
-          {
-            "title": "Casemiro Injury Update: Is Casemiro Playing Today vs. Norway in World Cup? - PrizePicks",
-            "pubDate": "Sun, 05 Jul 2026 18:02:37 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway Preview: Predicted Lineups, Team News &amp; Tactical Analysis | 2026 World Cup Round of 16 - RotoWire",
-            "pubDate": "Sun, 05 Jul 2026 09:09:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway: Match Preview, Prediction and Lineups - 365Scores",
-            "pubDate": "Sun, 05 Jul 2026 16:17:36 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway Prediction, Picks, Lineups, Preview &amp; Best Bets Tomorrow World Cup - FanDuel",
-            "pubDate": "Sat, 04 Jul 2026 23:10:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil - TVC News",
-            "pubDate": "Sun, 05 Jul 2026 10:15:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway prediction, tips and odds | World Cup 2026 - TNT Sports",
-            "pubDate": "Sat, 04 Jul 2026 20:10:58 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil Receives Major Raphinha Injury Boost Ahead of Norway Clash - Sports Illustrated",
-            "pubDate": "Sat, 04 Jul 2026 18:00:01 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Raphinha Injury Update: Is Raphinha Playing Today vs. Norway in World Cup? - PrizePicks",
-            "pubDate": "Sun, 05 Jul 2026 16:52:26 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway Predictions &amp; Picks: Who Will Win Today's World Cup Match? - Covers.com",
-            "pubDate": "Sun, 05 Jul 2026 16:56:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway Prediction: World Cup Round of 16 Preview &amp; Parlay Picks – 7/5/2026 - ATS.io",
-            "pubDate": "Sun, 05 Jul 2026 09:14:29 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Brazil vs Norway team news LIVE! Winner could play England...",
-            "pubDate": "2026-07-05T19:17:15.603Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 11
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783279116856
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1783279116856
-    },
-    "expiresAt": 1783286316856
-  },
-  "match_intel_v50_537378_Mexico_England": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "Mexico v England: Prediction, team news, lineups and odds - Football365",
-          "Mexico vs. England Prediction, World Cup Picks, Lineups for Round of 16 - PrizePicks",
-          "Mexico vs Portugal: predictions, stats, tips &amp; odds - Squawka",
-          "Early England team news vs Mexico as Three Lions suffer new training injury - FourFourTwo",
-          "Mexico will come out swinging as Tuchel faces more selection headaches"
-        ],
-        "items": [
-          {
-            "title": "Mexico v England: Prediction, team news, lineups and odds - Football365",
-            "pubDate": "Sun, 05 Jul 2026 07:53:46 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Mexico vs. England Prediction, World Cup Picks, Lineups for Round of 16 - PrizePicks",
-            "pubDate": "Sun, 05 Jul 2026 19:02:37 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Mexico vs Portugal: predictions, stats, tips &amp; odds - Squawka",
-            "pubDate": "Sat, 04 Jul 2026 00:43:32 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Early England team news vs Mexico as Three Lions suffer new training injury - FourFourTwo",
-            "pubDate": "Sun, 05 Jul 2026 17:06:56 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Mexico will come out swinging as Tuchel faces more selection headaches",
-            "pubDate": "2026-07-05T19:21:58.244Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 5
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783279399992
-      },
-      "away": {
-        "headlines": [
-          "ضربة موجعة لإنجلترا.. وتوخيل في ورطة - Kooora",
-          "تشواميني يربك حسابات ديشان قبل مواجهة فرنسا وباراغواي في كأس العالم - الجزيرة نت",
-          "Brazil vs Norway team news LIVE! Winner could play England..."
-        ],
-        "items": [
-          {
-            "title": "ضربة موجعة لإنجلترا.. وتوخيل في ورطة - Kooora",
-            "pubDate": "Sun, 05 Jul 2026 15:59:19 GMT",
+            "title": "تشكيلة فرنسا ضد المغرب: غياب نجمين كبيرين. - Vietnam.vn",
+            "pubDate": "Thu, 09 Jul 2026 12:24:37 GMT",
             "lang": "ar",
             "source": "google_news_ar"
           },
           {
-            "title": "تشواميني يربك حسابات ديشان قبل مواجهة فرنسا وباراغواي في كأس العالم - الجزيرة نت",
-            "pubDate": "Sat, 04 Jul 2026 16:45:22 GMT",
+            "title": "توقعات مباراة فرنسا والمغرب: التشكيلات المتوقعة - Vietnam.vn",
+            "pubDate": "Thu, 09 Jul 2026 17:56:59 GMT",
             "lang": "ar",
             "source": "google_news_ar"
           },
           {
-            "title": "Brazil vs Norway team news LIVE! Winner could play England...",
-            "pubDate": "2026-07-05T19:21:58.240Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 3
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783279400306
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1783279400306
-    },
-    "expiresAt": 1783286600306
-  },
-  "match_intel_v50_537379_Portugal_Spain": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "Portugal v Spain: Prediction, team news, lineups and odds - Football365",
-          "Luis de la Fuente: ‘I say this with the greatest respect: we have the best midfield in the world’"
-        ],
-        "items": [
-          {
-            "title": "Portugal v Spain: Prediction, team news, lineups and odds - Football365",
-            "pubDate": "Sun, 05 Jul 2026 08:02:38 GMT",
+            "title": "Spain vs Belgium Predictions, Picks &amp; Odds – 10/07/2026 - ToffeeWeb",
+            "pubDate": "Thu, 09 Jul 2026 07:40:44 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
           {
-            "title": "Luis de la Fuente: ‘I say this with the greatest respect: we have the best midfield in the world’",
-            "pubDate": "2026-07-05T19:26:34.766Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 2
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783279670591
-      },
-      "away": {
-        "headlines": [
-          "Luis de la Fuente: ‘I say this with the greatest respect: we have the best midfield in the world’"
-        ],
-        "items": [
-          {
-            "title": "Luis de la Fuente: ‘I say this with the greatest respect: we have the best midfield in the world’",
-            "pubDate": "2026-07-05T19:26:34.805Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 1
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783279675575
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1783279675575
-    },
-    "expiresAt": 1783286875575
-  },
-  "match_intel_v50_537380_United States_Belgium": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "Brazil - TVC News",
-          "Preview: USA vs Belgium - prediction, team news, lineups | 2026 World Cup - Sports Mole",
-          "Freddy the German: psyop, mirror to US rapacity or Tocqueville in a CR7 shirt?"
-        ],
-        "items": [
-          {
-            "title": "Brazil - TVC News",
-            "pubDate": "Sun, 05 Jul 2026 10:15:00 GMT",
+            "title": "Prediction: Spain vs Belgium - soccernews.com",
+            "pubDate": "Thu, 09 Jul 2026 15:02:37 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
           {
-            "title": "Preview: USA vs Belgium - prediction, team news, lineups | 2026 World Cup - Sports Mole",
-            "pubDate": "Sat, 04 Jul 2026 14:42:00 GMT",
+            "title": "Belgium lineup vs. Spain: Predicted XI for World Cup 2026 quarter-final as Kevin De Bruyne and Jeremy Doku await their fate - Sports Mole",
+            "pubDate": "Wed, 08 Jul 2026 16:10:20 GMT",
             "lang": "en",
             "source": "google_news_en"
           },
           {
-            "title": "Freddy the German: psyop, mirror to US rapacity or Tocqueville in a CR7 shirt?",
-            "pubDate": "2026-07-05T19:31:23.312Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 3
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783279960822
-      },
-      "away": {
-        "headlines": [
-          "USA vs. Belgium Prediction: 2026 FIFA World Cup Picks - VSiN",
-          "USA vs Belgium prediction tips and odds | World Cup 2026 - TNT Sports",
-          "Preview: USA vs Belgium - prediction, team news, lineups | 2026 World Cup - Sports Mole",
-          "USA vs Belgium: Preview and Prediction - TheHardTackle.com",
-          "USA lineup vs. Belgium: Predicted XI for 2026 World Cup clash including Folarin Balogun replacement decision - Sports Mole",
-          "FIFA suspends Balogun red card, can face Belgium"
-        ],
-        "items": [
-          {
-            "title": "USA vs. Belgium Prediction: 2026 FIFA World Cup Picks - VSiN",
-            "pubDate": "Sun, 05 Jul 2026 09:52:55 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "USA vs Belgium prediction tips and odds | World Cup 2026 - TNT Sports",
-            "pubDate": "Sun, 05 Jul 2026 17:22:16 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Preview: USA vs Belgium - prediction, team news, lineups | 2026 World Cup - Sports Mole",
-            "pubDate": "Sat, 04 Jul 2026 14:42:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "USA vs Belgium: Preview and Prediction - TheHardTackle.com",
-            "pubDate": "Sat, 04 Jul 2026 20:18:38 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "USA lineup vs. Belgium: Predicted XI for 2026 World Cup clash including Folarin Balogun replacement decision - Sports Mole",
-            "pubDate": "Sat, 04 Jul 2026 14:56:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "FIFA suspends Balogun red card, can face Belgium",
-            "pubDate": "2026-07-05T19:31:22.538Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 6
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783279961645
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1783279961645
-    },
-    "expiresAt": 1783287161645
-  },
-  "match_intel_v50_537381_Argentina_Egypt": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "مباراة كرة قدم مباشرة: الأرجنتين ضد الرأس الأخضر، الساعة 5 صباحاً يوم 4 يوليو. - Vietnam.vn",
-          "Egypt beats Australia in World Cup penalty kicks thriller | Highlights - USA Today",
-          "Lionel Messi and football’s ageless wonders can excel into their 40s | Emma Hayes"
-        ],
-        "items": [
-          {
-            "title": "مباراة كرة قدم مباشرة: الأرجنتين ضد الرأس الأخضر، الساعة 5 صباحاً يوم 4 يوليو. - Vietnam.vn",
-            "pubDate": "Fri, 03 Jul 2026 20:41:31 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "Egypt beats Australia in World Cup penalty kicks thriller | Highlights - USA Today",
-            "pubDate": "Fri, 03 Jul 2026 22:19:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Lionel Messi and football’s ageless wonders can excel into their 40s | Emma Hayes",
-            "pubDate": "2026-07-05T19:36:00.722Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 3
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783280233373
-      },
-      "away": {
-        "headlines": [
-          "بالفيديو: محمد صلاح رجل ليلة مصر التاريخية في المونديال - akhbaralyawm.com",
-          "منتخب إنجلترا يتلقى ضربة قوية قبل ساعات من مواجهة المكسيك - alestad.com",
-          "Egypt beats Australia in World Cup penalty kicks thriller | Highlights - USA Today",
-          "Argentina lineup vs. Egypt: Predicted XI for World Cup 2026 last-16 including triple fitness update - Sports Mole",
-          "Egypt reach World Cup last 16 in shootout as Australia’s goalkeeper gamble backfires"
-        ],
-        "items": [
-          {
-            "title": "بالفيديو: محمد صلاح رجل ليلة مصر التاريخية في المونديال - akhbaralyawm.com",
-            "pubDate": "Sat, 04 Jul 2026 05:18:55 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "منتخب إنجلترا يتلقى ضربة قوية قبل ساعات من مواجهة المكسيك - alestad.com",
-            "pubDate": "Sun, 05 Jul 2026 17:05:08 GMT",
-            "lang": "ar",
-            "source": "google_news_ar"
-          },
-          {
-            "title": "Egypt beats Australia in World Cup penalty kicks thriller | Highlights - USA Today",
-            "pubDate": "Fri, 03 Jul 2026 22:19:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Argentina lineup vs. Egypt: Predicted XI for World Cup 2026 last-16 including triple fitness update - Sports Mole",
-            "pubDate": "Sun, 05 Jul 2026 10:05:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Egypt reach World Cup last 16 in shootout as Australia’s goalkeeper gamble backfires",
-            "pubDate": "2026-07-05T19:36:01.039Z",
+            "title": "Meet your World Cup quarterfinalists! How they got...",
+            "pubDate": "2026-07-10T12:00:03.833Z",
             "source": "goal_direct"
           }
         ],
@@ -1094,12 +942,12 @@
           "severity": "CRITICAL",
           "impactScore": -0.25,
           "features": {
-            "is_missing_gk": 1,
+            "is_missing_gk": 0,
             "is_missing_scorer": 0,
             "is_missing_captain": 0,
-            "is_missing_star": 0,
+            "is_missing_star": 1,
             "absentee_count": 0,
-            "news_intensity": 5
+            "news_intensity": 8
           },
           "summary": "⚠️ غيابات جوهرية مؤثرة على التوقع",
           "label_ar": "حرج"
@@ -1110,127 +958,14 @@
           "label": "حرج",
           "subjectivity": 0
         },
-        "fetched_at": 1783280236716
+        "fetched_at": 1783684803840
       },
       "confirmed": false,
       "home_form_rating": 0,
       "away_form_rating": 0,
       "intelligence_verdict": "HIGH_INTEL",
-      "fetched_at": 1783280236716
+      "fetched_at": 1783684804040
     },
-    "expiresAt": 1783287436716
-  },
-  "match_intel_v50_537382_Switzerland_Colombia": {
-    "data": {
-      "lineups": {
-        "confirmed": false,
-        "home": [],
-        "away": [],
-        "injuries": [],
-        "missingKey": []
-      },
-      "home": {
-        "headlines": [
-          "Jhon Arias goal sends Colombia into last 16 as Ghana bow out of World Cup"
-        ],
-        "items": [
-          {
-            "title": "Jhon Arias goal sends Colombia into last 16 as Ghana bow out of World Cup",
-            "pubDate": "2026-07-05T19:40:36.244Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 1
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783280513167
-      },
-      "away": {
-        "headlines": [
-          "World Cup crypto plays heat up as Colombia prepares for crucial Ghana match - Crypto Briefing",
-          "Colombia vs Ghana – Prediction, Where to Watch, Kick-off Time and Lineups 04-07 - Odds Scanner",
-          "Colombia vs Ghana Predictions &amp; Picks: Who Will Win Tonight's World Cup Match? - Yahoo Sports",
-          "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-          "Jhon Arias goal sends Colombia into last 16 as Ghana bow out of World Cup"
-        ],
-        "items": [
-          {
-            "title": "World Cup crypto plays heat up as Colombia prepares for crucial Ghana match - Crypto Briefing",
-            "pubDate": "Sat, 04 Jul 2026 00:57:41 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Colombia vs Ghana – Prediction, Where to Watch, Kick-off Time and Lineups 04-07 - Odds Scanner",
-            "pubDate": "Fri, 03 Jul 2026 19:49:17 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Colombia vs Ghana Predictions &amp; Picks: Who Will Win Tonight's World Cup Match? - Yahoo Sports",
-            "pubDate": "Fri, 03 Jul 2026 22:09:00 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Paraguay vs France: Team News, Predicted Lineups and Match Prediction - International Business Times, Singapore Edition",
-            "pubDate": "Sat, 04 Jul 2026 12:49:02 GMT",
-            "lang": "en",
-            "source": "google_news_en"
-          },
-          {
-            "title": "Jhon Arias goal sends Colombia into last 16 as Ghana bow out of World Cup",
-            "pubDate": "2026-07-05T19:40:37.069Z",
-            "source": "goal_direct"
-          }
-        ],
-        "injuries": [],
-        "intelligence": {
-          "severity": "MINOR",
-          "impactScore": 0,
-          "features": {
-            "is_missing_gk": 0,
-            "is_missing_scorer": 0,
-            "is_missing_captain": 0,
-            "is_missing_star": 0,
-            "absentee_count": 0,
-            "news_intensity": 5
-          },
-          "summary": "✅ لا مؤشرات سلبية قوية",
-          "label_ar": "طبيعي"
-        },
-        "sentiment": {
-          "score": 0,
-          "verdict": "MINOR",
-          "label": "طبيعي",
-          "subjectivity": 0
-        },
-        "fetched_at": 1783280513737
-      },
-      "confirmed": false,
-      "home_form_rating": 0,
-      "away_form_rating": 0,
-      "intelligence_verdict": "NORMAL",
-      "fetched_at": 1783280513737
-    },
-    "expiresAt": 1783287713737
+    "expiresAt": 1783692004040
   }
 }

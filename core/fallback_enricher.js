@@ -110,14 +110,17 @@ async function tryXgbEnrichOne(match) {
     const pyDraw = parseFloat(py.draw_probability) || 0;
     const pyAway = parseFloat(py.away_win_probability) || 0;
     if ((pyHome + pyDraw + pyAway) <= 0.01) return null;
+    const xgbConf = parseFloat(py.xgboost_confidence || py.confidence || 0);
     const pHome = +(pyHome * 100).toFixed(1);
     const pDraw = +(pyDraw * 100).toFixed(1);
     const pAway = +(pyAway * 100).toFixed(1);
+    // Mix logic: reject XGBoost if confidence < 40% or draw > 50% (cold match suspicion)
+    if (xgbConf < 0.40 || pDraw > 50) return null;
     const xgH = parseFloat(py.home_xg) || parseFloat(py.expected_goals_home) || 1.5;
     const xgA = parseFloat(py.away_xg) || parseFloat(py.expected_goals_away) || 1.15;
     const result = buildPredictionObject(match, pHome, pDraw, pAway, xgH, xgA, 'xgb_fastapi_v553', 0);
-    result.xgboost_confidence = parseFloat(py.xgboost_confidence || py.confidence || 0);
-    result.confidence = parseFloat(py.xgboost_confidence || py.confidence || 0) * 100;
+    result.xgboost_confidence = xgbConf;
+    result.confidence = xgbConf * 100;
     result.ou_25_prob = py.ou_25_prob ? Math.round(py.ou_25_prob * 100) : result.ou_25_prob;
     result.btts_prob = py.btts_prob ? Math.round(py.btts_prob * 100) : result.btts_prob;
     return { id: match.id || match.match_id || '', success: true, ...result };

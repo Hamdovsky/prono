@@ -306,7 +306,7 @@ def get_league_draw_multiplier(feature_names, base_features, league_name=None):
 
         conn = get_db_connection()
         if not conn:
-            return 1.10
+            return 1.0
 
         query = """
             SELECT ROUND(SUM(CASE WHEN scoreHome = scoreAway THEN 1.0 ELSE 0 END) / COUNT(*), 3) as draw_rate
@@ -321,13 +321,13 @@ def get_league_draw_multiplier(feature_names, base_features, league_name=None):
         row = conn.execute(query, params).fetchone()
         if row and row[0]:
             real_draw_rate = float(row[0])
-            expected_xgb_rate = max(0.18, real_draw_rate * 0.80)
-            mult = min(1.25, real_draw_rate / expected_xgb_rate)
+            expected_xgb_rate = max(0.20, real_draw_rate * 0.85)
+            mult = min(1.10, real_draw_rate / expected_xgb_rate)
             _LEAGUE_DRAW_CACHE[cache_key] = round(mult, 3)
             return _LEAGUE_DRAW_CACHE[cache_key]
     except Exception:
         pass
-    return 1.10
+    return 1.0
 
 
 # ============================================================================

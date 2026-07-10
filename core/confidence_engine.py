@@ -108,11 +108,11 @@ def calibrate_confidence(p_h, p_d, p_a, selection_prob, composite_confidence,
     if mot_factor != 1.0:
         confidence *= (1.0 + (mot_factor - 1.0) * 0.1)
 
-    # V110 No-History Penalty
+    # V110 No-History Penalty (reduced from 25% to 12% for cold start)
     h_hist_len = features.get('h_hist_len', 0)
     a_hist_len = features.get('a_hist_len', 0)
     if h_hist_len + a_hist_len < 5:
-        hist_penalty = 1.0 - ((5 - (h_hist_len + a_hist_len)) / 5.0) * 0.25
+        hist_penalty = 1.0 - ((5 - (h_hist_len + a_hist_len)) / 5.0) * 0.12
         confidence *= hist_penalty
         analysis["NoHistoryPenalty"] = f"Penalty: {hist_penalty:.0%} (hist={h_hist_len}+{a_hist_len})"
 

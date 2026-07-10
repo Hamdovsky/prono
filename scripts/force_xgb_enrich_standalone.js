@@ -42,15 +42,17 @@ async function tryXgb(match) {
     if (!py || !py.success) return null;
     const pHome = parseFloat(py.home_win_probability)||0, pDraw = parseFloat(py.draw_probability)||0, pAway = parseFloat(py.away_win_probability)||0;
     if (pHome + pDraw + pAway <= 0.01) return null;
+    const xgbConf = parseFloat(py.xgboost_confidence || py.confidence || 0);
+    const pHPct = +(pHome * 100).toFixed(1), pDPct = +(pDraw * 100).toFixed(1), pAPct = +(pAway * 100).toFixed(1);
+    if (xgbConf < 0.40 || pDPct > 50) return null;
     const xgH = parseFloat(py.home_xg) || parseFloat(py.expected_goals_home) || 1.5;
     const xgA = parseFloat(py.away_xg) || parseFloat(py.expected_goals_away) || 1.15;
-    const pHPct = +(pHome * 100).toFixed(1), pDPct = +(pDraw * 100).toFixed(1), pAPct = +(pAway * 100).toFixed(1);
     const {pick,prob,ev} = determinePick(pHPct, pDPct, pAPct);
     return {
       home_win_probability: pHPct, draw_probability: pDPct, away_win_probability: pAPct,
       home_xg: Math.round(xgH * 100) / 100, away_xg: Math.round(xgA * 100) / 100,
       source: 'xgb_fastapi_v553',
-      xgboost_confidence: parseFloat(py.xgboost_confidence || py.confidence || 0),
+      xgboost_confidence: xgbConf,
       ou_25_prob: py.ou_25_prob ? Math.round(py.ou_25_prob * 100) : null,
       btts_prob: py.btts_prob ? Math.round(py.btts_prob * 100) : null,
       expected_score: py.expected_score || `${Math.round(xgH)} - ${Math.round(xgA)}`,

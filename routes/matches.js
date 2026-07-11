@@ -225,8 +225,29 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         rawMatches = rawMatches.map(m => {
             if (!m.quant) m.quant = {};
             if (!m.quant.main_pick && m.prediction) m.quant.main_pick = m.prediction;
-            if (!m.quant.ev_score && m.ev_score != null) m.quant.ev_score = m.ev_score;
+            if (!m.quant.ev_score) {
+                // Map from DB columns ev_home/ev_draw/ev_away -> ev_score
+                const evH = parseFloat(m.ev_home || 0);
+                const evD = parseFloat(m.ev_draw || 0);
+                const evA = parseFloat(m.ev_away || 0);
+                const bestEv = Math.max(evH, evD, evA);
+                if (bestEv > 0) {
+                    m.quant.ev_score = (bestEv / 100).toFixed(2);
+                } else if (m.ev_score != null) {
+                    m.quant.ev_score = m.ev_score;
+                } else {
+                    m.quant.ev_score = '0.00';
+                }
+            }
             if (!m.quant.expected_score && m.expected_score) m.quant.expected_score = m.expected_score;
+            if (!m.quant.risk_label) {
+                const hWP = parseFloat(m.home_win_probability || 0);
+                const aWP = parseFloat(m.away_win_probability || 0);
+                const maxP = Math.max(hWP, aWP);
+                if (maxP >= 75) m.quant.risk_label = 'SAFE';
+                else if (maxP >= 60) m.quant.risk_label = 'STABLE';
+                else m.quant.risk_label = 'BALANCED';
+            }
             return m;
         });
 
@@ -263,7 +284,23 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         }
         
         if (needsFastPass.length > 0) {
-            logger.info(`✨ [JIT] ${needsFastPass.length} matches need enrichment (handled by cron jobs, not here to avoid OOM)`);
+            // Re-enable JIT with batch limit to avoid OOM on Render free tier
+            const jitBatch = needsFastPass.slice(0, Math.min(needsFastPass.length, 15));
+            logger.info(`✨ [JIT] ${needsFastPass.length} matches need enrichment, processing batch of ${jitBatch.length}`);
+            try {
+                for (const m of jitBatch) {
+                    try {
+                        const enriched = await enrichedPredictions.fastEnrichMatch(m);
+                        if (enriched) {
+                            Object.assign(m, enriched);
+                        }
+                    } catch (e) {
+                        logger.debug(`[JIT] Skip ${m.id}: ${e.message}`);
+                    }
+                }
+            } catch (e) {
+                logger.warn(`[JIT] Batch enrichment failed: ${e.message}`);
+            }
         }
 
         // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool

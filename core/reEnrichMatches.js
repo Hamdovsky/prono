@@ -46,6 +46,8 @@ async function reEnrich() {
             
             if (enriched && enriched.prediction) {
                 try {
+                    const evScore = enriched.quant?.ev_score || enriched.ev_score || 0;
+                    const pick = enriched.prediction;
                     await database.updatePredictions(match.id, {
                         prediction: enriched.prediction,
                         verdict: enriched.verdict,
@@ -56,6 +58,9 @@ async function reEnrich() {
                         away_win_probability: enriched.away_win_probability,
                         ou_25_prob: enriched.ou_25_prob,
                         btts_prob: enriched.btts_prob,
+                        ev_home: pick === '1' ? evScore : null,
+                        ev_draw: pick === 'X' ? evScore : null,
+                        ev_away: pick === '2' ? evScore : null,
                         enriched: enriched
                     });
                     updatedCount++;

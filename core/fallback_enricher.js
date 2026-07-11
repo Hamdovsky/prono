@@ -148,12 +148,41 @@ function jsEnrichOne(match) {
   return { id: matchId, success: true, ...result };
 }
 
+async function getStaleMatches() {
+  try {
+    const res = await database.getAllMatches();
+    if (!res || res.length === 0) return [];
+    const stale = res.filter(m => {
+      const h = parseFloat(m.home_win_probability);
+      const d = parseFloat(m.draw_probability);
+      const a = parseFloat(m.away_win_probability);
+      const allZero = (!h && !d && !a) || (h === 0 && d === 0 && a === 0);
+      const isScheduled = ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'].includes(m.status);
+      return allZero && isScheduled && m.homeTeam && m.awayTeam;
+    });
+    logger.info(`[FALLBACK_ENRICHER] Found ${stale.length} stale (zero-prob) matches.`);
+    return stale.slice(0, 300);
+  } catch (e) {
+    logger.error(`[FALLBACK_ENRICHER] getStaleMatches error: ${e.message}`);
+    return [];
+  }
+}
+
 async function enrichMatchesBatch() {
   logger.info('[FALLBACK_ENRICHER] Starting batch enrichment...');
   try {
-    const matches = await database.getInsufficientDataMatches();
+    const [insufficient, stale] = await Promise.all([
+      database.getInsufficientDataMatches(),
+      getStaleMatches(),
+    ]);
+    const seen = new Set();
+    const matches = [...(insufficient || []), ...(stale || [])].filter(m => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
     if (!matches || matches.length === 0) {
-      logger.info('[FALLBACK_ENRICHER] No insufficient-data matches found.');
+      logger.info('[FALLBACK_ENRICHER] No matches found for enrichment.');
       return { enriched: 0, total: 0 };
     }
     logger.info(`[FALLBACK_ENRICHER] Found ${matches.length} matches. Trying XGBoost (FastAPI) first...`);

@@ -101,27 +101,13 @@ class CronManager {
             await telegramBot.runEnrichmentAndBroadcast().catch(e => logger.warn(`[CRON] Telegram broadcast error: ${e.message}`))
             await autoOptimizer.optimizeModelBasedOnROI().catch(e => logger.warn(`[CRON] Auto-optimizer error: ${e.message}`))
 
-            // 10c. Free Fallback — enrich matches with insufficient_data
+            // 10c. Free Fallback — enrich matches with insufficient_data or stale predictions
             try {
-                const axios = require('axios');
-                const INFERENCE_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000';
-                const fallbackMatches = await database.getInsufficientDataMatches();
-                if (fallbackMatches && fallbackMatches.length > 0) {
-                    logger.info(`🌀 [CRON] Free Fallback enriching ${fallbackMatches.length} insufficient_data matches...`);
-                    const result = await axios.post(`${INFERENCE_URL}/fallback/enrich-batch`, {
-                        matches: fallbackMatches.map(m => ({
-                            id: m.id,
-                            homeTeam: m.homeTeam,
-                            awayTeam: m.awayTeam,
-                            league: m.league || m.tournament_name || ''
-                        }))
-                    }, { timeout: 300000 }).then(r => r.data).catch(e => ({ success: false, error: e.message }));
-
-                    if (result.success) {
-                        logger.info(`✅ [CRON] Free Fallback: ${result.enriched}/${result.total} matches enriched`);
-                    } else {
-                        logger.warn(`⚠️ [CRON] Free Fallback failed: ${result.error}`);
-                    }
+                const fallbackEnricher = require('../core/fallback_enricher');
+                logger.info(`🌀 [CRON] Free Fallback enriching stale matches (local JS engine)...`);
+                const result = await fallbackEnricher.enrichMatchesBatch();
+                if (result.total > 0) {
+                    logger.info(`✅ [CRON] Free Fallback: ${result.enriched}/${result.total} enriched (XGB:${result.xgbOk} JS:${result.jsOk})`);
                 }
             } catch (e) {
                 logger.warn(`⚠️ [CRON] Free Fallback error: ${e.message}`);

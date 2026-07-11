@@ -489,9 +489,10 @@ setTimeout(async () => {
                 const count = await database.query('SELECT COUNT(*) as cnt FROM matches')
                 const matchCount = count?.rows?.[0]?.cnt || 0
                 if (matchCount < 10) {
-                  logger.warn(`[EMERGENCY-SEED] ⚠️ DB n'a que ${matchCount} matchs — aucune donnée réelle disponible. Vérifie les APIs.`)
-                  logger.warn(`[EMERGENCY-SEED] Les APIs suivantes nécessitent des clés : BSD, APIFootball, Sportmonks, TheRundown, etc.`)
-                  logger.warn(`[EMERGENCY-SEED] Les sources gratuites (SofaScore, OpenLigaDB) ont échoué ou sont indisponibles.`)
+                  logger.warn(`[EMERGENCY-SEED] ⚠️ DB n'a que ${matchCount} matchs — re-seed programmé dans 30s...`)
+                  setTimeout(() => {
+                    require('./core/cloudSeed').runCloudSeed().catch(e => logger.warn(`[RESEED] Error: ${e.message}`))
+                  }, 30000)
                 } else {
                   logger.info(`[EMERGENCY-SEED] DB OK: ${matchCount} matchs réels`)
                 }

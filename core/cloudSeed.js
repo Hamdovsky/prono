@@ -404,7 +404,7 @@ async function runCloudSeed() {
   {
     logger.info('[CLOUD-SEED/LIVESCORE] Seeding from LiveScore.com public API...')
     try {
-      const datesToFetch = [today, getDateStr(1), getDateStr(2), getDateStr(3), getDateStr(4), getDateStr(5), getDateStr(6)]
+      const datesToFetch = [today, getDateStr(1), getDateStr(2)]
       for (const dateStr of datesToFetch) {
         await randomDelay()
         try {

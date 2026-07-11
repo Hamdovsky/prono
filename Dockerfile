@@ -19,11 +19,10 @@ RUN npm run build
 RUN mkdir -p /app/logs /app/data
 
 ENV NODE_ENV=production
-ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/core:/app
 
-EXPOSE 8080
+EXPOSE 10000
 
 STOPSIGNAL SIGTERM
 

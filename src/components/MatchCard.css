@@ -1,100 +1,293 @@
-.compact-row {
-  display: flex;
+.match-card {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
   align-items: center;
-  padding: 3px 8px;
+  gap: 0;
+  padding: 10px 14px;
   margin: 0;
-  background: transparent;
-  border-bottom: 1px solid #161b22;
-  color: #c9d1d9;
-  font-size: 11px;
-  font-family: 'Consolas', 'Courier New', monospace;
-  line-height: 1.2;
-  min-height: 22px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(10, 15, 30, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  min-height: 62px;
 }
-.compact-row:hover {
-  background: #161b22;
+.match-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, transparent, #334155, transparent);
+  transition: background 0.2s;
 }
-.compact-col-match {
-  flex: 0 0 56%;
+.match-card:hover {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: translateX(2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+.match-card:hover::before {
+  background: linear-gradient(180deg, transparent, #00ffaa, transparent);
+}
+
+/* --- LEFT: Match Info --- */
+.mc-match-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-right: 12px;
+}
+.mc-league {
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #e6edf3;
-  font-size: 10px;
-  padding-right: 6px;
 }
-.compact-col-pick {
-  flex: 0 0 14%;
-  text-align: center;
+.mc-teams {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
   font-weight: 700;
-  font-size: 11px;
+  color: #e2e8f0;
+  white-space: nowrap;
 }
-.compact-col-ou {
-  flex: 0 0 18%;
-  text-align: center;
-  font-size: 9px;
-  color: #8b949e;
-}
-.compact-col-ev {
-  flex: 0 0 12%;
-  text-align: right;
-  font-weight: 600;
+.mc-teams .mc-vs {
+  color: #475569;
+  font-weight: 400;
   font-size: 10px;
-  color: #f0f6fc;
 }
-.compact-pick-1 {
-  color: #10b981;
+.mc-badges {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
 }
-.compact-pick-X {
+.mc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+.mc-badge-value {
+  background: rgba(251, 191, 36, 0.2);
   color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
 }
-.compact-pick-2 {
-  color: #f87171;
+.mc-badge-solid {
+  background: rgba(0, 255, 170, 0.15);
+  color: #00ffaa;
+  border: 1px solid rgba(0, 255, 170, 0.25);
 }
-.compact-pick-1X, .compact-pick-X2, .compact-pick-12 {
-  color: #58a6ff;
+.mc-badge-live {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  animation: mc-pulse-live 1.5s infinite;
 }
-.compact-ev-high {
+@keyframes mc-pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* --- PICK --- */
+.mc-pick-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 72px;
+  padding: 0 8px;
+}
+.mc-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+.mc-pick-1 {
+  background: rgba(16, 185, 129, 0.15);
   color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
-.compact-ev-med {
+.mc-pick-X {
+  background: rgba(251, 191, 36, 0.15);
   color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
 }
-.compact-ev-low {
+.mc-pick-2 {
+  background: rgba(248, 113, 113, 0.15);
   color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
 }
-.compact-ou {
+.mc-pick-1X, .mc-pick-X2, .mc-pick-12 {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+.mc-edge {
+  font-size: 10px;
+  font-weight: 700;
+}
+.mc-edge-positive { color: #10b981; }
+.mc-edge-negative { color: #f87171; }
+.mc-edge-zero { color: #64748b; }
+
+/* --- OU/BTTS --- */
+.mc-markets {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 80px;
+  padding: 0 8px;
+}
+.mc-ou {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.mc-ou-label {
+  font-size: 8px;
+  color: #64748b;
   font-weight: 600;
 }
-.compact-ou-under {
-  color: #f87171;
+.mc-ou-bar {
+  width: 40px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
 }
-.compact-ou-over {
-  color: #10b981;
+.mc-ou-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
 }
-.compact-dvb-badge {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 5px;
+.mc-ou-fill.over { background: linear-gradient(90deg, #10b981, #34d399); }
+.mc-ou-fill.under { background: linear-gradient(90deg, #f87171, #fb7185); }
+.mc-ou-pct {
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: right;
+}
+.mc-ou-pct.over { color: #10b981; }
+.mc-ou-pct.under { color: #f87171; }
+
+/* --- EV --- */
+.mc-ev-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 52px;
+  padding: 0 8px;
+}
+.mc-ev {
+  font-size: 12px;
+  font-weight: 900;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  letter-spacing: -0.3px;
+}
+.mc-ev-high { color: #10b981; text-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+.mc-ev-med { color: #fbbf24; }
+.mc-ev-low { color: #64748b; }
+.mc-ev-label {
   font-size: 8px;
-  font-weight: 800;
-  color: #0d1117;
-  background: #fbbf24;
-  border-radius: 3px;
+  color: #475569;
+  font-weight: 600;
+  text-transform: uppercase;
   letter-spacing: 0.5px;
-  line-height: 1.4;
-  vertical-align: middle;
 }
-.compact-solid-badge {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 1px 5px;
+
+/* --- DVB Badge on row --- */
+.mc-dvb-flash {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 2px 6px;
+  background: rgba(251, 191, 36, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 4px;
   font-size: 8px;
-  font-weight: 800;
-  color: #0d1117;
-  background: #10b981;
-  border-radius: 3px;
+  font-weight: 900;
+  color: #fbbf24;
   letter-spacing: 0.5px;
-  line-height: 1.4;
-  vertical-align: middle;
+  animation: mc-dvb-glow 2s ease-in-out infinite;
+}
+@keyframes mc-dvb-glow {
+  0%, 100% { box-shadow: 0 0 0 rgba(251, 191, 36, 0); }
+  50% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.3); }
+}
+
+/* --- ELITE variant --- */
+.match-card.elite {
+  border-color: rgba(0, 255, 170, 0.12);
+}
+.match-card.elite::before {
+  background: linear-gradient(180deg, transparent, #00ffaa, transparent);
+  width: 3px;
+}
+.match-card.elite:hover {
+  border-color: rgba(0, 255, 170, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 255, 170, 0.08);
+}
+
+/* --- MILLIONAIRE variant --- */
+.match-card.millionaire {
+  border-color: rgba(251, 191, 36, 0.15);
+  background: linear-gradient(135deg, rgba(30, 20, 10, 0.6) 0%, rgba(15, 12, 5, 0.8) 100%);
+}
+.match-card.millionaire::before {
+  background: linear-gradient(180deg, transparent, #fbbf24, transparent);
+  width: 3px;
+}
+.match-card.millionaire:hover {
+  border-color: rgba(251, 191, 36, 0.25);
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.1);
+}
+
+/* --- MOBILE --- */
+@media (max-width: 768px) {
+  .match-card {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 6px;
+    padding: 10px 12px;
+    min-height: 70px;
+  }
+  .mc-markets, .mc-ev-cell {
+    display: none;
+  }
+  .mc-match-info {
+    grid-column: 1 / -1;
+  }
+  .mc-pick-cell {
+    grid-column: 2;
+    grid-row: 1;
+  }
 }

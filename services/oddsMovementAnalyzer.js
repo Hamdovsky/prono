@@ -85,16 +85,31 @@ class OddsMovementAnalyzer {
       })
     }
 
-    // 2. Steam move : mouvement rapide ET soutenu (+ de 5% en peu d'échantillons)
-    if (baseline.samples > 3 && (oddsHome / homeOpen) < 0.95) {
-      const velocity = Math.abs(homeChange) / baseline.samples
-      if (velocity > 1.5) {
-        signals.push({
-          type: 'STEAM_HOME',
-          direction: 'home',
-          velocity,
-          description: `Steam move detected on Home (velocity: ${velocity.toFixed(1)}%/sample)`,
-        })
+    // 2. Steam move : mouvement rapide ET soutenu (bidirectional: HOME + AWAY)
+    if (baseline.samples > 3) {
+      if ((oddsHome / homeOpen) < 0.95) {
+        const velocity = Math.abs(homeChange) / baseline.samples
+        if (velocity > 1.5) {
+          signals.push({
+            type: 'STEAM_HOME',
+            direction: 'home',
+            velocity,
+            rating: Math.min(1, velocity / 5),
+            description: `Steam move detected on Home (velocity: ${velocity.toFixed(1)}%/sample)`,
+          })
+        }
+      }
+      if ((oddsAway / awayOpen) < 0.95) {
+        const velocity = Math.abs(awayChange) / baseline.samples
+        if (velocity > 1.5) {
+          signals.push({
+            type: 'STEAM_AWAY',
+            direction: 'away',
+            velocity,
+            rating: Math.min(1, velocity / 5),
+            description: `Steam move detected on Away (velocity: ${velocity.toFixed(1)}%/sample)`,
+          })
+        }
       }
     }
 
@@ -132,22 +147,48 @@ class OddsMovementAnalyzer {
       }
     }
 
-    // 5. Odds acceleration (changement dans la dernière heure)
+    // 5. Odds acceleration (changement dans la dernière heure) — bidirectional
     const timeSinceOpen = Date.now() - baseline.timestamp
     const hoursSinceOpen = timeSinceOpen / (1000 * 60 * 60)
     if (hoursSinceOpen > 1) {
-      const hourlyVelocity = Math.abs(homeChange) / Math.max(1, hoursSinceOpen)
-      if (hourlyVelocity > 5 && homeChange < 0) {
+      const homeHourlyVelocity = Math.abs(homeChange) / Math.max(1, hoursSinceOpen)
+      if (homeHourlyVelocity > 5 && homeChange < 0) {
         signals.push({
           type: 'ACCELERATION_HOME',
           direction: 'home',
-          hourlyVelocity,
-          description: `Odds accelerating: ${hourlyVelocity.toFixed(1)}%/hr towards Home`,
+          hourlyVelocity: homeHourlyVelocity,
+          rating: Math.min(1, homeHourlyVelocity / 15),
+          description: `Odds accelerating: ${homeHourlyVelocity.toFixed(1)}%/hr towards Home`,
+        })
+      }
+      const awayHourlyVelocity = Math.abs(awayChange) / Math.max(1, hoursSinceOpen)
+      if (awayHourlyVelocity > 5 && awayChange < 0) {
+        signals.push({
+          type: 'ACCELERATION_AWAY',
+          direction: 'away',
+          hourlyVelocity: awayHourlyVelocity,
+          rating: Math.min(1, awayHourlyVelocity / 15),
+          description: `Odds accelerating: ${awayHourlyVelocity.toFixed(1)}%/hr towards Away`,
         })
       }
     }
 
-    const sharpScore = signals.reduce((s, sig) => s + (sig.rating || 0.5), 0) / Math.max(1, signals.length)
+    // Weighted sharp score: steam and sharp money signals carry more weight than others
+    const SIGNAL_WEIGHTS = {
+      'SHARP_HOME': 1.5, 'SHARP_AWAY': 1.5,
+      'STEAM_HOME': 1.3, 'STEAM_AWAY': 1.3,
+      'REVERSE_HOME': 1.0, 'REVERSE_AWAY': 1.0,
+      'ARBITRAGE': 0.8,
+      'ACCELERATION_HOME': 1.1, 'ACCELERATION_AWAY': 1.1
+    };
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (const sig of signals) {
+      const w = SIGNAL_WEIGHTS[sig.type] || 0.5;
+      weightedSum += (sig.rating || 0.5) * w;
+      totalWeight += w;
+    }
+    const sharpScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
 
     const result = {
       matchId,
@@ -212,6 +253,14 @@ class OddsMovementAnalyzer {
       }
       if (sig.type === 'SHARP_AWAY' && p.verdict !== 'Away' && sig.rating > 0.6) {
         p.surgical_confidence = (p.surgical_confidence || 50) * 0.75
+        adjusted = true
+      }
+      if (sig.type === 'STEAM_HOME' && p.verdict !== 'Home' && sig.rating > 0.6) {
+        p.surgical_confidence = (p.surgical_confidence || 50) * 0.8
+        adjusted = true
+      }
+      if (sig.type === 'STEAM_AWAY' && p.verdict !== 'Away' && sig.rating > 0.6) {
+        p.surgical_confidence = (p.surgical_confidence || 50) * 0.8
         adjusted = true
       }
       if (sig.type === 'ARBITRAGE' && sig.arbPct > 2) {

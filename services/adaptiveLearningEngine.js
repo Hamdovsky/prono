@@ -274,7 +274,7 @@ class AdaptiveLearningEngine {
 
                 // Arabic insight for Telegram when significant error
                     try {
-                        const arabic = this._generateArabicInsight(homeTeam, awayTeam, analysis, rootCause, context)
+                        const arabic = this._generateArabicInsight(homeTeam, awayTeam, errorAnalysis, rootCause, context)
                         if (arabic && context.surpriseFactor > 5) {
                             const botService = require('./botService')
                             botService.sendAlert(`🧠 <b>ADAPTIVE INSIGHT</b>\n${arabic}`)

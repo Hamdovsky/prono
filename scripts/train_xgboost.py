@@ -130,7 +130,7 @@ def train_model():
         return log_loss(y_val_np, model.predict_proba(X_val_np))
 
     study = optuna.create_study(direction='minimize', sampler=optuna.samplers.TPESampler(seed=42))
-    study.optimize(objective, n_trials=15, show_progress_bar=True)
+    study.optimize(objective, n_trials=50, show_progress_bar=True)
 
     best_params = study.best_params
     best_params.update({'objective': 'multi:softprob', 'num_class': 3, 'eval_metric': 'mlogloss', 'random_state': 42})
@@ -153,6 +153,52 @@ def train_model():
 
     model.get_booster().save_model(MODEL_PATH)
     print(f"\nSaved: {MODEL_PATH}")
+
+    # Feature importance (top 15)
+    importances = model.feature_importances_
+    feat_imp = sorted(zip(FEATURE_NAMES_TITANIUM, importances), key=lambda x: x[1], reverse=True)
+    print("\nTop 15 Feature Importance:")
+    for name, imp in feat_imp[:15]:
+        print(f"  {name:40s} {imp:.4f}")
+
+    # Walk-forward cross-validation (5 folds, temporal)
+    print("\n[CV] Walk-Forward Cross-Validation (5 folds)...")
+    from sklearn.model_selection import TimeSeriesSplit
+    tscv = TimeSeriesSplit(n_splits=5)
+    X_all = np.vstack([X_train_aug, X_val_np, X_test_np])
+    y_all = np.concatenate([y_train_aug, y_val_np, y_test_np])
+    cv_scores = []
+    for fold, (train_idx, test_idx) in enumerate(tscv.split(X_all)):
+        cv_model = xgb.XGBClassifier(**best_params)
+        cv_model.fit(X_all[train_idx], y_all[train_idx], verbose=False)
+        cv_pred = cv_model.predict_proba(X_all[test_idx])
+        cv_ll = log_loss(y_all[test_idx], cv_pred)
+        cv_acc = accuracy_score(y_all[test_idx], np.argmax(cv_pred, axis=1))
+        cv_scores.append({'fold': fold + 1, 'log_loss': cv_ll, 'accuracy': cv_acc})
+        print(f"  Fold {fold+1}: LogLoss={cv_ll:.4f}  Accuracy={cv_acc*100:.1f}%")
+    avg_ll = np.mean([s['log_loss'] for s in cv_scores])
+    avg_acc = np.mean([s['accuracy'] for s in cv_scores])
+    print(f"\n  CV Average: LogLoss={avg_ll:.4f}  Accuracy={avg_acc*100:.1f}%")
+
+    # Save training metadata
+    meta = {
+        'best_params': study.best_params,
+        'test_accuracy': float(acc),
+        'test_log_loss': float(ll),
+        'cv_avg_log_loss': float(avg_ll),
+        'cv_avg_accuracy': float(avg_acc),
+        'n_features': len(FEATURE_NAMES_TITANIUM),
+        'n_train': len(X_train_aug),
+        'n_val': len(X_val),
+        'n_test': len(X_test),
+        'top_features': [{'name': n, 'importance': float(i)} for n, i in feat_imp[:15]],
+        'cv_folds': cv_scores,
+        'optuna_trials': 50
+    }
+    meta_path = MODEL_PATH.replace('.json', '_meta.json')
+    with open(meta_path, 'w') as f:
+        json.dump(meta, f, indent=2)
+    print(f"Metadata saved: {meta_path}")
 
 
 if __name__ == "__main__":

@@ -21,11 +21,17 @@ logging.basicConfig(
 ENV_PATH = os.path.join(BASE_DIR, '.env')
 
 def get_key(name):
-    with open(ENV_PATH, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith(f'{name}='):
-                return line.split('=', 1)[1].strip().strip('"').strip("'")
+    """Parse .env file with proper encoding and fallback."""
+    try:
+        with open(ENV_PATH, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith(f'{name}=') and not line.startswith('#'):
+                    return line.split('=', 1)[1].strip().strip('"').strip("'")
+    except FileNotFoundError:
+        logging.warning(f".env file not found at {ENV_PATH}")
+    except Exception as e:
+        logging.error(f"Error reading .env: {e}")
     return None
 
 # ── OddsFusionEngine lazy import ─────────────────────────
@@ -221,8 +227,8 @@ def run():
     for src, cnt in sorted(sources.items()):
         print(f"     {src}: {cnt}")
     
-    # Limit to 25 matches for performance
-    matches_to_predict = enriched[:25]
+    # Limit to 40 matches for performance (increased from 25)
+    matches_to_predict = enriched[:40]
     
     # 3. Run V553
     print(f"\n3. Running V553 predictions on {len(matches_to_predict)} matches...")
@@ -231,8 +237,11 @@ def run():
     from predict_v553 import predict
     
     results = []
-    for m in matches_to_predict:
+    errors = []
+    for idx, m in enumerate(matches_to_predict):
         match = build_match(m)
+        home_short = match['homeTeam'][:20]
+        away_short = match['awayTeam'][:20]
         try:
             pred = predict(match)
             if pred and pred.get('prediction'):
@@ -285,16 +294,19 @@ def run():
                     'away_history': len(a_hist)
                 })
                 tag_src = 'R' if match['has_real_odds'] else 'E'
-                print(f"   [{tag_src}] {match['homeTeam']:22} vs {match['awayTeam']:22} | {result:4} | {conf:.0f}% | EV:{ev:.2f} | odds:{match['odds_source']}")
-                time.sleep(0.1)
+                print(f"   [{idx+1}/{len(matches_to_predict)}] [{tag_src}] {home_short:20} vs {away_short:20} | {result:4} | {conf:.0f}% | EV:{ev:.2f} | odds:{match['odds_source']}")
             else:
-                print(f"   {match['homeTeam']:22} vs {match['awayTeam']:22} | SKIP")
+                print(f"   [{idx+1}/{len(matches_to_predict)}] {home_short:20} vs {away_short:20} | SKIP (no prediction)")
         except Exception as ex:
-            print(f"   {match['homeTeam']:22} vs {match['awayTeam']:22} | ERROR: {ex}")
-            logging.error(f"Prediction error {match['homeTeam']} vs {match['awayTeam']}: {ex}")
+            error_msg = f"{match['homeTeam']} vs {match['awayTeam']}: {ex}"
+            errors.append(error_msg)
+            print(f"   [{idx+1}/{len(matches_to_predict)}] {home_short:20} vs {away_short:20} | ERROR: {ex}")
+            logging.error(f"Prediction error: {error_msg}")
     
     if not results:
         print("\n   No predictions generated!")
+        if errors:
+            print(f"   {len(errors)} errors occurred (check log)")
         return
     
     # 4. Sort and save
@@ -305,11 +317,13 @@ def run():
         'generated_at': datetime.datetime.now().isoformat(),
         'date': datetime.date.today().isoformat(),
         'total_matches': len(results),
+        'total_errors': len(errors),
         'with_odds': sum(1 for r in results if r['has_real_odds']),
         'odds_sources': dict((src, cnt) for src, cnt in sources.items()),
         'top_confidence': by_conf[:10],
         'top_value': by_ev[:10],
-        'all': results
+        'all': results,
+        'errors': errors[:20]  # Keep last 20 errors for debugging
     }
     
     out_path = os.path.join(BASE_DIR, 'data', 'daily_predictions.json')

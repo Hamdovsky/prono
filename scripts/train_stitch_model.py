@@ -4,8 +4,7 @@ import numpy as np
 import xgboost as xgb
 import os
 import json
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.metrics import accuracy_score, log_loss
+from sklearn.metrics import accuracy_score, log_loss, classification_report
 from ml_features import extract_ml_features, FEATURE_NAMES
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'tactical.db')
@@ -66,7 +65,7 @@ def main():
         return
 
     df = pd.DataFrame(dataset).fillna(0)
-    
+
     # Ensure order matches FEATURE_NAMES exactly
     X = df[FEATURE_NAMES]
     y = df['target']
@@ -76,7 +75,6 @@ def main():
 
     # Generate Gap Learning Dynamic Weights (emphasizing matches with professional variables)
     weights = np.ones(len(y))
-    # Give +5 equivalent focal weight to matches containing major squad rotations, market inefficiencies or tactical shifts
     for i, row in df.iterrows():
         weight = 1.0
         if row.get('market_inefficiency_h', 0) > 1.5 or row.get('market_inefficiency_a', 0) > 1.5:
@@ -87,9 +85,16 @@ def main():
             weight += 1.0
         weights[i] = weight
 
-    X_train, X_test, y_train, y_test, w_train, w_test = train_test_split(
-        X, y, weights, test_size=0.20, random_state=42, stratify=y
-    )
+    # TEMPORAL split (no data leakage): 70% train (oldest), 15% val, 15% test (newest)
+    n = len(X)
+    train_end = int(n * 0.70)
+    val_end = int(n * 0.85)
+
+    X_train, y_train, w_train = X.iloc[:train_end], y.iloc[:train_end], weights[:train_end]
+    X_val, y_val = X.iloc[train_end:val_end], y.iloc[train_end:val_end]
+    X_test, y_test = X.iloc[val_end:], y.iloc[val_end:]
+
+    print(f"\n[SPLIT] Temporal: train={len(X_train)} val={len(X_val)} test={len(X_test)}")
 
     model = xgb.XGBClassifier(
         objective='multi:softprob',
@@ -97,7 +102,7 @@ def main():
         eval_metric=['mlogloss', 'merror'],
         learning_rate=0.05,
         max_depth=4,
-        n_estimators=150,
+        n_estimators=200,
         subsample=0.85,
         colsample_bytree=0.85,
         random_state=42,
@@ -105,11 +110,11 @@ def main():
         early_stopping_rounds=15,
     )
 
-    print("\n[MODEL] Training XGBoost v3 Classifier on Pre-Match Features (Gap Learning Weights Active)...")
+    print("\n[MODEL] Training XGBoost v3 Classifier on Pre-Match Features (Gap Learning + Temporal Split)...")
     model.fit(
         X_train, y_train,
         sample_weight=w_train,
-        eval_set=[(X_test, y_test)],
+        eval_set=[(X_val, y_val)],
         verbose=False
     )
 
@@ -119,10 +124,12 @@ def main():
     loss = log_loss(y_test, y_prob)
 
     print("\n========================================")
-    print("  EVALUATION RESULTS:")
+    print("  EVALUATION RESULTS (Temporal Test Set):")
     print(f"   Accuracy  : {accuracy:.4f} ({accuracy*100:.1f}%)")
     print(f"   Log-Loss  : {loss:.4f}")
     print(f"   Best iter : {model.best_iteration}")
+    print("\n  Classification Report:")
+    print(classification_report(y_test, y_pred, target_names=['Away', 'Draw', 'Home']))
     print("========================================")
 
     model.save_model(MODEL_SAVE)

@@ -48,7 +48,7 @@ class DataFusionService {
     if (s) {
       s.calls++
       s.errors++
-      if (s.errors >= 5) {
+      if (s.errors >= 5 && s.cooldownUntil <= Date.now()) {
         s.cooldownUntil = Date.now() + 300000
         logger.warn(`[DATAFUSION] ${sourceName} cooldown 5min after ${s.errors} errors`)
       }

@@ -33,6 +33,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   if (process.env.LOG_DISABLED) return
   console.log(`🚀 Health check listener ready on port ${PORT}`)
+  console.log(`[BOOT] PID=${process.pid}, HEAP_LIMIT=${process.env.NODE_OPTIONS || 'default'}, MEM_LIMIT=${require('v8').getHeapStatistics().heap_size_limit}`)
 })
 
 // ── Load Express app asynchronously (background, non-blocking) ──
@@ -789,14 +790,18 @@ setTimeout(async () => {
 }, 2000);
 
 process.on('uncaughtException', (err) => {
-  const msg = `💥 [FATAL] Uncaught Exception: ${err.message}`
+  const msg = `?? [FATAL] Uncaught Exception: ${err.message}`
   try { logger.error(msg, { stack: err.stack }) } catch (_) { logger.error(msg) }
+  try { console.error('[CRASH]', err.stack || err.message) } catch (_) {}
+  try { require('fs').appendFileSync('/tmp/crash.log', JSON.stringify({ time: Date.now(), type: 'uncaughtException', msg: err.message, stack: err.stack }) + '\n') } catch (_) {}
   setTimeout(() => process.exit(1), 1000)
 })
 
 process.on('unhandledRejection', (reason) => {
-  const msg = `⚠️  UNHANDLED REJECTION: ${reason instanceof Error ? reason.message : String(reason)}`
+  const msg = `?  UNHANDLED REJECTION: ${reason instanceof Error ? reason.message : String(reason)}`
   try { logger.error(msg) } catch (_) { logger.error(msg) }
+  try { console.error('[REJECTION]', reason instanceof Error ? reason.stack : String(reason)) } catch (_) {}
+  try { require('fs').appendFileSync('/tmp/crash.log', JSON.stringify({ time: Date.now(), type: 'unhandledRejection', msg: reason instanceof Error ? reason.message : String(reason), stack: reason instanceof Error ? reason.stack : '' }) + '\n') } catch (_) {}
 })
 
 const shutDown = () => {

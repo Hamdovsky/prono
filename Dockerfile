@@ -1,35 +1,30 @@
-FROM python:3.11-slim
+FROM node:22-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    libxml2-dev \
-    libxslt1-dev \
-    && rm -rf /var/lib/apt/lists/*
+    python3 python3-pip build-essential curl \
+    && ln -s /usr/bin/python3 /usr/bin/python \
+    && python3 -m pip install --no-cache-dir --break-system-packages \
+       xgboost optuna scikit-learn numpy pandas scipy joblib requests beautifulsoup4 lxml \
+    && python3 -c "import xgboost, sklearn; print('ML stack OK')" \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy both requirements files
-COPY requirements-fastapi.txt requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements-fastapi.txt 2>&1 || \
-    (echo "=== Retrying fastapi deps without version pins ===" && \
-     sed -i 's/==.*//' requirements-fastapi.txt && \
-     pip install --no-cache-dir -r requirements-fastapi.txt) && \
-    pip install --no-cache-dir python-dotenv
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev && npm rebuild better-sqlite3
 
-# Copy application code
-COPY core/ /app/core/
-COPY inference/ /app/inference/
-COPY scripts/ /app/scripts/
-COPY models/ /app/models/
-COPY data/ /app/data/
-COPY config/ /app/config/
+COPY . .
+RUN npm run build
 
+RUN mkdir -p /app/logs /app/data
+
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app/core:/app
 
-EXPOSE 8000
+EXPOSE 8080
 
 STOPSIGNAL SIGTERM
 
-CMD ["uvicorn", "core.fastapi_server:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--timeout-keep-alive", "30"]
+CMD ["node", "--expose-gc", "--max-old-space-size=512", "server.js"]

@@ -1,0 +1,7 @@
+entrypoint = "bash scripts/start-replit.sh"
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "bash scripts/start-replit.sh"]

@@ -18,8 +18,6 @@ services:
         value: "10000"
       - key: API_SECRET_KEY
         value: 6a00d1058c143a6c5bc4328c09fbe1c51b90bbaad15422b935045ae7895c4673
-      - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_oy3uDHmnCE8P@ep-wandering-wave-atp6q80z-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require
       - key: INFERENCE_URL
         value: https://prono-fastapi.onrender.com
       - key: USE_MODEL_MANAGER
@@ -41,5 +39,3 @@ services:
         value: "1"
       - key: API_SECRET_KEY
         value: 6a00d1058c143a6c5bc4328c09fbe1c51b90bbaad15422b935045ae7895c4673
-      - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_oy3uDHmnCE8P@ep-wandering-wave-atp6q80z-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require

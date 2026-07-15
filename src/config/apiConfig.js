@@ -5,15 +5,15 @@ const isNative = typeof window !== 'undefined' && (
   window.location.protocol === 'http-extension:'
 )
 
-const PRODUCTION_API_URL = 'https://prono-k6gc-rxjf.onrender.com'
+const PRODUCTION_API_URL = 'https://prono-api-7mhs.onrender.com'
 
 // API Base URL Configuration
-// Detect local dev: if serving from localhost in a browser, use same-origin (no prefix)
-// If running natively (Capacitor), use the production API URL (unless VITE_API_URL is explicitly set).
+// If running natively (Capacitor), use the production API URL.
+// Otherwise use same-origin (empty prefix) for all browser deployments.
 const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-const API_BASE_URL = isNative 
-  ? (import.meta.env.VITE_API_URL || PRODUCTION_API_URL) 
-  : (isLocalhost ? '' : (import.meta.env.VITE_API_URL || PRODUCTION_API_URL))
+const API_BASE_URL = isNative
+  ? (import.meta.env.VITE_API_URL || PRODUCTION_API_URL)
+  : (import.meta.env.VITE_API_URL || '')
 
 export const getApiUrl = (endpoint) => {
   return `${API_BASE_URL}${endpoint}`

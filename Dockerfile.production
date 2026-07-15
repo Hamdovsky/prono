@@ -2,10 +2,10 @@ FROM node:22-slim
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm rebuild better-sqlite3
+RUN npm ci && npm rebuild better-sqlite3
 COPY . .
-RUN npm rebuild better-sqlite3
 RUN npm run build
+RUN npm prune --omit=dev
 RUN mkdir -p /app/logs /app/data
 
 ENV NODE_ENV=production

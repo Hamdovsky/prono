@@ -19,7 +19,7 @@ services:
       - key: API_SECRET_KEY
         value: 6a00d1058c143a6c5bc4328c09fbe1c51b90bbaad15422b935045ae7895c4673
       - key: INFERENCE_URL
-        value: https://prono-fastapi.onrender.com
+        value: https://prono-fastapi-ibps.onrender.com
       - key: USE_MODEL_MANAGER
         value: "true"
       - key: TELEGRAM_BOT_TOKEN

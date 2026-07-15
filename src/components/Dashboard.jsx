@@ -1053,6 +1053,12 @@ const Dashboard = () => {
                 onDateChange={handleDateChange}
                 isOpen={sidebarOpen}
             />
+            {isMobile && sidebarOpen && (
+                <div className="sidebar-backdrop active" onClick={() => setSidebarOpen(false)} style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                    zIndex: 9998, WebkitTapHighlightColor: 'transparent'
+                }} />
+            )}
             
             <main className="titanium-main">
                 {/* ONYX STATUS HEADER (BOOSTED) */}

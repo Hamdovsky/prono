@@ -1,0 +1,352 @@
+/* ═══════════════════════════════════════════════════════
+   TITANIUM AI — MOBILE RESPONSIVE (360px–480px Android)
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Global Reset ── */
+html {
+  overflow-x: hidden !important;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-width: 0 !important;
+  overflow-x: hidden;
+}
+
+* {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+/* ═══════════════════════════════════════
+   SIDEBAR — Full-screen overlay drawer
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .flash-sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 75vw !important;
+    min-width: 75vw !important;
+    max-width: 280px !important;
+    height: 100vh;
+    z-index: 9999;
+    background: #0a0f1a !important;
+    border-right: 1px solid rgba(0, 255, 170, 0.2) !important;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .flash-sidebar:not(.collapsed) {
+    transform: translateX(0) !important;
+  }
+
+  /* Sidebar backdrop */
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+  }
+  .sidebar-backdrop.active {
+    display: block;
+  }
+
+  /* Sidebar font sizes */
+  .flash-section-title { font-size: 11px !important; }
+  .flash-label { font-size: 12px !important; }
+  .flash-count { font-size: 10px !important; min-width: 20px !important; }
+}
+
+/* ═══════════════════════════════════════
+   DASHBOARD LAYOUT — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .titanium-layout {
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  .titanium-main {
+    width: 100% !important;
+    margin-left: 0 !important;
+    overflow-x: hidden;
+  }
+
+  .onyx-status-header {
+    padding: 6px 10px !important;
+    height: auto !important;
+    min-height: 40px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .onyx-grid-container {
+    padding: 8px 6px !important;
+    overflow-x: hidden;
+  }
+
+  /* Tables horizontal scroll */
+  .onyx-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -6px;
+    padding: 0 6px;
+  }
+
+  .onyx-table {
+    min-width: 600px;
+  }
+
+  /* Status bar */
+  .status-bar {
+    padding: 6px 10px !important;
+    gap: 10px !important;
+    height: auto !important;
+    min-height: 36px;
+    flex-wrap: wrap;
+    font-size: 10px;
+  }
+}
+
+/* ═══════════════════════════════════════
+   MATCH CARDS — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .match-card,
+  .mc-card {
+    padding: 8px 10px !important;
+    min-height: 56px !important;
+    border-radius: 8px !important;
+  }
+
+  .mc-league { font-size: 10px !important; }
+  .mc-teams { font-size: 13px !important; }
+  .mc-badge { font-size: 9px !important; padding: 2px 6px !important; }
+  .mc-pick-cell { min-width: 56px !important; }
+  .mc-ou-label { font-size: 9px !important; }
+  .mc-ev-label { font-size: 9px !important; }
+  .mc-dvb-flash { font-size: 9px !important; }
+
+  /* Don't hide data, just restructure */
+  .mc-markets { display: flex !important; flex-wrap: wrap; gap: 4px; }
+  .mc-ev-cell { display: block !important; }
+}
+
+/* ═══════════════════════════════════════
+   TICKET DU JOUR — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .ticket-du-jour,
+  [class*="TicketDuJour"],
+  [class*="ticket"] {
+    padding: 10px 8px !important;
+  }
+
+  .ticket-match-row,
+  [class*="ticket-match"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    padding: 8px 6px !important;
+  }
+
+  .ticket-jour-title,
+  [class*="ticket-title"] {
+    font-size: 1rem !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   TOP PICKS — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  [class*="top-picks"],
+  [class*="TopPicks"] {
+    padding: 10px 6px !important;
+  }
+
+  .col-date,
+  .col-prono,
+  .col-conf,
+  .col-ou,
+  .col-btts,
+  .col-odds,
+  .col-ev {
+    width: auto !important;
+    min-width: 0 !important;
+    font-size: 10px !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   MEGA TICKET — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .mega-ticket-slip,
+  [class*="mega-ticket"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .mega-slip-note {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   GRID GENERATOR — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .onyx-grid-container > [class*="grid"],
+  .onyx-grid-container > [class*="Grid"] {
+    gap: 8px !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   INTELLIGENCE CARDS — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .titanium-card:hover {
+    transform: none !important;
+  }
+
+  .titanium-card:active {
+    transform: scale(0.98);
+  }
+
+  .titanium-duel .name {
+    max-width: 100px !important;
+    font-size: 12px !important;
+  }
+
+  .odds-comparison {
+    gap: 8px !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   SEARCH BAR — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="search"] {
+    font-size: 16px !important; /* Prevent iOS zoom */
+    padding: 8px 10px !important;
+  }
+
+  button {
+    min-height: 40px !important;
+    min-width: 40px !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   PROMOSPORT — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .loading-progress-bar {
+    width: 80% !important;
+    max-width: 280px;
+  }
+
+  /* Scrollable tables */
+  [class*="promo-table"],
+  [class*="predictions-table"] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ═══════════════════════════════════════
+   ULTIMATE MATCH CENTER — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .lab-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .match-center-panel {
+    padding: 8px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .lab-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   AD BANNERS — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .ad-banner,
+  .ad-responsive,
+  .ad-sidebar {
+    margin: 8px 0 !important;
+    min-height: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════
+   GLOBAL UTILITIES — Mobile
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Prevent horizontal overflow */
+  .app-container,
+  #root {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* Scrollable sections */
+  .onyx-grid-container {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Touch-friendly scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 170, 0.3);
+    border-radius: 2px;
+  }
+
+  /* Headings don't overflow */
+  h1 { font-size: 1.5em !important; }
+  h2 { font-size: 1.25em !important; }
+  h3 { font-size: 1.1em !important; }
+
+  /* Hide hover effects on touch */
+  *:hover {
+    transform: none !important;
+  }
+  *:active {
+    transform: scale(0.97);
+    transition: transform 0.1s;
+  }
+}
+
+/* ═══════════════════════════════════════
+   SCROLLBAR & SAFE AREAS
+   ═══════════════════════════════════════ */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .titanium-layout {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .onyx-status-header {
+    padding-top: env(safe-area-inset-top);
+  }
+}

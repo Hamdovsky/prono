@@ -101,6 +101,7 @@
 /* 🎟️ TICKET SLIP ENHANCEMENTS */
 .mega-ticket-slip {
     width: 380px;
+    max-width: 90vw;
     background: var(--slip-bg);
     color: var(--slip-text);
     padding: 35px 30px;
@@ -157,6 +158,7 @@
 .mega-slip-note {
     margin-top: 24px;
     width: 380px;
+    max-width: 90vw;
     text-align: center;
     font-size: 0.8rem;
     color: #9ca3af;
@@ -173,6 +175,6 @@
 .mega-hud-btn:hover { background: #fff; color: #000; }
 
 @media (max-width: 480px) {
-    .mega-ticket-slip { width: 330px; }
-    .mega-slip-note { width: 330px; }
+    .mega-ticket-slip { width: 100% !important; padding: 20px 16px !important; }
+    .mega-slip-note { width: 100% !important; }
 }

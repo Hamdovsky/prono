@@ -299,12 +299,12 @@ const Promosport = () => {
                                 <button onClick={() => {
                                     const next = Math.max(0, doubleCounts[gi] - 1);
                                     const newD = [...doubleCounts]; newD[gi] = next; setDoubleCounts(newD);
-                                }} style={{ background: 'rgba(251,191,36,0.2)', border: 'none', color: '#fbbf24', width: '20px', height: '20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', lineHeight: '20px', padding: '0' }}>−</button>
+                                }} style={{ background: 'rgba(251,191,36,0.2)', border: 'none', color: '#fbbf24', width: '32px', height: '32px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', lineHeight: '32px', padding: '0', minWidth: '32px', minHeight: '32px' }}>−</button>
                                 <span style={{ color: '#fbbf24', fontWeight: '900', fontSize: '0.85rem', minWidth: '16px', textAlign: 'center' }}>{doubleCounts[gi]}</span>
                                 <button onClick={() => {
                                     const next = Math.min(13, doubleCounts[gi] + 1);
                                     const newD = [...doubleCounts]; newD[gi] = next; setDoubleCounts(newD);
-                                }} style={{ background: 'rgba(251,191,36,0.2)', border: 'none', color: '#fbbf24', width: '20px', height: '20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', lineHeight: '20px', padding: '0' }}>+</button>
+                                }} style={{ background: 'rgba(251,191,36,0.2)', border: 'none', color: '#fbbf24', width: '32px', height: '32px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', lineHeight: '32px', padding: '0', minWidth: '32px', minHeight: '32px' }}>+</button>
                             </div>
                         </div>
                     );
@@ -775,7 +775,7 @@ const Promosport = () => {
                 </div>
 
                 <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
-                    <table className="promosport-table" style={{ width: '100%', fontSize: '0.9rem', borderCollapse: 'collapse', minWidth: '500px' }}>
+                    <table className="promosport-table" style={{ width: '100%', fontSize: '0.9rem', borderCollapse: 'collapse', minWidth: '400px' }}>
                         <thead>
                             <tr style={{ color: '#64748b', fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: '2px solid rgba(251, 191, 36, 0.2)' }}>
                                 <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '40px' }}>N°</th>
@@ -858,7 +858,7 @@ const Promosport = () => {
                     Double ⬤ / Triple ⬤ — © TITANIUM NEURAL-X v3.0
                 </p>
                 <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
-                    <table className="promosport-table" style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse', minWidth: '650px' }}>
+                    <table className="promosport-table" style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse', minWidth: '450px' }}>
                         <thead>
                             <tr style={{ color: '#64748b', fontSize: '0.7rem', textTransform: 'uppercase', borderBottom: '2px solid rgba(251, 191, 36, 0.2)' }}>
                                 <th style={{ padding: '8px 6px', position: 'sticky', left: 0, background: '#1e293b', zIndex: 2, minWidth: '40px', textAlign: 'center' }}>N°</th>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './VipPaywall.css';
 
 const VIP_STORAGE_KEY = 'prono_vip_unlocked_until';
-const AD_CLIENT = 'ca-pub-XXXXXXXXXXXXXXXX';
+const AD_CLIENT = 'ca-pub-9536439170503183';
 
 function getUnlockTime() {
   try { return parseInt(localStorage.getItem(VIP_STORAGE_KEY)) || 0; } catch { return 0; }

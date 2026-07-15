@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-const AD_CLIENT = 'ca-pub-XXXXXXXXXXXXXXXX';
+const AD_CLIENT = 'ca-pub-9536439170503183';
 
 const AD_SLOTS = {
   banner:      '1234567890',

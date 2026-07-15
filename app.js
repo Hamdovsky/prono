@@ -106,6 +106,7 @@ try {
 const allowedOrigins = [
   'https://prono-k6gc.onrender.com',
   'https://prono-k6gc-rxjf.onrender.com',
+  'https://prono-api-7mhs.onrender.com',
   'http://localhost',
   'https://localhost',
   'capacitor://localhost'

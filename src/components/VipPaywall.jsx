@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './VipPaywall.css';
 
 const VIP_STORAGE_KEY = 'prono_vip_unlocked_until';
+const AD_CLIENT = 'ca-pub-XXXXXXXXXXXXXXXX';
 
 function getUnlockTime() {
   try { return parseInt(localStorage.getItem(VIP_STORAGE_KEY)) || 0; } catch { return 0; }
@@ -18,10 +19,21 @@ function unlockVip(durationMs) {
 
 const VipPaywall = ({ onClose }) => {
   const [step, setStep] = useState('modal');
+  const adRef = useRef(null);
 
   useEffect(() => {
     if (isVipUnlocked()) { onClose?.(); }
   }, [onClose]);
+
+  useEffect(() => {
+    if (step === 'watching') {
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (e) {
+        console.warn('[AdSense] rewarded push error:', e);
+      }
+    }
+  }, [step]);
 
   const handleWatchAd = useCallback(() => {
     setStep('watching');
@@ -29,7 +41,7 @@ const VipPaywall = ({ onClose }) => {
       unlockVip(4 * 60 * 60 * 1000);
       setStep('unlocked');
       setTimeout(() => onClose?.(), 1200);
-    }, 2000);
+    }, 5000);
   }, [onClose]);
 
   const handleSubscribe = useCallback(() => {
@@ -40,9 +52,19 @@ const VipPaywall = ({ onClose }) => {
     return (
       <div className="vip-overlay" onClick={onClose}>
         <div className="vip-modal" onClick={e => e.stopPropagation()}>
-          <div className="vip-spinner" />
-          <p className="vip-message">📺 Lecture de la publicité...</p>
-          <p className="vip-subtext">Déblocage dans un instant</p>
+          <p className="vip-message">📺 Publicité en cours...</p>
+          <div style={{ margin: '12px 0', borderRadius: '8px', overflow: 'hidden', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(51,65,85,0.3)', textAlign: 'center', minHeight: '250px', minWidth: '300px' }}>
+            <ins
+              ref={adRef}
+              className="adsbygoogle"
+              style={{ display: 'block' }}
+              data-ad-client={AD_CLIENT}
+              data-ad-slot="1234567893"
+              data-ad-format="rectangle"
+              data-full-width-responsive="true"
+            />
+          </div>
+          <p className="vip-subtext">Déblocage dans quelques secondes...</p>
         </div>
       </div>
     );

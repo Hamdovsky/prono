@@ -10,6 +10,7 @@ import TrackRecord from "./TrackRecord.jsx"
 import EliteRadarDashboard from "./EliteRadarDashboard"
 import EliteROITracker from "./EliteROITracker"
 import GridGenerator from "./GridGenerator"
+import AdBanner from "./AdBanner"
 import { List } from 'react-window'
 import dataService from "../services/dataService"
 import { ROUTES, PATH_TO_VIEW } from "../config/routes"
@@ -897,6 +898,10 @@ const Dashboard = () => {
                     <TicketDuJour matches={sortedMatches} />
                 )}
 
+                {activeView === 'matches' && (
+                    <AdBanner type="banner" />
+                )}
+
                 {/* 🔥 PERFORMANCE & SURGICAL BANNER */}
                 {activeView === 'matches' && (
                     <PerformanceAnalytics
@@ -1027,8 +1032,10 @@ const Dashboard = () => {
                 })()}
 
                 <EliteRadarDashboard eliteMatches={sortedMatches} />
+                <AdBanner type="responsive" />
                 <EliteROITracker />
                 <GridGenerator eliteMatches={sortedMatches} />
+                <AdBanner type="banner" />
             </div>
         );
     };

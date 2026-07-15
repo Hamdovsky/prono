@@ -1,6 +1,7 @@
 # ─────────────────────────────────────────────────────────
 # render.yaml — Render Blueprint
 # Services : Node.js Web + Python FastAPI (ML Inference)
+# Data Source : LiveScore (API publique, pas de clé requise)
 # ─────────────────────────────────────────────────────────
 services:
   # ── Node.js Main Server (API + React Frontend) ──────
@@ -21,30 +22,10 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
-      - key: FOOTBALLDATA_KEY
-        sync: false
-      - key: RAPIDAPI_KEY
-        sync: false
-      - key: RAPIDAPI_HOST
-        value: sportapi7.p.rapidapi.com
-      - key: BSD_API_KEY
-        sync: false
-      - key: PREDIXSPORT_API_KEY
-        sync: false
-      - key: SCRAPERAPI_KEY
-        sync: false
-      - key: BBS_API_KEY
-        sync: false
-      - key: ARCHIVE_DOWNLOAD_URL
-        sync: false
       - key: INFERENCE_URL
         value: https://prono-fastapi.onrender.com
       - key: USE_MODEL_MANAGER
         value: "true"
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_CHAT_ID
-        sync: false
 
   # ── Python FastAPI Inference (ML/XGBoost Engine) ────
   - type: web

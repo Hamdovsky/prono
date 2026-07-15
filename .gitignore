@@ -61,6 +61,7 @@ coverage/
 *.log
 *.png
 !/src/**/*.png
+!/public/icon-*.png
 !/src/**/*.jpg
 !/src/**/*.jpeg
 !/src/**/*.svg

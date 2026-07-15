@@ -17,15 +17,17 @@ services:
       - key: PORT
         value: "10000"
       - key: API_SECRET_KEY
-        sync: false
+        value: 6a00d1058c143a6c5bc4328c09fbe1c51b90bbaad15422b935045ae7895c4673
       - key: DATABASE_URL
-        sync: false
-      - key: REDIS_URL
-        sync: false
+        value: postgresql://neondb_owner:npg_oy3uDHmnCE8P@ep-wandering-wave-atp6q80z-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require
       - key: INFERENCE_URL
         value: https://prono-fastapi.onrender.com
       - key: USE_MODEL_MANAGER
         value: "true"
+      - key: TELEGRAM_BOT_TOKEN
+        value: 6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs
+      - key: TELEGRAM_CHAT_ID
+        value: 5637790630
 
   # ── Python FastAPI Inference (ML/XGBoost Engine) ────
   - type: web
@@ -38,8 +40,6 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: API_SECRET_KEY
-        sync: false
+        value: 6a00d1058c143a6c5bc4328c09fbe1c51b90bbaad15422b935045ae7895c4673
       - key: DATABASE_URL
-        sync: false
-      - key: REDIS_URL
-        sync: false
+        value: postgresql://neondb_owner:npg_oy3uDHmnCE8P@ep-wandering-wave-atp6q80z-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require

@@ -10,6 +10,12 @@ class Gemma4Service {
 
   isAvailable() {
     const url = this.baseUrl;
+    // En production (Render), Ollama local n'est pas disponible
+    if (process.env.RENDER || process.env.NODE_ENV === 'production') {
+      if (url.includes('127.0.0.1') || url.includes('localhost')) {
+        return false;
+      }
+    }
     // si serveur local (Ollama), apiKey optionnel
     if (url.includes('127.0.0.1') || url.includes('localhost')) {
       return !!url;

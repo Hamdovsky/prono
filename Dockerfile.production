@@ -3,7 +3,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev && npm rebuild better-sqlite3
-RUN npm install --no-save vite-plugin-pwa workbox-window
+RUN npm install --no-save --ignore-scripts vite-plugin-pwa workbox-window
 COPY . .
 RUN npm run build
 RUN mkdir -p /app/logs /app/data

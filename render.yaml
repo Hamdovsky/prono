@@ -1,12 +1,11 @@
 # ─────────────────────────────────────────────────────────
-# render.yaml
-# Compte principal Render (Promosport)
-# Services : Node.js Web + Python FastAPI + Redis
+# render.yaml — Render Blueprint
+# Services : Node.js Web + Python FastAPI (ML Inference)
 # ─────────────────────────────────────────────────────────
 services:
-  # ── Node.js Main Server ─────────────────────────
+  # ── Node.js Main Server (API + React Frontend) ──────
   - type: web
-    name: prono-k6gc
+    name: prono-api
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile.production
@@ -39,8 +38,7 @@ services:
       - key: ARCHIVE_DOWNLOAD_URL
         sync: false
       - key: INFERENCE_URL
-        value: http://prono-fastapi:8000
-        sync: true
+        value: https://prono-fastapi.onrender.com
       - key: USE_MODEL_MANAGER
         value: "true"
       - key: TELEGRAM_BOT_TOKEN
@@ -48,7 +46,7 @@ services:
       - key: TELEGRAM_CHAT_ID
         sync: false
 
-  # ── Python FastAPI Inference ──────────────────
+  # ── Python FastAPI Inference (ML/XGBoost Engine) ────
   - type: web
     name: prono-fastapi
     env: docker

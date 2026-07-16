@@ -13,6 +13,7 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=512
       API_SECRET_KEY: test-secret-key
+      JEST_WORKER_ID: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -24,8 +25,10 @@ jobs:
 
       - run: npm ci
 
+      - run: npm install --save-dev @babel/core @babel/preset-env babel-jest
+        
       - run: npm run build
         env:
           VITE_API_URL: https://prono-k6gc-rxjf.onrender.com
 
-      - run: npx jest --passWithNoTests --detectOpenHandles --forceExit
+      - run: npx jest --passWithNoTests --detectOpenHandles --forceExit --no-coverage

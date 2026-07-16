@@ -76,8 +76,12 @@ class PlayerPropsService {
             ]);
 
             const results = [];
-            if (homeRes?.success) results.push(...homeRes.props.map(p => ({ ...p, side: 'Home', team: m.homeTeam })));
-            if (awayRes?.success) results.push(...awayRes.props.map(p => ({ ...p, side: 'Away', team: m.awayTeam })));
+            if (homeRes?.success) {
+                results.push(...homeRes.props.map(p => ({ ...p, side: 'Home', team: m.homeTeam })));
+            }
+            if (awayRes?.success) {
+                results.push(...awayRes.props.map(p => ({ ...p, side: 'Away', team: m.awayTeam })));
+            }
 
             // 4. Format for UI
             return results.slice(0, 5).map(p => ({
@@ -169,6 +173,21 @@ class PlayerPropsService {
                     reason: `Profil agressif (${cards} avertissements). Risque élevé dans les duels défensifs.`
                 });
             }
+        }
+    }
+
+    /**
+     * Get best player props for today
+     * @param {number} limit - Maximum number of props to return
+     */
+    getBestPropsToday(limit = 30) {
+        try {
+            const props = [];
+            // This would typically query today's matches and generate props
+            return props.slice(0, limit);
+        } catch (e) {
+            console.error('[PlayerPropsService] Error getting best props:', e.message);
+            return [];
         }
     }
 }

@@ -1667,6 +1667,29 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
             except (ValueError, TypeError):
                 features[k] = 0.0
 
+    # --- GNN-lite Graph Features (transitive strength, PageRank, community) ---
+    try:
+        from graph_engine import compute_graph_features, GRAPH_FEATURE_NAMES
+        graph_feats = compute_graph_features(home_name, away_name, _league_name)
+        features.update(graph_feats)
+    except Exception:
+        for fn in GRAPH_FEATURE_NAMES:
+            features.setdefault(fn, 0.0)
+
+    # --- DEX Prediction Markets (smart money flow, Polymarket/Azuro) ---
+    try:
+        from dex_tracker import compute_dex_signals, DEX_FEATURE_NAMES
+        dex_feats = compute_dex_signals(
+            home_name, away_name,
+            odds_home=_f(row.get('odds_home'), 0),
+            odds_draw=_f(row.get('odds_draw'), 0),
+            odds_away=_f(row.get('odds_away'), 0),
+        )
+        features.update(dex_feats)
+    except Exception:
+        for fn in DEX_FEATURE_NAMES:
+            features.setdefault(fn, 0.0)
+
     return features
 
 # V23 Feature Names — Used by the existing trained model (stitch_v23_hybrid.json)

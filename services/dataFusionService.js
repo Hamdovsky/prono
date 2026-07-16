@@ -11,12 +11,13 @@ class DataFusionService {
       { name: 'fbref',           priority: 1, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
       { name: 'sofascore',       priority: 2, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
       { name: 'scrapeservice',   priority: 3, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'bsd',             priority: 4, quota: 200,      calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'therundown',      priority: 5, quota: 500,      calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'footballdata',    priority: 6, quota: 10,       calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'apifootball',     priority: 7, quota: 100,      calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'oddspapi',        priority: 8, quota: 200,      calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'sportmonks',      priority: 9, quota: 200,      calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'polymarket',      priority: 4, quota: 20,       calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'bsd',             priority: 5, quota: 200,      calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'therundown',      priority: 6, quota: 500,      calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'footballdata',    priority: 7, quota: 10,       calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'apifootball',     priority: 8, quota: 100,      calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'oddspapi',        priority: 9, quota: 200,      calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'sportmonks',      priority: 10, quota: 200,     calls: 0, errors: 0, cooldownUntil: 0 },
     ]
     this.quotaWindowMs = 60000
     this.quotaResets = {}
@@ -77,6 +78,9 @@ class DataFusionService {
             break
           case 'scrapeservice':
             odds = await this._tryScrapeService(match)
+            break
+          case 'polymarket':
+            odds = await this._tryPolymarket(match)
             break
           case 'bsd':
             odds = await this._tryBsd(match)
@@ -142,6 +146,47 @@ class DataFusionService {
     if (result && result.home_win && result.away_win) {
       return { home: result.home_win, draw: result.draw, away: result.away_win }
     }
+    return null
+  }
+
+  async _tryPolymarket(match) {
+    if (!match.homeTeam || !match.awayTeam) return null
+    try {
+      const https = require('https')
+      const url = `https://gamma-api.polymarket.com/markets?closed=false&limit=30&tag=football`
+      const data = await new Promise((resolve, reject) => {
+        const req = https.get(url, { timeout: 8000 }, (res) => {
+          let body = ''
+          res.on('data', c => body += c)
+          res.on('end', () => { try { resolve(JSON.parse(body)) } catch(e) { reject(e) } })
+        })
+        req.on('error', reject)
+        req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+      })
+      if (!Array.isArray(data)) return null
+      
+      const hName = match.homeTeam.toLowerCase()
+      const aName = match.awayTeam.toLowerCase()
+      
+      for (const m of data) {
+        const q = (m.question || '').toLowerCase()
+        if (!q.includes('vs') && !q.includes('beat') && !q.includes('versus')) continue
+        if (q.includes(hName) && q.includes(aName)) {
+          const prices = typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : m.outcomePrices
+          if (prices && prices.length >= 2) {
+            const homeProb = parseFloat(prices[0])
+            const awayProb = parseFloat(prices[1])
+            if (homeProb > 0 && awayProb > 0) {
+              return {
+                home: +(1 / homeProb).toFixed(2),
+                draw: +((1 - homeProb - awayProb) > 0 ? (1 / (1 - homeProb - awayProb)).toFixed(2) : 3.0),
+                away: +(1 / awayProb).toFixed(2)
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
     return null
   }
 

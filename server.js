@@ -145,25 +145,40 @@ setTimeout(async () => {
         // ── Cron schedules ──
         cronSchedules.init()
 
-        // ── Auto-enrich after cloud seed ──
-        setTimeout(async () => {
-          try {
-            const enrichedPredictions = require('./core/enriched_predictions')
-            const matches = await database.getMatchesByStatus('scheduled')
-            if (matches.length > 0) {
-              logger.info(`[AUTO-ENRICH] Enriching ${matches.length} matches...`)
-              const enriched = await enrichedPredictions.enrichMatches(matches, { fastMode: true, force: true })
-              let updated = 0
-              for (const m of enriched) {
-                if (m.expected_score && m.expected_score !== 'N/A') {
-                  await database.updatePredictions(m.id, m)
-                  updated++
-                }
-              }
-              logger.info(`[AUTO-ENRICH] Updated ${updated}/${matches.length}`)
+        // ── Auto-enrich after cloud seed (batched to avoid OOM on free tier) ──
+        const ENRICH_BATCH = parseInt(process.env.ENRICH_BATCH_SIZE || '20', 10)
+        const ENRICH_DELAY = parseInt(process.env.ENRICH_BATCH_DELAY_MS || '300000', 10) // 5 min
+
+        async function enrichBatch(batchSize) {
+          const enrichedPredictions = require('./core/enriched_predictions')
+          const matches = await database.getMatchesByStatus('scheduled')
+          if (matches.length === 0) return 0
+          const batch = matches.slice(0, batchSize)
+          logger.info(`[AUTO-ENRICH] Batch: ${batch.length}/${matches.length} matches...`)
+          const enriched = await enrichedPredictions.enrichMatches(batch, { fastMode: true, force: true })
+          let updated = 0
+          for (const m of enriched) {
+            if (m.expected_score && m.expected_score !== 'N/A') {
+              await database.updatePredictions(m.id, m)
+              updated++
             }
+          }
+          logger.info(`[AUTO-ENRICH] Updated ${updated}/${batch.length}`)
+          return updated
+        }
+
+        setTimeout(async function runEnrichBatches() {
+          try {
+            const remaining = await database.getMatchesByStatus('scheduled')
+            if (remaining.length === 0) {
+              logger.info(`[AUTO-ENRICH] All matches enriched, stopping.`)
+              return
+            }
+            await enrichBatch(ENRICH_BATCH)
+            setTimeout(runEnrichBatches, ENRICH_DELAY)
           } catch (e) {
             logger.warn(`[AUTO-ENRICH] Error: ${e.message}`)
+            setTimeout(runEnrichBatches, ENRICH_DELAY)
           }
         }, 15000)
 

@@ -168,19 +168,24 @@ async function getStaleMatches() {
   }
 }
 
-async function enrichMatchesBatch() {
-  logger.info('[FALLBACK_ENRICHER] Starting batch enrichment...');
+async function enrichMatchesBatch(opts = {}) {
+  const limit = opts.limit || 999;
+  logger.info(`[FALLBACK_ENRICHER] Starting batch enrichment (limit: ${limit})...`);
   try {
     const [insufficient, stale] = await Promise.all([
       database.getInsufficientDataMatches(),
       getStaleMatches(),
     ]);
     const seen = new Set();
-    const matches = [...(insufficient || []), ...(stale || [])].filter(m => {
+    let matches = [...(insufficient || []), ...(stale || [])].filter(m => {
       if (seen.has(m.id)) return false;
       seen.add(m.id);
       return true;
     });
+    if (matches.length > limit) {
+      matches = matches.slice(0, limit);
+      logger.info(`[FALLBACK_ENRICHER] Capped to ${limit} matches for memory safety`);
+    }
     if (!matches || matches.length === 0) {
       logger.info('[FALLBACK_ENRICHER] No matches found for enrichment.');
       return { enriched: 0, total: 0 };

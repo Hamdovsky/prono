@@ -17,7 +17,7 @@ async function runEnrichmentCycle(services) {
     const fallbackEnricher = require('../core/fallback_enricher')
     const discordService = require('../services/discordService')
 
-    const result = await fallbackEnricher.enrichMatchesBatch()
+    const result = await fallbackEnricher.enrichMatchesBatch({ limit: 30 })
     if (result.enriched > 0) {
       logger.info(`[ENRICHER] ${result.enriched}/${result.total} enriched`)
       discordService.sendComboTicket([]).catch(() => {})

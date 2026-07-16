@@ -932,6 +932,32 @@ app.get('/api/local/matches', async (req, res) => {
   }
 })
 
+// ─── Auto-Backtest Results (JS) ──
+app.get('/api/backtest/results', async (req, res) => {
+  try {
+    const fs = require('fs')
+    const resultsPath = path.join(__dirname, 'data', 'backtest_results.json')
+    const trendPath = path.join(__dirname, 'data', 'accuracy_trend.json')
+    const weightsPath = path.join(__dirname, 'data', 'league_dynamic_weights.json')
+    const latest = fs.existsSync(resultsPath) ? JSON.parse(fs.readFileSync(resultsPath, 'utf8')) : null
+    const trend = fs.existsSync(trendPath) ? JSON.parse(fs.readFileSync(trendPath, 'utf8')).slice(-30) : []
+    const weights = fs.existsSync(weightsPath) ? JSON.parse(fs.readFileSync(weightsPath, 'utf8')) : {}
+    res.json({ success: true, latest, trend, dynamicWeights: weights })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+app.post('/api/backtest/run', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
+  try {
+    const { runAutoBacktest } = require('./services/autoBacktestService')
+    const result = await runAutoBacktest()
+    res.json({ success: true, ...result })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
 app.get('/api/local/all', async (req, res) => {
   try {
     const db = require('./core/database')

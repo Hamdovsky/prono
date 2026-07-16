@@ -56,10 +56,29 @@ function scheduleWeeklyRetrain() {
   }, delay)
 }
 
+function scheduleDailyAutoBacktest() {
+  const now = new Date()
+  const target = new Date()
+  target.setUTCHours(2, 30, 0, 0) // 02:30 UTC daily
+  if (target <= now) target.setDate(target.getDate() + 1)
+  const delay = target.getTime() - now.getTime()
+  setTimeout(async () => {
+    try {
+      const { runAutoBacktest } = require('../services/autoBacktestService')
+      const result = await runAutoBacktest()
+      logger.info('[AUTO-BACKTEST] Daily result:\n' + JSON.stringify(result?.overall || {}, null, 2).slice(0, 500))
+    } catch (e) {
+      logger.warn(`[AUTO-BACKTEST] Failed: ${e.message}`)
+    }
+    scheduleDailyAutoBacktest()
+  }, delay)
+}
+
 function init() {
   scheduleDailyReport()
   scheduleDailyBackup()
   scheduleWeeklyRetrain()
+  scheduleDailyAutoBacktest()
 }
 
 module.exports = { init }

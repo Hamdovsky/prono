@@ -187,6 +187,19 @@ setTimeout(async () => {
           autoHealAgent.patrol().catch(e => logger.warn(`[AUTOHEAL] Patrol error: ${e.message}`))
         }, 30000)
 
+        // ── Startup auto-backtest (30s after boot, then daily cron handles it) ──
+        setTimeout(async () => {
+          try {
+            const { runAutoBacktest } = require('./services/autoBacktestService')
+            const result = await runAutoBacktest()
+            if (result && result.totalMatches > 0) {
+              logger.info(`[AUTO-BACKTEST] Startup: ${result.totalMatches} matches, accuracy=${result.overall?.accuracy}%`)
+            }
+          } catch (e) {
+            logger.warn(`[AUTO-BACKTEST] Startup: ${e.message}`)
+          }
+        }, 30000)
+
         // ── Diagnostic ──
         diagnostics.scheduleDailyDiagnose(10000)
         apiKeysValidator.logAvailability()

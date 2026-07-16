@@ -11,7 +11,45 @@ Responsibilities:
   6. SHAP-Lite explainability
 """
 import sys
+import os
+import json
 import numpy as np
+
+_DYNAMIC_WEIGHTS_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'league_dynamic_weights.json')
+_DYNAMIC_WEIGHTS_CACHE = None
+_DYNAMIC_WEIGHTS_TS = 0
+
+
+def _load_dynamic_weights():
+    """Load per-league dynamic weights from backtest results (refreshed every 6h)."""
+    global _DYNAMIC_WEIGHTS_CACHE, _DYNAMIC_WEIGHTS_TS
+    now = __import__('time').time()
+    if _DYNAMIC_WEIGHTS_CACHE is not None and (now - _DYNAMIC_WEIGHTS_TS) < 21600:
+        return _DYNAMIC_WEIGHTS_CACHE
+    try:
+        with open(_DYNAMIC_WEIGHTS_PATH, 'r') as f:
+            _DYNAMIC_WEIGHTS_CACHE = json.load(f)
+            _DYNAMIC_WEIGHTS_TS = now
+    except Exception:
+        _DYNAMIC_WEIGHTS_CACHE = {}
+        _DYNAMIC_WEIGHTS_TS = now
+    return _DYNAMIC_WEIGHTS_CACHE
+
+
+def _get_league_weights(league_name):
+    """Merge static matrix with dynamic backtest weights. Dynamic overrides if edge > 3%."""
+    static = LEAGUE_WEIGHT_MATRIX.get("DEFAULT", {"xgb_weight": 0.75, "news_boost": 0.30})
+    dynamic = _load_dynamic_weights().get(league_name)
+    if not dynamic:
+        return static
+    model_edge = dynamic.get('edge', 0)
+    if model_edge > 3:
+        return {
+            "xgb_weight": dynamic.get('xgb_weight', static['xgb_weight']),
+            "news_boost": dynamic.get('news_boost', static['news_boost']),
+        }
+    return static
+
 
 from ml_features import (
     FEATURE_NAMES_V53, FEATURE_NAMES_V54, FEATURE_NAMES_V55,
@@ -200,18 +238,18 @@ def run_xgboost_inference(active_feature_vector, active_feature_names, XGB_BOOST
                 if p_h_xgb > (implied_h + 0.15) and n_sent < -0.2:
                     p_h_xgb *= 0.85
 
-                # Weighted Consensus — fuzzy league matching
-                l_strat = None
-                # Try exact match first
-                l_strat = LEAGUE_WEIGHT_MATRIX.get(league_name)
-                # Try case-insensitive partial match
+                # Dynamic weight lookup: backtest-adjusted overrides static matrix
+                l_strat = _get_league_weights(league_name)
+                # Fallback: static matrix exact match
+                if l_strat is None or l_strat == LEAGUE_WEIGHT_MATRIX.get("DEFAULT"):
+                    l_strat = LEAGUE_WEIGHT_MATRIX.get(league_name) or l_strat
+                # Fuzzy match
                 if not l_strat:
                     ln_lower = league_name.lower()
                     for key, val in LEAGUE_WEIGHT_MATRIX.items():
                         if key.lower() in ln_lower or ln_lower in key.lower():
                             l_strat = val
                             break
-                # Fall back to tier or default
                 if not l_strat:
                     l_strat = LEAGUE_WEIGHT_MATRIX.get(league_tier, LEAGUE_WEIGHT_MATRIX['DEFAULT'])
                 w_xgb = l_strat['xgb_weight']

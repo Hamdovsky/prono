@@ -237,9 +237,15 @@ class StatisticalEngine {
                 else if (league.includes('women')) { baseH = 2.1; baseA = 1.8; }
                 else if (league.includes('misli') || league.includes('azerbaijan')) { baseH = 1.6; baseA = 1.1; }
                 
-                // Use league base xG (no hash noise — deterministic)
-                xgH = ((hScored || baseH) + (aConc || baseA)) / 2.0;
-                xgA = ((aScored || baseA) + (hConc || baseH)) / 2.0;
+                // Prefer odds-based derivation (real market data) when team stats are all-zero
+                if (m.odds_home && m.odds_away && hScored === 0 && aScored === 0) {
+                    const derived = this._deriveXgFromOdds(m);
+                    xgH = derived.h;
+                    xgA = derived.a;
+                } else {
+                    xgH = ((hScored || baseH) + (aConc || baseA)) / 2.0;
+                    xgA = ((aScored || baseA) + (hConc || baseH)) / 2.0;
+                }
             } else {
                 // Compute xG from historical data instead of random noise
                 const hStr = this.getTeamAttackDefense(m.homeTeam);

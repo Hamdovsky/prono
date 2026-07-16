@@ -9,14 +9,59 @@ const TRAIN_SCRIPT = path.join(__dirname, '..', 'core', 'train_v24_top_analyst.p
 const LIVE_MODEL_PATH = path.join(__dirname, '..', 'models', 'live_goal_xgb.json');
 const LIVE_TRAIN_SCRIPT = path.join(__dirname, '..', 'core', 'train_live_model.py');
 
+const FEEDBACK_SCRIPT = path.join(__dirname, '..', 'scripts', 'backtest_feedback.py');
+
+function _findPython() {
+    let pythonPath = 'python';
+    const venvPythonPath = path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe');
+    if (fs.existsSync(venvPythonPath)) {
+        pythonPath = venvPythonPath;
+    }
+    return pythonPath;
+}
+
+/**
+ * Run backtest_feedback.py to generate per-league training weights.
+ * This bridges JS settlement data → Python XGBoost retraining.
+ */
+function runBacktestFeedback() {
+    return new Promise((resolve) => {
+        logger.info('[FEEDBACK] Running backtest feedback to generate training weights...');
+        const pythonPath = _findPython();
+        const proc = spawn(pythonPath, [FEEDBACK_SCRIPT], {
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            windowsHide: true,
+        });
+        let stdout = '';
+        proc.stdout.on('data', d => { const s = d.toString(); stdout += s; logger.info(`[FEEDBACK] ${s.trim()}`); });
+        proc.stderr.on('data', d => logger.warn(`[FEEDBACK-WARN] ${d.toString().trim()}`));
+        proc.on('close', (code) => {
+            if (code === 0) {
+                logger.info('[FEEDBACK] Training weights generated successfully');
+                resolve(true);
+            } else {
+                logger.warn(`[FEEDBACK] Feedback script exited with code ${code} — continuing with existing weights`);
+                resolve(false);
+            }
+        });
+        proc.on('error', (e) => {
+            logger.warn(`[FEEDBACK] Could not run feedback script: ${e.message}`);
+            resolve(false);
+        });
+    });
+}
+
 /**
  * Runs the Automated XGBoost Retraining Pipeline.
  * @returns {Promise<object>} Returns an object with the status and log output
  */
 function runAutoRetrain() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         logger.info(`[AUTO-RETRAIN] Initiating V24 Top Analyst Retraining Pipeline...`);
         logger.info(`[AUTO-RETRAIN] Script: ${TRAIN_SCRIPT}`);
+
+        // Step 0: Generate backtest feedback weights
+        await runBacktestFeedback();
 
         let reportMsg = "⚙️ <b>Auto-Retrain Process Log</b>\n";
 
@@ -105,11 +150,7 @@ function runLiveModelRetrain() {
     return new Promise((resolve) => {
         logger.info(`[LIVE-RETRAIN] Starting live goal model training...`);
 
-        let pythonPath = 'python';
-        const venvPythonPath = path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe');
-        if (fs.existsSync(venvPythonPath)) {
-            pythonPath = venvPythonPath;
-        }
+        const pythonPath = _findPython();
 
         const pythonProcess = spawn(pythonPath, [LIVE_TRAIN_SCRIPT], {
             env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
@@ -162,14 +203,13 @@ if (require.main === module) {
  * Spawns scripts/auto_retrain.py and logs results.
  */
 function runV56Retrain() {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
         logger.info(`[V56-RETRAIN] Starting V56 model retraining...`);
 
-        let pythonPath = 'python';
-        const venvPythonPath = path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe');
-        if (fs.existsSync(venvPythonPath)) {
-            pythonPath = venvPythonPath;
-        }
+        // Step 0: Generate backtest feedback weights
+        await runBacktestFeedback();
+
+        let pythonPath = _findPython();
 
         const script = path.join(__dirname, 'auto_retrain.py');
         const proc = spawn(pythonPath, [script], {

@@ -31,9 +31,19 @@ from pg_connector import query, using_postgres
 MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
 MODEL_PATH = os.path.join(MODELS_DIR, 'titanium_v3.json')
 MODEL_METADATA_PATH = os.path.join(MODELS_DIR, 'titanium_metadata.json')
+TRAINING_WEIGHTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'training_weights.json')
 os.makedirs(MODELS_DIR, exist_ok=True)
 
 REGRESSION_THRESHOLD = 0.03  # Reject if accuracy drops more than 3pp
+
+
+def load_training_weights():
+    """Load per-league sample weights from backtest feedback."""
+    try:
+        with open(TRAINING_WEIGHTS_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 V56_HYPERPARAMS = {
     'max_depth': 6,
@@ -63,6 +73,7 @@ def fetch_training_data():
                o.draw AS odds_draw,
                o.away_win AS odds_away,
                f.date,
+               f.league_name,
                m.home_shots_total AS home_shots,
                m.away_shots_total AS away_shots,
                m.home_shots_on_goal, m.away_shots_on_goal,
@@ -112,10 +123,11 @@ def build_v56_dataset(rows):
     Chronological integrity: match i only sees data from indices < i.
     
     Updated for TITANIUM V3: Uses FEATURE_NAMES_TITANIUM with Tunisia crowd features.
+    Also returns league names for sample weighting.
     """
     from ml_features import extract_ml_features, FEATURE_NAMES_TITANIUM
 
-    X, y = [], []
+    X, y, leagues = [], [], []
     for i in range(len(rows)):
         if i < 10:
             continue
@@ -132,11 +144,12 @@ def build_v56_dataset(rows):
         ordered_feats = [feat.get(name, 0.0) for name in FEATURE_NAMES_TITANIUM]
         X.append(ordered_feats)
         y.append(label)
+        leagues.append(r.get('league_name', 'DEFAULT') or 'DEFAULT')
 
-    return np.array(X, dtype=np.float32), np.array(y, dtype=np.int32)
+    return np.array(X, dtype=np.float32), np.array(y, dtype=np.int32), leagues
 
 
-def train_v56(X_train, y_train, X_val, y_val):
+def train_v56(X_train, y_train, X_val, y_val, sample_weights=None):
     """Train and save TITANIUM V3 XGBoost model with chronological validation."""
     import xgboost as xgb
     from sklearn.metrics import accuracy_score
@@ -155,6 +168,13 @@ def train_v56(X_train, y_train, X_val, y_val):
 
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dval = xgb.DMatrix(X_val, label=y_val)
+
+    # Apply per-sample weights from backtest feedback
+    if sample_weights is not None and len(sample_weights) == len(X_train):
+        dtrain.set_weight(sample_weights)
+        w_mean = np.mean(sample_weights)
+        w_std = np.std(sample_weights)
+        print(f"  Sample weights applied: mean={w_mean:.3f} std={w_std:.3f} min={np.min(sample_weights):.3f} max={np.max(sample_weights):.3f}")
 
     print(f"  Training TITANIUM V3... train={len(X_train)} val={len(X_val)}, features={X_train.shape[1]}")
     model = xgb.train(
@@ -220,25 +240,45 @@ def retrain():
         print("ERROR: DATABASE_URL not set or not PostgreSQL")
         sys.exit(1)
 
+    # Load backtest feedback weights
+    feedback_weights = load_training_weights()
+    if feedback_weights:
+        print(f"  Loaded {len(feedback_weights)} league feedback weights from backtest")
+    else:
+        print("  No feedback weights found — training with uniform weights")
+
     rows = fetch_training_data()
     if not rows or len(rows) < 200:
         print("ERROR: Not enough training data")
         sys.exit(1)
 
-    X, y = build_v56_dataset(rows)
+    X, y, leagues = build_v56_dataset(rows)
     print(f"  Total V56 samples: {len(X)}")
 
     if len(X) < 1000:
         print("ERROR: Insufficient samples after filtering")
         sys.exit(1)
 
+    # Build per-sample weights from feedback
+    sample_weights = np.ones(len(X), dtype=np.float32)
+    if feedback_weights:
+        default_w = feedback_weights.get('DEFAULT', 1.0)
+        weighted_count = 0
+        for i, lg in enumerate(leagues):
+            w = feedback_weights.get(lg, default_w)
+            sample_weights[i] = w
+            if w != 1.0:
+                weighted_count += 1
+        print(f"  Applied feedback weights to {weighted_count}/{len(X)} samples")
+
     n = len(X)
     train_end = int(n * 0.85)
     X_train, y_train = X[:train_end], y[:train_end]
     X_val, y_val = X[train_end:], y[train_end:]
+    w_train = sample_weights[:train_end] if len(sample_weights) > 0 else None
     print(f"  Chrono split: {len(X_train)} train, {len(X_val)} val")
 
-    model, val_acc = train_v56(X_train, y_train, X_val, y_val)
+    model, val_acc = train_v56(X_train, y_train, X_val, y_val, sample_weights=w_train)
 
     # --- Regression guard: compare with previous model accuracy ---
     prev_acc = None
@@ -326,7 +366,7 @@ def validate_only():
         print("Not enough data")
         return
 
-    X, y = build_v56_dataset(rows)
+    X, y, _ = build_v56_dataset(rows)
     n = len(X)
     val_start = int(n * 0.85)
     X_v, y_v = X[val_start:], y[val_start:]

@@ -10,6 +10,10 @@
 const db = require('../core/database');
 const logger = require('../core/logger');
 const confidenceScorer = require('../core/confidenceScorer');
+const fs = require('fs');
+const path = require('path');
+
+const ACCURACY_LOG_PATH = path.join(__dirname, '..', 'data', 'accuracy_log.json');
 
 const SofaAPI = (() => {
     try { return require('../SofascoreScraping/src/apiClient').SofaAPI; } catch { return null; }
@@ -159,6 +163,11 @@ async function settleFinishedMatches() {
                 try {
                     const marketType = ['1X', 'X2', '12'].includes((row.prediction || '').toUpperCase()) ? 'DC' : '1X2';
                     confidenceScorer.recordSettlement(row.league || 'Unknown', marketType, result === 'WON');
+                } catch (_) {}
+
+                // Write accuracy_log.json for Python training scripts feedback loop
+                try {
+                    _appendToAccuracyLog(row, result, scoreHome, scoreAway);
                 } catch (_) {}
 
                 logger.info(`[SETTLEMENT] ${row.homeTeam} ${scoreHome}-${scoreAway} ${row.awayTeam} → ${result} (prediction: ${row.prediction})`);
@@ -350,6 +359,62 @@ function getPerformance() {
         trend,
         confidence_breakdown: confidenceBreakdown,
     };
+}
+
+// ── Accuracy log for Python training feedback ──────────────────────
+
+function _appendToAccuracyLog(row, result, scoreHome, scoreAway) {
+    let log = {};
+    try {
+        if (fs.existsSync(ACCURACY_LOG_PATH)) {
+            log = JSON.parse(fs.readFileSync(ACCURACY_LOG_PATH, 'utf8'));
+        }
+    } catch (_) { log = {}; }
+
+    const league = row.league || 'Unknown';
+    if (!log[league]) log[league] = [];
+
+    const hProb = parseFloat(row.home_win_probability) || 0;
+    const dProb = parseFloat(row.draw_probability) || 0;
+    const aProb = parseFloat(row.away_win_probability) || 0;
+    const confidence = Math.max(hProb, dProb, aProb);
+    const predicted = (row.prediction || '1').toUpperCase();
+    const actual = scoreHome > scoreAway ? '1' : scoreHome < scoreAway ? '2' : 'X';
+    const isCorrect = result === 'WON';
+    const wasMisleading = confidence > 60 && !isCorrect;
+
+    log[league].push({
+        id: row.id,
+        match: `${row.homeTeam} vs ${row.awayTeam}`,
+        score: `${scoreHome}-${scoreAway}`,
+        predicted, actual,
+        is_correct: isCorrect,
+        confidence: Math.round(confidence * 10) / 10,
+        vote_was_misleading: wasMisleading,
+        timestamp: Date.now(),
+    });
+
+    // Keep last 50 per league
+    if (log[league].length > 50) {
+        log[league] = log[league].slice(-50);
+    }
+
+    // Also track global accuracy stats for quick access
+    let totalW = 0, totalN = 0;
+    for (const entries of Object.values(log)) {
+        for (const e of entries) {
+            totalN++;
+            if (e.is_correct) totalW++;
+        }
+    }
+    log._global = {
+        accuracy: totalN > 0 ? Math.round(totalW / totalN * 1000) / 10 : 0,
+        total: totalN,
+        won: totalW,
+        updated: new Date().toISOString(),
+    };
+
+    fs.writeFileSync(ACCURACY_LOG_PATH, JSON.stringify(log, null, 0));
 }
 
 module.exports = { settleFinishedMatches, fetchMissingScores, getPerformance, evaluatePrediction };

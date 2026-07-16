@@ -9,6 +9,14 @@ const thetaOptimizer = require('../../services/thetaOptimizer');
 const eloService = require('../../services/eloRatingService');
 
 class StatisticalEngine {
+    _deterministicHash(str, seed = 0) {
+        let h = seed;
+        for (let i = 0; i < str.length; i++) {
+            h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+        }
+        return (h & 0x7fffffff) / 0x7fffffff;
+    }
+
     predictCorners(match, winnerProbability) {
         let baseCorners = 8;
         const leagueName = (match.league || '').toLowerCase();
@@ -25,7 +33,7 @@ class StatisticalEngine {
             baseCorners += 2;
         }
 
-        const variation = Math.floor(Math.random() * 4) - 2;
+        const variation = Math.floor(this._deterministicHash(match.homeTeam || '', match.awayTeam ? match.awayTeam.charCodeAt(0) : 0) * 4) - 2;
         return Math.max(4, Math.min(16, baseCorners + variation));
     }
 
@@ -53,7 +61,7 @@ class StatisticalEngine {
             else if (refProfile.tier === 'LENIENT') baseCards -= 1.0;
         }
 
-        const variation = Math.floor(Math.random() * 3) - 1;
+        const variation = Math.floor(this._deterministicHash(match.awayTeam || '', match.homeTeam ? match.homeTeam.charCodeAt(0) : 1) * 3) - 1;
         return Math.max(1, Math.min(10, baseCards + variation));
     }
 
@@ -77,7 +85,7 @@ class StatisticalEngine {
             baseGoals -= 0.3;
         }
 
-        const variation = (Math.random() - 0.5) * 1.5;
+        const variation = (this._deterministicHash(match.homeTeam || '' + match.awayTeam || '', 42) - 0.5) * 1.5;
         const totalGoals = Math.max(0, baseGoals + variation);
         return Math.round(totalGoals * 2) / 2;
     }
@@ -229,16 +237,9 @@ class StatisticalEngine {
                 else if (league.includes('women')) { baseH = 2.1; baseA = 1.8; }
                 else if (league.includes('misli') || league.includes('azerbaijan')) { baseH = 1.6; baseA = 1.1; }
                 
-                // Add slight randomization to prevent identical fallbacks (Titanium Noise V2)
-                const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '1';
-                let numHash = 0;
-                for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
-                
-                const noiseH = (numHash % 40 - 20) / 40; // -0.5 to +0.5
-                const noiseA = ((numHash * 3) % 40 - 20) / 40;
-                
-                xgH = ((hScored || (baseH + noiseH)) + (aConc || (baseA + noiseA))) / 2.0;
-                xgA = ((aScored || (baseA + noiseA - 0.2)) + (hConc || (baseH + noiseH))) / 2.0;
+                // Use league base xG (no hash noise — deterministic)
+                xgH = ((hScored || baseH) + (aConc || baseA)) / 2.0;
+                xgA = ((aScored || baseA) + (hConc || baseH)) / 2.0;
             } else {
                 // Compute xG from historical data instead of random noise
                 const hStr = this.getTeamAttackDefense(m.homeTeam);
@@ -257,23 +258,12 @@ class StatisticalEngine {
                         xgA = derived.a;
                     } else {
                         const league = (m.league || '').toLowerCase();
-                        const strToHash = (m.id || '') + (m.homeTeam || '') + (m.awayTeam || '') + '2';
-                        let numHash = 0;
-                        for (let i = 0; i < strToHash.length; i++) numHash += strToHash.charCodeAt(i);
-                        const noiseFactor = (numHash % 200 - 100) / 100;
                         let baseXgH = 1.5, baseXgA = 1.15;
                         if (league.includes('iceland') || league.includes('reykjavik') || league.includes('women')) { baseXgH = 2.0; baseXgA = 1.6; }
                         else if (league.includes('bundesliga') || league.includes('netherlands')) { baseXgH = 1.8; baseXgA = 1.4; }
                         else if (league.includes('misli') || league.includes('azerbaijan')) { baseXgH = 1.7; baseXgA = 1.1; }
-                        if (noiseFactor >= 0) {
-                            xgH = baseXgH * (1 + noiseFactor * 0.8);
-                            xgA = baseXgA * (1 - noiseFactor * 0.6);
-                        } else {
-                            xgH = baseXgH * (1 + noiseFactor * 0.6);
-                            xgA = baseXgA * (1 - noiseFactor * 0.8);
-                        }
-                        xgH = Math.max(0.15, xgH);
-                        xgA = Math.max(0.25, xgA);
+                        xgH = baseXgH;
+                        xgA = baseXgA;
                     }
                 }
             }

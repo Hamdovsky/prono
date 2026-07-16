@@ -229,7 +229,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
         const m = highEntropy[i]
         const fb = fbrefResults[i]?.value
         if (fb?.success && fb.home_xg) {
-          const p = xgToProbs(fb.home_xg, fb.home_xg, fb.away_xg)
+          const p = xgToProbs(fb.home_xg, fb.away_xg)
           m.p1 = p.p1; m.px = p.px; m.p2 = p.p2
           logger.info(`🧪 [FBREF] xG Poisson for ${m.homeTeam || m.home} vs ${m.awayTeam || m.away}: ${(p.p1*100).toFixed(0)}/${(p.px*100).toFixed(0)}/${(p.p2*100).toFixed(0)}`)
         } else {

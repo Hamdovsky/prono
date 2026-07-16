@@ -90,6 +90,10 @@ function buildPredictionObject(match, pHome, pDraw, pAway, xgHome, xgAway, sourc
 
 async function tryXgbEnrichOne(match) {
   try {
+    const teamStats = typeof match.teamStats === 'string' ? JSON.parse(match.teamStats || '{}') : (match.teamStats || {});
+    const formCtx = typeof match.form_context === 'string' ? JSON.parse(match.form_context || '{}') : (match.form_context || {});
+    const h2h = typeof match.h2h_data === 'string' ? JSON.parse(match.h2h_data || '{}') : (match.h2h_data || {});
+
     const payload = {
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
@@ -99,6 +103,17 @@ async function tryXgbEnrichOne(match) {
       odds_away: parseFloat(match.odds_away) || 3.0,
       startTimestamp: match.startTimestamp || match.timestamp || 0,
       task: 'PREDICTION',
+      teamStats: teamStats,
+      form_context: formCtx,
+      h2h_data: h2h,
+      weather_temp: parseFloat(match.weather_temp) || null,
+      weather_humidity: parseFloat(match.weather_humidity) || null,
+      weather_desc: match.weather_desc || null,
+      player_ratings: parseFloat(match.player_ratings) || null,
+      home_xg: parseFloat(match.home_xg) || null,
+      away_xg: parseFloat(match.away_xg) || null,
+      home_form_pts: parseFloat(match.home_form_pts) || null,
+      away_form_pts: parseFloat(match.away_form_pts) || null,
     };
     const response = await axios.post(`${FASTAPI_URL}/predict`, payload, {
       timeout: XGB_TIMEOUT,

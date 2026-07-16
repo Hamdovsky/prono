@@ -125,8 +125,8 @@ class EnrichedPredictionService {
                 } catch (_) {}
             }
 
-            // 2. Parallel: team form (last 5) + H2H
-            const [homeFormResp, awayFormResp, h2hResp] = await Promise.all([
+            // 2. Parallel: team form (last 5) + H2H + season stats
+            const [homeFormResp, awayFormResp, h2hResp, homeSeasonStats, awaySeasonStats] = await Promise.all([
                 tournamentId && seasonId
                     ? fetchJson(`${SOFA_API}/team/${homeId}/unique-tournament/${tournamentId}/season/${seasonId}/events/last/5`).catch(() => null)
                     : Promise.resolve(null),
@@ -135,13 +135,19 @@ class EnrichedPredictionService {
                     : Promise.resolve(null),
                 sofaId
                     ? fetchJson(`${SOFA_API}/event/${sofaId}/h2h/events`).catch(() => null)
-                    : Promise.resolve(null)
+                    : Promise.resolve(null),
+                tournamentId && seasonId
+                    ? this.fetchSofaTeamStats(homeId, tournamentId, seasonId).catch(() => null)
+                    : Promise.resolve(null),
+                tournamentId && seasonId
+                    ? this.fetchSofaTeamStats(awayId, tournamentId, seasonId).catch(() => null)
+                    : Promise.resolve(null),
             ]);
 
             // 3. Parse form averages
-            const _avgForm = (resp, teamId) => {
+            const _avgForm = (resp, teamId, seasonStats) => {
                 const events = resp?.events || [];
-                if (!events.length) return null;
+                if (!events.length && !seasonStats) return null;
                 let gf = 0, ga = 0, wins = 0, draws = 0, losses = 0, xgFor = 0, xgAgainst = 0;
                 for (const ev of events) {
                     const isHome = ev.homeTeam?.id === teamId;
@@ -159,23 +165,25 @@ class EnrichedPredictionService {
                 }
                 const n = events.length;
                 return {
-                    avgGoalsScored: gf / n,
-                    avgGoalsConceded: ga / n,
-                    avgXgFor: xgFor / n,
-                    avgXgAgainst: xgAgainst / n,
-                    avgPossession: 50,
-                    avgShots: 12,
-                    avgShotsOnTarget: 4,
-                    winRate: wins / n,
-                    drawRate: draws / n,
-                    lossRate: losses / n,
-                    points: (wins * 3 + draws) / n,
-                    matchesAnalyzed: n
+                    avgGoalsScored: n > 0 ? gf / n : (seasonStats?.avgGoalsScored || 1.3),
+                    avgGoalsConceded: n > 0 ? ga / n : (seasonStats?.avgGoalsConceded || 1.1),
+                    avgXgFor: n > 0 ? xgFor / n : 0,
+                    avgXgAgainst: n > 0 ? xgAgainst / n : 0,
+                    avgPossession: seasonStats?.avgPossession || 50,
+                    avgShots: seasonStats?.avgShotsOnTarget ? Math.round(seasonStats.avgShotsOnTarget * 2.5) : 12,
+                    avgShotsOnTarget: seasonStats?.avgShotsOnTarget || 4,
+                    avgCorners: seasonStats?.avgCorners || 5,
+                    avgBigChances: seasonStats?.avgBigChances || 0,
+                    winRate: n > 0 ? wins / n : 0.33,
+                    drawRate: n > 0 ? draws / n : 0.26,
+                    lossRate: n > 0 ? losses / n : 0.41,
+                    points: n > 0 ? (wins * 3 + draws) / n : 1,
+                    matchesAnalyzed: n || seasonStats?.matchesPlayed || 0
                 };
             };
 
-            const homeForm = _avgForm(homeFormResp, homeId);
-            const awayForm = _avgForm(awayFormResp, awayId);
+            const homeForm = _avgForm(homeFormResp, homeId, homeSeasonStats);
+            const awayForm = _avgForm(awayFormResp, awayId, awaySeasonStats);
 
             // 4. Parse H2H
             const h2hEvents = (h2hResp?.events || []).slice(0, 5);

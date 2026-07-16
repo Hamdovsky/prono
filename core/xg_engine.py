@@ -307,7 +307,9 @@ def apply_environmental_and_tactical(xg_h, xg_a, base_xg_h, base_xg_a,
 
 
 def apply_dixon_coles_gamma(xg_h, xg_a, league_name_str):
-    """Apply Dixon-Coles Rue-Salvesen gamma correction to xG."""
+    """Apply Dixon-Coles Rue-Salvesen gamma correction to xG.
+    League-aware: uses fitted params from DB cache when available.
+    """
     _gm_params = load_or_fit_goalmodel_parameters(
         league_name_str,
         db_conn=get_tactical_connection()
@@ -320,5 +322,17 @@ def apply_dixon_coles_gamma(xg_h, xg_a, league_name_str):
         _strength_ratio = (xg_h - xg_a) / max(xg_h + xg_a, 0.01)
         xg_h *= math.exp(-_gm_gamma * _strength_ratio)
         xg_a *= math.exp(_gm_gamma * _strength_ratio)
+
+    # O/U correction: for high-scoring leagues, reduce DC rho effect on Under 2.5
+    # This counters the systematic Under bias caused by negative rho
+    lg = (league_name_str or '').lower()
+    total_xg = xg_h + xg_a
+    is_high_scoring = any(kw in lg for kw in [
+        'iceland', 'women', 'bundesliga', 'netherlands', 'eredivisie',
+        'friendly', 'austria', 'sweden', 'norway'
+    ])
+    if is_high_scoring and total_xg > 2.8 and _gm_rho < -0.08:
+        # Reduce magnitude of rho for high-scoring leagues to limit Under bias
+        _gm_rho = _gm_rho * 0.6
 
     return xg_h, xg_a, _gm_rho, _gm_gamma, _gm_dist

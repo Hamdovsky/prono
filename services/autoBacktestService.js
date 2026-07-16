@@ -18,6 +18,7 @@ const database = require('../core/database');
 const RESULTS_PATH = path.join(__dirname, '../data/backtest_results.json');
 const WEIGHTS_PATH = path.join(__dirname, '../data/league_dynamic_weights.json');
 const HISTORY_PATH = path.join(__dirname, '../data/accuracy_trend.json');
+const CALIBRATION_PATH = path.join(__dirname, '../data/calibration_metrics.json');
 
 function _loadJson(p, def = {}) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return def; }
@@ -49,8 +50,63 @@ function getActualBTTS(scoreHome, scoreAway) {
 }
 
 /**
- * Determine if a prediction was correct.
+ * Compute Brier Score and Log Loss for a single match prediction.
+ * Brier = mean((predicted - actual)^2) for 1X2 — lower is better (0 = perfect).
+ * Log Loss = -sum(actual * log(predicted)) — lower is better.
  */
+function computeCalibrationMetrics(match) {
+  const scoreH = parseInt(match.score_home);
+  const scoreA = parseInt(match.score_away);
+  if (isNaN(scoreH) || isNaN(scoreA)) return null;
+
+  const pHome = parseFloat(match.home_win_probability || 0) / 100;
+  const pDraw = parseFloat(match.draw_probability || 0) / 100;
+  const pAway = parseFloat(match.away_win_probability || 0) / 100;
+  const pOU25 = parseFloat(match.ou_25_prob || 0) / 100;
+  const pBTTS = parseFloat(match.btts_prob || 0) / 100;
+
+  if (pHome + pDraw + pAway < 0.01) return null;
+
+  // Actual outcomes (one-hot vectors)
+  const totalGoals = scoreH + scoreA;
+  const actual1x2 = scoreH > scoreA ? [1, 0, 0] : scoreH < scoreA ? [0, 0, 1] : [0, 1, 0];
+  const predProbs = [pHome, pDraw, pAway];
+
+  // Brier Score (1X2)
+  let brier1x2 = 0;
+  for (let i = 0; i < 3; i++) {
+    const diff = predProbs[i] - actual1x2[i];
+    brier1x2 += diff * diff;
+  }
+  brier1x2 /= 3; // average over 3 outcomes
+
+  // Log Loss (1X2) — clamp to avoid log(0)
+  let logloss1x2 = 0;
+  for (let i = 0; i < 3; i++) {
+    const p = Math.max(1e-7, Math.min(1 - 1e-7, predProbs[i]));
+    logloss1x2 -= actual1x2[i] * Math.log(p);
+  }
+
+  // O/U 2.5 calibration
+  const actualOU = totalGoals > 2.5 ? 1 : 0;
+  const pOU_clamped = Math.max(1e-7, Math.min(1 - 1e-7, pOU25));
+  const brierOU = (pOU25 - actualOU) ** 2;
+  const loglossOU = -(actualOU * Math.log(pOU_clamped) + (1 - actualOU) * Math.log(1 - pOU_clamped));
+
+  // BTTS calibration
+  const actualBTTS = (scoreH > 0 && scoreA > 0) ? 1 : 0;
+  const pBTTS_clamped = Math.max(1e-7, Math.min(1 - 1e-7, pBTTS));
+  const brierBTTS = (pBTTS - actualBTTS) ** 2;
+  const loglossBTTS = -(actualBTTS * Math.log(pBTTS_clamped) + (1 - actualBTTS) * Math.log(1 - pBTTS_clamped));
+
+  return {
+    brier1x2, logloss1x2,
+    brierOU, loglossOU,
+    brierBTTS, loglossBTTS,
+    pHome, pDraw, pAway,
+    actualOutcome: scoreH > scoreA ? '1' : scoreH < scoreA ? '2' : 'X',
+  };
+}
 function evaluatePrediction(match) {
   const scoreH = parseInt(match.score_home);
   const scoreA = parseInt(match.score_away);
@@ -245,6 +301,51 @@ async function runAutoBacktest() {
         confidenceScorer.recordSettlement(r.league, '1X2', r.result1x2 === 'WON');
       }
     } catch (_) {}
+
+    // ── Compute per-match calibration metrics (Brier Score + LogLoss) ──
+    const calibrationResults = recentFinished.map(computeCalibrationMetrics).filter(Boolean);
+    if (calibrationResults.length > 0) {
+      // Aggregate per-league
+      const calByLeague = {};
+      for (const cm of calibrationResults) {
+        // Find league from the original results array
+        const origResult = results.find(r => r.pHome === cm.pHome * 100 && r.pAway === cm.pAway * 100);
+        const lg = origResult ? origResult.league : 'Unknown';
+        if (!calByLeague[lg]) calByLeague[lg] = { brier1x2: [], logloss1x2: [], brierOU: [], loglossOU: [], brierBTTS: [], loglossBTTS: [] };
+        calByLeague[lg].brier1x2.push(cm.brier1x2);
+        calByLeague[lg].logloss1x2.push(cm.logloss1x2);
+        calByLeague[lg].brierOU.push(cm.brierOU);
+        calByLeague[lg].loglossOU.push(cm.loglossOU);
+        calByLeague[lg].brierBTTS.push(cm.brierBTTS);
+        calByLeague[lg].loglossBTTS.push(cm.loglossBTTS);
+      }
+
+      const calibrationMetrics = {};
+      for (const [lg, vals] of Object.entries(calByLeague)) {
+        const avg = arr => arr.length > 0 ? +(arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(6) : null;
+        calibrationMetrics[lg] = {
+          brier1x2: avg(vals.brier1x2),
+          logloss1x2: avg(vals.logloss1x2),
+          brierOU: avg(vals.brierOU),
+          loglossOU: avg(vals.loglossOU),
+          brierBTTS: avg(vals.brierBTTS),
+          loglossBTTS: avg(vals.loglossBTTS),
+          matches: vals.brier1x2.length,
+        };
+      }
+
+      // Global averages
+      const allBrier = calibrationResults.map(c => c.brier1x2);
+      const allLogloss = calibrationResults.map(c => c.logloss1x2);
+      calibrationMetrics['_global'] = {
+        brier1x2: +(allBrier.reduce((s, v) => s + v, 0) / allBrier.length).toFixed(6),
+        logloss1x2: +(allLogloss.reduce((s, v) => s + v, 0) / allLogloss.length).toFixed(6),
+        matches: calibrationResults.length,
+      };
+
+      _saveJson(CALIBRATION_PATH, calibrationMetrics);
+      logger.info(`[BACKTEST] Calibration metrics saved: ${calibrationResults.length} matches, global Brier=${calibrationMetrics['_global'].brier1x2}`);
+    }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     logger.info(`[BACKTEST] Done in ${elapsed}s — ${results.length} matches, accuracy: ${overallAccuracy}% (edge vs odds: ${backtestResult.overall.edge}%)`);

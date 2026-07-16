@@ -163,6 +163,17 @@ class StatisticalEngine {
         const key = league.toLowerCase().trim();
         const known = this._leagueParams;
         if (known && known[key]) return known[key];
+
+        // League-specific rho defaults (high-scoring leagues → rho closer to 0)
+        if (key.includes('iceland') || key.includes('reykjavik') || key.includes('women')) return { rho: -0.05, gamma: 0.03 };
+        if (key.includes('bundesliga') || key.includes('netherlands') || key.includes('eredivisie') || key.includes('austria')) return { rho: -0.08, gamma: 0.02 };
+        if (key.includes('premier league') || key.includes('championship') || key.includes('norway') || key.includes('sweden')) return { rho: -0.10, gamma: 0.01 };
+        if (key.includes('ligue 1') || key.includes('france') || key.includes('ligue 2')) return { rho: -0.14, gamma: 0.0 };
+        if (key.includes('serie a') || key.includes('italy')) return { rho: -0.16, gamma: -0.01 };
+        if (key.includes('la liga') || key.includes('spain')) return { rho: -0.12, gamma: 0.01 };
+        if (key.includes('club friendly') || key.includes('friendly')) return { rho: -0.06, gamma: 0.02 };
+        if (key.includes('scotland') || key.includes('national')) return { rho: -0.11, gamma: 0.0 };
+
         return { rho: -0.12, gamma: 0.0 };
     }
 

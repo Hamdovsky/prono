@@ -19,6 +19,10 @@ _DYNAMIC_WEIGHTS_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'l
 _DYNAMIC_WEIGHTS_CACHE = None
 _DYNAMIC_WEIGHTS_TS = 0
 
+_CALIBRATION_WEIGHTS_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'calibration_weights.json')
+_CALIBRATION_WEIGHTS_CACHE = None
+_CALIBRATION_WEIGHTS_TS = 0
+
 
 def _load_dynamic_weights():
     """Load per-league dynamic weights from backtest results (refreshed every 6h)."""
@@ -36,18 +40,49 @@ def _load_dynamic_weights():
     return _DYNAMIC_WEIGHTS_CACHE
 
 
+def _load_calibration_weights():
+    """Load per-league calibration weights from Brier/LogLoss feedback (refreshed every 6h)."""
+    global _CALIBRATION_WEIGHTS_CACHE, _CALIBRATION_WEIGHTS_TS
+    now = __import__('time').time()
+    if _CALIBRATION_WEIGHTS_CACHE is not None and (now - _CALIBRATION_WEIGHTS_TS) < 21600:
+        return _CALIBRATION_WEIGHTS_CACHE
+    try:
+        with open(_CALIBRATION_WEIGHTS_PATH, 'r') as f:
+            _CALIBRATION_WEIGHTS_CACHE = json.load(f)
+            _CALIBRATION_WEIGHTS_TS = now
+    except Exception:
+        _CALIBRATION_WEIGHTS_CACHE = {}
+        _CALIBRATION_WEIGHTS_TS = now
+    return _CALIBRATION_WEIGHTS_CACHE
+
+
 def _get_league_weights(league_name):
-    """Merge static matrix with dynamic backtest weights. Dynamic overrides if edge > 3%."""
+    """Merge static matrix, dynamic backtest weights, and calibration feedback."""
     static = LEAGUE_WEIGHT_MATRIX.get("DEFAULT", {"xgb_weight": 0.75, "news_boost": 0.30})
+
+    # Source 1: Dynamic weights from binary accuracy backtest
     dynamic = _load_dynamic_weights().get(league_name)
-    if not dynamic:
-        return static
-    model_edge = dynamic.get('edge', 0)
-    if model_edge > 3:
-        return {
-            "xgb_weight": dynamic.get('xgb_weight', static['xgb_weight']),
-            "news_boost": dynamic.get('news_boost', static['news_boost']),
+    if dynamic:
+        model_edge = dynamic.get('edge', 0)
+        if model_edge > 3:
+            static = {
+                "xgb_weight": dynamic.get('xgb_weight', static['xgb_weight']),
+                "news_boost": dynamic.get('news_boost', static['news_boost']),
+            }
+
+    # Source 2: Calibration weights from Brier/LogLoss feedback
+    cal = _load_calibration_weights().get(league_name)
+    if cal and cal.get('confidence', 0) > 0.3:
+        xgb_adj = cal.get('xgb_adjustment', 0.0)
+        # Apply calibration adjustment (clamped to [0.3, 0.98])
+        new_xgb = max(0.30, min(0.98, static['xgb_weight'] + xgb_adj))
+        static = {
+            "xgb_weight": round(new_xgb, 4),
+            "news_boost": static['news_boost'],
+            "_calibration": cal.get('quality', 'unknown'),
+            "_brier": cal.get('brier1x2'),
         }
+
     return static
 
 

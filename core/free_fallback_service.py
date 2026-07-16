@@ -102,7 +102,8 @@ class FreeFallbackService:
         xg_h, xg_a = self._compute_xg(scraped, home, away)
 
         if xg_h <= 0 or xg_a <= 0:
-            xg_h, xg_a = 1.35, 1.15  # default football averages
+            # Dynamic fallback: query team history from tactical.db instead of static defaults
+            xg_h, xg_a = self._compute_dynamic_xg_fallback(home, away, league)
 
         # Step 2.5: Context & Lineup Intelligence — adjust xG for absences and formation bias
         ou_bias = 0
@@ -135,9 +136,11 @@ class FreeFallbackService:
         matrix = build_score_matrix_fn(xg_h, xg_a, max_goals=8)
         markets = calculate_markets_fn(matrix)
 
-        p_home = round(markets.get('home', 0.33) * 100, 1)
-        p_draw = round(markets.get('draw', 0.33) * 100, 1)
-        p_away = round(markets.get('away', 0.33) * 100, 1)
+        # calculate_markets returns nested dict: {"1X2": {"Home Win":..., "Draw":..., "Away Win":...}, "BTTS":...}
+        m1x2 = markets.get('1X2', {})
+        p_home = round(m1x2.get('Home Win', 0.33) * 100, 1)
+        p_draw = round(m1x2.get('Draw', 0.33) * 100, 1)
+        p_away = round(m1x2.get('Away Win', 0.33) * 100, 1)
 
         # Step 4: O/U 2.5 (with formation bias)
         analyze_ou = _lazy_import_top_analyst()
@@ -156,7 +159,7 @@ class FreeFallbackService:
             'draw_probability': p_draw,
             'away_win_probability': p_away,
             'ou_25_prob': ou_25_prob,
-            'btts_prob': round(markets.get('btts_yes', 0.5) * 100, 1),
+            'btts_prob': round(markets.get('BTTS', {}).get('Yes', 0.5) * 100, 1),
             'expected_score': expected_score,
             'prediction': pick,
             'prediction_probability': prob,
@@ -773,9 +776,10 @@ class FreeFallbackService:
         matrix = build_score_matrix_fn(new_xg_h, new_xg_a, max_goals=8)
         markets = calculate_markets_fn(matrix)
 
-        p_home = round(markets.get('home', 0.33) * 100, 1)
-        p_draw = round(markets.get('draw', 0.33) * 100, 1)
-        p_away = round(markets.get('away', 0.33) * 100, 1)
+        m1x2 = markets.get('1X2', {})
+        p_home = round(m1x2.get('Home Win', 0.33) * 100, 1)
+        p_draw = round(m1x2.get('Draw', 0.33) * 100, 1)
+        p_away = round(m1x2.get('Away Win', 0.33) * 100, 1)
 
         analyze_ou = _lazy_import_top_analyst()
         ou = analyze_ou(new_xg_h, new_xg_a)
@@ -790,7 +794,7 @@ class FreeFallbackService:
             'draw_probability': p_draw,
             'away_win_probability': p_away,
             'ou_25_prob': new_ou,
-            'btts_prob': round(markets.get('btts_yes', 0.5) * 100, 1),
+            'btts_prob': round(markets.get('BTTS', {}).get('Yes', 0.5) * 100, 1),
             'expected_score': expected_score,
             'prediction': pick,
             'prediction_probability': prob,
@@ -877,7 +881,8 @@ class FreeFallbackService:
         xg_a = scraped.get('xg_away', 0)
 
         if xg_h <= 0 and xg_a <= 0:
-            return 1.35, 1.15
+            # Already handled by _compute_dynamic_xg_fallback in caller
+            return 0, 0
 
         # Apply home advantage boost
         xg_h = xg_h * 1.08
@@ -887,6 +892,122 @@ class FreeFallbackService:
         xg_a = max(0.4, xg_a)
 
         return xg_h, xg_a
+
+    def _compute_dynamic_xg_fallback(self, home, away, league):
+        """
+        Dynamic xG fallback when no scraped data is available.
+        Queries tactical.db for team attack/defense ratings from historical matches.
+        Falls back to league-specific averages, never to generic 1.35/1.15.
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+
+            # Get home team attack rating (avg goals scored at home)
+            h_row = conn.execute(
+                """SELECT AVG(CASE WHEN homeTeam = ? THEN scoreHome ELSE scoreAway END) as avg_gf,
+                          AVG(CASE WHEN homeTeam = ? THEN scoreAway ELSE scoreHome END) as avg_ga,
+                          COUNT(*) as cnt
+                   FROM historical_matches
+                   WHERE (homeTeam = ? OR awayTeam = ?)
+                   AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL
+                   ORDER BY timestamp DESC LIMIT 15""",
+                (home, home, home, home)
+            ).fetchone()
+
+            # Get away team ratings
+            a_row = conn.execute(
+                """SELECT AVG(CASE WHEN homeTeam = ? THEN scoreHome ELSE scoreAway END) as avg_gf,
+                          AVG(CASE WHEN homeTeam = ? THEN scoreAway ELSE scoreHome END) as avg_ga,
+                          COUNT(*) as cnt
+                   FROM historical_matches
+                   WHERE (homeTeam = ? OR awayTeam = ?)
+                   AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL
+                   ORDER BY timestamp DESC LIMIT 15""",
+                (away, away, away, away)
+            ).fetchone()
+
+            # Get league average for regression
+            lg_row = conn.execute(
+                """SELECT AVG(scoreHome + scoreAway) as avg_total,
+                          AVG(CASE WHEN homeTeam = ? THEN scoreHome ELSE scoreAway END) as lg_avg_gf
+                   FROM historical_matches
+                   WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL
+                   AND timestamp > datetime('now', '-180 days')""",
+                (home,)
+            ).fetchone()
+
+            conn.close()
+
+            league_avg_total = 2.5
+            if lg_row and lg_row['avg_total']:
+                league_avg_total = float(lg_row['avg_total'])
+
+            lg_avg_gf = league_avg_total / 2.0
+            if lg_row and lg_row['lg_avg_gf']:
+                lg_avg_gf = float(lg_row['lg_avg_gf'])
+
+            # Team attack (goals scored per match, regressed toward league average)
+            h_gf = float(h_row['avg_gf']) if h_row and h_row['cnt'] and h_row['cnt'] >= 3 and h_row['avg_gf'] is not None else None
+            h_ga = float(h_row['avg_ga']) if h_row and h_row['cnt'] and h_row['cnt'] >= 3 and h_row['avg_ga'] is not None else None
+            a_gf = float(a_row['avg_gf']) if a_row and a_row['cnt'] and a_row['cnt'] >= 3 and a_row['avg_gf'] is not None else None
+            a_ga = float(a_row['avg_ga']) if a_row and a_row['cnt'] and a_row['cnt'] >= 3 and a_row['avg_ga'] is not None else None
+
+            # Bayesian regression: shrink toward league average
+            REG_STRENGTH = 0.4  # 40% league avg, 60% team data
+            if h_gf is not None:
+                h_gf = h_gf * (1 - REG_STRENGTH) + lg_avg_gf * REG_STRENGTH
+            else:
+                h_gf = lg_avg_gf
+
+            if h_ga is not None:
+                h_ga = h_ga * (1 - REG_STRENGTH) + (league_avg_total / 2) * REG_STRENGTH
+            else:
+                h_ga = league_avg_total / 2
+
+            if a_gf is not None:
+                a_gf = a_gf * (1 - REG_STRENGTH) + lg_avg_gf * REG_STRENGTH
+            else:
+                a_gf = lg_avg_gf
+
+            if a_ga is not None:
+                a_ga = a_ga * (1 - REG_STRENGTH) + (league_avg_total / 2) * REG_STRENGTH
+            else:
+                a_ga = league_avg_total / 2
+
+            # xG = avg(home attack, away defense conceded) for home team
+            xg_h = (h_gf + a_ga) / 2.0
+            xg_a = (a_gf + h_ga) / 2.0
+
+            # Apply home advantage
+            xg_h *= 1.08
+
+            xg_h = max(0.4, min(4.0, xg_h))
+            xg_a = max(0.4, min(4.0, xg_a))
+
+            logger.info(f"[FALLBACK] Dynamic xG: {home}={xg_h:.2f}, {away}={xg_a:.2f} (league_avg={league_avg_total:.2f})")
+            return xg_h, xg_a
+
+        except Exception as e:
+            logger.warning(f"[FALLBACK] Dynamic xG failed: {e}")
+
+        # Final fallback: league-specific averages (NEVER generic 1.35/1.15)
+        league_lower = (league or '').lower()
+        if 'iceland' in league_lower or 'women' in league_lower:
+            return 1.95, 1.65
+        if 'bundesliga' in league_lower or 'netherlands' in league_lower or 'eredivisie' in league_lower:
+            return 1.85, 1.55
+        if 'premier league' in league_lower or 'championship' in league_lower:
+            return 1.45, 1.25
+        if 'serie a' in league_lower:
+            return 1.35, 1.10
+        if 'ligue 1' in league_lower or 'france' in league_lower:
+            return 1.30, 1.05
+        if 'club friendly' in league_lower or 'friendly' in league_lower:
+            return 1.55, 1.30
+        if 'misli' in league_lower or 'azerbaijan' in league_lower:
+            return 1.60, 1.10
+        return 1.45, 1.20
 
     # ── PICK DETERMINATION ────────────────────────────────────────
 

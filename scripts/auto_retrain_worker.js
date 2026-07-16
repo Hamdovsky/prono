@@ -10,6 +10,7 @@ const LIVE_MODEL_PATH = path.join(__dirname, '..', 'models', 'live_goal_xgb.json
 const LIVE_TRAIN_SCRIPT = path.join(__dirname, '..', 'core', 'train_live_model.py');
 
 const FEEDBACK_SCRIPT = path.join(__dirname, '..', 'scripts', 'backtest_feedback.py');
+const CALIBRATION_SCRIPT = path.join(__dirname, '..', 'core', 'backtest_feedback.py');
 
 function _findPython() {
     let pythonPath = 'python';
@@ -52,6 +53,36 @@ function runBacktestFeedback() {
 }
 
 /**
+ * Run core/backtest_feedback.py to generate per-league calibration weights from Brier/LogLoss.
+ */
+function runCalibrationFeedback() {
+    return new Promise((resolve) => {
+        logger.info('[CALIBRATION] Running calibration feedback (Brier/LogLoss)...');
+        const pythonPath = _findPython();
+        const proc = spawn(pythonPath, [CALIBRATION_SCRIPT], {
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            windowsHide: true,
+        });
+        let stdout = '';
+        proc.stdout.on('data', d => { const s = d.toString(); stdout += s; logger.info(`[CALIBRATION] ${s.trim()}`); });
+        proc.stderr.on('data', d => logger.warn(`[CALIBRATION-WARN] ${d.toString().trim()}`));
+        proc.on('close', (code) => {
+            if (code === 0) {
+                logger.info('[CALIBRATION] Calibration weights generated successfully');
+                resolve(true);
+            } else {
+                logger.warn(`[CALIBRATION] Calibration script exited with code ${code}`);
+                resolve(false);
+            }
+        });
+        proc.on('error', (e) => {
+            logger.warn(`[CALIBRATION] Could not run calibration script: ${e.message}`);
+            resolve(false);
+        });
+    });
+}
+
+/**
  * Runs the Automated XGBoost Retraining Pipeline.
  * @returns {Promise<object>} Returns an object with the status and log output
  */
@@ -62,6 +93,9 @@ function runAutoRetrain() {
 
         // Step 0: Generate backtest feedback weights
         await runBacktestFeedback();
+
+        // Step 0.5: Generate calibration weights from Brier/LogLoss
+        await runCalibrationFeedback();
 
         let reportMsg = "⚙️ <b>Auto-Retrain Process Log</b>\n";
 
@@ -208,6 +242,9 @@ function runV56Retrain() {
 
         // Step 0: Generate backtest feedback weights
         await runBacktestFeedback();
+
+        // Step 0.5: Generate calibration weights from Brier/LogLoss
+        await runCalibrationFeedback();
 
         let pythonPath = _findPython();
 

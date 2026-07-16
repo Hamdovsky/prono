@@ -471,11 +471,35 @@ def load_or_fit_goalmodel_parameters(league_name, db_conn=None, force_refit=Fals
 
 
 def _fallback_params(league_name):
+    """League-specific fallback params. High-scoring leagues get rho closer to 0 to reduce Under 2.5 bias."""
+    lg = (league_name or '').lower()
+
+    # Default rho by league scoring profile
+    # High-scoring (3.0+ avg goals) → rho near 0 (DC has less effect on O/U)
+    # Low-scoring (<2.2 avg goals) → rho more negative (boosts low scores)
+    rho, gamma = -0.12, 0.0
+    if 'iceland' in lg or 'women' in lg or 'reykjavik' in lg:
+        rho, gamma = -0.05, 0.03
+    elif 'bundesliga' in lg or 'netherlands' in lg or 'eredivisie' in lg or 'austria' in lg:
+        rho, gamma = -0.08, 0.02
+    elif 'premier league' in lg or 'championship' in lg:
+        rho, gamma = -0.10, 0.01
+    elif 'ligue 1' in lg or 'france' in lg or 'ligue 2' in lg:
+        rho, gamma = -0.14, 0.0
+    elif 'serie a' in lg or 'italy' in lg:
+        rho, gamma = -0.16, -0.01
+    elif 'la liga' in lg or 'spain' in lg:
+        rho, gamma = -0.12, 0.01
+    elif 'club friendly' in lg or 'friendly' in lg:
+        rho, gamma = -0.06, 0.02
+    elif 'scotland' in lg or 'national' in lg:
+        rho, gamma = -0.11, 0.0
+
     return {
         'success': False,
         'league': league_name,
-        'rho': -0.12,
-        'gamma': 0.0,
+        'rho': rho,
+        'gamma': gamma,
         'hfa': 0.25,
         'mu': 0.13,
         'attack': {},
@@ -662,24 +686,61 @@ def predict_btts(xg_h, xg_a, distribution='poisson', theta=2.0, nu=1.0, rho=-0.1
     return min(btts, 1.0)
 
 
-def predict_ou(xg_h, xg_a, threshold=2.5, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12, gamma=0.0):
-    """Calculate over/under threshold probability directly from xG."""
+def predict_ou(xg_h, xg_a, threshold=2.5, distribution='poisson', theta=2.0, nu=1.0, rho=-0.12, gamma=0.0, league_name=None):
+    """Calculate over/under threshold probability directly from xG.
+    Includes league-aware calibration to counteract Dixon-Coles Under 2.5 bias.
+    """
     if abs(gamma) > 0.001:
         _strength_ratio = (xg_h - xg_a) / max(xg_h + xg_a, 0.01)
         xg_h *= math.exp(-gamma * _strength_ratio)
         xg_a *= math.exp(gamma * _strength_ratio)
     over = 0.0
+    under = 0.0
     for h in range(15):
         for a in range(15):
+            if distribution == 'negbin':
+                prob = negbin_pmf(xg_h, theta, h) * negbin_pmf(xg_a, theta, a)
+            elif distribution == 'cmp':
+                prob = cmp_pmf(xg_h, nu, h) * cmp_pmf(xg_a, nu, a)
+            else:
+                prob = poisson_pmf(xg_h, h) * poisson_pmf(xg_a, a)
+            prob *= get_dixon_coles_adjustment(xg_h, xg_a, h, a, rho)
             if h + a > threshold:
-                if distribution == 'negbin':
-                    prob = negbin_pmf(xg_h, theta, h) * negbin_pmf(xg_a, theta, a)
-                elif distribution == 'cmp':
-                    prob = cmp_pmf(xg_h, nu, h) * cmp_pmf(xg_a, nu, a)
-                else:
-                    prob = poisson_pmf(xg_h, h) * poisson_pmf(xg_a, a)
-                prob *= get_dixon_coles_adjustment(xg_h, xg_a, h, a, rho)
                 over += prob
+            else:
+                under += prob
+
+    # Normalize
+    total = over + under
+    if total > 0:
+        over /= total
+    else:
+        over = 0.5
+
+    # League-aware calibration: counteract DC Under bias for high-scoring leagues
+    lg = (league_name or '').lower()
+    total_xg = xg_h + xg_a
+
+    # High-scoring leagues where DC artificially inflates Under 2.5
+    is_high_scoring = any(kw in lg for kw in [
+        'iceland', 'women', 'bundesliga', 'netherlands', 'eredivisie',
+        'friendly', 'austria', 'sweden', 'norway'
+    ])
+
+    # Low-scoring leagues where DC might undercount Under 2.5
+    is_low_scoring = any(kw in lg for kw in [
+        'serie a', 'ligue 1', 'ligue 2', 'france', 'italy', 'defensive'
+    ])
+
+    if is_high_scoring and total_xg > 2.5:
+        # For high-scoring leagues, DC rho boosts under outcomes; correct upward
+        calibration = 0.02 + 0.01 * (total_xg - 2.5)
+        over = min(0.95, over + calibration)
+    elif is_low_scoring and total_xg < 2.0:
+        # For low-scoring leagues, slight downward correction
+        calibration = 0.01 + 0.005 * (2.0 - total_xg)
+        over = max(0.05, over - calibration)
+
     return min(over, 1.0)
 
 

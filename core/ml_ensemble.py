@@ -36,14 +36,47 @@ LEAGUE_WEIGHT_MATRIX = {
     "LaLiga": {"xgb_weight": 0.92, "news_boost": 0.25},
     "Serie A": {"xgb_weight": 0.88, "news_boost": 0.30},
     "Bundesliga": {"xgb_weight": 0.90, "news_boost": 0.15},
-    "Saudi Pro League": {"xgb_weight": 0.65, "news_boost": 0.65},
-    "Stoiximan Super League": {"xgb_weight": 0.55, "news_boost": 0.75},
     "Ligue 1": {"xgb_weight": 0.85, "news_boost": 0.35},
     "Primeira Liga": {"xgb_weight": 0.82, "news_boost": 0.45},
     "Eredivisie": {"xgb_weight": 0.88, "news_boost": 0.20},
+    "Saudi Pro League": {"xgb_weight": 0.65, "news_boost": 0.65},
+    "Stoiximan Super League": {"xgb_weight": 0.55, "news_boost": 0.75},
     "T1": {"xgb_weight": 0.90, "news_boost": 0.20},
     "T2": {"xgb_weight": 0.70, "news_boost": 0.45},
     "T3": {"xgb_weight": 0.45, "news_boost": 0.85},
+    # Additional leagues
+    "Championship": {"xgb_weight": 0.80, "news_boost": 0.20},
+    "Champions League": {"xgb_weight": 0.92, "news_boost": 0.10},
+    "Europa League": {"xgb_weight": 0.85, "news_boost": 0.20},
+    "Conference League": {"xgb_weight": 0.75, "news_boost": 0.25},
+    "Serie B": {"xgb_weight": 0.70, "news_boost": 0.30},
+    "LaLiga2": {"xgb_weight": 0.70, "news_boost": 0.30},
+    "Ligue 2": {"xgb_weight": 0.68, "news_boost": 0.30},
+    "2. Bundesliga": {"xgb_weight": 0.78, "news_boost": 0.20},
+    "EFL League One": {"xgb_weight": 0.60, "news_boost": 0.35},
+    "EFL League Two": {"xgb_weight": 0.55, "news_boost": 0.40},
+    "Scottish Premiership": {"xgb_weight": 0.72, "news_boost": 0.25},
+    "Eredivisie 2": {"xgb_weight": 0.65, "news_boost": 0.30},
+    "Belgian Pro League": {"xgb_weight": 0.70, "news_boost": 0.30},
+    "Super Lig": {"xgb_weight": 0.68, "news_boost": 0.40},
+    "Eredivisie": {"xgb_weight": 0.88, "news_boost": 0.20},
+    "MLS": {"xgb_weight": 0.60, "news_boost": 0.50},
+    "Brazil Serie A": {"xgb_weight": 0.70, "news_boost": 0.35},
+    "Argentina Primera": {"xgb_weight": 0.60, "news_boost": 0.50},
+    "Liga MX": {"xgb_weight": 0.68, "news_boost": 0.40},
+    "J1 League": {"xgb_weight": 0.60, "news_boost": 0.45},
+    "K League 1": {"xgb_weight": 0.62, "news_boost": 0.40},
+    "A-League": {"xgb_weight": 0.55, "news_boost": 0.50},
+    "Indian Super League": {"xgb_weight": 0.50, "news_boost": 0.55},
+    "Liga Portugal": {"xgb_weight": 0.78, "news_boost": 0.25},
+    "Allsvenskan": {"xgb_weight": 0.65, "news_boost": 0.30},
+    "Eliteserien": {"xgb_weight": 0.62, "news_boost": 0.35},
+    "Veikkausliiga": {"xgb_weight": 0.55, "news_boost": 0.45},
+    "Superettan": {"xgb_weight": 0.50, "news_boost": 0.50},
+    "1. Liga": {"xgb_weight": 0.60, "news_boost": 0.35},
+    "WC2026": {"xgb_weight": 0.95, "news_boost": 0.10},
+    "International": {"xgb_weight": 0.80, "news_boost": 0.15},
+    "Friendlies": {"xgb_weight": 0.30, "news_boost": 0.10},
     "DEFAULT": {"xgb_weight": 0.75, "news_boost": 0.30}
 }
 
@@ -167,8 +200,20 @@ def run_xgboost_inference(active_feature_vector, active_feature_names, XGB_BOOST
                 if p_h_xgb > (implied_h + 0.15) and n_sent < -0.2:
                     p_h_xgb *= 0.85
 
-                # Weighted Consensus
-                l_strat = LEAGUE_WEIGHT_MATRIX.get(league_name, LEAGUE_WEIGHT_MATRIX.get(league_tier, LEAGUE_WEIGHT_MATRIX['DEFAULT']))
+                # Weighted Consensus — fuzzy league matching
+                l_strat = None
+                # Try exact match first
+                l_strat = LEAGUE_WEIGHT_MATRIX.get(league_name)
+                # Try case-insensitive partial match
+                if not l_strat:
+                    ln_lower = league_name.lower()
+                    for key, val in LEAGUE_WEIGHT_MATRIX.items():
+                        if key.lower() in ln_lower or ln_lower in key.lower():
+                            l_strat = val
+                            break
+                # Fall back to tier or default
+                if not l_strat:
+                    l_strat = LEAGUE_WEIGHT_MATRIX.get(league_tier, LEAGUE_WEIGHT_MATRIX['DEFAULT'])
                 w_xgb = l_strat['xgb_weight']
                 w_poi = 1.0 - w_xgb
 

@@ -449,7 +449,7 @@ def get_team_history(team_name, limit=10, current_match_ts=None):
         return history[:limit]
     except: return []
 
-def calculate_rolling_averages(history_list, window=30):
+def calculate_rolling_averages(history_list, window=30, league_name=''):
     """
     V20 Quantum Decay: Uses a 30-match window with exponential weighting.
     Recent matches have significantly higher influence on the average.
@@ -463,11 +463,16 @@ def calculate_rolling_averages(history_list, window=30):
 
     history = history_list[:min(len(history_list), window)]
 
-    weighted_goals = 0.0
-    weighted_points = 0.0
-    total_weight = 0.0
-
-    alpha = 0.15
+    # League-specific decay rates: high-scoring leagues need faster decay
+    league_lower = (league_name or '').lower()
+    if any(x in league_lower for x in ['bundesliga', 'eredivisie', 'iceland', 'norway', 'sweden']):
+        alpha = 0.22  # High-scoring leagues: faster decay for recent form
+    elif any(x in league_lower for x in ['serie a', 'ligue 1', 'france', 'national']):
+        alpha = 0.12  # Defensive leagues: slower decay, more history matters
+    elif any(x in league_lower for x in ['premier league', 'championship', 'champions', 'europa']):
+        alpha = 0.18  # Competitive leagues: moderate decay
+    else:
+        alpha = 0.15  # Default
 
     for i, m in enumerate(history):
         weight = math.pow(1 - alpha, i)
@@ -531,7 +536,29 @@ def get_detailed_team_style(stats, league_avg_possession=52.0):
     if saves > 4: return "Low Block"
     
     return "Balanced"
-    
+
+def get_rolling_team_style(history_list, league_avg_possession=52.0):
+    """
+    Aggregates team style across last N matches using weighted voting.
+    More robust than single-match style detection.
+    """
+    if not history_list:
+        return "Balanced"
+    style_counts = {"Balanced": 0, "Possession": 0, "Counter-Attack": 0, "High Press": 0, "Low Block": 0}
+    total_weight = 0
+    for i, match_stats in enumerate(history_list):
+        weight = 1.0 / (1 + i)  # Most recent match has highest weight
+        style = get_detailed_team_style(match_stats, league_avg_possession)
+        style_counts[style] += weight
+        total_weight += weight
+    if total_weight == 0:
+        return "Balanced"
+    best_style = max(style_counts, key=style_counts.get)
+    # Require at least 30% weighted agreement
+    if style_counts[best_style] / total_weight < 0.30:
+        return "Balanced"
+    return best_style
+
 def get_match_motivation_context(row):
     """
     V25 Contextual Intelligence: 
@@ -1013,6 +1040,7 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     
     home_name = row.get('homeTeam', 'Home')
     away_name = row.get('awayTeam', 'Away')
+    _league_name = row.get('league', '') or row.get('tournament_name', '')
 
     # 0. Elo Ratings
     features['home_elo'] = _f(ELO_RATINGS.get(home_name), 1500)
@@ -1049,8 +1077,8 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
         h_hist = row.get('history_home', [])
         a_hist = row.get('history_away', [])
 
-    h_roll_g3, h_roll_p3 = calculate_rolling_averages(h_hist, window=3)
-    a_roll_g3, a_roll_p3 = calculate_rolling_averages(a_hist, window=3)
+    h_roll_g3, h_roll_p3 = calculate_rolling_averages(h_hist, window=3, league_name=_league_name)
+    a_roll_g3, a_roll_p3 = calculate_rolling_averages(a_hist, window=3, league_name=_league_name)
     features['home_momentum_goals'] = h_roll_g3
     features['home_momentum_points'] = h_roll_p3
     features['away_momentum_goals'] = a_roll_g3
@@ -1194,8 +1222,11 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     features['h_cards'], features['a_cards'] = h_y, a_y
 
     # 6. Stylistic & Momentum (V13/V19 Fusion)
-    h_style = get_detailed_team_style(h_hist[0] if h_hist else {})
-    a_style = get_detailed_team_style(a_hist[0] if a_hist else {})
+    # V55 FIX: Use rolling window of last 5 matches for style detection (single match too noisy)
+    h_style_matches = h_hist[:5] if h_hist else []
+    a_style_matches = a_hist[:5] if a_hist else []
+    h_style = get_rolling_team_style(h_style_matches)
+    a_style = get_rolling_team_style(a_style_matches)
     _STYLE_MAP = {"Balanced": 0, "Possession": 1, "Counter-Attack": 2, "High Press": 3, "Low Block": 4}
     features['h_style_enc'] = _STYLE_MAP.get(h_style, 0)
     features['a_style_enc'] = _STYLE_MAP.get(a_style, 0)

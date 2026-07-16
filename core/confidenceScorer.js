@@ -3,6 +3,7 @@ const path = require('path');
 const logger = require('./logger');
 
 const WEIGHTS_PATH = path.join(__dirname, '../config/model_weights.json');
+const HIST_PATH = path.join(__dirname, '../data/accuracy_history.json');
 const HIST_CACHE = new Map();
 
 function loadWeights() {
@@ -119,7 +120,31 @@ function recordSettlement(league, marketType, won) {
   const entry = HIST_CACHE.get(key);
   entry.count++;
   if (won) entry.wins++;
-  // keep in-memory; lost on restart (acceptable for this use-case)
+  _saveHistory();
 }
+
+function _saveHistory() {
+  try {
+    const obj = {};
+    for (const [k, v] of HIST_CACHE) obj[k] = v;
+    fs.writeFileSync(HIST_PATH, JSON.stringify(obj, null, 0));
+  } catch (e) {
+    logger.warn(`[CONFIDENCE] Failed to save history: ${e.message}`);
+  }
+}
+
+function _loadHistory() {
+  try {
+    if (fs.existsSync(HIST_PATH)) {
+      const obj = JSON.parse(fs.readFileSync(HIST_PATH, 'utf8'));
+      for (const [k, v] of Object.entries(obj)) HIST_CACHE.set(k, v);
+      logger.info(`[CONFIDENCE] Loaded ${HIST_CACHE.size} accuracy history entries`);
+    }
+  } catch (e) {
+    logger.warn(`[CONFIDENCE] Failed to load history: ${e.message}`);
+  }
+}
+
+_loadHistory();
 
 module.exports = { computeConfidence, loadWeights, recordSettlement };

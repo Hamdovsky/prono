@@ -356,8 +356,8 @@ def process_prediction(match_obj: dict) -> dict:
     odds_open = best_outcome[3]
 
     # Rolling Averages
-    h_roll_g3, h_roll_p3 = calculate_rolling_averages(h_hist, window=3)
-    a_roll_g3, a_roll_p3 = calculate_rolling_averages(a_hist, window=3)
+    h_roll_g3, h_roll_p3 = calculate_rolling_averages(h_hist, window=3, league_name=league_name_str)
+    a_roll_g3, a_roll_p3 = calculate_rolling_averages(a_hist, window=3, league_name=league_name_str)
     ref_name = match_obj.get('referee') or match_obj.get('refereeName')
 
     total_absentee_impact = 0

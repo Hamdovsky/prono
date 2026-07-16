@@ -596,8 +596,9 @@ function analyseObstacles(enrichedMatches) {
     // 1. Bookmaker: ML probability strength
     const bmScore = Math.max(p1, px, p2) > 0.45 ? 2 : 4;
 
-    // 2. Terrain: generic (3 = neutral)
-    const terrainScore = 3;
+    // 2. Terrain: home advantage signal
+    const homeAdv = m.homeAdvantage || 0;
+    const terrainScore = homeAdv > 0.6 ? 2 : (homeAdv < 0.4 ? 4 : 3);
 
     // 3. Statistiques: entropy-based
     const H = -(p1 * Math.log2(Math.max(0.01, p1)) + px * Math.log2(Math.max(0.01, px)) + p2 * Math.log2(Math.max(0.01, p2)));
@@ -609,16 +610,34 @@ function analyseObstacles(enrichedMatches) {
     // 5. Public: crowd trap detection
     const crowdScore = m.isCrowdTrap || m.isAwayCrowdTrap ? 5 : (m.publicOverconfidence ? 4 : 2);
 
-    // 6-9. Non-disponibles
-    const unavailScore = 3;
+    // 6. Meteo: weather impact
+    const weatherDesc = (m.weather_desc || '').toLowerCase();
+    const meteoScore = (weatherDesc.includes('rain') || weatherDesc.includes('wind') || weatherDesc.includes('storm')) ? 4 : 3;
 
-    // 10. Average as placeholder for historique
-    const histScore = 3;
+    // 7. Blessures: injury impact
+    const injuryH = parseFloat(m.home_injury_impact || 0);
+    const injuryA = parseFloat(m.away_injury_impact || 0);
+    const blessuresScore = (injuryH >= 3 || injuryA >= 3) ? 5 : ((injuryH >= 1 || injuryA >= 1) ? 4 : 3);
+
+    // 8. Arbitrage: referee strictness
+    const refYellow = parseFloat(m.referee_yellow_avg || 0);
+    const arbitrageScore = refYellow > 4.5 ? 4 : (refYellow > 3.5 ? 3 : 2);
+
+    // 9. Cotes: odds movement / value gap
+    const oddsH = parseFloat(m.odds_home || 0);
+    const oddsA = parseFloat(m.odds_away || 0);
+    const oddsGap = Math.abs(oddsH - oddsA);
+    const cotesScore = oddsGap < 0.3 ? 4 : (oddsGap > 1.5 ? 2 : 3);
+
+    // 10. Historique: H2H familiarity
+    const h2hMeetings = m.h2h_data?.teamDuel?.lastMeetings?.length || 0;
+    const histScore = h2hMeetings >= 3 ? 2 : (h2hMeetings >= 1 ? 3 : 4);
 
     // 11. Valeur: EV-based
-    const valueScore = m.publicOverconfidence ? 4 : 3;
+    const ev = parseFloat(m.ev_score || 0);
+    const valueScore = ev > 0.5 ? 2 : (ev < 0 ? 4 : 3);
 
-    const scores = { bookmaker: bmScore, terrain: terrainScore, stats: statsScore, psycho: psychoScore, public: crowdScore, meteo: unavailScore, blessures: unavailScore, arbitrage: unavailScore, cotes: unavailScore, historique: histScore, valeur: valueScore };
+    const scores = { bookmaker: bmScore, terrain: terrainScore, stats: statsScore, psycho: psychoScore, public: crowdScore, meteo: meteoScore, blessures: blessuresScore, arbitrage: arbitrageScore, cotes: cotesScore, historique: histScore, valeur: valueScore };
     const avg = Object.values(scores).reduce((a, b) => a + b, 0) / 11;
     return { scores, avgScore: +avg.toFixed(2), maxScore: Math.max(...Object.values(scores)) };
   });

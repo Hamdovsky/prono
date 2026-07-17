@@ -15,10 +15,9 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/prono-api-7mhs\.onrender\.com\/api\/.*/i,
-            handler: 'NetworkFirst',
+            handler: 'NetworkOnly',
             options: {
-              cacheName: 'api-cache',
-              expiration: { maxEntries: 100, maxAgeSeconds: 300 }
+              cacheName: 'api-cache'
             }
           },
           {

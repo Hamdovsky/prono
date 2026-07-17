@@ -14,6 +14,16 @@ const CACHE_STORE = new Map();
 const _revalidating = new Set()
 const MAX_CACHE_ENTRIES = 100
 
+// Prevent the PWA service worker / browser from caching API responses so a
+// stale empty payload can never be served to the dashboard.
+function setNoStore(res) {
+    try {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+    } catch (_) { /* ignore */ }
+}
+
 function evictIfNeeded() {
   if (CACHE_STORE.size >= MAX_CACHE_ENTRIES) {
     const oldest = [...CACHE_STORE.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0]
@@ -34,14 +44,19 @@ function speedCache(key, ttlMs = 60_000, staleMs = 300_000) {
         if (cached) {
             const age = now - cached.timestamp;
             if (age < ttlMs) {
+                setNoStore(res);
                 return res.json(cached.data);
             }
             if (age < staleMs) {
+                setNoStore(res);
                 res.json(cached.data);
                 if (!_revalidating.has(cacheKey)) {
                     _revalidating.add(cacheKey);
-                    const routeHandler = req.route?.stack?.[0]?.handle
-                    if (routeHandler) {
+                    // Find the REAL route handler (last layer in the matched route stack),
+                    // NOT speedCache itself (which is the first layer).
+                    const stack = (req.route && req.route.stack) || [];
+                    const realHandler = stack.length > 1 ? stack[stack.length - 1].handle : null;
+                    if (realHandler) {
                         const fakeRes = {
                             statusCode: 200,
                             json: (body) => {
@@ -54,7 +69,8 @@ function speedCache(key, ttlMs = 60_000, staleMs = 300_000) {
                             get() { return this; },
                             header() { return this; }
                         };
-                        routeHandler(req, fakeRes, () => {})
+                        try { realHandler(req, fakeRes, () => {}) }
+                        catch (e) { _revalidating.delete(cacheKey); }
                     } else {
                         _revalidating.delete(cacheKey)
                     }
@@ -66,6 +82,7 @@ function speedCache(key, ttlMs = 60_000, staleMs = 300_000) {
 
         const _json = res.json.bind(res);
         res.json = (body) => {
+            setNoStore(res);
             evictIfNeeded()
             CACHE_STORE.set(cacheKey, { data: body, timestamp: Date.now() });
             return _json(body);

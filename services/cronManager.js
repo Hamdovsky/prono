@@ -668,6 +668,9 @@ class CronManager {
         this.scraperSchedule.running = false;
         await redisCache.setLastRun(Date.now()).catch(() => {});
         await redisCache.redis?.del('scraper:lock').catch(() => {});
+        // 🧹 Invalidate the cached /api/upcoming response so the dashboard
+        // immediately reflects freshly scraped matches.
+        try { invalidateCache('upcoming'); } catch (_) {}
         logger.info(`âœ… [CRON] Scraper (${label}) finished via bridge.`);
     }
 

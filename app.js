@@ -144,10 +144,11 @@ try {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "cdn.tailwindcss.com", "cdnjs.cloudflare.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "cdn.tailwindcss.com", "cdnjs.cloudflare.com", "pagead2.googlesyndication.com", "googleads.g.doubleclick.net", "www.googletagservices.com", "*.googlesyndication.com", "*.google.com", "*.g.doubleclick.net"],
+        styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "*.googlesyndication.com"],
         fontSrc: ["'self'", "fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: ["'self'", "data:", "https:", "*.googlesyndication.com", "*.doubleclick.net", "*.google.com"],
+        frameSrc: ["'self'", "*.googlesyndication.com", "*.doubleclick.net", "*.google.com", "pagead2.googlesyndication.com", "googleads.g.doubleclick.net", "www.googletagservices.com"],
         connectSrc: ["'self'", "ws:", "wss:", "http:", "https:"]
       }
     },

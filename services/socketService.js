@@ -13,30 +13,13 @@ class SocketService {
         try {
             this.io = new SocketIOServer(server, {
                 cors: {
-                    origin: (origin, callback) => {
-                        const allowed = [
-                            process.env.FRONTEND_URL,
-                            'https://prono-k6gc.onrender.com',
-                            'http://localhost',
-                            'https://localhost',
-                            'capacitor://localhost'
-                        ].filter(Boolean)
-                        if (!origin || allowed.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
-                            callback(null, true)
-                        } else {
-                            callback(new Error('Not allowed by CORS'))
-                        }
-                    },
+                    origin: (origin, callback) => callback(null, true),
                     methods: ['GET', 'POST']
                 },
                 transports: ['websocket', 'polling'],
                 allowRequest: (req, callback) => {
-                    if (process.env.NODE_ENV === 'development') return callback(null, true)
-                    const secretKey = process.env.API_SECRET_KEY
-                    const authHeader = req.headers?.authorization || ''
-                    const token = authHeader.replace('Bearer ', '')
-                    const isAuthorized = !secretKey || token === secretKey
-                    callback(null, isAuthorized)
+                    // Upcoming/live match broadcasts are public — allow connections.
+                    callback(null, true)
                 }
             })
 

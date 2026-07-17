@@ -15,13 +15,16 @@ const logger = {
 
 class DataService {
     _handleUpcomingUpdate(data) {
-        const matches = Array.isArray(data) ? data : (data?.matches || [])
-        if (matches.length > 0 || Array.isArray(data)) {
+        if (data == null) return;
+        const matches = Array.isArray(data) ? data : (data?.matches || null);
+        if (matches && Array.isArray(matches) && matches.length > 0) {
             this.upcomingPredictions = matches.map(m => this._normalizeMatch(m, 'upcoming')).filter(m => m !== null);
             this.upcomingSubscribers.forEach(cb => cb(this.upcomingPredictions));
-        } else if (data && typeof data === 'object') {
+        } else if (data && typeof data === 'object' && !Array.isArray(data) && !data.matches) {
+            // Server signaled a refetch (e.g. { refetch: true })
             this.fetchUpcomingPredictions();
         }
+        // Empty array / empty object → keep current predictions (never blank out)
     }
 
     constructor() {
@@ -449,7 +452,24 @@ class DataService {
     subscribeUpcoming(callback) {
         this.upcomingSubscribers.push(callback);
         this.fetchUpcomingPredictions();
-        return () => this.upcomingSubscribers = this.upcomingSubscribers.filter(sub => sub !== callback);
+        // 🔁 Cold-start resilience: on Render free tier the server may be
+        // asleep when the page loads, so the first fetch fails. Retry with a
+        // forced refresh for ~20s until data arrives (or give up).
+        let attempts = 0;
+        const retryTimer = setInterval(() => {
+            attempts++;
+            if (this.upcomingPredictions && this.upcomingPredictions.length > 0) {
+                clearInterval(retryTimer);
+            } else if (attempts >= 5) {
+                clearInterval(retryTimer);
+            } else {
+                this.fetchUpcomingPredictions(true);
+            }
+        }, 4000);
+        return () => {
+            clearInterval(retryTimer);
+            this.upcomingSubscribers = this.upcomingSubscribers.filter(sub => sub !== callback);
+        };
     }
 
     subscribeHealth(callback) {

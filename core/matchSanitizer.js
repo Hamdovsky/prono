@@ -8,7 +8,10 @@ const logger = require('./logger')
 const FROZEN_CONFIDENCE_VALUES = [33, 33.3, 33.33, 35, 50]
 const FROZEN_PROB_SUM_THRESHOLD = 5   // if |h+d+a - 100| > 5, probs are broken
 const MIN_VALID_PROB = 1              // any 1X2 prob below 1% is garbage
-const MAX_MATCH_AGE_MS = 48 * 3600 * 1000 // 48h — reject stale matches
+// Adaptive freshness: Render free tier sleeps after 15min → crons stop → matches get stale
+const MAX_MATCH_AGE_MS = process.env.RENDER
+    ? 168 * 3600 * 1000   // 7 days on Render (service sleeps frequently)
+    : 48 * 3600 * 1000    // 48h on Replit/local (always-on)
 
 // ─── FLAG / COUNTRY MISMATCH MAP ─────────────────────────────────────────────
 // league keywords → expected country_iso patterns

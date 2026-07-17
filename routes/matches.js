@@ -12,6 +12,41 @@ const ValueBetEngine = require('../src/services/ValueBetEngine');
 const IntegrityService = require('../services/integrity_service');
 const newsService = require('../src/services/newsService');
 
+router.get('/debug/scraper-status', async (req, res) => {
+    try {
+        const dbStatus = await database.query('SELECT COUNT(*) as total FROM matches')
+            .catch(() => ({ rows: [{ total: 0 }] }));
+        const total = dbStatus?.rows?.[0]?.total || dbStatus?.[0]?.cnt || 0;
+
+        const statusCounts = await database.query(
+            `SELECT status, COUNT(*) as cnt FROM matches GROUP BY status ORDER BY cnt DESC`
+        ).catch(() => ({ rows: [] }));
+        const sourceCounts = await database.query(
+            `SELECT source, COUNT(*) as cnt FROM matches GROUP BY source ORDER BY cnt DESC`
+        ).catch(() => ({ rows: [] }));
+        const recentMatch = await database.query(
+            `SELECT homeTeam, awayTeam, league, status, source, timestamp FROM matches ORDER BY timestamp DESC LIMIT 1`
+        ).catch(() => ({ rows: [] }));
+
+        const hasFD = !!process.env.FOOTBALLDATA_KEY;
+        const hasAPiF = !!process.env.APIFOOTBALL_KEY;
+        const hasBSD = !!process.env.BSD_API_KEY;
+        const hasRapi = !!process.env.RAPIDAPI_KEY;
+
+        res.json({
+            totalMatches: total,
+            statusBreakdown: statusCounts?.rows || statusCounts || [],
+            sourceBreakdown: sourceCounts?.rows || sourceCounts || [],
+            lastMatch: recentMatch?.rows?.[0] || recentMatch?.[0] || null,
+            apiKeys: { FOOTBALLDATA_KEY: hasFD, APIFOOTBALL_KEY: hasAPiF, BSD_API_KEY: hasBSD, RAPIDAPI_KEY: hasRapi },
+            nodeEnv: process.env.NODE_ENV,
+            platform: process.platform,
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 /**
  * GET /api/live
  * Live matches with goal prediction analysis
@@ -119,7 +154,7 @@ router.get('/live/goal-predictions', async (req, res) => {
 router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) => {
     try {
         // [PREMATCH ONLY] strictly filter out live/in-progress matches
-        const allMatches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
+        const allMatches = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS']);
         let rawMatches = allMatches;
         
         const daysParam = parseInt(req.query.days) || 3;
@@ -158,7 +193,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         // If no upcoming matches, fallback to recent matches (last 7 days)
         if (rawMatches.length === 0) {
             const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime();
-            const allMatches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
+            const allMatches = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS']);
             rawMatches = allMatches.filter(m => {
                 let rawTs = m.startTimestamp;
                 if (!rawTs || rawTs === 0) {
@@ -374,7 +409,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
 router.get('/predictions', async (req, res) => {
   try {
     const db = require('../core/database')
-    const matches = await db.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
+    const matches = await db.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
     const minConf = parseFloat(req.query.min_confidence) || 75
 
     const quality = matches.filter(m => {
@@ -449,7 +484,7 @@ router.get('/odds/steam/:matchId', async (req, res) => {
  */
 router.get('/market/edge', async (req, res) => {
     try {
-        const allMatches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
+        const allMatches = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS']);
         const matches = allMatches.filter(m => m.source === 'africanobet');
         const results = [];
         for (const m of matches) {

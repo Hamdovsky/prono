@@ -827,7 +827,7 @@ class FreeFallbackService:
 
             # Get recent home matches for home team
             h_home = conn.execute(
-                """SELECT scoreHome, scoreAway FROM matches
+                """SELECT homeTeam, scoreHome, scoreAway FROM matches
                    WHERE (homeTeam = ? OR awayTeam = ?)
                    AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL
                    AND scoreHome > 0 AND scoreAway > 0
@@ -836,7 +836,7 @@ class FreeFallbackService:
             ).fetchall()
 
             a_away = conn.execute(
-                """SELECT scoreHome, scoreAway FROM matches
+                """SELECT homeTeam, scoreHome, scoreAway FROM matches
                    WHERE (homeTeam = ? OR awayTeam = ?)
                    AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL
                    AND scoreHome > 0 AND scoreAway > 0

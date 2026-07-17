@@ -621,13 +621,11 @@ class CronManager {
 
         logger.info('âœ… [CRON] Scheduler active');
 
-        // ðŸš€ [RESUME] Disabled to avoid conflict with standalone scraper process
-        /*
+        // 🚀 [RESUME] Trigger scraper 30s after boot to repopulate DB on Render wake-up
         setTimeout(() => {
-            logger.info('ðŸ”„ [CRON] Resuming scraper from where it left off on server startup...');
+            logger.info('🔄 [CRON] Resuming scraper on server startup...');
             this.launchScraper('startup-resume');
         }, 30000);
-        */
     }
 
     async launchScraper(label) {

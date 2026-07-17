@@ -1,0 +1,7 @@
+# Minimal redirect image — forwards all traffic from the orphan
+# "prono" (prono-dggr.onrender.com) service to the main "prono-api" dashboard.
+FROM node:18-alpine
+WORKDIR /app
+COPY redirect.js .
+EXPOSE 10000
+CMD ["node", "redirect.js"]

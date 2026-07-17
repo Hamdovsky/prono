@@ -153,8 +153,26 @@ class BsdService {
 
   // ── MAPPING ─────────────────────────────────────────────────────
 
+  _parseTimestamp(event) {
+    // BSD API returns the kickoff in `event_date` (ISO 8601 with tz),
+    // not `start_timestamp`. Some responses may also expose a numeric
+    // `start_timestamp` / `date_unix`. Normalize all of these to UNIX secs.
+    const raw = event.start_timestamp || event.date_unix || event.event_date || event.date;
+
+    if (raw == null) return Math.floor(Date.now() / 1000);
+
+    if (typeof raw === 'number') {
+      // Distinguish seconds (< 1e11) from milliseconds.
+      return raw > 1e11 ? Math.floor(raw / 1000) : raw;
+    }
+
+    const ms = new Date(raw).getTime();
+    if (Number.isNaN(ms)) return Math.floor(Date.now() / 1000);
+    return Math.floor(ms / 1000);
+  }
+
   _mapEventToMatch(event) {
-    const ts = event.start_timestamp || event.date_unix || Math.floor(new Date(event.date || Date.now()).getTime() / 1000)
+    const ts = this._parseTimestamp(event)
 
     const resolveName = (v) => (typeof v === 'string' ? v : v?.name) || null
     let homeTeam = resolveName(event.home_team) || event.homeTeam || event.home_name || 'Home'

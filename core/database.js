@@ -713,7 +713,9 @@ const database = {
                     weather_humidity = COALESCE(excluded.weather_humidity, matches.weather_humidity),
                     home_form_pts = COALESCE(excluded.home_form_pts, matches.home_form_pts),
                     away_form_pts = COALESCE(excluded.away_form_pts, matches.away_form_pts),
-                    insufficient_data = excluded.insufficient_data;
+                    insufficient_data = excluded.insufficient_data,
+                    timestamp = excluded.timestamp,
+                    startTimestamp = excluded.startTimestamp;
             `;
 
             const params = [

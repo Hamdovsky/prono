@@ -5,6 +5,7 @@ const database = require('../core/database');
 const { speedCache, invalidateCache } = require('../core/speedCache');
 const enrichedPredictions = require('../core/enriched_predictions');
 const { sanitizeMatches } = require('../core/matchSanitizer');
+const bsdService = require('../services/bsdService');
 const liveGoalPredictor = require('../services/LiveGoalPredictor');
 const liveMatchService = require('../services/liveMatchService');
 const { getSteamForMatch } = require('../services/oddsMovementService');
@@ -12,21 +13,33 @@ const ValueBetEngine = require('../src/services/ValueBetEngine');
 const IntegrityService = require('../services/integrity_service');
 const newsService = require('../src/services/newsService');
 
+// Normalize database.query output (returns { rows } in SQLite mode, or a raw
+// array/promise in some configurations) into a plain array of row objects.
+async function safeQuery(sql, fallback = []) {
+    try {
+        const r = await database.query(sql);
+        if (r && Array.isArray(r.rows)) return r.rows;
+        if (Array.isArray(r)) return r;
+        return fallback;
+    } catch (e) {
+        return fallback;
+    }
+}
+
 router.get('/debug/scraper-status', async (req, res) => {
     try {
-        const dbStatus = await database.query('SELECT COUNT(*) as total FROM matches')
-            .catch(() => ({ rows: [{ total: 0 }] }));
-        const total = dbStatus?.rows?.[0]?.total || dbStatus?.[0]?.cnt || 0;
+        const dbStatus = await safeQuery('SELECT COUNT(*) as total FROM matches', [{ total: 0 }]);
+        const total = dbStatus?.[0]?.total || 0;
 
-        const statusCounts = await database.query(
+        const statusCounts = await safeQuery(
             `SELECT status, COUNT(*) as cnt FROM matches GROUP BY status ORDER BY cnt DESC`
-        ).catch(() => ({ rows: [] }));
-        const sourceCounts = await database.query(
+        );
+        const sourceCounts = await safeQuery(
             `SELECT source, COUNT(*) as cnt FROM matches GROUP BY source ORDER BY cnt DESC`
-        ).catch(() => ({ rows: [] }));
-        const recentMatch = await database.query(
+        );
+        const recentMatch = await safeQuery(
             `SELECT homeTeam, awayTeam, league, status, source, timestamp FROM matches ORDER BY timestamp DESC LIMIT 1`
-        ).catch(() => ({ rows: [] }));
+        );
 
         const hasFD = !!process.env.FOOTBALLDATA_KEY;
         const hasAPiF = !!process.env.APIFOOTBALL_KEY;
@@ -35,13 +48,47 @@ router.get('/debug/scraper-status', async (req, res) => {
 
         res.json({
             totalMatches: total,
-            statusBreakdown: statusCounts?.rows || statusCounts || [],
-            sourceBreakdown: sourceCounts?.rows || sourceCounts || [],
-            lastMatch: recentMatch?.rows?.[0] || recentMatch?.[0] || null,
+            statusBreakdown: statusCounts || [],
+            sourceBreakdown: sourceCounts || [],
+            lastMatch: recentMatch?.[0] || null,
             apiKeys: { FOOTBALLDATA_KEY: hasFD, APIFOOTBALL_KEY: hasAPiF, BSD_API_KEY: hasBSD, RAPIDAPI_KEY: hasRapi },
             nodeEnv: process.env.NODE_ENV,
             platform: process.platform,
         });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// One-off backfill: re-fetch BSD events and correct the per-match kickoff
+// timestamps that were previously stored with an identical (sync-time) value.
+router.post('/debug/bsd-backfill', async (req, res) => {
+    try {
+        if (!bsdService.isAvailable()) {
+            return res.json({ success: false, reason: 'BSD not available' });
+        }
+        let updated = 0;
+        const base = new Date();
+        for (let i = 0; i < 14; i++) {
+            const d = new Date(base.getTime() + i * 86400000);
+            const dateStr = d.toISOString().split('T')[0];
+            const events = await bsdService.fetchEvents(dateStr);
+            if (!events || !events.length) continue;
+            for (const ev of events) {
+                const id = `bsd_${ev.id || ev.match_id || ''}`;
+                const ts = bsdService._parseTimestamp(ev);
+                if (!ts) continue;
+                const tsIso = new Date(ts * 1000).toISOString();
+                try {
+                    database.db.prepare(
+                        'UPDATE matches SET startTimestamp = ?, timestamp = ? WHERE id = ? AND source = ?'
+                    ).run(ts, tsIso, id, 'bsd');
+                    updated++;
+                } catch (_) { /* ignore */ }
+            }
+        }
+        if (typeof invalidateCache === 'function') invalidateCache('upcoming');
+        res.json({ success: true, updated });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

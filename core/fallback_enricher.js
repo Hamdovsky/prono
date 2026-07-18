@@ -310,7 +310,7 @@ async function enrichMatchesBatch(opts = {}) {
             ev_draw: r.prediction === 'X' ? r.ev_score : null,
             ev_away: r.prediction === '2' ? r.ev_score : null,
             ev_score: r.ev_score,
-            insufficient_data: 0,
+            insufficient_data: r.insufficient_data ?? 0,
             home_xg: r.home_xg,
             away_xg: r.away_xg,
             xgboost_confidence: r.xgboost_confidence || null,

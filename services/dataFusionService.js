@@ -10,8 +10,8 @@ class DataFusionService {
     this.sources = [
       { name: 'fbref',           priority: 1, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
       { name: 'sofascore',       priority: 2, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'scrapeservice',   priority: 3, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'polymarket',      priority: 4, quota: 20,       calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'polymarket',      priority: 3, quota: 20,       calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'scrapeservice',   priority: 4, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
       { name: 'bsd',             priority: 5, quota: 200,      calls: 0, errors: 0, cooldownUntil: 0 },
       { name: 'therundown',      priority: 6, quota: 500,      calls: 0, errors: 0, cooldownUntil: 0 },
       { name: 'footballdata',    priority: 7, quota: 10,       calls: 0, errors: 0, cooldownUntil: 0 },
@@ -132,55 +132,13 @@ class DataFusionService {
   }
 
   async _trySofascore(match) {
-    let sofaId = await this._getSofaId(match)
-    // No Sofascore ID — try to find match by team name on Sofascore (free, no key needed)
-    if (!sofaId && match.homeTeam && match.awayTeam) {
-      sofaId = await this._findSofaMatchId(match.homeTeam, match.awayTeam)
-    }
+    const sofaId = await this._getSofaId(match)
+    // Sofascore search by team name is 403-blocked from Render's IP;
+    // only proceed when a Sofascore ID is already known (oddsService routes through scraperProxy if available).
     if (!sofaId) return null
     const oddsService = require('../src/services/oddsService')
     const odds = await oddsService.getLiveOdds(sofaId)
     return odds ? { home: odds.home, draw: odds.draw, away: odds.away } : null
-  }
-
-  async _searchSofaTeam(teamName) {
-    if (!teamName) return null
-    try {
-      const url = `https://www.sofascore.com/api/v1/search/teams?q=${encodeURIComponent(teamName)}`
-      const headers = {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Origin': 'https://www.sofascore.com',
-        'Referer': 'https://www.sofascore.com/',
-      }
-      const resp = await axios.get(url, { headers, timeout: 6000 })
-      const results = resp.data?.results || []
-      if (!results.length) return null
-      const exact = results.find(r => r.name?.toLowerCase() === teamName.toLowerCase())
-      return exact || results[0]
-    } catch (_) { return null }
-  }
-
-  async _findSofaMatchId(homeTeam, awayTeam) {
-    const home = await this._searchSofaTeam(homeTeam)
-    if (!home) return null
-    try {
-      const url = `https://www.sofascore.com/api/v1/team/${home.id}/events?page=0&pageSize=50`
-      const headers = {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Origin': 'https://www.sofascore.com',
-        'Referer': `https://www.sofascore.com/team/football/${home.slug || home.id}`,
-      }
-      const resp = await axios.get(url, { headers, timeout: 8000 })
-      const events = resp.data?.events || []
-      const match = events.find(e => {
-        const aName = e.awayTeam?.name || ''
-        return aName.toLowerCase().includes(awayTeam.toLowerCase()) ||
-               awayTeam.toLowerCase().includes(aName.toLowerCase())
-      })
-      return match?.id || null
-    } catch (_) { return null }
   }
 
   async _tryScrapeService(match) {

@@ -1115,10 +1115,26 @@ class EnrichedPredictionService {
                                         return parts.length === 2 ? parts[0] + parts[1] : 0;
                                     })() : 0);
                     const ou25Odds = parseFloat(m.odds_ou25 || m.over25_odds || m.odds_over25 || 0);
-                    const ou25Prob = quantResult.probs.over25 || 0;
-                    const bttsProb = quantResult.probs.btts || 0;
-                    const htGoalProb = quantResult.probs.ht_goal || 0;
-                    const crashed = xgTotal > 2.85 && (ou25Odds > 0 && ou25Odds < 1.40);
+                    const marketHidden = ou25Odds <= 0;
+                    let ou25Prob = quantResult.probs.over25 || 0;
+                    let bttsProb = quantResult.probs.btts || 0;
+                    let htGoalProb = quantResult.probs.ht_goal || 0;
+
+                    // [FIX] When bookmakers lock/hide markets (odds=0), derive probs from xG via Poisson
+                    if ((marketHidden || ou25Prob === 0) && parseFloat(m.home_xg || 0) > 0.3) {
+                        try {
+                            const xgH = parseFloat(m.home_xg || 1.0);
+                            const xgA = parseFloat(m.away_xg || 1.0);
+                            const poisson = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m);
+                            if (poisson) {
+                                ou25Prob = poisson.over25 || ou25Prob;
+                                bttsProb = poisson.btts?.yes !== undefined ? poisson.btts.yes * 100 : bttsProb;
+                                htGoalProb = poisson.ht_goal || htGoalProb;
+                            }
+                        } catch (_) {}
+                    }
+                    
+                    const crashed = xgTotal > 2.85 && (marketHidden || (ou25Odds > 0 && ou25Odds < 1.40));
                     
                     if (!crashed && ou25Prob >= 50) return null;
                     
@@ -1129,6 +1145,10 @@ class EnrichedPredictionService {
                     if (bttsOdds > 0 && bttsProb > 0) {
                         const bttsEV = ((bttsProb / 100) * bttsOdds) - 1;
                         if (bttsEV > 0.05) alternatives.push({ market: 'BTTS Yes', prob: Math.round(bttsProb), odds: bttsOdds, ev: Math.round(bttsEV * 100) / 100, label: '🎯 BTTS YES' });
+                    } else if (bttsOdds <= 0 && bttsProb > 55) {
+                        const estOdds = Math.min(2.20, 1 / (bttsProb / 100) * 0.92);
+                        const bttsEV = ((bttsProb / 100) * estOdds) - 1;
+                        if (bttsEV > 0.08) alternatives.push({ market: 'BTTS Yes', prob: Math.round(bttsProb), odds: Math.round(estOdds * 100) / 100, ev: Math.round(bttsEV * 100) / 100, label: '🎯 BTTS YES (estimé)' });
                     }
                     
                     // Over 1.0 HT
@@ -1164,7 +1184,7 @@ class EnrichedPredictionService {
                     const best = alternatives[0];
                     return {
                         detected: crashed,
-                        reason: crashed ? '🎯 Over 2.5 crashé — xG élevé' : '💡 Alternative value détectée',
+                        reason: marketHidden ? '🔒 Marché Over 2.5 verrouillé par le bookmaker — xG élevé' : (crashed ? '🎯 Over 2.5 crashé — xG élevé' : '💡 Alternative value détectée'),
                         xG_total: Math.round(xgTotal * 100) / 100,
                         best_alternative: best,
                         all_alternatives: alternatives

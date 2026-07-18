@@ -94,6 +94,9 @@ async function tryXgbEnrichOne(match) {
     const formCtx = typeof match.form_context === 'string' ? JSON.parse(match.form_context || '{}') : (match.form_context || {});
     const h2h = typeof match.h2h_data === 'string' ? JSON.parse(match.h2h_data || '{}') : (match.h2h_data || {});
 
+    const hasRealOdds = parseFloat(match.odds_home) > 0 && parseFloat(match.odds_draw) > 0 && parseFloat(match.odds_away) > 0;
+    const insufficientData = hasRealOdds ? 0 : 1;
+
     const payload = {
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
@@ -133,7 +136,7 @@ async function tryXgbEnrichOne(match) {
     if (xgbConf < 0.40 || pDraw > 50) return null;
     const xgH = parseFloat(py.home_xg) || parseFloat(py.expected_goals_home) || 1.5;
     const xgA = parseFloat(py.away_xg) || parseFloat(py.expected_goals_away) || 1.15;
-    const result = buildPredictionObject(match, pHome, pDraw, pAway, xgH, xgA, 'xgb_fastapi_v553', 0);
+    const result = buildPredictionObject(match, pHome, pDraw, pAway, xgH, xgA, 'xgb_fastapi_v553', insufficientData);
     result.xgboost_confidence = xgbConf;
     result.confidence = xgbConf * 100;
     result.ou_25_prob = py.ou_25_prob ? Math.round(py.ou_25_prob * 100) : result.ou_25_prob;
@@ -153,11 +156,13 @@ function jsEnrichOne(match) {
   }
 
   // If no odds, generate synthetic odds from team names for per-match differentiation
+  let insufficientData = 0;
   if (!match.odds_home || !match.odds_draw || !match.odds_away) {
     const synth = _generateSyntheticOdds(home, away, match.league);
     match.odds_home = synth.home;
     match.odds_draw = synth.draw;
     match.odds_away = synth.away;
+    insufficientData = 1;
   }
 
   const xg = StatisticalEngine.getMatchXG(match);
@@ -168,7 +173,7 @@ function jsEnrichOne(match) {
   const pHome = Math.round(markets.home * 1000) / 10;
   const pDraw = Math.round(markets.draw * 1000) / 10;
   const pAway = Math.round(markets.away * 1000) / 10;
-  const result = buildPredictionObject(match, pHome, pDraw, pAway, xgHome, xgAway, 'fallback_js', 0);
+  const result = buildPredictionObject(match, pHome, pDraw, pAway, xgHome, xgAway, 'fallback_js', insufficientData);
   return { id: matchId, success: true, ...result };
 }
 

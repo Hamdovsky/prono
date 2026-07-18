@@ -915,7 +915,7 @@ const database = {
                     "home_form_pts"        = CASE WHEN ? IS NOT NULL THEN ? ELSE "home_form_pts" END,
                     "away_form_pts"        = CASE WHEN ? IS NOT NULL THEN ? ELSE "away_form_pts" END,
                     "motivation_signature" = ?,
-                    "insufficient_data" = 0
+                    "insufficient_data" = CASE WHEN ? IS NOT NULL THEN ? ELSE 0 END
                 WHERE id = ?
             `;
 
@@ -940,6 +940,7 @@ const database = {
                 data.weather_humidity ?? null, data.weather_humidity ?? null,
                 data.home_form_pts ?? null, data.home_form_pts ?? null,
                 data.away_form_pts ?? null, data.away_form_pts ?? null,
+                data.insufficient_data ?? null, data.insufficient_data ?? null,
                 data.motivation_signature || enriched?.motivation_signature || 'Logique Standard',
                 matchId
             ];

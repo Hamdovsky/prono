@@ -132,11 +132,55 @@ class DataFusionService {
   }
 
   async _trySofascore(match) {
-    const sofaId = await this._getSofaId(match)
+    let sofaId = await this._getSofaId(match)
+    // No Sofascore ID — try to find match by team name on Sofascore (free, no key needed)
+    if (!sofaId && match.homeTeam && match.awayTeam) {
+      sofaId = await this._findSofaMatchId(match.homeTeam, match.awayTeam)
+    }
     if (!sofaId) return null
     const oddsService = require('../src/services/oddsService')
     const odds = await oddsService.getLiveOdds(sofaId)
     return odds ? { home: odds.home, draw: odds.draw, away: odds.away } : null
+  }
+
+  async _searchSofaTeam(teamName) {
+    if (!teamName) return null
+    try {
+      const url = `https://www.sofascore.com/api/v1/search/teams?q=${encodeURIComponent(teamName)}`
+      const headers = {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Origin': 'https://www.sofascore.com',
+        'Referer': 'https://www.sofascore.com/',
+      }
+      const resp = await axios.get(url, { headers, timeout: 6000 })
+      const results = resp.data?.results || []
+      if (!results.length) return null
+      const exact = results.find(r => r.name?.toLowerCase() === teamName.toLowerCase())
+      return exact || results[0]
+    } catch (_) { return null }
+  }
+
+  async _findSofaMatchId(homeTeam, awayTeam) {
+    const home = await this._searchSofaTeam(homeTeam)
+    if (!home) return null
+    try {
+      const url = `https://www.sofascore.com/api/v1/team/${home.id}/events?page=0&pageSize=50`
+      const headers = {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Origin': 'https://www.sofascore.com',
+        'Referer': `https://www.sofascore.com/team/football/${home.slug || home.id}`,
+      }
+      const resp = await axios.get(url, { headers, timeout: 8000 })
+      const events = resp.data?.events || []
+      const match = events.find(e => {
+        const aName = e.awayTeam?.name || ''
+        return aName.toLowerCase().includes(awayTeam.toLowerCase()) ||
+               awayTeam.toLowerCase().includes(aName.toLowerCase())
+      })
+      return match?.id || null
+    } catch (_) { return null }
   }
 
   async _tryScrapeService(match) {

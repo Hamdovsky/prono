@@ -1018,11 +1018,13 @@ class EnrichedPredictionService {
             }
 
             // ── 2. DETECT INSUFFICIENT DATA ──
-            const hasRealOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0 && !m._oddsSynthetic;
+            const oddsAreSynthetic = m._oddsSynthetic === true;
+            delete m._oddsSynthetic;
+            const hasRealOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0 && !oddsAreSynthetic;
             const hasXg = parseFloat(m.home_xg) > 0.3 && parseFloat(m.away_xg) > 0.3;
             const hasForm = parseFloat(m.home_form_pts) > 0 || parseFloat(m.away_form_pts) > 0;
             const v553isDefault = v553.success && !parseFloat(v553.home_win_probability) && !parseFloat(v553.away_win_probability);
-            const insufficient = (!hasRealOdds && (!hasXg || !hasForm || v553isDefault)) || m._oddsSynthetic ? 1 : 0;
+            const insufficient = (!hasRealOdds && (!hasXg || !hasForm || v553isDefault)) || oddsAreSynthetic ? 1 : 0;
 
             // ── 2.5 CONFIDENCE SCORER (Force du Pronostic) ──
             const sortedProbs = [
@@ -1063,6 +1065,7 @@ class EnrichedPredictionService {
             if (insufficient && quantResult.risk_label === 'SAFE') quantResult.risk_label = 'STABLE';
             const resultData = {
                 ...m,
+                _oddsSynthetic: undefined,
 
                 success: true,
                 insufficient_data: insufficient,
@@ -1081,7 +1084,7 @@ class EnrichedPredictionService {
                     const prec = Math.round(ovPct > 50 ? ovPct : (100 - ovPct));
                     return `${dir} 2.5 (${prec}% Precision)`;
                 })(),
-                draw_value_bet: m._oddsSynthetic ? false : (() => {
+                draw_value_bet: oddsAreSynthetic ? false : (() => {
                     const mp = quantResult.main_pick;
                     if (mp !== 'X' && mp !== '1X' && mp !== 'X2' && mp !== '12') return false;
                     const ev = parseFloat(quantResult.ev_score || 0);
@@ -1089,7 +1092,7 @@ class EnrichedPredictionService {
                     if (ev < 0.20 || !drawOdds || drawOdds <= 3.20) return false;
                     return true;
                 })(),
-                base_solid_margin: m._oddsSynthetic ? 0 : parseFloat(baseSolidMargin.toFixed(1)),
+                base_solid_margin: oddsAreSynthetic ? 0 : parseFloat(baseSolidMargin.toFixed(1)),
                 ht_goal_prob: quantResult.probs.ht_goal,
                 xgboost_confidence: v553.success ? v553.confidence : 0,
                 
@@ -1263,6 +1266,7 @@ class EnrichedPredictionService {
         const mainProb = Math.max(hPct, aPct);
         return {
             ...m,
+            _oddsSynthetic: undefined,
             success: true,
             ai_source: 'BASELINE_ENGINE',
             home_win_probability: hPct,
@@ -1275,6 +1279,8 @@ class EnrichedPredictionService {
             ou_25_prob: Math.round(probs.over25),
             btts_prob: Math.round(probs.btts.yes * 100),
             insufficient_data: 1,
+            base_solid_margin: 0,
+            draw_value_bet: false,
             confidence: Math.round(mainProb * 0.6),
             ev_score: 0,
             quant: {

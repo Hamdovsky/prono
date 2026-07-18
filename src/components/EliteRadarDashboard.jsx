@@ -124,6 +124,10 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
                 <td className="text-center">
                   {locked ? (
                     <button className="vip-cell-unlock" onClick={handleUnlock}>🔓 DÉBLOQUER</button>
+                  ) : match.insufficient_data === 1 ? (
+                    <span className="signal-tag insufficient-signal">
+                      ⚠️ ESTIMATION (xG seul)
+                    </span>
                   ) : isSolid ? (
                     <span className="signal-tag solid-signal">
                       ⚡ SOLID (BSM: {Math.round(match.base_solid_margin)}%)

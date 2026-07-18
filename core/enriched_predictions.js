@@ -858,6 +858,7 @@ class EnrichedPredictionService {
                 m.odds_home = parseFloat((1.05 / hp).toFixed(2));
                 m.odds_draw = parseFloat((1.05 / dp).toFixed(2));
                 m.odds_away = parseFloat((1.05 / ap).toFixed(2));
+                m._oddsSynthetic = true;
             }
 
             // ── SOFASCORE TEAM DATA (form, xG) ──
@@ -1017,11 +1018,11 @@ class EnrichedPredictionService {
             }
 
             // ── 2. DETECT INSUFFICIENT DATA ──
-            const hasOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0;
+            const hasRealOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0 && !m._oddsSynthetic;
             const hasXg = parseFloat(m.home_xg) > 0.3 && parseFloat(m.away_xg) > 0.3;
             const hasForm = parseFloat(m.home_form_pts) > 0 || parseFloat(m.away_form_pts) > 0;
             const v553isDefault = v553.success && !parseFloat(v553.home_win_probability) && !parseFloat(v553.away_win_probability);
-            const insufficient = !hasOdds && (!hasXg || !hasForm || v553isDefault) ? 1 : 0;
+            const insufficient = (!hasRealOdds && (!hasXg || !hasForm || v553isDefault)) || m._oddsSynthetic ? 1 : 0;
 
             // ── 2.5 CONFIDENCE SCORER (Force du Pronostic) ──
             const sortedProbs = [
@@ -1080,7 +1081,7 @@ class EnrichedPredictionService {
                     const prec = Math.round(ovPct > 50 ? ovPct : (100 - ovPct));
                     return `${dir} 2.5 (${prec}% Precision)`;
                 })(),
-                draw_value_bet: (() => {
+                draw_value_bet: m._oddsSynthetic ? false : (() => {
                     const mp = quantResult.main_pick;
                     if (mp !== 'X' && mp !== '1X' && mp !== 'X2' && mp !== '12') return false;
                     const ev = parseFloat(quantResult.ev_score || 0);
@@ -1088,7 +1089,7 @@ class EnrichedPredictionService {
                     if (ev < 0.20 || !drawOdds || drawOdds <= 3.20) return false;
                     return true;
                 })(),
-                base_solid_margin: parseFloat(baseSolidMargin.toFixed(1)),
+                base_solid_margin: m._oddsSynthetic ? 0 : parseFloat(baseSolidMargin.toFixed(1)),
                 ht_goal_prob: quantResult.probs.ht_goal,
                 xgboost_confidence: v553.success ? v553.confidence : 0,
                 

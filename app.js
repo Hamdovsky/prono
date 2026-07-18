@@ -380,7 +380,7 @@ app.post('/api/re-enrich', securityEngine.authenticate.bind(securityEngine), asy
   try {
     const database = require('./core/database');
     const enrichedPredictions = require('./core/enriched_predictions');
-    const matches = await database.getMatchesByStatus('scheduled');
+    const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS']);
     logger.info(`🔄 [RE-ENRICH] Force re-enriching ${matches.length} matches with JS engine...`);
     const enriched = await enrichedPredictions.enrichMatches(matches, { fastMode: true, force: true });
     let updated = 0;

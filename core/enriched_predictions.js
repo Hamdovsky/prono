@@ -829,10 +829,10 @@ class EnrichedPredictionService {
             const m = { ...match };
 
             // ── FETCH ODDS (critical for odds-implied xG differentiation) ──
-            // If odds are missing OR they were marked as synthetic from a previous cycle,
-            // try to fetch real odds from dataFusionService.
-            const oddsLookSynthetic = !m.odds_home || !m.odds_draw || !m.odds_away;
-            if (oddsLookSynthetic || m._oddsAreSynthetic) {
+            // Always try to fetch real odds when current odds are missing or look synthetic.
+            // Synthetic odds (from a previous cycle that stored them) are never persisted —
+            // see "Don't persist synthetic odds to fullData" below.
+            if (!m.odds_home || !m.odds_draw || !m.odds_away) {
                 try {
                     const dataFusionService = require('../services/dataFusionService');
                     const liveOdds = await dataFusionService.fetchOdds(m);
@@ -860,9 +860,6 @@ class EnrichedPredictionService {
                 m.odds_draw = parseFloat((1.05 / dp).toFixed(2));
                 m.odds_away = parseFloat((1.05 / ap).toFixed(2));
                 oddsAreSynthetic = true;
-                m._oddsAreSynthetic = true;
-            } else {
-                delete m._oddsAreSynthetic;
             }
 
             // ── SOFASCORE TEAM DATA (form, xG) ──
@@ -1243,6 +1240,15 @@ class EnrichedPredictionService {
                     };
                 }
             }).catch(() => {})
+
+            // ── Don't persist synthetic odds to fullData ──
+            // If odds are synthetic, strip them from the result so they never get stored.
+            // Next enrichment cycle will see missing odds and try to fetch real ones.
+            if (oddsAreSynthetic) {
+                delete resultData.odds_home;
+                delete resultData.odds_draw;
+                delete resultData.odds_away;
+            }
 
             return resultData;
         } catch (err) {

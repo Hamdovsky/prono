@@ -127,6 +127,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     const evNum = parseFloat(quantObj?.ev_score) || 0
     const valueScore = (evNum * acc / 100).toFixed(1)
 
+    const altHunter = match.alt_market_hunter || enriched?.alt_market_hunter || null
     const htGoalPct = Math.min(89, Math.round((over25Pct + bttsPct) / 2 + 5))
     const domProb = Math.max(hPct, aPct)
     const hasOdds = !!(displayOddsH && displayOddsA)
@@ -256,6 +257,31 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Alternative Market Hunter */}
+            {altHunter && altHunter.best_alternative && (
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '5px 10px', borderRadius: '6px',
+                    background: 'linear-gradient(90deg, rgba(245,158,11,0.12), rgba(245,158,11,0.04))',
+                    border: '1px solid rgba(245,158,11,0.25)',
+                    marginTop: '2px',
+                }}>
+                    <span style={{ fontSize: '12px' }}>🎯</span>
+                    <span style={{ fontSize: '9px', fontWeight: '800', color: '#fbbf24', letterSpacing: '0.3px' }}>
+                        MARCHÉ ALTERNATIF
+                    </span>
+                    <span style={{ fontSize: '10px', fontWeight: '900', color: '#f8fafc', fontFamily: "'JetBrains Mono', monospace" }}>
+                        {altHunter.best_alternative.label}
+                    </span>
+                    <span style={{ fontSize: '9px', color: '#94a3b8' }}>
+                        @{altHunter.best_alternative.odds} · EV {altHunter.best_alternative.ev >= 0 ? '+' : ''}{altHunter.best_alternative.ev}
+                    </span>
+                    <span style={{ fontSize: '9px', color: '#64748b', marginLeft: 'auto' }}>
+                        xG {altHunter.xG_total}
+                    </span>
+                </div>
+            )}
         </div>
     )
 }

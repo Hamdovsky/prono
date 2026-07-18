@@ -1107,6 +1107,70 @@ class EnrichedPredictionService {
                     { label: '🛡️ RISK', val: quantResult.risk_label }
                 ],
                 
+                // Alternative Market Hunter
+                alt_market_hunter: (() => {
+                    const xgTotal = (parseFloat(m.home_xg || m.xg_home || 0) + parseFloat(m.away_xg || m.xg_away || 0)) || 
+                                    (quantResult.expected_score ? (() => {
+                                        const parts = quantResult.expected_score.split('-').map(s => parseFloat(s.trim()));
+                                        return parts.length === 2 ? parts[0] + parts[1] : 0;
+                                    })() : 0);
+                    const ou25Odds = parseFloat(m.odds_ou25 || m.over25_odds || m.odds_over25 || 0);
+                    const ou25Prob = quantResult.probs.over25 || 0;
+                    const bttsProb = quantResult.probs.btts || 0;
+                    const htGoalProb = quantResult.probs.ht_goal || 0;
+                    const crashed = xgTotal > 2.85 && (ou25Odds > 0 && ou25Odds < 1.40);
+                    
+                    if (!crashed && ou25Prob >= 50) return null;
+                    
+                    const alternatives = [];
+                    
+                    // BTTS Yes
+                    const bttsOdds = parseFloat(m.odds_btts_yes || 0);
+                    if (bttsOdds > 0 && bttsProb > 0) {
+                        const bttsEV = ((bttsProb / 100) * bttsOdds) - 1;
+                        if (bttsEV > 0.05) alternatives.push({ market: 'BTTS Yes', prob: Math.round(bttsProb), odds: bttsOdds, ev: Math.round(bttsEV * 100) / 100, label: '🎯 BTTS YES' });
+                    }
+                    
+                    // Over 1.0 HT
+                    const htO10Odds = parseFloat(m.odds_ht_o10 || m.odds_ht_over1 || 0);
+                    if (htO10Odds > 0 && htGoalProb > 0) {
+                        const htEV = ((htGoalProb / 100) * htO10Odds) - 1;
+                        if (htEV > 0.05) alternatives.push({ market: 'Over 1.0 HT', prob: Math.round(htGoalProb), odds: htO10Odds, ev: Math.round(htEV * 100) / 100, label: '⚡ OVER 1.0 HT' });
+                    } else if (htGoalProb > 65) {
+                        const estOdds = Math.min(2.10, 1 / (htGoalProb / 100) * 0.95);
+                        const htEV = ((htGoalProb / 100) * estOdds) - 1;
+                        if (htEV > 0.08) alternatives.push({ market: 'Over 1.0 HT', prob: Math.round(htGoalProb), odds: Math.round(estOdds * 100) / 100, ev: Math.round(htEV * 100) / 100, label: '⚡ OVER 1.0 HT' });
+                    }
+                    
+                    // Asian Over 2.25 (safety net: half back at 2 goals)
+                    const asian225Odds = parseFloat(m.odds_asian_o225 || 0);
+                    const asian225Prob = ou25Prob + (1 - ou25Prob) * 0.3;
+                    if (asian225Odds > 0) {
+                        const aEV = ((asian225Prob / 100) * asian225Odds) - 1;
+                        if (aEV > 0.03) alternatives.push({ market: 'Asian O2.25', prob: Math.round(asian225Prob * 100) / 100, odds: asian225Odds, ev: Math.round(aEV * 100) / 100, label: '🛡️ ASIAN O2.25' });
+                    }
+                    
+                    // Asian Over 2.75 (safety net on 3 goals)
+                    const asian275Odds = parseFloat(m.odds_asian_o275 || 0);
+                    const asian275Prob = ou25Prob * 0.85;
+                    if (asian275Odds > 0) {
+                        const aEV = ((asian275Prob / 100) * asian275Odds) - 1;
+                        if (aEV > 0.03) alternatives.push({ market: 'Asian O2.75', prob: Math.round(asian275Prob * 100) / 100, odds: asian275Odds, ev: Math.round(aEV * 100) / 100, label: '🛡️ ASIAN O2.75' });
+                    }
+                    
+                    if (alternatives.length === 0) return null;
+                    
+                    alternatives.sort((a, b) => b.ev - a.ev);
+                    const best = alternatives[0];
+                    return {
+                        detected: crashed,
+                        reason: crashed ? '🎯 Over 2.5 crashé — xG élevé' : '💡 Alternative value détectée',
+                        xG_total: Math.round(xgTotal * 100) / 100,
+                        best_alternative: best,
+                        all_alternatives: alternatives
+                    };
+                })(),
+                
                 enriched: {
                     ...m.enriched,
                     winner: quantResult.main_pick,

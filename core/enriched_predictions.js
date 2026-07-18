@@ -1062,6 +1062,7 @@ class EnrichedPredictionService {
 
             // ── 3. FINAL ASSEMBLY ──
             if (insufficient && quantResult.risk_label === 'SAFE') quantResult.risk_label = 'STABLE';
+            delete m._oddsSynthetic;
             const resultData = {
                 ...m,
 
@@ -1262,6 +1263,7 @@ class EnrichedPredictionService {
         const aPct = +(probs.win.away * 100).toFixed(1);
         const mainPick = hPct >= aPct ? '1' : '2';
         const mainProb = Math.max(hPct, aPct);
+        delete m._oddsSynthetic;
         return {
             ...m,
             success: true,

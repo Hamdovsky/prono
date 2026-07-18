@@ -1049,6 +1049,15 @@ class EnrichedPredictionService {
             quantResult._confidence_breakdown = csResult.breakdown;
             quantResult._confidence_margin_pct = csResult.breakdown.finalMarginPct;
 
+            // ── 2.6 DEADZONE CHECK — if all probs are 0 despite synthetic odds, use league baseline ──
+            const finalHPct = (probs.h * 100);
+            const finalDPct = (probs.d * 100);
+            const finalAPct = (probs.a * 100);
+            if ((finalHPct + finalDPct + finalAPct) < 1) {
+                logger.warn(`[DEADZONE] ${m.homeTeam} vs ${m.awayTeam} — all probs 0, falling back to league baseline`);
+                return this._buildOfflineState(m);
+            }
+
             // ── 3. FINAL ASSEMBLY ──
             if (insufficient && quantResult.risk_label === 'SAFE') quantResult.risk_label = 'STABLE';
             const resultData = {

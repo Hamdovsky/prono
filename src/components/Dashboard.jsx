@@ -698,17 +698,31 @@ const Dashboard = () => {
                         </div>
 
                         {/* Confidence filter */}
-                        <select value={confFilter} onChange={e => setConfFilter(Number(e.target.value))} style={{
-                            padding: '4px 8px', background: 'rgba(15,23,42,0.8)', border: '1px solid #334155',
-                            borderRadius: '6px', color: '#f1f5f9', fontSize: '10px', outline: 'none', cursor: 'pointer'
-                        }}>
-                            <option value={0}>🎯 Toute confiance</option>
-                            <option value={50}>≥ 50%</option>
-                            <option value={60}>≥ 60%</option>
-                            <option value={70}>≥ 70%</option>
-                            <option value={80}>≥ 80%</option>
-                            <option value={90}>≥ 90%</option>
-                        </select>
+                        <div style={{display: 'flex', gap: '2px', alignItems: 'center'}}>
+                            {[0, 50, 60, 70, 80, 90].map(c => {
+                                const isActive = confFilter === c;
+                                const label = c === 0 ? '🎯Tout' : `≥${c}`;
+                                const color = c === 0 ? '#94a3b8' : c >= 80 ? '#10b981' : c >= 60 ? '#f59e0b' : '#f87171';
+                                return (
+                                    <button key={c} onClick={() => setConfFilter(c)} style={{
+                                        padding: '3px 6px', borderRadius: '4px', border: isActive ? `1px solid ${color}` : '1px solid transparent',
+                                        background: isActive ? `${color}22` : 'transparent',
+                                        color: isActive ? color : '#64748b',
+                                        fontWeight: isActive ? '800' : '500',
+                                        fontSize: '9px', cursor: 'pointer', whiteSpace: 'nowrap',
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                    }}>
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                            <span style={{fontSize: '9px', color: '#334155', marginLeft: '4px', fontFamily: "'JetBrains Mono', monospace"}}>
+                                {confFilter > 0 ? allMatchesList.filter(m => {
+                                    const mc = m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0;
+                                    return mc >= confFilter;
+                                }).length : allMatchesList.length}
+                            </span>
+                        </div>
 
                         {/* League filter */}
                         <select value={activeLeague} onChange={e => handleLeagueChange(e.target.value)} style={{

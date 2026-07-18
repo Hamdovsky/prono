@@ -6,6 +6,7 @@ import { I18nProvider } from './contexts/I18nContext'
 import Dashboard from './components/Dashboard'
 import EvolutionHeatmap from './components/EvolutionHeatmap'
 import GridHotDetector from './components/GridHotDetector'
+import BetTracker from './components/BetTracker'
 import './App.css'
 import './styles/themes.css'
 
@@ -23,6 +24,7 @@ function App() {
                                     <Route path="/accuracy" element={<AccuracyDashboard />} />
                                     <Route path="/evolution" element={<EvolutionHeatmap />} />
                                     <Route path="/grids" element={<GridHotDetector />} />
+                                    <Route path="/bets" element={<BetTracker />} />
                                     <Route path="*" element={<Dashboard />} />
                                 </Routes>
                             </Suspense>

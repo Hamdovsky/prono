@@ -243,6 +243,20 @@ function initSchema() {
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS bets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                match_label TEXT,
+                league TEXT,
+                pick TEXT,
+                odds REAL,
+                stake REAL,
+                result TEXT DEFAULT 'pending',
+                profit REAL DEFAULT 0,
+                note TEXT,
+                date TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS leagues_config (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE,

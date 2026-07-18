@@ -1,0 +1,96 @@
+.bt-container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  color: #e6edf3;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 12px;
+}
+
+.bt-loader { padding: 60px; text-align: center; color: #8b949e; font-size: 14px; }
+
+.bt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+.bt-title { font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
+
+.bt-header-actions { display: flex; gap: 8px; }
+
+.bt-btn {
+  padding: 8px 16px; border: 1px solid #30363d; border-radius: 6px; cursor: pointer;
+  font-size: 11px; font-weight: 700; font-family: inherit; transition: all 0.15s;
+}
+.bt-btn-primary { background: #2ea043; color: #fff; border-color: #2ea043; }
+.bt-btn-primary:hover { background: #3fb950; }
+.bt-btn-secondary { background: #21262d; color: #c9d1d9; }
+.bt-btn-secondary:hover { background: #30363d; }
+
+.bt-error {
+  background: rgba(248,81,73,0.12); border: 1px solid #f85149; border-radius: 6px;
+  padding: 10px 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;
+}
+.bt-error button { background: none; border: none; color: #f85149; cursor: pointer; font-size: 14px; }
+
+.bt-stats {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: 16px;
+}
+.bt-stat-card {
+  background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; text-align: center;
+}
+.bt-stat-card.won { border-left: 3px solid #3fb950; }
+.bt-stat-card.lost { border-left: 3px solid #f85149; }
+.bt-stat-card.pending { border-left: 3px solid #d29922; }
+.bt-stat-label { display: block; font-size: 9px; text-transform: uppercase; color: #8b949e; letter-spacing: 0.5px; margin-bottom: 4px; }
+.bt-stat-value { display: block; font-size: 18px; font-weight: 800; }
+
+.bt-form {
+  background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 16px;
+}
+.bt-form h3 { margin: 0 0 12px; font-size: 14px; color: #f0f6fc; }
+.bt-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.bt-form-grid input, .bt-form-grid select {
+  background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 8px 10px;
+  color: #e6edf3; font-size: 11px; font-family: inherit; outline: none;
+}
+.bt-form-grid input:focus, .bt-form-grid select:focus { border-color: #58a6ff; }
+.bt-form-actions { margin-top: 12px; display: flex; gap: 8px; }
+
+.bt-toolbar {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; flex-wrap: wrap;
+}
+.bt-filter { display: flex; gap: 4px; flex-wrap: wrap; }
+.bt-filter-btn {
+  padding: 4px 10px; border: 1px solid #30363d; border-radius: 4px; cursor: pointer;
+  font-size: 10px; font-weight: 600; font-family: inherit; background: transparent; color: #8b949e; transition: all 0.15s;
+}
+.bt-filter-btn.active { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+.bt-filter-btn:hover:not(.active) { background: #21262d; color: #c9d1d9; }
+.bt-count { font-size: 11px; color: #8b949e; }
+
+.bt-table-wrap { overflow-x: auto; border: 1px solid #30363d; border-radius: 6px; }
+.bt-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.bt-table th {
+  background: #161b22; padding: 8px 10px; text-align: left; font-size: 9px;
+  text-transform: uppercase; letter-spacing: 0.5px; color: #8b949e; font-weight: 700;
+  border-bottom: 1px solid #30363d; white-space: nowrap; position: sticky; top: 0;
+}
+.bt-sortable { cursor: pointer; user-select: none; }
+.bt-sortable:hover { color: #f0f6fc; }
+.bt-table td { padding: 6px 10px; border-bottom: 1px solid #161b22; }
+.bt-row.won { background: rgba(63,185,80,0.04); }
+.bt-row.lost { background: rgba(248,81,73,0.04); }
+.bt-row.void { background: rgba(139,148,158,0.04); }
+.bt-row:hover { background: rgba(88,166,255,0.04); }
+.bt-match-cell { font-weight: 600; white-space: nowrap; }
+.bt-league-tag { color: #8b949e; font-size: 10px; }
+.bt-pick { font-weight: 700; color: #58a6ff; text-align: center; }
+.bt-result-badge { font-size: 10px; font-weight: 600; white-space: nowrap; }
+.bt-result-won { color: #3fb950; }
+.bt-result-lost { color: #f85149; }
+.bt-result-void { color: #8b949e; }
+.bt-profit { font-weight: 700; text-align: right; }
+.bt-profit.positive { color: #3fb950; }
+.bt-profit.negative { color: #f85149; }
+.bt-note { color: #8b949e; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-actions { white-space: nowrap; text-align: center; }
+.bt-action-btn { background: none; border: none; cursor: pointer; padding: 2px 4px; font-size: 13px; opacity: 0.6; transition: opacity 0.15s; }
+.bt-action-btn:hover { opacity: 1; }
+.bt-empty { text-align: center; padding: 30px; color: #8b949e; font-size: 12px; }

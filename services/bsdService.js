@@ -211,7 +211,7 @@ class BsdService {
       home_xg: event.xg?.home || event.home_xg || null,
       away_xg: event.xg?.away || event.away_xg || null,
       last_updated: Date.now(),
-      insufficient_data: 1,
+      insufficient_data: (event.odds?.home_win || event.odds_home) ? 0 : 1,
       source: 'bsd',
       fullData: JSON.stringify({
         id: matchId,
@@ -272,7 +272,7 @@ class BsdService {
     if (bestHome || bestDraw || bestAway) {
       try {
         database.db?.prepare(`
-          UPDATE matches SET odds_home = ?, odds_draw = ?, odds_away = ?
+          UPDATE matches SET odds_home = ?, odds_draw = ?, odds_away = ?, insufficient_data = 0
           WHERE id = ?
         `).run(bestHome, bestDraw, bestAway, matchId)
       } catch (_) {}

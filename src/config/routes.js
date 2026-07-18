@@ -5,6 +5,7 @@ export const ROUTES = {
   promosport: '/promosport',
   markets: '/markets',
   bets: '/bets',
+  training: '/training',
 }
 
 export const PATH_TO_VIEW = Object.fromEntries(
@@ -19,6 +20,7 @@ export const NAV_ITEMS = [
       { view: 'millionaire', label: 'TOP PICKS DU JOUR', icon: '🎯', color: '#fbbf24' },
       { view: 'promosport', label: 'PROMOSPORT', icon: '💰', color: '#10b981' },
       { view: 'bets', label: 'SUIVI DES PARIS', icon: '📈', color: '#f59e0b' },
+      { view: 'training', label: 'ENTRAÎNEMENT', icon: '🧠', color: '#8b5cf6' },
     ]
   },
 ]

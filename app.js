@@ -444,6 +444,7 @@ app.use('/api/results', require('./routes/results'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api', require('./routes/valueBets'));
 app.use('/api/bets', require('./routes/bets'));
+app.use('/api/training', require('./routes/training'));
 
 // ── SWAGGER API DOCUMENTATION ─────────────────
 if (swaggerUi && swaggerSpecs) {

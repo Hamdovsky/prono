@@ -250,6 +250,23 @@ const Sidebar = ({ activeLeague, onLeagueChange, matches = [], activeView, activ
                     <span className="flash-icon">📈</span>
                     <span className="flash-label" style={{ fontWeight: 'bold' }}>SUIVI DES PARIS</span>
                 </button>
+
+                {/* ── ENTRAÎNEMENT ─────────────────── */}
+                <button 
+                  className={`flash-nav-item ${activeView === 'training' ? 'active' : ''}`}
+                  onClick={() => handleNav('training')}
+                  style={{
+                    marginTop: '4px',
+                    background: activeView === 'training'
+                      ? 'linear-gradient(90deg, rgba(139,92,246,0.15) 0%, transparent 100%)'
+                      : 'transparent',
+                    borderLeft: activeView === 'training' ? '2px solid #8b5cf6' : 'none',
+                    color: '#8b5cf6'
+                  }}
+                >
+                    <span className="flash-icon">🧠</span>
+                    <span className="flash-label" style={{ fontWeight: 'bold' }}>ENTRAÎNEMENT</span>
+                </button>
             </div>
 
             <div className="flash-nav-section">

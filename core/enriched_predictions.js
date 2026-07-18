@@ -828,19 +828,21 @@ class EnrichedPredictionService {
         try {
             const m = { ...match };
 
-            // ── FETCH ODDS (always try to fetch real bookmaker odds, even if odds already exist) ──
-            // Previously we only fetched when odds were missing; once synthetic odds were stored
-            // in fullData they'd be treated as real forever. Always try dataFusionService first.
-            try {
-                const dataFusionService = require('../services/dataFusionService');
-                const liveOdds = await dataFusionService.fetchOdds(m);
-                if (liveOdds && liveOdds.home && liveOdds.draw && liveOdds.away) {
-                    m.odds_home = liveOdds.home;
-                    m.odds_draw = liveOdds.draw;
-                    m.odds_away = liveOdds.away;
-                    m._oddsWereFetched = true
-                }
-            } catch (_) { /* odds fetch failed — continue with existing or synthetic odds */ }
+            // ── FETCH ODDS (critical for odds-implied xG differentiation) ──
+            // If odds are missing OR they were marked as synthetic from a previous cycle,
+            // try to fetch real odds from dataFusionService.
+            const oddsLookSynthetic = !m.odds_home || !m.odds_draw || !m.odds_away;
+            if (oddsLookSynthetic || m._oddsAreSynthetic) {
+                try {
+                    const dataFusionService = require('../services/dataFusionService');
+                    const liveOdds = await dataFusionService.fetchOdds(m);
+                    if (liveOdds && liveOdds.home && liveOdds.draw && liveOdds.away) {
+                        m.odds_home = liveOdds.home;
+                        m.odds_draw = liveOdds.draw;
+                        m.odds_away = liveOdds.away;
+                    }
+                } catch (_) { /* odds fetch failed — continue without odds */ }
+            }
 
             // ── SYNTHETIC ODDS FALLBACK (per-match differentiation when no real odds) ──
             let oddsAreSynthetic = false;
@@ -858,6 +860,9 @@ class EnrichedPredictionService {
                 m.odds_draw = parseFloat((1.05 / dp).toFixed(2));
                 m.odds_away = parseFloat((1.05 / ap).toFixed(2));
                 oddsAreSynthetic = true;
+                m._oddsAreSynthetic = true;
+            } else {
+                delete m._oddsAreSynthetic;
             }
 
             // ── SOFASCORE TEAM DATA (form, xG) ──

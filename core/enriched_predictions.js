@@ -828,21 +828,19 @@ class EnrichedPredictionService {
         try {
             const m = { ...match };
 
-            // ── FETCH ODDS (critical for odds-implied xG differentiation) ──
-            if (!m.odds_home || !m.odds_draw || !m.odds_away) {
-                try {
-                    const dataFusionService = require('../services/dataFusionService');
-                    const liveOdds = await dataFusionService.fetchOdds(m);
-                    if (liveOdds) {
-                        m.odds_home = liveOdds.home;
-                        m.odds_draw = liveOdds.draw;
-                        m.odds_away = liveOdds.away;
-                        m._oddsWereFetched = true
-                    }
-                } catch (_) { /* odds fetch failed — continue without odds */ }
-            } else {
-                m._oddsWereFetched = true
-            }
+            // ── FETCH ODDS (always try to fetch real bookmaker odds, even if odds already exist) ──
+            // Previously we only fetched when odds were missing; once synthetic odds were stored
+            // in fullData they'd be treated as real forever. Always try dataFusionService first.
+            try {
+                const dataFusionService = require('../services/dataFusionService');
+                const liveOdds = await dataFusionService.fetchOdds(m);
+                if (liveOdds && liveOdds.home && liveOdds.draw && liveOdds.away) {
+                    m.odds_home = liveOdds.home;
+                    m.odds_draw = liveOdds.draw;
+                    m.odds_away = liveOdds.away;
+                    m._oddsWereFetched = true
+                }
+            } catch (_) { /* odds fetch failed — continue with existing or synthetic odds */ }
 
             // ── SYNTHETIC ODDS FALLBACK (per-match differentiation when no real odds) ──
             let oddsAreSynthetic = false;

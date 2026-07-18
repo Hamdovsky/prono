@@ -845,6 +845,7 @@ class EnrichedPredictionService {
             }
 
             // ── SYNTHETIC ODDS FALLBACK (per-match differentiation when no real odds) ──
+            let oddsAreSynthetic = false;
             if (!m.odds_home || !m.odds_draw || !m.odds_away) {
                 const str = `${m.homeTeam || 'Home'}_vs_${m.awayTeam || 'Away'}_${m.league || ''}`;
                 let hash = 0;
@@ -858,7 +859,7 @@ class EnrichedPredictionService {
                 m.odds_home = parseFloat((1.05 / hp).toFixed(2));
                 m.odds_draw = parseFloat((1.05 / dp).toFixed(2));
                 m.odds_away = parseFloat((1.05 / ap).toFixed(2));
-                m._oddsSynthetic = true;
+                oddsAreSynthetic = true;
             }
 
             // ── SOFASCORE TEAM DATA (form, xG) ──
@@ -1018,8 +1019,6 @@ class EnrichedPredictionService {
             }
 
             // ── 2. DETECT INSUFFICIENT DATA ──
-            const oddsAreSynthetic = m._oddsSynthetic === true;
-            delete m._oddsSynthetic;
             const hasRealOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0 && !oddsAreSynthetic;
             const hasXg = parseFloat(m.home_xg) > 0.3 && parseFloat(m.away_xg) > 0.3;
             const hasForm = parseFloat(m.home_form_pts) > 0 || parseFloat(m.away_form_pts) > 0;
@@ -1065,7 +1064,6 @@ class EnrichedPredictionService {
             if (insufficient && quantResult.risk_label === 'SAFE') quantResult.risk_label = 'STABLE';
             const resultData = {
                 ...m,
-                _oddsSynthetic: undefined,
 
                 success: true,
                 insufficient_data: insufficient,
@@ -1266,7 +1264,6 @@ class EnrichedPredictionService {
         const mainProb = Math.max(hPct, aPct);
         return {
             ...m,
-            _oddsSynthetic: undefined,
             success: true,
             ai_source: 'BASELINE_ENGINE',
             home_win_probability: hPct,

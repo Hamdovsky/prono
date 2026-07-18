@@ -1290,8 +1290,7 @@ const database = {
     getInsufficientDataMatches: async () => {
         try {
             const res = db.prepare(
-                `SELECT id, homeTeam, awayTeam, league, tournament_name
-                 FROM matches WHERE insufficient_data = 1
+                `SELECT * FROM matches WHERE insufficient_data = 1
                  AND status IN ('scheduled', 'upcoming', 'NOT_STARTED', 'NS')
                  AND homeTeam IS NOT NULL AND awayTeam IS NOT NULL
                  ORDER BY timestamp ASC`

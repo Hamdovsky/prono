@@ -940,8 +940,8 @@ const database = {
                 data.weather_humidity ?? null, data.weather_humidity ?? null,
                 data.home_form_pts ?? null, data.home_form_pts ?? null,
                 data.away_form_pts ?? null, data.away_form_pts ?? null,
-                data.insufficient_data ?? null, data.insufficient_data ?? null,
                 data.motivation_signature || enriched?.motivation_signature || 'Logique Standard',
+                data.insufficient_data ?? null, data.insufficient_data ?? null,
                 matchId
             ];
 

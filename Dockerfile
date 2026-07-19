@@ -1,23 +1,37 @@
-FROM python:3.11-slim
+FROM node:20-slim AS frontend
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-slim
+
+RUN apt-get update && apt-get install -y \
+    python3 python3-pip python3-venv \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl git \
-    && rm -rf /var/lib/apt/lists/*
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV REDISMS_DISABLE_POSTINSTALL=true
+ENV NODE_ENV=production
 
-COPY requirements-fastapi.txt .
-RUN pip install --no-cache-dir -r requirements-fastapi.txt
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY requirements.txt ./
+RUN python3 -m venv /opt/venv && \
+    . /opt/venv/bin/activate && \
+    pip install --no-cache-dir -r requirements.txt
+ENV PATH="/opt/venv/bin:$PATH"
 
 COPY . .
 
-RUN mkdir -p /app/logs /app/data
+COPY --from=frontend /app/dist ./dist
 
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app/core:/app
+EXPOSE 3001
 
-EXPOSE 8000
-
-STOPSIGNAL SIGTERM
-
-CMD ["uvicorn", "core.fastapi_server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD python3 -m uvicorn core.fastapi_server:app --host 0.0.0.0 --port 8000 & \
+    node --max-old-space-size=256 server.js

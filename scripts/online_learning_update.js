@@ -54,6 +54,7 @@ function runAudit() {
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
       windowsHide: true
     })
+    proc.on('error', (e) => { logger.warn(`[AUDIT] Spawn error: ${e.message}`); resolve({ code: -1, output: '' }) })
     let output = ''
     proc.stdout.on('data', d => output += d.toString())
     proc.stderr.on('data', d => logger.warn(`[AUDIT-ERR] ${d.toString().trim()}`))
@@ -148,6 +149,7 @@ else:
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true
     })
+    pyProcess.on('error', (e) => logger.error(`[ONLINE-LEARN] Spawn error: ${e.message}`))
 
     let stdout = ''
     pyProcess.stdout.on('data', (d) => {

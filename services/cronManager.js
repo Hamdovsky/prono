@@ -432,7 +432,8 @@ class CronManager {
         cron.schedule('0 4 * * 6', async () => {
           logger.info('[CRON] Launching weekly Promosport XGBoost retrain...')
           const scriptsDir = path.join(__dirname, '..', 'scripts')
-          const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+          const { resolvePython } = require('../core/utils/pythonResolver')
+          const pythonCmd = resolvePython()
 
           // Guard: check dataset before retrain
           try {

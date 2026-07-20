@@ -115,6 +115,7 @@ function runAutoRetrain() {
         const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
 
         const pythonProcess = spawn(pythonPath, [TRAIN_SCRIPT], { env, windowsHide: true });
+        pythonProcess.on('error', (e) => logger.error(`[AUTO-RETRAIN] Spawn error: ${e.message}`))
 
         pythonProcess.stdout.on('data', (data) => {
             const output = data.toString();
@@ -142,6 +143,7 @@ function runAutoRetrain() {
                     
                     const AUDIT_SCRIPT = path.join(__dirname, 'audit_performance.py');
                     const auditProcess = spawn(pythonPath, [AUDIT_SCRIPT, '--last', '50'], { env, windowsHide: true });
+                    auditProcess.on('error', (e) => logger.error(`[AUTO-RETRAIN] Audit spawn error: ${e.message}`))
                     
                     let auditOutput = '';
                     auditProcess.stdout.on('data', d => auditOutput += d.toString());
@@ -190,6 +192,7 @@ function runLiveModelRetrain() {
             env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
             windowsHide: true
         });
+        pythonProcess.on('error', (e) => logger.error(`[AUTO-RETRAIN] Live train spawn error: ${e.message}`))
 
         pythonProcess.stdout.on('data', (data) => {
             const output = data.toString().trim()
@@ -254,6 +257,7 @@ function runV56Retrain() {
             windowsHide: true,
             timeout: 600000,
         });
+        proc.on('error', (e) => logger.error(`[AUTO-RETRAIN] Script spawn error: ${e.message}`))
 
         let stdout = '';
         proc.stdout.on('data', d => { const s = d.toString(); stdout += s; logger.info(`[V56] ${s.trim()}`) });

@@ -2,6 +2,8 @@ const { exec, spawn } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const logger = require('../core/logger')
+const { resolvePython } = require('../core/utils/pythonResolver')
+const PYTHON = resolvePython()
 
 class AutoHealRemedies {
   constructor() {
@@ -25,11 +27,16 @@ class AutoHealRemedies {
           }
         },
         fix: async () => {
+          const { execSync } = require('child_process')
           const pythonScript = path.join(__dirname, '..', 'core', 'fastapi_server.py')
           if (!fs.existsSync(pythonScript)) return { success: false, detail: 'fastapi_server.py not found' }
           try {
+            try {
+              execSync(`${PYTHON} --version`, { stdio: 'ignore', timeout: 5000 })
+            } catch (_) {
+              return { success: false, detail: `Python not available: ${PYTHON}` }
+            }
             if (process.platform === 'win32') {
-              // kill any stale python process on port 8000 only, not all python.exe
               exec('netstat -ano | findstr ":8000" | findstr "LISTENING"', (err, stdout) => {
                 if (stdout) {
                   const lines = stdout.trim().split('\n');
@@ -44,12 +51,13 @@ class AutoHealRemedies {
               });
               await new Promise(r => setTimeout(r, 2000));
             }
-            const proc = spawn('python', [pythonScript], {
+            const proc = spawn(PYTHON, [pythonScript], {
               cwd: path.join(__dirname, '..'),
               windowsHide: true,
               stdio: 'ignore',
               detached: true
             })
+            proc.on('error', (e) => logger.error(`[AUTOHEAL] Python spawn error: ${e.message}`))
             proc.unref()
             await new Promise(r => setTimeout(r, 10000))
             const res = await fetch('http://127.0.0.1:8000/health', { signal: AbortSignal.timeout(5000) })

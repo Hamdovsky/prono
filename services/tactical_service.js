@@ -2,6 +2,8 @@ const axios = require('axios');
 const { spawn } = require('child_process');
 const path = require('path');
 const { pooledConfig } = require('../core/networkConfig');
+const { resolvePython } = require('../core/utils/pythonResolver');
+const PYTHON_BIN = resolvePython();
 
 class TacticalService {
     /**
@@ -54,7 +56,7 @@ class TacticalService {
             
             let py;
             try {
-                py = spawn('python', [scriptPath], {
+                py = spawn(PYTHON_BIN, [scriptPath], {
                     env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
                     windowsHide: true
                 });

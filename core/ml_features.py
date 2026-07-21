@@ -1535,6 +1535,24 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     tn_features = extract_tunisian_features(home_name, away_name)
     features.update(tn_features)
 
+    # 10b. Raw Promosport vote percentages (from match data)
+    vh = _f(row.get('vote_home'), -1)
+    vd = _f(row.get('vote_draw'), -1)
+    va = _f(row.get('vote_away'), -1)
+    if vh >= 0 and vd >= 0 and va >= 0:
+        total = vh + vd + va
+        features['vote_home_pct'] = vh / total if total > 0 else 0.5
+        features['vote_draw_pct'] = vd / total if total > 0 else 0.33
+        features['vote_away_pct'] = va / total if total > 0 else 0.17
+        features['vote_advantage_home'] = vh - va
+        features['vote_home_norm'] = features['vote_home_pct']
+    else:
+        features['vote_home_pct'] = 0.5
+        features['vote_draw_pct'] = 0.33
+        features['vote_away_pct'] = 0.17
+        features['vote_advantage_home'] = 0.0
+        features['vote_home_norm'] = 0.5
+
     # --- V55 FEATURE CROSSES & COMPOSITE METRICS ---
     def _safe_div(a, b):
         return a / b if b and b != 0 else 0.0
@@ -2270,7 +2288,17 @@ FEATURE_NAMES_V553 = FEATURE_NAMES_V552 + [
     'avg_age_h', 'avg_age_a',
     'fifa_rank_diff', 'squad_value_diff',
     'conf_uefa_h', 'conf_conmebol_h',
-    'conf_uefa_a', 'conf_conmebol_a'
+    'conf_uefa_a', 'conf_conmebol_a',
+    # Tunisia crowd vote features (added from Titanium V3)
+    'h_tn_vote_consent', 'a_tn_vote_consent', 'tn_vote_consent_diff',
+    'h_tn_vote_sentiment', 'a_tn_vote_sentiment', 'tn_vote_sentiment_diff',
+    'h_tn_vote_divergence', 'a_tn_vote_divergence', 'tn_vote_divergence_diff',
+    'h_tn_vote_volatility', 'a_tn_vote_volatility', 'tn_vote_volatility_diff',
+    'h_tn_jackpot_pressure', 'a_tn_jackpot_pressure', 'tn_jackpot_pressure_diff',
+    'h_tn_crowd_conviction', 'a_tn_crowd_conviction', 'tn_crowd_conviction_diff',
+    # Raw promosport vote percentages
+    'vote_home_pct', 'vote_draw_pct', 'vote_away_pct',
+    'vote_advantage_home', 'vote_home_norm',
 ]
 
 # [TITANIUM V3] ELITE AI FEATURES - Full Environmental Intelligence (V54) + Tunisia Crowdsourcing
@@ -2453,6 +2481,10 @@ FEATURE_VOLATILITY = {
     "h_tn_vote_volatility": 0.35, "a_tn_vote_volatility": 0.35, "tn_vote_volatility_diff": 0.40,
     "h_tn_jackpot_pressure": 0.15, "a_tn_jackpot_pressure": 0.15, "tn_jackpot_pressure_diff": 0.20,
     "h_tn_crowd_conviction": 0.28, "a_tn_crowd_conviction": 0.28, "tn_crowd_conviction_diff": 0.32,
+
+    # Raw Promosport vote percentages
+    "vote_home_pct": 0.20, "vote_draw_pct": 0.20, "vote_away_pct": 0.20,
+    "vote_advantage_home": 0.25, "vote_home_norm": 0.20,
 }
 
 

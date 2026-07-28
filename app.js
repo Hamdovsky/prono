@@ -63,7 +63,7 @@ const redisCache = {
   init: () => Promise.resolve(), // redisClient has no init — connection is lazy
   ..._redisClient,
 }
-const validate = { deployConfig: [(req, res, next) => next()], seedMatch: [(req, res, next) => next()] }
+const { validate } = require('./core/validation')
 const scraperApiService = require('./services/scraperApiService')
 const playerPropsService = require('./services/playerPropsService')
 

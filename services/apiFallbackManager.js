@@ -12,7 +12,7 @@ class ApiFallbackManager {
   }
 
   getAvailableSources() {
-    return this.sources.filter(s => {
+    return this.sources.filter((s) => {
       try {
         return s.isAvailable()
       } catch (e) {
@@ -27,7 +27,7 @@ class ApiFallbackManager {
       status[s.name] = {
         available: s.isAvailable ? s.isAvailable() : false,
         priority: s.priority,
-        status: s.getQuotaStatus ? s.getQuotaStatus() : {}
+        status: s.getQuotaStatus ? s.getQuotaStatus() : {},
       }
     }
     return status
@@ -52,7 +52,7 @@ class ApiFallbackManager {
 
         const result = await Promise.race([
           fn.apply(source, args),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), TIMEOUT_MS))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), TIMEOUT_MS)),
         ])
         if (result && (Array.isArray(result) ? result.length > 0 : true)) {
           logger.info(`✅ [FALLBACK] ${source.name}.${fnName}() succeeded`)

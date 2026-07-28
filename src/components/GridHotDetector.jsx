@@ -18,7 +18,7 @@ function GridHotDetector() {
     try {
       const result = await fetchHotGrids({
         days: parseInt(timeRange),
-        minScore: 55
+        minScore: 55,
       })
       setHotGrids(result.data || [])
     } catch (e) {
@@ -65,10 +65,10 @@ function GridHotDetector() {
   return (
     <div className="grid-hot-container">
       <h2 className="grid-hot-title">🔥 Détecteur de Grids Hot</h2>
-      
+
       <div className="grid-controls">
-        <select 
-          value={timeRange} 
+        <select
+          value={timeRange}
           onChange={(e) => setTimeRange(e.target.value)}
           className="time-select"
         >
@@ -77,7 +77,7 @@ function GridHotDetector() {
           <option value="14">14 derniers jours</option>
           <option value="30">30 derniers jours</option>
         </select>
-        
+
         <button onClick={loadHotGrids} className="refresh-btn">
           🔄 Actualiser
         </button>
@@ -85,13 +85,11 @@ function GridHotDetector() {
 
       <div className="grids-list">
         {hotGrids.length === 0 ? (
-          <div className="grid-empty">
-            Aucun grid "hot" détecté pour cette période
-          </div>
+          <div className="grid-empty">Aucun grid "hot" détecté pour cette période</div>
         ) : (
           hotGrids.map((grid) => (
-            <div 
-              key={grid.grid} 
+            <div
+              key={grid.grid}
               className="grid-card"
               style={{ borderLeft: `4px solid ${getRatingColor(grid.rating)}` }}
             >
@@ -101,15 +99,15 @@ function GridHotDetector() {
                   {getRatingEmoji(grid.rating)} {grid.rating}
                 </span>
               </div>
-              
-              <div className="grid-score">
-                Score: {grid.score.toFixed(1)}/100
-              </div>
-              
+
+              <div className="grid-score">Score: {grid.score.toFixed(1)}/100</div>
+
               <div className="grid-metrics">
                 <div className="metric">
                   <span className="metric-label">Cagnotte</span>
-                  <span className="metric-value">{grid.cagnotte ? `${grid.cagnotte} TND` : '-'}</span>
+                  <span className="metric-value">
+                    {grid.cagnotte ? `${grid.cagnotte} TND` : '-'}
+                  </span>
                 </div>
                 <div className="metric">
                   <span className="metric-label">Matchs</span>
@@ -117,10 +115,12 @@ function GridHotDetector() {
                 </div>
                 <div className="metric">
                   <span className="metric-label">Taux réussite</span>
-                  <span className="metric-value">{grid.winRate ? `${grid.winRate.toFixed(1)}%` : '-'}</span>
+                  <span className="metric-value">
+                    {grid.winRate ? `${grid.winRate.toFixed(1)}%` : '-'}
+                  </span>
                 </div>
               </div>
-              
+
               {grid.factors && grid.factors.length > 0 && (
                 <div className="grid-factors">
                   {grid.factors.slice(0, 4).map((f, idx) => (

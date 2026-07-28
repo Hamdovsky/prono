@@ -62,7 +62,10 @@ class SupabaseService {
               connectionString: ipUrl,
               max: 1,
               connectionTimeoutMillis: 10000,
-              ssl: host.includes('supabase.co') || host.includes('neon.tech') ? { rejectUnauthorized: false } : undefined
+              ssl:
+                host.includes('supabase.co') || host.includes('neon.tech')
+                  ? { rejectUnauthorized: false }
+                  : undefined,
             })
             const client = await directPool.connect()
             try {
@@ -198,7 +201,9 @@ class SupabaseService {
     `
     const result = await this.query(sql)
     if (result) logger.info('✅ [SUPABASE] Schema initialized (shared pool)')
-    await this.query('ALTER TABLE matches ALTER COLUMN "startTimestamp" TYPE BIGINT').catch(() => {})
+    await this.query('ALTER TABLE matches ALTER COLUMN "startTimestamp" TYPE BIGINT').catch(
+      () => {}
+    )
     await this.query('ALTER TABLE matches ALTER COLUMN last_updated TYPE BIGINT').catch(() => {})
     return true
   }
@@ -206,7 +211,8 @@ class SupabaseService {
   async upsertMatch(match) {
     if (!this.isAvailable()) return false
     try {
-      await this.query(`
+      await this.query(
+        `
         INSERT INTO matches (
           id, "homeTeam", "awayTeam", league, status, prediction, confidence,
           "fullData", timestamp, "startTimestamp", source, last_updated,
@@ -224,14 +230,29 @@ class SupabaseService {
           odds_draw = EXCLUDED.odds_draw,
           odds_away = EXCLUDED.odds_away,
           last_updated = EXCLUDED.last_updated
-      `, [
-        match.id, match.homeTeam, match.awayTeam, match.league, match.status,
-        match.prediction, match.confidence, match.fullData, match.timestamp,
-        match.startTimestamp, match.source, Date.now(),
-        match.home_win_probability, match.draw_probability, match.away_win_probability,
-        match.odds_home, match.odds_draw, match.odds_away,
-        match.insufficient_data ?? 1
-      ])
+      `,
+        [
+          match.id,
+          match.homeTeam,
+          match.awayTeam,
+          match.league,
+          match.status,
+          match.prediction,
+          match.confidence,
+          match.fullData,
+          match.timestamp,
+          match.startTimestamp,
+          match.source,
+          Date.now(),
+          match.home_win_probability,
+          match.draw_probability,
+          match.away_win_probability,
+          match.odds_home,
+          match.odds_draw,
+          match.odds_away,
+          match.insufficient_data ?? 1,
+        ]
+      )
       return true
     } catch (e) {
       logger.warn(`⚠️ [SUPABASE] upsertMatch error: ${e.message}`)
@@ -242,7 +263,7 @@ class SupabaseService {
   async getAllMatchIds() {
     if (!this.isAvailable()) return []
     const result = await this.query('SELECT id FROM matches')
-    return result?.rows?.map(r => r.id) || []
+    return result?.rows?.map((r) => r.id) || []
   }
 
   async getMatch(id) {
@@ -254,14 +275,18 @@ class SupabaseService {
   async syncFromSQLite(database) {
     if (!this.isAvailable()) return 0
     try {
-      const rows = await database.db.prepare(`
+      const rows = await database.db
+        .prepare(
+          `
         SELECT id, "homeTeam", "awayTeam", league, status, prediction, confidence,
                "fullData", timestamp, "startTimestamp", source, last_updated,
                "home_win_probability", "draw_probability", "away_win_probability",
                odds_home, odds_draw, odds_away, insufficient_data
         FROM matches WHERE status = 'scheduled'
         ORDER BY last_updated DESC LIMIT 500
-      `).all()
+      `
+        )
+        .all()
 
       let synced = 0
       for (const row of rows) {

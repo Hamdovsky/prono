@@ -1,11 +1,11 @@
 /**
  * JinaScraper.js — Cost-effective fallback scraper (zero-auth, free)
- * 
+ *
  * Uses Jina AI Reader (r.jina.ai) to convert URLs → clean markdown.
  * No API key needed. Rate limit: ~20 req/min free tier.
- * 
+ *
  * Target: Soccerway (static HTML), WorldFootball.net, static odds pages.
- * 
+ *
  * Strategy:
  *   - Fetch URL via r.jina.ai proxy → markdown
  *   - Pattern-match odds from markdown tables
@@ -24,20 +24,27 @@ function fetchUrl(targetUrl, timeout = 20000) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(targetUrl)
     const mod = parsed.protocol === 'https:' ? https : http
-    const req = mod.get(targetUrl, {
-      timeout,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
+    const req = mod.get(
+      targetUrl,
+      {
+        timeout,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
       },
-    }, (res) => {
-      let data = ''
-      res.on('data', chunk => data += chunk)
-      res.on('end', () => resolve({ status: res.statusCode, data, headers: res.headers }))
-    })
+      (res) => {
+        let data = ''
+        res.on('data', (chunk) => (data += chunk))
+        res.on('end', () => resolve({ status: res.statusCode, data, headers: res.headers }))
+      }
+    )
     req.on('error', reject)
-    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')) })
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Timeout'))
+    })
   })
 }
 
@@ -51,14 +58,14 @@ function buildSoccerwayUrls(league) {
     'la liga': 'spain/laliga',
     'serie a': 'italy/serie-a',
     'ligue 1': 'france/ligue-1',
-    'bundesliga': 'germany/bundesliga',
-    'mls': 'usa/mls',
+    bundesliga: 'germany/bundesliga',
+    mls: 'usa/mls',
     'usl championship': 'usa/usl-championship',
     'brasileirão serie a': 'brazil/serie-a',
     'brasileirão serie b': 'brazil/serie-b',
-    'eredivisie': 'netherlands/eredivisie',
+    eredivisie: 'netherlands/eredivisie',
   }
-  const slug = slugs[Object.keys(slugs).find(k => l.includes(k))]
+  const slug = slugs[Object.keys(slugs).find((k) => l.includes(k))]
   if (!slug) return { fixtures: null, results: null }
   return {
     fixtures: `https://www.soccerway.com/${slug}/fixtures/`,
@@ -86,9 +93,13 @@ function extractOddsFromMarkdown(markdown, homeHint, awayHint) {
       currentMatch = {
         home_team: matchPattern[1].replace(/^\d+\.\s*/, '').trim(),
         away_team: matchPattern[2].trim(),
-        home_win: null, draw: null, away_win: null,
-        over_25: null, under_25: null,
-        btts_yes: null, btts_no: null,
+        home_win: null,
+        draw: null,
+        away_win: null,
+        over_25: null,
+        under_25: null,
+        btts_yes: null,
+        btts_no: null,
       }
       continue
     }
@@ -99,7 +110,7 @@ function extractOddsFromMarkdown(markdown, homeHint, awayHint) {
     const oddsMatch = line.match(/(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)/)
     if (oddsMatch) {
       const nums = [parseFloat(oddsMatch[1]), parseFloat(oddsMatch[2]), parseFloat(oddsMatch[3])]
-      if (nums.every(n => n >= 1.01 && n <= 20)) {
+      if (nums.every((n) => n >= 1.01 && n <= 20)) {
         if (currentMatch.home_win === null) {
           currentMatch.home_win = nums[0]
           currentMatch.draw = nums[1]
@@ -133,7 +144,7 @@ function extractOddsFromMarkdown(markdown, homeHint, awayHint) {
   if (homeHint || awayHint) {
     const hh = (homeHint || '').toLowerCase()
     const ah = (awayHint || '').toLowerCase()
-    return results.filter(m => {
+    return results.filter((m) => {
       const hm = (m.home_team || '').toLowerCase()
       const am = (m.away_team || '').toLowerCase()
       const homeOk = !hh || hm.includes(hh) || hh.includes(hm)

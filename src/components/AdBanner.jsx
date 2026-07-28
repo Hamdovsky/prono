@@ -1,39 +1,42 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react'
 
-const AD_CLIENT = 'ca-pub-9536439170503183';
+const AD_CLIENT = 'ca-pub-9536439170503183'
 
 const AD_SLOTS = {
-  banner:      '1234567890',
-  responsive:  '1234567891',
-  sidebar:     '1234567892',
-};
+  banner: '1234567890',
+  responsive: '1234567891',
+  sidebar: '1234567892',
+}
 
 function AdBanner({ type = 'banner', style = {}, className = '' }) {
-  const adRef = useRef(null);
-  const pushed = useRef(false);
+  const adRef = useRef(null)
+  const pushed = useRef(false)
 
   useEffect(() => {
-    if (pushed.current) return;
+    if (pushed.current) return
     try {
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-      pushed.current = true;
+      ;(window.adsbygoogle = window.adsbygoogle || []).push({})
+      pushed.current = true
     } catch (e) {
-      console.warn('[AdSense] push error:', e);
+      console.warn('[AdSense] push error:', e)
     }
-  }, []);
+  }, [])
 
   if (type === 'banner') {
     return (
-      <div className={`ad-banner ${className}`} style={{
-        margin: '12px 0',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        background: 'rgba(15,23,42,0.4)',
-        border: '1px solid rgba(51,65,85,0.3)',
-        textAlign: 'center',
-        minHeight: '90px',
-        ...style
-      }}>
+      <div
+        className={`ad-banner ${className}`}
+        style={{
+          margin: '12px 0',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          background: 'rgba(15,23,42,0.4)',
+          border: '1px solid rgba(51,65,85,0.3)',
+          textAlign: 'center',
+          minHeight: '90px',
+          ...style,
+        }}
+      >
         <ins
           ref={adRef}
           className="adsbygoogle"
@@ -44,21 +47,24 @@ function AdBanner({ type = 'banner', style = {}, className = '' }) {
           data-full-width-responsive="true"
         />
       </div>
-    );
+    )
   }
 
   if (type === 'responsive') {
     return (
-      <div className={`ad-responsive ${className}`} style={{
-        margin: '16px 0',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        background: 'rgba(15,23,42,0.4)',
-        border: '1px solid rgba(51,65,85,0.3)',
-        textAlign: 'center',
-        minHeight: '250px',
-        ...style
-      }}>
+      <div
+        className={`ad-responsive ${className}`}
+        style={{
+          margin: '16px 0',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          background: 'rgba(15,23,42,0.4)',
+          border: '1px solid rgba(51,65,85,0.3)',
+          textAlign: 'center',
+          minHeight: '250px',
+          ...style,
+        }}
+      >
         <ins
           ref={adRef}
           className="adsbygoogle"
@@ -69,21 +75,24 @@ function AdBanner({ type = 'banner', style = {}, className = '' }) {
           data-full-width-responsive="true"
         />
       </div>
-    );
+    )
   }
 
   if (type === 'sidebar') {
     return (
-      <div className={`ad-sidebar ${className}`} style={{
-        margin: '10px 0',
-        borderRadius: '6px',
-        overflow: 'hidden',
-        background: 'rgba(15,23,42,0.4)',
-        border: '1px solid rgba(51,65,85,0.3)',
-        textAlign: 'center',
-        minHeight: '250px',
-        ...style
-      }}>
+      <div
+        className={`ad-sidebar ${className}`}
+        style={{
+          margin: '10px 0',
+          borderRadius: '6px',
+          overflow: 'hidden',
+          background: 'rgba(15,23,42,0.4)',
+          border: '1px solid rgba(51,65,85,0.3)',
+          textAlign: 'center',
+          minHeight: '250px',
+          ...style,
+        }}
+      >
         <ins
           ref={adRef}
           className="adsbygoogle"
@@ -94,10 +103,10 @@ function AdBanner({ type = 'banner', style = {}, className = '' }) {
           data-full-width-responsive="true"
         />
       </div>
-    );
+    )
   }
 
-  return null;
+  return null
 }
 
-export default AdBanner;
+export default AdBanner

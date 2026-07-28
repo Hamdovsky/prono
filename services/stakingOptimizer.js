@@ -18,16 +18,17 @@
 const logger = require('../core/logger')
 
 const DEFAULT_CONFIG = {
-  bankroll: 10000,           // Bankroll initiale en EUR
-  maxDrawdownPct: 0.20,      // Arrêt à -20% de drawdown
-  maxDailyStake: 0.10,       // Max 10% de bankroll par jour
-  maxBetPerMatch: 0.05,      // Max 5% de bankroll par match
-  kellyFraction: 0.25,       // Fraction Kelly par défaut (conservateur)
-  minEdge: 0.02,             // Edge minimum (2%) pour miser
-  consecutiveLossLimit: 5,   // Arrêt après 5 pertes consécutives
-  cooldownAfterLoss: 1,      // 1 jour de pause après une grosse perte
-  maxCorrelatedBets: 3,      // Max 3 bets corrélés simultanés
-  bookmakerLimits: {         // Limites par bookmaker (EUR)
+  bankroll: 10000, // Bankroll initiale en EUR
+  maxDrawdownPct: 0.2, // Arrêt à -20% de drawdown
+  maxDailyStake: 0.1, // Max 10% de bankroll par jour
+  maxBetPerMatch: 0.05, // Max 5% de bankroll par match
+  kellyFraction: 0.25, // Fraction Kelly par défaut (conservateur)
+  minEdge: 0.02, // Edge minimum (2%) pour miser
+  consecutiveLossLimit: 5, // Arrêt après 5 pertes consécutives
+  cooldownAfterLoss: 1, // 1 jour de pause après une grosse perte
+  maxCorrelatedBets: 3, // Max 3 bets corrélés simultanés
+  bookmakerLimits: {
+    // Limites par bookmaker (EUR)
     pinnacle: 5000,
     bet365: 3000,
     unibet: 2000,
@@ -76,14 +77,18 @@ class StakingOptimizer {
     // Vérifier le drawdown
     const drawdown = (this.state.peakBankroll - bankroll) / this.state.peakBankroll
     if (drawdown >= maxDrawdownPct) {
-      logger.warn(`[STAKING] Max drawdown reached (${(drawdown*100).toFixed(1)}%). Bets STOPPED.`)
+      logger.warn(`[STAKING] Max drawdown reached (${(drawdown * 100).toFixed(1)}%). Bets STOPPED.`)
       return { stake: 0, reason: 'MAX_DRAWDOWN', drawdown }
     }
 
     // Vérifier les pertes consécutives
     if (this.state.consecutiveLosses >= consecutiveLossLimit) {
       logger.warn(`[STAKING] ${consecutiveLossLimit} consecutive losses. Cooldown activated.`)
-      return { stake: 0, reason: 'CONSECUTIVE_LOSS_LIMIT', consecutiveLosses: this.state.consecutiveLosses }
+      return {
+        stake: 0,
+        reason: 'CONSECUTIVE_LOSS_LIMIT',
+        consecutiveLosses: this.state.consecutiveLosses,
+      }
     }
 
     // Vérifier la limite quotidienne
@@ -121,7 +126,7 @@ class StakingOptimizer {
 
     // Calculer l'edge
     const marketImplied = 1 / odds
-    const edge = (ourProb / marketImplied) - 1
+    const edge = ourProb / marketImplied - 1
 
     if (edge < minEdge) {
       return { stake: 0, reason: 'INSUFFICIENT_EDGE', edge }
@@ -144,7 +149,7 @@ class StakingOptimizer {
     stake = Math.min(stake, maxMatchStake)
 
     // Appliquer la limite quotidienne
-    const remainingDaily = (bankroll * maxDailyStake) - this.state.dailyStake
+    const remainingDaily = bankroll * maxDailyStake - this.state.dailyStake
     stake = Math.min(stake, remainingDaily)
 
     // Appliquer les limites bookmaker
@@ -217,7 +222,9 @@ class StakingOptimizer {
 
     this.state.dailyStake += stake
 
-    logger.info(`[STAKING] ${won ? '✅' : '❌'} ${bet.match} | Stake: ${stake}€ | Profit: ${profit}€ | Bankroll: ${this.state.bankroll.toFixed(0)}€`)
+    logger.info(
+      `[STAKING] ${won ? '✅' : '❌'} ${bet.match} | Stake: ${stake}€ | Profit: ${profit}€ | Bankroll: ${this.state.bankroll.toFixed(0)}€`
+    )
 
     return this.getStats()
   }
@@ -238,13 +245,28 @@ class StakingOptimizer {
    */
   _detectRegion(match) {
     const league = (match.league || '').toLowerCase()
-    if (league.includes('ligue 1') || league.includes('ligue 2') || league.includes('france') || league.includes('coupe de france')) {
+    if (
+      league.includes('ligue 1') ||
+      league.includes('ligue 2') ||
+      league.includes('france') ||
+      league.includes('coupe de france')
+    ) {
       return 'france'
     }
-    if (league.includes('premier') || league.includes('championship') || league.includes('england') || league.includes('scotland')) {
+    if (
+      league.includes('premier') ||
+      league.includes('championship') ||
+      league.includes('england') ||
+      league.includes('scotland')
+    ) {
       return 'uk'
     }
-    if (league.includes('j league') || league.includes('k league') || league.includes('china') || league.includes('australia')) {
+    if (
+      league.includes('j league') ||
+      league.includes('k league') ||
+      league.includes('china') ||
+      league.includes('australia')
+    ) {
       return 'asia'
     }
     return null
@@ -258,7 +280,13 @@ class StakingOptimizer {
     // Même ligue
     if (betA.league === betB.league) score += 0.3
     // Même équipe (un bet sur une équipe et un autre sur la même dans un autre match)
-    if (betA.home === betB.home || betA.home === betB.away || betA.away === betB.home || betA.away === betB.away) score += 0.5
+    if (
+      betA.home === betB.home ||
+      betA.home === betB.away ||
+      betA.away === betB.home ||
+      betA.away === betB.away
+    )
+      score += 0.5
     // Même jour
     if (betA.date === betB.date) score += 0.2
     return Math.min(1, score)
@@ -274,7 +302,7 @@ class StakingOptimizer {
       maxCorrelation = Math.max(maxCorrelation, corr)
     }
     if (maxCorrelation > 0.5) {
-      return 1 - (maxCorrelation * 0.5)
+      return 1 - maxCorrelation * 0.5
     }
     return 1
   }
@@ -291,14 +319,26 @@ class StakingOptimizer {
    * Obtenir les statistiques courantes
    */
   getStats() {
-    const { bankroll, totalBets, winningBets, losingBets, totalProfit, consecutiveLosses, dailyStake, peakBankroll } = this.state
+    const {
+      bankroll,
+      totalBets,
+      winningBets,
+      losingBets,
+      totalProfit,
+      consecutiveLosses,
+      dailyStake,
+      peakBankroll,
+    } = this.state
     const drawdown = peakBankroll > 0 ? (peakBankroll - bankroll) / peakBankroll : 0
     const winRate = totalBets > 0 ? winningBets / totalBets : 0
 
     // Sharpe ratio simplifié
-    const profits = this.state.betHistory.map(b => b.profit)
+    const profits = this.state.betHistory.map((b) => b.profit)
     const avgProfit = profits.length > 0 ? profits.reduce((a, b) => a + b, 0) / profits.length : 0
-    const stdProfit = profits.length > 1 ? Math.sqrt(profits.reduce((s, p) => s + (p - avgProfit) ** 2, 0) / profits.length) : 1
+    const stdProfit =
+      profits.length > 1
+        ? Math.sqrt(profits.reduce((s, p) => s + (p - avgProfit) ** 2, 0) / profits.length)
+        : 1
     const sharpe = stdProfit > 0 ? (avgProfit / stdProfit) * Math.sqrt(365) : 0
 
     return {

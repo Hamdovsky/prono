@@ -8,13 +8,50 @@ async function logDiagnostic() {
 
     if (db) {
       const total = (db.prepare('SELECT COUNT(*) as c FROM matches').get() || {}).c || 0
-      const scheduled = (db.prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','notstarted','NS')").get() || {}).c || 0
-      const finished = (db.prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('FT','finished','Ended')").get() || {}).c || 0
-      const withOdds = (db.prepare('SELECT COUNT(*) as c FROM matches WHERE odds_home IS NOT NULL').get() || {}).c || 0
-      const withPredictions = (db.prepare("SELECT COUNT(*) as c FROM matches WHERE expected_score IS NOT NULL AND expected_score != 'N/A'").get() || {}).c || 0
-      const withXG = (db.prepare('SELECT COUNT(*) as c FROM matches WHERE home_xg IS NOT NULL').get() || {}).c || 0
-      const today = (db.prepare("SELECT COUNT(*) as c FROM matches WHERE DATE(timestamp / 1000, 'unixepoch') = DATE('now')").get() || {}).c || 0
-      const tomorrow = (db.prepare("SELECT COUNT(*) as c FROM matches WHERE DATE(timestamp / 1000, 'unixepoch') = DATE('now', '+1 day')").get() || {}).c || 0
+      const scheduled =
+        (
+          db
+            .prepare(
+              "SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','notstarted','NS')"
+            )
+            .get() || {}
+        ).c || 0
+      const finished =
+        (
+          db
+            .prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('FT','finished','Ended')")
+            .get() || {}
+        ).c || 0
+      const withOdds =
+        (db.prepare('SELECT COUNT(*) as c FROM matches WHERE odds_home IS NOT NULL').get() || {})
+          .c || 0
+      const withPredictions =
+        (
+          db
+            .prepare(
+              "SELECT COUNT(*) as c FROM matches WHERE expected_score IS NOT NULL AND expected_score != 'N/A'"
+            )
+            .get() || {}
+        ).c || 0
+      const withXG =
+        (db.prepare('SELECT COUNT(*) as c FROM matches WHERE home_xg IS NOT NULL').get() || {}).c ||
+        0
+      const today =
+        (
+          db
+            .prepare(
+              "SELECT COUNT(*) as c FROM matches WHERE DATE(timestamp / 1000, 'unixepoch') = DATE('now')"
+            )
+            .get() || {}
+        ).c || 0
+      const tomorrow =
+        (
+          db
+            .prepare(
+              "SELECT COUNT(*) as c FROM matches WHERE DATE(timestamp / 1000, 'unixepoch') = DATE('now', '+1 day')"
+            )
+            .get() || {}
+        ).c || 0
 
       logger.info('══════════════════════════════════════════')
       logger.info(`📊 DIAGNOSTIC DES DONNÉES (SQLite${usingPG ? ' + PostgreSQL' : ''})`)
@@ -37,9 +74,13 @@ async function logDiagnostic() {
         const { query } = pg
         const pgTotal = await query('SELECT COUNT(*) as c FROM matches')
         const pgCount = parseInt(pgTotal?.rows?.[0]?.c || pgTotal?.[0]?.c || 0)
-        const pgScheduled = await query("SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','notstarted','NS','not_started')")
+        const pgScheduled = await query(
+          "SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','notstarted','NS','not_started')"
+        )
         const pgSchedCount = parseInt(pgScheduled?.rows?.[0]?.c || pgScheduled?.[0]?.c || 0)
-        const pgWithPred = await query("SELECT COUNT(*) as c FROM matches WHERE expected_score IS NOT NULL AND expected_score != 'N/A'")
+        const pgWithPred = await query(
+          "SELECT COUNT(*) as c FROM matches WHERE expected_score IS NOT NULL AND expected_score != 'N/A'"
+        )
         const pgPredCount = parseInt(pgWithPred?.rows?.[0]?.c || pgWithPred?.[0]?.c || 0)
 
         logger.info('──────────────────────────────────────────')

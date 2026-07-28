@@ -4,7 +4,7 @@
  * Finds optimal NB dispersion theta per league via method-of-moments:
  *   θ = μ² / (σ² - μ)
  *
- * Now queries Neon PostgreSQL (soccer_fixtures + archive_matches) for 
+ * Now queries Neon PostgreSQL (soccer_fixtures + archive_matches) for
  * 400K+ historical match outcomes instead of local SQLite.
  *
  * Falls back to league defaults when insufficient data (< 20 matches).
@@ -14,7 +14,7 @@ const { query, usingPostgres } = require('../core/pg_connector')
 const logger = require('../core/logger')
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
-let _cache = { theta: {}, timestamp: 0 }
+const _cache = { theta: {}, timestamp: 0 }
 
 async function _queryGoalData() {
   const allData = {}
@@ -68,7 +68,7 @@ async function _queryGoalData() {
 
 function _estimateThetaFromGoals(goals) {
   if (!goals || goals.length < 20) return null
-  const totalGoals = goals.map(g => g.h + g.a)
+  const totalGoals = goals.map((g) => g.h + g.a)
   const n = totalGoals.length
   const mean = totalGoals.reduce((s, v) => s + v, 0) / n
   const variance = totalGoals.reduce((s, v) => s + (v - mean) ** 2, 0) / n
@@ -78,13 +78,29 @@ function _estimateThetaFromGoals(goals) {
 }
 
 const LEAGUE_THETA_DEFAULTS = {
-  'islande': 3.0, 'iceland': 3.0, 'reykjavik': 3.0,
-  'women': 3.0, 'féminin': 3.0, 'femenine': 3.0,
-  'bundesliga': 3.5, 'netherlands': 3.5, 'eredivisie': 3.5, 'austria': 3.5,
-  'premier league': 4.0, 'championship': 4.0, 'norway': 4.0, 'sweden': 4.0,
-  'serie a': 6.0, 'ligue 2': 6.0, 'argentina': 6.0, 'brazil': 6.0,
-  'ligue 1': 5.5, 'france': 5.5,
-  'national': 4.5, 'scotland': 4.5, 'league one': 4.5,
+  islande: 3.0,
+  iceland: 3.0,
+  reykjavik: 3.0,
+  women: 3.0,
+  féminin: 3.0,
+  femenine: 3.0,
+  bundesliga: 3.5,
+  netherlands: 3.5,
+  eredivisie: 3.5,
+  austria: 3.5,
+  'premier league': 4.0,
+  championship: 4.0,
+  norway: 4.0,
+  sweden: 4.0,
+  'serie a': 6.0,
+  'ligue 2': 6.0,
+  argentina: 6.0,
+  brazil: 6.0,
+  'ligue 1': 5.5,
+  france: 5.5,
+  national: 4.5,
+  scotland: 4.5,
+  'league one': 4.5,
 }
 
 function _matchDefault(league) {
@@ -121,7 +137,9 @@ async function init() {
   if (usingPostgres()) {
     try {
       await optimize()
-      logger.info(`[θ OPT] Calibrated ${Object.keys(_cache.theta).length} leagues from Neon archive (378K+ fixtures)`)
+      logger.info(
+        `[θ OPT] Calibrated ${Object.keys(_cache.theta).length} leagues from Neon archive (378K+ fixtures)`
+      )
     } catch (e) {
       logger.warn(`[θ OPT] Init failed: ${e.message}`)
     }

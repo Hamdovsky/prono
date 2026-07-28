@@ -1894,6 +1894,16 @@ FEATURE_NAMES_V56 = [
     'h_home_field_adv_diff', 'a_home_field_adv_diff'
 ]
 
+# TITANIUM V4 Elite Features (same as Titanium V3)
+FEATURE_NAMES_TITANIUM_V4 = FEATURE_NAMES_V54 + [
+    'h_pts', 'a_pts', 'pts_diff',
+    'humidity',
+    'ip_h', 'ip_d', 'ip_a',
+    'is_extreme_weather',
+    'news_is_missing_gk', 'news_is_missing_scorer', 'news_is_missing_captain', 'news_is_missing_star',
+    'odds_velocity', 'is_derby',
+]
+
 # TITANIUM V3 Elite Features (V54 + Tunisia Specific)
 FEATURE_NAMES_TITANIUM = FEATURE_NAMES_V54 + [
     'h_pts', 'a_pts', 'pts_diff',

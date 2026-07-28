@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": ".",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["node"]
+  },
+  "include": [
+    "services/**/*.ts",
+    "services/**/*.js",
+    "routes/**/*.ts",
+    "routes/**/*.js",
+    "core/**/*.ts",
+    "core/**/*.js",
+    "scripts/**/*.ts",
+    "scripts/**/*.js",
+    "server.js",
+    "app.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "SofascoreScraping",
+    "src",
+    ".venv",
+    "coverage",
+    "data",
+    "models",
+    "tmp"
+  ]
+}

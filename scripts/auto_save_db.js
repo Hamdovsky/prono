@@ -26,7 +26,7 @@ function backupDatabase() {
 
 function pruneOldBackups(maxAgeDays = 30) {
   ensureBackupDir()
-  const files = fs.readdirSync(BACKUP_DIR).filter(f => f.endsWith('.sqlite'))
+  const files = fs.readdirSync(BACKUP_DIR).filter((f) => f.endsWith('.sqlite'))
   const now = Date.now()
   let pruned = 0
   for (const file of files) {

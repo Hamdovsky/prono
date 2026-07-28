@@ -8,7 +8,7 @@ const ARCHIVE_PATH = path.join(__dirname, '..', 'data', 'historical_archive.sqli
 
 const limiter = new Bottleneck({
   maxConcurrent: 1,
-  minTime: 1100
+  minTime: 1100,
 })
 
 function getArchiveDb() {
@@ -26,17 +26,20 @@ class SportdbService {
   async _fetch(endpoint) {
     if (process.env.SPORTDB_ENABLED === 'false') return null
     const key = process.env.SPORTDB_API_KEY
-    if (!key) { logger.warn('[SPORTDB] No API key'); return null }
+    if (!key) {
+      logger.warn('[SPORTDB] No API key')
+      return null
+    }
     try {
       const { data } = await axios.get(`https://api.sportdb.dev/api/flashscore${endpoint}`, {
-        headers: { 'X-API-Key': key, 'Accept': 'application/json' },
-        timeout: 20000
+        headers: { 'X-API-Key': key, Accept: 'application/json' },
+        timeout: 20000,
       })
       return data
     } catch (e) {
       if (e.response?.status === 429) {
         logger.warn('[SPORTDB] Rate limited (429), slowing down...')
-        await new Promise(r => setTimeout(r, 3000))
+        await new Promise((r) => setTimeout(r, 3000))
         return null
       }
       if (e.response?.status === 500) {
@@ -49,21 +52,29 @@ class SportdbService {
   }
 
   async listCountries() {
-    return await limiter.schedule(() => this._fetch('/football')) || []
+    return (await limiter.schedule(() => this._fetch('/football'))) || []
   }
 
   async listCompetitions(countrySlug, countryId) {
-    return await limiter.schedule(() => this._fetch(`/football/${countrySlug}:${countryId}`)) || []
+    return (
+      (await limiter.schedule(() => this._fetch(`/football/${countrySlug}:${countryId}`))) || []
+    )
   }
 
   async getCompetitionSeasons(countrySlug, countryId, compSlug, compId) {
-    return await limiter.schedule(() => this._fetch(`/football/${countrySlug}:${countryId}/${compSlug}:${compId}`))
+    return await limiter.schedule(() =>
+      this._fetch(`/football/${countrySlug}:${countryId}/${compSlug}:${compId}`)
+    )
   }
 
   async getResults(countrySlug, countryId, compSlug, compId, season, page = 1) {
-    return await limiter.schedule(() =>
-      this._fetch(`/football/${countrySlug}:${countryId}/${compSlug}:${compId}/${season}/results?page=${page}`)
-    ) || []
+    return (
+      (await limiter.schedule(() =>
+        this._fetch(
+          `/football/${countrySlug}:${countryId}/${compSlug}:${compId}/${season}/results?page=${page}`
+        )
+      )) || []
+    )
   }
 
   async getMatchStats(eventId) {
@@ -72,24 +83,39 @@ class SportdbService {
 
   parseStats(statsData) {
     const result = {
-      home_xg: 0, away_xg: 0, home_xgot: 0, away_xgot: 0,
-      home_possession: 50, away_possession: 50,
-      home_shots: 0, away_shots: 0,
-      home_shots_on_target: 0, away_shots_on_target: 0,
-      home_corners: 0, away_corners: 0,
-      home_yellow_cards: 0, away_yellow_cards: 0,
-      home_red_cards: 0, away_red_cards: 0,
-      home_fouls: 0, away_fouls: 0,
-      home_shots_inside_box: 0, away_shots_inside_box: 0,
-      home_big_chances: 0, away_big_chances: 0,
-      stats_blob: '{}'
+      home_xg: 0,
+      away_xg: 0,
+      home_xgot: 0,
+      away_xgot: 0,
+      home_possession: 50,
+      away_possession: 50,
+      home_shots: 0,
+      away_shots: 0,
+      home_shots_on_target: 0,
+      away_shots_on_target: 0,
+      home_corners: 0,
+      away_corners: 0,
+      home_yellow_cards: 0,
+      away_yellow_cards: 0,
+      home_red_cards: 0,
+      away_red_cards: 0,
+      home_fouls: 0,
+      away_fouls: 0,
+      home_shots_inside_box: 0,
+      away_shots_inside_box: 0,
+      home_big_chances: 0,
+      away_big_chances: 0,
+      stats_blob: '{}',
     }
     if (!statsData || !Array.isArray(statsData)) return result
-    const matchStats = statsData.find(s => s.period === 'Match')
+    const matchStats = statsData.find((s) => s.period === 'Match')
     if (!matchStats) return result
     const stats = {}
     for (const s of matchStats.stats) {
-      stats[s.statName.toLowerCase().replace(/[^a-z0-9]/g, '_')] = { home: s.homeValue, away: s.awayValue }
+      stats[s.statName.toLowerCase().replace(/[^a-z0-9]/g, '_')] = {
+        home: s.homeValue,
+        away: s.awayValue,
+      }
     }
     const f = (key, homeKey, awayKey) => {
       const entry = stats[key]
@@ -114,7 +140,7 @@ class SportdbService {
       yellow_cards_home: result.home_yellow_cards,
       yellow_cards_away: result.away_yellow_cards,
       red_cards_home: result.home_red_cards,
-      red_cards_away: result.away_red_cards
+      red_cards_away: result.away_red_cards,
     })
     return result
   }
@@ -147,19 +173,31 @@ class SportdbService {
       home_fouls: stats.home_fouls,
       away_fouls: stats.away_fouls,
       result,
-      archived_at: Date.now()
+      archived_at: Date.now(),
     }
   }
 
   async discoverLeagues() {
     const countries = await this.listCountries()
-    const targets = ['england', 'spain', 'italy', 'germany', 'france', 'netherlands',
-      'portugal', 'belgium', 'turkey', 'brazil', 'argentina', 'usa']
+    const targets = [
+      'england',
+      'spain',
+      'italy',
+      'germany',
+      'france',
+      'netherlands',
+      'portugal',
+      'belgium',
+      'turkey',
+      'brazil',
+      'argentina',
+      'usa',
+    ]
     const leagues = []
 
     for (const country of countries) {
       const name = country.name?.toLowerCase().replace(/[^a-z]/g, '') || country.slug
-      if (!targets.some(t => name.includes(t))) continue
+      if (!targets.some((t) => name.includes(t))) continue
 
       const comps = await this.listCompetitions(country.slug, country.id)
       const topLeagues = {
@@ -174,13 +212,18 @@ class SportdbService {
         turkey: ['super-lig'],
         brazil: ['brasileirao-serie-a', 'serie-a'],
         argentina: ['primera-division', 'liga-profesional'],
-        usa: ['mls']
+        usa: ['mls'],
       }
 
       const targetSlugs = Object.entries(topLeagues).find(([k]) => name.includes(k))?.[1] || []
       for (const comp of comps) {
-        if (targetSlugs.some(s => comp.slug === s || comp.slug?.includes(s))) {
-          leagues.push({ country: country.slug, countryId: country.id, comp: comp.slug, compId: comp.id })
+        if (targetSlugs.some((s) => comp.slug === s || comp.slug?.includes(s))) {
+          leagues.push({
+            country: country.slug,
+            countryId: country.id,
+            comp: comp.slug,
+            compId: comp.id,
+          })
         }
       }
     }
@@ -190,7 +233,7 @@ class SportdbService {
   async importLeagueHistory(country, cId, comp, compId, season, maxPages = 3) {
     const compData = await this.getCompetitionSeasons(country, cId, comp, compId)
     if (!compData || !compData.seasons) return 0
-    const seasonData = compData.seasons.find(s => s.season === season)
+    const seasonData = compData.seasons.find((s) => s.season === season)
     if (!seasonData) return 0
 
     const db = getArchiveDb()
@@ -204,7 +247,8 @@ class SportdbService {
       for (const match of results) {
         const eventId = match.eventId
         if (!eventId) continue
-        if (db && db.prepare('SELECT id FROM archive_matches WHERE sofascore_id = ?').get(eventId)) continue
+        if (db && db.prepare('SELECT id FROM archive_matches WHERE sofascore_id = ?').get(eventId))
+          continue
 
         const statsData = await this.getMatchStats(eventId)
         if (!statsData) continue
@@ -213,7 +257,8 @@ class SportdbService {
         const record = this.mapResultToArchive(match, stats)
 
         if (db) {
-          db.prepare(`
+          db.prepare(
+            `
             INSERT OR IGNORE INTO archive_matches (
               sofascore_id, startTimestamp, tournament_name,
               homeTeam, awayTeam, scoreHome, scoreAway,
@@ -235,7 +280,8 @@ class SportdbService {
               @home_fouls, @away_fouls,
               @result, @archived_at
             )
-          `).run(record)
+          `
+          ).run(record)
         }
         imported++
       }

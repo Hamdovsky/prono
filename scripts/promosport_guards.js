@@ -15,7 +15,11 @@ function checkDatasetBeforeRetrain() {
       return { ok: false, reason: 'no_db' }
     }
     const db = new Database(ARCHIVE_PATH, { readonly: true })
-    const rows = db.prepare(`SELECT COUNT(*) as c FROM promosport_archive WHERE result IS NOT NULL AND result != 'N'`).get()
+    const rows = db
+      .prepare(
+        `SELECT COUNT(*) as c FROM promosport_archive WHERE result IS NOT NULL AND result != 'N'`
+      )
+      .get()
     db.close()
 
     if (!rows || rows.c < 50) {
@@ -59,7 +63,9 @@ function guardRetrain() {
     logger.warn(`[GUARDS] Retrain blocked: ${reason}`)
     try {
       const botService = require('../services/botService')
-      botService.sendAlert(`⛔ <b>Retrain bloqué</b>\nCause: ${reason}\nLe retrain hebdomadaire est annulé.`)
+      botService.sendAlert(
+        `⛔ <b>Retrain bloqué</b>\nCause: ${reason}\nLe retrain hebdomadaire est annulé.`
+      )
     } catch (_) {}
     return { allowed: false, reason }
   }
@@ -71,7 +77,9 @@ if (require.main === module) {
   if (op === 'check') {
     const health = checkModelHealth()
     const dataset = checkDatasetBeforeRetrain()
-    console.log(JSON.stringify({ model: health, dataset, allowed: dataset.ok && health.ok }, null, 2))
+    console.log(
+      JSON.stringify({ model: health, dataset, allowed: dataset.ok && health.ok }, null, 2)
+    )
   } else if (op === 'guard') {
     const result = guardRetrain()
     process.exit(result.allowed ? 0 : 1)

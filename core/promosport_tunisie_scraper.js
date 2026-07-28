@@ -57,9 +57,7 @@ async function scrapeTunisieGrid(gridNo) {
       const px = parseInt(allTds.eq(11).text().trim())
       const p2 = parseInt(allTds.eq(12).text().trim())
 
-      const publicVote = (!isNaN(p1) && !isNaN(px) && !isNaN(p2))
-        ? { p1, px, p2 }
-        : null
+      const publicVote = !isNaN(p1) && !isNaN(px) && !isNaN(p2) ? { p1, px, p2 } : null
 
       matches.push({
         idx,
@@ -85,7 +83,6 @@ async function scrapeTunisieGrid(gridNo) {
       matches: matches.slice(0, 13),
       source: 'promosport-pronostic.com',
     }
-
   } catch (err) {
     logger.error(`[TN-PARSE] Grid ${gridNo}: ${err.message}`)
     return null

@@ -7,17 +7,17 @@ router.get('/hot', (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10
     const minScore = parseFloat(req.query.minScore) || 50
-    
+
     const result = detectHotGrids({ limit, minScore })
-    
+
     res.json({
       success: true,
-      ...result
+      ...result,
     })
   } catch (e) {
     res.status(500).json({
       success: false,
-      error: e.message
+      error: e.message,
     })
   }
 })
@@ -26,15 +26,15 @@ router.get('/hot', (req, res) => {
 router.get('/recommendations', (req, res) => {
   try {
     const result = getGridRecommendations()
-    
+
     res.json({
       success: true,
-      ...result
+      ...result,
     })
   } catch (e) {
     res.status(500).json({
       success: false,
-      error: e.message
+      error: e.message,
     })
   }
 })

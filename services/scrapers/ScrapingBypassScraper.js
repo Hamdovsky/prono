@@ -10,13 +10,7 @@ const VENV_PYTHON = isWin
   ? path.join(BASE_DIR, '.venv', 'Scripts', 'python.exe')
   : path.join(BASE_DIR, '.venv', 'bin', 'python3')
 
-const BROWSER_FINGERPRINTS = [
-  'chrome124',
-  'chrome120',
-  'chrome116',
-  'safari17_0',
-  'firefox133',
-]
+const BROWSER_FINGERPRINTS = ['chrome124', 'chrome120', 'chrome116', 'safari17_0', 'firefox133']
 
 function callPython(data) {
   return new Promise((resolve, reject) => {
@@ -26,9 +20,9 @@ function callPython(data) {
     })
     let stdout = ''
     let stderr = ''
-    proc.stdout.on('data', chunk => stdout += chunk)
-    proc.stderr.on('data', chunk => stderr += chunk)
-    proc.on('close', code => {
+    proc.stdout.on('data', (chunk) => (stdout += chunk))
+    proc.stderr.on('data', (chunk) => (stderr += chunk))
+    proc.on('close', (code) => {
       if (code !== 0) {
         return reject(new Error(`Python exited ${code}: ${stderr.slice(0, 200)}`))
       }

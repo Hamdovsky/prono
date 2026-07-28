@@ -1,6 +1,6 @@
-const express = require('express');
-const router = express.Router();
-const db = require('../core/database');
+const express = require('express')
+const router = express.Router()
+const db = require('../core/database')
 
 /**
  * 📊 TITANIUM RESEARCH & QUANT API
@@ -8,11 +8,13 @@ const db = require('../core/database');
  */
 
 router.get('/accuracy', async (req, res) => {
-    try {
-        const days = parseInt(req.query.days) || 30;
-        const since = new Date(Date.now() - days * 86400000).toISOString();
+  try {
+    const days = parseInt(req.query.days) || 30
+    const since = new Date(Date.now() - days * 86400000).toISOString()
 
-        const overall = await db.prepare(`
+    const overall = await db
+      .prepare(
+        `
             SELECT 
                 COUNT(*) as total,
                 SUM(CASE WHEN result = 'won' THEN 1 ELSE 0 END) as won,
@@ -22,9 +24,13 @@ router.get('/accuracy', async (req, res) => {
                     NULLIF(SUM(CASE WHEN result IN ('won','lost') THEN 1 ELSE 0 END), 0), 1) as win_rate
             FROM prediction_history
             WHERE timestamp >= ?
-        `).get(since);
+        `
+      )
+      .get(since)
 
-        const byLeague = await db.prepare(`
+    const byLeague = await db
+      .prepare(
+        `
             SELECT 
                 league,
                 COUNT(*) as total,
@@ -36,9 +42,13 @@ router.get('/accuracy', async (req, res) => {
             GROUP BY league
             HAVING total >= 3
             ORDER BY win_rate DESC
-        `).all(since);
+        `
+      )
+      .all(since)
 
-        const daily = await db.prepare(`
+    const daily = await db
+      .prepare(
+        `
             SELECT 
                 DATE(timestamp) as date,
                 COUNT(*) as total,
@@ -49,9 +59,13 @@ router.get('/accuracy', async (req, res) => {
             WHERE timestamp >= ?
             GROUP BY DATE(timestamp)
             ORDER BY date ASC
-        `).all(since);
+        `
+      )
+      .all(since)
 
-        const byType = await db.prepare(`
+    const byType = await db
+      .prepare(
+        `
             SELECT 
                 prediction_type,
                 COUNT(*) as total,
@@ -63,54 +77,66 @@ router.get('/accuracy', async (req, res) => {
             WHERE timestamp >= ?
             GROUP BY prediction_type
             ORDER BY total DESC
-        `).all(since);
+        `
+      )
+      .all(since)
 
-        res.json({
-            success: true,
-            period: { days, since },
-            overall: overall || { total: 0, won: 0, lost: 0, pending: 0, win_rate: 0 },
-            byLeague,
-            daily,
-            byType
-        });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
+    res.json({
+      success: true,
+      period: { days, since },
+      overall: overall || { total: 0, won: 0, lost: 0, pending: 0, win_rate: 0 },
+      byLeague,
+      daily,
+      byType,
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
 
 router.get('/intelligence', async (req, res) => {
-    try {
-        const topFailures = await db.prepare(`
+  try {
+    const topFailures = await db
+      .prepare(
+        `
             SELECT failure_type, SUM(frequency) as total,
                    ROUND(AVG(impact_roi), 3) as avg_roi_impact,
                    ROUND(AVG(impact_clv), 3) as avg_clv_impact
             FROM failure_intelligence 
             GROUP BY failure_type 
             ORDER BY total DESC
-        `).all();
+        `
+      )
+      .all()
 
-        const leaguePatterns = await db.prepare(`
+    const leaguePatterns = await db
+      .prepare(
+        `
             SELECT league, failure_type, frequency 
             FROM failure_intelligence 
             WHERE team = 'GLOBAL'
             ORDER BY frequency DESC
             LIMIT 20
-        `).all();
+        `
+      )
+      .all()
 
-        res.json({
-            success: true,
-            topFailures,
-            leaguePatterns,
-            timestamp: new Date().toISOString()
-        });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
+    res.json({
+      success: true,
+      topFailures,
+      leaguePatterns,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
 
 router.get('/performance-metrics', async (req, res) => {
-    try {
-        const metrics = await db.prepare(`
+  try {
+    const metrics = await db
+      .prepare(
+        `
             SELECT 
                 league,
                 COUNT(*) as total_matches,
@@ -121,51 +147,57 @@ router.get('/performance-metrics', async (req, res) => {
             GROUP BY league
             HAVING total_matches > 5
             ORDER BY avg_clv DESC
-        `).all();
+        `
+      )
+      .all()
 
-        res.json({ success: true, metrics });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
+    res.json({ success: true, metrics })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
 
 router.get('/sensors', async (req, res) => {
-    try {
-        const signals = await MarketSensorService.getMarketSignals(req.query.days || 2);
-        res.json({ success: true, signals });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
+  try {
+    const signals = await MarketSensorService.getMarketSignals(req.query.days || 2)
+    res.json({ success: true, signals })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
 
 router.get('/heatmap', async (req, res) => {
-    try {
-        const days = parseInt(req.query.days) || 30;
-        const since = new Date(Date.now() - days * 86400000).toISOString();
-        const rows = await db.prepare(`
+  try {
+    const days = parseInt(req.query.days) || 30
+    const since = new Date(Date.now() - days * 86400000).toISOString()
+    const rows = await db
+      .prepare(
+        `
             SELECT concours, avg_score, success_rate, volatility, heat_date
             FROM evolution_heatmap
             WHERE heat_date >= ?
             ORDER BY heat_date ASC
-        `).all(since);
-        if (rows && rows.length > 0) {
-            return res.json({ success: true, heatmap: rows });
-        }
-        const fallback = [];
-        for (let i = days; i >= 0; i--) {
-            const d = new Date(Date.now() - i * 86400000);
-            fallback.push({
-                concours: `Grid ${860 + i}`,
-                avg_score: 6.5 + Math.random() * 2,
-                success_rate: 50 + Math.random() * 30,
-                volatility: 0.1 + Math.random() * 0.4,
-                heat_date: d.toISOString().split('T')[0]
-            });
-        }
-        res.json({ success: true, heatmap: fallback });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
+        `
+      )
+      .all(since)
+    if (rows && rows.length > 0) {
+      return res.json({ success: true, heatmap: rows })
     }
-});
+    const fallback = []
+    for (let i = days; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000)
+      fallback.push({
+        concours: `Grid ${860 + i}`,
+        avg_score: 6.5 + Math.random() * 2,
+        success_rate: 50 + Math.random() * 30,
+        volatility: 0.1 + Math.random() * 0.4,
+        heat_date: d.toISOString().split('T')[0],
+      })
+    }
+    res.json({ success: true, heatmap: fallback })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
 
-module.exports = router;
+module.exports = router

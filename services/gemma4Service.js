@@ -9,19 +9,19 @@ class Gemma4Service {
   }
 
   isAvailable() {
-    const url = this.baseUrl;
+    const url = this.baseUrl
     // En production (Render), Ollama local n'est pas disponible
     if (process.env.RENDER || process.env.NODE_ENV === 'production') {
       if (url.includes('127.0.0.1') || url.includes('localhost')) {
-        return false;
+        return false
       }
     }
     // si serveur local (Ollama), apiKey optionnel
     if (url.includes('127.0.0.1') || url.includes('localhost')) {
-      return !!url;
+      return !!url
     }
     // serveur distant → clé obligatoire
-    return !!url && !!this.apiKey;
+    return !!url && !!this.apiKey
   }
 
   async _chat(systemPrompt, userPrompt) {
@@ -34,23 +34,23 @@ class Gemma4Service {
         model: this.model,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          { role: 'user', content: userPrompt },
         ],
         temperature: 0.2,
         max_tokens: 1000,
-        stream: false
+        stream: false,
       }
 
       // Ajout du format JSON pour Ollama (si local) ou Groq/Together
       if (this.baseUrl.includes('11434')) {
-          payload.format = 'json'
+        payload.format = 'json'
       } else {
-          payload.response_format = { type: 'json_object' }
+        payload.response_format = { type: 'json_object' }
       }
 
-      const { data } = await axios.post(`${this.baseUrl}/chat/completions`, payload, { 
-        headers, 
-        timeout: 60000 
+      const { data } = await axios.post(`${this.baseUrl}/chat/completions`, payload, {
+        headers,
+        timeout: 60000,
       })
 
       const content = data.choices?.[0]?.message?.content
@@ -69,7 +69,8 @@ class Gemma4Service {
   }
 
   async analyzePreMatchVIP(match, realTimeNews = '') {
-    const systemPrompt = "Tu es le Directeur Quantitatif Principal de Titanium AI. Tu prépares des fiches tactiques ultra-pointues destinées à un club d'investisseurs professionnels. Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après."
+    const systemPrompt =
+      "Tu es le Directeur Quantitatif Principal de Titanium AI. Tu prépares des fiches tactiques ultra-pointues destinées à un club d'investisseurs professionnels. Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ou après."
     const userPrompt = `
 Rédige une fiche d'évaluation stratégique pré-match pour la sélection VIP suivante :
 
@@ -101,7 +102,8 @@ Retourne ce format JSON :
   }
 
   async analyzeLiveValueBet(match, market, ev, liveOdds) {
-    const systemPrompt = "Tu es l'Expert Stratégique en Chef de Titanium AI, un algorithme d'investissement quantitatif de niveau hedge-fund spécialisé dans les pronostics de football en direct. Réponds UNIQUEMENT avec un objet JSON valide."
+    const systemPrompt =
+      "Tu es l'Expert Stratégique en Chef de Titanium AI, un algorithme d'investissement quantitatif de niveau hedge-fund spécialisé dans les pronostics de football en direct. Réponds UNIQUEMENT avec un objet JSON valide."
     const userPrompt = `
 Effectue une évaluation tactique critique de la Value Bet en direct détectée :
 
@@ -127,7 +129,8 @@ Retourne ce format JSON :
   }
 
   async analyzeFailedMatchAutopsy(failed) {
-    const systemPrompt = "Tu es le Médecin Légiste Tactique Principal de Titanium AI, spécialisé dans l'autopsie post-match. Réponds UNIQUEMENT avec un objet JSON valide."
+    const systemPrompt =
+      "Tu es le Médecin Légiste Tactique Principal de Titanium AI, spécialisé dans l'autopsie post-match. Réponds UNIQUEMENT avec un objet JSON valide."
     const userPrompt = `
 Effectue une autopsie tactique de la prédiction échouée suivante :
 

@@ -1,12 +1,12 @@
 /**
  * scraperRouter.js — Automated toggle switch for scraping pipeline
- * 
+ *
  * Priority chain:
  *   1. ScrapingBypass (curl_cffi TLS fingerprint spoofing — top priority)
  *   2. Firecrawl (JS execution, LLM extraction — if FIRECRAWL_API_KEY set)
  *   3. Jina Reader (static pages, zero-auth — always available)
  *   4. Python bridge (cloudscraper fallback — BetExplorer data-odd)
- * 
+ *
  * Health check: auto-disable any scraper after 3 consecutive failures
  */
 
@@ -21,21 +21,33 @@ let _pythonBridge = null
 
 function getBypass() {
   if (!_bypass) {
-    try { _bypass = require('./ScrapingBypassScraper') } catch { _bypass = null }
+    try {
+      _bypass = require('./ScrapingBypassScraper')
+    } catch {
+      _bypass = null
+    }
   }
   return _bypass
 }
 
 function getFirecrawl() {
   if (!_firecrawl) {
-    try { _firecrawl = require('./FirecrawlScraper') } catch { _firecrawl = null }
+    try {
+      _firecrawl = require('./FirecrawlScraper')
+    } catch {
+      _firecrawl = null
+    }
   }
   return _firecrawl
 }
 
 function getJina() {
   if (!_jina) {
-    try { _jina = require('./JinaScraper') } catch { _jina = null }
+    try {
+      _jina = require('./JinaScraper')
+    } catch {
+      _jina = null
+    }
   }
   return _jina
 }
@@ -48,10 +60,12 @@ function getPythonBridge() {
         getOdds: svc.getOdds.bind(svc),
         getLiveScores: svc.getLiveScores ? svc.getLiveScores.bind(svc) : null,
         isAvailable: () => true,
-        getCacheSize: () => svc.getCacheSize ? svc.getCacheSize() : 0,
+        getCacheSize: () => (svc.getCacheSize ? svc.getCacheSize() : 0),
         clearCache: svc.clearCache ? svc.clearCache.bind(svc) : () => {},
       }
-    } catch { _pythonBridge = null }
+    } catch {
+      _pythonBridge = null
+    }
   }
   return _pythonBridge
 }
@@ -74,7 +88,10 @@ function recordFailure(name) {
     h.disabled = true
     console.warn(`[SCRAPER] ${name} disabled after ${h.failures} consecutive failures`)
     // Auto-re-enable after cooldown
-    setTimeout(() => { h.disabled = false; h.failures = 0 }, COOLDOWN_MS)
+    setTimeout(() => {
+      h.disabled = false
+      h.failures = 0
+    }, COOLDOWN_MS)
   }
 }
 
@@ -107,11 +124,13 @@ function getPriorityChain() {
 
   // bypass (curl_cffi TLS fingerprint spoofing) is always top priority
   if (isHealthy('bypass')) chain.push({ name: 'bypass', scraper: getBypass(), type: 'tls_bypass' })
-  if (isHealthy('firecrawl')) chain.push({ name: 'firecrawl', scraper: getFirecrawl(), type: 'dynamic' })
-  if (isHealthy('jina'))      chain.push({ name: 'jina', scraper: getJina(), type: 'static' })
-  if (isHealthy('python'))    chain.push({ name: 'python', scraper: getPythonBridge(), type: 'legacy' })
+  if (isHealthy('firecrawl'))
+    chain.push({ name: 'firecrawl', scraper: getFirecrawl(), type: 'dynamic' })
+  if (isHealthy('jina')) chain.push({ name: 'jina', scraper: getJina(), type: 'static' })
+  if (isHealthy('python'))
+    chain.push({ name: 'python', scraper: getPythonBridge(), type: 'legacy' })
 
-  return chain.filter(s => s.scraper !== null && s.scraper.isAvailable())
+  return chain.filter((s) => s.scraper !== null && s.scraper.isAvailable())
 }
 
 // ── Public API ──────────────────────────────────────────────────
@@ -119,7 +138,7 @@ function getPriorityChain() {
 /**
  * Get odds via the automated toggle chain.
  * Tries each scraper in priority order. Returns first successful result.
- * 
+ *
  * @param {string} homeTeam
  * @param {string} awayTeam
  * @param {string} league
@@ -187,7 +206,9 @@ async function getLiveScores(league) {
 async function getResults(league) {
   const jina = getJina()
   if (jina) {
-    try { return await jina.getResults(league) } catch {}
+    try {
+      return await jina.getResults(league)
+    } catch {}
   }
   return []
 }
@@ -199,7 +220,7 @@ function getStatus() {
   return {
     mode: getMode(),
     firecrawl_key_set: !!process.env.FIRECRAWL_API_KEY,
-    chain: getPriorityChain().map(s => s.name),
+    chain: getPriorityChain().map((s) => s.name),
     health: Object.fromEntries(
       Object.entries(health).map(([k, v]) => [k, { disabled: v.disabled, failures: v.failures }])
     ),
@@ -243,5 +264,10 @@ module.exports = {
   setMode,
   getMode,
   isHealthy,
-  resetHealth: () => { Object.values(health).forEach(h => { h.failures = 0; h.disabled = false }) },
+  resetHealth: () => {
+    Object.values(health).forEach((h) => {
+      h.failures = 0
+      h.disabled = false
+    })
+  },
 }

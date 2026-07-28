@@ -5,9 +5,16 @@ const promosportSurpriseService = require('./promosportSurpriseService')
 
 // Tournaments played on neutral ground — home/away stats are meaningless
 const NEUTRAL_VENUE_TOURNAMENTS = [
-  'world cup', 'coupe du monde', 'euro', 'copa america',
-  'africa cup of nations', 'asian cup', 'concacaf gold cup',
-  'club friendly', 'amical', 'international friendly',
+  'world cup',
+  'coupe du monde',
+  'euro',
+  'copa america',
+  'africa cup of nations',
+  'asian cup',
+  'concacaf gold cup',
+  'club friendly',
+  'amical',
+  'international friendly',
 ]
 
 class CompetitionAnalyzer {
@@ -29,20 +36,24 @@ class CompetitionAnalyzer {
     const stats = {
       totalConcours: data.length,
       totalMatches: 0,
-      resultDistribution: { '1': 0, 'X': 0, '2': 0 },
-      byIndex: Array(13).fill(null).map(() => ({ '1': 0, 'X': 0, '2': 0, total: 0 })),
+      resultDistribution: { 1: 0, X: 0, 2: 0 },
+      byIndex: Array(13)
+        .fill(null)
+        .map(() => ({ 1: 0, X: 0, 2: 0, total: 0 })),
       bySurpriseBucket: { underdog: 0, favorite: 0, balanced: 0 },
       concoursDifficulty: [],
       trapPatterns: [],
-      fav1Win: 0, fav1Total: 0,
-      fav2Win: 0, fav2Total: 0,
+      fav1Win: 0,
+      fav1Total: 0,
+      fav2Win: 0,
+      fav2Total: 0,
       homeFavRate: 0,
       surpriseRate: 0,
       surpriseCount: 0,
     }
 
     for (const c of data) {
-      let cFavWin = 0
+      const cFavWin = 0
       for (const m of c.matches) {
         if (!['1', 'X', '2'].includes(m.res)) continue
         stats.totalMatches++
@@ -57,11 +68,11 @@ class CompetitionAnalyzer {
         const hRate = homeStat?.team?.homeWinRate != null ? homeStat.team.homeWinRate / 100 : 0.424
         const aRate = awayStat?.team?.awayWinRate != null ? awayStat.team.awayWinRate / 100 : 0.317
 
-        if (hRate > 0.50) {
+        if (hRate > 0.5) {
           stats.fav1Total++
           if (m.res === '1') stats.fav1Win++
         }
-        if (aRate > 0.50) {
+        if (aRate > 0.5) {
           stats.fav2Total++
           if (m.res === '2') stats.fav2Win++
         }
@@ -70,37 +81,41 @@ class CompetitionAnalyzer {
         if (m.res !== '2' && aRate > 0.55) stats.surpriseCount++
 
         const diff = Math.abs(hRate - aRate)
-        if (diff > 0.30) stats.bySurpriseBucket.favorite++
-        else if (diff < 0.10) stats.bySurpriseBucket.balanced++
+        if (diff > 0.3) stats.bySurpriseBucket.favorite++
+        else if (diff < 0.1) stats.bySurpriseBucket.balanced++
         else stats.bySurpriseBucket.underdog++
       }
       stats.concoursDifficulty.push({
         no: c.no,
-        total: c.matches.filter(m => ['1','X','2'].includes(m.res)).length,
+        total: c.matches.filter((m) => ['1', 'X', '2'].includes(m.res)).length,
       })
     }
 
-    stats.surpriseRate = +(stats.surpriseCount / stats.totalMatches * 100).toFixed(1)
-    stats.homeFavRate = +(stats.fav1Total > 0 ? (stats.fav1Win / stats.fav1Total * 100) : 0).toFixed(1)
+    stats.surpriseRate = +((stats.surpriseCount / stats.totalMatches) * 100).toFixed(1)
+    stats.homeFavRate = +(
+      stats.fav1Total > 0 ? (stats.fav1Win / stats.fav1Total) * 100 : 0
+    ).toFixed(1)
 
     stats.resultPct = {
-      '1': +(stats.resultDistribution['1'] / stats.totalMatches * 100).toFixed(1),
-      'X': +(stats.resultDistribution['X'] / stats.totalMatches * 100).toFixed(1),
-      '2': +(stats.resultDistribution['2'] / stats.totalMatches * 100).toFixed(1),
+      1: +((stats.resultDistribution['1'] / stats.totalMatches) * 100).toFixed(1),
+      X: +((stats.resultDistribution['X'] / stats.totalMatches) * 100).toFixed(1),
+      2: +((stats.resultDistribution['2'] / stats.totalMatches) * 100).toFixed(1),
     }
 
-    stats.byIndexPct = stats.byIndex.map(b => ({
+    stats.byIndexPct = stats.byIndex.map((b) => ({
       total: b.total,
-      '1': b.total > 0 ? +(b['1'] / b.total * 100).toFixed(1) : 0,
-      'X': b.total > 0 ? +(b['X'] / b.total * 100).toFixed(1) : 0,
-      '2': b.total > 0 ? +(b['2'] / b.total * 100).toFixed(1) : 0,
+      1: b.total > 0 ? +((b['1'] / b.total) * 100).toFixed(1) : 0,
+      X: b.total > 0 ? +((b['X'] / b.total) * 100).toFixed(1) : 0,
+      2: b.total > 0 ? +((b['2'] / b.total) * 100).toFixed(1) : 0,
     }))
 
     const sorted = [...stats.concoursDifficulty].sort((a, b) => a.total - b.total)
     stats.hardestConcours = sorted.slice(0, 5)
     stats.easiestConcours = sorted.slice(-5).reverse()
 
-    stats.surpriseByIndex = Array(13).fill(null).map(() => ({ total: 0, surprises: 0 }))
+    stats.surpriseByIndex = Array(13)
+      .fill(null)
+      .map(() => ({ total: 0, surprises: 0 }))
     for (const c of data) {
       for (const m of c.matches) {
         if (!['1', 'X', '2'].includes(m.res)) continue
@@ -119,7 +134,9 @@ class CompetitionAnalyzer {
 
     this.profile = stats
     fs.writeFileSync(this.dataPath, JSON.stringify(stats, null, 2))
-    logger.info(`[COMP-ANALYZER] Profile saved (${stats.totalMatches} matches, ${stats.totalConcours} concours)`)
+    logger.info(
+      `[COMP-ANALYZER] Profile saved (${stats.totalMatches} matches, ${stats.totalConcours} concours)`
+    )
     return stats
   }
 
@@ -143,13 +160,17 @@ class CompetitionAnalyzer {
     const hRate = homeStat?.team?.homeWinRate != null ? homeStat.team.homeWinRate / 100 : null
     const aRate = awayStat?.team?.awayWinRate != null ? awayStat.team.awayWinRate / 100 : null
 
-    const isNeutral = leagueName && NEUTRAL_VENUE_TOURNAMENTS.some(t => leagueName.toLowerCase().includes(t))
+    const isNeutral =
+      leagueName && NEUTRAL_VENUE_TOURNAMENTS.some((t) => leagueName.toLowerCase().includes(t))
 
-    let analysis = []
-    if (trapLvl > 0.35) analysis.push(`⚠️ Index piégeux (#${idx}): ${(trapLvl*100).toFixed(0)}% de surprises`)
+    const analysis = []
+    if (trapLvl > 0.35)
+      analysis.push(`⚠️ Index piégeux (#${idx}): ${(trapLvl * 100).toFixed(0)}% de surprises`)
     if (!isNeutral) {
-      if (hRate != null && hRate > 0.60) analysis.push(`🏠 Domicile solide (${(hRate*100).toFixed(0)}% de victoires)`)
-      if (aRate != null && aRate > 0.40) analysis.push(`✈️ Extérieur compétitif (${(aRate*100).toFixed(0)}% de victoires)`)
+      if (hRate != null && hRate > 0.6)
+        analysis.push(`🏠 Domicile solide (${(hRate * 100).toFixed(0)}% de victoires)`)
+      if (aRate != null && aRate > 0.4)
+        analysis.push(`✈️ Extérieur compétitif (${(aRate * 100).toFixed(0)}% de victoires)`)
     }
 
     return {
@@ -170,10 +191,13 @@ class CompetitionAnalyzer {
 
   getEmptyProfile() {
     return {
-      totalConcours: 0, totalMatches: 0,
-      resultDistribution: { '1': 0, 'X': 0, '2': 0 },
-      byIndex: [], byIndexPct: [],
-      surpriseRate: 0, homeFavRate: 0,
+      totalConcours: 0,
+      totalMatches: 0,
+      resultDistribution: { 1: 0, X: 0, 2: 0 },
+      byIndex: [],
+      byIndexPct: [],
+      surpriseRate: 0,
+      homeFavRate: 0,
     }
   }
 }

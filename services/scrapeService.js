@@ -1,6 +1,6 @@
 /**
  * scrapeService.js — AI-powered self-healing scraper service
- * 
+ *
  * Architecture:
  *   Tier 0: ScraperAPI (free with API key, residential IPs)
  *            Routes any URL through anti-blocking proxy
@@ -10,7 +10,7 @@
  *            Works for: any page (JS-rendered odds, dynamic content)
  *   Tier 3: Legacy cloudscraper (via Python bridge, always available)
  *            Works for: BetExplorer (data-odd attributes)
- *   
+ *
  * Usage:
  *   const scrape = require('./scrapeService')
  *   const odds = await scrape.getOdds('Team A', 'Team B', 'League')
@@ -35,20 +35,27 @@ function fetchUrl(targetUrl, timeout = 20000) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(targetUrl)
     const mod = parsed.protocol === 'https:' ? https : http
-    const req = mod.get(targetUrl, {
-      timeout,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
+    const req = mod.get(
+      targetUrl,
+      {
+        timeout,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
       },
-    }, (res) => {
-      let data = ''
-      res.on('data', chunk => data += chunk)
-      res.on('end', () => resolve({ status: res.statusCode, data, headers: res.headers }))
-    })
+      (res) => {
+        let data = ''
+        res.on('data', (chunk) => (data += chunk))
+        res.on('end', () => resolve({ status: res.statusCode, data, headers: res.headers }))
+      }
+    )
     req.on('error', reject)
-    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')) })
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Timeout'))
+    })
   })
 }
 
@@ -71,41 +78,48 @@ async function scrapeViaFirecrawl(targetUrl, schema) {
     formats: ['extract'],
     extract: {
       schema: schema || ODDS_SCHEMA,
-      prompt: 'Extract all match betting odds (1X2, Over/Under 2.5, BTTS) '
-            + 'as decimal numbers from this page.',
+      prompt:
+        'Extract all match betting odds (1X2, Over/Under 2.5, BTTS) ' +
+        'as decimal numbers from this page.',
     },
   })
 
   return new Promise((resolve, reject) => {
     const parsed = new URL('https://api.firecrawl.dev/v1/scrape')
-    const req = https.request({
-      hostname: parsed.hostname,
-      path: parsed.pathname,
-      method: 'POST',
-      timeout: 45000,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
+    const req = https.request(
+      {
+        hostname: parsed.hostname,
+        path: parsed.pathname,
+        method: 'POST',
+        timeout: 45000,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
       },
-    }, (res) => {
-      let data = ''
-      res.on('data', chunk => data += chunk)
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data)
-          if (json.success && json.data && json.data.extract) {
-            resolve(json.data.extract)
-          } else {
-            reject(new Error(json.error || 'Firecrawl extraction failed'))
+      (res) => {
+        let data = ''
+        res.on('data', (chunk) => (data += chunk))
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data)
+            if (json.success && json.data && json.data.extract) {
+              resolve(json.data.extract)
+            } else {
+              reject(new Error(json.error || 'Firecrawl extraction failed'))
+            }
+          } catch (e) {
+            reject(new Error('Firecrawl parse error: ' + e.message))
           }
-        } catch (e) {
-          reject(new Error('Firecrawl parse error: ' + e.message))
-        }
-      })
-    })
+        })
+      }
+    )
     req.on('error', reject)
-    req.on('timeout', () => { req.destroy(); reject(new Error('Firecrawl timeout')) })
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Firecrawl timeout'))
+    })
     req.write(body)
     req.end()
   })
@@ -137,10 +151,11 @@ except Exception as e:
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
-    let stdout = '', stderr = ''
-    proc.stdout.on('data', d => stdout += d)
-    proc.stderr.on('data', d => stderr += d)
-    proc.on('close', code => {
+    let stdout = '',
+      stderr = ''
+    proc.stdout.on('data', (d) => (stdout += d))
+    proc.stderr.on('data', (d) => (stderr += d))
+    proc.on('close', (code) => {
       if (code !== 0) return reject(new Error(stderr))
       try {
         const result = JSON.parse(stdout.trim().split('\n').slice(-1)[0])
@@ -170,9 +185,13 @@ function extractOddsFromMarkdown(markdown, homeHint, awayHint) {
       currentMatch = {
         home_team: matchPattern[1].trim(),
         away_team: matchPattern[2].trim(),
-        home_win: null, draw: null, away_win: null,
-        over_25: null, under_25: null,
-        btts_yes: null, btts_no: null,
+        home_win: null,
+        draw: null,
+        away_win: null,
+        over_25: null,
+        under_25: null,
+        btts_yes: null,
+        btts_no: null,
       }
       continue
     }
@@ -183,7 +202,7 @@ function extractOddsFromMarkdown(markdown, homeHint, awayHint) {
     const oddsMatch = line.match(/(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)/)
     if (oddsMatch) {
       const nums = [parseFloat(oddsMatch[1]), parseFloat(oddsMatch[2]), parseFloat(oddsMatch[3])]
-      if (nums.every(n => n >= 1.01 && n <= 20)) {
+      if (nums.every((n) => n >= 1.01 && n <= 20)) {
         if (currentMatch.home_win === null) {
           currentMatch.home_win = nums[0]
           currentMatch.draw = nums[1]
@@ -215,11 +234,12 @@ function extractOddsFromMarkdown(markdown, homeHint, awayHint) {
   if (homeHint || awayHint) {
     const hh = (homeHint || '').toLowerCase()
     const ah = (awayHint || '').toLowerCase()
-    return results.filter(m => {
+    return results.filter((m) => {
       const hm = m.home_team.toLowerCase()
       const am = m.away_team.toLowerCase()
-      return (!hh || hm.includes(hh) || hh.includes(hm)) &&
-             (!ah || am.includes(ah) || ah.includes(am))
+      return (
+        (!hh || hm.includes(hh) || hh.includes(hm)) && (!ah || am.includes(ah) || ah.includes(am))
+      )
     })
   }
 
@@ -229,7 +249,7 @@ function extractOddsFromMarkdown(markdown, homeHint, awayHint) {
 // ── Source registry ─────────────────────────────────────────────
 const LEAGUE_SLUGS = {
   'usl championship': '/football/usa/usl-championship/fixtures/',
-  'veikkausliiga': '/football/finland/veikkausliiga/fixtures/',
+  veikkausliiga: '/football/finland/veikkausliiga/fixtures/',
   'brasileirão serie b': '/football/brazil/serie-b/fixtures/',
   'segunda división': '/football/spain/segunda-division/fixtures/',
   'botola pro': '/football/morocco/botola/fixtures/',
@@ -237,13 +257,13 @@ const LEAGUE_SLUGS = {
   'serie a': '/football/italy/serie-a/fixtures/',
   'la liga': '/football/spain/laliga/fixtures/',
   'ligue 1': '/football/france/ligue-1/fixtures/',
-  'bundesliga': '/football/germany/bundesliga/fixtures/',
-  'mls': '/football/usa/mls/fixtures/',
+  bundesliga: '/football/germany/bundesliga/fixtures/',
+  mls: '/football/usa/mls/fixtures/',
   'world cup 2026': '/football/international/world-cup/fixtures/',
 }
 
 function getBetExplorerUrl(league) {
-  const key = Object.keys(LEAGUE_SLUGS).find(k => league.toLowerCase().includes(k))
+  const key = Object.keys(LEAGUE_SLUGS).find((k) => league.toLowerCase().includes(k))
   return key ? `https://www.betexplorer.com${LEAGUE_SLUGS[key]}` : null
 }
 
@@ -285,9 +305,13 @@ async function getOdds(homeTeam, awayTeam, league) {
         if (matches.length > 0 && matches[0].home_win) {
           const m = matches[0]
           const result = {
-            home_win: m.home_win, draw: m.draw, away_win: m.away_win,
-            over_25: m.over_25, under_25: m.under_25,
-            btts_yes: m.btts_yes, btts_no: m.btts_no,
+            home_win: m.home_win,
+            draw: m.draw,
+            away_win: m.away_win,
+            over_25: m.over_25,
+            under_25: m.under_25,
+            btts_yes: m.btts_yes,
+            btts_no: m.btts_no,
             source: 'scraperapi:betexplorer',
             scraped_at: new Date().toISOString(),
             match_url: targetUrl,
@@ -325,9 +349,13 @@ async function getOdds(homeTeam, awayTeam, league) {
       if (matches.length > 0 && matches[0].home_win) {
         const m = matches[0]
         const result = {
-          home_win: m.home_win, draw: m.draw, away_win: m.away_win,
-          over_25: m.over_25, under_25: m.under_25,
-          btts_yes: m.btts_yes, btts_no: m.btts_no,
+          home_win: m.home_win,
+          draw: m.draw,
+          away_win: m.away_win,
+          over_25: m.over_25,
+          under_25: m.under_25,
+          btts_yes: m.btts_yes,
+          btts_no: m.btts_no,
           source: 'jina:reader',
           scraped_at: new Date().toISOString(),
           match_url: targetUrl,

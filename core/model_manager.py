@@ -79,7 +79,7 @@ _TITANIUM_V4_BOOSTER = None
 _BOOSTER_CACHE = {}
 
 
-def _load_booster(path, name):
+def _load_booster(path, name, silent=False):
     """Generic lazy loader for XGBoost model files with path-level singleton cache."""
     if path in _BOOSTER_CACHE:
         return _BOOSTER_CACHE[path]
@@ -94,7 +94,8 @@ def _load_booster(path, name):
         _BOOSTER_CACHE[path] = model
         return model
     except Exception as e:
-        sys.stderr.write(f"[XGB] Failed to load {name}: {str(e)}\n")
+        if not silent:
+            sys.stderr.write(f"[XGB] Failed to load {name}: {str(e)}\n")
         return None
 
 
@@ -115,28 +116,28 @@ def get_titanium_v4_booster():
 def get_v55_booster():
     global _XGB_V55_BOOSTER
     if _XGB_V55_BOOSTER is None:
-        _XGB_V55_BOOSTER = _load_booster(V55_MODEL_PATH, "V55")
+        _XGB_V55_BOOSTER = _load_booster(V55_MODEL_PATH, "V55", silent=True)
     return _XGB_V55_BOOSTER
 
 
 def get_v551_booster():
     global _XGB_V551_BOOSTER
     if _XGB_V551_BOOSTER is None:
-        _XGB_V551_BOOSTER = _load_booster(V551_MODEL_PATH, "V551")
+        _XGB_V551_BOOSTER = _load_booster(V551_MODEL_PATH, "V551", silent=True)
     return _XGB_V551_BOOSTER
 
 
 def get_v552_booster():
     global _XGB_V552_BOOSTER
     if _XGB_V552_BOOSTER is None:
-        _XGB_V552_BOOSTER = _load_booster(V552_MODEL_PATH, "V552")
+        _XGB_V552_BOOSTER = _load_booster(V552_MODEL_PATH, "V552", silent=True)
     return _XGB_V552_BOOSTER
 
 
 def get_v553_booster():
     global _XGB_V553_BOOSTER
     if _XGB_V553_BOOSTER is None:
-        _XGB_V553_BOOSTER = _load_booster(V553_MODEL_PATH, "V553")
+        _XGB_V553_BOOSTER = _load_booster(V553_MODEL_PATH, "V553", silent=True)
     return _XGB_V553_BOOSTER
 
 
@@ -150,12 +151,18 @@ def get_v553_premium_booster():
 def get_v56_booster():
     global _XGB_V56_BOOSTER
     if _XGB_V56_BOOSTER is None:
-        _XGB_V56_BOOSTER = _load_booster(V56_MODEL_PATH, "V56")
+        _XGB_V56_BOOSTER = _load_booster(V56_MODEL_PATH, "V56", silent=True)
     return _XGB_V56_BOOSTER
 
 
 def get_main_booster():
     global _XGB_BOOSTER
+    if _XGB_BOOSTER is None:
+        _XGB_BOOSTER = _load_booster(V553_PREMIUM_MODEL_PATH, "V553 Premium")
+    if _XGB_BOOSTER is None:
+        _XGB_BOOSTER = _load_booster(TITANIUM_MODEL_PATH, "Titanium V2")
+    if _XGB_BOOSTER is None:
+        _XGB_BOOSTER = _load_booster(TITANIUM_V4_MODEL_PATH, "Titanium V4")
     if _XGB_BOOSTER is None:
         _XGB_BOOSTER = _load_booster(XGB_MODEL_PATH, "V24 Legacy")
     return _XGB_BOOSTER
@@ -164,14 +171,14 @@ def get_main_booster():
 def get_corners_model():
     global _CORNERS_MODEL
     if _CORNERS_MODEL is None:
-        _CORNERS_MODEL = _load_booster(CORNERS_MODEL_PATH, "Corners")
+        _CORNERS_MODEL = _load_booster(CORNERS_MODEL_PATH, "Corners", silent=True)
     return _CORNERS_MODEL
 
 
 def get_cards_model():
     global _CARDS_MODEL
     if _CARDS_MODEL is None:
-        _CARDS_MODEL = _load_booster(CARDS_MODEL_PATH, "Cards")
+        _CARDS_MODEL = _load_booster(CARDS_MODEL_PATH, "Cards", silent=True)
     return _CARDS_MODEL
 
 

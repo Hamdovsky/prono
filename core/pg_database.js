@@ -9,16 +9,17 @@ function sqliteToPg(sql) {
     .replace(/\bINSERT\s+OR\s+REPLACE\s+INTO\b/gi, 'INSERT INTO')
     .replace(/\bINSERT\s+OR\s+IGNORE\s+INTO\b/gi, 'INSERT INTO')
     .replace(/\bINSERT\s+OR\s+ABORT\s+INTO\b/gi, 'INSERT INTO')
-    .replace(/json_extract\s*\(\s*("[^"]+"|\w+)\s*,\s*'\$\.([^']+)'\s*\)/g,
-      (match, col, path) => {
-        const parts = path.split('.')
-        const colClean = col.startsWith('"') ? col : `"${col}"`
-        return `${colClean}::jsonb #>> '{${parts.join(',')}}'`
-      })
+    .replace(/json_extract\s*\(\s*("[^"]+"|\w+)\s*,\s*'\$\.([^']+)'\s*\)/g, (match, col, path) => {
+      const parts = path.split('.')
+      const colClean = col.startsWith('"') ? col : `"${col}"`
+      return `${colClean}::jsonb #>> '{${parts.join(',')}}'`
+    })
     .replace(/datetime\s*\(\s*'now'\s*\)/gi, 'NOW()')
     .replace(/\bCURRENT_TIMESTAMP\b/gi, 'NOW()')
     .replace(/\bDATETIME\b/gi, 'TIMESTAMPTZ')
-    .replace(/'[^']*'|(?<!")\b([a-z]+[A-Z]\w*)\b(?!")/g, (m, g1) => g1 === undefined ? m : `"${g1}"`)
+    .replace(/'[^']*'|(?<!")\b([a-z]+[A-Z]\w*)\b(?!")/g, (m, g1) =>
+      g1 === undefined ? m : `"${g1}"`
+    )
 }
 
 // ── Synchronous query worker (compatibility layer for db.prepare().all/get/run) ──
@@ -37,7 +38,7 @@ function _getSyncWorker() {
   if (!dbUrl) return null
 
   syncWorker = new Worker(path.join(__dirname, 'syncQueryWorker.js'), {
-    workerData: { databaseUrl: dbUrl, sab: _SYNC_FLAG.buffer }
+    workerData: { databaseUrl: dbUrl, sab: _SYNC_FLAG.buffer },
   })
 
   syncWorker.on('message', (msg) => {
@@ -110,9 +111,15 @@ const pgDb = {
   async query(sql, params = []) {
     try {
       const result = await query(sql, params)
-      const isMutation = /^\s*(INSERT|UPDATE|DELETE|REPLACE|ALTER|CREATE|DROP|TRUNCATE)/i.test(sql.trim())
+      const isMutation = /^\s*(INSERT|UPDATE|DELETE|REPLACE|ALTER|CREATE|DROP|TRUNCATE)/i.test(
+        sql.trim()
+      )
       if (isMutation) {
-        return { rows: [], lastInsertRowid: result.rows?.[0]?.id || null, changes: result.rowCount || 0 }
+        return {
+          rows: [],
+          lastInsertRowid: result.rows?.[0]?.id || null,
+          changes: result.rowCount || 0,
+        }
       }
       return { rows: result.rows || [] }
     } catch (e) {
@@ -164,7 +171,7 @@ const pgDb = {
           logger.error(`[PG PREPARE] all error: ${e.message} | SQL: ${pgSql.slice(0, 100)}`)
           return []
         }
-      }
+      },
     }
   },
 
@@ -241,26 +248,65 @@ const pgDb = {
       `
 
       const params = [
-        m.id, m.bsd_match_id || null, m.homeTeam, m.awayTeam, m.league, m.score?.home ?? 0, m.score?.away ?? 0,
-        m.minute || '0', m.status || (m.isLive ? 'live' : 'scheduled'), m.prediction, m.confidence,
-        fullData, m.timestamp || new Date().toISOString(),
+        m.id,
+        m.bsd_match_id || null,
+        m.homeTeam,
+        m.awayTeam,
+        m.league,
+        m.score?.home ?? 0,
+        m.score?.away ?? 0,
+        m.minute || '0',
+        m.status || (m.isLive ? 'live' : 'scheduled'),
+        m.prediction,
+        m.confidence,
+        fullData,
+        m.timestamp || new Date().toISOString(),
         m.startTimestamp || null,
-        stats.possession?.home || m.possession_home || 0, stats.possession?.away || m.possession_away || 0,
-        stats.dangerousAttacks?.home || m.dangerous_attacks_home || 0, stats.dangerousAttacks?.away || m.dangerous_attacks_away || 0,
-        stats.totalShots?.home || m.shots_on_target_home || 0, stats.totalShots?.away || m.shots_on_target_away || 0,
-        stats.corners?.home || m.corners_home || 0, stats.corners?.away || m.corners_away || 0,
-        m.source || 'flashscore', Date.now(),
-        m.home_win_probability || 0, m.draw_probability || 0, m.away_win_probability || 0,
-        m.expected_score || '1 - 1', m.chaos_score || 50, m.ou_25_prob || 0, m.btts_prob || 0,
-        m.xgboost_confidence || 0, m.news_impact || 0,
-        m.odds_home || null, m.odds_draw || null, m.odds_away || null,
-        m.best_odds_home || null, m.best_odds_draw || null, m.best_odds_away || null,
-        m.ev_home || null, m.ev_draw || null, m.ev_away || null, m.ev_best || 'NONE',
-        m.odds_home_open || m.odds_home || null, m.odds_draw_open || m.odds_draw || null, m.odds_away_open || m.odds_away || null,
-        m.true_prob_home || null, m.true_prob_draw || null, m.true_prob_away || null, m.true_prob_ou25 || null, m.true_prob_btts || null,
-        m.clv_value || 0, m.kelly_stake || 0,
-        m.weather_temp || 15, m.weather_desc || 'clear sky', m.weather_humidity || 50,
-        m.home_form_pts || 0, m.away_form_pts || 0, m.insufficient_data || 0
+        stats.possession?.home || m.possession_home || 0,
+        stats.possession?.away || m.possession_away || 0,
+        stats.dangerousAttacks?.home || m.dangerous_attacks_home || 0,
+        stats.dangerousAttacks?.away || m.dangerous_attacks_away || 0,
+        stats.totalShots?.home || m.shots_on_target_home || 0,
+        stats.totalShots?.away || m.shots_on_target_away || 0,
+        stats.corners?.home || m.corners_home || 0,
+        stats.corners?.away || m.corners_away || 0,
+        m.source || 'flashscore',
+        Date.now(),
+        m.home_win_probability || 0,
+        m.draw_probability || 0,
+        m.away_win_probability || 0,
+        m.expected_score || '1 - 1',
+        m.chaos_score || 50,
+        m.ou_25_prob || 0,
+        m.btts_prob || 0,
+        m.xgboost_confidence || 0,
+        m.news_impact || 0,
+        m.odds_home || null,
+        m.odds_draw || null,
+        m.odds_away || null,
+        m.best_odds_home || null,
+        m.best_odds_draw || null,
+        m.best_odds_away || null,
+        m.ev_home || null,
+        m.ev_draw || null,
+        m.ev_away || null,
+        m.ev_best || 'NONE',
+        m.odds_home_open || m.odds_home || null,
+        m.odds_draw_open || m.odds_draw || null,
+        m.odds_away_open || m.odds_away || null,
+        m.true_prob_home || null,
+        m.true_prob_draw || null,
+        m.true_prob_away || null,
+        m.true_prob_ou25 || null,
+        m.true_prob_btts || null,
+        m.clv_value || 0,
+        m.kelly_stake || 0,
+        m.weather_temp || 15,
+        m.weather_desc || 'clear sky',
+        m.weather_humidity || 50,
+        m.home_form_pts || 0,
+        m.away_form_pts || 0,
+        m.insufficient_data || 0,
       ]
 
       await query(sql, params)
@@ -275,12 +321,29 @@ const pgDb = {
     if (!Array.isArray(statuses) || statuses.length === 0) return []
     try {
       const placeholders = statuses.map((_, i) => `$${i + 1}`).join(',')
-      const result = await query(`SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC`, statuses)
-      return result.rows.map(r => {
+      const result = await query(
+        `SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC`,
+        statuses
+      )
+      return result.rows.map((r) => {
         try {
-          const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
-          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
-        } catch (e) { return r }
+          const parsed =
+            (r.fullData ?? r.fulldata)
+              ? typeof (r.fullData ?? r.fulldata) === 'string'
+                ? JSON.parse(r.fullData ?? r.fulldata)
+                : (r.fullData ?? r.fulldata)
+              : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
+        } catch (e) {
+          return r
+        }
       })
     } catch (e) {
       logger.error(`[PG DB] getMatchesByStatuses failed: ${e.message}`)
@@ -290,16 +353,26 @@ const pgDb = {
 
   async resolveTeamName(name) {
     if (!name) return null
-    const normalized = name.toLowerCase().trim()
+    const normalized = name
+      .toLowerCase()
+      .trim()
       .replace(/%20/g, ' ')
       .replace(/\s+/g, ' ')
       .replace(/[.\-]/g, '')
     try {
-      const row = await query('SELECT name FROM team_registry WHERE normalized = $1 OR name LIKE $2 LIMIT 1', [normalized, `%${normalized}%`])
+      const row = await query(
+        'SELECT name FROM team_registry WHERE normalized = $1 OR name LIKE $2 LIMIT 1',
+        [normalized, `%${normalized}%`]
+      )
       if (row.rows?.[0]) return row.rows[0].name
-      const regId = Math.abs(name.split('').reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0) | 0, 0))
+      const regId = Math.abs(
+        name.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+      )
       try {
-        await query('INSERT INTO team_registry (id, name, normalized, last_seen) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET last_seen = $4', [regId, name, normalized, Date.now()])
+        await query(
+          'INSERT INTO team_registry (id, name, normalized, last_seen) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET last_seen = $4',
+          [regId, name, normalized, Date.now()]
+        )
       } catch (_) {}
       return name
     } catch (e) {
@@ -313,9 +386,23 @@ const pgDb = {
       const r = result.rows?.[0]
       if (!r) return null
       try {
-        const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
-        return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
-      } catch (e) { return r }
+        const parsed =
+          (r.fullData ?? r.fulldata)
+            ? typeof (r.fullData ?? r.fulldata) === 'string'
+              ? JSON.parse(r.fullData ?? r.fulldata)
+              : (r.fullData ?? r.fulldata)
+            : {}
+        return {
+          ...r,
+          ...parsed,
+          id: r.id,
+          homeTeam: r.homeTeam || parsed.homeTeam,
+          awayTeam: r.awayTeam || parsed.awayTeam,
+          league: r.league || parsed.league,
+        }
+      } catch (e) {
+        return r
+      }
     } catch (err) {
       return null
     }
@@ -327,31 +414,56 @@ const pgDb = {
       const row = result.rows?.[0]
       if (!row) return false
 
-      let fullData = (row.fullData ?? row.fulldata) ? (typeof (row.fullData ?? row.fulldata) === 'string' ? JSON.parse(row.fullData ?? row.fulldata) : (row.fullData ?? row.fulldata)) : {}
+      let fullData =
+        (row.fullData ?? row.fulldata)
+          ? typeof (row.fullData ?? row.fulldata) === 'string'
+            ? JSON.parse(row.fullData ?? row.fulldata)
+            : (row.fullData ?? row.fulldata)
+          : {}
 
       const enriched = data.enriched || (data.home_win_probability ? data : null)
-      fullData = { ...fullData, ...data, enriched: enriched ? { ...(fullData.enriched || {}), ...enriched } : fullData.enriched, last_updated: Date.now() }
+      fullData = {
+        ...fullData,
+        ...data,
+        enriched: enriched ? { ...(fullData.enriched || {}), ...enriched } : fullData.enriched,
+        last_updated: Date.now(),
+      }
 
       if (enriched) {
-        fullData.home_win_probability = enriched.home_win_probability || fullData.home_win_probability
+        fullData.home_win_probability =
+          enriched.home_win_probability || fullData.home_win_probability
         fullData.draw_probability = enriched.draw_probability || fullData.draw_probability
-        fullData.away_win_probability = enriched.away_win_probability || fullData.away_win_probability
+        fullData.away_win_probability =
+          enriched.away_win_probability || fullData.away_win_probability
         fullData.master_v20 = enriched.master_v20 || fullData.master_v20
       }
       delete fullData.id
       delete fullData.fullData
       if (fullData.enriched?.enriched) delete fullData.enriched.enriched
 
-      const verdict = data.verdict || (data.enriched?.verdict) || data.prediction || 'RISKY BET'
-      const toNull = v => (v === null || v === undefined || (typeof v === 'number' && (isNaN(v) || !isFinite(v))) ? null : v)
-      const parseSafe = (v, fallback = 0) => { const n = parseFloat(v || fallback); return isNaN(n) ? null : n }
+      const verdict = data.verdict || data.enriched?.verdict || data.prediction || 'RISKY BET'
+      const toNull = (v) =>
+        v === null || v === undefined || (typeof v === 'number' && (isNaN(v) || !isFinite(v)))
+          ? null
+          : v
+      const parseSafe = (v, fallback = 0) => {
+        const n = parseFloat(v || fallback)
+        return isNaN(n) ? null : n
+      }
 
-      const hProb = parseSafe(data.home_win_probability || enriched?.home_win_probability || fullData.home_win_probability)
-      const dProb = parseSafe(data.draw_probability || enriched?.draw_probability || fullData.draw_probability)
-      const aProb = parseSafe(data.away_win_probability || enriched?.away_win_probability || fullData.away_win_probability)
+      const hProb = parseSafe(
+        data.home_win_probability || enriched?.home_win_probability || fullData.home_win_probability
+      )
+      const dProb = parseSafe(
+        data.draw_probability || enriched?.draw_probability || fullData.draw_probability
+      )
+      const aProb = parseSafe(
+        data.away_win_probability || enriched?.away_win_probability || fullData.away_win_probability
+      )
       const ou25 = parseSafe(data.ou_25_prob || enriched?.ou_25_prob || data.ou_2_5_prob)
       const bttsp = parseSafe(data.btts_prob || enriched?.btts_prob)
-      const expScr = data.expected_score || enriched?.expected_score || fullData.expected_score || null
+      const expScr =
+        data.expected_score || enriched?.expected_score || fullData.expected_score || null
       const conf = parseSafe(data.confidence || enriched?.confidence || data.v22_success_rate)
       const xgbConf = parseSafe(data.xgboost_confidence || enriched?.xgboost_confidence)
 
@@ -384,18 +496,42 @@ const pgDb = {
       `
 
       await query(sql, [
-        JSON.stringify(fullData), verdict, Date.now(),
-        toNull(hProb), toNull(dProb), toNull(aProb), toNull(ou25), toNull(bttsp), expScr, toNull(conf), toNull(xgbConf),
-        toNull(data.ev_home), toNull(data.ev_draw), toNull(data.ev_away),
-        toNull(data.kelly_stake), toNull(data.true_prob_home), toNull(data.true_prob_draw), toNull(data.true_prob_away),
-        toNull(data.weather_temp), toNull(data.weather_humidity), toNull(data.home_form_pts), toNull(data.away_form_pts),
+        JSON.stringify(fullData),
+        verdict,
+        Date.now(),
+        toNull(hProb),
+        toNull(dProb),
+        toNull(aProb),
+        toNull(ou25),
+        toNull(bttsp),
+        expScr,
+        toNull(conf),
+        toNull(xgbConf),
+        toNull(data.ev_home),
+        toNull(data.ev_draw),
+        toNull(data.ev_away),
+        toNull(data.kelly_stake),
+        toNull(data.true_prob_home),
+        toNull(data.true_prob_draw),
+        toNull(data.true_prob_away),
+        toNull(data.weather_temp),
+        toNull(data.weather_humidity),
+        toNull(data.home_form_pts),
+        toNull(data.away_form_pts),
         data.motivation_signature || enriched?.motivation_signature || 'Logique Standard',
         toNull(data.news_impact),
-        matchId
+        matchId,
       ])
 
       // Use explicit numeric id to avoid SERIAL sequence permission issues on Neon
-      const idFromStr = s => { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h = h & h } return Math.abs(h) }
+      const idFromStr = (s) => {
+        let h = 0
+        for (let i = 0; i < s.length; i++) {
+          h = (h << 5) - h + s.charCodeAt(i)
+          h = h & h
+        }
+        return Math.abs(h)
+      }
       const histBase = idFromStr(matchId)
       const histSql = `
         INSERT INTO prediction_history (id, match_id, league, prediction_type, prediction_val, probability, status, timestamp)
@@ -403,12 +539,44 @@ const pgDb = {
         ON CONFLICT(match_id, prediction_type) DO UPDATE SET
           probability = EXCLUDED.probability, prediction_val = EXCLUDED.prediction_val
       `
-      const safeDiv = v => (v != null && !isNaN(v) ? v / 100 : 0)
-      try { await query(histSql, [histBase, matchId, fullData.league, 'Home', 'Win', safeDiv(hProb), 'pending']) } catch (_) {}
-      try { await query(histSql, [histBase + 1, matchId, fullData.league, 'Away', 'Win', safeDiv(aProb), 'pending']) } catch (_) {}
-      try { await query(histSql, [histBase + 2, matchId, fullData.league, 'Draw', 'Draw', safeDiv(dProb), 'pending']) } catch (_) {}
+      const safeDiv = (v) => (v != null && !isNaN(v) ? v / 100 : 0)
+      try {
+        await query(histSql, [
+          histBase,
+          matchId,
+          fullData.league,
+          'Home',
+          'Win',
+          safeDiv(hProb),
+          'pending',
+        ])
+      } catch (_) {}
+      try {
+        await query(histSql, [
+          histBase + 1,
+          matchId,
+          fullData.league,
+          'Away',
+          'Win',
+          safeDiv(aProb),
+          'pending',
+        ])
+      } catch (_) {}
+      try {
+        await query(histSql, [
+          histBase + 2,
+          matchId,
+          fullData.league,
+          'Draw',
+          'Draw',
+          safeDiv(dProb),
+          'pending',
+        ])
+      } catch (_) {}
 
-      logger.info(`[PG DB] AI Enrichment persisted for ${matchId} — Home:${hProb != null ? hProb.toFixed(1) : 'N/A'}% Draw:${dProb != null ? dProb.toFixed(1) : 'N/A'}% Away:${aProb != null ? aProb.toFixed(1) : 'N/A'}%`)
+      logger.info(
+        `[PG DB] AI Enrichment persisted for ${matchId} — Home:${hProb != null ? hProb.toFixed(1) : 'N/A'}% Draw:${dProb != null ? dProb.toFixed(1) : 'N/A'}% Away:${aProb != null ? aProb.toFixed(1) : 'N/A'}%`
+      )
       return true
     } catch (e) {
       logger.error(`[PG DB] updatePredictions failed for ${matchId}: ${e.message}`)
@@ -420,16 +588,25 @@ const pgDb = {
     try {
       const result = await query('SELECT MAX(timestamp) as lastupdate FROM matches')
       return result.rows?.[0]?.lastupdate || null
-    } catch { return null }
+    } catch {
+      return null
+    }
   },
 
-  getLeagueAverages: async () => ({ avgTotalGoals: 2.7, avgHomeGoals: 1.5, avgAwayGoals: 1.2, matchCount: 0 }),
+  getLeagueAverages: async () => ({
+    avgTotalGoals: 2.7,
+    avgHomeGoals: 1.5,
+    avgAwayGoals: 1.2,
+    matchCount: 0,
+  }),
 
   async getAllLeaguesConfig() {
     try {
       const result = await query('SELECT * FROM leagues_config ORDER BY tier ASC, name ASC')
       return result.rows || []
-    } catch { return [] }
+    } catch {
+      return []
+    }
   },
 
   insertPlayerStat: async () => true,
@@ -438,37 +615,72 @@ const pgDb = {
 
   async getHighImpactScheduledMatches() {
     try {
-      const result = await query(`SELECT * FROM matches WHERE status = 'scheduled' AND "fullData" IS NOT NULL ORDER BY timestamp ASC LIMIT 20`)
-      return result.rows.map(r => {
-        try { const parsed = JSON.parse((r.fullData ?? r.fulldata) || '{}'); return { ...r, ...parsed } }
-        catch { return r }
+      const result = await query(
+        `SELECT * FROM matches WHERE status = 'scheduled' AND "fullData" IS NOT NULL ORDER BY timestamp ASC LIMIT 20`
+      )
+      return result.rows.map((r) => {
+        try {
+          const parsed = JSON.parse((r.fullData ?? r.fulldata) || '{}')
+          return { ...r, ...parsed }
+        } catch {
+          return r
+        }
       })
-    } catch { return [] }
+    } catch {
+      return []
+    }
   },
 
   async getNewsPrecisionHistory() {
     try {
-      const result = await query(`SELECT "homeTeam", "awayTeam", status, "scoreHome", "scoreAway", "fullData" FROM matches WHERE status IN ('FT', 'finished', 'Finished') ORDER BY timestamp DESC LIMIT 30`)
-      let total = 0, hits = 0
+      const result = await query(
+        `SELECT "homeTeam", "awayTeam", status, "scoreHome", "scoreAway", "fullData" FROM matches WHERE status IN ('FT', 'finished', 'Finished') ORDER BY timestamp DESC LIMIT 30`
+      )
+      let total = 0,
+        hits = 0
       const matches = []
       for (const r of result.rows) {
         const data = JSON.parse((r.fullData ?? r.fulldata) || '{}')
-        const pronos = (data.enriched?.main_predictions) ? data.enriched.main_predictions : (data.predictions || [])
+        const pronos = data.enriched?.main_predictions
+          ? data.enriched.main_predictions
+          : data.predictions || []
         if (pronos.length === 0) continue
         total++
-        const actual = (r.scoreHome ?? r.scorehome) > (r.scoreAway ?? r.scoreaway) ? 'H' : (r.scoreHome ?? r.scorehome) < (r.scoreAway ?? r.scoreaway) ? 'A' : 'D'
+        const actual =
+          (r.scoreHome ?? r.scorehome) > (r.scoreAway ?? r.scoreaway)
+            ? 'H'
+            : (r.scoreHome ?? r.scorehome) < (r.scoreAway ?? r.scoreaway)
+              ? 'A'
+              : 'D'
         let success = false
-        pronos.forEach(p => {
+        pronos.forEach((p) => {
           const val = (p.val || '').toLowerCase()
-          if ((val.includes('home') || val.includes('🏠') || val.includes('1')) && actual === 'H') success = true
-          else if ((val.includes('away') || val.includes('✈️') || val.includes('2')) && actual === 'A') success = true
+          if ((val.includes('home') || val.includes('🏠') || val.includes('1')) && actual === 'H')
+            success = true
+          else if (
+            (val.includes('away') || val.includes('✈️') || val.includes('2')) &&
+            actual === 'A'
+          )
+            success = true
           else if ((val.includes('draw') || val.includes('x')) && actual === 'D') success = true
         })
         if (success) hits++
-        matches.push({ id: `${r.homeTeam}_${r.awayTeam}_${Date.now()}`, homeTeam: r.homeTeam, awayTeam: r.awayTeam, impact: 'High', success })
+        matches.push({
+          id: `${r.homeTeam}_${r.awayTeam}_${Date.now()}`,
+          homeTeam: r.homeTeam,
+          awayTeam: r.awayTeam,
+          impact: 'High',
+          success,
+        })
       }
-      return { total, accuracy: total > 0 ? Math.round((hits / total) * 100) : 0, matches: matches.slice(0, 10) }
-    } catch { return { total: 0, accuracy: 0, matches: [] } }
+      return {
+        total,
+        accuracy: total > 0 ? Math.round((hits / total) * 100) : 0,
+        matches: matches.slice(0, 10),
+      }
+    } catch {
+      return { total: 0, accuracy: 0, matches: [] }
+    }
   },
 
   seedLeagues: async () => true,
@@ -483,11 +695,25 @@ const pgDb = {
          AND "homeTeam" IS NOT NULL AND "awayTeam" IS NOT NULL
          ORDER BY timestamp ASC`
       )
-      return result.rows.map(r => {
+      return result.rows.map((r) => {
         try {
-          const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
-          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
-        } catch (e) { return r }
+          const parsed =
+            (r.fullData ?? r.fulldata)
+              ? typeof (r.fullData ?? r.fulldata) === 'string'
+                ? JSON.parse(r.fullData ?? r.fulldata)
+                : (r.fullData ?? r.fulldata)
+              : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
+        } catch (e) {
+          return r
+        }
       })
     } catch (e) {
       logger.error(`[PG DB] getInsufficientDataMatches failed: ${e.message}`)
@@ -511,14 +737,32 @@ const pgDb = {
              (timestamp >= $3 AND timestamp <= $4)
          )
          ORDER BY "startTimestamp" ASC`,
-        [now - 3600, future,
-         new Date(now * 1000).toISOString(), new Date(future * 1000).toISOString()]
+        [
+          now - 3600,
+          future,
+          new Date(now * 1000).toISOString(),
+          new Date(future * 1000).toISOString(),
+        ]
       )
-      return result.rows.map(r => {
+      return result.rows.map((r) => {
         try {
-          const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
-          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
-        } catch (e) { return r }
+          const parsed =
+            (r.fullData ?? r.fulldata)
+              ? typeof (r.fullData ?? r.fulldata) === 'string'
+                ? JSON.parse(r.fullData ?? r.fulldata)
+                : (r.fullData ?? r.fulldata)
+              : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
+        } catch (e) {
+          return r
+        }
       })
     } catch (e) {
       logger.error(`[PG DB] getMatchesStartingSoon failed: ${e.message}`)
@@ -539,7 +783,11 @@ const pgDb = {
       )
       const row = result.rows?.[0]
       if (!row) return null
-      return { homeAvg: row.avg_h, awayAvg: row.avg_a, overallAvg: ((row.avg_h || 0) + (row.avg_a || 0)) / 2 }
+      return {
+        homeAvg: row.avg_h,
+        awayAvg: row.avg_a,
+        overallAvg: ((row.avg_h || 0) + (row.avg_a || 0)) / 2,
+      }
     } catch (e) {
       logger.error(`[PG DB] getTeamAvgXg failed: ${e.message}`)
       return null
@@ -552,9 +800,25 @@ const pgDb = {
         `SELECT * FROM historical_matches WHERE "scoreHome" IS NOT NULL AND "scoreAway" IS NOT NULL ORDER BY archived_at DESC LIMIT $1`,
         [limit]
       )
-      return result.rows.map(r => {
-        const fd = (() => { try { return JSON.parse((r.fullData ?? r.fulldata) || '{}') } catch { return {} } })()
-        return { ...r, ...fd, id: r.id, homeTeam: r.homeTeam, awayTeam: r.awayTeam, scoreHome: r.scoreHome ?? r.scorehome, scoreAway: r.scoreAway ?? r.scoreaway, league: r.league, timestamp: r.timestamp }
+      return result.rows.map((r) => {
+        const fd = (() => {
+          try {
+            return JSON.parse((r.fullData ?? r.fulldata) || '{}')
+          } catch {
+            return {}
+          }
+        })()
+        return {
+          ...r,
+          ...fd,
+          id: r.id,
+          homeTeam: r.homeTeam,
+          awayTeam: r.awayTeam,
+          scoreHome: r.scoreHome ?? r.scorehome,
+          scoreAway: r.scoreAway ?? r.scoreaway,
+          league: r.league,
+          timestamp: r.timestamp,
+        }
       })
     } catch (e) {
       logger.warn(`[PG DB] getRecentArchivedMatches error: ${e.message}`)
@@ -600,7 +864,7 @@ const pgDb = {
           params.mu || 0.13,
           params.distribution_type || 'poisson',
           params.num_matches || 0,
-          ts
+          ts,
         ]
       )
       return true
@@ -618,23 +882,31 @@ const pgDb = {
       const adb = new ArchiveDB(archivePath)
       const key = teamName.toUpperCase().trim()
 
-      const homeResults = adb.prepare(`
+      const homeResults = adb
+        .prepare(
+          `
         SELECT COUNT(*) as total,
                SUM(CASE WHEN result = '1' THEN 1 ELSE 0 END) as wins,
                SUM(CASE WHEN result = 'X' THEN 1 ELSE 0 END) as draws,
                SUM(CASE WHEN result = '2' THEN 1 ELSE 0 END) as losses
         FROM promosport_archive
         WHERE UPPER(homeTeam) = ? AND is_finished = 1
-      `).get(key)
+      `
+        )
+        .get(key)
 
-      const awayResults = adb.prepare(`
+      const awayResults = adb
+        .prepare(
+          `
         SELECT COUNT(*) as total,
                SUM(CASE WHEN result = '2' THEN 1 ELSE 0 END) as wins,
                SUM(CASE WHEN result = 'X' THEN 1 ELSE 0 END) as draws,
                SUM(CASE WHEN result = '1' THEN 1 ELSE 0 END) as losses
         FROM promosport_archive
         WHERE UPPER(awayTeam) = ? AND is_finished = 1
-      `).get(key)
+      `
+        )
+        .get(key)
 
       adb.close()
 
@@ -648,7 +920,7 @@ const pgDb = {
         homeWinRate: homeTotal > 0 ? (homeResults.wins || 0) / homeTotal : null,
         homeDrawRate: homeTotal > 0 ? (homeResults.draws || 0) / homeTotal : null,
         awayWinRate: awayTotal > 0 ? (awayResults.wins || 0) / awayTotal : null,
-        awayDrawRate: awayTotal > 0 ? (awayResults.draws || 0) / awayTotal : null
+        awayDrawRate: awayTotal > 0 ? (awayResults.draws || 0) / awayTotal : null,
       }
     } catch (e) {
       logger.warn(`[PG DB] getTeamPromosportStats failed for ${teamName}: ${e.message}`)
@@ -658,15 +930,27 @@ const pgDb = {
 
   async archiveFinishedMatches() {
     try {
-      const finished = await query(`SELECT * FROM matches WHERE status IN ('FT', 'finished', 'Finished', 'Ended')`)
+      const finished = await query(
+        `SELECT * FROM matches WHERE status IN ('FT', 'finished', 'Finished', 'Ended')`
+      )
       if (finished.rows.length === 0) return { success: true, archivedCount: 0 }
 
       let count = 0
       for (const r of finished.rows) {
-        const sh = (r.scoreHome ?? r.scorehome) ?? 0, sa = (r.scoreAway ?? r.scoreaway) ?? 0
+        const sh = r.scoreHome ?? r.scorehome ?? 0,
+          sa = r.scoreAway ?? r.scoreaway ?? 0
         await query(
           `INSERT INTO historical_matches (id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", league, "fullData", timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING`,
-          [r.id, r.homeTeam, r.awayTeam, sh, sa, r.league, (r.fullData ?? r.fulldata) || '{}', r.timestamp || new Date().toISOString()]
+          [
+            r.id,
+            r.homeTeam,
+            r.awayTeam,
+            sh,
+            sa,
+            r.league,
+            (r.fullData ?? r.fulldata) || '{}',
+            r.timestamp || new Date().toISOString(),
+          ]
         )
         await query(
           `UPDATE prediction_history SET status = 'finished', result = CASE WHEN (($1 > $2 AND prediction_type = 'Home') OR ($1 < $2 AND prediction_type = 'Away') OR ($1 = $2 AND prediction_type = 'Draw')) THEN 'won' ELSE 'lost' END WHERE match_id = $3`,
@@ -696,12 +980,25 @@ const pgDb = {
         RETURNING id
       `
       const result = await query(sql, [
-        snapshot.matchId, snapshot.homeTeam, snapshot.awayTeam, snapshot.league,
-        snapshot.minute, snapshot.scoreHome, snapshot.scoreAway,
-        snapshot.predNext5, snapshot.predNext10, snapshot.predNext15,
-        snapshot.homeXg || 0, snapshot.awayXg || 0, snapshot.homeSot || 0, snapshot.awaySot || 0,
-        snapshot.homeCorners || 0, snapshot.awayCorners || 0, snapshot.homePossession || 50,
-        snapshot.alertLevel || 'NORMAL', snapshot.source || 'unknown'
+        snapshot.matchId,
+        snapshot.homeTeam,
+        snapshot.awayTeam,
+        snapshot.league,
+        snapshot.minute,
+        snapshot.scoreHome,
+        snapshot.scoreAway,
+        snapshot.predNext5,
+        snapshot.predNext10,
+        snapshot.predNext15,
+        snapshot.homeXg || 0,
+        snapshot.awayXg || 0,
+        snapshot.homeSot || 0,
+        snapshot.awaySot || 0,
+        snapshot.homeCorners || 0,
+        snapshot.awayCorners || 0,
+        snapshot.homePossession || 50,
+        snapshot.alertLevel || 'NORMAL',
+        snapshot.source || 'unknown',
       ])
       return result.rows?.[0]?.id || null
     } catch (e) {
@@ -717,14 +1014,18 @@ const pgDb = {
         [matchId]
       )
       for (const log of logs.rows) {
-        const goalNext5 = finalScoreHome + finalScoreAway > (log.score_home || 0) + (log.score_away || 0) ? 1 : 0
+        const goalNext5 =
+          finalScoreHome + finalScoreAway > (log.score_home || 0) + (log.score_away || 0) ? 1 : 0
         await query(
           `UPDATE live_prediction_logs SET actual_goal_next5 = $1, actual_goal_next10 = $1, actual_goal_next15 = $1,
            actual_final_home = $2, actual_final_away = $3, outcome_checked = 1, checked_at = NOW() WHERE id = $4`,
           [goalNext5, finalScoreHome, finalScoreAway, log.id]
         )
       }
-      if (logs.rows.length > 0) logger.info(`[PG DB] Updated ${logs.rows.length} live prediction outcomes for match ${matchId}`)
+      if (logs.rows.length > 0)
+        logger.info(
+          `[PG DB] Updated ${logs.rows.length} live prediction outcomes for match ${matchId}`
+        )
       return logs.rows.length
     } catch (e) {
       logger.error(`[PG DB] updateLivePredictionOutcomes failed: ${e.message}`)
@@ -734,16 +1035,25 @@ const pgDb = {
 
   async getLivePredictionsForTraining(limit = 5000) {
     try {
-      const result = await query(`SELECT * FROM live_prediction_logs WHERE outcome_checked = 1 AND actual_goal_next5 IS NOT NULL ORDER BY created_at DESC LIMIT $1`, [limit])
+      const result = await query(
+        `SELECT * FROM live_prediction_logs WHERE outcome_checked = 1 AND actual_goal_next5 IS NOT NULL ORDER BY created_at DESC LIMIT $1`,
+        [limit]
+      )
       return result.rows || []
-    } catch { return [] }
+    } catch {
+      return []
+    }
   },
 
   async getUncheckedLivePredictions() {
     try {
-      const result = await query(`SELECT DISTINCT match_id FROM live_prediction_logs WHERE outcome_checked = 0`)
+      const result = await query(
+        `SELECT DISTINCT match_id FROM live_prediction_logs WHERE outcome_checked = 0`
+      )
       return result.rows || []
-    } catch { return [] }
+    } catch {
+      return []
+    }
   },
 
   async insertPattern(match) {
@@ -752,7 +1062,16 @@ const pgDb = {
       const result = match.status === 'finished' ? 'WIN' : 'UNKNOWN'
       await query(
         `INSERT INTO winning_patterns (match_id, league, "homeTeam", "awayTeam", prediction, result, score, "fullData") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [match.id, match.league, match.homeTeam, match.awayTeam, match.prediction || 'N/A', result, scoreStr, (match.fullData ?? match.fulldata) || JSON.stringify(match)]
+        [
+          match.id,
+          match.league,
+          match.homeTeam,
+          match.awayTeam,
+          match.prediction || 'N/A',
+          result,
+          scoreStr,
+          (match.fullData ?? match.fulldata) || JSON.stringify(match),
+        ]
       )
       return true
     } catch (e) {
@@ -763,9 +1082,14 @@ const pgDb = {
 
   async getAllPatterns(limit = 100) {
     try {
-      const result = await query(`SELECT * FROM winning_patterns ORDER BY timestamp DESC LIMIT $1`, [limit])
+      const result = await query(
+        `SELECT * FROM winning_patterns ORDER BY timestamp DESC LIMIT $1`,
+        [limit]
+      )
       return result.rows || []
-    } catch { return [] }
+    } catch {
+      return []
+    }
   },
 
   getUpcomingPredictions: async () => [],
@@ -773,15 +1097,32 @@ const pgDb = {
 
   async getMatchesByStatus(status, limit = null) {
     try {
-      const parsedStatus = status === 'live' ? 'live' : (status === 'scheduled' ? 'scheduled' : status)
-      const sql = limit ? `SELECT * FROM matches WHERE status = $1 ORDER BY timestamp ASC LIMIT $2` : `SELECT * FROM matches WHERE status = $1 ORDER BY timestamp ASC`
+      const parsedStatus =
+        status === 'live' ? 'live' : status === 'scheduled' ? 'scheduled' : status
+      const sql = limit
+        ? `SELECT * FROM matches WHERE status = $1 ORDER BY timestamp ASC LIMIT $2`
+        : `SELECT * FROM matches WHERE status = $1 ORDER BY timestamp ASC`
       const params = limit ? [parsedStatus, limit] : [parsedStatus]
       const result = await query(sql, params)
-      return result.rows.map(r => {
+      return result.rows.map((r) => {
         try {
-          const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
-          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
-        } catch (e) { return r }
+          const parsed =
+            (r.fullData ?? r.fulldata)
+              ? typeof (r.fullData ?? r.fulldata) === 'string'
+                ? JSON.parse(r.fullData ?? r.fulldata)
+                : (r.fullData ?? r.fulldata)
+              : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
+        } catch (e) {
+          return r
+        }
       })
     } catch (e) {
       logger.error(`[PG DB] getMatchesByStatus failed: ${e.message}`)
@@ -792,7 +1133,10 @@ const pgDb = {
   async cleanupStaleMatches() {
     try {
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      const result = await query(`DELETE FROM matches WHERE timestamp < $1 AND status NOT IN ('live', '1H', '2H', 'HT')`, [oneDayAgo])
+      const result = await query(
+        `DELETE FROM matches WHERE timestamp < $1 AND status NOT IN ('live', '1H', '2H', 'HT')`,
+        [oneDayAgo]
+      )
       if (result.rowCount > 0) logger.info(`[PG DB] Cleaned up ${result.rowCount} stale matches`)
       return result.rowCount || 0
     } catch (e) {
@@ -816,37 +1160,74 @@ const pgDb = {
   async getAllMatches() {
     try {
       const result = await query('SELECT * FROM matches ORDER BY timestamp ASC')
-      return result.rows.map(r => {
+      return result.rows.map((r) => {
         try {
-          const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
-          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
-        } catch (e) { return r }
+          const parsed =
+            (r.fullData ?? r.fulldata)
+              ? typeof (r.fullData ?? r.fulldata) === 'string'
+                ? JSON.parse(r.fullData ?? r.fulldata)
+                : (r.fullData ?? r.fulldata)
+              : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
+        } catch (e) {
+          return r
+        }
       })
-    } catch { return [] }
+    } catch {
+      return []
+    }
   },
 
   async getMatchesByDate(dateStr) {
     try {
-      const result = await query(`SELECT * FROM matches WHERE timestamp LIKE $1 ORDER BY timestamp ASC`, [`${dateStr}%`])
-      return result.rows.map(r => {
+      const result = await query(
+        `SELECT * FROM matches WHERE timestamp LIKE $1 ORDER BY timestamp ASC`,
+        [`${dateStr}%`]
+      )
+      return result.rows.map((r) => {
         try {
-          const parsed = (r.fullData ?? r.fulldata) ? (typeof (r.fullData ?? r.fulldata) === 'string' ? JSON.parse(r.fullData ?? r.fulldata) : (r.fullData ?? r.fulldata)) : {}
-          return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league }
-        } catch (e) { return r }
+          const parsed =
+            (r.fullData ?? r.fulldata)
+              ? typeof (r.fullData ?? r.fulldata) === 'string'
+                ? JSON.parse(r.fullData ?? r.fulldata)
+                : (r.fullData ?? r.fulldata)
+              : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
+        } catch (e) {
+          return r
+        }
       })
-    } catch { return [] }
+    } catch {
+      return []
+    }
   },
 
   async cleanupPlaceholderTeams() {
     try {
-      const result = await query(`DELETE FROM matches WHERE LOWER("homeTeam") = 'home' OR LOWER("awayTeam") = 'away'`)
+      const result = await query(
+        `DELETE FROM matches WHERE LOWER("homeTeam") = 'home' OR LOWER("awayTeam") = 'away'`
+      )
       if (result.rowCount > 0) logger.info(`[PG DB] Cleaned ${result.rowCount} placeholder matches`)
       return result.rowCount || 0
     } catch (e) {
       logger.error(`[PG DB] Cleanup error: ${e.message}`)
       return 0
     }
-  }
+  },
 }
 
 // Backward compatibility: code that uses `database.db.prepare(...)` or `database.db.query(...)`

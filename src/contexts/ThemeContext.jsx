@@ -12,13 +12,9 @@ export const ThemeProvider = ({ children }) => {
     localStorage.setItem('stitch-theme', theme)
   }, [theme])
 
-  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+  const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
 
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  )
+  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>
 }
 
 export const useTheme = () => {

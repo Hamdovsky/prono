@@ -18,9 +18,9 @@ const TRACKING_KEY = 'confluence_accuracy'
 class ConfluenceGuardV2 {
   constructor() {
     this.accuracy = {
-      byLeague: {},   // league -> { total, correct, brierSum, modelBreakdown: { xgb: {...}, poisson: {...} } }
+      byLeague: {}, // league -> { total, correct, brierSum, modelBreakdown: { xgb: {...}, poisson: {...} } }
       byConfidence: {}, // confidenceBand -> { total, correct }
-      byModel: {},    // modelName -> { total, correct }
+      byModel: {}, // modelName -> { total, correct }
       global: { total: 0, correct: 0, brierSum: 0 },
     }
     this._loaded = false
@@ -59,15 +59,16 @@ class ConfluenceGuardV2 {
     const confidence = prediction.surgical_confidence || 50
 
     // One-hot actual outcome
-    const actualVec = actualOutcome === 'home' ? [1, 0, 0] : (actualOutcome === 'draw' ? [0, 1, 0] : [0, 0, 1])
+    const actualVec =
+      actualOutcome === 'home' ? [1, 0, 0] : actualOutcome === 'draw' ? [0, 1, 0] : [0, 0, 1]
     const predVec = [p_h, p_d, p_a]
     const xgbVec = [p_h_xgb, p_d_xgb, p_a_xgb]
 
     const brier = actualVec.reduce((s, a, i) => s + (a - predVec[i]) ** 2, 0)
     const brierXgb = actualVec.reduce((s, a, i) => s + (a - xgbVec[i]) ** 2, 0)
 
-    const correct = (predVec.indexOf(Math.max(...predVec)) === actualVec.indexOf(1)) ? 1 : 0
-    const correctXgb = (xgbVec.indexOf(Math.max(...xgbVec)) === actualVec.indexOf(1)) ? 1 : 0
+    const correct = predVec.indexOf(Math.max(...predVec)) === actualVec.indexOf(1) ? 1 : 0
+    const correctXgb = xgbVec.indexOf(Math.max(...xgbVec)) === actualVec.indexOf(1) ? 1 : 0
 
     // Global
     this.accuracy.global.total++
@@ -76,13 +77,21 @@ class ConfluenceGuardV2 {
 
     // By league
     if (!this.accuracy.byLeague[league]) {
-      this.accuracy.byLeague[league] = { total: 0, correct: 0, brierSum: 0, modelBreakdown: { xgb: { total: 0, correct: 0 }, poisson: { total: 0, correct: 0 } } }
+      this.accuracy.byLeague[league] = {
+        total: 0,
+        correct: 0,
+        brierSum: 0,
+        modelBreakdown: { xgb: { total: 0, correct: 0 }, poisson: { total: 0, correct: 0 } },
+      }
     }
     const l = this.accuracy.byLeague[league]
     l.total++
     l.correct += correct
     l.brierSum += brier
-    if (prediction.ai_source && (prediction.ai_source.includes('XGB') || prediction.ai_source.includes('Titanium'))) {
+    if (
+      prediction.ai_source &&
+      (prediction.ai_source.includes('XGB') || prediction.ai_source.includes('Titanium'))
+    ) {
       l.modelBreakdown.xgb.total++
       l.modelBreakdown.xgb.correct += correctXgb
     } else {
@@ -121,17 +130,19 @@ class ConfluenceGuardV2 {
       const avgBrier = leagueStats.brierSum / leagueStats.total
 
       // Si la ligue est significativement moins précise que la moyenne globale
-      if (leagueAccuracy < globalAccuracy - 0.10 && leagueAccuracy < 0.45) {
+      if (leagueAccuracy < globalAccuracy - 0.1 && leagueAccuracy < 0.45) {
         const penalty = (globalAccuracy - leagueAccuracy) * 2
         result.adjustedConfidence = Math.max(0, confidence - penalty * 100)
-        result.adjustments.push(`league_underperformance: ${(leagueAccuracy*100).toFixed(0)}% vs global ${(globalAccuracy*100).toFixed(0)}%`)
+        result.adjustments.push(
+          `league_underperformance: ${(leagueAccuracy * 100).toFixed(0)}% vs global ${(globalAccuracy * 100).toFixed(0)}%`
+        )
       }
 
       // Bonus si la ligue est très précise
-      if (leagueAccuracy > globalAccuracy + 0.10 && leagueAccuracy > 0.55) {
+      if (leagueAccuracy > globalAccuracy + 0.1 && leagueAccuracy > 0.55) {
         const bonus = (leagueAccuracy - globalAccuracy) * 50
         result.adjustedConfidence = Math.min(100, (result.adjustedConfidence || confidence) + bonus)
-        result.adjustments.push(`league_overperformance: ${(leagueAccuracy*100).toFixed(0)}%`)
+        result.adjustments.push(`league_overperformance: ${(leagueAccuracy * 100).toFixed(0)}%`)
       }
 
       // Brier score check
@@ -141,9 +152,9 @@ class ConfluenceGuardV2 {
       }
 
       // Veto si la précision est catastrophique
-      if (leagueAccuracy < 0.30 && leagueStats.total >= 20) {
+      if (leagueAccuracy < 0.3 && leagueStats.total >= 20) {
         result.veto = true
-        result.reason = `LEAGUE_ACCURACY_TOO_LOW: ${(leagueAccuracy*100).toFixed(0)}% over ${leagueStats.total} matches`
+        result.reason = `LEAGUE_ACCURACY_TOO_LOW: ${(leagueAccuracy * 100).toFixed(0)}% over ${leagueStats.total} matches`
         return result
       }
     }
@@ -156,14 +167,18 @@ class ConfluenceGuardV2 {
       // Si la confiance est haute mais la précision réelle est basse
       if (confidence >= 70 && bandAccuracy < 0.55) {
         result.adjustedConfidence = Math.min(confidence, bandAccuracy * 100)
-        result.adjustments.push(`confidence_miscalibration: ${band}% band = ${(bandAccuracy*100).toFixed(0)}% actual`)
+        result.adjustments.push(
+          `confidence_miscalibration: ${band}% band = ${(bandAccuracy * 100).toFixed(0)}% actual`
+        )
       }
     }
 
     // 3. Veto Shield pour les cas extrêmes
     if (result.adjustedConfidence < 45) {
       result.veto = true
-      result.reason = result.reason || `CONFIDENCE_TOO_LOW: ${result.adjustedConfidence.toFixed(0)}% after adjustments`
+      result.reason =
+        result.reason ||
+        `CONFIDENCE_TOO_LOW: ${result.adjustedConfidence.toFixed(0)}% after adjustments`
     }
 
     // 4. SMART MONEY CHECK: si odds bougent contre nous
@@ -199,8 +214,14 @@ class ConfluenceGuardV2 {
       total: stats.total,
       accuracy: round(stats.correct / stats.total, 3),
       avgBrier: round(stats.brierSum / stats.total, 4),
-      xgbAccuracy: stats.modelBreakdown.xgb.total > 0 ? round(stats.modelBreakdown.xgb.correct / stats.modelBreakdown.xgb.total, 3) : null,
-      poissonAccuracy: stats.modelBreakdown.poisson.total > 0 ? round(stats.modelBreakdown.poisson.correct / stats.modelBreakdown.poisson.total, 3) : null,
+      xgbAccuracy:
+        stats.modelBreakdown.xgb.total > 0
+          ? round(stats.modelBreakdown.xgb.correct / stats.modelBreakdown.xgb.total, 3)
+          : null,
+      poissonAccuracy:
+        stats.modelBreakdown.poisson.total > 0
+          ? round(stats.modelBreakdown.poisson.correct / stats.modelBreakdown.poisson.total, 3)
+          : null,
     }
   }
 

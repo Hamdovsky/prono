@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────
 # render.yaml — Render Blueprint
 # Services : Node.js Web + Python FastAPI (ML Inference)
-# Data Source : LiveScore (API publique, pas de clé requise)
+# Credentials are set via Render Dashboard (marked sync: false)
 # ─────────────────────────────────────────────────────────
 services:
   # ── Node.js Main Server (API + React Frontend) ──────
@@ -17,25 +17,25 @@ services:
       - key: PORT
         value: "10000"
       - key: API_SECRET_KEY
-        value: 6a00d1058c143a6c5bc4328c09fbe1c51b90bbaad15422b935045ae7895c4673
+        sync: false
       - key: INFERENCE_URL
         value: https://prono-fastapi-ibps.onrender.com
       - key: USE_MODEL_MANAGER
         value: "true"
       - key: TELEGRAM_BOT_TOKEN
-        value: 6714234731:AAFH7rF8hUkvG1KYs1Epg-bknX7c5Pmduvs
+        sync: false
       - key: TELEGRAM_CHAT_ID
-        value: 5637790630
+        sync: false
       - key: FOOTBALLDATA_KEY
-        value: c8c6850caceb4ecaa3f2de2866fe90fd
+        sync: false
       - key: APIFOOTBALL_KEY
-        value: e7e11e01f3bc966f78bff8f9fb03b580
+        sync: false
       - key: BSD_API_KEY
-        value: f23756ae5c82f2aca4eabc42cbb19c49ec35e057
+        sync: false
       - key: ODDSPAPI_KEY
-        value: 094828bcde4ab1692a681881a2829ad4246bf3297eec7fc8007e164310841cf7
+        sync: false
       - key: THERUNDOWN_KEY
-        value: 0c6ecfa8c4258cea7fd3c8109fcef6641efef30349bbcbee7d832e8ffed6891d
+        sync: false
 
   # ── Python FastAPI Inference (ML/XGBoost Engine) ────
   - type: web
@@ -48,4 +48,4 @@ services:
       - key: PYTHONUNBUFFERED
         value: "1"
       - key: API_SECRET_KEY
-        value: 6a00d1058c143a6c5bc4328c09fbe1c51b90bbaad15422b935045ae7895c4673
+        sync: false

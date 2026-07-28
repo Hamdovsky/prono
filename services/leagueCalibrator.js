@@ -2,8 +2,10 @@ const { Pool } = require('pg')
 const logger = require('../core/logger')
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_oy3uDHmnCE8P@ep-wandering-wave-atp6q80z-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require',
-  max: 5
+  connectionString:
+    process.env.DATABASE_URL ||
+    'postgresql://neondb_owner:npg_oy3uDHmnCE8P@ep-wandering-wave-atp6q80z-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require',
+  max: 5,
 })
 
 const MIN_MATCHES = 10
@@ -39,7 +41,7 @@ async function calibrate() {
     LEFT JOIN soccer_leagues l ON f.league_id = l.id
     WHERE f.goals_home IS NOT NULL AND f.goals_away IS NOT NULL
   `)
-  
+
   const fixtures = fixturesRes.rows
   logger.info(`[CALIBRATE] Loaded ${fixtures.length} fixtures`)
 
@@ -68,8 +70,10 @@ async function calibrate() {
     const gh = f.goals_home
     const ga = f.goals_away
 
-    if (!leagueTeams[league][home]) leagueTeams[league][home] = { goalsFor: 0, goalsAgainst: 0, homeMatches: 0, awayMatches: 0 }
-    if (!leagueTeams[league][away]) leagueTeams[league][away] = { goalsFor: 0, goalsAgainst: 0, homeMatches: 0, awayMatches: 0 }
+    if (!leagueTeams[league][home])
+      leagueTeams[league][home] = { goalsFor: 0, goalsAgainst: 0, homeMatches: 0, awayMatches: 0 }
+    if (!leagueTeams[league][away])
+      leagueTeams[league][away] = { goalsFor: 0, goalsAgainst: 0, homeMatches: 0, awayMatches: 0 }
 
     leagueTeams[league][home].goalsFor += gh
     leagueTeams[league][home].goalsAgainst += ga
@@ -101,7 +105,7 @@ async function calibrate() {
       if (m.gh <= 1 && m.ga <= 1) lowScorePairs++
       totalPairs++
     }
-    const rho = totalPairs > 0 ? (lowScorePairs / totalPairs) - 0.25 : -0.12
+    const rho = totalPairs > 0 ? lowScorePairs / totalPairs - 0.25 : -0.12
 
     // 5. Per-team attack/defense ratings
     for (const [team, stats] of Object.entries(teams)) {
@@ -120,7 +124,7 @@ async function calibrate() {
         rho: Math.round(rho * 100) / 100,
         mu: Math.round(avgGoals * 100) / 100,
         distribution_type: 'poisson',
-        num_matches: totalMatches
+        num_matches: totalMatches,
       })
     }
 
@@ -134,11 +138,13 @@ async function calibrate() {
       rho: Math.round(rho * 100) / 100,
       mu: Math.round(avgGoals * 100) / 100,
       distribution_type: total.variance ? 'negbin' : 'poisson',
-      num_matches: total.matches
+      num_matches: total.matches,
     })
   }
 
-  logger.info(`[CALIBRATE] Computed ${params.length} parameter rows for ${Object.keys(leagueTeams).length} leagues`)
+  logger.info(
+    `[CALIBRATE] Computed ${params.length} parameter rows for ${Object.keys(leagueTeams).length} leagues`
+  )
 
   // 7. Bulk upsert into Neon (batches of 500)
   let inserted = 0
@@ -149,12 +155,25 @@ async function calibrate() {
     const vals = []
     let idx = 0
     for (const p of batch) {
-      valueRows.push(`($${idx+1}, $${idx+2}, $${idx+3}, $${idx+4}, $${idx+5}, $${idx+6}, $${idx+7}, $${idx+8}, $${idx+9}, NOW())`)
-      vals.push(p.tournament_name, p.team_name, p.attack_rating, p.defense_rating, p.hfa, p.rho, p.mu, p.distribution_type, p.num_matches)
+      valueRows.push(
+        `($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, $${idx + 7}, $${idx + 8}, $${idx + 9}, NOW())`
+      )
+      vals.push(
+        p.tournament_name,
+        p.team_name,
+        p.attack_rating,
+        p.defense_rating,
+        p.hfa,
+        p.rho,
+        p.mu,
+        p.distribution_type,
+        p.num_matches
+      )
       idx += 9
     }
     try {
-      const res = await pool.query(`
+      const res = await pool.query(
+        `
         INSERT INTO league_model_parameters 
           (tournament_name, team_name, attack_rating, defense_rating, hfa, rho, mu, distribution_type, num_matches, updated_at)
         VALUES ${valueRows.join(', ')}
@@ -168,12 +187,15 @@ async function calibrate() {
           distribution_type = EXCLUDED.distribution_type,
           num_matches = EXCLUDED.num_matches,
           updated_at = NOW()
-      `, vals)
+      `,
+        vals
+      )
       inserted += batch.length
     } catch (e) {
       logger.warn(`[CALIBRATE] Batch insert error at ${i}: ${e.message}`)
     }
-    if (i % 2000 === 0) logger.info(`[CALIBRATE] Inserting... ${Math.round(i/params.length*100)}%`)
+    if (i % 2000 === 0)
+      logger.info(`[CALIBRATE] Inserting... ${Math.round((i / params.length) * 100)}%`)
   }
 
   logger.info(`[CALIBRATE] ✅ Upserted ${inserted} parameter rows`)
@@ -188,9 +210,12 @@ module.exports = { calibrate, close }
 
 if (require.main === module) {
   calibrate()
-    .then(r => {
+    .then((r) => {
       console.log(`Calibration complete: ${r.leagues} leagues, ${r.params} params`)
       return close()
     })
-    .catch(e => { console.error(e); process.exit(1) })
+    .catch((e) => {
+      console.error(e)
+      process.exit(1)
+    })
 }

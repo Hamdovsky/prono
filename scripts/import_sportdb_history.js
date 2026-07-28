@@ -12,7 +12,9 @@ function getCount() {
     const c = db.prepare('SELECT COUNT(*) as c FROM archive_matches').get().c
     db.close()
     return c
-  } catch { return 0 }
+  } catch {
+    return 0
+  }
 }
 
 async function main() {
@@ -36,7 +38,7 @@ async function main() {
   logger.info('========================================')
 }
 
-main().catch(e => {
+main().catch((e) => {
   logger.error('Fatal error:', e.message)
   process.exit(1)
 })

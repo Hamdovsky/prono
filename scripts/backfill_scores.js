@@ -20,8 +20,10 @@ function normalizeTeam(name) {
 }
 
 function teamsMatch(name1, name2) {
-  return normalizeTeam(name1).includes(normalizeTeam(name2)) ||
-         normalizeTeam(name2).includes(normalizeTeam(name1))
+  return (
+    normalizeTeam(name1).includes(normalizeTeam(name2)) ||
+    normalizeTeam(name2).includes(normalizeTeam(name1))
+  )
 }
 
 async function getEventById(matchId) {
@@ -87,15 +89,19 @@ async function getSofaScore(match) {
 async function backfillScores() {
   console.log('\n📋 [BACKFILL SCORES] Starting...')
 
-  const threeHoursAgoSec = Math.floor(Date.now() / 1000) - (3 * 60 * 60)
+  const threeHoursAgoSec = Math.floor(Date.now() / 1000) - 3 * 60 * 60
 
-  const matches = await database.prepare(`
+  const matches = await database
+    .prepare(
+      `
     SELECT id, "homeTeam", "awayTeam", "startTimestamp", "fullData", status
     FROM matches
     WHERE (status IS NULL OR status NOT IN ('FT', 'finished', 'Finished', 'Ended', 'AET', 'PEN'))
     AND "startTimestamp" < ?
     ORDER BY "startTimestamp" ASC
-  `).all(threeHoursAgoSec)
+  `
+    )
+    .all(threeHoursAgoSec)
 
   if (matches.length === 0) {
     console.log('✅ [BACKFILL SCORES] No past pending matches found.')
@@ -117,7 +123,7 @@ async function backfillScores() {
       if (!resultData || !resultData.event) {
         logger.warn(`⚠️ [BACKFILL SCORES] No details for ${m.id} (${m.homeTeam} vs ${m.awayTeam})`)
         failed++
-        await new Promise(r => setTimeout(r, 600))
+        await new Promise((r) => setTimeout(r, 600))
         continue
       }
 
@@ -127,7 +133,7 @@ async function backfillScores() {
       if (statusType !== 'finished' && event.status?.code !== 100) {
         logger.info(`⏳ [BACKFILL SCORES] ${m.id} not finished yet (${statusType})`)
         skipped++
-        await new Promise(r => setTimeout(r, 600))
+        await new Promise((r) => setTimeout(r, 600))
         continue
       }
 
@@ -143,14 +149,18 @@ async function backfillScores() {
         ...currentFullData,
         status: 'finished',
         score: { home: homeScore, away: awayScore },
-        incidents: event.incidents || []
+        incidents: event.incidents || [],
       })
 
-      const updateResult = await database.prepare(`
+      const updateResult = await database
+        .prepare(
+          `
         UPDATE matches
         SET status = 'FT', "scoreHome" = ?, "scoreAway" = ?, "fullData" = ?
         WHERE id = ?
-      `).run(homeScore, awayScore, updatedFullData, m.id)
+      `
+        )
+        .run(homeScore, awayScore, updatedFullData, m.id)
 
       if (updateResult && updateResult.changes > 0) {
         logger.info(`✅ [BACKFILL SCORES] ${m.homeTeam} ${homeScore}-${awayScore} ${m.awayTeam}`)
@@ -159,24 +169,27 @@ async function backfillScores() {
         logger.warn(`⚠️ [BACKFILL SCORES] Update returned 0 changes for ${m.id}`)
         failed++
       }
-
     } catch (e) {
       logger.error(`❌ [BACKFILL SCORES] ${m.id}: ${e.message}`)
       failed++
     }
 
-    await new Promise(r => setTimeout(r, 1200))
+    await new Promise((r) => setTimeout(r, 1200))
   }
 
-  console.log(`\n✅ [BACKFILL SCORES] Done. Updated: ${updated}, Failed: ${failed}, Skipped: ${skipped}, Total: ${matches.length}`)
+  console.log(
+    `\n✅ [BACKFILL SCORES] Done. Updated: ${updated}, Failed: ${failed}, Skipped: ${skipped}, Total: ${matches.length}`
+  )
   return { processed: updated, failed, skipped, total: matches.length }
 }
 
 if (require.main === module) {
-  backfillScores().then(() => process.exit(0)).catch(e => {
-    console.error('[BACKFILL SCORES] Fatal:', e)
-    process.exit(1)
-  })
+  backfillScores()
+    .then(() => process.exit(0))
+    .catch((e) => {
+      console.error('[BACKFILL SCORES] Fatal:', e)
+      process.exit(1)
+    })
 }
 
 module.exports = { backfillScores }

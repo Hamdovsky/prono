@@ -338,7 +338,10 @@ async function runMigrations() {
       `)
       if (missingCols.rows.length === 0) {
         logger.info('[PG MIGRATIONS] Adding missing columns to matches table...')
-        const addCol = (name, type) => query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS "${name}" ${type}`).catch(e => logger.warn(`[PG MIGRATIONS] Could not add ${name}: ${e.message}`))
+        const addCol = (name, type) =>
+          query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS "${name}" ${type}`).catch((e) =>
+            logger.warn(`[PG MIGRATIONS] Could not add ${name}: ${e.message}`)
+          )
         await addCol('tournament_id_official', 'TEXT')
         await addCol('home_attack_impact', 'REAL')
         await addCol('home_defense_impact', 'REAL')
@@ -380,7 +383,7 @@ async function runMigrations() {
         await addCol('bsd_home_win_prob', 'REAL DEFAULT 0')
         await addCol('bsd_draw_prob', 'REAL DEFAULT 0')
         await addCol('bsd_away_win_prob', 'REAL DEFAULT 0')
-            await addCol('bsd_confidence', 'REAL DEFAULT 0')
+        await addCol('bsd_confidence', 'REAL DEFAULT 0')
         logger.info('[PG MIGRATIONS] Missing columns added successfully')
       }
     } catch (e) {
@@ -501,16 +504,22 @@ async function runMigrations() {
 
     // Fix camelCase column casing for existing matches table (created before quoting was fixed)
     const columnRenames = [
-      ['hometeam',     '"homeTeam"'],
-      ['awayteam',     '"awayTeam"'],
-      ['scorehome',    '"scoreHome"'],
-      ['scoreaway',    '"scoreAway"'],
+      ['hometeam', '"homeTeam"'],
+      ['awayteam', '"awayTeam"'],
+      ['scorehome', '"scoreHome"'],
+      ['scoreaway', '"scoreAway"'],
       ['starttimestamp', '"startTimestamp"'],
     ]
     for (const [from, to] of columnRenames) {
       try {
-        const checkLower = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'matches' AND column_name = $1`, [from])
-        const checkCamel = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'matches' AND column_name = $1`, [to.replace(/"/g, '')])
+        const checkLower = await query(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'matches' AND column_name = $1`,
+          [from]
+        )
+        const checkCamel = await query(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'matches' AND column_name = $1`,
+          [to.replace(/"/g, '')]
+        )
         if (checkLower.rows.length > 0 && checkCamel.rows.length === 0) {
           await query(`ALTER TABLE matches RENAME COLUMN "${from}" TO ${to}`)
           logger.info(`[PG MIGRATIONS] Renamed matches.${from} to ${to}`)
@@ -570,7 +579,9 @@ async function runMigrations() {
     if (!seqFixed) {
       // Strategy 3: ALTER DEFAULT PRIVILEGES (only affects FUTURE sequences)
       try {
-        await query('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO PUBLIC')
+        await query(
+          'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO PUBLIC'
+        )
         logger.info('[PG MIGRATIONS] ALTER DEFAULT PRIVILEGES for sequences set (future only)')
       } catch (e2) {
         logger.warn(`[PG MIGRATIONS] Cannot ALTER DEFAULT PRIVILEGES: ${e2.message}`)
@@ -580,7 +591,9 @@ async function runMigrations() {
     // Strategy 4: best-effort per-sequence GRANT (only for sequences that exist)
     for (const seq of knownSequences) {
       try {
-        const exists = await query(`SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = $1`, [seq])
+        const exists = await query(`SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = $1`, [
+          seq,
+        ])
         if (exists.rows.length > 0) {
           await query(`GRANT USAGE, SELECT ON SEQUENCE ${seq} TO CURRENT_USER`)
         }

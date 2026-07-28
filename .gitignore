@@ -97,7 +97,15 @@ data/historical_archive.sqlite-shm
 data/historical_archive.sqlite-wal
 data/historical_archive.sqlite.gz
 data/raw/
+data/neural_data/
+data/soccerdata_cache/
+data/training_reports/
 scripts/sync_to_render.js
+scripts/data/
+
+# SofascoreScraping dump files (not source)
+SofascoreScraping/*.json
+SofascoreScraping/*.txt
 
 # Python cache
 __pycache__/
@@ -107,7 +115,7 @@ __pycache__/
 .opencode/
 opencode.json
 
-# Credentials â€” DO NOT COMMIT
+# Credentials — DO NOT COMMIT
 AGENTS.md
 
 # Debug scratch files
@@ -116,12 +124,34 @@ data/db_query1.js
 data/tactical_check.js
 data/online_learning_log.json
 data/online_learning_state.json
+data/master_database.json
+data/booking_codes.json
+data/crowd_profile.json
+data/competition_profile.json
+data/fpis_learning_log.json
+data/odds_history.json
+data/promosport_historical_results.json
+data/sofascore_matches.json
+data/tunisian_vote_history.json
+data/combo_history.json
+data/backfill_2025_progress.json
+data/historical_scan_progress.json
+data/debug_grille_int.html
+data/live_value_alerts.log
+data/bankroll.json
+data/config.json
+data/elo_ratings.json
+data/league_hierarchy.json
+data/team_name_mapping.json
+data/team_styles.json
+data/retro_accuracy_report.json
 
 # Model files (generated, not source)
 models/titanium_v2.json
 models/xgboost_v55.json
 models/xgboost_v55.json.bak
 models/model_metadata.json
+models/*.bak
 
 # Generated CSV (uploaded to catbox, downloaded at runtime)
 data/v553_wc2026_premium.csv
@@ -131,6 +161,7 @@ src/data/news_cache.json
 
 # Binary ML model files (regenerated during training)
 *.pkl
+*.npy
 
 # Python virtual environment
 .venv/
@@ -142,3 +173,5 @@ Desktop.ini
 
 # Build output
 dist/
+
+

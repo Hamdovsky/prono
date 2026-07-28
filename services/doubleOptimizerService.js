@@ -3,7 +3,7 @@ const logger = require('../core/logger')
 class DoubleOptimizerService {
   bestSingle(p1, px, p2) {
     const max = Math.max(p1, px, p2)
-    return { pick: p1 === max ? '1' : (p2 === max ? '2' : 'X'), prob: max }
+    return { pick: p1 === max ? '1' : p2 === max ? '2' : 'X', prob: max }
   }
 
   bestDouble(p1, px, p2) {
@@ -21,7 +21,7 @@ class DoubleOptimizerService {
       { v: 'X', p: px },
       { v: '2', p: p2 },
     ].sort((a, b) => b.p - a.p)
-    return sorted.find(x => x.v !== firstPick) || sorted[0]
+    return sorted.find((x) => x.v !== firstPick) || sorted[0]
   }
 
   computeMarginalGain(p1, px, p2) {
@@ -37,7 +37,7 @@ class DoubleOptimizerService {
   }
 
   selectOptimalDoubles(matches, count = 5) {
-    const scored = matches.map(m => {
+    const scored = matches.map((m) => {
       const p1 = m.p1 || 0.33
       const px = m.px || 0.33
       const p2 = m.p2 || 0.34
@@ -50,7 +50,9 @@ class DoubleOptimizerService {
         id: m.id || m._id,
         home: m.homeTeam || m.home || '',
         away: m.awayTeam || m.away || '',
-        p1, px, p2,
+        p1,
+        px,
+        p2,
         ...mg,
         isContrarian,
         isCrowdTrap: m.isCrowdTrap || false,
@@ -58,7 +60,7 @@ class DoubleOptimizerService {
     })
 
     scored.sort((a, b) => b.gain - a.gain)
-    const selected = scored.slice(0, count).map(m => m.id)
+    const selected = scored.slice(0, count).map((m) => m.id)
     const ranked = scored.map((m, i) => ({ ...m, rank: i + 1, selected: selected.includes(m.id) }))
 
     const expectedSingle = scored.reduce((s, m) => s + m.bestSingle.prob, 0)
@@ -73,14 +75,14 @@ class DoubleOptimizerService {
       expectedCorrect: {
         allSingles: +expectedSingle.toFixed(2),
         withDoubles: +expectedDoubled.toFixed(2),
-        gain: +((expectedDoubled - expectedSingle)).toFixed(2),
+        gain: +(expectedDoubled - expectedSingle).toFixed(2),
         avgCoverage: +((expectedDoubled / matches.length) * 100).toFixed(1),
-      }
+      },
     }
   }
 
   simulateDoubleCounts(matches) {
-    const scored = matches.map(m => {
+    const scored = matches.map((m) => {
       const p1 = m.p1 || 0.33
       const px = m.px || 0.33
       const p2 = m.p2 || 0.34

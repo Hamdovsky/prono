@@ -2,13 +2,14 @@
 
 **Version** : 3.1.0  
 **Date** : 30 Juin 2026  
-**Impact** : -60 à -85% RAM sur chargement modèles XGBoost  
+**Impact** : -60 à -85% RAM sur chargement modèles XGBoost
 
 ---
 
 ## 📋 RÉSUMÉ
 
 Le nouveau `model_manager.py` permet de :
+
 - ✅ Charger uniquement les modèles nécessaires (selon league tier)
 - ✅ Économiser 60-85% de RAM
 - ✅ Réduire les risques OOM sur Render Free (512 MB)
@@ -32,6 +33,7 @@ cat benchmark_results.json
 ```
 
 **Résultats attendus** :
+
 - T1 leagues : -30 à -50% RAM
 - T3 leagues : -60 à -85% RAM
 - Temps de chargement : équivalent ou plus rapide
@@ -52,6 +54,7 @@ npm run dev
 ```
 
 **Vérification** :
+
 ```bash
 # Tester une prédiction
 curl -X POST http://localhost:3001/api/predict \
@@ -68,6 +71,7 @@ curl -X POST http://localhost:3001/api/predict \
 ### Étape 3 : Déployer en production
 
 #### Option A : Render Dashboard (Recommandé)
+
 1. Aller sur https://dashboard.render.com
 2. Sélectionner service `prono-k6gc`
 3. Environment → Add Variable
@@ -76,6 +80,7 @@ curl -X POST http://localhost:3001/api/predict \
 4. Save Changes → Auto-deploy
 
 #### Option B : Via Git
+
 ```bash
 # Ajouter dans .env.example
 echo "USE_MODEL_MANAGER=true" >> .env.example
@@ -211,43 +216,49 @@ npm test -- --testPathPattern=prediction
 
 ### Avant activation
 
-| Métrique | Valeur Avant |
-|----------|--------------|
-| RAM Render (idle) | ~150 MB |
-| RAM Render (peak) | ~450-500 MB |
-| Models chargés | 7 modèles (34 MB) |
-| Cold start | 30-60s |
+| Métrique          | Valeur Avant      |
+| ----------------- | ----------------- |
+| RAM Render (idle) | ~150 MB           |
+| RAM Render (peak) | ~450-500 MB       |
+| Models chargés    | 7 modèles (34 MB) |
+| Cold start        | 30-60s            |
 
 ### Après activation (attendu)
 
-| Métrique | Valeur Après | Amélioration |
-|----------|--------------|--------------|
-| RAM Render (idle) | ~100 MB | -33% |
-| RAM Render (peak T1) | ~250-300 MB | -40% |
-| RAM Render (peak T3) | ~150-200 MB | -60% |
-| Models chargés | 1-2 selon tier | -70% |
-| Cold start | 20-40s | -33% |
+| Métrique             | Valeur Après   | Amélioration |
+| -------------------- | -------------- | ------------ |
+| RAM Render (idle)    | ~100 MB        | -33%         |
+| RAM Render (peak T1) | ~250-300 MB    | -40%         |
+| RAM Render (peak T3) | ~150-200 MB    | -60%         |
+| Models chargés       | 1-2 selon tier | -70%         |
+| Cold start           | 20-40s         | -33%         |
 
 ---
 
 ## ❓ FAQ
 
 ### Q1 : Est-ce que ça casse l'existant ?
+
 **R** : Non, 100% backward compatible. Si `USE_MODEL_MANAGER=false` ou absent, l'ancien système tourne.
 
 ### Q2 : Quelle est la différence de performance ?
+
 **R** : Chargement équivalent ou légèrement plus rapide. Économie RAM principale.
 
 ### Q3 : Que se passe-t-il si un modèle manque ?
+
 **R** : `get_model()` retourne `None` gracieusement. Le système utilise les fallbacks existants.
 
 ### Q4 : Faut-il modifier prediction_engine.py ?
+
 **R** : Non immédiatement. Le wrapper `model_loader.py` gère la transition. Refactoring complet = REFACTORING_PLAN.md (plus tard).
 
 ### Q5 : Ça marche sur PostgreSQL aussi ?
+
 **R** : Oui, indépendant de la DB. Seuls les modèles XGBoost sont concernés.
 
 ### Q6 : Et pour le déploiement Docker ?
+
 **R** : Ajouter `ENV USE_MODEL_MANAGER=true` dans Dockerfile, ou passer via docker-compose.
 
 ---
@@ -265,6 +276,7 @@ npm test -- --testPathPattern=prediction
 ## 🆘 SUPPORT
 
 ### Problème : "Module model_manager not found"
+
 ```bash
 # Vérifier que le fichier existe
 ls -la core/model_manager.py
@@ -274,6 +286,7 @@ python -c "import sys; print(sys.path)"
 ```
 
 ### Problème : "XGBoost not available"
+
 ```bash
 # Installer XGBoost
 pip install xgboost==2.1.0
@@ -283,6 +296,7 @@ python -c "import xgboost; print(xgboost.__version__)"
 ```
 
 ### Problème : RAM toujours élevée
+
 ```bash
 # Vérifier que le flag est actif
 python -c "import os; print(os.getenv('USE_MODEL_MANAGER'))"
@@ -296,6 +310,7 @@ grep "MODEL MANAGER" logs/app.log
 ## ✅ CHECKLIST D'ACTIVATION
 
 ### Dev/Staging
+
 - [ ] `pip install psutil`
 - [ ] Lancer benchmark : `python scripts/benchmark_model_loading.py`
 - [ ] Vérifier résultats : RAM saved > 30%
@@ -306,6 +321,7 @@ grep "MODEL MANAGER" logs/app.log
 - [ ] Lancer tests : `pytest tests/test_model_manager.py -v`
 
 ### Production
+
 - [ ] Backup base de données (précaution)
 - [ ] Noter RAM usage actuel (Render Metrics)
 - [ ] Activer flag sur Render Dashboard

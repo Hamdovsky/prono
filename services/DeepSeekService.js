@@ -5,166 +5,177 @@
  * Features an automatic persistent quota budget protector to prevent exceeding 250 calls/month.
  */
 
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
-const dotenv = require('dotenv');
-const logger = require('../core/logger');
+const fs = require('fs')
+const path = require('path')
+const axios = require('axios')
+const dotenv = require('dotenv')
+const logger = require('../core/logger')
 
 // Load environment variables if not loaded
-dotenv.config();
+dotenv.config()
 
-const USAGE_FILE = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/deepseek_usage.json');
-const MAX_MONTHLY_LIMIT = parseInt(process.env.DEEPSEEK_MAX_MONTHLY_CALLS || '220');
+const USAGE_FILE = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/deepseek_usage.json')
+const MAX_MONTHLY_LIMIT = parseInt(process.env.DEEPSEEK_MAX_MONTHLY_CALLS || '220')
 
 class DeepSeekService {
-    constructor() {
-        // Automatically check if Groq is available for free execution to avoid payment/balance errors
-        if (process.env.GROQ_API_KEY) {
-            this.apiKey = process.env.GROQ_API_KEY;
-            this.apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-            this.model = 'openai/gpt-oss-120b';
-            this.isGroq = true;
-        } else {
-            this.apiKey = process.env.DEEPSEEK_API_KEY || '';
-            this.apiUrl = 'https://api.deepseek.com/v1/chat/completions';
-            this.model = 'deepseek-chat';
-            this.isGroq = false;
+  constructor() {
+    // Automatically check if Groq is available for free execution to avoid payment/balance errors
+    if (process.env.GROQ_API_KEY) {
+      this.apiKey = process.env.GROQ_API_KEY
+      this.apiUrl = 'https://api.groq.com/openai/v1/chat/completions'
+      this.model = 'openai/gpt-oss-120b'
+      this.isGroq = true
+    } else {
+      this.apiKey = process.env.DEEPSEEK_API_KEY || ''
+      this.apiUrl = 'https://api.deepseek.com/v1/chat/completions'
+      this.model = 'deepseek-chat'
+      this.isGroq = false
+    }
+  }
+
+  /**
+   * Reads the current API usage from the persistent JSON file.
+   * Automatically handles monthly rollover resets.
+   */
+  _getUsage() {
+    const currentMonth = new Date().toISOString().substring(0, 7) // e.g. "2026-05"
+    const defaultUsage = { current_month: currentMonth, count: 0 }
+
+    try {
+      if (!fs.existsSync(USAGE_FILE)) {
+        // Ensure parent directory exists
+        const parentDir = path.dirname(USAGE_FILE)
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true })
         }
+        fs.writeFileSync(USAGE_FILE, JSON.stringify(defaultUsage, null, 2), 'utf8')
+        return defaultUsage
+      }
+
+      const raw = fs.readFileSync(USAGE_FILE, 'utf8')
+      const data = JSON.parse(raw)
+
+      // Monthly rollover check
+      if (data.current_month !== currentMonth) {
+        logger.info(
+          `📅 [DEEPSEEK] New month detected (${currentMonth}). Resetting API quota usage from ${data.count} to 0.`
+        )
+        const resetData = { current_month: currentMonth, count: 0 }
+        fs.writeFileSync(USAGE_FILE, JSON.stringify(resetData, null, 2), 'utf8')
+        return resetData
+      }
+
+      return data
+    } catch (e) {
+      logger.error(`❌ [DEEPSEEK] Failed to load usage file: ${e.message}`)
+      return defaultUsage
+    }
+  }
+
+  /**
+   * Increments the API usage counter and persists it to disk.
+   */
+  _incrementUsage() {
+    try {
+      const usage = this._getUsage()
+      usage.count++
+      fs.writeFileSync(USAGE_FILE, JSON.stringify(usage, null, 2), 'utf8')
+      logger.info(
+        `📈 [DEEPSEEK] Usage incremented: ${usage.count}/${MAX_MONTHLY_LIMIT} requests used this month.`
+      )
+      return usage.count
+    } catch (e) {
+      logger.error(`❌ [DEEPSEEK] Failed to increment usage file: ${e.message}`)
+      return 0
+    }
+  }
+
+  /**
+   * Checks if the system is still within the monthly safe budget.
+   */
+  isQuotaAvailable() {
+    if (!this.apiKey) {
+      logger.warn('⚠️ [DEEPSEEK] API Key is missing in .env file.')
+      return false
+    }
+    const usage = this._getUsage()
+    if (usage.count >= MAX_MONTHLY_LIMIT) {
+      logger.warn(
+        `🛑 [DEEPSEEK] API Call Blocked! Monthly soft-cap of ${MAX_MONTHLY_LIMIT} reached (${usage.count} used). Saving your API credits.`
+      )
+      return false
+    }
+    return true
+  }
+
+  /**
+   * Returns a structured summary of remaining API budget.
+   */
+  getQuotaStatus() {
+    const usage = this._getUsage()
+    return {
+      month: usage.current_month,
+      used: usage.count,
+      limit: MAX_MONTHLY_LIMIT,
+      remaining: Math.max(0, MAX_MONTHLY_LIMIT - usage.count),
+      isActive: usage.count < MAX_MONTHLY_LIMIT && !!this.apiKey,
+    }
+  }
+
+  /**
+   * Queries DeepSeek API with system and user prompts.
+   * Enforces JSON response mode and strict budget validation.
+   */
+  async _queryDeepSeek(systemPrompt, userPrompt) {
+    if (!this.isQuotaAvailable()) {
+      return null
     }
 
-    /**
-     * Reads the current API usage from the persistent JSON file.
-     * Automatically handles monthly rollover resets.
-     */
-    _getUsage() {
-        const currentMonth = new Date().toISOString().substring(0, 7); // e.g. "2026-05"
-        const defaultUsage = { current_month: currentMonth, count: 0 };
-
-        try {
-            if (!fs.existsSync(USAGE_FILE)) {
-                // Ensure parent directory exists
-                const parentDir = path.dirname(USAGE_FILE);
-                if (!fs.existsSync(parentDir)) {
-                    fs.mkdirSync(parentDir, { recursive: true });
-                }
-                fs.writeFileSync(USAGE_FILE, JSON.stringify(defaultUsage, null, 2), 'utf8');
-                return defaultUsage;
-            }
-
-            const raw = fs.readFileSync(USAGE_FILE, 'utf8');
-            const data = JSON.parse(raw);
-
-            // Monthly rollover check
-            if (data.current_month !== currentMonth) {
-                logger.info(`📅 [DEEPSEEK] New month detected (${currentMonth}). Resetting API quota usage from ${data.count} to 0.`);
-                const resetData = { current_month: currentMonth, count: 0 };
-                fs.writeFileSync(USAGE_FILE, JSON.stringify(resetData, null, 2), 'utf8');
-                return resetData;
-            }
-
-            return data;
-        } catch (e) {
-            logger.error(`❌ [DEEPSEEK] Failed to load usage file: ${e.message}`);
-            return defaultUsage;
+    try {
+      const response = await axios.post(
+        this.apiUrl,
+        {
+          model: this.model, // Swaps to Llama 3.3 70B if using Groq
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.2, // Consistent quantitative output
+          max_tokens: 1000,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000, // 30s timeout
         }
+      )
+
+      const content = response.data.choices[0].message.content
+      const parsed = JSON.parse(content)
+
+      // Successfully queried -> Increment counter
+      this._incrementUsage()
+      return parsed
+    } catch (error) {
+      logger.error(`❌ [DEEPSEEK] API Call Failed: ${error.message}`)
+      if (error.response) {
+        logger.error(`   Détails API: ${JSON.stringify(error.response.data)}`)
+      }
+      return null
     }
+  }
 
-    /**
-     * Increments the API usage counter and persists it to disk.
-     */
-    _incrementUsage() {
-        try {
-            const usage = this._getUsage();
-            usage.count++;
-            fs.writeFileSync(USAGE_FILE, JSON.stringify(usage, null, 2), 'utf8');
-            logger.info(`📈 [DEEPSEEK] Usage incremented: ${usage.count}/${MAX_MONTHLY_LIMIT} requests used this month.`);
-            return usage.count;
-        } catch (e) {
-            logger.error(`❌ [DEEPSEEK] Failed to increment usage file: ${e.message}`);
-            return 0;
-        }
-    }
+  /**
+   * Analyzes an active Live Value Bet candidate to build a professional, tactical alert breakdown.
+   */
+  async analyzeLiveValueBet(match, market, ev, liveOdds) {
+    const systemPrompt =
+      "Tu es l'Expert Stratégique en Chef de Titanium AI, un algorithme d'investissement quantitatif de niveau hedge-fund spécialisé dans les pronostics de football en direct."
 
-    /**
-     * Checks if the system is still within the monthly safe budget.
-     */
-    isQuotaAvailable() {
-        if (!this.apiKey) {
-            logger.warn('⚠️ [DEEPSEEK] API Key is missing in .env file.');
-            return false;
-        }
-        const usage = this._getUsage();
-        if (usage.count >= MAX_MONTHLY_LIMIT) {
-            logger.warn(`🛑 [DEEPSEEK] API Call Blocked! Monthly soft-cap of ${MAX_MONTHLY_LIMIT} reached (${usage.count} used). Saving your API credits.`);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Returns a structured summary of remaining API budget.
-     */
-    getQuotaStatus() {
-        const usage = this._getUsage();
-        return {
-            month: usage.current_month,
-            used: usage.count,
-            limit: MAX_MONTHLY_LIMIT,
-            remaining: Math.max(0, MAX_MONTHLY_LIMIT - usage.count),
-            isActive: usage.count < MAX_MONTHLY_LIMIT && !!this.apiKey
-        };
-    }
-
-    /**
-     * Queries DeepSeek API with system and user prompts.
-     * Enforces JSON response mode and strict budget validation.
-     */
-    async _queryDeepSeek(systemPrompt, userPrompt) {
-        if (!this.isQuotaAvailable()) {
-            return null;
-        }
-
-        try {
-            const response = await axios.post(this.apiUrl, {
-                model: this.model, // Swaps to Llama 3.3 70B if using Groq
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
-                response_format: { type: 'json_object' },
-                temperature: 0.2, // Consistent quantitative output
-                max_tokens: 1000
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 30000 // 30s timeout
-            });
-
-            const content = response.data.choices[0].message.content;
-            const parsed = JSON.parse(content);
-            
-            // Successfully queried -> Increment counter
-            this._incrementUsage();
-            return parsed;
-        } catch (error) {
-            logger.error(`❌ [DEEPSEEK] API Call Failed: ${error.message}`);
-            if (error.response) {
-                logger.error(`   Détails API: ${JSON.stringify(error.response.data)}`);
-            }
-            return null;
-        }
-    }
-
-    /**
-     * Analyzes an active Live Value Bet candidate to build a professional, tactical alert breakdown.
-     */
-    async analyzeLiveValueBet(match, market, ev, liveOdds) {
-        const systemPrompt = "Tu es l'Expert Stratégique en Chef de Titanium AI, un algorithme d'investissement quantitatif de niveau hedge-fund spécialisé dans les pronostics de football en direct.";
-        
-        const userPrompt = `
+    const userPrompt = `
         Effectue une évaluation tactique critique de la Value Bet en direct détectée :
         
         [DÉTAILS MATCH]
@@ -192,19 +203,20 @@ class DeepSeekService {
           "tactical_verdict": "Validé / Risque Élevé / À Surveiller",
           "telegram_bullet_points": "• 1-2 points clés synthétisés en français"
         }
-        `;
+        `
 
-        return await this._queryDeepSeek(systemPrompt, userPrompt);
-    }
+    return await this._queryDeepSeek(systemPrompt, userPrompt)
+  }
 
-    /**
-     * Performs a deep pre-match tactical preview for high-confidence VIP Millionaire selections.
-     * Incorporates real-time news retrieved from Google Search via SerpApi.
-     */
-    async analyzePreMatchVIP(match, realTimeNews = '') {
-        const systemPrompt = "Tu es le Directeur Quantitatif Principal de Titanium AI. Tu prépares des fiches tactiques ultra-pointues destinées à un club d'investisseurs professionnels.";
+  /**
+   * Performs a deep pre-match tactical preview for high-confidence VIP Millionaire selections.
+   * Incorporates real-time news retrieved from Google Search via SerpApi.
+   */
+  async analyzePreMatchVIP(match, realTimeNews = '') {
+    const systemPrompt =
+      "Tu es le Directeur Quantitatif Principal de Titanium AI. Tu prépares des fiches tactiques ultra-pointues destinées à un club d'investisseurs professionnels."
 
-        const userPrompt = `
+    const userPrompt = `
         Rédige une fiche d'évaluation stratégique pré-match pour la sélection VIP suivante :
         
         [DÉTAILS FIXTURE]
@@ -237,18 +249,19 @@ class DeepSeekService {
           "exact_score_prediction": "Score exact estimé (ex: 2-1, 1-0)",
           "risk_mitigation": "Un conseil de sécurité sur le pari (ex: Remboursé si Nul, Double chance, etc.)"
         }
-        `;
+        `
 
-        return await this._queryDeepSeek(systemPrompt, userPrompt);
-    }
+    return await this._queryDeepSeek(systemPrompt, userPrompt)
+  }
 
-    /**
-     * Performs a deep forensic AI autopsy on failed high-confidence predictions.
-     */
-    async analyzeFailedMatchAutopsy(failed) {
-        const systemPrompt = "Tu es le Médecin Légiste Tactique Principal de Titanium AI, spécialisé dans l'autopsie post-match et la modélisation des biais de modélisation quantitative.";
+  /**
+   * Performs a deep forensic AI autopsy on failed high-confidence predictions.
+   */
+  async analyzeFailedMatchAutopsy(failed) {
+    const systemPrompt =
+      "Tu es le Médecin Légiste Tactique Principal de Titanium AI, spécialisé dans l'autopsie post-match et la modélisation des biais de modélisation quantitative."
 
-        const userPrompt = `
+    const userPrompt = `
         Effectue une autopsie tactique et psychologique rigoureuse de la prédiction échouée suivante :
         
         [MATCH CONTEXT]
@@ -276,10 +289,10 @@ class DeepSeekService {
           "complacency_rating": 0, // number from 0 to 10
           "tactical_error_type": "La catégorie d'erreur la plus appropriée."
         }
-        `;
+        `
 
-        return await this._queryDeepSeek(systemPrompt, userPrompt);
-    }
+    return await this._queryDeepSeek(systemPrompt, userPrompt)
+  }
 }
 
-module.exports = new DeepSeekService();
+module.exports = new DeepSeekService()

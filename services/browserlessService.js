@@ -26,27 +26,34 @@ function httpRequest(url, method, body, timeout) {
     const mod = parsed.protocol === 'https:' ? https : http
     const data = body ? JSON.stringify(body) : null
 
-    const req = mod.request(url, {
-      method: method || 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {})
+    const req = mod.request(
+      url,
+      {
+        method: method || 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}),
+        },
+        timeout: timeout || 60000,
       },
-      timeout: timeout || 60000
-    }, (res) => {
-      let chunks = []
-      res.on('data', chunk => chunks.push(chunk))
-      res.on('end', () => {
-        const raw = Buffer.concat(chunks).toString('utf8')
-        if (res.statusCode >= 400) {
-          return reject(new Error(`Browserless returned ${res.statusCode}: ${raw.slice(0, 300)}`))
-        }
-        resolve({ status: res.statusCode, data: raw, headers: res.headers })
-      })
-    })
+      (res) => {
+        const chunks = []
+        res.on('data', (chunk) => chunks.push(chunk))
+        res.on('end', () => {
+          const raw = Buffer.concat(chunks).toString('utf8')
+          if (res.statusCode >= 400) {
+            return reject(new Error(`Browserless returned ${res.statusCode}: ${raw.slice(0, 300)}`))
+          }
+          resolve({ status: res.statusCode, data: raw, headers: res.headers })
+        })
+      }
+    )
     req.on('error', reject)
-    req.on('timeout', () => { req.destroy(); reject(new Error('Browserless timeout')) })
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Browserless timeout'))
+    })
     if (data) req.write(data)
     req.end()
   })
@@ -59,9 +66,7 @@ async function runFunction(code) {
   const url = buildUrl(FUNCTION_ENDPOINT)
 
   // Wrap code in export default if not already wrapped
-  const wrapped = code.trim().startsWith('export default')
-    ? code
-    : `export default ${code}`
+  const wrapped = code.trim().startsWith('export default') ? code : `export default ${code}`
 
   const res = await httpRequest(url, 'POST', { code: wrapped }, 90000)
   try {
@@ -102,7 +107,7 @@ async function screenshot(url, options = {}) {
       type: 'jpeg',
       quality: 80,
       ...(options.viewport ? { viewport: options.viewport } : {}),
-    }
+    },
   }
   const res = await httpRequest(endpoint, 'POST', body, options.timeout || 30000)
   return res.data

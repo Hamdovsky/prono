@@ -30,7 +30,15 @@ async function ensureTable() {
   }
 }
 
-async function storeOdds(homeTeam, awayTeam, league, oddsHome, oddsDraw, oddsAway, bookmaker = 'scraper') {
+async function storeOdds(
+  homeTeam,
+  awayTeam,
+  league,
+  oddsHome,
+  oddsDraw,
+  oddsAway,
+  bookmaker = 'scraper'
+) {
   if (!usingPostgres()) return false
   try {
     await query(
@@ -98,7 +106,7 @@ async function getStats() {
     const last = await query(`SELECT MAX(scraped_at) as last FROM ${TABLE}`)
     return {
       total: total?.[0]?.c || 0,
-      lastScrape: last?.[0]?.last || null
+      lastScrape: last?.[0]?.last || null,
     }
   } catch (e) {
     return { total: 0, lastScrape: null, error: e.message }

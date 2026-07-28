@@ -17,9 +17,21 @@ class TheRundownService {
     }
 
     this.sportIds = {
-      soccer: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 33]
+      soccer: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 33],
     }
-    this.soccerNames = ['MLS', 'EPL', 'FRA1', 'GER1', 'ESP1', 'ITA1', 'UEFACHAMP', 'UEFAEURO', 'FIFA', 'JPN1', 'UEFA Europa League']
+    this.soccerNames = [
+      'MLS',
+      'EPL',
+      'FRA1',
+      'GER1',
+      'ESP1',
+      'ITA1',
+      'UEFACHAMP',
+      'UEFAEURO',
+      'FIFA',
+      'JPN1',
+      'UEFA Europa League',
+    ]
   }
 
   isAvailable() {
@@ -29,7 +41,7 @@ class TheRundownService {
   _headers() {
     return {
       'X-TheRundown-Key': this.apiKey,
-      'Accept': 'application/json'
+      Accept: 'application/json',
     }
   }
 
@@ -39,7 +51,7 @@ class TheRundownService {
     try {
       const { data } = await axios.get(`${this.baseUrl}${endpoint}`, {
         headers: this._headers(),
-        timeout: 15000
+        timeout: 15000,
       })
       return data
     } catch (e) {
@@ -63,17 +75,17 @@ class TheRundownService {
     return {
       available: this.isAvailable(),
       authFailed: this._authFailed,
-      quotaExhausted: this._quotaExhausted
+      quotaExhausted: this._quotaExhausted,
     }
   }
 
   async fetchAllSports() {
     const data = await this._fetch('/sports')
     const sports = data?.sports || []
-    return sports.map(s => ({
+    return sports.map((s) => ({
       id: s.sport_id,
       name: s.sport_name,
-      isSoccer: this.soccerNames.includes(s.sport_name)
+      isSoccer: this.soccerNames.includes(s.sport_name),
     }))
   }
 
@@ -98,7 +110,7 @@ class TheRundownService {
         }
         allEvents.push(...events)
       }
-      if (i < ids.length - 1) await new Promise(r => setTimeout(r, 1100))
+      if (i < ids.length - 1) await new Promise((r) => setTimeout(r, 1100))
     }
     return allEvents
   }
@@ -129,8 +141,8 @@ class TheRundownService {
     const event = await this.fetchEventDetails(eventId)
     if (!event || !event.markets) return null
 
-    const home = (event.teams || []).find(t => t.is_home) || (event.teams || [])[0]
-    const away = (event.teams || []).find(t => t.is_away) || (event.teams || [])[1]
+    const home = (event.teams || []).find((t) => t.is_home) || (event.teams || [])[0]
+    const away = (event.teams || []).find((t) => t.is_away) || (event.teams || [])[1]
     const homeName = home?.name || ''
     const awayName = away?.name || ''
 
@@ -139,7 +151,10 @@ class TheRundownService {
       if (market.market_id === 1) {
         for (const p of market.participants || []) {
           const pn = (p.name || '').toLowerCase()
-          if (pn === homeName.toLowerCase() || p.type === 'TYPE_TEAM' && !pn.includes(awayName.toLowerCase())) {
+          if (
+            pn === homeName.toLowerCase() ||
+            (p.type === 'TYPE_TEAM' && !pn.includes(awayName.toLowerCase()))
+          ) {
             odds.home = this._bestPrice(p)
           } else if (pn === awayName.toLowerCase()) {
             odds.away = this._bestPrice(p)
@@ -154,10 +169,12 @@ class TheRundownService {
 
   mapEventToMatch(event) {
     const teams = event.teams || []
-    const home = teams.find(t => t.is_home) || teams[0]
-    const away = teams.find(t => t.is_away) || teams[1]
+    const home = teams.find((t) => t.is_home) || teams[0]
+    const away = teams.find((t) => t.is_away) || teams[1]
     const eventId = event.event_id
-    const ts = event.event_date ? Math.floor(new Date(event.event_date).getTime() / 1000) : Math.floor(Date.now() / 1000)
+    const ts = event.event_date
+      ? Math.floor(new Date(event.event_date).getTime() / 1000)
+      : Math.floor(Date.now() / 1000)
 
     let status = 'scheduled'
     const scoreStatus = event.score?.event_status || ''
@@ -172,8 +189,10 @@ class TheRundownService {
           if (p.type === 'TYPE_RESULT' || pn === 'draw') odds.draw = this._bestPrice(p)
           else if (p.type === 'TYPE_TEAM' && p.id === home?.team_id) odds.home = this._bestPrice(p)
           else if (p.type === 'TYPE_TEAM' && p.id === away?.team_id) odds.away = this._bestPrice(p)
-          else if (p.type === 'TYPE_TEAM' && pn === (home?.name || '').toLowerCase()) odds.home = this._bestPrice(p)
-          else if (p.type === 'TYPE_TEAM' && pn === (away?.name || '').toLowerCase()) odds.away = this._bestPrice(p)
+          else if (p.type === 'TYPE_TEAM' && pn === (home?.name || '').toLowerCase())
+            odds.home = this._bestPrice(p)
+          else if (p.type === 'TYPE_TEAM' && pn === (away?.name || '').toLowerCase())
+            odds.away = this._bestPrice(p)
         }
       }
     }
@@ -182,7 +201,8 @@ class TheRundownService {
       id: `tr_${eventId}`,
       homeTeam: home?.name || 'Home',
       awayTeam: away?.name || 'Away',
-      league: this.soccerNames[this.sportIds.soccer.indexOf(event.sport_id)] || `Sport_${event.sport_id}`,
+      league:
+        this.soccerNames[this.sportIds.soccer.indexOf(event.sport_id)] || `Sport_${event.sport_id}`,
       startTimestamp: ts,
       timestamp: new Date(ts * 1000).toISOString(),
       status,
@@ -195,11 +215,15 @@ class TheRundownService {
       last_updated: Date.now(),
       insufficient_data: 1,
       category_name: event._sportName || event.sport_name || 'Soccer',
-      tournament_name: this.soccerNames[this.sportIds.soccer.indexOf(event.sport_id)] || `Sport_${event.sport_id}`,
+      tournament_name:
+        this.soccerNames[this.sportIds.soccer.indexOf(event.sport_id)] || `Sport_${event.sport_id}`,
       home_team_id: home?.team_id || null,
       away_team_id: away?.team_id || null,
       source: 'therundown',
-      fullData: JSON.stringify({ eventId, teams: teams.map(t => ({ id: t.team_id, name: t.name })) })
+      fullData: JSON.stringify({
+        eventId,
+        teams: teams.map((t) => ({ id: t.team_id, name: t.name })),
+      }),
     }
   }
 }

@@ -25,9 +25,10 @@ router.get('/value-bets', async (req, res) => {
 
     let filtered = matches
     if (leagueFilter) {
-      filtered = matches.filter(m =>
-        (m.league || '').toLowerCase() === leagueFilter.toLowerCase()
-          || (m.competition || '').toLowerCase() === leagueFilter.toLowerCase()
+      filtered = matches.filter(
+        (m) =>
+          (m.league || '').toLowerCase() === leagueFilter.toLowerCase() ||
+          (m.competition || '').toLowerCase() === leagueFilter.toLowerCase()
       )
     }
 
@@ -81,7 +82,7 @@ router.get('/value-bets/enrich/:matchId', async (req, res) => {
     const { matchId } = req.params
     const dateStr = new Date().toISOString().split('T')[0]
     const matches = await database.getMatchesByDate(dateStr)
-    const match = matches.find(m => String(m.id) === String(matchId))
+    const match = matches.find((m) => String(m.id) === String(matchId))
 
     if (!match) {
       return res.status(404).json({ success: false, error: 'Match not found' })

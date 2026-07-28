@@ -24,7 +24,7 @@ function getPool() {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 15000,
     ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
-    allowExitOnIdle: false
+    allowExitOnIdle: false,
   })
 
   pool.on('error', (err) => {
@@ -37,7 +37,9 @@ function getPool() {
   setInterval(async () => {
     try {
       await pool.query('SELECT 1')
-    } catch (_) { /* ignore keep-alive failures */ }
+    } catch (_) {
+      /* ignore keep-alive failures */
+    }
   }, 120000).unref()
 
   logger.info(`[PG] Connected to Postgres via connection pool (max: 5)`)
@@ -64,24 +66,24 @@ async function query(text, params = [], retries = 1) {
       }
       return { rows: result.rows, rowCount: result.rowCount }
     } catch (err) {
-      const isTimeout = err.message && (
-        err.message.includes('timeout') ||
-        err.message.includes('ETIMEDOUT') ||
-        err.message.includes('Connection terminated') ||
-        err.message.includes('write EPIPE')
-      )
+      const isTimeout =
+        err.message &&
+        (err.message.includes('timeout') ||
+          err.message.includes('ETIMEDOUT') ||
+          err.message.includes('Connection terminated') ||
+          err.message.includes('write EPIPE'))
       if (isTimeout && attempt < retries) {
         logger.warn(`[PG QUERY RETRY] attempt ${attempt + 1}/${retries} — ${err.message}`)
-        await new Promise(r => setTimeout(r, 1000))
+        await new Promise((r) => setTimeout(r, 1000))
         continue
       }
       // Suppress repetitive permission errors (log once per type, not on every query)
-      const isPermissionErr = err.message && (
-        err.message.includes('doit être le propriétaire') ||
-        err.message.includes('droit refusé') ||
-        err.message.includes('permission denied') ||
-        err.message.includes('must be owner')
-      )
+      const isPermissionErr =
+        err.message &&
+        (err.message.includes('doit être le propriétaire') ||
+          err.message.includes('droit refusé') ||
+          err.message.includes('permission denied') ||
+          err.message.includes('must be owner'))
       if (isPermissionErr) {
         const key = err.message.slice(0, 60)
         if (!permissionErrors.has(key)) {
@@ -109,7 +111,11 @@ async function healthCheck() {
   if (!isPostgres) return { ok: false, reason: 'SQLite' }
   try {
     const result = await query('SELECT 1 AS ok')
-    return { ok: result.rows.length > 0, poolSize: pool?.totalCount || 0, idleCount: pool?.idleCount || 0 }
+    return {
+      ok: result.rows.length > 0,
+      poolSize: pool?.totalCount || 0,
+      idleCount: pool?.idleCount || 0,
+    }
   } catch (err) {
     return { ok: false, reason: err.message }
   }

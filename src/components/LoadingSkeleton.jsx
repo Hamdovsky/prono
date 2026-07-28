@@ -20,10 +20,14 @@ const LoadingSkeleton = ({ type = 'page', label = 'CHARGEMENT...' }) => {
             className="onyx-skeleton-row"
             style={{
               height: cfg.height + 'px',
-              width: isChart && i === 3 ? '60%'
-                : isChart && i === 2 ? '80%'
-                : isCard && i === 2 ? '50%'
-                : '100%',
+              width:
+                isChart && i === 3
+                  ? '60%'
+                  : isChart && i === 2
+                    ? '80%'
+                    : isCard && i === 2
+                      ? '50%'
+                      : '100%',
             }}
           />
         ))}

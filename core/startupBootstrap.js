@@ -11,16 +11,24 @@ async function downloadFile(url, destPath, { gunzip = false, label = 'file' } = 
   try {
     await new Promise((resolve, reject) => {
       const file = fs.createWriteStream(tmp)
-      https.get(url, res => {
-        if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return }
-        if (gunzip) {
-          const zlib = require('zlib')
-          res.pipe(zlib.createGunzip()).pipe(file)
-        } else {
-          res.pipe(file)
-        }
-        file.on('finish', () => { file.close(); resolve() })
-      }).on('error', reject)
+      https
+        .get(url, (res) => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`HTTP ${res.statusCode}`))
+            return
+          }
+          if (gunzip) {
+            const zlib = require('zlib')
+            res.pipe(zlib.createGunzip()).pipe(file)
+          } else {
+            res.pipe(file)
+          }
+          file.on('finish', () => {
+            file.close()
+            resolve()
+          })
+        })
+        .on('error', reject)
     })
     fs.renameSync(tmp, destPath)
     const sizeMB = (fs.statSync(destPath).size / 1024 / 1024).toFixed(1)
@@ -66,8 +74,12 @@ function importPromosport() {
   if (!fs.existsSync(importScript)) return
   try {
     const { spawn } = require('child_process')
-    const py = spawn('python3', [importScript], { cwd: path.join(__dirname, '..'), stdio: 'ignore', timeout: 120000 })
-    py.on('close', code => {
+    const py = spawn('python3', [importScript], {
+      cwd: path.join(__dirname, '..'),
+      stdio: 'ignore',
+      timeout: 120000,
+    })
+    py.on('close', (code) => {
       if (code === 0) logger.info('[BOOT] Promosport archive import OK')
       else logger.warn(`[BOOT] Promosport import exited ${code}`)
     })
@@ -113,11 +125,13 @@ async function syncFootballData() {
     const url = `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${today}&dateTo=${today}`
     logger.info('[BOOT] Fetching WC2026 data from Football-Data.org...')
     const body = await new Promise((resolve, reject) => {
-      https.get(url, { headers: { 'X-Auth-Token': fdKey } }, res => {
-        let d = ''
-        res.on('data', c => d += c)
-        res.on('end', () => resolve(d))
-      }).on('error', reject)
+      https
+        .get(url, { headers: { 'X-Auth-Token': fdKey } }, (res) => {
+          let d = ''
+          res.on('data', (c) => (d += c))
+          res.on('end', () => resolve(d))
+        })
+        .on('error', reject)
     })
     const data = JSON.parse(body)
     const matches = data.matches || []
@@ -128,12 +142,17 @@ async function syncFootballData() {
       const score = m.score?.fullTime || {}
       const status = m.status
       try {
-        const existing = database.db?.prepare("SELECT id, fullData FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1")
+        const existing = database.db
+          ?.prepare(
+            'SELECT id, fullData FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1'
+          )
           .get(home, away, today)
         if (existing) {
           const fd = JSON.parse(existing.fullData || '{}')
           fd.footballData = { score, status, competition: 'WC', matchId: m.id }
-          database.db?.prepare("UPDATE matches SET fullData = ? WHERE id = ?").run(JSON.stringify(fd), existing.id)
+          database.db
+            ?.prepare('UPDATE matches SET fullData = ? WHERE id = ?')
+            .run(JSON.stringify(fd), existing.id)
         }
       } catch (_) {}
     }
@@ -163,7 +182,7 @@ async function emergencyReseed() {
       return
     }
     logger.warn(`[BOOT] DB has only ${count} matches — re-seeding in 30s...`)
-    await new Promise(resolve => setTimeout(resolve, 30000))
+    await new Promise((resolve) => setTimeout(resolve, 30000))
     await runCloudSeed()
   } catch (e) {
     logger.warn(`[BOOT] Emergency re-seed check failed: ${e.message}`)
@@ -186,8 +205,12 @@ function killProcessOnPort(port) {
         }
       }
       if (pidsToKill.size === 0) return resolve()
-      logger.warn(`[PORT] Port ${port} occupied by PID(s) [${[...pidsToKill].join(', ')}]. Releasing...`)
-      const kills = [...pidsToKill].map(pid => new Promise(r => exec(`taskkill /F /PID ${pid} /T`, () => r())))
+      logger.warn(
+        `[PORT] Port ${port} occupied by PID(s) [${[...pidsToKill].join(', ')}]. Releasing...`
+      )
+      const kills = [...pidsToKill].map(
+        (pid) => new Promise((r) => exec(`taskkill /F /PID ${pid} /T`, () => r()))
+      )
       Promise.all(kills).then(() => setTimeout(resolve, 1200))
     })
   })
@@ -195,29 +218,23 @@ function killProcessOnPort(port) {
 
 async function runAll({ port, onStartServices }) {
   await killProcessOnPort(port)
-  await new Promise(resolve => setTimeout(resolve, 500))
+  await new Promise((resolve) => setTimeout(resolve, 500))
 
   try {
     const { redis } = require('./redisClient')
     if (redis) {
-      redis.ping()
+      redis
+        .ping()
         .then(() => logger.info('[BOOT] Redis connected'))
         .catch(() => logger.warn('[BOOT] Redis not reachable — cache degraded'))
     }
   } catch (_) {}
 
-  await Promise.allSettled([
-    downloadArchive(),
-    downloadPremiumCSV(),
-  ])
+  await Promise.allSettled([downloadArchive(), downloadPremiumCSV()])
 
   importPromosport()
 
-  await Promise.allSettled([
-    warmThetaOptimizer(),
-    syncBSD(),
-    syncFootballData(),
-  ])
+  await Promise.allSettled([warmThetaOptimizer(), syncBSD(), syncFootballData()])
 
   await runCloudSeed()
   await emergencyReseed()
@@ -226,7 +243,14 @@ async function runAll({ port, onStartServices }) {
 }
 
 module.exports = {
-  runAll, downloadArchive, downloadPremiumCSV, importPromosport,
-  warmThetaOptimizer, syncBSD, syncFootballData,
-  runCloudSeed, emergencyReseed, killProcessOnPort
+  runAll,
+  downloadArchive,
+  downloadPremiumCSV,
+  importPromosport,
+  warmThetaOptimizer,
+  syncBSD,
+  syncFootballData,
+  runCloudSeed,
+  emergencyReseed,
+  killProcessOnPort,
 }

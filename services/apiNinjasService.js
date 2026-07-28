@@ -13,7 +13,9 @@ class ApiNinjasService {
       logger.warn('🚨 [APININJAS] APININJAS_KEY manquant — service désactivé')
       this.enabled = false
     } else {
-      logger.info(`✅ [APININJAS] Service prêt — clé: ${this.apiKey.substring(0, 6)}... | 50k req/mois`)
+      logger.info(
+        `✅ [APININJAS] Service prêt — clé: ${this.apiKey.substring(0, 6)}... | 50k req/mois`
+      )
     }
   }
 
@@ -24,7 +26,7 @@ class ApiNinjasService {
   _headers() {
     return {
       'X-Api-Key': this.apiKey,
-      'Accept': 'application/json'
+      Accept: 'application/json',
     }
   }
 
@@ -33,7 +35,7 @@ class ApiNinjasService {
     try {
       const { data } = await axios.get(`${this.baseUrl}${endpoint}`, {
         headers: this._headers(),
-        timeout: 10000
+        timeout: 10000,
       })
       return data
     } catch (e) {
@@ -47,7 +49,7 @@ class ApiNinjasService {
   async fetchEvents(dateStr) {
     const data = await this._fetch('/football')
     if (!Array.isArray(data)) return []
-    return data.map(m => ({
+    return data.map((m) => ({
       source: 'apinjas',
       id: `an_${m.team}_${m.opponent}_${m.year || ''}`,
       homeTeam: m.team || 'Home',
@@ -56,7 +58,7 @@ class ApiNinjasService {
       startTimestamp: m.date ? new Date(m.date).getTime() / 1000 : null,
       status: m.status || 'scheduled',
       scoreHome: m.team_score ?? null,
-      scoreAway: m.opponent_score ?? null
+      scoreAway: m.opponent_score ?? null,
     }))
   }
 

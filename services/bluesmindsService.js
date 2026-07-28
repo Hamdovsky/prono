@@ -19,22 +19,26 @@ class BluesmindsService {
     }
 
     try {
-      const { data } = await axios.post(`${this.baseUrl}/chat/completions`, {
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.2,
-        max_tokens: 1000
-      }, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
+      const { data } = await axios.post(
+        `${this.baseUrl}/chat/completions`,
+        {
+          model: this.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.2,
+          max_tokens: 1000,
         },
-        timeout: 30000
-      })
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+        }
+      )
 
       const content = data.choices?.[0]?.message?.content
       if (!content) return null
@@ -49,7 +53,8 @@ class BluesmindsService {
   }
 
   async analyzeLiveValueBet(match, market, ev, liveOdds) {
-    const systemPrompt = "Tu es l'Expert Stratégique en Chef de Titanium AI, un algorithme d'investissement quantitatif de niveau hedge-fund spécialisé dans les pronostics de football en direct."
+    const systemPrompt =
+      "Tu es l'Expert Stratégique en Chef de Titanium AI, un algorithme d'investissement quantitatif de niveau hedge-fund spécialisé dans les pronostics de football en direct."
     const userPrompt = `
 Effectue une évaluation tactique critique de la Value Bet en direct détectée :
 
@@ -79,7 +84,8 @@ Retourne ce format JSON :
   }
 
   async analyzePreMatchVIP(match, realTimeNews = '') {
-    const systemPrompt = "Tu es le Directeur Quantitatif Principal de Titanium AI. Tu prépares des fiches tactiques ultra-pointues destinées à un club d'investisseurs professionnels."
+    const systemPrompt =
+      "Tu es le Directeur Quantitatif Principal de Titanium AI. Tu prépares des fiches tactiques ultra-pointues destinées à un club d'investisseurs professionnels."
     const userPrompt = `
 Rédige une fiche d'évaluation stratégique pré-match pour la sélection VIP suivante :
 
@@ -113,7 +119,8 @@ Retourne ce format JSON :
   }
 
   async analyzeFailedMatchAutopsy(failed) {
-    const systemPrompt = "Tu es le Médecin Légiste Tactique Principal de Titanium AI, spécialisé dans l'autopsie post-match."
+    const systemPrompt =
+      "Tu es le Médecin Légiste Tactique Principal de Titanium AI, spécialisé dans l'autopsie post-match."
     const userPrompt = `
 Effectue une autopsie tactique de la prédiction échouée suivante :
 

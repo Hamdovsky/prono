@@ -48,8 +48,12 @@
   font-size: 14px;
   transition: background 0.2s;
 }
-.picks-row:last-child { border-bottom: none; }
-.picks-row:hover { background: #293548; }
+.picks-row:last-child {
+  border-bottom: none;
+}
+.picks-row:hover {
+  background: #293548;
+}
 .picks-header {
   background: #0f172a !important;
   font-weight: 600;
@@ -61,19 +65,59 @@
 .top-three {
   background: rgba(251, 191, 36, 0.05);
 }
-.col-date { width: 50px; }
-.col-match { flex: 1; }
-.col-prono { width: 40px; text-align: center; font-weight: 700; font-size: 16px; }
-.prono-1 { color: #22c55e; }
-.prono-x { color: #f59e0b; }
-.prono-2 { color: #ef4444; }
-.col-conf { width: 55px; text-align: right; font-weight: 600; }
-.col-ou { width: 60px; text-align: right; color: #60a5fa; font-size: 13px; }
-.col-btts { width: 60px; text-align: right; color: #c084fc; font-size: 13px; }
-.col-odds { width: 70px; text-align: right; color: #94a3b8; }
-.col-ev { width: 55px; text-align: right; font-weight: 600; }
-.ev-good { color: #22c55e; }
-.top-picks-loading, .top-picks-empty {
+.col-date {
+  width: 50px;
+}
+.col-match {
+  flex: 1;
+}
+.col-prono {
+  width: 40px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
+}
+.prono-1 {
+  color: #22c55e;
+}
+.prono-x {
+  color: #f59e0b;
+}
+.prono-2 {
+  color: #ef4444;
+}
+.col-conf {
+  width: 55px;
+  text-align: right;
+  font-weight: 600;
+}
+.col-ou {
+  width: 60px;
+  text-align: right;
+  color: #60a5fa;
+  font-size: 13px;
+}
+.col-btts {
+  width: 60px;
+  text-align: right;
+  color: #c084fc;
+  font-size: 13px;
+}
+.col-odds {
+  width: 70px;
+  text-align: right;
+  color: #94a3b8;
+}
+.col-ev {
+  width: 55px;
+  text-align: right;
+  font-weight: 600;
+}
+.ev-good {
+  color: #22c55e;
+}
+.top-picks-loading,
+.top-picks-empty {
   text-align: center;
   padding: 60px 20px;
   color: #94a3b8;

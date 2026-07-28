@@ -6,27 +6,31 @@
 jest.mock('axios', () => ({
   get: jest.fn().mockRejectedValue(new Error('Mocked network')),
   post: jest.fn().mockRejectedValue(new Error('Mocked network')),
-  create: jest.fn(() => ({ get: jest.fn(), post: jest.fn(), interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } } }))
+  create: jest.fn(() => ({
+    get: jest.fn(),
+    post: jest.fn(),
+    interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } },
+  })),
 }))
 
 jest.mock('../core/pythonService', () => ({
-  predict: jest.fn().mockRejectedValue(new Error('Mocked'))
+  predict: jest.fn().mockRejectedValue(new Error('Mocked')),
 }))
 
 jest.mock('../services/weatherService', () => ({
   isAvailable: jest.fn().mockReturnValue(false),
   fetchByCity: jest.fn(),
-  extractWeatherInfo: jest.fn()
+  extractWeatherInfo: jest.fn(),
 }))
 
 jest.mock('../services/gemma4Service', () => ({
-  analyzePreMatchVIP: jest.fn().mockRejectedValue(new Error('Mocked'))
+  analyzePreMatchVIP: jest.fn().mockRejectedValue(new Error('Mocked')),
 }))
 
 jest.mock('../services/oddsMovementService', () => ({
   detectBookmakerTrap: jest.fn(() => ({ isTrap: false })),
   getSteamForMatch: jest.fn(),
-  snapshotOdds: jest.fn()
+  snapshotOdds: jest.fn(),
 }))
 
 jest.mock('../core/services/StatisticalEngine', () => ({
@@ -42,7 +46,7 @@ jest.mock('../core/services/StatisticalEngine', () => ({
 jest.mock('../core/QuantumQuantEngine', () => ({
   analyze: jest.fn().mockReturnValue({
     markets: {
-      match_result: { '1': { prob: 0.45 }, 'X': { prob: 0.25 }, '2': { prob: 0.30 } }
+      match_result: { 1: { prob: 0.45 }, X: { prob: 0.25 }, 2: { prob: 0.3 } },
     },
     expected_score: '2 - 1',
     risk_label: 'CONFIDENT',
@@ -51,26 +55,29 @@ jest.mock('../core/QuantumQuantEngine', () => ({
     ev_score: 0.15,
     edge_score: 0.05,
     confidence: 75,
-    probs: { btts: 0.55, over25: 0.60, ht_goal: 0.45 },
+    probs: { btts: 0.55, over25: 0.6, ht_goal: 0.45 },
     all_picks: [{ label: 'HOME', prob: 0.45, ev: 0.15 }],
     massive_edge: false,
-    signal_strength: 'NORMAL'
-  })
+    signal_strength: 'NORMAL',
+  }),
 }))
 
 jest.mock('../src/services/newsService', () => {
-  function MockCache() { this.get = jest.fn(); this.set = jest.fn() }
+  function MockCache() {
+    this.get = jest.fn()
+    this.set = jest.fn()
+  }
   return {
     getMatchIntelligence: jest.fn().mockResolvedValue({
       home: { headlines: [], injuries: [] },
-      away: { headlines: [], injuries: [] }
+      away: { headlines: [], injuries: [] },
     }),
-    NewsCache: MockCache
+    NewsCache: MockCache,
   }
 })
 
 jest.mock('../src/services/oddsService', () => ({
-  getLiveOdds: jest.fn().mockResolvedValue(null)
+  getLiveOdds: jest.fn().mockResolvedValue(null),
 }))
 
 const enrichedPredictions = require('../core/enriched_predictions')
@@ -86,7 +93,7 @@ const MOCK_ANALYTICAL = {
   draw_probability: 25,
   away_win_probability: 20,
   confidence: 70,
-  expected_score: '1 - 1'
+  expected_score: '1 - 1',
 }
 enrichedPredictions.getAnalyticalPrediction = jest.fn().mockResolvedValue(MOCK_ANALYTICAL)
 
@@ -99,10 +106,10 @@ describe('EnrichedPredictions', () => {
         awayTeam: 'Real Madrid',
         league: 'La Liga',
         odds_home: 1.95,
-        odds_draw: 3.40,
-        odds_away: 3.90,
+        odds_draw: 3.4,
+        odds_away: 3.9,
         ou_25_prob: null,
-        btts_prob: null
+        btts_prob: null,
       }
 
       const enriched = await enrichedPredictions.fastEnrichMatch(match)
@@ -121,7 +128,7 @@ describe('EnrichedPredictions', () => {
         homeTeam: 'PSG',
         awayTeam: 'Marseille',
         league: 'Ligue 1',
-        customField: 'custom-value'
+        customField: 'custom-value',
       }
 
       const enriched = await enrichedPredictions.fastEnrichMatch(original)
@@ -137,7 +144,7 @@ describe('EnrichedPredictions', () => {
         awayTeam: 'Dortmund',
         home_win_probability: 80.0,
         draw_probability: 12.0,
-        away_win_probability: 8.0
+        away_win_probability: 8.0,
       }
 
       const enriched = await enrichedPredictions.fastEnrichMatch(match)
@@ -152,7 +159,7 @@ describe('EnrichedPredictions', () => {
       const match = {
         id: 'match-4',
         homeTeam: 'Liverpool',
-        awayTeam: 'Chelsea'
+        awayTeam: 'Chelsea',
       }
 
       const enriched = await enrichedPredictions.fastEnrichMatch(match)
@@ -171,9 +178,9 @@ describe('EnrichedPredictions', () => {
         awayTeam: 'Man City',
         league: 'Premier League',
         startTimestamp: Math.floor(Date.now() / 1000) + 86400,
-        odds_home: 2.50,
-        odds_draw: 3.20,
-        odds_away: 2.80
+        odds_home: 2.5,
+        odds_draw: 3.2,
+        odds_away: 2.8,
       }
 
       const enriched = await enrichedPredictions.enrichMatch(match)
@@ -191,7 +198,7 @@ describe('EnrichedPredictions', () => {
         id: 'match-6',
         homeTeam: 'Atletico',
         awayTeam: 'Sevilla',
-        league: 'La Liga'
+        league: 'La Liga',
       }
 
       const enriched = await enrichedPredictions.enrichMatch(match)
@@ -205,7 +212,7 @@ describe('EnrichedPredictions', () => {
       const match = {
         id: 'match-7',
         homeTeam: 'Team X',
-        awayTeam: 'Team Y'
+        awayTeam: 'Team Y',
       }
 
       const enriched = await enrichedPredictions.enrichMatch(match)
@@ -220,7 +227,7 @@ describe('EnrichedPredictions', () => {
         homeTeam: 'Strong Team',
         awayTeam: 'Weak Team',
         home_win_probability: 70,
-        away_win_probability: 15
+        away_win_probability: 15,
       }
 
       const enriched = await enrichedPredictions.enrichMatch(match)

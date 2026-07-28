@@ -62,7 +62,7 @@ function validateKeys() {
     missing,
     critical,
     present,
-    localMode: false
+    localMode: false,
   }
 }
 
@@ -99,8 +99,8 @@ function logAvailability() {
     { name: 'OpenLigaDB', check: () => true },
     { name: 'Promosport', check: () => true },
   ]
-  const available = sources.filter(s => s.check()).map(s => s.name)
-  const missing = sources.filter(s => !s.check()).map(s => s.name)
+  const available = sources.filter((s) => s.check()).map((s) => s.name)
+  const missing = sources.filter((s) => !s.check()).map((s) => s.name)
   logger.info(`[STARTUP] APIs available: ${available.join(', ')}`)
   if (missing.length) logger.warn(`[STARTUP] APIs missing keys: ${missing.join(', ')}`)
 }

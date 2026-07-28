@@ -19,7 +19,9 @@ class FbrefService {
     this.enabled = true
   }
 
-  isAvailable() { return this.enabled }
+  isAvailable() {
+    return this.enabled
+  }
 
   _getCached(key, map) {
     const entry = map.get(key)
@@ -34,8 +36,9 @@ class FbrefService {
   async fetchPage(url) {
     const res = await axios.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml',
         'Accept-Language': 'en-US,en;q=0.9',
       },
       timeout: 15000,
@@ -134,8 +137,10 @@ class FbrefService {
     // Possession
     const possEl = $('#team_stats_possession')
     if (possEl.length) {
-      result.homePossession = parseFloat(possEl.find('td[data-stat="possession"]').first().text()) || null
-      result.awayPossession = parseFloat(possEl.find('td[data-stat="possession"]').last().text()) || null
+      result.homePossession =
+        parseFloat(possEl.find('td[data-stat="possession"]').first().text()) || null
+      result.awayPossession =
+        parseFloat(possEl.find('td[data-stat="possession"]').last().text()) || null
     }
 
     this._setCache(cacheKey, cache.matchStats, result)

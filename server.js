@@ -1,4 +1,6 @@
-if (process.env.NODE_ENV !== 'production') { require('dotenv').config() }
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config()
+}
 
 const http = require('http')
 const logger = require('./core/logger')
@@ -21,7 +23,9 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   if (!process.env.LOG_DISABLED) {
     logger.info(`🚀 Health check listener ready on port ${PORT}`)
-    logger.info(`[BOOT] PID=${process.pid}, HEAP_LIMIT=${process.env.NODE_OPTIONS || 'default'}, MEM_LIMIT=${require('v8').getHeapStatistics().heap_size_limit}`)
+    logger.info(
+      `[BOOT] PID=${process.pid}, HEAP_LIMIT=${process.env.NODE_OPTIONS || 'default'}, MEM_LIMIT=${require('v8').getHeapStatistics().heap_size_limit}`
+    )
   }
 })
 
@@ -57,7 +61,7 @@ setTimeout(async () => {
       get: _redisClient.getCache,
       set: (key, value, ttl) => _redisClient.setCache(key, value, ttl),
       init: () => Promise.resolve(),
-      ..._redisClient
+      ..._redisClient,
     }
 
     // ── Socket.io ──
@@ -83,11 +87,15 @@ setTimeout(async () => {
         } else {
           logger.warn('[STARTUP] TELEGRAM_BOT_TOKEN not set — bot polling disabled')
         }
-        await redisCache.init().catch(e => logger.warn(`Redis error: ${e.message}`))
+        await redisCache.init().catch((e) => logger.warn(`Redis error: ${e.message}`))
 
         // Deferred cron init
         setTimeout(() => {
-          try { cronManager.init(socketService) } catch (e) { logger.warn(`[CRON] Init error: ${e.message}`) }
+          try {
+            cronManager.init(socketService)
+          } catch (e) {
+            logger.warn(`[CRON] Init error: ${e.message}`)
+          }
         }, 10000)
 
         // ── API Source Registration ──
@@ -112,10 +120,14 @@ setTimeout(async () => {
         settlementCycle.startSettlementCycle()
 
         // ── Background services ──
-        await retroSync.syncPastMatches().catch(e => logger.warn(`[RETROSYNC] Error: ${e.message}`))
-        clvService.start().catch(e => logger.warn(`[CLV] Error: ${e.message}`))
+        await retroSync
+          .syncPastMatches()
+          .catch((e) => logger.warn(`[RETROSYNC] Error: ${e.message}`))
+        clvService.start().catch((e) => logger.warn(`[CLV] Error: ${e.message}`))
         const scrapedOddsService = require('./services/scrapedOddsService')
-        scrapedOddsService.ensureTable().catch(e => logger.warn(`[SCRAPED_ODDS] Init: ${e.message}`))
+        scrapedOddsService
+          .ensureTable()
+          .catch((e) => logger.warn(`[SCRAPED_ODDS] Init: ${e.message}`))
 
         // ── Supabase sync ──
         setTimeout(async () => {
@@ -126,8 +138,12 @@ setTimeout(async () => {
               await supabaseService.restoreToSQLite(database)
               await supabaseService.syncFromSQLite(database)
               const { query: pgRaw } = require('./core/pg_connector')
-              await pgRaw(`DELETE FROM matches WHERE source IN ('seed', 'emergency')`).catch(() => {})
-              await database.exec("DELETE FROM matches WHERE source IN ('seed', 'emergency')").catch(() => {})
+              await pgRaw(`DELETE FROM matches WHERE source IN ('seed', 'emergency')`).catch(
+                () => {}
+              )
+              await database
+                .exec("DELETE FROM matches WHERE source IN ('seed', 'emergency')")
+                .catch(() => {})
               logger.info('[SUPABASE] Purged old demo seeds')
               supabaseService.startPeriodicSync(database)
               logger.info('[SUPABASE] Dual-sync active')
@@ -139,7 +155,9 @@ setTimeout(async () => {
 
         database.cleanupPlaceholderTeams()
         setTimeout(() => {
-          try { supabaseService.cleanupPlaceholderTeams() } catch (_) {}
+          try {
+            supabaseService.cleanupPlaceholderTeams()
+          } catch (_) {}
         }, 15000)
 
         // ── Cron schedules ──
@@ -155,7 +173,10 @@ setTimeout(async () => {
           if (matches.length === 0) return 0
           const batch = matches.slice(0, batchSize)
           logger.info(`[AUTO-ENRICH] Batch: ${batch.length}/${matches.length} matches...`)
-          const enriched = await enrichedPredictions.enrichMatches(batch, { fastMode: true, force: true })
+          const enriched = await enrichedPredictions.enrichMatches(batch, {
+            fastMode: true,
+            force: true,
+          })
           let updated = 0
           for (const m of enriched) {
             if (m.expected_score && m.expected_score !== 'N/A') {
@@ -184,7 +205,7 @@ setTimeout(async () => {
 
         // ── AutoHeal patrol ──
         setTimeout(() => {
-          autoHealAgent.patrol().catch(e => logger.warn(`[AUTOHEAL] Patrol error: ${e.message}`))
+          autoHealAgent.patrol().catch((e) => logger.warn(`[AUTOHEAL] Patrol error: ${e.message}`))
         }, 30000)
 
         // ── Startup auto-backtest (30s after boot, then daily cron handles it) ──
@@ -193,7 +214,9 @@ setTimeout(async () => {
             const { runAutoBacktest } = require('./services/autoBacktestService')
             const result = await runAutoBacktest()
             if (result && result.totalMatches > 0) {
-              logger.info(`[AUTO-BACKTEST] Startup: ${result.totalMatches} matches, accuracy=${result.overall?.accuracy}%`)
+              logger.info(
+                `[AUTO-BACKTEST] Startup: ${result.totalMatches} matches, accuracy=${result.overall?.accuracy}%`
+              )
             }
           } catch (e) {
             logger.warn(`[AUTO-BACKTEST] Startup: ${e.message}`)
@@ -206,16 +229,16 @@ setTimeout(async () => {
 
         // ── Server binding ──
         startServer()
-
       } catch (initErr) {
         logger.error(`💥 [CRITICAL] Startup error: ${initErr.message}`)
-        try { startServer() } catch (e2) {
+        try {
+          startServer()
+        } catch (e2) {
           logger.error(`💥 [FATAL] startServer error: ${e2.message}`)
           process.exit(1)
         }
       }
     })()
-
   } catch (expressErr) {
     logger.error(`💥 [EXPRESS] Async load error: ${expressErr.message}`)
   }
@@ -251,17 +274,49 @@ const startServer = (retries = 5, host = '0.0.0.0') => {
 
 process.on('uncaughtException', (err) => {
   const msg = `💥 [FATAL] Uncaught Exception: ${err.message}`
-  try { logger.error(msg, { stack: err.stack }) } catch (_) { logger.error(msg) }
-  try { console.error('[CRASH]', err.stack || err.message) } catch (_) {}
-  try { require('fs').appendFileSync('/tmp/crash.log', JSON.stringify({ time: Date.now(), type: 'uncaughtException', msg: err.message, stack: err.stack }) + '\n') } catch (_) {}
+  try {
+    logger.error(msg, { stack: err.stack })
+  } catch (_) {
+    logger.error(msg)
+  }
+  try {
+    console.error('[CRASH]', err.stack || err.message)
+  } catch (_) {}
+  try {
+    require('fs').appendFileSync(
+      '/tmp/crash.log',
+      JSON.stringify({
+        time: Date.now(),
+        type: 'uncaughtException',
+        msg: err.message,
+        stack: err.stack,
+      }) + '\n'
+    )
+  } catch (_) {}
   setTimeout(() => process.exit(1), 1000)
 })
 
 process.on('unhandledRejection', (reason) => {
   const msg = `💥 UNHANDLED REJECTION: ${reason instanceof Error ? reason.message : String(reason)}`
-  try { logger.error(msg) } catch (_) { logger.error(msg) }
-  try { console.error('[REJECTION]', reason instanceof Error ? reason.stack : String(reason)) } catch (_) {}
-  try { require('fs').appendFileSync('/tmp/crash.log', JSON.stringify({ time: Date.now(), type: 'unhandledRejection', msg: reason instanceof Error ? reason.message : String(reason), stack: reason instanceof Error ? reason.stack : '' }) + '\n') } catch (_) {}
+  try {
+    logger.error(msg)
+  } catch (_) {
+    logger.error(msg)
+  }
+  try {
+    console.error('[REJECTION]', reason instanceof Error ? reason.stack : String(reason))
+  } catch (_) {}
+  try {
+    require('fs').appendFileSync(
+      '/tmp/crash.log',
+      JSON.stringify({
+        time: Date.now(),
+        type: 'unhandledRejection',
+        msg: reason instanceof Error ? reason.message : String(reason),
+        stack: reason instanceof Error ? reason.stack : '',
+      }) + '\n'
+    )
+  } catch (_) {}
 })
 
 const shutDown = () => {

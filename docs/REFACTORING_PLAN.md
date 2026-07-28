@@ -4,13 +4,14 @@
 **Lignes actuelles** : 3099 lignes  
 **Objectif** : 5 modules < 500 lignes chacun  
 **Risque** : 🔴 ÉLEVÉ — Cœur métier ML  
-**Durée estimée** : 3-4 jours développeur expérimenté  
+**Durée estimée** : 3-4 jours développeur expérimenté
 
 ---
 
 ## 📊 ANALYSE ACTUELLE
 
 ### Structure détectée
+
 ```python
 # Lignes 1-200: Imports + Helpers + Cache
 # Lignes 200-800: Fonctions utilitaires (H2H, patterns, modifiers)
@@ -20,6 +21,7 @@
 ```
 
 ### Dépendances externes
+
 - `goal_model.py` (Poisson/Dixon-Coles)
 - `ml_features.py` (Extract features)
 - `top_analyst_engine.py` (Secondary model)
@@ -27,6 +29,7 @@
 - XGBoost models (17 fichiers JSON, 34 MB)
 
 ### Fonctions principales
+
 1. `process_prediction()` — Fonction principale (orchestration)
 2. `get_xgb()` — Lazy loading XGBoost ✅
 3. Feature engineering functions (~15 fonctions)
@@ -38,6 +41,7 @@
 ## 🎯 ARCHITECTURE CIBLE
 
 ### Nouveau découpage
+
 ```
 core/
 ├── prediction_engine.py          (300 lignes) — Orchestrateur principal
@@ -55,6 +59,7 @@ core/
 **Responsabilité** : Construction et transformation des features ML
 
 **Contenu à extraire** :
+
 ```python
 # Lignes 800-1500 actuelles
 - get_advanced_xg_adjustment()
@@ -67,15 +72,16 @@ core/
 ```
 
 **Interface publique** :
+
 ```python
 def build_features(match_obj: Dict, raw_features: Dict) -> Dict[str, float]:
     """
     Construit l'ensemble des features ML à partir des données brutes.
-    
+
     Args:
         match_obj: Données du match (teams, league, odds, stats)
         raw_features: Features extraites par ml_features.py
-        
+
     Returns:
         Dictionary de 115+ features normalisées
     """
@@ -83,11 +89,13 @@ def build_features(match_obj: Dict, raw_features: Dict) -> Dict[str, float]:
 ```
 
 **Dépendances** :
+
 - `ml_features.py` (extract_ml_features)
 - `historical_archive.sqlite` (H2H data)
 - Global caches (`_LEAGUE_DRAW_CACHE`, etc.)
 
 **Tests requis** :
+
 - ✅ Test avec match réel (Premier League)
 - ✅ Test avec données incomplètes
 - ✅ Test cache hit/miss
@@ -100,6 +108,7 @@ def build_features(match_obj: Dict, raw_features: Dict) -> Dict[str, float]:
 **Responsabilité** : Chargement et exécution des modèles XGBoost
 
 **Contenu à extraire** :
+
 ```python
 # Lignes 1500-2000 actuelles
 - load_xgboost_models()
@@ -110,6 +119,7 @@ def build_features(match_obj: Dict, raw_features: Dict) -> Dict[str, float]:
 ```
 
 **Interface publique** :
+
 ```python
 def predict_with_ensemble(
     features: Dict[str, float],
@@ -118,12 +128,12 @@ def predict_with_ensemble(
 ) -> Dict[str, float]:
     """
     Exécute l'ensemble XGBoost et retourne les probabilités 1X2.
-    
+
     Args:
         features: Features normalisées (115+)
         league_tier: T1/T2/T3/BLACKLIST
         model_config: Configuration blend (weights, models path)
-        
+
     Returns:
         {
             'prob_home': float,
@@ -137,6 +147,7 @@ def predict_with_ensemble(
 ```
 
 **Lazy loading** :
+
 ```python
 _MODELS = None
 
@@ -152,6 +163,7 @@ def get_models():
 ```
 
 **Tests requis** :
+
 - ✅ Test lazy loading (pas de RAM spike)
 - ✅ Test blend 85/15
 - ✅ Test fallback si model manquant
@@ -164,6 +176,7 @@ def get_models():
 **Responsabilité** : Simulation Monte Carlo et marchés chirurgicaux
 
 **Contenu à extraire** :
+
 ```python
 # Lignes 2000-2300 actuelles
 - run_monte_carlo_simulation()
@@ -174,6 +187,7 @@ def get_models():
 ```
 
 **Interface publique** :
+
 ```python
 def simulate_match(
     xg_home: float,
@@ -183,13 +197,13 @@ def simulate_match(
 ) -> Dict:
     """
     Exécute simulation Monte Carlo Poisson/Dixon-Coles.
-    
+
     Args:
         xg_home: Expected goals home team
         xg_away: Expected goals away team
         features: Context features (home_advantage, etc.)
         n_simulations: Nombre de simulations (défaut 10K)
-        
+
     Returns:
         {
             'expected_score': (home, away),
@@ -206,10 +220,12 @@ def simulate_match(
 ```
 
 **Dépendances** :
+
 - `goal_model.py` (fit_dixon_coles, monte_carlo_simulation_goalmodel)
 - numpy (random distributions)
 
 **Tests requis** :
+
 - ✅ Test simulation 10K itérations
 - ✅ Test BTTS calculation
 - ✅ Test surgical markets
@@ -222,6 +238,7 @@ def simulate_match(
 **Responsabilité** : Confluence Guard et vérifications
 
 **Contenu à extraire** :
+
 ```python
 # Lignes 2300-2600 actuelles
 - confluence_guard_check()
@@ -233,6 +250,7 @@ def simulate_match(
 ```
 
 **Interface publique** :
+
 ```python
 def validate_prediction(
     xgb_probs: Dict,
@@ -242,13 +260,13 @@ def validate_prediction(
 ) -> Dict:
     """
     Triple validation (XGBoost + Poisson + Market).
-    
+
     Args:
         xgb_probs: Probas XGBoost
         poisson_probs: Probas Poisson
         market_odds: Odds 1X2 du marché
         features: Features contextuelles
-        
+
     Returns:
         {
             'valid': bool,
@@ -262,12 +280,14 @@ def validate_prediction(
 ```
 
 **Règles Confluence Guard** :
+
 1. Divergence XGBoost vs Poisson < 20%
 2. Odds market alignment (CLV check)
 3. Trap detection (momentum vs odds drop)
 4. Adaptive learning correction
 
 **Tests requis** :
+
 - ✅ Test confluence pass
 - ✅ Test confluence fail (divergence > 20%)
 - ✅ Test trap detection
@@ -280,6 +300,7 @@ def validate_prediction(
 **Responsabilité** : Construction de la réponse JSON finale
 
 **Contenu à extraire** :
+
 ```python
 # Lignes 2600-3099 actuelles
 - format_prediction_response()
@@ -290,6 +311,7 @@ def validate_prediction(
 ```
 
 **Interface publique** :
+
 ```python
 def format_response(
     prediction: Dict,
@@ -299,13 +321,13 @@ def format_response(
 ) -> Dict:
     """
     Construit la réponse JSON finale pour l'API.
-    
+
     Args:
         prediction: Résultats XGBoost
         simulation: Résultats Monte Carlo
         validation: Résultats Confluence Guard
         match_obj: Données match originales
-        
+
     Returns:
         JSON response complète (voir schéma API)
     """
@@ -313,6 +335,7 @@ def format_response(
 ```
 
 **Schéma response** :
+
 ```json
 {
   "verdict": "SAFE BET",
@@ -327,6 +350,7 @@ def format_response(
 ```
 
 **Tests requis** :
+
 - ✅ Test format JSON valide
 - ✅ Test tous les champs présents
 - ✅ Test schéma validation (JSON Schema)
@@ -338,6 +362,7 @@ def format_response(
 **Responsabilité** : Orchestrateur léger (< 300 lignes)
 
 **Structure** :
+
 ```python
 from feature_builder import build_features
 from model_ensemble import predict_with_ensemble
@@ -348,43 +373,44 @@ from output_formatter import format_response
 def process_prediction(match_obj: Dict, options: Dict = None) -> Dict:
     """
     Orchestrateur principal — Pipeline complet de prédiction.
-    
+
     Pipeline:
     1. Feature building (feature_builder)
     2. XGBoost ensemble (model_ensemble)
     3. Monte Carlo simulation (poisson_calculator)
     4. Confluence Guard validation (validation_engine)
     5. Response formatting (output_formatter)
-    
+
     Args:
         match_obj: Match data (teams, league, odds, stats)
         options: Optional config (model_version, simulation_count)
-        
+
     Returns:
         Complete prediction response (JSON)
     """
     # 1. Extract raw features
     raw_features = extract_ml_features(match_obj)
-    
+
     # 2. Build ML features
     features = build_features(match_obj, raw_features)
-    
+
     # 3. XGBoost ensemble
     xgb_probs = predict_with_ensemble(features, league_tier, config)
-    
+
     # 4. Monte Carlo simulation
     simulation = simulate_match(xg_home, xg_away, features)
-    
+
     # 5. Confluence Guard validation
     validation = validate_prediction(xgb_probs, simulation['probs'], market_odds, features)
-    
+
     # 6. Format response
     response = format_response(xgb_probs, simulation, validation, match_obj)
-    
+
     return response
 ```
 
 **Avantages** :
+
 - ✅ Lisibilité parfaite (pipeline clair)
 - ✅ Testabilité (mock chaque étape)
 - ✅ Maintenance (bug isolation facile)
@@ -395,6 +421,7 @@ def process_prediction(match_obj: Dict, options: Dict = None) -> Dict:
 ## 🚀 PLAN D'EXÉCUTION
 
 ### Phase 1 : Préparation (Jour 1)
+
 1. ✅ Créer branch `refactor/prediction-engine`
 2. ✅ Écrire tests de régression sur `process_prediction()` actuel
 3. ✅ Documenter tous les cas edge (T3 leagues, missing data, etc.)
@@ -403,6 +430,7 @@ def process_prediction(match_obj: Dict, options: Dict = None) -> Dict:
 **Validation** : Tests passent 100% sur version actuelle
 
 ### Phase 2 : Extraction modules (Jour 2)
+
 1. Créer `feature_builder.py` (extraire lignes 800-1500)
 2. Créer `model_ensemble.py` (extraire lignes 1500-2000)
 3. Créer `poisson_calculator.py` (extraire lignes 2000-2300)
@@ -412,6 +440,7 @@ def process_prediction(match_obj: Dict, options: Dict = None) -> Dict:
 **Validation** : Chaque module a ses propres tests unitaires
 
 ### Phase 3 : Refactor orchestrateur (Jour 3)
+
 1. Réécrire `prediction_engine.py` (< 300 lignes)
 2. Importer les 5 nouveaux modules
 3. Adapter le pipeline
@@ -419,17 +448,20 @@ def process_prediction(match_obj: Dict, options: Dict = None) -> Dict:
 **Validation** : Tests de régression passent 100%
 
 ### Phase 4 : Intégration (Jour 4)
+
 1. Tester avec `fastapi_server.py`
 2. Tester avec `enriched_predictions.js`
 3. Benchmark performance (avant/après)
 4. Code review
 
-**Validation** : 
+**Validation** :
+
 - ✅ Aucune régression fonctionnelle
 - ✅ Performance identique ou meilleure
 - ✅ Couverture tests > 70% sur nouveaux modules
 
 ### Phase 5 : Déploiement
+
 1. Merge dans `main`
 2. Déployer sur Render staging
 3. Monitoring 24h
@@ -440,29 +472,37 @@ def process_prediction(match_obj: Dict, options: Dict = None) -> Dict:
 ## ⚠️ RISQUES ET MITIGATIONS
 
 ### Risque 1 : Régression fonctionnelle
+
 **Impact** : 🔴 CRITIQUE — Prédictions incorrectes  
 **Mitigation** :
+
 - Tests de régression exhaustifs (50+ cas)
 - A/B testing (ancien vs nouveau pendant 7 jours)
 - Rollback automatique si accuracy < 55%
 
 ### Risque 2 : Performance dégradée
+
 **Impact** : 🟡 MOYEN — Latency > 2s  
 **Mitigation** :
+
 - Benchmark avant/après
 - Profiling Python (cProfile)
 - Lazy loading strict
 
 ### Risque 3 : Imports circulaires
+
 **Impact** : 🟡 MOYEN — Crash au démarrage  
 **Mitigation** :
+
 - Dependency graph analysis
 - Imports lazy dans fonctions si nécessaire
 - Tests d'import isolés
 
 ### Risque 4 : Breaking changes API
+
 **Impact** : 🟡 MOYEN — Frontend crash  
 **Mitigation** :
+
 - Schéma JSON identique
 - Contract tests (JSON Schema validation)
 - Backward compatibility 100%
@@ -471,19 +511,20 @@ def process_prediction(match_obj: Dict, options: Dict = None) -> Dict:
 
 ## 📊 MÉTRIQUES DE SUCCÈS
 
-| Métrique | Avant | Cible | Validation |
-|----------|-------|-------|------------|
-| Lignes par fichier | 3099 | < 500 | ✅ Respecté |
-| Couverture tests | 0% | > 70% | ✅ pytest |
-| Cyclomatic complexity | > 50 | < 10 | ✅ radon |
-| Latency /predict | ~1.2s | < 1.5s | ✅ Benchmark |
-| Accuracy | 65% | ≥ 65% | ✅ Backtest 100 matchs |
+| Métrique              | Avant | Cible  | Validation             |
+| --------------------- | ----- | ------ | ---------------------- |
+| Lignes par fichier    | 3099  | < 500  | ✅ Respecté            |
+| Couverture tests      | 0%    | > 70%  | ✅ pytest              |
+| Cyclomatic complexity | > 50  | < 10   | ✅ radon               |
+| Latency /predict      | ~1.2s | < 1.5s | ✅ Benchmark           |
+| Accuracy              | 65%   | ≥ 65%  | ✅ Backtest 100 matchs |
 
 ---
 
 ## 🛠️ OUTILS RECOMMANDÉS
 
 ### Tests
+
 ```bash
 # Tests unitaires
 pytest core/test_feature_builder.py -v --cov
@@ -496,6 +537,7 @@ python scripts/benchmark_prediction.py --iterations 100
 ```
 
 ### Analyse statique
+
 ```bash
 # Complexité cyclomatique
 radon cc core/prediction_engine.py -a
@@ -508,6 +550,7 @@ ruff check core/ --fix
 ```
 
 ### Profiling
+
 ```python
 import cProfile
 import pstats
@@ -540,11 +583,13 @@ Avant de commencer, valider :
 ## 🎯 RÉSULTAT ATTENDU
 
 **Avant** :
+
 ```
 core/prediction_engine.py (3099 lignes, complexité 50+)
 ```
 
 **Après** :
+
 ```
 core/
 ├── prediction_engine.py          (300 lignes, orchestrateur)
@@ -558,6 +603,7 @@ Total: 1800 lignes (vs 3099) — 42% de réduction
 ```
 
 **Avantages mesurables** :
+
 - ✅ Maintenabilité : +80% (complexité divisée par 5)
 - ✅ Testabilité : +300% (0% → 70% coverage)
 - ✅ Onboarding : -60% temps (nouveau dev comprend en 2h vs 1 jour)
@@ -567,6 +613,6 @@ Total: 1800 lignes (vs 3099) — 42% de réduction
 
 **FIN DU PLAN DE REFACTORING**
 
-*Document à réviser avant exécution*  
-*Estimation : 3-4 jours développeur expérimenté*  
-*Priorité : 🔴 HAUTE (mais après tests unitaires)*
+_Document à réviser avant exécution_  
+_Estimation : 3-4 jours développeur expérimenté_  
+_Priorité : 🔴 HAUTE (mais après tests unitaires)_

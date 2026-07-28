@@ -22,7 +22,10 @@ function getLastLearnedId() {
 
 function saveLastLearnedId(id) {
   try {
-    fs.writeFileSync(STATE_FILE, JSON.stringify({ lastLearnedId: id, updatedAt: new Date().toISOString() }))
+    fs.writeFileSync(
+      STATE_FILE,
+      JSON.stringify({ lastLearnedId: id, updatedAt: new Date().toISOString() })
+    )
   } catch (_) {}
 }
 
@@ -52,12 +55,15 @@ function runAudit() {
     const pythonExe = resolvePython()
     const proc = spawn(pythonExe, [AUDIT_SCRIPT, '--last', '50'], {
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-      windowsHide: true
+      windowsHide: true,
     })
-    proc.on('error', (e) => { logger.warn(`[AUDIT] Spawn error: ${e.message}`); resolve({ code: -1, output: '' }) })
+    proc.on('error', (e) => {
+      logger.warn(`[AUDIT] Spawn error: ${e.message}`)
+      resolve({ code: -1, output: '' })
+    })
     let output = ''
-    proc.stdout.on('data', d => output += d.toString())
-    proc.stderr.on('data', d => logger.warn(`[AUDIT-ERR] ${d.toString().trim()}`))
+    proc.stdout.on('data', (d) => (output += d.toString()))
+    proc.stderr.on('data', (d) => logger.warn(`[AUDIT-ERR] ${d.toString().trim()}`))
     proc.on('close', (code) => resolve({ code, output }))
   })
 }
@@ -75,11 +81,15 @@ async function runOnlineUpdate() {
     db = new sqlite(DB_PATH)
     const lastLearnedId = getLastLearnedId()
 
-    const matches = db.prepare(`
+    const matches = db
+      .prepare(
+        `
       SELECT * FROM archive_matches 
       WHERE stats_blob IS NOT NULL AND id > ?
       ORDER BY id ASC LIMIT 50
-    `).all(lastLearnedId)
+    `
+      )
+      .all(lastLearnedId)
 
     if (matches.length === 0) {
       logger.info('✅ [ONLINE-LEARNING] No new data found for incremental update.')
@@ -87,7 +97,9 @@ async function runOnlineUpdate() {
       return
     }
 
-    logger.info(`📈 [ONLINE-LEARNING] Feeding ${matches.length} matches to V54 incremental update...`)
+    logger.info(
+      `📈 [ONLINE-LEARNING] Feeding ${matches.length} matches to V54 incremental update...`
+    )
 
     const tmpDir = path.join(__dirname, '..', 'data')
     const dataPath = path.join(tmpDir, `online_batch_${Date.now()}.json`)
@@ -147,7 +159,7 @@ else:
       cwd: path.join(__dirname, '..'),
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true
+      windowsHide: true,
     })
     pyProcess.on('error', (e) => logger.error(`[ONLINE-LEARN] Spawn error: ${e.message}`))
 
@@ -160,8 +172,12 @@ else:
     pyProcess.stderr.on('data', (d) => logger.warn(`[PYTHON-ERR] ${d.toString().trim()}`))
 
     pyProcess.on('close', async (code) => {
-      try { if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath) } catch (_) {}
-      try { if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath) } catch (_) {}
+      try {
+        if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath)
+      } catch (_) {}
+      try {
+        if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath)
+      } catch (_) {}
       if (db && db.open) db.close()
 
       const success = code === 0 && stdout.includes('SUCCESS')
@@ -175,23 +191,25 @@ else:
         logger.info('📊 [ONLINE-LEARNING] Running validation audit...')
         const audit = await runAudit()
 
-        const auditResult = audit.output.includes('IMPROVEMENT') ? 'IMPROVEMENT'
-          : audit.output.includes('STABLE') ? 'STABLE'
-          : audit.output.includes('REGRESSION') ? 'REGRESSION'
-          : 'UNKNOWN'
+        const auditResult = audit.output.includes('IMPROVEMENT')
+          ? 'IMPROVEMENT'
+          : audit.output.includes('STABLE')
+            ? 'STABLE'
+            : audit.output.includes('REGRESSION')
+              ? 'REGRESSION'
+              : 'UNKNOWN'
 
         appendLog({
           event: 'update',
           matchesProcessed: matches.length,
           lastLearnedId: maxId,
           auditResult,
-          auditOutput: audit.output.trim()
+          auditOutput: audit.output.trim(),
         })
 
         const msg = `🧠 <b>ONLINE LEARNING UPDATE</b> 🧠\n\n📈 Matchs traités: ${matches.length}\n📊 Audit: ${auditResult}\n💾 Dernier ID: ${maxId}`
         sendTelegram(msg)
         logger.info(`📊 [ONLINE-LEARNING] Audit result: ${auditResult}`)
-
       } else if (code === 0 && stdout.includes('NO_DATA')) {
         logger.info('✅ [ONLINE-LEARNING] No valid matches to learn from.')
         appendLog({ event: 'no_data', matchesProcessed: 0 })
@@ -199,7 +217,9 @@ else:
         const errMsg = `❌ [ONLINE-LEARNING] Update failed with code ${code}`
         logger.error(errMsg)
         appendLog({ event: 'failure', matchesProcessed: matches.length, error: errMsg })
-        sendTelegram(`❌ <b>ONLINE LEARNING FAILED</b> ❌\n\nCode: ${code}\nMatches: ${matches.length}`)
+        sendTelegram(
+          `❌ <b>ONLINE LEARNING FAILED</b> ❌\n\nCode: ${code}\nMatches: ${matches.length}`
+        )
       }
     })
   } catch (err) {

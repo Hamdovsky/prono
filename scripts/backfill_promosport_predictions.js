@@ -25,14 +25,18 @@ function backfillPredictions() {
   `)
 
   // Read all archive matches with results that don't have a prediction yet
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT pa.concours, pa.match_idx, pa.homeTeam, pa.awayTeam, pa.result,
            pa.vote_home, pa.vote_draw, pa.vote_away, pa.score_home, pa.score_away,
            pa.archived_at
     FROM promosport_archive pa
     WHERE pa.result IS NOT NULL AND pa.result != 'N'
     ORDER BY pa.archived_at ASC
-  `).all()
+  `
+    )
+    .all()
   db.close()
 
   if (rows.length === 0) {
@@ -56,7 +60,7 @@ function backfillPredictions() {
     const matches = byConcours[cno]
 
     // Map archive rows to match objects expected by _extractFeatures
-    const matchObjects = matches.map(m => ({
+    const matchObjects = matches.map((m) => ({
       homeTeam: m.homeTeam,
       awayTeam: m.awayTeam,
       publicP1: m.vote_home,
@@ -64,7 +68,7 @@ function backfillPredictions() {
       publicP2: m.vote_away,
       homeWinProbability: m.vote_home,
       drawProbability: m.vote_draw,
-      awayWinProbability: m.vote_away
+      awayWinProbability: m.vote_away,
     }))
 
     const predictions = mlService.predictBatch(matchObjects)
@@ -93,10 +97,10 @@ function backfillPredictions() {
         const probs = [
           { label: '1', prob: p.p1 },
           { label: 'X', prob: p.px },
-          { label: '2', prob: p.p2 }
+          { label: '2', prob: p.p2 },
         ]
         probs.sort((a, b) => b.prob - a.prob)
-        const choices = probs.slice(0, 1).map(c => c.label)
+        const choices = probs.slice(0, 1).map((c) => c.label)
 
         upsert.run(
           String(cno),
@@ -114,7 +118,9 @@ function backfillPredictions() {
     pdb.close()
   }
 
-  logger.info(`[BACKFILL] Done — stored ${totalStored} predictions for ${concoursNumbers.length} concours`)
+  logger.info(
+    `[BACKFILL] Done — stored ${totalStored} predictions for ${concoursNumbers.length} concours`
+  )
   return { total: rows.length, stored: totalStored, concours: concoursNumbers.length }
 }
 

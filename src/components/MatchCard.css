@@ -100,8 +100,13 @@
   animation: mc-pulse-live 1.5s infinite;
 }
 @keyframes mc-pulse-live {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 /* --- PICK --- */
@@ -139,7 +144,9 @@
   color: #f87171;
   border: 1px solid rgba(248, 113, 113, 0.3);
 }
-.mc-pick-1X, .mc-pick-X2, .mc-pick-12 {
+.mc-pick-1X,
+.mc-pick-X2,
+.mc-pick-12 {
   background: rgba(56, 189, 248, 0.15);
   color: #38bdf8;
   border: 1px solid rgba(56, 189, 248, 0.3);
@@ -148,9 +155,15 @@
   font-size: 10px;
   font-weight: 700;
 }
-.mc-edge-positive { color: #10b981; }
-.mc-edge-negative { color: #f87171; }
-.mc-edge-zero { color: #64748b; }
+.mc-edge-positive {
+  color: #10b981;
+}
+.mc-edge-negative {
+  color: #f87171;
+}
+.mc-edge-zero {
+  color: #64748b;
+}
 
 /* --- OU/BTTS --- */
 .mc-markets {
@@ -186,16 +199,24 @@
   border-radius: 2px;
   transition: width 0.4s ease;
 }
-.mc-ou-fill.over { background: linear-gradient(90deg, #10b981, #34d399); }
-.mc-ou-fill.under { background: linear-gradient(90deg, #f87171, #fb7185); }
+.mc-ou-fill.over {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+.mc-ou-fill.under {
+  background: linear-gradient(90deg, #f87171, #fb7185);
+}
 .mc-ou-pct {
   font-size: 10px;
   font-weight: 700;
   min-width: 28px;
   text-align: right;
 }
-.mc-ou-pct.over { color: #10b981; }
-.mc-ou-pct.under { color: #f87171; }
+.mc-ou-pct.over {
+  color: #10b981;
+}
+.mc-ou-pct.under {
+  color: #f87171;
+}
 
 /* --- EV --- */
 .mc-ev-cell {
@@ -212,9 +233,16 @@
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   letter-spacing: -0.3px;
 }
-.mc-ev-high { color: #10b981; text-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
-.mc-ev-med { color: #fbbf24; }
-.mc-ev-low { color: #64748b; }
+.mc-ev-high {
+  color: #10b981;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+.mc-ev-med {
+  color: #fbbf24;
+}
+.mc-ev-low {
+  color: #64748b;
+}
 .mc-ev-label {
   font-size: 8px;
   color: #475569;
@@ -240,8 +268,13 @@
   animation: mc-dvb-glow 2s ease-in-out infinite;
 }
 @keyframes mc-dvb-glow {
-  0%, 100% { box-shadow: 0 0 0 rgba(251, 191, 36, 0); }
-  50% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.3); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(251, 191, 36, 0);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+  }
 }
 
 /* --- ELITE variant --- */
@@ -280,7 +313,8 @@
     padding: 10px 12px;
     min-height: 70px;
   }
-  .mc-markets, .mc-ev-cell {
+  .mc-markets,
+  .mc-ev-cell {
     display: none;
   }
   .mc-match-info {

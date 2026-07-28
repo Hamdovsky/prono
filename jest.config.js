@@ -7,23 +7,24 @@ module.exports = {
     'routes/**/*.js',
     '!**/*.test.js',
     '!**/node_modules/**',
-    '!**/SofascoreScraping/**'
+    '!**/SofascoreScraping/**',
   ],
   coverageThreshold: {
     global: {
       branches: 60,
       functions: 60,
       lines: 70,
-      statements: 60
-    }
+      statements: 60,
+    },
   },
-  testMatch: [
-    '**/__tests__/**/*.test.js',
-    '**/tests/**/*.test.js'
-  ],
+  testMatch: ['**/__tests__/**/*.test.js', '**/tests/**/*.test.js'],
   setupFilesAfterEnv: ['<rootDir>/__tests__/setup.js'],
   testTimeout: 30000,
   maxWorkers: 2,
-  modulePathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/SofascoreScraping/', '<rootDir>/\.kilo/'],
-  verbose: true
-};
+  modulePathIgnorePatterns: [
+    '<rootDir>/node_modules/',
+    '<rootDir>/SofascoreScraping/',
+    '<rootDir>/\.kilo/',
+  ],
+  verbose: true,
+}

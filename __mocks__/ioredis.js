@@ -9,7 +9,7 @@ const mockRedisInstance = {
   on: jest.fn(),
   connect: jest.fn(),
   ping: jest.fn(),
-  quit: jest.fn()
-};
+  quit: jest.fn(),
+}
 
-module.exports = jest.fn(() => mockRedisInstance);
+module.exports = jest.fn(() => mockRedisInstance)

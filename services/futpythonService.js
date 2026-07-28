@@ -38,7 +38,7 @@ class FutPythonTraderService {
     try {
       const { data } = await axios.get(`${BASE_URL}${endpoint}`, {
         headers: this._getAuthHeaders(),
-        timeout: 15000
+        timeout: 15000,
       })
       return data
     } catch (err) {
@@ -81,24 +81,27 @@ class FutPythonTraderService {
   }
 
   async enrichMatch(match) {
-    if (!this.isAvailable()) return null;
+    if (!this.isAvailable()) return null
     try {
-      const dateStr = match.timestamp ? new Date(match.timestamp * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-      const sources = this._sources;
-      const results = {};
+      const dateStr = match.timestamp
+        ? new Date(match.timestamp * 1000).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0]
+      const sources = this._sources
+      const results = {}
 
       for (const source of sources) {
-        const games = await this.getDailyGames(source, dateStr);
-        const found = games.find(g => 
-          (g.home_team === match.homeTeam || g.mandante === match.homeTeam) && 
-          (g.away_team === match.awayTeam || g.visitante === match.awayTeam)
-        );
-        if (found) results[source] = found;
+        const games = await this.getDailyGames(source, dateStr)
+        const found = games.find(
+          (g) =>
+            (g.home_team === match.homeTeam || g.mandante === match.homeTeam) &&
+            (g.away_team === match.awayTeam || g.visitante === match.awayTeam)
+        )
+        if (found) results[source] = found
       }
-      return Object.keys(results).length > 0 ? results : null;
+      return Object.keys(results).length > 0 ? results : null
     } catch (e) {
-      logger.warn(`[FUTPYTHON] enrichMatch failed: ${e.message}`);
-      return null;
+      logger.warn(`[FUTPYTHON] enrichMatch failed: ${e.message}`)
+      return null
     }
   }
 
@@ -116,14 +119,21 @@ class FutPythonTraderService {
             const away = g.away_team || g.away || g.visitante || ''
             if (!home || !away) continue
             const dateStr = g.date || g.data || g.start_date || ''
-            const existing = database.db?.prepare(
-              "SELECT id FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1"
-            ).get(home, away, dateStr.split('T')[0])
+            const existing = database.db
+              ?.prepare(
+                'SELECT id FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1'
+              )
+              .get(home, away, dateStr.split('T')[0])
             if (existing) {
-              const fd = JSON.parse(database.db.prepare("SELECT fullData FROM matches WHERE id = ?").get(existing.id)?.fullData || '{}')
+              const fd = JSON.parse(
+                database.db.prepare('SELECT fullData FROM matches WHERE id = ?').get(existing.id)
+                  ?.fullData || '{}'
+              )
               if (!fd.futpython) fd.futpython = {}
               fd.futpython[source] = g
-              database.db.prepare("UPDATE matches SET fullData = ? WHERE id = ?").run(JSON.stringify(fd), existing.id)
+              database.db
+                .prepare('UPDATE matches SET fullData = ? WHERE id = ?')
+                .run(JSON.stringify(fd), existing.id)
               total++
             }
           } catch (_) {}

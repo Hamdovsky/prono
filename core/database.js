@@ -1,6 +1,6 @@
-const path = require('path');
-const fs = require('fs');
-const logger = require('./logger');
+const path = require('path')
+const fs = require('fs')
+const logger = require('./logger')
 
 // 🚀 [DB TOGGLE] If DATABASE_URL is set, use Neon PostgreSQL directly — skip SQLite entirely
 if (process.env.DATABASE_URL) {
@@ -9,15 +9,19 @@ if (process.env.DATABASE_URL) {
   const pgDb = require('./pg_database')
   const pgMigrations = require('./pg_migrations')
   pgConnector.getPool()
-  pgMigrations.runMigrations().catch(e => logger.error(`[DB] PG migration error: ${e.message}`))
+  pgMigrations.runMigrations().catch((e) => logger.error(`[DB] PG migration error: ${e.message}`))
   // Backfill startTimestamp from "fullData" for existing rows
   setTimeout(async () => {
     try {
       const { query: pgQuery } = require('./pg_connector')
-      const testResult = await pgQuery('SELECT id, "fullData", SUBSTRING("fullData" FROM \'"startTimestamp":([0-9]+)\') AS ts FROM matches WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL LIMIT 1')
+      const testResult = await pgQuery(
+        'SELECT id, "fullData", SUBSTRING("fullData" FROM \'"startTimestamp":([0-9]+)\') AS ts FROM matches WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL LIMIT 1'
+      )
       if (testResult.rows.length > 0) {
         const testRow = testResult.rows[0]
-        logger.info(`[DB] Backfill test: id=${testRow.id} ts_extracted=${testRow.ts} fullData_length=${(testRow.fullData || '').length}`)
+        logger.info(
+          `[DB] Backfill test: id=${testRow.id} ts_extracted=${testRow.ts} fullData_length=${(testRow.fullData || '').length}`
+        )
         if (testRow.ts) {
           const result = await pgQuery(
             `UPDATE matches SET "startTimestamp" = SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint WHERE "startTimestamp" IS NULL AND "fullData" IS NOT NULL AND "fullData" ~ '"startTimestamp":[0-9]+'`
@@ -37,7 +41,9 @@ if (process.env.DATABASE_URL) {
   setTimeout(async () => {
     try {
       const { query: pgQuery } = require('./pg_connector')
-      const lmResult = await pgQuery('SELECT * FROM league_model_parameters').catch(() => ({ rows: [] }))
+      const lmResult = await pgQuery('SELECT * FROM league_model_parameters').catch(() => ({
+        rows: [],
+      }))
       if (lmResult.rows && lmResult.rows.length > 0) {
         const paramsMap = {}
         for (const row of lmResult.rows) {
@@ -48,7 +54,9 @@ if (process.env.DATABASE_URL) {
         }
         const StatisticalEngine = require('./services/StatisticalEngine')
         StatisticalEngine.loadGoalModelParams(paramsMap)
-        logger.info(`[DB] Loaded ${lmResult.rows.length} league model parameters into StatisticalEngine`)
+        logger.info(
+          `[DB] Loaded ${lmResult.rows.length} league model parameters into StatisticalEngine`
+        )
       }
     } catch (e) {
       logger.warn(`[DB] Could not load league model params: ${e.message}`)
@@ -62,19 +70,19 @@ if (process.env.DATABASE_URL) {
 let db = null
 const dbPath = path.resolve(__dirname, '../data/tactical.db')
 try {
-  const Database = require('better-sqlite3');
-  const dbDir = path.dirname(dbPath);
+  const Database = require('better-sqlite3')
+  const dbDir = path.dirname(dbPath)
   if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+    fs.mkdirSync(dbDir, { recursive: true })
   }
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('busy_timeout = 30000');
-  db.pragma('cache_size = -16000');
-  db.pragma('temp_store = MEMORY');
-  db.pragma('mmap_size = 64000000');
-  db.pragma('wal_autocheckpoint = 1000');
-  db.pragma('foreign_keys = ON');
+  db = new Database(dbPath)
+  db.pragma('journal_mode = WAL')
+  db.pragma('busy_timeout = 30000')
+  db.pragma('cache_size = -16000')
+  db.pragma('temp_store = MEMORY')
+  db.pragma('mmap_size = 64000000')
+  db.pragma('wal_autocheckpoint = 1000')
+  db.pragma('foreign_keys = ON')
   logger.info('[DB] SQLite initialized')
 } catch (e) {
   logger.warn(`[DB] SQLite not available: ${e.message}.`)
@@ -90,42 +98,42 @@ const _walTimer = setInterval(() => {
 _walTimer.unref()
 
 // 🚀 [PERFORMANCE] Statement Cache to avoid constant regex/parsing
-const statementCache = new Map();
-const MAX_CACHE_SIZE = 100;
+const statementCache = new Map()
+const MAX_CACHE_SIZE = 100
 
 function getPreparedStatement(sql) {
-    if (statementCache.has(sql)) return statementCache.get(sql);
-    
-    // 🧹 [RAM] Cache Eviction if too large
-    if (statementCache.size >= MAX_CACHE_SIZE) {
-        const firstKey = statementCache.keys().next().value;
-        statementCache.delete(firstKey);
-    }
-    
-    const processedSql = sql
-        .replace(/\$\d+/g, '?')
-        .replace(/::text/gi, '')
-        .replace(/::varchar\(\d+\)/gi, '')
-        .replace(/::jsonb/gi, '')
-        .replace(/ILIKE/gi, 'LIKE');
-        
-    try {
-        const stmt = db.prepare(processedSql);
-        statementCache.set(sql, stmt);
-        return stmt;
-    } catch (e) {
-        logger.error(`[DB CACHE] Failed to prepare: ${processedSql} | Error: ${e.message}`);
-        throw e;
-    }
+  if (statementCache.has(sql)) return statementCache.get(sql)
+
+  // 🧹 [RAM] Cache Eviction if too large
+  if (statementCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = statementCache.keys().next().value
+    statementCache.delete(firstKey)
+  }
+
+  const processedSql = sql
+    .replace(/\$\d+/g, '?')
+    .replace(/::text/gi, '')
+    .replace(/::varchar\(\d+\)/gi, '')
+    .replace(/::jsonb/gi, '')
+    .replace(/ILIKE/gi, 'LIKE')
+
+  try {
+    const stmt = db.prepare(processedSql)
+    statementCache.set(sql, stmt)
+    return stmt
+  } catch (e) {
+    logger.error(`[DB CACHE] Failed to prepare: ${processedSql} | Error: ${e.message}`)
+    throw e
+  }
 }
 
-if (db) logger.info(`🗄️ [DATABASE] Using SQLite: ${dbPath}`);
+if (db) logger.info(`🗄️ [DATABASE] Using SQLite: ${dbPath}`)
 
 // ─── ABSOLUTE DEFENSE SCHEMA INITIALIZATION ───────────────────────
 function initSchema() {
-    if (!db) return
-    try {
-        db.exec(`
+  if (!db) return
+  try {
+    db.exec(`
             CREATE TABLE IF NOT EXISTS matches (
                 id TEXT PRIMARY KEY,
                 homeTeam TEXT,
@@ -455,229 +463,244 @@ function initSchema() {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_login DATETIME
             );
-        `);
-        logger.info('🛡️ [DB] Tactical Schema validated with INDICES (SQLite)');
-    } catch (e) {
-        logger.error(`❌ [DB] Schema Init Failed: ${e.message}`);
-    }
+        `)
+    logger.info('🛡️ [DB] Tactical Schema validated with INDICES (SQLite)')
+  } catch (e) {
+    logger.error(`❌ [DB] Schema Init Failed: ${e.message}`)
+  }
 }
-initSchema();
+initSchema()
 
 // ─── AUTO-MIGRATION: Add missing columns to existing DB ───────────────────────
 function runMigrations() {
-    // List of [table, column, type+default] to ensure exist
-    const migrations = [
-        ['matches', 'weather_temp',              'REAL'],
-        ['matches', 'weather_desc',              'TEXT'],
-        ['matches', 'weather_humidity',          'REAL'],
-        ['matches', 'home_form_pts',             'REAL'],
-        ['matches', 'away_form_pts',             'REAL'],
-        ['matches', 'ev_home',                   'REAL'],
-        ['matches', 'ev_best',                   'TEXT'],
-        ['matches', 'xgboost_confidence',        'REAL DEFAULT 0'],
-        ['users', 'password_hash',               'TEXT DEFAULT ""'],
-        ['users', 'role',                        'TEXT DEFAULT "user"'],
-        ['users', 'is_active',                   'INTEGER DEFAULT 1'],
-        ['users', 'last_login',                  'DATETIME'],
-        ['matches', 'news_impact',               'REAL DEFAULT 0'],
-        ['matches', 'ou_25_prob',                'REAL DEFAULT 0'],
-        ['matches', 'btts_prob',                 'REAL DEFAULT 0'],
-        ['matches', 'odds_home',                 'REAL'],
-        ['matches', 'odds_draw',                 'REAL'],
-        ['matches', 'odds_away',                 'REAL'],
-        ['matches', 'home_win_probability',      'REAL DEFAULT 0'],
-        ['matches', 'draw_probability',          'REAL DEFAULT 0'],
-        ['matches', 'away_win_probability',      'REAL DEFAULT 0'],
-        ['matches', 'expected_score',            'TEXT'],
-        ['matches', 'chaos_score',               'INTEGER DEFAULT 50'],
-        ['matches', 'insufficient_data',         'INTEGER DEFAULT 0'],
-        ['matches', 'source',                    'TEXT'],
-        ['matches', 'last_updated',              'INTEGER'],
-        ['matches', 'startTimestamp',            'INTEGER'],
-        ['matches', 'category_id',               'TEXT'],
-        ['matches', 'category_name',             'TEXT'],
-        ['matches', 'tournament_id',             'TEXT'],
-        ['matches', 'tournament_name',           'TEXT'],
-        ['matches', 'referee',                   'TEXT'],
-        ['matches', 'home_xg',                   'REAL'],
-        ['matches', 'away_xg',                   'REAL'],
-        ['matches', 'player_ratings_home',       'TEXT'],
-        ['matches', 'player_ratings_away',       'TEXT'],
-        ['matches', 'home_team_id',              'TEXT'],
-        ['matches', 'away_team_id',              'TEXT'],
-        ['matches', 'country_iso',               'TEXT'],
-        ['matches', 'tournament_id_official',    'TEXT'],
-        ['matches', 'home_attack_impact',        'REAL'],
-        ['matches', 'home_defense_impact',       'REAL'],
-        ['matches', 'away_attack_impact',        'REAL'],
-        ['matches', 'away_defense_impact',       'REAL'],
-        ['matches', 'referee_id',                'TEXT'],
-        ['matches', 'referee_yellow_avg',        'REAL'],
-        ['matches', 'referee_red_avg',           'REAL'],
-        ['matches', 'referee_penalties_avg',     'REAL'],
-        ['matches', 'odds_home_open',            'REAL'],
-        ['matches', 'odds_draw_open',            'REAL'],
-        ['matches', 'odds_away_open',            'REAL'],
-        ['matches', 'news_sentiment',            'REAL'],
-        ['matches', 'is_missing_gk',             'INTEGER'],
-        ['matches', 'is_missing_scorer',         'INTEGER'],
-        ['matches', 'is_missing_captain',        'INTEGER'],
-        ['matches', 'is_missing_star',           'INTEGER'],
-        ['matches', 'home_market_value',         'REAL'],
-        ['matches', 'away_market_value',         'REAL'],
-        ['matches', 'referee_home_win_rate',     'REAL'],
-        ['matches', 'is_high_pressure',          'INTEGER'],
-        ['matches', 'motivation_signature',      'TEXT'],
-        ['matches', 'autopsy_result',            'TEXT'],
-        ['matches', 'is_autopsied',               'INTEGER DEFAULT 0'],
-        ['matches', 'bsd_match_id',              'TEXT'],
-        ['matches', 'best_odds_home',             'REAL'],
-        ['matches', 'best_odds_draw',             'REAL'],
-        ['matches', 'best_odds_away',             'REAL'],
-        ['matches', 'bsd_prediction',             'TEXT'],
-        ['matches', 'bsd_home_win_prob',          'REAL DEFAULT 0'],
-        ['matches', 'bsd_draw_prob',              'REAL DEFAULT 0'],
-        ['matches', 'bsd_away_win_prob',          'REAL DEFAULT 0'],
-        ['matches', 'bsd_confidence',             'REAL DEFAULT 0'],
-        ['player_stats', 'xg_avg',                'REAL DEFAULT 0'],
-        ['player_stats', 'xgot_avg',              'REAL DEFAULT 0'],
-        ['player_stats', 'heatmap_danger',        'REAL DEFAULT 0'],
-        ['matches', 'result',                     'TEXT'],
-        ['matches', 'settled_at',                 'INTEGER'],
-        ['matches', 'market_type',                'TEXT'],
-    ];
+  // List of [table, column, type+default] to ensure exist
+  const migrations = [
+    ['matches', 'weather_temp', 'REAL'],
+    ['matches', 'weather_desc', 'TEXT'],
+    ['matches', 'weather_humidity', 'REAL'],
+    ['matches', 'home_form_pts', 'REAL'],
+    ['matches', 'away_form_pts', 'REAL'],
+    ['matches', 'ev_home', 'REAL'],
+    ['matches', 'ev_best', 'TEXT'],
+    ['matches', 'xgboost_confidence', 'REAL DEFAULT 0'],
+    ['users', 'password_hash', 'TEXT DEFAULT ""'],
+    ['users', 'role', 'TEXT DEFAULT "user"'],
+    ['users', 'is_active', 'INTEGER DEFAULT 1'],
+    ['users', 'last_login', 'DATETIME'],
+    ['matches', 'news_impact', 'REAL DEFAULT 0'],
+    ['matches', 'ou_25_prob', 'REAL DEFAULT 0'],
+    ['matches', 'btts_prob', 'REAL DEFAULT 0'],
+    ['matches', 'odds_home', 'REAL'],
+    ['matches', 'odds_draw', 'REAL'],
+    ['matches', 'odds_away', 'REAL'],
+    ['matches', 'home_win_probability', 'REAL DEFAULT 0'],
+    ['matches', 'draw_probability', 'REAL DEFAULT 0'],
+    ['matches', 'away_win_probability', 'REAL DEFAULT 0'],
+    ['matches', 'expected_score', 'TEXT'],
+    ['matches', 'chaos_score', 'INTEGER DEFAULT 50'],
+    ['matches', 'insufficient_data', 'INTEGER DEFAULT 0'],
+    ['matches', 'source', 'TEXT'],
+    ['matches', 'last_updated', 'INTEGER'],
+    ['matches', 'startTimestamp', 'INTEGER'],
+    ['matches', 'category_id', 'TEXT'],
+    ['matches', 'category_name', 'TEXT'],
+    ['matches', 'tournament_id', 'TEXT'],
+    ['matches', 'tournament_name', 'TEXT'],
+    ['matches', 'referee', 'TEXT'],
+    ['matches', 'home_xg', 'REAL'],
+    ['matches', 'away_xg', 'REAL'],
+    ['matches', 'player_ratings_home', 'TEXT'],
+    ['matches', 'player_ratings_away', 'TEXT'],
+    ['matches', 'home_team_id', 'TEXT'],
+    ['matches', 'away_team_id', 'TEXT'],
+    ['matches', 'country_iso', 'TEXT'],
+    ['matches', 'tournament_id_official', 'TEXT'],
+    ['matches', 'home_attack_impact', 'REAL'],
+    ['matches', 'home_defense_impact', 'REAL'],
+    ['matches', 'away_attack_impact', 'REAL'],
+    ['matches', 'away_defense_impact', 'REAL'],
+    ['matches', 'referee_id', 'TEXT'],
+    ['matches', 'referee_yellow_avg', 'REAL'],
+    ['matches', 'referee_red_avg', 'REAL'],
+    ['matches', 'referee_penalties_avg', 'REAL'],
+    ['matches', 'odds_home_open', 'REAL'],
+    ['matches', 'odds_draw_open', 'REAL'],
+    ['matches', 'odds_away_open', 'REAL'],
+    ['matches', 'news_sentiment', 'REAL'],
+    ['matches', 'is_missing_gk', 'INTEGER'],
+    ['matches', 'is_missing_scorer', 'INTEGER'],
+    ['matches', 'is_missing_captain', 'INTEGER'],
+    ['matches', 'is_missing_star', 'INTEGER'],
+    ['matches', 'home_market_value', 'REAL'],
+    ['matches', 'away_market_value', 'REAL'],
+    ['matches', 'referee_home_win_rate', 'REAL'],
+    ['matches', 'is_high_pressure', 'INTEGER'],
+    ['matches', 'motivation_signature', 'TEXT'],
+    ['matches', 'autopsy_result', 'TEXT'],
+    ['matches', 'is_autopsied', 'INTEGER DEFAULT 0'],
+    ['matches', 'bsd_match_id', 'TEXT'],
+    ['matches', 'best_odds_home', 'REAL'],
+    ['matches', 'best_odds_draw', 'REAL'],
+    ['matches', 'best_odds_away', 'REAL'],
+    ['matches', 'bsd_prediction', 'TEXT'],
+    ['matches', 'bsd_home_win_prob', 'REAL DEFAULT 0'],
+    ['matches', 'bsd_draw_prob', 'REAL DEFAULT 0'],
+    ['matches', 'bsd_away_win_prob', 'REAL DEFAULT 0'],
+    ['matches', 'bsd_confidence', 'REAL DEFAULT 0'],
+    ['player_stats', 'xg_avg', 'REAL DEFAULT 0'],
+    ['player_stats', 'xgot_avg', 'REAL DEFAULT 0'],
+    ['player_stats', 'heatmap_danger', 'REAL DEFAULT 0'],
+    ['matches', 'result', 'TEXT'],
+    ['matches', 'settled_at', 'INTEGER'],
+    ['matches', 'market_type', 'TEXT'],
+  ]
 
-    let added = 0;
-    for (const [table, column, typeDef] of migrations) {
-        try {
-            // Check if column exists
-            const cols = db.prepare(`PRAGMA table_info(${table})`).all();
-            const exists = cols.some(c => c.name === column);
-            if (!exists) {
-                db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${typeDef}`).run();
-                logger.info(`🔧 [DB MIGRATION] Added missing column: ${table}.${column}`);
-                added++;
-            }
-        } catch (e) {
-            // Column may already exist or table doesn't exist yet — safe to ignore
-            logger.warn(`⚠️ [DB MIGRATION] Could not add ${table}.${column}: ${e.message}`);
-        }
+  let added = 0
+  for (const [table, column, typeDef] of migrations) {
+    try {
+      // Check if column exists
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all()
+      const exists = cols.some((c) => c.name === column)
+      if (!exists) {
+        db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${typeDef}`).run()
+        logger.info(`🔧 [DB MIGRATION] Added missing column: ${table}.${column}`)
+        added++
+      }
+    } catch (e) {
+      // Column may already exist or table doesn't exist yet — safe to ignore
+      logger.warn(`⚠️ [DB MIGRATION] Could not add ${table}.${column}: ${e.message}`)
     }
-    if (added > 0) {
-        logger.info(`✅ [DB MIGRATION] Applied ${added} column migration(s) successfully.`);
-    } else {
-        logger.info('✅ [DB MIGRATION] Schema is up-to-date, no migrations needed.');
-    }
+  }
+  if (added > 0) {
+    logger.info(`✅ [DB MIGRATION] Applied ${added} column migration(s) successfully.`)
+  } else {
+    logger.info('✅ [DB MIGRATION] Schema is up-to-date, no migrations needed.')
+  }
 }
-runMigrations();
+runMigrations()
 
 const database = {
-    db: db,
-    exec: async (sql) => { db.exec(sql); },
-    query: async (sql, params = []) => {
+  db: db,
+  exec: async (sql) => {
+    db.exec(sql)
+  },
+  query: async (sql, params = []) => {
+    try {
+      const stmt = getPreparedStatement(sql)
+      const isMutation =
+        /^\s*(INSERT|UPDATE|DELETE|REPLACE|ALTER|CREATE|DROP|BEGIN|COMMIT|ROLLBACK)/i.test(
+          stmt.source || sql
+        )
+
+      if (isMutation) {
+        const res = stmt.run(Array.isArray(params) ? params : [params])
+        return { rows: [], lastInsertRowid: res.lastInsertRowid, changes: res.changes }
+      } else {
+        const rows = stmt.all(Array.isArray(params) ? params : [params])
+        return { rows }
+      }
+    } catch (e) {
+      logger.error(`[DB QUERY] Error: ${e.message} | SQL: ${sql}`)
+      return { rows: [] }
+    }
+  },
+  prepare: (sql) => {
+    try {
+      const stmt = getPreparedStatement(sql)
+      return {
+        run: (...args) => {
+          const params = Array.isArray(args[0]) ? args[0] : args
+          const res = stmt.run(params)
+          return { lastInsertRowid: res.lastInsertRowid, changes: res.changes }
+        },
+        get: (...args) => {
+          const params = Array.isArray(args[0]) ? args[0] : args
+          return stmt.get(params)
+        },
+        all: (...args) => {
+          const params = Array.isArray(args[0]) ? args[0] : args
+          return stmt.all(params)
+        },
+      }
+    } catch (e) {
+      logger.error(`[DB PREPARE] Failed: ${sql}`)
+      return { run: () => ({ changes: 0 }), get: () => null, all: () => [] }
+    }
+  },
+  get: async (sql, params = []) => {
+    const sqliteSql = sql.replace(/\$\d+/g, '?')
+    return db.prepare(sqliteSql).get(params)
+  },
+  transaction: (fn) => (items) => {
+    const CHUNK_SIZE = 100
+    const insertChunk = db.transaction((dataChunk) => {
+      for (const item of dataChunk) fn(item)
+    })
+
+    // Split items into smaller chunks
+    for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+      const chunk = items.slice(i, i + CHUNK_SIZE)
+      insertChunk(chunk)
+      // In synchronous land, this is all we can do to minimally segment the transaction object itself
+    }
+  },
+
+  // -- NATIVE POSTGRES IMPLEMENTATIONS --
+  insertMatch: async (m) => {
+    try {
+      // Skip matches with placeholder team names
+      const home = (m.homeTeam || '').toString().toLowerCase()
+      const away = (m.awayTeam || '').toString().toLowerCase()
+      if (home === 'home' || away === 'away') {
+        logger.warn(
+          `[DB] Skipping match ${m.id} — placeholder team name (${m.homeTeam} vs ${m.awayTeam})`
+        )
+        return false
+      }
+
+      let timestamp = new Date().toISOString()
+      if (m.startTimestamp) {
         try {
-            const stmt = getPreparedStatement(sql);
-            const isMutation = /^\s*(INSERT|UPDATE|DELETE|REPLACE|ALTER|CREATE|DROP|BEGIN|COMMIT|ROLLBACK)/i.test(stmt.source || sql);
-            
-            if (isMutation) {
-                const res = stmt.run(Array.isArray(params) ? params : [params]);
-                return { rows: [], lastInsertRowid: res.lastInsertRowid, changes: res.changes };
-            } else {
-                const rows = stmt.all(Array.isArray(params) ? params : [params]);
-                return { rows };
-            }
+          const d = new Date(m.startTimestamp * 1000)
+          if (!isNaN(d.getTime())) timestamp = d.toISOString()
         } catch (e) {
-            logger.error(`[DB QUERY] Error: ${e.message} | SQL: ${sql}`);
-            return { rows: [] };
+          logger.warn(`[DB] Invalid timestamp for ${m.id}: ${m.startTimestamp}`)
         }
-    },
-    prepare: (sql) => {
-        try {
-            const stmt = getPreparedStatement(sql);
-            return {
-                run: (...args) => {
-                    const params = Array.isArray(args[0]) ? args[0] : args;
-                    const res = stmt.run(params);
-                    return { lastInsertRowid: res.lastInsertRowid, changes: res.changes };
-                },
-                get: (...args) => {
-                    const params = Array.isArray(args[0]) ? args[0] : args;
-                    return stmt.get(params);
-                },
-                all: (...args) => {
-                    const params = Array.isArray(args[0]) ? args[0] : args;
-                    return stmt.all(params);
-                }
-            };
-        } catch (e) {
-            logger.error(`[DB PREPARE] Failed: ${sql}`);
-            return { run: () => ({changes:0}), get: () => null, all: () => [] };
+      }
+
+      const dataToSave = { ...m }
+      delete dataToSave.fullData
+
+      // Merge with existing fullData if match already exists
+      let mergedData = dataToSave
+      try {
+        const existing = db.prepare('SELECT fullData FROM matches WHERE id = ?').get(m.id)
+        if (existing && existing.fullData) {
+          const existingParsed =
+            typeof existing.fullData === 'string'
+              ? JSON.parse(existing.fullData)
+              : existing.fullData
+          mergedData = { ...existingParsed, ...dataToSave }
         }
-    },
-    get: async (sql, params = []) => {
-        const sqliteSql = sql.replace(/\$\d+/g, '?');
-        return db.prepare(sqliteSql).get(params);
-    },
-    transaction: (fn) => (items) => {
-        const CHUNK_SIZE = 100;
-        const insertChunk = db.transaction((dataChunk) => {
-            for (const item of dataChunk) fn(item);
-        });
+      } catch (_) {}
 
-        // Split items into smaller chunks
-        for (let i = 0; i < items.length; i += CHUNK_SIZE) {
-            const chunk = items.slice(i, i + CHUNK_SIZE);
-            insertChunk(chunk);
-            // In synchronous land, this is all we can do to minimally segment the transaction object itself
-        }
-    },
+      const fullData = JSON.stringify(mergedData)
+      const stats = m.stats || m.statistics || {}
 
-    // -- NATIVE POSTGRES IMPLEMENTATIONS --
-    insertMatch: async (m) => {
-        try {
-            // Skip matches with placeholder team names
-            const home = (m.homeTeam || '').toString().toLowerCase()
-            const away = (m.awayTeam || '').toString().toLowerCase()
-            if (home === 'home' || away === 'away') {
-                logger.warn(`[DB] Skipping match ${m.id} — placeholder team name (${m.homeTeam} vs ${m.awayTeam})`)
-                return false
-            }
+      // Best odds = max des sources disponibles
+      m.best_odds_home = Math.max(m.odds_home || 0, m.best_odds_home || 0) || m.odds_home || null
+      m.best_odds_draw = Math.max(m.odds_draw || 0, m.best_odds_draw || 0) || m.odds_draw || null
+      m.best_odds_away = Math.max(m.odds_away || 0, m.best_odds_away || 0) || m.odds_away || null
 
-            let timestamp = new Date().toISOString();
-            if (m.startTimestamp) {
-                try {
-                    const d = new Date(m.startTimestamp * 1000);
-                    if (!isNaN(d.getTime())) timestamp = d.toISOString();
-                } catch (e) {
-                    logger.warn(`[DB] Invalid timestamp for ${m.id}: ${m.startTimestamp}`)
-                }
-            }
+      const timestampMs = m.timestamp ? new Date(m.timestamp).getTime() : null
+      const startTs =
+        m.startTimestamp != null
+          ? m.startTimestamp
+          : timestampMs
+            ? Math.floor(timestampMs / 1000)
+            : null
 
-            const dataToSave = { ...m };
-            delete dataToSave.fullData;
-
-            // Merge with existing fullData if match already exists
-            let mergedData = dataToSave
-            try {
-              const existing = db.prepare('SELECT fullData FROM matches WHERE id = ?').get(m.id)
-              if (existing && existing.fullData) {
-                const existingParsed = typeof existing.fullData === 'string' ? JSON.parse(existing.fullData) : existing.fullData
-                mergedData = { ...existingParsed, ...dataToSave }
-              }
-            } catch (_) {}
-
-            const fullData = JSON.stringify(mergedData);
-            const stats = m.stats || m.statistics || {};
-
-            // Best odds = max des sources disponibles
-            m.best_odds_home = Math.max(m.odds_home || 0, m.best_odds_home || 0) || m.odds_home || null
-            m.best_odds_draw = Math.max(m.odds_draw || 0, m.best_odds_draw || 0) || m.odds_draw || null
-            m.best_odds_away = Math.max(m.odds_away || 0, m.best_odds_away || 0) || m.odds_away || null
-
-            const timestampMs = m.timestamp ? new Date(m.timestamp).getTime() : null;
-            const startTs = m.startTimestamp != null ? m.startTimestamp : (timestampMs ? Math.floor(timestampMs / 1000) : null);
-
-            const sql = `
+      const sql = `
                 INSERT INTO matches (
                     id, bsd_match_id, homeTeam, awayTeam, league, scoreHome, scoreAway, 
                     minute, status, prediction, confidence, fullData, timestamp, startTimestamp,
@@ -730,167 +753,298 @@ const database = {
                     insufficient_data = excluded.insufficient_data,
                     timestamp = excluded.timestamp,
                     startTimestamp = excluded.startTimestamp;
-            `;
+            `
 
-            const params = [
-                m.id, m.bsd_match_id || null, m.homeTeam, m.awayTeam, m.league, m.score?.home ?? 0, m.score?.away ?? 0,
-                m.minute || '0', m.status || (m.isLive ? 'live' : 'scheduled'), m.prediction, m.confidence,
-                fullData, timestamp, startTs,
-                stats.possession?.home || m.possession_home || 0, stats.possession?.away || m.possession_away || 0,
-                stats.dangerousAttacks?.home || m.dangerous_attacks_home || 0, stats.dangerousAttacks?.away || m.dangerous_attacks_away || 0,
-                stats.totalShots?.home || m.shots_on_target_home || 0, stats.totalShots?.away || m.shots_on_target_away || 0,
-                stats.corners?.home || m.corners_home || 0, stats.corners?.away || m.corners_away || 0,
-                m.source || 'flashscore', Date.now(),
-                m.home_win_probability || 0, m.draw_probability || 0, m.away_win_probability || 0,
-                m.expected_score || null, m.chaos_score || 50, m.ou_25_prob || 0, m.btts_prob || 0,
-                m.xgboost_confidence || 0, m.news_impact || 0,
-                m.odds_home || null, m.odds_draw || null, m.odds_away || null,
-                m.best_odds_home || null, m.best_odds_draw || null, m.best_odds_away || null,
-                m.ev_home || null, m.ev_draw || null, m.ev_away || null, m.ev_best || 'NONE',
-                m.odds_home_open || m.odds_home || null, m.odds_draw_open || m.odds_draw || null, m.odds_away_open || m.odds_away || null,
-                m.true_prob_home || null, m.true_prob_draw || null, m.true_prob_away || null, m.true_prob_ou25 || null, m.true_prob_btts || null,
-                m.clv_value || 0, m.kelly_stake || 0,
-                m.weather_temp ?? null, m.weather_desc ?? null, m.weather_humidity ?? null,
-                m.home_form_pts || 0, m.away_form_pts || 0, m.insufficient_data || 0
-            ];
+      const params = [
+        m.id,
+        m.bsd_match_id || null,
+        m.homeTeam,
+        m.awayTeam,
+        m.league,
+        m.score?.home ?? 0,
+        m.score?.away ?? 0,
+        m.minute || '0',
+        m.status || (m.isLive ? 'live' : 'scheduled'),
+        m.prediction,
+        m.confidence,
+        fullData,
+        timestamp,
+        startTs,
+        stats.possession?.home || m.possession_home || 0,
+        stats.possession?.away || m.possession_away || 0,
+        stats.dangerousAttacks?.home || m.dangerous_attacks_home || 0,
+        stats.dangerousAttacks?.away || m.dangerous_attacks_away || 0,
+        stats.totalShots?.home || m.shots_on_target_home || 0,
+        stats.totalShots?.away || m.shots_on_target_away || 0,
+        stats.corners?.home || m.corners_home || 0,
+        stats.corners?.away || m.corners_away || 0,
+        m.source || 'flashscore',
+        Date.now(),
+        m.home_win_probability || 0,
+        m.draw_probability || 0,
+        m.away_win_probability || 0,
+        m.expected_score || null,
+        m.chaos_score || 50,
+        m.ou_25_prob || 0,
+        m.btts_prob || 0,
+        m.xgboost_confidence || 0,
+        m.news_impact || 0,
+        m.odds_home || null,
+        m.odds_draw || null,
+        m.odds_away || null,
+        m.best_odds_home || null,
+        m.best_odds_draw || null,
+        m.best_odds_away || null,
+        m.ev_home || null,
+        m.ev_draw || null,
+        m.ev_away || null,
+        m.ev_best || 'NONE',
+        m.odds_home_open || m.odds_home || null,
+        m.odds_draw_open || m.odds_draw || null,
+        m.odds_away_open || m.odds_away || null,
+        m.true_prob_home || null,
+        m.true_prob_draw || null,
+        m.true_prob_away || null,
+        m.true_prob_ou25 || null,
+        m.true_prob_btts || null,
+        m.clv_value || 0,
+        m.kelly_stake || 0,
+        m.weather_temp ?? null,
+        m.weather_desc ?? null,
+        m.weather_humidity ?? null,
+        m.home_form_pts || 0,
+        m.away_form_pts || 0,
+        m.insufficient_data || 0,
+      ]
 
-            db.prepare(sql).run(params);
-            return m.id;
-        } catch (err) { 
-            logger.error(`SQLite insertMatch error: ${err.message}`);
-            throw err; 
-        }
-    },
+      db.prepare(sql).run(params)
+      return m.id
+    } catch (err) {
+      logger.error(`SQLite insertMatch error: ${err.message}`)
+      throw err
+    }
+  },
 
-    getMatchesByStatuses: async (statuses = []) => {
-        if (!Array.isArray(statuses) || statuses.length === 0) return [];
+  getMatchesByStatuses: async (statuses = []) => {
+    if (!Array.isArray(statuses) || statuses.length === 0) return []
+    try {
+      const placeholders = statuses.map(() => '?').join(',')
+      const res = db
+        .prepare(`SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC`)
+        .all(statuses)
+      return res.map((r) => {
         try {
-            const placeholders = statuses.map(() => '?').join(',');
-            const res = db.prepare(`SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC`).all(statuses);
-            return res.map(r => {
-                try {
-                    const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
-                    return { 
-                        ...r, ...parsed, 
-                        id: r.id, 
-                        homeTeam: r.homeTeam || parsed.homeTeam, 
-                        awayTeam: r.awayTeam || parsed.awayTeam, 
-                        league: r.league || parsed.league,
-                        insufficient_data: r.insufficient_data
-                    };
-                } catch (e) { return r; }
-            });
+          const parsed = r.fullData
+            ? typeof r.fullData === 'string'
+              ? JSON.parse(r.fullData)
+              : r.fullData
+            : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+            insufficient_data: r.insufficient_data,
+          }
         } catch (e) {
-            logger.error(`[DB] getMatchesByStatuses failed: ${e.message}`);
-            return [];
+          return r
         }
-    },
+      })
+    } catch (e) {
+      logger.error(`[DB] getMatchesByStatuses failed: ${e.message}`)
+      return []
+    }
+  },
 
-    getAllMatches: async () => {
+  getAllMatches: async () => {
+    try {
+      const res = db.prepare(`SELECT * FROM matches ORDER BY timestamp DESC`).all()
+      return res.map((r) => {
         try {
-            const res = db.prepare(`SELECT * FROM matches ORDER BY timestamp DESC`).all();
-            return res.map(r => {
-                try {
-                    const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
-                    return { 
-                        ...r, ...parsed, 
-                        id: r.id, 
-                        homeTeam: r.homeTeam || parsed.homeTeam, 
-                        awayTeam: r.awayTeam || parsed.awayTeam, 
-                        league: r.league || parsed.league,
-                        insufficient_data: r.insufficient_data
-                    };
-                } catch (e) { return r; }
-            });
+          const parsed = r.fullData
+            ? typeof r.fullData === 'string'
+              ? JSON.parse(r.fullData)
+              : r.fullData
+            : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+            insufficient_data: r.insufficient_data,
+          }
         } catch (e) {
-            logger.error(`[DB] getAllMatches failed: ${e.message}`);
-            return [];
+          return r
         }
-    },
+      })
+    } catch (e) {
+      logger.error(`[DB] getAllMatches failed: ${e.message}`)
+      return []
+    }
+  },
 
-    /**
-     * Finds or creates a team alias to handle name normalization across sources.
-     * E.g., "ESPERANCE" -> "Esperance Tunis"
-     */
-    resolveTeamName: async (name) => {
-        if (!name) return null;
-        const normalized = name.toLowerCase().trim()
-            .replace(/%20/g, ' ')
-            .replace(/\s+/g, ' ')
-            .replace(/[.\-]/g, '');
-            
-        try {
-            // 1. Check if we have an alias in the registry
-            const row = db.prepare('SELECT name FROM team_registry WHERE normalized = ? OR name LIKE ? LIMIT 1')
-                .get(normalized, `%${normalized}%`);
-            
-            if (row) return row.name;
+  /**
+   * Finds or creates a team alias to handle name normalization across sources.
+   * E.g., "ESPERANCE" -> "Esperance Tunis"
+   */
+  resolveTeamName: async (name) => {
+    if (!name) return null
+    const normalized = name
+      .toLowerCase()
+      .trim()
+      .replace(/%20/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/[.\-]/g, '')
 
-            // 2. If not found, add it as a new entry for future learning
-            db.prepare('INSERT OR IGNORE INTO team_registry (name, normalized, last_seen) VALUES (?, ?, ?)')
-                .run(name, normalized, Date.now());
-            
-            return name;
-        } catch (e) {
-            return name;
+    try {
+      // 1. Check if we have an alias in the registry
+      const row = db
+        .prepare('SELECT name FROM team_registry WHERE normalized = ? OR name LIKE ? LIMIT 1')
+        .get(normalized, `%${normalized}%`)
+
+      if (row) return row.name
+
+      // 2. If not found, add it as a new entry for future learning
+      db.prepare(
+        'INSERT OR IGNORE INTO team_registry (name, normalized, last_seen) VALUES (?, ?, ?)'
+      ).run(name, normalized, Date.now())
+
+      return name
+    } catch (e) {
+      return name
+    }
+  },
+
+  getMatchById: async (id) => {
+    try {
+      const r = db.prepare('SELECT * FROM matches WHERE id = ?').get(id)
+      if (!r) return null
+      try {
+        const parsed = r.fullData
+          ? typeof r.fullData === 'string'
+            ? JSON.parse(r.fullData)
+            : r.fullData
+          : {}
+        return {
+          ...r,
+          ...parsed,
+          id: r.id,
+          homeTeam: r.homeTeam || parsed.homeTeam,
+          awayTeam: r.awayTeam || parsed.awayTeam,
+          league: r.league || parsed.league,
         }
-    },
+      } catch (e) {
+        return r
+      }
+    } catch (err) {
+      return null
+    }
+  },
 
-    getMatchById: async (id) => {
-        try {
-            const r = db.prepare("SELECT * FROM matches WHERE id = ?").get(id);
-            if (!r) return null;
-            try {
-                const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
-                return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league };
-            } catch (e) { return r; }
-        } catch (err) { return null; }
-    },
-    
-    updatePredictions: async (matchId, data) => {
-        try {
-            const row = db.prepare('SELECT fullData FROM matches WHERE id = ?').get(matchId);
-            if (!row) return false;
-            
-            let fullData = row.fullData ? (typeof row.fullData === 'string' ? JSON.parse(row.fullData) : row.fullData) : {};
-            
-            // Ensure we have a clean enriched object
-            const enriched = data.enriched || (data.home_win_probability ? data : null);
-            
-            fullData = { 
-                ...fullData, 
-                ...data,
-                enriched: enriched ? { ...(fullData.enriched || {}), ...enriched } : fullData.enriched,
-                last_updated: Date.now() 
-            };
-            
-            // If data was already enriched, flatten important fields to top level for DB queries
-            if (enriched) {
-                fullData.home_win_probability = enriched.home_win_probability || fullData.home_win_probability;
-                fullData.draw_probability = enriched.draw_probability || fullData.draw_probability;
-                fullData.away_win_probability = enriched.away_win_probability || fullData.away_win_probability;
-                fullData.master_v20 = enriched.master_v20 || fullData.master_v20;
-            }
-            
-            delete fullData.id;
-            delete fullData.fullData;
-            if (fullData.enriched && fullData.enriched.enriched) delete fullData.enriched.enriched;
+  updatePredictions: async (matchId, data) => {
+    try {
+      const row = db.prepare('SELECT fullData FROM matches WHERE id = ?').get(matchId)
+      if (!row) return false
 
-            const verdict = data.prediction || (data.enriched && data.enriched.prediction) || data.verdict || 'RISKY BET';
+      let fullData = row.fullData
+        ? typeof row.fullData === 'string'
+          ? JSON.parse(row.fullData)
+          : row.fullData
+        : {}
 
-            // Extract scalar values to write into indexed SQLite columns
-            // Use null when no source provides a value (allows clearing)
-            const hProb  = data.home_win_probability !== undefined ? parseFloat(data.home_win_probability) : (enriched?.home_win_probability !== undefined ? parseFloat(enriched.home_win_probability) : (fullData.home_win_probability !== undefined ? parseFloat(fullData.home_win_probability) : null));
-            const dProb  = data.draw_probability !== undefined ? parseFloat(data.draw_probability) : (enriched?.draw_probability !== undefined ? parseFloat(enriched.draw_probability) : (fullData.draw_probability !== undefined ? parseFloat(fullData.draw_probability) : null));
-            const aProb  = data.away_win_probability !== undefined ? parseFloat(data.away_win_probability) : (enriched?.away_win_probability !== undefined ? parseFloat(enriched.away_win_probability) : (fullData.away_win_probability !== undefined ? parseFloat(fullData.away_win_probability) : null));
-            const ou25   = data.ou_25_prob !== undefined ? parseFloat(data.ou_25_prob) : (enriched?.ou_25_prob !== undefined ? parseFloat(enriched.ou_25_prob) : (data.ou_2_5_prob !== undefined ? parseFloat(data.ou_2_5_prob) : null));
-            const bttsp  = data.btts_prob !== undefined ? parseFloat(data.btts_prob) : (enriched?.btts_prob !== undefined ? parseFloat(enriched.btts_prob) : null);
-            const expScr = data.expected_score || enriched?.expected_score || fullData.expected_score || null;
-            const conf   = data.confidence !== undefined ? parseFloat(data.confidence) : (enriched?.confidence !== undefined ? parseFloat(enriched.confidence) : (data.v22_success_rate !== undefined ? parseFloat(data.v22_success_rate) : null));
-            const xgbConf = data.xgboost_confidence !== undefined ? parseFloat(data.xgboost_confidence) : (enriched?.xgboost_confidence !== undefined ? parseFloat(enriched.xgboost_confidence) : null);
+      // Ensure we have a clean enriched object
+      const enriched = data.enriched || (data.home_win_probability ? data : null)
 
-            // ⚡ Write BOTH fullData JSON AND individual indexed columns
-            const sql = `
+      fullData = {
+        ...fullData,
+        ...data,
+        enriched: enriched ? { ...(fullData.enriched || {}), ...enriched } : fullData.enriched,
+        last_updated: Date.now(),
+      }
+
+      // If data was already enriched, flatten important fields to top level for DB queries
+      if (enriched) {
+        fullData.home_win_probability =
+          enriched.home_win_probability || fullData.home_win_probability
+        fullData.draw_probability = enriched.draw_probability || fullData.draw_probability
+        fullData.away_win_probability =
+          enriched.away_win_probability || fullData.away_win_probability
+        fullData.master_v20 = enriched.master_v20 || fullData.master_v20
+      }
+
+      delete fullData.id
+      delete fullData.fullData
+      if (fullData.enriched && fullData.enriched.enriched) delete fullData.enriched.enriched
+
+      const verdict =
+        data.prediction ||
+        (data.enriched && data.enriched.prediction) ||
+        data.verdict ||
+        'RISKY BET'
+
+      // Extract scalar values to write into indexed SQLite columns
+      // Use null when no source provides a value (allows clearing)
+      const hProb =
+        data.home_win_probability !== undefined
+          ? parseFloat(data.home_win_probability)
+          : enriched?.home_win_probability !== undefined
+            ? parseFloat(enriched.home_win_probability)
+            : fullData.home_win_probability !== undefined
+              ? parseFloat(fullData.home_win_probability)
+              : null
+      const dProb =
+        data.draw_probability !== undefined
+          ? parseFloat(data.draw_probability)
+          : enriched?.draw_probability !== undefined
+            ? parseFloat(enriched.draw_probability)
+            : fullData.draw_probability !== undefined
+              ? parseFloat(fullData.draw_probability)
+              : null
+      const aProb =
+        data.away_win_probability !== undefined
+          ? parseFloat(data.away_win_probability)
+          : enriched?.away_win_probability !== undefined
+            ? parseFloat(enriched.away_win_probability)
+            : fullData.away_win_probability !== undefined
+              ? parseFloat(fullData.away_win_probability)
+              : null
+      const ou25 =
+        data.ou_25_prob !== undefined
+          ? parseFloat(data.ou_25_prob)
+          : enriched?.ou_25_prob !== undefined
+            ? parseFloat(enriched.ou_25_prob)
+            : data.ou_2_5_prob !== undefined
+              ? parseFloat(data.ou_2_5_prob)
+              : null
+      const bttsp =
+        data.btts_prob !== undefined
+          ? parseFloat(data.btts_prob)
+          : enriched?.btts_prob !== undefined
+            ? parseFloat(enriched.btts_prob)
+            : null
+      const expScr =
+        data.expected_score || enriched?.expected_score || fullData.expected_score || null
+      const conf =
+        data.confidence !== undefined
+          ? parseFloat(data.confidence)
+          : enriched?.confidence !== undefined
+            ? parseFloat(enriched.confidence)
+            : data.v22_success_rate !== undefined
+              ? parseFloat(data.v22_success_rate)
+              : null
+      const xgbConf =
+        data.xgboost_confidence !== undefined
+          ? parseFloat(data.xgboost_confidence)
+          : enriched?.xgboost_confidence !== undefined
+            ? parseFloat(enriched.xgboost_confidence)
+            : null
+
+      // ⚡ Write BOTH fullData JSON AND individual indexed columns
+      const sql = `
                 UPDATE matches SET 
                     "fullData" = ?,
                     prediction = ?,
@@ -917,182 +1071,276 @@ const database = {
                     "motivation_signature" = ?,
                     "insufficient_data" = CASE WHEN ? IS NOT NULL THEN ? ELSE 0 END
                 WHERE id = ?
-            `;
+            `
 
-            const params = [
-                JSON.stringify(fullData), verdict, Date.now(),
-                hProb, hProb,
-                dProb, dProb,
-                aProb, aProb,
-                ou25,  ou25,
-                bttsp, bttsp,
-                expScr, expScr,
-                conf,  conf,
-                xgbConf, xgbConf,
-                data.ev_home ?? null, data.ev_home ?? null,
-                data.ev_draw ?? null, data.ev_draw ?? null,
-                data.ev_away ?? null, data.ev_away ?? null,
-                data.kelly_stake ?? null, data.kelly_stake ?? null,
-                data.true_prob_home ?? null, data.true_prob_home ?? null,
-                data.true_prob_draw ?? null, data.true_prob_draw ?? null,
-                data.true_prob_away ?? null, data.true_prob_away ?? null,
-                data.weather_temp ?? null, data.weather_temp ?? null,
-                data.weather_humidity ?? null, data.weather_humidity ?? null,
-                data.home_form_pts ?? null, data.home_form_pts ?? null,
-                data.away_form_pts ?? null, data.away_form_pts ?? null,
-                data.motivation_signature || enriched?.motivation_signature || 'Logique Standard',
-                data.insufficient_data ?? null, data.insufficient_data ?? null,
-                matchId
-            ];
+      const params = [
+        JSON.stringify(fullData),
+        verdict,
+        Date.now(),
+        hProb,
+        hProb,
+        dProb,
+        dProb,
+        aProb,
+        aProb,
+        ou25,
+        ou25,
+        bttsp,
+        bttsp,
+        expScr,
+        expScr,
+        conf,
+        conf,
+        xgbConf,
+        xgbConf,
+        data.ev_home ?? null,
+        data.ev_home ?? null,
+        data.ev_draw ?? null,
+        data.ev_draw ?? null,
+        data.ev_away ?? null,
+        data.ev_away ?? null,
+        data.kelly_stake ?? null,
+        data.kelly_stake ?? null,
+        data.true_prob_home ?? null,
+        data.true_prob_home ?? null,
+        data.true_prob_draw ?? null,
+        data.true_prob_draw ?? null,
+        data.true_prob_away ?? null,
+        data.true_prob_away ?? null,
+        data.weather_temp ?? null,
+        data.weather_temp ?? null,
+        data.weather_humidity ?? null,
+        data.weather_humidity ?? null,
+        data.home_form_pts ?? null,
+        data.home_form_pts ?? null,
+        data.away_form_pts ?? null,
+        data.away_form_pts ?? null,
+        data.motivation_signature || enriched?.motivation_signature || 'Logique Standard',
+        data.insufficient_data ?? null,
+        data.insufficient_data ?? null,
+        matchId,
+      ]
 
-            // 🛡️ [STABILITY] Atomic transaction + Retry for SQLite "Database is locked"
-            const histSql = `
+      // 🛡️ [STABILITY] Atomic transaction + Retry for SQLite "Database is locked"
+      const histSql = `
                 INSERT INTO prediction_history (match_id, league, prediction_type, prediction_val, probability, status, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(match_id, prediction_type) DO UPDATE SET
                 probability = excluded.probability,
                 prediction_val = excluded.prediction_val
             `
-            const updateTransaction = db.transaction(() => {
-                db.prepare(sql).run(params)
-                if (hProb > 0) db.prepare(histSql).run(matchId, fullData.league, 'Home', 'Win', hProb/100, 'pending', Date.now())
-                if (aProb > 0) db.prepare(histSql).run(matchId, fullData.league, 'Away', 'Win', aProb/100, 'pending', Date.now())
-                if (dProb > 0) db.prepare(histSql).run(matchId, fullData.league, 'Draw', 'Draw', dProb/100, 'pending', Date.now())
-            })
+      const updateTransaction = db.transaction(() => {
+        db.prepare(sql).run(params)
+        if (hProb > 0)
+          db.prepare(histSql).run(
+            matchId,
+            fullData.league,
+            'Home',
+            'Win',
+            hProb / 100,
+            'pending',
+            Date.now()
+          )
+        if (aProb > 0)
+          db.prepare(histSql).run(
+            matchId,
+            fullData.league,
+            'Away',
+            'Win',
+            aProb / 100,
+            'pending',
+            Date.now()
+          )
+        if (dProb > 0)
+          db.prepare(histSql).run(
+            matchId,
+            fullData.league,
+            'Draw',
+            'Draw',
+            dProb / 100,
+            'pending',
+            Date.now()
+          )
+      })
 
-            let attempts = 0;
-            while (attempts < 3) {
-                try {
-                    updateTransaction()
-                    logger.info(`✅ [DB] AI Enrichment persisted for ${matchId} — Home:${hProb.toFixed(1)}% Draw:${dProb.toFixed(1)}% Away:${aProb.toFixed(1)}%`);
-                    return true;
-                } catch (err) {
-                    attempts++;
-                    if (err.message.includes('busy') || err.message.includes('locked')) {
-                        logger.warn(`⚠️ [DB] Database busy, retry ${attempts}/3 for ${matchId}...`);
-                        await new Promise(r => setTimeout(r, 500 * attempts));
-                    } else {
-                        logger.error(`❌ [DB] updatePredictions transaction failed for ${matchId}: ${err.message}`);
-                        return false;
-                    }
-                }
-            }
-            return false;
-        } catch (e) {
-            logger.error(`❌ [DB] updatePredictions failed for ${matchId}: ${e.message}`);
-            return false;
+      let attempts = 0
+      while (attempts < 3) {
+        try {
+          updateTransaction()
+          logger.info(
+            `✅ [DB] AI Enrichment persisted for ${matchId} — Home:${hProb.toFixed(1)}% Draw:${dProb.toFixed(1)}% Away:${aProb.toFixed(1)}%`
+          )
+          return true
+        } catch (err) {
+          attempts++
+          if (err.message.includes('busy') || err.message.includes('locked')) {
+            logger.warn(`⚠️ [DB] Database busy, retry ${attempts}/3 for ${matchId}...`)
+            await new Promise((r) => setTimeout(r, 500 * attempts))
+          } else {
+            logger.error(
+              `❌ [DB] updatePredictions transaction failed for ${matchId}: ${err.message}`
+            )
+            return false
+          }
         }
-    },
+      }
+      return false
+    } catch (e) {
+      logger.error(`❌ [DB] updatePredictions failed for ${matchId}: ${e.message}`)
+      return false
+    }
+  },
 
-    getLatestMatchTimestamp: async () => {
-        const row = db.prepare("SELECT MAX(timestamp) as lastupdate FROM matches").get();
-        return row?.lastupdate;
-    },
+  getLatestMatchTimestamp: async () => {
+    const row = db.prepare('SELECT MAX(timestamp) as lastupdate FROM matches').get()
+    return row?.lastupdate
+  },
 
-    getLeagueAverages: async () => { return { avgTotalGoals: 2.7, avgHomeGoals: 1.5, avgAwayGoals: 1.2, matchCount: 0 }; },
+  getLeagueAverages: async () => {
+    return { avgTotalGoals: 2.7, avgHomeGoals: 1.5, avgAwayGoals: 1.2, matchCount: 0 }
+  },
 
-    getAllLeaguesConfig: async () => {
-        try {
-            return db.prepare("SELECT * FROM leagues_config ORDER BY tier ASC, name ASC").all();
-        } catch (e) { return []; } 
-    },
+  getAllLeaguesConfig: async () => {
+    try {
+      return db.prepare('SELECT * FROM leagues_config ORDER BY tier ASC, name ASC').all()
+    } catch (e) {
+      return []
+    }
+  },
 
-    insertPlayerStat: async (stat) => { return true; }, // Handled outside directly or ignored initially
-    getPlayerStatsByTeam: async (teamName) => { return []; },
-    insertVisionLog: async (desc) => { return true; },
-    getHighImpactScheduledMatches: async () => {
-        try {
-            const rows = db.prepare(`
+  insertPlayerStat: async (stat) => {
+    return true
+  }, // Handled outside directly or ignored initially
+  getPlayerStatsByTeam: async (teamName) => {
+    return []
+  },
+  insertVisionLog: async (desc) => {
+    return true
+  },
+  getHighImpactScheduledMatches: async () => {
+    try {
+      const rows = db
+        .prepare(
+          `
                 SELECT * FROM matches 
                 WHERE status = 'scheduled' 
                 AND (json_extract(fullData, '$.news_data') IS NOT NULL)
                 ORDER BY timestamp ASC LIMIT 20
-            `).all();
-            return rows.map(r => {
-                const parsed = JSON.parse(r.fullData || '{}');
-                return { ...r, ...parsed };
-            });
-        } catch (e) { return []; }
-    },
-    getNewsPrecisionHistory: async () => {
-        try {
-            const rows = db.prepare(`
+            `
+        )
+        .all()
+      return rows.map((r) => {
+        const parsed = JSON.parse(r.fullData || '{}')
+        return { ...r, ...parsed }
+      })
+    } catch (e) {
+      return []
+    }
+  },
+  getNewsPrecisionHistory: async () => {
+    try {
+      const rows = db
+        .prepare(
+          `
                 SELECT homeTeam, awayTeam, status, scoreHome, scoreAway, fullData
                 FROM matches 
                 WHERE status IN ('FT', 'finished', 'Finished')
                 ORDER BY timestamp DESC LIMIT 30
-            `).all();
-            
-            let total = 0;
-            let hits = 0;
-            const matches = [];
+            `
+        )
+        .all()
 
-            for (const r of rows) {
-                const data = JSON.parse(r.fullData || '{}');
-                const pronos = (data.enriched && data.enriched.main_predictions) ? data.enriched.main_predictions : (data.predictions || []);
-                if (pronos.length === 0) continue;
+      let total = 0
+      let hits = 0
+      const matches = []
 
-                total++;
-                const actual = r.scoreHome > r.scoreAway ? 'H' : r.scoreHome < r.scoreAway ? 'A' : 'D';
-                
-                // Simplified success check
-                let success = false;
-                pronos.forEach(p => {
-                    const val = (p.val || '').toLowerCase();
-                    if (val.includes('home') || val.includes('🏠') || val.includes('1')) {
-                        if (actual === 'H') success = true;
-                    } else if (val.includes('away') || val.includes('✈️') || val.includes('2')) {
-                        if (actual === 'A') success = true;
-                    } else if (val.includes('draw') || val.includes('x')) {
-                        if (actual === 'D') success = true;
-                    }
-                });
+      for (const r of rows) {
+        const data = JSON.parse(r.fullData || '{}')
+        const pronos =
+          data.enriched && data.enriched.main_predictions
+            ? data.enriched.main_predictions
+            : data.predictions || []
+        if (pronos.length === 0) continue
 
-                if (success) hits++;
-                matches.push({
-                    id: r.id?.toString() || `${r.homeTeam}_${r.awayTeam}_${Date.now()}`,
-                    homeTeam: r.homeTeam,
-                    awayTeam: r.awayTeam,
-                    impact: 'High',
-                    success: success
-                });
-            }
+        total++
+        const actual = r.scoreHome > r.scoreAway ? 'H' : r.scoreHome < r.scoreAway ? 'A' : 'D'
 
-            return {
-                total,
-                accuracy: total > 0 ? Math.round((hits / total) * 100) : 0,
-                matches: matches.slice(0, 10)
-            };
-        } catch (e) { return { total: 0, accuracy: 0, matches: [] }; }
-    },
-    seedLeagues: async (leagues) => { return true; },
-    getTeamMatchHistory: async (teamName, limit=5) => { return []; },
-    getTeamAvgXg: async (teamName) => {
-        try {
-            const name = teamName?.toLowerCase()?.trim();
-            if (!name) return null;
-            const row = db.prepare(`
+        // Simplified success check
+        let success = false
+        pronos.forEach((p) => {
+          const val = (p.val || '').toLowerCase()
+          if (val.includes('home') || val.includes('🏠') || val.includes('1')) {
+            if (actual === 'H') success = true
+          } else if (val.includes('away') || val.includes('✈️') || val.includes('2')) {
+            if (actual === 'A') success = true
+          } else if (val.includes('draw') || val.includes('x')) {
+            if (actual === 'D') success = true
+          }
+        })
+
+        if (success) hits++
+        matches.push({
+          id: r.id?.toString() || `${r.homeTeam}_${r.awayTeam}_${Date.now()}`,
+          homeTeam: r.homeTeam,
+          awayTeam: r.awayTeam,
+          impact: 'High',
+          success: success,
+        })
+      }
+
+      return {
+        total,
+        accuracy: total > 0 ? Math.round((hits / total) * 100) : 0,
+        matches: matches.slice(0, 10),
+      }
+    } catch (e) {
+      return { total: 0, accuracy: 0, matches: [] }
+    }
+  },
+  seedLeagues: async (leagues) => {
+    return true
+  },
+  getTeamMatchHistory: async (teamName, limit = 5) => {
+    return []
+  },
+  getTeamAvgXg: async (teamName) => {
+    try {
+      const name = teamName?.toLowerCase()?.trim()
+      if (!name) return null
+      const row = db
+        .prepare(
+          `
                 SELECT AVG(home_xg) as avg_h, AVG(away_xg) as avg_a
                 FROM matches
                 WHERE (LOWER(homeTeam) = ? OR LOWER(awayTeam) = ?)
                   AND home_xg IS NOT NULL AND away_xg IS NOT NULL
-            `).get(name, name);
-            if (!row) return null;
-            return { homeAvg: row.avg_h, awayAvg: row.avg_a, overallAvg: ((row.avg_h || 0) + (row.avg_a || 0)) / 2 };
-        } catch (e) { return null; }
-    },
-    archiveFinishedMatches: async () => {
-        try {
-            const finished = db.prepare("SELECT * FROM matches WHERE status IN ('FT', 'finished', 'Finished', 'Ended')").all();
-            if (finished.length === 0) return { success: true, archivedCount: 0 };
+            `
+        )
+        .get(name, name)
+      if (!row) return null
+      return {
+        homeAvg: row.avg_h,
+        awayAvg: row.avg_a,
+        overallAvg: ((row.avg_h || 0) + (row.avg_a || 0)) / 2,
+      }
+    } catch (e) {
+      return null
+    }
+  },
+  archiveFinishedMatches: async () => {
+    try {
+      const finished = db
+        .prepare("SELECT * FROM matches WHERE status IN ('FT', 'finished', 'Finished', 'Ended')")
+        .all()
+      if (finished.length === 0) return { success: true, archivedCount: 0 }
 
-            const insert = db.prepare(`
+      const insert = db.prepare(`
                 INSERT INTO historical_matches (id, homeTeam, awayTeam, scoreHome, scoreAway, league, fullData, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO NOTHING
-            `);
-            
-            const updateHist = db.prepare(`
+            `)
+
+      const updateHist = db.prepare(`
                 UPDATE prediction_history 
                 SET status = 'finished', 
                     result = CASE 
@@ -1102,102 +1350,141 @@ const database = {
                         ELSE 'lost'
                     END
                 WHERE match_id = ? AND prediction_type IN ('Home', 'Away', 'Draw')
-            `);
+            `)
 
-            const deleteStmt = db.prepare("DELETE FROM matches WHERE id = ?");
+      const deleteStmt = db.prepare('DELETE FROM matches WHERE id = ?')
 
-            let count = 0;
-            const transaction = db.transaction((rows) => {
-                for (const r of rows) {
-                    const sh = r.scoreHome ?? 0;
-                    const sa = r.scoreAway ?? 0;
-                    
-                    insert.run(r.id, r.homeTeam, r.awayTeam, sh, sa, r.league, r.fullData || '{}', r.timestamp || new Date().toISOString());
-                    updateHist.run(sh, sa, sh, sa, sh, sa, r.id);
-                    deleteStmt.run(r.id);
-                    count++;
-                }
-            });
+      let count = 0
+      const transaction = db.transaction((rows) => {
+        for (const r of rows) {
+          const sh = r.scoreHome ?? 0
+          const sa = r.scoreAway ?? 0
 
-            transaction(finished);
-            logger.info(`📦 [DB] Archived ${count} matches to historical_matches.`);
-            return { success: true, archivedCount: count };
-        } catch (e) {
-            logger.error(`❌ [DB] Archive failed: ${e.message}`);
-            return { success: false, error: e.message };
+          insert.run(
+            r.id,
+            r.homeTeam,
+            r.awayTeam,
+            sh,
+            sa,
+            r.league,
+            r.fullData || '{}',
+            r.timestamp || new Date().toISOString()
+          )
+          updateHist.run(sh, sa, sh, sa, sh, sa, r.id)
+          deleteStmt.run(r.id)
+          count++
         }
-    },
-    getRecentArchivedMatches: async (limit = 50) => {
-        try {
-            const rows = db.prepare("SELECT * FROM historical_matches WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY archived_at DESC LIMIT ?").all(limit);
-            return rows.map(r => {
-                const fd = (() => { try { return JSON.parse(r.fullData || '{}') } catch { return {} } })()
-                return {
-                    ...r,
-                    ...fd,
-                    id: r.id,
-                    homeTeam: r.homeTeam,
-                    awayTeam: r.awayTeam,
-                    scoreHome: r.scoreHome,
-                    scoreAway: r.scoreAway,
-                    league: r.league,
-                    timestamp: r.timestamp
-                }
-            })
-        } catch (e) {
-            logger.warn(`[DB] getRecentArchivedMatches error: ${e.message}`)
-            return []
-        }
-    },
-    insertSnapshot: async (matchId, minute, stats) => { return true; },
-    getSnapshotBefore: async (matchId, beforeTimestamp) => { return null; },
+      })
 
-    // ── LIVE PREDICTION LOGGING ────────────────────────────────────
-    logLivePrediction: async (snapshot) => {
-        try {
-            const sql = `
+      transaction(finished)
+      logger.info(`📦 [DB] Archived ${count} matches to historical_matches.`)
+      return { success: true, archivedCount: count }
+    } catch (e) {
+      logger.error(`❌ [DB] Archive failed: ${e.message}`)
+      return { success: false, error: e.message }
+    }
+  },
+  getRecentArchivedMatches: async (limit = 50) => {
+    try {
+      const rows = db
+        .prepare(
+          'SELECT * FROM historical_matches WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY archived_at DESC LIMIT ?'
+        )
+        .all(limit)
+      return rows.map((r) => {
+        const fd = (() => {
+          try {
+            return JSON.parse(r.fullData || '{}')
+          } catch {
+            return {}
+          }
+        })()
+        return {
+          ...r,
+          ...fd,
+          id: r.id,
+          homeTeam: r.homeTeam,
+          awayTeam: r.awayTeam,
+          scoreHome: r.scoreHome,
+          scoreAway: r.scoreAway,
+          league: r.league,
+          timestamp: r.timestamp,
+        }
+      })
+    } catch (e) {
+      logger.warn(`[DB] getRecentArchivedMatches error: ${e.message}`)
+      return []
+    }
+  },
+  insertSnapshot: async (matchId, minute, stats) => {
+    return true
+  },
+  getSnapshotBefore: async (matchId, beforeTimestamp) => {
+    return null
+  },
+
+  // ── LIVE PREDICTION LOGGING ────────────────────────────────────
+  logLivePrediction: async (snapshot) => {
+    try {
+      const sql = `
                 INSERT INTO live_prediction_logs
                     (match_id, home_team, away_team, league, minute, score_home, score_away,
                      prediction_next5, prediction_next10, prediction_next15,
                      home_xg, away_xg, home_shots_on_target, away_shots_on_target,
                      home_corners, away_corners, home_possession, alert_level, source)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-            const res = db.prepare(sql).run(
-                snapshot.matchId, snapshot.homeTeam, snapshot.awayTeam, snapshot.league,
-                snapshot.minute, snapshot.scoreHome, snapshot.scoreAway,
-                snapshot.predNext5, snapshot.predNext10, snapshot.predNext15,
-                snapshot.homeXg || 0, snapshot.awayXg || 0,
-                snapshot.homeSot || 0, snapshot.awaySot || 0,
-                snapshot.homeCorners || 0, snapshot.awayCorners || 0,
-                snapshot.homePossession || 50, snapshot.alertLevel || 'NORMAL',
-                snapshot.source || 'unknown'
-            );
-            return res.lastInsertRowid
-        } catch (e) {
-            logger.error(`[DB] logLivePrediction failed: ${e.message}`)
-            return null
-        }
-    },
+            `
+      const res = db
+        .prepare(sql)
+        .run(
+          snapshot.matchId,
+          snapshot.homeTeam,
+          snapshot.awayTeam,
+          snapshot.league,
+          snapshot.minute,
+          snapshot.scoreHome,
+          snapshot.scoreAway,
+          snapshot.predNext5,
+          snapshot.predNext10,
+          snapshot.predNext15,
+          snapshot.homeXg || 0,
+          snapshot.awayXg || 0,
+          snapshot.homeSot || 0,
+          snapshot.awaySot || 0,
+          snapshot.homeCorners || 0,
+          snapshot.awayCorners || 0,
+          snapshot.homePossession || 50,
+          snapshot.alertLevel || 'NORMAL',
+          snapshot.source || 'unknown'
+        )
+      return res.lastInsertRowid
+    } catch (e) {
+      logger.error(`[DB] logLivePrediction failed: ${e.message}`)
+      return null
+    }
+  },
 
-    updateLivePredictionOutcomes: async (matchId, finalScoreHome, finalScoreAway) => {
-        try {
-            const logs = db.prepare(
-                `SELECT id, minute, score_home, score_away FROM live_prediction_logs
+  updateLivePredictionOutcomes: async (matchId, finalScoreHome, finalScoreAway) => {
+    try {
+      const logs = db
+        .prepare(
+          `SELECT id, minute, score_home, score_away FROM live_prediction_logs
                  WHERE match_id = ? AND outcome_checked = 0 ORDER BY minute ASC`
-            ).all(matchId);
+        )
+        .all(matchId)
 
-            for (const log of logs) {
-                const next5goal = log.minute + 5
-                const next10goal = log.minute + 10
-                const next15goal = log.minute + 15
+      for (const log of logs) {
+        const next5goal = log.minute + 5
+        const next10goal = log.minute + 10
+        const next15goal = log.minute + 15
 
-                const actualGoalMinute = null // Unknown without granular live data
-                const goalNext5 = finalScoreHome + finalScoreAway > log.score_home + log.score_away ? 1 : 0
-                const goalNext10 = goalNext5
-                const goalNext15 = goalNext5
+        const actualGoalMinute = null // Unknown without granular live data
+        const goalNext5 = finalScoreHome + finalScoreAway > log.score_home + log.score_away ? 1 : 0
+        const goalNext10 = goalNext5
+        const goalNext15 = goalNext5
 
-                db.prepare(`
+        db.prepare(
+          `
                     UPDATE live_prediction_logs SET
                         actual_goal_next5 = ?,
                         actual_goal_next10 = ?,
@@ -1207,114 +1494,156 @@ const database = {
                         outcome_checked = 1,
                         checked_at = datetime('now')
                     WHERE id = ?
-                `).run(goalNext5, goalNext10, goalNext15, finalScoreHome, finalScoreAway, log.id);
-            }
+                `
+        ).run(goalNext5, goalNext10, goalNext15, finalScoreHome, finalScoreAway, log.id)
+      }
 
-            if (logs.length > 0) {
-                logger.info(`[DB] Updated ${logs.length} live prediction outcomes for match ${matchId}`)
-            }
-            return logs.length
-        } catch (e) {
-            logger.error(`[DB] updateLivePredictionOutcomes failed: ${e.message}`)
-            return 0
-        }
-    },
+      if (logs.length > 0) {
+        logger.info(`[DB] Updated ${logs.length} live prediction outcomes for match ${matchId}`)
+      }
+      return logs.length
+    } catch (e) {
+      logger.error(`[DB] updateLivePredictionOutcomes failed: ${e.message}`)
+      return 0
+    }
+  },
 
-    getLivePredictionsForTraining: async (limit = 5000) => {
-        try {
-            return db.prepare(`
+  getLivePredictionsForTraining: async (limit = 5000) => {
+    try {
+      return db
+        .prepare(
+          `
                 SELECT * FROM live_prediction_logs
                 WHERE outcome_checked = 1 AND actual_goal_next5 IS NOT NULL
                 ORDER BY created_at DESC LIMIT ?
-            `).all(limit);
-        } catch (e) {
-            logger.error(`[DB] getLivePredictionsForTraining failed: ${e.message}`)
-            return []
-        }
-    },
+            `
+        )
+        .all(limit)
+    } catch (e) {
+      logger.error(`[DB] getLivePredictionsForTraining failed: ${e.message}`)
+      return []
+    }
+  },
 
-    getUncheckedLivePredictions: async () => {
-        try {
-            return db.prepare(
-                `SELECT DISTINCT match_id FROM live_prediction_logs WHERE outcome_checked = 0`
-            ).all();
-        } catch (e) {
-            return []
-        }
-    },
-    insertPattern: async (match) => {
-        try {
-            const sql = `
+  getUncheckedLivePredictions: async () => {
+    try {
+      return db
+        .prepare(`SELECT DISTINCT match_id FROM live_prediction_logs WHERE outcome_checked = 0`)
+        .all()
+    } catch (e) {
+      return []
+    }
+  },
+  insertPattern: async (match) => {
+    try {
+      const sql = `
                 INSERT INTO winning_patterns (match_id, league, homeTeam, awayTeam, prediction, result, score, fullData)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-            const result = match.status === 'finished' ? 'WIN' : 'UNKNOWN'; 
-            const scoreStr = `${match.scoreHome}-${match.scoreAway}`;
-            
-            db.prepare(sql).run(
-                match.id, 
-                match.league, 
-                match.homeTeam, 
-                match.awayTeam, 
-                match.prediction || 'N/A', 
-                result, 
-                scoreStr, 
-                match.fullData || JSON.stringify(match)
-            );
-            return true;
-        } catch (e) {
-            logger.error(`❌ [DB] insertPattern failed: ${e.message}`);
-            return false;
-        }
-    },
-    getAllPatterns: async (limit=100) => {
-        try {
-            return db.prepare("SELECT * FROM winning_patterns ORDER BY timestamp DESC LIMIT ?").all(limit);
-        } catch (e) { return []; }
-    },
-    getUpcomingPredictions: async () => { return []; },
-    insertPrediction: async (p) => { return p.id; },
-    getMatchesByStatus: async (status, limit = null) => {
-        const parsedStatus = status === 'live' ? 'live' : (status === 'scheduled' ? 'scheduled' : status);
-        const sql = limit ? `SELECT * FROM matches WHERE status = ? ORDER BY timestamp ASC LIMIT ?` : `SELECT * FROM matches WHERE status = ? ORDER BY timestamp ASC`;
-        const params = limit ? [parsedStatus, limit] : [parsedStatus];
-        const res = db.prepare(sql).all(...params);
-        return res.map(r => {
-            try {
-                const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
-                return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league };
-            } catch (e) { return r; }
-        });
-    },
+            `
+      const result = match.status === 'finished' ? 'WIN' : 'UNKNOWN'
+      const scoreStr = `${match.scoreHome}-${match.scoreAway}`
 
-    getInsufficientDataMatches: async () => {
-        try {
-            const res = db.prepare(
-                `SELECT * FROM matches WHERE insufficient_data = 1
+      db.prepare(sql).run(
+        match.id,
+        match.league,
+        match.homeTeam,
+        match.awayTeam,
+        match.prediction || 'N/A',
+        result,
+        scoreStr,
+        match.fullData || JSON.stringify(match)
+      )
+      return true
+    } catch (e) {
+      logger.error(`❌ [DB] insertPattern failed: ${e.message}`)
+      return false
+    }
+  },
+  getAllPatterns: async (limit = 100) => {
+    try {
+      return db.prepare('SELECT * FROM winning_patterns ORDER BY timestamp DESC LIMIT ?').all(limit)
+    } catch (e) {
+      return []
+    }
+  },
+  getUpcomingPredictions: async () => {
+    return []
+  },
+  insertPrediction: async (p) => {
+    return p.id
+  },
+  getMatchesByStatus: async (status, limit = null) => {
+    const parsedStatus = status === 'live' ? 'live' : status === 'scheduled' ? 'scheduled' : status
+    const sql = limit
+      ? `SELECT * FROM matches WHERE status = ? ORDER BY timestamp ASC LIMIT ?`
+      : `SELECT * FROM matches WHERE status = ? ORDER BY timestamp ASC`
+    const params = limit ? [parsedStatus, limit] : [parsedStatus]
+    const res = db.prepare(sql).all(...params)
+    return res.map((r) => {
+      try {
+        const parsed = r.fullData
+          ? typeof r.fullData === 'string'
+            ? JSON.parse(r.fullData)
+            : r.fullData
+          : {}
+        return {
+          ...r,
+          ...parsed,
+          id: r.id,
+          homeTeam: r.homeTeam || parsed.homeTeam,
+          awayTeam: r.awayTeam || parsed.awayTeam,
+          league: r.league || parsed.league,
+        }
+      } catch (e) {
+        return r
+      }
+    })
+  },
+
+  getInsufficientDataMatches: async () => {
+    try {
+      const res = db
+        .prepare(
+          `SELECT * FROM matches WHERE insufficient_data = 1
                  AND status IN ('scheduled', 'upcoming', 'NOT_STARTED', 'NS')
                  AND homeTeam IS NOT NULL AND awayTeam IS NOT NULL
                  ORDER BY timestamp ASC`
-            ).all();
-            return res.map(r => {
-                try {
-                    const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
-                    return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league };
-                } catch (e) { return r; }
-            });
-        } catch (e) {
-            logger.error(`[DB] getInsufficientDataMatches failed: ${e.message}`);
-            return [];
-        }
-    },
-
-    getMatchesStartingSoon: async (hours = 4) => {
+        )
+        .all()
+      return res.map((r) => {
         try {
-            const now = new Date();
-            const future = new Date(now.getTime() + hours * 3600 * 1000);
-            const nowIso = now.toISOString();
-            const futureIso = future.toISOString();
-            const res = db.prepare(
-                `SELECT id, homeTeam, awayTeam, league, tournament_name, startTimestamp, timestamp
+          const parsed = r.fullData
+            ? typeof r.fullData === 'string'
+              ? JSON.parse(r.fullData)
+              : r.fullData
+            : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
+        } catch (e) {
+          return r
+        }
+      })
+    } catch (e) {
+      logger.error(`[DB] getInsufficientDataMatches failed: ${e.message}`)
+      return []
+    }
+  },
+
+  getMatchesStartingSoon: async (hours = 4) => {
+    try {
+      const now = new Date()
+      const future = new Date(now.getTime() + hours * 3600 * 1000)
+      const nowIso = now.toISOString()
+      const futureIso = future.toISOString()
+      const res = db
+        .prepare(
+          `SELECT id, homeTeam, awayTeam, league, tournament_name, startTimestamp, timestamp
                  FROM matches
                  WHERE status IN ('scheduled', 'upcoming', 'NOT_STARTED', 'NS')
                  AND (startTimestamp IS NOT NULL OR timestamp IS NOT NULL)
@@ -1325,96 +1654,132 @@ const database = {
                      (timestamp >= ? AND timestamp <= ?)
                  )
                  ORDER BY startTimestamp ASC`
-            ).all(
-                Math.floor(future.getTime() / 1000),
-                Math.floor(now.getTime() / 1000) - 3600,
-                nowIso,
-                futureIso
-            );
-            return res.map(r => {
-                try {
-                    const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
-                    return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league };
-                } catch (e) { return r; }
-            });
+        )
+        .all(
+          Math.floor(future.getTime() / 1000),
+          Math.floor(now.getTime() / 1000) - 3600,
+          nowIso,
+          futureIso
+        )
+      return res.map((r) => {
+        try {
+          const parsed = r.fullData
+            ? typeof r.fullData === 'string'
+              ? JSON.parse(r.fullData)
+              : r.fullData
+            : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
         } catch (e) {
-            logger.error(`[DB] getMatchesStartingSoon failed: ${e.message}`);
-            return [];
+          return r
         }
-    },
+      })
+    } catch (e) {
+      logger.error(`[DB] getMatchesStartingSoon failed: ${e.message}`)
+      return []
+    }
+  },
 
-    cleanupStaleMatches: async () => {
-        try {
-            // Delete matches older than 24 hours that are not LIVE
-            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-            const res = db.prepare("DELETE FROM matches WHERE timestamp < ? AND status NOT IN ('live', '1H', '2H', 'HT')").run(oneDayAgo);
-            if (res.changes > 0) {
-                logger.info(`🧹 [DB] Cleaned up ${res.changes} stale matches older than 24h.`);
-            }
-            return res.changes;
-        } catch (e) {
-            logger.error(`❌ [DB] Cleanup failed: ${e.message}`);
-            return 0;
-        }
-    },
+  cleanupStaleMatches: async () => {
+    try {
+      // Delete matches older than 24 hours that are not LIVE
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const res = db
+        .prepare(
+          "DELETE FROM matches WHERE timestamp < ? AND status NOT IN ('live', '1H', '2H', 'HT')"
+        )
+        .run(oneDayAgo)
+      if (res.changes > 0) {
+        logger.info(`🧹 [DB] Cleaned up ${res.changes} stale matches older than 24h.`)
+      }
+      return res.changes
+    } catch (e) {
+      logger.error(`❌ [DB] Cleanup failed: ${e.message}`)
+      return 0
+    }
+  },
 
-    maintenance: async () => {
-        try {
-            logger.info('🧹 [DB] Running RAM & integrity optimization (VACUUM + ANALYZE)...');
-            db.exec('ANALYZE');
-            db.exec('VACUUM');
-            logger.info('✅ [DB] Database maintenance complete.');
-            return true;
-        } catch (e) {
-            logger.error(`❌ [DB] Maintenance error: ${e.message}`);
-            return false;
-        }
-    },
+  maintenance: async () => {
+    try {
+      logger.info('🧹 [DB] Running RAM & integrity optimization (VACUUM + ANALYZE)...')
+      db.exec('ANALYZE')
+      db.exec('VACUUM')
+      logger.info('✅ [DB] Database maintenance complete.')
+      return true
+    } catch (e) {
+      logger.error(`❌ [DB] Maintenance error: ${e.message}`)
+      return false
+    }
+  },
 
-    getMatchesByDate: async (dateStr) => {
+  getMatchesByDate: async (dateStr) => {
+    try {
+      // dateStr format: 'YYYY-MM-DD'
+      // We search in the timestamp column which contains ISO dates
+      const res = db
+        .prepare(`SELECT * FROM matches WHERE timestamp LIKE ? ORDER BY timestamp ASC`)
+        .all(`${dateStr}%`)
+      return res.map((r) => {
         try {
-            // dateStr format: 'YYYY-MM-DD'
-            // We search in the timestamp column which contains ISO dates
-            const res = db.prepare(`SELECT * FROM matches WHERE timestamp LIKE ? ORDER BY timestamp ASC`).all(`${dateStr}%`);
-            return res.map(r => {
-                try {
-                    const parsed = r.fullData ? (typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData) : {};
-                    return { ...r, ...parsed, id: r.id, homeTeam: r.homeTeam || parsed.homeTeam, awayTeam: r.awayTeam || parsed.awayTeam, league: r.league || parsed.league };
-                } catch (e) { return r; }
-            });
+          const parsed = r.fullData
+            ? typeof r.fullData === 'string'
+              ? JSON.parse(r.fullData)
+              : r.fullData
+            : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
         } catch (e) {
-            logger.error(`[DB] getMatchesByDate failed: ${e.message}`);
-            return [];
+          return r
         }
-    },
-    cleanupPlaceholderTeams: () => {
-        try {
-            const count = db.prepare("DELETE FROM matches WHERE LOWER(homeTeam) = 'home' OR LOWER(awayTeam) = 'away'").run()
-            if (count.changes > 0) {
-                logger.info(`[DB] Cleaned up ${count.changes} matches with placeholder team names`)
-            }
-            return count.changes
-        } catch (e) {
-            logger.error(`[DB] Cleanup error: ${e.message}`)
-            return 0
-        }
-    },
-    // ─── GOALMODEL PARAMETERS ──────────────────────────────────
-    getGoalModelParameters: async (tournamentName) => {
-        try {
-            const rows = db.prepare(
-                "SELECT * FROM league_model_parameters WHERE tournament_name = ?"
-            ).all(tournamentName);
-            return rows;
-        } catch (e) {
-            logger.error(`[DB] getGoalModelParameters error: ${e.message}`);
-            return [];
-        }
-    },
-    upsertGoalModelParameter: async (params) => {
-        try {
-            const ts = params.updated_at || new Date().toISOString()
-            db.prepare(`
+      })
+    } catch (e) {
+      logger.error(`[DB] getMatchesByDate failed: ${e.message}`)
+      return []
+    }
+  },
+  cleanupPlaceholderTeams: () => {
+    try {
+      const count = db
+        .prepare("DELETE FROM matches WHERE LOWER(homeTeam) = 'home' OR LOWER(awayTeam) = 'away'")
+        .run()
+      if (count.changes > 0) {
+        logger.info(`[DB] Cleaned up ${count.changes} matches with placeholder team names`)
+      }
+      return count.changes
+    } catch (e) {
+      logger.error(`[DB] Cleanup error: ${e.message}`)
+      return 0
+    }
+  },
+  // ─── GOALMODEL PARAMETERS ──────────────────────────────────
+  getGoalModelParameters: async (tournamentName) => {
+    try {
+      const rows = db
+        .prepare('SELECT * FROM league_model_parameters WHERE tournament_name = ?')
+        .all(tournamentName)
+      return rows
+    } catch (e) {
+      logger.error(`[DB] getGoalModelParameters error: ${e.message}`)
+      return []
+    }
+  },
+  upsertGoalModelParameter: async (params) => {
+    try {
+      const ts = params.updated_at || new Date().toISOString()
+      db.prepare(
+        `
                 INSERT INTO league_model_parameters (tournament_name, team_name, attack_rating, defense_rating, hfa, rho, mu, distribution_type, num_matches, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(tournament_name, team_name) DO UPDATE SET
@@ -1426,91 +1791,100 @@ const database = {
                     distribution_type = excluded.distribution_type,
                     num_matches = excluded.num_matches,
                     updated_at = excluded.updated_at
-            `).run(
-                params.tournament_name,
-                params.team_name || null,
-                params.attack_rating || 0,
-                params.defense_rating || 0,
-                params.hfa || 0.25,
-                params.rho || -0.12,
-                params.mu || 0.13,
-                params.distribution_type || 'poisson',
-                params.num_matches || 0,
-                ts
-            );
-            return true;
-        } catch (e) {
-            logger.error(`[DB] upsertGoalModelParameter error: ${e.message}`);
-            return false;
-        }
-    },
-    query: (sql, params = []) => {
-        try {
-            const stmt = getPreparedStatement(sql);
-            const res = stmt.all(params);
-            return { rows: res || [] };
-        } catch (e) {
-            logger.error(`[DB QUERY ERROR] ${sql} | ${e.message}`);
-            return { rows: [] };
-        }
-    },
-    getTeamPromosportStats: (teamName) => {
-        try {
-            const archivePath = path.resolve(__dirname, '../data/historical_archive.sqlite');
-            if (!fs.existsSync(archivePath)) {
-                return null;
-            }
-            const ArchiveDB = require('better-sqlite3');
-            const adb = new ArchiveDB(archivePath);
-            const key = teamName.toUpperCase().trim();
+            `
+      ).run(
+        params.tournament_name,
+        params.team_name || null,
+        params.attack_rating || 0,
+        params.defense_rating || 0,
+        params.hfa || 0.25,
+        params.rho || -0.12,
+        params.mu || 0.13,
+        params.distribution_type || 'poisson',
+        params.num_matches || 0,
+        ts
+      )
+      return true
+    } catch (e) {
+      logger.error(`[DB] upsertGoalModelParameter error: ${e.message}`)
+      return false
+    }
+  },
+  query: (sql, params = []) => {
+    try {
+      const stmt = getPreparedStatement(sql)
+      const res = stmt.all(params)
+      return { rows: res || [] }
+    } catch (e) {
+      logger.error(`[DB QUERY ERROR] ${sql} | ${e.message}`)
+      return { rows: [] }
+    }
+  },
+  getTeamPromosportStats: (teamName) => {
+    try {
+      const archivePath = path.resolve(__dirname, '../data/historical_archive.sqlite')
+      if (!fs.existsSync(archivePath)) {
+        return null
+      }
+      const ArchiveDB = require('better-sqlite3')
+      const adb = new ArchiveDB(archivePath)
+      const key = teamName.toUpperCase().trim()
 
-            const homeResults = adb.prepare(`
+      const homeResults = adb
+        .prepare(
+          `
                 SELECT COUNT(*) as total,
                        SUM(CASE WHEN result = '1' THEN 1 ELSE 0 END) as wins,
                        SUM(CASE WHEN result = 'X' THEN 1 ELSE 0 END) as draws,
                        SUM(CASE WHEN result = '2' THEN 1 ELSE 0 END) as losses
                 FROM promosport_archive
                 WHERE UPPER(homeTeam) = ? AND is_finished = 1
-            `).get(key);
+            `
+        )
+        .get(key)
 
-            const awayResults = adb.prepare(`
+      const awayResults = adb
+        .prepare(
+          `
                 SELECT COUNT(*) as total,
                        SUM(CASE WHEN result = '2' THEN 1 ELSE 0 END) as wins,
                        SUM(CASE WHEN result = 'X' THEN 1 ELSE 0 END) as draws,
                        SUM(CASE WHEN result = '1' THEN 1 ELSE 0 END) as losses
                 FROM promosport_archive
                 WHERE UPPER(awayTeam) = ? AND is_finished = 1
-            `).get(key);
+            `
+        )
+        .get(key)
 
-            adb.close();
+      adb.close()
 
-            const homeTotal = homeResults?.total || 0;
-            const awayTotal = awayResults?.total || 0;
+      const homeTotal = homeResults?.total || 0
+      const awayTotal = awayResults?.total || 0
 
-            if (homeTotal + awayTotal < 3) return null;
+      if (homeTotal + awayTotal < 3) return null
 
-            const homeWinRate = homeTotal > 0 ? (homeResults.wins || 0) / homeTotal : null;
-            const homeDrawRate = homeTotal > 0 ? (homeResults.draws || 0) / homeTotal : null;
-            const awayWinRate = awayTotal > 0 ? (awayResults.wins || 0) / awayTotal : null;
-            const awayDrawRate = awayTotal > 0 ? (awayResults.draws || 0) / awayTotal : null;
+      const homeWinRate = homeTotal > 0 ? (homeResults.wins || 0) / homeTotal : null
+      const homeDrawRate = homeTotal > 0 ? (homeResults.draws || 0) / homeTotal : null
+      const awayWinRate = awayTotal > 0 ? (awayResults.wins || 0) / awayTotal : null
+      const awayDrawRate = awayTotal > 0 ? (awayResults.draws || 0) / awayTotal : null
 
-            return {
-                homeGames: homeTotal,
-                awayGames: awayTotal,
-                homeWinRate,
-                homeDrawRate,
-                awayWinRate,
-                awayDrawRate
-            };
-        } catch (e) {
-            logger.warn(`[DB] getTeamPromosportStats failed for ${teamName}: ${e.message}`);
-            return null;
-        }
+      return {
+        homeGames: homeTotal,
+        awayGames: awayTotal,
+        homeWinRate,
+        homeDrawRate,
+        awayWinRate,
+        awayDrawRate,
+      }
+    } catch (e) {
+      logger.warn(`[DB] getTeamPromosportStats failed for ${teamName}: ${e.message}`)
+      return null
     }
-};
+  },
+}
 
 // 🛡️ [DATABASE SELF-HEALING]
 // Removed redundant maintenance interval - handled by CronManager at 3 AM.
 
-database.db.query = database.query.bind(database);
+database.db.query = database.query.bind(database)
 module.exports = database

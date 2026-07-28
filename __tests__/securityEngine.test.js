@@ -3,8 +3,8 @@
  * Tests for core/securityEngine.js - Rate limiting and authentication
  */
 
-const securityEngine = require('../core/securityEngine');
-const logger = require('../core/logger');
+const securityEngine = require('../core/securityEngine')
+const logger = require('../core/logger')
 
 function mockReq(overrides = {}) {
   return {
@@ -12,7 +12,7 @@ function mockReq(overrides = {}) {
     socket: { remoteAddress: '127.0.0.1' },
     headers: { get: () => undefined, ...overrides.headers },
     url: '/test',
-    ...overrides
+    ...overrides,
   }
 }
 function mockRes() {
@@ -35,7 +35,7 @@ describe('SecurityEngine', () => {
   })
 
   describe('middleware (express-rate-limit)', () => {
-    it('should call next() for allowed requests', done => {
+    it('should call next() for allowed requests', (done) => {
       const req = mockReq({ ip: '127.0.0.1' })
       const res = mockRes()
       const next = jest.fn(() => {
@@ -91,27 +91,27 @@ describe('SecurityEngine', () => {
 
   describe('handleProtocolMismatch()', () => {
     it('should handle invalid HTTP method errors', () => {
-      const socket = { remoteAddress: '192.168.1.1', end: jest.fn(), destroy: jest.fn() };
-      const err = { code: 'HPE_INVALID_METHOD', message: 'Invalid method' };
+      const socket = { remoteAddress: '192.168.1.1', end: jest.fn(), destroy: jest.fn() }
+      const err = { code: 'HPE_INVALID_METHOD', message: 'Invalid method' }
 
-      securityEngine.handleProtocolMismatch(err, socket);
-      expect(socket.end).toHaveBeenCalled();
-    });
+      securityEngine.handleProtocolMismatch(err, socket)
+      expect(socket.end).toHaveBeenCalled()
+    })
 
     it('should handle connection reset errors', () => {
-      const socket = { remoteAddress: '192.168.1.2', end: jest.fn(), destroy: jest.fn() };
-      const err = { code: 'ECONNRESET', message: 'Connection reset' };
+      const socket = { remoteAddress: '192.168.1.2', end: jest.fn(), destroy: jest.fn() }
+      const err = { code: 'ECONNRESET', message: 'Connection reset' }
 
-      securityEngine.handleProtocolMismatch(err, socket);
-      expect(socket.end).toHaveBeenCalled();
-    });
+      securityEngine.handleProtocolMismatch(err, socket)
+      expect(socket.end).toHaveBeenCalled()
+    })
 
     it('should destroy socket for other errors', () => {
-      const socket = { remoteAddress: '192.168.1.3', end: jest.fn(), destroy: jest.fn() };
-      const err = { code: 'UNKNOWN_ERROR', message: 'Unknown' };
+      const socket = { remoteAddress: '192.168.1.3', end: jest.fn(), destroy: jest.fn() }
+      const err = { code: 'UNKNOWN_ERROR', message: 'Unknown' }
 
-      securityEngine.handleProtocolMismatch(err, socket);
-      expect(socket.destroy).toHaveBeenCalled();
-    });
-  });
-});
+      securityEngine.handleProtocolMismatch(err, socket)
+      expect(socket.destroy).toHaveBeenCalled()
+    })
+  })
+})

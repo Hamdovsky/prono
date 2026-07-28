@@ -1,12 +1,12 @@
 /**
  * FirecrawlScraper.js — Primary dynamic scraper
- * 
+ *
  * Uses Firecrawl API with LLM extraction for JS-heavy sites.
  * Target: Flashscore (live scores, odds), OddsPortal, Bet365
- * 
+ *
  * Requires: FIRECRAWL_API_KEY in .env
  * Free tier: 500-1000 credits/mo, no card needed
- * 
+ *
  * Schema-driven extraction: returns structured JSON via LLM.
  */
 
@@ -26,16 +26,16 @@ const ODDS_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          home_team:  { type: 'string' },
-          away_team:  { type: 'string' },
-          home_win:   { type: 'number', minimum: 1.01 },
-          draw:       { type: 'number', minimum: 1.01 },
-          away_win:   { type: 'number', minimum: 1.01 },
-          over_25:    { type: 'number' },
-          under_25:   { type: 'number' },
-          btts_yes:   { type: 'number' },
-          btts_no:    { type: 'number' },
-          bookmaker:  { type: 'string' },
+          home_team: { type: 'string' },
+          away_team: { type: 'string' },
+          home_win: { type: 'number', minimum: 1.01 },
+          draw: { type: 'number', minimum: 1.01 },
+          away_win: { type: 'number', minimum: 1.01 },
+          over_25: { type: 'number' },
+          under_25: { type: 'number' },
+          btts_yes: { type: 'number' },
+          btts_no: { type: 'number' },
+          bookmaker: { type: 'string' },
         },
         required: ['home_team', 'away_team', 'home_win', 'draw', 'away_win'],
       },
@@ -54,12 +54,12 @@ const LIVE_SCORES_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          home_team:  { type: 'string' },
-          away_team:  { type: 'string' },
+          home_team: { type: 'string' },
+          away_team: { type: 'string' },
           home_score: { type: 'number' },
           away_score: { type: 'number' },
-          minute:     { type: 'string' },
-          status:     { type: 'string', enum: ['live', 'finished', 'scheduled'] },
+          minute: { type: 'string' },
+          status: { type: 'string', enum: ['live', 'finished', 'scheduled'] },
         },
         required: ['home_team', 'away_team', 'status'],
       },
@@ -73,25 +73,35 @@ function fetchJson(url, options = {}) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url)
     const mod = parsed.protocol === 'https:' ? https : http
-    const req = mod.request(url, {
-      method: options.method || 'GET',
-      timeout: options.timeout || 30000,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': options.auth || '',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        ...(options.headers || {}),
+    const req = mod.request(
+      url,
+      {
+        method: options.method || 'GET',
+        timeout: options.timeout || 30000,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: options.auth || '',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          ...(options.headers || {}),
+        },
       },
-    }, (res) => {
-      let data = ''
-      res.on('data', chunk => data += chunk)
-      res.on('end', () => {
-        try { resolve({ status: res.statusCode, data: JSON.parse(data), headers: res.headers }) }
-        catch (e) { resolve({ status: res.statusCode, data, error: e.message }) }
-      })
-    })
+      (res) => {
+        let data = ''
+        res.on('data', (chunk) => (data += chunk))
+        res.on('end', () => {
+          try {
+            resolve({ status: res.statusCode, data: JSON.parse(data), headers: res.headers })
+          } catch (e) {
+            resolve({ status: res.statusCode, data, error: e.message })
+          }
+        })
+      }
+    )
     req.on('error', reject)
-    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')) })
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Timeout'))
+    })
     if (options.body) req.write(options.body)
     req.end()
   })
@@ -107,17 +117,17 @@ function buildFlashscoreUrls(league) {
     'la liga': 'spain/laliga',
     'serie a': 'italy/serie-a',
     'ligue 1': 'france/ligue-1',
-    'bundesliga': 'germany/bundesliga',
-    'mls': 'usa/mls',
+    bundesliga: 'germany/bundesliga',
+    mls: 'usa/mls',
     'usl championship': 'usa/usl-championship',
     'ligue 2': 'france/ligue-2',
-    'championship': 'england/championship',
-    'eredivisie': 'netherlands/eredivisie',
+    championship: 'england/championship',
+    eredivisie: 'netherlands/eredivisie',
     'primeira liga': 'portugal/primeira-liga',
     'brasileirão serie a': 'brazil/serie-a',
     'brasileirão serie b': 'brazil/serie-b',
   }
-  const slug = slugs[Object.keys(slugs).find(k => l.includes(k))]
+  const slug = slugs[Object.keys(slugs).find((k) => l.includes(k))]
   if (!slug) return { fixtures: null, live: null, odds: null }
 
   return {
@@ -164,9 +174,7 @@ async function extract(targetUrl, schema, prompt) {
     throw new Error(`Firecrawl error: ${res.data.error || 'unknown'}`)
   }
 
-  return res.data.data && res.data.data.extract
-    ? res.data.data.extract
-    : res.data.data
+  return res.data.data && res.data.data.extract ? res.data.data.extract : res.data.data
 }
 
 // ── Public API ───────────────────────────────────────────────────
@@ -200,11 +208,10 @@ async function getOdds(homeTeam, awayTeam, league) {
         // Fuzzy match our teams
         const hh = homeTeam.toLowerCase()
         const ah = awayTeam.toLowerCase()
-        const match = data.matches.find(m => {
+        const match = data.matches.find((m) => {
           const hm = (m.home_team || '').toLowerCase()
           const am = (m.away_team || '').toLowerCase()
-          return (hm.includes(hh) || hh.includes(hm)) &&
-                 (am.includes(ah) || ah.includes(am))
+          return (hm.includes(hh) || hh.includes(hm)) && (am.includes(ah) || ah.includes(am))
         })
 
         if (match && match.home_win && match.draw && match.away_win) {
@@ -247,7 +254,8 @@ async function getLiveScores(league) {
   if (!apiKey) return []
 
   try {
-    const prompt = 'Extract all live matches with current scores (home_team, away_team, home_score, away_score, minute, status).'
+    const prompt =
+      'Extract all live matches with current scores (home_team, away_team, home_score, away_score, minute, status).'
     const data = await extract(urls.live, LIVE_SCORES_SCHEMA, prompt)
     return (data && data.matches) || []
   } catch (err) {

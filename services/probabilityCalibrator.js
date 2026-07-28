@@ -26,15 +26,17 @@ class ProbabilityCalibrator {
       }
 
       this.calibrationCurve = [
-        { min: 0, max: 0.50, calibrated: 0.50 },
-        { min: 0.50, max: 0.60, calibrated: (cal['50-60']?.actual || 53.6) / 100 },
-        { min: 0.60, max: 0.70, calibrated: (cal['60-70']?.actual || 89.9) / 100 },
-        { min: 0.70, max: 0.80, calibrated: (cal['70-80']?.actual || 98.9) / 100 },
-        { min: 0.80, max: 0.90, calibrated: (cal['80-90']?.actual || 100) / 100 },
-        { min: 0.90, max: 1.01, calibrated: (cal['90+']?.actual || 100) / 100 },
+        { min: 0, max: 0.5, calibrated: 0.5 },
+        { min: 0.5, max: 0.6, calibrated: (cal['50-60']?.actual || 53.6) / 100 },
+        { min: 0.6, max: 0.7, calibrated: (cal['60-70']?.actual || 89.9) / 100 },
+        { min: 0.7, max: 0.8, calibrated: (cal['70-80']?.actual || 98.9) / 100 },
+        { min: 0.8, max: 0.9, calibrated: (cal['80-90']?.actual || 100) / 100 },
+        { min: 0.9, max: 1.01, calibrated: (cal['90+']?.actual || 100) / 100 },
       ]
       this.lastLoaded = Date.now()
-      logger.info(`[CALIBRATOR] Loaded empirical calibration curve (${this.calibrationCurve.length} bins)`)
+      logger.info(
+        `[CALIBRATOR] Loaded empirical calibration curve (${this.calibrationCurve.length} bins)`
+      )
     } catch (err) {
       logger.error('[CALIBRATOR] Failed to load:', err.message)
       this.calibrationCurve = this.getDefaultCurve()
@@ -43,12 +45,12 @@ class ProbabilityCalibrator {
 
   getDefaultCurve() {
     return [
-      { min: 0, max: 0.50, calibrated: 0.50 },
-      { min: 0.50, max: 0.60, calibrated: 0.536 },
-      { min: 0.60, max: 0.70, calibrated: 0.899 },
-      { min: 0.70, max: 0.80, calibrated: 0.989 },
-      { min: 0.80, max: 0.90, calibrated: 1.0 },
-      { min: 0.90, max: 1.01, calibrated: 1.0 },
+      { min: 0, max: 0.5, calibrated: 0.5 },
+      { min: 0.5, max: 0.6, calibrated: 0.536 },
+      { min: 0.6, max: 0.7, calibrated: 0.899 },
+      { min: 0.7, max: 0.8, calibrated: 0.989 },
+      { min: 0.8, max: 0.9, calibrated: 1.0 },
+      { min: 0.9, max: 1.01, calibrated: 1.0 },
     ]
   }
 

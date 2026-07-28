@@ -8,16 +8,23 @@ const cache = new Map()
 class DataFusionService {
   constructor() {
     this.sources = [
-      { name: 'fbref',           priority: 1, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'sofascore',       priority: 2, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'polymarket',      priority: 3, quota: 20,       calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'scrapeservice',   priority: 4, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'bsd',             priority: 5, quota: 200,      calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'therundown',      priority: 6, quota: 500,      calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'footballdata',    priority: 7, quota: 10,       calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'apifootball',     priority: 8, quota: 100,      calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'oddspapi',        priority: 9, quota: 200,      calls: 0, errors: 0, cooldownUntil: 0 },
-      { name: 'sportmonks',      priority: 10, quota: 200,     calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'fbref', priority: 1, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'sofascore', priority: 2, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'polymarket', priority: 3, quota: 20, calls: 0, errors: 0, cooldownUntil: 0 },
+      {
+        name: 'scrapeservice',
+        priority: 4,
+        quota: Infinity,
+        calls: 0,
+        errors: 0,
+        cooldownUntil: 0,
+      },
+      { name: 'bsd', priority: 5, quota: 200, calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'therundown', priority: 6, quota: 500, calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'footballdata', priority: 7, quota: 10, calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'apifootball', priority: 8, quota: 100, calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'oddspapi', priority: 9, quota: 200, calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'sportmonks', priority: 10, quota: 200, calls: 0, errors: 0, cooldownUntil: 0 },
     ]
     this.quotaWindowMs = 60000
     this.quotaResets = {}
@@ -37,7 +44,7 @@ class DataFusionService {
   }
 
   recordSuccess(sourceName) {
-    const s = this.sources.find(x => x.name === sourceName)
+    const s = this.sources.find((x) => x.name === sourceName)
     if (s) {
       s.calls++
       s.errors = 0
@@ -45,7 +52,7 @@ class DataFusionService {
   }
 
   recordError(sourceName) {
-    const s = this.sources.find(x => x.name === sourceName)
+    const s = this.sources.find((x) => x.name === sourceName)
     if (s) {
       s.calls++
       s.errors++
@@ -104,7 +111,9 @@ class DataFusionService {
 
         if (odds && odds.home && odds.away) {
           this.recordSuccess(source.name)
-          logger.info(`[DATAFUSION] Odds from ${source.name} for ${match.homeTeam} vs ${match.awayTeam}: ${odds.home} / ${odds.draw} / ${odds.away}`)
+          logger.info(
+            `[DATAFUSION] Odds from ${source.name} for ${match.homeTeam} vs ${match.awayTeam}: ${odds.home} / ${odds.draw} / ${odds.away}`
+          )
           cache.set(cacheKey, { ts: Date.now(), data: odds })
           return odds
         }
@@ -115,7 +124,9 @@ class DataFusionService {
       }
     }
 
-    logger.warn(`[DATAFUSION] No odds source available for ${match.id} (${match.homeTeam} vs ${match.awayTeam})`)
+    logger.warn(
+      `[DATAFUSION] No odds source available for ${match.id} (${match.homeTeam} vs ${match.awayTeam})`
+    )
     return null
   }
 
@@ -126,9 +137,12 @@ class DataFusionService {
       return match.id.replace('sofascore_', '')
     }
     try {
-      const fd = typeof match.fullData === 'string' ? JSON.parse(match.fullData) : (match.fullData || {})
+      const fd =
+        typeof match.fullData === 'string' ? JSON.parse(match.fullData) : match.fullData || {}
       return fd.sofascoreId || fd.sofa_id || fd.sofascore_id || fd.sofaMatchId || null
-    } catch { return null }
+    } catch {
+      return null
+    }
   }
 
   async _trySofascore(match) {
@@ -159,30 +173,42 @@ class DataFusionService {
       const data = await new Promise((resolve, reject) => {
         const req = https.get(url, { timeout: 8000 }, (res) => {
           let body = ''
-          res.on('data', c => body += c)
-          res.on('end', () => { try { resolve(JSON.parse(body)) } catch(e) { reject(e) } })
+          res.on('data', (c) => (body += c))
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(body))
+            } catch (e) {
+              reject(e)
+            }
+          })
         })
         req.on('error', reject)
-        req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+        req.on('timeout', () => {
+          req.destroy()
+          reject(new Error('timeout'))
+        })
       })
       if (!Array.isArray(data)) return null
-      
+
       const hName = match.homeTeam.toLowerCase()
       const aName = match.awayTeam.toLowerCase()
-      
+
       for (const m of data) {
         const q = (m.question || '').toLowerCase()
         if (!q.includes('vs') && !q.includes('beat') && !q.includes('versus')) continue
         if (q.includes(hName) && q.includes(aName)) {
-          const prices = typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : m.outcomePrices
+          const prices =
+            typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : m.outcomePrices
           if (prices && prices.length >= 2) {
             const homeProb = parseFloat(prices[0])
             const awayProb = parseFloat(prices[1])
             if (homeProb > 0 && awayProb > 0) {
               return {
                 home: +(1 / homeProb).toFixed(2),
-                draw: +((1 - homeProb - awayProb) > 0 ? (1 / (1 - homeProb - awayProb)).toFixed(2) : 3.0),
-                away: +(1 / awayProb).toFixed(2)
+                draw: +(1 - homeProb - awayProb > 0
+                  ? (1 / (1 - homeProb - awayProb)).toFixed(2)
+                  : 3.0),
+                away: +(1 / awayProb).toFixed(2),
               }
             }
           }
@@ -242,11 +268,15 @@ class DataFusionService {
   async _tryFbref(match) {
     const inferenceUrl = sharedConfig.services.fastapi || 'http://127.0.0.1:8000'
     try {
-      const { data } = await axios.post(`${inferenceUrl}/fbref/odds`, {
-        homeTeam: match.homeTeam,
-        awayTeam: match.awayTeam,
-        league: match.league || match.tournament || '',
-      }, { timeout: 30000 })
+      const { data } = await axios.post(
+        `${inferenceUrl}/fbref/odds`,
+        {
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
+          league: match.league || match.tournament || '',
+        },
+        { timeout: 30000 }
+      )
       if (data && data.success && data.home && data.away) {
         return { home: data.home, draw: data.draw, away: data.away }
       }
@@ -265,7 +295,7 @@ class DataFusionService {
   }
 
   getStats() {
-    return this.sources.map(s => ({
+    return this.sources.map((s) => ({
       name: s.name,
       priority: s.priority,
       calls: s.calls,

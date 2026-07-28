@@ -20,20 +20,25 @@ async function collectLatestGrid() {
   // Load vote history
   let history = []
   if (fs.existsSync(VOTE_HISTORY_PATH)) {
-    try { history = JSON.parse(fs.readFileSync(VOTE_HISTORY_PATH, 'utf-8')) }
-    catch (e) { history = [] }
+    try {
+      history = JSON.parse(fs.readFileSync(VOTE_HISTORY_PATH, 'utf-8'))
+    } catch (e) {
+      history = []
+    }
   }
 
   // Skip if already collected
-  if (history.some(h => h.grid === grid.no)) {
-    logger.info(`[CROWD-COLLECT] Grid ${grid.no} already collected (${history.filter(h => h.grid === grid.no).length} matches)`)
+  if (history.some((h) => h.grid === grid.no)) {
+    logger.info(
+      `[CROWD-COLLECT] Grid ${grid.no} already collected (${history.filter((h) => h.grid === grid.no).length} matches)`
+    )
     return null
   }
 
   // Collect only matches with results and votes
   const collected = grid.matches
-    .filter(m => m.result && m.publicVote && m.result !== 'N')
-    .map(m => ({
+    .filter((m) => m.result && m.publicVote && m.result !== 'N')
+    .map((m) => ({
       grid: grid.no,
       idx: m.idx,
       home: m.home,
@@ -53,7 +58,9 @@ async function collectLatestGrid() {
   // Update crowd profile with new data
   await rebuildCrowdProfile(history)
 
-  logger.info(`[CROWD-COLLECT] Grid ${grid.no}: collected ${collected.length} matches (total: ${history.length})`)
+  logger.info(
+    `[CROWD-COLLECT] Grid ${grid.no}: collected ${collected.length} matches (total: ${history.length})`
+  )
   return { grid: grid.no, collected: collected.length, total: history.length }
 }
 
@@ -84,39 +91,44 @@ async function rebuildCrowdProfile(allMatches) {
     if (correct) right++
   }
 
-  const weak = Object.entries(byBin).filter(([k]) => parseInt(k) < 70)
+  const weak = Object.entries(byBin)
+    .filter(([k]) => parseInt(k) < 70)
     .reduce((s, [, d]) => ({ r: s.r + d.right, t: s.t + d.total }), { r: 0, t: 0 })
-  const strong = Object.entries(byBin).filter(([k]) => parseInt(k) >= 70)
+  const strong = Object.entries(byBin)
+    .filter(([k]) => parseInt(k) >= 70)
     .reduce((s, [, d]) => ({ r: s.r + d.right, t: s.t + d.total }), { r: 0, t: 0 })
 
   // Load existing profile and update tunisianCrowd
   let profile = {}
   if (fs.existsSync(CROWD_PATH)) {
-    try { profile = JSON.parse(fs.readFileSync(CROWD_PATH, 'utf-8')) }
-    catch (e) { profile = {} }
+    try {
+      profile = JSON.parse(fs.readFileSync(CROWD_PATH, 'utf-8'))
+    } catch (e) {
+      profile = {}
+    }
   }
 
   profile.tunisianCrowd = {
     totalMatches: total,
     crowdRight: right,
     crowdWrong: total - right,
-    crowdAccuracy: +(right / total * 100).toFixed(1),
+    crowdAccuracy: +((right / total) * 100).toFixed(1),
     byConfidence: Object.entries(byBin)
       .sort((a, b) => a[0] - b[0])
       .map(([bin, data]) => ({
         bin: `${bin}-${parseInt(bin) + 9}%`,
         total: data.total,
         right: data.right,
-        accuracy: +(data.right / data.total * 100).toFixed(1),
+        accuracy: +((data.right / data.total) * 100).toFixed(1),
       })),
-    gridsAnalyzed: [...new Set(allMatches.map(m => m.grid))].sort(),
+    gridsAnalyzed: [...new Set(allMatches.map((m) => m.grid))].sort(),
     insight: {
       weakConfidence_under70: {
-        accuracy: weak.t > 0 ? +(weak.r / weak.t * 100).toFixed(1) : 0,
-        action: 'CONTRARIAN - prendre l\'opposé du favori',
+        accuracy: weak.t > 0 ? +((weak.r / weak.t) * 100).toFixed(1) : 0,
+        action: "CONTRARIAN - prendre l'opposé du favori",
       },
       strongConfidence_70plus: {
-        accuracy: strong.t > 0 ? +(strong.r / strong.t * 100).toFixed(1) : 0,
+        accuracy: strong.t > 0 ? +((strong.r / strong.t) * 100).toFixed(1) : 0,
         action: 'SUIVRE la foule (prudence)',
       },
     },
@@ -124,17 +136,22 @@ async function rebuildCrowdProfile(allMatches) {
   }
 
   fs.writeFileSync(CROWD_PATH, JSON.stringify(profile, null, 2))
-  logger.info(`[CROWD-COLLECT] Profile rebuilt: ${total} matches, ${right} right (${((right / total) * 100).toFixed(1)}%)`)
+  logger.info(
+    `[CROWD-COLLECT] Profile rebuilt: ${total} matches, ${right} right (${((right / total) * 100).toFixed(1)}%)`
+  )
 }
 
 async function backfillGrids(start, end, delayMs = 3000) {
   // Load existing history to skip already-collected grids
   let history = []
   if (fs.existsSync(VOTE_HISTORY_PATH)) {
-    try { history = JSON.parse(fs.readFileSync(VOTE_HISTORY_PATH, 'utf-8')) }
-    catch (e) { history = [] }
+    try {
+      history = JSON.parse(fs.readFileSync(VOTE_HISTORY_PATH, 'utf-8'))
+    } catch (e) {
+      history = []
+    }
   }
-  const existingGrids = new Set(history.map(h => h.grid))
+  const existingGrids = new Set(history.map((h) => h.grid))
 
   const toScrape = []
   for (let g = start; g <= end; g++) {
@@ -151,8 +168,8 @@ async function backfillGrids(start, end, delayMs = 3000) {
       const grid = await scrapeTunisieGrid(gridNo)
       if (grid && grid.matches && grid.matches.length >= 5) {
         const newMatches = grid.matches
-          .filter(m => m.result && m.publicVote && m.result !== 'N')
-          .map(m => ({
+          .filter((m) => m.result && m.publicVote && m.result !== 'N')
+          .map((m) => ({
             grid: String(gridNo),
             idx: m.idx,
             home: m.home,
@@ -169,7 +186,9 @@ async function backfillGrids(start, end, delayMs = 3000) {
         if (newMatches.length > 0) {
           history.push(...newMatches)
           collected += newMatches.length
-          logger.info(`[BACKFILL] Grid ${gridNo}: +${newMatches.length} matchs (total: ${history.length})`)
+          logger.info(
+            `[BACKFILL] Grid ${gridNo}: +${newMatches.length} matchs (total: ${history.length})`
+          )
         } else {
           skipped++
         }
@@ -183,7 +202,9 @@ async function backfillGrids(start, end, delayMs = 3000) {
 
     // Progress every 10 grids
     if ((i + 1) % 10 === 0) {
-      logger.info(`[BACKFILL] Progress: ${i + 1}/${toScrape.length} (${collected} matchs collects, ${skipped} vides)`)
+      logger.info(
+        `[BACKFILL] Progress: ${i + 1}/${toScrape.length} (${collected} matchs collects, ${skipped} vides)`
+      )
     }
 
     // Save incrementally every 5 grids
@@ -193,7 +214,7 @@ async function backfillGrids(start, end, delayMs = 3000) {
 
     // Rate limit
     if (i < toScrape.length - 1) {
-      await new Promise(r => setTimeout(r, delayMs))
+      await new Promise((r) => setTimeout(r, delayMs))
     }
   }
 
@@ -215,15 +236,18 @@ if (require.main === module) {
     const start = parseInt(process.argv[3] || '623')
     const end = parseInt(process.argv[4] || '875')
     backfillGrids(start, end)
-      .then(r => console.log(`Backfill termine: ${r.collected} matchs collects (total: ${r.total})`))
-      .catch(e => console.error(e))
+      .then((r) =>
+        console.log(`Backfill termine: ${r.collected} matchs collects (total: ${r.total})`)
+      )
+      .catch((e) => console.error(e))
   } else {
     collectLatestGrid()
-      .then(r => {
-        if (r) console.log(`Collected grid ${r.grid}: ${r.collected} new matches (${r.total} total)`)
+      .then((r) => {
+        if (r)
+          console.log(`Collected grid ${r.grid}: ${r.collected} new matches (${r.total} total)`)
         else console.log('No new grid data')
       })
-      .catch(e => console.error(e))
+      .catch((e) => console.error(e))
   }
 }
 

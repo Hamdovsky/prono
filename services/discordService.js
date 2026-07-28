@@ -24,7 +24,7 @@ function formatEmbed(match) {
     title: `${match.homeTeam} vs ${match.awayTeam}`,
     description: [
       `**League:** ${match.league || 'Unknown'}`,
-      `**Kick-off:** ${match.time || match.startTimestamp ? new Date((match.startTimestamp > 1e11 ? match.startTimestamp : match.startTimestamp * 1000)).toUTCString() : 'TBD'}`,
+      `**Kick-off:** ${match.time || match.startTimestamp ? new Date(match.startTimestamp > 1e11 ? match.startTimestamp : match.startTimestamp * 1000).toUTCString() : 'TBD'}`,
       '',
       `**AI Pick:** ${pickEmoji} **${pick}** ${confidenceStars}`,
       `**Confidence:** ${conf.toFixed(1)}%`,
@@ -37,11 +37,11 @@ function formatEmbed(match) {
       `📈 O/U 2.5:       ${ou}%`,
       `🤝 BTTS:          ${btts}%`,
       `💰 EV:            ${ev}%`,
-      '```'
+      '```',
     ].join('\n'),
-    color: pick === '1' ? 0xE74C3C : pick === '2' ? 0x3498DB : 0x95A5A6,
+    color: pick === '1' ? 0xe74c3c : pick === '2' ? 0x3498db : 0x95a5a6,
     footer: { text: `Titanium AI • Match ID: ${match.id}` },
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   }
 }
 
@@ -82,19 +82,19 @@ async function sendComboTicket(matches) {
       {
         title: '🎯 Combo Ticket — Top AI Predictions',
         description: `**${batch.length} high-confidence picks** (confidence > 75%)`,
-        color: 0x9B59B6,
+        color: 0x9b59b6,
         fields: batch.slice(0, 10).map((m, i) => ({
           name: `${i + 1}. ${m.homeTeam} vs ${m.awayTeam}`,
           value: [
             `**Pick:** ${m.prediction || 'N/A'} | **Conf:** ${parseFloat(m.home_win_probability || m.draw_probability || m.away_win_probability || 0).toFixed(0)}%`,
-            `**EV:** ${parseFloat(m.ev_score || 0).toFixed(2)} | **Score:** ${m.expected_score || 'N/A'}`
+            `**EV:** ${parseFloat(m.ev_score || 0).toFixed(2)} | **Score:** ${m.expected_score || 'N/A'}`,
           ].join('\n'),
-          inline: true
+          inline: true,
         })),
         footer: { text: `Titanium AI • ${batch.length} picks • ${new Date().toISOString()}` },
-        timestamp: new Date().toISOString()
-      }
-    ]
+        timestamp: new Date().toISOString(),
+      },
+    ],
   }
 
   if (batch.length > 10) {
@@ -111,7 +111,7 @@ async function sendDetailedPrediction(match) {
   const payload = {
     username: 'Titanium AI',
     avatar_url: 'https://i.imgur.com/QqEEcZ3.png',
-    embeds: [embed]
+    embeds: [embed],
   }
   await dispatch(payload)
 }

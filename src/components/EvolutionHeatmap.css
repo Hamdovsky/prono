@@ -37,7 +37,7 @@
   overflow-x: auto;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 20px;
 }
 
@@ -210,10 +210,25 @@
 }
 
 /* Color classes for heatmap cells */
-.excellent { background: #d4edda; }
-.good { background: #d1ecf1; }
-.average { background: #fff3cd; }
-.below-avg { background: #ffeaa7; }
-.poor { background: #f8d7da; }
-.very-poor { background: #f5c6cb; }
-.no-data { background: #f8f9fa; color: #6c757d; }
+.excellent {
+  background: #d4edda;
+}
+.good {
+  background: #d1ecf1;
+}
+.average {
+  background: #fff3cd;
+}
+.below-avg {
+  background: #ffeaa7;
+}
+.poor {
+  background: #f8d7da;
+}
+.very-poor {
+  background: #f5c6cb;
+}
+.no-data {
+  background: #f8f9fa;
+  color: #6c757d;
+}

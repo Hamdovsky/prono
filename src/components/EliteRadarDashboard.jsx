@@ -1,22 +1,22 @@
-import React, { useState, useCallback } from 'react';
-import VipPaywall, { isVipUnlocked } from './VipPaywall';
-import './EliteRadar.css';
+import React, { useState, useCallback } from 'react'
+import VipPaywall, { isVipUnlocked } from './VipPaywall'
+import './EliteRadar.css'
 
 const EliteRadarDashboard = ({ eliteMatches }) => {
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [unlockKey, setUnlockKey] = useState(0);
+  const [showPaywall, setShowPaywall] = useState(false)
+  const [unlockKey, setUnlockKey] = useState(0)
 
   const handleUnlock = useCallback(() => {
-    if (isVipUnlocked()) return;
-    setShowPaywall(true);
-  }, []);
+    if (isVipUnlocked()) return
+    setShowPaywall(true)
+  }, [])
 
   const handlePaywallClose = useCallback(() => {
-    setShowPaywall(false);
-    setUnlockKey(k => k + 1);
-  }, []);
+    setShowPaywall(false)
+    setUnlockKey((k) => k + 1)
+  }, [])
 
-  const vipAvailable = isVipUnlocked();
+  const vipAvailable = isVipUnlocked()
 
   if (!eliteMatches || eliteMatches.length === 0) {
     return (
@@ -29,11 +29,11 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
           Aucun match ne correspond aux critères de la sélection chirurgicale.
         </div>
       </div>
-    );
+    )
   }
 
-  const vipCount = eliteMatches.filter(m => m._vip).length;
-  const freeCount = eliteMatches.length - vipCount;
+  const vipCount = eliteMatches.filter((m) => m._vip).length
+  const freeCount = eliteMatches.length - vipCount
 
   return (
     <div className="elite-radar-container" key={unlockKey}>
@@ -46,8 +46,12 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
 
       {!vipAvailable && vipCount > 0 && (
         <div className="vip-strip">
-          <span>👑 {vipCount} pronostic{vipCount > 1 ? 's' : ''} VIP disponible{vipCount > 1 ? 's' : ''}</span>
-          <button className="vip-unlock-btn" onClick={handleUnlock}>DÉBLOQUER</button>
+          <span>
+            👑 {vipCount} pronostic{vipCount > 1 ? 's' : ''} VIP disponible{vipCount > 1 ? 's' : ''}
+          </span>
+          <button className="vip-unlock-btn" onClick={handleUnlock}>
+            DÉBLOQUER
+          </button>
         </div>
       )}
 
@@ -63,44 +67,75 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
         </thead>
         <tbody>
           {eliteMatches.map((match, idx) => {
-            const enriched = match.enriched || {};
-            const quant = match.quant || enriched.quant || {};
-            const hPct = Math.round(parseFloat(match.home_win_probability || enriched.home_win_probability || 0));
-            const dPct = Math.round(parseFloat(match.draw_probability || enriched.draw_probability || 0));
-            const aPct = Math.round(parseFloat(match.away_win_probability || enriched.away_win_probability || 0));
-            const isSolid = (match.base_solid_margin || 0) > 0 && (match.base_solid_margin || 0) >= 25;
-            const isValueBet = match.draw_value_bet === true || match.draw_value_bet === 'True' || match.draw_value_bet === 1;
-            const isVip = match._vip === true;
-            const locked = isVip && !vipAvailable;
+            const enriched = match.enriched || {}
+            const quant = match.quant || enriched.quant || {}
+            const hPct = Math.round(
+              parseFloat(match.home_win_probability || enriched.home_win_probability || 0)
+            )
+            const dPct = Math.round(
+              parseFloat(match.draw_probability || enriched.draw_probability || 0)
+            )
+            const aPct = Math.round(
+              parseFloat(match.away_win_probability || enriched.away_win_probability || 0)
+            )
+            const isSolid =
+              (match.base_solid_margin || 0) > 0 && (match.base_solid_margin || 0) >= 25
+            const isValueBet =
+              match.draw_value_bet === true ||
+              match.draw_value_bet === 'True' ||
+              match.draw_value_bet === 1
+            const isVip = match._vip === true
+            const locked = isVip && !vipAvailable
 
-            const ouProb = parseFloat(match.ou_25_prob || enriched.ou_25_prob || 0);
-            const ouLabel = ouProb > 0
-              ? ouProb >= 50 ? '📈 O2.5' : '📉 U2.5'
-              : hPct > 70 || aPct > 65 ? '📈 O2.5'
-              : dPct > 35 || (hPct < 45 && aPct < 45) ? '📉 U2.5'
-              : '';
-            const ouPct = ouProb > 0 ? (ouProb >= 50 ? ouProb : 100 - ouProb).toFixed(0) : '';
+            const ouProb = parseFloat(match.ou_25_prob || enriched.ou_25_prob || 0)
+            const ouLabel =
+              ouProb > 0
+                ? ouProb >= 50
+                  ? '📈 O2.5'
+                  : '📉 U2.5'
+                : hPct > 70 || aPct > 65
+                  ? '📈 O2.5'
+                  : dPct > 35 || (hPct < 45 && aPct < 45)
+                    ? '📉 U2.5'
+                    : ''
+            const ouPct = ouProb > 0 ? (ouProb >= 50 ? ouProb : 100 - ouProb).toFixed(0) : ''
 
             return (
-              <tr key={match.id || idx} className={`${isSolid && !locked ? 'row-solid' : ''} ${isValueBet && !locked ? 'row-value' : ''} ${locked ? 'row-locked' : ''}`}>
+              <tr
+                key={match.id || idx}
+                className={`${isSolid && !locked ? 'row-solid' : ''} ${isValueBet && !locked ? 'row-value' : ''} ${locked ? 'row-locked' : ''}`}
+              >
                 <td className="match-cell">
-                  <span className="league-tag">[{match.league || match.tournament_name || match.competition || 'INT'}]</span>
-                  <span className="teams-text">{match.homeTeam} vs {match.awayTeam}</span>
+                  <span className="league-tag">
+                    [{match.league || match.tournament_name || match.competition || 'INT'}]
+                  </span>
+                  <span className="teams-text">
+                    {match.homeTeam} vs {match.awayTeam}
+                  </span>
                 </td>
 
                 <td className="text-center">
                   {locked ? (
-                    <span className="pick-badge locked" onClick={handleUnlock} style={{cursor: 'pointer'}}>
+                    <span
+                      className="pick-badge locked"
+                      onClick={handleUnlock}
+                      style={{ cursor: 'pointer' }}
+                    >
                       🔒 VIP
                     </span>
                   ) : (
-                    <span className={`pick-badge ${isSolid ? 'solid' : isValueBet ? 'value-draw' : 'standard'}`}>
+                    <span
+                      className={`pick-badge ${isSolid ? 'solid' : isValueBet ? 'value-draw' : 'standard'}`}
+                    >
                       {quant.main_pick || match.prediction || match.pick || 'N/A'}
                     </span>
                   )}
                   {ouLabel && !locked && (
-                    <span className={`ou-mini ${ouLabel.includes('O2.5') ? 'ou-over' : 'ou-under'}`}>
-                      {ouLabel}{ouPct ? ` ${ouPct}%` : ''}
+                    <span
+                      className={`ou-mini ${ouLabel.includes('O2.5') ? 'ou-over' : 'ou-under'}`}
+                    >
+                      {ouLabel}
+                      {ouPct ? ` ${ouPct}%` : ''}
                     </span>
                   )}
                 </td>
@@ -118,37 +153,39 @@ const EliteRadarDashboard = ({ eliteMatches }) => {
                 </td>
 
                 <td className={`text-center technical-text ${locked ? '' : 'ev-highlight'}`}>
-                  {locked ? <span className="locked-blur">EV=—</span> : `EV=${parseFloat(quant.ev_score || match.ev_score || 0).toFixed(2)}`}
+                  {locked ? (
+                    <span className="locked-blur">EV=—</span>
+                  ) : (
+                    `EV=${parseFloat(quant.ev_score || match.ev_score || 0).toFixed(2)}`
+                  )}
                 </td>
 
                 <td className="text-center">
                   {locked ? (
-                    <button className="vip-cell-unlock" onClick={handleUnlock}>🔓 DÉBLOQUER</button>
+                    <button className="vip-cell-unlock" onClick={handleUnlock}>
+                      🔓 DÉBLOQUER
+                    </button>
                   ) : match.insufficient_data === 1 ? (
-                    <span className="signal-tag insufficient-signal">
-                      ⚠️ ESTIMATION (xG seul)
-                    </span>
+                    <span className="signal-tag insufficient-signal">⚠️ ESTIMATION (xG seul)</span>
                   ) : isSolid ? (
                     <span className="signal-tag solid-signal">
                       ⚡ SOLID (BSM: {Math.round(match.base_solid_margin)}%)
                     </span>
                   ) : isValueBet ? (
-                    <span className="signal-tag draw-signal">
-                      🎯 VALUE BET (Draw Sniffer)
-                    </span>
+                    <span className="signal-tag draw-signal">🎯 VALUE BET (Draw Sniffer)</span>
                   ) : (
                     <span className="signal-tag standard-signal">DYNAMIC</span>
                   )}
                 </td>
               </tr>
-            );
+            )
           })}
         </tbody>
       </table>
 
       {showPaywall && <VipPaywall onClose={handlePaywallClose} />}
     </div>
-  );
-};
+  )
+}
 
-export default EliteRadarDashboard;
+export default EliteRadarDashboard

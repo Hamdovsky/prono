@@ -6,7 +6,7 @@ import frStrings from '../i18n/fr.json'
 
 const LOCALES = {
   fr: frStrings,
-  en: () => import('../i18n/en.json').then(m => m.default),
+  en: () => import('../i18n/en.json').then((m) => m.default),
 }
 
 export const I18nProvider = ({ children }) => {
@@ -25,17 +25,16 @@ export const I18nProvider = ({ children }) => {
     document.documentElement.setAttribute('lang', locale)
   }, [locale])
 
-  const t = useCallback((key) => {
-    if (strings && strings[key]) return strings[key]
-    const parts = key.split('.')
-    return parts[parts.length - 1]
-  }, [strings])
-
-  return (
-    <I18nContext.Provider value={{ locale, setLocale, t }}>
-      {children}
-    </I18nContext.Provider>
+  const t = useCallback(
+    (key) => {
+      if (strings && strings[key]) return strings[key]
+      const parts = key.split('.')
+      return parts[parts.length - 1]
+    },
+    [strings]
   )
+
+  return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>
 }
 
 export const useI18n = () => {

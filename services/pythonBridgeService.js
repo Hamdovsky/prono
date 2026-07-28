@@ -24,8 +24,12 @@ class PythonBridgeService {
         let stdout = ''
         let stderr = ''
 
-        proc.stdout.on('data', (chunk) => { stdout += chunk.toString() })
-        proc.stderr.on('data', (chunk) => { stderr += chunk.toString() })
+        proc.stdout.on('data', (chunk) => {
+          stdout += chunk.toString()
+        })
+        proc.stderr.on('data', (chunk) => {
+          stderr += chunk.toString()
+        })
 
         const timer = setTimeout(() => {
           proc.kill()
@@ -41,7 +45,13 @@ class PythonBridgeService {
             const result = JSON.parse(stdout.trim())
             resolve({ ...result, elapsed: Date.now() - start })
           } catch (e) {
-            resolve({ success: false, error: `Parse error: ${e.message}`, output: stdout.trim(), stderr: stderr.trim(), fallback: true })
+            resolve({
+              success: false,
+              error: `Parse error: ${e.message}`,
+              output: stdout.trim(),
+              stderr: stderr.trim(),
+              fallback: true,
+            })
           }
         })
 
@@ -61,7 +71,10 @@ class PythonBridgeService {
     if (this._warming) return this._ready
     this._warming = true
     try {
-      const result = await this.predict({ homeTeam: 'Test', awayTeam: 'Test', league: 'Test' }, 30000)
+      const result = await this.predict(
+        { homeTeam: 'Test', awayTeam: 'Test', league: 'Test' },
+        30000
+      )
       this._ready = result && result.success !== false
       logger.info(`[PythonBridge] Warmup ${this._ready ? 'OK' : 'FAILED'}`)
       return this._ready

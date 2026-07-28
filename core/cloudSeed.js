@@ -12,9 +12,7 @@ const openligadbService = require('../services/openligadbService')
 
 const fdQuotaManager = createQuotaManager('footballdata')
 
-const TIER1_TOURNAMENT_IDS = new Set([
-  17, 8, 23, 35, 7, 37, 679, 329, 34, 44, 238, 45, 203, 574
-])
+const TIER1_TOURNAMENT_IDS = new Set([17, 8, 23, 35, 7, 37, 679, 329, 34, 44, 238, 45, 203, 574])
 
 function getDateStr(offset) {
   const d = new Date()
@@ -23,16 +21,17 @@ function getDateStr(offset) {
 }
 
 function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms))
+  return new Promise((r) => setTimeout(r, ms))
 }
 
 const LIVESCORE_BASE = 'https://prod-public-api.livescore.com/v1/api/app/date/soccer'
 
 const LIVESCORE_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'application/json, text/plain, */*',
-  'Origin': 'https://www.livescore.com',
-  'Referer': 'https://www.livescore.com/',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Accept: 'application/json, text/plain, */*',
+  Origin: 'https://www.livescore.com',
+  Referer: 'https://www.livescore.com/',
 }
 
 function randomDelay() {
@@ -43,11 +42,11 @@ function parseEsd(esd) {
   const s = String(esd)
   if (s.length < 14) return Math.floor(Date.now() / 1000)
   const year = s.slice(0, 4)
-  const mon  = s.slice(4, 6)
-  const day  = s.slice(6, 8)
+  const mon = s.slice(4, 6)
+  const day = s.slice(6, 8)
   const hour = s.slice(8, 10)
-  const min  = s.slice(10, 12)
-  const sec  = s.slice(12, 14)
+  const min = s.slice(10, 12)
+  const sec = s.slice(12, 14)
   return Math.floor(new Date(`${year}-${mon}-${day}T${hour}:${min}:${sec}Z`).getTime() / 1000)
 }
 
@@ -68,7 +67,7 @@ async function fetchLiveScoreEvents(dateStr) {
   try {
     const { data } = await axios.get(url, {
       headers: LIVESCORE_HEADERS,
-      timeout: 20000
+      timeout: 20000,
     })
     return data?.Stages || []
   } catch (e) {
@@ -111,26 +110,39 @@ function mapLiveScoreEventToMatch(event, stage) {
     insufficient_data: 1,
     source: 'livescore',
     fullData: JSON.stringify({
-      id: event.Eid, homeTeam: homeName, awayTeam: awayName,
-      league: stage?.CompN || league, country, startTimestamp: ts, status,
-      stageName: stage?.Snm, round: event.ErnInf,
-      homeTeamId: event.T1?.[0]?.ID, awayTeamId: event.T2?.[0]?.ID,
-      compId: stage?.CompId, compName: stage?.CompN,
-      homeScore: event.Tr1, awayScore: event.Tr2
-    })
+      id: event.Eid,
+      homeTeam: homeName,
+      awayTeam: awayName,
+      league: stage?.CompN || league,
+      country,
+      startTimestamp: ts,
+      status,
+      stageName: stage?.Snm,
+      round: event.ErnInf,
+      homeTeamId: event.T1?.[0]?.ID,
+      awayTeamId: event.T2?.[0]?.ID,
+      compId: stage?.CompId,
+      compName: stage?.CompN,
+      homeScore: event.Tr1,
+      awayScore: event.Tr2,
+    }),
   }
 }
 
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'sportapi7.p.rapidapi.com'
-const RAPIDAPI_KEY  = process.env.RAPIDAPI_KEY  || ''
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || ''
 const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/api/v1`
 
 async function fetchRapidApiEvents(date) {
   if (!RAPIDAPI_KEY || process.env.RAPIDAPI_ENABLED !== 'true') return []
   try {
     const { data } = await axios.get(`${RAPIDAPI_BASE}/sport/football/scheduled-events/${date}`, {
-      headers: { 'x-rapidapi-host': RAPIDAPI_HOST, 'x-rapidapi-key': RAPIDAPI_KEY, 'Accept': 'application/json' },
-      timeout: 20000
+      headers: {
+        'x-rapidapi-host': RAPIDAPI_HOST,
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        Accept: 'application/json',
+      },
+      timeout: 20000,
     })
     return data.events || []
   } catch (e) {
@@ -146,7 +158,9 @@ function isTier1(event) {
 function mapRapidEventToMatch(event) {
   const ts = event.startTimestamp || Math.floor(Date.now() / 1000)
   const rawStatus = (event.status?.type || '').toLowerCase()
-  const status = ['finished', 'canceled', 'postponed', 'inprogress'].includes(rawStatus) ? rawStatus : 'scheduled'
+  const status = ['finished', 'canceled', 'postponed', 'inprogress'].includes(rawStatus)
+    ? rawStatus
+    : 'scheduled'
   return {
     id: String(event.id),
     homeTeam: event.homeTeam?.name || 'Home',
@@ -169,25 +183,30 @@ function mapRapidEventToMatch(event) {
     last_updated: Date.now(),
     insufficient_data: 1,
     source: 'rapidapi',
-    fullData: JSON.stringify({ id: event.id, homeTeam: event.homeTeam?.name, awayTeam: event.awayTeam?.name, league: event.tournament?.name, startTimestamp: ts, status })
+    fullData: JSON.stringify({
+      id: event.id,
+      homeTeam: event.homeTeam?.name,
+      awayTeam: event.awayTeam?.name,
+      league: event.tournament?.name,
+      startTimestamp: ts,
+      status,
+    }),
   }
 }
 
-const FD_KEY  = process.env.FOOTBALLDATA_KEY || ''
+const FD_KEY = process.env.FOOTBALLDATA_KEY || ''
 const FD_HOST = process.env.FOOTBALLDATA_HOST || 'api.football-data.org'
 const FD_IS_FDORG = FD_HOST === 'api.football-data.org'
-const FD_BASE = FD_IS_FDORG
-  ? `https://${FD_HOST}/v4`
-  : `https://${FD_HOST}/api/v1`
+const FD_BASE = FD_IS_FDORG ? `https://${FD_HOST}/v4` : `https://${FD_HOST}/api/v1`
 
 async function fetchFDFixtures(endpoint, dateStr) {
   if (!FD_KEY || process.env.FOOTBALLDATA_ENABLED !== 'true') return []
   try {
-    const headers = { 'Accept': 'application/json' };
+    const headers = { Accept: 'application/json' }
     if (FD_IS_FDORG) {
-      headers['X-Auth-Token'] = FD_KEY;
+      headers['X-Auth-Token'] = FD_KEY
     } else {
-      headers['Authorization'] = `Bearer ${FD_KEY}`;
+      headers['Authorization'] = `Bearer ${FD_KEY}`
     }
     let url = `${FD_BASE}${endpoint}`
     if (FD_IS_FDORG && dateStr) {
@@ -195,7 +214,7 @@ async function fetchFDFixtures(endpoint, dateStr) {
     }
     const { data } = await axios.get(url, {
       headers,
-      timeout: 20000
+      timeout: 20000,
     })
     const root = data?.data || data
     return root?.matches || root?.fixtures || []
@@ -218,11 +237,16 @@ function parseLeague(league) {
 
 function mapFDFixtureToMatch(f) {
   const matchId = f.match_id || f.id || `fd_${Date.now()}_${Math.random()}`
-  const ts = f.date_unix || f.timestamp || (f.utcDate ? Math.floor(new Date(f.utcDate).getTime() / 1000) : Math.floor(Date.now() / 1000))
+  const ts =
+    f.date_unix ||
+    f.timestamp ||
+    (f.utcDate ? Math.floor(new Date(f.utcDate).getTime() / 1000) : Math.floor(Date.now() / 1000))
   const rawStatus = (f.status || '').toLowerCase()
   let status = 'scheduled'
-  if (rawStatus === 'complete' || rawStatus === 'ft' || rawStatus === 'finished') status = 'finished'
-  else if (rawStatus === 'live' || rawStatus === 'inprogress' || rawStatus === 'in_play') status = 'inprogress'
+  if (rawStatus === 'complete' || rawStatus === 'ft' || rawStatus === 'finished')
+    status = 'finished'
+  else if (rawStatus === 'live' || rawStatus === 'inprogress' || rawStatus === 'in_play')
+    status = 'inprogress'
 
   const competition = f.competition || f.league || {}
   const leagueName = parseLeague(competition) || 'Unknown'
@@ -249,7 +273,13 @@ function mapFDFixtureToMatch(f) {
     last_updated: Date.now(),
     insufficient_data: 1,
     source: 'footballdata',
-    fullData: JSON.stringify({ home: parseTeam(f.homeTeam || f.home_team), away: parseTeam(f.awayTeam || f.away_team), league: leagueName, startTimestamp: ts, status })
+    fullData: JSON.stringify({
+      home: parseTeam(f.homeTeam || f.home_team),
+      away: parseTeam(f.awayTeam || f.away_team),
+      league: leagueName,
+      startTimestamp: ts,
+      status,
+    }),
   }
 }
 
@@ -260,17 +290,36 @@ async function upsertMatch(match) {
     if (['finished', 'canceled', 'postponed'].includes(match.status)) return false
     const isPG = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')
     if (isPG) {
-      const cols = ['id', '"homeTeam"', '"awayTeam"', 'league', 'category_name', 'tournament_name',
-        'tournament_id', 'home_team_id', 'away_team_id',
-        '"startTimestamp"', 'timestamp', 'status',
-        'confidence', 'prediction',
-        'odds_home', 'odds_draw', 'odds_away',
-        'last_updated', 'insufficient_data', 'source', '"fullData"']
+      const cols = [
+        'id',
+        '"homeTeam"',
+        '"awayTeam"',
+        'league',
+        'category_name',
+        'tournament_name',
+        'tournament_id',
+        'home_team_id',
+        'away_team_id',
+        '"startTimestamp"',
+        'timestamp',
+        'status',
+        'confidence',
+        'prediction',
+        'odds_home',
+        'odds_draw',
+        'odds_away',
+        'last_updated',
+        'insufficient_data',
+        'source',
+        '"fullData"',
+      ]
       const vals = cols.map((_, i) => `$${i + 1}`).join(', ')
-      const params = cols.map(c => match[c] !== undefined ? match[c] : null)
-      await db.prepare(
-        `INSERT INTO matches (${cols.join(', ')}) VALUES (${vals}) ON CONFLICT (id) DO NOTHING`
-      ).run(params)
+      const params = cols.map((c) => (match[c] !== undefined ? match[c] : null))
+      await db
+        .prepare(
+          `INSERT INTO matches (${cols.join(', ')}) VALUES (${vals}) ON CONFLICT (id) DO NOTHING`
+        )
+        .run(params)
       return true
     }
     const safe = {
@@ -281,7 +330,9 @@ async function upsertMatch(match) {
       home_team_id: match.home_team_id || null,
       away_team_id: match.away_team_id || null,
     }
-    await db.prepare(`
+    await db
+      .prepare(
+        `
       INSERT OR IGNORE INTO matches (
         id, homeTeam, awayTeam, league, category_name, tournament_name,
         tournament_id, home_team_id, away_team_id,
@@ -297,7 +348,9 @@ async function upsertMatch(match) {
         @odds_home, @odds_draw, @odds_away,
         @last_updated, @insufficient_data, @source, @fullData
       )
-    `).run(safe)
+    `
+      )
+      .run(safe)
     return true
   } catch (e) {
     logger.warn(`[CLOUD-SEED] upsertMatch error (${match.id}):`, e.message)
@@ -310,9 +363,9 @@ async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd, opts = {}) {
     const db = database.db
     const excludeSeed = opts.excludeSeed !== false // default: exclude seed/emergency from counts
     const startDate = getDateStr(dayOffsetStart)
-    const endDate   = getDateStr(dayOffsetEnd)
+    const endDate = getDateStr(dayOffsetEnd)
     const startTs = Math.floor(new Date(startDate + 'T00:00:00Z').getTime() / 1000)
-    const endTs   = Math.floor(new Date(endDate   + 'T23:59:59Z').getTime() / 1000)
+    const endTs = Math.floor(new Date(endDate + 'T23:59:59Z').getTime() / 1000)
     const sourceFilter = excludeSeed ? ` AND source NOT IN ('seed', 'emergency')` : ''
     const isPG = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')
     if (isPG) {
@@ -323,9 +376,11 @@ async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd, opts = {}) {
       )
       return parseInt(result.rows?.[0]?.cnt || '0')
     }
-    const row = await db.prepare(
-      `SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp <= ? AND status = 'scheduled'${sourceFilter}`
-    ).get(startTs, endTs)
+    const row = await db
+      .prepare(
+        `SELECT COUNT(*) as cnt FROM matches WHERE startTimestamp >= ? AND startTimestamp <= ? AND status = 'scheduled'${sourceFilter}`
+      )
+      .get(startTs, endTs)
     return row?.cnt || 0
   } catch (e) {
     return 0
@@ -338,9 +393,17 @@ async function purgeFakeMatches() {
   try {
     let result
     if (db.pragma) {
-      result = db.prepare(`DELETE FROM matches WHERE "homeTeam" IS NULL OR "homeTeam" = '' OR "homeTeam" = 'null' OR league = 'FIFA'`).run()
+      result = db
+        .prepare(
+          `DELETE FROM matches WHERE "homeTeam" IS NULL OR "homeTeam" = '' OR "homeTeam" = 'null' OR league = 'FIFA'`
+        )
+        .run()
     } else {
-      result = await db.prepare(`DELETE FROM matches WHERE "homeTeam" IS NULL OR "homeTeam" = '' OR "homeTeam" = 'null' OR league = 'FIFA'`).run()
+      result = await db
+        .prepare(
+          `DELETE FROM matches WHERE "homeTeam" IS NULL OR "homeTeam" = '' OR "homeTeam" = 'null' OR league = 'FIFA'`
+        )
+        .run()
     }
     const removed = result.changes || result.rowCount || 0
     if (removed > 0) logger.info(`[CLOUD-SEED/PURGE] Removed ${removed} fake/empty/FIFA matches`)
@@ -361,7 +424,11 @@ async function runCloudSeed() {
   if (!isPG && !localDataUrl) {
     try {
       const db = database.db
-      const count = db.prepare('SELECT COUNT(*) as cnt FROM matches WHERE "homeTeam" IS NOT NULL AND "homeTeam" != \'\'').get()
+      const count = db
+        .prepare(
+          'SELECT COUNT(*) as cnt FROM matches WHERE "homeTeam" IS NOT NULL AND "homeTeam" != \'\''
+        )
+        .get()
       if (count && count.cnt >= 100) {
         logger.info(`[CLOUD-SEED] DB already has ${count.cnt} real matches — skipping seed`)
         return
@@ -370,7 +437,9 @@ async function runCloudSeed() {
   }
 
   if (localDataUrl) {
-    logger.info('[CLOUD-SEED] LOCAL_DATA_URL detected — using ngrok tunnel as ONLY source. All external APIs SKIPPED.')
+    logger.info(
+      '[CLOUD-SEED] LOCAL_DATA_URL detected — using ngrok tunnel as ONLY source. All external APIs SKIPPED.'
+    )
     try {
       const { data } = await axios.get(`${localDataUrl}/api/local/matches`, { timeout: 20000 })
       if (!data?.success || !Array.isArray(data.matches)) {
@@ -390,7 +459,9 @@ async function runCloudSeed() {
     return
   }
 
-  logger.info('[CLOUD-SEED] Starting multi-source seeding (LiveScore → FootballData → BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)...')
+  logger.info(
+    '[CLOUD-SEED] Starting multi-source seeding (LiveScore → FootballData → BSD → TheRundown → OddsPapi → Sportmonks → APIFootball → OpenLigaDB)...'
+  )
 
   const today = getDateStr(0)
   const existingToday = await countMatchesForPeriod(0, 0)
@@ -438,7 +509,7 @@ async function runCloudSeed() {
   let fdQuotaStatus = fdQuotaManager.getQuotaStatus()
   if (existingToday < 20 && fdQuotaStatus.isActive && fdQuotaStatus.remaining > 0) {
     const fixtures = await fetchFDFixtures('/fixtures/upcoming', today)
-    const filtered = (fixtures || []).filter(f => {
+    const filtered = (fixtures || []).filter((f) => {
       const d = (f.match_date || f.date || f.utcDate || '').substring(0, 10)
       return d === today || d === getDateStr(1)
     })
@@ -470,18 +541,41 @@ async function runCloudSeed() {
   }
 
   const fbFallbackSources = [
-    { name: 'TheRundown', fetch: () => therundownService.fetchSoccerEvents(today).then(events => events.map(e => therundownService.mapEventToMatch(e))), available: () => therundownService.isAvailable() },
-    { name: 'OddsPapi',   fetch: () => oddspapiService.fetchEvents(today),              available: () => oddspapiService.isAvailable() },
-    { name: 'Sportmonks', fetch: () => sportmonksService.fetchEvents(today),            available: () => sportmonksService.isAvailable() },
-    { name: 'APIFootball',fetch: () => apifootballService.fetchEvents(today),           available: () => apifootballService.isAvailable() },
-    { name: 'OpenLigaDB', fetch: () => openligadbService.fetchEvents(today),            available: () => openligadbService.isAvailable() },
+    {
+      name: 'TheRundown',
+      fetch: () =>
+        therundownService
+          .fetchSoccerEvents(today)
+          .then((events) => events.map((e) => therundownService.mapEventToMatch(e))),
+      available: () => therundownService.isAvailable(),
+    },
+    {
+      name: 'OddsPapi',
+      fetch: () => oddspapiService.fetchEvents(today),
+      available: () => oddspapiService.isAvailable(),
+    },
+    {
+      name: 'Sportmonks',
+      fetch: () => sportmonksService.fetchEvents(today),
+      available: () => sportmonksService.isAvailable(),
+    },
+    {
+      name: 'APIFootball',
+      fetch: () => apifootballService.fetchEvents(today),
+      available: () => apifootballService.isAvailable(),
+    },
+    {
+      name: 'OpenLigaDB',
+      fetch: () => openligadbService.fetchEvents(today),
+      available: () => openligadbService.isAvailable(),
+    },
   ]
 
   const currentCount = await countMatchesForPeriod(0, 0)
   if (currentCount < 20) {
     for (const src of fbFallbackSources) {
       if (!src.available()) continue
-      if (await countMatchesForPeriod(0, 0) >= 20) break
+      if ((await countMatchesForPeriod(0, 0)) >= 20) break
       try {
         const matches = await src.fetch()
         if (!matches?.length) continue
@@ -490,7 +584,9 @@ async function runCloudSeed() {
           if (match.status !== 'scheduled') continue
           if (await upsertMatch(match)) inserted++
         }
-        logger.info(`[CLOUD-SEED/FALLBACK] ${src.name}: inserted ${inserted}/${matches.length} matches`)
+        logger.info(
+          `[CLOUD-SEED/FALLBACK] ${src.name}: inserted ${inserted}/${matches.length} matches`
+        )
         await sleep(500)
       } catch (e) {
         logger.warn(`[CLOUD-SEED/FALLBACK] ${src.name}: error — ${e.message}`)
@@ -501,12 +597,13 @@ async function runCloudSeed() {
   const finalAfterFD = await countMatchesForPeriod(0, 0)
   const fdFinished = fdQuotaManager.getQuotaStatus().remaining <= 0 || fdInserted === 0
   const rapidQuotaStatus = rapidApiQuotaManager.getQuotaStatus()
-  const canUseRapid = finalAfterFD < 20 && fdFinished && rapidQuotaStatus.isActive && rapidQuotaStatus.remaining > 0
+  const canUseRapid =
+    finalAfterFD < 20 && fdFinished && rapidQuotaStatus.isActive && rapidQuotaStatus.remaining > 0
 
   if (canUseRapid) {
     const events = await fetchRapidApiEvents(today)
     const tier1 = events.filter(isTier1)
-    const others = events.filter(e => !isTier1(e))
+    const others = events.filter((e) => !isTier1(e))
     const sorted = [...tier1, ...others]
     let rapidUsed = 0
     for (const event of sorted) {
@@ -525,7 +622,9 @@ async function runCloudSeed() {
 
   const finalToday = await countMatchesForPeriod(0, 0)
   const finalTomorrow = await countMatchesForPeriod(1, 1)
-  logger.info(`[CLOUD-SEED] Complete. LiveScore: ${liveScoreInserted}, FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`)
+  logger.info(
+    `[CLOUD-SEED] Complete. LiveScore: ${liveScoreInserted}, FootballData: ${fdInserted}, RapidAPI: ${rapidApiInserted}, DB: ${finalToday} today / ${finalTomorrow} tomorrow.`
+  )
 
   if (finalToday + finalTomorrow === 0) {
     logger.warn('[CLOUD-SEED] WARNING: No scheduled matches found.')
@@ -534,8 +633,16 @@ async function runCloudSeed() {
   // Auto-calibrate league params after seeding (non-blocking)
   try {
     const { calibrate } = require('../services/leagueCalibrator')
-    calibrate().catch(e => logger.warn(`[CALIBRATE] Auto-calibration error: ${e.message}`))
+    calibrate().catch((e) => logger.warn(`[CALIBRATE] Auto-calibration error: ${e.message}`))
   } catch (e) {}
+
+  // Backfill des cotes sur les matchs LiveScore (opt-in, non-bloquant)
+  if (process.env.ODDS_BACKFILL_ENABLED === 'true') {
+    try {
+      const { backfillOdds } = require('./oddsBackfill')
+      backfillOdds().catch((e) => logger.warn(`[ODDS-BACKFILL] Erreur: ${e.message}`))
+    } catch (e) {}
+  }
 }
 
 module.exports = { runCloudSeed, purgeFakeMatches }

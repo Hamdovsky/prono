@@ -14,8 +14,12 @@ function poissonProb(lambda, k) {
 
 function poissonRandom(lambda) {
   const L = Math.exp(-lambda)
-  let k = 0; let p = 1
-  do { k++; p *= Math.random() } while (p > L)
+  let k = 0
+  let p = 1
+  do {
+    k++
+    p *= Math.random()
+  } while (p > L)
   return k - 1
 }
 
@@ -34,7 +38,7 @@ function overUnder(xgH, xgA, lines = [2.5, 3.5, 1.5, 4.5, 0.5]) {
     }
   }
 
-  return lines.map(line => {
+  return lines.map((line) => {
     let over = 0
     for (let g = Math.floor(line) + 1; g <= maxGoals; g++) over += totalProb[g]
     const under = 1 - over
@@ -70,9 +74,21 @@ function btts(xgH, xgA, maxGoals = 6) {
 /* ─── 3. Double Chance ─── */
 function doubleChance(fairProbH, fairProbD, fairProbA) {
   return {
-    '1X': { outcome: '1X', prob: +(fairProbH + fairProbD).toFixed(4), fairOdds: probToOdds(fairProbH + fairProbD) },
-    '12': { outcome: '12', prob: +(fairProbH + fairProbA).toFixed(4), fairOdds: probToOdds(fairProbH + fairProbA) },
-    'X2': { outcome: 'X2', prob: +(fairProbD + fairProbA).toFixed(4), fairOdds: probToOdds(fairProbD + fairProbA) },
+    '1X': {
+      outcome: '1X',
+      prob: +(fairProbH + fairProbD).toFixed(4),
+      fairOdds: probToOdds(fairProbH + fairProbD),
+    },
+    12: {
+      outcome: '12',
+      prob: +(fairProbH + fairProbA).toFixed(4),
+      fairOdds: probToOdds(fairProbH + fairProbA),
+    },
+    X2: {
+      outcome: 'X2',
+      prob: +(fairProbD + fairProbA).toFixed(4),
+      fairOdds: probToOdds(fairProbD + fairProbA),
+    },
   }
 }
 
@@ -117,7 +133,10 @@ function htFt(xgH, xgA, maxGoals = 5) {
     halfTime: ht,
     fullTime: ft,
     combinations: results,
-    topPick: Object.entries(results).sort((a, b) => b[1].prob - a[1].prob).slice(0, 3).map(([k, v]) => v),
+    topPick: Object.entries(results)
+      .sort((a, b) => b[1].prob - a[1].prob)
+      .slice(0, 3)
+      .map(([k, v]) => v),
   }
 }
 
@@ -157,10 +176,13 @@ function corners(xgH, xgA) {
 function cards(xgH, xgA, league) {
   /* Cards per xG by league (empirical) */
   const CARDS_RATES = {
-    'PL': 0.42, 'Premier League': 0.42,
-    'La Liga': 0.55, 'Liga': 0.55,
-    'Serie A': 0.50, 'Ligue 1': 0.48,
-    'Bundesliga': 0.40,
+    PL: 0.42,
+    'Premier League': 0.42,
+    'La Liga': 0.55,
+    Liga: 0.55,
+    'Serie A': 0.5,
+    'Ligue 1': 0.48,
+    Bundesliga: 0.4,
   }
   const rate = CARDS_RATES[league] || 0.45
   const totalCards = (xgH + xgA) * rate * 90 /* per 90 */
@@ -196,7 +218,12 @@ function playerProps(xgH, xgA, homePlayers, awayPlayers) {
   /* For each key attacker, estimate anytime scorer prob based on xG share */
   for (const player of [...(homePlayers || []), ...(awayPlayers || [])]) {
     if (!player || !player.name) continue
-    if (!['Forward', 'Striker', 'Attacking Midfield', 'Midfielder', 'Winger'].includes(player.position || '')) continue
+    if (
+      !['Forward', 'Striker', 'Attacking Midfield', 'Midfielder', 'Winger'].includes(
+        player.position || ''
+      )
+    )
+      continue
     const teamXg = player.team === 'home' ? xgH : xgA
     const xgShare = player.xGPerGame || player.xgPerMatch || 0.15
     const goalProb = 1 - Math.exp(-xgShare)

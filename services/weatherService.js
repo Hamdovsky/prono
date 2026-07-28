@@ -24,7 +24,7 @@ class WeatherService {
     try {
       const { data } = await axios.get(`${this.baseUrl}/weather`, {
         params: { lat, lon, appid: this.apiKey, units: 'metric' },
-        timeout: 10000
+        timeout: 10000,
       })
       return data
     } catch (e) {
@@ -38,7 +38,7 @@ class WeatherService {
     try {
       const { data } = await axios.get(`${this.baseUrl}/weather`, {
         params: { q: city, appid: this.apiKey, units: 'metric' },
-        timeout: 10000
+        timeout: 10000,
       })
       return data
     } catch (e) {
@@ -52,7 +52,7 @@ class WeatherService {
     try {
       const { data } = await axios.get(`${this.baseUrl}/forecast`, {
         params: { lat, lon, appid: this.apiKey, units: 'metric', cnt: 8 },
-        timeout: 10000
+        timeout: 10000,
       })
       return data
     } catch (e) {
@@ -79,7 +79,7 @@ class WeatherService {
       city: weatherData.name,
       country: weatherData.sys?.country,
       timestamp: weatherData.dt,
-      last_updated: Date.now()
+      last_updated: Date.now(),
     }
   }
 }

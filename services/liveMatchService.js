@@ -37,13 +37,13 @@ class LiveMatchService {
       const axios = require('axios')
       const { data } = await axios.get('https://sportscore.com/api/widget/matches/', {
         params: { sport: 'football', limit: 50 },
-        timeout: 8000
+        timeout: 8000,
       })
       if (data?.matches?.length) {
         return data.matches
-          .filter(m => m.status === 'upcoming')
+          .filter((m) => m.status === 'upcoming')
           .slice(0, 30)
-          .map(m => ({
+          .map((m) => ({
             id: `ss_upc_${m.home}_${m.away}`.replace(/\s+/g, '_').toLowerCase(),
             homeTeam: m.home,
             awayTeam: m.away,
@@ -56,7 +56,7 @@ class LiveMatchService {
             isFallback: true,
             homeWinP: 33,
             drawP: 34,
-            awayWinP: 33
+            awayWinP: 33,
           }))
       }
     } catch {}
@@ -141,12 +141,17 @@ class LiveMatchService {
           homeScore: event.homeScore?.display ?? event.homeScore?.current ?? 0,
           awayScore: event.awayScore?.display ?? event.awayScore?.current ?? 0,
           possession: event.statistics?.possession,
-          redCards: event.statistics?.redCards
-        }
+          redCards: event.statistics?.redCards,
+        },
       }
     }
 
-    if (source === 'sportscore' || source === 'SportScore' || source === 'sportsrc' || source === 'SportSRC') {
+    if (
+      source === 'sportscore' ||
+      source === 'SportScore' ||
+      source === 'sportsrc' ||
+      source === 'SportSRC'
+    ) {
       return {
         id: event.id || `live_${Date.now()}`,
         homeTeam: event.homeTeam || 'Home',
@@ -162,7 +167,7 @@ class LiveMatchService {
         awayWinP: event.awayWinP ?? 33,
         confidence: 0,
         category: 'LIVE',
-        staleSecs: 0
+        staleSecs: 0,
       }
     }
 
@@ -182,7 +187,7 @@ class LiveMatchService {
       awayWinP: event.probabilities?.away ?? 33,
       confidence: 0,
       category: 'LIVE',
-      staleSecs: 0
+      staleSecs: 0,
     }
   }
 

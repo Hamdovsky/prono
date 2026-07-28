@@ -29,7 +29,8 @@ class AutoHealRemedies {
         fix: async () => {
           const { execSync } = require('child_process')
           const pythonScript = path.join(__dirname, '..', 'core', 'fastapi_server.py')
-          if (!fs.existsSync(pythonScript)) return { success: false, detail: 'fastapi_server.py not found' }
+          if (!fs.existsSync(pythonScript))
+            return { success: false, detail: 'fastapi_server.py not found' }
           try {
             try {
               execSync(`${PYTHON} --version`, { stdio: 'ignore', timeout: 5000 })
@@ -39,34 +40,36 @@ class AutoHealRemedies {
             if (process.platform === 'win32') {
               exec('netstat -ano | findstr ":8000" | findstr "LISTENING"', (err, stdout) => {
                 if (stdout) {
-                  const lines = stdout.trim().split('\n');
+                  const lines = stdout.trim().split('\n')
                   for (const line of lines) {
-                    const parts = line.trim().split(/\s+/);
-                    const pid = parts[parts.length - 1];
+                    const parts = line.trim().split(/\s+/)
+                    const pid = parts[parts.length - 1]
                     if (pid && !isNaN(parseInt(pid))) {
-                      exec(`taskkill /f /pid ${pid} 2>nul || echo no process`);
+                      exec(`taskkill /f /pid ${pid} 2>nul || echo no process`)
                     }
                   }
                 }
-              });
-              await new Promise(r => setTimeout(r, 2000));
+              })
+              await new Promise((r) => setTimeout(r, 2000))
             }
             const proc = spawn(PYTHON, [pythonScript], {
               cwd: path.join(__dirname, '..'),
               windowsHide: true,
               stdio: 'ignore',
-              detached: true
+              detached: true,
             })
             proc.on('error', (e) => logger.error(`[AUTOHEAL] Python spawn error: ${e.message}`))
             proc.unref()
-            await new Promise(r => setTimeout(r, 10000))
-            const res = await fetch('http://127.0.0.1:8000/health', { signal: AbortSignal.timeout(5000) })
+            await new Promise((r) => setTimeout(r, 10000))
+            const res = await fetch('http://127.0.0.1:8000/health', {
+              signal: AbortSignal.timeout(5000),
+            })
             if (res.ok) return { success: true, detail: 'FastAPI restarted successfully' }
             return { success: false, detail: 'FastAPI still unreachable after restart' }
           } catch (e) {
             return { success: false, detail: e.message }
           }
-        }
+        },
       },
 
       {
@@ -79,7 +82,8 @@ class AutoHealRemedies {
             if (!fs.existsSync(usageFile)) return { detected: false }
             const data = JSON.parse(fs.readFileSync(usageFile, 'utf8'))
             const limit = parseInt(process.env.DEEPSEEK_MAX_MONTHLY_CALLS || '220')
-            if (data.count >= limit) return { detected: true, detail: `${data.count}/${limit} used` }
+            if (data.count >= limit)
+              return { detected: true, detail: `${data.count}/${limit} used` }
             return { detected: false }
           } catch (e) {
             return { detected: false }
@@ -90,8 +94,11 @@ class AutoHealRemedies {
           if (process.env.GROQ_API_KEY) {
             return { success: true, detail: 'Groq fallback already configured' }
           }
-          return { success: true, detail: 'AI enrichment paused until next month; no Groq fallback key' }
-        }
+          return {
+            success: true,
+            detail: 'AI enrichment paused until next month; no Groq fallback key',
+          }
+        },
       },
 
       {
@@ -116,12 +123,12 @@ class AutoHealRemedies {
             const redisClient = require('./redisCache')
             if (redisClient.reconnect) redisClient.reconnect()
             else if (redisClient.connect) redisClient.connect().catch(() => {})
-            await new Promise(r => setTimeout(r, 2000))
+            await new Promise((r) => setTimeout(r, 2000))
             return { success: true, detail: 'Redis reconnection triggered' }
           } catch (e) {
             return { success: false, detail: e.message }
           }
-        }
+        },
       },
 
       {
@@ -134,7 +141,10 @@ class AutoHealRemedies {
           const heapTotalMB = mem.heapTotal / 1024 / 1024
           const usageRatio = heapUsedMB / heapTotalMB
           if (usageRatio > 0.85 || heapUsedMB > 400) {
-            return { detected: true, detail: `Heap: ${heapUsedMB.toFixed(0)}MB/${heapTotalMB.toFixed(0)}MB (${(usageRatio * 100).toFixed(0)}%)` }
+            return {
+              detected: true,
+              detail: `Heap: ${heapUsedMB.toFixed(0)}MB/${heapTotalMB.toFixed(0)}MB (${(usageRatio * 100).toFixed(0)}%)`,
+            }
           }
           return { detected: false }
         },
@@ -142,16 +152,19 @@ class AutoHealRemedies {
           try {
             if (global.gc) {
               global.gc()
-              await new Promise(r => setTimeout(r, 500))
+              await new Promise((r) => setTimeout(r, 500))
               const mem = process.memoryUsage()
               const heapMB = mem.heapUsed / 1024 / 1024
               return { success: true, detail: `GC triggered — heap now ${heapMB.toFixed(0)}MB` }
             }
-            return { success: true, detail: 'GC not exposed; no action taken (add --expose-gc flag)' }
+            return {
+              success: true,
+              detail: 'GC not exposed; no action taken (add --expose-gc flag)',
+            }
           } catch (e) {
             return { success: false, detail: e.message }
           }
-        }
+        },
       },
 
       {
@@ -164,7 +177,8 @@ class AutoHealRemedies {
             const lock = await redisCache.get('scraper:lock')
             if (!lock) return { detected: false }
             const age = Date.now() - (typeof lock === 'number' ? lock : Date.now())
-            if (age > 7200000) return { detected: true, detail: `Lock age: ${(age / 60000).toFixed(0)} min` }
+            if (age > 7200000)
+              return { detected: true, detail: `Lock age: ${(age / 60000).toFixed(0)} min` }
             return { detected: false }
           } catch (e) {
             return { detected: false }
@@ -180,7 +194,7 @@ class AutoHealRemedies {
           } catch (e) {
             return { success: false, detail: e.message }
           }
-        }
+        },
       },
 
       {
@@ -189,35 +203,64 @@ class AutoHealRemedies {
         description: 'Target port occupied by another process',
         check: async () => {
           const port = process.env.PORT || 3001
-          const cmd = process.platform === 'win32'
-            ? `netstat -ano | findstr LISTENING | findstr :${port}`
-            : `ss -tlnp | grep :${port}`
-          return new Promise(resolve => {
+          const cmd =
+            process.platform === 'win32'
+              ? `netstat -ano | findstr LISTENING | findstr :${port}`
+              : `ss -tlnp | grep :${port}`
+          return new Promise((resolve) => {
             exec(cmd, (err, stdout) => {
               if (err || !stdout) return resolve({ detected: false })
-              const pids = [...new Set(stdout.trim().split(/\r?\n/).map(l => l.trim().split(/\s+/).pop()).filter(p => p && p !== '0' && parseInt(p) !== process.pid))]
-              if (pids.length > 0) return resolve({ detected: true, detail: `PID(s): ${pids.join(', ')} on port ${port}` })
+              const pids = [
+                ...new Set(
+                  stdout
+                    .trim()
+                    .split(/\r?\n/)
+                    .map((l) => l.trim().split(/\s+/).pop())
+                    .filter((p) => p && p !== '0' && parseInt(p) !== process.pid)
+                ),
+              ]
+              if (pids.length > 0)
+                return resolve({
+                  detected: true,
+                  detail: `PID(s): ${pids.join(', ')} on port ${port}`,
+                })
               resolve({ detected: false })
             })
           })
         },
         fix: async () => {
           const port = process.env.PORT || 3001
-          const cmd = process.platform === 'win32'
-            ? `netstat -ano | findstr LISTENING | findstr :${port}`
-            : `ss -tlnp | grep :${port}`
-          return new Promise(resolve => {
+          const cmd =
+            process.platform === 'win32'
+              ? `netstat -ano | findstr LISTENING | findstr :${port}`
+              : `ss -tlnp | grep :${port}`
+          return new Promise((resolve) => {
             exec(cmd, (err, stdout) => {
               if (err || !stdout) return resolve({ success: true, detail: 'No conflict found' })
-              const pids = [...new Set(stdout.trim().split(/\r?\n/).map(l => l.trim().split(/\s+/).pop()).filter(p => p && p !== '0'))]
-              const killCmd = process.platform === 'win32'
-                ? pid => `taskkill /F /PID ${pid} /T`
-                : pid => `kill -9 ${pid}`
-              Promise.all(pids.map(pid => new Promise(r => exec(killCmd(pid), () => r()))))
-                .then(() => setTimeout(() => resolve({ success: true, detail: `Killed PID(s): ${pids.join(', ')}` }), 1500))
+              const pids = [
+                ...new Set(
+                  stdout
+                    .trim()
+                    .split(/\r?\n/)
+                    .map((l) => l.trim().split(/\s+/).pop())
+                    .filter((p) => p && p !== '0')
+                ),
+              ]
+              const killCmd =
+                process.platform === 'win32'
+                  ? (pid) => `taskkill /F /PID ${pid} /T`
+                  : (pid) => `kill -9 ${pid}`
+              Promise.all(
+                pids.map((pid) => new Promise((r) => exec(killCmd(pid), () => r())))
+              ).then(() =>
+                setTimeout(
+                  () => resolve({ success: true, detail: `Killed PID(s): ${pids.join(', ')}` }),
+                  1500
+                )
+              )
             })
           })
-        }
+        },
       },
 
       {
@@ -227,8 +270,13 @@ class AutoHealRemedies {
         check: async () => {
           try {
             const database = require('../core/database')
-            const staleCount = database.db.prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','NS') AND home_win_probability IS NULL").get().c
-            if (staleCount > 500) return { detected: true, detail: `${staleCount} stale un-enriched matches` }
+            const staleCount = database.db
+              .prepare(
+                "SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','NS') AND home_win_probability IS NULL"
+              )
+              .get().c
+            if (staleCount > 500)
+              return { detected: true, detail: `${staleCount} stale un-enriched matches` }
             return { detected: false }
           } catch (e) {
             return { detected: false }
@@ -242,7 +290,7 @@ class AutoHealRemedies {
           } catch (e) {
             return { success: false, detail: e.message }
           }
-        }
+        },
       },
 
       {
@@ -254,7 +302,8 @@ class AutoHealRemedies {
             const tr = require('./therundownService')
             if (!tr.enabled) return { detected: false }
             const status = tr.getQuotaStatus()
-            if (status.authFailed && status.quotaExhausted) return { detected: true, detail: 'Auth failed or quota exhausted' }
+            if (status.authFailed && status.quotaExhausted)
+              return { detected: true, detail: 'Auth failed or quota exhausted' }
             const data = await tr._fetch('/sports')
             if (!data) return { detected: true, detail: 'No response from API' }
             return { detected: false }
@@ -267,7 +316,7 @@ class AutoHealRemedies {
           tr._authFailed = false
           tr._quotaExhausted = false
           return { success: true, detail: 'TheRundown flags reset — will retry on next call' }
-        }
+        },
       },
 
       {
@@ -290,7 +339,7 @@ class AutoHealRemedies {
           svc._authFailed = false
           svc._quotaExhausted = false
           return { success: true, detail: 'OddsPapi flags reset — will retry on next call' }
-        }
+        },
       },
 
       {
@@ -314,7 +363,7 @@ class AutoHealRemedies {
           svc.connected = false
           const ok = await svc.connect()
           return { success: ok, detail: ok ? 'Reconnected' : 'Failed to reconnect' }
-        }
+        },
       },
 
       {
@@ -337,7 +386,7 @@ class AutoHealRemedies {
           svc._authFailed = false
           svc._quotaExhausted = false
           return { success: true, detail: 'APIFootball flags reset — will retry on next call' }
-        }
+        },
       },
 
       {
@@ -360,7 +409,7 @@ class AutoHealRemedies {
           svc._authFailed = false
           svc._quotaExhausted = false
           return { success: true, detail: 'Sportmonks flags reset — will retry on next call' }
-        }
+        },
       },
 
       {
@@ -372,7 +421,8 @@ class AutoHealRemedies {
             const svc = require('./bigBallsDataService')
             if (!svc.enabled) return { detected: false }
             const sports = await svc.getSports()
-            if (!sports || sports.length === 0) return { detected: true, detail: 'No response from API' }
+            if (!sports || sports.length === 0)
+              return { detected: true, detail: 'No response from API' }
             return { detected: false }
           } catch (e) {
             return { detected: false }
@@ -383,7 +433,7 @@ class AutoHealRemedies {
           svc._authFailed = false
           svc._quotaExhausted = false
           return { success: true, detail: 'BigBallsData flags reset' }
-        }
+        },
       },
 
       {
@@ -405,7 +455,7 @@ class AutoHealRemedies {
           const svc = require('./oddsApiIoService')
           svc._quotaExhausted = false
           return { success: true, detail: 'OddsAPIio flags reset' }
-        }
+        },
       },
 
       {
@@ -428,7 +478,7 @@ class AutoHealRemedies {
           svc._authFailed = false
           svc._quotaExhausted = false
           return { success: true, detail: 'PredixSport flags reset — will retry on next call' }
-        }
+        },
       },
 
       {
@@ -438,8 +488,13 @@ class AutoHealRemedies {
         check: async () => {
           try {
             const database = require('../core/database')
-            const stale = database.db.prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','NS') AND home_xg IS NOT NULL AND home_xg > 0.1 AND home_xg < 0.5").get()
-            if (stale.c > 0) return { detected: true, detail: `${stale.c} matches with stale xG (<0.5)` }
+            const stale = database.db
+              .prepare(
+                "SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','NS') AND home_xg IS NOT NULL AND home_xg > 0.1 AND home_xg < 0.5"
+              )
+              .get()
+            if (stale.c > 0)
+              return { detected: true, detail: `${stale.c} matches with stale xG (<0.5)` }
             return { detected: false }
           } catch (e) {
             return { detected: false }
@@ -449,8 +504,15 @@ class AutoHealRemedies {
           try {
             const database = require('../core/database')
             const enrichedPredictions = require('../core/enriched_predictions')
-            const stale = database.db.prepare("SELECT * FROM matches WHERE status IN ('scheduled','NS') AND home_xg IS NOT NULL AND home_xg > 0.1 AND home_xg < 0.5").all()
-            const enriched = await enrichedPredictions.enrichMatches(stale, { fastMode: true, force: true })
+            const stale = database.db
+              .prepare(
+                "SELECT * FROM matches WHERE status IN ('scheduled','NS') AND home_xg IS NOT NULL AND home_xg > 0.1 AND home_xg < 0.5"
+              )
+              .all()
+            const enriched = await enrichedPredictions.enrichMatches(stale, {
+              fastMode: true,
+              force: true,
+            })
             let updated = 0
             for (const m of enriched) {
               if (m.expected_score) {
@@ -462,7 +524,7 @@ class AutoHealRemedies {
           } catch (e) {
             return { success: false, detail: e.message }
           }
-        }
+        },
       },
 
       {
@@ -478,7 +540,10 @@ class AutoHealRemedies {
             const age = Date.now() - stat.mtimeMs
             const sizeMB = stat.size / 1024 / 1024
             if (age < 300000 && sizeMB > 5) {
-              return { detected: true, detail: `Error log: ${sizeMB.toFixed(1)}MB written in last ${(age / 1000).toFixed(0)}s` }
+              return {
+                detected: true,
+                detail: `Error log: ${sizeMB.toFixed(1)}MB written in last ${(age / 1000).toFixed(0)}s`,
+              }
             }
             return { detected: false }
           } catch (e) {
@@ -497,84 +562,84 @@ class AutoHealRemedies {
           } catch (e) {
             return { success: false, detail: e.message }
           }
-        }
+        },
       },
-      
+
       // RAM Usage Monitor
       {
         id: 'ram_usage_high',
         severity: 'warning',
         description: 'High RAM usage detected',
         check: async () => {
-          const RAM_WARNING_THRESHOLD = 400; // MB
-          const RAM_CRITICAL_THRESHOLD = 450; // MB
-          
-          const memUsage = process.memoryUsage();
-          const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
-          const rssMB = Math.round(memUsage.rss / 1024 / 1024);
-          
-          const isCritical = rssMB > RAM_CRITICAL_THRESHOLD;
-          const isWarning = rssMB > RAM_WARNING_THRESHOLD;
-          
+          const RAM_WARNING_THRESHOLD = 400 // MB
+          const RAM_CRITICAL_THRESHOLD = 450 // MB
+
+          const memUsage = process.memoryUsage()
+          const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024)
+          const rssMB = Math.round(memUsage.rss / 1024 / 1024)
+
+          const isCritical = rssMB > RAM_CRITICAL_THRESHOLD
+          const isWarning = rssMB > RAM_WARNING_THRESHOLD
+
           if (isCritical) {
             return {
               detected: true,
-              detail: `CRITICAL: RAM ${rssMB}MB (heap: ${heapUsedMB}MB) exceeds ${RAM_CRITICAL_THRESHOLD}MB`
-            };
+              detail: `CRITICAL: RAM ${rssMB}MB (heap: ${heapUsedMB}MB) exceeds ${RAM_CRITICAL_THRESHOLD}MB`,
+            }
           }
-          
+
           if (isWarning) {
             return {
               detected: true,
-              detail: `WARNING: RAM ${rssMB}MB (heap: ${heapUsedMB}MB) exceeds ${RAM_WARNING_THRESHOLD}MB`
-            };
+              detail: `WARNING: RAM ${rssMB}MB (heap: ${heapUsedMB}MB) exceeds ${RAM_WARNING_THRESHOLD}MB`,
+            }
           }
-          
-          return { detected: false, detail: `RAM usage normal: ${rssMB}MB` };
+
+          return { detected: false, detail: `RAM usage normal: ${rssMB}MB` }
         },
         fix: async () => {
           try {
-            const memBefore = process.memoryUsage();
-            const rssBeforeMB = Math.round(memBefore.rss / 1024 / 1024);
-            
+            const memBefore = process.memoryUsage()
+            const rssBeforeMB = Math.round(memBefore.rss / 1024 / 1024)
+
             // Force garbage collection if available
             if (global.gc) {
-              logger.info('🧹 [AUTOHEAL] Running manual garbage collection...');
-              global.gc();
+              logger.info('🧹 [AUTOHEAL] Running manual garbage collection...')
+              global.gc()
             }
-            
+
             // Clear speed cache
             try {
-              const { invalidateAll } = require('../core/speedCache');
-              invalidateAll();
-              logger.info('🧹 [AUTOHEAL] Speed cache cleared');
+              const { invalidateAll } = require('../core/speedCache')
+              invalidateAll()
+              logger.info('🧹 [AUTOHEAL] Speed cache cleared')
             } catch (e) {
               // Speed cache might not be available
             }
-            
+
             // Wait for GC to complete
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            const memAfter = process.memoryUsage();
-            const rssAfterMB = Math.round(memAfter.rss / 1024 / 1024);
-            const savedMB = rssBeforeMB - rssAfterMB;
-            
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+
+            const memAfter = process.memoryUsage()
+            const rssAfterMB = Math.round(memAfter.rss / 1024 / 1024)
+            const savedMB = rssBeforeMB - rssAfterMB
+
             if (savedMB > 0) {
               return {
                 success: true,
-                detail: `RAM freed: ${savedMB}MB (${rssBeforeMB}MB → ${rssAfterMB}MB)`
-              };
+                detail: `RAM freed: ${savedMB}MB (${rssBeforeMB}MB → ${rssAfterMB}MB)`,
+              }
             } else {
               return {
                 success: false,
-                detail: `No RAM freed (${rssBeforeMB}MB → ${rssAfterMB}MB). Consider restarting.`
-              };
+                detail: `No RAM freed (${rssBeforeMB}MB → ${rssAfterMB}MB). Consider restarting.`,
+              }
             }
           } catch (err) {
-            return { success: false, detail: `RAM cleanup failed: ${err.message}` };
+            return { success: false, detail: `RAM cleanup failed: ${err.message}` }
           }
-        }
-      }
+        },
+      },
     ]
   }
 
@@ -582,7 +647,7 @@ class AutoHealRemedies {
     this.remedyHistory.push({
       id: remedyId,
       result,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
     if (this.remedyHistory.length > 100) this.remedyHistory.shift()
   }

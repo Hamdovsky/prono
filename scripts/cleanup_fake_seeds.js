@@ -12,7 +12,9 @@ async function cleanup() {
     process.exit(1)
   }
 
-  const count = db.prepare(`
+  const count = db
+    .prepare(
+      `
     UPDATE matches SET
       insufficient_data = 1,
       expected_score = NULL,
@@ -24,7 +26,9 @@ async function cleanup() {
       confidence = 50,
       last_updated = ?
     WHERE source IN ('seed', 'emergency')
-  `).run(Date.now())
+  `
+    )
+    .run(Date.now())
 
   console.log(`Reset ${count.changes} seed matches — enrichment will refresh them on next cycle`)
   process.exit(0)

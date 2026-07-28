@@ -30,7 +30,7 @@ class SecretWeaponsTracker {
   }
 
   recordPrediction(concours, weapons) {
-    const existing = this.history.find(h => h.concours === concours)
+    const existing = this.history.find((h) => h.concours === concours)
     if (existing) {
       logger.info(`[WEAPONS TRACKER] Concours ${concours} already recorded, skipping`)
       return existing
@@ -39,7 +39,7 @@ class SecretWeaponsTracker {
     const record = {
       concours,
       date: new Date().toISOString(),
-      matches: weapons.map(w => ({
+      matches: weapons.map((w) => ({
         id: w.id,
         home: w.home,
         away: w.away,
@@ -55,9 +55,9 @@ class SecretWeaponsTracker {
         correct: null,
       })),
       stats: {
-        totalContrarian: weapons.filter(w => w.isContrarian).length,
-        totalBTeam: weapons.filter(w => w.bTeamHome?.isBTeam || w.bTeamAway?.isBTeam).length,
-        totalBold: weapons.filter(w => (w.boldness?.label || '').includes('BOLD')).length,
+        totalContrarian: weapons.filter((w) => w.isContrarian).length,
+        totalBTeam: weapons.filter((w) => w.bTeamHome?.isBTeam || w.bTeamAway?.isBTeam).length,
+        totalBold: weapons.filter((w) => (w.boldness?.label || '').includes('BOLD')).length,
       },
     }
 
@@ -68,14 +68,14 @@ class SecretWeaponsTracker {
   }
 
   recordResults(concours, results) {
-    const record = this.history.find(h => h.concours === concours)
+    const record = this.history.find((h) => h.concours === concours)
     if (!record) {
       logger.warn(`[WEAPONS TRACKER] Concours ${concours} not found`)
       return null
     }
 
     for (const r of results) {
-      const match = record.matches.find(m => m.id === r.id)
+      const match = record.matches.find((m) => m.id === r.id)
       if (match) {
         match.actualResult = r.result
         match.correct = match.realFav === r.result
@@ -83,39 +83,55 @@ class SecretWeaponsTracker {
     }
 
     const total = record.matches.length
-    const correct = record.matches.filter(m => m.correct === true).length
-    const wrong = record.matches.filter(m => m.correct === false).length
-    const pending = record.matches.filter(m => m.correct === null).length
+    const correct = record.matches.filter((m) => m.correct === true).length
+    const wrong = record.matches.filter((m) => m.correct === false).length
+    const pending = record.matches.filter((m) => m.correct === null).length
 
-    record.accuracy = total > 0 ? +(correct / total * 100).toFixed(1) : 0
+    record.accuracy = total > 0 ? +((correct / total) * 100).toFixed(1) : 0
     record.updatedAt = new Date().toISOString()
     this._save()
     return { total, correct, wrong, pending, accuracy: record.accuracy }
   }
 
   getStats() {
-    const completed = this.history.filter(h => h.matches.every(m => m.correct !== null))
-    const totalCorrect = completed.reduce((s, h) => s + h.matches.filter(m => m.correct === true).length, 0)
-    const totalWrong = completed.reduce((s, h) => s + h.matches.filter(m => m.correct === false).length, 0)
+    const completed = this.history.filter((h) => h.matches.every((m) => m.correct !== null))
+    const totalCorrect = completed.reduce(
+      (s, h) => s + h.matches.filter((m) => m.correct === true).length,
+      0
+    )
+    const totalWrong = completed.reduce(
+      (s, h) => s + h.matches.filter((m) => m.correct === false).length,
+      0
+    )
     const total = totalCorrect + totalWrong
 
-    const contrarianCorrect = completed.reduce((s, h) => s + h.matches.filter(m => m.isContrarian && m.correct === true).length, 0)
-    const contrarianTotal = completed.reduce((s, h) => s + h.matches.filter(m => m.isContrarian).length, 0)
-    const bTeamCorrect = completed.reduce((s, h) => s + h.matches.filter(m => m.bTeam && m.correct === true).length, 0)
-    const bTeamTotal = completed.reduce((s, h) => s + h.matches.filter(m => m.bTeam).length, 0)
+    const contrarianCorrect = completed.reduce(
+      (s, h) => s + h.matches.filter((m) => m.isContrarian && m.correct === true).length,
+      0
+    )
+    const contrarianTotal = completed.reduce(
+      (s, h) => s + h.matches.filter((m) => m.isContrarian).length,
+      0
+    )
+    const bTeamCorrect = completed.reduce(
+      (s, h) => s + h.matches.filter((m) => m.bTeam && m.correct === true).length,
+      0
+    )
+    const bTeamTotal = completed.reduce((s, h) => s + h.matches.filter((m) => m.bTeam).length, 0)
 
     return {
       totalConcours: this.history.length,
       completedConcours: completed.length,
       pendingConcours: this.history.length - completed.length,
       totalPicks: total,
-      accuracy: total > 0 ? +(totalCorrect / total * 100).toFixed(1) : 0,
+      accuracy: total > 0 ? +((totalCorrect / total) * 100).toFixed(1) : 0,
       correctPicks: totalCorrect,
       wrongPicks: totalWrong,
-      contrarianAccuracy: contrarianTotal > 0 ? +(contrarianCorrect / contrarianTotal * 100).toFixed(1) : 0,
+      contrarianAccuracy:
+        contrarianTotal > 0 ? +((contrarianCorrect / contrarianTotal) * 100).toFixed(1) : 0,
       contrarianPicks: contrarianTotal,
       contrarianCorrect,
-      bTeamAccuracy: bTeamTotal > 0 ? +(bTeamCorrect / bTeamTotal * 100).toFixed(1) : 0,
+      bTeamAccuracy: bTeamTotal > 0 ? +((bTeamCorrect / bTeamTotal) * 100).toFixed(1) : 0,
       bTeamPicks: bTeamTotal,
       bTeamCorrect,
       lastUpdated: new Date().toISOString(),

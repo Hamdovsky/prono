@@ -49,13 +49,15 @@ describe('stale-while-revalidate (Express middleware)', () => {
     const req = { originalUrl: url }
     let jsonPayload = null
     const res = {
-      json: jest.fn((body) => { jsonPayload = body }),
+      json: jest.fn((body) => {
+        jsonPayload = body
+      }),
       status: jest.fn().mockReturnThis(),
       set: jest.fn().mockReturnThis(),
       send: jest.fn(),
       get: jest.fn().mockReturnThis(),
       header: jest.fn().mockReturnThis(),
-      _getJsonPayload: () => jsonPayload
+      _getJsonPayload: () => jsonPayload,
     }
     return { req, res }
   }

@@ -22,18 +22,46 @@ const report = { date: new Date().toISOString().split('T')[0] }
 // 1. Match counts
 report.matches = {}
 report.matches.total = db.prepare('SELECT COUNT(*) as c FROM matches').get().c
-report.matches.scheduled = db.prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','notstarted','NS')").get().c
-report.matches.finished = db.prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('FT','finished','Ended')").get().c
-report.matches.withOdds = db.prepare('SELECT COUNT(*) as c FROM matches WHERE odds_home IS NOT NULL').get().c
-report.matches.withPredictions = db.prepare("SELECT COUNT(*) as c FROM matches WHERE expected_score IS NOT NULL AND expected_score != 'N/A'").get().c
-report.matches.withXG = db.prepare('SELECT COUNT(*) as c FROM matches WHERE home_xg IS NOT NULL').get().c
+report.matches.scheduled = db
+  .prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('scheduled','notstarted','NS')")
+  .get().c
+report.matches.finished = db
+  .prepare("SELECT COUNT(*) as c FROM matches WHERE status IN ('FT','finished','Ended')")
+  .get().c
+report.matches.withOdds = db
+  .prepare('SELECT COUNT(*) as c FROM matches WHERE odds_home IS NOT NULL')
+  .get().c
+report.matches.withPredictions = db
+  .prepare(
+    "SELECT COUNT(*) as c FROM matches WHERE expected_score IS NOT NULL AND expected_score != 'N/A'"
+  )
+  .get().c
+report.matches.withXG = db
+  .prepare('SELECT COUNT(*) as c FROM matches WHERE home_xg IS NOT NULL')
+  .get().c
 
-report.matches.today = db.prepare("SELECT COUNT(*) as c FROM matches WHERE DATE(timestamp / 1000, 'unixepoch') = DATE('now')").get().c
-report.matches.tomorrow = db.prepare("SELECT COUNT(*) as c FROM matches WHERE DATE(timestamp / 1000, 'unixepoch') = DATE('now', '+1 day')").get().c
+report.matches.today = db
+  .prepare(
+    "SELECT COUNT(*) as c FROM matches WHERE DATE(timestamp / 1000, 'unixepoch') = DATE('now')"
+  )
+  .get().c
+report.matches.tomorrow = db
+  .prepare(
+    "SELECT COUNT(*) as c FROM matches WHERE DATE(timestamp / 1000, 'unixepoch') = DATE('now', '+1 day')"
+  )
+  .get().c
 
 // 2. Check key env vars (without showing values)
-const keyVars = ['API_SECRET_KEY', 'GROQ_API_KEY', 'BSD_API_KEY', 'APIFOOTBALL_KEY',
-  'SPORTMONKS_KEY', 'FOOTBALLDATA_KEY', 'PREDIXSPORT_API_KEY', 'OPENWEATHER_KEY']
+const keyVars = [
+  'API_SECRET_KEY',
+  'GROQ_API_KEY',
+  'BSD_API_KEY',
+  'APIFOOTBALL_KEY',
+  'SPORTMONKS_KEY',
+  'FOOTBALLDATA_KEY',
+  'PREDIXSPORT_API_KEY',
+  'OPENWEATHER_KEY',
+]
 report.envKeys = {}
 for (const key of keyVars) {
   report.envKeys[key] = !!process.env[key]
@@ -43,22 +71,33 @@ for (const key of keyVars) {
 const errorLog = path.join(__dirname, '..', 'logs', 'error.log')
 report.recentErrors = []
 if (fs.existsSync(errorLog)) {
-  const lines = fs.readFileSync(errorLog, 'utf8').split('\n').filter(l => l.trim())
+  const lines = fs
+    .readFileSync(errorLog, 'utf8')
+    .split('\n')
+    .filter((l) => l.trim())
   report.recentErrors = lines.slice(-10)
 }
 
 // 4. Accuracy if historical data exists
 try {
-  const total = db.prepare('SELECT COUNT(*) as c FROM matches WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL AND expected_score IS NOT NULL').get().c
+  const total = db
+    .prepare(
+      'SELECT COUNT(*) as c FROM matches WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL AND expected_score IS NOT NULL'
+    )
+    .get().c
   if (total > 0) {
-    const correct = db.prepare(`
+    const correct = db
+      .prepare(
+        `
       SELECT COUNT(*) as c FROM matches WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL AND expected_score IS NOT NULL
       AND (
         (SUBSTR(expected_score, 1, 1) > SUBSTR(expected_score, -1, 1) AND scoreHome > scoreAway)
         OR (SUBSTR(expected_score, 1, 1) = SUBSTR(expected_score, -1, 1) AND scoreHome = scoreAway)
         OR (SUBSTR(expected_score, 1, 1) < SUBSTR(expected_score, -1, 1) AND scoreHome < scoreAway)
       )
-    `).get().c
+    `
+      )
+      .get().c
     report.accuracy = { total, correct, pct: ((correct / total) * 100).toFixed(1) + '%' }
   }
 } catch (e) {
@@ -82,7 +121,9 @@ console.log(`   Aujourd'hui:  ${report.matches.today}`)
 console.log(`   Demain:       ${report.matches.tomorrow}`)
 
 if (report.accuracy) {
-  console.log(`\n🎯 Précision : ${report.accuracy.total} matchs, ${report.accuracy.correct} corrects (${report.accuracy.pct})`)
+  console.log(
+    `\n🎯 Précision : ${report.accuracy.total} matchs, ${report.accuracy.correct} corrects (${report.accuracy.pct})`
+  )
 }
 
 console.log(`\n🔑 APIs configurées :`)
@@ -97,7 +138,7 @@ if (keysMissing.length > 0) {
 
 if (report.recentErrors.length > 0) {
   console.log(`\n⚠️  Dernières erreurs (${report.recentErrors.length}) :`)
-  report.recentErrors.forEach(l => console.log(`   ${l.substring(0, 120)}`))
+  report.recentErrors.forEach((l) => console.log(`   ${l.substring(0, 120)}`))
 }
 
 console.log('\n══════════════════════════════════════════')

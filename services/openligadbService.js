@@ -15,7 +15,9 @@ const LEAGUES = [
 class OpenLigaDBService {
   constructor() {
     this.enabled = process.env.OPENLIGADB_ENABLED !== 'false'
-    logger.info(`✅ [OPENLIGADB] Service prêt — ${LEAGUES.length} ligues configurées (gratuit, sans clé)`)
+    logger.info(
+      `✅ [OPENLIGADB] Service prêt — ${LEAGUES.length} ligues configurées (gratuit, sans clé)`
+    )
   }
 
   isAvailable() {
@@ -133,7 +135,9 @@ class OpenLigaDBService {
       for (const season of seasons) {
         const data = await this._getMatchday(league.shortcut, season, group.groupOrderID)
         if (!data.length) {
-          logger.info(`[OPENLIGADB] ${league.name} season ${season}/${season+1}: no data for matchday ${group.groupOrderID}`)
+          logger.info(
+            `[OPENLIGADB] ${league.name} season ${season}/${season + 1}: no data for matchday ${group.groupOrderID}`
+          )
           continue
         }
 
@@ -150,7 +154,9 @@ class OpenLigaDBService {
         }
 
         if (inserted > 0) {
-          logger.info(`[OPENLIGADB] ${league.name}: inserted ${inserted} matches (matchday ${group.groupOrderID})`)
+          logger.info(
+            `[OPENLIGADB] ${league.name}: inserted ${inserted} matches (matchday ${group.groupOrderID})`
+          )
           total += inserted
         }
         break // Only try next season if this season had no data

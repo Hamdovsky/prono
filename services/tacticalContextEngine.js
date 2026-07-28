@@ -3,35 +3,35 @@ const logger = require('../core/logger')
 class TacticalContextEngine {
   constructor() {
     this.WORLD_CUP_GROUPS = {
-      'd': [
+      d: [
         { name: 'usa', pts: 6, gd: 4, status: 'Qualifié (1er)' },
         { name: 'paraguay', pts: 3, gd: 1, status: 'Gagnant qualifié' },
         { name: 'australie', pts: 3, gd: 0, status: 'Gagnant qualifié' },
         { name: 'turquie', pts: 0, gd: -5, status: 'Eliminé' },
       ],
-      'e': [
+      e: [
         { name: 'allemagne', pts: 6, gd: 7, status: 'Qualifié (1er)' },
         { name: 'equateur', pts: 1, gd: -2, status: 'Doit gagner + espérer' },
       ],
-      'f': [
+      f: [
         { name: 'japon', pts: 4, gd: 2, status: 'Qualifié avec nul' },
         { name: 'pays bas', pts: 4, gd: 1, status: 'Qualifié avec nul' },
         { name: 'suede', pts: 3, gd: -1, status: 'Doit gagner' },
         { name: 'tunisie', pts: 0, gd: -4, status: 'Eliminé' },
       ],
-      'g': [
+      g: [
         { name: 'egypte', pts: 4, gd: 1, status: 'Qualifié avec nul' },
         { name: 'belgique', pts: 2, gd: 0, status: 'Doit gagner (2pts)' },
         { name: 'iran', pts: 2, gd: -1, status: 'Doit gagner (2pts)' },
         { name: 'nouvelle zelande', pts: 1, gd: -2, status: 'Peut encore croire' },
       ],
-      'h': [
+      h: [
         { name: 'espagne', pts: 4, gd: 3, status: 'Qualifié avec nul' },
         { name: 'cap vert', pts: 3, gd: 0, status: 'Peut se qualifier' },
         { name: 'arabie', pts: 3, gd: -1, status: 'Peut se qualifier' },
         { name: 'uruguay', pts: 2, gd: -1, status: 'Doit gagner (2pts)' },
       ],
-      'i': [
+      i: [
         { name: 'france', pts: 6, gd: 4, status: 'Qualifié' },
         { name: 'norvege', pts: 6, gd: 3, status: 'Qualifié' },
         { name: 'senegal', pts: 0, gd: -4, status: 'Eliminé' },
@@ -39,31 +39,72 @@ class TacticalContextEngine {
       ],
     }
     this.SERIE_B_2026 = {
-      'cuiaba': { homeDrawRate: 44, note: '44% de nuls à domicile en Série B' },
-      'londrina': { awayWinRate: 22, note: 'Faible à l\'extérieur' },
-      'novorizontino': { homeWinRate: 40, note: 'Irégulier à domicile' },
-      'vila nova': { awayDrawRate: 100, note: '100% de nuls à l\'extérieur (3/3)' },
+      cuiaba: { homeDrawRate: 44, note: '44% de nuls à domicile en Série B' },
+      londrina: { awayWinRate: 22, note: "Faible à l'extérieur" },
+      novorizontino: { homeWinRate: 40, note: 'Irégulier à domicile' },
+      'vila nova': { awayDrawRate: 100, note: "100% de nuls à l'extérieur (3/3)" },
     }
     this.SPECIAL_PATTERNS = [
-      { home: 'cuiaba', away: 'londrina', pattern: 'Cuiabá favori mais 44% nuls home', tip: '1X plus sûr que 1' },
-      { home: 'novorizontino', away: 'vila nova', pattern: 'Vila Nova 100% nuls ext', tip: 'X2 parfait' },
-      { home: 'norvege', away: 'france', pattern: 'Dead rubber, équipes B', tip: 'Nul probable, 1X' },
-      { home: 'senegal', away: 'irak', pattern: 'Dead rubber total', tip: 'Méfiance, motivation 0' },
-      { home: 'equateur', away: 'allemagne', pattern: 'Allemagne B team vs Équateur survie', tip: 'Surprise possible, 1X' },
-      { home: 'uruguay', away: 'espagne', pattern: 'Uruguay survie vs Espagne safe', tip: 'Uruguay à domicile, 1X' },
-      { home: 'egypte', away: 'iran', pattern: 'Iran doit gagner, Égypte safe', tip: 'Iran désespéré, X2' },
-      { home: 'tunisie', away: 'pays bas', pattern: 'Tunisie éliminée, PB safe', tip: 'PB gagne mais B team possible' },
+      {
+        home: 'cuiaba',
+        away: 'londrina',
+        pattern: 'Cuiabá favori mais 44% nuls home',
+        tip: '1X plus sûr que 1',
+      },
+      {
+        home: 'novorizontino',
+        away: 'vila nova',
+        pattern: 'Vila Nova 100% nuls ext',
+        tip: 'X2 parfait',
+      },
+      {
+        home: 'norvege',
+        away: 'france',
+        pattern: 'Dead rubber, équipes B',
+        tip: 'Nul probable, 1X',
+      },
+      {
+        home: 'senegal',
+        away: 'irak',
+        pattern: 'Dead rubber total',
+        tip: 'Méfiance, motivation 0',
+      },
+      {
+        home: 'equateur',
+        away: 'allemagne',
+        pattern: 'Allemagne B team vs Équateur survie',
+        tip: 'Surprise possible, 1X',
+      },
+      {
+        home: 'uruguay',
+        away: 'espagne',
+        pattern: 'Uruguay survie vs Espagne safe',
+        tip: 'Uruguay à domicile, 1X',
+      },
+      {
+        home: 'egypte',
+        away: 'iran',
+        pattern: 'Iran doit gagner, Égypte safe',
+        tip: 'Iran désespéré, X2',
+      },
+      {
+        home: 'tunisie',
+        away: 'pays bas',
+        pattern: 'Tunisie éliminée, PB safe',
+        tip: 'PB gagne mais B team possible',
+      },
     ]
   }
 
   normalize(name) {
     return (name || '')
       .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]/g, ' ')
       .trim()
       .split(/\s+/)
-      .filter(w => w.length > 1)
+      .filter((w) => w.length > 1)
       .join(' ')
   }
 
@@ -92,10 +133,11 @@ class TacticalContextEngine {
   getSpecialPattern(home, away) {
     const hNorm = this.normalize(home)
     const aNorm = this.normalize(away)
-    return this.SPECIAL_PATTERNS.find(p =>
-      (p.home === hNorm && p.away === aNorm) ||
-      (p.home === aNorm && p.away === hNorm)
-    ) || null
+    return (
+      this.SPECIAL_PATTERNS.find(
+        (p) => (p.home === hNorm && p.away === aNorm) || (p.home === aNorm && p.away === hNorm)
+      ) || null
+    )
   }
 
   getSerieBInfo(name) {
@@ -128,7 +170,7 @@ class TacticalContextEngine {
       reasons.push(`Favori >60% mais pick différent`)
     }
 
-    const label = score >= 3 ? '🔥 BOLD' : (score >= 2 ? '⚡ VALUE' : '✅ SAFE')
+    const label = score >= 3 ? '🔥 BOLD' : score >= 2 ? '⚡ VALUE' : '✅ SAFE'
     return { score, label, reasons }
   }
 
@@ -141,7 +183,9 @@ class TacticalContextEngine {
     const narrative = []
 
     if (ctx?.home && ctx?.away) {
-      narrative.push(`📊 Groupe ${ctx.group} : ${ctx.home.name}=${ctx.home.pts}pts, ${ctx.away.name}=${ctx.away.pts}pts`)
+      narrative.push(
+        `📊 Groupe ${ctx.group} : ${ctx.home.name}=${ctx.home.pts}pts, ${ctx.away.name}=${ctx.away.pts}pts`
+      )
       if (ctx.home.status.includes('Doit') && ctx.away.status.includes('Doit')) {
         narrative.push('⚔️ MORT SUBITE : Les deux équipes doivent gagner')
       } else if (ctx.home.status.includes('Doit')) {
@@ -155,8 +199,10 @@ class TacticalContextEngine {
       if (ctx.away.status.includes('Qualifié') && !ctx.away.status.includes('Doit')) {
         narrative.push(`🔄 ${away} peut gérer / faire tourner`)
       }
-      if (ctx.home.status.includes('Eliminé')) narrative.push(`❌ ${home} déjà éliminé, motivation ?`)
-      if (ctx.away.status.includes('Eliminé')) narrative.push(`❌ ${away} déjà éliminé, motivation ?`)
+      if (ctx.home.status.includes('Eliminé'))
+        narrative.push(`❌ ${home} déjà éliminé, motivation ?`)
+      if (ctx.away.status.includes('Eliminé'))
+        narrative.push(`❌ ${away} déjà éliminé, motivation ?`)
       if (ctx.home.status === ctx.away.status && ctx.home.status.includes('Qualifié')) {
         narrative.push(`🤝 Dead rubber — match amical déguisé`)
       }
@@ -184,13 +230,19 @@ class TacticalContextEngine {
       const p1 = m.p1 || 0.33
       const px = m.px || 0.33
       const p2 = m.p2 || 0.34
-      const crowdFav = p1 > p2 ? '1' : (p2 > p1 ? '2' : 'X')
-      const realFav = p1 > 0.45 ? '1' : (p2 > 0.40 ? '2' : 'X')
+      const crowdFav = p1 > p2 ? '1' : p2 > p1 ? '2' : 'X'
+      const realFav = p1 > 0.45 ? '1' : p2 > 0.4 ? '2' : 'X'
       const isContrarian = crowdFav !== realFav
       const isDeadRubber = m.isDeadRubber || false
       const bTeamDetected = m.bTeamHome?.isBTeam || m.bTeamAway?.isBTeam || false
 
-      const boldness = this.assessBoldness(crowdFav, realFav, { p1, px, p2 }, bTeamDetected, isDeadRubber)
+      const boldness = this.assessBoldness(
+        crowdFav,
+        realFav,
+        { p1, px, p2 },
+        bTeamDetected,
+        isDeadRubber
+      )
       const intel = this.generateMatchIntel(m.home, m.away, p1, p2)
 
       return { boldness, intel, isContrarian, realFav }

@@ -3,15 +3,15 @@ const logger = require('../core/logger')
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
 const SOFA_HEADERS = {
-  'Accept': 'application/json, text/plain, */*',
+  Accept: 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
-  'Referer': 'https://www.sofascore.com/',
-  'Origin': 'https://www.sofascore.com',
+  Referer: 'https://www.sofascore.com/',
+  Origin: 'https://www.sofascore.com',
   'Cache-Control': 'no-cache',
-  'Pragma': 'no-cache',
+  Pragma: 'no-cache',
   'Sec-Fetch-Dest': 'empty',
   'Sec-Fetch-Mode': 'cors',
-  'Sec-Fetch-Site': 'same-site'
+  'Sec-Fetch-Site': 'same-site',
 }
 
 const cache = new Map()
@@ -37,10 +37,10 @@ class SofascoreXgService {
       const res = await fetch(url, {
         headers: {
           ...SOFA_HEADERS,
-          'User-Agent': getRandomUserAgent()
+          'User-Agent': getRandomUserAgent(),
         },
         method: 'GET',
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.timeout(10000),
       })
 
       if (!res.ok) {
@@ -52,7 +52,8 @@ class SofascoreXgService {
       if (!body || !body.statistics) return null
 
       // Find "Expected goals" in the ALL period statistics items
-      let xgH = null, xgA = null
+      let xgH = null,
+        xgA = null
 
       if (Array.isArray(body.statistics)) {
         for (const period of body.statistics) {
@@ -84,7 +85,6 @@ class SofascoreXgService {
       const result = { home_xg: xgH, away_xg: xgA, source: 'SOFASCORE' }
       cache.set(String(sofascoreId), { data: result, ts: Date.now() })
       return result
-
     } catch (err) {
       if (err.name === 'TimeoutError' || err.code === 'UND_ERR_CONNECT_TIMEOUT') {
         logger.warn(`[SOFASCORE] xG timeout for ${sofascoreId}`)

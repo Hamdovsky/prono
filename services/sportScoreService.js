@@ -20,14 +20,14 @@ class SportScoreService {
     try {
       const { data } = await axios.get(`${this.baseUrl}/api/widget/matches/`, {
         params: { sport: 'football', limit: 50 },
-        timeout: 10000
+        timeout: 10000,
       })
 
       if (!data?.matches?.length) return []
 
       return data.matches
-        .filter(m => m.status === 'inprogress' || m.status === 'live')
-        .map(m => ({
+        .filter((m) => m.status === 'inprogress' || m.status === 'live')
+        .map((m) => ({
           source: 'sportscore',
           id: `ss_${m.home}_${m.away}`.replace(/\s+/g, '_').toLowerCase(),
           homeTeam: m.home,
@@ -39,7 +39,7 @@ class SportScoreService {
           status: 'live',
           homeWinP: 33,
           drawP: 34,
-          awayWinP: 33
+          awayWinP: 33,
         }))
     } catch (err) {
       this._lastError = err.message

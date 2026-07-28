@@ -58,7 +58,10 @@ class OddsMovementAnalyzer {
     // Calculer les changements en pourcentage
     const homeChange = ((oddsHome - homeOpen) / homeOpen) * 100
     const awayChange = ((oddsAway - awayOpen) / awayOpen) * 100
-    const drawChange = oddsDraw && baseline.draw_open ? ((oddsDraw - baseline.draw_open) / baseline.draw_open) * 100 : 0
+    const drawChange =
+      oddsDraw && baseline.draw_open
+        ? ((oddsDraw - baseline.draw_open) / baseline.draw_open) * 100
+        : 0
 
     // Détection des signaux
     const signals = []
@@ -87,7 +90,7 @@ class OddsMovementAnalyzer {
 
     // 2. Steam move : mouvement rapide ET soutenu (bidirectional: HOME + AWAY)
     if (baseline.samples > 3) {
-      if ((oddsHome / homeOpen) < 0.95) {
+      if (oddsHome / homeOpen < 0.95) {
         const velocity = Math.abs(homeChange) / baseline.samples
         if (velocity > 1.5) {
           signals.push({
@@ -99,7 +102,7 @@ class OddsMovementAnalyzer {
           })
         }
       }
-      if ((oddsAway / awayOpen) < 0.95) {
+      if (oddsAway / awayOpen < 0.95) {
         const velocity = Math.abs(awayChange) / baseline.samples
         if (velocity > 1.5) {
           signals.push({
@@ -136,7 +139,7 @@ class OddsMovementAnalyzer {
 
     // 4. Arbitrage detection
     if (oddsDraw) {
-      const arbPct = (1 / oddsHome) + (1 / oddsDraw) + (1 / oddsAway)
+      const arbPct = 1 / oddsHome + 1 / oddsDraw + 1 / oddsAway
       if (arbPct < 1.0) {
         signals.push({
           type: 'ARBITRAGE',
@@ -175,26 +178,34 @@ class OddsMovementAnalyzer {
 
     // Weighted sharp score: steam and sharp money signals carry more weight than others
     const SIGNAL_WEIGHTS = {
-      'SHARP_HOME': 1.5, 'SHARP_AWAY': 1.5,
-      'STEAM_HOME': 1.3, 'STEAM_AWAY': 1.3,
-      'REVERSE_HOME': 1.0, 'REVERSE_AWAY': 1.0,
-      'ARBITRAGE': 0.8,
-      'ACCELERATION_HOME': 1.1, 'ACCELERATION_AWAY': 1.1
-    };
-    let weightedSum = 0;
-    let totalWeight = 0;
-    for (const sig of signals) {
-      const w = SIGNAL_WEIGHTS[sig.type] || 0.5;
-      weightedSum += (sig.rating || 0.5) * w;
-      totalWeight += w;
+      SHARP_HOME: 1.5,
+      SHARP_AWAY: 1.5,
+      STEAM_HOME: 1.3,
+      STEAM_AWAY: 1.3,
+      REVERSE_HOME: 1.0,
+      REVERSE_AWAY: 1.0,
+      ARBITRAGE: 0.8,
+      ACCELERATION_HOME: 1.1,
+      ACCELERATION_AWAY: 1.1,
     }
-    const sharpScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
+    let weightedSum = 0
+    let totalWeight = 0
+    for (const sig of signals) {
+      const w = SIGNAL_WEIGHTS[sig.type] || 0.5
+      weightedSum += (sig.rating || 0.5) * w
+      totalWeight += w
+    }
+    const sharpScore = totalWeight > 0 ? weightedSum / totalWeight : 0
 
     const result = {
       matchId,
       current: { home: oddsHome, draw: oddsDraw, away: oddsAway },
       open: { home: homeOpen, draw: baseline.draw_open, away: awayOpen },
-      changes: { home: round(homeChange, 1), draw: round(drawChange, 1), away: round(awayChange, 1) },
+      changes: {
+        home: round(homeChange, 1),
+        draw: round(drawChange, 1),
+        away: round(awayChange, 1),
+      },
       signals,
       sharpScore: round(sharpScore, 2),
       interpretation: this._interpret(sharpScore, signals),
@@ -210,10 +221,10 @@ class OddsMovementAnalyzer {
   _estimatePublicPercentage(oddsHome, oddsAway) {
     // Approximation basée sur le modèle de loi de l'attraction inverse
     // Le public a tendance à masser les petits odds
-    const total = (1 / oddsHome) + (1 / oddsAway)
+    const total = 1 / oddsHome + 1 / oddsAway
     return {
-      home: total > 0 ? ((1 / oddsHome) / total) * 100 : 50,
-      away: total > 0 ? ((1 / oddsAway) / total) * 100 : 50,
+      home: total > 0 ? (1 / oddsHome / total) * 100 : 50,
+      away: total > 0 ? (1 / oddsAway / total) * 100 : 50,
     }
   }
 
@@ -224,7 +235,8 @@ class OddsMovementAnalyzer {
     if (signals.length === 0) return 'NO_CLEAR_SIGNAL'
     if (sharpScore > 0.7) return 'STRONG_SHARP_MONEY'
     if (sharpScore > 0.4) return 'MODERATE_SHARP_MONEY'
-    if (signals.some(s => s.type === 'REVERSE_HOME' || s.type === 'REVERSE_AWAY')) return 'REVERSE_LINE_MOVEMENT'
+    if (signals.some((s) => s.type === 'REVERSE_HOME' || s.type === 'REVERSE_AWAY'))
+      return 'REVERSE_LINE_MOVEMENT'
     return 'WEAK_SIGNAL'
   }
 

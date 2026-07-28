@@ -39,7 +39,7 @@ async function main() {
   // Rebuild profile from all data
   await rebuildCrowdProfile(allMatches)
 
-  const right = allMatches.filter(m => {
+  const right = allMatches.filter((m) => {
     const picks = [
       { label: '1', pct: m.vote1 },
       { label: 'X', pct: m.voteX },
@@ -52,9 +52,11 @@ async function main() {
   console.log(`\n========================================`)
   console.log(`Résultat final`)
   console.log(`========================================`)
-  console.log(`Grilles: ${grids.length} (${grids.map(g => g.no).join(', ')})`)
+  console.log(`Grilles: ${grids.length} (${grids.map((g) => g.no).join(', ')})`)
   console.log(`Matchs avec votes: ${allMatches.length}`)
-  console.log(`Foule correcte: ${right}/${allMatches.length} (${(right / allMatches.length * 100).toFixed(1)}%)`)
+  console.log(
+    `Foule correcte: ${right}/${allMatches.length} (${((right / allMatches.length) * 100).toFixed(1)}%)`
+  )
   console.log(`Sauvegardé dans: tunisian_vote_history.json + crowd_profile.json`)
 }
 

@@ -3,100 +3,100 @@
  * Centralized Redis connection and configuration
  */
 
-const Redis = require('ioredis');
-const logger = require('../core/logger');
+const Redis = require('ioredis')
+const logger = require('../core/logger')
 
 class RedisConfig {
-    constructor() {
-        this.client = null;
-        this.isConnected = false;
-    }
+  constructor() {
+    this.client = null
+    this.isConnected = false
+  }
 
-    /**
-     * Initialize Redis connection
-     */
-    async connect() {
-        try {
-            const redisUrl = process.env.REDIS_URL;
-            const options = redisUrl
-                ? { url: redisUrl }
-                : {
-                    host: process.env.REDIS_HOST || 'localhost',
-                    port: process.env.REDIS_PORT || 6379,
-                    password: process.env.REDIS_PASSWORD || undefined,
-                };
-            this.client = new Redis({
-                ...options,
-                retryStrategy: (times) => {
-                    if (times > 2) {
-                        return null;
-                    }
-                    return Math.min(times * 50, 2000);
-                },
-                maxRetriesPerRequest: 2,
-                enableReadyCheck: true,
-                lazyConnect: true,
-                enableOfflineQueue: false
-            });
+  /**
+   * Initialize Redis connection
+   */
+  async connect() {
+    try {
+      const redisUrl = process.env.REDIS_URL
+      const options = redisUrl
+        ? { url: redisUrl }
+        : {
+            host: process.env.REDIS_HOST || 'localhost',
+            port: process.env.REDIS_PORT || 6379,
+            password: process.env.REDIS_PASSWORD || undefined,
+          }
+      this.client = new Redis({
+        ...options,
+        retryStrategy: (times) => {
+          if (times > 2) {
+            return null
+          }
+          return Math.min(times * 50, 2000)
+        },
+        maxRetriesPerRequest: 2,
+        enableReadyCheck: true,
+        lazyConnect: true,
+        enableOfflineQueue: false,
+      })
 
-            this.client.on('connect', () => {
-                logger.info('✅ Redis connected successfully');
-                this.isConnected = true;
-            });
+      this.client.on('connect', () => {
+        logger.info('✅ Redis connected successfully')
+        this.isConnected = true
+      })
 
-            this.client.on('error', (err) => {
-                // Only log first error, not spam
-                if (this.isConnected) {
-                    logger.error('❌ Redis connection error:', err.message || 'Connection failed');
-                }
-                this.isConnected = false;
-            });
-
-            this.client.on('close', () => {
-                if (this.isConnected) {
-                    logger.warn('⚠️ Redis connection closed');
-                }
-                this.isConnected = false;
-            });
-
-            // Try to connect
-            await this.client.connect();
-            await this.client.ping();
-            return this.client;
-        } catch (error) {
-            logger.warn('⚠️ Redis not available - using in-memory cache fallback');
-            this.client = null;
-            return null;
+      this.client.on('error', (err) => {
+        // Only log first error, not spam
+        if (this.isConnected) {
+          logger.error('❌ Redis connection error:', err.message || 'Connection failed')
         }
-    }
+        this.isConnected = false
+      })
 
-    /**
-     * Get Redis client
-     */
-    getClient() {
-        return this.client;
-    }
-
-    /**
-     * Check if Redis is connected
-     */
-    isReady() {
-        return this.isConnected && this.client !== null;
-    }
-
-    /**
-     * Close Redis connection
-     */
-    async disconnect() {
-        if (this.client) {
-            await this.client.quit();
-            this.isConnected = false;
-            logger.info('Redis disconnected');
+      this.client.on('close', () => {
+        if (this.isConnected) {
+          logger.warn('⚠️ Redis connection closed')
         }
+        this.isConnected = false
+      })
+
+      // Try to connect
+      await this.client.connect()
+      await this.client.ping()
+      return this.client
+    } catch (error) {
+      logger.warn('⚠️ Redis not available - using in-memory cache fallback')
+      this.client = null
+      return null
     }
+  }
+
+  /**
+   * Get Redis client
+   */
+  getClient() {
+    return this.client
+  }
+
+  /**
+   * Check if Redis is connected
+   */
+  isReady() {
+    return this.isConnected && this.client !== null
+  }
+
+  /**
+   * Close Redis connection
+   */
+  async disconnect() {
+    if (this.client) {
+      await this.client.quit()
+      this.isConnected = false
+      logger.info('Redis disconnected')
+    }
+  }
 }
 
 // Singleton instance
-const redisConfig = new RedisConfig();
+const redisConfig = new RedisConfig()
 
-module.exports = redisConfig;
+module.exports = redisConfig

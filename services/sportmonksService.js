@@ -25,13 +25,13 @@ class SportmonksService {
     return {
       available: this.isAvailable(),
       authFailed: this._authFailed,
-      quotaExhausted: this._quotaExhausted
+      quotaExhausted: this._quotaExhausted,
     }
   }
 
   async fetchEvents(dateStr) {
     const fixtures = await this.fetchUpcomingFixtures()
-    return (fixtures || []).map(f => this.mapToMatch(f))
+    return (fixtures || []).map((f) => this.mapToMatch(f))
   }
 
   async _fetch(endpoint) {
@@ -43,15 +43,21 @@ class SportmonksService {
       return data
     } catch (e) {
       const status = e.response?.status
-      if (status === 401) { this._authFailed = true; logger.error('❌ [SPORTMONKS] Auth failed (401)') }
-      else if (status === 429) { this._quotaExhausted = true; logger.warn('🛑 [SPORTMONKS] Rate limit exceeded') }
-      else logger.warn(`⚠️ [SPORTMONKS] Request failed: ${e.message}`)
+      if (status === 401) {
+        this._authFailed = true
+        logger.error('❌ [SPORTMONKS] Auth failed (401)')
+      } else if (status === 429) {
+        this._quotaExhausted = true
+        logger.warn('🛑 [SPORTMONKS] Rate limit exceeded')
+      } else logger.warn(`⚠️ [SPORTMONKS] Request failed: ${e.message}`)
       return null
     }
   }
 
   async fetchUpcomingFixtures() {
-    const data = await this._fetch('/fixtures/between/2025-01-01/2030-12-31?include=participants;odds&filters=upcoming')
+    const data = await this._fetch(
+      '/fixtures/between/2025-01-01/2030-12-31?include=participants;odds&filters=upcoming'
+    )
     return data?.data || []
   }
 
@@ -66,9 +72,10 @@ class SportmonksService {
   }
 
   async fetchPrematchOdds(fixtureId) {
-    const id = typeof fixtureId === 'object'
-      ? (fixtureId.sm_match_id || fixtureId.id?.toString().replace(/^sm_/, '') || fixtureId.id)
-      : fixtureId
+    const id =
+      typeof fixtureId === 'object'
+        ? fixtureId.sm_match_id || fixtureId.id?.toString().replace(/^sm_/, '') || fixtureId.id
+        : fixtureId
     if (!id) return null
     const data = await this._fetch(`/odds/pre-match/fixture/${id}?include=bookmaker;market`)
     const items = data?.data || []
@@ -77,11 +84,15 @@ class SportmonksService {
       const name = item.market?.name || item.market_name || ''
       if (name.toLowerCase().includes('3 way') || name.toLowerCase().includes('match winner')) {
         const outcomes = item.outcomes || item.bookmaker_outcomes || []
-        const home = outcomes.find(o => (o.label || '').toLowerCase() === 'home')
-        const draw = outcomes.find(o => (o.label || '').toLowerCase() === 'draw')
-        const away = outcomes.find(o => (o.label || '').toLowerCase() === 'away')
+        const home = outcomes.find((o) => (o.label || '').toLowerCase() === 'home')
+        const draw = outcomes.find((o) => (o.label || '').toLowerCase() === 'draw')
+        const away = outcomes.find((o) => (o.label || '').toLowerCase() === 'away')
         if (home?.odds && away?.odds) {
-          return { home: parseFloat(home.odds), draw: parseFloat(draw?.odds || 0), away: parseFloat(away.odds) }
+          return {
+            home: parseFloat(home.odds),
+            draw: parseFloat(draw?.odds || 0),
+            away: parseFloat(away.odds),
+          }
         }
       }
     }
@@ -93,13 +104,13 @@ class SportmonksService {
     const homeId = fixture.participants?.[0]?.id
     const awayId = fixture.participants?.[1]?.id
     if (!homeId || !awayId || !scores.length) return { scoreHome: 0, scoreAway: 0 }
-    const current = scores.filter(s => s.type_id === 1525)
-    const target = current.length > 0 ? current : scores.filter(s => s.type_id === 2)
-    const homeScore = target.find(s => s.participant_id === homeId)
-    const awayScore = target.find(s => s.participant_id === awayId)
+    const current = scores.filter((s) => s.type_id === 1525)
+    const target = current.length > 0 ? current : scores.filter((s) => s.type_id === 2)
+    const homeScore = target.find((s) => s.participant_id === homeId)
+    const awayScore = target.find((s) => s.participant_id === awayId)
     return {
       scoreHome: homeScore?.score?.goals ?? 0,
-      scoreAway: awayScore?.score?.goals ?? 0
+      scoreAway: awayScore?.score?.goals ?? 0,
     }
   }
 
@@ -110,9 +121,9 @@ class SportmonksService {
     const flatOdds = {}
     if (fixture.odds) {
       const oddsArr = Array.isArray(fixture.odds) ? fixture.odds : [fixture.odds]
-      oddsArr.forEach(o => {
+      oddsArr.forEach((o) => {
         if (o?.market?.name === '3 Way Result') {
-          o.outcomes?.forEach(out => {
+          o.outcomes?.forEach((out) => {
             if (out.label === 'Home') flatOdds.home_win = out.odds
             if (out.label === 'Draw') flatOdds.draw = out.odds
             if (out.label === 'Away') flatOdds.away_win = out.odds
@@ -123,7 +134,16 @@ class SportmonksService {
 
     const scores = this._extractScores(fixture)
     const stateId = fixture.state?.id || 0
-    const statusMap = { 1: 'scheduled', 2: 'inprogress', 3: 'finished', 4: 'finished', 5: 'finished', 6: 'finished', 7: 'finished', 8: 'finished' }
+    const statusMap = {
+      1: 'scheduled',
+      2: 'inprogress',
+      3: 'finished',
+      4: 'finished',
+      5: 'finished',
+      6: 'finished',
+      7: 'finished',
+      8: 'finished',
+    }
 
     return {
       id: `sm_${fixture.id}`,
@@ -133,9 +153,11 @@ class SportmonksService {
       score: { home: scores.scoreHome, away: scores.scoreAway },
       scoreHome: scores.scoreHome,
       scoreAway: scores.scoreAway,
-      startTimestamp: fixture.starting_at_timestamp || (fixture.starting_at
-        ? Math.floor(new Date(fixture.starting_at).getTime() / 1000)
-        : Math.floor(Date.now() / 1000)),
+      startTimestamp:
+        fixture.starting_at_timestamp ||
+        (fixture.starting_at
+          ? Math.floor(new Date(fixture.starting_at).getTime() / 1000)
+          : Math.floor(Date.now() / 1000)),
       timestamp: fixture.starting_at || new Date().toISOString(),
       status: statusMap[stateId] || 'scheduled',
       odds_home: flatOdds.home_win || null,
@@ -147,7 +169,7 @@ class SportmonksService {
       last_updated: Date.now(),
       insufficient_data: 1,
       source: 'sportmonks',
-      fullData: JSON.stringify({ fixtureId: fixture.id })
+      fullData: JSON.stringify({ fixtureId: fixture.id }),
     }
   }
 }

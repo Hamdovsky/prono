@@ -30,8 +30,8 @@ class PredixSportService {
 
   _headers() {
     return {
-      'Authorization': `Bearer ${this.apiKey}`,
-      'Accept': 'application/json'
+      Authorization: `Bearer ${this.apiKey}`,
+      Accept: 'application/json',
     }
   }
 
@@ -45,14 +45,16 @@ class PredixSportService {
       return null
     }
     if (this._quotaExhausted) {
-      logger.warn(`[PredixSport] Appel ignoré — quota épuisé, reset ${this._resetDate || 'inconnu'}`)
+      logger.warn(
+        `[PredixSport] Appel ignoré — quota épuisé, reset ${this._resetDate || 'inconnu'}`
+      )
       return null
     }
 
     try {
       const { data } = await axios.get(`${BASE_URL}${endpoint}`, {
         headers: this._headers(),
-        timeout: 10000
+        timeout: 10000,
       })
       return data
     } catch (err) {
@@ -90,7 +92,10 @@ class PredixSportService {
 
   _buildMatchId(homeTeam, awayTeam, dateStr) {
     const sanitize = (name) =>
-      name.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
+      name
+        .replace(/[^a-zA-Z0-9]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
     return `${sanitize(homeTeam)}_${sanitize(awayTeam)}_${dateStr}`
   }
 
@@ -117,7 +122,7 @@ class PredixSportService {
       league: pred.league || null,
       home_team: pred.home_team || homeTeam,
       away_team: pred.away_team || awayTeam,
-      prediction_date: pred.prediction_date || null
+      prediction_date: pred.prediction_date || null,
     }
   }
 
@@ -148,17 +153,26 @@ class PredixSportService {
         const dateStr = m.prediction_date || this._normalizeDate(Date.now())
         const mapped = this._mapPrediction(m, homeTeam, awayTeam)
 
-        const existing = database.db?.prepare(
-          "SELECT id FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1"
-        ).get(homeTeam, awayTeam, dateStr)
+        const existing = database.db
+          ?.prepare(
+            'SELECT id FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1'
+          )
+          .get(homeTeam, awayTeam, dateStr)
 
         if (existing) {
-          const fd = JSON.parse(database.db.prepare("SELECT fullData FROM matches WHERE id = ?").get(existing.id)?.fullData || '{}')
+          const fd = JSON.parse(
+            database.db.prepare('SELECT fullData FROM matches WHERE id = ?').get(existing.id)
+              ?.fullData || '{}'
+          )
           fd.predixsport = mapped
-          database.db.prepare("UPDATE matches SET fullData = ? WHERE id = ?").run(JSON.stringify(fd), existing.id)
+          database.db
+            .prepare('UPDATE matches SET fullData = ? WHERE id = ?')
+            .run(JSON.stringify(fd), existing.id)
           updated++
         } else {
-          logger.info(`[PredixSport] Match non trouvé en DB: ${homeTeam} vs ${awayTeam} (${dateStr})`)
+          logger.info(
+            `[PredixSport] Match non trouvé en DB: ${homeTeam} vs ${awayTeam} (${dateStr})`
+          )
         }
       } catch (err) {
         logger.error(`[PredixSport] Erreur sync match: ${err.message}`)

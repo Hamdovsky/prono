@@ -8,32 +8,32 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 
 ```
 
-   Client    
-  (Browser)  
+   Client
+  (Browser)
 
         HTTP/WebSocket
-       
 
-   Express.js Server      
-   - REST API             
-   - Rate Limiting        
-   - Circuit Breakers     
-   - Security Middleware  
 
-                        
-      
-                               
-       
-   Socket.IO   Redis   Python  
-   (Realtime)  Cache   Workers  
-       
-                               
-                        
-                          
-                    
-                      PostgreSQL 
-                      SQLite     
-                    
+   Express.js Server
+   - REST API
+   - Rate Limiting
+   - Circuit Breakers
+   - Security Middleware
+
+
+
+
+
+   Socket.IO   Redis   Python
+   (Realtime)  Cache   Workers
+
+
+
+
+
+                      PostgreSQL
+                      SQLite
+
 ```
 
 ## Component Details
@@ -43,12 +43,14 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 **Technology**: React 19 + Vite + Tailwind CSS
 
 **Responsibilities**:
+
 - Render prediction grids
 - Display real-time updates via WebSocket
 - User interaction (selections, filters)
 - Visualization of AI confidence scores
 
 **Key Files**:
+
 - `src/App.jsx` - Main application component
 - `src/components/Dashboard.jsx` - Primary dashboard
 - `src/components/*.jsx` - UI components
@@ -58,6 +60,7 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 **Technology**: Express 5, Socket.IO, Helmet
 
 **Responsibilities**:
+
 - HTTP request routing
 - Authentication & authorization
 - Request validation
@@ -66,6 +69,7 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 - WebSocket gateway
 
 **Middleware Stack**:
+
 1. Helmet (security headers)
 2. CORS (origin control)
 3. Compression (gzip)
@@ -76,6 +80,7 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 8. Router handlers
 
 **Key Files**:
+
 - `server.js` - Server bootstrap
 - `routes/*.js` - Route definitions
 - `core/securityEngine.js` - Auth & rate limits
@@ -87,6 +92,7 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 **Services**:
 
 #### 3.1 Promosport Scraper
+
 - Fetches live match data from PromosportPlus
 - Puppeteer for JavaScript-rendered pages
 - Fallback to direct API calls
@@ -95,6 +101,7 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 **File**: `core/promosport_scraper.js`
 
 #### 3.2 Prediction Engine
+
 - Executes Python ML models
 - Combines multiple algorithms
 - Generates confidence scores
@@ -103,6 +110,7 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 **File**: `core/promosport_engine.js`
 
 #### 3.3 Cache Service
+
 - Redis primary storage
 - In-memory Map fallback
 - Automatic TTL management
@@ -111,6 +119,7 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 **File**: `core/redisClient.js`
 
 #### 3.4 Database Layer
+
 - SQLite (development)
 - PostgreSQL (production)
 - Schema migrations
@@ -123,7 +132,9 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 **Storage Technologies**:
 
 #### 4.1 Primary Database
+
 - **SQLite**: File-based, zero-config, ACID compliant
+
   - Used in development & small deployments
   - Single writer, multiple readers
   - WAL mode enabled for concurrency
@@ -134,12 +145,14 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
   - Read replicas for scaling
 
 #### 4.2 Cache Layer
+
 - **Redis**: In-memory data store
   - TTL-based caching (60s default)
   - Pub/Sub for real-time updates
   - Persistence (AOF + RDB snapshots)
 
 #### 4.3 Object Storage (Optional)
+
 - **AWS S3 / MinIO**: For model artifacts, backups
 
 ### 5. Machine Learning Pipeline
@@ -147,6 +160,7 @@ Titanium is a multi-tier AI-powered betting prediction system designed for Promo
 **Technology**: Python 3.10+, scikit-learn, XGBoost, Prophet
 
 **Workflow**:
+
 ```
 Raw Match Data (Sofascore)
     ↓
@@ -171,16 +185,19 @@ Confidence Score (0-100%)
 ```
 
 **Models**:
+
 - `stitch_v24_hybrid.json` - Current production model
 - Retrained weekly via `npm run learn`
 
 **Files**:
+
 - `services/mlPredictionService.js` - Node/ML bridge
 - `python/predict.py` - ML inference script
 
 ### 6. Infrastructure Layer
 
 #### 6.1 Process Management
+
 - **PM2**: Production process manager
   - Cluster mode (load balancing)
   - Zero-downtime reloads
@@ -188,19 +205,23 @@ Confidence Score (0-100%)
   - Monitoring dashboard
 
 #### 6.2 Monitoring
+
 - **Prometheus**: Metrics collection
+
   - HTTP request latency
   - Cache hit rate
   - Circuit breaker states
   - System resources
 
 - **Grafana**: Visualization
+
   - Real-time dashboards
   - Alert rules
 
 - **Jaeger**: Distributed tracing (planned)
 
 #### 6.3 Logging
+
 - Structured JSON logs
 - Winston transport (file + console)
 - Log rotation (daily)
@@ -209,6 +230,7 @@ Confidence Score (0-100%)
 ## Data Flows
 
 ### Flow 1: Prediction Request
+
 ```
 1. Client -> GET /api/promosport
 2. Express -> Rate limit check
@@ -230,6 +252,7 @@ Confidence Score (0-100%)
 ```
 
 ### Flow 2: Real-Time Updates
+
 ```
 1. Scraper cron (every 5 min)
 2. Fetch latest matches
@@ -241,6 +264,7 @@ Confidence Score (0-100%)
 ```
 
 ### Flow 3: Cache Invalidation
+
 ```
 1. On new prediction:
    - Invalidate key: `promosport:grids`
@@ -256,26 +280,32 @@ Confidence Score (0-100%)
 ## Scaling Strategy
 
 ### Vertical Scaling
+
 - Increase Node.js heap size (`--max-old-space-size`)
 - Add more CPU cores
 - Increase Redis memory limit
 
 ### Horizontal Scaling
+
 #### Node.js Layer
+
 - PM2 cluster mode (all cores)
 - Multiple instances behind load balancer
 - Sticky sessions for WebSocket
 
 #### Cache Layer
+
 - Redis Cluster (sharding)
 - Read replicas for read-heavy workloads
 
 #### Database Layer
+
 - PostgreSQL primary-replica
 - Connection pooling
 - Read/write splitting
 
 #### Python Workers
+
 - Multiple processes (multiprocessing)
 - Queue-based (Celery/RQ)
 - Separate worker servers
@@ -283,6 +313,7 @@ Confidence Score (0-100%)
 ## Deployment Topology
 
 ### Development
+
 ```
 Single machine (localhost)
 ├── Node.js (dev mode)
@@ -292,6 +323,7 @@ Single machine (localhost)
 ```
 
 ### Staging
+
 ```
 2-3 servers
 ├── Load balancer (nginx)
@@ -302,6 +334,7 @@ Single machine (localhost)
 ```
 
 ### Production (High Availability)
+
 ```
 Multi-zone deployment
 ├── 3× Load balancers (active-active)
@@ -331,24 +364,26 @@ Internet
 
 ## Failure Modes & Mitigations
 
-| Failure | Impact | Mitigation |
-|---------|--------|------------|
-| Redis down | Slower responses | In-memory fallback, degrade gracefully |
-| DB connection lost | Cannot persist data | Retry with backoff, circuit breaker |
-| Sofascore API down | No fresh data | Use cached data, increase TTL |
-| Python worker crash | No predictions | Restart worker, fallback to simpler model |
-| Memory leak | OOM kill | Health checks, auto-restart, memory limits |
-| Network partition | Split brain | Quorum reads/writes, retry logic |
+| Failure             | Impact              | Mitigation                                 |
+| ------------------- | ------------------- | ------------------------------------------ |
+| Redis down          | Slower responses    | In-memory fallback, degrade gracefully     |
+| DB connection lost  | Cannot persist data | Retry with backoff, circuit breaker        |
+| Sofascore API down  | No fresh data       | Use cached data, increase TTL              |
+| Python worker crash | No predictions      | Restart worker, fallback to simpler model  |
+| Memory leak         | OOM kill            | Health checks, auto-restart, memory limits |
+| Network partition   | Split brain         | Quorum reads/writes, retry logic           |
 
 ## Performance Characteristics
 
 ### Latency Targets
+
 - API response (cache hit): < 50ms
 - API response (cache miss): < 2s
 - WebSocket broadcast: < 100ms
 - DB query: < 100ms (95th percentile)
 
 ### Throughput Targets
+
 - API: 1000 req/s per instance
 - WebSocket: 10,000 concurrent connections
 - Redis: 50,000 ops/s
@@ -357,21 +392,25 @@ Internet
 ## Future Enhancements
 
 1. **Service Mesh** (Istio/Linkerd)
+
    - Advanced traffic management
    - Mutual TLS
    - Distributed tracing
 
 2. **Event-Driven Architecture**
+
    - Apache Kafka for event bus
    - Decouple services
    - Better scalability
 
 3. **Kubernetes**
+
    - Container orchestration
    - Auto-scaling
    - Self-healing
 
 4. **GraphQL**
+
    - Flexible queries
    - Reduce over-fetching
    - Better frontend autonomy
@@ -384,16 +423,19 @@ Internet
 ## Decision Records
 
 ### ADR-001: SQLite vs PostgreSQL (Dev)
+
 **Context**: Need lightweight DB for development
 **Decision**: Use SQLite for dev, PostgreSQL for prod
 **Consequences**: Slight behavioral differences, need adapter pattern
 
 ### ADR-002: Redis as Primary Cache
+
 **Context**: Need sub-millisecond cache access
 **Decision**: Redis with in-memory fallback
 **Consequences**: Added complexity but high performance
 
 ### ADR-003: Express over Fastify
+
 **Context**: Team familiarity, ecosystem
 **Decision**: Express 5 for stability
 **Consequences**: Slightly slower but easier maintenance

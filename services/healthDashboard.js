@@ -8,13 +8,25 @@ async function getFullHealth() {
 
   // 1. Neon PostgreSQL
   try {
-    const tables = ['soccer_fixtures', 'soccer_match_stats', 'soccer_odds', 'soccer_teams', 'soccer_leagues', 'archive_football_data', 'league_model_parameters']
+    const tables = [
+      'soccer_fixtures',
+      'soccer_match_stats',
+      'soccer_odds',
+      'soccer_teams',
+      'soccer_leagues',
+      'archive_football_data',
+      'league_model_parameters',
+    ]
     const stats = {}
     for (const t of tables) {
       const r = await query(`SELECT COUNT(*) as cnt FROM ${t}`)
       stats[t] = r && r.rows ? parseInt(r.rows[0].cnt) : 0
     }
-    result.services.neon = { status: 'connected', stats, totalRows: Object.values(stats).reduce((a, b) => a + b, 0) }
+    result.services.neon = {
+      status: 'connected',
+      stats,
+      totalRows: Object.values(stats).reduce((a, b) => a + b, 0),
+    }
   } catch (e) {
     result.services.neon = { status: 'error', error: e.message }
   }

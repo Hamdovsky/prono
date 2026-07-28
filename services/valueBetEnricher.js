@@ -4,32 +4,32 @@ const transfermarktService = require('./transfermarktService')
 const database = require('../core/database')
 
 const LEAGUE_MAP = {
-  'PL': { fbref: 'PL', transfermarkt: { slug: 'premier-league', id: 9 } },
+  PL: { fbref: 'PL', transfermarkt: { slug: 'premier-league', id: 9 } },
   'La Liga': { fbref: 'LA_LIGA', transfermarkt: { slug: 'laliga', id: 12 } },
   'Serie A': { fbref: 'SERIE_A', transfermarkt: { slug: 'serie-a', id: 13 } },
-  'Bundesliga': { fbref: 'BUNDESLIGA', transfermarkt: { slug: 'bundesliga', id: 20 } },
+  Bundesliga: { fbref: 'BUNDESLIGA', transfermarkt: { slug: 'bundesliga', id: 20 } },
   'Ligue 1': { fbref: 'LIGUE_1', transfermarkt: { slug: 'ligue-1', id: 16 } },
 }
 
 const TEAM_SLUGS = {
   'Manchester City': { slug: 'manchester-city', id: 281 },
   'Manchester United': { slug: 'manchester-united', id: 985 },
-  'Liverpool': { slug: 'liverpool', id: 31 },
-  'Arsenal': { slug: 'arsenal', id: 11 },
-  'Chelsea': { slug: 'chelsea', id: 631 },
-  'Tottenham': { slug: 'tottenham-hotspur', id: 148 },
-  'Newcastle': { slug: 'newcastle-united', id: 762 },
+  Liverpool: { slug: 'liverpool', id: 31 },
+  Arsenal: { slug: 'arsenal', id: 11 },
+  Chelsea: { slug: 'chelsea', id: 631 },
+  Tottenham: { slug: 'tottenham-hotspur', id: 148 },
+  Newcastle: { slug: 'newcastle-united', id: 762 },
   'Aston Villa': { slug: 'aston-villa', id: 405 },
   'Real Madrid': { slug: 'real-madrid', id: 418 },
-  'Barcelona': { slug: 'barcelona', id: 131 },
+  Barcelona: { slug: 'barcelona', id: 131 },
   'Atletico Madrid': { slug: 'atletico-madrid', id: 13 },
   'Bayern Munich': { slug: 'bayern-munchen', id: 27 },
   'Borussia Dortmund': { slug: 'borussia-dortmund', id: 267 },
   'Paris Saint-Germain': { slug: 'paris-saint-germain', id: 583 },
-  'Marseille': { slug: 'olympique-marseille', id: 244 },
+  Marseille: { slug: 'olympique-marseille', id: 244 },
   'Inter Milan': { slug: 'inter-mailand', id: 46 },
   'AC Milan': { slug: 'ac-mailand', id: 5 },
-  'Juventus': { slug: 'juventus', id: 506 },
+  Juventus: { slug: 'juventus', id: 506 },
 }
 
 class ValueBetEnricher {
@@ -61,7 +61,9 @@ class ValueBetEnricher {
 
   expectedScore(homeXG, awayXG) {
     const maxGoals = 10
-    let pHome = 0, pDraw = 0, pAway = 0
+    let pHome = 0,
+      pDraw = 0,
+      pAway = 0
 
     for (let h = 0; h <= maxGoals; h++) {
       for (let a = 0; a <= maxGoals; a++) {
@@ -131,8 +133,16 @@ class ValueBetEnricher {
       const leagueInfo = LEAGUE_MAP[match.league]
       if (leagueInfo && fbrefService.isAvailable()) {
         const allStats = await fbrefService.getTeamStats(leagueInfo.fbref)
-        const homeStats = allStats.find(s => match.homeTeam.toLowerCase().includes(s.team.toLowerCase()) || s.team.toLowerCase().includes(match.homeTeam.toLowerCase()))
-        const awayStats = allStats.find(s => match.awayTeam.toLowerCase().includes(s.team.toLowerCase()) || s.team.toLowerCase().includes(match.awayTeam.toLowerCase()))
+        const homeStats = allStats.find(
+          (s) =>
+            match.homeTeam.toLowerCase().includes(s.team.toLowerCase()) ||
+            s.team.toLowerCase().includes(match.homeTeam.toLowerCase())
+        )
+        const awayStats = allStats.find(
+          (s) =>
+            match.awayTeam.toLowerCase().includes(s.team.toLowerCase()) ||
+            s.team.toLowerCase().includes(match.awayTeam.toLowerCase())
+        )
 
         if (homeStats) {
           result.homeXG = homeStats.xG || null
@@ -153,19 +163,25 @@ class ValueBetEnricher {
       const homeTM = TEAM_SLUGS[match.homeTeam]
       const awayTM = TEAM_SLUGS[match.awayTeam]
 
-      let homeValue = null, awayValue = null
-      let homeInjuries = [], awayInjuries = []
+      let homeValue = null,
+        awayValue = null
+      let homeInjuries = [],
+        awayInjuries = []
 
       if (transfermarktService.isAvailable()) {
         if (homeTM) {
           try {
             const info = await transfermarktService.getTeamValue(homeTM.slug, homeTM.id)
             homeValue = info.value
-            if (info.value) result.adjustmentFactors.push(`${match.homeTeam} value: ${(info.value / 1e6).toFixed(0)}M €`)
+            if (info.value)
+              result.adjustmentFactors.push(
+                `${match.homeTeam} value: ${(info.value / 1e6).toFixed(0)}M €`
+              )
           } catch (_) {}
           try {
             homeInjuries = await transfermarktService.getTeamInjuries(homeTM.slug, homeTM.id)
-            if (homeInjuries.length > 0) result.adjustmentFactors.push(`${match.homeTeam} injuries: ${homeInjuries.length}`)
+            if (homeInjuries.length > 0)
+              result.adjustmentFactors.push(`${match.homeTeam} injuries: ${homeInjuries.length}`)
           } catch (_) {}
         }
         if (awayTM) {
@@ -175,7 +191,8 @@ class ValueBetEnricher {
           } catch (_) {}
           try {
             awayInjuries = await transfermarktService.getTeamInjuries(awayTM.slug, awayTM.id)
-            if (awayInjuries.length > 0) result.adjustmentFactors.push(`${match.awayTeam} injuries: ${awayInjuries.length}`)
+            if (awayInjuries.length > 0)
+              result.adjustmentFactors.push(`${match.awayTeam} injuries: ${awayInjuries.length}`)
           } catch (_) {}
         }
       }
@@ -213,8 +230,13 @@ class ValueBetEnricher {
           const marketOdds = result.marketOdds[outcome]
           const fairOdds = result.fairOdds[outcome]
           if (marketOdds && fairOdds && marketOdds > fairOdds) {
-            const value = ((marketOdds / fairOdds) - 1) * 100
-            valueBets.push({ outcome, marketOdds, fairOdds, valuePct: parseFloat(value.toFixed(1)) })
+            const value = (marketOdds / fairOdds - 1) * 100
+            valueBets.push({
+              outcome,
+              marketOdds,
+              fairOdds,
+              valuePct: parseFloat(value.toFixed(1)),
+            })
           }
         }
         valueBets.sort((a, b) => b.valuePct - a.valuePct)
@@ -233,7 +255,9 @@ class ValueBetEnricher {
       this._setCache(cacheKey, result)
       return result
     } catch (e) {
-      logger.error(`[VALUE-BET] Enrich failed for ${match.homeTeam} vs ${match.awayTeam}: ${e.message}`)
+      logger.error(
+        `[VALUE-BET] Enrich failed for ${match.homeTeam} vs ${match.awayTeam}: ${e.message}`
+      )
       return result
     }
   }

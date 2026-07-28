@@ -77,35 +77,56 @@ async function migrate() {
       console.log(`Created ${tableName}`)
 
       const rows = sqlite.prepare(`SELECT * FROM "${tableName}"`).all()
-      if (rows.length === 0) { console.log(`  ${tableName}: 0 rows, skip`); continue }
+      if (rows.length === 0) {
+        console.log(`  ${tableName}: 0 rows, skip`)
+        continue
+      }
 
-      const colInfo = await client.query(`
+      const colInfo = await client.query(
+        `
         SELECT column_name, data_type FROM information_schema.columns
         WHERE table_name = $1 ORDER BY ordinal_position
-      `, [tableName])
+      `,
+        [tableName]
+      )
 
       const colTypeMap = {}
-      colInfo.rows.forEach(r => { colTypeMap[r.column_name] = r.data_type })
+      colInfo.rows.forEach((r) => {
+        colTypeMap[r.column_name] = r.data_type
+      })
 
-      const neonCols = colInfo.rows.map(r => r.column_name)
+      const neonCols = colInfo.rows.map((r) => r.column_name)
       const sqliteCols = Object.keys(rows[0])
-      const commonCols = sqliteCols.filter(c => neonCols.includes(c))
-      if (commonCols.length === 0) { console.log(`  ${tableName}: no common cols`); continue }
+      const commonCols = sqliteCols.filter((c) => neonCols.includes(c))
+      if (commonCols.length === 0) {
+        console.log(`  ${tableName}: no common cols`)
+        continue
+      }
 
-      const quotedCols = commonCols.map(c => `"${c}"`)
+      const quotedCols = commonCols.map((c) => `"${c}"`)
       const BATCH = 200
       let inserted = 0
 
       for (let i = 0; i < rows.length; i += BATCH) {
         const batch = rows.slice(i, i + BATCH)
         const params = []
-        const valueRows = batch.map((row, ri) => {
-          return '(' + commonCols.map((_, ci) => {
-            const idx = ri * commonCols.length + ci + 1
-            params.push(convertVal(commonCols[ci], row[commonCols[ci]], colTypeMap[commonCols[ci]]))
-            return `$${idx}`
-          }).join(', ') + ')'
-        }).join(', ')
+        const valueRows = batch
+          .map((row, ri) => {
+            return (
+              '(' +
+              commonCols
+                .map((_, ci) => {
+                  const idx = ri * commonCols.length + ci + 1
+                  params.push(
+                    convertVal(commonCols[ci], row[commonCols[ci]], colTypeMap[commonCols[ci]])
+                  )
+                  return `$${idx}`
+                })
+                .join(', ') +
+              ')'
+            )
+          })
+          .join(', ')
 
         try {
           await client.query(
@@ -120,7 +141,7 @@ async function migrate() {
               const vals = commonCols.map((_, ci) => `$${ci + 1}`).join(', ')
               await client.query(
                 `INSERT INTO "${tableName}" (${quotedCols.join(', ')}) VALUES (${vals}) ON CONFLICT DO NOTHING`,
-                commonCols.map(c => convertVal(c, row[c], colTypeMap[c]))
+                commonCols.map((c) => convertVal(c, row[c], colTypeMap[c]))
               )
               inserted++
             } catch (_) {}
@@ -138,4 +159,7 @@ async function migrate() {
   console.log('✅ Done!')
 }
 
-migrate().catch(e => { console.error('❌', e.message); process.exit(1) })
+migrate().catch((e) => {
+  console.error('❌', e.message)
+  process.exit(1)
+})

@@ -28,15 +28,15 @@ class SportSrcService {
           type: 'matches',
           sport: 'football',
           status: 'inprogress',
-          api_key: this.apiKey
+          api_key: this.apiKey,
         },
-        timeout: 10000
+        timeout: 10000,
       })
 
       if (!data?.matches?.length && !data?.data?.length) return []
 
       const items = data.matches || data.data || []
-      return items.map(m => ({
+      return items.map((m) => ({
         source: 'sportsrc',
         id: m.id || `src_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         homeTeam: m.home_team?.name || m.home_team || m.homeTeam || 'Home',
@@ -48,7 +48,7 @@ class SportSrcService {
         status: 'live',
         homeWinP: 33,
         drawP: 34,
-        awayWinP: 33
+        awayWinP: 33,
       }))
     } catch (err) {
       this._lastError = err.message

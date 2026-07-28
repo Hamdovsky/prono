@@ -30,9 +30,12 @@ class OddsApiIoService {
     if (this._quotaExhausted) return null
 
     try {
-      const { data } = await axios.get(`${BASE_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}apiKey=${this.apiKey}`, {
-        timeout: 10000
-      })
+      const { data } = await axios.get(
+        `${BASE_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}apiKey=${this.apiKey}`,
+        {
+          timeout: 10000,
+        }
+      )
       return data
     } catch (err) {
       const status = err.response?.status
@@ -65,7 +68,7 @@ class OddsApiIoService {
     const all = await this.getEvents('football', 'upcoming', 50)
     const now = new Date()
     const twoDays = new Date(now.getTime() + 2 * 86400000)
-    return all.filter(e => {
+    return all.filter((e) => {
       const d = new Date(e.date)
       return d > now && d < twoDays
     })

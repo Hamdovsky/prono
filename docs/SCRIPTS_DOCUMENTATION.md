@@ -34,15 +34,19 @@ npm install swagger-jsdoc swagger-ui-express --save
 **1. Intégrer dans `server.js`:**
 
 ```javascript
-const { specs, swaggerUi } = require('./config/swagger');
+const { specs, swaggerUi } = require('./config/swagger')
 
 // Swagger UI route
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Titanium AI API Docs'
-}));
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(specs, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Titanium AI API Docs',
+  })
+)
 
-console.log('📚 API Docs: http://localhost:3001/api-docs');
+console.log('📚 API Docs: http://localhost:3001/api-docs')
 ```
 
 **2. Annoter vos routes:**
@@ -70,7 +74,7 @@ console.log('📚 API Docs: http://localhost:3001/api-docs');
  */
 router.post('/predict', async (req, res) => {
   // ...
-});
+})
 ```
 
 **3. Accéder à la documentation:**
@@ -261,6 +265,7 @@ Next steps:
 **3. Copier les type hints dans vos fichiers:**
 
 Ouvrir `TYPE_HINTS_REFERENCE.py` et copier les signatures vers:
+
 - `core/prediction_engine.py`
 - `core/ml_features.py`
 - `core/goal_model.py`
@@ -278,11 +283,11 @@ def process_prediction(
 ) -> Dict[str, Any]:
     """
     Main prediction pipeline
-    
+
     Args:
         match_obj: Match data dictionary
         options: Optional configuration
-        
+
     Returns:
         Complete prediction response
     """
@@ -293,10 +298,10 @@ def extract_ml_features(
 ) -> Dict[str, float]:
     """
     Extract 115+ ML features from match
-    
+
     Args:
         match_obj: Match dictionary with teams, league, stats
-        
+
     Returns:
         Dictionary of feature name -> float value
     """
@@ -319,7 +324,7 @@ mypy core/ --check-untyped-defs
 
 ### 📦 Modules Couverts
 
-- `prediction_engine.py`: process_prediction, _safe_float
+- `prediction_engine.py`: process_prediction, \_safe_float
 - `ml_features.py`: extract_ml_features, calculate_elo_rating, calculate_form_score
 - `goal_model.py`: poisson_pmf, dixon_coles, monte_carlo, predict_btts, predict_ou
 - `model_manager.py`: ModelManager class avec lazy loading
@@ -385,14 +390,14 @@ services:
       context: .
       dockerfile: Dockerfile.production
     ports:
-      - "10000:10000"
+      - '10000:10000'
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
       - API_SECRET_KEY=${API_SECRET_KEY}
       - USE_MODEL_MANAGER=true
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:10000/api/health')"]
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:10000/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -404,11 +409,11 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ### 📊 Comparaison Taille Images
 
-| Build Type | Image Size | Build Time |
-|-----------|-----------|-----------|
-| Single-stage | ~1.2 GB | 8 min |
-| Multi-stage | ~300 MB | 6 min |
-| Optimized | ~250 MB | 5 min |
+| Build Type   | Image Size | Build Time |
+| ------------ | ---------- | ---------- |
+| Single-stage | ~1.2 GB    | 8 min      |
+| Multi-stage  | ~300 MB    | 6 min      |
+| Optimized    | ~250 MB    | 5 min      |
 
 ### ⚡ Optimisations
 

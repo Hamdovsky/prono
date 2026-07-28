@@ -33,7 +33,7 @@ class BigBallsDataService {
     try {
       const { data } = await axios.get(`${BASE_URL}${endpoint}`, {
         headers: { Authorization: `Bearer ${this.apiKey}` },
-        timeout: 10000
+        timeout: 10000,
       })
       if (data.error) {
         if (data.error.code === 'unauthorized' || data.error.code === 'forbidden') {
@@ -108,14 +108,21 @@ class BigBallsDataService {
 
         for (const m of matches) {
           try {
-            const existing = database.db?.prepare(
-              "SELECT id FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1"
-            ).get(m.home, m.away, m.date?.split('T')[0] || '')
+            const existing = database.db
+              ?.prepare(
+                'SELECT id FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1'
+              )
+              .get(m.home, m.away, m.date?.split('T')[0] || '')
 
             if (existing) {
-              const fd = JSON.parse(database.db.prepare("SELECT fullData FROM matches WHERE id = ?").get(existing.id)?.fullData || '{}')
+              const fd = JSON.parse(
+                database.db.prepare('SELECT fullData FROM matches WHERE id = ?').get(existing.id)
+                  ?.fullData || '{}'
+              )
               fd.bigballs = { matchId: m.id, league: league.id }
-              database.db.prepare("UPDATE matches SET fullData = ? WHERE id = ?").run(JSON.stringify(fd), existing.id)
+              database.db
+                .prepare('UPDATE matches SET fullData = ? WHERE id = ?')
+                .run(JSON.stringify(fd), existing.id)
               updated++
             }
           } catch (_) {}

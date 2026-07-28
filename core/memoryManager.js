@@ -2,7 +2,7 @@ const logger = require('./logger')
 
 let memoryPressureLevel = 0
 const THRESHOLD_WARNING = 0.75
-const THRESHOLD_CRITICAL = 0.90
+const THRESHOLD_CRITICAL = 0.9
 
 function getHeapStats() {
   const v8 = require('v8')
@@ -16,7 +16,9 @@ function getHeapStats() {
 function logMemory() {
   const { usedMB, limitMB, ratio } = getHeapStats()
   const level = ratio > THRESHOLD_CRITICAL ? '🔴' : ratio > THRESHOLD_WARNING ? '🟡' : '🟢'
-  logger.info(`[MEM] ${level} Heap: ${usedMB.toFixed(1)} MB / ${limitMB.toFixed(1)} MB (${(ratio * 100).toFixed(1)}%)`)
+  logger.info(
+    `[MEM] ${level} Heap: ${usedMB.toFixed(1)} MB / ${limitMB.toFixed(1)} MB (${(ratio * 100).toFixed(1)}%)`
+  )
   return ratio
 }
 
@@ -28,7 +30,9 @@ function maybeGC() {
     if (memoryPressureLevel % 5 === 0) {
       logger.info(`[MEM] High memory pressure (level ${memoryPressureLevel}) — forcing GC`)
     }
-    try { global.gc() } catch (_) {}
+    try {
+      global.gc()
+    } catch (_) {}
     return true
   }
   memoryPressureLevel = 0
@@ -40,7 +44,9 @@ function startPeriodicCheck(intervalMs = 60000) {
     const ratio = logMemory()
     if (ratio > THRESHOLD_CRITICAL) {
       logger.warn(`[MEM] CRITICAL memory usage — forcing GC`)
-      try { if (typeof global.gc === 'function') global.gc() } catch (_) {}
+      try {
+        if (typeof global.gc === 'function') global.gc()
+      } catch (_) {}
     }
   }, intervalMs)
   timer.unref()

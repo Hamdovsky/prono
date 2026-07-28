@@ -37,16 +37,26 @@ class PromosportSurpriseService {
     const draws = { home: 0, away: 0, total: 0 }
     const teamStats = {}
 
-    this.historicalData.forEach(concours => {
-      ;(concours.matches || []).forEach(m => {
+    this.historicalData.forEach((concours) => {
+      ;(concours.matches || []).forEach((m) => {
         const home = (m.home || '').trim().toLowerCase()
         const away = (m.away || '').trim().toLowerCase()
         const res = (m.res || '').trim()
 
         if (!home || !away || !res) return
 
-        if (!teamStats[home]) teamStats[home] = { home: { wins: 0, draws: 0, losses: 0 }, away: { wins: 0, draws: 0, losses: 0 }, total: { wins: 0, draws: 0, losses: 0 } }
-        if (!teamStats[away]) teamStats[away] = { home: { wins: 0, draws: 0, losses: 0 }, away: { wins: 0, draws: 0, losses: 0 }, total: { wins: 0, draws: 0, losses: 0 } }
+        if (!teamStats[home])
+          teamStats[home] = {
+            home: { wins: 0, draws: 0, losses: 0 },
+            away: { wins: 0, draws: 0, losses: 0 },
+            total: { wins: 0, draws: 0, losses: 0 },
+          }
+        if (!teamStats[away])
+          teamStats[away] = {
+            home: { wins: 0, draws: 0, losses: 0 },
+            away: { wins: 0, draws: 0, losses: 0 },
+            total: { wins: 0, draws: 0, losses: 0 },
+          }
 
         if (res === '1') {
           teamStats[home].home.wins++
@@ -75,8 +85,10 @@ class PromosportSurpriseService {
     const totalMatches = favoriteWins.total + draws.total
     this.surpriseRates = {
       globalDrawRate: totalMatches > 0 ? +((draws.total / totalMatches) * 100).toFixed(1) : 0,
-      globalHomeWinRate: totalMatches > 0 ? +((favoriteWins.home / totalMatches) * 100).toFixed(1) : 0,
-      globalAwayWinRate: totalMatches > 0 ? +((favoriteWins.away / totalMatches) * 100).toFixed(1) : 0,
+      globalHomeWinRate:
+        totalMatches > 0 ? +((favoriteWins.home / totalMatches) * 100).toFixed(1) : 0,
+      globalAwayWinRate:
+        totalMatches > 0 ? +((favoriteWins.away / totalMatches) * 100).toFixed(1) : 0,
       teamStats: this._computeTeamSurprise(teamStats),
       totalConcours: this.historicalData.length,
       totalMatches,

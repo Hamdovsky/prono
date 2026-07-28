@@ -32,11 +32,14 @@ function fetchUrl(url, timeout = 15000) {
     const mod = url.startsWith('https') ? https : http
     const req = mod.get(url, { timeout }, (res) => {
       let data = ''
-      res.on('data', chunk => data += chunk)
+      res.on('data', (chunk) => (data += chunk))
       res.on('end', () => resolve(data))
     })
     req.on('error', reject)
-    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')) })
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('timeout'))
+    })
   })
 }
 
@@ -45,7 +48,7 @@ function extractConcoursNumber(html) {
     /CONCOURS\s*N[°\s]*(\d{3,4})/i,
     /CONCOURS\s*(\d{3,4})/i,
     /concours[-\s]*(\d{3,4})/i,
-    /num[ée]ro\s*(?:du\s*)?concours[:\s]*(\d{3,4})/i
+    /num[ée]ro\s*(?:du\s*)?concours[:\s]*(\d{3,4})/i,
   ]
   for (const p of patterns) {
     const m = html.match(p)
@@ -53,7 +56,7 @@ function extractConcoursNumber(html) {
   }
   const linkMatch = html.match(/grille[=\/](\d{3,4})/gi)
   if (linkMatch) {
-    const nums = linkMatch.map(s => parseInt(s.match(/\d+/)[0], 10)).filter(n => n > 800)
+    const nums = linkMatch.map((s) => parseInt(s.match(/\d+/)[0], 10)).filter((n) => n > 800)
     if (nums.length > 0) return Math.max(...nums)
   }
   return null
@@ -86,7 +89,16 @@ async function generateGridsForConcours(concoursNumber) {
     try {
       const redisCache = require('../services/redisCache')
       const cacheKey = `promosport:${concoursNumber}`
-      await redisCache.set(cacheKey, { concours: concoursNumber, date: dateStr, grids: grids.map(g => g.name), generatedAt: Date.now() }, 86400)
+      await redisCache.set(
+        cacheKey,
+        {
+          concours: concoursNumber,
+          date: dateStr,
+          grids: grids.map((g) => g.name),
+          generatedAt: Date.now(),
+        },
+        86400
+      )
       logger.info('[DETECT] Redis cache warmed up for concours', concoursNumber)
     } catch (_) {}
 
@@ -120,7 +132,7 @@ async function detectNewConcours() {
     `https://www.promosport-pronostic.com/index.php/welcome/promo_result?grille=${lastKnown + 1}&jeux=Promosport`,
     `https://www.promosport-pronostic.com/index.php/welcome/promo_result?grille=${lastKnown}&jeux=Promosport`,
     'https://www.promosport-pronostic.com/',
-    'https://www.promosportplus.com/promosport-concours-de-la-semaine'
+    'https://www.promosportplus.com/promosport-concours-de-la-semaine',
   ]
 
   for (const url of sources) {

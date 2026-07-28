@@ -2,33 +2,33 @@ const API_BASE = process.env.REACT_APP_API_URL || ''
 
 export async function fetchEvolutionData(params = {}) {
   const { days = 30, league = 'all' } = params
-  
+
   const queryParams = new URLSearchParams({
     days: days.toString(),
-    league
+    league,
   })
 
   try {
     const response = await fetch(`${API_BASE}/api/evolution/heatmap?${queryParams}`)
-    
+
     if (!response.ok) {
       throw new Error(`Erreur API: ${response.status}`)
     }
-    
+
     const data = await response.json()
-    
+
     return {
       success: true,
-      data: data.heatmap || data.data || []
+      data: data.heatmap || data.data || [],
     }
   } catch (error) {
     console.error('Erreur fetchEvolutionData:', error)
-    
+
     // Fallback: données factices pour le demo
     return {
       success: false,
       error: error.message,
-      data: getFallbackData()
+      data: getFallbackData(),
     }
   }
 }
@@ -45,13 +45,13 @@ function getFallbackData() {
     { name: 'Grid 876', score: 7.1, success: 67, volatility: 0.21 },
     { name: 'Grid 877', score: 6.7, success: 59, volatility: 0.29 },
   ]
-  
+
   return concours.map((c, idx) => ({
     concours: c.name,
     avg_score: c.score,
     success_rate: c.success,
     volatility: c.volatility,
     last_score: c.score + (Math.random() - 0.5) * 2,
-    date: new Date(now.getTime() - idx * 86400000).toISOString().split('T')[0]
+    date: new Date(now.getTime() - idx * 86400000).toISOString().split('T')[0],
   }))
 }

@@ -7,12 +7,13 @@ const cache = { teamValue: new Map(), injuries: new Map(), form: new Map() }
 const BASE = 'https://www.transfermarkt.com'
 
 const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
   'Accept-Encoding': 'gzip, deflate, br',
-  'Referer': 'https://www.transfermarkt.com/',
-  'DNT': '1',
+  Referer: 'https://www.transfermarkt.com/',
+  DNT: '1',
 }
 
 class TransfermarktService {
@@ -20,7 +21,9 @@ class TransfermarktService {
     this.enabled = true
   }
 
-  isAvailable() { return this.enabled }
+  isAvailable() {
+    return this.enabled
+  }
 
   _getCached(key, map) {
     const entry = map.get(key)
@@ -69,7 +72,9 @@ class TransfermarktService {
 
     const result = { value, form, currency: '€' }
     this._setCache(cacheKey, cache.teamValue, result)
-    logger.info(`[TRANSFERMARKT] Team value for ${teamSlug}: ${value ? value.toLocaleString() : 'N/A'} €`)
+    logger.info(
+      `[TRANSFERMARKT] Team value for ${teamSlug}: ${value ? value.toLocaleString() : 'N/A'} €`
+    )
     return result
   }
 

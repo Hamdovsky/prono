@@ -56,9 +56,16 @@ body {
   }
 
   /* Sidebar font sizes */
-  .flash-section-title { font-size: 11px !important; }
-  .flash-label { font-size: 12px !important; }
-  .flash-count { font-size: 10px !important; min-width: 20px !important; }
+  .flash-section-title {
+    font-size: 11px !important;
+  }
+  .flash-label {
+    font-size: 12px !important;
+  }
+  .flash-count {
+    font-size: 10px !important;
+    min-width: 20px !important;
+  }
 }
 
 /* ═══════════════════════════════════════
@@ -123,17 +130,38 @@ body {
     border-radius: 8px !important;
   }
 
-  .mc-league { font-size: 10px !important; }
-  .mc-teams { font-size: 13px !important; }
-  .mc-badge { font-size: 9px !important; padding: 2px 6px !important; }
-  .mc-pick-cell { min-width: 56px !important; }
-  .mc-ou-label { font-size: 9px !important; }
-  .mc-ev-label { font-size: 9px !important; }
-  .mc-dvb-flash { font-size: 9px !important; }
+  .mc-league {
+    font-size: 10px !important;
+  }
+  .mc-teams {
+    font-size: 13px !important;
+  }
+  .mc-badge {
+    font-size: 9px !important;
+    padding: 2px 6px !important;
+  }
+  .mc-pick-cell {
+    min-width: 56px !important;
+  }
+  .mc-ou-label {
+    font-size: 9px !important;
+  }
+  .mc-ev-label {
+    font-size: 9px !important;
+  }
+  .mc-dvb-flash {
+    font-size: 9px !important;
+  }
 
   /* Don't hide data, just restructure */
-  .mc-markets { display: flex !important; flex-wrap: wrap; gap: 4px; }
-  .mc-ev-cell { display: block !important; }
+  .mc-markets {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .mc-ev-cell {
+    display: block !important;
+  }
 }
 
 /* ═══════════════════════════════════════
@@ -141,20 +169,20 @@ body {
    ═══════════════════════════════════════ */
 @media (max-width: 768px) {
   .ticket-du-jour,
-  [class*="TicketDuJour"],
-  [class*="ticket"] {
+  [class*='TicketDuJour'],
+  [class*='ticket'] {
     padding: 10px 8px !important;
   }
 
   .ticket-match-row,
-  [class*="ticket-match"] {
+  [class*='ticket-match'] {
     grid-template-columns: 1fr 1fr !important;
     gap: 6px !important;
     padding: 8px 6px !important;
   }
 
   .ticket-jour-title,
-  [class*="ticket-title"] {
+  [class*='ticket-title'] {
     font-size: 1rem !important;
   }
 }
@@ -163,8 +191,8 @@ body {
    TOP PICKS — Mobile
    ═══════════════════════════════════════ */
 @media (max-width: 768px) {
-  [class*="top-picks"],
-  [class*="TopPicks"] {
+  [class*='top-picks'],
+  [class*='TopPicks'] {
     padding: 10px 6px !important;
   }
 
@@ -186,7 +214,7 @@ body {
    ═══════════════════════════════════════ */
 @media (max-width: 768px) {
   .mega-ticket-slip,
-  [class*="mega-ticket"] {
+  [class*='mega-ticket'] {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
@@ -202,8 +230,8 @@ body {
    GRID GENERATOR — Mobile
    ═══════════════════════════════════════ */
 @media (max-width: 768px) {
-  .onyx-grid-container > [class*="grid"],
-  .onyx-grid-container > [class*="Grid"] {
+  .onyx-grid-container > [class*='grid'],
+  .onyx-grid-container > [class*='Grid'] {
     gap: 8px !important;
   }
 }
@@ -234,8 +262,8 @@ body {
    SEARCH BAR — Mobile
    ═══════════════════════════════════════ */
 @media (max-width: 768px) {
-  input[type="text"],
-  input[type="search"] {
+  input[type='text'],
+  input[type='search'] {
     font-size: 16px !important; /* Prevent iOS zoom */
     padding: 8px 10px !important;
   }
@@ -258,8 +286,8 @@ body {
   }
 
   /* Scrollable tables */
-  [class*="promo-table"],
-  [class*="predictions-table"] {
+  [class*='promo-table'],
+  [class*='predictions-table'] {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -325,9 +353,15 @@ body {
   }
 
   /* Headings don't overflow */
-  h1 { font-size: 1.5em !important; }
-  h2 { font-size: 1.25em !important; }
-  h3 { font-size: 1.1em !important; }
+  h1 {
+    font-size: 1.5em !important;
+  }
+  h2 {
+    font-size: 1.25em !important;
+  }
+  h3 {
+    font-size: 1.1em !important;
+  }
 
   /* Hide hover effects on touch */
   *:hover {

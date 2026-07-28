@@ -4,7 +4,7 @@ const promosportSurpriseService = require('../services/promosportSurpriseService
 
 function bestSingle(p1, px, p2) {
   const max = Math.max(p1, px, p2)
-  return { pick: p1 === max ? '1' : (p2 === max ? '2' : 'X'), prob: max }
+  return { pick: p1 === max ? '1' : p2 === max ? '2' : 'X', prob: max }
 }
 
 function bestDouble(p1, px, p2) {
@@ -22,10 +22,8 @@ function predictEV(p1, px, p2) {
 
 function predictHighValue(p1, px, p2) {
   const max = Math.max(p1, px, p2)
-  const pick = max > 0.60
-    ? (p1 === max ? '1' : (p2 === max ? '2' : 'X'))
-    : 'X'
-  return { pick, prob: pick === '1' ? p1 : (pick === '2' ? p2 : px) }
+  const pick = max > 0.6 ? (p1 === max ? '1' : p2 === max ? '2' : 'X') : 'X'
+  return { pick, prob: pick === '1' ? p1 : pick === '2' ? p2 : px }
 }
 
 function isCorrect(pick, actual) {
@@ -48,7 +46,9 @@ function computeProbs(homeStats, awayStats) {
   let p2 = rhl * 0.6 + rw * 0.4
 
   const total = p1 + px + p2
-  p1 /= total; px /= total; p2 /= total
+  p1 /= total
+  px /= total
+  p2 /= total
   return { p1, px, p2 }
 }
 
@@ -59,12 +59,12 @@ function selectDoubles(matches, count = 5) {
     return { idx: i, gain: d.prob - s.prob }
   })
   scored.sort((a, b) => b.gain - a.gain)
-  const selected = new Set(scored.slice(0, count).map(s => s.idx))
+  const selected = new Set(scored.slice(0, count).map((s) => s.idx))
   return selected
 }
 
 async function main() {
-  console.log('📊 RÉTRO-ANALYSE D\'ACCURACY TITANIUM')
+  console.log("📊 RÉTRO-ANALYSE D'ACCURACY TITANIUM")
   console.log('======================================\n')
 
   promosportSurpriseService.computeSurpriseRates()
@@ -79,7 +79,10 @@ async function main() {
 
   for (const concours of historical) {
     const concoursResult = { no: concours.no, id: concours.id, matches: [] }
-    let cEV = 0, cEVd = 0, cHV = 0, cHVd = 0
+    let cEV = 0,
+      cEVd = 0,
+      cHV = 0,
+      cHVd = 0
     let cTot = 0
 
     for (const m of concours.matches) {
@@ -93,7 +96,15 @@ async function main() {
       totalMatches++
       cTot++
 
-      const matchInfo = { idx: m.idx, home: m.home, away: m.away, actual, p1: +(p1*100).toFixed(1), px: +(px*100).toFixed(1), p2: +(p2*100).toFixed(1) }
+      const matchInfo = {
+        idx: m.idx,
+        home: m.home,
+        away: m.away,
+        actual,
+        p1: +(p1 * 100).toFixed(1),
+        px: +(px * 100).toFixed(1),
+        p2: +(p2 * 100).toFixed(1),
+      }
 
       const ev = predictEV(p1, px, p2)
       const hv = predictHighValue(p1, px, p2)
@@ -123,26 +134,48 @@ async function main() {
 
   console.log(`📊 Analyse de ${totalMatches} matchs sur ${results.length} concours\n`)
 
-  let totalEV = 0, totalHV = 0
-  let totalEVd = 0, totalHVd = 0
+  let totalEV = 0,
+    totalHV = 0
+  let totalEVd = 0,
+    totalHVd = 0
   const allMatches = []
   const allP1s = []
   const probsVsCorrect = { ev: [], hv: [] }
-  let totalDoubledMatchesEV = 0, correctDoubledEV = 0
-  let totalDoubledMatchesHV = 0, correctDoubledHV = 0
+  let totalDoubledMatchesEV = 0,
+    correctDoubledEV = 0
+  let totalDoubledMatchesHV = 0,
+    correctDoubledHV = 0
   const calibrationBins = {
-    ev: { '50-60': { n: 0, c: 0 }, '60-70': { n: 0, c: 0 }, '70-80': { n: 0, c: 0 }, '80-90': { n: 0, c: 0 }, '90+': { n: 0, c: 0 } },
-    hv: { '50-60': { n: 0, c: 0 }, '60-70': { n: 0, c: 0 }, '70-80': { n: 0, c: 0 }, '80-90': { n: 0, c: 0 }, '90+': { n: 0, c: 0 } },
+    ev: {
+      '50-60': { n: 0, c: 0 },
+      '60-70': { n: 0, c: 0 },
+      '70-80': { n: 0, c: 0 },
+      '80-90': { n: 0, c: 0 },
+      '90+': { n: 0, c: 0 },
+    },
+    hv: {
+      '50-60': { n: 0, c: 0 },
+      '60-70': { n: 0, c: 0 },
+      '70-80': { n: 0, c: 0 },
+      '80-90': { n: 0, c: 0 },
+      '90+': { n: 0, c: 0 },
+    },
   }
 
   for (const cr of results) {
-    const probs = cr.matches.map(m => ({ p1: m.p1/100, px: m.px/100, p2: m.p2/100 }))
-    const doubleIdxs = selectDoubles(probs.map((p, i) => ({ ...p, idx: i, id: i })), 5)
+    const probs = cr.matches.map((m) => ({ p1: m.p1 / 100, px: m.px / 100, p2: m.p2 / 100 }))
+    const doubleIdxs = selectDoubles(
+      probs.map((p, i) => ({ ...p, idx: i, id: i })),
+      5
+    )
     const doubleIds = new Set(Array.from(doubleIdxs))
 
-    let cEVd = 0, cHVd = 0
-    let doubledEV = 0, correctD_EV = 0
-    let doubledHV = 0, correctD_HV = 0
+    let cEVd = 0,
+      cHVd = 0
+    let doubledEV = 0,
+      correctD_EV = 0
+    let doubledHV = 0,
+      correctD_HV = 0
 
     for (let i = 0; i < cr.matches.length; i++) {
       const m = cr.matches[i]
@@ -160,16 +193,36 @@ async function main() {
       if (hvCorrectD) cHVd++
 
       if (isD) {
-        doubledEV++; correctD_EV += evCorrectD ? 1 : 0
-        doubledHV++; correctD_HV += hvCorrectD ? 1 : 0
+        doubledEV++
+        correctD_EV += evCorrectD ? 1 : 0
+        doubledHV++
+        correctD_HV += hvCorrectD ? 1 : 0
       }
 
-      const binEV = m.evProb >= 90 ? '90+' : (m.evProb >= 80 ? '80-90' : (m.evProb >= 70 ? '70-80' : (m.evProb >= 60 ? '60-70' : '50-60')))
+      const binEV =
+        m.evProb >= 90
+          ? '90+'
+          : m.evProb >= 80
+            ? '80-90'
+            : m.evProb >= 70
+              ? '70-80'
+              : m.evProb >= 60
+                ? '60-70'
+                : '50-60'
       if (calibrationBins.ev[binEV]) {
         calibrationBins.ev[binEV].n++
         if (m.evCorrect) calibrationBins.ev[binEV].c++
       }
-      const probHV = +(hvProb => hvProb >= 90 ? '90+' : (hvProb >= 80 ? '80-90' : (hvProb >= 70 ? '70-80' : (hvProb >= 60 ? '60-70' : '50-60'))))(m.hvProb)
+      const probHV = +((hvProb) =>
+        hvProb >= 90
+          ? '90+'
+          : hvProb >= 80
+            ? '80-90'
+            : hvProb >= 70
+              ? '70-80'
+              : hvProb >= 60
+                ? '60-70'
+                : '50-60')(m.hvProb)
       if (calibrationBins.hv[probHV]) {
         calibrationBins.hv[probHV].n++
         if (m.hvCorrect) calibrationBins.hv[probHV].c++
@@ -190,10 +243,10 @@ async function main() {
   }
 
   const N = totalMatches
-  const evPct = (totalEV / N * 100).toFixed(1)
-  const hvPct = (totalHV / N * 100).toFixed(1)
-  const evdPct = (totalEVd / N * 100).toFixed(1)
-  const hvdPct = (totalHVd / N * 100).toFixed(1)
+  const evPct = ((totalEV / N) * 100).toFixed(1)
+  const hvPct = ((totalHV / N) * 100).toFixed(1)
+  const evdPct = ((totalEVd / N) * 100).toFixed(1)
+  const hvdPct = ((totalHVd / N) * 100).toFixed(1)
 
   console.log('╔══════════════════════════════════════════════════════════╗')
   console.log('║         RÉSULTATS — RÉTRO-ANALYSE SUR 370 CONCOURS      ║')
@@ -204,11 +257,11 @@ async function main() {
   console.log(`│ Stratégie       │ Simple     │ Avec 5 Doubles │`)
   console.log(`│─────────────────┴────────────┴────────────────│`)
   console.log(`│ EV OPTIMIZED    │ ${evPct}% (${totalEV}/${N}) │ ${evdPct}% (${totalEVd}/${N}) │`)
-  const evGain = (totalEVd - totalEV)
+  const evGain = totalEVd - totalEV
   console.log(`│                 │ gain: +0  │ gain: +${evGain} pts │`)
   console.log(`│───────────────────────────────────────────────│`)
   console.log(`│ HIGH VALUE      │ ${hvPct}% (${totalHV}/${N}) │ ${hvdPct}% (${totalHVd}/${N}) │`)
-  const hvGain = (totalHVd - totalHV)
+  const hvGain = totalHVd - totalHV
   console.log(`│                 │ gain: +0  │ gain: +${hvGain} pts │`)
   console.log(`└───────────────────────────────────────────────┘\n`)
 
@@ -218,36 +271,53 @@ async function main() {
   const hvRealGain = (totalHVd / N - totalHV / N) * 100
   console.log(`│ EV OPTIMIZED : +${evRealGain.toFixed(1)} points de pourcentage`)
   console.log(`│ HIGH VALUE   : +${hvRealGain.toFixed(1)} points de pourcentage`)
-  console.log(`│ ${totalDoubledMatchesEV} matchs doublés EV, ${correctDoubledEV}/${totalDoubledMatchesEV} corrects (${(correctDoubledEV/totalDoubledMatchesEV*100).toFixed(1)}%)`)
-  console.log(`│ ${totalDoubledMatchesHV} matchs doublés HV, ${correctDoubledHV}/${totalDoubledMatchesHV} corrects (${(correctDoubledHV/totalDoubledMatchesHV*100).toFixed(1)}%)`)
+  console.log(
+    `│ ${totalDoubledMatchesEV} matchs doublés EV, ${correctDoubledEV}/${totalDoubledMatchesEV} corrects (${((correctDoubledEV / totalDoubledMatchesEV) * 100).toFixed(1)}%)`
+  )
+  console.log(
+    `│ ${totalDoubledMatchesHV} matchs doublés HV, ${correctDoubledHV}/${totalDoubledMatchesHV} corrects (${((correctDoubledHV / totalDoubledMatchesHV) * 100).toFixed(1)}%)`
+  )
   console.log('')
 
   console.log(`📊 CALIBRATION (EV OPTIMIZED)`)
   console.log(`─────────────────────────────`)
   for (const [bin, data] of Object.entries(calibrationBins.ev)) {
     if (data.n > 0) {
-      const actualPct = (data.c / data.n * 100).toFixed(1)
+      const actualPct = ((data.c / data.n) * 100).toFixed(1)
       const binMid = bin === '90+' ? '90-100' : bin
-      const expected = bin === '90+' ? 95 : (bin === '80-90' ? 85 : (bin === '70-80' ? 75 : (bin === '60-70' ? 65 : 55)))
+      const expected =
+        bin === '90+' ? 95 : bin === '80-90' ? 85 : bin === '70-80' ? 75 : bin === '60-70' ? 65 : 55
       const diff = (parseFloat(actualPct) - expected).toFixed(1)
       const sign = diff >= 0 ? '+' : ''
-      console.log(`│ ${binMid}%  → prédit ${expected}%, réel ${actualPct}% (${sign}${diff}pts) [${data.c}/${data.n}]`)
+      console.log(
+        `│ ${binMid}%  → prédit ${expected}%, réel ${actualPct}% (${sign}${diff}pts) [${data.c}/${data.n}]`
+      )
     }
   }
   console.log('')
 
   console.log(`🏆 TOP 10 CONCOURS LES PLUS RÉUSSIS (EV)`)
   console.log(`────────────────────────────────────────`)
-  perConcours.sort((a, b) => b.ev - a.ev).slice(0, 10).forEach(x => {
-    console.log(`│ N°${x.no.padStart(3)} : ${x.ev}/${x.total} corrects (${(x.ev/x.total*100).toFixed(0)}%)`)
-  })
+  perConcours
+    .sort((a, b) => b.ev - a.ev)
+    .slice(0, 10)
+    .forEach((x) => {
+      console.log(
+        `│ N°${x.no.padStart(3)} : ${x.ev}/${x.total} corrects (${((x.ev / x.total) * 100).toFixed(0)}%)`
+      )
+    })
   console.log('')
 
   console.log(`💀 TOP 10 CONCOURS LES PLUS DIFFICILES (EV)`)
   console.log(`───────────────────────────────────────────`)
-  perConcours.sort((a, b) => a.ev - b.ev).slice(0, 10).forEach(x => {
-    console.log(`│ N°${x.no.padStart(3)} : ${x.ev}/${x.total} corrects (${(x.ev/x.total*100).toFixed(0)}%)`)
-  })
+  perConcours
+    .sort((a, b) => a.ev - b.ev)
+    .slice(0, 10)
+    .forEach((x) => {
+      console.log(
+        `│ N°${x.no.padStart(3)} : ${x.ev}/${x.total} corrects (${((x.ev / x.total) * 100).toFixed(0)}%)`
+      )
+    })
   console.log('')
 
   const report = {
@@ -269,14 +339,43 @@ async function main() {
       },
     },
     doublePerformance: {
-      EV: { doubled: totalDoubledMatchesEV, correct: correctDoubledEV, accuracy: +(correctDoubledEV/totalDoubledMatchesEV*100).toFixed(1) },
-      HV: { doubled: totalDoubledMatchesHV, correct: correctDoubledHV, accuracy: +(correctDoubledHV/totalDoubledMatchesHV*100).toFixed(1) },
+      EV: {
+        doubled: totalDoubledMatchesEV,
+        correct: correctDoubledEV,
+        accuracy: +((correctDoubledEV / totalDoubledMatchesEV) * 100).toFixed(1),
+      },
+      HV: {
+        doubled: totalDoubledMatchesHV,
+        correct: correctDoubledHV,
+        accuracy: +((correctDoubledHV / totalDoubledMatchesHV) * 100).toFixed(1),
+      },
     },
     calibration: {
-      EV_OPTIMIZED: Object.fromEntries(Object.entries(calibrationBins.ev).map(([k,v]) => [k, v.n > 0 ? { predicted: k, actual: +(v.c/v.n*100).toFixed(1), count: v.n, correct: v.c } : { predicted: k, actual: 0, count: 0, correct: 0 }])),
-      HIGH_VALUE: Object.fromEntries(Object.entries(calibrationBins.hv).map(([k,v]) => [k, v.n > 0 ? { predicted: k, actual: +(v.c/v.n*100).toFixed(1), count: v.n, correct: v.c } : { predicted: k, actual: 0, count: 0, correct: 0 }])),
+      EV_OPTIMIZED: Object.fromEntries(
+        Object.entries(calibrationBins.ev).map(([k, v]) => [
+          k,
+          v.n > 0
+            ? { predicted: k, actual: +((v.c / v.n) * 100).toFixed(1), count: v.n, correct: v.c }
+            : { predicted: k, actual: 0, count: 0, correct: 0 },
+        ])
+      ),
+      HIGH_VALUE: Object.fromEntries(
+        Object.entries(calibrationBins.hv).map(([k, v]) => [
+          k,
+          v.n > 0
+            ? { predicted: k, actual: +((v.c / v.n) * 100).toFixed(1), count: v.n, correct: v.c }
+            : { predicted: k, actual: 0, count: 0, correct: 0 },
+        ])
+      ),
     },
-    perConcours: perConcours.map(x => ({ no: x.no, evCorrect: x.ev, hvCorrect: x.hv, total: x.total, evPct: +(x.ev/x.total*100).toFixed(1), hvPct: +(x.hv/x.total*100).toFixed(1) })),
+    perConcours: perConcours.map((x) => ({
+      no: x.no,
+      evCorrect: x.ev,
+      hvCorrect: x.hv,
+      total: x.total,
+      evPct: +((x.ev / x.total) * 100).toFixed(1),
+      hvPct: +((x.hv / x.total) * 100).toFixed(1),
+    })),
   }
 
   const reportPath = path.join(__dirname, '..', 'data', 'retro_accuracy_report.json')

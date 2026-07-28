@@ -21,7 +21,9 @@ class BsdService {
     } else if (!this.enabled) {
       logger.warn('[BSD] Service désactivé (BSD_ENABLED=false)')
     } else {
-      logger.info(`✅ [BSD] Service prêt — clé: ${this.apiKey.substring(0, 6)}... | URL: ${this.baseUrl}`)
+      logger.info(
+        `✅ [BSD] Service prêt — clé: ${this.apiKey.substring(0, 6)}... | URL: ${this.baseUrl}`
+      )
       if (!process.env.LOCAL_DATA_URL) this._loadLeagues()
     }
   }
@@ -36,7 +38,9 @@ class BsdService {
             this._leagueCache[league.id] = league.name
           }
         }
-        logger.info(`✅ [BSD] League cache loaded: ${Object.keys(this._leagueCache).length} leagues`)
+        logger.info(
+          `✅ [BSD] League cache loaded: ${Object.keys(this._leagueCache).length} leagues`
+        )
       }
     } catch (e) {
       logger.warn(`⚠️ [BSD] Failed to load leagues: ${e.message}`)
@@ -67,15 +71,15 @@ class BsdService {
   isAvailable() {
     if (!this.enabled) return false
     if (!this.apiKey || this.apiKey === 'CHANGER_MOI_BSD_API_KEY') return false
-    if (this._authFailed) return false     // Stop si clé invalide
+    if (this._authFailed) return false // Stop si clé invalide
     if (this._quotaExhausted) return false // Stop si quota épuisé
     return true
   }
 
   _headers() {
     return {
-      'Authorization': `Token ${this.apiKey}`,
-      'Accept': 'application/json'
+      Authorization: `Token ${this.apiKey}`,
+      Accept: 'application/json',
     }
   }
 
@@ -85,7 +89,9 @@ class BsdService {
       return null
     }
     if (this._authFailed) {
-      logger.warn('🔴 [BSD] Appel ignoré — Clé API invalide (401). Vérifiez BSD_API_KEY sur Render.')
+      logger.warn(
+        '🔴 [BSD] Appel ignoré — Clé API invalide (401). Vérifiez BSD_API_KEY sur Render.'
+      )
       return null
     }
     if (this._quotaExhausted) {
@@ -97,12 +103,12 @@ class BsdService {
       logger.info(`[BSD] GET ${endpoint}`)
       const { data } = await axios.get(`${this.baseUrl}${endpoint}`, {
         headers: this._headers(),
-        timeout: 15000
+        timeout: 15000,
       })
       return data
     } catch (err) {
       const status = err.response?.status
-      const body   = JSON.stringify(err.response?.data || {}).substring(0, 200)
+      const body = JSON.stringify(err.response?.data || {}).substring(0, 200)
 
       if (status === 401) {
         this._authFailed = true
@@ -114,7 +120,9 @@ class BsdService {
         logger.error(`   → Vérifiez votre abonnement Bzzoiro Sports Data`)
       } else if (status === 429) {
         this._quotaExhausted = true
-        logger.warn(`🟡 [BSD] ERREUR 429 — Quota API épuisé. Réessai reporté à la prochaine session.`)
+        logger.warn(
+          `🟡 [BSD] ERREUR 429 — Quota API épuisé. Réessai reporté à la prochaine session.`
+        )
       } else if (!err.response) {
         logger.error(`🔆 [BSD] ERREUR Réseau (${endpoint}): ${err.message}`)
         logger.error(`   → Vérifiez que BSD_BASE_URL est correct: ${this.baseUrl}`)
@@ -157,36 +165,61 @@ class BsdService {
     // BSD API returns the kickoff in `event_date` (ISO 8601 with tz),
     // not `start_timestamp`. Some responses may also expose a numeric
     // `start_timestamp` / `date_unix`. Normalize all of these to UNIX secs.
-    const raw = event.start_timestamp || event.date_unix || event.event_date || event.date;
+    const raw = event.start_timestamp || event.date_unix || event.event_date || event.date
 
-    if (raw == null) return Math.floor(Date.now() / 1000);
+    if (raw == null) return Math.floor(Date.now() / 1000)
 
     if (typeof raw === 'number') {
       // Distinguish seconds (< 1e11) from milliseconds.
-      return raw > 1e11 ? Math.floor(raw / 1000) : raw;
+      return raw > 1e11 ? Math.floor(raw / 1000) : raw
     }
 
-    const ms = new Date(raw).getTime();
-    if (Number.isNaN(ms)) return Math.floor(Date.now() / 1000);
-    return Math.floor(ms / 1000);
+    const ms = new Date(raw).getTime()
+    if (Number.isNaN(ms)) return Math.floor(Date.now() / 1000)
+    return Math.floor(ms / 1000)
   }
 
   _mapEventToMatch(event) {
     const ts = this._parseTimestamp(event)
 
     const resolveName = (v) => (typeof v === 'string' ? v : v?.name) || null
-    let homeTeam = resolveName(event.home_team) || event.homeTeam || event.home_name || 'Home'
-    let awayTeam = resolveName(event.away_team) || event.awayTeam || event.away_name || 'Away'
-    const leagueName = this._resolveLeagueName(event.league_id) || resolveName(event.league) || event.league_name || event.tournament_name || event.tournament?.name || event.competition || event.competition_name || 'Unknown'
+    const homeTeam = resolveName(event.home_team) || event.homeTeam || event.home_name || 'Home'
+    const awayTeam = resolveName(event.away_team) || event.awayTeam || event.away_name || 'Away'
+    const leagueName =
+      this._resolveLeagueName(event.league_id) ||
+      resolveName(event.league) ||
+      event.league_name ||
+      event.tournament_name ||
+      event.tournament?.name ||
+      event.competition ||
+      event.competition_name ||
+      'Unknown'
     const category = event.league?.country || event.country || ''
-    const matchId = event.id || event.match_id || `bsd_${ts}_${Math.random().toString(36).substring(2, 8)}`
+    const matchId =
+      event.id || event.match_id || `bsd_${ts}_${Math.random().toString(36).substring(2, 8)}`
 
     let status = 'scheduled'
     const rawEventStatus = event.status
     if (typeof rawEventStatus === 'string') {
-      status = ({ notstarted: 'NOT_STARTED', inprogress: 'live', finished: 'finished', canceled: 'canceled', postponed: 'POSTPONED', abandoned: 'abandoned' })[rawEventStatus.toLowerCase()] || 'scheduled'
+      status =
+        {
+          notstarted: 'NOT_STARTED',
+          inprogress: 'live',
+          finished: 'finished',
+          canceled: 'canceled',
+          postponed: 'POSTPONED',
+          abandoned: 'abandoned',
+        }[rawEventStatus.toLowerCase()] || 'scheduled'
     } else if (rawEventStatus && typeof rawEventStatus === 'object' && rawEventStatus.type) {
-      status = ({ notstarted: 'NOT_STARTED', inprogress: 'live', finished: 'finished', canceled: 'canceled', postponed: 'POSTPONED', abandoned: 'abandoned' })[rawEventStatus.type.toLowerCase()] || 'scheduled'
+      status =
+        {
+          notstarted: 'NOT_STARTED',
+          inprogress: 'live',
+          finished: 'finished',
+          canceled: 'canceled',
+          postponed: 'POSTPONED',
+          abandoned: 'abandoned',
+        }[rawEventStatus.type.toLowerCase()] || 'scheduled'
     }
 
     return {
@@ -211,7 +244,7 @@ class BsdService {
       home_xg: event.xg?.home || event.home_xg || null,
       away_xg: event.xg?.away || event.away_xg || null,
       last_updated: Date.now(),
-      insufficient_data: (event.odds?.home_win || event.odds_home) ? 0 : 1,
+      insufficient_data: event.odds?.home_win || event.odds_home ? 0 : 1,
       source: 'bsd',
       fullData: JSON.stringify({
         id: matchId,
@@ -220,8 +253,8 @@ class BsdService {
         league: leagueName,
         startTimestamp: ts,
         status,
-        bsd_league_id: event.league_id || null
-      })
+        bsd_league_id: event.league_id || null,
+      }),
     }
   }
 
@@ -271,10 +304,14 @@ class BsdService {
 
     if (bestHome || bestDraw || bestAway) {
       try {
-        database.db?.prepare(`
+        database.db
+          ?.prepare(
+            `
           UPDATE matches SET odds_home = ?, odds_draw = ?, odds_away = ?, insufficient_data = 0
           WHERE id = ?
-        `).run(bestHome, bestDraw, bestAway, matchId)
+        `
+          )
+          .run(bestHome, bestDraw, bestAway, matchId)
       } catch (_) {}
     }
 
@@ -284,7 +321,11 @@ class BsdService {
   async _backfillLeagueNames() {
     if (!database.db) return
     try {
-      const unknown = database.db.prepare("SELECT id, fullData FROM matches WHERE source = 'bsd' AND (league = 'Unknown' OR league IS NULL)").all()
+      const unknown = database.db
+        .prepare(
+          "SELECT id, fullData FROM matches WHERE source = 'bsd' AND (league = 'Unknown' OR league IS NULL)"
+        )
+        .all()
       let fixed = 0
       for (const row of unknown) {
         try {
@@ -294,12 +335,15 @@ class BsdService {
             leagueName = await this._fetchLeagueName(fd.bsd_league_id)
           }
           if (leagueName) {
-            database.db.prepare("UPDATE matches SET league = ?, tournament_name = ? WHERE id = ?").run(leagueName, leagueName, row.id)
+            database.db
+              .prepare('UPDATE matches SET league = ?, tournament_name = ? WHERE id = ?')
+              .run(leagueName, leagueName, row.id)
             fixed++
           }
         } catch (_) {}
       }
-      if (unknown.length > 0) logger.info(`[BSD] Backfilled league names for ${fixed}/${unknown.length} matches`)
+      if (unknown.length > 0)
+        logger.info(`[BSD] Backfilled league names for ${fixed}/${unknown.length} matches`)
     } catch (e) {
       logger.warn(`[BSD] Backfill error: ${e.message}`)
     }
@@ -373,12 +417,18 @@ class BsdService {
       const localDb = database.db
       if (localDb) {
         try {
-          const matches = localDb.prepare("SELECT id FROM matches WHERE source = 'bsd' AND (status = 'scheduled' OR status = 'NOT_STARTED')").all()
+          const matches = localDb
+            .prepare(
+              "SELECT id FROM matches WHERE source = 'bsd' AND (status = 'scheduled' OR status = 'NOT_STARTED')"
+            )
+            .all()
           if (matches && typeof matches[Symbol.iterator] === 'function') {
             for (const m of matches) {
               try {
                 await this.enrichMatchOdds(m.id)
-              } catch (e) { logger.warn(`[BSD] Odds update failed for ${m.id}: ${e.message}`) }
+              } catch (e) {
+                logger.warn(`[BSD] Odds update failed for ${m.id}: ${e.message}`)
+              }
             }
           } else {
             logger.warn(`[BSD] matches is not iterable (type: ${typeof matches})`)
@@ -402,7 +452,11 @@ class BsdService {
     if (!db) return 0
 
     // Only fetch odds for matches that have a BSD match ID
-    const matches = db.prepare("SELECT id, bsd_match_id FROM matches WHERE bsd_match_id IS NOT NULL AND bsd_match_id != '' AND (status = 'scheduled' OR status = 'NOT_STARTED')").all()
+    const matches = db
+      .prepare(
+        "SELECT id, bsd_match_id FROM matches WHERE bsd_match_id IS NOT NULL AND bsd_match_id != '' AND (status = 'scheduled' OR status = 'NOT_STARTED')"
+      )
+      .all()
     logger.info(`[BSD] Enriching ${matches.length} matches with odds...`)
     let count = 0
 
@@ -414,13 +468,15 @@ class BsdService {
         const bsdDraw = oddsData?.odds?.draw || null
         const bsdAway = oddsData?.odds?.away_win || null
         if (bsdHome || bsdDraw || bsdAway) {
-          db.prepare(`
+          db.prepare(
+            `
             UPDATE matches SET
               best_odds_home = MAX(COALESCE(best_odds_home, 0), COALESCE(?, 0)),
               best_odds_draw = MAX(COALESCE(best_odds_draw, 0), COALESCE(?, 0)),
               best_odds_away = MAX(COALESCE(best_odds_away, 0), COALESCE(?, 0))
             WHERE id = ?
-          `).run(bsdHome || 0, bsdDraw || 0, bsdAway || 0, m.id)
+          `
+          ).run(bsdHome || 0, bsdDraw || 0, bsdAway || 0, m.id)
           count++
         }
       } catch (_) {}

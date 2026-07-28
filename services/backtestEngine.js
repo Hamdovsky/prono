@@ -16,12 +16,7 @@ const logger = require('../core/logger')
 const thetaOptimizer = require('./thetaOptimizer')
 
 async function runBacktest(options = {}) {
-  const {
-    limit = 500,
-    league = '',
-    minGoals = 0,
-    maxGoals = 10,
-  } = options
+  const { limit = 500, league = '', minGoals = 0, maxGoals = 10 } = options
 
   if (!usingPostgres()) {
     return { success: false, error: 'Neon PostgreSQL required for backtesting' }
@@ -80,7 +75,7 @@ async function runBacktest(options = {}) {
   for (const f of fixtures) {
     const homeScore = f.goals_home
     const awayScore = f.goals_away
-    const actualOutcome = homeScore > awayScore ? 'home' : (homeScore < awayScore ? 'away' : 'draw')
+    const actualOutcome = homeScore > awayScore ? 'home' : homeScore < awayScore ? 'away' : 'draw'
 
     // Get theta for this league
     const leagueKey = f.league_name || 'Unknown'
@@ -111,14 +106,18 @@ async function runBacktest(options = {}) {
     // NB win probabilities
     function nbProb(lambda, theta, k) {
       if (theta <= 0 || lambda < 0) return 0
-      const logP = k * Math.log(lambda / (lambda + theta))
-        + theta * Math.log(theta / (lambda + theta))
-        + Math.log(Math.pow(lambda + theta, -k)) // approximation
+      const logP =
+        k * Math.log(lambda / (lambda + theta)) +
+        theta * Math.log(theta / (lambda + theta)) +
+        Math.log(Math.pow(lambda + theta, -k)) // approximation
       return Math.exp(logP)
     }
 
     // Monte Carlo NB simulation for win/draw/loss
-    let mcHome = 0, mcDraw = 0, mcAway = 0, mcTotal = 0
+    let mcHome = 0,
+      mcDraw = 0,
+      mcAway = 0,
+      mcTotal = 0
     const iterations = 5000
     for (let i = 0; i < iterations; i++) {
       // Negative binomial via gamma-Poisson mixture
@@ -137,18 +136,24 @@ async function runBacktest(options = {}) {
     const predH = mcHome / mcTotal
     const predD = mcDraw / mcTotal
     const predA = mcAway / mcTotal
-    const predOutcome = predH > predA && predH > predD ? 'home' : (predA > predH && predA > predD ? 'away' : 'draw')
+    const predOutcome =
+      predH > predA && predH > predD ? 'home' : predA > predH && predA > predD ? 'away' : 'draw'
     const predConf = Math.max(predH, predD, predA)
 
     // Brier score
-    const actualVec = [actualOutcome === 'home' ? 1 : 0, actualOutcome === 'draw' ? 1 : 0, actualOutcome === 'away' ? 1 : 0]
+    const actualVec = [
+      actualOutcome === 'home' ? 1 : 0,
+      actualOutcome === 'draw' ? 1 : 0,
+      actualOutcome === 'away' ? 1 : 0,
+    ]
     const predVec = [predH, predD, predA]
     const brier = actualVec.reduce((s, a, i) => s + (a - predVec[i]) ** 2, 0)
     totalBrier += brier
     n++
 
     // Log-loss
-    const predForActual = actualOutcome === 'home' ? predH : (actualOutcome === 'draw' ? predD : predA)
+    const predForActual =
+      actualOutcome === 'home' ? predH : actualOutcome === 'draw' ? predD : predA
     totalLogLoss += -Math.log(Math.max(0.0001, predForActual))
 
     if (predOutcome === actualOutcome) correct++
@@ -156,7 +161,7 @@ async function runBacktest(options = {}) {
     // Calibration bin
     const binIdx = Math.min(9, Math.floor(predConf * 10))
     calibrationBins[binIdx].predicted += predConf
-    calibrationBins[binIdx].actual += (predOutcome === actualOutcome ? 1 : 0)
+    calibrationBins[binIdx].actual += predOutcome === actualOutcome ? 1 : 0
     calibrationBins[binIdx].count++
 
     predictions.push({
@@ -242,7 +247,8 @@ function poissonRandom(lambda) {
   // Knuth's Poisson
   if (lambda < 30) {
     const L = Math.exp(-lambda)
-    let k = 0, p = 1
+    let k = 0,
+      p = 1
     do {
       k++
       p *= Math.random()

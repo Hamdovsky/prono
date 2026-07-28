@@ -19,7 +19,7 @@ function EvolutionHeatmap() {
     try {
       const result = await fetchEvolutionData({
         days: parseInt(timeRange),
-        league: selectedLeague
+        league: selectedLeague,
       })
       setData(result.data || [])
     } catch (e) {
@@ -84,10 +84,10 @@ function EvolutionHeatmap() {
   return (
     <div className="heatmap-container">
       <h2 className="heatmap-title">📊 Heatmap Évolution Concours Tunisie</h2>
-      
+
       <div className="heatmap-controls">
-        <select 
-          value={timeRange} 
+        <select
+          value={timeRange}
           onChange={(e) => setTimeRange(e.target.value)}
           className="time-range-select"
         >
@@ -97,9 +97,9 @@ function EvolutionHeatmap() {
           <option value="60">60 derniers jours</option>
           <option value="90">90 derniers jours</option>
         </select>
-        
-        <select 
-          value={selectedLeague} 
+
+        <select
+          value={selectedLeague}
           onChange={(e) => setSelectedLeague(e.target.value)}
           className="league-select"
         >
@@ -124,7 +124,9 @@ function EvolutionHeatmap() {
             {data.map((row, idx) => (
               <tr key={idx} className={`heatmap-row ${getColorClass(row.success_rate)}`}>
                 <td className="concours-name">{row.concours || `Concours ${idx + 1}`}</td>
-                <td className="score-avg">{row.avg_score !== null ? row.avg_score.toFixed(1) : '-'}</td>
+                <td className="score-avg">
+                  {row.avg_score !== null ? row.avg_score.toFixed(1) : '-'}
+                </td>
                 <td className={`success-rate ${getColorClass(row.success_rate)}`}>
                   {row.success_rate !== null ? `${row.success_rate.toFixed(1)}%` : '-'}
                 </td>
@@ -141,7 +143,7 @@ function EvolutionHeatmap() {
       </div>
 
       {renderLegend()}
-      
+
       <div className="heatmap-summary">
         <div className="summary-card">
           <span className="summary-value">{data.length}</span>

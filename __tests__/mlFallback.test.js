@@ -5,7 +5,7 @@
  */
 
 jest.mock('../core/pythonService', () => ({
-  predict: jest.fn()
+  predict: jest.fn(),
 }))
 
 const enrichedPredictions = require('../core/enriched_predictions')
@@ -23,9 +23,9 @@ describe('getAnalyticalPrediction JS Fallback', () => {
       id: 'fallback-test-1',
       homeTeam: 'Barcelona',
       awayTeam: 'Real Madrid',
-      odds_home: 2.10,
-      odds_draw: 3.40,
-      odds_away: 3.50
+      odds_home: 2.1,
+      odds_draw: 3.4,
+      odds_away: 3.5,
     }
 
     const result = await enrichedPredictions.getAnalyticalPrediction(match)
@@ -45,9 +45,9 @@ describe('getAnalyticalPrediction JS Fallback', () => {
       id: 'fallback-test-2',
       homeTeam: 'PSG',
       awayTeam: 'Marseille',
-      odds_home: 1.50,
-      odds_draw: 4.00,
-      odds_away: 6.00
+      odds_home: 1.5,
+      odds_draw: 4.0,
+      odds_away: 6.0,
     }
 
     const result = await enrichedPredictions.getAnalyticalPrediction(match)
@@ -64,12 +64,13 @@ describe('getAnalyticalPrediction JS Fallback', () => {
       id: 'prob-sum',
       homeTeam: 'Bayern',
       awayTeam: 'Dortmund',
-      odds_home: 1.80,
-      odds_draw: 3.60,
-      odds_away: 4.20
+      odds_home: 1.8,
+      odds_draw: 3.6,
+      odds_away: 4.2,
     })
 
-    const total = result.home_win_probability + result.draw_probability + result.away_win_probability
+    const total =
+      result.home_win_probability + result.draw_probability + result.away_win_probability
     expect(total).toBeGreaterThan(95)
     expect(total).toBeLessThan(105)
   })
@@ -81,14 +82,14 @@ describe('getAnalyticalPrediction JS Fallback', () => {
       id: 'deterministic',
       homeTeam: 'Liverpool',
       awayTeam: 'Chelsea',
-      odds_home: 2.00,
-      odds_draw: 3.30,
-      odds_away: 3.80
+      odds_home: 2.0,
+      odds_draw: 3.3,
+      odds_away: 3.8,
     }
 
     const [r1, r2] = await Promise.all([
       enrichedPredictions.getAnalyticalPrediction({ ...match }),
-      enrichedPredictions.getAnalyticalPrediction({ ...match })
+      enrichedPredictions.getAnalyticalPrediction({ ...match }),
     ])
 
     expect(r1.home_win_probability).toBe(r2.home_win_probability)

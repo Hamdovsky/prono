@@ -1,7 +1,7 @@
 const axios = require('axios')
 const logger = require('../core/logger')
 
-let workerUrl = process.env.SCRAPER_WORKER_URL || ''
+const workerUrl = process.env.SCRAPER_WORKER_URL || ''
 const apiKey = process.env.API_SECRET_KEY || ''
 
 async function triggerScrape() {
@@ -11,11 +11,17 @@ async function triggerScrape() {
   }
 
   try {
-    const { data } = await axios.post(`${workerUrl}/scrape`, {}, {
-      headers: { 'x-api-key': apiKey },
-      timeout: 30000
-    })
-    logger.info(`[SCRAPER BRIDGE] Worker returned: ${data.success ? 'success' : 'failed'} (${data.durationMs || 0}ms)`)
+    const { data } = await axios.post(
+      `${workerUrl}/scrape`,
+      {},
+      {
+        headers: { 'x-api-key': apiKey },
+        timeout: 30000,
+      }
+    )
+    logger.info(
+      `[SCRAPER BRIDGE] Worker returned: ${data.success ? 'success' : 'failed'} (${data.durationMs || 0}ms)`
+    )
     return data
   } catch (err) {
     logger.error(`[SCRAPER BRIDGE] Worker call failed: ${err.message} — falling back to local`)
@@ -31,7 +37,9 @@ async function runLocalScraper() {
   const fullScan = hour >= 4 && hour < 10
 
   if (onRender) {
-    logger.info(`[SCRAPER BRIDGE] Render env detected — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`)
+    logger.info(
+      `[SCRAPER BRIDGE] Render env detected — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`
+    )
     try {
       const httpScraperService = require('./httpScraperService')
       const fallbackCount = await httpScraperService.processFallback({ fullScan })
@@ -41,7 +49,12 @@ async function runLocalScraper() {
         const scrapeService = require('./scrapeService')
         return { success: true, source: 'scrapeService' }
       } catch (sErr) {
-        return { success: false, error: 'All local scrapers failed', fallbackError: fbErr.message, scrapeError: sErr.message }
+        return {
+          success: false,
+          error: 'All local scrapers failed',
+          fallbackError: fbErr.message,
+          scrapeError: sErr.message,
+        }
       }
     }
   }
@@ -51,10 +64,12 @@ async function runLocalScraper() {
     const fs = require('fs')
     const path = require('path')
 
-    const leaguesJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../leagues_ids.json'), 'utf8'))
-    const leagues = leaguesJson.map(l => ({
+    const leaguesJson = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '../leagues_ids.json'), 'utf8')
+    )
+    const leagues = leaguesJson.map((l) => ({
       country: l.category_name.toLowerCase().replace(/\s+/g, '-'),
-      league: l.tournament_name.toLowerCase().replace(/\s+/g, '-')
+      league: l.tournament_name.toLowerCase().replace(/\s+/g, '-'),
     }))
 
     const workflow = new Workflow(leagues)
@@ -62,7 +77,9 @@ async function runLocalScraper() {
     logger.info('[SCRAPER BRIDGE] Local scraper completed')
     return { success: true, result }
   } catch (err) {
-    logger.error(`[SCRAPER BRIDGE] Local scraper failed: ${err.message} — falling back to HTTP scraper`)
+    logger.error(
+      `[SCRAPER BRIDGE] Local scraper failed: ${err.message} — falling back to HTTP scraper`
+    )
     try {
       const httpScraperService = require('./httpScraperService')
       const fallbackCount = await httpScraperService.processFallback({ fullScan })

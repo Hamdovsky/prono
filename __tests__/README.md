@@ -1,6 +1,7 @@
 # Promosport AI - Jest Test Suite
 
 ## Overview
+
 This suite provides comprehensive unit testing for critical Promosport AI system components, targeting **70% code coverage**.
 
 ## Structure
@@ -29,23 +30,23 @@ __tests__/
 
 ## Key Tested Components
 
-| Component | File | Coverage Focus |
-|-----------|------|----------------|
-| Logger | `logger.test.js` | Log rotation, burst protection, error handling |
-| Security Engine | `securityEngine.test.js` | Rate limiting, token authentication |
-| Shield Engine | `shieldEngine.test.js` | Latency monitoring, proxy rotation |
-| Redis Client | `redisClient.test.js` | Cache get/set, metrics, fallback |
-| Redis Cache | `redisCache.test.js` | Live matches, team history, TTL |
-| Database | `database.test.js` | CRUD, migrations, transactions |
-| API Routes (Matches) | `matches.test.js` | Filtering, enrichment, edge detection |
-| API Routes (System) | `system.test.js` | Health, status, protected endpoints |
-| API Routes (Scraper) | `scraper.test.js` | Booking codes management |
-| Bot Service | `botService.test.js` | Telegram commands, alerts |
-| Scraper API | `scraperApiService.test.js` | External data normalization |
-| Enriched Predictions | `enrichedPredictions.test.js` | AI enrichment pipeline |
-| Value Bet Engine | `valueBetEngine.test.js` | EV calculations, value detection |
-| Speed Cache | `speedCache.test.js` | TTL caching, invalidation |
-| Config Engine | `configEngine.test.js` | Configuration persistence |
+| Component            | File                          | Coverage Focus                                 |
+| -------------------- | ----------------------------- | ---------------------------------------------- |
+| Logger               | `logger.test.js`              | Log rotation, burst protection, error handling |
+| Security Engine      | `securityEngine.test.js`      | Rate limiting, token authentication            |
+| Shield Engine        | `shieldEngine.test.js`        | Latency monitoring, proxy rotation             |
+| Redis Client         | `redisClient.test.js`         | Cache get/set, metrics, fallback               |
+| Redis Cache          | `redisCache.test.js`          | Live matches, team history, TTL                |
+| Database             | `database.test.js`            | CRUD, migrations, transactions                 |
+| API Routes (Matches) | `matches.test.js`             | Filtering, enrichment, edge detection          |
+| API Routes (System)  | `system.test.js`              | Health, status, protected endpoints            |
+| API Routes (Scraper) | `scraper.test.js`             | Booking codes management                       |
+| Bot Service          | `botService.test.js`          | Telegram commands, alerts                      |
+| Scraper API          | `scraperApiService.test.js`   | External data normalization                    |
+| Enriched Predictions | `enrichedPredictions.test.js` | AI enrichment pipeline                         |
+| Value Bet Engine     | `valueBetEngine.test.js`      | EV calculations, value detection               |
+| Speed Cache          | `speedCache.test.js`          | TTL caching, invalidation                      |
+| Config Engine        | `configEngine.test.js`        | Configuration persistence                      |
 
 ## External Dependencies Mocked
 
@@ -73,6 +74,7 @@ npx jest --coverage
 ## Configuration
 
 Jest configuration is in `jest.config.js`:
+
 - Test environment: `node`
 - Test discovery: `**/__tests__/**/*.test.js`
 - Coverage targets: 70% branches/functions/lines/statements
@@ -89,6 +91,7 @@ Jest configuration is in `jest.config.js`:
 ## Extending Coverage
 
 To add more tests for uncovered branches:
+
 1. Create new `*.test.js` in `__tests__/`
 2. Import target module using `require('../relative/path')`
 3. Use Jest's mocking utilities to simulate external services

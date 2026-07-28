@@ -22,7 +22,7 @@ function _loadCache() {
   try {
     const db = require('../core/database')
     if (db && db.db) {
-      const row = db.db.prepare("SELECT value FROM config_engine WHERE key = ?").get(CACHE_KEY)
+      const row = db.db.prepare('SELECT value FROM config_engine WHERE key = ?').get(CACHE_KEY)
       if (row && row.value) {
         _ratings = JSON.parse(row.value)
       }
@@ -34,8 +34,15 @@ function _saveCache() {
   try {
     const db = require('../core/database')
     if (db && db.db) {
-      db.db.prepare("CREATE TABLE IF NOT EXISTS config_engine (key TEXT PRIMARY KEY, value TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)").run()
-      db.db.prepare("INSERT INTO config_engine (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = datetime('now')")
+      db.db
+        .prepare(
+          'CREATE TABLE IF NOT EXISTS config_engine (key TEXT PRIMARY KEY, value TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)'
+        )
+        .run()
+      db.db
+        .prepare(
+          "INSERT INTO config_engine (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = datetime('now')"
+        )
         .run(CACHE_KEY, JSON.stringify(_ratings))
     }
   } catch (e) {}
@@ -86,9 +93,16 @@ function updateRatings(homeTeam, awayTeam, scoreHome, scoreAway) {
   const expectedAway = 1 - expectedHome
 
   let actualHome, actualAway
-  if (scoreHome > scoreAway) { actualHome = 1; actualAway = 0 }
-  else if (scoreHome === scoreAway) { actualHome = 0.5; actualAway = 0.5 }
-  else { actualHome = 0; actualAway = 1 }
+  if (scoreHome > scoreAway) {
+    actualHome = 1
+    actualAway = 0
+  } else if (scoreHome === scoreAway) {
+    actualHome = 0.5
+    actualAway = 0.5
+  } else {
+    actualHome = 0
+    actualAway = 1
+  }
 
   const goalDiff = Math.abs(scoreHome - scoreAway)
   const marginMult = _goalMarginMultiplier(goalDiff)

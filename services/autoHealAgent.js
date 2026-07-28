@@ -35,10 +35,17 @@ class AutoHealAgent {
     try {
       const dir = path.dirname(STATE_FILE)
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-      fs.writeFileSync(STATE_FILE, JSON.stringify({
-        consecutiveFailures: this.consecutiveFailures,
-        lastCheck: this.lastCheck
-      }, null, 2))
+      fs.writeFileSync(
+        STATE_FILE,
+        JSON.stringify(
+          {
+            consecutiveFailures: this.consecutiveFailures,
+            lastCheck: this.lastCheck,
+          },
+          null,
+          2
+        )
+      )
     } catch (e) {
       // silent
     }
@@ -47,8 +54,9 @@ class AutoHealAgent {
   _canRun(remedyId) {
     const last = this.cooldowns[remedyId]
     if (!last) return true
-    const remedy = remedies.getRegistry().find(r => r.id === remedyId)
-    const cooldown = remedy && remedy.severity === 'critical' ? this.criticalCooldown : this.defaultCooldown
+    const remedy = remedies.getRegistry().find((r) => r.id === remedyId)
+    const cooldown =
+      remedy && remedy.severity === 'critical' ? this.criticalCooldown : this.defaultCooldown
     return Date.now() - last > cooldown
   }
 
@@ -70,13 +78,20 @@ class AutoHealAgent {
       try {
         const result = await remedy.check()
         if (result.detected) {
-          issues.push({ id: remedy.id, severity: remedy.severity, detail: result.detail, description: remedy.description })
+          issues.push({
+            id: remedy.id,
+            severity: remedy.severity,
+            detail: result.detail,
+            description: remedy.description,
+          })
 
           this.consecutiveFailures[remedy.id] = (this.consecutiveFailures[remedy.id] || 0) + 1
           const count = this.consecutiveFailures[remedy.id]
 
           if (count >= this.escalationThreshold && this._canRun(remedy.id)) {
-            logger.warn(`🤖 [AUTOHEAL] ⚠️ ${remedy.id} detected ${count}x — applying fix: ${remedy.description}`)
+            logger.warn(
+              `🤖 [AUTOHEAL] ⚠️ ${remedy.id} detected ${count}x — applying fix: ${remedy.description}`
+            )
             this.cooldowns[remedy.id] = Date.now()
             try {
               const fixResult = await remedy.fix()
@@ -92,12 +107,16 @@ class AutoHealAgent {
               logger.error(`🤖 [AUTOHEAL] ❌ Fix error for ${remedy.id}: ${fixErr.message}`)
             }
           } else if (count < this.escalationThreshold) {
-            logger.info(`🤖 [AUTOHEAL] 👀 ${remedy.id} (${count}/${this.escalationThreshold} detections) — monitoring before fix`)
+            logger.info(
+              `🤖 [AUTOHEAL] 👀 ${remedy.id} (${count}/${this.escalationThreshold} detections) — monitoring before fix`
+            )
           }
         } else {
           if (this.consecutiveFailures[remedy.id] && this.consecutiveFailures[remedy.id] > 0) {
             logger.info(`🤖 [AUTOHEAL] ✅ ${remedy.id} — system recovered`)
-            notificationService.sendTelegramNotification(`✅ AUTOHEAL : ${remedy.description} — système rétabli`)
+            notificationService.sendTelegramNotification(
+              `✅ AUTOHEAL : ${remedy.description} — système rétabli`
+            )
           }
           this.consecutiveFailures[remedy.id] = 0
         }
@@ -108,19 +127,21 @@ class AutoHealAgent {
 
     this._saveState()
 
-    const criticalCount = issues.filter(i => i.severity === 'critical').length
-    const warningCount = issues.filter(i => i.severity === 'warning').length
+    const criticalCount = issues.filter((i) => i.severity === 'critical').length
+    const warningCount = issues.filter((i) => i.severity === 'warning').length
 
     if (fixes.length > 0) {
-      const successCount = fixes.filter(f => f.success).length
-      const summary = fixes.map(f => `${f.success ? '✅' : '❌'} ${f.id}: ${f.detail}`).join('\n')
+      const successCount = fixes.filter((f) => f.success).length
+      const summary = fixes.map((f) => `${f.success ? '✅' : '❌'} ${f.id}: ${f.detail}`).join('\n')
       notificationService.sendTelegramNotification(
         `🤖 AUTOHEAL PATROL\n` +
-        `🔴 ${criticalCount} critique(s) | 🟡 ${warningCount} avertissement(s)\n` +
-        `🛠️ ${successCount}/${fixes.length} fixes appliqués\n\n${summary}`
+          `🔴 ${criticalCount} critique(s) | 🟡 ${warningCount} avertissement(s)\n` +
+          `🛠️ ${successCount}/${fixes.length} fixes appliqués\n\n${summary}`
       )
     } else if (criticalCount > 0 || warningCount > 0) {
-      logger.info(`🤖 [AUTOHEAL] ${criticalCount} critical, ${warningCount} warning — monitoring only (threshold ${this.escalationThreshold})`)
+      logger.info(
+        `🤖 [AUTOHEAL] ${criticalCount} critical, ${warningCount} warning — monitoring only (threshold ${this.escalationThreshold})`
+      )
     } else {
       logger.info('🤖 [AUTOHEAL] ✅ All systems healthy')
     }
@@ -134,7 +155,7 @@ class AutoHealAgent {
       active: this.active,
       lastCheck: this.lastCheck,
       consecutiveFailures: { ...this.consecutiveFailures },
-      history: remedies.getHistory().slice(-20)
+      history: remedies.getHistory().slice(-20),
     }
   }
 

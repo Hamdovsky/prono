@@ -86,7 +86,9 @@ const config = {
 
   // Memory
   memory: {
-    maxOldSpaceSize: parseInt(process.env.NODE_OPTIONS?.match(/--max-old-space-size=(\d+)/)?.[1] || '256'),
+    maxOldSpaceSize: parseInt(
+      process.env.NODE_OPTIONS?.match(/--max-old-space-size=(\d+)/)?.[1] || '256'
+    ),
   },
 }
 

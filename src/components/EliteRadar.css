@@ -42,14 +42,29 @@
   vertical-align: middle;
 }
 
-.row-solid { background-color: rgba(35, 134, 54, 0.05); }
-.row-solid:hover { background-color: rgba(35, 134, 54, 0.1); }
+.row-solid {
+  background-color: rgba(35, 134, 54, 0.05);
+}
+.row-solid:hover {
+  background-color: rgba(35, 134, 54, 0.1);
+}
 
-.row-value { background-color: rgba(56, 139, 253, 0.05); }
-.row-value:hover { background-color: rgba(56, 139, 253, 0.1); }
+.row-value {
+  background-color: rgba(56, 139, 253, 0.05);
+}
+.row-value:hover {
+  background-color: rgba(56, 139, 253, 0.1);
+}
 
-.league-tag { color: #8b949e; margin-right: 4px; font-weight: bold; }
-.teams-text { color: #f0f6fc; font-weight: 500; }
+.league-tag {
+  color: #8b949e;
+  margin-right: 4px;
+  font-weight: bold;
+}
+.teams-text {
+  color: #f0f6fc;
+  font-weight: 500;
+}
 
 .pick-badge {
   padding: 1px 5px;
@@ -57,12 +72,26 @@
   font-weight: bold;
   display: inline-block;
 }
-.pick-badge.solid { background-color: #238636; color: #ffffff; }
-.pick-badge.value-draw { background-color: #1f6feb; color: #ffffff; }
-.pick-badge.standard { background-color: #30363d; color: #c9d1d9; }
+.pick-badge.solid {
+  background-color: #238636;
+  color: #ffffff;
+}
+.pick-badge.value-draw {
+  background-color: #1f6feb;
+  color: #ffffff;
+}
+.pick-badge.standard {
+  background-color: #30363d;
+  color: #c9d1d9;
+}
 
-.technical-text { color: #8b949e; }
-.ev-highlight { color: #58a6ff; font-weight: bold; }
+.technical-text {
+  color: #8b949e;
+}
+.ev-highlight {
+  color: #58a6ff;
+  font-weight: bold;
+}
 
 .signal-tag {
   font-size: 9px;
@@ -70,18 +99,40 @@
   border-radius: 2px;
   font-weight: bold;
 }
-.solid-signal { background-color: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.3); }
-.draw-signal { background-color: rgba(240, 139, 0, 0.15); color: #ff9e22; border: 1px solid rgba(240, 139, 0, 0.3); }
-.standard-signal { color: #8b949e; }
+.solid-signal {
+  background-color: rgba(56, 139, 253, 0.15);
+  color: #58a6ff;
+  border: 1px solid rgba(56, 139, 253, 0.3);
+}
+.draw-signal {
+  background-color: rgba(240, 139, 0, 0.15);
+  color: #ff9e22;
+  border: 1px solid rgba(240, 139, 0, 0.3);
+}
+.standard-signal {
+  color: #8b949e;
+}
 
-.text-center { text-align: center; }
+.text-center {
+  text-align: center;
+}
 
-.prob-h { color: #3fb950; }
-.prob-d { color: #d29922; }
-.prob-a { color: #f85149; }
+.prob-h {
+  color: #3fb950;
+}
+.prob-d {
+  color: #d29922;
+}
+.prob-a {
+  color: #f85149;
+}
 
-.row-locked { background: rgba(240, 192, 64, 0.03); }
-.row-locked:hover { background: rgba(240, 192, 64, 0.07); }
+.row-locked {
+  background: rgba(240, 192, 64, 0.03);
+}
+.row-locked:hover {
+  background: rgba(240, 192, 64, 0.07);
+}
 
 .pick-badge.locked {
   background-color: #1a1a2e;
@@ -151,11 +202,11 @@
 }
 .ou-over {
   color: #39d353;
-  background: rgba(57,211,83,0.12);
-  border: 1px solid rgba(57,211,83,0.25);
+  background: rgba(57, 211, 83, 0.12);
+  border: 1px solid rgba(57, 211, 83, 0.25);
 }
 .ou-under {
   color: #f85149;
-  background: rgba(248,81,73,0.12);
-  border: 1px solid rgba(248,81,73,0.25);
+  background: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.25);
 }

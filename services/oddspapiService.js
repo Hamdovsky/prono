@@ -25,17 +25,19 @@ class OddsPapiService {
     return {
       available: this.isAvailable(),
       authFailed: this._authFailed,
-      quotaExhausted: this._quotaExhausted
+      quotaExhausted: this._quotaExhausted,
     }
   }
 
   async fetchEvents(dateStr) {
     const tours = await this.fetchTournaments(10)
     const active = tours
-      .filter(t => (t.upcomingFixtures || 0) > 0 || (t.futureFixtures || 0) > 0)
-      .sort((a, b) => (b.upcomingFixtures + b.futureFixtures) - (a.upcomingFixtures + a.futureFixtures))
+      .filter((t) => (t.upcomingFixtures || 0) > 0 || (t.futureFixtures || 0) > 0)
+      .sort(
+        (a, b) => b.upcomingFixtures + b.futureFixtures - (a.upcomingFixtures + a.futureFixtures)
+      )
       .slice(0, 3)
-    const ids = active.map(t => t.tournamentId).filter(Boolean)
+    const ids = active.map((t) => t.tournamentId).filter(Boolean)
     if (ids.length === 0) return []
 
     // Step 1: fetch raw odds fixtures (bare fixtureIds + odds)
@@ -43,20 +45,22 @@ class OddsPapiService {
     if (!oddsFixtures?.length) return []
 
     // Step 2: fetch all fixtureIds that need details
-    const fixtureIds = oddsFixtures.map(f => f.fixtureId).filter(Boolean)
+    const fixtureIds = oddsFixtures.map((f) => f.fixtureId).filter(Boolean)
     const detailsMap = new Map()
 
     if (fixtureIds.length > 0) {
       const batchSize = 25
       for (let i = 0; i < fixtureIds.length; i += batchSize) {
         const batch = fixtureIds.slice(i, i + batchSize)
-        const details = await this._fetch(`/fixtures?fixtureIds=${batch.join(',')}&include=participants,league.country`)
+        const details = await this._fetch(
+          `/fixtures?fixtureIds=${batch.join(',')}&include=participants,league.country`
+        )
         if (Array.isArray(details)) {
           for (const d of details) {
             if (d.fixtureId) detailsMap.set(d.fixtureId, d)
           }
         }
-        await new Promise(r => setTimeout(r, 200))
+        await new Promise((r) => setTimeout(r, 200))
       }
     }
 
@@ -82,9 +86,13 @@ class OddsPapiService {
       return data
     } catch (e) {
       const status = e.response?.status
-      if (status === 401) { this._authFailed = true; logger.error('❌ [ODDSPAPI] Auth failed (401)') }
-      else if (status === 429) { this._quotaExhausted = true; logger.warn('🛑 [ODDSPAPI] Rate limit exceeded') }
-      else logger.warn(`⚠️ [ODDSPAPI] Request failed: ${e.message}`)
+      if (status === 401) {
+        this._authFailed = true
+        logger.error('❌ [ODDSPAPI] Auth failed (401)')
+      } else if (status === 429) {
+        this._quotaExhausted = true
+        logger.warn('🛑 [ODDSPAPI] Rate limit exceeded')
+      } else logger.warn(`⚠️ [ODDSPAPI] Request failed: ${e.message}`)
       return null
     }
   }
@@ -96,7 +104,9 @@ class OddsPapiService {
 
   async fetchOddsByTournaments(tournamentIds, bookmaker = 'pinnacle') {
     const ids = Array.isArray(tournamentIds) ? tournamentIds.join(',') : tournamentIds
-    const data = await this._fetch(`/odds-by-tournaments?bookmaker=${bookmaker}&tournamentIds=${ids}&oddsFormat=decimal`)
+    const data = await this._fetch(
+      `/odds-by-tournaments?bookmaker=${bookmaker}&tournamentIds=${ids}&oddsFormat=decimal`
+    )
     return Array.isArray(data) ? data : []
   }
 
@@ -105,7 +115,8 @@ class OddsPapiService {
   }
 
   async fetchOddsForMatch(match) {
-    const fixtureId = match.oddspapi_match_id || match.id?.toString().replace(/^op_/, '') || match.id
+    const fixtureId =
+      match.oddspapi_match_id || match.id?.toString().replace(/^op_/, '') || match.id
     if (!fixtureId) return null
     const raw = await this._fetch(`/odds?fixtureId=${fixtureId}&oddsFormat=decimal`)
     if (!raw) return null
@@ -131,8 +142,14 @@ class OddsPapiService {
   mapToMatch(fixture) {
     const homeTeam = this._extractParticipant(fixture, 0) || 'Home'
     const awayTeam = this._extractParticipant(fixture, 1) || 'Away'
-    const leagueName = fixture.tournamentName || fixture.league?.name || fixture.leagueName || fixture.league || 'Unknown'
-    const categoryName = fixture.categoryName || fixture.league?.country?.name || fixture.league?.country || ''
+    const leagueName =
+      fixture.tournamentName ||
+      fixture.league?.name ||
+      fixture.leagueName ||
+      fixture.league ||
+      'Unknown'
+    const categoryName =
+      fixture.categoryName || fixture.league?.country?.name || fixture.league?.country || ''
 
     return {
       id: `op_${fixture.fixtureId}`,
@@ -144,9 +161,12 @@ class OddsPapiService {
       tournament_id: fixture.tournamentId || fixture.league?.id || null,
       home_team_id: fixture.homeTeamId || String(fixture.participants?.[0]?.id || ''),
       away_team_id: fixture.awayTeamId || String(fixture.participants?.[1]?.id || ''),
-      startTimestamp: fixture.startTime ? Math.floor(new Date(fixture.startTime).getTime() / 1000) : Math.floor(Date.now() / 1000),
+      startTimestamp: fixture.startTime
+        ? Math.floor(new Date(fixture.startTime).getTime() / 1000)
+        : Math.floor(Date.now() / 1000),
       timestamp: fixture.startTime || new Date().toISOString(),
-      status: fixture.statusId === 1 ? 'inprogress' : fixture.statusId === 2 ? 'finished' : 'scheduled',
+      status:
+        fixture.statusId === 1 ? 'inprogress' : fixture.statusId === 2 ? 'finished' : 'scheduled',
       odds_home: fixture.odds?.home_win || null,
       odds_draw: fixture.odds?.draw || null,
       odds_away: fixture.odds?.away_win || null,
@@ -158,8 +178,8 @@ class OddsPapiService {
       source: 'oddspapi',
       fullData: JSON.stringify({
         fixtureId: fixture.fixtureId,
-        tournamentId: fixture.tournamentId
-      })
+        tournamentId: fixture.tournamentId,
+      }),
     }
   }
 }

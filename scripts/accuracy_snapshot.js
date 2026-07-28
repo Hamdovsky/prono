@@ -17,7 +17,9 @@ function saveSnapshot() {
   try {
     const promosportResultService = require('../services/promosportResultService')
     const stats = promosportResultService.getOverallStats()
-    const crowd = promosportResultService.getCrowdStats ? promosportResultService.getCrowdStats() : null
+    const crowd = promosportResultService.getCrowdStats
+      ? promosportResultService.getCrowdStats()
+      : null
     const matrix = promosportResultService.getConfusionMatrix()
 
     const snapshots = loadTrend()
@@ -48,19 +50,23 @@ function saveSnapshot() {
     logger.info(`[ACC-SNAPSHOT] Saved: accuracy=${entry.accuracy}% total=${entry.total}`)
 
     // Alert on drift
-    const recent = snapshots.slice(-7).filter(s => s.accuracy !== null)
+    const recent = snapshots.slice(-7).filter((s) => s.accuracy !== null)
     if (recent.length >= 3) {
       const avgAcc = recent.reduce((s, e) => s + e.accuracy, 0) / recent.length
       if (avgAcc < 30) {
         try {
           const botService = require('../services/botService')
-          botService.sendAlert(`⚠️ <b>Dérive Promosport</b>\nAccuracy moyenne 7j: ${avgAcc.toFixed(1)}%\nSeuil critique: <30%\nSnapshot: ${entry.accuracy}% (${entry.correct}/${entry.total})`)
+          botService.sendAlert(
+            `⚠️ <b>Dérive Promosport</b>\nAccuracy moyenne 7j: ${avgAcc.toFixed(1)}%\nSeuil critique: <30%\nSnapshot: ${entry.accuracy}% (${entry.correct}/${entry.total})`
+          )
         } catch (_) {}
       }
       if (entry.logLoss !== null && entry.logLoss > 1.5) {
         try {
           const botService = require('../services/botService')
-          botService.sendAlert(`⚠️ <b>Log Loss élevé</b>\nLog Loss: ${entry.logLoss}\nSeuil: >1.5\nSnapshot: ${entry.accuracy}% (${entry.correct}/${entry.total})`)
+          botService.sendAlert(
+            `⚠️ <b>Log Loss élevé</b>\nLog Loss: ${entry.logLoss}\nSeuil: >1.5\nSnapshot: ${entry.accuracy}% (${entry.correct}/${entry.total})`
+          )
         } catch (_) {}
       }
     }

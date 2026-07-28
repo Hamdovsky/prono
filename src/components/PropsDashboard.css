@@ -41,12 +41,14 @@
 }
 
 .prop-card {
-  background: rgba(30,30,30,0.6);
+  background: rgba(30, 30, 30, 0.6);
   backdrop-filter: blur(10px);
   border-radius: 12px;
   padding: 1.5rem;
-  border: 1px solid rgba(255,255,255,0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -54,8 +56,8 @@
 
 .prop-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-  border-color: rgba(255,255,255,0.1);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .prop-card.elite {
@@ -67,7 +69,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding-bottom: 1rem;
 }
 
@@ -83,7 +85,7 @@
 }
 
 .prop-type-badge {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   padding: 0.35rem 0.75rem;
   border-radius: 20px;
   font-weight: bold;
@@ -117,7 +119,7 @@
 
 .circle-bg {
   fill: none;
-  stroke: rgba(255,255,255,0.1);
+  stroke: rgba(255, 255, 255, 0.1);
   stroke-width: 3.8;
 }
 
@@ -178,7 +180,8 @@
   color: #f1c40f;
 }
 
-.props-empty, .props-loading {
+.props-empty,
+.props-loading {
   text-align: center;
   padding: 4rem;
   color: #95a5a6;
@@ -192,5 +195,7 @@
 }
 
 @keyframes progress {
-  0% { stroke-dasharray: 0 100; }
+  0% {
+    stroke-dasharray: 0 100;
+  }
 }

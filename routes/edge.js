@@ -20,11 +20,22 @@ router.get('/edge', async (req, res) => {
     const suspicious = []
     const alerts = []
     const asianHandicaps = []
-    const markets = { overUnder: [], btts: [], doubleChance: [], htFt: [], corners: [], cards: [], playerProps: [] }
+    const markets = {
+      overUnder: [],
+      btts: [],
+      doubleChance: [],
+      htFt: [],
+      corners: [],
+      cards: [],
+      playerProps: [],
+    }
 
     for (const match of matches) {
       const enriched = await valueBetEnricher.enrichMatch(match).catch(() => null)
-      const integrity = await IntegrityService.analyzeMatch(match, enriched || {}).catch(() => ({ risks: [], integrityScore: 0 }))
+      const integrity = await IntegrityService.analyzeMatch(match, enriched || {}).catch(() => ({
+        risks: [],
+        integrityScore: 0,
+      }))
 
       if (integrity.integrityScore >= 5) {
         suspicious.push({
@@ -90,48 +101,67 @@ router.get('/edge', async (req, res) => {
         for (const ou of mkts.overUnder) {
           if (ou.fairOver && ou.fairOver > 1.5) {
             markets.overUnder.push({
-              id: match.id, homeTeam: match.homeTeam, awayTeam: match.awayTeam,
+              id: match.id,
+              homeTeam: match.homeTeam,
+              awayTeam: match.awayTeam,
               league: match.league || match.competition,
-              line: ou.line, expectedTotal: ou.expectedTotal, overProb: ou.overProb,
-              fairOver: ou.fairOver, fairUnder: ou.fairUnder,
+              line: ou.line,
+              expectedTotal: ou.expectedTotal,
+              overProb: ou.overProb,
+              fairOver: ou.fairOver,
+              fairUnder: ou.fairUnder,
             })
           }
         }
         if (mkts.btts.bttsProb > 0.55) {
           markets.btts.push({
-            id: match.id, homeTeam: match.homeTeam, awayTeam: match.awayTeam,
+            id: match.id,
+            homeTeam: match.homeTeam,
+            awayTeam: match.awayTeam,
             league: match.league || match.competition,
-            bttsProb: mkts.btts.bttsProb, fairBttsOdds: mkts.btts.fairBttsOdds,
+            bttsProb: mkts.btts.bttsProb,
+            fairBttsOdds: mkts.btts.fairBttsOdds,
           })
         }
         markets.doubleChance.push({
-          id: match.id, homeTeam: match.homeTeam, awayTeam: match.awayTeam,
+          id: match.id,
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
           league: match.league || match.competition,
           options: mkts.doubleChance,
         })
         markets.htFt.push({
-          id: match.id, homeTeam: match.homeTeam, awayTeam: match.awayTeam,
+          id: match.id,
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
           league: match.league || match.competition,
-          halfTime: mkts.htFt.halfTime, fullTime: mkts.htFt.fullTime,
+          halfTime: mkts.htFt.halfTime,
+          fullTime: mkts.htFt.fullTime,
           topPicks: mkts.htFt.topPick,
         })
         if (mkts.corners.length) {
           markets.corners.push({
-            id: match.id, homeTeam: match.homeTeam, awayTeam: match.awayTeam,
+            id: match.id,
+            homeTeam: match.homeTeam,
+            awayTeam: match.awayTeam,
             league: match.league || match.competition,
             lines: mkts.corners,
           })
         }
         if (mkts.cards.length) {
           markets.cards.push({
-            id: match.id, homeTeam: match.homeTeam, awayTeam: match.awayTeam,
+            id: match.id,
+            homeTeam: match.homeTeam,
+            awayTeam: match.awayTeam,
             league: match.league || match.competition,
             lines: mkts.cards,
           })
         }
         if (mkts.playerProps.length) {
           markets.playerProps.push({
-            id: match.id, homeTeam: match.homeTeam, awayTeam: match.awayTeam,
+            id: match.id,
+            homeTeam: match.homeTeam,
+            awayTeam: match.awayTeam,
             props: mkts.playerProps.slice(0, 5),
           })
         }
@@ -141,7 +171,7 @@ router.get('/edge', async (req, res) => {
     const oddsAlerts = oddsMovement.snapshotOdds(matches)
     for (const [matchId, movement] of oddsAlerts) {
       if (movement.steamHome || movement.steamAway || movement.steamDraw) {
-        const match = matches.find(m => String(m.id) === matchId)
+        const match = matches.find((m) => String(m.id) === matchId)
         if (match) {
           alerts.push({
             id: matchId,

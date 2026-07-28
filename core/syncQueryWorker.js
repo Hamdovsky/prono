@@ -6,9 +6,10 @@ let pool
 try {
   pool = new Pool({
     connectionString: workerData.databaseUrl,
-    ssl: workerData.databaseUrl.includes('supabase.co') || workerData.databaseUrl.includes('neon.tech')
-      ? { rejectUnauthorized: false }
-      : undefined,
+    ssl:
+      workerData.databaseUrl.includes('supabase.co') || workerData.databaseUrl.includes('neon.tech')
+        ? { rejectUnauthorized: false }
+        : undefined,
     max: 3,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
@@ -50,9 +51,10 @@ parentPort.on('message', async (msg) => {
       Atomics.store(flagBuffer, 0, 1)
       Atomics.notify(flagBuffer, 0)
     }
-
   } else if (type === 'end') {
-    try { await pool.end() } catch (_) {}
+    try {
+      await pool.end()
+    } catch (_) {}
     process.exit(0)
   }
 })

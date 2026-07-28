@@ -1,3 +1,3 @@
-const { createQuotaManager } = require('./sourceQuotaManager');
+const { createQuotaManager } = require('./sourceQuotaManager')
 
-module.exports = createQuotaManager('rapidapi');
+module.exports = createQuotaManager('rapidapi')

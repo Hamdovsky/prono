@@ -9,7 +9,10 @@ function scheduleDailyReport() {
   setTimeout(async () => {
     try {
       const { execSync } = require('child_process')
-      const report = execSync('node scripts/daily_health_report.js', { timeout: 30000, encoding: 'utf-8' })
+      const report = execSync('node scripts/daily_health_report.js', {
+        timeout: 30000,
+        encoding: 'utf-8',
+      })
       logger.info('[HEALTH] Daily report:\n' + report.slice(-500))
     } catch (e) {
       logger.warn(`[HEALTH] Daily report failed: ${e.message}`)
@@ -27,7 +30,10 @@ function scheduleDailyBackup() {
   setTimeout(async () => {
     try {
       const { execSync } = require('child_process')
-      const result = execSync('node scripts/auto_backup_db.js', { timeout: 60000, encoding: 'utf-8' })
+      const result = execSync('node scripts/auto_backup_db.js', {
+        timeout: 60000,
+        encoding: 'utf-8',
+      })
       logger.info('[BACKUP] Daily backup:\n' + result.slice(-300))
     } catch (e) {
       logger.warn(`[BACKUP] Daily backup failed: ${e.message}`)
@@ -47,7 +53,10 @@ function scheduleWeeklyRetrain() {
   setTimeout(async () => {
     try {
       const { execSync } = require('child_process')
-      const result = execSync('node scripts/auto_retrain_worker.js', { timeout: 300000, encoding: 'utf-8' })
+      const result = execSync('node scripts/auto_retrain_worker.js', {
+        timeout: 300000,
+        encoding: 'utf-8',
+      })
       logger.info('[AUTO-RETRAIN] Weekly retrain:\n' + result.slice(-500))
     } catch (e) {
       logger.warn(`[AUTO-RETRAIN] Weekly retrain failed: ${e.message}`)
@@ -66,7 +75,10 @@ function scheduleDailyAutoBacktest() {
     try {
       const { runAutoBacktest } = require('../services/autoBacktestService')
       const result = await runAutoBacktest()
-      logger.info('[AUTO-BACKTEST] Daily result:\n' + JSON.stringify(result?.overall || {}, null, 2).slice(0, 500))
+      logger.info(
+        '[AUTO-BACKTEST] Daily result:\n' +
+          JSON.stringify(result?.overall || {}, null, 2).slice(0, 500)
+      )
     } catch (e) {
       logger.warn(`[AUTO-BACKTEST] Failed: ${e.message}`)
     }

@@ -241,6 +241,7 @@ setTimeout(async () => {
     })()
   } catch (expressErr) {
     logger.error(`💥 [EXPRESS] Async load error: ${expressErr.message}`)
+    try { logger.error('STACK: ' + (expressErr.stack || '').slice(0, 1000)) } catch (_) {}
   }
 }, 2000)
 

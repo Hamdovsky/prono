@@ -194,6 +194,7 @@ try {
       hsts: { maxAge: 31536000, includeSubDomains: true },
       crossOriginEmbedderPolicy: false,
       crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: false,
     })
   )
   console.log('🛡️ [SECURITY] HTTP security headers (helmet) active')

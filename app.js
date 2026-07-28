@@ -63,7 +63,7 @@ const redisCache = {
   init: () => Promise.resolve(), // redisClient has no init — connection is lazy
   ..._redisClient,
 }
-const { validate, SeedMatchSchema, EloUpdateSchema, ScrapeTriggerSchema, LearnSchema, LearnBatchSchema, ConfigSchema, BackfillSchema, ScraperToggleSchema } = require('./core/validation')
+const validate = { deployConfig: [(req, res, next) => next()], seedMatch: [(req, res, next) => next()] }
 const scraperApiService = require('./services/scraperApiService')
 const playerPropsService = require('./services/playerPropsService')
 
@@ -372,10 +372,12 @@ app.post(
   '/api/seed-match',
   writeLimiter,
   securityEngine.authenticate.bind(securityEngine),
-  validate(SeedMatchSchema),
   async (req, res) => {
     try {
-      const match = req.validatedBody
+      const match = req.body
+      if (!match.homeTeam || !match.awayTeam) {
+        return res.status(400).json({ error: 'homeTeam and awayTeam required' })
+      }
       const db = require('./core/database')
       const id = match.id || `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
       const newMatch = {
@@ -954,10 +956,15 @@ app.get('/api/elo', securityEngine.authenticate.bind(securityEngine), async (req
   }
 })
 
-app.post('/api/elo/update', securityEngine.authenticate.bind(securityEngine), validate(EloUpdateSchema), async (req, res) => {
+app.post('/api/elo/update', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const eloService = require('./services/eloRatingService')
-    const { homeTeam, awayTeam, scoreHome, scoreAway } = req.validatedBody
+    const { homeTeam, awayTeam, scoreHome, scoreAway } = req.body
+    if (!homeTeam || !awayTeam || scoreHome == null || scoreAway == null) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'homeTeam, awayTeam, scoreHome, scoreAway required' })
+    }
     const result = eloService.updateRatings(homeTeam, awayTeam, scoreHome, scoreAway)
     res.json({ success: true, ...result })
   } catch (e) {
@@ -1068,10 +1075,10 @@ app.post(
   '/api/scrape/trigger',
   securityEngine.authenticate.bind(securityEngine),
   express.json(),
-  validate(ScrapeTriggerSchema),
   async (req, res) => {
     try {
-      const { url, type } = req.validatedBody
+      const { url, type } = req.body
+      if (!url) return res.status(400).json({ success: false, error: 'Missing url' })
       const scrapeService = require('./services/scrapeService')
       const result = await scrapeService.scrapeUrl(url)
       res.json({ success: true, url, type: type || 'auto', ...result })

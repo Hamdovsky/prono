@@ -1,7 +1,7 @@
 FROM node:20-slim AS frontend
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npm run build
 
@@ -19,7 +19,7 @@ ENV REDISMS_DISABLE_POSTINSTALL=true
 ENV NODE_ENV=production
 
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --only=production --legacy-peer-deps
 
 COPY requirements.txt ./
 RUN python3 -m venv /opt/venv && \

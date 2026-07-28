@@ -193,6 +193,7 @@ try {
       },
       hsts: { maxAge: 31536000, includeSubDomains: true },
       crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: false,
     })
   )
   console.log('🛡️ [SECURITY] HTTP security headers (helmet) active')
@@ -1224,11 +1225,12 @@ const publicPath = path.normalize(path.join(__dirname, 'dist'))
 // Serve static assets with cache, but never cache HTML files
 app.use(
   express.static(publicPath, {
-    setHeaders: (res, path) => {
-      if (path.endsWith('.html')) {
+    setHeaders: (res, filePath) => {
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      if (filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
       } else {
-        res.setHeader('Cache-Control', 'public, max-age=31536000') // 1 year for js/css/images
+        res.setHeader('Cache-Control', 'public, max-age=31536000')
       }
     },
   })

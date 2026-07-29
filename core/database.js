@@ -948,13 +948,14 @@ const database = {
   getMatchByTeams: async (homeTeam, awayTeam) => {
     try {
       const simplify = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9\s]/g, '').toLowerCase().trim()
-      const hWords = simplify(homeTeam).split(/\s+/).filter(Boolean)
-      const aWords = simplify(awayTeam).split(/\s+/).filter(Boolean)
+      const stripNoise = (words) => words.filter(w => !/^(fc|ac|cf|sc|rs|rj|sp|mg|pr|ba|pe|go|mt|ms|pa|rn|ce|pi|ma|ap|ro|ac|to|se|al|pb|df|es|rj)$/i.test(w) && w.length > 1)
+      const hWords = stripNoise(simplify(homeTeam).split(/\s+/).filter(Boolean))
+      const aWords = stripNoise(simplify(awayTeam).split(/\s+/).filter(Boolean))
       if (!hWords.length || !aWords.length) return null
       const rows = db.prepare("SELECT * FROM matches WHERE odds_home IS NOT NULL AND odds_draw IS NOT NULL AND odds_away IS NOT NULL ORDER BY last_updated DESC").all()
       for (const r of rows) {
-        const rhWords = simplify(r.homeTeam || '').split(/\s+/).filter(Boolean)
-        const raWords = simplify(r.awayTeam || '').split(/\s+/).filter(Boolean)
+        const rhWords = stripNoise(simplify(r.homeTeam || '').split(/\s+/).filter(Boolean))
+        const raWords = stripNoise(simplify(r.awayTeam || '').split(/\s+/).filter(Boolean))
         if (!rhWords.length || !raWords.length) continue
         const allMatch = (pWords, dWords) => pWords.length > 0 && pWords.every(pw => dWords.some(dw => dw.includes(pw) || (pw.length > 2 && pw.includes(dw))))
         if (allMatch(hWords, rhWords) && allMatch(aWords, raWords)) return r

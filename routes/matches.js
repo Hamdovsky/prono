@@ -409,11 +409,27 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
     if (needsFastPass.length > 0) {
       const jitBatch = needsFastPass.slice(0, Math.min(needsFastPass.length, 5))
       logger.info(`✨ [JIT] ${needsFastPass.length} matches need enrichment, processing ${jitBatch.length}`)
-      jitBatch.forEach((m) => {
-        enrichedPredictions.fastEnrichMatch(m).then((enriched) => {
-          if (enriched) Object.assign(m, enriched)
+      // Persist enrichment to DB in background, invalidate cache on completion
+      Promise.allSettled(jitBatch.map((m) =>
+        enrichedPredictions.fastEnrichMatch(m).then((result) => {
+          if (result && result.success && m.id) {
+            return database.query(
+              `UPDATE matches SET
+                home_win_probability = $1, draw_probability = $2, away_win_probability = $3,
+                ou_25_prob = $4, btts_prob = $5, expected_score = $6,
+                prediction = $7, confidence = $8, edge_score = $9, ev_score = $10,
+                insufficient_data = $11, ai_source = $12
+              WHERE id = $13`,
+              [
+                result.home_win_probability, result.draw_probability, result.away_win_probability,
+                result.ou_25_prob, result.btts_prob, result.expected_score,
+                result.prediction, result.confidence, result.edge_score, result.ev_score,
+                result.insufficient_data ? 1 : 0, result.ai_source || 'jit', m.id
+              ]
+            ).catch(() => {})
+          }
         }).catch((e) => logger.debug(`[JIT] Skip ${m.id}: ${e.message}`))
-      })
+      )).then(() => invalidateCache('upcoming')).catch(() => {})
     }
 
     // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool

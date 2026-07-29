@@ -950,16 +950,25 @@ const database = {
       const normalize = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9\s]/g, '').toLowerCase().trim()
       const h = normalize(homeTeam)
       const a = normalize(awayTeam)
-      const rows = db.prepare("SELECT * FROM matches WHERE odds_home IS NOT NULL AND odds_draw IS NOT NULL AND odds_away IS NOT NULL LIMIT 200").all()
+      const rows = db.prepare("SELECT * FROM matches WHERE odds_home IS NOT NULL AND odds_draw IS NOT NULL AND odds_away IS NOT NULL LIMIT 300").all()
+      let best = { r: null, score: 0 }
       for (const r of rows) {
         const rh = normalize(r.homeTeam || '')
         const ra = normalize(r.awayTeam || '')
-        const hScore = rh.includes(h) || h.includes(rh) ? 2 : (rh.split(' ').some(w => h.includes(w)) ? 1 : 0)
-        const aScore = ra.includes(a) || a.includes(ra) ? 2 : (ra.split(' ').some(w => a.includes(w)) ? 1 : 0)
-        if (hScore + aScore >= 3) return r
+        const hWords = h.split(/\s+/).filter(Boolean)
+        const aWords = a.split(/\s+/).filter(Boolean)
+        const rhWords = rh.split(/\s+/).filter(Boolean)
+        const raWords = ra.split(/\s+/).filter(Boolean)
+        const hMatches = hWords.filter(w => rhWords.some(rw => rw.includes(w) || w.includes(rw))).length
+        const aMatches = aWords.filter(w => raWords.some(rw => rw.includes(w) || w.includes(rw))).length
+        const score = hMatches / Math.max(hWords.length, 1) + aMatches / Math.max(aWords.length, 1)
+        if (score > best.score) { best = { r, score } }
       }
+      if (best.score > 1.0) return best.r
+      if (typeof logger !== 'undefined') logger?.warn?.('[BSD] No match for', homeTeam, 'vs', awayTeam, 'best score', best.score)
       return null
     } catch (err) {
+      if (typeof logger !== 'undefined') logger?.error?.('[BSD] getMatchByTeams error:', err?.message)
       return null
     }
   },

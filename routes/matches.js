@@ -407,25 +407,13 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
     }
 
     if (needsFastPass.length > 0) {
-      // Re-enable JIT with batch limit to avoid OOM on Render free tier
-      const jitBatch = needsFastPass.slice(0, Math.min(needsFastPass.length, 15))
-      logger.info(
-        `✨ [JIT] ${needsFastPass.length} matches need enrichment, processing batch of ${jitBatch.length}`
-      )
-      try {
-        for (const m of jitBatch) {
-          try {
-            const enriched = await enrichedPredictions.fastEnrichMatch(m)
-            if (enriched) {
-              Object.assign(m, enriched)
-            }
-          } catch (e) {
-            logger.debug(`[JIT] Skip ${m.id}: ${e.message}`)
-          }
-        }
-      } catch (e) {
-        logger.warn(`[JIT] Batch enrichment failed: ${e.message}`)
-      }
+      const jitBatch = needsFastPass.slice(0, Math.min(needsFastPass.length, 5))
+      logger.info(`✨ [JIT] ${needsFastPass.length} matches need enrichment, processing ${jitBatch.length}`)
+      jitBatch.forEach((m) => {
+        enrichedPredictions.fastEnrichMatch(m).then((enriched) => {
+          if (enriched) Object.assign(m, enriched)
+        }).catch((e) => logger.debug(`[JIT] Skip ${m.id}: ${e.message}`))
+      })
     }
 
     // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool

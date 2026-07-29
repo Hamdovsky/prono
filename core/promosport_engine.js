@@ -169,6 +169,25 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
           px /= total
           p2 /= total
 
+          // ── BSD Cross-Validation ──────────────────────────────
+          let bsdOdds = null
+          let bsdP1 = null, bsdPx = null, bsdP2 = null
+          let bsdVsCrowdDelta = 0
+          try {
+            bsdOdds = await db.getMatchByTeams(m.homeTeam, m.awayTeam)
+            if (bsdOdds && bsdOdds.odds_home && bsdOdds.odds_draw && bsdOdds.odds_away) {
+              const oh = bsdOdds.odds_home, od = bsdOdds.odds_draw, oa = bsdOdds.odds_away
+              const vig = 1 / oh + 1 / od + 1 / oa
+              bsdP1 = (1 / oh) / vig
+              bsdPx = (1 / od) / vig
+              bsdP2 = (1 / oa) / vig
+              bsdVsCrowdDelta = Math.max(
+                Math.abs((m.homeWinProbability || 0.33) / 100 - bsdP1),
+                Math.abs((m.awayWinProbability || 0.34) / 100 - bsdP2)
+              )
+            }
+          } catch (_) {}
+
           const H = -(
             p1 * Math.log2(Math.max(0.01, p1)) +
             px * Math.log2(Math.max(0.01, px)) +
@@ -189,6 +208,18 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
           const isAwayCrowdTrap = p2Delta > 0.25 && p2 < 0.5
           const publicOverconfidence =
             (crowdP1 > 0.55 && p1 < crowdP1 * 0.7) || (crowdP2 > 0.55 && p2 < crowdP2 * 0.7)
+
+          // BSD-enhanced trap: crowd vs real bookmaker odds
+          let bsdVsCrowdTrap = false
+          let bsdRecommended = null
+          if (bsdP1 !== null) {
+            const crowdFav = crowdP1 > crowdP2 ? '1' : '2'
+            const bsdFav = bsdP1 > bsdP2 ? '1' : '2'
+            if (crowdFav !== bsdFav && bsdVsCrowdDelta > 0.15) {
+              bsdVsCrowdTrap = true
+              bsdRecommended = bsdFav
+            }
+          }
           const publicConfidence = Math.max(crowdP1, crowdP2, 1 - crowdP1 - crowdP2)
 
           return {
@@ -205,6 +236,12 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             publicConfidence,
             crowdP1,
             crowdP2,
+            bsdP1,
+            bsdPx,
+            bsdP2,
+            bsdVsCrowdDelta,
+            bsdVsCrowdTrap,
+            bsdRecommended,
             intel: pred.intel || {
               form: 60 + seededRand(`${m.homeTeam}_form`) * 20,
               logistics: 70 + seededRand(`${m.awayTeam}_logistics`) * 10,
@@ -496,6 +533,11 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
         intel: m.intel,
         brief: m.tacticalBrief,
         isHighPressure: m.isHighPressure,
+        bsdVsCrowdTrap: m.bsdVsCrowdTrap,
+        bsdRecommended: m.bsdRecommended,
+        bsdP1: m.bsdP1,
+        bsdPx: m.bsdPx,
+        bsdP2: m.bsdP2,
       }
     })
 
@@ -542,12 +584,19 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
         m.publicOverconfidence ||
         m.isCrowdTrap ||
         m.isAwayCrowdTrap ||
+        m.bsdVsCrowdTrap ||
         highObstacleRisk
 
       if (forceDiversify) {
         const alternatives = ['1', 'X', '2'].filter((p) => p !== currentPick)
         const mlProbs = { 1: m.p1 || 0.33, X: m.px || 0.33, 2: m.p2 || 0.34 }
-        alternatives.sort((a, b) => mlProbs[b] - mlProbs[a])
+
+        // If BSD recommends a specific outcome, prioritize it
+        if (m.bsdRecommended && alternatives.includes(m.bsdRecommended)) {
+          alternatives.sort((a, b) => (a === m.bsdRecommended ? 1 : 0) - (b === m.bsdRecommended ? 1 : 0))
+        } else {
+          alternatives.sort((a, b) => mlProbs[b] - mlProbs[a])
+        }
 
         // Diversify HIGH VALUE grid (index 2) on high obstacles, SECURE BANKER (3) on crowd traps
         const gi = highObstacleRisk && !m.isCrowdTrap && !m.isAwayCrowdTrap ? 2 : 3
@@ -555,26 +604,40 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
           const targetMatch = grids[gi].matches[mi]
           targetMatch.choices = [alternatives[0]]
           targetMatch.diversified = true
+          const trapSource = m.bsdVsCrowdTrap ? 'BSD' : 'public'
           const reason = highObstacleRisk
             ? `🛡️ OBSTACLE ${obs.avgScore}/5: foule ${(crowdPct * 100).toFixed(0)}% sur ${currentPick}, diversification ${alternatives[0]}`
-            : `🛡️ ANTI-PIÈGE PUBLIC: foule ${(crowdPct * 100).toFixed(0)}% sur ${currentPick}, nous prenons ${alternatives[0]}`
+            : `🛡️ ANTI-PIÈGE (${trapSource}): foule ${(crowdPct * 100).toFixed(0)}% sur ${currentPick}, nous prenons ${alternatives[0]}`
           targetMatch.diversifyReason = reason
           targetMatch.brief = (targetMatch.brief || '') + ' | ' + reason
         }
       }
     }
 
-    // Extra double on high-obstacle matches in SECURE BANKER grid (index 3)
-    if (highObstacleRisk && obs.avgScore > 4.0 && grids[3]) {
+    // Extra double on high-obstacle matches or BSD trap matches
+    if ((highObstacleRisk && obs.avgScore > 4.0) || m.bsdVsCrowdTrap) {
+      // Force double on ANTI-CROWD grid
       const antiCrowdMatch = grids[1].matches[mi]
       if (antiCrowdMatch.choices.length === 1) {
         const current = antiCrowdMatch.choices[0]
-        const alt = ['1', 'X', '2'].filter((p) => p !== current)
-        antiCrowdMatch.choices.push(alt[0])
+        const alt = m.bsdRecommended && m.bsdRecommended !== current
+          ? m.bsdRecommended
+          : ['1', 'X', '2'].filter((p) => p !== current)[0]
+        antiCrowdMatch.choices.push(alt)
         antiCrowdMatch.diversified = true
         antiCrowdMatch.diversifyReason =
           (antiCrowdMatch.diversifyReason || '') +
-          ` | 🔴 OBSTACLE CRITIQUE ${obs.avgScore}/5 — double forcé`
+          (m.bsdVsCrowdTrap
+            ? ` | 🔴 PIÈGE BSD: public sur ${current}, bookmakers disent ${alt} — double forcé`
+            : ` | 🔴 OBSTACLE CRITIQUE ${obs.avgScore}/5 — double forcé`)
+      }
+      // Also force double on EDGE OPTIMIZED if BSD trap
+      if (m.bsdVsCrowdTrap) {
+        const edgeMatch = grids[0].matches[mi]
+        if (edgeMatch.choices.length === 1 && m.bsdRecommended) {
+          edgeMatch.choices.push(m.bsdRecommended)
+          edgeMatch.diversified = true
+        }
       }
     }
   }

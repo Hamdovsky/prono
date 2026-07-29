@@ -348,6 +348,13 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
           isAwayCrowdTrap: gridMatch.isAwayCrowdTrap || false,
           publicOverconfidence: gridMatch.publicOverconfidence || false,
         },
+        bsdProbs: gridMatch.bsdP1 ? {
+          h: Math.round(gridMatch.bsdP1 * 100),
+          x: Math.round((gridMatch.bsdPx || 0) * 100),
+          a: Math.round(gridMatch.bsdP2 * 100),
+        } : null,
+        bsdVsCrowdTrap: gridMatch.bsdVsCrowdTrap || false,
+        bsdRecommended: gridMatch.bsdRecommended || null,
       }
     })
 

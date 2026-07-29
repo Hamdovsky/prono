@@ -945,6 +945,21 @@ const database = {
     }
   },
 
+  getMatchByTeams: async (homeTeam, awayTeam) => {
+    try {
+      const r = db.prepare(
+        "SELECT * FROM matches WHERE (LOWER(homeTeam) LIKE ? OR LOWER(homeTeam) LIKE ?) AND (LOWER(awayTeam) LIKE ? OR LOWER(awayTeam) LIKE ?) AND odds_home IS NOT NULL LIMIT 1"
+      ).get(
+        `%${homeTeam.toLowerCase()}%`, `${homeTeam.toLowerCase()}%`,
+        `%${awayTeam.toLowerCase()}%`, `${awayTeam.toLowerCase()}%`
+      )
+      if (!r) return null
+      return r
+    } catch (err) {
+      return null
+    }
+  },
+
   updatePredictions: async (matchId, data) => {
     try {
       const row = db.prepare('SELECT fullData FROM matches WHERE id = ?').get(matchId)

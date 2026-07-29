@@ -1166,6 +1166,26 @@ app.get('/api/local/all', async (req, res) => {
   }
 })
 
+// Test route: module script execution diagnostic
+app.get('/__test', (req, res) => {
+  res.send(`<!DOCTYPE html><html><body>
+<div id="root">starting...</div>
+<script>
+window.__inlineRan = true;
+document.getElementById('root').textContent += ' INLINE_OK';
+<\/script>
+<script type="module">
+document.getElementById('root').textContent += ' MODULE_OK';
+window.__moduleRan = true;
+<\/script>
+<script>
+setTimeout(() => {
+  document.getElementById('root').textContent += ' | inline:' + window.__inlineRan + ' module:' + window.__moduleRan;
+}, 500);
+<\/script>
+</body></html>`)
+})
+
 const publicPath = path.normalize(path.join(__dirname, 'dist'))
 const indexHtmlPath = path.join(publicPath, 'index.html')
 

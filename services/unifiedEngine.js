@@ -16,12 +16,15 @@ class UnifiedEngine {
       const sources = []
 
       // Source A: ML model probabilities
-      if (match.home_win_probability != null) {
+      const mlHome = parseFloat(match.home_win_probability || 0)
+      const mlDraw = parseFloat(match.draw_probability || 0)
+      const mlAway = parseFloat(match.away_win_probability || 0)
+      if (mlHome > 0 || mlAway > 0) {
         sources.push({
           name: 'ML',
-          h: match.home_win_probability / 100,
-          x: (match.draw_probability || 0) / 100,
-          a: (match.away_win_probability || 0) / 100,
+          h: mlHome / 100,
+          x: mlDraw / 100,
+          a: mlAway / 100,
         })
       }
 
@@ -40,12 +43,12 @@ class UnifiedEngine {
         })
       }
 
-      // Source C: BSD (bookmaker sentiment) from BSD data
-      if (match.bsd_prediction || match.bsd_home_win_prob) {
-        const bsdH = (match.bsd_home_win_prob || 33) / 100
-        const bsdD = (match.bsd_draw_prob || 33) / 100
-        const bsdA = (match.bsd_away_win_prob || 34) / 100
-        const t = bsdH + bsdD + bsdA
+      // Source C: BSD (bookmaker) probabilities - raw percentage values (0-100)
+      const bsdH = parseFloat(match.bsd_home_win_prob || 0)
+      const bsdD = parseFloat(match.bsd_draw_prob || 0)
+      const bsdA = parseFloat(match.bsd_away_win_prob || 0)
+      if (bsdH > 0 || bsdA > 0) {
+        const t = bsdH + bsdD + bsdA || 1
         sources.push({
           name: 'BSD',
           h: bsdH / t,

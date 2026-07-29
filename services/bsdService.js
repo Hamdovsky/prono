@@ -30,7 +30,7 @@ class BsdService {
 
   async _loadLeagues() {
     try {
-      const data = await this._fetch('/v2/leagues/?sport=football&limit=200')
+      const data = await this._fetch('/leagues/?limit=200')
       if (data?.results?.length) {
         this._leagueCache = {}
         for (const league of data.results) {
@@ -51,7 +51,7 @@ class BsdService {
     if (!leagueId) return null
     if (this._leagueCache && this._leagueCache[leagueId]) return this._leagueCache[leagueId]
     try {
-      const data = await this._fetch(`/v2/leagues/${leagueId}/`)
+      const data = await this._fetch(`/leagues/${leagueId}/`)
       if (data?.name) {
         if (!this._leagueCache) this._leagueCache = {}
         this._leagueCache[leagueId] = data.name
@@ -137,25 +137,33 @@ class BsdService {
   // ── PUBLIC API ─────────────────────────────────────────────────
 
   async fetchEvents(dateStr) {
-    const data = await this._fetch(`/v2/events/?date_from=${dateStr}&date_to=${dateStr}&limit=200`)
+    const data = await this._fetch(`/matches/?date=${dateStr}&limit=200`)
     return data?.results || []
   }
 
   async fetchPredictions(matchId) {
-    return await this._fetch(`/v2/events/${matchId}/prediction/`)
+    return await this._fetch(`/predictions/?event_id=${matchId}`)
   }
 
   async fetchOdds(matchId) {
-    return await this._fetch(`/v2/events/${matchId}/odds/`)
+    const data = await this._fetch(`/odds/?event_id=${matchId}&market=1x2&bookmaker=consensus&limit=3`)
+    if (!data?.results) return null
+    const odds = { home: null, draw: null, away: null }
+    for (const r of data.results) {
+      if (r.outcome === 'HOME') odds.home = r.decimal_odds
+      else if (r.outcome === 'DRAW') odds.draw = r.decimal_odds
+      else if (r.outcome === 'AWAY') odds.away = r.decimal_odds
+    }
+    return odds.home || odds.draw || odds.away ? odds : null
   }
 
   async fetchUpcomingEvents() {
-    const data = await this._fetch('/v2/events/?limit=200')
+    const data = await this._fetch('/matches/?limit=200')
     return data?.results || []
   }
 
   async fetchLiveEvents() {
-    const data = await this._fetch('/v2/events/?status=inprogress&limit=50')
+    const data = await this._fetch('/matches/?status=live&limit=50')
     return data?.results || []
   }
 
@@ -298,9 +306,9 @@ class BsdService {
     const oddsData = await this.fetchOdds(matchId.replace(/^bsd_/, ''))
     if (!oddsData) return null
 
-    const bestHome = oddsData?.odds?.home_win || null
-    const bestDraw = oddsData?.odds?.draw || null
-    const bestAway = oddsData?.odds?.away_win || null
+    const bestHome = oddsData?.home || null
+    const bestDraw = oddsData?.draw || null
+    const bestAway = oddsData?.away || null
 
     if (bestHome || bestDraw || bestAway) {
       try {
@@ -366,7 +374,7 @@ class BsdService {
 
     // Quick health check — if API key is bad, mark unavailable immediately
     try {
-      const quickCheck = await this._fetch('/v2/events/?limit=1')
+      const quickCheck = await this._fetch('/matches/?limit=1')
       if (!quickCheck) {
         logger.warn('[BSD] Health check failed — marking unavailable')
         return 0
@@ -390,7 +398,7 @@ class BsdService {
     }
 
     if (total === 0) {
-      logger.info('[BSD] No events found per-date, trying date-less /v2/events/ endpoint...')
+      logger.info('[BSD] No events found per-date, trying date-less /matches/ endpoint...')
       try {
         const allEvents = await this.fetchUpcomingEvents()
         if (allEvents?.length) {

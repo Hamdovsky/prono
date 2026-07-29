@@ -1197,6 +1197,9 @@ app.use(
   express.static(publicPath, {
     index: false,
     setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript')
+      }
       if (!filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'public, max-age=31536000')
       }

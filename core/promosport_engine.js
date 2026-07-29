@@ -174,15 +174,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
           let bsdP1 = null, bsdPx = null, bsdP2 = null
           let bsdVsCrowdDelta = 0
           try {
-            // Try fuzzy match first, then exact match by ID
             bsdOdds = await db.getMatchByTeams(m.homeTeam, m.awayTeam)
-            if (!bsdOdds || !bsdOdds.odds_home) {
-              const ha = await db.resolveTeamName(m.homeTeam)
-              const aa = await db.resolveTeamName(m.awayTeam)
-              bsdOdds =
-                (await db.getMatchById(`${ha}_${aa}`)) ||
-                (await db.getMatchById(`${aa}_${ha}`))
-            }
             if (bsdOdds && bsdOdds.odds_home && bsdOdds.odds_draw && bsdOdds.odds_away) {
               const oh = bsdOdds.odds_home, od = bsdOdds.odds_draw, oa = bsdOdds.odds_away
               const vig = 1 / oh + 1 / od + 1 / oa

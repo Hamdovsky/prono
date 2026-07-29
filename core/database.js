@@ -951,7 +951,7 @@ const database = {
       const hWords = simplify(homeTeam).split(/\s+/).filter(Boolean)
       const aWords = simplify(awayTeam).split(/\s+/).filter(Boolean)
       if (!hWords.length || !aWords.length) return null
-      const rows = db.prepare("SELECT * FROM matches WHERE odds_home IS NOT NULL AND odds_draw IS NOT NULL AND odds_away IS NOT NULL LIMIT 300").all()
+      const rows = db.prepare("SELECT * FROM matches WHERE odds_home IS NOT NULL AND odds_draw IS NOT NULL AND odds_away IS NOT NULL").all()
       for (const r of rows) {
         const rhWords = simplify(r.homeTeam || '').split(/\s+/).filter(Boolean)
         const raWords = simplify(r.awayTeam || '').split(/\s+/).filter(Boolean)

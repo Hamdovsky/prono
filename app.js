@@ -1190,7 +1190,9 @@ app.get(/^(?!\/api|\/socket\.io).*/, (req, res) => {
   res.type('html')
   try {
     let html = require('fs').readFileSync(indexHtmlPath, 'utf8')
-    html = html.replace(/\bcrossorigin\s*=\s*["'][^"']*["']/gi, '')
+    html = html.replace(/\bcrossorigin(?:=\s*["'][^"']*["'])?/gi, '')
+    const diag = '<script>try{document.body.insertAdjacentHTML("beforeend","<div id=diag__ style=position:fixed;bottom:0;left:0;z-index:99999;background:red;color:white;padding:8px;font-size:20px>DIAG:JS_OK")}catch(e){document.write("DIAG:ERR "+e.message)}<\/script>'
+    html = html.replace('</body>', diag + '</body>')
     res.send(html)
   } catch (err) {
     if (!res.headersSent) res.status(404).send('Not Found')

@@ -1,5 +1,4 @@
 // ─── Env validation (non-blocking) ────────────────────
-console.log('[DIAG] app.js loading start')
 const MISSING_CRITICAL = [
   ['API_SECRET_KEY', 'API Secret Key'],
   ['DATABASE_URL', 'PostgreSQL URL'],
@@ -20,21 +19,14 @@ const cors = require('cors')
 const promBundle = require('express-prom-bundle')
 
 // Core Engines
-console.log('[DIAG] require logger')
 const logger = require('./core/logger')
-console.log('[DIAG] require database')
 const database = require('./core/database')
-console.log('[DIAG] require configEngine')
 const configEngine = require('./core/configEngine')
-console.log('[DIAG] require securityEngine')
 const securityEngine = require('./core/securityEngine')
-console.log('[DIAG] require shieldEngine')
 const shieldEngine = require('./core/shieldEngine')
-console.log('[DIAG] require matchSanitizer')
 const { sanitizeMatches } = require('./core/matchSanitizer')
 
 // Metrics
-console.log('[DIAG] require metrics')
 const {
   httpRequestsTotal,
   activeConnections,
@@ -45,35 +37,24 @@ const {
 } = require('./core/metrics')
 
 // Business Services
-console.log('[DIAG] require backup_service')
 const backupService = require('./backup_service')
-console.log('[DIAG] require comboService')
 const comboService = require('./services/comboService')
-console.log('[DIAG] require botService')
 const botService = require('./services/botService')
-console.log('[DIAG] require mlPredictionService')
 const mlPredictionService = require('./services/mlPredictionService')
-console.log('[DIAG] require socketService')
 const socketService = require('./services/socketService')
-console.log('[DIAG] require cronManager')
 const cronManager = require('./services/cronManager')
 
 // Auto-Heal Agent
-console.log('[DIAG] require autoHealAgent')
 const autoHealAgent = require('./services/autoHealAgent')
 
 // Supabase (PostgreSQL cloud — données persistantes)
-console.log('[DIAG] require supabaseService')
 const supabaseService = require('./services/supabaseService')
 
 // API Fallback Manager
-console.log('[DIAG] require apiFallbackManager')
 const apiFallbackManager = require('./services/apiFallbackManager')
-console.log('[DIAG] require marketAnalysis')
 const marketAnalysis = require('./services/marketAnalysisService')
 
 // Secondary Services
-console.log('[DIAG] require redisClient')
 const _redisClient = require('./core/redisClient')
 // Normalize API: redisClient exports getCache/setCache; alias to .get/.set for middleware
 const redisCache = {
@@ -82,29 +63,18 @@ const redisCache = {
   init: () => Promise.resolve(), // redisClient has no init — connection is lazy
   ..._redisClient,
 }
-console.log('[DIAG] require validation')
 const { validate } = require('./core/validation')
-console.log('[DIAG] require scraperApiService')
 const scraperApiService = require('./services/scraperApiService')
-console.log('[DIAG] require playerPropsService')
 const playerPropsService = require('./services/playerPropsService')
 
 // Import Modular Routers
-console.log('[DIAG] require learn routes')
 const learnRoutes = require('./routes/learn')
-console.log('[DIAG] require combo routes')
 const comboRoutes = require('./routes/combos')
-console.log('[DIAG] require system routes')
 const systemRoutes = require('./routes/system')
-console.log('[DIAG] require analytics routes')
 const analyticsRoutes = require('./routes/analytics')
-console.log('[DIAG] require scraper routes')
 const scraperRoutes = require('./routes/scraper')
-console.log('[DIAG] require evolution routes')
 const evolutionRoutes = require('./routes/evolution')
-console.log('[DIAG] require integration routes')
 const integrationRoutes = require('./routes/integration')
-console.log('[DIAG] require matches routes')
 const matchesRoutes = require('./routes/matches')
 const promosportRoutes = require('./routes/promosport')
 const dsRoutes = require('./routes/ds')

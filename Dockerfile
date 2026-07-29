@@ -34,4 +34,4 @@ COPY --from=frontend /app/dist ./dist
 EXPOSE 3001
 
 CMD python3 -m uvicorn core.fastapi_server:app --host 0.0.0.0 --port 8000 & \
-    node --max-old-space-size=256 server.js
+    node --max-old-space-size=384 server.js

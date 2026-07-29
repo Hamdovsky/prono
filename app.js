@@ -144,7 +144,31 @@ app.use(cors(corsOptions))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-// 🛡️ SECURITY HEADERS (helmet) — disabled for module script debugging
+// 🛡️ SECURITY HEADERS (helmet)
+try {
+  const helmet = require('helmet')
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", 'cdn.tailwindcss.com', 'cdnjs.cloudflare.com', 'pagead2.googlesyndication.com', 'googleads.g.doubleclick.net', 'www.googletagservices.com', '*.googlesyndication.com', '*.google.com', '*.g.doubleclick.net'],
+          styleSrc: ["'self'", "'unsafe-inline'", 'fonts.googleapis.com', '*.googlesyndication.com'],
+          fontSrc: ["'self'", 'fonts.gstatic.com'],
+          imgSrc: ["'self'", 'data:', 'https:', '*.googlesyndication.com', '*.doubleclick.net', '*.google.com'],
+          frameSrc: ["'self'", '*.googlesyndication.com', '*.doubleclick.net', '*.google.com', 'pagead2.googlesyndication.com', 'googleads.g.doubleclick.net', 'www.googleservices.com'],
+          connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
+        },
+      },
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: false,
+      crossOriginEmbedderPolicy: false,
+    })
+  )
+  console.log('🛡️ [SECURITY] HTTP security headers (helmet) active')
+} catch (_) {
+  console.warn('⚠️ [SECURITY] helmet not installed — run: npm install helmet')
+}
 
 const { predictLimiter, writeLimiter } = require('./core/securityEngine')
 
@@ -1166,40 +1190,7 @@ app.get('/api/local/all', async (req, res) => {
   }
 })
 
-// Test route: module script execution diagnostic (BEFORE SPA fallback)
-app.get('/__test', (req, res) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-  res.send(`<!doctype html><html><body style="background:#111;color:#0f0;font:24px monospace;padding:40px">
-<h1 style="color:#fff">MODULE TEST</h1>
-<div id="root">waiting...</div>
-<hr>
-<script>
-window.__inline = 1;
-document.getElementById('root').textContent = 'INLINE_EXECUTED';
-<\/script>
-<script type="module">
-window.__module = 1;
-document.getElementById('root').textContent += ' + MODULE_EXECUTED';
-import('/__test_helper.js').then(m => {
-  document.getElementById('root').textContent += ' + IMPORT_OK';
-}).catch(e => {
-  document.getElementById('root').textContent += ' + IMPORT_ERR:' + e.message;
-});
-<\/script>
-<script>
-setTimeout(() => {
-  document.getElementById('root').textContent += ' | inline:' + (window.__inline ? 1 : 0) + ' module:' + (window.__module ? 1 : 0);
-}, 1000);
-<\/script>
-</body></html>`)
-})
 
-// Test helper module
-app.get('/__test_helper.js', (req, res) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-  res.setHeader('Content-Type', 'application/javascript')
-  res.send('export const ok = true;')
-})
 
 const publicPath = path.normalize(path.join(__dirname, 'dist'))
 const indexHtmlPath = path.join(publicPath, 'index.html')
@@ -1227,16 +1218,12 @@ app.get(/^(?!\/api|\/socket\.io).*/, (req, res) => {
   res.type('html')
   try {
     let html = require('fs').readFileSync(indexHtmlPath, 'utf8')
-    // Replace module script with inline dynamic import + add error diagnostic
-    const diag = '<script>window.__err=[];window.onerror=(m,s,l,c,e)=>{window.__err.push({m,s,l,c,e});try{document.body.insertAdjacentHTML("beforeend","<div style=background:red;color:white;padding:4px;font-size:14px>ERR:"+m+" at "+s+":"+l+"</div>")}catch(x){}};window.addEventListener("unhandledrejection",e=>{window.__err.push(e.reason);try{document.body.insertAdjacentHTML("beforeend","<div style=background:red;color:white;padding:4px;font-size:14px>UNHANDLED:"+(e.reason?.message||e.reason)+"</div>")}catch(x){}});setTimeout(()=>{let r=document.getElementById("root");let info="ROOT:"+(r?"found":"MISSING")+" children:"+(r?r.children.length:"N/A")+" inner:"+(r?r.innerHTML.substring(0,100):"N/A");try{document.body.insertAdjacentHTML("beforeend","<div id=diag__ style=position:fixed;bottom:0;left:0;z-index:99999;background:red;color:white;padding:8px;font-size:20px>DIAG:JS_OK "+info+"</div>")}catch(e){document.write("DIAG:ERR "+e.message)}},1500);<\/script>'
-    // Find the module script src and replace with inline dynamic import
+    // Replace module script with inline dynamic import
     const moduleMatch = html.match(/<script\s+type="module"[^>]*src="([^"]+)"[^>]*><\/script>/)
     if (moduleMatch) {
       const src = moduleMatch[1]
-      const inlineModule = '<script type="module">try{import("' + src + '").catch(e=>{document.body.insertAdjacentHTML("beforeend","<div style=background:red;color:white;padding:4px;font-size:14px>IMPORT_ERR:"+e.message+"</div>")})}catch(e){document.body.insertAdjacentHTML("beforeend","<div style=background:red;color:white;padding:4px;font-size:14px>TRY_ERR:"+e.message+"</div>")}<\/script>'
-      html = html.replace(moduleMatch[0], inlineModule)
+      html = html.replace(moduleMatch[0], '<script type="module">import("' + src + '")<\/script>')
     }
-    html = html.replace('</body>', diag + '</body>')
     res.send(html)
   } catch (err) {
     if (!res.headersSent) res.status(404).send('Not Found')

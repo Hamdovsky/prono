@@ -33,6 +33,10 @@ server.listen(PORT, '0.0.0.0', () => {
 const SAFETY_TIMEOUT_MS = 180000
 let safetyTimer = setTimeout(() => {
   logger.warn(`[SAFETY] ${SAFETY_TIMEOUT_MS / 1000}s elapsed — forcing startServer()`)
+  server._expressApp = server._expressApp || ((req, res) => {
+    res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '15' })
+    res.end(JSON.stringify({ error: 'Titanium AI startup delayed', retryAfter: 15 }))
+  })
   if (!server.listening) startServer()
 }, SAFETY_TIMEOUT_MS)
 
@@ -252,7 +256,11 @@ setTimeout(async () => {
   } catch (expressErr) {
     logger.error(`💥 [EXPRESS] Async load error: ${expressErr.message}`)
     clearTimeout(safetyTimer)
-    try { logger.error('STACK_TRACE: ' + (expressErr.stack || '').slice(0, 1500)) } catch (_) {}
+    server._expressApp = (req, res) => {
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '30' })
+      res.end(JSON.stringify({ error: 'Express failed to load: ' + expressErr.message, retryAfter: 30 }))
+    }
+    if (!server.listening) startServer()
   }
 }, 2000)
 

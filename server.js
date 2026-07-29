@@ -29,6 +29,13 @@ server.listen(PORT, '0.0.0.0', () => {
   }
 })
 
+// ── Safety timeout: force startServer() after 3 min no matter what ──
+const SAFETY_TIMEOUT_MS = 180000
+let safetyTimer = setTimeout(() => {
+  logger.warn(`[SAFETY] ${SAFETY_TIMEOUT_MS / 1000}s elapsed — forcing startServer()`)
+  if (!server.listening) startServer()
+}, SAFETY_TIMEOUT_MS)
+
 // ── Load Express app asynchronously (background, non-blocking) ──
 setTimeout(async () => {
   try {
@@ -120,9 +127,10 @@ setTimeout(async () => {
         settlementCycle.startSettlementCycle()
 
         // ── Background services ──
-        await retroSync
-          .syncPastMatches()
-          .catch((e) => logger.warn(`[RETROSYNC] Error: ${e.message}`))
+        await Promise.race([
+          retroSync.syncPastMatches(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 60000)),
+        ]).catch((e) => logger.warn(`[RETROSYNC] Error: ${e.message}`))
         clvService.start().catch((e) => logger.warn(`[CLV] Error: ${e.message}`))
         const scrapedOddsService = require('./services/scrapedOddsService')
         scrapedOddsService
@@ -228,9 +236,11 @@ setTimeout(async () => {
         apiKeysValidator.logAvailability()
 
         // ── Server binding ──
+        clearTimeout(safetyTimer)
         startServer()
       } catch (initErr) {
         logger.error(`💥 [CRITICAL] Startup error: ${initErr.message}`)
+        clearTimeout(safetyTimer)
         try {
           startServer()
         } catch (e2) {
@@ -241,6 +251,7 @@ setTimeout(async () => {
     })()
   } catch (expressErr) {
     logger.error(`💥 [EXPRESS] Async load error: ${expressErr.message}`)
+    clearTimeout(safetyTimer)
     try { logger.error('STACK_TRACE: ' + (expressErr.stack || '').slice(0, 1500)) } catch (_) {}
   }
 }, 2000)

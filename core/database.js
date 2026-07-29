@@ -957,7 +957,7 @@ const database = {
         const rhWords = stripNoise(simplify(r.homeTeam || '').split(/\s+/).filter(Boolean))
         const raWords = stripNoise(simplify(r.awayTeam || '').split(/\s+/).filter(Boolean))
         if (!rhWords.length || !raWords.length) continue
-        const allMatch = (pWords, dWords) => pWords.length > 0 && pWords.every(pw => dWords.some(dw => dw.includes(pw) || (pw.length > 2 && pw.includes(dw))))
+        const allMatch = (pWords, dWords) => pWords.length > 0 && pWords.every(pw => dWords.some(dw => dw.includes(pw) || (pw.length > 2 && dw.length >= 3 && pw.includes(dw))))
         if (allMatch(hWords, rhWords) && allMatch(aWords, raWords)) return r
       }
       return null

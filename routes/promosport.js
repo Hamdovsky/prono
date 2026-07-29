@@ -1406,6 +1406,35 @@ router.get('/retrain/status', (req, res) => {
 })
 
 // ─── Diagnostic: test Python + dependencies ────────────
+router.get('/debug-bsd-matching', async (req, res) => {
+  try {
+    const db = require('../core/database')
+    const scraper = require('../core/promosport_scraper')
+    const matches = await scraper.scrapeConcours(885)
+    if (!matches || matches.length === 0) {
+      return res.json({ error: 'No Promosport matches scraped', matches: [] })
+    }
+    const results = []
+    for (const m of matches) {
+      const bsd = await db.getMatchByTeams(m.homeTeam, m.awayTeam)
+      results.push({
+        promosportHome: m.homeTeam,
+        promosportAway: m.awayTeam,
+        found: !!bsd,
+        bsdHome: bsd?.homeTeam || null,
+        bsdAway: bsd?.awayTeam || null,
+        odds: bsd ? `${bsd.odds_home}/${bsd.odds_draw}/${bsd.odds_away}` : null,
+      })
+    }
+    res.json({ matches: results, found: results.filter(r => r.found).length })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+/**
+ * GET /api/promosport/diagnostic
+ */
 router.get('/diagnostic', async (req, res) => {
   const { execSync: es } = require('child_process')
   const diag = { python: null, pip: null, deps: {}, importTest: null }

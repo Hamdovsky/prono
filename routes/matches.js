@@ -379,57 +379,8 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
       )
     }
 
-    // 🚀 [JIT FAST PASS] Re-enrich matches with missing/flat/stale predictions
-    const maxForce = Math.min(parseInt(req.query.force_count) || 20, 77)
-    const needsFastPass = rawMatches.filter((m) => {
-      const hWP = parseFloat(m.home_win_probability || 0)
-      const aWP = parseFloat(m.away_win_probability || 0)
-      const dWP = parseFloat(m.draw_probability || 0)
-      const maxP = Math.max(hWP, aWP, dWP)
-      const minP = Math.min(hWP, aWP, dWP)
-      const isFlat = hWP > 0 && maxP - minP < 5
-      const isDeadEv = parseFloat(m.ev_score || 0) > 0 && parseFloat(m.ev_score || 0) < 0.05
-      return (
-        !hWP ||
-        hWP === 0 ||
-        !m.expected_score ||
-        isFlat ||
-        isDeadEv
-      )
-    })
-
-    if (req.query.force === 'true') {
-      const forceMatches = rawMatches.slice(0, maxForce)
-      forceMatches.forEach((m) => {
-        if (!needsFastPass.find((n) => n.id === m.id)) needsFastPass.push(m)
-      })
-      logger.info(`🔧 [JIT] Force re-enrichment of ${forceMatches.length} matches`)
-    }
-
-    if (needsFastPass.length > 0) {
-      const jitBatch = needsFastPass.slice(0, Math.min(needsFastPass.length, 5))
-      logger.info(`✨ [JIT] ${needsFastPass.length} matches need enrichment, processing ${jitBatch.length}`)
-      // Persist enrichment to DB in background, invalidate cache on completion
-      Promise.allSettled(jitBatch.map((m) =>
-        enrichedPredictions.fastEnrichMatch(m).then((result) => {
-          if (result && result.success && m.id) {
-            return database.query(
-              `UPDATE matches SET
-                home_win_probability = $1, draw_probability = $2, away_win_probability = $3,
-                ou_25_prob = $4, btts_prob = $5, expected_score = $6,
-                prediction = $7, confidence = $8, edge_score = $9, ev_score = $10,
-                insufficient_data = $11, ai_source = $12
-              WHERE id = $13`,
-              [
-                result.home_win_probability, result.draw_probability, result.away_win_probability,
-                result.ou_25_prob, result.btts_prob, result.expected_score,
-                result.prediction, result.confidence, result.edge_score, result.ev_score,
-                result.insufficient_data ? 1 : 0, result.ai_source || 'jit', m.id
-              ]
-            ).catch(() => {})
-          }
-        }).catch((e) => logger.debug(`[JIT] Skip ${m.id}: ${e.message}`))
-      )).then(() => invalidateCache('upcoming')).catch(() => {})
+    // 🚀 JIT enrichment removed — use /api/re-enrich to trigger enrichment separately.
+    // Speed and stability are preferred over inline enrichment on the free tier.
     }
 
     // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool
@@ -672,10 +623,10 @@ router.post('/re-enrich', async (req, res) => {
       return res.json({ success: true, enriched: 0, message: 'No matches to enrich' })
     }
     const logger = require('../core/logger')
-    const limit = Math.min(parseInt(req.query.limit) || 10, 20)
-    res.json({ success: true, total: matches.length, processing: limit, message: `Processing ${limit} matches in background` })
+    const limit = Math.min(parseInt(req.query.limit) || 3, 10)
+    const batch = matches.slice(0, limit)
     let enriched = 0
-    for (const m of matches.slice(0, limit)) {
+    for (const m of batch) {
       try {
         const result = await enrichedPredictions.fastEnrichMatch(m)
         if (result && result.success) {
@@ -705,6 +656,7 @@ router.post('/re-enrich', async (req, res) => {
     }
     invalidateCache('upcoming')
     logger.info(`[RE-ENRICH] Updated ${enriched}/${limit} matches`)
+    res.json({ success: true, total: matches.length, enriched, message: `Enriched ${enriched}/${limit} matches` })
   } catch (e) {
     logger.error(`[RE-ENRICH] Error: ${e.message}`)
   }

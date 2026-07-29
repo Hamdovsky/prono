@@ -1213,8 +1213,15 @@ app.get(/^(?!\/api|\/socket\.io).*/, (req, res) => {
   res.type('html')
   try {
     let html = require('fs').readFileSync(indexHtmlPath, 'utf8')
-    html = html.replace(/\bcrossorigin(?:=\s*["'][^"']*["'])?/gi, '')
+    // Replace module script with inline dynamic import + add error diagnostic
     const diag = '<script>window.__err=[];window.onerror=(m,s,l,c,e)=>{window.__err.push({m,s,l,c,e});try{document.body.insertAdjacentHTML("beforeend","<div style=background:red;color:white;padding:4px;font-size:14px>ERR:"+m+" at "+s+":"+l+"</div>")}catch(x){}};window.addEventListener("unhandledrejection",e=>{window.__err.push(e.reason);try{document.body.insertAdjacentHTML("beforeend","<div style=background:red;color:white;padding:4px;font-size:14px>UNHANDLED:"+(e.reason?.message||e.reason)+"</div>")}catch(x){}});setTimeout(()=>{let r=document.getElementById("root");let info="ROOT:"+(r?"found":"MISSING")+" children:"+(r?r.children.length:"N/A")+" inner:"+(r?r.innerHTML.substring(0,100):"N/A");try{document.body.insertAdjacentHTML("beforeend","<div id=diag__ style=position:fixed;bottom:0;left:0;z-index:99999;background:red;color:white;padding:8px;font-size:20px>DIAG:JS_OK "+info+"</div>")}catch(e){document.write("DIAG:ERR "+e.message)}},1500);<\/script>'
+    // Find the module script src and replace with inline dynamic import
+    const moduleMatch = html.match(/<script\s+type="module"[^>]*src="([^"]+)"[^>]*><\/script>/)
+    if (moduleMatch) {
+      const src = moduleMatch[1]
+      const inlineModule = '<script type="module">try{import("' + src + '").catch(e=>{document.body.insertAdjacentHTML("beforeend","<div style=background:red;color:white;padding:4px;font-size:14px>IMPORT_ERR:"+e.message+"</div>")})}catch(e){document.body.insertAdjacentHTML("beforeend","<div style=background:red;color:white;padding:4px;font-size:14px>TRY_ERR:"+e.message+"</div>")}<\/script>'
+      html = html.replace(moduleMatch[0], inlineModule)
+    }
     html = html.replace('</body>', diag + '</body>')
     res.send(html)
   } catch (err) {

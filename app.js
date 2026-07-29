@@ -1197,7 +1197,6 @@ app.use(
   express.static(publicPath, {
     index: false,
     setHeaders: (res, filePath) => {
-      res.setHeader('Access-Control-Allow-Origin', '*')
       if (!filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'public, max-age=31536000')
       }

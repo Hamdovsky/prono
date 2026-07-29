@@ -217,27 +217,33 @@ function killProcessOnPort(port) {
 }
 
 async function runAll({ port, onStartServices }) {
-  await killProcessOnPort(port)
-  await new Promise((resolve) => setTimeout(resolve, 500))
+  const TIMEOUT = 90_000 // 90s max for full bootstrap
+  const bail = new Promise((_, reject) => setTimeout(() => reject(new Error('Bootstrap timeout')), TIMEOUT))
 
   try {
-    const { redis } = require('./redisClient')
-    if (redis) {
-      redis
-        .ping()
-        .then(() => logger.info('[BOOT] Redis connected'))
-        .catch(() => logger.warn('[BOOT] Redis not reachable — cache degraded'))
-    }
-  } catch (_) {}
+    await Promise.race([
+      (async () => {
+        await killProcessOnPort(port)
+        await new Promise((resolve) => setTimeout(resolve, 500))
 
-  await Promise.allSettled([downloadArchive(), downloadPremiumCSV()])
+        try {
+          const { redis } = require('./redisClient')
+          if (redis) {
+            redis.ping().then(() => logger.info('[BOOT] Redis connected')).catch(() => logger.warn('[BOOT] Redis not reachable'))
+          }
+        } catch (_) {}
 
-  importPromosport()
-
-  await Promise.allSettled([warmThetaOptimizer(), syncBSD(), syncFootballData()])
-
-  await runCloudSeed()
-  await emergencyReseed()
+        await Promise.allSettled([downloadArchive(), downloadPremiumCSV()])
+        importPromosport()
+        await Promise.allSettled([warmThetaOptimizer(), syncBSD(), syncFootballData()])
+        await runCloudSeed()
+        await emergencyReseed()
+      })(),
+      bail,
+    ])
+  } catch (e) {
+    logger.warn(`[BOOT] ${e.message} — continuing with partial initialization`)
+  }
 
   logger.info('[BOOT] Startup bootstrap complete')
 }

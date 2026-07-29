@@ -454,6 +454,69 @@ router.get('/gold-coupon', speedCache('promosport_gold', 300000, 1800000), async
 })
 
 /**
+ * GET /api/promosport/gold-coupon/columns?n=4
+ * Generate N reduced columns from the 6-double Gold Coupon
+ */
+router.get('/gold-coupon/columns', speedCache('promosport_gold_cols', 60000, 300000), async (req, res) => {
+  try {
+    const numCols = Math.max(1, Math.min(64, parseInt(req.query.n) || 4))
+    const scrapedMatches = await fetchOrFallback()
+    const grids = await generatePromosportGrids(scrapedMatches)
+    if (!grids || grids.length === 0) throw new Error('Grid generation failed')
+
+    const enriched = scrapedMatches.map((m, idx) => ({
+      ...m,
+      p1: grids[0].matches[idx].p1 || m.homeWinProbability,
+      px: grids[0].matches[idx].px || m.drawProbability,
+      p2: grids[0].matches[idx].p2 || m.awayWinProbability,
+      entropy: grids[0].matches[idx].entropy || 1.5,
+      confidence: grids[0].matches[idx].confidence || 50,
+      isCrowdTrap: grids[0].matches[idx].isCrowdTrap || false,
+      intel: grids[0].matches[idx].intel,
+      tacticalBrief: grids[0].matches[idx].brief || '',
+    }))
+    const goldCoupon = generateGoldCoupon(enriched)
+    const basePicks = goldCoupon.matches.map(m => m.choices.join(''))
+
+    // Generate N columns from the 64 possibilities using even sampling
+    const doubleCount = basePicks.filter(p => p.length > 1).length
+    const fullCols = Math.pow(2, doubleCount)
+    const cols = []
+    const step = fullCols / numCols
+    for (let i = 0; i < numCols; i++) {
+      const bits = Math.min(Math.round(i * step), fullCols - 1)
+      const picks = basePicks.map(p => {
+        if (p.length > 1) {
+          return p[(bits >> (doubleCount - 1 - basePicks.indexOf(p))) & 1] || p[0]
+        }
+        return p
+      })
+      // Compute expected probability for this column
+      const expProb = picks.reduce((prod, pick, mi) => {
+        const m = goldCoupon.matches[mi]
+        const probs = { '1': m.p1 || 0.33, 'X': m.px || 0.33, '2': m.p2 || 0.34 }
+        return prod * (probs[pick] || 0.33)
+      }, 1)
+      cols.push({ picks, expectedProb: expProb, expectedOneIn: Math.round(1 / Math.max(expProb, 0.0001)) })
+    }
+
+    const firstMatch = scrapedMatches[0] || {}
+    res.json({
+      success: true,
+      concours: firstMatch.concoursNumber || 'N/A',
+      date: firstMatch.concoursDate || new Date().toLocaleDateString(),
+      strategy: 'GOLD COUPON (6 doubles)',
+      totalCombinations: fullCols,
+      columns: cols,
+      generatedAt: new Date().toISOString(),
+    })
+  } catch (err) {
+    logger.error('❌ [PROMOSPORT] Gold Columns Error:', err.message)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
  * GET /api/promosport/secret-weapons
  * Renvoie les "armes secrètes" : analyses contrarian, bases solides, enjeux réels.
  */

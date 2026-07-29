@@ -381,7 +381,6 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
 
     // 🚀 JIT enrichment removed — use /api/re-enrich to trigger enrichment separately.
     // Speed and stability are preferred over inline enrichment on the free tier.
-    }
 
     // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool
     const elite = []

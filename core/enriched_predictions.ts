@@ -1145,14 +1145,7 @@ class EnrichedPredictionService {
       const v553 = await this._tryV553(m)
       let quantResult, aiSource, xgH, xgA, probs
       // Always compute JS engine xG for fallback use
-      if (m.odds_home && m.odds_draw && m.odds_away) {
-        const odH = 1 / parseFloat(m.odds_home)
-        const odD = 1 / parseFloat(m.odds_draw)
-        const odA = 1 / parseFloat(m.odds_away)
-        const oSum = odH + odD + odA
-        xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0))
-        xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0))
-      } else {
+      {
         const xg = this._getMatchXG(m)
         xgH = xg.h
         xgA = xg.a

@@ -269,11 +269,16 @@ class StatisticalEngine {
     else if (/premier|championship|league one|spain|laliga|ligaportugal/i.test(league))
       baseTotal = 2.6
 
-    const totalXG = baseTotal
-    const ratio = nh / (na || 0.01)
-    const split = 1 / (1 + 1 / Math.max(ratio, 0.1))
-    const xgH = totalXG * Math.min(split * 1.15, 0.7)
-    const xgA = totalXG * (1 - Math.min(split * 1.15, 0.7))
+    // Total xG varies with match imbalance: strong favorite → more goals
+    const underdogProb = Math.min(nh, na)
+    const imbalance = Math.max(0, 0.33 - underdogProb) * 3.0
+    const totalXG = baseTotal + imbalance
+
+    // Distribute xG proportionally to normalized win probabilities
+    const totalWp = nh + na || 1
+    const xgH = totalXG * (nh / totalWp)
+    const xgA = totalXG * (na / totalWp)
+
     const h = Math.max(0.5, Math.min(4.0, xgH))
     const a = Math.max(0.3, Math.min(4.0, xgA))
     return { h, a }

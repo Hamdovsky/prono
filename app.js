@@ -1166,22 +1166,25 @@ app.get('/api/local/all', async (req, res) => {
   }
 })
 
-// Test route: module script execution diagnostic
+// Test route: module script execution diagnostic (BEFORE SPA fallback)
 app.get('/__test', (req, res) => {
-  res.send(`<!DOCTYPE html><html><body>
-<div id="root">starting...</div>
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+  res.send(`<!doctype html><html><body style="background:#111;color:#0f0;font:24px monospace;padding:40px">
+<h1 style="color:#fff">MODULE TEST</h1>
+<div id="root">waiting...</div>
+<hr>
 <script>
-window.__inlineRan = true;
-document.getElementById('root').textContent += ' INLINE_OK';
+document.getElementById('root').textContent = 'INLINE_EXECUTED';
+window.__inline = 1;
 <\/script>
 <script type="module">
-document.getElementById('root').textContent += ' MODULE_OK';
-window.__moduleRan = true;
+document.getElementById('root').textContent += ' + MODULE_EXECUTED';
+window.__module = 1;
 <\/script>
 <script>
 setTimeout(() => {
-  document.getElementById('root').textContent += ' | inline:' + window.__inlineRan + ' module:' + window.__moduleRan;
-}, 500);
+  document.getElementById('root').textContent += ' | DONE';
+}, 300);
 <\/script>
 </body></html>`)
 })

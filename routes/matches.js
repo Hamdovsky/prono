@@ -622,7 +622,7 @@ router.post('/re-enrich', async (req, res) => {
       return res.json({ success: true, enriched: 0, message: 'No matches to enrich' })
     }
     const logger = require('../core/logger')
-    const limit = Math.min(parseInt(req.query.limit) || 3, 10)
+    const limit = Math.min(parseInt(req.query.limit) || 3, 50)
     const batch = matches.slice(0, limit)
     let enriched = 0
     for (const m of batch) {

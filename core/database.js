@@ -947,28 +947,27 @@ const database = {
 
   getMatchByTeams: async (homeTeam, awayTeam) => {
     try {
-      const normalize = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9\s]/g, '').toLowerCase().trim()
-      const h = normalize(homeTeam)
-      const a = normalize(awayTeam)
+      const simplify = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9\s]/g, '').toLowerCase().trim()
+      const hWords = simplify(homeTeam).split(/\s+/).filter(Boolean)
+      const aWords = simplify(awayTeam).split(/\s+/).filter(Boolean)
       const rows = db.prepare("SELECT * FROM matches WHERE odds_home IS NOT NULL AND odds_draw IS NOT NULL AND odds_away IS NOT NULL LIMIT 300").all()
       let best = { r: null, score: 0 }
       for (const r of rows) {
-        const rh = normalize(r.homeTeam || '')
-        const ra = normalize(r.awayTeam || '')
-        const hWords = h.split(/\s+/).filter(Boolean)
-        const aWords = a.split(/\s+/).filter(Boolean)
-        const rhWords = rh.split(/\s+/).filter(Boolean)
-        const raWords = ra.split(/\s+/).filter(Boolean)
-        const hMatches = hWords.filter(w => rhWords.some(rw => rw.includes(w) || w.includes(rw))).length
-        const aMatches = aWords.filter(w => raWords.some(rw => rw.includes(w) || w.includes(rw))).length
-        const score = hMatches / Math.max(hWords.length, 1) + aMatches / Math.max(aWords.length, 1)
+        const rhWords = simplify(r.homeTeam || '').split(/\s+/).filter(Boolean)
+        const raWords = simplify(r.awayTeam || '').split(/\s+/).filter(Boolean)
+        if (!rhWords.length || !raWords.length) continue
+        const hOverlap = hWords.filter(w => rhWords.includes(w)).length
+        const aOverlap = aWords.filter(w => raWords.includes(w)).length
+        const hPct = hOverlap / Math.max(hWords.length, 1)
+        const aPct = aOverlap / Math.max(aWords.length, 1)
+        if (hOverlap === 0 || aOverlap === 0) continue
+        const score = hPct + aPct
         if (score > best.score) { best = { r, score } }
       }
-      if (best.score > 1.0) return best.r
-      if (typeof logger !== 'undefined') logger?.warn?.('[BSD] No match for', homeTeam, 'vs', awayTeam, 'best score', best.score)
+      if (best.score >= 1.5) return best.r
       return null
     } catch (err) {
-      if (typeof logger !== 'undefined') logger?.error?.('[BSD] getMatchByTeams error:', err?.message)
+      if (logger) logger.warn('[BSD] getMatchByTeams error:', err?.message)
       return null
     }
   },

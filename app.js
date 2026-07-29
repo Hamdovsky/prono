@@ -113,6 +113,7 @@ const allowedOrigins = [
   'https://prono-k6gc.onrender.com',
   'https://prono-k6gc-rxjf.onrender.com',
   'https://prono-api-7mhs.onrender.com',
+  'https://pronostico.onrender.com',
   'http://localhost',
   'https://localhost',
   'capacitor://localhost',
@@ -137,7 +138,6 @@ const corsOptions = {
       callback(new Error('Not allowed by CORS'))
     }
   },
-  credentials: true,
 }
 app.use(cors(corsOptions))
 
@@ -1174,19 +1174,31 @@ app.get('/__test', (req, res) => {
 <div id="root">waiting...</div>
 <hr>
 <script>
-document.getElementById('root').textContent = 'INLINE_EXECUTED';
 window.__inline = 1;
+document.getElementById('root').textContent = 'INLINE_EXECUTED';
 <\/script>
 <script type="module">
-document.getElementById('root').textContent += ' + MODULE_EXECUTED';
 window.__module = 1;
+document.getElementById('root').textContent += ' + MODULE_EXECUTED';
+import('/__test_helper.js').then(m => {
+  document.getElementById('root').textContent += ' + IMPORT_OK';
+}).catch(e => {
+  document.getElementById('root').textContent += ' + IMPORT_ERR:' + e.message;
+});
 <\/script>
 <script>
 setTimeout(() => {
-  document.getElementById('root').textContent += ' | DONE';
-}, 300);
+  document.getElementById('root').textContent += ' | inline:' + (window.__inline ? 1 : 0) + ' module:' + (window.__module ? 1 : 0);
+}, 1000);
 <\/script>
 </body></html>`)
+})
+
+// Test helper module
+app.get('/__test_helper.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+  res.setHeader('Content-Type', 'application/javascript')
+  res.send('export const ok = true;')
 })
 
 const publicPath = path.normalize(path.join(__dirname, 'dist'))

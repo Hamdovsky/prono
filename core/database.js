@@ -947,14 +947,18 @@ const database = {
 
   getMatchByTeams: async (homeTeam, awayTeam) => {
     try {
-      const r = db.prepare(
-        "SELECT * FROM matches WHERE (LOWER(homeTeam) LIKE ? OR LOWER(homeTeam) LIKE ?) AND (LOWER(awayTeam) LIKE ? OR LOWER(awayTeam) LIKE ?) AND odds_home IS NOT NULL LIMIT 1"
-      ).get(
-        `%${homeTeam.toLowerCase()}%`, `${homeTeam.toLowerCase()}%`,
-        `%${awayTeam.toLowerCase()}%`, `${awayTeam.toLowerCase()}%`
-      )
-      if (!r) return null
-      return r
+      const normalize = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9\s]/g, '').toLowerCase().trim()
+      const h = normalize(homeTeam)
+      const a = normalize(awayTeam)
+      const rows = db.prepare("SELECT * FROM matches WHERE odds_home IS NOT NULL AND odds_draw IS NOT NULL AND odds_away IS NOT NULL LIMIT 200").all()
+      for (const r of rows) {
+        const rh = normalize(r.homeTeam || '')
+        const ra = normalize(r.awayTeam || '')
+        const hScore = rh.includes(h) || h.includes(rh) ? 2 : (rh.split(' ').some(w => h.includes(w)) ? 1 : 0)
+        const aScore = ra.includes(a) || a.includes(ra) ? 2 : (ra.split(' ').some(w => a.includes(w)) ? 1 : 0)
+        if (hScore + aScore >= 3) return r
+      }
+      return null
     } catch (err) {
       return null
     }

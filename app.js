@@ -144,63 +144,7 @@ app.use(cors(corsOptions))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-// 🛡️ SECURITY HEADERS (helmet)
-try {
-  const helmet = require('helmet')
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: [
-            "'self'",
-            "'unsafe-inline'",
-            'cdn.tailwindcss.com',
-            'cdnjs.cloudflare.com',
-            'pagead2.googlesyndication.com',
-            'googleads.g.doubleclick.net',
-            'www.googletagservices.com',
-            '*.googlesyndication.com',
-            '*.google.com',
-            '*.g.doubleclick.net',
-          ],
-          styleSrc: [
-            "'self'",
-            "'unsafe-inline'",
-            'fonts.googleapis.com',
-            '*.googlesyndication.com',
-          ],
-          fontSrc: ["'self'", 'fonts.gstatic.com'],
-          imgSrc: [
-            "'self'",
-            'data:',
-            'https:',
-            '*.googlesyndication.com',
-            '*.doubleclick.net',
-            '*.google.com',
-          ],
-          frameSrc: [
-            "'self'",
-            '*.googlesyndication.com',
-            '*.doubleclick.net',
-            '*.google.com',
-            'pagead2.googlesyndication.com',
-            'googleads.g.doubleclick.net',
-            'www.googletagservices.com',
-          ],
-          connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
-        },
-      },
-      hsts: { maxAge: 31536000, includeSubDomains: true },
-      crossOriginEmbedderPolicy: false,
-      crossOriginOpenerPolicy: false,
-      crossOriginResourcePolicy: false,
-    })
-  )
-  console.log('🛡️ [SECURITY] HTTP security headers (helmet) active')
-} catch (_) {
-  console.warn('⚠️ [SECURITY] helmet not installed — run: npm install helmet')
-}
+// 🛡️ SECURITY HEADERS (helmet) — disabled for module script debugging
 
 const { predictLimiter, writeLimiter } = require('./core/securityEngine')
 

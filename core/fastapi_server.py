@@ -4,51 +4,7 @@ import sys, os, json, subprocess, numpy as np, threading, math, uvicorn
 
 sys.path.append(os.path.dirname(__file__))
 
-app = FastAPI(
-    title="Titanium Quant Inference API",
-    description="""
-    Moteur d'inférence ML pour le système de prédiction football Titanium AI.
-    
-    ## Endpoints
-    
-    ### Prédictions
-    * `/predict` — Prédiction complète d'un match (1X2, Over/Under, BTTS, score exact)
-    * `/predict-live` — Prédiction de buts en direct (next5, next10, next15 minutes)
-    
-    ### FBref (statistiques avancées)
-    * `/fbref/odds` — Cotes depuis FBref
-    * `/fbref/xg` — Expected Goals depuis FBref
-    * `/fbref/search-xg` — Recherche xG toutes ligues
-    * `/fbref/team-stats` — Statistiques équipe par saison
-    * `/fbref/schedule` — Calendrier des matchs
-    
-    ### Goal Model
-    * `/goalmodel/fit` — Ajustement du modèle Dixon-Coles en arrière-plan
-    
-    ### Calibration & Backtest
-    * `/calibrate` — Calibration des probabilités (Brier, LogLoss)
-    * `/backtest` — Backtest des cotes (accuracy, Brier score)
-    * `/backtest/trend` — Tendance mensuelle de l'accuracy
-    
-    ### Maintenance
-    * `/health` — Santé du service
-    * `/warmup` — Préchargement des moteurs
-    * `/retrain` — Ré-entraînement du modèle V56
-    * `/train/v56` — Entraînement explicite V56
-    
-    ### Fallback
-    * `/fallback/enrich-batch` — Enrichissement fallback par lot
-    * `/fallback/context-refresh` — Rafraîchissement de contexte
-    """,
-    version="3.6",
-    contact={
-        "name": "Titanium AI",
-        "url": "https://github.com/Hamdovsky/prono",
-    },
-    license_info={
-        "name": "Proprietary",
-    },
-)
+app = FastAPI(title="Titanium Quant Inference API")
 
 # ── Auth dependency ──
 async def require_auth(authorization: str = Header(None)):
@@ -132,9 +88,8 @@ except ImportError:
         return {"success": False, "error": "prometheus_fastapi_instrumentator not installed; install with: pip install prometheus-fastapi-instrumentator"}
 
 # ── Endpoints ──
-@app.get("/health", summary="Health check", tags=["System"])
+@app.get("/health")
 async def health_check():
-    """Vérifie la santé du service et l'état des moteurs d'inférence."""
     model_paths = {
         'v24_hybrid': os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v24_hybrid.json'),
         'titanium_v2': os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'titanium_v2.json')
@@ -148,21 +103,8 @@ async def health_check():
         "cwd": os.getcwd()
     }
 
-@app.post("/predict", summary="Prédiction complète d'un match", tags=["Prediction"])
+@app.post("/predict")
 async def predict_endpoint(payload: dict, _=Depends(optional_auth)):
-    """
-    Prédiction 1X2, Over/Under, BTTS et score exact pour un match.
-    
-    **Payload:**
-    - `homeTeam` (str) — Équipe domicile
-    - `awayTeam` (str) — Équipe extérieur
-    - `league` (str) — Championnat
-    - `task` (str) — Type de tâche: PREDICTION (défaut), PLAYER_PROPS, MEGA_CORRELATION, SENTIMENT
-    - `fullData` (dict|str) — Données brutes du match (optionnel)
-    
-    **Retourne:**
-    - Prédictions 1X2, Over/Under, BTTS, score attendu, niveau de confiance
-    """
     try:
         match_data = clean_data(payload)
         task = match_data.get('task', 'PREDICTION')
@@ -203,24 +145,8 @@ async def predict_endpoint(payload: dict, _=Depends(optional_auth)):
         traceback.print_exc()
         raise HTTPException(500, detail=str(e))
 
-@app.post("/predict-live", summary="Prédiction de buts en direct", tags=["Live"])
+@app.post("/predict-live")
 async def predict_live_endpoint(payload: dict):
-    """
-    Prédit la probabilité de buts dans les 5, 10 et 15 prochaines minutes.
-    
-    **Payload:**
-    - `homeTeam` (str) — Équipe domicile
-    - `awayTeam` (str) — Équipe extérieur
-    - `scoreHome` (int) — Score actuel domicile
-    - `scoreAway` (int) — Score actuel extérieur
-    - `elapsed` (int) — Minute de jeu
-    - `events` (list) — Événements du match (optionnel)
-    
-    **Retourne:**
-    - `next5min` (float) — Probabilité de but dans 5min
-    - `next10min` (float) — Probabilité de but dans 10min
-    - `next15min` (float) — Probabilité de but dans 15min
-    """
     try:
         from live_goal_predictor import predict_live
         result = predict_live(payload)
@@ -378,14 +304,8 @@ def _post_results_callback(url, result):
     except Exception as e:
         print(f"[GOALMODEL] Callback failed: {e}")
 
-@app.post("/goalmodel/fit", summary="Ajuster le modèle de buts (Dixon-Coles)", tags=["Goal Model"])
+@app.post("/goalmodel/fit")
 async def goalmodel_fit(req: GoalModelFitRequest, background_tasks: BackgroundTasks):
-    """Lance l'ajustement du modèle Dixon-Coles en arrière-plan pour les ligues spécifiées.
-    
-    Le fitting calcule les paramètres d'attaque/défense, le facteur domicile (HFA),
-    et le paramètre de corrélation (rho). Les résultats sont sauvegardés dans le cache
-    et envoyés via callback au serveur principal.
-    """
     try:
         leagues_to_fit = list(req.matches_data.keys()) if req.matches_data else req.leagues
         main_callback = req.callback_url or os.environ.get('MAIN_SERVER_CALLBACK', '')
@@ -412,15 +332,8 @@ async def health_neon():
         stats[t] = r[0]['cnt'] if r else 0
     return {"success": True, "using_neon": True, "stats": stats}
 
-@app.get("/backtest", summary="Backtest des cotes", tags=["Backtest"])
+@app.get("/backtest")
 async def backtest_endpoint(limit: int = Query(100, le=5000), league: str = ""):
-    """Calcule l'accuracy, le Brier score et le LogLoss des cotes historiques.
-    
-    - **limit**: Nombre de matchs à analyser (max 5000)
-    - **league**: Filtre par ligue (optionnel, ILIKE)
-    
-    Retourne l'accuracy des cotes implicites, le Brier score et le LogLoss.
-    """
     from pg_connector import query, using_postgres
     if not using_postgres():
         return {"success": False, "error": "Neon required"}

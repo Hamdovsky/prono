@@ -172,7 +172,7 @@ def process_prediction(match_obj: dict) -> dict:
     xg_h, xg_a, gm_rho, gm_gamma, gm_dist = apply_dixon_coles_gamma(xg_h, xg_a, league_name_str)
 
     # === PHASE 2: ML ENSEMBLE ===
-    active_feature_names, active_feature_vector, model_name, XGB_BOOSTER = select_model_booster(features, league_tier, match_obj)
+    active_feature_names, active_feature_vector, ai_source, XGB_BOOSTER = select_model_booster(features, league_tier, match_obj)
 
     sim = monte_carlo_simulation(xg_h, xg_a, distribution=gm_dist, rho=gm_rho)
 
@@ -180,7 +180,7 @@ def process_prediction(match_obj: dict) -> dict:
     p_h_xgb, p_d_xgb, p_a_xgb = ml_result['p_h_xgb'], ml_result['p_d_xgb'], ml_result['p_a_xgb']
     p_h_ai, p_d_ai, p_a_ai = ml_result['p_h_ai'], ml_result['p_d_ai'], ml_result['p_a_ai']
     has_xgb = ml_result['has_xgb']
-    ai_source = ml_result['ai_source'] if ml_result['ai_source'] != "Standard-Poisson" else model_name
+    ai_source = ml_result['ai_source']
     explainer_data = ml_result['explainer_data']
     analysis = ml_result['analysis']
 

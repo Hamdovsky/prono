@@ -1,0 +1,65 @@
+import express, { Request, Response } from 'express'
+const router = express.Router()
+import logger from '../core/logger'
+import database from '../core/database'
+
+router.post('/score-update', async (req: Request, res: Response) => {
+  try {
+    const { matchId, homeScore, awayScore, league, status = 'live', minute } = req.body as {
+      matchId?: string
+      homeScore?: number
+      awayScore?: number
+      league?: string
+      status?: string
+      minute?: number
+      homeTeam?: string
+      awayTeam?: string
+      stats?: Record<string, unknown>
+    }
+    if (!matchId || homeScore === undefined || awayScore === undefined) {
+      return res
+        .status(400)
+        .json({ error: 'Missing required payload: matchId, homeScore, awayScore' })
+    }
+
+    let existingMatch = await database.getMatchById(matchId)
+    if (!existingMatch) {
+      existingMatch = {
+        id: matchId,
+        homeTeam: req.body.homeTeam || 'Unknown',
+        awayTeam: req.body.awayTeam || 'Unknown',
+        league: league || 'Unknown',
+        home_win_probability: 0,
+        away_win_probability: 0,
+        draw_probability: 0,
+        xgboost_confidence: 0,
+      }
+    }
+
+    existingMatch.score = { home: homeScore, away: awayScore }
+    existingMatch.status = status
+    if (minute) existingMatch.minute = String(minute)
+
+    if (req.body.stats) {
+      existingMatch.stats = existingMatch.stats || {
+        pressure: {},
+        totalShots: {},
+        possession: {},
+        corners: {},
+      }
+      Object.assign(existingMatch.stats, req.body.stats)
+    }
+
+    await database.insertMatch(existingMatch)
+    logger.info(
+      `⚡ [WEBHOOK] Real-time score update: ${existingMatch.homeTeam} ${homeScore}-${awayScore} ${existingMatch.awayTeam}`
+    )
+
+    res.json({ success: true, timestamp: Date.now() })
+  } catch (error: unknown) {
+    logger.error('Webhook processing failed', error as Error)
+    res.status(500).json({ error: 'Internal Server Error' })
+  }
+})
+
+export = router

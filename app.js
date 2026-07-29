@@ -1219,7 +1219,8 @@ app.get(/^(?!\/api|\/socket\.io).*/, (req, res) => {
   try {
     let html = require('fs').readFileSync(indexHtmlPath, 'utf8')
     // Remove crossorigin from same-origin tags (causes CORS issues with module scripts)
-    html = html.replace(/(<(?:script|link)[^>]*(?:src|href)\s*=\s*"\/[^"]*")\s+crossorigin(?:=["'][^"']*["'])?/gi, '$1')
+    // Remove crossorigin from same-origin tags (src/href starts with /)
+    html = html.replace(/(<(?:script|link)(?=[^>]*(?:src|href)\s*=\s*"\/))[^>]*>/gi, (m) => m.replace(/\s+crossorigin(?:=["'][^"']*["'])?/gi, ''))
     // Replace module script with inline dynamic import
     const moduleMatch = html.match(/<script\s+type="module"[^>]*src="([^"]+)"[^>]*><\/script>/)
     if (moduleMatch) {

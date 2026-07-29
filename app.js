@@ -444,38 +444,7 @@ app.post('/api/predict', predictLimiter, async (req, res) => {
   }
 })
 
-app.post('/api/re-enrich', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
-  try {
-    const database = require('./core/database')
-    const enrichedPredictions = require('./core/enriched_predictions')
-    const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
-    if (!matches || matches.length === 0) {
-      return res.json({ success: true, updated: 0, message: 'No matches' })
-    }
-    logger.info(`🔄 [RE-ENRICH] Force re-enriching ${matches.length} matches...`)
-    res.json({ success: true, total: matches.length, message: 'Re-enrich started in background' })
-    // Continue in background (don't await — let the response go first)
-    let updated = 0
-    const batchSize = 5
-    for (let i = 0; i < matches.length; i += batchSize) {
-      const batch = matches.slice(i, i + batchSize)
-      try {
-        const enriched = await enrichedPredictions.enrichMatches(batch, {
-          fastMode: true,
-          force: true,
-        })
-        for (const m of enriched) {
-          if (m.expected_score) {
-            try { await database.updatePredictions(m.id, m); updated++ } catch (_) {}
-          }
-        }
-      } catch (_) {}
-    }
-    logger.info(`✅ [RE-ENRICH] Updated ${updated}/${matches.length} matches`)
-  } catch (err) {
-    logger.error('❌ [RE-ENRICH] Error:', err.message)
-  }
-})
+// (deleted — shadowed by matches.js /re-enrich which is more robust)
 
 app.post(
   '/api/config',

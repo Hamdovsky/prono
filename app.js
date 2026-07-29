@@ -1167,30 +1167,34 @@ app.get('/api/local/all', async (req, res) => {
 })
 
 const publicPath = path.normalize(path.join(__dirname, 'dist'))
-// Serve static assets with cache, but never cache HTML files
+const indexHtmlPath = path.join(publicPath, 'index.html')
+
+// Serve static assets (but NOT index.html — we handle it below)
 app.use(
   express.static(publicPath, {
+    index: false,
     setHeaders: (res, filePath) => {
       res.setHeader('Access-Control-Allow-Origin', '*')
-      if (filePath.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-      } else {
+      if (!filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'public, max-age=31536000')
       }
     },
   })
 )
 
-// Fallback for React Router (SPA)
+// Fallback for React Router (SPA) — serve index.html with crossorigin removed
 app.get(/^(?!\/api|\/socket\.io).*/, (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
   res.setHeader('Pragma', 'no-cache')
   res.setHeader('Expires', '0')
-  res.sendFile(path.join(publicPath, 'index.html'), (err) => {
-    if (err && !res.headersSent) {
-      res.status(404).send('Not Found')
-    }
-  })
+  res.type('html')
+  try {
+    let html = require('fs').readFileSync(indexHtmlPath, 'utf8')
+    html = html.replace(/\bcrossorigin\s*=\s*["'][^"']*["']/gi, '')
+    res.send(html)
+  } catch (err) {
+    if (!res.headersSent) res.status(404).send('Not Found')
+  }
 })
 
 module.exports = app

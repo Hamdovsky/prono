@@ -18,7 +18,10 @@ router.get('/value-bets', async (req, res) => {
     const minValue = parseFloat(req.query.minValue) || 5
     const leagueFilter = req.query.league || null
 
-    const matches = await database.getMatchesByDate(dateStr)
+    let matches = await database.getMatchesByDate(dateStr)
+    if (!matches || matches.length === 0) {
+      matches = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
+    }
     if (!matches || matches.length === 0) {
       return res.json({ success: true, date: dateStr, total: 0, valueBets: [] })
     }

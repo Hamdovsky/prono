@@ -79,6 +79,7 @@ const matchesRoutes = require('./routes/matches')
 const promosportRoutes = require('./routes/promosport')
 const dsRoutes = require('./routes/ds')
 const gridRoutes = require('./routes/gridRoutes')
+const unifiedRoutes = require('./routes/unified')
 
 // Swagger API Documentation
 let swaggerUi, swaggerSpecs
@@ -536,6 +537,7 @@ app.get('/api/skills', (req, res) => {
 app.use('/api/ds', dsRoutes)
 app.use('/api/webhook', securityEngine.authenticate.bind(securityEngine), integrationRoutes)
 app.use('/api', require('./routes/edge'))
+app.use('/api/unified', unifiedRoutes)
 app.use('/dashboard', require('./routes/dashboard'))
 
 // ── IN-MEMORY ERROR TRACKER (lightweight, no external deps) ─────

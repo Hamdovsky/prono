@@ -356,7 +356,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
  * Advanced Strategic Coverage: Ensures the 4 grids complement each other.
  */
 function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
-  const defaults = [6, 6, 6, 6]
+  const defaults = [5, 6, 5, 4]
   const cd =
     Array.isArray(customDoubles) && customDoubles.length === 4
       ? customDoubles.map((d, i) => Math.max(0, Math.min(13, parseInt(d) || defaults[i])))
@@ -428,7 +428,14 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
 
   const gridDoubleMap = {}
   gridConfigs.forEach((_, gi) => {
-    gridDoubleMap[gi] = [...coreDoubles, ...mediumAssignments[gi].map((idx) => mediumPool[idx])]
+    let candidateIds = [...coreDoubles, ...mediumAssignments[gi].map((idx) => mediumPool[idx])]
+    // Rank candidates by uncertainty (keep most uncertain)
+    const ranked = candidateIds.map(id => ({ id, u: rankedByUncertainty.find(r => r.id === id)?.uncertainty || 0 })).sort((a, b) => b.u - a.u)
+    const maxD = gridConfigs[gi]?.doubles ?? 6
+    if (ranked.length > maxD) {
+      candidateIds = ranked.slice(0, maxD).map(r => r.id)
+    }
+    gridDoubleMap[gi] = candidateIds
   })
 
   logger.info(
@@ -468,18 +475,29 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
       let choices = []
 
       // Primary Selection based on Bias
+      const bsdFav = m.bsdP1 !== null ? (m.bsdP1 > m.bsdP2 ? '1' : m.bsdP2 > m.bsdP1 ? '2' : 'X') : null
+      const crowdFav = m.crowdP1 > m.crowdP2 ? '1' : m.crowdP2 > m.crowdP1 ? '2' : 'X'
       if (config.bias === 'safe') {
         const max = Math.max(m.p1, m.px, m.p2)
-        choices.push(m.p1 === max ? '1' : m.p2 === max ? '2' : 'X')
+        const pick = m.p1 === max ? '1' : m.p2 === max ? '2' : 'X'
+        // If BSD strongly disagrees with the ML favorite, prefer BSD for safe
+        if (bsdFav && bsdFav !== pick && m.bsdP1 && Math.abs(m.bsdP1 - m.bsdP2) > 0.15) {
+          choices.push(bsdFav)
+        } else {
+          choices.push(pick)
+        }
       } else if (config.bias === 'draw') {
         if (m.px > 0.3) choices.push('X')
+        else if (bsdFav) choices.push(bsdFav)
         else choices.push(m.p1 > m.p2 ? '1' : '2')
       } else if (config.bias === 'upset') {
-        if (m.p1 > 0.65) choices.push('1')
+        if (m.bsdVsCrowdTrap && bsdFav) choices.push(bsdFav)
+        else if (m.p1 > 0.65) choices.push('1')
         else if (m.p2 > 0.25) choices.push('2')
         else choices.push('X')
       } else {
-        if (m.p1 > 0.45) choices.push('1')
+        if (bsdFav) choices.push(bsdFav)
+        else if (m.p1 > 0.45) choices.push('1')
         else if (m.p2 > 0.4) choices.push('2')
         else choices.push('X')
       }
@@ -615,26 +633,34 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
     }
 
     // Extra double on high-obstacle matches or BSD trap matches
+    // Prefer flipping a single over adding a double
     if ((highObstacleRisk && obs.avgScore > 4.0) || m.bsdVsCrowdTrap) {
-      // Force double on ANTI-CROWD grid
       const antiCrowdMatch = grids[1].matches[mi]
-      if (antiCrowdMatch.choices.length === 1) {
-        const current = antiCrowdMatch.choices[0]
-        const alt = m.bsdRecommended && m.bsdRecommended !== current
-          ? m.bsdRecommended
-          : ['1', 'X', '2'].filter((p) => p !== current)[0]
-        antiCrowdMatch.choices.push(alt)
-        antiCrowdMatch.diversified = true
-        antiCrowdMatch.diversifyReason =
-          (antiCrowdMatch.diversifyReason || '') +
-          (m.bsdVsCrowdTrap
-            ? ` | 🔴 PIÈGE BSD: public sur ${current}, bookmakers disent ${alt} — double forcé`
-            : ` | 🔴 OBSTACLE CRITIQUE ${obs.avgScore}/5 — double forcé`)
+      const current = antiCrowdMatch.choices[0]
+      const alt = m.bsdRecommended && m.bsdRecommended !== current
+        ? m.bsdRecommended
+        : ['1', 'X', '2'].filter((p) => p !== current)[0]
+      if (antiCrowdMatch.choices.length === 1 && alt) {
+        // If the trap is critical (BSD detected), add a double instead of flipping
+        if (m.bsdVsCrowdTrap || (highObstacleRisk && obs.avgScore > 4.5)) {
+          antiCrowdMatch.choices.push(alt)
+          antiCrowdMatch.diversified = true
+          antiCrowdMatch.diversifyReason =
+            (antiCrowdMatch.diversifyReason || '') +
+            (m.bsdVsCrowdTrap
+              ? ` | 🔴 PIÈGE BSD: public sur ${current}, bookmakers disent ${alt} — double forcé`
+              : ` | 🔴 OBSTACLE CRITIQUE ${obs.avgScore}/5 — double forcé`)
+        } else {
+          // For moderate obstacles, just flip the single pick
+          antiCrowdMatch.choices = [alt]
+          antiCrowdMatch.diversified = true
+          antiCrowdMatch.diversifyReason = `🛡️ OBSTACLE ${obs.avgScore}/5: flip ${current}→${alt}`
+        }
       }
-      // Also force double on EDGE OPTIMIZED if BSD trap
+      // Also force double on EDGE OPTIMIZED only if critical BSD trap
       if (m.bsdVsCrowdTrap) {
         const edgeMatch = grids[0].matches[mi]
-        if (edgeMatch.choices.length === 1 && m.bsdRecommended) {
+        if (edgeMatch.choices.length === 1 && m.bsdRecommended && m.bsdRecommended !== edgeMatch.choices[0]) {
           edgeMatch.choices.push(m.bsdRecommended)
           edgeMatch.diversified = true
         }

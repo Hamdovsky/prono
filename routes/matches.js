@@ -379,23 +379,22 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
       )
     }
 
-    // 🚀 [JIT FAST PASS] Force re-enrichment for matches missing predictions or with stale buggy data
+    // 🚀 [JIT FAST PASS] Re-enrich matches with missing/flat/stale predictions
     const maxForce = Math.min(parseInt(req.query.force_count) || 20, 77)
     const needsFastPass = rawMatches.filter((m) => {
-      const quantMain = m.quant?.main_pick || m.prediction || ''
       const hWP = parseFloat(m.home_win_probability || 0)
       const aWP = parseFloat(m.away_win_probability || 0)
       const dWP = parseFloat(m.draw_probability || 0)
       const maxP = Math.max(hWP, aWP, dWP)
       const minP = Math.min(hWP, aWP, dWP)
       const isFlat = hWP > 0 && maxP - minP < 5
+      const isDeadEv = parseFloat(m.ev_score || 0) > 0 && parseFloat(m.ev_score || 0) < 0.05
       return (
         !hWP ||
         hWP === 0 ||
         !m.expected_score ||
-        quantMain === 'UNDER ANALYSIS' ||
-        quantMain === 'WAITING' ||
-        (isFlat && quantMain === 'X')
+        isFlat ||
+        isDeadEv
       )
     })
 

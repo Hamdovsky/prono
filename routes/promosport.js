@@ -482,19 +482,21 @@ router.get('/gold-coupon/columns', speedCache('promosport_gold_cols', 60000, 300
     const doubleCount = basePicks.filter(p => p.length > 1).length
     const fullCols = Math.pow(2, doubleCount)
     const cols = []
+    const doubleIndices = basePicks.map((p, i) => p.length > 1 ? i : -1).filter(i => i >= 0)
     const step = fullCols / numCols
     for (let i = 0; i < numCols; i++) {
       const bits = Math.min(Math.round(i * step), fullCols - 1)
-      const picks = basePicks.map(p => {
+      const picks = basePicks.map((p, mi) => {
         if (p.length > 1) {
-          return p[(bits >> (doubleCount - 1 - basePicks.indexOf(p))) & 1] || p[0]
+          const bitIdx = doubleIndices.indexOf(mi)
+          return p[(bits >> (doubleCount - 1 - bitIdx)) & 1] || p[0]
         }
         return p
       })
-      // Compute expected probability for this column
+      // Use enriched match probabilities (from grids) for expected probability
       const expProb = picks.reduce((prod, pick, mi) => {
-        const m = goldCoupon.matches[mi]
-        const probs = { '1': m.p1 || 0.33, 'X': m.px || 0.33, '2': m.p2 || 0.34 }
+        const ep = enriched[mi]
+        const probs = { '1': ep.p1 || 0.33, 'X': ep.px || 0.33, '2': ep.p2 || 0.34 }
         return prod * (probs[pick] || 0.33)
       }, 1)
       cols.push({ picks, expectedProb: expProb, expectedOneIn: Math.round(1 / Math.max(expProb, 0.0001)) })

@@ -252,25 +252,31 @@ class StatisticalEngine {
     const ox = parseFloat(m.odds_draw) || 3.0
     const oa = parseFloat(m.odds_away) || 2.0
 
-    // Probabilités implicites
     const p_h = 1 / oh
     const p_x = 1 / ox
     const p_a = 1 / oa
     const sum = p_h + p_x + p_a
-
-    // Normalisation (retrait de la marge du bookmaker)
     const nh = p_h / sum
     const nx = p_x / sum
     const na = p_a / sum
 
-    const leagueBase = this._getLeagueBaseXG(m.league)
+    const league = (m.league || '').toLowerCase()
+    let baseTotal = 2.5
+    if (/iceland|women|brazil|portugal|belgium|jupiler|netherlands|eredivisie|bundesliga|austria|swiss/i.test(league))
+      baseTotal = 3.0
+    else if (/serie a|italy|ligue 1|ligue 2|tunisia|morocco|egypt|saudi|qatar|argentina|greece/i.test(league))
+      baseTotal = 2.2
+    else if (/premier|championship|league one|spain|laliga|ligaportugal/i.test(league))
+      baseTotal = 2.6
 
-    // Approximation simplifiée xG via probabilités
-    // Un favori à 50% (cote 2.0) a généralement un xG autour de 1.5-1.8
-    const xgH = nh * 3.0
-    const xgA = na * 3.0
-
-    return { h: Math.max(0.5, xgH), a: Math.max(0.5, xgA) }
+    const totalXG = baseTotal
+    const ratio = nh / (na || 0.01)
+    const split = 1 / (1 + 1 / Math.max(ratio, 0.1))
+    const xgH = totalXG * Math.min(split * 1.15, 0.7)
+    const xgA = totalXG * (1 - Math.min(split * 1.15, 0.7))
+    const h = Math.max(0.5, Math.min(4.0, xgH))
+    const a = Math.max(0.3, Math.min(4.0, xgA))
+    return { h, a }
   }
 
   getMatchXG(m) {

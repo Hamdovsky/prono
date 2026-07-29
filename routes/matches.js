@@ -656,6 +656,55 @@ router.post('/refresh-lineups/:id', async (req, res) => {
   }
 })
 
+// Force re-enrichment of upcoming matches with current API data (BSD, etc.)
+router.post('/re-enrich', async (req, res) => {
+  try {
+    const key = req.headers['x-api-key']
+    if (!key || key !== process.env.API_SECRET_KEY) {
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
+    const db = require('../core/database')
+    const matches = await db.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
+    if (!matches || matches.length === 0) {
+      return res.json({ success: true, enriched: 0, message: 'No matches to enrich' })
+    }
+    const logger = require('../core/logger')
+    let enriched = 0
+    for (const m of matches.slice(0, 30)) {
+      try {
+        const result = await enrichedPredictions.fastEnrichMatch(m)
+        if (result && result.success) {
+          await db.query(
+            `UPDATE matches SET
+              home_win_probability = $1, draw_probability = $2, away_win_probability = $3,
+              ou_25_prob = $4, btts_prob = $5, expected_score = $6,
+              prediction = $7, confidence = $8, edge_score = $9, ev_score = $10,
+              insufficient_data = $11, ai_source = $12,
+              home_xg = $13, away_xg = $14,
+              quant = $15
+            WHERE id = $16`,
+            [
+              result.home_win_probability, result.draw_probability, result.away_win_probability,
+              result.ou_25_prob, result.btts_prob, result.expected_score,
+              result.prediction, result.confidence, result.edge_score, result.ev_score,
+              result.insufficient_data ? 1 : 0, result.ai_source || 'jit',
+              result.home_xg || result.xg_home, result.away_xg || result.xg_away,
+              JSON.stringify(result.quant || {}), m.id
+            ]
+          )
+          enriched++
+        }
+      } catch (e) {
+        logger.warn(`[RE-ENRICH] Skip ${m.id}: ${e.message}`)
+      }
+    }
+    invalidateCache('upcoming')
+    res.json({ success: true, enriched, total: matches.length })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // Cache invalidation endpoint (called by worker after enrich)
 router.post('/invalidate-cache', (req, res) => {
   const key = req.headers['x-api-key']

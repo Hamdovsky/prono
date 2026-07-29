@@ -669,8 +669,10 @@ router.post('/re-enrich', async (req, res) => {
       return res.json({ success: true, enriched: 0, message: 'No matches to enrich' })
     }
     const logger = require('../core/logger')
+    const limit = Math.min(parseInt(req.query.limit) || 10, 20)
+    res.json({ success: true, total: matches.length, processing: limit, message: `Processing ${limit} matches in background` })
     let enriched = 0
-    for (const m of matches.slice(0, 30)) {
+    for (const m of matches.slice(0, limit)) {
       try {
         const result = await enrichedPredictions.fastEnrichMatch(m)
         if (result && result.success) {
@@ -699,9 +701,9 @@ router.post('/re-enrich', async (req, res) => {
       }
     }
     invalidateCache('upcoming')
-    res.json({ success: true, enriched, total: matches.length })
+    logger.info(`[RE-ENRICH] Updated ${enriched}/${limit} matches`)
   } catch (e) {
-    res.status(500).json({ error: e.message })
+    logger.error(`[RE-ENRICH] Error: ${e.message}`)
   }
 })
 

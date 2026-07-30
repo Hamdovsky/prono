@@ -1229,16 +1229,26 @@ class EnrichedPredictionService {
             // ULTIMATE FALLBACK: ensure non-zero predictions always
             const hWP = parseFloat(resultData.home_win_probability || 0);
             const aWP = parseFloat(resultData.away_win_probability || 0);
-            if (hWP === 0 && aWP === 0) {
-                const fb = this._buildOfflineState(m);
-                resultData.home_win_probability = fb.home_win_probability;
-                resultData.draw_probability = fb.draw_probability;
-                resultData.away_win_probability = fb.away_win_probability;
-                resultData.expected_score = fb.expected_score;
-                resultData.btts_prob = fb.btts_prob;
-                resultData.ou_25_prob = fb.ou_25_prob;
-                resultData.ai_source = 'FALLBACK_ENGINE';
-                resultData.quant = fb.quant;
+            if (!hWP || !aWP || isNaN(hWP) || isNaN(aWP)) {
+                try {
+                    const fb = this._buildOfflineState(m);
+                    resultData.home_win_probability = fb.home_win_probability;
+                    resultData.draw_probability = fb.draw_probability;
+                    resultData.away_win_probability = fb.away_win_probability;
+                    resultData.expected_score = fb.expected_score;
+                    resultData.btts_prob = fb.btts_prob;
+                    resultData.ou_25_prob = fb.ou_25_prob;
+                    resultData.ai_source = 'FALLBACK_ENGINE';
+                    resultData.quant = fb.quant;
+                } catch (_) {
+                    resultData.home_win_probability = 30;
+                    resultData.draw_probability = 25;
+                    resultData.away_win_probability = 25;
+                    resultData.btts_prob = 40;
+                    resultData.ou_25_prob = 40;
+                    resultData.ai_source = 'HARD_FALLBACK';
+                    resultData.insufficient_data = 1;
+                }
             }
 
             return resultData;
@@ -1257,10 +1267,16 @@ class EnrichedPredictionService {
         const noise = (numHash % 100 - 50) / 100;
         const xgH = Math.max(0.4, leagueBase.h * (1 + noise * 0.15));
         const xgA = Math.max(0.4, leagueBase.a * (1 - noise * 0.10));
-        const probs = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m);
-        const hPct = +(probs.win.home * 100).toFixed(1);
-        const dPct = +(probs.win.draw * 100).toFixed(1);
-        const aPct = +(probs.win.away * 100).toFixed(1);
+        let hPct, dPct, aPct;
+        try {
+            const probs = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m);
+            hPct = +(probs.win.home * 100).toFixed(1);
+            dPct = +(probs.win.draw * 100).toFixed(1);
+            aPct = +(probs.win.away * 100).toFixed(1);
+            if (isNaN(hPct) || isNaN(aPct)) throw new Error('NaN probs');
+        } catch (_) {
+            hPct = 35; dPct = 28; aPct = 27;
+        }
         const mainPick = hPct >= aPct ? '1' : '2';
         const mainProb = Math.max(hPct, aPct);
         return {

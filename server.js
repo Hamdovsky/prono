@@ -193,6 +193,28 @@ setTimeout(async () => {
           let updated = 0
           for (const m of enriched) {
             try {
+              // Guaranteed minimum prediction floor — never save 0
+              const h = parseFloat(m.home_win_probability || 0)
+              if (!h || h <= 0 || isNaN(h)) {
+                const fb = enrichedPredictions._buildOfflineState(m)
+                m.home_win_probability = fb.home_win_probability
+                m.draw_probability = fb.draw_probability
+                m.away_win_probability = fb.away_win_probability
+                m.btts_prob = fb.btts_prob
+                m.ou_25_prob = fb.ou_25_prob
+                m.ai_source = 'CRON_FALLBACK'
+                m.insufficient_data = 1
+                if (!m.quant) m.quant = {}
+                m.quant.main_pick = fb.quant.main_pick
+                m.quant.ev_score = '0.00'
+                m.quant.risk_label = fb.quant.risk_label
+              }
+              // Also guard against NaN in probability fields
+              if (isNaN(parseFloat(m.home_win_probability))) m.home_win_probability = 30
+              if (isNaN(parseFloat(m.draw_probability))) m.draw_probability = 25
+              if (isNaN(parseFloat(m.away_win_probability))) m.away_win_probability = 25
+              if (isNaN(parseFloat(m.btts_prob))) m.btts_prob = 40
+              if (isNaN(parseFloat(m.ou_25_prob))) m.ou_25_prob = 40
               await database.updatePredictions(m.id, m)
               updated++
             } catch (e) {

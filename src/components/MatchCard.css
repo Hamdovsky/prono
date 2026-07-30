@@ -2,33 +2,52 @@
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 6px 14px;
+  padding: 8px 14px;
   margin: 0;
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(10, 15, 30, 0.8) 100%);
   border: 1px solid rgba(255, 255, 255, 0.04);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  margin-bottom: 4px;
   cursor: pointer;
-  transition: background 0.15s;
-  min-height: 40px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  min-height: 52px;
+}
+.match-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, transparent, #334155, transparent);
+  transition: background 0.2s;
 }
 .match-card:hover {
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: translateX(2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+.match-card:hover::before {
+  background: linear-gradient(180deg, transparent, #00ffaa, transparent);
 }
 
 .mc-match-info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
-  padding-right: 10px;
+  padding-right: 12px;
 }
 .mc-league {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -36,8 +55,8 @@
 .mc-teams {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
+  gap: 6px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #e2e8f0;
   white-space: nowrap;
@@ -45,27 +64,28 @@
 .mc-teams .mc-vs {
   color: #475569;
   font-weight: 400;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .mc-ou {
   display: flex;
   align-items: center;
-  gap: 5px;
-  width: 76px;
-  padding: 0 6px;
+  gap: 6px;
+  width: 80px;
+  padding: 0 8px;
   justify-content: center;
 }
 .mc-ou-bar {
-  width: 32px;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.06);
+  width: 36px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 2px;
   overflow: hidden;
 }
 .mc-ou-fill {
   height: 100%;
   border-radius: 2px;
+  transition: width 0.4s ease;
 }
 .mc-ou-fill.over {
   background: linear-gradient(90deg, #10b981, #34d399);
@@ -74,33 +94,43 @@
   background: linear-gradient(90deg, #f87171, #fb7185);
 }
 .mc-ou-pct {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  min-width: 24px;
+  min-width: 28px;
   text-align: right;
 }
-.mc-ou-pct.over { color: #10b981; }
-.mc-ou-pct.under { color: #f87171; }
+.mc-ou-pct.over {
+  color: #10b981;
+}
+.mc-ou-pct.under {
+  color: #f87171;
+}
 
 .mc-btts {
-  width: 66px;
-  padding: 0 6px;
+  width: 70px;
+  padding: 0 8px;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: #38bdf8;
 }
 
 .mc-handicap {
-  width: 76px;
-  padding: 0 6px;
+  width: 80px;
+  padding: 0 8px;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: #a78bfa;
 }
 
 @media (max-width: 768px) {
-  .match-card { padding: 6px 8px; }
-  .mc-btts, .mc-handicap { display: none; }
+  .match-card {
+    padding: 8px 10px;
+    min-height: 60px;
+  }
+  .mc-btts,
+  .mc-handicap {
+    display: none;
+  }
 }

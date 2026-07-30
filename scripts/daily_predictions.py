@@ -18,6 +18,16 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s'
 )
 
+# ── Penaltyblog lazy import ─────────────────────
+_penaltyblog_engine = None
+def get_penaltyblog_engine():
+    global _penaltyblog_engine
+    if _penaltyblog_engine is None:
+        sys.path.insert(0, os.path.join(BASE_DIR, 'services'))
+        from penaltyblog_engine import PenaltyblogEngine
+        _penaltyblog_engine = PenaltyblogEngine()
+    return _penaltyblog_engine
+
 ENV_PATH = os.path.join(BASE_DIR, '.env')
 
 def get_key(name):
@@ -230,12 +240,15 @@ def run():
     # Limit to 40 matches for performance (increased from 25)
     matches_to_predict = enriched[:40]
     
-    # 3. Run V553
-    print(f"\n3. Running V553 predictions on {len(matches_to_predict)} matches...")
+    # 3. Run V553 + Penaltyblog blended predictions
+    print(f"\n3. Running V553 + Penaltyblog on {len(matches_to_predict)} matches...")
     from ml_features import get_team_history
     get_team_history.cache_clear()
     from predict_v553 import predict
-    
+
+    pb_engine = get_penaltyblog_engine()
+    PB_WEIGHT = 0.35
+
     results = []
     errors = []
     for idx, m in enumerate(matches_to_predict):
@@ -244,6 +257,8 @@ def run():
         away_short = match['awayTeam'][:20]
         try:
             pred = predict(match)
+            pb_pred = pb_engine.predict_match(match['homeTeam'], match['awayTeam'], match['league'])
+
             if pred and pred.get('prediction'):
                 hp = safe_float(pred.get('home_win_prob', 0))
                 dp = safe_float(pred.get('draw_prob', 0))
@@ -253,20 +268,37 @@ def run():
                 exp = pred.get('expected_score', '1.2 - 1.0')
                 xg_h = pred.get('home_xg')
                 xg_a = pred.get('away_xg')
-                
+
+                if pb_pred and pb_pred.get('success'):
+                    pb_h = pb_pred['home_win'] * 100
+                    pb_d = pb_pred['draw'] * 100
+                    pb_a = pb_pred['away_win'] * 100
+                    pb_model = pb_pred.get('model', 'penaltyblog')
+                    hp = hp * (1 - PB_WEIGHT) + pb_h * PB_WEIGHT
+                    dp = dp * (1 - PB_WEIGHT) + pb_d * PB_WEIGHT
+                    ap = ap * (1 - PB_WEIGHT) + pb_a * PB_WEIGHT
+                    s = hp + dp + ap
+                    if s > 0:
+                        hp, dp, ap = hp / s * 100, dp / s * 100, ap / s * 100
+                    conf = max(hp, dp, ap)
+                    result = '1' if hp == conf else ('X' if dp == conf else '2')
+                    pb_tag = f'+{pb_model}'
+                else:
+                    pb_tag = ''
+
                 ou25, btts = compute_ou_btts(exp, xg_h, xg_a)
-                
+
                 if result == '1': odds = match['odds_home']; prob = hp
                 elif result == 'X': odds = match['odds_draw']; prob = dp
                 else: odds = match['odds_away']; prob = ap
-                
+
                 p = prob / 100.0
                 ev = round(p * odds - (1 - p), 3)
                 kelly = round(max(0, (p * odds - 1) / (odds - 1)), 3) if odds > 1 else 0
-                
+
                 h_hist = get_team_history(match['homeTeam'], limit=5)
                 a_hist = get_team_history(match['awayTeam'], limit=5)
-                
+
                 results.append({
                     'date': match.get('event_date', '')[:10],
                     'time': match.get('event_date', '')[11:16],
@@ -291,10 +323,13 @@ def run():
                     'kelly': kelly,
                     'has_real_odds': match['has_real_odds'],
                     'home_history': len(h_hist),
-                    'away_history': len(a_hist)
+                    'away_history': len(a_hist),
+                    'penaltyblog': bool(pb_tag),
+                    'models': f'v553{pb_tag}'
                 })
                 tag_src = 'R' if match['has_real_odds'] else 'E'
-                print(f"   [{idx+1}/{len(matches_to_predict)}] [{tag_src}] {home_short:20} vs {away_short:20} | {result:4} | {conf:.0f}% | EV:{ev:.2f} | odds:{match['odds_source']}")
+                tag_pb = 'PB' if pb_tag else '  '
+                print(f"   [{idx+1}/{len(matches_to_predict)}] [{tag_src}][{tag_pb}] {home_short:20} vs {away_short:20} | {result:4} | {conf:.0f}% | EV:{ev:.2f} | odds:{match['odds_source']}")
             else:
                 print(f"   [{idx+1}/{len(matches_to_predict)}] {home_short:20} vs {away_short:20} | SKIP (no prediction)")
         except Exception as ex:
@@ -313,12 +348,14 @@ def run():
     by_conf = sorted(results, key=lambda x: x['confidence'], reverse=True)
     by_ev = sorted([r for r in results if r['ev'] > 0], key=lambda x: x['ev'], reverse=True)
     
+    pb_count = sum(1 for r in results if r.get('penaltyblog'))
     output = {
         'generated_at': datetime.datetime.now().isoformat(),
         'date': datetime.date.today().isoformat(),
         'total_matches': len(results),
         'total_errors': len(errors),
         'with_odds': sum(1 for r in results if r['has_real_odds']),
+        'with_penaltyblog': pb_count,
         'odds_sources': dict((src, cnt) for src, cnt in sources.items()),
         'top_confidence': by_conf[:10],
         'top_value': by_ev[:10],
@@ -348,7 +385,8 @@ def run():
     
     print(f"\nSauvegardé: {out_path}")
     print(f"Sources: {sources}")
-    logging.info(f"Completed: {len(results)} predictions, {sum(1 for r in results if r['has_real_odds'])} with odds")
+    print(f"Penaltyblog: {pb_count}/{len(results)} matches blended")
+    logging.info(f"Completed: {len(results)} predictions, {pb_count} with penaltyblog, {sum(1 for r in results if r['has_real_odds'])} with odds")
     return output
 
 if __name__ == '__main__':

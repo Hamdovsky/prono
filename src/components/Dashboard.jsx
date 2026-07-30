@@ -292,72 +292,7 @@ const Dashboard = () => {
     URL.revokeObjectURL(url)
   }
 
-  // League accuracy derived from matches
-  const leagueAccuracy = useMemo(() => {
-    const groups = {}
-    matches.forEach((m) => {
-      const league = m.league || m.tournament_name || 'Unknown'
-      if (!groups[league]) groups[league] = { total: 0, sum: 0 }
-      groups[league].total++
-      const conf = m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0
-      groups[league].sum += conf > 1 ? conf : conf * 100
-    })
-    return Object.entries(groups)
-      .map(([league, data]) => ({ league, pct: Math.round(data.sum / data.total) }))
-      .sort((a, b) => b.total - a.total || b.pct - a.pct)
-      .slice(0, 5)
-  }, [matches])
-
-  // Performance-based league accuracy (from finished match results)
-  const perfLeagueAccuracy = useMemo(() => {
-    const finished = matches.filter((m) => {
-      const st = (m.status || '').toUpperCase()
-      if (st === 'NOT_STARTED' || st === 'SCHEDULED' || st === '' || st === 'NS') return false
-      if (st === 'IN_PLAY' || st === 'LIVE' || st === '1H' || st === '2H' || st === 'HT')
-        return false
-      const sh = m.scoreHome ?? m.score?.home
-      const sa = m.scoreAway ?? m.score?.away
-      if ((sh === null || sh === undefined) && (sa === null || sa === undefined)) return false
-      if (Number(sh) === 0 && Number(sa) === 0) return false
-      return true
-    })
-    const groups = {}
-    finished.forEach((m) => {
-      const league = m.league || 'Unknown'
-      if (!groups[league]) groups[league] = { total: 0, wins: 0 }
-      groups[league].total++
-      const h = Number(m.scoreHome !== undefined ? m.scoreHome : m.score?.home || 0)
-      const a = Number(m.scoreAway !== undefined ? m.scoreAway : m.score?.away || 0)
-      let pick = ''
-      const q = m.quant || m._quant
-      if (q && q.main_pick) pick = String(q.main_pick).toLowerCase()
-      else if (m.predictions && m.predictions[0] && m.predictions[0].val)
-        pick = String(m.predictions[0].val).toLowerCase()
-      else pick = String(m.prediction || '').toLowerCase()
-      if (!pick || pick.includes('skip') || pick.includes('no bet')) return
-      let isWin = false
-      if (pick.includes('home') || pick === '1') isWin = h > a
-      else if (pick.includes('away') || pick === '2') isWin = a > h
-      else if (pick.includes('draw') || pick === 'x') isWin = h === a
-      else if (pick.includes('btts')) isWin = h > 0 && a > 0
-      else if (pick.includes('+2.5') || pick.includes('over 2.5')) isWin = h + a > 2.5
-      else if (pick.includes('-2.5') || pick.includes('under 2.5')) isWin = h + a < 2.5
-      else if (pick.includes('+1.5') || pick.includes('over 1.5')) isWin = h + a > 1.5
-      else if (pick.includes('-1.5') || pick.includes('under 1.5')) isWin = h + a < 1.5
-      if (isWin) groups[league].wins++
-    })
-    return Object.entries(groups)
-      .map(([league, data]) => ({
-        league,
-        total: data.total,
-        wins: data.wins,
-        winRate: Math.round((data.wins / data.total) * 100),
-      }))
-      .filter((l) => l.total >= 3)
-      .sort((a, b) => b.winRate - a.winRate)
-  }, [matches])
-
-  // Date Constants for filtering
+   // Date Constants for filtering
   const getToday = () => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -852,41 +787,7 @@ const Dashboard = () => {
                 </button>
               </div>
 
-          {/* League accuracy badges */}
-          {leagueAccuracy.length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '4px 14px',
-                marginBottom: '8px',
-                flexWrap: 'wrap',
-              }}
-            >
-              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700' }}>
-                🎯 Précision ligues:
-              </span>
-              {leagueAccuracy.slice(0, 8).map((la, i) => (
-                <span
-                  key={i}
-                  style={{
-                    fontSize: '9px',
-                    fontWeight: '700',
-                    color: la.pct >= 70 ? '#00ffaa' : la.pct >= 55 ? '#fbbf24' : '#f87171',
-                    background: `${la.pct >= 70 ? 'rgba(0,255,170,0.08)' : la.pct >= 55 ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)'}`,
-                    padding: '1px 5px',
-                    borderRadius: '4px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {la.league.split(' ').slice(0, 2).join(' ')}: {la.pct}%
-                </span>
-              ))}
-            </div>
-          )}
-
-          {renderMatchList(allMatchesList, `📊 TOUS LES MATCHS`, false)}
+           {renderMatchList(allMatchesList, `📊 TOUS LES MATCHS`, false)}
         </div>
       )
     }

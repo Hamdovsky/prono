@@ -506,20 +506,20 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
         {/* BOX 4: O/U 2.5 */}
         <div
           style={G({
-            bg: 'rgba(16,185,129,0.04)',
-            border: `1px solid ${scoreTotal >= 3 ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.1)'}`,
+            bg: over25Pct > 50 ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)',
+            border: `1px solid ${over25Pct > 50 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`,
           })}
         >
-          <L c={scoreTotal >= 3 ? '#10b981' : '#94a3b8'} s="7px" w="900">
+          <L c={over25Pct > 50 ? '#10b981' : '#ef4444'} s="7px" w="900">
             O/U 2.5
           </L>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-            <V c={scoreTotal >= 3 ? '#10b981' : '#94a3b8'} s="18px">
-              {scoreTotal >= 3 ? 'OVER' : 'UNDER'}
+            <V c={over25Pct > 50 ? '#10b981' : '#ef4444'} s="18px">
+              {over25Pct > 50 ? 'OVER' : 'UNDER'}
             </V>
             <Pct
-              v={scoreTotal >= 3 ? over25Pct : 100 - over25Pct}
-              c={scoreTotal >= 3 ? '#10b981' : '#94a3b8'}
+              v={over25Pct}
+              c={over25Pct > 50 ? '#10b981' : '#ef4444'}
             />
           </div>
         </div>

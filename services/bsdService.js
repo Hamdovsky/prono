@@ -387,7 +387,7 @@ class BsdService {
 
     const today = new Date().toISOString().split('T')[0]
     const dates = []
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 3; i++) {
       const d = new Date(Date.now() + i * 86400000)
       dates.push(d.toISOString().split('T')[0])
     }

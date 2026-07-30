@@ -246,20 +246,13 @@ app.get('/api/debug/state', async (req, res) => {
     const byStatus = db?.prepare('SELECT status, COUNT(*) as c FROM matches GROUP BY status').all() || []
     const bsdAvail = bsd.isAvailable()
     let bsdFetch = 'not tested'
-    let bsdSync = 'not tested'
     try {
       const events = await bsd.fetchEvents(new Date().toISOString().split('T')[0])
       bsdFetch = `fetched ${events.length} events`
     } catch (e) {
       bsdFetch = `error: ${e.message}`
     }
-    try {
-      const synced = await bsd.syncFixtures(new Date().toISOString().split('T')[0])
-      bsdSync = `synced ${synced} matches`
-    } catch (e) {
-      bsdSync = `error: ${e.message}`
-    }
-    res.json({ dbMatches: count, bySource, byStatus, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdSync })
+    res.json({ dbMatches: count, bySource, byStatus, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch })
   } catch (e) {
     res.json({ error: e.message })
   }

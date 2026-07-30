@@ -131,8 +131,6 @@ const Dashboard = () => {
   const [sortDir, setSortDir] = useState('desc')
   const [matches, setMatches] = useState([])
   const [status, setStatus] = useState('idle')
-  const [scraperProgress, setScraperProgress] = useState(null)
-  const [isScraping, setIsScraping] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [selectedMatchForUltimateView, setSelectedMatchForUltimateView] = useState(null)
@@ -209,87 +207,8 @@ const Dashboard = () => {
     return () => clearInterval(interval)
   }, [checkApiHealth])
 
-  // Scraper Polling Effect
-  useEffect(() => {
-    let pollInterval
-    if (isScraping) {
-      pollInterval = setInterval(async () => {
-        const progress = await dataService.getScraperProgress()
-        if (progress) {
-          setScraperProgress(progress)
-          if (!progress.isRunning) {
-            setIsScraping(false)
-            dataService.refreshAllData() // Refresh matches when done
-          }
-        }
-      }, 3000)
-    }
-    return () => {
-      if (pollInterval) clearInterval(pollInterval)
-    }
-  }, [isScraping])
-
-  const handleSync = async () => {
-    if (isScraping) return
-    try {
-      await dataService.triggerScanToday()
-      setIsScraping(true)
-    } catch (e) {
-      console.error('Failed to start sync:', e)
-    }
-  }
-
   const handleRefresh = () => {
     dataService.refreshAllData()
-  }
-
-  const handleExportCSV = () => {
-    const rows = [
-      [
-        'Date',
-        'Ligue',
-        'Domicile',
-        'Extérieur',
-        'CS',
-        'Confiance',
-        'BTTS',
-        'O/U',
-        'EV',
-        'Force',
-        'Valeur Score',
-      ],
-    ]
-    const exportList = activeView === 'all-matches' ? allMatchesList : sortedMatches
-    exportList.forEach((m) => {
-      const ev = parseFloat(m.quant?.ev_score || m.ev_score || 0)
-      const conf = m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0
-      const valueScore = (((ev || 0) * (conf || 0)) / 100).toFixed(2)
-      rows.push([
-        new Date(
-          m.startTimestamp > 1e11 ? m.startTimestamp : m.startTimestamp * 1000
-        ).toLocaleDateString('fr-FR'),
-        m.league || m.tournament_name || '',
-        m.homeTeam || '',
-        m.awayTeam || '',
-        m.quant?.expected_score || m.expected_score || '',
-        conf,
-        Math.round(Number(m.btts_prob || m.quant?.probs?.btts || 0)) + '%',
-        Math.round(Number(m.ou_25_prob || m.quant?.probs?.over25 || 0)) + '%',
-        ev.toFixed(2),
-        m.enriched?.power_score || m.power_score || '',
-        valueScore,
-      ])
-    })
-    const csv = rows
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-      .join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `matches_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
    // Date Constants for filtering
@@ -584,99 +503,29 @@ const Dashboard = () => {
            {title} ({list.length})
          </div>
          <div style={{ width: '100%' }}>
-           {/* ✅ Column Header Row */}
-           <div
-              style={{
-                display: 'flex',
-                borderBottom: '2px solid #1e293b',
-                padding: '8px 0',
-                fontSize: '11px',
-                color: '#64748b',
-                textTransform: 'uppercase',
-                fontWeight: '800',
-                letterSpacing: '0.8px',
-                background: 'rgba(0,0,0,0.3)',
-                position: 'sticky',
-                top: 0,
-                zIndex: 5,
-              }}
-            >
-              <div style={{ width: '14%', minWidth: '130px', padding: '0 8px' }}>MATCH / FORME</div>
-              <div
-                style={{
-                  width: '22%',
-                  minWidth: '160px',
-                  padding: '0 8px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleSort('PRONOSTIC')}
-              >
-                PRONOSTIC {activeSort === 'PRONOSTIC' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-              </div>
-              <div
-                style={{
-                  width: '10%',
-                  minWidth: '80px',
-                  padding: '0 8px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleSort('AI_SCORE')}
-              >
-                AI SCORE / FT {activeSort === 'AI_SCORE' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-              </div>
-              <div
-                style={{
-                  width: '14%',
-                  minWidth: '110px',
-                  padding: '0 8px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleSort('MARCHES')}
-              >
-                MARCHÉS (DC) {activeSort === 'MARCHES' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-              </div>
-              <div
-                style={{
-                  width: '12%',
-                  minWidth: '85px',
-                  padding: '0 8px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleSort('PRECISION')}
-              >
-                PRÉCISION / RISK{' '}
-                {activeSort === 'PRECISION' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-              </div>
-              <div
-                style={{
-                  width: '14%',
-                  minWidth: '110px',
-                  padding: '0 8px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleSort('EV')}
-              >
-                SIGNAL + EV {activeSort === 'EV' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-              </div>
-              <div
-                style={{
-                  width: '14%',
-                  minWidth: '90px',
-                  padding: '0 8px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleSort('STRENGTH')}
-              >
-                FORCE {activeSort === 'STRENGTH' ? (sortDir === 'desc' ? '▼' : '▲') : ''}
-              </div>
-            </div>
-          )}
+            {/* Column Header Row */}
+            <div
+               style={{
+                 display: 'flex',
+                 borderBottom: '2px solid #1e293b',
+                 padding: '8px 0',
+                 fontSize: '11px',
+                 color: '#64748b',
+                 textTransform: 'uppercase',
+                 fontWeight: '800',
+                 letterSpacing: '0.8px',
+                 background: 'rgba(0,0,0,0.3)',
+                 position: 'sticky',
+                 top: 0,
+                 zIndex: 5,
+               }}
+             >
+               <div style={{ flex: 1, minWidth: '130px', padding: '0 8px' }}>MATCH</div>
+               <div style={{ width: '80px', padding: '0 8px', textAlign: 'center' }}>O/U</div>
+               <div style={{ width: '70px', padding: '0 8px', textAlign: 'center' }}>BTTS</div>
+               <div style={{ width: '80px', padding: '0 8px', textAlign: 'center' }}>HANDICAP</div>
+             </div>
+           )}
           <div style={{ height: virtualHeight }}>
             <List
               height={virtualHeight}
@@ -1100,118 +949,10 @@ const Dashboard = () => {
     )
   }
 
-  const smtSignals = matches.filter((m) => m.smart_money_active).length
-
   return (
     <div className="titanium-layout">
       <main className="titanium-main">
-         {/* ONYX STATUS HEADER (BOOSTED) */}
-         <div
-           className="onyx-status-header"
-           style={{
-             background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-             borderBottom: '1px solid rgba(0, 255, 170, 0.3)',
-             padding: '8px 20px',
-             height: '45px',
-           }}
-         >
-           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-             <div
-               className="status-dot live"
-               style={{ width: '8px', height: '8px', boxShadow: '0 0 10px #00ffaa' }}
-             ></div>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: '900',
-                letterSpacing: '1px',
-                color: '#f8fafc',
-              }}
-            >
-              TITANIUM <span style={{ color: '#00ffaa' }}>SENSOR COMMAND</span> v3.0
-            </span>
-          </div>
 
-          <div
-            className="onyx-header-center"
-            style={{ flex: 1, display: 'flex', justifyContent: 'center' }}
-          >
-            {isScraping ? (
-              <div
-                className="onyx-scraper-status"
-                style={{
-                  background: 'rgba(0, 255, 170, 0.1)',
-                  padding: '2px 12px',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(0, 255, 170, 0.3)',
-                }}
-              >
-                <span className="onyx-pulse" style={{ marginRight: '8px' }}>
-                  📡
-                </span>
-                <span style={{ fontSize: '11px', fontWeight: '800' }}>
-                  SYNC LIVE: {scraperProgress?.percent || 0}%
-                </span>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '9px', color: '#64748b', fontWeight: '900' }}>
-                    MOTEUR:
-                  </span>
-                  <span style={{ fontSize: '10px', color: '#fbbf24', fontWeight: '900' }}>
-                    NEURAL-X
-                  </span>
-                </div>
-                <button
-                  className="onyx-sync-btn"
-                  onClick={handleSync}
-                  style={{
-                    background: 'rgba(0, 255, 170, 0.1)',
-                    border: '1px solid #00ffaa',
-                    color: '#00ffaa',
-                    padding: '2px 10px',
-                    borderRadius: '4px',
-                    fontSize: '10px',
-                    fontWeight: '900',
-                  }}
-                >
-                  ⚡ BOOST SYNC
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div
-            className="onyx-header-right"
-            style={{ display: 'flex', gap: '20px', alignItems: 'center' }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span
-                style={{
-                  fontSize: '8px',
-                  color: '#64748b',
-                  fontWeight: '900',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Capteurs Actifs
-              </span>
-              <span
-                style={{
-                  fontSize: '14px',
-                  color: '#00ffaa',
-                  fontWeight: '900',
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                {matches.length}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Legacy Titanium Header hidden via CSS, but keeping elements for compatibility if needed */}
 
         <div className="titanium-scroll">{renderMainContent()}</div>
       </main>

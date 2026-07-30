@@ -242,15 +242,24 @@ app.get('/api/debug/state', async (req, res) => {
     const bsd = require('./services/bsdService')
     const db = database.db
     const count = db?.prepare('SELECT COUNT(*) as c FROM matches').get()?.c || 0
+    const bySource = db?.prepare('SELECT source, COUNT(*) as c FROM matches GROUP BY source').all() || []
+    const byStatus = db?.prepare('SELECT status, COUNT(*) as c FROM matches GROUP BY status').all() || []
     const bsdAvail = bsd.isAvailable()
-    let bsdTest = 'not tested'
+    let bsdFetch = 'not tested'
+    let bsdSync = 'not tested'
     try {
       const events = await bsd.fetchEvents(new Date().toISOString().split('T')[0])
-      bsdTest = `fetched ${events.length} events`
+      bsdFetch = `fetched ${events.length} events`
     } catch (e) {
-      bsdTest = `error: ${e.message}`
+      bsdFetch = `error: ${e.message}`
     }
-    res.json({ dbMatches: count, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdTest })
+    try {
+      const synced = await bsd.syncFixtures(new Date().toISOString().split('T')[0])
+      bsdSync = `synced ${synced} matches`
+    } catch (e) {
+      bsdSync = `error: ${e.message}`
+    }
+    res.json({ dbMatches: count, bySource, byStatus, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdSync })
   } catch (e) {
     res.json({ error: e.message })
   }

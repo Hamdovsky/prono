@@ -36,6 +36,10 @@ class FeatureEngineer {
             boost = 1.08; // reduced home advantage in cups/friendlies
         }
         
+        // League-specific home advantage
+        const leagueAdj = this._getLeagueHomeAdvantage(league);
+        boost *= leagueAdj;
+        
         return boost;
     }
 
@@ -172,6 +176,21 @@ class FeatureEngineer {
             if (key.includes(k)) return v;
         }
         return 0;
+    }
+
+    _getLeagueHomeAdvantage(league) {
+        const key = (league || '').toLowerCase();
+        // Leagues with strong home advantage
+        const strong = ['turkey', 'brasil', 'brasileirao', 'argentina', 'mexico', 'rusia', 'russia', 'ukraine', 'poland', 'romania', 'greece', 'portugal', 'belgium', 'austria'];
+        // Leagues with moderate home advantage
+        const moderate = ['premier league', 'championship', 'liga', 'serie a', 'bundesliga', 'ligue 1', 'eredivisie', ' primeira'];
+        // Leagues with weak home advantage
+        const weak = ['mls', 'japan', 'korea', 'china', 'usa', 'scandinavia', 'denmark', 'norway', 'sweden'];
+        
+        for (const k of strong) { if (key.includes(k)) return 1.15; }
+        for (const k of weak) { if (key.includes(k)) return 0.85; }
+        for (const k of moderate) { if (key.includes(k)) return 1.0; }
+        return 1.0; // default
     }
 
     /**

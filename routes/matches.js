@@ -225,9 +225,10 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     ])
     // Auto-populate if DB is near-empty (fresh deploy on Render) — fire & forget
     if (allMatches.length < 5) {
-      bsdService.fullSync().then((synced) => {
+      const today = new Date().toISOString().split('T')[0]
+      bsdService.syncFixtures(today).then((synced) => {
         if (synced > 0) {
-          logger.info(`[UPCOMING] Background BSD sync returned ${synced} matches`)
+          logger.info(`[UPCOMING] Background BSD sync returned ${synced} matches for ${today}`)
           try { invalidateCache('upcoming') } catch (_) {}
         }
       }).catch((e) => logger.error(`[UPCOMING] Background BSD sync error: ${e.message}`))

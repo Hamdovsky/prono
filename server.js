@@ -465,11 +465,14 @@ setTimeout(() => {
       const unenriched = matches.filter(m => {
         const hw = parseFloat(m.home_win_probability || 0)
         // Re-enrich matches that were enriched with old dispersion (ai_source === 'TITANIUM_QUANT_V4' but BTTS < 35)
-        // or have zero/invalid probabilities or use RESPONSE_FLOOR
+        // or have zero/invalid probabilities or use RESPONSE_FLOOR (or null ai_source)
         if (m.ai_source === 'TITANIUM_QUANT_V4' && m.btts_prob < 35) {
           return true
         }
-        return !hw || hw <= 0 || isNaN(hw) || m.ai_source === 'RESPONSE_FLOOR'
+        if (!m.ai_source || m.ai_source === 'RESPONSE_FLOOR' || m.ai_source === 'NONE') {
+          return true
+        }
+        return !hw || hw <= 0 || isNaN(hw)
       })
       if (unenriched.length === 0) {
         setTimeout(runLoop, 60000) // check again in 1 min

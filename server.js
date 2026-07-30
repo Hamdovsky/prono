@@ -176,8 +176,9 @@ setTimeout(async () => {
         cronSchedules.init()
 
         // ── Auto-enrich after cloud seed (batched to avoid OOM on free tier) ──
-        const ENRICH_BATCH = parseInt(process.env.ENRICH_BATCH_SIZE || '10', 10)
-        const ENRICH_DELAY = parseInt(process.env.ENRICH_BATCH_DELAY_MS || '30000', 10) // 30s
+        process.env.ENRICH_CONCURRENCY = '8'
+        const ENRICH_BATCH = parseInt(process.env.ENRICH_BATCH_SIZE || '35', 10)
+        const ENRICH_DELAY = parseInt(process.env.ENRICH_BATCH_DELAY_MS || '10000', 10) // 10s
 
         async function enrichBatch(batchSize) {
           const enrichedPredictions = require('./core/enriched_predictions')

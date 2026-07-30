@@ -240,6 +240,12 @@ app.get('/health', (req, res) => {
 app.get('/api/debug/state', async (req, res) => {
   try {
     const bsd = require('./services/bsdService')
+    const fs = require('fs')
+    const path = require('path')
+    const dbPath = path.resolve(__dirname, 'data/tactical.db')
+    const dbExists = fs.existsSync(dbPath)
+    const dbSize = dbExists ? fs.statSync(dbPath).size : -1
+    const dbWritable = dbExists ? (() => { try { fs.accessSync(dbPath, fs.constants.W_OK); return true } catch { return false } })() : false
     const countResult = await database.query('SELECT COUNT(*) as c FROM matches')
     const count = countResult?.rows?.[0]?.c || 0
     const bySource = await database.query('SELECT source, COUNT(*) as c FROM matches GROUP BY source')
@@ -263,7 +269,7 @@ app.get('/api/debug/state', async (req, res) => {
     } catch (e) {
       bsdFetch = `error: ${e.message}`
     }
-    res.json({ dbMatches: count, bySource: bySource?.rows || [], byStatus: byStatus?.rows || [], bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdInsert })
+    res.json({ dbMatches: count, dbPath, dbExists, dbSize, dbWritable, bySource: bySource?.rows || [], byStatus: byStatus?.rows || [], bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdInsert })
   } catch (e) {
     res.json({ error: e.message })
   }

@@ -839,6 +839,7 @@ class EnrichedPredictionService {
                 away_team_id: m.away_team_id || 0,
             })
             return new Promise((resolve) => {
+                const timer = setTimeout(() => { req.destroy(); resolve(null) }, 6000)
                 const req = http.request({
                     hostname: '127.0.0.1',
                     port: 8000,
@@ -851,6 +852,7 @@ class EnrichedPredictionService {
                     let data = ''
                     res.on('data', d => data += d)
                     res.on('end', () => {
+                        clearTimeout(timer)
                         try {
                             const parsed = JSON.parse(data)
                             if (parsed && parsed.success) {
@@ -873,8 +875,8 @@ class EnrichedPredictionService {
                         } catch (_) { resolve(null) }
                     })
                 })
-                req.on('error', () => resolve(null))
-                req.on('timeout', () => { req.destroy(); resolve(null) })
+                req.on('error', () => { clearTimeout(timer); resolve(null) })
+                req.on('timeout', () => { req.destroy(); clearTimeout(timer); resolve(null) })
                 req.write(payload)
                 req.end()
             })

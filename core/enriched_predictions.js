@@ -888,9 +888,10 @@ class EnrichedPredictionService {
      * Uses real Poisson distribution based on match-specific xG data.
      * No Python subprocess needed.
      */
-    async fastEnrichMatch(match) {
+    async fastEnrichMatch(match, opts = {}) {
         try {
             const m = { ...match };
+            const skipBayesian = opts.skipBayesian === true
 
             // ── FETCH ODDS (critical for odds-implied xG differentiation) ──
             if (!m.odds_home || !m.odds_draw || !m.odds_away) {
@@ -927,7 +928,7 @@ class EnrichedPredictionService {
             }
 
             // ── BAYESIAN LOW-DATA RESCUE ──
-            if (this._isLowData(m)) {
+            if (!skipBayesian && this._isLowData(m)) {
                 const bayesian = await this._tryBayesianLowData(m);
                 if (bayesian && (parseFloat(bayesian.home_win_probability) > 0 || parseFloat(bayesian.away_win_probability) > 0)) {
                     return {
@@ -1293,7 +1294,7 @@ class EnrichedPredictionService {
             verdict: mainProb > 45 ? 'SAFE' : (mainProb > 38 ? 'STABLE' : 'RISKY BET'),
             prediction: mainPick,
             power_score: Math.round(mainProb),
-            ou_25_prob: Math.round(probs.over25),
+            ou_25_prob: Math.round(probs.over25 * 100),
             btts_prob: Math.round(probs.btts.yes * 100),
             insufficient_data: 1,
             confidence: Math.round(mainProb * 0.6),
@@ -1342,7 +1343,7 @@ class EnrichedPredictionService {
             // JS-only instantané (<100ms)
             const fastResults = await Promise.all(needsEnrichment.map(async m => {
                 try {
-                    return await this.fastEnrichMatch(m);
+                    return await this.fastEnrichMatch(m, { skipBayesian: options.skipBayesian });
                 } catch (err) {
                     logger.error(`❌ [ENRICH] Fast path failed for ${m.homeTeam}:`, err.message);
                     return m;

@@ -189,6 +189,7 @@ setTimeout(async () => {
           const enriched = await enrichedPredictions.enrichMatches(batch, {
             fastMode: true,
             force: true,
+            skipBayesian: true,
           })
           let updated = 0
           for (const m of enriched) {

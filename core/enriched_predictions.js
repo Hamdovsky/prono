@@ -844,6 +844,7 @@ class EnrichedPredictionService {
                     port: 8000,
                     path: '/bayesian/predict',
                     method: 'POST',
+                    agent: false,
                     headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
                     timeout: 5000
                 }, (res) => {

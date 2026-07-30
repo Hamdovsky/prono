@@ -186,10 +186,18 @@ setTimeout(async () => {
           if (matches.length === 0) return 0
           const batch = matches.slice(0, batchSize)
           logger.info(`[AUTO-ENRICH] Batch: ${batch.length}/${matches.length} matches...`)
-          const enriched = await enrichedPredictions.enrichMatches(batch, {
-            fastMode: true,
-            force: true,
-          })
+          const enriched = await Promise.race([
+            enrichedPredictions.enrichMatches(batch, {
+              fastMode: true,
+              force: true,
+            }),
+            new Promise(resolve =>
+              setTimeout(() => {
+                logger.warn(`[AUTO-ENRICH] ⏰ enrichMatches TIMEOUT after 30s, returning raw batch`)
+                resolve(batch.map(m => ({ ...m })))
+              }, 30000)
+            )
+          ])
           let updated = 0
           for (const m of enriched) {
             try {

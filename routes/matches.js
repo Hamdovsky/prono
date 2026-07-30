@@ -227,8 +227,10 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
 
     const daysParam = parseInt(req.query.days) || 3
     const maxDays = Math.min(Math.max(daysParam, 1), 14)
-    const startOfToday = new Date().setHours(0, 0, 0, 0)
-    const endOfRange = startOfToday + maxDays * 24 * 60 * 60 * 1000
+    // Use a 12h lookback to handle timezone differences (UTC server vs local user)
+    const now = Date.now()
+    const lookback = now - 12 * 60 * 60 * 1000
+    const endOfRange = now + maxDays * 24 * 60 * 60 * 1000
 
     rawMatches = rawMatches.filter((m) => {
       let rawTs = m.startTimestamp
@@ -254,8 +256,8 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
 
       if (isNaN(tsMs)) return true // can't parse → show anyway
 
-      // Show matches from the start of today up to 72h in future
-      return tsMs >= startOfToday && tsMs <= endOfRange
+      // Show matches from 12h ago up to N days in future (handles TZ differences)
+      return tsMs >= lookback && tsMs <= endOfRange
     })
 
     // If no upcoming matches, fallback to recent matches (last 7 days)

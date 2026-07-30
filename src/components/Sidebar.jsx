@@ -117,10 +117,20 @@ const Sidebar = ({
   }
 
   const activeCounts = {}
-  const todayStr = new Date().toLocaleDateString()
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowStr = tomorrow.toLocaleDateString()
+
+  const getLocalDayStart = (offsetDays = 0) => {
+    const d = new Date()
+    d.setDate(d.getDate() + offsetDays)
+    d.setHours(0, 0, 0, 0)
+    return d.getTime()
+  }
+
+  const getLocalDayEnd = (offsetDays = 0) => {
+    const d = new Date()
+    d.setDate(d.getDate() + offsetDays)
+    d.setHours(23, 59, 59, 999)
+    return d.getTime()
+  }
 
   matches.forEach((m) => {
     let dateMs = null
@@ -135,34 +145,13 @@ const Sidebar = ({
     }
 
     if (!dateMs) {
-      // No timestamp — assume today
-      const matchDayStr = new Date().toLocaleDateString()
-      if (activeDate === 'Today' && matchDayStr !== todayStr) return
-      if (activeDate === 'Tomorrow' && matchDayStr !== tomorrowStr) return
-      if (activeDate === 'Next 3 Days') {
-        const threeDays = Date.now() + 3 * 24 * 60 * 60 * 1000
-        if (Date.now() < Date.now() - 3600000 || Date.now() > threeDays) return
-      }
-      if (activeDate === 'Next 7 Days') {
-        const sevenDays = Date.now() + 7 * 24 * 60 * 60 * 1000
-        if (Date.now() < Date.now() - 3600000 || Date.now() > sevenDays) return
-      }
-      const l = (m.league || 'Unknown').toLowerCase()
-      activeCounts[l] = (activeCounts[l] || 0) + 1
-      return
+      dateMs = Date.now()
     }
-    const matchDayStr = new Date(dateMs).toLocaleDateString()
 
-    if (activeDate === 'Today' && matchDayStr !== todayStr) return
-    if (activeDate === 'Tomorrow' && matchDayStr !== tomorrowStr) return
-    if (activeDate === 'Next 3 Days') {
-      const threeDays = Date.now() + 3 * 24 * 60 * 60 * 1000
-      if (dateMs < Date.now() - 3600000 || dateMs > threeDays) return
-    }
-    if (activeDate === 'Next 7 Days') {
-      const sevenDays = Date.now() + 7 * 24 * 60 * 60 * 1000
-      if (dateMs < Date.now() - 3600000 || dateMs > sevenDays) return
-    }
+    if (activeDate === 'Today' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd())) return
+    if (activeDate === 'Tomorrow' && (dateMs < getLocalDayStart(1) || dateMs > getLocalDayEnd(1))) return
+    if (activeDate === 'Next 3 Days' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd(3))) return
+    if (activeDate === 'Next 7 Days' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd(7))) return
 
     const l = (m.league || 'Unknown').toLowerCase()
     activeCounts[l] = (activeCounts[l] || 0) + 1

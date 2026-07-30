@@ -1,6 +1,7 @@
 const http = require('http')
 const logger = require('./logger')
 const MatchAuditor = require('../services/MatchAuditor')
+const { getRandomUserAgent } = require('../SofascoreScraping/src/apiClient')
 
 /**
  * Enriched Predictions Service
@@ -122,18 +123,57 @@ class EnrichedPredictionService {
    */
   async _searchSofaTeamByName(teamName) {
     if (!teamName) return null
-    try {
-      const url = `${SOFA_API}/search/teams?q=${encodeURIComponent(teamName)}`
-      const resp = await axiosModule.get(url, { headers: SOFA_HEADERS, timeout: 6000 })
-      const results = resp.data?.results || []
-      if (results.length === 0) return null
-      // Prefer exact name match, then first result
-      const exact = results.find((r) => r.name?.toLowerCase() === teamName.toLowerCase())
-      const best = exact || results[0]
-      return best?.id || null
-    } catch (_) {
-      return null
+    const cacheKey = `_sofaTeamId:${teamName.toLowerCase().trim()}`
+    if (this[cacheKey]) return this[cacheKey]
+    const findBest = (results) => {
+      const lower = teamName.toLowerCase().trim()
+      // 1) exact
+      let best = results.find((r) => r.name?.toLowerCase() === lower)
+      if (best) return best
+      // 2) starts with exact name (e.g. "Mallorca" in "Mallorca CF")
+      best = results.find((r) => {
+        const name = r.name?.toLowerCase() || ''
+        return name.startsWith(lower) || name.endsWith(lower) || name.includes(lower)
+      })
+      if (best) return best
+      // 3) first result
+      return results[0]
     }
+    const searchQueries = [teamName.trim()]
+    // If teamName has a prefix like "FC", "AC", "Real", try without it
+    const prefixes = ['fc ', 'ac ', 'real ', 'ssc ', 'ss ', 'as ', 'sc ', 'tsg ', 'sbv ', 'pfc ', 'fk ', 'bk ', 'sk ']
+    const lowerPrefix = searchQueries[0].toLowerCase()
+    for (const p of prefixes) {
+      if (lowerPrefix.startsWith(p)) {
+        searchQueries.push(teamName.trim().slice(p.length))
+        break
+      }
+    }
+    // Also try the last word (common for "Club Name" → "Name")
+    const parts = teamName.trim().split(/\s+/)
+    if (parts.length > 1) {
+      const last = parts[parts.length - 1]
+      if (last.length > 2 && last.toLowerCase() !== 'city' && last.toLowerCase() !== 'united' && last.toLowerCase() !== 'utd') {
+        searchQueries.push(last)
+      }
+    }
+    for (const q of searchQueries) {
+      try {
+        const url = `${SOFA_API}/search/teams?q=${encodeURIComponent(q)}`
+        const resp = await axiosModule.get(url, {
+          headers: { ...SOFA_HEADERS, 'User-Agent': getRandomUserAgent() },
+          timeout: 6000,
+        })
+        const results = resp.data?.results || []
+        if (results.length === 0) continue
+        const best = findBest(results)
+        if (best?.id) {
+          this[cacheKey] = best.id
+          return best.id
+        }
+      } catch (_) {}
+    }
+    return null
   }
 
   async _fetchSofaTeamData(match) {
@@ -162,8 +202,11 @@ class EnrichedPredictionService {
     if (awayId && typeof awayId === 'string' && awayId.endsWith('.0'))
       awayId = awayId.replace('.0', '')
 
-    if (!homeId || !awayId) {
-      // No IDs at all — try name search as last resort
+    // BSD IDs are not Sofascore IDs — force name search
+    const needsSofaNameSearch =
+      !homeId || !awayId || (typeof match.id === 'string' && match.id.startsWith('bsd_'))
+    if (needsSofaNameSearch) {
+      // Try name search when IDs are missing or are BSD internal IDs
       if (match.homeTeam && match.awayTeam) {
         const [hSofaId, aSofaId] = await Promise.all([
           this._searchSofaTeamByName(match.homeTeam),
@@ -178,15 +221,14 @@ class EnrichedPredictionService {
     }
 
     try {
-      const headers = {
+      const getHeaders = () => ({
         ...SOFA_HEADERS,
         Referer: `https://www.sofascore.com/team/football/team/${homeId}`,
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-      }
+        'User-Agent': getRandomUserAgent(),
+      })
 
       const fetchJson = async (url) => {
-        const resp = await axiosModule.get(url, { headers, timeout: 8000 })
+        const resp = await axiosModule.get(url, { headers: getHeaders(), timeout: 8000 })
         return resp.data
       }
 
@@ -1023,6 +1065,7 @@ class EnrichedPredictionService {
         m.odds_draw = parseFloat((1.05 / dp).toFixed(2))
         m.odds_away = parseFloat((1.05 / ap).toFixed(2))
         oddsAreSynthetic = true
+        m._oddsAreSynthetic = true
       }
 
       // ── SOFASCORE TEAM DATA (form, xG) ──
@@ -1144,7 +1187,8 @@ class EnrichedPredictionService {
       const v553 = await this._tryV553(m)
       let quantResult, aiSource, xgH, xgA, probs
       // Always compute JS engine xG for fallback use
-      if (m.odds_home && m.odds_draw && m.odds_away) {
+      if (m.odds_home && m.odds_draw && m.odds_away && !oddsAreSynthetic) {
+        // Real odds-implied xG (bookmaker odds, not synthetic)
         const odH = 1 / parseFloat(m.odds_home)
         const odD = 1 / parseFloat(m.odds_draw)
         const odA = 1 / parseFloat(m.odds_away)
@@ -1152,6 +1196,7 @@ class EnrichedPredictionService {
         xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0))
         xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0))
       } else {
+        // Model xG (real xG from DB, teamStats, league averages, or derived from odds)
         const xg = this._getMatchXG(m)
         xgH = xg.h
         xgA = xg.a

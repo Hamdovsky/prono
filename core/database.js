@@ -63,7 +63,23 @@ if (process.env.DATABASE_URL) {
       logger.warn(`[DB] Could not load league model params: ${e.message}`)
     }
   }, 10000)
-  pgDb._migrationDone = migrationPromise.then(() => true).catch(() => false)
+  pgDb._migrationDone = migrationPromise.then(async () => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await pgConnector.query('SELECT 1 FROM matches LIMIT 1')
+        return true
+      } catch {
+        if (attempt < 2) {
+          logger.warn(`[DB] matches table not found (attempt ${attempt + 1}) — retrying migration...`)
+          await new Promise((r) => setTimeout(r, 5000))
+          const retry = await pgMigrations.runMigrations()
+          if (retry.applied > 0 || retry.skipped) continue
+        }
+      }
+    }
+    logger.error('[DB] matches table creation failed after 3 attempts')
+    return false
+  })
   module.exports = pgDb
   return
 }

@@ -376,7 +376,7 @@ class StatisticalEngine {
           xgA = Math.max(0.25, Math.min(4.0, xgA))
         } else {
           // 🎯 [ODS FIRST] Derive xG from odds (REAL data) before resorting to noise
-          if (m.odds_home && m.odds_away) {
+          if (m.odds_home && m.odds_away && !m._oddsAreSynthetic) {
             const derived = this._deriveXgFromOdds(m)
             xgH = derived.h
             xgA = derived.a
@@ -386,14 +386,33 @@ class StatisticalEngine {
               baseXgA = 1.15
             if (
               league.includes('iceland') ||
-              league.includes('reykjavik') ||
-              league.includes('women')
+              league.includes('reykjavik')
             ) {
               baseXgH = 2.0
               baseXgA = 1.6
-            } else if (league.includes('bundesliga') || league.includes('netherlands')) {
+            } else if (
+              league.includes('bundesliga') ||
+              league.includes('netherlands') ||
+              league.includes('austria')
+            ) {
               baseXgH = 1.8
               baseXgA = 1.4
+            } else if (league.includes('premier league') || league.includes('championship')) {
+              baseXgH = 1.5
+              baseXgA = 1.25
+            } else if (league.includes('serie a') || league.includes('italy')) {
+              baseXgH = 1.35
+              baseXgA = 1.1
+            } else if (
+              league.includes('ligue 1') ||
+              league.includes('france') ||
+              league.includes('national 1')
+            ) {
+              baseXgH = 1.3
+              baseXgA = 1.05
+            } else if (league.includes('women')) {
+              baseXgH = 2.1
+              baseXgA = 1.8
             } else if (league.includes('misli') || league.includes('azerbaijan')) {
               baseXgH = 1.7
               baseXgA = 1.1

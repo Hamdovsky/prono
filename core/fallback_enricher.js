@@ -196,6 +196,7 @@ function jsEnrichOne(match) {
     match.odds_home = synth.home
     match.odds_draw = synth.draw
     match.odds_away = synth.away
+    match._oddsAreSynthetic = true
     insufficientData = 1
   }
 

@@ -391,42 +391,41 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
       )
     }
 
-    // 🚀 [JIT RESCUE] Enrich dead matches in background — non-blocking, returns immediately
+    // 🚀 [JIT RESCUE] Enrich dead matches (home_win_probability === 0) on the fly and persist to DB
     const deadMatches = rawMatches.filter(
       (m) => !parseFloat(m.home_win_probability || 0)
     )
     if (deadMatches.length > 0) {
-      logger.info(`[JIT RESCUE] ${deadMatches.length}/${rawMatches.length} matches dead — launching background enrichment...`)
-      ;(async () => {
-        const CONCURRENCY = 3
-        let enriched = 0
-        for (let i = 0; i < deadMatches.length; i += CONCURRENCY) {
-          const batch = deadMatches.slice(i, i + CONCURRENCY)
-          const results = await Promise.allSettled(
-            batch.map((m) => enrichedPredictions.fastEnrichMatch(m))
-          )
-          for (let j = 0; j < results.length; j++) {
-            const m = batch[j]
-            const r = results[j]
-            if (r.status === 'fulfilled' && r.value && r.value.success) {
-              try {
-                await database.updatePredictions(m.id, r.value)
-                enriched++
-              } catch (e) {
-                logger.warn(`[JIT RESCUE] DB persist failed for ${m.id}: ${e.message}`)
-              }
-            } else {
-              logger.warn(`[JIT RESCUE] Enrich failed for ${m.id}: ${r.reason?.message || 'unknown'}`)
+      logger.info(`[JIT RESCUE] ${deadMatches.length}/${rawMatches.length} matches are dead — enriching now...`)
+      const CONCURRENCY = 3
+      let enriched = 0
+      for (let i = 0; i < deadMatches.length; i += CONCURRENCY) {
+        const batch = deadMatches.slice(i, i + CONCURRENCY)
+        const results = await Promise.allSettled(
+          batch.map((m) => enrichedPredictions.fastEnrichMatch(m))
+        )
+        for (let j = 0; j < results.length; j++) {
+          const m = batch[j]
+          const r = results[j]
+          if (r.status === 'fulfilled' && r.value && r.value.success) {
+            try {
+              await database.updatePredictions(m.id, r.value)
+              Object.assign(m, r.value)
+              enriched++
+            } catch (e) {
+              logger.warn(`[JIT RESCUE] DB persist failed for ${m.id}: ${e.message}`)
             }
+          } else {
+            logger.warn(`[JIT RESCUE] Enrich failed for ${m.id}: ${r.reason?.message || 'unknown'}`)
           }
         }
-        if (enriched > 0) {
-          logger.info(`[JIT RESCUE] ✅ ${enriched}/${deadMatches.length} matches enriched and persisted`)
-          try { invalidateCache('upcoming') } catch (_) {}
-        } else {
-          logger.warn(`[JIT RESCUE] ⚠️ 0/${deadMatches.length} matches could be enriched`)
-        }
-      })()
+      }
+      if (enriched > 0) {
+        logger.info(`[JIT RESCUE] ✅ ${enriched}/${deadMatches.length} matches enriched and persisted`)
+        try { invalidateCache('upcoming') } catch (_) {}
+      } else {
+        logger.warn(`[JIT RESCUE] ⚠️ 0/${deadMatches.length} matches could be enriched`)
+      }
     }
 
     // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool

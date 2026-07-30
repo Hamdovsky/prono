@@ -1019,6 +1019,72 @@ class EnrichedPredictionService {
     return StatisticalEngine.getMatchXG(m)
   }
 
+  _isLowData(m, insufficient = 0) {
+    const league = (m.league || '').toLowerCase()
+    return (
+      league.includes('friendly') ||
+      league.includes('cup') ||
+      league.includes('friendlies') ||
+      parseInt(m.insufficient_data) === 1 ||
+      insufficient === 1
+    )
+  }
+
+  async _tryBayesianLowData(m) {
+    try {
+      const url = `${process.env.INFERENCE_URL || 'http://127.0.0.1:8000'}/bayesian/predict`
+      const odds = [m.odds_home, m.odds_draw, m.odds_away].every((o) => o > 0)
+        ? [m.odds_home, m.odds_draw, m.odds_away]
+        : []
+      const resp = await axiosModule.post(
+        url,
+        {
+          home_team: m.homeTeam || '',
+          away_team: m.awayTeam || '',
+          league: m.league || 'Club Friendlies',
+          bookmaker_odds: odds,
+        },
+        { timeout: 15000 }
+      )
+      const py = resp.data
+      if (!py || !py.success) return null
+
+      const hPct = (py.home_win || 0) * 100
+      const dPct = (py.draw || 0) * 100
+      const aPct = (py.away_win || 0) * 100
+      const mainProb = Math.max(hPct, dPct, aPct)
+      const mainPick = hPct >= aPct ? '1' : aPct > hPct ? '2' : 'X'
+
+      return {
+        ...m,
+        success: true,
+        ai_source: py.model || 'bayesian_hierarchical',
+        home_win_probability: hPct,
+        draw_probability: dPct,
+        away_win_probability: aPct,
+        btts_prob: (py.btts_yes || 0) * 100,
+        ou_25_prob: (py.over_25 || 0) * 100,
+        expected_score: `${Math.round(py.home_xg || 1.4)} - ${Math.round(py.away_xg || 1.2)}`,
+        verdict: mainProb > 45 ? 'SAFE' : mainProb > 38 ? 'STABLE' : 'RISKY BET',
+        prediction: mainPick,
+        power_score: Math.round(mainProb),
+        insufficient_data: 1,
+        base_solid_margin: 0,
+        draw_value_bet: false,
+        confidence: Math.round(mainProb * 0.6),
+        ev_score: 0,
+        ou_market: (() => {
+          const op = (py.over_25 || 0) * 100
+          const dir = op > 50 ? 'OVER' : 'UNDER'
+          const prec = Math.round(op > 50 ? op : 100 - op)
+          return `${dir} 2.5 (${prec}% Precision)`
+        })(),
+      }
+    } catch (_) {
+      return null
+    }
+  }
+
   /**
    * Fast JS-only enrichment for bulk operations.
    * Uses real Poisson distribution based on match-specific xG data.
@@ -1298,15 +1364,25 @@ class EnrichedPredictionService {
       quantResult._confidence_breakdown = csResult.breakdown
       quantResult._confidence_margin_pct = csResult.breakdown.finalMarginPct
 
-      // ── 2.6 DEADZONE CHECK — if all probs are 0 despite synthetic odds, use league baseline ──
+      // ── 2.6 BAYESIAN HIERARCHICAL — for low-data matches ──
       const finalHPct = probs.h * 100
       const finalDPct = probs.d * 100
       const finalAPct = probs.a * 100
-      if (finalHPct + finalDPct + finalAPct < 1) {
-        logger.warn(
-          `[DEADZONE] ${m.homeTeam} vs ${m.awayTeam} — all probs 0, falling back to league baseline`
-        )
-        return this._buildOfflineState(m)
+      const allProbsZero = finalHPct + finalDPct + finalAPct < 1
+      if (this._isLowData(m, insufficient) || allProbsZero) {
+        const bayesian = await this._tryBayesianLowData(m)
+        if (bayesian) {
+          logger.info(
+            `[BAYESIAN] ${m.homeTeam} vs ${m.awayTeam} [${m.league}] — ${bayesian.ai_source}: ${bayesian.home_win_probability.toFixed(1)}/${bayesian.draw_probability.toFixed(1)}/${bayesian.away_win_probability.toFixed(1)}`
+          )
+          return bayesian
+        }
+        if (allProbsZero) {
+          logger.warn(
+            `[DEADZONE] ${m.homeTeam} vs ${m.awayTeam} — all probs 0, falling back to league baseline`
+          )
+          return this._buildOfflineState(m)
+        }
       }
 
       // ── 3. FINAL ASSEMBLY ──

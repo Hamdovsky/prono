@@ -918,8 +918,8 @@ class EnrichedPredictionService {
                 const seed = Math.abs(hash) / 2147483647;
                 const seed2 = (((hash >> 8) & 0xff) / 255);
                 const baseRange = 0.45;
-                const hp = 0.15 + (seed * baseRange);
-                const dp = 0.12 + (seed2 * 0.20);
+                const hp = 0.30 + (seed * 0.25)  // narrower range for more realistic odds
+                const dp = 0.18 + (seed2 * 0.16)
                 const ap = Math.max(0.08, 1 - hp - dp);
                 m.odds_home = parseFloat((1.05 / hp).toFixed(2));
                 m.odds_draw = parseFloat((1.05 / dp).toFixed(2));

@@ -127,7 +127,7 @@ setTimeout(async () => {
         })
 
         // ── Cycles ──
-        enrichmentCycle.startPeriodicEnrichment({})
+        // enrichmentCycle.startPeriodicEnrichment({})  // DISABLED: conflicts with independent enrichment loop
         settlementCycle.startSettlementCycle()
 
         // ── Background services ──
@@ -389,8 +389,8 @@ setTimeout(() => {
     for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash = hash & hash }
     const seed = Math.abs(hash) / 2147483647
     const seed2 = (((hash >> 8) & 0xff) / 255)
-    const hp = 0.15 + (seed * 0.45)
-    const dp = 0.12 + (seed2 * 0.20)
+    const hp = 0.30 + (seed * 0.25)  // narrower range for more realistic odds
+    const dp = 0.18 + (seed2 * 0.16)
     const ap = Math.max(0.08, 1 - hp - dp)
     const odH = hp / 1.05, odD = dp / 1.05, odA = ap / 1.05
     const oSum = odH + odD + odA

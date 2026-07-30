@@ -12,7 +12,7 @@ const logger = require('../logger');
 
 class FeatureEngineer {
     constructor() {
-        this.homeAdvantageFactor = 1.15; // 15% boost for home teams
+        this.homeAdvantageFactor = 1.20; // 20% boost for home teams (increased from 15%)
         this.restDayThreshold = 2; // days of rest difference that matters
     }
 

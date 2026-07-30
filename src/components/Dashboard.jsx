@@ -209,6 +209,13 @@ const Dashboard = () => {
     return () => clearInterval(interval)
   }, [checkApiHealth])
 
+  // Auto-refresh every 60s
+  useEffect(() => {
+    if (!autoRefresh) return
+    const interval = setInterval(() => dataService.refreshAllData(), 60000)
+    return () => clearInterval(interval)
+  }, [autoRefresh])
+
   // Scraper Polling Effect
   useEffect(() => {
     let pollInterval
@@ -1135,6 +1142,22 @@ const Dashboard = () => {
             </span>
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => setAutoRefresh((s) => !s)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '4px',
+                border: `1px solid ${autoRefresh ? '#38bdf8' : '#334155'}`,
+                background: autoRefresh ? 'rgba(56,189,248,0.12)' : 'transparent',
+                color: autoRefresh ? '#38bdf8' : '#64748b',
+                fontSize: '10px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              ↻ AUTO {autoRefresh ? 'ON' : 'OFF'}
+            </button>
             {apiHealth &&
               (() => {
                 const ok = Object.values(apiHealth).filter((v) => v === 'enabled').length

@@ -223,24 +223,14 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
       'NOT_STARTED',
       'NS',
     ])
-    // Auto-populate if DB is near-empty (fresh deploy on Render)
+    // Auto-populate if DB is near-empty (fresh deploy on Render) — fire & forget
     if (allMatches.length < 5) {
-      const countResult = await database.query('SELECT COUNT(*) as total FROM matches')
-      const totalCount = countResult?.rows?.[0]?.total || countResult?.[0]?.total || 0
-      if (totalCount < 20) {
-        logger.info('[UPCOMING] DB nearly empty, triggering BSD fullSync...')
-        try {
-          const synced = await bsdService.fullSync()
-          if (synced > 0) {
-            logger.info(`[UPCOMING] BSD sync returned ${synced} matches, re-fetching`)
-            allMatches = await database.getMatchesByStatuses([
-              'scheduled', 'upcoming', 'NOT_STARTED', 'NS',
-            ])
-          }
-        } catch (syncErr) {
-          logger.error(`[UPCOMING] BSD sync failed: ${syncErr.message}`)
+      bsdService.fullSync().then((synced) => {
+        if (synced > 0) {
+          logger.info(`[UPCOMING] Background BSD sync returned ${synced} matches`)
+          try { invalidateCache('upcoming') } catch (_) {}
         }
-      }
+      }).catch((e) => logger.error(`[UPCOMING] Background BSD sync error: ${e.message}`))
     }
     let rawMatches = allMatches
 

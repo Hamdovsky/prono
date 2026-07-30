@@ -518,7 +518,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
               {over25Pct > 50 ? 'OVER' : 'UNDER'}
             </V>
             <Pct
-              v={over25Pct}
+              v={over25Pct > 50 ? over25Pct : 100 - over25Pct}
               c={over25Pct > 50 ? '#10b981' : '#ef4444'}
             />
           </div>

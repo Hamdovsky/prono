@@ -240,10 +240,10 @@ app.get('/health', (req, res) => {
 app.get('/api/debug/state', async (req, res) => {
   try {
     const bsd = require('./services/bsdService')
-    const db = database.db
-    const count = db?.prepare('SELECT COUNT(*) as c FROM matches').get()?.c || 0
-    const bySource = db?.prepare('SELECT source, COUNT(*) as c FROM matches GROUP BY source').all() || []
-    const byStatus = db?.prepare('SELECT status, COUNT(*) as c FROM matches GROUP BY status').all() || []
+    const countResult = await database.query('SELECT COUNT(*) as c FROM matches')
+    const count = countResult?.rows?.[0]?.c || 0
+    const bySource = await database.query('SELECT source, COUNT(*) as c FROM matches GROUP BY source')
+    const byStatus = await database.query('SELECT status, COUNT(*) as c FROM matches GROUP BY status')
     const bsdAvail = bsd.isAvailable()
     let bsdFetch = 'not tested'
     let bsdInsert = 'not tested'
@@ -263,7 +263,7 @@ app.get('/api/debug/state', async (req, res) => {
     } catch (e) {
       bsdFetch = `error: ${e.message}`
     }
-    res.json({ dbMatches: count, bySource, byStatus, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdInsert })
+    res.json({ dbMatches: count, bySource: bySource?.rows || [], byStatus: byStatus?.rows || [], bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdInsert })
   } catch (e) {
     res.json({ error: e.message })
   }

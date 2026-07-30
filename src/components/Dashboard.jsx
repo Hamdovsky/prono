@@ -16,9 +16,6 @@ const toRawLines = (m) => {
   if (!m) return []
   const enriched = m.enriched || {}
   const quant = m.quant || enriched?.quant || {}
-  const hPct = parseFloat(m.home_win_probability || enriched.home_win_probability || 0)
-  const aPct = parseFloat(m.away_win_probability || enriched.away_win_probability || 0)
-  const dPct = parseFloat(m.draw_probability || enriched.draw_probability || 0)
   const normalizePct = (v) => {
     const n = Number(v || 0)
     if (!Number.isFinite(n) || n <= 0) return 0
@@ -26,48 +23,20 @@ const toRawLines = (m) => {
   }
   const bttsPct = normalizePct(quant.probs?.btts || m.btts_prob || enriched?.btts_prob || 0)
   const over25Pct = normalizePct(quant.probs?.over25 || m.ou_25_prob || enriched?.ou_25_prob || 0)
+  const mainPick = (quant.main_pick || '').toString().trim().toUpperCase() || '?'
+  const htGoalPct = normalizePct(quant.probs?.ht_goal || m.ht_goal_prob || enriched?.ht_goal_prob || 0)
   const htPct = Math.min(89, Math.round((over25Pct + bttsPct) / 2 + 5))
-  const evScore = quant.ev_score || '0.00'
-  const riskLabel = quant.risk_label || m.risk_label || 'Balance'
 
-  const mainPick = (quant.main_pick || '').toString().trim().toUpperCase()
-  const displayOddsH = m.display_odds_home || m.best_odds_home || m.odds_home
-  const displayOddsA = m.display_odds_away || m.best_odds_away || m.odds_away
-  const mainPickProb = (() => {
-    if (mainPick === '1' || mainPick === 'HOME') return hPct / 100
-    if (mainPick === '2' || mainPick === 'AWAY') return aPct / 100
-    if (mainPick === 'X' || mainPick === 'DRAW') return dPct / 100
-    if (mainPick === '12') return (hPct + aPct) / 100
-    if (mainPick === '1X') return (hPct + dPct) / 100
-    if (mainPick === 'X2') return (aPct + dPct) / 100
-    return 0.5
-  })()
-  const mainOdds = (() => {
-    if (mainPick === '1' || mainPick === 'HOME') return displayOddsH
-    if (mainPick === '2' || mainPick === 'AWAY') return displayOddsA
-    if (mainPick === 'X' || mainPick === 'DRAW') return m.odds_draw
-    return null
-  })()
-  const edge = mainOdds ? mainPickProb - 1 / mainOdds : 0
-  const edgePct = (edge * 100).toFixed(1)
-
-  const lines = [
-    m.league || m.tournament_name || 'Ligue',
-    m.homeTeam || 'Home',
-    m.awayTeam || 'Away',
-    `🎯 ${edgePct}%`,
+  return [
+    m.league || m.tournament_name || '',
+    m.homeTeam || '',
+    m.awayTeam || '',
     `${bttsPct}%`,
     `${over25Pct}%`,
+    mainPick,
     `${htPct}%`,
-    `EV ${evScore}`,
-    riskLabel,
-    `1X2: ${mainPick}`,
-    `DVB:${m.draw_value_bet === true ? 1 : 0}`,
-    `BSM:${m.base_solid_margin || 0}`,
+    htGoalPct > 0 ? `${htGoalPct}%` : '--',
   ]
-  if (edge <= 0) lines.push(`⚠️ ${edgePct}%`)
-  if (m.status === 'live' || m.isLive) lines.push('LIVE')
-  return lines
 }
 
 const MatchRowMemo = React.memo(({ index, style, list, onClick }) => {
@@ -147,7 +116,7 @@ const Dashboard = () => {
 
   const renderMatchList = (list) => {
     if (list.length === 0) return null
-    const ROW_H = 105
+    const ROW_H = 56
     const HEADER_H = 42
     const listHeight = Math.min(list.length * ROW_H, 800)
     const virtualHeight = listHeight - HEADER_H
@@ -163,13 +132,12 @@ const Dashboard = () => {
             fontSize: '11px', color: '#64748b', textTransform: 'uppercase',
             fontWeight: '800', letterSpacing: '0.8px', background: 'rgba(0,0,0,0.3)',
           }}>
-            <div style={{ width: '14%', minWidth: '130px', padding: '0 8px' }}>MATCH / FORME</div>
-            <div style={{ width: '22%', minWidth: '160px', padding: '0 8px', textAlign: 'center' }}>PRONOSTIC</div>
-            <div style={{ width: '10%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>AI SCORE / FT</div>
-            <div style={{ width: '14%', minWidth: '110px', padding: '0 8px', textAlign: 'center' }}>MARCHÉS (DC)</div>
-            <div style={{ width: '12%', minWidth: '85px', padding: '0 8px', textAlign: 'center' }}>PRÉCISION / RISK</div>
-            <div style={{ width: '14%', minWidth: '110px', padding: '0 8px', textAlign: 'center' }}>SIGNAL + EV</div>
-            <div style={{ width: '14%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>FORCE</div>
+            <div style={{ width: '18%', minWidth: '140px', padding: '0 8px' }}>MATCH / FORME</div>
+            <div style={{ width: '14%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>BTTS</div>
+            <div style={{ width: '14%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>O/U</div>
+            <div style={{ width: '18%', minWidth: '100px', padding: '0 8px', textAlign: 'center' }}>GAGNANT</div>
+            <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>HANDICAP</div>
+            <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>MI-TEMPS</div>
           </div>
           <div style={{ height: virtualHeight }}>
             <List

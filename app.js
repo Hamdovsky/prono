@@ -247,12 +247,13 @@ app.get('/api/debug/state', async (req, res) => {
     const dbSize = dbExists ? fs.statSync(dbPath).size : -1
     const dbWritable = dbExists ? (() => { try { fs.accessSync(dbPath, fs.constants.W_OK); return true } catch { return false } })() : false
     const countResult = await database.query('SELECT COUNT(*) as c FROM matches')
-    const count = countResult?.rows?.[0]?.c || 0
+    const countBefore = countResult?.rows?.[0]?.c || 0
     const bySource = await database.query('SELECT source, COUNT(*) as c FROM matches GROUP BY source')
     const byStatus = await database.query('SELECT status, COUNT(*) as c FROM matches GROUP BY status')
     const bsdAvail = bsd.isAvailable()
     let bsdFetch = 'not tested'
     let bsdInsert = 'not tested'
+    let countAfter = countBefore
     try {
       const events = await bsd.fetchEvents(new Date().toISOString().split('T')[0])
       bsdFetch = `fetched ${events.length} events`
@@ -260,16 +261,18 @@ app.get('/api/debug/state', async (req, res) => {
         try {
           const match = bsd._mapEventToMatch(events[0])
           match.bsd_match_id = String(events[0].id || '')
-          await database.insertMatch(match)
-          bsdInsert = `inserted 1 match OK`
+          const ret = await database.insertMatch(match)
+          bsdInsert = ret ? `inserted 1 match OK (id=${ret})` : `insertMatch returned falsy`
         } catch (e) {
           bsdInsert = `insert error: ${e.message}`
         }
+        const recount = await database.query('SELECT COUNT(*) as c FROM matches')
+        countAfter = recount?.rows?.[0]?.c || 0
       }
     } catch (e) {
       bsdFetch = `error: ${e.message}`
     }
-    res.json({ dbMatches: count, dbPath, dbExists, dbSize, dbWritable, bySource: bySource?.rows || [], byStatus: byStatus?.rows || [], bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdInsert })
+    res.json({ dbMatches: countBefore, dbMatchesAfter: countAfter, dbPath, dbExists, dbSize, dbWritable, bySource: bySource?.rows || [], byStatus: byStatus?.rows || [], bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdInsert })
   } catch (e) {
     res.json({ error: e.message })
   }

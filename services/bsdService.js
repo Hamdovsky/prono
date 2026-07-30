@@ -291,8 +291,8 @@ class BsdService {
           match.awayTeam = await database.resolveTeamName(match.awayTeam)
         } catch (_) {}
 
-        await database.insertMatch(match)
-        count++
+        const inserted = await database.insertMatch(match)
+        if (inserted) count++
       } catch (err) {
         logger.error(`[BSD] Error processing event ${event.id}: ${err.message}`)
       }
@@ -407,8 +407,8 @@ class BsdService {
             try {
               const match = this._mapEventToMatch(event)
               match.bsd_match_id = String(event.id || event.match_id || '')
-              await database.insertMatch(match)
-              total++
+              const inserted = await database.insertMatch(match)
+              if (inserted) total++
             } catch (_) {}
           }
           logger.info(`[BSD] Inserted ${total} matches from date-less fallback`)

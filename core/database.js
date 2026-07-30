@@ -9,7 +9,8 @@ if (process.env.DATABASE_URL) {
   const pgDb = require('./pg_database')
   const pgMigrations = require('./pg_migrations')
   pgConnector.getPool()
-  pgMigrations.runMigrations().catch((e) => logger.error(`[DB] PG migration error: ${e.message}`))
+  const migrationPromise = pgMigrations.runMigrations()
+  migrationPromise.catch((e) => logger.error(`[DB] PG migration error: ${e.message}`))
   // Backfill startTimestamp from "fullData" for existing rows
   setTimeout(async () => {
     try {
@@ -62,6 +63,7 @@ if (process.env.DATABASE_URL) {
       logger.warn(`[DB] Could not load league model params: ${e.message}`)
     }
   }, 10000)
+  pgDb._migrationDone = migrationPromise.then(() => true).catch(() => false)
   module.exports = pgDb
   return
 }

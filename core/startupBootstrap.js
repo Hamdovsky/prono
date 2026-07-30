@@ -175,6 +175,8 @@ async function runCloudSeed() {
 
 async function emergencyReseed() {
   try {
+    // Ensure migration completed before checking count
+    if (database._migrationDone) await database._migrationDone
     const result = await database.query('SELECT COUNT(*) as cnt FROM matches')
     const count = parseInt(result?.rows?.[0]?.cnt || result?.[0]?.cnt || 0)
     if (count >= 10) {
@@ -226,6 +228,13 @@ async function runAll({ port, onStartServices }) {
       (async () => {
         await killProcessOnPort(port)
         await new Promise((resolve) => setTimeout(resolve, 500))
+
+        // Ensure PG schema migration completes before any DB operations
+        if (database._migrationDone) {
+          logger.info('[BOOT] Waiting for PG schema migration...')
+          const ok = await database._migrationDone
+          logger.info(`[BOOT] PG schema migration ${ok ? 'OK' : 'FAILED'}`)
+        }
 
         try {
           const { redis } = require('./redisClient')

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
+import Sidebar from './Sidebar'
 import UltimateMatchCenter from './UltimateMatchCenter/UltimateMatchCenter'
 import MatchCard from './MatchCard'
 import TicketDuJour from './TicketDuJour'
@@ -130,15 +131,59 @@ const Dashboard = () => {
   const [activeSort, setActiveSort] = useState('POWER')
   const [sortDir, setSortDir] = useState('desc')
   const [matches, setMatches] = useState([])
+  const [activeLeague, setActiveLeague] = useState('ALL')
+  const [activeDate, setActiveDate] = useState('Today')
+  const [selectedMatchForUltimateView, setSelectedMatchForUltimateView] = useState(null)
+  const [surgicalMode, setSurgicalMode] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(
+    typeof window !== 'undefined' ? window.innerWidth > 1024 : true
+  )
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
+  const [viewportHeight, setViewportHeight] = useState(
+    typeof window !== 'undefined' ? window.innerHeight : 800
+  )
+  const [apiHealth, setApiHealth] = useState(null)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+      setViewportHeight(window.innerHeight)
+    }
+    window.addEventListener('resize', handleResize)
+    handleResize()
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+      setSidebarOpen(false)
+    }
+  }, [location.pathname])
+
+  const handleLeagueChange = (league) => {
+    setActiveLeague(league)
+    if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+      setSidebarOpen(false)
+    }
+  }
+
+  const handleDateChange = (date) => {
+    setActiveDate(date)
+    if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+      setSidebarOpen(false)
+    }
+  }
+
   const [status, setStatus] = useState('idle')
   const [scraperProgress, setScraperProgress] = useState(null)
   const [isScraping, setIsScraping] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
-  const [selectedMatchForUltimateView, setSelectedMatchForUltimateView] = useState(null)
-  const [surgicalMode, setSurgicalMode] = useState(false)
+  const [confFilter, setConfFilter] = useState(0)
   const [now, setNow] = useState(Date.now())
   const [showTrackRecord, setShowTrackRecord] = useState(false)
+  const [perfFilter, setPerfFilter] = useState('ALL')
 
   // 1-second timer for countdowns
   useEffect(() => {
@@ -467,14 +512,32 @@ const Dashboard = () => {
           return false
       }
 
-       if (activeSignal === 'CONFIRMED' && (m.confidence || 0) <= 85) return false
+      if (activeLeague !== 'ALL') {
+        if (!(m.league || '').toLowerCase().includes(activeLeague.toLowerCase())) return false
+      }
 
-       // 🚫 [LIVE FILTER] Auto-remove finished matches from view
-       const s = String(m.status || '').toLowerCase()
-       const isLive = s === 'live' || m.isLive || (m.minute && String(m.minute).includes("'"))
+      const matchDayStr = getMatchDate(m)
+      const matchTime = m.startTimestamp
+        ? m.startTimestamp > 1e11
+          ? m.startTimestamp
+          : m.startTimestamp * 1000
+        : 0
 
-       // Filter finished matches to show only unplayed/live ones as requested
-       if (
+      if (activeDate === 'Today' && matchDayStr !== todayStr) return false
+      if (activeDate === 'Tomorrow' && matchDayStr !== tomorrowStr) return false
+      if (activeDate === 'Next 3 Days' && (matchTime < now - 3600000 || matchTime > threeDays))
+        return false
+      if (activeDate === 'Next 7 Days' && (matchTime < now - 3600000 || matchTime > sevenDays))
+        return false
+
+      if (activeSignal === 'CONFIRMED' && (m.confidence || 0) <= 85) return false
+
+      // 🚫 [LIVE FILTER] Auto-remove finished matches from view
+      const s = String(m.status || '').toLowerCase()
+      const isLive = s === 'live' || m.isLive || (m.minute && String(m.minute).includes("'"))
+
+      // Filter finished matches to show only unplayed/live ones as requested
+      if (
         [
           'finished',
           'ft',
@@ -536,17 +599,28 @@ const Dashboard = () => {
 
       return aTime - bTime
     })
-   }, [
-     matches,
-     activeSignal,
-     activeSort,
-     searchQuery,
-     getMatchDate,
+  }, [
+    matches,
+    activeLeague,
+    activeDate,
+    activeSignal,
+    activeSort,
+    searchQuery,
+    getMatchDate,
     dateCache,
   ])
 
   // Separate list for all-matches view: no date/league/signal filter, only search + finished removal
   const allMatchesList = useMemo(() => {
+    // Build set of leagues that meet performance threshold
+    const perfLeagues = new Set()
+    if (perfFilter !== 'ALL') {
+      const minRate = parseInt(perfFilter)
+      perfLeagueAccuracy.forEach((l) => {
+        if (l.winRate >= minRate) perfLeagues.add(l.league)
+      })
+    }
+
     return matches
       .filter((m) => {
         // 🔍 Search filter on team/league (raw + normalized)
@@ -578,29 +652,37 @@ const Dashboard = () => {
           )
             return false
         }
-       // Status filter
-         const s = String(m.status || '').toLowerCase()
-         const isLive = s === 'live' || m.isLive || (m.minute && String(m.minute).includes("'"))
-         if (statusFilter === 'LIVE' && !isLive) return false
-         if (
-           statusFilter === 'UPCOMING' &&
-           (isLive ||
-             [
-               'finished',
-               'ft',
-               'ended',
-               'closed',
-               'played',
-               'aet',
-               'pen',
-               'postponed',
-               'canceled',
-             ].includes(s))
-         )
-           return false
-         // Remove finished/completed matches
-         if (
-           [
+        // Status filter
+        const s = String(m.status || '').toLowerCase()
+        const isLive = s === 'live' || m.isLive || (m.minute && String(m.minute).includes("'"))
+        if (statusFilter === 'LIVE' && !isLive) return false
+        if (
+          statusFilter === 'UPCOMING' &&
+          (isLive ||
+            [
+              'finished',
+              'ft',
+              'ended',
+              'closed',
+              'played',
+              'aet',
+              'pen',
+              'postponed',
+              'canceled',
+            ].includes(s))
+        )
+          return false
+        // Confidence filter
+        const mConf = m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0
+        if (confFilter > 0 && mConf < confFilter) return false
+        // Performance filter (only leagues with >= X% win rate historically)
+        if (perfFilter !== 'ALL') {
+          const league = m.league || m.tournament_name || ''
+          if (!perfLeagues.has(league)) return false
+        }
+        // Remove finished/completed matches
+        if (
+          [
             'finished',
             'ft',
             'ended',
@@ -633,25 +715,37 @@ const Dashboard = () => {
             : 0)
         return aTime - bTime
       })
-   }, [matches, searchQuery, statusFilter])
-   const renderMatchList = (list, title, isElite = false) => {
+  }, [matches, searchQuery, statusFilter, confFilter, perfFilter, perfLeagueAccuracy])
+
+  // Available leagues for filter (from active matches)
+  const leagueOptions = useMemo(() => {
+    const leagues = new Set()
+    matches.forEach((m) => {
+      const l = m.league || m.tournament_name
+      if (l) leagues.add(l)
+    })
+    return Array.from(leagues).sort()
+  }, [matches])
+
+  const renderMatchList = (list, title, isElite = false) => {
     if (list.length === 0) return null
 
-     const ROW_H = 105
-     const HEADER_H = 42
-     const listHeight = isElite
-       ? Math.min(list.length * ROW_H, 600)
-       : Math.min(list.length * ROW_H, 800)
-     const virtualHeight = listHeight - HEADER_H
+    const ROW_H = isMobile ? 120 : 105
+    const HEADER_H = isMobile ? 0 : 42
+    const listHeight = isElite
+      ? Math.min(list.length * ROW_H, 600)
+      : Math.min(list.length * ROW_H, 800)
+    const virtualHeight = listHeight - HEADER_H
 
-     return (
-       <div className="onyx-list-section">
-         <div className={`onyx-section-title ${!isElite ? 'global' : ''}`}>
-           {title} ({list.length})
-         </div>
-         <div style={{ width: '100%' }}>
-           {/* ✅ Column Header Row */}
-           <div
+    return (
+      <div className="onyx-list-section">
+        <div className={`onyx-section-title ${!isElite ? 'global' : ''}`}>
+          {title} ({list.length})
+        </div>
+        <div style={{ width: '100%' }}>
+          {/* ✅ Column Header Row */}
+          {!isMobile && (
+            <div
               style={{
                 display: 'flex',
                 borderBottom: '2px solid #1e293b',
@@ -786,72 +880,260 @@ const Dashboard = () => {
 
     if (activeView === 'markets') return <MarketTerminal matches={sortedMatches} />
 
-     if (activeView === 'all-matches') {
-       return (
+    if (activeView === 'all-matches') {
+      const liveCount = allMatchesList.filter((m) => {
+        const s = String(m.status || '').toLowerCase()
+        return s === 'live' || m.isLive || (m.minute && String(m.minute).includes("'"))
+      }).length
+      const nowMs = now
+      return (
         <div className="onyx-grid-container">
-              <div
+          {/* Toolbar: Search + Filters + Stats */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 14px',
+              background: 'rgba(0,0,0,0.25)',
+              borderRadius: '8px',
+              marginBottom: '8px',
+              flexWrap: 'wrap',
+            }}
+          >
+            {/* Search */}
+            <div style={{ position: 'relative', flex: '1 1 140px', minWidth: '100px' }}>
+              <input
+                type="text"
+                placeholder="🔍 Équipe / Ligue..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 14px',
-                  background: 'rgba(0,0,0,0.25)',
-                  borderRadius: '8px',
-                  marginBottom: '8px',
+                  width: '100%',
+                  padding: '5px 28px 5px 10px',
+                  background: 'rgba(15,23,42,0.8)',
+                  border: '1px solid #334155',
+                  borderRadius: '6px',
+                  color: '#f1f5f9',
+                  fontSize: '12px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
                 }}
-              >
-                <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '100px' }}>
-                  <input
-                    type="text"
-                    placeholder="🔍 Rechercher une équipe..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '6px 12px',
-                      background: 'rgba(15,23,42,0.8)',
-                      border: '1px solid #334155',
-                      borderRadius: '6px',
-                      color: '#f1f5f9',
-                      fontSize: '12px',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  {searchQuery && (
-                    <span
-                      onClick={() => setSearchQuery('')}
-                      style={{
-                        position: 'absolute',
-                        right: '6px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        cursor: 'pointer',
-                        color: '#64748b',
-                        fontSize: '14px',
-                        fontWeight: '700',
-                      }}
-                    >
-                      ✕
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={handleRefresh}
+              />
+              {searchQuery && (
+                <span
+                  onClick={() => setSearchQuery('')}
                   style={{
-                    padding: '4px 10px',
-                    background: 'rgba(0,255,170,0.08)',
-                    border: '1px solid rgba(0,255,170,0.2)',
-                    borderRadius: '6px',
-                    color: '#00ffaa',
-                    fontWeight: '700',
-                    fontSize: '10px',
+                    position: 'absolute',
+                    right: '6px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
                     cursor: 'pointer',
+                    color: '#64748b',
+                    fontSize: '14px',
+                    fontWeight: '700',
                   }}
                 >
-                  🔄
+                  ✕
+                </span>
+              )}
+            </div>
+
+            {/* Status filter */}
+            <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+              {['ALL', 'LIVE', 'UPCOMING'].map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setStatusFilter(st)}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '5px',
+                    border: 'none',
+                    background:
+                      statusFilter === st
+                        ? st === 'LIVE'
+                          ? 'rgba(239,68,68,0.25)'
+                          : 'rgba(56,189,248,0.2)'
+                        : 'rgba(148,163,184,0.08)',
+                    color:
+                      statusFilter === st ? (st === 'LIVE' ? '#ef4444' : '#38bdf8') : '#94a3b8',
+                    fontWeight: statusFilter === st ? '900' : '600',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {st === 'ALL'
+                    ? '📋 Tous'
+                    : st === 'LIVE'
+                      ? `🔴 LIVE (${liveCount})`
+                      : '⏳ À venir'}
                 </button>
-              </div>
+              ))}
+            </div>
+
+            {/* Confidence filter */}
+            <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+              {[0, 50, 60, 70, 80, 90].map((c) => {
+                const isActive = confFilter === c
+                const label = c === 0 ? '🎯Tout' : `≥${c}`
+                const color =
+                  c === 0 ? '#94a3b8' : c >= 80 ? '#10b981' : c >= 60 ? '#f59e0b' : '#f87171'
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setConfFilter(c)}
+                    style={{
+                      padding: '3px 6px',
+                      borderRadius: '4px',
+                      border: isActive ? `1px solid ${color}` : '1px solid transparent',
+                      background: isActive ? `${color}22` : 'transparent',
+                      color: isActive ? color : '#64748b',
+                      fontWeight: isActive ? '800' : '500',
+                      fontSize: '9px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+              <span
+                style={{
+                  fontSize: '9px',
+                  color: '#334155',
+                  marginLeft: '4px',
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+              >
+                {confFilter > 0
+                  ? allMatchesList.filter((m) => {
+                      const mc =
+                        m.v22_success_rate || m.enriched?.v22_success_rate || m.confidence || 0
+                      return mc >= confFilter
+                    }).length
+                  : allMatchesList.length}
+              </span>
+            </div>
+
+            {/* League filter */}
+            <select
+              value={activeLeague}
+              onChange={(e) => handleLeagueChange(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                background: 'rgba(15,23,42,0.8)',
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                color: '#f1f5f9',
+                fontSize: '10px',
+                outline: 'none',
+                cursor: 'pointer',
+                maxWidth: '140px',
+              }}
+            >
+              <option value="ALL">🏆 Toutes ligues</option>
+              {leagueOptions.slice(0, 30).map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+
+            {/* Performance filter */}
+            <select
+              value={perfFilter}
+              onChange={(e) => setPerfFilter(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                background: 'rgba(15,23,42,0.8)',
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                color: '#f1f5f9',
+                fontSize: '10px',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="ALL">📈 Toute performance</option>
+              <option value="40">≥ 40% win rate</option>
+              <option value="50">≥ 50% win rate</option>
+              <option value="60">≥ 60% win rate</option>
+              <option value="70">≥ 70% win rate</option>
+            </select>
+
+            {/* Action buttons */}
+            <button
+              onClick={handleRefresh}
+              style={{
+                padding: '4px 10px',
+                background: 'rgba(0,255,170,0.08)',
+                border: '1px solid rgba(0,255,170,0.2)',
+                borderRadius: '6px',
+                color: '#00ffaa',
+                fontWeight: '700',
+                fontSize: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              🔄 RAFRAÎCHIR
+            </button>
+            <button
+              onClick={handleExportCSV}
+              style={{
+                padding: '4px 10px',
+                background: 'rgba(56,189,248,0.08)',
+                border: '1px solid rgba(56,189,248,0.2)',
+                borderRadius: '6px',
+                color: '#38bdf8',
+                fontWeight: '700',
+                fontSize: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              📥 CSV
+            </button>
+
+            {/* Match count + live badge */}
+            <span
+              style={{
+                fontSize: '10px',
+                color: '#64748b',
+                fontWeight: '700',
+                marginLeft: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              {allMatchesList.length} matchs
+              {liveCount > 0 && (
+                <span
+                  style={{
+                    color: '#ef4444',
+                    fontWeight: '900',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#ef4444',
+                      animation: liveCount > 0 ? 'pulse 1.5s infinite' : 'none',
+                    }}
+                  ></span>
+                  {liveCount} EN DIRECT
+                </span>
+              )}
+            </span>
+          </div>
 
           {/* League accuracy badges */}
           {leagueAccuracy.length > 0 && (
@@ -978,7 +1260,7 @@ const Dashboard = () => {
       if (millionaireMatches.length > 0) {
         unifiedList.push({
           type: 'header',
-          label: `🎯 TOP PICKS DU JOUR (TODAY) - TOP 30 (CONF & EV SORTED)`,
+          label: `🎯 TOP PICKS DU JOUR (${activeDate.toUpperCase()}) - TOP 30 (CONF & EV SORTED)`,
           isElite: true,
           isMillionaire: true,
         })
@@ -997,7 +1279,7 @@ const Dashboard = () => {
       if (millionaireMatches.length > 0) {
         unifiedList.push({
           type: 'header',
-          label: `🎯 TOP PICKS DU JOUR (TODAY) - TOP 30`,
+          label: `🎯 TOP PICKS DU JOUR (${activeDate.toUpperCase()}) - TOP 30`,
           isElite: true,
           isMillionaire: true,
         })
@@ -1008,7 +1290,7 @@ const Dashboard = () => {
       if (eliteMatches.length > 0) {
         unifiedList.push({
           type: 'header',
-          label: `💎 TOP ELITE SELECTION (TODAY)`,
+          label: `💎 TOP ELITE SELECTION (${activeDate.toUpperCase()})`,
           isElite: true,
         })
         eliteMatches.forEach((m) => unifiedList.push({ ...m, type: 'match', _isElite: true }))
@@ -1016,7 +1298,7 @@ const Dashboard = () => {
       if (globalMatches.length > 0) {
         unifiedList.push({
           type: 'header',
-          label: `📊 GLOBAL MARKET SENSORS (TODAY)`,
+          label: `📊 GLOBAL MARKET SENSORS (${activeDate.toUpperCase()})`,
           isElite: false,
         })
         globalMatches.forEach((m) => unifiedList.push({ ...m, type: 'match', _isElite: false }))
@@ -1027,7 +1309,7 @@ const Dashboard = () => {
 
     return (
       <div className="onyx-grid-container">
-        {activeView === 'matches' && (
+        {activeView === 'matches' && activeDate === 'Today' && (
           <TicketDuJour matches={sortedMatches} />
         )}
 
@@ -1220,22 +1502,61 @@ const Dashboard = () => {
 
   return (
     <div className="titanium-layout">
+      <Sidebar
+        activeLeague={activeLeague}
+        onLeagueChange={handleLeagueChange}
+        matches={matches}
+        activeView={activeView}
+        activeDate={activeDate}
+        onDateChange={handleDateChange}
+        isOpen={sidebarOpen}
+      />
+      {isMobile && sidebarOpen && (
+        <div
+          className="sidebar-backdrop active"
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 9998,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        />
+      )}
+
       <main className="titanium-main">
-         {/* ONYX STATUS HEADER (BOOSTED) */}
-         <div
-           className="onyx-status-header"
-           style={{
-             background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-             borderBottom: '1px solid rgba(0, 255, 170, 0.3)',
-             padding: '8px 20px',
-             height: '45px',
-           }}
-         >
-           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-             <div
-               className="status-dot live"
-               style={{ width: '8px', height: '8px', boxShadow: '0 0 10px #00ffaa' }}
-             ></div>
+        {/* ONYX STATUS HEADER (BOOSTED) */}
+        <div
+          className="onyx-status-header"
+          style={{
+            background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+            borderBottom: '1px solid rgba(0, 255, 170, 0.3)',
+            padding: '8px 20px',
+            height: '45px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setSidebarOpen((s) => !s)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#64748b',
+                fontSize: '16px',
+                cursor: 'pointer',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                lineHeight: '1',
+              }}
+              title="Toggle sidebar"
+            >
+              {sidebarOpen ? '◀' : '▶'}
+            </button>
+            <div
+              className="status-dot live"
+              style={{ width: '8px', height: '8px', boxShadow: '0 0 10px #00ffaa' }}
+            ></div>
             <span
               style={{
                 fontSize: '11px',

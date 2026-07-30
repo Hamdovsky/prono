@@ -243,7 +243,14 @@ app.get('/api/debug/state', async (req, res) => {
     const db = database.db
     const count = db?.prepare('SELECT COUNT(*) as c FROM matches').get()?.c || 0
     const bsdAvail = bsd.isAvailable()
-    res.json({ dbMatches: count, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY })
+    let bsdTest = 'not tested'
+    try {
+      const events = await bsd.fetchEvents(new Date().toISOString().split('T')[0])
+      bsdTest = `fetched ${events.length} events`
+    } catch (e) {
+      bsdTest = `error: ${e.message}`
+    }
+    res.json({ dbMatches: count, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdTest })
   } catch (e) {
     res.json({ error: e.message })
   }

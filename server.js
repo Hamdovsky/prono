@@ -181,7 +181,7 @@ setTimeout(async () => {
 
         async function enrichBatch(batchSize) {
           const enrichedPredictions = require('./core/enriched_predictions')
-          const matches = await database.getMatchesByStatus('scheduled')
+          const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
           if (matches.length === 0) return 0
           const batch = matches.slice(0, batchSize)
           logger.info(`[AUTO-ENRICH] Batch: ${batch.length}/${matches.length} matches...`)
@@ -202,7 +202,7 @@ setTimeout(async () => {
 
         setTimeout(async function runEnrichBatches() {
           try {
-            const remaining = await database.getMatchesByStatus('scheduled')
+            const remaining = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
             if (remaining.length === 0) {
               logger.info(`[AUTO-ENRICH] All matches enriched, stopping.`)
               return

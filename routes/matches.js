@@ -394,8 +394,9 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     // 🚀 JIT enrichment removed — use /api/re-enrich to trigger enrichment separately.
     // Speed and stability are preferred over inline enrichment on the free tier.
 
-    // 🛡️ [GUARANTEED FLOOR] Ensure every match has non-zero predictions (per-match Poisson)
+    // 🛡️ [GUARANTEED FLOOR] Ensure every match has non-zero predictions (per-match Poisson + features)
     const StatisticalEngine = require('../core/services/StatisticalEngine')
+    const featureEngineer = require('../core/services/FeatureEngineer')
     for (const m of rawMatches) {
       const hw = parseFloat(m.home_win_probability || 0)
       if (!hw || hw <= 0 || isNaN(hw)) {
@@ -403,8 +404,14 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
         const _teamHash = (s) => { let h=0; for(let i=0;i<(s||'').length;i++) h=((h<<5)-h+s.charCodeAt(i))|0; return h }
         const tHash = _teamHash(m.homeTeam) ^ _teamHash(m.awayTeam)
         const noise = ((tHash % 200) - 100) / 1000
-        const xgH = Math.max(0.5, baseXG.h * (1 + noise * 0.15))
-        const xgA = Math.max(0.5, baseXG.a * (1 - noise * 0.10))
+        let xgH = Math.max(0.5, baseXG.h * (1 + noise * 0.15))
+        let xgA = Math.max(0.5, baseXG.a * (1 - noise * 0.10))
+        
+        // Apply free features for better differentiation
+        const adjusted = featureEngineer.applyFeatures(m, xgH, xgA)
+        xgH = adjusted.xgH
+        xgA = adjusted.xgA
+        
         const { win, btts, over25 } = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m)
         m.home_win_probability = Math.max(1, +(win.home * 100).toFixed(1))
         m.draw_probability = Math.max(1, +(win.draw * 100).toFixed(1))

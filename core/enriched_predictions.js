@@ -35,6 +35,7 @@ const DiagnosticTrace = require('./utils/DiagnosticTrace');
 const Schemas = require('./utils/Schemas');
 const QuantumQuantEngine = require('./QuantumQuantEngine');
 const confidenceScorer = require('./confidenceScorer');
+const featureEngineer = require('./services/FeatureEngineer');
 
 const SOFA_API = 'https://www.sofascore.com/api/v1';
 const SOFA_HEADERS = {
@@ -1058,6 +1059,12 @@ class EnrichedPredictionService {
                 xgH = xg.h; xgA = xg.a
             }
             quantResult = QuantumQuantEngine.analyze(m, xgH || 1.0, xgA || 1.0)
+            
+            // 🧠 [FEATURE ENGINE] Apply free features (home advantage, rest days, form, Elo)
+            const adjusted = featureEngineer.applyFeatures(m, xgH || 1.0, xgA || 1.0);
+            if (adjusted.xgH !== (xgH || 1.0) || adjusted.xgA !== (xgA || 1.0)) {
+                quantResult = QuantumQuantEngine.analyze(m, adjusted.xgH, adjusted.xgA)
+            }
             if (v553.success) {
                 // Check if V553 returned usable non-zero probabilities
                 const pyHome = parseFloat(v553.home_win_probability || v553.home_win_prob || 0);

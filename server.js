@@ -380,6 +380,7 @@ setTimeout(() => {
   const database = require('./core/database')
   const StatisticalEngine = require('./core/services/StatisticalEngine')
   const QuantumQuantEngine = require('./core/QuantumQuantEngine')
+  const featureEngineer = require('./core/services/FeatureEngineer')
 
   async function enrichOne(m) {
     // Generate hash-based synthetic odds (deterministic per match)
@@ -393,8 +394,13 @@ setTimeout(() => {
     const ap = Math.max(0.08, 1 - hp - dp)
     const odH = hp / 1.05, odD = dp / 1.05, odA = ap / 1.05
     const oSum = odH + odD + odA
-    const xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0))
-    const xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0))
+    let xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0))
+    let xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0))
+
+    // Apply free features for better differentiation
+    const adjusted = featureEngineer.applyFeatures(m, xgH, xgA)
+    xgH = adjusted.xgH
+    xgA = adjusted.xgA
 
     // Run QuantumQuantEngine (fast, synchronous)
     const quantResult = QuantumQuantEngine.analyze(m, xgH, xgA)

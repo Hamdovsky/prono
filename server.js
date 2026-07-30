@@ -394,8 +394,8 @@ setTimeout(() => {
     const ap = Math.max(0.08, 1 - hp - dp)
     const odH = hp / 1.05, odD = dp / 1.05, odA = ap / 1.05
     const oSum = odH + odD + odA
-    let xgH = Math.max(0.4, Math.min(3.0, (odH / oSum) * 3.0))
-    let xgA = Math.max(0.4, Math.min(3.0, (odA / oSum) * 3.0))
+    let xgH = Math.max(0.5, Math.min(3.5, (odH / oSum) * 4.0))
+    let xgA = Math.max(0.5, Math.min(3.5, (odA / oSum) * 4.0))
 
     // Apply free features for better differentiation
     const adjusted = featureEngineer.applyFeatures(m, xgH, xgA)

@@ -115,11 +115,28 @@ def process_prediction(match_obj: dict) -> dict:
     # --- V50+ Imputation & QoP ---
     features = impute_missing_match_data(features, match_obj)
 
-    # INSUFFICIENT DATA FILTER — universal guard, stricter for unknown leagues
+    # --- ZERO-DATA RESCUE (Bayesian Hierarchical + Implied Odds) ---
     data_completeness = features.get('data_completeness', 100)
+    match_obj['_h_hist_len'] = len(h_hist)
+    match_obj['_a_hist_len'] = len(a_hist)
+    match_obj['data_completeness'] = data_completeness
+    match_obj['_league_tier'] = league_tier
+
+    try:
+        from low_data_handler import is_low_data_scenario, predict_low_data
+        if is_low_data_scenario(match_obj):
+            low_result = predict_low_data(match_obj)
+            if low_result:
+                sys.stderr.write(f"[ZERO-DATA RESCUE] {home_name} vs {away_name} [{league_name_str}] "
+                                 f"via {low_result.get('model_used', 'bayesian')}\n")
+                return low_result
+    except Exception as rescue_err:
+        sys.stderr.write(f"[Zero-data rescue error] {rescue_err}\n")
+
+    # INSUFFICIENT DATA FILTER — universal guard, stricter for unknown leagues
     dc_threshold = 20.0 if league_tier == 'UNKNOWN' else 5.0
     if data_completeness < dc_threshold:
-        sys.stderr.write(f"🛑 PRE-MATCH FILTER: Insufficient data ({data_completeness:.0f}% < {dc_threshold}%) for league '{league_name_str}'. Blocked.\n")
+        sys.stderr.write(f"[PRE-MATCH FILTER] Insufficient data ({data_completeness:.0f}% < {dc_threshold}%) for league '{league_name_str}'. Blocked.\n")
         return {"success": False, "error": "INSUFFICIENT_DATA", "data_completeness": data_completeness}
 
     perf_delta_h = calculate_xg_perf_delta(h_hist, is_home=True)

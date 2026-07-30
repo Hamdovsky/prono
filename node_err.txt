@@ -1,0 +1,6 @@
+⚠️  [ENV] Variables d'environnement critiques manquantes:
+   ⚠️  API Secret Key
+   ⚠️  PostgreSQL URL
+⚠️  ⚠️ [BOT] Telegram credentials not configured. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env {}
+⚠️  ⚠️ [SUPABASE] No DATABASE_URL/SUPABASE_URL — service disabled {}
+⚠️  ⚠️ Swagger config not found - API docs disabled {}

@@ -39,6 +39,16 @@ function clearCache() {
 
 function speedCache(key, ttlMs = 60_000, staleMs = 300_000) {
   return (req, res, next) => {
+    // Bypass cache when force=true (fresh data requested)
+    if (req.query.force === 'true') {
+      const _json = res.json.bind(res)
+      res.json = (body) => {
+        setNoStore(res)
+        return _json(body)
+      }
+      return next()
+    }
+
     const cacheKey = `${key}:${req.originalUrl}`
     const now = Date.now()
     const cached = CACHE_STORE.get(cacheKey)

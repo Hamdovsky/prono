@@ -486,6 +486,162 @@ async def warmup():
             results[name] = str(e)
     return {"success": True, "warmed": results}
 
+# ── PENALTYBLOG ENGINE ──────────────────────────────────────────
+
+_penaltyblog_engine = None
+
+def get_penaltyblog_engine():
+    global _penaltyblog_engine
+    if _penaltyblog_engine is not None:
+        return _penaltyblog_engine
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'services'))
+    from penaltyblog_engine import PenaltyblogEngine
+    _penaltyblog_engine = PenaltyblogEngine()
+    return _penaltyblog_engine
+
+class PenaltyblogPredictRequest(BaseModel):
+    home_team: str = ''
+    away_team: str = ''
+    league: str = ''
+    max_goals: int = 15
+
+class PenaltyblogFitRequest(BaseModel):
+    leagues: list[str] = []
+    min_matches: int = 20
+
+class PenaltyblogBacktestRequest(BaseModel):
+    league: str = ''
+    test_size: int = 50
+
+class PenaltyblogImpliedRequest(BaseModel):
+    home_odds: float = 0
+    draw_odds: float = 0
+    away_odds: float = 0
+    method: str = 'power'
+
+@app.post("/penaltyblog/predict", tags=["penaltyblog"])
+async def penaltyblog_predict(req: PenaltyblogPredictRequest):
+    try:
+        engine = get_penaltyblog_engine()
+        result = engine.predict_match(req.home_team, req.away_team, req.league, req.max_goals)
+        return convert_numpy(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+@app.post("/penaltyblog/ou-btts", tags=["penaltyblog"])
+async def penaltyblog_ou_btts(req: PenaltyblogPredictRequest):
+    try:
+        engine = get_penaltyblog_engine()
+        result = engine.predict_ou_btts(req.home_team, req.away_team, req.league)
+        return convert_numpy(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+@app.post("/penaltyblog/implied", tags=["penaltyblog"])
+async def penaltyblog_implied(req: PenaltyblogImpliedRequest):
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'services'))
+        from penaltyblog_engine import PenaltyblogEngine
+        result = PenaltyblogEngine.implied_probabilities(
+            req.home_odds, req.draw_odds, req.away_odds, req.method
+        )
+        return {"success": True, **result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/penaltyblog/fit-all", tags=["penaltyblog"])
+async def penaltyblog_fit_all(req: PenaltyblogFitRequest):
+    try:
+        engine = get_penaltyblog_engine()
+        if req.leagues:
+            results = {}
+            for league in req.leagues:
+                model = engine.fit_league_model(league, force=True)
+                results[league] = 'fitted' if model else 'skipped'
+        else:
+            results = engine.fit_all_leagues(min_matches=req.min_matches)
+        return {"success": True, "results": results}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+@app.post("/penaltyblog/backtest", tags=["penaltyblog"])
+async def penaltyblog_backtest(req: PenaltyblogBacktestRequest):
+    try:
+        engine = get_penaltyblog_engine()
+        result = engine.backtest_league(req.league, req.test_size)
+        return convert_numpy(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+@app.get("/penaltyblog/status", tags=["penaltyblog"])
+async def penaltyblog_status():
+    try:
+        engine = get_penaltyblog_engine()
+        return {
+            "success": True,
+            "models_loaded": list(engine.models.keys()),
+            "models_count": len(engine.models),
+            "cache_dir": str(engine.db_path),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# ── BAYESIAN LOW-DATA ENDPOINTS ────────────────────────────────
+
+class BayesianPredictRequest(BaseModel):
+    home_team: str = ''
+    away_team: str = ''
+    league: str = 'Club Friendlies'
+    bookmaker_odds: list[float] = []
+
+@app.post("/bayesian/predict", tags=["bayesian"])
+async def bayesian_predict(req: BayesianPredictRequest):
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'services'))
+        from penaltyblog_engine import BayesianLowDataHandler
+        handler = BayesianLowDataHandler()
+        odds = req.bookmaker_odds if len(req.bookmaker_odds) == 3 else None
+        result = handler.predict_zero_data(req.home_team, req.away_team, req.league, odds)
+        return convert_numpy(result)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+class BayesianFitRequest(BaseModel):
+    league: str = 'Club Friendlies'
+    force: bool = False
+
+@app.post("/bayesian/fit", tags=["bayesian"])
+async def bayesian_fit(req: BayesianFitRequest):
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'services'))
+        from penaltyblog_engine import BayesianLowDataHandler
+        handler = BayesianLowDataHandler()
+        model = handler.fit_bayesian(req.league, force=req.force)
+        return {"success": model is not None, "league": req.league, "fitted": model is not None}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.get("/bayesian/priors", tags=["bayesian"])
+async def bayesian_priors(league: str = 'Club Friendlies'):
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'services'))
+        from penaltyblog_engine import LeaguePriorBank
+        bank = LeaguePriorBank()
+        priors = bank.get_priors_for(league)
+        return {"success": True, "league": league, "priors": priors}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 # ── FREE FALLBACK ENDPOINT ──────────────────────────────────────
 
 class FallbackEnrichRequest(BaseModel):

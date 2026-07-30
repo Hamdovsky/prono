@@ -947,6 +947,50 @@ app.get('/api/upcoming', async (req, res) => {
       )
     }
 
+    // 🧠 ZERO-DATA RESCUE: Bayesian inference for Club Friendlies & low-data matches
+    const bayesianUrl = process.env.BAYESIAN_URL || 'http://localhost:8000'
+    for (const m of cleanMatches) {
+      const league = (m.league || m.tournament_name || '').toLowerCase()
+      const isLowData = /friendly|friendlies|club friendly/.test(league)
+      const hasProbs = parseFloat(m.btts_prob || 0) > 0 || parseFloat(m.home_win_probability || 0) > 0
+      if (isLowData && !hasProbs) {
+        try {
+          const body = JSON.stringify({
+            home_team: m.homeTeam || '',
+            away_team: m.awayTeam || '',
+            league: m.league || m.tournament_name || 'Club Friendlies',
+            bookmaker_odds: [
+              parseFloat(m.odds_home || m.best_odds_home || 0) || null,
+              parseFloat(m.odds_draw || m.best_odds_draw || 0) || null,
+              parseFloat(m.odds_away || m.best_odds_away || 0) || null,
+            ].filter(Boolean),
+          })
+          const resp = await fetch(`${bayesianUrl}/bayesian/predict`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+          })
+          if (resp.ok) {
+            const bayes = await resp.json()
+            if (bayes.success) {
+              m.btts_prob = bayes.btts_yes
+              m.ou_25_prob = bayes.over_25
+              m.home_win_probability = bayes.home_win
+              m.draw_probability = bayes.draw
+              m.away_win_probability = bayes.away_win
+              m.home_avg_scored = bayes.home_xg
+              m.away_avg_scored = bayes.away_xg
+              m.confidence = 30
+              m.bayesian_rescue = true
+              logger.info(`[BAYES] Rescued ${m.homeTeam} vs ${m.awayTeam} (${league})`)
+            }
+          }
+        } catch (bayesErr) {
+          logger.warn(`[BAYES] Failed for ${m.homeTeam} vs ${m.awayTeam}: ${bayesErr.message}`)
+        }
+      }
+    }
+
     const enriched = cleanMatches.map((m) => {
       try {
         const xgH = parseFloat(m.home_avg_scored || m.xg_home || 1.2)

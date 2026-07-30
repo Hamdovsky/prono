@@ -214,15 +214,34 @@ router.get('/live/goal-predictions', async (req, res) => {
   }
 })
 
-router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) => {
+router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
   try {
     // [PREMATCH ONLY] strictly filter out live/in-progress matches
-    const allMatches = await database.getMatchesByStatuses([
+    let allMatches = await database.getMatchesByStatuses([
       'scheduled',
       'upcoming',
       'NOT_STARTED',
       'NS',
     ])
+    // Auto-populate if DB is near-empty (fresh deploy on Render)
+    if (allMatches.length < 5) {
+      const countResult = await database.query('SELECT COUNT(*) as total FROM matches')
+      const totalCount = countResult?.rows?.[0]?.total || countResult?.[0]?.total || 0
+      if (totalCount < 20) {
+        logger.info('[UPCOMING] DB nearly empty, triggering BSD fullSync...')
+        try {
+          const synced = await bsdService.fullSync()
+          if (synced > 0) {
+            logger.info(`[UPCOMING] BSD sync returned ${synced} matches, re-fetching`)
+            allMatches = await database.getMatchesByStatuses([
+              'scheduled', 'upcoming', 'NOT_STARTED', 'NS',
+            ])
+          }
+        } catch (syncErr) {
+          logger.error(`[UPCOMING] BSD sync failed: ${syncErr.message}`)
+        }
+      }
+    }
     let rawMatches = allMatches
 
     const daysParam = parseInt(req.query.days) || 3

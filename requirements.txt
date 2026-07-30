@@ -35,6 +35,9 @@ soccerdata>=0.4.0
 lxml>=5.0.0
 html5lib>=1.1
 
+# --- Penaltyblog Football Models ---
+penaltyblog>=1.11.0
+
 # --- Web Scraping (scripts/) ---
 beautifulsoup4>=4.12.0
 

@@ -183,6 +183,7 @@ async function emergencyReseed() {
     }
     logger.warn(`[BOOT] DB has only ${count} matches — re-seeding in 30s...`)
     await new Promise((resolve) => setTimeout(resolve, 30000))
+    await syncBSD()
     await runCloudSeed()
   } catch (e) {
     logger.warn(`[BOOT] Emergency re-seed check failed: ${e.message}`)

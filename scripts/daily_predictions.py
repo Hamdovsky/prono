@@ -256,82 +256,106 @@ def run():
         home_short = match['homeTeam'][:20]
         away_short = match['awayTeam'][:20]
         try:
-            pred = predict(match)
-            pb_pred = pb_engine.predict_match(match['homeTeam'], match['awayTeam'], match['league'])
+            v553_pred = None
+            pb_pred = None
+            try:
+                v553_pred = predict(match)
+            except Exception as v553_err:
+                logging.warning(f"V553 skip {match['homeTeam']} vs {match['awayTeam']}: {v553_err}")
+            try:
+                pb_pred = pb_engine.predict_match(match['homeTeam'], match['awayTeam'], match['league'])
+            except Exception as pb_err:
+                logging.warning(f"PB skip {match['homeTeam']} vs {match['awayTeam']}: {pb_err}")
 
-            if pred and pred.get('prediction'):
-                hp = safe_float(pred.get('home_win_prob', 0))
-                dp = safe_float(pred.get('draw_prob', 0))
-                ap = safe_float(pred.get('away_win_prob', 0))
-                result = pred['prediction']
-                conf = max(hp, dp, ap)
-                exp = pred.get('expected_score', '1.2 - 1.0')
-                xg_h = pred.get('home_xg')
-                xg_a = pred.get('away_xg')
+            v553_ok = v553_pred and v553_pred.get('prediction')
+            pb_ok = pb_pred and pb_pred.get('success')
 
-                if pb_pred and pb_pred.get('success'):
-                    pb_h = pb_pred['home_win'] * 100
-                    pb_d = pb_pred['draw'] * 100
-                    pb_a = pb_pred['away_win'] * 100
-                    pb_model = pb_pred.get('model', 'penaltyblog')
-                    hp = hp * (1 - PB_WEIGHT) + pb_h * PB_WEIGHT
-                    dp = dp * (1 - PB_WEIGHT) + pb_d * PB_WEIGHT
-                    ap = ap * (1 - PB_WEIGHT) + pb_a * PB_WEIGHT
-                    s = hp + dp + ap
-                    if s > 0:
-                        hp, dp, ap = hp / s * 100, dp / s * 100, ap / s * 100
-                    conf = max(hp, dp, ap)
-                    result = '1' if hp == conf else ('X' if dp == conf else '2')
-                    pb_tag = f'+{pb_model}'
-                else:
-                    pb_tag = ''
-
-                ou25, btts = compute_ou_btts(exp, xg_h, xg_a)
-
-                if result == '1': odds = match['odds_home']; prob = hp
-                elif result == 'X': odds = match['odds_draw']; prob = dp
-                else: odds = match['odds_away']; prob = ap
-
-                p = prob / 100.0
-                ev = round(p * odds - (1 - p), 3)
-                kelly = round(max(0, (p * odds - 1) / (odds - 1)), 3) if odds > 1 else 0
-
-                h_hist = get_team_history(match['homeTeam'], limit=5)
-                a_hist = get_team_history(match['awayTeam'], limit=5)
-
-                results.append({
-                    'date': match.get('event_date', '')[:10],
-                    'time': match.get('event_date', '')[11:16],
-                    'home': match['homeTeam'],
-                    'away': match['awayTeam'],
-                    'league': match['league'],
-                    'prediction': result,
-                    'confidence': round(conf, 1),
-                    'home_prob': round(hp, 1),
-                    'draw_prob': round(dp, 1),
-                    'away_prob': round(ap, 1),
-                    'odds_home': match['odds_home'],
-                    'odds_draw': match['odds_draw'],
-                    'odds_away': match['odds_away'],
-                    'odds_source': match.get('odds_source', 'default'),
-                    'expected_score': exp,
-                    'home_xg': round(xg_h, 2) if xg_h else 0,
-                    'away_xg': round(xg_a, 2) if xg_a else 0,
-                    'ou25': round(ou25, 1),
-                    'btts': round(btts, 1),
-                    'ev': ev,
-                    'kelly': kelly,
-                    'has_real_odds': match['has_real_odds'],
-                    'home_history': len(h_hist),
-                    'away_history': len(a_hist),
-                    'penaltyblog': bool(pb_tag),
-                    'models': f'v553{pb_tag}'
-                })
-                tag_src = 'R' if match['has_real_odds'] else 'E'
-                tag_pb = 'PB' if pb_tag else '  '
-                print(f"   [{idx+1}/{len(matches_to_predict)}] [{tag_src}][{tag_pb}] {home_short:20} vs {away_short:20} | {result:4} | {conf:.0f}% | EV:{ev:.2f} | odds:{match['odds_source']}")
-            else:
+            if not v553_ok and not pb_ok:
                 print(f"   [{idx+1}/{len(matches_to_predict)}] {home_short:20} vs {away_short:20} | SKIP (no prediction)")
+                continue
+
+            if v553_ok:
+                hp = safe_float(v553_pred.get('home_win_prob', 0))
+                dp = safe_float(v553_pred.get('draw_prob', 0))
+                ap = safe_float(v553_pred.get('away_win_prob', 0))
+                exp = v553_pred.get('expected_score', '1.2 - 1.0')
+                xg_h = v553_pred.get('home_xg')
+                xg_a = v553_pred.get('away_xg')
+                models_used = 'v553'
+            else:
+                hp = dp = ap = 0
+                exp = '1.2 - 1.0'
+                xg_h = xg_a = None
+                models_used = ''
+
+            if pb_ok:
+                pb_h = pb_pred['home_win'] * 100
+                pb_d = pb_pred['draw'] * 100
+                pb_a = pb_pred['away_win'] * 100
+                pb_model = pb_pred.get('model', 'penaltyblog')
+                pb_weight = PB_WEIGHT if v553_ok else 1.0
+                hp = hp * (1 - pb_weight) + pb_h * pb_weight
+                dp = dp * (1 - pb_weight) + pb_d * pb_weight
+                ap = ap * (1 - pb_weight) + pb_a * pb_weight
+                s = hp + dp + ap
+                if s > 0:
+                    hp, dp, ap = hp / s * 100, dp / s * 100, ap / s * 100
+                pb_tag = f'+{pb_model}'
+                models_used = f'{models_used}{pb_tag}' if models_used else pb_model
+            else:
+                pb_tag = ''
+
+            if hp == dp == ap == 0:
+                print(f"   [{idx+1}/{len(matches_to_predict)}] {home_short:20} vs {away_short:20} | SKIP (zero probs)")
+                continue
+
+            result = '1' if hp == max(hp, dp, ap) else ('X' if dp == max(hp, dp, ap) else '2')
+            conf = max(hp, dp, ap)
+
+            ou25, btts = compute_ou_btts(exp, xg_h, xg_a)
+
+            if result == '1': odds = match['odds_home']; prob = hp
+            elif result == 'X': odds = match['odds_draw']; prob = dp
+            else: odds = match['odds_away']; prob = ap
+
+            p = prob / 100.0
+            ev = round(p * odds - (1 - p), 3)
+            kelly = round(max(0, (p * odds - 1) / (odds - 1)), 3) if odds > 1 else 0
+
+            h_hist = get_team_history(match['homeTeam'], limit=5)
+            a_hist = get_team_history(match['awayTeam'], limit=5)
+
+            results.append({
+                'date': match.get('event_date', '')[:10],
+                'time': match.get('event_date', '')[11:16],
+                'home': match['homeTeam'],
+                'away': match['awayTeam'],
+                'league': match['league'],
+                'prediction': result,
+                'confidence': round(conf, 1),
+                'home_prob': round(hp, 1),
+                'draw_prob': round(dp, 1),
+                'away_prob': round(ap, 1),
+                'odds_home': match['odds_home'],
+                'odds_draw': match['odds_draw'],
+                'odds_away': match['odds_away'],
+                'odds_source': match.get('odds_source', 'default'),
+                'expected_score': exp,
+                'home_xg': round(xg_h, 2) if xg_h else 0,
+                'away_xg': round(xg_a, 2) if xg_a else 0,
+                'ou25': round(ou25, 1),
+                'btts': round(btts, 1),
+                'ev': ev,
+                'kelly': kelly,
+                'has_real_odds': match['has_real_odds'],
+                'home_history': len(h_hist),
+                'away_history': len(a_hist),
+                'penaltyblog': bool(pb_tag),
+                'models': models_used
+            })
+            tag_src = 'R' if match['has_real_odds'] else 'E'
+            tag_pb = 'PB' if pb_tag else '  '
+            print(f"   [{idx+1}/{len(matches_to_predict)}] [{tag_src}][{tag_pb}] {home_short:20} vs {away_short:20} | {result:4} | {conf:.0f}% | EV:{ev:.2f} | odds:{match['odds_source']}")
         except Exception as ex:
             error_msg = f"{match['homeTeam']} vs {match['awayTeam']}: {ex}"
             errors.append(error_msg)

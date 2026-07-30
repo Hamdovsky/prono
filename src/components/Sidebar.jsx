@@ -1,234 +1,19 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ROUTES, NAV_ITEMS } from '../config/routes'
+import { ROUTES } from '../config/routes'
 import { useTheme } from '../contexts/ThemeContext'
-import { useI18n } from '../contexts/I18nContext'
 import './Sidebar.css'
 
-const PINNED_LEAGUES = [
-  {
-    id: 'en_pr',
-    name: 'Angleterre : Premier League',
-    flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
-    keywords: ['premier league', 'epl'],
-  },
-  { id: 'en_ch', name: 'Angleterre : Championship', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', keywords: ['championship'] },
-  { id: 'en_l1', name: 'Angleterre : League One', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', keywords: ['league one'] },
-  { id: 'en_l2', name: 'Angleterre : League Two', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', keywords: ['league two'] },
-  { id: 'en_nl', name: 'Angleterre : National League', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', keywords: ['national league'] },
-  { id: 'fr_l1', name: 'France : Ligue 1', flag: '🇫🇷', keywords: ['ligue 1', 'france'] },
-  {
-    id: 'es_ll',
-    name: 'Espagne : LaLiga',
-    flag: '🇪🇸',
-    keywords: ['LaLiga', 'la liga', 'laliga', 'spain', 'es liga'],
-  },
-  { id: 'it_sa', name: 'Italie : Serie A', flag: '🇮🇹', keywords: ['serie a', 'italy'] },
-  { id: 'de_bl', name: 'Allemagne : Bundesliga', flag: '🇩🇪', keywords: ['bundesliga', 'germany'] },
-  {
-    id: 'pt_lp',
-    name: 'Portugal : Liga Portugal',
-    flag: '🇵🇹',
-    keywords: ['liga portugal', 'primeira', 'portugal'],
-  },
-  {
-    id: 'eu_cl',
-    name: 'UEFA : Champions League',
-    flag: '🇪🇺',
-    keywords: ['champions league', 'uefa'],
-  },
-  { id: 'eu_el', name: 'UEFA : Europa League', flag: '🇪🇺', keywords: ['europa league'] },
-  { id: 'br_sa', name: 'Brésil : Brasileirão', flag: '🇧🇷', keywords: ['brasileiro', 'brazil'] },
-]
-
-const MENA_LEAGUES = [
-  { id: 'ma_bp', name: 'Maroc : Botola Pro', flag: '🇲🇦', keywords: ['botola', 'morocco'] },
-  { id: 'tn_l1', name: 'Tunisie : Ligue 1', flag: '🇹🇳', keywords: ['tunisian', 'tunisia'] },
-  {
-    id: 'sa_pl',
-    name: 'Arabie S. : Saudi Pro',
-    flag: '🇸🇦',
-    keywords: ['saudi', 'al-nassr', 'al-hilal', 'al-ittihad', 'al-ahli'],
-  },
-  { id: 'eg_pl', name: 'Égypte : Egyptian Premier', flag: '🇪🇬', keywords: ['egyptian', 'egypt'] },
-  { id: 'dz_l1', name: 'Algérie : Ligue 1', flag: '🇩🇿', keywords: ['algerian', 'algeria'] },
-  {
-    id: 'ae_pl',
-    name: 'Émirats : UAE Pro League',
-    flag: '🇦🇪',
-    keywords: ['uae pro', 'united arab emirates'],
-  },
-  { id: 'qa_sl', name: 'Qatar : Stars League', flag: '🇶🇦', keywords: ['stars league', 'qatar'] },
-  { id: 'kw_pl', name: 'Koweït : Kuwait League', flag: '🇰🇼', keywords: ['kuwait'] },
-  { id: 'iq_sl', name: 'Irak : Iraq Stars League', flag: '🇮🇶', keywords: ['iraq stars', 'iraq'] },
-  {
-    id: 'jo_pl',
-    name: 'Jordanie : Jordan Pro League',
-    flag: '🇯🇴',
-    keywords: ['jordan pro', 'jordan'],
-  },
-  {
-    id: 'om_pl',
-    name: 'Oman : Oman Pro League',
-    flag: '🇴🇲',
-    keywords: ['oman professional', 'oman'],
-  },
-  {
-    id: 'ly_pl',
-    name: 'Libye : Libyan Premier',
-    flag: '🇱🇾',
-    keywords: ['libyan premier', 'libya'],
-  },
-  {
-    id: 'lb_pl',
-    name: 'Liban : Lebanese Premier',
-    flag: '🇱🇧',
-    keywords: ['lebanese premier', 'lebanon'],
-  },
-  {
-    id: 'sy_pl',
-    name: 'Syrie : Syrian Premier',
-    flag: '🇸🇾',
-    keywords: ['syrian premier', 'syria'],
-  },
-  {
-    id: 'bh_pl',
-    name: 'Bahreïn : Bahraini Premier',
-    flag: '🇧🇭',
-    keywords: ['bahraini premier', 'bahrain'],
-  },
-]
-
-const Sidebar = ({
-  activeLeague,
-  onLeagueChange,
-  matches = [],
-  activeView,
-  activeDate,
-  onDateChange,
-  isOpen = true,
-}) => {
+const Sidebar = ({ activeView }) => {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
-  const { locale, setLocale, t } = useI18n()
 
   const handleNav = (view) => {
     navigate(ROUTES[view] || '/')
   }
 
-  const activeCounts = {}
-  const todayStr = new Date().toLocaleDateString()
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const tomorrowStr = tomorrow.toLocaleDateString()
-
-  matches.forEach((m) => {
-    let dateMs = null
-    if (m.startTimestamp) {
-      dateMs = m.startTimestamp > 1e11 ? m.startTimestamp : m.startTimestamp * 1000
-    } else if (m.timestamp) {
-      dateMs = new Date(m.timestamp).getTime()
-    } else if (m.startTime) {
-      dateMs = new Date(m.startTime).getTime()
-    } else if (m.date) {
-      dateMs = new Date(m.date).getTime()
-    }
-
-    if (!dateMs) {
-      // No timestamp — assume today
-      const matchDayStr = new Date().toLocaleDateString()
-      if (activeDate === 'Today' && matchDayStr !== todayStr) return
-      if (activeDate === 'Tomorrow' && matchDayStr !== tomorrowStr) return
-      if (activeDate === 'Next 3 Days') {
-        const threeDays = Date.now() + 3 * 24 * 60 * 60 * 1000
-        if (Date.now() < Date.now() - 3600000 || Date.now() > threeDays) return
-      }
-      if (activeDate === 'Next 7 Days') {
-        const sevenDays = Date.now() + 7 * 24 * 60 * 60 * 1000
-        if (Date.now() < Date.now() - 3600000 || Date.now() > sevenDays) return
-      }
-      const l = (m.league || 'Unknown').toLowerCase()
-      activeCounts[l] = (activeCounts[l] || 0) + 1
-      return
-    }
-    const matchDayStr = new Date(dateMs).toLocaleDateString()
-
-    if (activeDate === 'Today' && matchDayStr !== todayStr) return
-    if (activeDate === 'Tomorrow' && matchDayStr !== tomorrowStr) return
-    if (activeDate === 'Next 3 Days') {
-      const threeDays = Date.now() + 3 * 24 * 60 * 60 * 1000
-      if (dateMs < Date.now() - 3600000 || dateMs > threeDays) return
-    }
-    if (activeDate === 'Next 7 Days') {
-      const sevenDays = Date.now() + 7 * 24 * 60 * 60 * 1000
-      if (dateMs < Date.now() - 3600000 || dateMs > sevenDays) return
-    }
-
-    const l = (m.league || 'Unknown').toLowerCase()
-    activeCounts[l] = (activeCounts[l] || 0) + 1
-  })
-
-  const pinnedWithCounts = PINNED_LEAGUES.map((pinned) => {
-    let count = 0
-    Object.keys(activeCounts).forEach((activeLeagueName) => {
-      const isMena = MENA_LEAGUES.some((mena) =>
-        mena.keywords.some((kw) => activeLeagueName.includes(kw))
-      )
-      if (!isMena && pinned.keywords.some((kw) => activeLeagueName.includes(kw))) {
-        count += activeCounts[activeLeagueName]
-      }
-    })
-    return { ...pinned, count }
-  })
-
-  const menaWithCounts = MENA_LEAGUES.map((mena) => {
-    let count = 0
-    Object.keys(activeCounts).forEach((activeLeagueName) => {
-      if (mena.keywords.some((kw) => activeLeagueName.includes(kw))) {
-        count += activeCounts[activeLeagueName]
-      }
-    })
-    return { ...mena, count }
-  })
-
-  const isPinnedOrMena = (leagueName) => {
-    const lower = leagueName.toLowerCase()
-    return (
-      PINNED_LEAGUES.some((p) => p.keywords.some((kw) => lower.includes(kw))) ||
-      MENA_LEAGUES.some((m) => m.keywords.some((kw) => lower.includes(kw)))
-    )
-  }
-
-  const getCountryForOther = (name) => {
-    const lower = name.toLowerCase()
-    if (lower.includes('algerian')) return '🇩🇿 Algérie : '
-    if (lower.includes('tunisian')) return '🇹🇳 Tunisie : '
-    if (lower.includes('egyptian')) return '🇪🇬 Égypte : '
-    if (lower.includes('moroccan') || lower.includes('botola')) return '🇲🇦 Maroc : '
-    if (lower.includes('premier league')) return '🏴󠁧󠁢󠁥󠁮󠁧󠁿 Angleterre : '
-    if (lower.includes('laliga')) return '🇪🇸 Espagne : '
-    if (lower.includes('serie a')) return '🇮🇹 Italie : '
-    if (lower.includes('bundesliga')) return '🇩🇪 Allemagne : '
-    if (lower.includes('brazil')) return '🇧🇷 Brésil : '
-    if (lower.includes('usa') || lower.includes('mls')) return '🇺🇸 USA : '
-    return '⚽ '
-  }
-
-  const otherLeagues = Object.entries(activeCounts)
-    .filter(([name]) => !isPinnedOrMena(name))
-    .map(([name, count]) => ({
-      id: name,
-      name: (
-        getCountryForOther(name) + name.replace(/^([A-Za-z]+ )(\1)/i, '$1').toUpperCase()
-      ).substring(0, 35),
-      count,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name))
-
-  const totalFilteredMatches = Object.values(activeCounts).reduce((a, b) => a + b, 0)
-
   return (
-    <aside className={`flash-sidebar ${isOpen ? '' : 'collapsed'}`}>
+    <aside className="flash-sidebar">
       <div className="flash-sidebar-header">
         <h2>Laboratoire Hamdi</h2>
         <div
@@ -246,7 +31,6 @@ const Sidebar = ({
       </div>
 
       <div className="flash-nav-section">
-        {/* ── ALL MATCHES SCANNER ────────────────────── */}
         <button
           className={`flash-nav-item ${activeView === 'all-matches' ? 'active' : ''}`}
           onClick={() => handleNav('all-matches')}
@@ -262,22 +46,10 @@ const Sidebar = ({
         >
           <span className="flash-icon">📊</span>
           <span className="flash-label" style={{ fontWeight: 'bold' }}>
-            {t('sidebar.allMatches')}
-          </span>
-          <span
-            className="flash-count"
-            style={{
-              background: '#334155',
-              color: '#fff',
-              padding: '1px 6px',
-              borderRadius: '4px',
-            }}
-          >
-            {totalFilteredMatches}
+            TOUS LES MATCHS
           </span>
         </button>
 
-        {/* ── TOP PICKS DU JOUR ─────────────────── */}
         <button
           className={`flash-nav-item ${activeView === 'millionaire' ? 'active' : ''}`}
           onClick={() => handleNav('millionaire')}
@@ -297,7 +69,6 @@ const Sidebar = ({
           </span>
         </button>
 
-        {/* ── PROMOSPORT ─────────────────── */}
         <button
           className={`flash-nav-item ${activeView === 'promosport' ? 'active' : ''}`}
           onClick={() => handleNav('promosport')}
@@ -317,7 +88,6 @@ const Sidebar = ({
           </span>
         </button>
 
-        {/* ── MARCHÉS ─────────────────── */}
         <button
           className={`flash-nav-item ${activeView === 'markets' ? 'active' : ''}`}
           onClick={() => handleNav('markets')}
@@ -337,7 +107,6 @@ const Sidebar = ({
           </span>
         </button>
 
-        {/* ── SUIVI DES PARIS ─────────────────── */}
         <button
           className={`flash-nav-item ${activeView === 'bets' ? 'active' : ''}`}
           onClick={() => handleNav('bets')}
@@ -357,7 +126,6 @@ const Sidebar = ({
           </span>
         </button>
 
-        {/* ── ENTRAÎNEMENT ─────────────────── */}
         <button
           className={`flash-nav-item ${activeView === 'training' ? 'active' : ''}`}
           onClick={() => handleNav('training')}
@@ -376,162 +144,6 @@ const Sidebar = ({
             ENTRAÎNEMENT
           </span>
         </button>
-      </div>
-
-      <div className="flash-nav-section">
-        <h3 className="flash-section-title" style={{ color: '#64748b' }}>
-          📅 {t('sidebar.filterTemporal')}
-        </h3>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '6px',
-            padding: '4px 10px 10px',
-          }}
-        >
-          {['Today', 'Tomorrow', 'Next 3 Days', 'Next 7 Days'].map((date) => {
-            const labels = {
-              Today: "AUJOURD'HUI",
-              Tomorrow: 'DEMAIN',
-              'Next 3 Days': '3 JOURS',
-              'Next 7 Days': '7 JOURS',
-            }
-            const isActive = activeDate === date
-            return (
-              <button
-                key={date}
-                className={`date-filter-btn ${isActive ? 'active' : ''}`}
-                onClick={() => onDateChange?.(date)}
-                style={{
-                  padding: '7px 5px',
-                  fontSize: '9.5px',
-                  background: isActive
-                    ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                    : 'rgba(255,255,255,0.04)',
-                  color: isActive ? '#000' : '#64748b',
-                  border: isActive ? 'none' : '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontWeight: isActive ? '900' : '600',
-                  letterSpacing: '0.4px',
-                  transition: 'all 0.18s ease',
-                  fontFamily: "'JetBrains Mono', monospace",
-                  boxShadow: isActive ? '0 2px 10px rgba(245,158,11,0.3)' : 'none',
-                }}
-              >
-                {labels[date]}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="flash-nav-section">
-        <h3
-          className="flash-section-title"
-          style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          🏆 LIGUES ACTIVES
-        </h3>
-
-        {/* 1. Merged Fixed/Best Leagues at top if active */}
-        {pinnedWithCounts
-          .filter((l) => l.count > 0)
-          .map((league) => (
-            <button
-              key={league.id}
-              className={`flash-nav-item ${activeLeague === league.keywords[0] ? 'active' : ''}`}
-              onClick={() => {
-                handleNav('matches')
-                onLeagueChange(league.keywords[0])
-              }}
-              style={{
-                borderLeft: activeLeague === league.keywords[0] ? '2px solid #f59e0b' : 'none',
-              }}
-            >
-              <span className="flash-icon">{league.flag}</span>
-              <span className="flash-label" style={{ fontWeight: '600' }}>
-                {league.name}
-              </span>
-              <span className="flash-count">{league.count}</span>
-            </button>
-          ))}
-
-        {/* 2. All other active leagues sorted alphabetically */}
-        {otherLeagues.map((league) => (
-          <button
-            key={league.id}
-            className={`flash-nav-item ${activeLeague === league.id ? 'active' : ''}`}
-            onClick={() => {
-              handleNav('matches')
-              onLeagueChange(league.id)
-            }}
-          >
-            <span className="flash-icon">⚽</span>
-            <span className="flash-label">{league.name}</span>
-            <span className="flash-count">{league.count}</span>
-          </button>
-        ))}
-      </div>
-
-      {menaWithCounts.some((l) => l.count > 0) && (
-        <div className="flash-nav-section">
-          <h3
-            className="flash-section-title"
-            style={{
-              color: '#10b981',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginTop: '10px',
-            }}
-          >
-            🌙 MENA / MONDE ARABE
-          </h3>
-
-          {menaWithCounts
-            .filter((l) => l.count > 0)
-            .map((league) => (
-              <button
-                key={league.id}
-                className={`flash-nav-item ${activeLeague === league.keywords[0] ? 'active' : ''}`}
-                onClick={() => {
-                  handleNav('matches')
-                  onLeagueChange(league.keywords[0])
-                }}
-                style={{
-                  borderLeft: activeLeague === league.keywords[0] ? '2px solid #10b981' : 'none',
-                }}
-              >
-                <span className="flash-icon">{league.flag}</span>
-                <span className="flash-label" style={{ fontWeight: '600' }}>
-                  {league.name}
-                </span>
-                <span className="flash-count">{league.count}</span>
-              </button>
-            ))}
-        </div>
-      )}
-
-      <div className="flash-nav-section">
-        {/* 3. Show fallback if absolutely no leagues are active */}
-        {pinnedWithCounts.every((l) => l.count === 0) &&
-          menaWithCounts.every((l) => l.count === 0) &&
-          otherLeagues.length === 0 && (
-            <div
-              style={{
-                padding: '20px',
-                fontSize: '11px',
-                color: '#64748b',
-                textAlign: 'center',
-                background: 'rgba(0,0,0,0.2)',
-                borderRadius: '8px',
-              }}
-            >
-              Aucune ligue active pour cette date.
-            </div>
-          )}
       </div>
 
       <div

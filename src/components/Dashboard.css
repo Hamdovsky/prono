@@ -19,6 +19,7 @@
 
 .titanium-layout {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background-color: var(--bg);
   color: #fff;
@@ -26,9 +27,7 @@
   font-family: 'Inter', sans-serif;
   font-size: 14px;
   letter-spacing: normal;
-  transition:
-    background 0.3s ease,
-    color 0.3s ease;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 .titanium-main {
@@ -38,9 +37,8 @@
   overflow: hidden;
   position: relative;
   background: var(--bg);
-  transition:
-    transform 0.25s ease,
-    background 0.3s ease;
+  width: 100%;
+  transition: background 0.3s ease;
 }
 
 /* --- ONYX STATUS HEADER --- */
@@ -548,39 +546,11 @@
   }
 }
 
-/* ── SIDEBAR RESPONSIVE ── */
-.flash-sidebar {
-  transition:
-    transform 0.25s ease,
-    margin-left 0.25s ease,
-    width 0.25s ease;
-}
-.flash-sidebar.collapsed {
-  margin-left: -200px;
-  width: 0;
-  min-width: 0;
-  overflow: hidden;
-  border-right: none;
-}
-
-@media (max-width: 1024px) {
-  .flash-sidebar {
-    position: fixed;
-    z-index: 100;
-    left: 0;
-    top: 0;
-    height: 100%;
-    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.8);
-  }
-  .flash-sidebar.collapsed {
-    transform: translateX(-100%);
-    margin-left: 0;
-    width: 200px;
-    min-width: 200px;
-  }
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
   .onyx-status-header {
     padding: 6px 10px;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
     height: auto;
     min-height: 40px;
@@ -589,7 +559,7 @@
     justify-content: flex-end;
   }
   .onyx-grid-container {
-    padding: 10px 8px;
+    padding: 8px 6px;
   }
 }
 

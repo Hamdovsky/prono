@@ -173,7 +173,7 @@ setTimeout(async () => {
         }, 15000)
 
         // ── Cron schedules ──
-        cronSchedules.init()
+        try { cronSchedules.init() } catch (e) { logger.warn(`[CRON] Schedules init error: ${e.message}`) }
 
         // ── Auto-enrich after cloud seed (batched to avoid OOM on free tier) ──
         process.env.ENRICH_CONCURRENCY = '8'

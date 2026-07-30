@@ -30,7 +30,7 @@ class BsdService {
 
   async _loadLeagues() {
     try {
-      const data = await this._fetch('/leagues/?limit=200')
+      const data = await this._fetch('/v2/leagues/?sport=football&limit=200')
       if (data?.results?.length) {
         this._leagueCache = {}
         for (const league of data.results) {
@@ -51,7 +51,7 @@ class BsdService {
     if (!leagueId) return null
     if (this._leagueCache && this._leagueCache[leagueId]) return this._leagueCache[leagueId]
     try {
-      const data = await this._fetch(`/leagues/${leagueId}/`)
+      const data = await this._fetch(`/v2/leagues/${leagueId}/`)
       if (data?.name) {
         if (!this._leagueCache) this._leagueCache = {}
         this._leagueCache[leagueId] = data.name
@@ -137,7 +137,7 @@ class BsdService {
   // ── PUBLIC API ─────────────────────────────────────────────────
 
   async fetchEvents(dateStr) {
-    const data = await this._fetch(`/matches/?date=${dateStr}&limit=200`)
+    const data = await this._fetch(`/v2/events/?date_from=${dateStr}&date_to=${dateStr}&limit=200`)
     return data?.results || []
   }
 
@@ -158,12 +158,12 @@ class BsdService {
   }
 
   async fetchUpcomingEvents() {
-    const data = await this._fetch('/matches/?limit=200')
+    const data = await this._fetch('/v2/events/?limit=200')
     return data?.results || []
   }
 
   async fetchLiveEvents() {
-    const data = await this._fetch('/matches/?status=live&limit=50')
+    const data = await this._fetch('/v2/events/?status=inprogress&limit=50')
     return data?.results || []
   }
 
@@ -374,7 +374,7 @@ class BsdService {
 
     // Quick health check — if API key is bad, mark unavailable immediately
     try {
-      const quickCheck = await this._fetch('/matches/?limit=1')
+      const quickCheck = await this._fetch('/v2/events/?limit=1')
       if (!quickCheck) {
         logger.warn('[BSD] Health check failed — marking unavailable')
         return 0

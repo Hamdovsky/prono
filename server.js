@@ -383,19 +383,52 @@ setTimeout(() => {
   const featureEngineer = require('./core/services/FeatureEngineer')
 
   async function enrichOne(m) {
-    // Generate hash-based synthetic odds (deterministic per match)
+    // Try to fetch real odds via scrapeService (free via Jina Reader)
+    let realOdds = null
+    try {
+      const scrapeService = require('./services/scrapeService')
+      realOdds = await scrapeService.getOdds(m.homeTeam, m.awayTeam, m.league || '')
+      if (realOdds && realOdds.home_win && realOdds.draw && realOdds.away_win) {
+        logger.info(`[INDEPENDENT-ENRICH] Real odds found for ${m.homeTeam} vs ${m.awayTeam}: ${realOdds.home_win}/${realOdds.draw}/${realOdds.away_win}`)
+        m.odds_home = realOdds.home_win
+        m.odds_draw = realOdds.draw
+        m.odds_away = realOdds.away_win
+        m._oddsWereFetched = true
+        m.insufficient_data = 0
+      }
+    } catch (e) {
+      // skip — continue with synthetic odds
+    }
+
+    // Generate hash-based synthetic odds (deterministic per match) as fallback
     const str = `${m.homeTeam || 'Home'}_vs_${m.awayTeam || 'Away'}_${m.league || ''}`
     let hash = 0
     for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash = hash & hash }
     const seed = Math.abs(hash) / 2147483647
     const seed2 = (((hash >> 8) & 0xff) / 255)
-    const hp = 0.30 + (seed * 0.25)  // narrower range for more realistic odds
-    const dp = 0.18 + (seed2 * 0.16)
-    const ap = Math.max(0.08, 1 - hp - dp)
-    const odH = hp / 1.05, odD = dp / 1.05, odA = ap / 1.05
-    const oSum = odH + odD + odA
-    let xgH = Math.max(0.5, Math.min(3.5, (odH / oSum) * 4.0))
-    let xgA = Math.max(0.5, Math.min(3.5, (odA / oSum) * 4.0))
+    
+    let xgH, xgA
+    
+    if (m._oddsWereFetched && m.odds_home && m.odds_draw && m.odds_away) {
+      // Derive xG from real odds
+      const oh = parseFloat(m.odds_home)
+      const od = parseFloat(m.odds_draw)
+      const oa = parseFloat(m.odds_away)
+      const ph = 1 / oh, pd = 1 / od, pa = 1 / oa
+      const sum = ph + pd + pa
+      const nh = ph / sum, na = pa / sum
+      xgH = Math.max(0.5, Math.min(3.5, nh * 4.0))
+      xgA = Math.max(0.5, Math.min(3.5, na * 4.0))
+    } else {
+      // Synthetic odds fallback
+      const hp = 0.30 + (seed * 0.25)  // narrower range for more realistic odds
+      const dp = 0.18 + (seed2 * 0.16)
+      const ap = Math.max(0.08, 1 - hp - dp)
+      const odH = hp / 1.05, odD = dp / 1.05, odA = ap / 1.05
+      const oSum = odH + odD + odA
+      xgH = Math.max(0.5, Math.min(3.5, (odH / oSum) * 4.0))
+      xgA = Math.max(0.5, Math.min(3.5, (odA / oSum) * 4.0))
+    }
 
     // Apply free features for better differentiation
     const adjusted = featureEngineer.applyFeatures(m, xgH, xgA)
@@ -463,4 +496,52 @@ setTimeout(() => {
 
   setTimeout(runLoop, 30000) // start 30s after server boot
   logger.info('[INDEPENDENT-ENRICH] Loop scheduled (30s delay)')
+
+  // ── PERIODIC FIXTURE SYNC FROM OPENLIGADB (free, no API key) ──
+  async function syncOpenLigaDB() {
+    try {
+      const openligadbService = require('./services/openligadbService')
+      if (!openligadbService.isAvailable()) return
+
+      const today = new Date().toISOString().split('T')[0]
+      const events = await openligadbService.fetchEvents(today)
+      if (events && events.length > 0) {
+        let inserted = 0
+        for (const event of events) {
+          try {
+            const result = await database.insertMatch(event)
+            if (result) inserted++
+          } catch (e) {
+            // skip
+          }
+        }
+        if (inserted > 0) {
+          logger.info(`[OPENLIGADB-SYNC] Inserted ${inserted} new matches for ${today}`)
+        }
+      }
+
+      // Also fetch tomorrow's matches
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+      const events2 = await openligadbService.fetchEvents(tomorrow)
+      if (events2 && events2.length > 0) {
+        let inserted2 = 0
+        for (const event of events2) {
+          try {
+            const result = await database.insertMatch(event)
+            if (result) inserted2++
+          } catch (e) {
+            // skip
+          }
+        }
+        if (inserted2 > 0) {
+          logger.info(`[OPENLIGADB-SYNC] Inserted ${inserted2} new matches for ${tomorrow}`)
+        }
+      }
+    } catch (e) {
+      logger.warn(`[OPENLIGADB-SYNC] Error: ${e.message}`)
+    }
+    setTimeout(syncOpenLigaDB, 6 * 60 * 60 * 1000) // run every 6 hours
+  }
+  setTimeout(syncOpenLigaDB, 60000) // start 1 min after server boot
+  logger.info('[OPENLIGADB-SYNC] Periodic sync scheduled (6h interval)')
 }, 0)

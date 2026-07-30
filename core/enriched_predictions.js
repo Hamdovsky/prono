@@ -1647,18 +1647,24 @@ class EnrichedPredictionService {
     )
 
     if (fastMode) {
-      // JS-only instantané (<100ms)
-      const fastResults = await Promise.all(
-        needsEnrichment.map(async (m) => {
-          try {
-            return await this.fastEnrichMatch(m)
-          } catch (err) {
-            logger.error(`❌ [ENRICH] Fast path failed for ${m.homeTeam}:`, err.message)
-            return m
-          }
-        })
-      )
-      return [...alreadyEnriched, ...fastResults]
+      // JS-only — concurrent limitée pour éviter de brûler les API externes
+      const CONCURRENCY = 3
+      const enriched = [...alreadyEnriched]
+      for (let i = 0; i < needsEnrichment.length; i += CONCURRENCY) {
+        const batch = needsEnrichment.slice(i, i + CONCURRENCY)
+        const results = await Promise.all(
+          batch.map(async (m) => {
+            try {
+              return await this.fastEnrichMatch(m)
+            } catch (err) {
+              logger.error(`❌ [ENRICH] Fast path failed for ${m.homeTeam}:`, err.message)
+              return m
+            }
+          })
+        )
+        enriched.push(...results)
+      }
+      return enriched
     }
 
     // Mode profond: Python FastAPI avec concurrence limitée

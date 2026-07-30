@@ -176,8 +176,8 @@ setTimeout(async () => {
         cronSchedules.init()
 
         // ── Auto-enrich after cloud seed (batched to avoid OOM on free tier) ──
-        const ENRICH_BATCH = parseInt(process.env.ENRICH_BATCH_SIZE || '20', 10)
-        const ENRICH_DELAY = parseInt(process.env.ENRICH_BATCH_DELAY_MS || '300000', 10) // 5 min
+        const ENRICH_BATCH = parseInt(process.env.ENRICH_BATCH_SIZE || '10', 10)
+        const ENRICH_DELAY = parseInt(process.env.ENRICH_BATCH_DELAY_MS || '30000', 10) // 30s
 
         async function enrichBatch(batchSize) {
           const enrichedPredictions = require('./core/enriched_predictions')
@@ -191,9 +191,11 @@ setTimeout(async () => {
           })
           let updated = 0
           for (const m of enriched) {
-            if (m.expected_score && m.expected_score !== 'N/A') {
+            try {
               await database.updatePredictions(m.id, m)
               updated++
+            } catch (e) {
+              logger.warn(`[AUTO-ENRICH] Save failed for ${m.id}: ${e.message}`)
             }
           }
           logger.info(`[AUTO-ENRICH] Updated ${updated}/${batch.length}`)

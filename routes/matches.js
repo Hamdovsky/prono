@@ -410,7 +410,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
         m.draw_probability = Math.max(1, +(win.draw * 100).toFixed(1))
         m.away_win_probability = Math.max(1, +(win.away * 100).toFixed(1))
         m.btts_prob = Math.max(1, Math.round(btts.yes * 100))
-        m.ou_25_prob = Math.max(1, Math.round(over25))
+        m.ou_25_prob = Math.max(1, Math.round(over25 * 100))
         if (!m.quant) m.quant = {}
         m.quant.main_pick = m.home_win_probability >= m.away_win_probability ? '1' : '2'
         m.quant.ev_score = '0.00'

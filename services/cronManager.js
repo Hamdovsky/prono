@@ -920,6 +920,37 @@ class CronManager {
       { timezone: 'Africa/Tunis' }
     )
 
+    // 32. Daily predictions (06:00 Africa/Tunis)
+    cron.schedule(
+      '0 6 * * *',
+      async () => {
+        logger.info('[CRON] Launching daily predictions pipeline...')
+        const { resolvePython } = require('../core/utils/pythonResolver')
+        const pythonCmd = resolvePython()
+        try {
+          const pred = spawn(pythonCmd, ['scripts/daily_predictions.py'], {
+            cwd: path.join(__dirname, '..'),
+            shell: true,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: 600000,
+          })
+          let predOut = ''
+          pred.stdout.on('data', (d) => (predOut += d.toString()))
+          await new Promise((resolve, reject) => {
+            pred.on('close', (code) => {
+              if (code === 0) resolve()
+              else reject(new Error(`daily_predictions exited ${code}: ${predOut.slice(-300)}`))
+            })
+            pred.on('error', reject)
+          })
+          logger.info('[CRON] Daily predictions OK')
+        } catch (e) {
+          logger.error(`[CRON] Daily predictions failed: ${e.message}`)
+        }
+      },
+      { timezone: 'Africa/Tunis' }
+    )
+
     logger.info('âœ… [CRON] Scheduler active')
 
     // 🚀 [RESUME] Trigger scraper 30s after boot to repopulate DB on Render wake-up

@@ -36,9 +36,9 @@ class FeatureEngineer {
             boost = 1.08; // reduced home advantage in cups/friendlies
         }
         
-        // League-specific home advantage
+        // League-specific home advantage (additive adjustment)
         const leagueAdj = this._getLeagueHomeAdvantage(league);
-        boost *= leagueAdj;
+        boost += (leagueAdj - 1.0) * 0.5; // apply 50% of league adjustment
         
         return boost;
     }
@@ -187,8 +187,8 @@ class FeatureEngineer {
         // Leagues with weak home advantage
         const weak = ['mls', 'japan', 'korea', 'china', 'usa', 'scandinavia', 'denmark', 'norway', 'sweden'];
         
-        for (const k of strong) { if (key.includes(k)) return 1.15; }
-        for (const k of weak) { if (key.includes(k)) return 0.85; }
+        for (const k of strong) { if (key.includes(k)) return 1.10; }
+        for (const k of weak) { if (key.includes(k)) return 0.90; }
         for (const k of moderate) { if (key.includes(k)) return 1.0; }
         return 1.0; // default
     }

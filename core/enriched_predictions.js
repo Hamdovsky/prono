@@ -845,7 +845,7 @@ class EnrichedPredictionService {
                     path: '/bayesian/predict',
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
-                    timeout: 25000
+                    timeout: 5000
                 }, (res) => {
                     let data = ''
                     res.on('data', d => data += d)
@@ -853,14 +853,17 @@ class EnrichedPredictionService {
                         try {
                             const parsed = JSON.parse(data)
                             if (parsed && parsed.success) {
+                                const bayes_home = parseFloat(parsed.home_win_probability ?? parsed.home_win ?? 0) * 100
+                                const bayes_draw = parseFloat(parsed.draw_probability ?? parsed.draw ?? 0) * 100
+                                const bayes_away = parseFloat(parsed.away_win_probability ?? parsed.away_win ?? 0) * 100
                                 resolve({
-                                    home_win_probability: parsed.home_win_probability,
-                                    draw_probability: parsed.draw_probability,
-                                    away_win_probability: parsed.away_win_probability,
+                                    home_win_probability: bayes_home,
+                                    draw_probability: bayes_draw,
+                                    away_win_probability: bayes_away,
                                     expected_score: parsed.expected_score,
-                                    btts_prob: parsed.btts_prob,
-                                    ou_25_prob: parsed.ou_25_prob,
-                                    confidence: parsed.confidence,
+                                    btts_prob: parseFloat(parsed.btts_prob ?? parsed.btts_yes ?? 0) * 100,
+                                    ou_25_prob: parseFloat(parsed.ou_25_prob ?? parsed.over_25 ?? 0) * 100,
+                                    confidence: parseFloat(parsed.confidence ?? 0) * 100,
                                     ai_source: 'BAYESIAN_LOWDATA'
                                 })
                             } else {
@@ -923,7 +926,7 @@ class EnrichedPredictionService {
             // ── BAYESIAN LOW-DATA RESCUE ──
             if (this._isLowData(m)) {
                 const bayesian = await this._tryBayesianLowData(m);
-                if (bayesian) {
+                if (bayesian && (parseFloat(bayesian.home_win_probability) > 0 || parseFloat(bayesian.away_win_probability) > 0)) {
                     return {
                         ...m,
                         ...bayesian,

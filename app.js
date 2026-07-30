@@ -237,6 +237,18 @@ app.get('/health', (req, res) => {
   })
 })
 
+app.get('/api/debug/state', async (req, res) => {
+  try {
+    const bsd = require('./services/bsdService')
+    const db = database.db
+    const count = db?.prepare('SELECT COUNT(*) as c FROM matches').get()?.c || 0
+    const bsdAvail = bsd.isAvailable()
+    res.json({ dbMatches: count, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY })
+  } catch (e) {
+    res.json({ error: e.message })
+  }
+})
+
 app.get('/metrics', async (req, res) => {
   res.set('Content-Type', register.contentType)
   res.end(await register.metrics())

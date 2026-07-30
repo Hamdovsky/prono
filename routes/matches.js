@@ -394,6 +394,31 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     // 🚀 JIT enrichment removed — use /api/re-enrich to trigger enrichment separately.
     // Speed and stability are preferred over inline enrichment on the free tier.
 
+    // 🛡️ [GUARANTEED FLOOR] Ensure every match has non-zero predictions
+    for (const m of rawMatches) {
+      const hw = parseFloat(m.home_win_probability || 0)
+      if (!hw || hw <= 0 || isNaN(hw)) {
+        const league = (m.league || '').toLowerCase()
+        const isFriendly = league.includes('friendly') || league.includes('club')
+        const isHighScore = league.includes('iceland') || league.includes('bundesliga') || league.includes('eredivisie')
+        const isLowScore = league.includes('serie a') || league.includes('ligue')
+        if (isFriendly) { m.home_win_probability = 46; m.draw_probability = 25; m.away_win_probability = 29 }
+        else if (isHighScore) { m.home_win_probability = 45; m.draw_probability = 25; m.away_win_probability = 30 }
+        else if (isLowScore) { m.home_win_probability = 40; m.draw_probability = 28; m.away_win_probability = 32 }
+        else { m.home_win_probability = 42; m.draw_probability = 27; m.away_win_probability = 31 }
+        const hasBtts = parseFloat(m.btts_prob || 0)
+        if (!hasBtts || hasBtts <= 0 || isNaN(hasBtts)) m.btts_prob = 48
+        const hasOu = parseFloat(m.ou_25_prob || 0)
+        if (!hasOu || hasOu <= 0 || isNaN(hasOu)) m.ou_25_prob = 45
+        if (!m.quant) m.quant = {}
+        m.quant.main_pick = m.home_win_probability >= m.away_win_probability ? '1' : '2'
+        m.quant.ev_score = '0.00'
+        m.quant.risk_label = 'BALANCED'
+        m.ai_source = m.ai_source || 'RESPONSE_FLOOR'
+        m.insufficient_data = 1
+      }
+    }
+
     // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool
     const elite = []
     const fallback_pool = []

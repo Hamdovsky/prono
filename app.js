@@ -246,13 +246,24 @@ app.get('/api/debug/state', async (req, res) => {
     const byStatus = db?.prepare('SELECT status, COUNT(*) as c FROM matches GROUP BY status').all() || []
     const bsdAvail = bsd.isAvailable()
     let bsdFetch = 'not tested'
+    let bsdInsert = 'not tested'
     try {
       const events = await bsd.fetchEvents(new Date().toISOString().split('T')[0])
       bsdFetch = `fetched ${events.length} events`
+      if (events.length > 0) {
+        try {
+          const match = bsd._mapEventToMatch(events[0])
+          match.bsd_match_id = String(events[0].id || '')
+          await database.insertMatch(match)
+          bsdInsert = `inserted 1 match OK`
+        } catch (e) {
+          bsdInsert = `insert error: ${e.message}`
+        }
+      }
     } catch (e) {
       bsdFetch = `error: ${e.message}`
     }
-    res.json({ dbMatches: count, bySource, byStatus, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch })
+    res.json({ dbMatches: count, bySource, byStatus, bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdInsert })
   } catch (e) {
     res.json({ error: e.message })
   }

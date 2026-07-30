@@ -483,22 +483,16 @@ const Dashboard = () => {
         return false
       if (m.actualResult && m.actualResult !== 'N/A' && m.actualResult.trim() !== '') return false
 
-       // Remove matches that started more than 12 hours ago (to avoid stale matches), but keep today's matches visible
-       const matchTime = m.startTimestamp
-         ? m.startTimestamp > 1e11
-           ? m.startTimestamp
-           : m.startTimestamp * 1000
-         : 0
+      // Remove matches that started more than 12 hours ago (to avoid stale matches), but keep today's matches visible
+      if (
+        !isLive &&
+        matchTime > 0 &&
+        matchTime < now - 12 * 60 * 60 * 1000 &&
+        matchDayStr !== todayStr
+      )
+        return false
 
-       if (
-         !isLive &&
-         matchTime > 0 &&
-         matchTime < now - 12 * 60 * 60 * 1000 &&
-         matchDayStr !== todayStr
-       )
-         return false
-
-       return true
+      return true
     })
 
     // TRI OPTIMISÉ: Moins de calculs, plus rapide

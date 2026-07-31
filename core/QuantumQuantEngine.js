@@ -47,7 +47,7 @@ class QuantumQuantEngine {
   analyze(m, xgH, xgA) {
     // Add team-name based dispersion so identical odds produce different predictions
     const tHash = this._teamHash(m.homeTeam) ^ this._teamHash(m.awayTeam)
-    const dispersion = ((tHash % 200) / 1000) - 0.10  // ±10% dispersion for balanced differentiation
+    const dispersion = ((tHash % 140) / 1000) - 0.07  // ±7% dispersion for balanced differentiation
     const gmParams = StatisticalEngine.getGoalModelParams(m.league)
     const { h: xgHadj, a: xgAadj } = StatisticalEngine.applyGamma(
       Math.max(0.3, xgH + (m.insufficient_data ? dispersion : dispersion * 0.3)),

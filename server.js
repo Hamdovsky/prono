@@ -447,9 +447,10 @@ setTimeout(() => {
       const matches = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
       const unenriched = matches.filter(m => {
         const hw = parseFloat(m.home_win_probability || 0)
-        // Re-enrich matches that were enriched with old dispersion (ai_source === 'TITANIUM_QUANT_V4' but BTTS < 35)
+        const aw = parseFloat(m.away_win_probability || 0)
+        // Re-enrich matches that were enriched with old dispersion (ai_source === 'TITANIUM_QUANT_V4' but BTTS < 35 or extreme probs)
         // or have zero/invalid probabilities or no ai_source
-        if (m.ai_source === 'TITANIUM_QUANT_V4' && m.btts_prob < 35) {
+        if (m.ai_source === 'TITANIUM_QUANT_V4' && (m.btts_prob < 35 || hw < 8 || aw < 8)) {
           return true
         }
         // Catch matches with no ai_source (null/undefined) — these need enrichment

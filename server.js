@@ -383,39 +383,16 @@ setTimeout(() => {
   const featureEngineer = require('./core/services/FeatureEngineer')
 
   async function enrichOne(m) {
-    // Try to fetch real odds via scrapeService (free via Jina Reader) — only for unenriched matches
-    let realOdds = null
-    if (!m.ai_source || m.ai_source === 'RESPONSE_FLOOR' || m.ai_source === 'NONE') {
-      try {
-        const scrapeService = require('./services/scrapeService')
-        // Use Promise.race to timeout after 5 seconds
-        realOdds = await Promise.race([
-          scrapeService.getOdds(m.homeTeam, m.awayTeam, m.league || ''),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-        ])
-        if (realOdds && realOdds.home_win && realOdds.draw && realOdds.away_win) {
-          logger.info(`[INDEPENDENT-ENRICH] Real odds found for ${m.homeTeam} vs ${m.awayTeam}: ${realOdds.home_win}/${realOdds.draw}/${realOdds.away_win}`)
-          m.odds_home = realOdds.home_win
-          m.odds_draw = realOdds.draw
-          m.odds_away = realOdds.away_win
-          m._oddsWereFetched = true
-          m.insufficient_data = 0
-        }
-      } catch (e) {
-        // skip — continue with synthetic odds
-      }
-    }
-
-    // Generate hash-based synthetic odds (deterministic per match) as fallback
+    // Generate hash-based synthetic odds (deterministic per match)
     const str = `${m.homeTeam || 'Home'}_vs_${m.awayTeam || 'Away'}_${m.league || ''}`
     let hash = 0
     for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash = hash & hash }
     const seed = Math.abs(hash) / 2147483647
     const seed2 = (((hash >> 8) & 0xff) / 255)
     
+    // Use real odds if available, otherwise synthetic
     let xgH, xgA
-    
-    if (m._oddsWereFetched && m.odds_home && m.odds_draw && m.odds_away) {
+    if (m.odds_home && m.odds_draw && m.odds_away && !m._oddsAreSynthetic) {
       // Derive xG from real odds
       const oh = parseFloat(m.odds_home)
       const od = parseFloat(m.odds_draw)
@@ -471,10 +448,11 @@ setTimeout(() => {
       const unenriched = matches.filter(m => {
         const hw = parseFloat(m.home_win_probability || 0)
         // Re-enrich matches that were enriched with old dispersion (ai_source === 'TITANIUM_QUANT_V4' but BTTS < 35)
-        // or have zero/invalid probabilities or use RESPONSE_FLOOR (or null ai_source)
+        // or have zero/invalid probabilities or no ai_source
         if (m.ai_source === 'TITANIUM_QUANT_V4' && m.btts_prob < 35) {
           return true
         }
+        // Catch matches with no ai_source (null/undefined) — these need enrichment
         if (!m.ai_source || m.ai_source === 'RESPONSE_FLOOR' || m.ai_source === 'NONE') {
           return true
         }

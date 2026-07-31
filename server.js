@@ -383,21 +383,27 @@ setTimeout(() => {
   const featureEngineer = require('./core/services/FeatureEngineer')
 
   async function enrichOne(m) {
-    // Try to fetch real odds via scrapeService (free via Jina Reader)
+    // Try to fetch real odds via scrapeService (free via Jina Reader) — only for unenriched matches
     let realOdds = null
-    try {
-      const scrapeService = require('./services/scrapeService')
-      realOdds = await scrapeService.getOdds(m.homeTeam, m.awayTeam, m.league || '')
-      if (realOdds && realOdds.home_win && realOdds.draw && realOdds.away_win) {
-        logger.info(`[INDEPENDENT-ENRICH] Real odds found for ${m.homeTeam} vs ${m.awayTeam}: ${realOdds.home_win}/${realOdds.draw}/${realOdds.away_win}`)
-        m.odds_home = realOdds.home_win
-        m.odds_draw = realOdds.draw
-        m.odds_away = realOdds.away_win
-        m._oddsWereFetched = true
-        m.insufficient_data = 0
+    if (!m.ai_source || m.ai_source === 'RESPONSE_FLOOR' || m.ai_source === 'NONE') {
+      try {
+        const scrapeService = require('./services/scrapeService')
+        // Use Promise.race to timeout after 5 seconds
+        realOdds = await Promise.race([
+          scrapeService.getOdds(m.homeTeam, m.awayTeam, m.league || ''),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+        ])
+        if (realOdds && realOdds.home_win && realOdds.draw && realOdds.away_win) {
+          logger.info(`[INDEPENDENT-ENRICH] Real odds found for ${m.homeTeam} vs ${m.awayTeam}: ${realOdds.home_win}/${realOdds.draw}/${realOdds.away_win}`)
+          m.odds_home = realOdds.home_win
+          m.odds_draw = realOdds.draw
+          m.odds_away = realOdds.away_win
+          m._oddsWereFetched = true
+          m.insufficient_data = 0
+        }
+      } catch (e) {
+        // skip — continue with synthetic odds
       }
-    } catch (e) {
-      // skip — continue with synthetic odds
     }
 
     // Generate hash-based synthetic odds (deterministic per match) as fallback

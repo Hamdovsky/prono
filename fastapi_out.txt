@@ -1,8 +1,0 @@
-[LIVE] Failed to load next5 model: [02:49:38] C:\actions-runner\_work\xgboost\xgboost\include\xgboost/json.h:88: Invalid cast, from Integer to Number
-[LIVE] Failed to load next10 model: [02:49:38] C:\actions-runner\_work\xgboost\xgboost\include\xgboost/json.h:88: Invalid cast, from Integer to Number
-[LIVE] Failed to load next15 model: [02:49:38] C:\actions-runner\_work\xgboost\xgboost\include\xgboost/json.h:88: Invalid cast, from Integer to Number
-[LIVE] Loaded 0/3 live goal models
-INFO:     127.0.0.1:55716 - "POST /predict-live HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64178 - "POST /bayesian/predict HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:59380 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51542 - "POST /bayesian/predict HTTP/1.1" 404 Not Found

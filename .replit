@@ -1,9 +1,0 @@
-run = ["sh", "-c", "bash scripts/start-replit.sh"]
-entrypoint = "bash scripts/start-replit.sh"
-shell = "bash"
-
-[nix]
-channel = "stable-24_05"
-
-[deployment]
-run = ["sh", "-c", "bash scripts/start-replit.sh"]

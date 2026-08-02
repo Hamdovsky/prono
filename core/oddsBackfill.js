@@ -92,8 +92,8 @@ const ODDS_SOURCES = [
   },
   {
     name: 'bsd',
-    available: () => bsdService.isAvailable(),
-    fetch: (dateStr) => bsdService.fetchEvents(dateStr),
+    available: () => bsdService.isAvailable() && typeof bsdService.fetchEventsWithOdds === 'function',
+    fetch: (dateStr) => bsdService.fetchEventsWithOdds(dateStr),
   },
 ]
 
@@ -125,6 +125,7 @@ async function buildOddsPool() {
               odds_away: oa || null,
               source: src.name,
               dateStr,
+              bsd_match_id: m.bsd_match_id || null,
             })
           }
         }
@@ -165,8 +166,12 @@ async function backfillOdds() {
   }
 
   let updated = 0
+  let bsdLinked = 0
   const updateStmt = db.prepare(
     `UPDATE matches SET odds_home=?, odds_draw=?, odds_away=?, odds_source=?, last_updated=? WHERE id=?`
+  )
+  const linkBsd = db.prepare(
+    `UPDATE matches SET bsd_match_id=? WHERE id=? AND (bsd_match_id IS NULL OR bsd_match_id='')`
   )
   for (const t of targets) {
     const cand =
@@ -174,10 +179,16 @@ async function backfillOdds() {
     if (!cand) continue
     updateStmt.run(cand.odds_home, cand.odds_draw, cand.odds_away, cand.source, Date.now(), t.id)
     updated++
+    if (cand.bsd_match_id) {
+      linkBsd.run(String(cand.bsd_match_id), t.id)
+      bsdLinked++
+    }
   }
 
-  logger.info(`[ODDS-BACKFILL] Terminé: ${updated}/${targets.length} matchs complétés.`)
-  return { scanned: targets.length, updated }
+  logger.info(
+    `[ODDS-BACKFILL] Terminé: ${updated}/${targets.length} matchs complétés (${bsdLinked} liés BSD).`
+  )
+  return { scanned: targets.length, updated, bsdLinked }
 }
 
 module.exports = { backfillOdds, buildOddsPool }

@@ -76,6 +76,16 @@ class BsdService {
     return true
   }
 
+  isEnabled() {
+    return this.enabled
+  }
+
+  setEnabled(enabled) {
+    this.enabled = enabled === true
+    logger.info(`[BSD] Service ${this.enabled ? 'ACTIVÉ' : 'DÉSACTIVÉ'} (toggle dashboard)`)
+    return this.enabled
+  }
+
   _headers() {
     return {
       Authorization: `Token ${this.apiKey}`,
@@ -99,50 +109,125 @@ class BsdService {
       return null
     }
 
-    try {
-      logger.info(`[BSD] GET ${endpoint}`)
-      const { data } = await axios.get(`${this.baseUrl}${endpoint}`, {
-        headers: this._headers(),
-        timeout: 15000,
-      })
-      return data
-    } catch (err) {
-      const status = err.response?.status
-      const body = JSON.stringify(err.response?.data || {}).substring(0, 200)
+    // Retry once for transient origin errors (BSD origin intermittently 502/retry-after).
+    const retryable = (s) => s >= 500 && s <= 599
+    let attempts = 0
+    const maxAttempts = 3
+    while (attempts < maxAttempts) {
+      attempts++
+      try {
+        logger.info(`[BSD] GET ${endpoint}`)
+        const url = /^https?:\/\//i.test(endpoint) ? endpoint : `${this.baseUrl}${endpoint}`
+        const { data } = await axios.get(url, {
+          headers: this._headers(),
+          timeout: 15000,
+        })
+        return data
+      } catch (err) {
+        const status = err.response?.status
+        const body = JSON.stringify(err.response?.data || {}).substring(0, 200)
 
-      if (status === 401) {
-        this._authFailed = true
-        logger.error(`🔴 [BSD] ERREUR 401 — Clé API invalide ou expirée !`)
-        logger.error(`   → Vérifiez BSD_API_KEY dans Render Dashboard → Environment`)
-        logger.error(`   → Réponse serveur: ${body}`)
-      } else if (status === 403) {
-        logger.error(`🔴 [BSD] ERREUR 403 — Accès refusé (clé sans permission ou compte suspendu)`)
-        logger.error(`   → Vérifiez votre abonnement Bzzoiro Sports Data`)
-      } else if (status === 429) {
-        this._quotaExhausted = true
-        logger.warn(
-          `🟡 [BSD] ERREUR 429 — Quota API épuisé. Réessai reporté à la prochaine session.`
-        )
-      } else if (!err.response) {
-        logger.error(`🔆 [BSD] ERREUR Réseau (${endpoint}): ${err.message}`)
-        logger.error(`   → Vérifiez que BSD_BASE_URL est correct: ${this.baseUrl}`)
-      } else {
+        if (status === 401) {
+          this._authFailed = true
+          logger.error(`🔴 [BSD] ERREUR 401 — Clé API invalide ou expirée !`)
+          logger.error(`   → Vérifiez BSD_API_KEY dans Render Dashboard → Environment`)
+          logger.error(`   → Réponse serveur: ${body}`)
+          return null
+        }
+        if (status === 429) {
+          this._quotaExhausted = true
+          logger.warn(`🟡 [BSD] ERREUR 429 — Quota API épuisé.`)
+          return null
+        }
+        if (retryable(status)) {
+          // 5xx — transient. Retry with backoff, do NOT blacklist the session.
+          if (attempts < maxAttempts) {
+            const backoff = [500, 1000, 2000][Math.min(attempts - 1, 2)]
+            logger.warn(`[BSD] 5xx (${status}) sur ${endpoint} — retry ${attempts}/${maxAttempts - 1} dans ${backoff}ms`)
+            await new Promise((r) => setTimeout(r, backoff))
+            continue
+          }
+          logger.error(`❌ [BSD] Erreur ${status} sur (${endpoint}) après ${maxAttempts} tentatives.`)
+          return null
+        }
+        if (status === 403) {
+          logger.error(`🔴 [BSD] ERREUR 403 — Accès refusé (clé sans permission ou compte suspendu)`)
+          return null
+        }
+        if (!err.response) {
+          logger.error(`🔆 [BSD] ERREUR Réseau (${endpoint}): ${err.message}`)
+          return null
+        }
         logger.error(`❌ [BSD] Erreur ${status} sur (${endpoint}): ${err.message}`)
         logger.error(`   Body: ${body}`)
+        return null
       }
-      return null
     }
+    return null
   }
 
   // ── PUBLIC API ─────────────────────────────────────────────────
 
   async fetchEvents(dateStr) {
-    const data = await this._fetch(`/v2/events/?date_from=${dateStr}&date_to=${dateStr}&limit=200`)
-    return data?.results || []
+    // BSD (DRF-style) paginates at limit=200 with ?page= and a `next` link.
+    // Collect ALL events for the day so the backfill pool does not miss matches.
+    const all = []
+    const seen = new Set()
+    let page = 1
+    let nextUrl = null
+    while (page <= 10) {
+      const qs = nextUrl ? null : `?date_from=${dateStr}&date_to=${dateStr}&limit=200&page=${page}`
+      const data = await this._fetch(qs ? `${'/v2/events/'}${qs}` : nextUrl)
+      const results = data?.results || []
+      if (!results.length) break
+      let added = 0
+      for (const r of results) {
+        if (seen.has(r.id)) continue
+        seen.add(r.id)
+        all.push(r)
+        added++
+      }
+      nextUrl = data?.next || null
+      if (!nextUrl || added === 0) break
+      page++
+    }
+    return all
+  }
+
+  // Paginate all BSD events for a date and attach real 1x2 odds per event,
+  // returning ready-to-use "match" shape { id, homeTeam, awayTeam, odds_*, bsd_match_id }.
+  // Cap the number of odds lookups to respect the API quota.
+  async fetchEventsWithOdds(dateStr, { maxOdds = 40 } = {}) {
+    const events = await this.fetchEvents(dateStr)
+    const out = []
+    let checks = 0
+    for (const ev of events) {
+      if (checks >= maxOdds) break
+      if (ev.status && String(ev.status) !== 'notstarted') continue
+      const match = this._mapEventToMatch(ev)
+      if (!match || !match.homeTeam || !match.awayTeam) continue
+      const odds = await this.fetchOdds(match.id.replace('bsd_', ''))
+      checks++
+      if (!odds) continue
+      out.push({
+        ...match,
+        odds_home: odds.home,
+        odds_draw: odds.draw,
+        odds_away: odds.away,
+        odds_source: 'bsd',
+        bsd_match_id: match.id.replace('bsd_', ''),
+      })
+    }
+    return out
   }
 
   async fetchPredictions(matchId) {
     return await this._fetch(`/predictions/?event_id=${matchId}`)
+  }
+
+  async fetchUpcomingPredictions(limit = 50) {
+    const data = await this._fetch(`/predictions/?limit=${limit}`)
+    return data?.results || []
   }
 
   async fetchOdds(matchId) {
@@ -382,12 +467,17 @@ class BsdService {
     try {
       const quickCheck = await this._fetch('/v2/events/?limit=1')
       if (!quickCheck) {
-        logger.warn('[BSD] Health check failed — marking unavailable')
+        // _fetch already distinguishes auth (401 -> _authFailed) from transient (5xx/network).
+        // A transient health-check failure must NOT permanently disable the session.
+        if (this._authFailed) {
+          logger.warn('[BSD] Health check failed — auth rejected (401).')
+        } else {
+          logger.warn('[BSD] Health check failed (transient) — will retry next sync.')
+        }
         return 0
       }
     } catch (e) {
-      logger.warn(`[BSD] Health check error: ${e.message} — marking unavailable`)
-      this._authFailed = true
+      logger.warn(`[BSD] Health check error: ${e.message}`)
       return 0
     }
 

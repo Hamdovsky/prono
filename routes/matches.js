@@ -804,4 +804,22 @@ router.post('/invalidate-cache', (req, res) => {
   res.json({ invalidated: prefixes })
 })
 
+// Backfill odds for LiveScore matches with no odds, mapping by team name + date
+// across available sources (BSD preferred). Trigger on-demand to control quota.
+router.post('/backfill-odds', async (req, res) => {
+  const key = req.headers['x-api-key']
+  if (!key || key !== process.env.API_SECRET_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  try {
+    const { backfillOdds } = require('../core/oddsBackfill')
+    const result = await backfillOdds()
+    try { invalidateCache('upcoming') } catch (_) {}
+    res.json({ success: true, ...result })
+  } catch (e) {
+    logger.error(`[BACKFILL-ODDS] Error: ${e.message}`)
+    res.status(500).json({ error: e.message })
+  }
+})
+
 module.exports = router

@@ -354,6 +354,13 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     // ✅ [QUANT INJECTOR] Ensure every match has a quant object from DB fields
     rawMatches = rawMatches.map((m) => {
       if (!m.quant) m.quant = {}
+      // HONESTY: matches lacking real bookmaker data keep no pick / risk / value
+      if (m.insufficient_data === 1 || m.sufficient === false) {
+        m.quant.main_pick = null
+        m.quant.ev_score = '0.00'
+        m.quant.risk_label = 'PENDING'
+        return m
+      }
       if (!m.quant.main_pick && m.prediction) m.quant.main_pick = m.prediction
       if (!m.quant.ev_score) {
         // Map from DB columns ev_home/ev_draw/ev_away -> ev_score

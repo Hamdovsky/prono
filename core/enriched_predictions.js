@@ -1134,11 +1134,14 @@ class EnrichedPredictionService {
             }
 
             // ── 2. DETECT INSUFFICIENT DATA ──
+            const hasRealOdds = m._oddsWereFetched && !m._oddsAreSynthetic && parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0;
             const hasOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0;
             const hasXg = parseFloat(m.home_xg) > 0.3 && parseFloat(m.away_xg) > 0.3;
             const hasForm = parseFloat(m.home_form_pts) > 0 || parseFloat(m.away_form_pts) > 0;
-            const v553isDefault = v553.success && !parseFloat(v553.home_win_probability) && !parseFloat(v553.away_win_probability);
-            const insufficient = !hasOdds && (!hasXg || !hasForm || v553isDefault) ? 1 : 0;
+            const v553IsDefault = v553.success && !parseFloat(v553.home_win_probability) && !parseFloat(v553.away_win_probability);
+            // Honesty: synthetic odds (hashed names) do NOT count as real bookmaker data.
+            // Without real xG and form signals the match is insufficient — we won't emit fake picks/value.
+            const insufficient = hasRealOdds ? 0 : (!hasXg || !hasForm || v553IsDefault) ? 1 : 0;
 
             // ── 2.5 CONFIDENCE SCORER (Force du Pronostic) ──
             const sortedProbs = [
@@ -1285,6 +1288,38 @@ class EnrichedPredictionService {
                     resultData.ai_source = 'HARD_FALLBACK';
                     resultData.insufficient_data = 1;
                 }
+            }
+
+            // ── HONESTY GATE: insufficient matches MUST NOT carry fake picks / odds / value ──
+            if (insufficient || m._oddsAreSynthetic && !hasRealOdds) {
+                if (m._oddsAreSynthetic) {
+                    resultData.odds_home = null;
+                    resultData.odds_draw = null;
+                    resultData.odds_away = null;
+                    if (resultData.odds_source) resultData.odds_source = 'synthetic';
+                }
+                resultData.prediction = null;
+                resultData.verdict = 'PENDING';
+                resultData.risk_label = 'PENDING';
+                resultData.quant.main_pick = null;
+                resultData.quant.risk_label = 'PENDING';
+                resultData.quant.all_picks = [];
+                resultData.quant.markets = {};
+                resultData.quant.market_odds = null;
+                resultData.quant.ev_score = 0;
+                resultData.quant.edge_score = 0;
+                resultData.quant.massive_edge = false;
+                resultData.draw_value_bet = false;
+                resultData.predictions = [];
+                resultData.confidence = Math.min(resultData.confidence || 0, 40);
+                if (resultData.enriched) {
+                    resultData.enriched.winner = null;
+                    resultData.enriched.main_predictions = [];
+                    resultData.enriched.verdict = 'PENDING';
+                }
+                resultData.sufficient = false;
+            } else {
+                resultData.sufficient = true;
             }
 
             return resultData;

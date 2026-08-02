@@ -64,6 +64,10 @@ const toRawLines = (m) => {
     return n > 1 ? Math.round(n) : Math.round(n * 100)
   }
 
+  // ── HONESTY GATE: données bookmaker réelles absentes (synthetic/insufficient) → pas de pick ──
+  const isInsufficient =
+    m.insufficient_data === 1 || m.sufficient === false || quant.market_odds === null
+
   // ── BTTS → verdict OUI/NON ──
   let bttsLabel = '--'
   let bttsYesPct = 0
@@ -136,27 +140,41 @@ const toRawLines = (m) => {
   // ── MI-TEMPS → verdict OUI/NON (but 1ère mi-temps O0.5) ──
   const htMkt = markets.first_half || {}
   let htLabel = '--'
-  const htO05 = normalizePct(htMkt['O0.5']?.prob)
-  if (htO05 > 0) {
-    htLabel = htO05 >= 50 ? `OUI ${htO05}%` : `NON ${100 - htO05}%`
-  } else {
-    const htGoalPct = normalizePct(quant.probs?.ht_goal || m.ht_goal_prob || enriched?.ht_goal_prob || 0)
-    htLabel = htGoalPct > 0 ? (htGoalPct >= 50 ? `OUI ${htGoalPct}%` : `NON ${100 - htGoalPct}%`) : '--'
+  if (!isInsufficient) {
+    const htO05 = normalizePct(htMkt['O0.5']?.prob)
+    if (htO05 > 0) {
+      htLabel = htO05 >= 50 ? `OUI ${htO05}%` : `NON ${100 - htO05}%`
+    } else {
+      const htGoalPct = normalizePct(quant.probs?.ht_goal || m.ht_goal_prob || enriched?.ht_goal_prob || 0)
+      htLabel = htGoalPct > 0 ? (htGoalPct >= 50 ? `OUI ${htGoalPct}%` : `NON ${100 - htGoalPct}%`) : '--'
+    }
   }
 
   // ── HANDICAP (indice de score / score attendu) ──
   const htPct = Math.min(89, Math.round((ouPct + bttsYesPct) / 2 + 5))
 
-  return [
-    m.league || m.tournament_name || '',
-    m.homeTeam || '',
-    m.awayTeam || '',
-    bttsLabel,
-    `${ouPct}%`,
-    winnerLabel,
-    `${htPct}%`,
-    htLabel,
-  ]
+  // ── HONESTY: aucune donnée bookmaker réelle → pas de verdict, juste le badge ──
+  return isInsufficient
+    ? [
+        m.league || m.tournament_name || '',
+        m.homeTeam || '',
+        m.awayTeam || '',
+        '--',
+        '--',
+        '🔒 données insuffisantes',
+        '--',
+        '--',
+      ]
+    : [
+        m.league || m.tournament_name || '',
+        m.homeTeam || '',
+        m.awayTeam || '',
+        bttsLabel,
+        `${ouPct}%`,
+        winnerLabel,
+        `${htPct}%`,
+        htLabel,
+      ]
 }
 
 const MatchRowMemo = React.memo(({ index, style, list, onClick }) => {

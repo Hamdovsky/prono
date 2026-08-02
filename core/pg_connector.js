@@ -7,8 +7,9 @@ let isPostgres = false
 function getPool() {
   if (pool) return pool
 
-  // Accept DATABASE_URL or SUPABASE_URL (single source of truth)
-  const dbUrl = process.env.DATABASE_URL || process.env.SUPABASE_URL
+  // Accept DATABASE_URL, SUPABASE_URL, or NEON_DATABASE_URL (single source of truth)
+  const dbUrl =
+    process.env.DATABASE_URL || process.env.SUPABASE_URL || process.env.NEON_DATABASE_URL
   if (!dbUrl) {
     logger.info('[PG] No DATABASE_URL/SUPABASE_URL — using SQLite fallback')
     isPostgres = false

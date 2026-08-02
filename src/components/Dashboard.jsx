@@ -88,7 +88,7 @@ const toRawLines = (m) => {
     ouPct = o25 > 0 ? o25 : u25 > 0 ? 100 - u25 : ouPct
   }
 
-  // ── GAGNANT → base solide ou double chance si douteux ──
+  // ── GAGNANT → base solide (≥65%) ou double chance si douteux ──
   const mr = markets.match_result || {}
   const dc = markets.double_chance || {}
   const mainPickRaw = (quant.main_pick || '').toString().trim().toUpperCase()
@@ -101,20 +101,37 @@ const toRawLines = (m) => {
     return null
   }
 
+  const hPct = mr['1']?.prob
+    ? normalizePct(mr['1'].prob)
+    : normalizePct(m.home_win_probability || enriched?.home_win_probability || 0)
+  const dPct = mr['X']?.prob
+    ? normalizePct(mr['X'].prob)
+    : normalizePct(m.draw_probability || enriched?.draw_probability || 0)
+  const aPct = mr['2']?.prob
+    ? normalizePct(mr['2'].prob)
+    : normalizePct(m.away_win_probability || enriched?.away_win_probability || 0)
+  const hasProbs = hPct + dPct + aPct > 0
+
   let winner = mainPickRaw || '?'
   let winnerProb = pickProbOf(winner)
-  // Match douteux (pick simple avec proba faible) → basculer sur la meilleure double chance
-  if (['1', 'X', '2'].includes(winner) && winnerProb !== null && winnerProb < 55) {
-    const dcs = ['1X', '12', 'X2']
-      .map((k) => ({ k, p: normalizePct(dc[k]?.prob) }))
-      .filter((x) => x.p > 0)
-      .sort((a, b) => b.p - a.p)
-    if (dcs.length && dcs[0].p > (winnerProb || 0)) {
-      winner = dcs[0].k
-      winnerProb = dcs[0].p
+  if (hasProbs) {
+    const maxP = Math.max(hPct, dPct, aPct)
+    if (maxP >= 65) {
+      // Favori net → base solide (pick simple)
+      winner = maxP === hPct ? '1' : maxP === aPct ? '2' : 'X'
+      winnerProb = maxP
+    } else if (['1', 'X', '2'].includes(winner)) {
+      // Pick simple mais match douteux → meilleure double chance selon les données
+      const combos = [
+        { k: '1X', p: hPct + dPct },
+        { k: '12', p: hPct + aPct },
+        { k: 'X2', p: dPct + aPct },
+      ].sort((a, b) => b.p - a.p)
+      winner = combos[0].k
+      winnerProb = combos[0].p
     }
   }
-  const winnerLabel = winnerProb ? `${winner} ${winnerProb}%` : winner
+  const winnerLabel = winnerProb ? `${winner} ${Math.round(winnerProb)}%` : winner
 
   // ── MI-TEMPS → verdict OUI/NON (but 1ère mi-temps O0.5) ──
   const htMkt = markets.first_half || {}

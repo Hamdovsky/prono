@@ -932,15 +932,38 @@ class EnrichedPredictionService {
             if (!skipBayesian && this._isLowData(m)) {
                 const bayesian = await this._tryBayesianLowData(m);
                 if (bayesian && (parseFloat(bayesian.home_win_probability) > 0 || parseFloat(bayesian.away_win_probability) > 0)) {
+                    const bh = parseFloat(bayesian.home_win_probability) || 0;
+                    const bd = parseFloat(bayesian.draw_probability) || 0;
+                    const ba = parseFloat(bayesian.away_win_probability) || 0;
+                    const tot = bh + bd + ba > 0 ? bh + bd + ba : 1;
+                    const hp = bh / tot, dp = bd / tot, ap = ba / tot;
+                    const bayesMarkets = {
+                        match_result: {
+                            1: { prob: hp, odds: null, ev: 0 },
+                            X: { prob: dp, odds: null, ev: 0 },
+                            2: { prob: ap, odds: null, ev: 0 },
+                        },
+                        double_chance: {
+                            '1X': { prob: hp + dp, odds: null, ev: 0 },
+                            X2: { prob: dp + ap, odds: null, ev: 0 },
+                            12: { prob: hp + ap, odds: null, ev: 0 },
+                        },
+                    };
                     return {
                         ...m,
                         ...bayesian,
                         insufficient_data: 1,
                         quant: {
-                            main_pick: bayesian.home_win_probability > bayesian.away_win_probability ? '1' : '2',
+                            main_pick: bh > ba ? '1' : '2',
                             ev_score: '0.00',
                             risk_label: 'STABLE',
-                            market_strength: 'NORMAL'
+                            market_strength: 'NORMAL',
+                            markets: bayesMarkets,
+                            probs: {
+                                btts: Math.round(parseFloat(bayesian.btts_prob) || 0),
+                                over25: Math.round(parseFloat(bayesian.ou_25_prob) || 0),
+                                ht_goal: 50,
+                            },
                         }
                     };
                 }
@@ -1279,8 +1302,9 @@ class EnrichedPredictionService {
         const xgH = Math.max(0.4, leagueBase.h * (1 + noise * 0.15));
         const xgA = Math.max(0.4, leagueBase.a * (1 - noise * 0.10));
         let hPct, dPct, aPct;
+        let probs = null;
         try {
-            const probs = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m);
+            probs = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m);
             hPct = +(probs.win.home * 100).toFixed(1);
             dPct = +(probs.win.draw * 100).toFixed(1);
             aPct = +(probs.win.away * 100).toFixed(1);
@@ -1290,6 +1314,21 @@ class EnrichedPredictionService {
         }
         const mainPick = hPct >= aPct ? '1' : '2';
         const mainProb = Math.max(hPct, aPct);
+        // Full quant (markets + probs incl. first-half) so the UI has data for every match
+        const offlineMarkets = this._buildOfflineMarkets(probs, m);
+        const offlineQuant = {
+            main_pick: mainPick,
+            secondary_pick: 'O/U U2.5',
+            ev_score: '0.00',
+            risk_label: mainProb > 45 ? 'SAFE' : (mainProb > 38 ? 'STABLE' : 'RISKY BET'),
+            market_strength: 'NORMAL',
+            markets: offlineMarkets,
+            probs: {
+                btts: probs ? Math.round(probs.btts.yes * 100) : 40,
+                over25: probs ? Math.round(probs.over25 * 100) : 40,
+                ht_goal: probs ? Math.round(probs.ht_goal * 100) : 50,
+            },
+        };
         return {
             ...m,
             success: true,
@@ -1306,19 +1345,50 @@ class EnrichedPredictionService {
             insufficient_data: 1,
             confidence: Math.round(mainProb * 0.6),
             ev_score: 0,
-            quant: {
-                main_pick: mainPick,
-                secondary_pick: hPct >= aPct ? 'X' : 'X',
-                ev_score: '0.00',
-                risk_label: mainProb > 45 ? 'SAFE' : (mainProb > 38 ? 'STABLE' : 'RISKY BET'),
-                market_strength: 'NORMAL'
-            },
+            quant: offlineQuant,
             predictions: [
                 { label: 'MAIN', val: mainPick },
                 { label: 'EDGE', val: (mainProb - Math.min(hPct, aPct)).toFixed(1) + '%' },
                 { label: '2ND', val: hPct >= aPct ? 'X2' : '1X' },
                 { label: 'RISK', val: mainProb > 45 ? 'SAFE' : 'RISKY BET' }
             ]
+        };
+    }
+
+    /**
+     * Build the same markets shape as QuantumQuantEngine._generateMarkets from
+     * a Poisson probs object, so every match (even low-data) exposes the full
+     * market data the UI needs (BTTS OUI/NON, O/U, double chance, first-half).
+     */
+    _buildOfflineMarkets(probs, m = {}) {
+        if (!probs) return {};
+        const calcEV = (prob, odds) => prob * (odds || 2.0) - 1;
+        const p = probs;
+        return {
+            match_result: {
+                1: { prob: p.win.home, odds: m.odds_home, ev: calcEV(p.win.home, m.odds_home) },
+                X: { prob: p.win.draw, odds: m.odds_draw, ev: calcEV(p.win.draw, m.odds_draw) },
+                2: { prob: p.win.away, odds: m.odds_away, ev: calcEV(p.win.away, m.odds_away) },
+            },
+            over_under: {
+                'O2.5': { prob: p.over25, odds: m.odds_over25 || 1.85, ev: calcEV(p.over25, m.odds_over25 || 1.85) },
+                'U2.5': { prob: p.under25, odds: m.odds_under25 || 1.95, ev: calcEV(p.under25, m.odds_under25 || 1.95) },
+                'O3.5': { prob: p.over35, odds: 3.2, ev: calcEV(p.over35, 3.2) },
+            },
+            btts: {
+                YES: { prob: p.btts.yes, odds: m.odds_btts_yes || 1.8, ev: calcEV(p.btts.yes, m.odds_btts_yes || 1.8) },
+                NO: { prob: p.btts.no, odds: m.odds_btts_no || 2.05, ev: calcEV(p.btts.no, m.odds_btts_no || 2.05) },
+            },
+            double_chance: {
+                '1X': { prob: p.dc['1X'], odds: 1.3, ev: calcEV(p.dc['1X'], 1.3) },
+                X2: { prob: p.dc['X2'], odds: 1.6, ev: calcEV(p.dc['X2'], 1.6) },
+                12: { prob: p.dc['12'], odds: 1.25, ev: calcEV(p.dc['12'], 1.25) },
+            },
+            first_half: {
+                'O0.5': { prob: p.first_half.goal_yes, odds: 1.5, ev: calcEV(p.first_half.goal_yes, 1.5) },
+                'O1.5': { prob: p.first_half.ou15, odds: 3.5, ev: calcEV(p.first_half.ou15, 3.5) },
+                BTTS: { prob: p.first_half.btts, odds: 6.0, ev: calcEV(p.first_half.btts, 6.0) },
+            },
         };
     }
 

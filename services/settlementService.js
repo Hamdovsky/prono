@@ -186,6 +186,10 @@ async function settleFinishedMatches(force = false) {
           try {
             accuracyStore.removeResult(row.id)
           } catch (_) {}
+          // Reset any phantom settlement (from legacy forced-'1' logic)
+          try {
+            db.prepare('UPDATE matches SET "result" = NULL, "settled_at" = NULL WHERE id = ?').run(row.id)
+          } catch (_) {}
           results.skipped++
           continue
         }

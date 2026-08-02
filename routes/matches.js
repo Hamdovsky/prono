@@ -748,24 +748,25 @@ router.post('/re-enrich', async (req, res) => {
       try {
         const result = await enrichedPredictions.fastEnrichMatch(m)
         if (result && result.success) {
-          await db.query(
-            `UPDATE matches SET
-              home_win_probability = $1, draw_probability = $2, away_win_probability = $3,
-              ou_25_prob = $4, btts_prob = $5, expected_score = $6,
-              prediction = $7, confidence = $8, edge_score = $9, ev_score = $10,
-              insufficient_data = $11, ai_source = $12,
-              home_xg = $13, away_xg = $14,
-              quant = $15
-            WHERE id = $16`,
-            [
-              result.home_win_probability, result.draw_probability, result.away_win_probability,
-              result.ou_25_prob, result.btts_prob, result.expected_score,
-              result.prediction, result.confidence, result.edge_score, result.ev_score,
-              result.insufficient_data ? 1 : 0, result.ai_source || 'jit',
-              result.home_xg || result.xg_home, result.away_xg || result.xg_away,
-              JSON.stringify(result.quant || {}), m.id
-            ]
-          )
+          // Persist via updatePredictions: writes the fullData JSON (including quant)
+          // and only the indexed columns that actually exist on the table.
+          await db.updatePredictions(m.id, {
+            prediction: result.prediction,
+            confidence: result.confidence,
+            expected_score: result.expected_score,
+            home_win_probability: result.home_win_probability,
+            draw_probability: result.draw_probability,
+            away_win_probability: result.away_win_probability,
+            ou_25_prob: result.ou_25_prob,
+            btts_prob: result.btts_prob,
+            ht_goal_prob: result.ht_goal_prob,
+            home_xg: result.home_xg,
+            away_xg: result.away_xg,
+            insufficient_data: result.insufficient_data ? 1 : 0,
+            ai_source: result.ai_source || 'jit',
+            quant: result.quant || {},
+            enriched: result,
+          })
           enriched++
         }
       } catch (e) {

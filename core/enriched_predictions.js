@@ -952,6 +952,8 @@ class EnrichedPredictionService {
                     return {
                         ...m,
                         ...bayesian,
+                        success: true,
+                        prediction: bh > ba ? '1' : '2',
                         insufficient_data: 1,
                         quant: {
                             main_pick: bh > ba ? '1' : '2',

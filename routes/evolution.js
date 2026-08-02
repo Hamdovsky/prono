@@ -1,6 +1,23 @@
 const express = require('express')
+const fs = require('fs')
+const path = require('path')
 const router = express.Router()
 const db = require('../core/database')
+
+/**
+ * GET /api/evolution/accuracy/trend
+ * 🔁 Sérialise la série de précision (snapshots daily) pour la persistance git.
+ * Permet de récupérer le trend depuis le service Render afin de le committer.
+ */
+router.get('/accuracy/trend', (req, res) => {
+  try {
+    const p = path.join(__dirname, '..', 'data', 'promosport_accuracy_trend.json')
+    const trend = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : []
+    res.json({ success: true, trend, updatedAt: new Date().toISOString() })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
 
 /**
  * 📊 TITANIUM RESEARCH & QUANT API

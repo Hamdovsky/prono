@@ -492,9 +492,18 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
       const nowMs = Date.now()
       const finishedWindowMs = 30 * 24 * 60 * 60 * 1000 // last 30 days
       const withScore = (finishedRaw || []).filter((m) => {
-        const sh = parseInt(m.scoreHome)
-        const sa = parseInt(m.scoreAway)
-        if (isNaN(sh) || isNaN(sa)) return false
+        const sc = (() => {
+          try {
+            const fd = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData || {}
+            return {
+              h: parseInt(fd.scoreHome ?? m.scoreHome),
+              a: parseInt(fd.scoreAway ?? m.scoreAway),
+            }
+          } catch (_) {
+            return { h: parseInt(m.scoreHome), a: parseInt(m.scoreAway) }
+          }
+        })()
+        if (isNaN(sc.h) || isNaN(sc.a)) return false
         let tsMs = 0
         const rawTs = m.startTimestamp
         if (rawTs) {
@@ -509,6 +518,11 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
       })
       finished_pool = withScore
         .map((m) => {
+          try {
+            const fd = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData || {}
+            if ((!m.scoreHome || m.scoreHome === 0) && fd.scoreHome != null) m.scoreHome = fd.scoreHome
+            if ((!m.scoreAway || m.scoreAway === 0) && fd.scoreAway != null) m.scoreAway = fd.scoreAway
+          } catch (_) {}
           m._finished = true
           m.actualResult =
             m.actualResult ||

@@ -4,7 +4,7 @@ const path = require('path')
 const router = express.Router()
 const logger = require('../core/logger')
 const database = require('../core/database')
-const { loadAccuracyLog } = require('../scripts/today_analysis')
+const accuracyStore = require('../core/accuracyStore')
 
 const MODELS_DIR = path.join(__dirname, '..', 'models')
 const ARCHIVE_DIR = path.join(MODELS_DIR, 'archive')
@@ -34,7 +34,7 @@ function computeAucProxy(entries) {
  */
 router.get('/performance', async (req, res) => {
   try {
-    const accLog = loadAccuracyLog()
+    const accLog = await accuracyStore.loadAccuracyLog()
     const entries = Array.isArray(accLog.entries)
       ? accLog.entries
       : Array.isArray(accLog)

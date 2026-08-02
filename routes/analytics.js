@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const logger = require('../core/logger')
 const { loadAccuracyLog, runAnalysis } = require('../scripts/today_analysis')
+const accuracyStore = require('../core/accuracyStore')
 const database = require('../core/database')
 const enrichedPredictions = require('../core/enriched_predictions')
 const { LEAGUE_MAP } = require('../config/leagueRegistry')
@@ -25,7 +26,7 @@ router.get('/autopsy/report', async (req, res) => {
  */
 router.get('/accuracy', async (req, res) => {
   try {
-    const log = loadAccuracyLog()
+    const log = await accuracyStore.loadAccuracyLog()
     res.json(log)
   } catch (e) {
     res.status(500).json({ error: e.message })

@@ -13,26 +13,25 @@
  */
 
 const path = require('path')
-const fs = require('fs')
 const database = require('../core/database')
+const accuracyStore = require('../core/accuracyStore')
 
 const ACCURACY_LOG = path.join(__dirname, '..', 'data', 'accuracy_log.json')
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 function loadAccuracyLog() {
-  if (fs.existsSync(ACCURACY_LOG)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(ACCURACY_LOG, 'utf8'))
-      if (data && Array.isArray(data.entries)) return data
-    } catch (_) {}
-  }
+  const data = accuracyStore.loadAccuracyLogSyncOnly()
+  if (data && Array.isArray(data.entries)) return data
   return { entries: [], lastUpdated: null, recordStreak: 0 }
 }
 
 function saveAccuracyLog(log) {
-  fs.mkdirSync(path.dirname(ACCURACY_LOG), { recursive: true })
-  fs.writeFileSync(ACCURACY_LOG, JSON.stringify(log, null, 2))
+  const existing = accuracyStore.loadAccuracyLogSyncOnly()
+  const merged = {
+    ...existing,
+    ...log,
+    byLeague: existing?.byLeague || {},
+  }
+  accuracyStore.saveAccuracyLog(merged)
 }
 
 function getPredictedOutcome(match) {

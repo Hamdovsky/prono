@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const logger = require('../core/logger')
+const accuracyStore = require('../core/accuracyStore')
 
 const TREND_PATH = path.join(__dirname, '..', 'data', 'promosport_accuracy_trend.json')
 
@@ -48,6 +49,9 @@ function saveSnapshot() {
 
     fs.writeFileSync(TREND_PATH, JSON.stringify(snapshots, null, 2), 'utf8')
     logger.info(`[ACC-SNAPSHOT] Saved: accuracy=${entry.accuracy}% total=${entry.total}`)
+
+    // Persist durably to Postgres (survives Render redeploys) — non-blocking
+    accuracyStore.persistSnapshot(entry).catch((_) => {})
 
     // Alert on drift
     const recent = snapshots.slice(-7).filter((s) => s.accuracy !== null)

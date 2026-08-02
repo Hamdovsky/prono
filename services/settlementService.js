@@ -10,10 +10,7 @@
 const db = require('../core/database')
 const logger = require('../core/logger')
 const confidenceScorer = require('../core/confidenceScorer')
-const fs = require('fs')
-const path = require('path')
-
-const ACCURACY_LOG_PATH = path.join(__dirname, '..', 'data', 'accuracy_log.json')
+const accuracyStore = require('../core/accuracyStore')
 
 const SofaAPI = (() => {
   try {
@@ -444,17 +441,7 @@ function getPerformance() {
 // ── Accuracy log for Python training feedback ──────────────────────
 
 function _appendToAccuracyLog(row, result, scoreHome, scoreAway) {
-  let log = {}
-  try {
-    if (fs.existsSync(ACCURACY_LOG_PATH)) {
-      log = JSON.parse(fs.readFileSync(ACCURACY_LOG_PATH, 'utf8'))
-    }
-  } catch (_) {
-    log = {}
-  }
-
   const league = row.league || 'Unknown'
-  if (!log[league]) log[league] = []
 
   const hProb = parseFloat(row.home_win_probability) || 0
   const dProb = parseFloat(row.draw_probability) || 0
@@ -463,42 +450,19 @@ function _appendToAccuracyLog(row, result, scoreHome, scoreAway) {
   const predicted = (row.prediction || '1').toUpperCase()
   const actual = scoreHome > scoreAway ? '1' : scoreHome < scoreAway ? '2' : 'X'
   const isCorrect = result === 'WON'
-  const wasMisleading = confidence > 60 && !isCorrect
 
-  log[league].push({
-    id: row.id,
+  accuracyStore.appendResult({
+    match_id: row.id,
     match: `${row.homeTeam} vs ${row.awayTeam}`,
+    league,
     score: `${scoreHome}-${scoreAway}`,
     predicted,
     actual,
     is_correct: isCorrect,
     confidence: Math.round(confidence * 10) / 10,
-    vote_was_misleading: wasMisleading,
-    timestamp: Date.now(),
+    market: '1X2',
+    timestamp: String(Date.now()),
   })
-
-  // Keep last 50 per league
-  if (log[league].length > 50) {
-    log[league] = log[league].slice(-50)
-  }
-
-  // Also track global accuracy stats for quick access
-  let totalW = 0,
-    totalN = 0
-  for (const entries of Object.values(log)) {
-    for (const e of entries) {
-      totalN++
-      if (e.is_correct) totalW++
-    }
-  }
-  log._global = {
-    accuracy: totalN > 0 ? Math.round((totalW / totalN) * 1000) / 10 : 0,
-    total: totalN,
-    won: totalW,
-    updated: new Date().toISOString(),
-  }
-
-  fs.writeFileSync(ACCURACY_LOG_PATH, JSON.stringify(log, null, 0))
 }
 
 module.exports = { settleFinishedMatches, fetchMissingScores, getPerformance, evaluatePrediction }

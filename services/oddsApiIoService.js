@@ -5,7 +5,7 @@ const BASE_URL = 'https://api.odds-api.io/v3'
 
 // Bookmakers autorisés par le plan gratuit (2 max). Ces noms doivent être dans
 // la sélection du compte (PUT /bookmakers/selected/select).
-const DEFAULT_BOOKMAKERS = 'Bet365,Unibet'
+const DEFAULT_BOOKMAKERS = '1xbet,22Bet'
 
 const SETTLED = new Set(['settled', 'cancelled'])
 

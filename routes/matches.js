@@ -742,7 +742,10 @@ router.post('/re-enrich', async (req, res) => {
     }
     const logger = require('../core/logger')
     const limit = Math.min(parseInt(req.query.limit) || 3, 50)
-    const batch = matches.slice(0, limit)
+    // Only re-process matches that don't yet carry the full quant (markets/probs),
+    // so repeated calls walk through the whole list instead of the same first N.
+    const pending = matches.filter((m) => !(m.quant && m.quant.markets))
+    const batch = pending.slice(0, limit)
     let enriched = 0
     for (const m of batch) {
       try {

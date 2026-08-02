@@ -10,6 +10,7 @@ const therundownService = require('../services/therundownService')
 const oddspapiService = require('../services/oddspapiService')
 const sportmonksService = require('../services/sportmonksService')
 const bsdService = require('../services/bsdService')
+const oddsApiIoService = require('../services/oddsApiIoService')
 
 // Normaliseur minimal (backend CommonJS — le normaliseur frontend est ESM)
 function normalizeTeam(name) {
@@ -94,6 +95,11 @@ const ODDS_SOURCES = [
     name: 'bsd',
     available: () => bsdService.isAvailable() && typeof bsdService.fetchEventsWithOdds === 'function',
     fetch: (dateStr) => bsdService.fetchEventsWithOdds(dateStr),
+  },
+  {
+    name: 'oddsapiio',
+    available: () => oddsApiIoService.isAvailable() && typeof oddsApiIoService.fetchEventsWithOdds === 'function',
+    fetch: (dateStr) => oddsApiIoService.fetchEventsWithOdds(dateStr),
   },
 ]
 

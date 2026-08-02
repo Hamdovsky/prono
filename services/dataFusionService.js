@@ -25,6 +25,7 @@ class DataFusionService {
       { name: 'apifootball', priority: 8, quota: 100, calls: 0, errors: 0, cooldownUntil: 0 },
       { name: 'oddspapi', priority: 9, quota: 200, calls: 0, errors: 0, cooldownUntil: 0 },
       { name: 'sportmonks', priority: 10, quota: 200, calls: 0, errors: 0, cooldownUntil: 0 },
+      { name: 'oddsapiio', priority: 2, quota: 100, calls: 0, errors: 0, cooldownUntil: 0 },
     ]
     this.quotaWindowMs = 60000
     this.quotaResets = {}
@@ -74,7 +75,7 @@ class DataFusionService {
     // Souces probabilistically-derived odds (xG / prediction-margin) are NOT real
     // bookmaker quotes. They must not be treated as "real odds" for value/honesty.
     const BOOKMAKER_SOURCES = new Set([
-      'bsd', 'therundown', 'footballdata', 'apifootball', 'oddspapi', 'sportmonks',
+      'bsd', 'therundown', 'footballdata', 'apifootball', 'oddspapi', 'sportmonks', 'oddsapiio',
     ])
 
     for (const source of sorted) {
@@ -112,6 +113,9 @@ class DataFusionService {
             break
           case 'sportmonks':
             odds = await this._trySportmonks(match)
+            break
+          case 'oddsapiio':
+            odds = await this._tryOddsApiIo(match)
             break
         }
 
@@ -298,6 +302,13 @@ class DataFusionService {
     const smService = require('./sportmonksService')
     if (!smService.isAvailable()) return null
     const odds = await smService.fetchPrematchOdds(match)
+    return odds && odds.home ? odds : null
+  }
+
+  async _tryOddsApiIo(match) {
+    const oaService = require('./oddsApiIoService')
+    if (!oaService.isAvailable()) return null
+    const odds = await oaService.fetchOddsForMatch(match)
     return odds && odds.home ? odds : null
   }
 

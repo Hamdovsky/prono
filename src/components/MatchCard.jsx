@@ -13,6 +13,7 @@ const MatchCard = ({ rawData, style, onClick }) => {
       winner: lines[5],
       handicap: lines[6],
       htGoal: lines[7],
+      score: lines[8] && lines[8] !== '--' ? lines[8] : null,
     }
   }
 
@@ -38,7 +39,7 @@ const MatchCard = ({ rawData, style, onClick }) => {
         <div className="mc-league">{d.league}</div>
         <div className="mc-teams">
           <span>{shortTeam(d.home)}</span>
-          <span className="mc-vs">vs</span>
+          <span className="mc-vs">{d.score ? d.score : 'vs'}</span>
           <span>{shortTeam(d.away)}</span>
         </div>
       </div>

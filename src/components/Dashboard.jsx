@@ -12,8 +12,49 @@ import './Dashboard.css'
 
 const Promosport = lazy(() => import('./Promosport'))
 
+const FINISHED_STATUSES = new Set([
+  'finished',
+  'ft',
+  'ended',
+  'closed',
+  'played',
+  'aet',
+  'pen',
+])
+
+const isFinishedMatch = (m) => {
+  const s = String(m.status || '').toLowerCase()
+  if (FINISHED_STATUSES.has(s)) return true
+  const sh = parseInt(m.scoreHome)
+  const sa = parseInt(m.scoreAway)
+  if (!isNaN(sh) && !isNaN(sa) && s !== 'scheduled' && s !== 'NOT_STARTED' && s !== 'NS')
+    return true
+  return false
+}
+
 const toRawLines = (m) => {
   if (!m) return []
+  const finished = isFinishedMatch(m)
+  const score =
+    finished && m.scoreHome != null && m.scoreAway != null
+      ? `${m.scoreHome}-${m.scoreAway}`
+      : '--'
+  if (finished) {
+    const sh = parseInt(m.scoreHome) || 0
+    const sa = parseInt(m.scoreAway) || 0
+    const result = sh > sa ? '1' : sh < sa ? '2' : 'X'
+    return [
+      m.league || m.tournament_name || '',
+      m.homeTeam || '',
+      m.awayTeam || '',
+      '--',
+      '--',
+      result,
+      score,
+      '--',
+      score,
+    ]
+  }
   const enriched = m.enriched || {}
   const quant = m.quant || enriched?.quant || {}
   const normalizePct = (v) => {
@@ -95,8 +136,7 @@ const Dashboard = () => {
     return matches
       .filter((m) => {
         const s = String(m.status || '').toLowerCase()
-        if (['finished','ft','ended','closed','played','aet','pen','postponed','canceled'].includes(s)) return false
-        if (m.actualResult && m.actualResult !== 'N/A' && m.actualResult.trim() !== '') return false
+        if (['postponed', 'canceled'].includes(s)) return false
 
         if (searchQuery) {
           const q = searchQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -108,9 +148,12 @@ const Dashboard = () => {
         return true
       })
       .sort((a, b) => {
+        const aFin = isFinishedMatch(a)
+        const bFin = isFinishedMatch(b)
+        if (aFin !== bFin) return aFin ? 1 : -1
         const aTime = a.startTimestamp ? (a.startTimestamp > 1e11 ? a.startTimestamp : a.startTimestamp * 1000) : 0
         const bTime = b.startTimestamp ? (b.startTimestamp > 1e11 ? b.startTimestamp : b.startTimestamp * 1000) : 0
-        return aTime - bTime
+        return aFin ? bTime - aTime : aTime - bTime
       })
   }, [matches, searchQuery])
 

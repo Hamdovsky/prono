@@ -475,14 +475,74 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     const tier = (req.query.tier || '').toLowerCase()
     const responseElite = tier === 'free' ? free : elite
 
+    // 🏁 [FINISHED] Include recently finished matches (with real scores) so the
+    // dashboard can show "tous les matchs" including settled fixtures.
+    let finished_pool = []
+    try {
+      const finishedRaw = await database.getMatchesByStatuses([
+        'finished',
+        'FT',
+        'Finished',
+        'ended',
+        'closed',
+        'played',
+        'aet',
+        'pen',
+      ])
+      const nowMs = Date.now()
+      const finishedWindowMs = 30 * 24 * 60 * 60 * 1000 // last 30 days
+      const withScore = (finishedRaw || []).filter((m) => {
+        const sh = parseInt(m.scoreHome)
+        const sa = parseInt(m.scoreAway)
+        if (isNaN(sh) || isNaN(sa)) return false
+        let tsMs = 0
+        const rawTs = m.startTimestamp
+        if (rawTs) {
+          tsMs =
+            typeof rawTs === 'string' && rawTs.includes('T')
+              ? new Date(rawTs).getTime()
+              : parseInt(rawTs) > 1e11
+                ? parseInt(rawTs)
+                : parseInt(rawTs) * 1000
+        }
+        return !isNaN(tsMs) && tsMs >= nowMs - finishedWindowMs
+      })
+      finished_pool = withScore
+        .map((m) => {
+          m._finished = true
+          m.actualResult =
+            m.actualResult ||
+            (parseInt(m.scoreHome) > parseInt(m.scoreAway)
+              ? 'H'
+              : parseInt(m.scoreHome) < parseInt(m.scoreAway)
+                ? 'A'
+                : 'D')
+          return m
+        })
+        .sort((a, b) => {
+          const aTs = a.startTimestamp > 1e11 ? a.startTimestamp : a.startTimestamp * 1000
+          const bTs = b.startTimestamp > 1e11 ? b.startTimestamp : b.startTimestamp * 1000
+          return bTs - aTs
+        })
+        .slice(0, 60)
+    } catch (e) {
+      logger.warn(`[UPCOMING] Finished pool fetch failed: ${e.message}`)
+    }
+
     logger.info(
-      `📊 [UPCOMING] ${responseElite.length} elite + ${fallback_pool.length} fallback (${vip.length} VIP locked)`
+      `📊 [UPCOMING] ${responseElite.length} elite + ${fallback_pool.length} fallback (${vip.length} VIP locked) + ${finished_pool.length} finished`
     )
     res.json({
       elite: responseElite,
       vip_locked: tier === 'free' ? vip : [],
       fallback_pool,
-      counts: { elite: responseElite.length, fallback: fallback_pool.length, vip: vip.length },
+      finished_pool,
+      counts: {
+        elite: responseElite.length,
+        fallback: fallback_pool.length,
+        vip: vip.length,
+        finished: finished_pool.length,
+      },
     })
 
     // 💡 [OPTIMIZATION] Background enrichment trigger removed.

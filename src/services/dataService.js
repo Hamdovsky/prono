@@ -619,6 +619,7 @@ class DataService {
               ...(Array.isArray(raw?.elite) ? raw.elite : []),
               ...(Array.isArray(raw?.vip_locked) ? raw.vip_locked : []),
               ...(Array.isArray(raw?.fallback_pool) ? raw.fallback_pool : []),
+              ...(Array.isArray(raw?.finished_pool) ? raw.finished_pool : []),
             ]
         this.upcomingPredictions = rawMatches
           .map((m) => {

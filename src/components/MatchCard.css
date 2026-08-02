@@ -60,6 +60,8 @@
   min-width: 80px;
   color: #38bdf8;
 }
+.mc-btts.mc-yes { color: #22c55e; }
+.mc-btts.mc-no { color: #94a3b8; }
 
 .mc-ou-cell {
   width: 14%;
@@ -90,6 +92,7 @@
 .mc-winner.mc-pick-home { color: #10b981; }
 .mc-winner.mc-pick-draw { color: #fbbf24; }
 .mc-winner.mc-pick-away { color: #f87171; }
+.mc-winner.mc-pick-dc { color: #c084fc; }
 
 .mc-handicap {
   width: 18%;
@@ -102,6 +105,8 @@
   min-width: 90px;
   color: #f59e0b;
 }
+.mc-htgoal.mc-yes { color: #22c55e; }
+.mc-htgoal.mc-no { color: #94a3b8; }
 
 @media (max-width: 768px) {
   .match-card { padding: 6px 6px; }

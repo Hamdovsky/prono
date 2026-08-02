@@ -31,7 +31,28 @@ const MatchCard = ({ rawData, style, onClick }) => {
   const ouDir = ouNum > 50 ? 'over' : 'under'
   const ouPrec = Math.round(ouNum > 50 ? ouNum : 100 - ouNum)
 
-  const pickClass = d.winner === '1' ? 'mc-pick-home' : d.winner === 'X' ? 'mc-pick-draw' : d.winner === '2' ? 'mc-pick-away' : ''
+  // Verdict binaire (OUI/NON)
+  const yesNo = (v) => {
+    const s = (v || '').trim().toUpperCase()
+    if (s.startsWith('OUI')) return 'yes'
+    if (s.startsWith('NON')) return 'no'
+    return ''
+  }
+  const bttsVerdict = yesNo(d.btts)
+  const htVerdict = yesNo(d.htGoal)
+
+  // Gagnant : extraire le pick (1/X/2 ou 1X/12/X2) avant la proba
+  const winPick = (d.winner || '').split(' ')[0].trim().toUpperCase()
+  const pickClass =
+    winPick === '1'
+      ? 'mc-pick-home'
+      : winPick === 'X'
+        ? 'mc-pick-draw'
+        : winPick === '2'
+          ? 'mc-pick-away'
+          : ['1X', '12', 'X2'].includes(winPick)
+            ? 'mc-pick-dc'
+            : ''
 
   return (
     <div className="match-card" style={style} onClick={onClick}>
@@ -44,7 +65,7 @@ const MatchCard = ({ rawData, style, onClick }) => {
         </div>
       </div>
 
-      <div className="mc-cell mc-btts">{d.btts}</div>
+      <div className={`mc-cell mc-btts ${bttsVerdict}`}>{d.btts}</div>
 
       <div className="mc-cell mc-ou-cell">
         <div className="mc-ou-bar">
@@ -57,7 +78,7 @@ const MatchCard = ({ rawData, style, onClick }) => {
 
       <div className="mc-cell mc-handicap">{d.handicap}</div>
 
-      <div className="mc-cell mc-htgoal">{d.htGoal}</div>
+      <div className={`mc-cell mc-htgoal ${htVerdict}`}>{d.htGoal}</div>
     </div>
   )
 }

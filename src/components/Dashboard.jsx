@@ -57,26 +57,88 @@ const toRawLines = (m) => {
   }
   const enriched = m.enriched || {}
   const quant = m.quant || enriched?.quant || {}
+  const markets = quant.markets || {}
   const normalizePct = (v) => {
     const n = Number(v || 0)
     if (!Number.isFinite(n) || n <= 0) return 0
     return n > 1 ? Math.round(n) : Math.round(n * 100)
   }
-  const bttsPct = normalizePct(quant.probs?.btts || m.btts_prob || enriched?.btts_prob || 0)
-  const over25Pct = normalizePct(quant.probs?.over25 || m.ou_25_prob || enriched?.ou_25_prob || 0)
-  const mainPick = (quant.main_pick || '').toString().trim().toUpperCase() || '?'
-  const htGoalPct = normalizePct(quant.probs?.ht_goal || m.ht_goal_prob || enriched?.ht_goal_prob || 0)
-  const htPct = Math.min(89, Math.round((over25Pct + bttsPct) / 2 + 5))
+
+  // ── BTTS → verdict OUI/NON ──
+  let bttsLabel = '--'
+  let bttsYesPct = 0
+  const bttsMkt = markets.btts
+  if (bttsMkt && (bttsMkt.YES || bttsMkt.NO)) {
+    const yes = normalizePct(bttsMkt.YES?.prob)
+    const no = normalizePct(bttsMkt.NO?.prob)
+    bttsYesPct = yes
+    bttsLabel = yes >= no ? `OUI ${yes}%` : `NON ${no}%`
+  } else {
+    const bttsPct = normalizePct(quant.probs?.btts || m.btts_prob || enriched?.btts_prob || 0)
+    bttsYesPct = bttsPct
+    bttsLabel = bttsPct > 0 ? (bttsPct >= 50 ? `OUI ${bttsPct}%` : `NON ${100 - bttsPct}%`) : '--'
+  }
+
+  // ── O/U 2.5 → proba Over (barre) ──
+  const ouMkt = markets.over_under
+  let ouPct = normalizePct(quant.probs?.over25 || m.ou_25_prob || enriched?.ou_25_prob || 0)
+  if (ouMkt && (ouMkt['O2.5'] || ouMkt['U2.5'])) {
+    const o25 = normalizePct(ouMkt['O2.5']?.prob)
+    const u25 = normalizePct(ouMkt['U2.5']?.prob)
+    ouPct = o25 > 0 ? o25 : u25 > 0 ? 100 - u25 : ouPct
+  }
+
+  // ── GAGNANT → base solide ou double chance si douteux ──
+  const mr = markets.match_result || {}
+  const dc = markets.double_chance || {}
+  const mainPickRaw = (quant.main_pick || '').toString().trim().toUpperCase()
+  const pickProbOf = (pick) => {
+    if (!pick) return null
+    const found = (quant.all_picks || []).find((p) => String(p.val).toUpperCase() === pick)
+    if (found && normalizePct(found.prob) > 0) return normalizePct(found.prob)
+    if (dc[pick]) return normalizePct(dc[pick].prob)
+    if (mr[pick]) return normalizePct(mr[pick].prob)
+    return null
+  }
+
+  let winner = mainPickRaw || '?'
+  let winnerProb = pickProbOf(winner)
+  // Match douteux (pick simple avec proba faible) → basculer sur la meilleure double chance
+  if (['1', 'X', '2'].includes(winner) && winnerProb !== null && winnerProb < 55) {
+    const dcs = ['1X', '12', 'X2']
+      .map((k) => ({ k, p: normalizePct(dc[k]?.prob) }))
+      .filter((x) => x.p > 0)
+      .sort((a, b) => b.p - a.p)
+    if (dcs.length && dcs[0].p > (winnerProb || 0)) {
+      winner = dcs[0].k
+      winnerProb = dcs[0].p
+    }
+  }
+  const winnerLabel = winnerProb ? `${winner} ${winnerProb}%` : winner
+
+  // ── MI-TEMPS → verdict OUI/NON (but 1ère mi-temps O0.5) ──
+  const htMkt = markets.first_half || {}
+  let htLabel = '--'
+  const htO05 = normalizePct(htMkt['O0.5']?.prob)
+  if (htO05 > 0) {
+    htLabel = htO05 >= 50 ? `OUI ${htO05}%` : `NON ${100 - htO05}%`
+  } else {
+    const htGoalPct = normalizePct(quant.probs?.ht_goal || m.ht_goal_prob || enriched?.ht_goal_prob || 0)
+    htLabel = htGoalPct > 0 ? (htGoalPct >= 50 ? `OUI ${htGoalPct}%` : `NON ${100 - htGoalPct}%`) : '--'
+  }
+
+  // ── HANDICAP (indice de score / score attendu) ──
+  const htPct = Math.min(89, Math.round((ouPct + bttsYesPct) / 2 + 5))
 
   return [
     m.league || m.tournament_name || '',
     m.homeTeam || '',
     m.awayTeam || '',
-    `${bttsPct}%`,
-    `${over25Pct}%`,
-    mainPick,
+    bttsLabel,
+    `${ouPct}%`,
+    winnerLabel,
     `${htPct}%`,
-    htGoalPct > 0 ? `${htGoalPct}%` : '--',
+    htLabel,
   ]
 }
 

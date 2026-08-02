@@ -672,7 +672,7 @@ app.get('/api/cron/auto-enrich', async (req, res) => {
 app.post('/api/cron/settle', async (req, res) => {
   logger.info('[API] ⏰ Settlement triggered...')
   try {
-    const result = await settlementService.settleFinishedMatches()
+    const result = await settlementService.settleFinishedMatches(req.query?.force === 'true')
     return res.status(200).json({ success: true, ...result })
   } catch (e) {
     logger.error(`[API] Settlement failed: ${e.message}`)
@@ -683,7 +683,7 @@ app.post('/api/cron/settle', async (req, res) => {
 app.get('/api/cron/settle', async (req, res) => {
   logger.info('[API] ⏰ Settlement triggered via GET...')
   try {
-    const result = await settlementService.settleFinishedMatches()
+    const result = await settlementService.settleFinishedMatches(req.query?.force === 'true')
     return res.status(200).json({ success: true, ...result })
   } catch (e) {
     logger.error(`[API] Settlement GET failed: ${e.message}`)

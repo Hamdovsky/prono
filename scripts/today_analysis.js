@@ -35,21 +35,56 @@ function saveAccuracyLog(log) {
 }
 
 function getPredictedOutcome(match) {
+  // 🎯 REAL pick: quant.main_pick from fullData (combo DC / O0.5 / …)
+  try {
+    const fd =
+      typeof match.fullData === 'string' ? JSON.parse(match.fullData) : match.fullData || {}
+    const q = fd.quant || fd.enriched?.quant || match.quant || {}
+    const pick = (q.main_pick || fd.main_pick || '').toString().trim().toUpperCase()
+    if (pick && pick !== 'PENDING' && pick !== 'UNDER ANALYSIS') return pick
+  } catch (_) {}
+
   const home = parseFloat(match.home_win_probability || 0)
   const draw = parseFloat(match.draw_probability || 0)
   const away = parseFloat(match.away_win_probability || 0)
-  if (home >= draw && home >= away) return 'HOME'
-  if (away >= draw && away > home) return 'AWAY'
-  return 'DRAW'
+  // No probability data → no real prediction (do NOT force HOME)
+  if (home <= 0 && draw <= 0 && away <= 0) return null
+  if (home >= draw && home >= away) return '1'
+  if (away >= draw && away > home) return '2'
+  return 'X'
 }
 
 function getActualOutcome(match) {
   const h = parseInt(match.scoreHome ?? -1)
   const a = parseInt(match.scoreAway ?? -1)
   if (h < 0 || a < 0) return null
-  if (h > a) return 'HOME'
-  if (a > h) return 'AWAY'
-  return 'DRAW'
+  if (h > a) return '1'
+  if (a > h) return '2'
+  return 'X'
+}
+
+// Does a predicted pick (1/X/2/1X/X2/12/O0.5/U2.5/BTTS…) match the actual result?
+function pickMatchesOutcome(pick, actual, totalGoals) {
+  if (!pick || !actual) return null
+  const p = String(pick).toUpperCase().trim()
+  if (p === '1' || p === 'X' || p === '2') return p === actual
+  if (p === '1X') return actual === '1' || actual === 'X'
+  if (p === 'X2') return actual === 'X' || actual === '2'
+  if (p === '12') return actual === '1' || actual === '2'
+  const ou = p.match(/^([OU])(\d+(?:\.\d+)?)$/)
+  if (ou) {
+    const line = parseFloat(ou[2])
+    if (ou[1] === 'O') return totalGoals != null && totalGoals > line
+    return totalGoals != null && totalGoals < line
+  }
+  if (p.startsWith('OVER')) return totalGoals != null && totalGoals > 2.5
+  if (p.startsWith('UNDER')) return totalGoals != null && totalGoals < 2.5
+  if (p.startsWith('BTTS') || p.startsWith('GG')) {
+    const isYes = p.includes('YES') || p.includes('OUI') || p === 'BTTS' || p === 'GG'
+    // actual '1'/'X'/'2' doesn't carry BTTS info here; fall back to score-based below
+    return null
+  }
+  return null
 }
 
 // Over/Under 2.5
@@ -125,7 +160,7 @@ async function runAnalysis(dateStr) {
             SELECT id AS matchId, homeTeam, awayTeam, league, timestamp,
                    scoreHome, scoreAway, status,
                    home_win_probability, draw_probability, away_win_probability,
-                   xgboost_confidence, ou_25_prob, btts_prob
+                   xgboost_confidence, ou_25_prob, btts_prob, fullData
             FROM matches
             WHERE (
               (timestamp LIKE ?) OR 
@@ -172,14 +207,26 @@ async function runAnalysis(dateStr) {
       pending++
       continue
     }
+    // No real prediction (no pick, no probs) → don't count as HOME (was a bug)
+    if (!predicted) {
+      pending++
+      continue
+    }
+
+    const totalGoals = (parseInt(m.scoreHome) || 0) + (parseInt(m.scoreAway) || 0)
 
     // Per-league tracking
     const lg = m.league || 'Unknown'
     if (!byLeague[lg]) byLeague[lg] = { hits: 0, misses: 0 }
 
-    // 1X2 accuracy
+    // 1X2/DC accuracy via real pick
     const band = getConfBand(m.xgboost_confidence)
-    if (predicted === actual) {
+    const isCorrect = pickMatchesOutcome(predicted, actual, totalGoals)
+    if (isCorrect === null) {
+      pending++
+      continue
+    }
+    if (isCorrect === true) {
       hits++
       byLeague[lg].hits++
       confBands[band].hits++

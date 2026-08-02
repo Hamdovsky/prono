@@ -29,6 +29,15 @@ function evaluatePrediction(prediction, scoreHome, scoreAway, ou25Prob) {
 
   const total = scoreHome + scoreAway
 
+  // Compact O/U picks (O0.5, U0.5, O2.5, U2.5, O1.5 …)
+  const ouCompact = prediction.match(/^([OU])(\d+(?:\.\d+)?)$/i)
+  if (ouCompact) {
+    const line = parseFloat(ouCompact[2])
+    const isOver = ouCompact[1].toUpperCase() === 'O'
+    if (isOver) return total > line ? 'WON' : 'LOST'
+    return total < line ? 'WON' : 'LOST'
+  }
+
   // O/U 2.5
   if (prediction.toUpperCase().startsWith('OVER') || prediction.toUpperCase().startsWith('O/U')) {
     const isOver = total > 2.5
@@ -92,7 +101,25 @@ function classifyMarket(prediction) {
 
 // ── Core settlement ───────────────────────────────────────────────
 
-async function settleFinishedMatches() {
+/**
+ * Extract the REAL engine pick (quant.main_pick from fullData) — the actual
+ * prediction the dashboard shows (1X/12/O0.5/…), not the legacy `prediction`
+ * column which is often a stale "1".
+ */
+function extractMainPick(row) {
+  try {
+    const fd =
+      typeof row.fullData === 'string' ? JSON.parse(row.fullData) : row.fullData || {}
+    const q = fd.quant || fd.enriched?.quant || {}
+    const pick = (q.main_pick || fd.main_pick || '').toString().trim().toUpperCase()
+    if (pick && pick !== 'PENDING' && pick !== 'UNDER ANALYSIS') return pick
+  } catch (_) {}
+  const colPick = (row.prediction || '').toString().trim().toUpperCase()
+  if (colPick && colPick !== 'PENDING' && colPick !== 'UNDER ANALYSIS') return colPick
+  return null
+}
+
+async function settleFinishedMatches(force = false) {
   logger.info('[SETTLEMENT] Checking for finished matches to settle...')
 
   const results = { settled: 0, total: 0, skipped: 0 }
@@ -104,16 +131,16 @@ async function settleFinishedMatches() {
         `
             SELECT id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", 
                    prediction, league, "ou_25_prob", "home_win_probability", "draw_probability", "away_win_probability",
-                   status, "insufficient_data"
+                   status, "insufficient_data", "fullData"
             FROM matches
             WHERE status IN ('FT', 'finished', 'Finished', 'Ended')
               AND "scoreHome" IS NOT NULL AND "scoreAway" IS NOT NULL
-              AND ("result" IS NULL OR "result" = '')
+              AND (? = 1 OR "result" IS NULL OR "result" = '')
             ORDER BY "last_updated" DESC
             LIMIT 200
         `
       )
-      .all()
+      .all(force ? 1 : 0)
 
     if (rows.length === 0) {
       logger.info('[SETTLEMENT] No matches to settle.')
@@ -130,8 +157,12 @@ async function settleFinishedMatches() {
         const scoreHome = parseInt(row.scoreHome) || 0
         const scoreAway = parseInt(row.scoreAway) || 0
 
+        // 🎯 REAL pick: quant.main_pick from fullData (combo DC / O0.5 / …)
+        const mainPick = extractMainPick(row)
+        const pickForEval = mainPick || row.prediction
+
         // Evaluate the primary prediction
-        let result = evaluatePrediction(row.prediction, scoreHome, scoreAway, row.ou_25_prob)
+        let result = evaluatePrediction(pickForEval, scoreHome, scoreAway, row.ou_25_prob)
 
         // If no primary prediction, try to infer from probabilities
         if (!result) {
@@ -173,19 +204,19 @@ async function settleFinishedMatches() {
 
         // Feed back into confidence history for league+market calibration
         try {
-          const marketType = ['1X', 'X2', '12'].includes((row.prediction || '').toUpperCase())
+          const marketType = ['1X', 'X2', '12'].includes((mainPick || '').toUpperCase())
             ? 'DC'
-            : '1X2'
+            : classifyMarket(mainPick || row.prediction || '')
           confidenceScorer.recordSettlement(row.league || 'Unknown', marketType, result === 'WON')
         } catch (_) {}
 
         // Write accuracy_log.json for Python training scripts feedback loop
         try {
-          _appendToAccuracyLog(row, result, scoreHome, scoreAway)
+          _appendToAccuracyLog(row, mainPick, result, scoreHome, scoreAway)
         } catch (_) {}
 
         logger.info(
-          `[SETTLEMENT] ${row.homeTeam} ${scoreHome}-${scoreAway} ${row.awayTeam} → ${result} (prediction: ${row.prediction})`
+          `[SETTLEMENT] ${row.homeTeam} ${scoreHome}-${scoreAway} ${row.awayTeam} → ${result} (prediction: ${mainPick || row.prediction})`
         )
       } catch (e) {
         logger.error(`[SETTLEMENT] Error settling ${row.id}: ${e.message}`)
@@ -440,14 +471,14 @@ function getPerformance() {
 
 // ── Accuracy log for Python training feedback ──────────────────────
 
-function _appendToAccuracyLog(row, result, scoreHome, scoreAway) {
+function _appendToAccuracyLog(row, mainPick, result, scoreHome, scoreAway) {
   const league = row.league || 'Unknown'
 
   const hProb = parseFloat(row.home_win_probability) || 0
   const dProb = parseFloat(row.draw_probability) || 0
   const aProb = parseFloat(row.away_win_probability) || 0
   const confidence = Math.max(hProb, dProb, aProb)
-  const predicted = (row.prediction || '1').toUpperCase()
+  const predicted = mainPick || (row.prediction || '').toUpperCase() || '—'
   const actual = scoreHome > scoreAway ? '1' : scoreHome < scoreAway ? '2' : 'X'
   const isCorrect = result === 'WON'
 
@@ -460,7 +491,7 @@ function _appendToAccuracyLog(row, result, scoreHome, scoreAway) {
     actual,
     is_correct: isCorrect,
     confidence: Math.round(confidence * 10) / 10,
-    market: '1X2',
+    market: classifyMarket(predicted),
     timestamp: String(Date.now()),
   })
 }

@@ -168,7 +168,7 @@ function appendResult(entry) {
   if (!log.byLeague) log.byLeague = {}
   if (!log.byLeague[league]) log.byLeague[league] = []
 
-  log.byLeague[league].push({
+  const newEntry = {
     match_id: entry.match_id,
     match: entry.match,
     score: entry.score,
@@ -178,7 +178,13 @@ function appendResult(entry) {
     confidence: entry.confidence,
     market: entry.market,
     timestamp: entry.timestamp ?? String(Date.now()),
-  })
+  }
+
+  // Idempotent: replace any existing entry for the same match (re-settle safe)
+  const list = log.byLeague[league]
+  const existingIdx = list.findIndex((e) => String(e.match_id) === String(newEntry.match_id))
+  if (existingIdx >= 0) list[existingIdx] = newEntry
+  else list.push(newEntry)
 
   // Keep last 50 per league
   if (log.byLeague[league].length > 50) {

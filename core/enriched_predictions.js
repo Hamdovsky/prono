@@ -903,7 +903,14 @@ class EnrichedPredictionService {
                         m.odds_home = liveOdds.home;
                         m.odds_draw = liveOdds.draw;
                         m.odds_away = liveOdds.away;
-                        m._oddsWereFetched = true
+                        // Only REAL bookmaker quotes count as real odds. Probability-derived
+                        // quotes (xG/prediction-margin) are treated as synthetic — they must
+                        // never gate value/honesty as if they were bookmaker data.
+                        if (liveOdds.bookmaker === true) {
+                            m._oddsWereFetched = true;
+                        } else {
+                            m._oddsAreSynthetic = true;
+                        }
                     }
                 } catch (_) { /* odds fetch failed — continue without odds */ }
             } else {
@@ -1140,8 +1147,19 @@ class EnrichedPredictionService {
             const hasForm = parseFloat(m.home_form_pts) > 0 || parseFloat(m.away_form_pts) > 0;
             const v553IsDefault = v553.success && !parseFloat(v553.home_win_probability) && !parseFloat(v553.away_win_probability);
             // Honesty: synthetic odds (hashed names) do NOT count as real bookmaker data.
-            // Without real xG and form signals the match is insufficient — we won't emit fake picks/value.
-            const insufficient = hasRealOdds ? 0 : (!hasXg || !hasForm || v553IsDefault) ? 1 : 0;
+            // A match is "insufficient" only when there is NO usable signal to model a probability.
+            // The Poisson engine derives valid per-league probabilities even without xG/form/odds
+            // (league base-xG defaults). We trust those numbers AS A MODEL OUTPUT — but they are
+            // marked as model probabilities and NEVER carry invented odds/value (handled below).
+            // Require a non-degenerate probability signal: a clear top pick with a real margin.
+            const sumProbs = (probs.h || 0) + (probs.d || 0) + (probs.a || 0);
+            const topModel = Math.max(probs.h || 0, probs.d || 0, probs.a || 0);
+            const secondModel = [probs.h, probs.d, probs.a].sort((a, b) => b - a)[1] || 0;
+            const hasModelSignal =
+              sumProbs > 1.5 &&
+              topModel - secondModel >= 0.06 &&
+              topModel >= 0.34;
+            const insufficient = hasRealOdds ? 0 : (!hasModelSignal) ? 1 : 0;
 
             // ── 2.5 CONFIDENCE SCORER (Force du Pronostic) ──
             const sortedProbs = [
@@ -1320,6 +1338,22 @@ class EnrichedPredictionService {
                 resultData.sufficient = false;
             } else {
                 resultData.sufficient = true;
+                // HONESTY: without REAL bookmaker odds there is no way to compute value/edge.
+                // We keep the model's probability pick and verdict, but the value-based metrics
+                // MUST stay neutral — we never present invented odds or value.
+                if (!hasRealOdds) {
+                    resultData.quant.ev_score = 0;
+                    resultData.quant.edge_score = 0;
+                    resultData.quant.massive_edge = false;
+                    // market_odds is left at its computed value (undefined when no bookmaker) so
+                    // the Dashboard does not treat the match as "insufficient" — it shows the
+                    // model pick + probabilities, without any bookmaker odds.
+                    resultData.draw_value_bet = false;
+                    resultData.odds_home = null;
+                    resultData.odds_draw = null;
+                    resultData.odds_away = null;
+                    if (resultData.odds_source) resultData.odds_source = 'model_league';
+                }
             }
 
             return resultData;

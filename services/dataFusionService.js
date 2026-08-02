@@ -71,6 +71,12 @@ class DataFusionService {
 
     const sorted = [...this.sources].sort((a, b) => a.priority - b.priority)
 
+    // Souces probabilistically-derived odds (xG / prediction-margin) are NOT real
+    // bookmaker quotes. They must not be treated as "real odds" for value/honesty.
+    const BOOKMAKER_SOURCES = new Set([
+      'bsd', 'therundown', 'footballdata', 'apifootball', 'oddspapi', 'sportmonks',
+    ])
+
     for (const source of sorted) {
       if (!this.isSourceAvailable(source)) continue
 
@@ -110,12 +116,13 @@ class DataFusionService {
         }
 
         if (odds && odds.home && odds.away) {
+          const withFlag = { ...odds, bookmaker: BOOKMAKER_SOURCES.has(source.name) }
           this.recordSuccess(source.name)
           logger.info(
-            `[DATAFUSION] Odds from ${source.name} for ${match.homeTeam} vs ${match.awayTeam}: ${odds.home} / ${odds.draw} / ${odds.away}`
+            `[DATAFUSION] Odds from ${source.name} for ${match.homeTeam} vs ${match.awayTeam}: ${odds.home} / ${odds.draw} / ${odds.away} ${withFlag.bookmaker ? '(bookmaker)' : '(probability-derived)'}`
           )
-          cache.set(cacheKey, { ts: Date.now(), data: odds })
-          return odds
+          cache.set(cacheKey, { ts: Date.now(), data: withFlag })
+          return withFlag
         }
         this.recordError(source.name)
       } catch (e) {

@@ -14,19 +14,18 @@
  *   Ex: node scripts/sync_accuracy_git.js https://pronostico.onrender.com
  */
 
-const { execSync } = require('child_process')
+const { execFileSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 
 const ROOT = path.join(__dirname, '..')
 const TREND_PATH = path.join(ROOT, 'data', 'promosport_accuracy_trend.json')
-const ACC_LOG_PATH = path.join(ROOT, 'data', 'accuracy_log.json')
 
 const baseUrl =
   process.argv[2] || process.env.SITE_BASE_URL || 'https://pronostico.onrender.com'
 
 const git = (...args) =>
-  execSync(`git -C "${ROOT}" ${args.join(' ')}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8' })
 
 async function fetchJson(url) {
   const res = await fetch(url)
@@ -52,14 +51,18 @@ async function main() {
     summary.push(`trend: erreur -> ${e.message}`)
   }
 
-  // 2) Accuracy log unifié
+  // 2) Accuracy log unifié (lecture seule — fichier ignoré par .gitignore)
+  let byLeagueCount = 0
   try {
     const data = await fetchJson(`${baseUrl}/api/accuracy`)
     if (data && data.entries) {
-      fs.mkdirSync(path.dirname(ACC_LOG_PATH), { recursive: true })
-      fs.writeFileSync(ACC_LOG_PATH, JSON.stringify(data, null, 2))
-      const nn = Object.values(data.byLeague || {}).reduce((s, a) => s + (a ? a.length : 0), 0)
-      summary.push(`accuracy_log: ${data.entries.length} entries / ${nn} byLeague`)
+      byLeagueCount = Object.values(data.byLeague || {}).reduce(
+        (s, a) => s + (a ? a.length : 0),
+        0
+      )
+      summary.push(
+        `accuracy_log: ${data.entries.length} entries / ${byLeagueCount} byLeague (non commité, lecture seule)`
+      )
     } else {
       summary.push('accuracy_log: none')
     }
@@ -67,12 +70,12 @@ async function main() {
     summary.push(`accuracy_log: erreur -> ${e.message}`)
   }
 
-  // 3) Commit + push si changements
+  // 3) Commit + push si changements (seul le trend est commité dans data/)
   try {
-    git('add', 'data/promosport_accuracy_trend.json', 'data/accuracy_log.json')
+    git('add', 'data/promosport_accuracy_trend.json')
     const status = git('status', '--porcelain')
     if (status.trim()) {
-      git('commit', '-m', `data: persistance précision [${ts}] (${summary.join('; ')})`)
+      git('commit', '-m', `data: accuracy snapshot [${ts}] (${summary.join(' | ')})`)
       git('push', 'origin', 'main')
       console.log('✅ Push git effectué.')
     } else {

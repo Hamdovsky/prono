@@ -159,26 +159,33 @@ async function settleFinishedMatches(force = false) {
 
         // 🎯 REAL pick: quant.main_pick from fullData (combo DC / O0.5 / …)
         const mainPick = extractMainPick(row)
-        const pickForEval = mainPick || row.prediction
+        let evalPick = mainPick || row.prediction
+        let result = evalPick ? evaluatePrediction(evalPick, scoreHome, scoreAway, row.ou_25_prob) : null
 
-        // Evaluate the primary prediction
-        let result = evaluatePrediction(pickForEval, scoreHome, scoreAway, row.ou_25_prob)
-
-        // If no primary prediction, try to infer from probabilities
+        // If no primary prediction, infer ONLY from real probabilities (>0),
+        // never fabricate a '1' when there is no data at all.
         if (!result) {
           const hProb = parseFloat(row.home_win_probability) || 0
           const dProb = parseFloat(row.draw_probability) || 0
           const aProb = parseFloat(row.away_win_probability) || 0
           const maxProb = Math.max(hProb, dProb, aProb)
-          let inferredPick = null
-          if (maxProb === hProb) inferredPick = '1'
-          else if (maxProb === dProb) inferredPick = 'X'
-          else if (maxProb === aProb) inferredPick = '2'
-          if (inferredPick)
-            result = evaluatePrediction(inferredPick, scoreHome, scoreAway, row.ou_25_prob)
+          if (maxProb > 0) {
+            let inferredPick = null
+            if (maxProb === hProb) inferredPick = '1'
+            else if (maxProb === dProb) inferredPick = 'X'
+            else if (maxProb === aProb) inferredPick = '2'
+            if (inferredPick) {
+              result = evaluatePrediction(inferredPick, scoreHome, scoreAway, row.ou_25_prob)
+              if (result) evalPick = inferredPick
+            }
+          }
         }
 
         if (!result) {
+          // No real prediction (no pick, no probs) → purge any stale accuracy entry
+          try {
+            accuracyStore.removeResult(row.id)
+          } catch (_) {}
           results.skipped++
           continue
         }
@@ -212,11 +219,11 @@ async function settleFinishedMatches(force = false) {
 
         // Write accuracy_log.json for Python training scripts feedback loop
         try {
-          _appendToAccuracyLog(row, mainPick, result, scoreHome, scoreAway)
+          _appendToAccuracyLog(row, evalPick, result, scoreHome, scoreAway)
         } catch (_) {}
 
         logger.info(
-          `[SETTLEMENT] ${row.homeTeam} ${scoreHome}-${scoreAway} ${row.awayTeam} → ${result} (prediction: ${mainPick || row.prediction})`
+          `[SETTLEMENT] ${row.homeTeam} ${scoreHome}-${scoreAway} ${row.awayTeam} → ${result} (prediction: ${evalPick})`
         )
       } catch (e) {
         logger.error(`[SETTLEMENT] Error settling ${row.id}: ${e.message}`)
@@ -471,14 +478,14 @@ function getPerformance() {
 
 // ── Accuracy log for Python training feedback ──────────────────────
 
-function _appendToAccuracyLog(row, mainPick, result, scoreHome, scoreAway) {
+function _appendToAccuracyLog(row, evalPick, result, scoreHome, scoreAway) {
   const league = row.league || 'Unknown'
 
   const hProb = parseFloat(row.home_win_probability) || 0
   const dProb = parseFloat(row.draw_probability) || 0
   const aProb = parseFloat(row.away_win_probability) || 0
   const confidence = Math.max(hProb, dProb, aProb)
-  const predicted = mainPick || (row.prediction || '').toUpperCase() || '—'
+  const predicted = evalPick || (row.prediction || '').toUpperCase() || '—'
   const actual = scoreHome > scoreAway ? '1' : scoreHome < scoreAway ? '2' : 'X'
   const isCorrect = result === 'WON'
 

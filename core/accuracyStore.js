@@ -260,10 +260,50 @@ async function persistSnapshot(snapshot) {
   }
 }
 
+/**
+ * Remove a settled match entry (by match_id) from every league — used to
+ * purge accuracy entries that have no real prediction (re-settle safe).
+ */
+function removeResult(matchId) {
+  const log = loadFile()
+  if (!log.byLeague) {
+    saveFile(log)
+    return null
+  }
+  let removed = false
+  for (const league of Object.keys(log.byLeague)) {
+    const before = log.byLeague[league].length
+    log.byLeague[league] = log.byLeague[league].filter(
+      (e) => String(e.match_id) !== String(matchId)
+    )
+    if (log.byLeague[league].length !== before) removed = true
+    if (log.byLeague[league].length === 0) delete log.byLeague[league]
+  }
+  if (removed) {
+    let totalW = 0
+    let totalN = 0
+    for (const entries of Object.values(log.byLeague)) {
+      for (const e of entries) {
+        totalN++
+        if (e.is_correct) totalW++
+      }
+    }
+    log._global = {
+      accuracy: totalN > 0 ? Math.round((totalW / totalN) * 1000) / 10 : 0,
+      total: totalN,
+      won: totalW,
+      updated: new Date().toISOString(),
+    }
+    saveFile(log)
+  }
+  return removed
+}
+
 module.exports = {
   loadAccuracyLog,
   loadAccuracyLogSyncOnly,
   saveAccuracyLog,
   appendResult,
+  removeResult,
   persistSnapshot,
 }

@@ -540,6 +540,52 @@ docker run -p 10000:10000 titanium-ai
 
 ---
 
+## 22. Persistance git de la précision (sync_accuracy_git.js)
+
+### 🎯 Problème résolu
+
+Le disque du container Render (plan free) est **éphémère** : `data/*.json`
+(snapshots de précision, accuracy_log) est perdu à chaque redéploiement.
+Le compte Postgres Neon peut aussi atteindre son quota gratuit.
+
+### 🛠️ Solution
+
+Sérialiser la précision hors-container **via git** : un script local récupère
+le trend depuis l'API du site déployé et le commit/push dans le repo
+(`data/promosport_accuracy_trend.json`). Ainsi l'historique survit aux redeploys.
+
+### 📡 Endpoint exposé
+
+```
+GET /api/evolution/accuracy/trend
+→ { "success": true, "trend": [...], "updatedAt": "..." }
+```
+
+Ajouté dans `routes/evolution.js`. Lit `data/promosport_accuracy_trend.json`.
+
+### 🔁 Script de synchro
+
+```bash
+# À exécuter LOCALEMENT (vos creds git existent ici), pas dans le container.
+node scripts/sync_accuracy_git.js [baseUrl]
+# Ex: node scripts/sync_accuracy_git.js https://pronostico.onrender.com
+```
+
+Ce que fait le script :
+1. `GET /api/evolution/accuracy/trend` → écrit `data/promosport_accuracy_trend.json`
+2. `GET /api/accuracy` → résume (lecture seule, `accuracy_log.json` est ignoré
+   par `.gitignore`)
+3. `git add data/promosport_accuracy_trend.json` → commit → push sur `main`
+
+### ⚠️ Pourquoi pas dans le container ?
+
+Pousser depuis Render vers `main` redéclencherait l'auto-deploy → boucle infinie.
+Le script est donc conçu pour tourner **en local** (ou cron de votre machine).
+Le fichier `data/promosport_accuracy_trend.json` est **tracké** (pas ignoré),
+contrairement à `data/accuracy_log.json`.
+
+---
+
 **Documentation générée le:** 2026-06-30  
 **Version:** 3.1.0  
 **Auteur:** Titanium AI Team

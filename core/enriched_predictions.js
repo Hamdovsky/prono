@@ -1141,7 +1141,15 @@ class EnrichedPredictionService {
             }
 
             // ── 2. DETECT INSUFFICIENT DATA ──
-            const hasRealOdds = m._oddsWereFetched && !m._oddsAreSynthetic && parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0;
+            // Real odds proof = non-synthetic odds persisted in indexed columns
+            // (_oddsWereFetched is a memory-only flag, absent after DB reload, so the
+            // persisted columns themselves are the source of truth). Synthetic odds are
+            // NEVER written to columns, so column values imply real bookmaker odds.
+            const hasRealOdds =
+                !m._oddsAreSynthetic &&
+                parseFloat(m.odds_home) > 0 &&
+                parseFloat(m.odds_draw) > 0 &&
+                parseFloat(m.odds_away) > 0;
             const hasOdds = parseFloat(m.odds_home) > 0 && parseFloat(m.odds_away) > 0;
             const hasXg = parseFloat(m.home_xg) > 0.3 && parseFloat(m.away_xg) > 0.3;
             const hasForm = parseFloat(m.home_form_pts) > 0 || parseFloat(m.away_form_pts) > 0;

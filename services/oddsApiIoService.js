@@ -38,7 +38,7 @@ class OddsApiIoService {
   constructor() {
     this.apiKey = process.env.ODDSAPI_IO_KEY || ''
     this.enabled = process.env.ODDSAPI_IO_ENABLED !== 'false'
-    this._quotaExhausted = false
+    this._quotaExhaustedUntil = 0
     this._searchCache = new Map()
 
     if (!this.apiKey) {
@@ -53,7 +53,11 @@ class OddsApiIoService {
   isAvailable() {
     if (!this.enabled) return false
     if (!this.apiKey) return false
-    if (this._quotaExhausted) return false
+    if (this._quotaExhaustedUntil) {
+      if (Date.now() < this._quotaExhaustedUntil) return false
+      this._quotaExhaustedUntil = 0
+      logger.info('[OddsAPI.io] Rate limit window passed — service resumed')
+    }
     return true
   }
 
@@ -68,12 +72,12 @@ class OddsApiIoService {
     } catch (err) {
       const status = err.response?.status
       if (status === 429) {
-        this._quotaExhausted = true
-        logger.warn('[OddsAPI.io] Rate limit hit — pausing for 1h, then retrying')
-        setTimeout(() => {
-          this._quotaExhausted = false
-          logger.info('[OddsAPI.io] Rate limit window passed — service resumed')
-        }, 60 * 60 * 1000)
+        const reset = err.response?.headers?.['x-ratelimit-reset']
+        const resetMs = reset ? new Date(reset).getTime() : Date.now() + 60 * 60 * 1000
+        this._quotaExhaustedUntil = resetMs
+        logger.warn(
+          `[OddsAPI.io] Rate limit hit — paused until ${new Date(resetMs).toISOString()}`
+        )
       } else if (status === 403) {
         logger.warn(`[OddsAPI.io] Accès refusé (plan): ${err.response?.data?.error || ''}`)
       } else {
@@ -146,7 +150,8 @@ class OddsApiIoService {
     if (!hn || !an) return null
 
     let eventId = null
-    for (const term of [match.awayTeam, match.homeTeam]) {
+    // 1) Recherche combinée "home away" (1 appel réseau nominal) — réduit la consommation du quota.
+    for (const term of [`${hn} ${an}`, `${an} ${hn}`, match.awayTeam, match.homeTeam]) {
       const results = (await this.searchEvents(term)).filter((e) => isPending(e.status))
       if (!results.length) continue
       const event =

@@ -310,6 +310,23 @@ app.get('/api/diag', securityEngine.authenticate.bind(securityEngine), async (re
   })
 })
 
+app.get('/api/debug/oddsapi', async (req, res) => {
+  try {
+    const oddsApiIo = require('./services/oddsApiIoService')
+    res.json({
+      keyPresent: !!process.env.ODDSAPI_IO_KEY,
+      keyPrefix: process.env.ODDSAPI_IO_KEY ? process.env.ODDSAPI_IO_KEY.slice(0, 8) : null,
+      enabled: process.env.ODDSAPI_IO_ENABLED !== 'false',
+      available: oddsApiIo.isAvailable(),
+      quotaExhaustedUntil: oddsApiIo._quotaExhaustedUntil || 0,
+      searchCacheSize: oddsApiIo._searchCache ? oddsApiIo._searchCache.size : 0,
+      selectedBookmakers: process.env.ODDSAPI_BOOKMAKERS || '1xbet,22Bet',
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 app.post(
   '/api/debug/test-bsd',
   writeLimiter,
@@ -511,6 +528,55 @@ app.post(
     }
   }
 )
+
+/**
+ * GET /api/bsd/status — État actif/désactivé du service BSD
+ */
+app.get('/api/bsd/status', async (req, res) => {
+  try {
+    const bsdService = require('./services/bsdService')
+    res.json({
+      success: true,
+      enabled: bsdService.isEnabled(),
+      hasKey: !!process.env.BSD_API_KEY && process.env.BSD_API_KEY !== 'CHANGER_MOI_BSD_API_KEY',
+    })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
+ * POST /api/bsd/toggle — Active/Désactive BSD (persistant via configEngine)
+ */
+app.post('/api/bsd/toggle', async (req, res) => {
+  try {
+    const enabled = req.body?.enabled === true
+    await configEngine.set('BSD_ENABLED', enabled)
+    process.env.BSD_ENABLED = enabled ? 'true' : 'false'
+    const bsdService = require('./services/bsdService')
+    bsdService.setEnabled(enabled)
+    res.json({ success: true, enabled })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
+ * GET /api/bsd/predictions — Pronostics BSD (https://sports.bzzoiro.com/predictions/)
+ */
+app.get('/api/bsd/predictions', async (req, res) => {
+  try {
+    const bsdService = require('./services/bsdService')
+    if (!bsdService.isEnabled()) {
+      return res.json({ success: true, enabled: false, count: 0, predictions: [] })
+    }
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200)
+    const predictions = await bsdService.fetchUpcomingPredictions(limit)
+    res.json({ success: true, enabled: true, count: predictions.length, predictions })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
 
 app.get('/api/props/today', async (req, res) => {
   try {

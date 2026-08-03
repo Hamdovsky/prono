@@ -571,6 +571,12 @@ function runMigrations() {
     ['matches', 'result', 'TEXT'],
     ['matches', 'settled_at', 'INTEGER'],
     ['matches', 'market_type', 'TEXT'],
+    ['matches', 'ev_draw', 'REAL'],
+    ['matches', 'ev_away', 'REAL'],
+    ['matches', 'kelly_stake', 'REAL'],
+    ['matches', 'true_prob_home', 'REAL'],
+    ['matches', 'true_prob_draw', 'REAL'],
+    ['matches', 'true_prob_away', 'REAL'],
   ]
 
   let added = 0
@@ -1108,6 +1114,9 @@ const database = {
                     "weather_humidity"     = CASE WHEN ? IS NOT NULL THEN ? ELSE "weather_humidity" END,
                     "home_form_pts"        = CASE WHEN ? IS NOT NULL THEN ? ELSE "home_form_pts" END,
                     "away_form_pts"        = CASE WHEN ? IS NOT NULL THEN ? ELSE "away_form_pts" END,
+                    "odds_home"            = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_home" END,
+                    "odds_draw"            = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_draw" END,
+                    "odds_away"            = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_away" END,
                     "motivation_signature" = ?,
                     "insufficient_data" = CASE WHEN ? IS NOT NULL THEN ? ELSE 0 END
                 WHERE id = ?
@@ -1155,6 +1164,12 @@ const database = {
         data.home_form_pts ?? null,
         data.away_form_pts ?? null,
         data.away_form_pts ?? null,
+        data.odds_home ?? null,
+        data.odds_home ?? null,
+        data.odds_draw ?? null,
+        data.odds_draw ?? null,
+        data.odds_away ?? null,
+        data.odds_away ?? null,
         data.motivation_signature || enriched?.motivation_signature || 'Logique Standard',
         data.insufficient_data ?? null,
         data.insufficient_data ?? null,

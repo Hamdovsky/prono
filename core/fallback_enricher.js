@@ -181,7 +181,7 @@ async function tryXgbEnrichOne(match) {
   }
 }
 
-function jsEnrichOne(match) {
+async function jsEnrichOne(match) {
   const matchId = match.id || match.match_id || ''
   const home = match.homeTeam || ''
   const away = match.awayTeam || ''
@@ -189,15 +189,34 @@ function jsEnrichOne(match) {
     return { id: matchId, success: false, error: 'Missing homeTeam/awayTeam' }
   }
 
-  // If no odds, generate synthetic odds from team names for per-match differentiation
+  // If no real odds present, try to fetch REAL bookmaker odds (OddsAPI.io 1xbet/22Bet)
+  // before falling back to synthetic odds. This is what turns small-league matches
+  // from "insufficient" into real Gagnants while staying honest (real odds only).
   let insufficientData = 0
   if (!match.odds_home || !match.odds_draw || !match.odds_away) {
-    const synth = _generateSyntheticOdds(home, away, match.league)
-    match.odds_home = synth.home
-    match.odds_draw = synth.draw
-    match.odds_away = synth.away
-    match._oddsAreSynthetic = true
-    insufficientData = 1
+    let realOdds = null
+    try {
+      const oddsApiIo = require('../services/oddsApiIoService')
+      if (oddsApiIo.isAvailable()) {
+        realOdds = await oddsApiIo.fetchOddsForMatch(match)
+      }
+    } catch (_) {}
+    if (realOdds && parseFloat(realOdds.home) > 0 && parseFloat(realOdds.away) > 0) {
+      match.odds_home = parseFloat(realOdds.home)
+      match.odds_draw = parseFloat(realOdds.draw)
+      match.odds_away = parseFloat(realOdds.away)
+      match.odds_source = 'oddsapiio'
+      match._oddsWereFetched = true
+    } else {
+      const synth = _generateSyntheticOdds(home, away, match.league)
+      match.odds_home = synth.home
+      match.odds_draw = synth.draw
+      match.odds_away = synth.away
+      match._oddsAreSynthetic = true
+      insufficientData = 1
+    }
+  } else {
+    match._oddsWereFetched = true
   }
 
   const xg = StatisticalEngine.getMatchXG(match)
@@ -218,7 +237,15 @@ function jsEnrichOne(match) {
     'fallback_js',
     insufficientData
   )
-  return { id: matchId, success: true, ...result }
+  return {
+    id: matchId,
+    success: true,
+    ...result,
+    odds_home: match._oddsWereFetched && !match._oddsAreSynthetic ? match.odds_home : null,
+    odds_draw: match._oddsWereFetched && !match._oddsAreSynthetic ? match.odds_draw : null,
+    odds_away: match._oddsWereFetched && !match._oddsAreSynthetic ? match.odds_away : null,
+    odds_source: match.odds_source || null,
+  }
 }
 
 /**
@@ -336,7 +363,7 @@ async function enrichMatchesBatch(opts = {}) {
             }
           } catch (_) {}
           try {
-            const result = jsEnrichOne(m)
+            const result = await jsEnrichOne(m)
             if (result && result.success) {
               jsOk++
               return { match: m, result }
@@ -350,28 +377,32 @@ async function enrichMatchesBatch(opts = {}) {
         if (!item) continue
         const m = item.match
         const r = item.result
-        try {
-          await database.updatePredictions(m.id, {
-            home_win_probability: r.home_win_probability,
-            draw_probability: r.draw_probability,
-            away_win_probability: r.away_win_probability,
-            ou_25_prob: r.ou_25_prob,
-            btts_prob: r.btts_prob,
-            expected_score: r.expected_score,
-            prediction: r.prediction,
-            prediction_probability: r.prediction_probability,
-            ev_home: r.prediction === '1' ? r.ev_score : null,
-            ev_draw: r.prediction === 'X' ? r.ev_score : null,
-            ev_away: r.prediction === '2' ? r.ev_score : null,
-            ev_score: r.ev_score,
-            insufficient_data: r.insufficient_data ?? 0,
-            home_xg: r.home_xg,
-            away_xg: r.away_xg,
-            xgboost_confidence: r.xgboost_confidence || null,
-            confidence: r.confidence || null,
-          })
-          enriched++
-        } catch (e) {
+try {
+            await database.updatePredictions(m.id, {
+              home_win_probability: r.home_win_probability,
+              draw_probability: r.draw_probability,
+              away_win_probability: r.away_win_probability,
+              ou_25_prob: r.ou_25_prob,
+              btts_prob: r.btts_prob,
+              expected_score: r.expected_score,
+              prediction: r.prediction,
+              prediction_probability: r.prediction_probability,
+              ev_home: r.prediction === '1' ? r.ev_score : null,
+              ev_draw: r.prediction === 'X' ? r.ev_score : null,
+              ev_away: r.prediction === '2' ? r.ev_score : null,
+              ev_score: r.ev_score,
+              insufficient_data: r.insufficient_data ?? 0,
+              home_xg: r.home_xg,
+              away_xg: r.away_xg,
+              xgboost_confidence: r.xgboost_confidence || null,
+              confidence: r.confidence || null,
+              odds_home: r.odds_home ?? null,
+              odds_draw: r.odds_draw ?? null,
+              odds_away: r.odds_away ?? null,
+              odds_source: r.odds_source || null,
+            })
+            enriched++
+          } catch (e) {
           logger.error(`[FALLBACK_ENRICHER] DB write error ${m.id}: ${e.message}`)
         }
       }

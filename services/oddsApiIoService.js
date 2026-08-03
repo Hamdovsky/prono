@@ -39,6 +39,7 @@ class OddsApiIoService {
     this.apiKey = process.env.ODDSAPI_IO_KEY || ''
     this.enabled = process.env.ODDSAPI_IO_ENABLED !== 'false'
     this._quotaExhausted = false
+    this._searchCache = new Map()
 
     if (!this.apiKey) {
       logger.warn('[OddsAPI.io] ODDSAPI_IO_KEY manquant — désactivé')
@@ -68,7 +69,11 @@ class OddsApiIoService {
       const status = err.response?.status
       if (status === 429) {
         this._quotaExhausted = true
-        logger.warn('[OddsAPI.io] Rate limit hit (upgrade plan)')
+        logger.warn('[OddsAPI.io] Rate limit hit — pausing for 1h, then retrying')
+        setTimeout(() => {
+          this._quotaExhausted = false
+          logger.info('[OddsAPI.io] Rate limit window passed — service resumed')
+        }, 60 * 60 * 1000)
       } else if (status === 403) {
         logger.warn(`[OddsAPI.io] Accès refusé (plan): ${err.response?.data?.error || ''}`)
       } else {
@@ -79,8 +84,19 @@ class OddsApiIoService {
   }
 
   async searchEvents(query) {
+    const now = Date.now()
+    const cached = this._searchCache.get(query)
+    if (cached && now - cached.ts < 30 * 60 * 1000) {
+      return cached.data
+    }
     const data = await this._get(`/events/search?query=${encodeURIComponent(query)}`)
-    return Array.isArray(data) ? data : []
+    const results = Array.isArray(data) ? data : []
+    this._searchCache.set(query, { ts: now, data: results })
+    if (this._searchCache.size > 200) {
+      const oldest = this._searchCache.keys().next().value
+      this._searchCache.delete(oldest)
+    }
+    return results
   }
 
   // Cotes 1X2 (market ML) pour une liste d'event ids (≤10 par appel).

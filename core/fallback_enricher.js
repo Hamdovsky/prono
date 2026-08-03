@@ -2,6 +2,27 @@ const logger = require('./logger')
 const database = require('./database')
 const StatisticalEngine = require('./services/StatisticalEngine')
 const axios = require('axios')
+const oddsApiIoService = require('../services/oddsApiIoService')
+const { pickBest: pickOddsBest } = (function () {
+  // pickBest lives in oddsApiIoService but is not exported — inline a tiny copy
+  function pickBest(bookmakers) {
+    if (!bookmakers) return null
+    const bms = typeof bookmakers === 'string' ? JSON.parse(bookmakers) : bookmakers
+    let best = { home: 0, draw: 0, away: 0 }
+    for (const bmName of Object.keys(bms || {})) {
+      const markets = bms[bmName]
+      if (!Array.isArray(markets)) continue
+      const ml = markets.find((mk) => String(mk.name).toUpperCase() === 'ML')
+      if (!ml || !ml.odds || !ml.odds[0]) continue
+      const o = ml.odds[0]
+      const h = parseFloat(o.home), d = parseFloat(o.draw), a = parseFloat(o.away)
+      if (!h || !a) continue
+      best = { home: h > best.home ? h : best.home, draw: d > best.draw ? d : best.draw, away: a > best.away ? a : best.away }
+    }
+    return best.home && best.away ? best : null
+  }
+  return { pickBest }
+})()
 
 const FASTAPI_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
 const XGB_TIMEOUT = parseInt(process.env.XGB_INFERENCE_TIMEOUT || '60000')
@@ -320,6 +341,15 @@ async function getStaleMatches() {
   }
 }
 
+function _startTs(m) {
+  const t = m.startTimestamp || m.timestamp || 0
+  return typeof t === 'string' ? new Date(t).getTime() : Number(t) * 1000
+}
+
+function _hasOdds(m) {
+  return parseFloat(m.odds_home) > 0 && parseFloat(m.odds_draw) > 0 && parseFloat(m.odds_away) > 0
+}
+
 async function enrichMatchesBatch(opts = {}) {
   const limit = opts.limit || 999
   logger.info(`[FALLBACK_ENRICHER] Starting batch enrichment (limit: ${limit})...`)
@@ -334,6 +364,9 @@ async function enrichMatchesBatch(opts = {}) {
       seen.add(m.id)
       return true
     })
+    // Prioriser les matchs les plus proches du coup d'envoi : leurs cotes
+    // bookmaker sont plus susceptibles d'exister et le quota est limité.
+    matches.sort((a, b) => _startTs(a) - _startTs(b))
     if (matches.length > limit) {
       matches = matches.slice(0, limit)
       logger.info(`[FALLBACK_ENRICHER] Capped to ${limit} matches for memory safety`)
@@ -372,7 +405,61 @@ async function enrichMatchesBatch(opts = {}) {
       )
     }
 
+    // ── Batch Odds Collection ──
+    // Regrouper recherche d'événements + un seul appel /odds/multi (≤10 events)
+    // afin de diviser par ~10 la consommation de quota OddsAPI.
+    // On ne touche qu'aux matches sans cotes réelles déjà présentes (le gate
+    // honnêteté protège les cotes persistées).
+    try {
+      if (oddsApiIoService.isAvailable()) {
+        const noOdds = matches.filter(
+          (m) => !oddsApiIoService.isNotFound(m.id) && !_hasOdds(m)
+        )
+        let fetchedOdds = 0
+        for (let i = 0; i < noOdds.length; i += 10) {
+          if (!oddsApiIoService.isAvailable()) break
+          const chunk = noOdds.slice(i, i + 10)
+          const withIds = []
+          for (const m of chunk) {
+            // quota peut s'épuiser entre-temps
+            if (!oddsApiIoService.isAvailable()) break
+            try {
+              const eid = await oddsApiIoService.getEventId(m)
+              if (eid) withIds.push({ m, eid })
+            } catch (_) {}
+          }
+          if (!withIds.length) continue
+          const ids = withIds.map((w) => w.eid)
+          const odds = await oddsApiIoService.getOddsMulti(ids)
+          const byId = new Map(odds.map((o) => [String(o.id), o]))
+          for (const w of withIds) {
+            const ev = byId.get(String(w.eid))
+            const ml =
+              ev && ev.bookmakers ? pickOddsBest(ev.bookmakers) : null
+            if (ml && ml.home && ml.away) {
+              w.m.odds_home = ml.home
+              w.m.odds_draw = ml.draw
+              w.m.odds_away = ml.away
+              w.m.odds_source = 'oddsapiio'
+              w.m._oddsWereFetched = true
+              fetchedOdds++
+            } else {
+              oddsApiIoService.markNotFound(w.m.id)
+            }
+          }
+        }
+        logger.info(
+          `[FALLBACK_ENRICHER] Batch odds: ${fetchedOdds}/${noOdds.length} got real odds`
+        )
+      }
+    } catch (e) {
+      logger.warn(`[FALLBACK_ENRICHER] Batch odds phase error: ${e.message}`)
+    }
+
     for (let i = 0; i < matches.length; i += batchSize) {
+      // Quota épuisé : s'arrêter (plus de fetch/écriture inutile). On continue
+      // la boucle seulement si des matches portent encore des cotes à conserver.
+      if (!oddsApiIoService.isAvailable() && matches.slice(i).every(_hasOdds)) break
       const batch = matches.slice(i, i + batchSize)
       const results = await Promise.all(
         batch.map(async (m) => {

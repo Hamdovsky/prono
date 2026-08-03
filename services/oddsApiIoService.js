@@ -34,12 +34,18 @@ function pickBest(bookmakers) {
   return best.home && best.away ? best : null
 }
 
+const NEGATIVE_TTL_MS = 2 * 60 * 60 * 1000
+
 class OddsApiIoService {
   constructor() {
     this.apiKey = process.env.ODDSAPI_IO_KEY || ''
     this.enabled = process.env.ODDSAPI_IO_ENABLED !== 'false'
     this._quotaExhaustedUntil = 0
     this._searchCache = new Map()
+    // Negative cache: matches we have already queried but found no bookmaker
+    // odds for. Remembered for 2h (TTL) so the hourly cron does not waste
+    // the tiny free-tier quota re-pinging the exact same matches every cycle.
+    this._notFound = new Map()
 
     if (!this.apiKey) {
       logger.warn('[OddsAPI.io] ODDSAPI_IO_KEY manquant — désactivé')
@@ -140,10 +146,55 @@ class OddsApiIoService {
     return s
   }
 
+  isNotFound(matchId, ttlMs = NEGATIVE_TTL_MS) {
+    if (!matchId) return false
+    const e = this._notFound.get(matchId)
+    if (!e) return false
+    if (Date.now() - e >= ttlMs) {
+      this._notFound.delete(matchId)
+      return false
+    }
+    return true
+  }
+
+  markNotFound(matchId) {
+    if (matchId) this._notFound.set(matchId, Date.now())
+  }
+
+  clearNotFound(matchId) {
+    if (matchId) this._notFound.delete(matchId)
+  }
+
+  // Cherche l'event OddsAPI pour un match (par noms) — renvoie uniquement l'id.
+  // Utilise le cache searchEvents (30 min) ; ne consomme PAS de quota odds.
+  async getEventId(match) {
+    if (!match || !match.homeTeam || !match.awayTeam) return null
+    const hn = this.normalizeTeam(match.homeTeam)
+    const an = this.normalizeTeam(match.awayTeam)
+    if (!hn || !an) return null
+    for (const term of [`${hn} ${an}`, `${an} ${hn}`, match.awayTeam, match.homeTeam]) {
+      const results = (await this.searchEvents(term)).filter((e) => isPending(e.status))
+      if (!results.length) continue
+      const event =
+        results.find((e) => {
+          const eh = this.normalizeTeam(e.home)
+          const ea = this.normalizeTeam(e.away)
+          return (eh === hn && ea === an) || (eh === an && ea === hn)
+        }) ||
+        results.find(
+          (e) => this.normalizeTeam(e.home).includes(hn) && this.normalizeTeam(e.away).includes(an)
+        )
+      if (event) return event.id
+    }
+    return null
+  }
+
   // Cherche l'event OddsAPI pour un match (par noms), puis renvoie les cotes ML.
   async fetchOddsForMatch(match) {
     if (!match || !match.homeTeam || !match.awayTeam) return null
     if (!this.isAvailable()) return null
+    // Skip matches already proven to have no bookmaker odds this TTL window.
+    if (this.isNotFound(match.id)) return null
 
     const hn = this.normalizeTeam(match.homeTeam)
     const an = this.normalizeTeam(match.awayTeam)
@@ -169,11 +220,19 @@ class OddsApiIoService {
       }
     }
 
-    if (!eventId) return null
+    if (!eventId) {
+      this.markNotFound(match.id)
+      return null
+    }
     const odds = await this.getOddsMulti([eventId])
     const ev = odds[0]
-    if (!ev || !ev.bookmakers) return null
-    return pickBest(ev.bookmakers)
+    if (!ev || !ev.bookmakers) {
+      this.markNotFound(match.id)
+      return null
+    }
+    const best = pickBest(ev.bookmakers)
+    if (!best) this.markNotFound(match.id)
+    return best
   }
 
   // Contest groupé pour le backfill (core/oddsBackfill).

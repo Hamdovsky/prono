@@ -181,6 +181,28 @@ async function tryXgbEnrichOne(match) {
   }
 }
 
+async function attachRealOdds(match) {
+  if (!match || match._oddsWereFetched) return
+  if (match.odds_home && match.odds_draw && match.odds_away) {
+    match._oddsWereFetched = true
+    return
+  }
+  try {
+    const oddsApiIo = require('../services/oddsApiIoService')
+    if (!oddsApiIo.isAvailable()) return
+    const realOdds = await oddsApiIo.fetchOddsForMatch(match)
+    if (realOdds && parseFloat(realOdds.home) > 0 && parseFloat(realOdds.away) > 0) {
+      match.odds_home = parseFloat(realOdds.home)
+      match.odds_draw = parseFloat(realOdds.draw)
+      match.odds_away = parseFloat(realOdds.away)
+      match.odds_source = 'oddsapiio'
+      match._oddsWereFetched = true
+    } else {
+      match._oddsWereFetched = false
+    }
+  } catch (_) {}
+}
+
 async function jsEnrichOne(match) {
   const matchId = match.id || match.match_id || ''
   const home = match.homeTeam || ''
@@ -194,20 +216,14 @@ async function jsEnrichOne(match) {
   // from "insufficient" into real Gagnants while staying honest (real odds only).
   let insufficientData = 0
   if (!match.odds_home || !match.odds_draw || !match.odds_away) {
-    let realOdds = null
-    try {
-      const oddsApiIo = require('../services/oddsApiIoService')
-      if (oddsApiIo.isAvailable()) {
-        realOdds = await oddsApiIo.fetchOddsForMatch(match)
-      }
-    } catch (_) {}
-    if (realOdds && parseFloat(realOdds.home) > 0 && parseFloat(realOdds.away) > 0) {
-      match.odds_home = parseFloat(realOdds.home)
-      match.odds_draw = parseFloat(realOdds.draw)
-      match.odds_away = parseFloat(realOdds.away)
-      match.odds_source = 'oddsapiio'
-      match._oddsWereFetched = true
-    } else {
+    await attachRealOdds(match)
+  } else {
+    match._oddsWereFetched = true
+  }
+
+  if (match._oddsWereFetched) {
+    const hasAll = parseFloat(match.odds_home) > 0 && parseFloat(match.odds_away) > 0
+    if (!hasAll) {
       const synth = _generateSyntheticOdds(home, away, match.league)
       match.odds_home = synth.home
       match.odds_draw = synth.draw
@@ -216,7 +232,12 @@ async function jsEnrichOne(match) {
       insufficientData = 1
     }
   } else {
-    match._oddsWereFetched = true
+    const synth = _generateSyntheticOdds(home, away, match.league)
+    match.odds_home = synth.home
+    match.odds_draw = synth.draw
+    match.odds_away = synth.away
+    match._oddsAreSynthetic = true
+    insufficientData = 1
   }
 
   const xg = StatisticalEngine.getMatchXG(match)
@@ -356,6 +377,7 @@ async function enrichMatchesBatch(opts = {}) {
       const results = await Promise.all(
         batch.map(async (m) => {
           try {
+            await attachRealOdds(m)
             let result = await tryXgbEnrichOne(m)
             if (result && result.success) {
               xgbOk++
@@ -396,10 +418,10 @@ try {
               away_xg: r.away_xg,
               xgboost_confidence: r.xgboost_confidence || null,
               confidence: r.confidence || null,
-              odds_home: r.odds_home ?? null,
-              odds_draw: r.odds_draw ?? null,
-              odds_away: r.odds_away ?? null,
-              odds_source: r.odds_source || null,
+              odds_home: r.odds_home ?? (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_home) : null),
+              odds_draw: r.odds_draw ?? (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_draw) : null),
+              odds_away: r.odds_away ?? (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_away) : null),
+              odds_source: r.odds_source || (m._oddsWereFetched && !m._oddsAreSynthetic ? m.odds_source || 'oddsapiio' : null),
             })
             enriched++
           } catch (e) {

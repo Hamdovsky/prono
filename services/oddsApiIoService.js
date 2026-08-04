@@ -59,12 +59,33 @@ class OddsApiIoService {
   isAvailable() {
     if (!this.enabled) return false
     if (!this.apiKey) return false
+    // Opportunistic cache pruning (cheap, called at each batch start) to keep
+    // the 512Mi free dyno from OOM-ing on retained JSON.
+    this._pruneCaches()
     if (this._quotaExhaustedUntil) {
       if (Date.now() < this._quotaExhaustedUntil) return false
       this._quotaExhaustedUntil = 0
       logger.info('[OddsAPI.io] Rate limit window passed — service resumed')
     }
     return true
+  }
+
+  _pruneCaches(maxCache = 80) {
+    try {
+      const now = Date.now()
+      if (this._searchCache.size > maxCache) {
+        let overflow = this._searchCache.size - maxCache
+        for (const key of this._searchCache.keys()) {
+          if (overflow <= 0) break
+          this._searchCache.delete(key)
+          overflow--
+        }
+      }
+      if (this._notFound.size > 200) {
+        const oldest = this._notFound.keys().next().value
+        this._notFound.delete(oldest)
+      }
+    } catch (_) {}
   }
 
   async _get(endpoint) {
@@ -102,7 +123,8 @@ class OddsApiIoService {
     const data = await this._get(`/events/search?query=${encodeURIComponent(query)}`)
     const results = Array.isArray(data) ? data : []
     this._searchCache.set(query, { ts: now, data: results })
-    if (this._searchCache.size > 200) {
+    // Caps memory (512Mi free dyno): limit search cache and prune expired entries.
+    if (this._searchCache.size > 80) {
       const oldest = this._searchCache.keys().next().value
       this._searchCache.delete(oldest)
     }

@@ -1,6 +1,8 @@
 const logger = require('./logger')
 const database = require('./database')
 const StatisticalEngine = require('./services/StatisticalEngine')
+const fbrefService = require('../services/fbrefService')
+const statsbombService = require('../services/statsbombService')
 const axios = require('axios')
 const oddsApiIoService = require('../services/oddsApiIoService')
 const { pickBest: pickOddsBest } = (function () {
@@ -260,6 +262,18 @@ async function jsEnrichOne(match) {
     match._oddsAreSynthetic = true
     insufficientData = 1
   }
+
+  // Enrich xG from free fbref scraping when stored xG is absent (Phase 2).
+  // This differentiates the Poisson probs (instead of the ~1X uniform fallback)
+  // on matches from the major fbref leagues — free, no quota.
+  try {
+    await fbrefService.attachMatchXG(match)
+  } catch (_) {}
+  // If fbref was blocked/unavailable, fall back to StatsBomb open-data (github raw,
+  // no Cloudflare, works on Render). Historical, so only fills xG when absent.
+  try {
+    await statsbombService.attachMatchXG(match)
+  } catch (_) {}
 
   const xg = StatisticalEngine.getMatchXG(match)
   const xgHome = xg.h

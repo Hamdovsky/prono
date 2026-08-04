@@ -1,5 +1,6 @@
 const logger = require('../core/logger')
 const fbrefService = require('./fbrefService')
+const statsbombService = require('./statsbombService')
 const transfermarktService = require('./transfermarktService')
 const database = require('../core/database')
 
@@ -129,28 +130,47 @@ class ValueBetEnricher {
     }
 
     try {
-      // 1. Get FBref stats for both teams
+      // 1. Get FBref stats for both teams (falls back to StatsBomb open-data —
+      //    fbref.com is Cloudflare-blocked from datacenter IPs, StatsBomb is not)
       const leagueInfo = LEAGUE_MAP[match.league]
       if (leagueInfo && fbrefService.isAvailable()) {
-        const allStats = await fbrefService.getTeamStats(leagueInfo.fbref)
-        const homeStats = allStats.find(
-          (s) =>
-            match.homeTeam.toLowerCase().includes(s.team.toLowerCase()) ||
-            s.team.toLowerCase().includes(match.homeTeam.toLowerCase())
-        )
-        const awayStats = allStats.find(
-          (s) =>
-            match.awayTeam.toLowerCase().includes(s.team.toLowerCase()) ||
-            s.team.toLowerCase().includes(match.awayTeam.toLowerCase())
-        )
+        try {
+          const allStats = await fbrefService.getTeamStats(leagueInfo.fbref)
+          const homeStats = allStats.find(
+            (s) =>
+              match.homeTeam.toLowerCase().includes(s.team.toLowerCase()) ||
+              s.team.toLowerCase().includes(match.homeTeam.toLowerCase())
+          )
+          const awayStats = allStats.find(
+            (s) =>
+              match.awayTeam.toLowerCase().includes(s.team.toLowerCase()) ||
+              s.team.toLowerCase().includes(match.awayTeam.toLowerCase())
+          )
 
-        if (homeStats) {
-          result.homeXG = homeStats.xG || null
-          result.adjustmentFactors.push(`FBref home xG: ${homeStats.xG}`)
+          if (homeStats) {
+            result.homeXG = homeStats.xG || null
+            result.adjustmentFactors.push(`FBref home xG: ${homeStats.xG}`)
+          }
+          if (awayStats) {
+            result.awayXG = awayStats.xG || null
+            result.adjustmentFactors.push(`FBref away xG: ${awayStats.xG}`)
+          }
+        } catch (_) {
+          // fbref blocked → fall through to StatsBomb
         }
-        if (awayStats) {
-          result.awayXG = awayStats.xG || null
-          result.adjustmentFactors.push(`FBref away xG: ${awayStats.xG}`)
+      }
+      if (!result.homeXG || !result.awayXG) {
+        const [hs, as] = await Promise.all([
+          statsbombService.getTeamXG(match.homeTeam, match.league),
+          statsbombService.getTeamXG(match.awayTeam, match.league),
+        ])
+        if (hs && hs.xG && !result.homeXG) {
+          result.homeXG = hs.xG
+          result.adjustmentFactors.push(`StatsBomb home xG: ${hs.xG}`)
+        }
+        if (as && as.xG && !result.awayXG) {
+          result.awayXG = as.xG
+          result.adjustmentFactors.push(`StatsBomb away xG: ${as.xG}`)
         }
       }
 

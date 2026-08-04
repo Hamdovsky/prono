@@ -3,16 +3,34 @@ const cheerio = require('cheerio')
 const logger = require('../core/logger')
 
 const LEAGUES = {
+  // id = fbref competition id, name = URL slug. Majeures d'abord (les matches
+  // à favori net) puis ligues secondaires. Chaque id correspond à "The Stats".
   PL: { id: 9, name: 'Premier-League' },
   LA_LIGA: { id: 12, name: 'La-Liga' },
   SERIE_A: { id: 11, name: 'Serie-A' },
   BUNDESLIGA: { id: 20, name: 'Bundesliga' },
   LIGUE_1: { id: 13, name: 'Ligue-1' },
+  CHAMPIONSHIP: { id: 10, name: 'Championship' },
+  EREDIVISIE: { id: 23, name: 'Eredivisie' },
+  LIGA_PORTUGAL: { id: 32, name: 'Primeira-Liga' },
+  MLS: { id: 22, name: 'Major-League-Soccer' },
+  BRASILEIRAO: { id: 24, name: 'Serie-A' },
+  LIGUE_2: { id: 131, name: 'Ligue-2' },
 }
 
 const CACHE_TTL = 60 * 60 * 1000
 const cache = { teamStats: new Map(), matchStats: new Map() }
 const BASE = 'https://fbref.com'
+
+// User-Agents tournées pour atténuer le blocage Cloudflare (403/429).
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+]
+let _uaIndex = 0
+const _nextUA = () => USER_AGENTS[(_uaIndex = (_uaIndex + 1) % USER_AGENTS.length)]
 
 class FbrefService {
   constructor() {
@@ -33,33 +51,57 @@ class FbrefService {
     map.set(key, { ts: Date.now(), data })
   }
 
-  async fetchPage(url) {
-    const res = await axios.get(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      timeout: 15000,
-    })
-    return cheerio.load(res.data)
+  async fetchPage(url, retries = 2) {
+    let lastErr
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (attempt > 0) {
+        // Backoff sur retry (lundi antivirus / réponse 403/429 Cloudflare)
+        await new Promise((r) => setTimeout(r, 1500 * attempt))
+      }
+      try {
+        const res = await axios.get(url, {
+          headers: {
+            'User-Agent': _nextUA(),
+            Accept: 'text/html,application/xhtml+xml',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'no-cache',
+          },
+          timeout: 20000,
+        })
+        if (res.status === 200) return cheerio.load(res.data)
+        lastErr = new Error(`HTTP ${res.status} for ${url}`)
+      } catch (e) {
+        lastErr = e
+        // Ne pas re-scraper si c'est une erreur réseau permanente (430/403)
+        if (e.response && [403, 429].includes(e.response.status)) {
+          logger.warn(`[FBREF] blocked (${e.response.status}) on ${url}, retry ${attempt + 1}`)
+          continue
+        }
+        logger.warn(`[FBREF] fetch error ${url}: ${e.message}`)
+      }
+    }
+    throw lastErr
   }
 
   _parseLeagueTable($) {
     const stats = []
-    // Standard stats table (goals, xG, assists, xAG)
-    const table = $('#stats_standard')
+    // Standard stats table (goals, xG, assists, xAG). fbref change l'id du
+    // tableau selon la saison/compétition (#stats_standard, #stats_standard_9...),
+    // donc on cherche le PREMIER tableau contenant un th[data-stat="team"].
+    let table = $('#stats_standard')
+    if (!table.length) {
+      table = $('table[id^="stats_standard"]').first()
+    }
     if (!table.length) return stats
 
     const rows = table.find('tbody tr')
     rows.each((_, row) => {
       const $row = $(row)
-      const team = $row.find('th[data-stat="team"] a').text().trim()
+      const team = $row.find('th[data-stat="team"] a, th[data-stat="team"]').first().text().trim()
       if (!team) return
 
       const parseNum = (sel) => {
-        const val = $row.find(`td[data-stat="${sel}"]`).text().trim()
+        const val = $row.find(`td[data-stat="${sel}"]`).first().text().trim()
         const n = parseFloat(val)
         return isNaN(n) ? null : n
       }
@@ -145,6 +187,103 @@ class FbrefService {
 
     this._setCache(cacheKey, cache.matchStats, result)
     return result
+  }
+
+  // Normalisation légère des noms internes (BSD/oddsAPI) vers fbref :
+  // strips accents, ponctuation et formes "better", tout en minuscules
+  // espacées, pour le matching fuzzy basé sur le préfixe.
+  _normalizeName(name) {
+    return String(name || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9 ]/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase()
+  }
+
+  // Récupère le { xG, xGA, matches } d'une équipe d'une ligue donnée.
+  // Tente un match par préfixe de mot normalisé puis par sous-chaîne.
+  async getTeamXG(teamName, leagueCode) {
+    const stats = await this.getTeamStats(leagueCode)
+    if (!stats || !stats.length) return null
+
+    const q = this._normalizeName(teamName)
+    if (!q) return null
+
+    let best = null
+    for (const s of stats) {
+      const n = this._normalizeName(s.team)
+      if (!n) continue
+      // Prefix word match: "Man City" matches "Manchester City" via first word
+      const words = q.split(' ')
+      const matchesPrefix =
+        n === q ||
+        n.split(' ').slice(0, words.length).join(' ') === words.join(' ') ||
+        (words.length >= 2 && n === words.slice(0, 2).join(' '))
+      if (matchesPrefix) {
+        best = s
+        break
+      }
+    }
+    if (!best) {
+      for (const s of stats) {
+        const n = this._normalizeName(s.team)
+        if (n && n.length > 3 && (n.includes(q) || q.startsWith(n))) {
+          best = s
+          break
+        }
+      }
+    }
+    if (!best) return null
+    return {
+      team: best.team,
+      xG: parseFloat(best.xG) || null,
+      xGA: parseFloat(best.xGA) || null,
+      matches: parseInt(best.matches) || 0,
+    }
+  }
+
+  // Mappe un nom de ligue libre (match.league) vers un code LEAGUES fbref.
+  _matchLeagueCode(leagueName) {
+    const l = String(leagueName || '').toLowerCase()
+    if (!l) return null
+    if (l.includes('championship') && !l.includes('champions league')) return 'CHAMPIONSHIP'
+    if (l.includes('eredivisie') || l.includes('netherlands') || l.includes('holland')) return 'EREDIVISIE'
+    if (l.includes('primeira') || l.includes('portugal')) return 'LIGA_PORTUGAL'
+    if (l.includes('mls') || l.includes('major league soccer')) return 'MLS'
+    if (l.includes('brasileir') || l.includes('brazil')) return 'BRASILEIRAO'
+    if (l.includes('ligue 1') || l.includes('ligue one') || l.includes('france')) return 'LIGUE_1'
+    if (l.includes('ligue 2') || l.includes('france 2')) return 'LIGUE_2'
+    if (l.includes('premier league') || l.includes('england')) return 'PL'
+    if (l.includes('la liga') || l.includes('laliga') || l.includes('spain')) return 'LA_LIGA'
+    if (l.includes('serie a') || (l.includes('italy') && !l.includes('serie b'))) return 'SERIE_A'
+    if (l.includes('bundesliga') && !l.includes('2')) return 'BUNDESLIGA'
+    return null
+  }
+
+  // Pré-remplit un match avec le xG/xGA fbref des deux équipes (si trouvés).
+  // Appelé une fois par match (cache 60 min par ligue → ~1 requête/ligue/cycle).
+  async attachMatchXG(match) {
+    if (!match || !match.homeTeam || !match.awayTeam) return match
+    // Ne pas écraser un xG fiable déjà présent
+    if (parseFloat(match.home_xg) > 0.1 && parseFloat(match.away_xg) > 0.1) return match
+    const code = this._matchLeagueCode(match.league || match.tournament)
+    if (!code) return match
+    try {
+      const [h, a] = await Promise.all([
+        this.getTeamXG(match.homeTeam, code),
+        this.getTeamXG(match.awayTeam, code),
+      ])
+      if (h && h.xG) match.home_xg = h.xG
+      if (a && a.xG) match.away_xg = a.xG
+      if (h && h.xGA) match.home_xga = h.xGA
+      if (a && a.xGA) match.away_xga = a.xGA
+      if (h && a) match._xgSource = 'fbref'
+    } catch (e) {
+      logger.warn(`[FBREF] attachMatchXG skip ${match.id || ''}: ${e.message}`)
+    }
+    return match
   }
 }
 

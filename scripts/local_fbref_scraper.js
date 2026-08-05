@@ -25,20 +25,53 @@ const fs = require('fs')
 const logger = require('../core/logger')
 const fbrefService = require('../services/fbrefService')
 
-const RENDER_URL = process.env.RENDER_URL || ''
 const API_SECRET_KEY = process.env.API_SECRET_KEY || ''
+const RENDER_API_KEY = process.env.RENDER_API_KEY || '' // optional: used to auto-discover RENDER_URL
 const XG_GAP_THRESHOLD = parseFloat(process.env.FBREF_XG_GAP || '0.4') // min home/away xG diff to be "pickable"
 const MIN_MATCHES = parseInt(process.env.FBREF_MIN_MATCHES || '8', 10) // reliable per-team volume
 const LOOP_HOURS = parseInt(process.env.FBREF_LOOP_HOURS || '12', 10)
 const RATE_LIMIT_SEC = parseFloat(process.env.FBREF_RATE_LIMIT || '1.5')
+const RENDER_SERVICE_NAME = process.env.RENDER_SERVICE_NAME || 'pronostico' // votre service Render (slug)
 
-function assertConfig() {
+// Découvre l'URL publique du service Render via l'API Render (si RENDER_API_KEY).
+// Évite de devoir éditer RENDER_URL manuellement. Timeout court au cas où.
+async function discoverRenderUrl() {
+  if (!RENDER_API_KEY) return ''
+  try {
+    const res = await axios.get('https://api.render.com/v1/services', {
+      headers: { Authorization: `Bearer ${RENDER_API_KEY}` },
+      timeout: 12000,
+    })
+    // Render API returns paginated [{ cursor, service: {...} }].
+    const items = res.data || []
+    const svc =
+      items.map((it) => it.service).find(
+        (s) =>
+          (s.name || s.slug) === RENDER_SERVICE_NAME || s.serviceDetails?.url?.includes(RENDER_SERVICE_NAME)
+      ) || items[0]?.service
+    if (!svc) return ''
+    const url =
+      svc.serviceDetails?.url || svc.url || svc.dashboardUrl || ''
+    if (url) console.log('[FBREF-SCRAPER] Discovered Render URL:', url)
+    return url || ''
+  } catch (e) {
+    console.log('[FBREF-SCRAPER] Render discovery failed (will use RENDER_URL env):', e.message)
+    return ''
+  }
+}
+
+async function resolveRenderUrl() {
+  if (process.env.RENDER_URL) return process.env.RENDER_URL
+  return discoverRenderUrl()
+}
+
+function assertConfig(url) {
   const missing = []
-  if (!RENDER_URL) missing.push('RENDER_URL')
+  if (!url) missing.push('RENDER_URL (set directly or provide RENDER_API_KEY for auto-discovery)')
   if (!API_SECRET_KEY) missing.push('API_SECRET_KEY')
   if (missing.length) {
     console.error('[FBREF-SCRAPER] Missing: ' + missing.join(', '))
-    console.error('Set RENDER_URL (= https://prono-api-<>.onrender.com) and API_SECRET_KEY (same secret on Render).')
+    console.error('Either set RENDER_URL directly or set RENDER_API_KEY (Render API key, prefix "rnd_") to auto-discover.')
     process.exit(2)
   }
 }
@@ -93,11 +126,11 @@ function pickBest(leagueCode, teams) {
 }
 
 // Push one league batch to the Render ingestion endpoint.
-async function pushToRender(leagueCode, payload, onProgress) {
+async function pushToRender(renderUrl, leagueCode, payload, onProgress) {
   const body = { leagues: { [leagueCode]: payload } }
   try {
-    const res = await axios.post(`${RENDER_URL.replace(/\/+$/, '')}/api/fbref/xg`, body, {
-      headers: { 'x-api-key': API_SECRET_KEY, 'Content-Type': 'application/json' },
+    const res = await axios.post(`${renderUrl.replace(/\/+$/, '')}/api/fbref/xg`, body, {
+      headers: { Authorization: `Bearer ${API_SECRET_KEY}`, 'Content-Type': 'application/json' },
       timeout: 30000,
     })
     onProgress(`${leagueCode}: pushed ${payload.count} teams, ${payload.bestMatches.length} best matches -> HTTP ${res.status}`)
@@ -110,10 +143,12 @@ async function pushToRender(leagueCode, payload, onProgress) {
 }
 
 async function runOnce(onProgress) {
+  const renderUrl = await resolveRenderUrl()
+  assertConfig(renderUrl)
   const codes = await allLeagueCodes()
   let ok = 0
   let fail = 0
-  onProgress(`[FBREF-LOCAL] Scraping ${codes.length} ligues depuis IP résidentielle...`)
+  onProgress(`[FBREF-LOCAL] Scraping ${codes.length} ligues depuis IP résidentielle (renderUrl=${renderUrl.slice(0, 40)}…)…`)
   for (const code of codes) {
     const teams = await scrapeLeague(code, onProgress)
     if (!teams.length) {
@@ -127,7 +162,7 @@ async function runOnce(onProgress) {
       fail++
       continue
     }
-    const pushed = await pushToRender(code, picked, onProgress)
+    const pushed = await pushToRender(renderUrl, code, picked, onProgress)
     pushed ? ok++ : fail++
     // fbref is rate-limited (~1.5s already inside scrapeLeague); no extra wait
   }
@@ -142,7 +177,6 @@ function runLoop() {
 }
 
 if (require.main === module) {
-  assertConfig()
   const loop = process.argv.includes('--loop')
   const onProgress = (msg) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${msg}`)
   if (loop) {

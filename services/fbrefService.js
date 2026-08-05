@@ -273,21 +273,25 @@ class FbrefService {
   _matchInArray(arr, teamName) {
     const q = this._normalizeName(teamName)
     if (!q) return null
+    const qWords = q.split(' ')
     let best = null
     for (const s of arr) {
       const n = this._normalizeName(s.team)
       if (!n) continue
-      const words = q.split(' ')
-      const matchesPrefix =
-        n === q ||
-        n.split(' ').slice(0, words.length).join(' ') === words.join(' ') ||
-        (words.length >= 2 && n === words.slice(0, 2).join(' '))
-      if (matchesPrefix) {
-        best = s
-        break
+      // 1) exact match
+      if (n === q) { best = s; break }
+      // 2) every query word is a prefix of the team's i-th word
+      //    => "man city" matches "manchester city", "man utd" matches "manchester utd"
+      const nWords = n.split(' ')
+      if (qWords.length >= 1 && nWords.length >= qWords.length) {
+        if (qWords.every((w, i) => nWords[i] && nWords[i].startsWith(w))) {
+          best = s
+          break
+        }
       }
     }
     if (!best) {
+      // 3) fallback substring (query contained in name or name prefix of query)
       for (const s of arr) {
         const n = this._normalizeName(s.team)
         if (n && n.length > 3 && (n.includes(q) || q.startsWith(n))) {

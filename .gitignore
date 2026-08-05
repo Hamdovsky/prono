@@ -97,6 +97,9 @@ data/historical_archive.sqlite-shm
 data/historical_archive.sqlite-wal
 data/historical_archive.sqlite.gz
 data/raw/
+data/accuracy_history.json
+data/training_weights.json
+data/last_promosport_concours.txt
 scripts/sync_to_render.js
 
 # Python cache

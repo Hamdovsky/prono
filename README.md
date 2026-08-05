@@ -223,34 +223,34 @@ Verdict + Confiance + Score attendu
 | Route | Vue |
 |-------|-----|
 | `/` | Dashboard prédictions |
-| `/livelab` | Live Lab temps réel |
+| `/accuracy` | Précision |
 | `/evolution` | Evolution Layer |
-| `/millionaire` | Millionaire Selection |
-| `/intel` | System Intelligence |
-| `/learning` | Adaptive Learning |
+| `/grids` | Grilles "hot" |
+| `/bets` | Suivi de paris |
+| `/training` | Entraînement des modèles |
 
 ### Backend REST
 | Endpoint | Méthode | Description |
 |----------|---------|-------------|
-| `/api/matches/upcoming` | GET | Matchs à venir |
-| `/api/matches/live` | GET | Matchs live + prédictions |
-| `/api/matches/live-lab` | GET | Données Live Lab enrichies |
-| `/api/matches/live/goal-predictions` | GET | Prédictions de buts live |
+| `/api/upcoming` | GET | Matchs à venir (prédictions enrichies) |
+| `/api/live` | GET | Matchs live + prédictions |
+| `/api/live-lab` | GET | Données Live Lab enrichies |
+| `/api/live/goal-predictions` | GET | Prédictions de buts live |
+| `/api/predictions` | GET | Prédictions passant le seuil |
 | `/api/learn` | POST | Envoyer un résultat |
 | `/api/learn/batch` | POST | Envoyer plusieurs résultats |
 | `/api/learn/report/:league` | GET | Rapport d'apprentissage |
 | `/api/learn/weights/:league` | GET | Poids par ligue |
+| `/api/learn/leagues` | GET | Ligues suivies |
 | `/api/learn/challenger/:league` | GET | Stats champion vs challenger |
 | `/api/evolution/intelligence` | GET | Intelligence des échecs |
 | `/api/evolution/performance-metrics` | GET | Métriques de performance |
 | `/api/evolution/sensors` | GET | Signaux marché |
+| `/api/evolution/accuracy` | GET | Précision par ligue |
+| `/api/evolution/heatmap` | GET | Heatmap d'évolution |
 
 ### Python (FastAPI)
-| Endpoint | Méthode | Description |
-|----------|---------|-------------|
-| `/predict` | POST | Prédiction match |
-| `/predict-live` | POST | Prédiction buts live |
-| `/health` | GET | Santé du moteur |
+Le moteur FastAPI (`core/fastapi_server.py`) tourne **dans le même conteneur** que le serveur Node (voir `Dockerfile`), pas sur un service externe.
 
 ---
 
@@ -259,18 +259,19 @@ Verdict + Confiance + Score attendu
 ### Services
 | Service | Type | Plan |
 |---------|------|------|
-| `prono-k6gc` | Web Service | Free (512MB RAM) |
-| `prono-redis` | Key Value | Free (25MB) |
+| `pronostico` | Web Service (Node.js + FastAPI dans un seul conteneur) | Free (512MB RAM) |
+
+URL de production : https://pronostico.onrender.com
 
 ### Build
 ```dockerfile
-# render.yaml gère le build automatique
-# Node heap: --max-old-space-size=256
-# Pas de Chromium/Puppeteer dans l'image Docker
+# Dockerfile — build frontend (vite build) puis serveur Node + uvicorn FastAPI
+# Node heap: --max-old-space-size=384
+# Puppeteer désactivé (PUPPETEER_SKIP_DOWNLOAD=true) — pas de Chromium dans l'image
 ```
 
 ### Déploiement continu
-- `git push origin main` -> auto-deploy sur Render
+- `git push origin main` -> auto-deploy sur Render (service `pronostico`)
 - Variables d'environnement configurées dans Render Dashboard
 
 ---
@@ -278,32 +279,30 @@ Verdict + Confiance + Score attendu
 ## 🔐 Variables d'Environnement
 
 ```env
-# Node
-NODE_ENV=production
-PORT=10000
-
-# APIs (gratuites)
+# ✅ Configurées sur Render (service pronostico)
 BSD_API_KEY=xxx
+ODDSAPI_IO_KEY=xxx
+API_SECRET_KEY=xxx
+
+# ❌ Optionnel — non configuré (les services concernés passent en fallback/désactivés)
 BBS_API_KEY=xxx
 PREDIXSPORT_API_KEY=xxx
-ODDSAPI_IO_KEY=xxx
 FOOTBALL_DATA_API_KEY=xxx
 OPENWEATHERMAP_API_KEY=xxx
 SPORTSDATA_IO_KEY=xxx
 SPORTSRC_API_KEY=xxx
 
 # Base de données
-DATABASE_URL=xxx
-REDIS_URL=rediss://...  # Render Key Value
+DATABASE_URL=xxx        # sinon SQLite local (data/tactical.db)
+REDIS_URL=rediss://...  # sinon pas de cache Redis
 
-# Sécurité
-API_SECRET_KEY=xxx
-TELEGRAM_BOT_TOKEN=xxx
+# Sécurité / Notifications
+TELEGRAM_BOT_TOKEN=xxx  # sinon bot Telegram désactivé
 TELEGRAM_CHAT_ID=xxx
 
 # Configuration
-FASTAPI_URL=http://127.0.0.1:8000
-FRONTEND_URL=https://prono-k6gc.onrender.com
+FASTAPI_URL=http://127.0.0.1:8000   # FastAPI embarqué dans le même conteneur
+FRONTEND_URL=https://pronostico.onrender.com
 ```
 
 ---
@@ -333,7 +332,7 @@ python core/train_live_model.py
 python scripts/audit_performance.py --last 50
 
 # Vérification santé
-curl https://prono-k6gc.onrender.com/api/health
+curl https://pronostico.onrender.com/api/health
 ```
 
 ---

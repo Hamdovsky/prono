@@ -154,6 +154,35 @@ LEAGUE_WEIGHT_MATRIX = {
 }
 
 
+def _feature_count(booster):
+    """Return the expected feature count of a booster, or None if unknown."""
+    try:
+        n = getattr(booster, 'num_features', None)
+        if callable(n):
+            n = n()
+        if isinstance(n, str):
+            n = int(n)
+        return n
+    except Exception:
+        return None
+
+
+def _candidate_ok(booster, feature_vector):
+    """A candidate is usable only when its feature count matches the vector.
+
+    Some models were trained with a different feature list than the current
+    inference lists (V553/TITANIUM drift). Feeding a mismatched vector to
+    xgboost silently misbehaves, so we skip such boosters and fall through to
+    the next matching model in the chain instead of dropping to Poisson-only.
+    """
+    if booster is None or not feature_vector:
+        return False
+    n = _feature_count(booster)
+    if n is None:
+        return True  # cannot verify — assume compatible
+    return n == len(feature_vector)
+
+
 def select_model_booster(features, league_tier, match_obj=None):
     """
     Select the best available XGBoost booster from the fallback chain.
@@ -166,58 +195,47 @@ def select_model_booster(features, league_tier, match_obj=None):
     V55_BOOSTER = get_v55_booster()
     V56_BOOSTER = get_v56_booster()
     TITANIUM_BOOSTER = get_titanium_booster()
-    XGB_BOOSTER = TITANIUM_BOOSTER if TITANIUM_BOOSTER else get_main_booster()
+    MAIN_BOOSTER = get_main_booster()
 
     EXCLUDED_FEATURES = {'draw_deadlock', 'draw_defensive_eq'}
 
     is_wc2026_match = (V553_PREMIUM_BOOSTER is not None or V553_BOOSTER is not None) and features.get('fifa_rank_h', 999) < 999 and features.get('fifa_rank_a', 999) < 999
 
+    candidates = []
     if is_wc2026_match:
+        v553_names = [f for f in FEATURE_NAMES_V553 if f not in EXCLUDED_FEATURES]
         if V553_PREMIUM_BOOSTER is not None:
-            active_feature_names = [f for f in FEATURE_NAMES_V553 if f not in EXCLUDED_FEATURES]
-            active_feature_vector = [float(features.get(f, 0)) for f in active_feature_names]
-            ai_source = "V553-PREMIUM"
-            XGB_BOOSTER = V553_PREMIUM_BOOSTER
-        else:
-            active_feature_names = [f for f in FEATURE_NAMES_V553 if f not in EXCLUDED_FEATURES]
-            active_feature_vector = [float(features.get(f, 0)) for f in active_feature_names]
-            ai_source = "V553-WC2026"
-            XGB_BOOSTER = V553_BOOSTER
-    elif V552_BOOSTER:
-        active_feature_names = [f for f in FEATURE_NAMES_V552 if f not in EXCLUDED_FEATURES]
-        active_feature_vector = [float(features.get(f, 0)) for f in active_feature_names]
-        ai_source = "V552-CHRONO-2026"
-        XGB_BOOSTER = V552_BOOSTER
-    elif V551_BOOSTER:
-        active_feature_names = FEATURE_NAMES_V551
-        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V551]
-        ai_source = "V551-PRUNED+2010"
-        XGB_BOOSTER = V551_BOOSTER
-    elif V55_BOOSTER:
-        active_feature_names = FEATURE_NAMES_V55
-        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V55]
-        ai_source = "V55-OPTIMIZED"
-        XGB_BOOSTER = V55_BOOSTER
-    elif V56_BOOSTER:
-        active_feature_names = FEATURE_NAMES_V56
-        active_feature_vector = extract_v56_features(
-            match_obj if match_obj else features.get('__raw_row__', features)
-        )
-        ai_source = "V56-RETRAINED"
-        XGB_BOOSTER = V56_BOOSTER
-    elif TITANIUM_BOOSTER:
-        active_feature_names = FEATURE_NAMES_TITANIUM
-        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_TITANIUM]
-        ai_source = "TITANIUM-ELITE-V3"
-        XGB_BOOSTER = TITANIUM_BOOSTER
-    elif XGB_BOOSTER:
-        active_feature_names = FEATURE_NAMES_V54
-        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES_V54]
-    else:
-        active_feature_names = FEATURE_NAMES
-        active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES]
+            candidates.append((v553_names, [float(features.get(f, 0)) for f in v553_names], V553_PREMIUM_BOOSTER, "V553-PREMIUM"))
+        if V553_BOOSTER is not None:
+            candidates.append((v553_names, [float(features.get(f, 0)) for f in v553_names], V553_BOOSTER, "V553-WC2026"))
+    if V552_BOOSTER is not None:
+        v552_names = [f for f in FEATURE_NAMES_V552 if f not in EXCLUDED_FEATURES]
+        candidates.append((v552_names, [float(features.get(f, 0)) for f in v552_names], V552_BOOSTER, "V552-CHRONO-2026"))
+    if V551_BOOSTER is not None:
+        candidates.append((FEATURE_NAMES_V551, [float(features.get(f, 0)) for f in FEATURE_NAMES_V551], V551_BOOSTER, "V551-PRUNED+2010"))
+    if V55_BOOSTER is not None:
+        candidates.append((FEATURE_NAMES_V55, [float(features.get(f, 0)) for f in FEATURE_NAMES_V55], V55_BOOSTER, "V55-OPTIMIZED"))
+    if V56_BOOSTER is not None:
+        v56_vector = extract_v56_features(match_obj if match_obj else features.get('__raw_row__', features))
+        candidates.append((FEATURE_NAMES_V56, v56_vector, V56_BOOSTER, "V56-RETRAINED"))
+    if TITANIUM_BOOSTER is not None:
+        candidates.append((FEATURE_NAMES_TITANIUM, [float(features.get(f, 0)) for f in FEATURE_NAMES_TITANIUM], TITANIUM_BOOSTER, "TITANIUM-ELITE-V3"))
+    if MAIN_BOOSTER is not None:
+        candidates.append((FEATURE_NAMES_V54, [float(features.get(f, 0)) for f in FEATURE_NAMES_V54], MAIN_BOOSTER, "V54"))
 
-    return active_feature_names, active_feature_vector, ai_source, XGB_BOOSTER
+    # Pick the first candidate whose feature count matches its model.
+    for names, vector, booster, source in candidates:
+        if _candidate_ok(booster, vector):
+            return names, vector, source, booster
+
+    # None matched — keep legacy behaviour (first available booster; the
+    # caller's mismatch guard will still route to Poisson-only).
+    if candidates:
+        return candidates[0][0], candidates[0][1], candidates[0][3], candidates[0][2]
+
+    active_feature_names = FEATURE_NAMES
+    active_feature_vector = [float(features.get(f, 0)) for f in FEATURE_NAMES]
+    return active_feature_names, active_feature_vector, None, None
 
 
 def run_xgboost_inference(active_feature_vector, active_feature_names, XGB_BOOSTER,

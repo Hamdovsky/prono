@@ -217,6 +217,23 @@ async function attachRealOdds(match) {
     return
   }
   try {
+    // Free source first: Sofascore odds (no key, no quota). Best-effort — if
+    // the deployment IP is blocked, it returns null and we fall through.
+    const sofascoreOdds = require('../services/sofascoreOddsService')
+    if (sofascoreOdds.isAvailable()) {
+      const sofaOdds = await sofascoreOdds.fetchOddsForMatch(match)
+      if (sofaOdds && parseFloat(sofaOdds.home) > 0 && parseFloat(sofaOdds.away) > 0) {
+        match.odds_home = parseFloat(sofaOdds.home)
+        match.odds_draw = parseFloat(sofaOdds.draw)
+        match.odds_away = parseFloat(sofaOdds.away)
+        match.odds_source = 'sofascore'
+        match._oddsWereFetched = true
+        logger.info(
+          `[FBREF/FALLBACK] Attached real Sofascore odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})`
+        )
+        return
+      }
+    }
     const oddsApiIo = require('../services/oddsApiIoService')
     if (oddsApiIo.isAvailable()) {
       const realOdds = await oddsApiIo.fetchOddsForMatch(match)
@@ -463,6 +480,38 @@ async function enrichMatchesBatch(opts = {}) {
     }
 
     // ── Batch Odds Collection ──
+    // 1) Sofascore (FREE, no key/quota): fetch real 1X2 odds for every match
+    //    still missing them. This is what turns small-league matches from
+    //    "insufficient" into real Gagnants while staying honest.
+    try {
+      const sofascoreOdds = require('../services/sofascoreOddsService')
+      if (sofascoreOdds.isAvailable()) {
+        const noOdds = matches.filter((m) => !_hasOdds(m))
+        let sofaFetched = 0
+        for (const m of noOdds) {
+          try {
+            const sofaOdds = await sofascoreOdds.fetchOddsForMatch(m)
+            if (sofaOdds && parseFloat(sofaOdds.home) > 0 && parseFloat(sofaOdds.away) > 0) {
+              m.odds_home = parseFloat(sofaOdds.home)
+              m.odds_draw = parseFloat(sofaOdds.draw)
+              m.odds_away = parseFloat(sofaOdds.away)
+              m.odds_source = 'sofascore'
+              m._oddsWereFetched = true
+              sofaFetched++
+            }
+          } catch (_) {}
+        }
+        if (sofaFetched > 0) {
+          logger.info(
+            `[FALLBACK_ENRICHER] Sofascore odds: ${sofaFetched}/${noOdds.length} got real odds`
+          )
+        }
+      }
+    } catch (e) {
+      logger.warn(`[FALLBACK_ENRICHER] Sofascore odds phase error: ${e.message}`)
+    }
+
+    // 2) OddsAPI.io free tier (only when a key is configured).
     // Regrouper recherche d'événements + un seul appel /odds/multi (≤10 events)
     // afin de diviser par ~10 la consommation de quota OddsAPI.
     // On ne touche qu'aux matches sans cotes réelles déjà présentes (le gate

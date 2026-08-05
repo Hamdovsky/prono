@@ -38,6 +38,15 @@ class PenaltyblogEngine:
         return 'historical_matches'
 
     @staticmethod
+    def _resolve_timestamp_col(table):
+        """Return the timestamp column of the resolved table.
+
+        archive_matches uses `startTimestamp` while historical_matches uses
+        `timestamp` — selecting the wrong one raises `no such column`.
+        """
+        return 'startTimestamp' if table == 'archive_matches' else 'timestamp'
+
+    @staticmethod
     def _get_env_key(name):
         path = os.path.join(BASE_DIR, '.env')
         try:
@@ -53,11 +62,12 @@ class PenaltyblogEngine:
     def _load_historical_data(self, league, min_matches=20, max_matches=500):
         conn = sqlite3.connect(self.db_path)
         table = self._resolve_table()
+        ts_col = self._resolve_timestamp_col(table)
         query = f"""
-            SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp
+            SELECT homeTeam, awayTeam, scoreHome, scoreAway, {ts_col} AS timestamp
             FROM {table}
             WHERE league = ? AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL
-            ORDER BY timestamp DESC
+            ORDER BY {ts_col} DESC
             LIMIT ?
         """
         df = pd.read_sql_query(query, conn, params=(league, max_matches))
@@ -499,6 +509,11 @@ class BayesianLowDataHandler:
                 except: pass
         return 'historical_matches'
 
+    @staticmethod
+    def _resolve_timestamp_col(table):
+        """archive_matches uses `startTimestamp`, historical_matches uses `timestamp`."""
+        return 'startTimestamp' if table == 'archive_matches' else 'timestamp'
+
     def _collect_similar_matches(self, league, max_matches=200):
         """Collecte les matchs de ligues similaires pour enrichir le prior."""
         league_lower = league.lower().strip()
@@ -512,13 +527,14 @@ class BayesianLowDataHandler:
         conn = sqlite3.connect(self.db_path)
         results = []
         tbl = self._resolve_table()
+        ts_col = self._resolve_timestamp_col(tbl)
         try:
             cond = ' OR '.join([f"league LIKE '%{k}%'" for k in keywords])
             rows = conn.execute(f"""
-                SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp
+                SELECT homeTeam, awayTeam, scoreHome, scoreAway, {ts_col} AS timestamp
                 FROM {tbl}
                 WHERE ({cond}) AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL
-                ORDER BY timestamp DESC LIMIT ?
+                ORDER BY {ts_col} DESC LIMIT ?
             """, (max_matches,)).fetchall()
             results = [
                 {'home': r[0], 'away': r[1], 'home_goals': int(r[2]),

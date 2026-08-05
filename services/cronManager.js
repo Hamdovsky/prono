@@ -1,5 +1,5 @@
 ﻿const cron = require('node-cron')
-const { spawn } = require('child_process')
+const { spawn, execSync } = require('child_process')
 const path = require('path')
 const logger = require('../core/logger')
 const database = require('../core/database')

@@ -65,5 +65,5 @@ jobs:
           python-version: '3.11'
           cache: pip
       - run: pip install -r requirements.txt
-      - run: pip install pytest pytest-cov
+      - run: pip install pytest pytest-cov pytest-timeout
       - run: python -m pytest tests/ --junitxml=report.xml --timeout=120

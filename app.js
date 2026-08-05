@@ -707,6 +707,39 @@ app.get('/api/fallback/status', (req, res) => {
   res.json(apiFallbackManager.getAllStatus())
 })
 
+// ─── fbref xG ingestion from local residential-IP scraper ──
+// The local machine scrapes fbref (Cloudflare-blocked from Render datacenters
+// but allowed from residential IPs) and pushes per-team xG. fbrefService reads
+// this file with priority before any remote scrape. Auth required.
+app.post(
+  '/api/fbref/xg',
+  writeLimiter,
+  securityEngine.authenticate.bind(securityEngine),
+  async (req, res) => {
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const leagues = req.body && req.body.leagues
+      if (!leagues || typeof leagues !== 'object') {
+        return res.status(400).json({ success: false, error: 'missing leagues object' })
+      }
+      const tmp = path.join(process.cwd(), 'data', 'fbref_team_xg.json.tmp')
+      const dest = path.join(process.cwd(), 'data', 'fbref_team_xg.json')
+      const now = Date.now()
+      const payload = { leagues, updatedAt: now }
+      fs.writeFileSync(tmp, JSON.stringify(payload, null, 2))
+      fs.renameSync(tmp, dest)
+      // Invalide le cache en mémoire du service dédié si chargé.
+      try { require('./services/fbrefService').invalidatePushedCache() } catch (_) {}
+      logger.info('[API] fbref xG ingested', { keys: Object.keys(leagues) })
+      return res.status(200).json({ success: true, leagues: Object.keys(leagues), updatedAt: now })
+    } catch (e) {
+      logger.error(`[API] fbref xG ingest failed: ${e.message}`)
+      return res.status(500).json({ success: false, error: e.message })
+    }
+  }
+)
+
 // ─── Fallback Enricher (pure JS — no Python dependency) ──
 const fallbackEnricher = require('./core/fallback_enricher')
 const settlementService = require('./services/settlementService')

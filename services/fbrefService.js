@@ -1,6 +1,11 @@
 const axios = require('axios')
 const cheerio = require('cheerio')
+const fs = require('fs')
+const path = require('path')
 const logger = require('../core/logger')
+
+const PUSHED_TTL = 6 * 60 * 60 * 1000
+const PUSHED_FILE = path.join(process.cwd(), 'data', 'fbref_team_xg.json')
 
 const LEAGUES = {
   // id = fbref competition id, name = URL slug. Majeures d'abord (les matches
@@ -16,6 +21,20 @@ const LEAGUES = {
   MLS: { id: 22, name: 'Major-League-Soccer' },
   BRASILEIRAO: { id: 24, name: 'Serie-A' },
   LIGUE_2: { id: 131, name: 'Ligue-2' },
+  CHAMPIONS_LEAGUE: { id: 8, name: 'Champions-League' },
+  EUROPA_LEAGUE: { id: 19, name: 'Europa-League' },
+  SERIE_B: { id: 18, name: 'Serie-B' },
+  BUNDESLIGA_2: { id: 33, name: 'Bundesliga-2' },
+  LA_LIGA_2: { id: 17, name: 'Segunda-Division' },
+  SCOTTISH_PREMIERSHIP: { id: 40, name: 'Scottish-Premiership' },
+  J_LEAGUE: { id: 68, name: 'J1-League' },
+  K_LEAGUE_1: { id: 86, name: 'K-League-1' },
+  ALLSVENSKAN: { id: 31, name: 'Allsvenskan' },
+  ELITESERIEN: { id: 28, name: 'Eliteserien' },
+  SUPER_LIG: { id: 71, name: 'Super-Lig' },
+  LIGA_MX: { id: 14, name: 'Liga-MX' },
+  ARG_PRIMERA: { id: 21, name: 'Primera-Division' },
+  CHINA_SUPER: { id: 70, name: 'Chinese-Super-League' },
 }
 
 const CACHE_TTL = 60 * 60 * 1000
@@ -35,6 +54,8 @@ const _nextUA = () => USER_AGENTS[(_uaIndex = (_uaIndex + 1) % USER_AGENTS.lengt
 class FbrefService {
   constructor() {
     this.enabled = true
+    this._pushedCache = null
+    this.leagues = LEAGUES // exposed for local scraper / tooling
   }
 
   isAvailable() {
@@ -189,6 +210,34 @@ class FbrefService {
     return result
   }
 
+  // Charge le fichier de xG poussé par le scraper local (avec cache mémoire ~5 min).
+  _loadPushedFile() {
+    if (this._pushedCache && Date.now() - this._pushedCache.ts < 5 * 60 * 1000) {
+      return this._pushedCache.data
+    }
+    try {
+      if (fs.existsSync(PUSHED_FILE)) {
+        const data = JSON.parse(fs.readFileSync(PUSHED_FILE, 'utf8'))
+        this._pushedCache = { ts: Date.now(), data }
+        return data
+      }
+    } catch (e) {
+      logger.warn(`[FBREF] pushed file read failed: ${e.message}`)
+    }
+    this._pushedCache = { ts: Date.now(), data: null }
+    return null
+  }
+
+  // Invalide le cache en mémoire du fichier poussé (appelé après un ingest).
+  invalidatePushedCache() {
+    this._pushedCache = null
+  }
+
+  // Fragment-stale heuristic: an unreliable league table (e.g. one-match).
+  _isStaleFball(entry) {
+    return entry && entry.matches < 3
+  }
+
   // Normalisation légère des noms internes (BSD/oddsAPI) vers fbref :
   // strips accents, ponctuation et formes "better", tout en minuscules
   // espacées, pour le matching fuzzy basé sur le préfixe.
@@ -203,19 +252,31 @@ class FbrefService {
   }
 
   // Récupère le { xG, xGA, matches } d'une équipe d'une ligue donnée.
-  // Tente un match par préfixe de mot normalisé puis par sous-chaîne.
+  // Priorité: fichier poussé par le scraper local (data/fbref_team_xg.json, frais)
+  // puis scraping réseau (IP résidentielle / fallback).
   async getTeamXG(teamName, leagueCode) {
+    // 1. Fichier poussé (fraîcheur ~6h) — évite des appels réseau sur Render
+    const file = this._loadPushedFile()
+    const pushed = file && file.leagues && file.leagues[leagueCode]
+    if (pushed && file.updatedAt && Date.now() - file.updatedAt < PUSHED_TTL) {
+      const res = this._matchInArray(pushed.teams || [], teamName)
+      if (res) return res
+    }
+    // 2. Scraping réseau
     const stats = await this.getTeamStats(leagueCode)
     if (!stats || !stats.length) return null
+    const viaNetwork = this._matchInArray(stats, teamName)
+    if (viaNetwork && this._isStaleFball(viaNetwork)) return null
+    return viaNetwork
+  }
 
+  _matchInArray(arr, teamName) {
     const q = this._normalizeName(teamName)
     if (!q) return null
-
     let best = null
-    for (const s of stats) {
+    for (const s of arr) {
       const n = this._normalizeName(s.team)
       if (!n) continue
-      // Prefix word match: "Man City" matches "Manchester City" via first word
       const words = q.split(' ')
       const matchesPrefix =
         n === q ||
@@ -227,7 +288,7 @@ class FbrefService {
       }
     }
     if (!best) {
-      for (const s of stats) {
+      for (const s of arr) {
         const n = this._normalizeName(s.team)
         if (n && n.length > 3 && (n.includes(q) || q.startsWith(n))) {
           best = s
@@ -255,10 +316,24 @@ class FbrefService {
     if (l.includes('brasileir') || l.includes('brazil')) return 'BRASILEIRAO'
     if (l.includes('ligue 1') || l.includes('ligue one') || l.includes('france')) return 'LIGUE_1'
     if (l.includes('ligue 2') || l.includes('france 2')) return 'LIGUE_2'
-    if (l.includes('premier league') || l.includes('england')) return 'PL'
+    if (l.includes('premier league') || (l.includes('england') && !l.includes('championship'))) return 'PL'
+    if (l.includes('champions league') || l.includes('uefa champions')) return 'CHAMPIONS_LEAGUE'
+    if (l.includes('europa league') || l.includes('uefa europa')) return 'EUROPA_LEAGUE'
+    if (l.includes('serie b')) return 'SERIE_B'
+    if (l.includes('bundesliga 2') || l.includes('bundesliga two') || l.includes('2. bundesliga')) return 'BUNDESLIGA_2'
+    if (l.includes('la liga 2') || l.includes('segunda division') || l.includes('segunda')) return 'LA_LIGA_2'
     if (l.includes('la liga') || l.includes('laliga') || l.includes('spain')) return 'LA_LIGA'
     if (l.includes('serie a') || (l.includes('italy') && !l.includes('serie b'))) return 'SERIE_A'
     if (l.includes('bundesliga') && !l.includes('2')) return 'BUNDESLIGA'
+    if (l.includes('scottish premiership') || l.includes('scotland')) return 'SCOTTISH_PREMIERSHIP'
+    if (l.includes('j1 league') || l.includes('j.league') || l.includes('japan')) return 'J_LEAGUE'
+    if (l.includes('k league 1') || l.includes('k-league') || l.includes('korea')) return 'K_LEAGUE_1'
+    if (l.includes('allsvenskan') || l.includes('sweden')) return 'ALLSVENSKAN'
+    if (l.includes('eliteserien') || l.includes('norway')) return 'ELITESERIEN'
+    if (l.includes('super lig') || l.includes('turkish') || l.includes('turkey')) return 'SUPER_LIG'
+    if (l.includes('liga mx') || l.includes('mexico') || l.includes('mexican')) return 'LIGA_MX'
+    if (l.includes('primera division') || l.includes('argentina')) return 'ARG_PRIMERA'
+    if (l.includes('china') || l.includes('cs') || l.includes('chinese super')) return 'CHINA_SUPER'
     return null
   }
 

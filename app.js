@@ -111,9 +111,6 @@ try {
 
 // CORS - restrict in production but allow native smartphone containers
 const allowedOrigins = [
-  'https://prono-k6gc.onrender.com',
-  'https://prono-k6gc-rxjf.onrender.com',
-  'https://prono-api-7mhs.onrender.com',
   'https://pronostico.onrender.com',
   'http://localhost',
   'https://localhost',
@@ -897,10 +894,10 @@ app.post(
       }
 
       // Send to FastAPI for fitting
-      const fastApiUrl = process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com'
+      const fastApiUrl = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
       const httpMod = fastApiUrl.startsWith('https') ? require('https') : require('http')
       const callbackUrl =
-        (process.env.VITE_API_URL || 'https://prono-k6gc.onrender.com') + '/api/goalmodel/callback'
+        (process.env.VITE_API_URL || 'https://pronostico.onrender.com') + '/api/goalmodel/callback'
       const body = JSON.stringify({
         leagues: Object.keys(matchesData),
         matches_data: matchesData,

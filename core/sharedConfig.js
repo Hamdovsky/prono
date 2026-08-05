@@ -69,9 +69,9 @@ const config = {
 
   // Render
   render: {
-    inferenceUrl: process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com',
-    viteApiUrl: process.env.VITE_API_URL || 'https://prono-k6gc.onrender.com',
-    scraperWorkerUrl: process.env.SCRAPER_WORKER_URL || 'https://prono-scraper.onrender.com',
+    inferenceUrl: process.env.INFERENCE_URL || 'http://127.0.0.1:8000',
+    viteApiUrl: process.env.VITE_API_URL || 'https://pronostico.onrender.com',
+    scraperWorkerUrl: process.env.SCRAPER_WORKER_URL || 'https://pronostico.onrender.com',
   },
 
   // Feature flags

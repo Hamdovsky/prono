@@ -5,7 +5,7 @@ import database from './database'
 import enrichedPredictions from './enriched_predictions'
 import {  invalidateCache  } from './speedCache'
 
-const SITE_URL = 'https://prono-k6gc-rxjf.onrender.com'
+const SITE_URL = 'https://pronostico.onrender.com'
 
 class TelegramBroadcaster {
   constructor() {

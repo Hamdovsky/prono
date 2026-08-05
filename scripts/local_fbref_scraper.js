@@ -13,7 +13,7 @@
  * the uniform ~35/33/32 fallback.
  *
  * Run locally:
- *   export RENDER_URL=https://prono-api-<>.onrender.com
+ *   export RENDER_URL=https://pronostico.onrender.com
  *   export API_SECRET_KEY=<same secret as Render>
  *   node scripts/local_fbref_scraper.js           # scrape once + push
  *   node scripts/local_fbref_scraper.js --loop    # every 12h automatically

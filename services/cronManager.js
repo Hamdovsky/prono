@@ -575,16 +575,18 @@ class CronManager {
       '*/5 * * * *',
       async () => {
         const https = require('https')
-        const fastApiUrl = process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com'
+        const http = require('http')
+        const fastApiUrl = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
         const urls = [
           fastApiUrl + '/health',
           fastApiUrl + '/warmup',
-          'https://prono-scraper.onrender.com/health',
+          'https://pronostico.onrender.com/api/health',
         ]
         for (const url of urls) {
           try {
             await new Promise((resolve, reject) => {
-              const req = https.get(url, { timeout: 15000 }, (res) => {
+              const mod = url.startsWith('https') ? https : http
+              const req = mod.get(url, { timeout: 15000 }, (res) => {
                 res.resume()
                 resolve()
               })
@@ -605,8 +607,8 @@ class CronManager {
       '0 3 * * 0',
       async () => {
         logger.info('[CRON] Launching weekly Platt calibration...')
-        const https = require('https')
-        const fastApiUrl = process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com'
+        const httpMod = fastApiUrl.startsWith('https') ? require('https') : require('http')
+        const fastApiUrl = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
         const apiKey = process.env.API_SECRET_KEY || ''
         const postJson = (path, body) =>
           new Promise((resolve) => {
@@ -614,8 +616,8 @@ class CronManager {
             const urlObj = new URL(fastApiUrl.replace(/\/+$/, '') + path)
             const opts = {
               hostname: urlObj.hostname,
-              port: 443,
-              path: urlObj.pathname,
+              port: urlObj.port || (urlObj.protocol === 'http:' ? 80 : 443),
+              path: urlObj.pathname + urlObj.search,
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -624,7 +626,7 @@ class CronManager {
               timeout: 300000,
             }
             if (apiKey) opts.headers['Authorization'] = 'Bearer ' + apiKey
-            const req = https.request(opts, (res) => {
+            const req = httpMod.request(opts, (res) => {
               let d = ''
               res.on('data', (c) => (d += c))
               res.on('end', () => {

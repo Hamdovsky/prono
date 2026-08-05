@@ -293,7 +293,7 @@ app.post('/enrich', requireAuth, async (req, res) => {
     // Invalider le cache du serveur principal
     try {
       const axios = require('axios')
-      const MAIN_URL = process.env.MAIN_SERVER_URL || 'https://prono-k6gc.onrender.com'
+      const MAIN_URL = process.env.MAIN_SERVER_URL || 'https://pronostico.onrender.com'
       await axios.post(`${MAIN_URL}/api/invalidate-cache`, 
         { prefixes: ['upcoming', 'live', 'combos'] },
         { headers: { 'x-api-key': API_SECRET_KEY, 'Content-Type': 'application/json' }, timeout: 5000 }
@@ -308,7 +308,7 @@ app.post('/sync/goalmodel', requireAuth, async (req, res) => {
   await runTask('goalmodel-fit', async () => {
     const https = require('https')
     const path = require('path')
-    const fastApiUrl = process.env.INFERENCE_URL || process.env.FASTAPI_URL || 'https://prono-fastapi-cnxf.onrender.com'
+    const fastApiUrl = process.env.INFERENCE_URL || process.env.FASTAPI_URL || 'http://127.0.0.1:8000'
 
     // Query local SQLite for recent match history
     let matchesData = {}

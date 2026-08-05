@@ -8,10 +8,9 @@ import sys
 import time
 
 SERVICES = [
-    {"name": "prono-k6gc (Node)", "url": "https://prono-k6gc.onrender.com/api/health", "expect": "ONLINE"},
-    {"name": "prono-fastapi (Python)", "url": "https://prono-fastapi.onrender.com/health", "expect": "healthy"},
-    {"name": "prono-scraper", "url": "https://prono-scraper.onrender.com/health", "expect": "ok"},
-    {"name": "Swagger UI", "url": "https://prono-k6gc.onrender.com/api-docs", "expect": None},
+    {"name": "pronostico (Node)", "url": "https://pronostico.onrender.com/api/health", "expect": "ONLINE"},
+    {"name": "pronostico (FastAPI)", "url": "https://pronostico.onrender.com/health", "expect": "ok"},
+    {"name": "Swagger UI", "url": "https://pronostico.onrender.com/api-docs", "expect": None},
 ]
 
 def check(url, timeout=20):

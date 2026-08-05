@@ -16,11 +16,11 @@ const options = {
         'Advanced AI-powered football prediction platform with XGBoost, Monte Carlo, and adaptive learning',
       contact: {
         name: 'Titanium AI Team',
-        url: 'https://prono-k6gc.onrender.com',
+        url: 'https://pronostico.onrender.com',
       },
       license: {
         name: 'Private',
-        url: 'https://prono-k6gc.onrender.com',
+        url: 'https://pronostico.onrender.com',
       },
     },
     servers: [
@@ -29,7 +29,7 @@ const options = {
         description: 'Development server',
       },
       {
-        url: 'https://prono-k6gc.onrender.com',
+        url: 'https://pronostico.onrender.com',
         description: 'Production server (Render)',
       },
     ],

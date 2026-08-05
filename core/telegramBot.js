@@ -4,7 +4,7 @@ const database = require('./database')
 const enrichedPredictions = require('./enriched_predictions')
 const { invalidateCache } = require('./speedCache')
 
-const SITE_URL = 'https://prono-k6gc-rxjf.onrender.com'
+const SITE_URL = 'https://pronostico.onrender.com'
 
 class TelegramBroadcaster {
   constructor() {

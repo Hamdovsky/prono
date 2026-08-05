@@ -52,8 +52,7 @@ class SecurityEngine {
     if (req.headers['x-api-key'] || req.headers.authorization) return next()
     const origin = req.headers.origin || req.headers.referer || ''
     const allowed = [
-      'https://prono-k6gc.onrender.com',
-      'https://prono-k6gc-rxjf.onrender.com',
+      'https://pronostico.onrender.com',
       'http://localhost:3001',
       'http://localhost:5173',
       'capacitor://',

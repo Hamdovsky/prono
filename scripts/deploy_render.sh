@@ -6,7 +6,11 @@ echo "======================================"
 
 # 1️⃣ Configuration des variables d'environnement
 echo "🔧 Configuration..."
-echo "DATABASE_URL=postgresql://neondb_owner:npg_oy3uDHmnCE8P@ep-wandering-wave-atp6q80z-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require" >> .env
+if [ -n "$DATABASE_URL" ]; then
+  echo "DATABASE_URL=$DATABASE_URL" >> .env
+else
+  echo "⚠️  DATABASE_URL non défini — migrations Postgres ignorées"
+fi
 echo "TEST_VAR=test-value" >> .env
 
 # 2️⃣ Installation dépendances
@@ -24,7 +28,7 @@ node scripts_init/import_promosport_history.js 2>/dev/null || echo "✅ Déjà i
 # 5️⃣ Test API
 echo "🧪 Test API..."
 sleep 3
-curl -s "https://prono-k6gc-rxjf.onrender.com/api/promosport" | head -c 500
+curl -s "https://pronostico.onrender.com/api/promosport" | head -c 500
 
 echo ""
 echo "✅ TERMINÉ!"

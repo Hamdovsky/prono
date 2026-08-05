@@ -24,7 +24,7 @@ class CronManager {
   init(socketService) {
     logger.info('â° [CRON] Initializing master scheduler...')
 
-    // Heartbeat — écrit un timestamp Redis toutes les 5 min
+    // Heartbeat ï¿½ ï¿½crit un timestamp Redis toutes les 5 min
     cron.schedule('*/5 * * * *', async () => {
       try {
         await redisCache.set('cron:heartbeat', Date.now(), 300).catch(() => {})
@@ -135,7 +135,7 @@ class CronManager {
       { timezone: 'Europe/Paris' }
     )
 
-    // 10b. Ultra-Frequent Enrichment (every 20 min) — keeps elite cache fresh + Telegram broadcast + auto-optimize + fallback
+    // 10b. Ultra-Frequent Enrichment (every 20 min) ï¿½ keeps elite cache fresh + Telegram broadcast + auto-optimize + fallback
     import telegramBot from '../core/telegramBot'
     import autoOptimizer from '../core/autoOptimizer'
     cron.schedule('*/20 * * * *', async () => {
@@ -147,7 +147,7 @@ class CronManager {
         .optimizeModelBasedOnROI()
         .catch((e) => logger.warn(`[CRON] Auto-optimizer error: ${e.message}`))
 
-      // 10c. Free Fallback — enrich matches with insufficient_data or stale predictions
+      // 10c. Free Fallback ï¿½ enrich matches with insufficient_data or stale predictions
       try {
         import fallbackEnricher from '../core/fallback_enricher'
         logger.info(`?? [CRON] Free Fallback enriching stale matches (local JS engine)...`)
@@ -161,7 +161,7 @@ class CronManager {
         logger.warn(`?? [CRON] Free Fallback error: ${e.message}`)
       }
 
-      // 10d. Context & Lineup Refresh — adjust predictions for lineups/absences within 4h of kickoff
+      // 10d. Context & Lineup Refresh ï¿½ adjust predictions for lineups/absences within 4h of kickoff
       try {
         import axios from 'axios'
         const INFERENCE_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
@@ -211,7 +211,7 @@ class CronManager {
       { timezone: 'Africa/Tunis' }
     )
 
-    // 9.6 Weekly XGBoost TITANIUM V3 Retrain (Saturday 23:30) — after archive update with Tunisia data
+    // 9.6 Weekly XGBoost TITANIUM V3 Retrain (Saturday 23:30) ï¿½ after archive update with Tunisia data
     cron.schedule(
       '30 23 * * 6',
       async () => {
@@ -357,7 +357,7 @@ class CronManager {
           .catch((e) => logger.error(`[CRON] V24 Auto-Retrain failed: ${e}`))
         // Train V56 model (chronological split, 22 features)
         runV56Retrain().then((res) => {
-          logger.info(`[CRON] V56 retrain: ${res.success ? 'OK' : 'FAIL'} — ${res.message}`)
+          logger.info(`[CRON] V56 retrain: ${res.success ? 'OK' : 'FAIL'} ï¿½ ${res.message}`)
         })
       },
       { timezone: 'Africa/Tunis' }
@@ -571,21 +571,23 @@ class CronManager {
       { timezone: 'Europe/Paris' }
     )
 
-    // 22. FastAPI Keepalive (Every 5 min) — prevents cold start on free tier + warm engines
+    // 22. FastAPI Keepalive (Every 5 min) ï¿½ prevents cold start on free tier + warm engines
     cron.schedule(
       '*/5 * * * *',
       async () => {
         import https from 'https'
-        const fastApiUrl = process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com'
+        import http from 'http'
+        const fastApiUrl = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
         const urls = [
           fastApiUrl + '/health',
           fastApiUrl + '/warmup',
-          'https://prono-scraper.onrender.com/health',
+          'https://pronostico.onrender.com/api/health',
         ]
         for (const url of urls) {
           try {
             await new Promise((resolve, reject) => {
-              const req = https.get(url, { timeout: 15000 }, (res) => {
+              const mod = url.startsWith('https') ? https : http
+              const req = mod.get(url, { timeout: 15000 }, (res) => {
                 res.resume()
                 resolve()
               })
@@ -607,16 +609,18 @@ class CronManager {
       async () => {
         logger.info('[CRON] Launching weekly Platt calibration...')
         import https from 'https'
-        const fastApiUrl = process.env.INFERENCE_URL || 'https://prono-fastapi.onrender.com'
+        import http from 'http'
+        const fastApiUrl = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
         const apiKey = process.env.API_SECRET_KEY || ''
         const postJson = (path, body) =>
           new Promise((resolve) => {
             const data = JSON.stringify(body)
             const urlObj = new URL(fastApiUrl.replace(/\/+$/, '') + path)
+            const httpMod = urlObj.protocol === 'https:' ? https : http
             const opts = {
               hostname: urlObj.hostname,
-              port: 443,
-              path: urlObj.pathname,
+              port: Number(urlObj.port) || (urlObj.protocol === 'http:' ? 80 : 443),
+              path: urlObj.pathname + urlObj.search,
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -625,7 +629,7 @@ class CronManager {
               timeout: 300000,
             }
             if (apiKey) opts.headers['Authorization'] = 'Bearer ' + apiKey
-            const req = https.request(opts, (res) => {
+            const req = httpMod.request(opts, (res) => {
               let d = ''
               res.on('data', (c) => (d += c))
               res.on('end', () => {
@@ -650,7 +654,7 @@ class CronManager {
         )
         const retrainRes = await postJson('/retrain', {})
         logger.info(
-          `[CRON] Retrain: ${retrainRes.success ? 'OK' : 'FAIL'} — ${retrainRes.message || ''}`
+          `[CRON] Retrain: ${retrainRes.success ? 'OK' : 'FAIL'} ï¿½ ${retrainRes.message || ''}`
         )
       },
       { timezone: 'UTC' }
@@ -729,7 +733,7 @@ class CronManager {
           const accMatch = trainOut.match(/Accuracy: ([\d.]+)%/)
           const llMatch = trainOut.match(/Log Loss: ([\d.]+)/)
           logger.info(
-            `[CRON] Promosport retrain OK — accuracy: ${accMatch ? accMatch[1] + '%' : 'N/A'} log_loss: ${llMatch ? llMatch[1] : 'N/A'}`
+            `[CRON] Promosport retrain OK ï¿½ accuracy: ${accMatch ? accMatch[1] + '%' : 'N/A'} log_loss: ${llMatch ? llMatch[1] : 'N/A'}`
           )
 
           // Save log loss for drift detection
@@ -781,7 +785,7 @@ class CronManager {
           for (let g = latest; g <= latest + 5; g++) {
             const results = await promosportResultService.checkAndFetchResults(g)
             if (results) {
-              logger.info(`[CRON] Grid ${g}: ${results.length} nouveaux résultats`)
+              logger.info(`[CRON] Grid ${g}: ${results.length} nouveaux rï¿½sultats`)
               newResults = true
             }
           }
@@ -834,7 +838,7 @@ class CronManager {
               logger.info(`[CRON] New concours detected: ${result.concoursNumber}`)
               import botService from './botService'
               botService.sendAlert(
-                `?? <b>Nouveau Concours Promosport Détecté</b>\nConcours: ${result.concoursNumber}\nGrilles générées automatiquement`
+                `?? <b>Nouveau Concours Promosport Dï¿½tectï¿½</b>\nConcours: ${result.concoursNumber}\nGrilles gï¿½nï¿½rï¿½es automatiquement`
               )
             } else {
               logger.info('[CRON] No new concours detected')

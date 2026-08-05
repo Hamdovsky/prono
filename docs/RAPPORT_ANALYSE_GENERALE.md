@@ -1,7 +1,7 @@
 # 📊 RAPPORT D'ANALYSE GÉNÉRALE — TITANIUM AI (STITCH)
 
 **Projet**: Plateforme de prédiction football IA  
-**ID Render**: `rnd_vhSusOtYisXhwFtkyrVxBdCDZTXm`  
+**ID Render**: `rnd_XXXX... (révoqué)`  
 **Date**: 30 Juin 2026  
 **Analyseur**: OpenCode AI Agent
 

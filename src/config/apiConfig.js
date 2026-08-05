@@ -5,7 +5,7 @@ const isNative =
     window.location.protocol === 'capacitor:' ||
     window.location.protocol === 'http-extension:')
 
-const PRODUCTION_API_URL = 'https://prono-api-7mhs.onrender.com'
+const PRODUCTION_API_URL = 'https://pronostico.onrender.com'
 
 // API Base URL Configuration
 // If running natively (Capacitor), use the production API URL.

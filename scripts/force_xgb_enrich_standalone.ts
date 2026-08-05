@@ -3,7 +3,7 @@ import database from '../core/database'
 import StatisticalEngine from '../core/services/StatisticalEngine'
 import axios from 'axios'
 
-const FASTAPI_URL = process.env.INFERENCE_URL || 'http://prono-fastapi:8000'
+const FASTAPI_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
 const XGB_TIMEOUT = 60000
 
 function factorial(n) {
@@ -87,7 +87,7 @@ async function tryXgb(match) {
         headers: { 'Content-Type': 'application/json' },
       })
     } catch (_) {
-      resp = await axios.post(`https://prono-fastapi.onrender.com/predict`, payload, {
+      resp = await axios.post(`http://127.0.0.1:8000/predict`, payload, {
         timeout: XGB_TIMEOUT,
         headers: { 'Content-Type': 'application/json' },
       })

@@ -52,7 +52,7 @@ jobs:
         
       - run: npm run build
         env:
-          VITE_API_URL: https://prono-k6gc-rxjf.onrender.com
+          VITE_API_URL: https://pronostico.onrender.com
 
       - run: npx jest --passWithNoTests --detectOpenHandles --forceExit --no-coverage
 

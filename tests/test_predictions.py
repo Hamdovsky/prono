@@ -10,11 +10,15 @@ from prediction_engine import process_prediction
 
 def _scheduled_matches(limit=10):
     db_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'tactical.db')
+    if not os.path.exists(db_path):
+        return []
     conn = sqlite3.connect(db_path)
     try:
         cur = conn.cursor()
         cur.execute("SELECT fullData FROM matches WHERE status='scheduled' LIMIT ?", (limit,))
         return cur.fetchall()
+    except sqlite3.Error:
+        return []
     finally:
         conn.close()
 

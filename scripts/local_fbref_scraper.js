@@ -122,30 +122,53 @@ function pickBest(leagueCode, teams) {
       }
     }
   }
-  return { league: leagueCode, count: reliable.length, teams: reliable, bestMatches }
+  return { league: leagueCode, count: reliable.length, teams: reliable, bestMatches, scrapedAt: Date.now() }
 }
 
-// Push one league batch to the Render ingestion endpoint.
+// Push one league batch to the Render ingestion endpoint (retry x3 on transient
+// errors: 5xx, ECONNRESET, ETIMEDOUT). Non-transient (401/403/400/4xx data
+// errors) fail fast so a misconfig secret is surfaced immediately.
 async function pushToRender(renderUrl, leagueCode, payload, onProgress) {
+  const url = `${renderUrl.replace(/\/+$/, '')}/api/fbref/xg`
   const body = { leagues: { [leagueCode]: payload } }
-  try {
-    const res = await axios.post(`${renderUrl.replace(/\/+$/, '')}/api/fbref/xg`, body, {
-      headers: { Authorization: `Bearer ${API_SECRET_KEY}`, 'Content-Type': 'application/json' },
-      timeout: 30000,
-    })
-    onProgress(`${leagueCode}: pushed ${payload.count} teams, ${payload.bestMatches.length} best matches -> HTTP ${res.status}`)
-    return true
-  } catch (e) {
-    const status = e.response ? e.response.status : e.code
-    onProgress(`${leagueCode}: PUSH FAILED (${status}) ${e.message.slice(0, 120)}`)
-    return false
+  const attempts = 3
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const res = await axios.post(url, body, {
+        headers: { Authorization: `Bearer ${API_SECRET_KEY}`, 'Content-Type': 'application/json' },
+        timeout: 30000,
+      })
+      if (attempt > 1)
+        onProgress(`${leagueCode}: pushed ${payload.count} teams after ${attempt} attempt(s) -> HTTP ${res.status}`)
+      else
+        onProgress(`${leagueCode}: pushed ${payload.count} teams, ${payload.bestMatches.length} best matches -> HTTP ${res.status}`)
+      return true
+    } catch (e) {
+      const status = e.response ? e.response.status : e.code
+      const transient = !e.response || status >= 500 || status === 'ECONNRESET' || status === 'ETIMEDOUT'
+      if (!transient || attempt === attempts) {
+        onProgress(`${leagueCode}: PUSH FAILED (${status}) ${e.message.slice(0, 120)}`)
+        return false
+      }
+      onProgress(`${leagueCode}: transient push error (${status}), retry ${attempt}/${attempts}...`)
+      await new Promise((r) => setTimeout(r, 2000 * attempt))
+    }
   }
+  return false
 }
 
-async function runOnce(onProgress) {
+async function runOnce(onProgress, opts = {}) {
   const renderUrl = await resolveRenderUrl()
   assertConfig(renderUrl)
-  const codes = await allLeagueCodes()
+  let codes = await allLeagueCodes()
+  // --league <CODE> : scraper + pousser une seule ligue (rapide, pour test/valid)
+  if (opts.onlyLeague) {
+    if (!fbrefService.leagues[opts.onlyLeague]) {
+      onProgress(`[FBREF-LOCAL] Unknown league code: ${opts.onlyLeague} (available: ${codes.join(', ')})`)
+      return
+    }
+    codes = [opts.onlyLeague]
+  }
   let ok = 0
   let fail = 0
   onProgress(`[FBREF-LOCAL] Scraping ${codes.length} ligues depuis IP résidentielle (renderUrl=${renderUrl.slice(0, 40)}…)…`)
@@ -178,13 +201,17 @@ function runLoop() {
 
 if (require.main === module) {
   const loop = process.argv.includes('--loop')
+  const leagueIdx = process.argv.indexOf('--league')
+  const onlyLeague = leagueIdx >= 0 && process.argv[leagueIdx + 1] ? process.argv[leagueIdx + 1].toUpperCase() : null
   const onProgress = (msg) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${msg}`)
   if (loop) {
     runLoop()
   } else {
-    runOnce(onProgress).catch((e) => {
-      console.error('[FBREF-LOCAL] fatal:', e.message)
-      process.exit(1)
-    })
+    runOnce(onProgress, { onlyLeague })
+      .then(() => onProgress('[FBREF-LOCAL] one-shot complete.'))
+      .catch((e) => {
+        console.error('[FBREF-LOCAL] fatal:', e.message)
+        process.exit(1)
+      })
   }
 }

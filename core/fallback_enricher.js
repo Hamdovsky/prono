@@ -378,9 +378,16 @@ async function enrichMatchesBatch(opts = {}) {
       seen.add(m.id)
       return true
     })
-    // Prioriser les matchs les plus proches du coup d'envoi : leurs cotes
-    // bookmaker sont plus susceptibles d'exister et le quota est limité.
-    matches.sort((a, b) => _startTs(a) - _startTs(b))
+    // (b) Prioriser les ligues majeures couvertes par fbref/StatsBomb (xG
+    // differentiable — gratuit) AVANT les amicaux/coupes, avec le temps de
+    // coup d'envoi comme tie-break (quotas cotes limités → on enrichit d'abord
+    // ce qui peut être différencié par le xG gratuit).
+    matches.sort((a, b) => {
+      const pa = fbrefService.isMajorLeague(a.league || a.tournament_name || '') ? 0 : 1
+      const pb = fbrefService.isMajorLeague(b.league || b.tournament_name || '') ? 0 : 1
+      if (pa !== pb) return pa - pb
+      return _startTs(a) - _startTs(b)
+    })
     if (matches.length > limit) {
       matches = matches.slice(0, limit)
       logger.info(`[FALLBACK_ENRICHER] Capped to ${limit} matches for memory safety`)

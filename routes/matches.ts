@@ -452,8 +452,16 @@ router.get('/upcoming', speedCache('upcoming', 15000, 600000), async (req, res) 
         elite.push(m)
       }
     }
-    // Sort elite by EV descending
+    // Sort elite by real-xG major-league matches first, then EV descending.
+    const fbrefService = require('../services/fbrefService')
     elite.sort((a, b) => {
+      const aMajor =
+        fbrefService.isMajorLeague(a.league || a.tournament_name || '') &&
+        (parseFloat(a.home_xg) > 0 || parseFloat(a.away_xg) > 0)
+      const bMajor =
+        fbrefService.isMajorLeague(b.league || b.tournament_name || '') &&
+        (parseFloat(b.home_xg) > 0 || parseFloat(b.away_xg) > 0)
+      if (aMajor !== bMajor) return bMajor - aMajor
       const evA = parseFloat((a.quant || {}).ev_score || 0)
       const evB = parseFloat((b.quant || {}).ev_score || 0)
       return evB - evA

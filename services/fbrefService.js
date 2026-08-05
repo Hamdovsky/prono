@@ -341,6 +341,13 @@ class FbrefService {
     return null
   }
 
+  // Expose publique: renvoie true si la ligue libre (match.league) correspond à
+  // une ligue couverte par fbref/StatsBomb (c.-à-d. qu'elle peut être différenciée
+  // par xG). Utilisé par le tri priorité du fallback_enricher et de /api/upcoming.
+  isMajorLeague(leagueName) {
+    return this._matchLeagueCode(leagueName) !== null
+  }
+
   // Pré-remplit un match avec le xG/xGA fbref des deux équipes (si trouvés).
   // Appelé une fois par match (cache 60 min par ligue → ~1 requête/ligue/cycle).
   async attachMatchXG(match) {

@@ -22,6 +22,13 @@ const FINISHED_STATUSES = new Set([
   'pen',
 ])
 
+// Ligues majeures (différençables par xG fbref/StatsBomb) : priorité d'affichage
+// afin de montrer en premier les "vrais pronostics" (objectif b) au lieu des
+// amicaux/coupes insuffisants.
+const MAJOR_LEAGUE_RE =
+  /premier league|championship|champions league|europa league|ligue [12]|bundesliga|serie [ab]|la liga|liga portugal|eredivisie|mls|liga mx|j1 league|k league|scottish premiership|primera division|brasileirão/i
+const isMajorLeague = (name) => MAJOR_LEAGUE_RE.test(String(name || ''))
+
 const isFinishedMatch = (m) => {
   const s = String(m.status || '').toLowerCase()
   if (FINISHED_STATUSES.has(s)) return true
@@ -245,6 +252,22 @@ const Dashboard = () => {
         return true
       })
       .sort((a, b) => {
+        // (b) Prioriser en tête les matchs avec vraies probabilités + ligues
+        // majeures, afin d'afficher des "vrais pronostics" au lieu des amicaux
+        // insuffisants. Le tri par heure reste le tie-break.
+        const aProbs =
+          parseFloat(a.home_win_probability || a.away_win_probability || a.draw_probability || 0) > 0
+        const bProbs =
+          parseFloat(b.home_win_probability || b.away_win_probability || b.draw_probability || 0) > 0
+        const aInsuff =
+          a.insufficient_data === 1 || a.sufficient === false || a.quant?.market_odds === null
+        const bInsuff =
+          b.insufficient_data === 1 || b.sufficient === false || b.quant?.market_odds === null
+        const aMajor = isMajorLeague(a.league || a.tournament_name)
+        const bMajor = isMajorLeague(b.league || b.tournament_name)
+        const aScore = (aProbs && !aInsuff ? 1 : 0) + (aMajor ? 1 : 0)
+        const bScore = (bProbs && !bInsuff ? 1 : 0) + (bMajor ? 1 : 0)
+        if (aScore !== bScore) return bScore - aScore
         const aFin = isFinishedMatch(a)
         const bFin = isFinishedMatch(b)
         if (aFin !== bFin) return aFin ? 1 : -1

@@ -166,7 +166,7 @@
 3. **Health Check**
 
    ```bash
-   curl https://prono-k6gc.onrender.com/api/health
+   curl https://pronostico.onrender.com/api/health
    # Monitoring détaillé
    ```
 

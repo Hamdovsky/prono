@@ -73,7 +73,7 @@ curl -X POST http://localhost:3001/api/predict \
 #### Option A : Render Dashboard (Recommandé)
 
 1. Aller sur https://dashboard.render.com
-2. Sélectionner service `prono-k6gc`
+2. Sélectionner service `pronostico`
 3. Environment → Add Variable
    - Key: `USE_MODEL_MANAGER`
    - Value: `true`
@@ -102,7 +102,7 @@ git push origin main
 # Chercher : "✅ [MODEL MANAGER] Using optimized model loading"
 
 # 2. Endpoint de monitoring (à créer)
-curl https://prono-k6gc.onrender.com/api/system/health
+curl https://pronostico.onrender.com/api/system/health
 
 # 3. RAM usage
 # Render Dashboard → Metrics → Memory Usage

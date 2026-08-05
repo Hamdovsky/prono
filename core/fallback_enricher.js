@@ -212,15 +212,43 @@ async function attachRealOdds(match) {
   }
   try {
     const oddsApiIo = require('../services/oddsApiIoService')
-    if (!oddsApiIo.isAvailable()) return
-    const realOdds = await oddsApiIo.fetchOddsForMatch(match)
-    if (realOdds && parseFloat(realOdds.home) > 0 && parseFloat(realOdds.away) > 0) {
-      match.odds_home = parseFloat(realOdds.home)
-      match.odds_draw = parseFloat(realOdds.draw)
-      match.odds_away = parseFloat(realOdds.away)
-      match.odds_source = 'oddsapiio'
-      match._oddsWereFetched = true
-    } else {
+    if (oddsApiIo.isAvailable()) {
+      const realOdds = await oddsApiIo.fetchOddsForMatch(match)
+      if (realOdds && parseFloat(realOdds.home) > 0 && parseFloat(realOdds.away) > 0) {
+        match.odds_home = parseFloat(realOdds.home)
+        match.odds_draw = parseFloat(realOdds.draw)
+        match.odds_away = parseFloat(realOdds.away)
+        match.odds_source = 'oddsapiio'
+        match._oddsWereFetched = true
+        return
+      }
+    }
+    // Fallback source de cotes réelles: BSD (bourse marocaine). OddsAPI étant
+    // souvent offline/offquota sur le free tier, on complète via bsd_match_id —
+    // BSD dispose déjà des probs (bsd_home_win_prob) mais pas toujours des
+    // odds persistées → on les récupère pour libérer le gate honnêteté.
+    const bsdService = require('../services/bsdService')
+    if (
+      bsdService.isAvailable() &&
+      String(match.bsd_match_id || '').length > 0 &&
+      (!match.odds_home || !match.odds_draw || !match.odds_away)
+    ) {
+      try {
+        const bsdOdds = await bsdService.fetchOdds(match.bsd_match_id)
+        if (bsdOdds && parseFloat(bsdOdds.home) > 0 && parseFloat(bsdOdds.away) > 0) {
+          match.odds_home = parseFloat(bsdOdds.home)
+          match.odds_draw = parseFloat(bsdOdds.draw)
+          match.odds_away = parseFloat(bsdOdds.away)
+          match.odds_source = match.odds_source || 'bsd'
+          match._oddsWereFetched = true
+          logger.info(`[FBREF/FALLBACK] Attached real BSD odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})`)
+          return
+        }
+      } catch (bsdErr) {
+        logger.warn(`[FBREF/FALLBACK] BSD odds fetch failed for ${match.id}: ${bsdErr.message}`)
+      }
+    }
+    if (!match._oddsWereFetched) {
       match._oddsWereFetched = false
     }
   } catch (_) {}

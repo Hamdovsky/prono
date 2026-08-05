@@ -160,28 +160,62 @@ const toRawLines = (m) => {
   // ── HANDICAP (indice de score / score attendu) ──
   const htPct = Math.min(89, Math.round((ouPct + bttsYesPct) / 2 + 5))
 
-  // ── HONESTY: aucune donnée bookmaker réelle → pas de verdict, juste le badge ──
-  return isInsufficient
-    ? [
-        m.league || m.tournament_name || '',
-        m.homeTeam || '',
-        m.awayTeam || '',
-        '--',
-        '--',
-        '🔒 données insuffisantes',
-        '--',
-        '--',
-      ]
-    : [
-        m.league || m.tournament_name || '',
-        m.homeTeam || '',
-        m.awayTeam || '',
-        bttsLabel,
-        `${ouPct}%`,
-        winnerLabel,
-        `${htPct}%`,
-        htLabel,
-      ]
+  // ── HONESTY GATE OPTIONNELLE (user "je veux voir le prono côtout") ──
+  // Pour un match sans cotes bookmaker réelles (isInsufficient), on n'expose le
+  // pronostic que si le modèle produit des PROBABILITÉS RÉELLEMENT DIFFÉRENTIÉES
+  // (max >= 50 et écart >= 20 points) — i.e. un vrai signal Poisson/xG, pas le
+  // fallback uniforme ~33/33/33. Badge "🔮 modèle — sans cotes (pas d'EV)" pour
+  // rester honnête : aucune valeur probatte ni EV n'est affichée sans cotes.
+  const rawHPct = normalizePct(m.home_win_probability || enriched?.home_win_probability || 0)
+  const rawAPct = normalizePct(m.away_win_probability || enriched?.away_win_probability || 0)
+  const rawDPct = normalizePct(m.draw_probability || enriched?.draw_probability || 0)
+  const modelMax = Math.max(rawHPct, rawAPct, rawDPct)
+  const modelMin = Math.min(rawHPct, rawAPct, rawDPct)
+  const hasRealModelSignal =
+    isInsufficient && modelMax >= 50 && modelMax - modelMin >= 20 && (hPct + aPct > 0 || rawHPct > 0)
+  const modelWinner = rawHPct >= rawAPct && rawHPct >= rawDPct
+    ? '1'
+    : rawAPct >= rawDPct
+      ? '2'
+      : 'X'
+  const modelWinnerProb = modelWinner === '1' ? rawHPct : modelWinner === '2' ? rawAPct : rawDPct
+
+  // ── HONENETE: aucune donnée bookmaker réelle → pas de verdict par défaut ──
+  if (hasRealModelSignal) {
+    return [
+      `${m.league || m.tournament_name || ''} 🔮 modèle`,
+      m.homeTeam || '',
+      m.awayTeam || '',
+      bttsLabel,
+      `${ouPct}%`,
+      `${modelWinner} ${Math.round(modelWinnerProb)}%`,
+      `${htPct}%`,
+      htLabel,
+    ]
+  }
+  if (isInsufficient) {
+    return [
+      m.league || m.tournament_name || '',
+      m.homeTeam || '',
+      m.awayTeam || '',
+      '--',
+      '--',
+      '🔒 données insuffisantes',
+      '--',
+      '--',
+    ]
+  }
+  // ── Cas normal : cotes suffisantes → verdict complet ──
+  return [
+    m.league || m.tournament_name || '',
+    m.homeTeam || '',
+    m.awayTeam || '',
+    bttsLabel,
+    `${ouPct}%`,
+    winnerLabel,
+    `${htPct}%`,
+    htLabel,
+  ]
 }
 
 const MatchRowMemo = React.memo(({ index, style, list, onClick }) => {

@@ -7,13 +7,13 @@ jest.mock('../services/authService', () => ({
   authenticate: jest.fn((req, res, next) => {
     req.user = { username: 'testuser', role: 'user' }
     next()
-  })
+  }),
 }))
 
 jest.mock('../core/logger', () => ({
   warn: jest.fn(),
   info: jest.fn(),
-  error: jest.fn()
+  error: jest.fn(),
 }))
 
 const authService = require('../services/authService')
@@ -26,12 +26,16 @@ beforeAll(() => {
   app.use('/api/auth', authRouter)
 })
 
-afterEach(() => { jest.restoreAllMocks() })
+afterEach(() => {
+  jest.restoreAllMocks()
+})
 
 describe('Auth Routes', () => {
   describe('POST /api/auth/register', () => {
     it('registers with valid credentials', async () => {
-      jest.spyOn(authService, 'register').mockResolvedValue({ token: 'abc123', user: { username: 'newuser' } })
+      jest
+        .spyOn(authService, 'register')
+        .mockResolvedValue({ token: 'abc123', user: { username: 'newuser' } })
 
       const res = await request(app)
         .post('/api/auth/register')
@@ -43,18 +47,14 @@ describe('Auth Routes', () => {
     })
 
     it('rejects missing username', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ password: 'password123' })
+      const res = await request(app).post('/api/auth/register').send({ password: 'password123' })
 
       expect(res.status).toBe(400)
       expect(res.body.error).toMatch(/Username and password required/)
     })
 
     it('rejects missing password', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ username: 'newuser' })
+      const res = await request(app).post('/api/auth/register').send({ username: 'newuser' })
 
       expect(res.status).toBe(400)
       expect(res.body.error).toMatch(/Username and password required/)
@@ -83,7 +83,9 @@ describe('Auth Routes', () => {
 
   describe('POST /api/auth/login', () => {
     it('logs in with valid credentials', async () => {
-      jest.spyOn(authService, 'login').mockResolvedValue({ token: 'xyz789', user: { username: 'testuser' } })
+      jest
+        .spyOn(authService, 'login')
+        .mockResolvedValue({ token: 'xyz789', user: { username: 'testuser' } })
 
       const res = await request(app)
         .post('/api/auth/login')
@@ -95,9 +97,7 @@ describe('Auth Routes', () => {
     })
 
     it('rejects missing credentials', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({})
+      const res = await request(app).post('/api/auth/login').send({})
 
       expect(res.status).toBe(400)
       expect(res.body.error).toMatch(/Username and password required/)

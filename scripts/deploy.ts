@@ -5,7 +5,7 @@
  * Handles deployment to Render with pre-flight checks
  */
 
-import {  exec  } from 'child_process'
+import { exec } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 

@@ -1,8 +1,8 @@
 // @ts-nocheck
 import fs from 'fs'
 import path from 'path'
-import {  scrapeBatch  } from '../core/promosport_tunisie_scraper'
-import {  rebuildCrowdProfile  } from './crowd_collector'
+import { scrapeBatch } from '../core/promosport_tunisie_scraper'
+import { rebuildCrowdProfile } from './crowd_collector'
 import logger from '../core/logger'
 
 const VOTE_HISTORY_PATH = path.join(__dirname, '..', 'data', 'tunisian_vote_history.json')

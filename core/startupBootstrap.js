@@ -221,7 +221,9 @@ function killProcessOnPort(port) {
 
 async function runAll({ port, onStartServices }) {
   const TIMEOUT = 90_000 // 90s max for full bootstrap
-  const bail = new Promise((_, reject) => setTimeout(() => reject(new Error('Bootstrap timeout')), TIMEOUT))
+  const bail = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Bootstrap timeout')), TIMEOUT)
+  )
 
   try {
     await Promise.race([
@@ -239,7 +241,10 @@ async function runAll({ port, onStartServices }) {
         try {
           const { redis } = require('./redisClient')
           if (redis) {
-            redis.ping().then(() => logger.info('[BOOT] Redis connected')).catch(() => logger.warn('[BOOT] Redis not reachable'))
+            redis
+              .ping()
+              .then(() => logger.info('[BOOT] Redis connected'))
+              .catch(() => logger.warn('[BOOT] Redis not reachable'))
           }
         } catch (_) {}
 

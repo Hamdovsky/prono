@@ -125,7 +125,7 @@ function validateCountryLeague(match) {
 
 function validateMatchFreshness(match) {
   const now = Date.now()
-  let ts = match.startTimestamp
+  const ts = match.startTimestamp
   if (!ts) return { valid: true, warning: 'NO_TIMESTAMP' }
 
   let tsMs

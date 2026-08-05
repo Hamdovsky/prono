@@ -1,7 +1,13 @@
 // @ts-nocheck
 export interface QuotaManager {
   isEnabled(): boolean
-  getQuotaStatus(): { date: string; used: number; limit: number; remaining: number; isActive: boolean }
+  getQuotaStatus(): {
+    date: string
+    used: number
+    limit: number
+    remaining: number
+    isActive: boolean
+  }
   registerMatch(id: string | number): Promise<number>
 }
 

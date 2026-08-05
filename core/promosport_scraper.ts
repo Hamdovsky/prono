@@ -4,7 +4,8 @@ import http from 'http'
 import logger from './logger'
 import config from './configEngine'
 import CircuitBreaker from './circuitBreaker'
-import cb from './circuitBreaker'; const sofacoreBreaker = cb.breakers.sofacore
+import cb from './circuitBreaker'
+const sofacoreBreaker = cb.breakers.sofacore
 
 async function scrapePromosport() {
   try {

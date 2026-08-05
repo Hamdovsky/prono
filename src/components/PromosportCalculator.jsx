@@ -152,7 +152,7 @@ export default function PromosportCalculator({ matches, fetcher }) {
 
   const displayCols = useMemo(() => {
     if (!generatedCols) return null
-    let sorted = [...generatedCols.columns]
+    const sorted = [...generatedCols.columns]
     if (sortBy === 'expected') sorted.sort((a, b) => b.expected - a.expected)
     else if (sortBy === 'index')
       sorted.sort((a, b) => generatedCols.columns.indexOf(a) - generatedCols.columns.indexOf(b))

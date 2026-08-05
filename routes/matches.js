@@ -217,7 +217,7 @@ router.get('/live/goal-predictions', async (req, res) => {
 router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
   try {
     // [PREMATCH ONLY] strictly filter out live/in-progress matches
-    let allMatches = await database.getMatchesByStatuses([
+    const allMatches = await database.getMatchesByStatuses([
       'scheduled',
       'upcoming',
       'NOT_STARTED',
@@ -226,12 +226,17 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     // Auto-populate if DB is near-empty (fresh deploy on Render) — fire & forget
     if (allMatches.length < 5) {
       const today = new Date().toISOString().split('T')[0]
-      bsdService.syncFixtures(today).then((synced) => {
-        if (synced > 0) {
-          logger.info(`[UPCOMING] Background BSD sync returned ${synced} matches for ${today}`)
-          try { invalidateCache('upcoming') } catch (_) {}
-        }
-      }).catch((e) => logger.error(`[UPCOMING] Background BSD sync error: ${e.message}`))
+      bsdService
+        .syncFixtures(today)
+        .then((synced) => {
+          if (synced > 0) {
+            logger.info(`[UPCOMING] Background BSD sync returned ${synced} matches for ${today}`)
+            try {
+              invalidateCache('upcoming')
+            } catch (_) {}
+          }
+        })
+        .catch((e) => logger.error(`[UPCOMING] Background BSD sync error: ${e.message}`))
     }
     let rawMatches = allMatches
 
@@ -408,17 +413,21 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
       const hw = parseFloat(m.home_win_probability || 0)
       if (!hw || hw <= 0 || isNaN(hw)) {
         const baseXG = StatisticalEngine._getLeagueBaseXG(m.league)
-        const _teamHash = (s) => { let h=0; for(let i=0;i<(s||'').length;i++) h=((h<<5)-h+s.charCodeAt(i))|0; return h }
+        const _teamHash = (s) => {
+          let h = 0
+          for (let i = 0; i < (s || '').length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
+          return h
+        }
         const tHash = _teamHash(m.homeTeam) ^ _teamHash(m.awayTeam)
         const noise = ((tHash % 200) - 100) / 1000
         let xgH = Math.max(0.5, baseXG.h * (1 + noise * 0.15))
-        let xgA = Math.max(0.5, baseXG.a * (1 - noise * 0.10))
-        
+        let xgA = Math.max(0.5, baseXG.a * (1 - noise * 0.1))
+
         // Apply free features for better differentiation
         const adjusted = featureEngineer.applyFeatures(m, xgH, xgA)
         xgH = adjusted.xgH
         xgA = adjusted.xgA
-        
+
         const { win, btts, over25 } = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m)
         m.home_win_probability = Math.max(1, +(win.home * 100).toFixed(1))
         m.draw_probability = Math.max(1, +(win.draw * 100).toFixed(1))
@@ -537,8 +546,10 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
         .map((m) => {
           try {
             const fd = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData || {}
-            if ((!m.scoreHome || m.scoreHome === 0) && fd.scoreHome != null) m.scoreHome = fd.scoreHome
-            if ((!m.scoreAway || m.scoreAway === 0) && fd.scoreAway != null) m.scoreAway = fd.scoreAway
+            if ((!m.scoreHome || m.scoreHome === 0) && fd.scoreHome != null)
+              m.scoreHome = fd.scoreHome
+            if ((!m.scoreAway || m.scoreAway === 0) && fd.scoreAway != null)
+              m.scoreAway = fd.scoreAway
           } catch (_) {}
           m._finished = true
           m.actualResult =
@@ -795,7 +806,12 @@ router.post('/re-enrich', async (req, res) => {
     }
     invalidateCache('upcoming')
     logger.info(`[RE-ENRICH] Updated ${enriched}/${limit} matches`)
-    res.json({ success: true, total: matches.length, enriched, message: `Enriched ${enriched}/${limit} matches` })
+    res.json({
+      success: true,
+      total: matches.length,
+      enriched,
+      message: `Enriched ${enriched}/${limit} matches`,
+    })
   } catch (e) {
     logger.error(`[RE-ENRICH] Error: ${e.message}`)
   }
@@ -824,7 +840,9 @@ router.post('/backfill-odds', async (req, res) => {
   try {
     const { backfillOdds } = require('../core/oddsBackfill')
     const result = await backfillOdds()
-    try { invalidateCache('upcoming') } catch (_) {}
+    try {
+      invalidateCache('upcoming')
+    } catch (_) {}
     res.json({ success: true, ...result })
   } catch (e) {
     logger.error(`[BACKFILL-ODDS] Error: ${e.message}`)

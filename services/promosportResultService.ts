@@ -2,7 +2,7 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 import logger from '../core/logger'
-import {  scrapeTunisieGrid  } from '../core/promosport_tunisie_scraper'
+import { scrapeTunisieGrid } from '../core/promosport_tunisie_scraper'
 
 const ARCHIVE_PATH = path.join(__dirname, '..', 'data', 'historical_archive.sqlite')
 
@@ -482,7 +482,7 @@ function triggerAutoRetrain() {
   }
   logger.info('[PROMOSPORT-RESULT] Triggering auto-retrain after new results...')
   try {
-    import {  execSync  } from 'child_process'
+    import { execSync } from 'child_process'
     import path from 'path'
     const scriptsDir = path.join(__dirname, '..', 'scripts')
     const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
@@ -502,8 +502,8 @@ function triggerAutoRetrain() {
 
     // Backfill predictions
     try {
-      import {  backfillPredictions  } from 
-        path.join(scriptsDir, 'backfill_promosport_predictions.js'
+      const { backfillPredictions } = await import(
+        path.join(scriptsDir, 'backfill_promosport_predictions.js')
       )
       backfillPredictions()
     } catch (_) {}

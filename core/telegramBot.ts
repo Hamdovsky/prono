@@ -3,7 +3,7 @@ import botService from '../services/botService'
 import logger from './logger'
 import database from './database'
 import enrichedPredictions from './enriched_predictions'
-import {  invalidateCache  } from './speedCache'
+import { invalidateCache } from './speedCache'
 
 const SITE_URL = 'https://pronostico.onrender.com'
 

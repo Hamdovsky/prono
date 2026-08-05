@@ -282,7 +282,7 @@ async function runEnrichTest() {
 // ══════════════════════════════════════════════════════════════
 section('8 · PYTHON ENGINE')
 
-import {  spawn  } from 'child_process'
+import { spawn } from 'child_process'
 
 function runPythonCheck() {
   return new Promise((resolve) => {

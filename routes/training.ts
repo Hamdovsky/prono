@@ -5,11 +5,7 @@ import path from 'path'
 import fs from 'fs'
 import logger from '../core/logger'
 
-import { 
-  runAutoRetrain,
-  runLiveModelRetrain,
-  runV56Retrain,
- } from '../scripts/auto_retrain_worker'
+import { runAutoRetrain, runLiveModelRetrain, runV56Retrain } from '../scripts/auto_retrain_worker'
 const MODELS_DIR = path.join(__dirname, '..', 'models')
 const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
 
@@ -93,7 +89,7 @@ function getModelInfo(id) {
 
 async function runStep(name, cmd, args, timeout) {
   return new Promise((resolve, reject) => {
-    import {  spawn  } from 'child_process'
+    import { spawn } from 'child_process'
     const child = spawn(cmd, args, {
       cwd: path.join(__dirname, '..'),
       timeout,

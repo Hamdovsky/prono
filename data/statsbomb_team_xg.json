@@ -1,1 +1,73 @@
-{"leagues":{"SERIE_A":{"for":{"Hellas Verona":42.945355817899994,"Bologna":32.3463905895,"Carpi":41.0471415979,"Lazio":50.3632405512,"Udinese":45.6571341632,"Inter Milan":51.364529646399994,"Chievo":37.9047422636,"Atalanta":42.36184607209999,"Genoa":42.86223743339999,"AS Roma":61.9490562535,"Sampdoria":40.3998898589,"Palermo":35.52767070919999,"Frosinone":31.477644987100007,"Empoli":36.90957072270001,"Torino":48.9721444665,"Napoli":64.63066776620002,"Fiorentina":53.82835234950001,"AC Milan":53.695706361800006,"Sassuolo":44.856433361299985,"Juventus":61.6795639639},"against":{"Hellas Verona":58.2684040655,"Bologna":51.6072931076,"Carpi":49.4595075409,"Lazio":43.946406878400005,"Udinese":48.191099848899995,"Inter Milan":44.0858811161,"Chievo":49.615662570299996,"Atalanta":48.06586750439999,"Genoa":45.88263082779999,"AS Roma":41.1149258354,"Sampdoria":63.5577506336,"Palermo":56.9825543096,"Frosinone":68.6773387519,"Empoli":44.67895482579999,"Torino":40.76899720190001,"Napoli":28.274621142499992,"Fiorentina":35.2719858525,"AC Milan":38.686051073400016,"Sassuolo":41.199247373700004,"Juventus":22.444138475600003},"matches":{"Hellas Verona":38,"Bologna":38,"Carpi":38,"Lazio":38,"Udinese":38,"Inter Milan":38,"Chievo":38,"Atalanta":38,"Genoa":38,"AS Roma":38,"Sampdoria":38,"Palermo":38,"Frosinone":38,"Empoli":38,"Torino":38,"Napoli":38,"Fiorentina":38,"AC Milan":38,"Sassuolo":38,"Juventus":38},"ts":1785887798550}}}
+{
+  "leagues": {
+    "SERIE_A": {
+      "for": {
+        "Hellas Verona": 42.945355817899994,
+        "Bologna": 32.3463905895,
+        "Carpi": 41.0471415979,
+        "Lazio": 50.3632405512,
+        "Udinese": 45.6571341632,
+        "Inter Milan": 51.364529646399994,
+        "Chievo": 37.9047422636,
+        "Atalanta": 42.36184607209999,
+        "Genoa": 42.86223743339999,
+        "AS Roma": 61.9490562535,
+        "Sampdoria": 40.3998898589,
+        "Palermo": 35.52767070919999,
+        "Frosinone": 31.477644987100007,
+        "Empoli": 36.90957072270001,
+        "Torino": 48.9721444665,
+        "Napoli": 64.63066776620002,
+        "Fiorentina": 53.82835234950001,
+        "AC Milan": 53.695706361800006,
+        "Sassuolo": 44.856433361299985,
+        "Juventus": 61.6795639639
+      },
+      "against": {
+        "Hellas Verona": 58.2684040655,
+        "Bologna": 51.6072931076,
+        "Carpi": 49.4595075409,
+        "Lazio": 43.946406878400005,
+        "Udinese": 48.191099848899995,
+        "Inter Milan": 44.0858811161,
+        "Chievo": 49.615662570299996,
+        "Atalanta": 48.06586750439999,
+        "Genoa": 45.88263082779999,
+        "AS Roma": 41.1149258354,
+        "Sampdoria": 63.5577506336,
+        "Palermo": 56.9825543096,
+        "Frosinone": 68.6773387519,
+        "Empoli": 44.67895482579999,
+        "Torino": 40.76899720190001,
+        "Napoli": 28.274621142499992,
+        "Fiorentina": 35.2719858525,
+        "AC Milan": 38.686051073400016,
+        "Sassuolo": 41.199247373700004,
+        "Juventus": 22.444138475600003
+      },
+      "matches": {
+        "Hellas Verona": 38,
+        "Bologna": 38,
+        "Carpi": 38,
+        "Lazio": 38,
+        "Udinese": 38,
+        "Inter Milan": 38,
+        "Chievo": 38,
+        "Atalanta": 38,
+        "Genoa": 38,
+        "AS Roma": 38,
+        "Sampdoria": 38,
+        "Palermo": 38,
+        "Frosinone": 38,
+        "Empoli": 38,
+        "Torino": 38,
+        "Napoli": 38,
+        "Fiorentina": 38,
+        "AC Milan": 38,
+        "Sassuolo": 38,
+        "Juventus": 38
+      },
+      "ts": 1785887798550
+    }
+  }
+}

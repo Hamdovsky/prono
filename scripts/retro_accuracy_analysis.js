@@ -80,8 +80,8 @@ async function main() {
   for (const concours of historical) {
     const concoursResult = { no: concours.no, id: concours.id, matches: [] }
     let cEV = 0,
-      cEVd = 0,
-      cHV = 0,
+      cHV = 0
+    const cEVd = 0,
       cHVd = 0
     let cTot = 0
 

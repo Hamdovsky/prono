@@ -359,10 +359,7 @@ class PromosportIntelligence {
     const concours = matches[0]?.concoursNumber || matches[0]?.grid || 'unknown'
     const date = matches[0]?.concoursDate || new Date().toISOString().slice(0, 10)
     import crypto from 'crypto'
-    const hash = crypto.createHash('md5')
-      .update(`${concours}-${date}`)
-      .digest('hex')
-      .slice(0, 8)
+    const hash = crypto.createHash('md5').update(`${concours}-${date}`).digest('hex').slice(0, 8)
     return { key: `llm_weapons_${concours}_${hash}`, concours, date }
   }
 

@@ -60,8 +60,12 @@
   min-width: 80px;
   color: #38bdf8;
 }
-.mc-btts.mc-yes { color: #22c55e; }
-.mc-btts.mc-no { color: #94a3b8; }
+.mc-btts.mc-yes {
+  color: #22c55e;
+}
+.mc-btts.mc-no {
+  color: #94a3b8;
+}
 
 .mc-ou-cell {
   width: 14%;
@@ -78,21 +82,45 @@
   border-radius: 2px;
   overflow: hidden;
 }
-.mc-ou-fill { height: 100%; border-radius: 2px; }
-.mc-ou-fill.over { background: linear-gradient(90deg, #10b981, #34d399); }
-.mc-ou-fill.under { background: linear-gradient(90deg, #f87171, #fb7185); }
-.mc-ou-pct { font-size: 10px; font-weight: 700; min-width: 24px; text-align: right; }
-.mc-ou-pct.over { color: #10b981; }
-.mc-ou-pct.under { color: #f87171; }
+.mc-ou-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+.mc-ou-fill.over {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+.mc-ou-fill.under {
+  background: linear-gradient(90deg, #f87171, #fb7185);
+}
+.mc-ou-pct {
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 24px;
+  text-align: right;
+}
+.mc-ou-pct.over {
+  color: #10b981;
+}
+.mc-ou-pct.under {
+  color: #f87171;
+}
 
 .mc-winner {
   width: 18%;
   min-width: 100px;
 }
-.mc-winner.mc-pick-home { color: #10b981; }
-.mc-winner.mc-pick-draw { color: #fbbf24; }
-.mc-winner.mc-pick-away { color: #f87171; }
-.mc-winner.mc-pick-dc { color: #c084fc; }
+.mc-winner.mc-pick-home {
+  color: #10b981;
+}
+.mc-winner.mc-pick-draw {
+  color: #fbbf24;
+}
+.mc-winner.mc-pick-away {
+  color: #f87171;
+}
+.mc-winner.mc-pick-dc {
+  color: #c084fc;
+}
 
 .mc-handicap {
   width: 18%;
@@ -105,10 +133,19 @@
   min-width: 90px;
   color: #f59e0b;
 }
-.mc-htgoal.mc-yes { color: #22c55e; }
-.mc-htgoal.mc-no { color: #94a3b8; }
+.mc-htgoal.mc-yes {
+  color: #22c55e;
+}
+.mc-htgoal.mc-no {
+  color: #94a3b8;
+}
 
 @media (max-width: 768px) {
-  .match-card { padding: 6px 6px; }
-  .mc-btts, .mc-htgoal { display: none; }
+  .match-card {
+    padding: 6px 6px;
+  }
+  .mc-btts,
+  .mc-htgoal {
+    display: none;
+  }
 }

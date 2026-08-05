@@ -8,7 +8,7 @@
  */
 
 import db from '../core/database'
-import {  SofaAPI  } from '../SofascoreScraping/src/apiClient'
+import { SofaAPI } from '../SofascoreScraping/src/apiClient'
 import logger from '../core/logger'
 
 class CLVService {

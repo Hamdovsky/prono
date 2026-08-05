@@ -133,7 +133,7 @@ const TicketDuJour = ({ matches }) => {
         }
       }
       if (pred1X2 === 'N/A') {
-        let rawPred = match.prediction || match.enriched?.verdict || 'N/A'
+        const rawPred = match.prediction || match.enriched?.verdict || 'N/A'
         const hl = rawPred.toLowerCase()
         if (
           hl.includes('home') ||
@@ -174,7 +174,7 @@ const TicketDuJour = ({ matches }) => {
           match.v22_success_rate || match.enriched?.v22_success_rate || match.confidence || 0
       }
 
-      let picks = []
+      const picks = []
 
       // 1. Prediction 1X2
       if (pred1X2 !== 'N/A' && pickProb >= 40) {
@@ -250,7 +250,7 @@ const TicketDuJour = ({ matches }) => {
     }
 
     // 3. Build the ticket reaching ~2.00 target
-    let selected = []
+    const selected = []
     let currentCombinedOdd = 1.0
     const TARGET_ODD = 2.0
 

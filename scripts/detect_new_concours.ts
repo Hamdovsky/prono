@@ -67,7 +67,7 @@ async function generateGridsForConcours(concoursNumber) {
   try {
     logger.info(`[DETECT] Auto-generating grids for concours ${concoursNumber}...`)
     // Fetch the scraped matches for this concours via promosport_scraper
-    import {  scrapePromosport  } from '../core/promosport_scraper'
+    import { scrapePromosport } from '../core/promosport_scraper'
     const matches = await scrapePromosport()
     if (!matches || matches.length === 0) {
       logger.warn('[DETECT] No scraped matches available for grid generation')
@@ -75,7 +75,7 @@ async function generateGridsForConcours(concoursNumber) {
     }
 
     // Generate grids using the engine
-    import {  generatePromosportGrids  } from '../core/promosport_engine'
+    import { generatePromosportGrids } from '../core/promosport_engine'
     const grids = await generatePromosportGrids(matches)
     if (!grids || grids.length === 0) {
       logger.warn('[DETECT] Grid generation failed')

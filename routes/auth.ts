@@ -5,7 +5,11 @@ import logger from '../core/logger'
 
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { username, email, password } = req.body as { username?: string; email?: string; password?: string }
+    const { username, email, password } = req.body as {
+      username?: string
+      email?: string
+      password?: string
+    }
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' })
     }

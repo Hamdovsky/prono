@@ -1,0 +1,7 @@
+data/config.json
+data/promosport_accuracy_trend.json
+models/
+render.yaml
+src/components/Configurations.jsx
+src/services/dataService.js
+.pytest_cache/

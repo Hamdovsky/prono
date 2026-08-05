@@ -5,7 +5,13 @@ import enrichedPredictions from '../core/enriched_predictions'
 import { createQuotaManager } from './sourceQuotaManager'
 interface QuotaManager {
   isEnabled(): boolean
-  getQuotaStatus(): { date: string; used: number; limit: number; remaining: number; isActive: boolean }
+  getQuotaStatus(): {
+    date: string
+    used: number
+    limit: number
+    remaining: number
+    isActive: boolean
+  }
   registerMatch(id: string | number): Promise<number>
 }
 
@@ -95,7 +101,9 @@ class BsdService {
 
   private async _loadLeagues(): Promise<void> {
     try {
-      const data = await this._fetch('/v2/leagues/?sport=football&limit=200') as { results?: BSDLeagueResult[] } | null
+      const data = (await this._fetch('/v2/leagues/?sport=football&limit=200')) as {
+        results?: BSDLeagueResult[]
+      } | null
       if (data?.results?.length) {
         this._leagueCache = {}
         for (const league of data.results) {
@@ -117,7 +125,7 @@ class BsdService {
     if (!leagueId) return null
     if (this._leagueCache && this._leagueCache[leagueId]) return this._leagueCache[leagueId]
     try {
-      const data = await this._fetch(`/v2/leagues/${leagueId}/`) as { name?: string } | null
+      const data = (await this._fetch(`/v2/leagues/${leagueId}/`)) as { name?: string } | null
       if (data?.name) {
         if (!this._leagueCache) this._leagueCache = {}
         this._leagueCache[leagueId] = data.name
@@ -202,7 +210,9 @@ class BsdService {
   }
 
   async fetchEvents(dateStr: string): Promise<BSDEvent[]> {
-    const data = await this._fetch(`/v2/events/?date_from=${dateStr}&date_to=${dateStr}&limit=200`) as { results?: BSDEvent[] } | null
+    const data = (await this._fetch(
+      `/v2/events/?date_from=${dateStr}&date_to=${dateStr}&limit=200`
+    )) as { results?: BSDEvent[] } | null
     return data?.results || []
   }
 
@@ -210,17 +220,23 @@ class BsdService {
     return await this._fetch(`/v2/events/${matchId}/prediction/`)
   }
 
-  async fetchOdds(matchId: string | number): Promise<{ odds?: { home_win?: number; draw?: number; away_win?: number } } | null> {
-    return await this._fetch(`/v2/events/${matchId}/odds/`) as { odds?: { home_win?: number; draw?: number; away_win?: number } } | null
+  async fetchOdds(
+    matchId: string | number
+  ): Promise<{ odds?: { home_win?: number; draw?: number; away_win?: number } } | null> {
+    return (await this._fetch(`/v2/events/${matchId}/odds/`)) as {
+      odds?: { home_win?: number; draw?: number; away_win?: number }
+    } | null
   }
 
   async fetchUpcomingEvents(): Promise<BSDEvent[]> {
-    const data = await this._fetch('/v2/events/?limit=200') as { results?: BSDEvent[] } | null
+    const data = (await this._fetch('/v2/events/?limit=200')) as { results?: BSDEvent[] } | null
     return data?.results || []
   }
 
   async fetchLiveEvents(): Promise<BSDEvent[]> {
-    const data = await this._fetch('/v2/events/?status=inprogress&limit=50') as { results?: BSDEvent[] } | null
+    const data = (await this._fetch('/v2/events/?status=inprogress&limit=50')) as {
+      results?: BSDEvent[]
+    } | null
     return data?.results || []
   }
 
@@ -267,7 +283,11 @@ class BsdService {
           postponed: 'POSTPONED',
           abandoned: 'abandoned',
         }[rawEventStatus.toLowerCase()] || 'scheduled'
-    } else if (rawEventStatus && typeof rawEventStatus === 'object' && (rawEventStatus as { type?: string }).type) {
+    } else if (
+      rawEventStatus &&
+      typeof rawEventStatus === 'object' &&
+      (rawEventStatus as { type?: string }).type
+    ) {
       status =
         {
           notstarted: 'NOT_STARTED',
@@ -351,7 +371,9 @@ class BsdService {
     const bestAway = oddsData?.odds?.away_win || null
     if (bestHome || bestDraw || bestAway) {
       try {
-        const db = (database as { db?: { prepare: (sql: string) => { run: (...args: unknown[]) => void } } }).db
+        const db = (
+          database as { db?: { prepare: (sql: string) => { run: (...args: unknown[]) => void } } }
+        ).db
         if (db) {
           db.prepare(
             'UPDATE matches SET odds_home = ?, odds_draw = ?, odds_away = ?, insufficient_data = 0 WHERE id = ?'
@@ -363,7 +385,14 @@ class BsdService {
   }
 
   private async _backfillLeagueNames(): Promise<void> {
-    const db = (database as Record<string, unknown>).db as { prepare: (sql: string) => { all: () => Record<string, unknown>[]; run: (...args: unknown[]) => void } } | undefined
+    const db = (database as Record<string, unknown>).db as
+      | {
+          prepare: (sql: string) => {
+            all: () => Record<string, unknown>[]
+            run: (...args: unknown[]) => void
+          }
+        }
+      | undefined
     if (!db) return
     try {
       const unknown = db
@@ -380,9 +409,11 @@ class BsdService {
             leagueName = await this._fetchLeagueName(fd.bsd_league_id)
           }
           if (leagueName) {
-            db
-              .prepare('UPDATE matches SET league = ?, tournament_name = ? WHERE id = ?')
-              .run(leagueName, leagueName, row.id)
+            db.prepare('UPDATE matches SET league = ?, tournament_name = ? WHERE id = ?').run(
+              leagueName,
+              leagueName,
+              row.id
+            )
             fixed++
           }
         } catch (_) {}
@@ -461,7 +492,8 @@ class BsdService {
     }
 
     if (total > 0) {
-      const localDb = (database as Record<string, unknown>).db as { prepare: (sql: string) => { all: () => { id: string }[] } } | undefined
+      const localDb = (database as Record<string, unknown>).db as
+        { prepare: (sql: string) => { all: () => { id: string }[] } } | undefined
       if (localDb) {
         try {
           const matches = localDb
@@ -496,7 +528,14 @@ class BsdService {
 
   async enrichAllMatchesOdds(): Promise<number> {
     if (!this.isAvailable()) return 0
-    const db = (database as Record<string, unknown>).db as { prepare: (sql: string) => { all: () => { id: string; bsd_match_id: string }[]; run: (...args: unknown[]) => void } } | undefined
+    const db = (database as Record<string, unknown>).db as
+      | {
+          prepare: (sql: string) => {
+            all: () => { id: string; bsd_match_id: string }[]
+            run: (...args: unknown[]) => void
+          }
+        }
+      | undefined
     if (!db) return 0
 
     const matches = db

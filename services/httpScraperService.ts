@@ -271,7 +271,7 @@ class HttpScraperService {
     }
 
     // Update scraper progress for status endpoint
-    import {  saveScraperProgress  } from '../core/utils'
+    import { saveScraperProgress } from '../core/utils'
     await saveScraperProgress({
       isRunning: false,
       total: 0,

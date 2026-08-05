@@ -1,9 +1,9 @@
 // @ts-nocheck
-import {  exec, spawn  } from 'child_process'
+import { exec, spawn } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import logger from '../core/logger'
-import {  resolvePython  } from '../core/utils/pythonResolver'
+import { resolvePython } from '../core/utils/pythonResolver'
 const PYTHON = resolvePython()
 
 class AutoHealRemedies {
@@ -28,7 +28,7 @@ class AutoHealRemedies {
           }
         },
         fix: async () => {
-          import {  execSync  } from 'child_process'
+          import { execSync } from 'child_process'
           const pythonScript = path.join(__dirname, '..', 'core', 'fastapi_server.py')
           if (!fs.existsSync(pythonScript))
             return { success: false, detail: 'fastapi_server.py not found' }
@@ -611,7 +611,7 @@ class AutoHealRemedies {
 
             // Clear speed cache
             try {
-              import {  invalidateAll  } from '../core/speedCache'
+              import { invalidateAll } from '../core/speedCache'
               invalidateAll()
               logger.info('🧹 [AUTOHEAL] Speed cache cleared')
             } catch (e) {

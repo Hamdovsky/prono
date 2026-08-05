@@ -36,7 +36,7 @@ export const generateAutoSystem = (basePicks, maxBudget = 100) => {
     }
   }
 
-  let numCols = Math.max(chosen.min, Math.round(fullCols / chosen.divisor))
+  const numCols = Math.max(chosen.min, Math.round(fullCols / chosen.divisor))
   const cost = numCols * COLUMN_PRICE * 1.06
   const columns = generateColumns(basePicks, doubleCount, numCols)
 

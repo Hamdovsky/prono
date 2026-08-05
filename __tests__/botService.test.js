@@ -7,22 +7,20 @@ const botService = require('../services/botService')
 const https = require('https')
 
 jest.mock('../core/database', () => ({
-  getMatchesByStatuses: jest
-    .fn()
-    .mockResolvedValue([
-      {
-        id: 'm1',
-        homeTeam: 'Team A',
-        awayTeam: 'Team B',
-        startTimestamp: Date.now() + 3600000,
-        home_win_probability: 60,
-        away_win_probability: 25,
-        draw_probability: 15,
-        expected_score: '2-0',
-        ou_25_prob: 70,
-        enriched: { confidence: 80 },
-      },
-    ]),
+  getMatchesByStatuses: jest.fn().mockResolvedValue([
+    {
+      id: 'm1',
+      homeTeam: 'Team A',
+      awayTeam: 'Team B',
+      startTimestamp: Date.now() + 3600000,
+      home_win_probability: 60,
+      away_win_probability: 25,
+      draw_probability: 15,
+      expected_score: '2-0',
+      ou_25_prob: 70,
+      enriched: { confidence: 80 },
+    },
+  ]),
 }))
 
 jest.mock('../core/enriched_predictions', () => ({

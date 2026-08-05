@@ -1,7 +1,7 @@
 // @ts-nocheck
 import path from 'path'
 import Database from 'better-sqlite3'
-import {  Pool  } from 'pg'
+import { Pool } from 'pg'
 
 const BASE = path.resolve(__dirname, '..')
 const sqlite = new Database(path.join(BASE, 'data', 'tactical.db'))

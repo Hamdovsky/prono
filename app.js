@@ -150,11 +150,42 @@ try {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'", 'cdn.tailwindcss.com', 'cdnjs.cloudflare.com', 'pagead2.googlesyndication.com', 'googleads.g.doubleclick.net', 'www.googletagservices.com', '*.googlesyndication.com', '*.google.com', '*.g.doubleclick.net'],
-          styleSrc: ["'self'", "'unsafe-inline'", 'fonts.googleapis.com', '*.googlesyndication.com'],
+          scriptSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            'cdn.tailwindcss.com',
+            'cdnjs.cloudflare.com',
+            'pagead2.googlesyndication.com',
+            'googleads.g.doubleclick.net',
+            'www.googletagservices.com',
+            '*.googlesyndication.com',
+            '*.google.com',
+            '*.g.doubleclick.net',
+          ],
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            'fonts.googleapis.com',
+            '*.googlesyndication.com',
+          ],
           fontSrc: ["'self'", 'fonts.gstatic.com'],
-          imgSrc: ["'self'", 'data:', 'https:', '*.googlesyndication.com', '*.doubleclick.net', '*.google.com'],
-          frameSrc: ["'self'", '*.googlesyndication.com', '*.doubleclick.net', '*.google.com', 'pagead2.googlesyndication.com', 'googleads.g.doubleclick.net', 'www.googleservices.com'],
+          imgSrc: [
+            "'self'",
+            'data:',
+            'https:',
+            '*.googlesyndication.com',
+            '*.doubleclick.net',
+            '*.google.com',
+          ],
+          frameSrc: [
+            "'self'",
+            '*.googlesyndication.com',
+            '*.doubleclick.net',
+            '*.google.com',
+            'pagead2.googlesyndication.com',
+            'googleads.g.doubleclick.net',
+            'www.googleservices.com',
+          ],
           connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
         },
       },
@@ -242,11 +273,24 @@ app.get('/api/debug/state', async (req, res) => {
     const dbPath = path.resolve(__dirname, 'data/tactical.db')
     const dbExists = fs.existsSync(dbPath)
     const dbSize = dbExists ? fs.statSync(dbPath).size : -1
-    const dbWritable = dbExists ? (() => { try { fs.accessSync(dbPath, fs.constants.W_OK); return true } catch { return false } })() : false
+    const dbWritable = dbExists
+      ? (() => {
+          try {
+            fs.accessSync(dbPath, fs.constants.W_OK)
+            return true
+          } catch {
+            return false
+          }
+        })()
+      : false
     const countResult = await database.query('SELECT COUNT(*) as c FROM matches')
     const countBefore = countResult?.rows?.[0]?.c || 0
-    const bySource = await database.query('SELECT source, COUNT(*) as c FROM matches GROUP BY source')
-    const byStatus = await database.query('SELECT status, COUNT(*) as c FROM matches GROUP BY status')
+    const bySource = await database.query(
+      'SELECT source, COUNT(*) as c FROM matches GROUP BY source'
+    )
+    const byStatus = await database.query(
+      'SELECT status, COUNT(*) as c FROM matches GROUP BY status'
+    )
     const bsdAvail = bsd.isAvailable()
     let bsdFetch = 'not tested'
     let bsdInsert = 'not tested'
@@ -269,7 +313,20 @@ app.get('/api/debug/state', async (req, res) => {
     } catch (e) {
       bsdFetch = `error: ${e.message}`
     }
-    res.json({ dbMatches: countBefore, dbMatchesAfter: countAfter, dbPath, dbExists, dbSize, dbWritable, bySource: bySource?.rows || [], byStatus: byStatus?.rows || [], bsdAvailable: bsdAvail, bsdKeySet: !!process.env.BSD_API_KEY, bsdFetch, bsdInsert })
+    res.json({
+      dbMatches: countBefore,
+      dbMatchesAfter: countAfter,
+      dbPath,
+      dbExists,
+      dbSize,
+      dbWritable,
+      bySource: bySource?.rows || [],
+      byStatus: byStatus?.rows || [],
+      bsdAvailable: bsdAvail,
+      bsdKeySet: !!process.env.BSD_API_KEY,
+      bsdFetch,
+      bsdInsert,
+    })
   } catch (e) {
     res.json({ error: e.message })
   }
@@ -282,6 +339,7 @@ app.get('/metrics', async (req, res) => {
 
 app.get('/api/diag', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   const db = database.db
+  const bsdService = require('./services/bsdService')
   async function q(sql) {
     try {
       const r = await db?.prepare(sql).all()
@@ -727,7 +785,9 @@ app.post(
       fs.writeFileSync(tmp, JSON.stringify(payload, null, 2))
       fs.renameSync(tmp, dest)
       // Invalide le cache en mémoire du service dédié si chargé.
-      try { require('./services/fbrefService').invalidatePushedCache() } catch (_) {}
+      try {
+        require('./services/fbrefService').invalidatePushedCache()
+      } catch (_) {}
       logger.info('[API] fbref xG ingested', { keys: Object.keys(leagues) })
       return res.status(200).json({ success: true, leagues: Object.keys(leagues), updatedAt: now })
     } catch (e) {
@@ -1089,7 +1149,8 @@ app.get('/api/upcoming', async (req, res) => {
     for (const m of cleanMatches) {
       const league = (m.league || m.tournament_name || '').toLowerCase()
       const isLowData = /friendly|friendlies|club friendly/.test(league)
-      const hasProbs = parseFloat(m.btts_prob || 0) > 0 || parseFloat(m.home_win_probability || 0) > 0
+      const hasProbs =
+        parseFloat(m.btts_prob || 0) > 0 || parseFloat(m.home_win_probability || 0) > 0
       if (isLowData && !hasProbs) {
         try {
           const body = JSON.stringify({
@@ -1350,8 +1411,6 @@ app.get('/api/local/all', async (req, res) => {
   }
 })
 
-
-
 const publicPath = path.normalize(path.join(__dirname, 'dist'))
 const indexHtmlPath = path.join(publicPath, 'index.html')
 
@@ -1380,7 +1439,9 @@ app.get(/^(?!\/api|\/socket\.io).*/, (req, res) => {
     let html = require('fs').readFileSync(indexHtmlPath, 'utf8')
     // Remove crossorigin from same-origin tags (causes CORS issues with module scripts)
     // Remove crossorigin from same-origin tags (src/href starts with /)
-    html = html.replace(/(<(?:script|link)(?=[^>]*(?:src|href)\s*=\s*"\/))[^>]*>/gi, (m) => m.replace(/\s+crossorigin(?:=["'][^"']*["'])?/gi, ''))
+    html = html.replace(/(<(?:script|link)(?=[^>]*(?:src|href)\s*=\s*"\/))[^>]*>/gi, (m) =>
+      m.replace(/\s+crossorigin(?:=["'][^"']*["'])?/gi, '')
+    )
     // Replace module script with inline dynamic import
     const moduleMatch = html.match(/<script\s+type="module"[^>]*src="([^"]+)"[^>]*><\/script>/)
     if (moduleMatch) {

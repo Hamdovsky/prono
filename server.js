@@ -5,6 +5,7 @@ if (process.env.NODE_ENV !== 'production') {
 const http = require('http')
 const logger = require('./core/logger')
 const PORT = process.env.PORT || 10000
+const startupBootstrap = require('./core/startupBootstrap')
 
 // ── Immediate health-check HTTP server (responds BEFORE Express loads) ──
 const server = http.createServer((req, res) => {
@@ -31,12 +32,14 @@ server.listen(PORT, '0.0.0.0', () => {
 
 // ── Safety timeout: force startServer() after 3 min no matter what ──
 const SAFETY_TIMEOUT_MS = 180000
-let safetyTimer = setTimeout(() => {
+const safetyTimer = setTimeout(() => {
   logger.warn(`[SAFETY] ${SAFETY_TIMEOUT_MS / 1000}s elapsed — forcing startServer()`)
-  server._expressApp = server._expressApp || ((req, res) => {
-    res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '15' })
-    res.end(JSON.stringify({ error: 'Titanium AI startup delayed', retryAfter: 15 }))
-  })
+  server._expressApp =
+    server._expressApp ||
+    ((req, res) => {
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '15' })
+      res.end(JSON.stringify({ error: 'Titanium AI startup delayed', retryAfter: 15 }))
+    })
   if (!server.listening) startServer()
 }, SAFETY_TIMEOUT_MS)
 
@@ -47,7 +50,6 @@ setTimeout(async () => {
     server._expressApp = app
 
     const memoryManager = require('./core/memoryManager')
-    const startupBootstrap = require('./core/startupBootstrap')
     const apiKeysValidator = require('./core/apiKeysValidator')
     const apiSourceRegistry = require('./core/apiSourceRegistry')
     const enrichmentCycle = require('./core/enrichmentCycle')
@@ -173,7 +175,11 @@ setTimeout(async () => {
         }, 15000)
 
         // ── Cron schedules ──
-        try { cronSchedules.init() } catch (e) { logger.warn(`[CRON] Schedules init error: ${e.message}`) }
+        try {
+          cronSchedules.init()
+        } catch (e) {
+          logger.warn(`[CRON] Schedules init error: ${e.message}`)
+        }
 
         // ── Auto-enrich after cloud seed (batched to avoid OOM on free tier) ──
         process.env.ENRICH_CONCURRENCY = '8'
@@ -182,7 +188,12 @@ setTimeout(async () => {
 
         async function enrichBatch(batchSize) {
           const enrichedPredictions = require('./core/enriched_predictions')
-          const matches = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
+          const matches = await database.getMatchesByStatuses([
+            'scheduled',
+            'upcoming',
+            'NOT_STARTED',
+            'NS',
+          ])
           if (matches.length === 0) return 0
           const batch = matches.slice(0, batchSize)
           logger.info(`[AUTO-ENRICH] Batch: ${batch.length}/${matches.length} matches...`)
@@ -228,7 +239,12 @@ setTimeout(async () => {
 
         setTimeout(async function runEnrichBatches() {
           try {
-            const remaining = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
+            const remaining = await database.getMatchesByStatuses([
+              'scheduled',
+              'upcoming',
+              'NOT_STARTED',
+              'NS',
+            ])
             if (remaining.length === 0) {
               logger.info(`[AUTO-ENRICH] All matches enriched, stopping.`)
               return
@@ -284,7 +300,9 @@ setTimeout(async () => {
     clearTimeout(safetyTimer)
     server._expressApp = (req, res) => {
       res.writeHead(503, { 'Content-Type': 'application/json', 'Retry-After': '30' })
-      res.end(JSON.stringify({ error: 'Express failed to load: ' + expressErr.message, retryAfter: 30 }))
+      res.end(
+        JSON.stringify({ error: 'Express failed to load: ' + expressErr.message, retryAfter: 30 })
+      )
     }
     if (!server.listening) startServer()
   }
@@ -386,10 +404,13 @@ setTimeout(() => {
     // Generate hash-based synthetic odds (deterministic per match)
     const str = `${m.homeTeam || 'Home'}_vs_${m.awayTeam || 'Away'}_${m.league || ''}`
     let hash = 0
-    for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash = hash & hash }
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i)
+      hash = hash & hash
+    }
     const seed = Math.abs(hash) / 2147483647
-    const seed2 = (((hash >> 8) & 0xff) / 255)
-    
+    const seed2 = ((hash >> 8) & 0xff) / 255
+
     // Use real odds if available, otherwise synthetic
     let xgH, xgA
     if (m.odds_home && m.odds_draw && m.odds_away && !m._oddsAreSynthetic) {
@@ -397,17 +418,22 @@ setTimeout(() => {
       const oh = parseFloat(m.odds_home)
       const od = parseFloat(m.odds_draw)
       const oa = parseFloat(m.odds_away)
-      const ph = 1 / oh, pd = 1 / od, pa = 1 / oa
+      const ph = 1 / oh,
+        pd = 1 / od,
+        pa = 1 / oa
       const sum = ph + pd + pa
-      const nh = ph / sum, na = pa / sum
+      const nh = ph / sum,
+        na = pa / sum
       xgH = Math.max(0.5, Math.min(3.5, nh * 4.0))
       xgA = Math.max(0.5, Math.min(3.5, na * 4.0))
     } else {
       // Synthetic odds fallback
-      const hp = 0.30 + (seed * 0.25)  // narrower range for more realistic odds
-      const dp = 0.18 + (seed2 * 0.16)
+      const hp = 0.3 + seed * 0.25 // narrower range for more realistic odds
+      const dp = 0.18 + seed2 * 0.16
       const ap = Math.max(0.08, 1 - hp - dp)
-      const odH = hp / 1.05, odD = dp / 1.05, odA = ap / 1.05
+      const odH = hp / 1.05,
+        odD = dp / 1.05,
+        odA = ap / 1.05
       const oSum = odH + odD + odA
       xgH = Math.max(0.5, Math.min(3.5, (odH / oSum) * 4.0))
       xgA = Math.max(0.5, Math.min(3.5, (odA / oSum) * 4.0))
@@ -444,8 +470,13 @@ setTimeout(() => {
 
   async function runLoop() {
     try {
-      const matches = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
-      const unenriched = matches.filter(m => {
+      const matches = await database.getMatchesByStatuses([
+        'scheduled',
+        'upcoming',
+        'NOT_STARTED',
+        'NS',
+      ])
+      const unenriched = matches.filter((m) => {
         const hw = parseFloat(m.home_win_probability || 0)
         const aw = parseFloat(m.away_win_probability || 0)
         // Re-enrich matches that were enriched with old dispersion (ai_source === 'TITANIUM_QUANT_V4' but BTTS < 35 or extreme probs)
@@ -474,7 +505,9 @@ setTimeout(() => {
           // skip individual failure
         }
       }
-      logger.info(`[INDEPENDENT-ENRICH] Saved ${saved}/${batch.length} (remaining: ${unenriched.length - batch.length})`)
+      logger.info(
+        `[INDEPENDENT-ENRICH] Saved ${saved}/${batch.length} (remaining: ${unenriched.length - batch.length})`
+      )
       setTimeout(runLoop, 5000) // next batch in 5s
     } catch (e) {
       logger.warn(`[INDEPENDENT-ENRICH] Error: ${e.message}`)

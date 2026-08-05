@@ -3,6 +3,7 @@ const fs = require('fs')
 const path = require('path')
 const router = express.Router()
 const db = require('../core/database')
+const MarketSensorService = require('../services/MarketSensorService')
 
 /**
  * GET /api/evolution/accuracy/trend

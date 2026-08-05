@@ -132,7 +132,7 @@ const TrackRecord = ({ matches, onClose }) => {
       if (!isFinished(m)) return
       const score = getScore(m)
       if (!score) return
-      let pick = extractPick(m)
+      const pick = extractPick(m)
       if (isNonStandard(pick)) return
       const market = classifyMarket(pick)
       const isWin = evaluatePick(pick, score)

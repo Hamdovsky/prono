@@ -3,7 +3,7 @@ import axios from 'axios'
 import Parser from 'rss-parser'
 import retry from 'async-retry'
 import logger from '../core/logger'
-import {  pooledConfig  } from '../core/networkConfig'
+import { pooledConfig } from '../core/networkConfig'
 const parser = new Parser()
 
 /**

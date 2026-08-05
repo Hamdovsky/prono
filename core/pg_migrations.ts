@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {  getPool, usingPostgres, query  } from './pg_connector'
+import { getPool, usingPostgres, query } from './pg_connector'
 import logger from './logger'
 
 const MIGRATIONS_TABLE_SQL = `
@@ -532,9 +532,10 @@ async function runMigrations() {
     }
 
     // ── Diagnostic permissions ─────────────────────────────────
+    let currentUser = 'unknown'
     try {
       const userRes = await query('SELECT current_user AS u, session_user AS s')
-      const currentUser = userRes.rows?.[0]?.u || 'unknown'
+      currentUser = userRes.rows?.[0]?.u || 'unknown'
       logger.info(`[PG MIGRATIONS] Connected as: ${currentUser}`)
     } catch (_) {}
 

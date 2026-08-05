@@ -73,7 +73,7 @@ const SmartSelector = {
    */
   getUniqueSelector: (el) => {
     if (el.id) return `#${el.id}`
-    let path = []
+    const path = []
     while (el.nodeType === Node.ELEMENT_NODE) {
       let selector = el.nodeName.toLowerCase()
       if (el.className) {

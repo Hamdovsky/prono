@@ -6,7 +6,7 @@ import shieldEngine from '../core/shieldEngine'
 import mlPredictionService from '../services/mlPredictionService'
 import configEngine from '../core/configEngine'
 import securityEngine from '../core/securityEngine'
-import {  speedCache  } from '../core/speedCache'
+import { speedCache } from '../core/speedCache'
 import logger from '../core/logger'
 
 /**
@@ -14,7 +14,7 @@ import logger from '../core/logger'
  */
 router.get('/health/full', async (req, res) => {
   try {
-    import {  getFullHealth  } from '../services/healthDashboard'
+    import { getFullHealth } from '../services/healthDashboard'
     const health = await getFullHealth()
     res.json(health)
   } catch (e) {
@@ -203,7 +203,7 @@ router.get('/status', async (req, res) => {
 router.get('/rapidapi/status', (req, res) => {
   try {
     import rapidApiQuotaManager from '../services/rapidApiQuotaManager'
-    import {  createQuotaManager  } from '../services/sourceQuotaManager'
+    import { createQuotaManager } from '../services/sourceQuotaManager'
     const fdQuotaManager = createQuotaManager('footballdata')
     res.json({
       success: true,
@@ -316,7 +316,7 @@ router.post('/sentiment', localOnlyOrAuth, async (req, res) => {
 
 router.post('/system/clear-cache', localOnlyOrAuth, async (req, res) => {
   try {
-    import {  invalidateCache  } from '../core/speedCache'
+    import { invalidateCache } from '../core/speedCache'
     invalidateCache('upcoming')
     res.json({ success: true, message: 'Cache invalidated' })
   } catch (err) {
@@ -368,7 +368,7 @@ router.get('/db-stats', async (req, res) => {
  */
 router.post('/seed', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
-    import {  runCloudSeed  } from '../core/cloudSeed'
+    import { runCloudSeed } from '../core/cloudSeed'
     res.json({
       success: true,
       message: 'Seed started in background. Check /api/db-stats in ~2 min.',
@@ -417,7 +417,7 @@ router.get('/league-params', async (req, res) => {
  */
 router.post('/calibrate', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
-    import {  calibrate  } from '../services/leagueCalibrator'
+    import { calibrate } from '../services/leagueCalibrator'
     res.json({ success: true, message: 'Calibration started in background (~30s)' })
     setImmediate(async () => {
       try {
@@ -437,7 +437,7 @@ router.post('/calibrate', securityEngine.authenticate.bind(securityEngine), asyn
  */
 router.post('/seed/purge', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
-    import {  purgeFakeMatches  } from '../core/cloudSeed'
+    import { purgeFakeMatches } from '../core/cloudSeed'
     const removed = await purgeFakeMatches()
     res.json({ success: true, removed })
   } catch (e) {
@@ -579,7 +579,7 @@ router.post('/sync-matches', express.json({ limit: '50mb' }), async (req, res) =
  */
 router.get('/backtest', async (req, res) => {
   try {
-    import {  runBacktest  } from '../services/backtestEngine'
+    import { runBacktest } from '../services/backtestEngine'
     const options = {
       limit: parseInt(req.query.limit) || 500,
       league: req.query.league || '',
@@ -596,7 +596,7 @@ router.get('/backtest', async (req, res) => {
  */
 router.post('/value-scan', async (req, res) => {
   try {
-    import {  scanAll  } from '../services/valueScanner'
+    import { scanAll } from '../services/valueScanner'
     const { matches, predictions } = req.body
     if (!matches || !predictions) {
       return res.status(400).json({ success: false, error: 'Requires matches[] and predictions{}' })
@@ -613,7 +613,7 @@ router.post('/value-scan', async (req, res) => {
  */
 router.get('/db-stats/extended', async (req, res) => {
   try {
-    import {  query  } from '../core/pg_connector'
+    import { query } from '../core/pg_connector'
     const tables = [
       'soccer_fixtures',
       'soccer_match_stats',
@@ -641,7 +641,7 @@ router.get('/db-stats/extended', async (req, res) => {
  */
 router.get('/staking/stats', (req, res) => {
   try {
-    import {  globalOptimizer  } from '../services/stakingOptimizer'
+    import { globalOptimizer } from '../services/stakingOptimizer'
     res.json({ success: true, stats: globalOptimizer.getStats() })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
@@ -653,7 +653,7 @@ router.get('/staking/stats', (req, res) => {
  */
 router.post('/staking/record', (req, res) => {
   try {
-    import {  globalOptimizer  } from '../services/stakingOptimizer'
+    import { globalOptimizer } from '../services/stakingOptimizer'
     const { match, prediction, stake, won, profit } = req.body
     const stats = globalOptimizer.recordBet(match, prediction, stake, won, profit)
     res.json({ success: true, stats })
@@ -753,8 +753,8 @@ router.post(
     try {
       import database from '../core/database'
       import enrichedPredictions from '../core/enriched_predictions'
-      import {  scanAll  } from '../services/valueScanner'
-      import {  globalOptimizer  } from '../services/stakingOptimizer'
+      import { scanAll } from '../services/valueScanner'
+      import { globalOptimizer } from '../services/stakingOptimizer'
 
       const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
       if (!matches || matches.length === 0)

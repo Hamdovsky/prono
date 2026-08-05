@@ -6,7 +6,8 @@ const dbDir = path.dirname(dbPath)
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true })
 }
-import BetterSqlite3 from "better-sqlite3"; const db = BetterSqlite3(dbPath)
+import BetterSqlite3 from 'better-sqlite3'
+const db = BetterSqlite3(dbPath)
 import logger from '../core/logger'
 
 class QuantRiskService {

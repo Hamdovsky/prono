@@ -28,7 +28,7 @@ const httpsAgent = new https.Agent(options)
  * Note: undici is required for modern fetch dispatchers.
  * We'll lazy-load it to avoid breaking processes that don't have it.
  */
-let undiciAgent = null
+const undiciAgent = null
 
 function getUndiciAgent() {
   return null // Undici removed due to Node 20 global fetch conflicts

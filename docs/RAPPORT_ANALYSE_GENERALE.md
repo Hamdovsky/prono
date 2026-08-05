@@ -281,12 +281,13 @@ git rm -r --cached tools/git/
 **Impact** : Confusion développeurs, onboarding difficile
 
 **Divergences détectées** :
-| Doc | Réel | Statut |
-|-----|------|--------|
-| README : `--max-old-space-size=256` | `package.json : 512` | 🟡 Divergence |
-| ARCHITECTURE : Puppeteer présent | `package.json` : Absent | ✅ OK (cohérent) |
-| ARCHITECTURE : PM2/Prometheus | Repo : Non configuré | 🟡 Doc obsolète |
-| README : "Généré le 10 Juin 2026" | Date future | 🟡 Typo |
+
+| Doc                                 | Réel                    | Statut           |
+| ----------------------------------- | ----------------------- | ---------------- |
+| README : `--max-old-space-size=256` | `package.json : 512`    | 🟡 Divergence    |
+| ARCHITECTURE : Puppeteer présent    | `package.json` : Absent | ✅ OK (cohérent) |
+| ARCHITECTURE : PM2/Prometheus       | Repo : Non configuré    | 🟡 Doc obsolète  |
+| README : "Généré le 10 Juin 2026"   | Date future             | 🟡 Typo          |
 
 **Action requise** :
 

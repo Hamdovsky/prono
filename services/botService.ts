@@ -7,9 +7,9 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') })
 import expertEngine from './expertEngine'
 import smartComboEngine from './SmartComboEngine'
 import logger from '../core/logger'
-import {  runDailyMegaPronostic  } from '../scripts/daily_mega_pronostic'
-import {  runAutoRetrain  } from '../scripts/auto_retrain_worker'
-import {  getDailyDraws  } from '../scripts/daily_draws'
+import { runDailyMegaPronostic } from '../scripts/daily_mega_pronostic'
+import { runAutoRetrain } from '../scripts/auto_retrain_worker'
+import { getDailyDraws } from '../scripts/daily_draws'
 import liveGoalPredictor from './LiveGoalPredictor'
 import bankrollService from './bankrollService'
 function getBankrollData() {
@@ -180,7 +180,7 @@ class BotService {
       chatId
     )
     try {
-      import {  runSurgicalElite50  } from '../scripts/surgical_elite_50'
+      import { runSurgicalElite50 } from '../scripts/surgical_elite_50'
       await runSurgicalElite50(true) // true = send alerts via botService
     } catch (e) {
       console.error('Bot Elite50 Error:', e.message)
@@ -1399,7 +1399,7 @@ class BotService {
       chatId
     )
     try {
-      import {  runAutoRetrain  } from '../scripts/auto_retrain_worker'
+      import { runAutoRetrain } from '../scripts/auto_retrain_worker'
       const result = await runAutoRetrain()
       this._executeSend(
         `🧠 <b>LEARNING COMPLETE</b>\n\n${result.message}\n\n<i>Titanium AI is now smarter.</i>`,

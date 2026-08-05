@@ -3,7 +3,7 @@ import axios from 'axios'
 import database from '../core/database'
 import logger from '../core/logger'
 import enrichedPredictions from '../core/enriched_predictions'
-import {  createQuotaManager  } from './sourceQuotaManager'
+import { createQuotaManager } from './sourceQuotaManager'
 
 class FootballDataService {
   constructor() {

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import path from 'path'
 import Database from 'better-sqlite3'
-import {  execSync  } from 'child_process'
+import { execSync } from 'child_process'
 import logger from '../core/logger'
 
 const MODEL_PATH = path.join(__dirname, '..', 'models', 'promosport_xgb.json')

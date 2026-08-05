@@ -279,7 +279,10 @@ class FbrefService {
       const n = this._normalizeName(s.team)
       if (!n) continue
       // 1) exact match
-      if (n === q) { best = s; break }
+      if (n === q) {
+        best = s
+        break
+      }
       // 2) every query word is a prefix of the team's i-th word
       //    => "man city" matches "manchester city", "man utd" matches "manchester utd"
       const nWords = n.split(' ')
@@ -314,24 +317,29 @@ class FbrefService {
     const l = String(leagueName || '').toLowerCase()
     if (!l) return null
     if (l.includes('championship') && !l.includes('champions league')) return 'CHAMPIONSHIP'
-    if (l.includes('eredivisie') || l.includes('netherlands') || l.includes('holland')) return 'EREDIVISIE'
+    if (l.includes('eredivisie') || l.includes('netherlands') || l.includes('holland'))
+      return 'EREDIVISIE'
     if (l.includes('primeira') || l.includes('portugal')) return 'LIGA_PORTUGAL'
     if (l.includes('mls') || l.includes('major league soccer')) return 'MLS'
     if (l.includes('brasileir') || l.includes('brazil')) return 'BRASILEIRAO'
     if (l.includes('ligue 1') || l.includes('ligue one') || l.includes('france')) return 'LIGUE_1'
     if (l.includes('ligue 2') || l.includes('france 2')) return 'LIGUE_2'
-    if (l.includes('premier league') || (l.includes('england') && !l.includes('championship'))) return 'PL'
+    if (l.includes('premier league') || (l.includes('england') && !l.includes('championship')))
+      return 'PL'
     if (l.includes('champions league') || l.includes('uefa champions')) return 'CHAMPIONS_LEAGUE'
     if (l.includes('europa league') || l.includes('uefa europa')) return 'EUROPA_LEAGUE'
     if (l.includes('serie b')) return 'SERIE_B'
-    if (l.includes('bundesliga 2') || l.includes('bundesliga two') || l.includes('2. bundesliga')) return 'BUNDESLIGA_2'
-    if (l.includes('la liga 2') || l.includes('segunda division') || l.includes('segunda')) return 'LA_LIGA_2'
+    if (l.includes('bundesliga 2') || l.includes('bundesliga two') || l.includes('2. bundesliga'))
+      return 'BUNDESLIGA_2'
+    if (l.includes('la liga 2') || l.includes('segunda division') || l.includes('segunda'))
+      return 'LA_LIGA_2'
     if (l.includes('la liga') || l.includes('laliga') || l.includes('spain')) return 'LA_LIGA'
     if (l.includes('serie a') || (l.includes('italy') && !l.includes('serie b'))) return 'SERIE_A'
     if (l.includes('bundesliga') && !l.includes('2')) return 'BUNDESLIGA'
     if (l.includes('scottish premiership') || l.includes('scotland')) return 'SCOTTISH_PREMIERSHIP'
     if (l.includes('j1 league') || l.includes('j.league') || l.includes('japan')) return 'J_LEAGUE'
-    if (l.includes('k league 1') || l.includes('k-league') || l.includes('korea')) return 'K_LEAGUE_1'
+    if (l.includes('k league 1') || l.includes('k-league') || l.includes('korea'))
+      return 'K_LEAGUE_1'
     if (l.includes('allsvenskan') || l.includes('sweden')) return 'ALLSVENSKAN'
     if (l.includes('eliteserien') || l.includes('norway')) return 'ELITESERIEN'
     if (l.includes('super lig') || l.includes('turkish') || l.includes('turkey')) return 'SUPER_LIG'

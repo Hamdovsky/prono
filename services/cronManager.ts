@@ -1,20 +1,20 @@
 // @ts-nocheck
 import cron from 'node-cron'
-import {  spawn  } from 'child_process'
+import { spawn } from 'child_process'
 import path from 'path'
 import logger from '../core/logger'
 import database from '../core/database'
 import redisCache from './redisCache'
 import workerBridge from './workerBridge'
-import {  runAnalysis  } from '../scripts/today_analysis'
+import { runAnalysis } from '../scripts/today_analysis'
 import promosportResultService from './promosportResultService'
-import {  snapshotOdds  } from './oddsMovementService'
+import { snapshotOdds } from './oddsMovementService'
 import autoArchiver from './autoArchiver'
 import retroSync from './retroSyncService'
 import adaptiveLearning from './adaptiveLearningEngine'
 import enrichedPredictions from '../core/enriched_predictions'
-import {  runAutoRetrain, runV56Retrain  } from '../scripts/auto_retrain_worker'
-import {  invalidateCache  } from '../core/speedCache'
+import { runAutoRetrain, runV56Retrain } from '../scripts/auto_retrain_worker'
+import { invalidateCache } from '../core/speedCache'
 
 class CronManager {
   constructor() {
@@ -78,9 +78,7 @@ class CronManager {
           [path.join(__dirname, '..', 'scripts', 'online_learning_update.js')],
           { stdio: 'inherit', windowsHide: true }
         )
-        proc.on('close', (code) =>
-          logger.info(`✅ [CRON] Online Learning finished (code ${code})`)
-        )
+        proc.on('close', (code) => logger.info(`✅ [CRON] Online Learning finished (code ${code})`))
       },
       { timezone: 'Africa/Tunis' }
     )
@@ -217,7 +215,7 @@ class CronManager {
       async () => {
         logger.info('?? [CRON] Launching Weekly XGBoost TITANIUM V3 Retrain...')
         try {
-          import {  runV56Retrain  } from '../scripts/auto_retrain_worker'
+          import { runV56Retrain } from '../scripts/auto_retrain_worker'
           const res = await runV56Retrain()
           if (res.success) {
             logger.info(`? [CRON] TITANIUM V3 retrained: ${res.message}`)
@@ -368,7 +366,7 @@ class CronManager {
       '0 5 * * 0',
       () => {
         logger.info('🚀 [CRON] Launching Weekly Live Goal Model Retrain...')
-        import {  runLiveModelRetrain  } from '../scripts/auto_retrain_worker'
+        import { runLiveModelRetrain } from '../scripts/auto_retrain_worker'
         runLiveModelRetrain().then((res) => {
           if (res.success) {
             logger.info('✅ [CRON] Live goal model retrained successfully')
@@ -666,12 +664,12 @@ class CronManager {
       async () => {
         logger.info('[CRON] Launching weekly Promosport XGBoost retrain...')
         const scriptsDir = path.join(__dirname, '..', 'scripts')
-        import {  resolvePython  } from '../core/utils/pythonResolver'
+        import { resolvePython } from '../core/utils/pythonResolver'
         const pythonCmd = resolvePython()
 
         // Guard: check dataset before retrain
         try {
-          import {  guardRetrain  } from path.join(scriptsDir, 'promosport_guards.js')
+          const { guardRetrain } = await import(path.join(scriptsDir, 'promosport_guards.js'))
           const guard = guardRetrain()
           if (!guard.allowed) {
             logger.warn(`[CRON] Retrain blocked by guard: ${guard.reason}`)
@@ -684,7 +682,7 @@ class CronManager {
 
         // Backup DB before retrain
         try {
-          import {  backupDatabase  } from path.join(scriptsDir, 'auto_save_db.js')
+          const { backupDatabase } = await import(path.join(scriptsDir, 'auto_save_db.js'))
           backupDatabase()
         } catch (_) {}
 
@@ -808,7 +806,7 @@ class CronManager {
       async () => {
         logger.info('[CRON] Starting Promosport Tunisie crowd scrape...')
         try {
-          import {  execSync  } from 'child_process'
+          import { execSync } from 'child_process'
           const scriptsDir = path.join(__dirname, '..', 'scripts')
           const nodeCmd = process.platform === 'win32' ? 'node.exe' : 'node'
           execSync(`${nodeCmd} "${path.join(scriptsDir, 'crowd_collector.js')}" collect-latest`, {
@@ -832,7 +830,7 @@ class CronManager {
           const scriptsDir = path.join(__dirname, '..', 'scripts')
           const detectScript = path.join(scriptsDir, 'detect_new_concours.js')
           if (require('fs').existsSync(detectScript)) {
-            import detector from detectScript
+            const { default: detector } = await import(detectScript)
             const result = await detector.detectNewConcours()
             if (result && result.found) {
               logger.info(`[CRON] New concours detected: ${result.concoursNumber}`)
@@ -857,8 +855,8 @@ class CronManager {
       async () => {
         logger.info('[CRON] Taking Promosport accuracy snapshot...')
         try {
-          import {  saveSnapshot  } from 
-            path.join(__dirname, '..', 'scripts', 'accuracy_snapshot.js'
+          const { saveSnapshot } = await import(
+            path.join(__dirname, '..', 'scripts', 'accuracy_snapshot.js')
           )
           const entry = saveSnapshot()
           if (entry)
@@ -876,8 +874,8 @@ class CronManager {
       async () => {
         logger.info('[CRON] Running Promosport weekly benchmark...')
         try {
-          import {  runBenchmark  } from 
-            path.join(__dirname, '..', 'scripts', 'weekly_benchmark.js'
+          const { runBenchmark } = await import(
+            path.join(__dirname, '..', 'scripts', 'weekly_benchmark.js')
           )
           const result = runBenchmark()
           if (result)
@@ -897,8 +895,8 @@ class CronManager {
       async () => {
         logger.info('[CRON] Backing up Promosport database...')
         try {
-          import {  backupDatabase  } from 
-            path.join(__dirname, '..', 'scripts', 'auto_save_db.js'
+          const { backupDatabase } = await import(
+            path.join(__dirname, '..', 'scripts', 'auto_save_db.js')
           )
           backupDatabase()
         } catch (e) {
@@ -914,8 +912,8 @@ class CronManager {
       async () => {
         logger.info('[CRON] Pruning old DB backups...')
         try {
-          import {  pruneOldBackups  } from 
-            path.join(__dirname, '..', 'scripts', 'auto_save_db.js'
+          const { pruneOldBackups } = await import(
+            path.join(__dirname, '..', 'scripts', 'auto_save_db.js')
           )
           pruneOldBackups(30)
         } catch (e) {

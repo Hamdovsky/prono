@@ -75,7 +75,13 @@ class DataFusionService {
     // Souces probabilistically-derived odds (xG / prediction-margin) are NOT real
     // bookmaker quotes. They must not be treated as "real odds" for value/honesty.
     const BOOKMAKER_SOURCES = new Set([
-      'bsd', 'therundown', 'footballdata', 'apifootball', 'oddspapi', 'sportmonks', 'oddsapiio',
+      'bsd',
+      'therundown',
+      'footballdata',
+      'apifootball',
+      'oddspapi',
+      'sportmonks',
+      'oddsapiio',
     ])
 
     for (const source of sorted) {

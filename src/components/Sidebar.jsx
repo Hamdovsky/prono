@@ -149,9 +149,12 @@ const Sidebar = ({
     }
 
     if (activeDate === 'Today' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd())) return
-    if (activeDate === 'Tomorrow' && (dateMs < getLocalDayStart(1) || dateMs > getLocalDayEnd(1))) return
-    if (activeDate === 'Next 3 Days' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd(3))) return
-    if (activeDate === 'Next 7 Days' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd(7))) return
+    if (activeDate === 'Tomorrow' && (dateMs < getLocalDayStart(1) || dateMs > getLocalDayEnd(1)))
+      return
+    if (activeDate === 'Next 3 Days' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd(3)))
+      return
+    if (activeDate === 'Next 7 Days' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd(7)))
+      return
 
     const l = (m.league || 'Unknown').toLowerCase()
     activeCounts[l] = (activeCounts[l] || 0) + 1

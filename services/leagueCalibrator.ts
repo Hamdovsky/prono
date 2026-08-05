@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {  Pool  } from 'pg'
+import { Pool } from 'pg'
 import logger from '../core/logger'
 
 const pool = new Pool({

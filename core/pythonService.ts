@@ -55,7 +55,9 @@ class PythonService {
       return true
     } catch (e: unknown) {
       if (!this._notified) {
-        logger.info(`⏳ [PythonService] FastAPI not reachable at ${FASTAPI_URL} (${(e as Error).message})`)
+        logger.info(
+          `⏳ [PythonService] FastAPI not reachable at ${FASTAPI_URL} (${(e as Error).message})`
+        )
         this._notified = true
       }
       this.isReady = false
@@ -88,7 +90,10 @@ class PythonService {
         )
       }
       if (axiosErr.response?.data) {
-        return { success: false, error: axiosErr.response.data.detail || axiosErr.message || String(error) }
+        return {
+          success: false,
+          error: axiosErr.response.data.detail || axiosErr.message || String(error),
+        }
       }
       return { success: false, error: axiosErr.message || String(error) }
     }

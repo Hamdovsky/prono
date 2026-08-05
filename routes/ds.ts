@@ -5,7 +5,7 @@ import path from 'path'
 const router = express.Router()
 import logger from '../core/logger'
 import database from '../core/database'
-import {  loadAccuracyLog  } from '../scripts/today_analysis'
+import { loadAccuracyLog } from '../scripts/today_analysis'
 
 const MODELS_DIR = path.join(__dirname, '..', 'models')
 const ARCHIVE_DIR = path.join(MODELS_DIR, 'archive')

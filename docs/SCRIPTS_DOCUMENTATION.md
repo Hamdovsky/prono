@@ -572,6 +572,7 @@ node scripts/sync_accuracy_git.js [baseUrl]
 ```
 
 Ce que fait le script :
+
 1. `GET /api/evolution/accuracy/trend` → écrit `data/promosport_accuracy_trend.json`
 2. `GET /api/accuracy` → résume (lecture seule, `accuracy_log.json` est ignoré
    par `.gitignore`)

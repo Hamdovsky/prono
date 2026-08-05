@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import path from 'path'
 import axios from 'axios'
 import fs from 'fs'
-import {  SofaAPI  } from '../SofascoreScraping/src/apiClient'
+import { SofaAPI } from '../SofascoreScraping/src/apiClient'
 
 // 🛡️ CONFIGURATION TITANIUM
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN

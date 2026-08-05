@@ -11,7 +11,7 @@
  *   - Si la confiance est haute mais la ligue est instable → veto
  *   - Track le Brier score en temps réel pour chaque modèle
  */
-import {  query  } from './pg_connector'
+import { query } from './pg_connector'
 import logger from './logger'
 
 const TRACKING_KEY = 'confluence_accuracy'

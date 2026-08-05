@@ -5,7 +5,13 @@ import logger from './logger'
 interface ConfigData {
   SOURCE_MODE: string
   scraperUrl: string
-  thresholds: { min_confidence: number; max_odds: number; cards: number; corners: number; goals: number }
+  thresholds: {
+    min_confidence: number
+    max_odds: number
+    cards: number
+    corners: number
+    goals: number
+  }
   scraper: { timeout: number; retries: number }
   autoPurge: boolean
   strategy: string

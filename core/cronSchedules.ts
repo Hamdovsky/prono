@@ -9,7 +9,7 @@ function scheduleDailyReport() {
   const delay = target.getTime() - now.getTime()
   setTimeout(async () => {
     try {
-      import {  execSync  } from 'child_process'
+      import { execSync } from 'child_process'
       const report = execSync('node scripts/daily_health_report.js', {
         timeout: 30000,
         encoding: 'utf-8',
@@ -30,7 +30,7 @@ function scheduleDailyBackup() {
   const delay = target.getTime() - now.getTime()
   setTimeout(async () => {
     try {
-      import {  execSync  } from 'child_process'
+      import { execSync } from 'child_process'
       const result = execSync('node scripts/auto_backup_db.js', {
         timeout: 60000,
         encoding: 'utf-8',
@@ -53,7 +53,7 @@ function scheduleWeeklyRetrain() {
   const delay = target.getTime() - now.getTime()
   setTimeout(async () => {
     try {
-      import {  execSync  } from 'child_process'
+      import { execSync } from 'child_process'
       const result = execSync('node scripts/auto_retrain_worker.js', {
         timeout: 300000,
         encoding: 'utf-8',
@@ -74,7 +74,7 @@ function scheduleDailyAutoBacktest() {
   const delay = target.getTime() - now.getTime()
   setTimeout(async () => {
     try {
-      import {  runAutoBacktest  } from '../services/autoBacktestService'
+      import { runAutoBacktest } from '../services/autoBacktestService'
       const result = await runAutoBacktest()
       logger.info(
         '[AUTO-BACKTEST] Daily result:\n' +

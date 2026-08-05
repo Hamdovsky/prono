@@ -1,9 +1,9 @@
 // @ts-nocheck
 import axios from 'axios'
-import {  spawn  } from 'child_process'
+import { spawn } from 'child_process'
 import path from 'path'
-import {  pooledConfig  } from '../core/networkConfig'
-import {  resolvePython  } from '../core/utils/pythonResolver'
+import { pooledConfig } from '../core/networkConfig'
+import { resolvePython } from '../core/utils/pythonResolver'
 const PYTHON_BIN = resolvePython()
 
 class TacticalService {

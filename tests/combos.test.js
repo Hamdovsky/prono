@@ -4,7 +4,7 @@ const request = require('supertest')
 jest.mock('../services/comboService', () => ({
   getTodayCombos: jest.fn(),
   refreshCombos: jest.fn(),
-  loadHistory: jest.fn()
+  loadHistory: jest.fn(),
 }))
 
 const comboService = require('../services/comboService')
@@ -17,14 +17,16 @@ beforeAll(() => {
   app.use('/api/combos', combosRouter)
 })
 
-afterEach(() => { jest.restoreAllMocks() })
+afterEach(() => {
+  jest.restoreAllMocks()
+})
 
 describe('Combos Routes', () => {
   describe('GET /api/combos', () => {
     it('returns today combos as flat array', async () => {
       const mockCombos = [
         { id: 1, homeTeam: 'Arsenal', awayTeam: 'Chelsea', prediction: '1' },
-        { id: 2, homeTeam: 'Barcelona', awayTeam: 'Real Madrid', prediction: 'X' }
+        { id: 2, homeTeam: 'Barcelona', awayTeam: 'Real Madrid', prediction: 'X' },
       ]
       jest.spyOn(comboService, 'getTodayCombos').mockResolvedValue(mockCombos)
 
@@ -87,7 +89,7 @@ describe('Combos Routes', () => {
     it('returns combo history', async () => {
       const history = [
         { date: '2025-06-01', combos: [{ id: 1 }] },
-        { date: '2025-05-31', combos: [{ id: 2 }] }
+        { date: '2025-05-31', combos: [{ id: 2 }] },
       ]
       jest.spyOn(comboService, 'loadHistory').mockResolvedValue(history)
 

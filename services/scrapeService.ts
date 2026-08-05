@@ -21,7 +21,7 @@
 
 import https from 'https'
 import http from 'http'
-import {  spawn  } from 'child_process'
+import { spawn } from 'child_process'
 import path from 'path'
 import scraperProxy from './scraperProxy'
 

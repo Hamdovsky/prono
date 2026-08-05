@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {  getRandomUserAgent  } from '../SofascoreScraping/src/apiClient'
+import { getRandomUserAgent } from '../SofascoreScraping/src/apiClient'
 import logger from '../core/logger'
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'

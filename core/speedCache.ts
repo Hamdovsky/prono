@@ -28,7 +28,11 @@ function clearCache(): void {
   CACHE_STORE.clear()
 }
 
-function speedCache(key: string, ttlMs: number = 60_000, staleMs: number = 300_000): RequestHandler {
+function speedCache(
+  key: string,
+  ttlMs: number = 60_000,
+  staleMs: number = 300_000
+): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
     const cacheKey = `${key}:${req.originalUrl}`
     const now = Date.now()
@@ -46,7 +50,8 @@ function speedCache(key: string, ttlMs: number = 60_000, staleMs: number = 300_0
         res.json(cached.data)
         if (!_revalidating.has(cacheKey)) {
           _revalidating.add(cacheKey)
-          const route = (req as unknown as { route?: { stack: { handle?: RequestHandler }[] } }).route
+          const route = (req as unknown as { route?: { stack: { handle?: RequestHandler }[] } })
+            .route
           const stack = route?.stack
           const realHandler = stack && stack.length > 1 ? stack[stack.length - 1].handle : null
           if (realHandler) {
@@ -56,11 +61,21 @@ function speedCache(key: string, ttlMs: number = 60_000, staleMs: number = 300_0
                 CACHE_STORE.set(cacheKey, { data: body, timestamp: Date.now() })
                 _revalidating.delete(cacheKey)
               },
-              status(_code: number) { return this },
-              set() { return this },
-              send(body: unknown) { this.json(body) },
-              get() { return this },
-              header() { return this },
+              status(_code: number) {
+                return this
+              },
+              set() {
+                return this
+              },
+              send(body: unknown) {
+                this.json(body)
+              },
+              get() {
+                return this
+              },
+              header() {
+                return this
+              },
             } as unknown as Response
             try {
               realHandler(req, fakeRes, () => {})
@@ -104,7 +119,10 @@ speedCache.wrap = function wrap(key: string, ttlMs: number = 60_000) {
       const cached = CACHE_STORE.get(cacheKey)
       if (cached && now - cached.timestamp < ttlMs) return cached.data
       const result = fn(...args)
-      const data = result && typeof (result as Promise<unknown>).then === 'function' ? await (result as Promise<unknown>) : result
+      const data =
+        result && typeof (result as Promise<unknown>).then === 'function'
+          ? await (result as Promise<unknown>)
+          : result
       evictIfNeeded()
       CACHE_STORE.set(cacheKey, { data, timestamp: Date.now() })
       return data
@@ -113,7 +131,9 @@ speedCache.wrap = function wrap(key: string, ttlMs: number = 60_000) {
 
 speedCache.cache = {
   clear: () => CACHE_STORE.clear(),
-  get size() { return CACHE_STORE.size },
+  get size() {
+    return CACHE_STORE.size
+  },
   has: (k: string) => CACHE_STORE.has(k),
 }
 

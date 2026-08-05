@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {  query, usingPostgres  } from '../core/pg_connector'
+import { query, usingPostgres } from '../core/pg_connector'
 import logger from '../core/logger'
 
 const TABLE = 'scraped_odds'

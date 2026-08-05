@@ -26,14 +26,18 @@ jest.mock('ioredis', () => {
 })
 
 // Mock redis-memory-server
-jest.mock('redis-memory-server', () => ({
-  RedisMemoryServer: jest.fn().mockImplementation(() => ({
-    getHost: jest.fn().mockResolvedValue('127.0.0.1'),
-    getPort: jest.fn().mockResolvedValue(6379),
-    start: jest.fn().mockResolvedValue(undefined),
-    stop: jest.fn().mockResolvedValue(undefined),
-  })),
-}), { virtual: true })
+jest.mock(
+  'redis-memory-server',
+  () => ({
+    RedisMemoryServer: jest.fn().mockImplementation(() => ({
+      getHost: jest.fn().mockResolvedValue('127.0.0.1'),
+      getPort: jest.fn().mockResolvedValue(6379),
+      start: jest.fn().mockResolvedValue(undefined),
+      stop: jest.fn().mockResolvedValue(undefined),
+    })),
+  }),
+  { virtual: true }
+)
 
 // Mock fs - use jest.requireActual inside factory to avoid scope violation
 const mockFs = () => {

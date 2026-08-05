@@ -1,5 +1,5 @@
 // @ts-nocheck
-import fs from fs/promises
+import fs from 'fs/promises'
 import path from 'path'
 import logger from '../core/logger'
 import database from '../core/database'

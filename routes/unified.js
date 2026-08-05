@@ -12,7 +12,12 @@ router.get('/verdicts', async (req, res) => {
   try {
     const dateStr = req.query.date || new Date().toISOString().split('T')[0]
     const matches = await database.getMatchesByDate(dateStr)
-    const enriched = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
+    const enriched = await database.getMatchesByStatuses([
+      'scheduled',
+      'upcoming',
+      'NOT_STARTED',
+      'NS',
+    ])
 
     const allMatches = matches.length > 0 ? matches : enriched
     if (!allMatches || allMatches.length === 0) {
@@ -41,14 +46,29 @@ router.get('/verdicts', async (req, res) => {
  */
 router.get('/daily-sheet', async (req, res) => {
   try {
-    const matches = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
+    const matches = await database.getMatchesByStatuses([
+      'scheduled',
+      'upcoming',
+      'NOT_STARTED',
+      'NS',
+    ])
     const sheet = UnifiedEngine.buildDailySheet(matches)
-    const date = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    const date = new Date().toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
 
     let rows = ''
     for (const v of sheet.verdicts) {
-      const valBadge = v.value && v.value.ev > 2 ? `<span style="background:#00c853;color:#000;padding:2px 6px;border-radius:4px;font-size:11px">EV+${v.value.ev}%</span>` : ''
-      const trapBadge = v.trap ? `<span style="background:#ff1744;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px">PIEGE</span>` : ''
+      const valBadge =
+        v.value && v.value.ev > 2
+          ? `<span style="background:#00c853;color:#000;padding:2px 6px;border-radius:4px;font-size:11px">EV+${v.value.ev}%</span>`
+          : ''
+      const trapBadge = v.trap
+        ? `<span style="background:#ff1744;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px">PIEGE</span>`
+        : ''
       const kellyInfo = v.kelly > 0 ? ` | Kelly: ${v.kelly}%` : ''
       rows += `<tr>
         <td style="padding:6px 8px;border-bottom:1px solid #eee">${v.home}</td>
@@ -91,7 +111,7 @@ router.get('/daily-sheet', async (req, res) => {
     <div class="stat"><div class="num">${solidCount}</div><div class="label">💎 Solides</div></div>
     <div class="stat"><div class="num">${valueCount}</div><div class="label">🔥 Value Bets</div></div>
     <div class="stat"><div class="num">${trapCount}</div><div class="label">🚨 Pièges</div></div>
-    <div class="stat"><div class="num">${sheet.verdicts.filter(v => v.kelly > 0).length}</div><div class="label">💰 Kelly > 0</div></div>
+    <div class="stat"><div class="num">${sheet.verdicts.filter((v) => v.kelly > 0).length}</div><div class="label">💰 Kelly > 0</div></div>
   </div>
   <table>
     <thead><tr>
@@ -116,7 +136,12 @@ router.get('/daily-sheet', async (req, res) => {
  */
 router.get('/alerts', async (req, res) => {
   try {
-    const matches = await database.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
+    const matches = await database.getMatchesByStatuses([
+      'scheduled',
+      'upcoming',
+      'NOT_STARTED',
+      'NS',
+    ])
     const sheet = UnifiedEngine.buildDailySheet(matches)
 
     const alerts = []

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import pythonService from '../core/pythonService'
 import logger from '../core/logger'
-import {  getCache, setCache  } from '../core/redisClient'
+import { getCache, setCache } from '../core/redisClient'
 
 // TTL in seconds for Redis (3 minutes)
 const PREDICTION_CACHE_TTL_SEC = 3 * 60

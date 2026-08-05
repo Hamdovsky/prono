@@ -5,7 +5,14 @@ import database from '../core/database'
 
 router.post('/score-update', async (req: Request, res: Response) => {
   try {
-    const { matchId, homeScore, awayScore, league, status = 'live', minute } = req.body as {
+    const {
+      matchId,
+      homeScore,
+      awayScore,
+      league,
+      status = 'live',
+      minute,
+    } = req.body as {
       matchId?: string
       homeScore?: number
       awayScore?: number

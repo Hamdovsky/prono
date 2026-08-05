@@ -2,7 +2,7 @@
 import axios from 'axios'
 import database from './database'
 import logger from './logger'
-import {  createQuotaManager  } from '../services/sourceQuotaManager'
+import { createQuotaManager } from '../services/sourceQuotaManager'
 import rapidApiQuotaManager from '../services/rapidApiQuotaManager'
 import bsdService from '../services/bsdService'
 import therundownService from '../services/therundownService'
@@ -633,14 +633,14 @@ async function runCloudSeed() {
 
   // Auto-calibrate league params after seeding (non-blocking)
   try {
-    import {  calibrate  } from '../services/leagueCalibrator'
+    import { calibrate } from '../services/leagueCalibrator'
     calibrate().catch((e) => logger.warn(`[CALIBRATE] Auto-calibration error: ${e.message}`))
   } catch (e) {}
 
   // Backfill des cotes sur les matchs LiveScore (opt-in, non-bloquant)
   if (process.env.ODDS_BACKFILL_ENABLED === 'true') {
     try {
-      import {  backfillOdds  } from './oddsBackfill'
+      import { backfillOdds } from './oddsBackfill'
       backfillOdds().catch((e) => logger.warn(`[ODDS-BACKFILL] Erreur: ${e.message}`))
     } catch (e) {}
   }

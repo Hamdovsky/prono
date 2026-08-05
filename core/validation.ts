@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {  body, validationResult  } from 'express-validator'
+import { body, validationResult } from 'express-validator'
 
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req)

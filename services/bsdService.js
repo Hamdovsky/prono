@@ -143,15 +143,21 @@ class BsdService {
           // 5xx — transient. Retry with backoff, do NOT blacklist the session.
           if (attempts < maxAttempts) {
             const backoff = [500, 1000, 2000][Math.min(attempts - 1, 2)]
-            logger.warn(`[BSD] 5xx (${status}) sur ${endpoint} — retry ${attempts}/${maxAttempts - 1} dans ${backoff}ms`)
+            logger.warn(
+              `[BSD] 5xx (${status}) sur ${endpoint} — retry ${attempts}/${maxAttempts - 1} dans ${backoff}ms`
+            )
             await new Promise((r) => setTimeout(r, backoff))
             continue
           }
-          logger.error(`❌ [BSD] Erreur ${status} sur (${endpoint}) après ${maxAttempts} tentatives.`)
+          logger.error(
+            `❌ [BSD] Erreur ${status} sur (${endpoint}) après ${maxAttempts} tentatives.`
+          )
           return null
         }
         if (status === 403) {
-          logger.error(`🔴 [BSD] ERREUR 403 — Accès refusé (clé sans permission ou compte suspendu)`)
+          logger.error(
+            `🔴 [BSD] ERREUR 403 — Accès refusé (clé sans permission ou compte suspendu)`
+          )
           return null
         }
         if (!err.response) {
@@ -231,7 +237,9 @@ class BsdService {
   }
 
   async fetchOdds(matchId) {
-    const data = await this._fetch(`/odds/?event_id=${matchId}&market=1x2&bookmaker=consensus&limit=3`)
+    const data = await this._fetch(
+      `/odds/?event_id=${matchId}&market=1x2&bookmaker=consensus&limit=3`
+    )
     if (!data?.results) return null
     const odds = { home: null, draw: null, away: null }
     for (const r of data.results) {

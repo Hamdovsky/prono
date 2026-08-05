@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {  spawn, exec  } from 'child_process'
+import { spawn, exec } from 'child_process'
 import path from 'path'
 
 const SERVER_SCRIPT = path.join(__dirname, 'server.js')

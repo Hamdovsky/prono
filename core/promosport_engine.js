@@ -40,6 +40,22 @@ function fallbackProbsFromStatisticalEngine(match) {
   }
 }
 
+function xgToProbs(xgH, xgA) {
+  try {
+    const probs = StatisticalEngine.calculatePoissonProbs(
+      parseFloat(xgH) || 1.2,
+      parseFloat(xgA) || 1.0,
+      {}
+    )
+    const { win } = probs || {}
+    if (!win) return { p1: 0.424, px: 0.259, p2: 0.317 }
+    const sum = win.home + win.draw + win.away || 1
+    return { p1: win.home / sum, px: win.draw / sum, p2: win.away / sum }
+  } catch (e) {
+    return { p1: 0.424, px: 0.259, p2: 0.317 }
+  }
+}
+
 /**
  * Deterministic pseudo-random number based on a string seed.
  * Returns a float in [0, 1) — STABLE for the same seed (no Math.random()).
@@ -171,16 +187,20 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
 
           // ── BSD Cross-Validation ──────────────────────────────
           let bsdOdds = null
-          let bsdP1 = null, bsdPx = null, bsdP2 = null
+          let bsdP1 = null,
+            bsdPx = null,
+            bsdP2 = null
           let bsdVsCrowdDelta = 0
           try {
             bsdOdds = await db.getMatchByTeams(m.homeTeam, m.awayTeam)
             if (bsdOdds && bsdOdds.odds_home && bsdOdds.odds_draw && bsdOdds.odds_away) {
-              const oh = bsdOdds.odds_home, od = bsdOdds.odds_draw, oa = bsdOdds.odds_away
+              const oh = bsdOdds.odds_home,
+                od = bsdOdds.odds_draw,
+                oa = bsdOdds.odds_away
               const vig = 1 / oh + 1 / od + 1 / oa
-              bsdP1 = (1 / oh) / vig
-              bsdPx = (1 / od) / vig
-              bsdP2 = (1 / oa) / vig
+              bsdP1 = 1 / oh / vig
+              bsdPx = 1 / od / vig
+              bsdP2 = 1 / oa / vig
               bsdVsCrowdDelta = Math.max(
                 Math.abs((m.homeWinProbability || 0.33) / 100 - bsdP1),
                 Math.abs((m.awayWinProbability || 0.34) / 100 - bsdP2)
@@ -430,10 +450,12 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
   gridConfigs.forEach((_, gi) => {
     let candidateIds = [...coreDoubles, ...mediumAssignments[gi].map((idx) => mediumPool[idx])]
     // Rank candidates by uncertainty (keep most uncertain)
-    const ranked = candidateIds.map(id => ({ id, u: rankedByUncertainty.find(r => r.id === id)?.uncertainty || 0 })).sort((a, b) => b.u - a.u)
+    const ranked = candidateIds
+      .map((id) => ({ id, u: rankedByUncertainty.find((r) => r.id === id)?.uncertainty || 0 }))
+      .sort((a, b) => b.u - a.u)
     const maxD = gridConfigs[gi]?.doubles ?? 6
     if (ranked.length > maxD) {
-      candidateIds = ranked.slice(0, maxD).map(r => r.id)
+      candidateIds = ranked.slice(0, maxD).map((r) => r.id)
     }
     gridDoubleMap[gi] = candidateIds
   })
@@ -475,7 +497,8 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
       let choices = []
 
       // Primary Selection based on Bias
-      const bsdFav = m.bsdP1 !== null ? (m.bsdP1 > m.bsdP2 ? '1' : m.bsdP2 > m.bsdP1 ? '2' : 'X') : null
+      const bsdFav =
+        m.bsdP1 !== null ? (m.bsdP1 > m.bsdP2 ? '1' : m.bsdP2 > m.bsdP1 ? '2' : 'X') : null
       const crowdFav = m.crowdP1 > m.crowdP2 ? '1' : m.crowdP2 > m.crowdP1 ? '2' : 'X'
       if (config.bias === 'safe') {
         const max = Math.max(m.p1, m.px, m.p2)
@@ -611,7 +634,9 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
 
         // If BSD recommends a specific outcome, prioritize it
         if (m.bsdRecommended && alternatives.includes(m.bsdRecommended)) {
-          alternatives.sort((a, b) => (a === m.bsdRecommended ? 1 : 0) - (b === m.bsdRecommended ? 1 : 0))
+          alternatives.sort(
+            (a, b) => (a === m.bsdRecommended ? 1 : 0) - (b === m.bsdRecommended ? 1 : 0)
+          )
         } else {
           alternatives.sort((a, b) => mlProbs[b] - mlProbs[a])
         }
@@ -637,9 +662,10 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
     if ((highObstacleRisk && obs.avgScore > 4.0) || m.bsdVsCrowdTrap) {
       const antiCrowdMatch = grids[1].matches[mi]
       const current = antiCrowdMatch.choices[0]
-      const alt = m.bsdRecommended && m.bsdRecommended !== current
-        ? m.bsdRecommended
-        : ['1', 'X', '2'].filter((p) => p !== current)[0]
+      const alt =
+        m.bsdRecommended && m.bsdRecommended !== current
+          ? m.bsdRecommended
+          : ['1', 'X', '2'].filter((p) => p !== current)[0]
       if (antiCrowdMatch.choices.length === 1 && alt) {
         // If the trap is critical (BSD detected), add a double instead of flipping
         if (m.bsdVsCrowdTrap || (highObstacleRisk && obs.avgScore > 4.5)) {
@@ -660,7 +686,11 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
       // Also force double on EDGE OPTIMIZED only if critical BSD trap
       if (m.bsdVsCrowdTrap) {
         const edgeMatch = grids[0].matches[mi]
-        if (edgeMatch.choices.length === 1 && m.bsdRecommended && m.bsdRecommended !== edgeMatch.choices[0]) {
+        if (
+          edgeMatch.choices.length === 1 &&
+          m.bsdRecommended &&
+          m.bsdRecommended !== edgeMatch.choices[0]
+        ) {
           edgeMatch.choices.push(m.bsdRecommended)
           edgeMatch.diversified = true
         }

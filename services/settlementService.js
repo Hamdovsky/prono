@@ -108,8 +108,7 @@ function classifyMarket(prediction) {
  */
 function extractMainPick(row) {
   try {
-    const fd =
-      typeof row.fullData === 'string' ? JSON.parse(row.fullData) : row.fullData || {}
+    const fd = typeof row.fullData === 'string' ? JSON.parse(row.fullData) : row.fullData || {}
     const q = fd.quant || fd.enriched?.quant || {}
     const pick = (q.main_pick || fd.main_pick || '').toString().trim().toUpperCase()
     if (pick && pick !== 'PENDING' && pick !== 'UNDER ANALYSIS') return pick
@@ -160,7 +159,9 @@ async function settleFinishedMatches(force = false) {
         // 🎯 REAL pick: quant.main_pick from fullData (combo DC / O0.5 / …)
         const mainPick = extractMainPick(row)
         let evalPick = mainPick || row.prediction
-        let result = evalPick ? evaluatePrediction(evalPick, scoreHome, scoreAway, row.ou_25_prob) : null
+        let result = evalPick
+          ? evaluatePrediction(evalPick, scoreHome, scoreAway, row.ou_25_prob)
+          : null
 
         // If no primary prediction, infer ONLY from real probabilities (>0),
         // never fabricate a '1' when there is no data at all.
@@ -188,7 +189,9 @@ async function settleFinishedMatches(force = false) {
           } catch (_) {}
           // Reset any phantom settlement (from legacy forced-'1' logic)
           try {
-            db.prepare('UPDATE matches SET "result" = NULL, "settled_at" = NULL WHERE id = ?').run(row.id)
+            db.prepare('UPDATE matches SET "result" = NULL, "settled_at" = NULL WHERE id = ?').run(
+              row.id
+            )
           } catch (_) {}
           results.skipped++
           continue

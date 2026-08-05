@@ -86,7 +86,7 @@ const MegaTicket1000 = ({ matches }) => {
     // Sort by confidence descending (most confident first)
     upcoming = [...upcoming].sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
 
-    let selections = []
+    const selections = []
     let totalMultiplier = 1.0
     let globalProb = 1.0
     const TARGET = levels[riskLevel].target

@@ -93,12 +93,14 @@ const ODDS_SOURCES = [
   },
   {
     name: 'bsd',
-    available: () => bsdService.isAvailable() && typeof bsdService.fetchEventsWithOdds === 'function',
+    available: () =>
+      bsdService.isAvailable() && typeof bsdService.fetchEventsWithOdds === 'function',
     fetch: (dateStr) => bsdService.fetchEventsWithOdds(dateStr),
   },
   {
     name: 'oddsapiio',
-    available: () => oddsApiIoService.isAvailable() && typeof oddsApiIoService.fetchEventsWithOdds === 'function',
+    available: () =>
+      oddsApiIoService.isAvailable() && typeof oddsApiIoService.fetchEventsWithOdds === 'function',
     fetch: (dateStr) => oddsApiIoService.fetchEventsWithOdds(dateStr),
   },
 ]

@@ -94,7 +94,7 @@ class SimulationEngine {
   }
 
   _poissonRandom(lambda) {
-    let L = Math.exp(-lambda)
+    const L = Math.exp(-lambda)
     let p = 1.0
     let k = 0
     do {

@@ -43,13 +43,23 @@ function pickWon(pick: string, sh: number, sa: number): boolean {
 function getOddsForPick(match: Record<string, unknown>, pick: string): number {
   const p = (pick || '').toString().trim().toUpperCase()
   if (p === '1' || p === 'HOME')
-    return parseFloat((match.odds_home || match.best_odds_home || match.display_odds_home || 0) as string)
+    return parseFloat(
+      (match.odds_home || match.best_odds_home || match.display_odds_home || 0) as string
+    )
   if (p === '2' || p === 'AWAY')
-    return parseFloat((match.odds_away || match.best_odds_away || match.display_odds_away || 0) as string)
+    return parseFloat(
+      (match.odds_away || match.best_odds_away || match.display_odds_away || 0) as string
+    )
   if (p === 'X' || p === 'DRAW') return parseFloat((match.odds_draw || 0) as string)
   if (p === '1X' || p === 'X2' || p === '12') {
-    const h = parseFloat((match.odds_home || match.best_odds_home || match.display_odds_home || 2) as string) || 2
-    const a = parseFloat((match.odds_away || match.best_odds_away || match.display_odds_away || 2) as string) || 2
+    const h =
+      parseFloat(
+        (match.odds_home || match.best_odds_home || match.display_odds_home || 2) as string
+      ) || 2
+    const a =
+      parseFloat(
+        (match.odds_away || match.best_odds_away || match.display_odds_away || 2) as string
+      ) || 2
     const d = parseFloat((match.odds_draw || 3) as string) || 3
     if (p === '1X') {
       const prob = 1 / h + 1 / d
@@ -69,7 +79,9 @@ function getOddsForPick(match: Record<string, unknown>, pick: string): number {
 
 router.get('/elite-tracker', async (_req: Request, res: Response) => {
   try {
-    const db = (database as unknown as { db: { prepare: (sql: string) => { all: () => MatchRow[] } } }).db
+    const db = (
+      database as unknown as { db: { prepare: (sql: string) => { all: () => MatchRow[] } } }
+    ).db
     const rows = db
       .prepare(
         'SELECT * FROM historical_matches WHERE scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY archived_at DESC LIMIT 100'
@@ -85,7 +97,9 @@ router.get('/elite-tracker', async (_req: Request, res: Response) => {
       } catch (_) {
         continue
       }
-      const quant = (fullData.quant || (fullData.enriched as Record<string, unknown> | undefined)?.quant || {}) as Record<string, unknown>
+      const quant = (fullData.quant ||
+        (fullData.enriched as Record<string, unknown> | undefined)?.quant ||
+        {}) as Record<string, unknown>
       const pick = (quant.main_pick || fullData.main_pick || fullData.pick) as string | undefined
       if (!pick) continue
 
@@ -144,8 +158,30 @@ router.get('/elite-tracker', async (_req: Request, res: Response) => {
       total_staked: totalStaked,
       total_returned: Math.round(totalReturned * 100) / 100,
       by_signal: {
-        solid: { count: solidMatches.length, roi: solidMatches.length > 0 ? Math.round(((solidMatches.reduce((s, m) => (m.result === 'won' ? s + m.odds : s), 0) - solidMatches.length) / solidMatches.length) * 10000) / 100 : 0 },
-        value_bet: { count: vbMatches.length, roi: vbMatches.length > 0 ? Math.round(((vbMatches.reduce((s, m) => (m.result === 'won' ? s + m.odds : s), 0) - vbMatches.length) / vbMatches.length) * 10000) / 100 : 0 },
+        solid: {
+          count: solidMatches.length,
+          roi:
+            solidMatches.length > 0
+              ? Math.round(
+                  ((solidMatches.reduce((s, m) => (m.result === 'won' ? s + m.odds : s), 0) -
+                    solidMatches.length) /
+                    solidMatches.length) *
+                    10000
+                ) / 100
+              : 0,
+        },
+        value_bet: {
+          count: vbMatches.length,
+          roi:
+            vbMatches.length > 0
+              ? Math.round(
+                  ((vbMatches.reduce((s, m) => (m.result === 'won' ? s + m.odds : s), 0) -
+                    vbMatches.length) /
+                    vbMatches.length) *
+                    10000
+                ) / 100
+              : 0,
+        },
         dynamic: { count: matches.filter((m) => m.signal === 'DYNAMIC').length },
       },
       matches,

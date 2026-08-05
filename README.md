@@ -53,6 +53,7 @@ Système de prédiction football de nouvelle génération combinant XGBoost, Mon
 ## ✨ Features
 
 ### 🔮 Prédictions
+
 - **Prédiction 1X2** avec XGBoost entraîné sur 5000+ matchs historiques
 - **Under/Over 2.5** & **BTTS** via Poisson + Monte Carlo
 - **Marchés dynamiques** (HT O0.5, HT O1.5, HT BTTS, Double Chance)
@@ -61,12 +62,14 @@ Système de prédiction football de nouvelle génération combinant XGBoost, Mon
 - **Confluence Guard** : triple validation XGBoost + Poisson + Market
 
 ### 🔴 Live
+
 - **Matchs en direct** multi-source (BSD -> SportScore -> SportSRC)
 - **Prédiction de buts live** (modèle XGBoost AUC 0.88-0.92)
 - **Logging des prédictions** pour amélioration continue
 - **Fallback** matchs à venir quand aucun live
 
 ### 🧠 Apprentissage Automatique
+
 - **Adaptive Learning Engine** : autopsie des erreurs, correction des poids par ligue
 - **Evolution Layer** : base de connaissance des échecs (19 taxonomies)
 - **Apprentissage adversaire** : champion vs challenger, auto-promotion
@@ -74,6 +77,7 @@ Système de prédiction football de nouvelle génération combinant XGBoost, Mon
 - **Retrain automatique** mensuel (XGBoost) + hebdomadaire (live)
 
 ### 📊 Dashboard
+
 - **Matchs du jour** avec prédictions enrichies
 - **LiveLab** : analyse temps réel des matchs en direct
 - **Evolution Dashboard** : visualisation des patterns d'échecs
@@ -81,6 +85,7 @@ Système de prédiction football de nouvelle génération combinant XGBoost, Mon
 - **System Intelligence** : métriques globales
 
 ### 🤖 Automatisation
+
 - **AutoHeal Agent** : patrouille toutes les 30min, détection/résolution automatique
 - **AutoArchiver** : archivage des matchs terminés
 - **Cron Manager** : tâches planifiées (analyse, scraping, retrain)
@@ -91,47 +96,50 @@ Système de prédiction football de nouvelle génération combinant XGBoost, Mon
 ## 🛠 Stack Technique
 
 ### Backend (Node.js)
-| Technologie | Version | Utilisation |
-|------------|---------|-------------|
-| Node.js | 18+ | Runtime |
-| Express | 5 | API REST |
-| Socket.IO | 4 | Temps réel |
-| better-sqlite3 | - | Base SQLite |
-| ioredis | - | Cache Redis |
-| node-cron | - | Planification |
-| axios | - | HTTP client |
+
+| Technologie    | Version | Utilisation   |
+| -------------- | ------- | ------------- |
+| Node.js        | 18+     | Runtime       |
+| Express        | 5       | API REST      |
+| Socket.IO      | 4       | Temps réel    |
+| better-sqlite3 | -       | Base SQLite   |
+| ioredis        | -       | Cache Redis   |
+| node-cron      | -       | Planification |
+| axios          | -       | HTTP client   |
 
 ### Frontend (React)
-| Technologie | Version | Utilisation |
-|------------|---------|-------------|
-| React | 19 | UI |
-| Vite | 7 | Build |
-| Tailwind CSS | 3 | Styles |
-| Socket.IO Client | - | Temps réel |
+
+| Technologie      | Version | Utilisation |
+| ---------------- | ------- | ----------- |
+| React            | 19      | UI          |
+| Vite             | 7       | Build       |
+| Tailwind CSS     | 3       | Styles      |
+| Socket.IO Client | -       | Temps réel  |
 
 ### ML/AI (Python)
-| Technologie | Version | Utilisation |
-|------------|---------|-------------|
-| FastAPI | - | Serveur d'inférence |
-| XGBoost | 2.1 | Modèle principal |
-| scikit-learn | - | Feature engineering |
-| numpy | - | Calculs matriciels |
-| Optuna | - | Hyperparameter tuning |
+
+| Technologie  | Version | Utilisation           |
+| ------------ | ------- | --------------------- |
+| FastAPI      | -       | Serveur d'inférence   |
+| XGBoost      | 2.1     | Modèle principal      |
+| scikit-learn | -       | Feature engineering   |
+| numpy        | -       | Calculs matriciels    |
+| Optuna       | -       | Hyperparameter tuning |
 
 ---
 
 ## 📡 Sources de Données
 
-| Source | API | Limite | Coût | Données |
-|--------|-----|--------|------|---------|
-| **BSD** | REST | Illimité | Gratuit | Fixtures, odds, stats, prédictions |
-| **SportScore** | REST | 10k req/j | Gratuit | Live scores, matchs à venir |
-| **SportSRC** | REST | 1k req/j | Gratuit | Live scores, streams |
-| **PredixSport** | REST | 200/mois | Gratuit | Prédictions top-5 ligues |
-| **Big Balls Data** | REST | 1000/j | Gratuit | xG, stats, lineups |
-| **API-Football** | REST | 100/j | Gratuit | Fixtures, H2H, odds |
-| **Odds-API.io** | REST | 100/h | Gratuit | Odds backup |
-| **OpenWeatherMap** | REST | 60/min | Gratuit | Météo |
+| Source             | API  | Limite    | Coût    | Données                            |
+| ------------------ | ---- | --------- | ------- | ---------------------------------- |
+| **BSD**            | REST | Illimité  | Gratuit | Fixtures, odds, stats, prédictions |
+| **SportScore**     | REST | 10k req/j | Gratuit | Live scores, matchs à venir        |
+| **SportSRC**       | REST | 1k req/j  | Gratuit | Live scores, streams               |
+| **PredixSport**    | REST | 200/mois  | Gratuit | Prédictions top-5 ligues           |
+| **Big Balls Data** | REST | 1000/j    | Gratuit | xG, stats, lineups                 |
+| **API-Football**   | REST | 100/j     | Gratuit | Fixtures, H2H, odds                |
+| **Odds-API.io**    | REST | 100/h     | Gratuit | Odds backup                        |
+| **OpenWeatherMap** | REST | 60/min    | Gratuit | Météo                              |
 
 ---
 
@@ -193,63 +201,68 @@ Verdict + Confiance + Score attendu
 ## 🧩 Modules Système
 
 ### Core (Python)
-| Module | Rôle |
-|--------|------|
-| `prediction_engine.py` | Moteur de prédiction principal (2850+ lignes) |
-| `ml_features.py` | Extraction de 115+ features |
-| `train_v24_top_analyst.py` | Entraînement XGBoost V24 |
-| `train_live_model.py` | Entraînement modèle live goal |
-| `live_goal_predictor.py` | Inférence live goal |
-| `fastapi_server.py` | Serveur FastAPI |
+
+| Module                     | Rôle                                          |
+| -------------------------- | --------------------------------------------- |
+| `prediction_engine.py`     | Moteur de prédiction principal (2850+ lignes) |
+| `ml_features.py`           | Extraction de 115+ features                   |
+| `train_v24_top_analyst.py` | Entraînement XGBoost V24                      |
+| `train_live_model.py`      | Entraînement modèle live goal                 |
+| `live_goal_predictor.py`   | Inférence live goal                           |
+| `fastapi_server.py`        | Serveur FastAPI                               |
 
 ### Services (Node.js)
-| Service | Rôle |
-|---------|------|
-| `bsdService.js` | API BSD (fixtures, odds, stats) |
-| `predixSportService.js` | API PredixSport |
-| `bigBallsDataService.js` | API Big Balls Data |
-| `liveMatchService.js` | Polling multi-source live |
-| `LiveGoalPredictor.js` | Prédiction de buts live |
-| `adaptiveLearningEngine.js` | Apprentissage adaptatif |
-| `EvolutionEngine.js` | Base d'intelligence des échecs |
-| `autoHealAgent.js` | Patrouille auto-réparation |
-| `socketService.js` | Broadcast Socket.IO |
+
+| Service                     | Rôle                            |
+| --------------------------- | ------------------------------- |
+| `bsdService.js`             | API BSD (fixtures, odds, stats) |
+| `predixSportService.js`     | API PredixSport                 |
+| `bigBallsDataService.js`    | API Big Balls Data              |
+| `liveMatchService.js`       | Polling multi-source live       |
+| `LiveGoalPredictor.js`      | Prédiction de buts live         |
+| `adaptiveLearningEngine.js` | Apprentissage adaptatif         |
+| `EvolutionEngine.js`        | Base d'intelligence des échecs  |
+| `autoHealAgent.js`          | Patrouille auto-réparation      |
+| `socketService.js`          | Broadcast Socket.IO             |
 
 ---
 
 ## 🌐 APIs & Routes
 
 ### Frontend
-| Route | Vue |
-|-------|-----|
-| `/` | Dashboard prédictions |
-| `/accuracy` | Précision |
-| `/evolution` | Evolution Layer |
-| `/grids` | Grilles "hot" |
-| `/bets` | Suivi de paris |
-| `/training` | Entraînement des modèles |
+
+| Route        | Vue                      |
+| ------------ | ------------------------ |
+| `/`          | Dashboard prédictions    |
+| `/accuracy`  | Précision                |
+| `/evolution` | Evolution Layer          |
+| `/grids`     | Grilles "hot"            |
+| `/bets`      | Suivi de paris           |
+| `/training`  | Entraînement des modèles |
 
 ### Backend REST
-| Endpoint | Méthode | Description |
-|----------|---------|-------------|
-| `/api/upcoming` | GET | Matchs à venir (prédictions enrichies) |
-| `/api/live` | GET | Matchs live + prédictions |
-| `/api/live-lab` | GET | Données Live Lab enrichies |
-| `/api/live/goal-predictions` | GET | Prédictions de buts live |
-| `/api/predictions` | GET | Prédictions passant le seuil |
-| `/api/learn` | POST | Envoyer un résultat |
-| `/api/learn/batch` | POST | Envoyer plusieurs résultats |
-| `/api/learn/report/:league` | GET | Rapport d'apprentissage |
-| `/api/learn/weights/:league` | GET | Poids par ligue |
-| `/api/learn/leagues` | GET | Ligues suivies |
-| `/api/learn/challenger/:league` | GET | Stats champion vs challenger |
-| `/api/evolution/intelligence` | GET | Intelligence des échecs |
-| `/api/evolution/performance-metrics` | GET | Métriques de performance |
-| `/api/evolution/sensors` | GET | Signaux marché |
-| `/api/evolution/accuracy` | GET | Précision par ligue |
-| `/api/evolution/heatmap` | GET | Heatmap d'évolution |
+
+| Endpoint                             | Méthode | Description                            |
+| ------------------------------------ | ------- | -------------------------------------- |
+| `/api/upcoming`                      | GET     | Matchs à venir (prédictions enrichies) |
+| `/api/live`                          | GET     | Matchs live + prédictions              |
+| `/api/live-lab`                      | GET     | Données Live Lab enrichies             |
+| `/api/live/goal-predictions`         | GET     | Prédictions de buts live               |
+| `/api/predictions`                   | GET     | Prédictions passant le seuil           |
+| `/api/learn`                         | POST    | Envoyer un résultat                    |
+| `/api/learn/batch`                   | POST    | Envoyer plusieurs résultats            |
+| `/api/learn/report/:league`          | GET     | Rapport d'apprentissage                |
+| `/api/learn/weights/:league`         | GET     | Poids par ligue                        |
+| `/api/learn/leagues`                 | GET     | Ligues suivies                         |
+| `/api/learn/challenger/:league`      | GET     | Stats champion vs challenger           |
+| `/api/evolution/intelligence`        | GET     | Intelligence des échecs                |
+| `/api/evolution/performance-metrics` | GET     | Métriques de performance               |
+| `/api/evolution/sensors`             | GET     | Signaux marché                         |
+| `/api/evolution/accuracy`            | GET     | Précision par ligue                    |
+| `/api/evolution/heatmap`             | GET     | Heatmap d'évolution                    |
 
 ### Python (FastAPI)
+
 Le moteur FastAPI (`core/fastapi_server.py`) tourne **dans le même conteneur** que le serveur Node (voir `Dockerfile`), pas sur un service externe.
 
 ---
@@ -257,13 +270,15 @@ Le moteur FastAPI (`core/fastapi_server.py`) tourne **dans le même conteneur** 
 ## 🚀 Déploiement Render
 
 ### Services
-| Service | Type | Plan |
-|---------|------|------|
+
+| Service      | Type                                                   | Plan             |
+| ------------ | ------------------------------------------------------ | ---------------- |
 | `pronostico` | Web Service (Node.js + FastAPI dans un seul conteneur) | Free (512MB RAM) |
 
 URL de production : https://pronostico.onrender.com
 
 ### Build
+
 ```dockerfile
 # Dockerfile — build frontend (vite build) puis serveur Node + uvicorn FastAPI
 # Node heap: --max-old-space-size=384
@@ -271,6 +286,7 @@ URL de production : https://pronostico.onrender.com
 ```
 
 ### Déploiement continu
+
 - `git push origin main` -> auto-deploy sur Render (service `pronostico`)
 - Variables d'environnement configurées dans Render Dashboard
 
@@ -310,17 +326,19 @@ FRONTEND_URL=https://pronostico.onrender.com
 ## 🔄 Maintenance
 
 ### Automatique
-| Tâche | Horaire | Description |
-|-------|---------|-------------|
-| AutoHeal Patrol | Toutes les 30min | Détection/résolution de problèmes |
-| AutoArchiver | Toutes les 2h | Archivage matchs terminés |
-| Adaptive Learning | 02:30 | Traitement des résultats |
-| XGBoost Retrain | 1er du mois 04:00 | Ré-entraînement modèle |
-| Live Model Retrain | Dimanche 05:00 | Ré-entraînement modèle live |
-| Database Maintenance | 03:00 | VACUUM + ANALYZE |
-| Accuracy Analysis | 23:00 | Rapport de précision quotidien |
+
+| Tâche                | Horaire           | Description                       |
+| -------------------- | ----------------- | --------------------------------- |
+| AutoHeal Patrol      | Toutes les 30min  | Détection/résolution de problèmes |
+| AutoArchiver         | Toutes les 2h     | Archivage matchs terminés         |
+| Adaptive Learning    | 02:30             | Traitement des résultats          |
+| XGBoost Retrain      | 1er du mois 04:00 | Ré-entraînement modèle            |
+| Live Model Retrain   | Dimanche 05:00    | Ré-entraînement modèle live       |
+| Database Maintenance | 03:00             | VACUUM + ANALYZE                  |
+| Accuracy Analysis    | 23:00             | Rapport de précision quotidien    |
 
 ### Manuelle
+
 ```bash
 # Ré-entraînement XGBoost
 npm run retrain
@@ -339,15 +357,15 @@ curl https://pronostico.onrender.com/api/health
 
 ## 📈 Métriques Clés
 
-| Métrique | Valeur |
-|----------|--------|
-| Modèle XGBoost V24 | ~65-70% accuracy |
-| Live Goal next5 AUC | 0.88 |
-| Live Goal next10 AUC | 0.90 |
-| Live Goal next15 AUC | 0.92 |
-| Sources live | 3 (BSD, SportScore, SportSRC) |
-| Features ML | 115+ |
-| Matchs historiques | 5000+ |
+| Métrique             | Valeur                        |
+| -------------------- | ----------------------------- |
+| Modèle XGBoost V24   | ~65-70% accuracy              |
+| Live Goal next5 AUC  | 0.88                          |
+| Live Goal next10 AUC | 0.90                          |
+| Live Goal next15 AUC | 0.92                          |
+| Sources live         | 3 (BSD, SportScore, SportSRC) |
+| Features ML          | 115+                          |
+| Matchs historiques   | 5000+                         |
 
 ---
 
@@ -357,4 +375,4 @@ Projet privé --- TITANIUM NEURAL-X v5.0
 
 ---
 
-*Généré le 10 Juin 2026 --- Dernier commit: [git log --oneline -1]*
+_Généré le 10 Juin 2026 --- Dernier commit: [git log --oneline -1]_

@@ -7,7 +7,7 @@ async function importHistory() {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    max: 1
+    max: 1,
   })
 
   try {
@@ -40,11 +40,18 @@ async function importHistory() {
              date = EXCLUDED.date, 
              matches = EXCLUDED.matches,
              imported_at = NOW()`,
-          [c.no, 'historical', JSON.stringify({
-            matches: c.matches.map(m => ({
-              id: m.idx, home: m.home, away: m.away, result: m.res
-            }))
-          })]
+          [
+            c.no,
+            'historical',
+            JSON.stringify({
+              matches: c.matches.map((m) => ({
+                id: m.idx,
+                home: m.home,
+                away: m.away,
+                result: m.res,
+              })),
+            }),
+          ]
         )
         imported++
       } catch (e) {
@@ -57,7 +64,6 @@ async function importHistory() {
     // Verify
     const res = await pool.query('SELECT COUNT(*) FROM promosport_historical_grids')
     console.log(`📊 Total rows in table: ${res.rows[0].count}`)
-
   } catch (e) {
     console.error('❌ Error:', e.message)
   } finally {

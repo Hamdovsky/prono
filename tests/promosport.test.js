@@ -2,24 +2,24 @@ const express = require('express')
 const request = require('supertest')
 
 jest.mock('../core/speedCache', () => ({
-  speedCache: () => (req, res, next) => next()
+  speedCache: () => (req, res, next) => next(),
 }))
 
 jest.mock('../core/promosport_scraper', () => ({
-  scrapePromosport: jest.fn()
+  scrapePromosport: jest.fn(),
 }))
 
 jest.mock('../core/promosport_engine', () => ({
   generatePromosportGrids: jest.fn(),
-  generateGoldCoupon: jest.fn()
+  generateGoldCoupon: jest.fn(),
 }))
 
 jest.mock('../core/promosport_tunisie_scraper', () => ({
-  scrapeTunisieGrid: jest.fn()
+  scrapeTunisieGrid: jest.fn(),
 }))
 
 jest.mock('child_process', () => ({
-  execSync: jest.fn().mockReturnValue('Import OK\nAccuracy: 36.11% | Log Loss: 1.2599')
+  execSync: jest.fn().mockReturnValue('Import OK\nAccuracy: 36.11% | Log Loss: 1.2599'),
 }))
 
 jest.mock('../services/promosportResultService', () => ({
@@ -27,33 +27,33 @@ jest.mock('../services/promosportResultService', () => ({
   computeAccuracy: jest.fn(),
   getOverallStats: jest.fn(),
   getRecentHistory: jest.fn(),
-  storePrediction: jest.fn()
+  storePrediction: jest.fn(),
 }))
 
 jest.mock('../services/promosportMLService', () => ({
   reloadModel: jest.fn(),
   loadModel: jest.fn().mockReturnValue(true),
   predictBatch: jest.fn().mockReturnValue(null),
-  ready: true
+  ready: true,
 }))
 
 jest.mock('../services/promosportIntelligence', () => ({
-  analyzeMatch: jest.fn()
+  analyzeMatch: jest.fn(),
 }))
 
 jest.mock('../services/doubleOptimizerService', () => ({
-  optimize: jest.fn()
+  optimize: jest.fn(),
 }))
 
 jest.mock('../services/crowdHackerService', () => ({
-  analyze: jest.fn()
+  analyze: jest.fn(),
 }))
 
 jest.mock('../services/secretWeaponsTracker', () => ({
   getWeapons: jest.fn(),
   getHistory: jest.fn(),
   submitResults: jest.fn(),
-  recordResults: jest.fn()
+  recordResults: jest.fn(),
 }))
 
 jest.mock('better-sqlite3', () => {
@@ -62,7 +62,7 @@ jest.mock('better-sqlite3', () => {
     get: jest.fn().mockReturnValue({ c: 100 }),
     all: jest.fn().mockReturnValue([]),
     run: jest.fn().mockReturnValue({ changes: 0 }),
-    close: jest.fn()
+    close: jest.fn(),
   }
   return jest.fn(() => mockDb)
 })
@@ -70,7 +70,7 @@ jest.mock('better-sqlite3', () => {
 jest.mock('../core/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
-  error: jest.fn()
+  error: jest.fn(),
 }))
 
 const { scrapePromosport } = require('../core/promosport_scraper')
@@ -87,7 +87,9 @@ beforeAll(() => {
   app.use('/api/promosport', promosportRouter)
 })
 
-afterEach(() => { jest.restoreAllMocks() })
+afterEach(() => {
+  jest.restoreAllMocks()
+})
 
 function make13Matches() {
   return Array.from({ length: 13 }, (_, i) => ({
@@ -95,28 +97,34 @@ function make13Matches() {
     homeTeam: `TEAM_${i + 1}_HOME`,
     awayTeam: `TEAM_${i + 1}_AWAY`,
     leagueName: 'Premier League',
-    homeWinProbability: 0.40 + Math.random() * 0.1,
+    homeWinProbability: 0.4 + Math.random() * 0.1,
     drawProbability: 0.25 + Math.random() * 0.05,
     awayWinProbability: 0.25 + Math.random() * 0.1,
     matchTime: '15:00',
     concoursNumber: '878',
-    concoursDate: '2025-06-01'
+    concoursDate: '2025-06-01',
   }))
 }
 
 function makeGrids() {
   const matches = Array.from({ length: 13 }, (_, i) => ({
     choices: ['1', 'X', '2'],
-    p1: 0.40, px: 0.25, p2: 0.35,
-    crowdP1: 0.42, crowdP2: 0.33,
-    isCrowdTrap: false, isAwayCrowdTrap: false, publicOverconfidence: false,
-    intel: 'Test intel', brief: 'Test brief'
+    p1: 0.4,
+    px: 0.25,
+    p2: 0.35,
+    crowdP1: 0.42,
+    crowdP2: 0.33,
+    isCrowdTrap: false,
+    isAwayCrowdTrap: false,
+    publicOverconfidence: false,
+    intel: 'Test intel',
+    brief: 'Test brief',
   }))
   return [
     { name: 'Grid ML', matches, stats: { totalDoubles: 6, avgConfidence: 0.58 } },
     { name: 'Grid Crowd', matches, stats: { totalDoubles: 6, avgConfidence: 0.57 } },
     { name: 'Grid Tactical', matches, stats: { totalDoubles: 6, avgConfidence: 0.56 } },
-    { name: 'Grid Hybrid', matches, stats: { totalDoubles: 6, avgConfidence: 0.55 } }
+    { name: 'Grid Hybrid', matches, stats: { totalDoubles: 6, avgConfidence: 0.55 } },
   ]
 }
 
@@ -174,7 +182,9 @@ describe('Promosport Routes', () => {
     })
 
     it('accepts valid results submission', async () => {
-      secretWeaponsTracker.recordResults = jest.fn().mockReturnValue({ correct: 8, total: 13, accuracy: 61.5 })
+      secretWeaponsTracker.recordResults = jest
+        .fn()
+        .mockReturnValue({ correct: 8, total: 13, accuracy: 61.5 })
 
       const res = await request(app)
         .post('/api/promosport/weapons-results')
@@ -187,8 +197,11 @@ describe('Promosport Routes', () => {
   describe('GET /api/promosport/accuracy/:concours', () => {
     it('returns accuracy stats for a concours', async () => {
       promosportResultService.computeAccuracy.mockReturnValue({
-        concours: '878', totalMatches: 13, totalCorrect: 8, overallAccuracy: '61.5%',
-        grids: [{ name: 'T1', accuracy: '61.5%', correct: 8, total: 13 }]
+        concours: '878',
+        totalMatches: 13,
+        totalCorrect: 8,
+        overallAccuracy: '61.5%',
+        grids: [{ name: 'T1', accuracy: '61.5%', correct: 8, total: 13 }],
       })
 
       const res = await request(app).get('/api/promosport/accuracy/878')
@@ -209,8 +222,12 @@ describe('Promosport Routes', () => {
   describe('GET /api/promosport/accuracy', () => {
     it('returns overall stats', async () => {
       promosportResultService.getOverallStats.mockReturnValue({
-        concoursCount: 5, totalMatches: 65, totalCorrect: 40, overallAccuracy: '61.5%',
-        perGrid: [], recentConcours: []
+        concoursCount: 5,
+        totalMatches: 65,
+        totalCorrect: 40,
+        overallAccuracy: '61.5%',
+        perGrid: [],
+        recentConcours: [],
       })
 
       const res = await request(app).get('/api/promosport/accuracy')
@@ -221,8 +238,12 @@ describe('Promosport Routes', () => {
 
     it('returns empty stats when no data', async () => {
       promosportResultService.getOverallStats.mockReturnValue({
-        concoursCount: 0, totalMatches: 0, totalCorrect: 0, overallAccuracy: '0.0%',
-        perGrid: [], recentConcours: []
+        concoursCount: 0,
+        totalMatches: 0,
+        totalCorrect: 0,
+        overallAccuracy: '0.0%',
+        perGrid: [],
+        recentConcours: [],
       })
 
       const res = await request(app).get('/api/promosport/accuracy')
@@ -234,7 +255,7 @@ describe('Promosport Routes', () => {
   describe('POST /api/promosport/check-results/:concours', () => {
     it('returns results when available', async () => {
       promosportResultService.checkAndFetchResults.mockResolvedValue([
-        { idx: 1, home: 'TeamA', away: 'TeamB', result: '1' }
+        { idx: 1, home: 'TeamA', away: 'TeamB', result: '1' },
       ])
 
       const res = await request(app).post('/api/promosport/check-results/878')

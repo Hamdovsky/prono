@@ -2,7 +2,7 @@
 import database from '../core/database'
 import fpis from './FPISEngine'
 import sofascoreApi from '../SofascoreScraping/src/apiClient'
-const SofaAPI = sofascoreApi.SofaAPI/SofaAPI
+const SofaAPI = sofascoreApi.SofaAPI / SofaAPI
 import logger from '../core/logger'
 
 class DailyPulseService {

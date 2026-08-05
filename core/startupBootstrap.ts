@@ -74,7 +74,7 @@ function importPromosport() {
   const importScript = path.join(__dirname, '..', 'scripts', 'import_promosport_archive.py')
   if (!fs.existsSync(importScript)) return
   try {
-    import {  spawn  } from 'child_process'
+    import { spawn } from 'child_process'
     const py = spawn('python3', [importScript], {
       cwd: path.join(__dirname, '..'),
       stdio: 'ignore',
@@ -97,7 +97,7 @@ async function warmThetaOptimizer() {
     logger.warn(`[BOOT] Theta init: ${e.message}`)
   }
   try {
-    import {  calibrate  } from '../services/leagueCalibrator'
+    import { calibrate } from '../services/leagueCalibrator'
     calibrate().catch(() => {})
   } catch (e) {
     logger.warn(`[BOOT] Calibrator init: ${e.message}`)
@@ -191,7 +191,7 @@ async function emergencyReseed() {
 }
 
 function killProcessOnPort(port) {
-  import {  exec  } from 'child_process'
+  import { exec } from 'child_process'
   return new Promise((resolve) => {
     if (process.platform !== 'win32') return resolve()
     exec(`netstat -ano | findstr LISTENING | findstr :${port}`, (err, stdout) => {
@@ -222,7 +222,7 @@ async function runAll({ port, onStartServices }) {
   await new Promise((resolve) => setTimeout(resolve, 500))
 
   try {
-    import {  redis  } from './redisClient'
+    import { redis } from './redisClient'
     if (redis) {
       redis
         .ping()

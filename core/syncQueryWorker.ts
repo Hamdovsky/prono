@@ -1,6 +1,6 @@
 // @ts-nocheck
-import {  parentPort, workerData  } from 'worker_threads'
-import {  Pool  } from 'pg'
+import { parentPort, workerData } from 'worker_threads'
+import { Pool } from 'pg'
 
 // ── Persistent PG pool ──────────────────────────────────────────────
 let pool

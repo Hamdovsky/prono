@@ -16,7 +16,7 @@ async function backupToPostgres() {
   }
 
   try {
-    import {  Pool  } from 'pg'
+    import { Pool } from 'pg'
     const pool = new Pool({ connectionString: dbUrl, max: 5, ssl: { rejectUnauthorized: false } })
 
     // Check if SQLite exists

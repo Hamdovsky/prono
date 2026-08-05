@@ -45,13 +45,15 @@ async function discoverRenderUrl() {
     // Render API returns paginated [{ cursor, service: {...} }].
     const items = res.data || []
     const svc =
-      items.map((it) => it.service).find(
-        (s) =>
-          (s.name || s.slug) === RENDER_SERVICE_NAME || s.serviceDetails?.url?.includes(RENDER_SERVICE_NAME)
-      ) || items[0]?.service
+      items
+        .map((it) => it.service)
+        .find(
+          (s) =>
+            (s.name || s.slug) === RENDER_SERVICE_NAME ||
+            s.serviceDetails?.url?.includes(RENDER_SERVICE_NAME)
+        ) || items[0]?.service
     if (!svc) return ''
-    const url =
-      svc.serviceDetails?.url || svc.url || svc.dashboardUrl || ''
+    const url = svc.serviceDetails?.url || svc.url || svc.dashboardUrl || ''
     if (url) console.log('[FBREF-SCRAPER] Discovered Render URL:', url)
     return url || ''
   } catch (e) {
@@ -71,7 +73,9 @@ function assertConfig(url) {
   if (!API_SECRET_KEY) missing.push('API_SECRET_KEY')
   if (missing.length) {
     console.error('[FBREF-SCRAPER] Missing: ' + missing.join(', '))
-    console.error('Either set RENDER_URL directly or set RENDER_API_KEY (Render API key, prefix "rnd_") to auto-discover.')
+    console.error(
+      'Either set RENDER_URL directly or set RENDER_API_KEY (Render API key, prefix "rnd_") to auto-discover.'
+    )
     process.exit(2)
   }
 }
@@ -122,7 +126,13 @@ function pickBest(leagueCode, teams) {
       }
     }
   }
-  return { league: leagueCode, count: reliable.length, teams: reliable, bestMatches, scrapedAt: Date.now() }
+  return {
+    league: leagueCode,
+    count: reliable.length,
+    teams: reliable,
+    bestMatches,
+    scrapedAt: Date.now(),
+  }
 }
 
 // Push one league batch to the Render ingestion endpoint (retry x3 on transient
@@ -139,13 +149,18 @@ async function pushToRender(renderUrl, leagueCode, payload, onProgress) {
         timeout: 30000,
       })
       if (attempt > 1)
-        onProgress(`${leagueCode}: pushed ${payload.count} teams after ${attempt} attempt(s) -> HTTP ${res.status}`)
+        onProgress(
+          `${leagueCode}: pushed ${payload.count} teams after ${attempt} attempt(s) -> HTTP ${res.status}`
+        )
       else
-        onProgress(`${leagueCode}: pushed ${payload.count} teams, ${payload.bestMatches.length} best matches -> HTTP ${res.status}`)
+        onProgress(
+          `${leagueCode}: pushed ${payload.count} teams, ${payload.bestMatches.length} best matches -> HTTP ${res.status}`
+        )
       return true
     } catch (e) {
       const status = e.response ? e.response.status : e.code
-      const transient = !e.response || status >= 500 || status === 'ECONNRESET' || status === 'ETIMEDOUT'
+      const transient =
+        !e.response || status >= 500 || status === 'ECONNRESET' || status === 'ETIMEDOUT'
       if (!transient || attempt === attempts) {
         onProgress(`${leagueCode}: PUSH FAILED (${status}) ${e.message.slice(0, 120)}`)
         return false
@@ -164,14 +179,18 @@ async function runOnce(onProgress, opts = {}) {
   // --league <CODE> : scraper + pousser une seule ligue (rapide, pour test/valid)
   if (opts.onlyLeague) {
     if (!fbrefService.leagues[opts.onlyLeague]) {
-      onProgress(`[FBREF-LOCAL] Unknown league code: ${opts.onlyLeague} (available: ${codes.join(', ')})`)
+      onProgress(
+        `[FBREF-LOCAL] Unknown league code: ${opts.onlyLeague} (available: ${codes.join(', ')})`
+      )
       return
     }
     codes = [opts.onlyLeague]
   }
   let ok = 0
   let fail = 0
-  onProgress(`[FBREF-LOCAL] Scraping ${codes.length} ligues depuis IP résidentielle (renderUrl=${renderUrl.slice(0, 40)}…)…`)
+  onProgress(
+    `[FBREF-LOCAL] Scraping ${codes.length} ligues depuis IP résidentielle (renderUrl=${renderUrl.slice(0, 40)}…)…`
+  )
   for (const code of codes) {
     const teams = await scrapeLeague(code, onProgress)
     if (!teams.length) {
@@ -202,7 +221,8 @@ function runLoop() {
 if (require.main === module) {
   const loop = process.argv.includes('--loop')
   const leagueIdx = process.argv.indexOf('--league')
-  const onlyLeague = leagueIdx >= 0 && process.argv[leagueIdx + 1] ? process.argv[leagueIdx + 1].toUpperCase() : null
+  const onlyLeague =
+    leagueIdx >= 0 && process.argv[leagueIdx + 1] ? process.argv[leagueIdx + 1].toUpperCase() : null
   const onProgress = (msg) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${msg}`)
   if (loop) {
     runLoop()

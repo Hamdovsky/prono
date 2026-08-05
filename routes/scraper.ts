@@ -4,7 +4,7 @@ const router = express.Router()
 import path from 'path'
 import fs from 'fs'
 import securityEngine from '../core/securityEngine'
-import {  readScraperProgress  } from '../core/utils'
+import { readScraperProgress } from '../core/utils'
 import enrichNewsProcessor from '../core/_enrich_news'
 import logger from '../core/logger'
 
@@ -236,7 +236,7 @@ router.post('/news-watch/refresh', async (req, res) => {
  */
 router.post('/scan-today', async (req, res) => {
   try {
-    import {  exec  } from 'child_process'
+    import { exec } from 'child_process'
     const scriptPath = path.join(__dirname, '..', 'update_today.js')
 
     logger.info('⚡ [API] Triggering manual SofaScore scan...')
@@ -793,7 +793,7 @@ router.get('/bibeet/today', (req, res) => {
  */
 router.post('/bibeet/scrape', (req, res) => {
   try {
-    import {  exec  } from 'child_process'
+    import { exec } from 'child_process'
     const scriptPath = path.join(__dirname, '..', 'scripts', 'scrape_bibeet_tomorrow.js')
 
     exec(`node "${scriptPath}"`, { timeout: 120000 }, (error, stdout, stderr) => {

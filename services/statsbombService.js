@@ -59,10 +59,7 @@ class StatsbombService {
     if (!cfg) return null
     const comps = await this._loadCompetitions()
     const seasons = comps.filter(
-      (c) =>
-        c.competition_id === cfg.compId &&
-        c.competition_name === cfg.name &&
-        c.match_available
+      (c) => c.competition_id === cfg.compId && c.competition_name === cfg.name && c.match_available
     )
     if (!seasons.length) return null
     // Probe a bounded set of candidate seasons' match files and score them.
@@ -298,7 +295,8 @@ class StatsbombService {
     if (l.includes('serie a') && !l.includes('serie b')) return 'SERIE_A'
     if (l.includes('bundesliga') && !l.includes('2')) return 'BUNDESLIGA'
     if (l.includes('ligue 1') || l.includes('ligue one') || l.includes('france')) return 'LIGUE_1'
-    if (l.includes('eredivisie') || l.includes('netherlands') || l.includes('holland')) return 'EREDIVISIE'
+    if (l.includes('eredivisie') || l.includes('netherlands') || l.includes('holland'))
+      return 'EREDIVISIE'
     if (l.includes('mls') || l.includes('major league soccer')) return 'MLS'
     return null
   }

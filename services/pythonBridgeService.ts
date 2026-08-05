@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {  spawn  } from 'child_process'
+import { spawn } from 'child_process'
 import path from 'path'
 import logger from '../core/logger'
 

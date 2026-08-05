@@ -2,10 +2,10 @@
 import express from 'express'
 const router = express.Router()
 import logger from '../core/logger'
-import {  loadAccuracyLog, runAnalysis  } from '../scripts/today_analysis'
+import { loadAccuracyLog, runAnalysis } from '../scripts/today_analysis'
 import database from '../core/database'
 import enrichedPredictions from '../core/enriched_predictions'
-import {  LEAGUE_MAP  } from '../config/leagueRegistry'
+import { LEAGUE_MAP } from '../config/leagueRegistry'
 
 /**
  * GET /api/autopsy/report
@@ -52,7 +52,7 @@ router.post('/accuracy/run', async (req, res) => {
  */
 router.get('/draws/daily', (req, res) => {
   try {
-    import {  getDailyDraws  } from '../scripts/daily_draws'
+    import { getDailyDraws } from '../scripts/daily_draws'
     const candidates = getDailyDraws()
     res.json({
       success: true,

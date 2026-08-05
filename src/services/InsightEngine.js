@@ -106,7 +106,7 @@ export const analyzeOpenMatch = (homeXG, awayXG, homeSquadH, awaySquadH) => {
   const combined = (homeXG || 0) + (awayXG || 0)
   const isVulnerable = homeSquadH < 90 || awaySquadH < 90
   const isOpen = combined > 2.6 || (combined > 2.1 && isVulnerable)
-  let prob = Math.min(95, Math.max(10, (combined / 4.5) * 100 + (isVulnerable ? 15 : 0)))
+  const prob = Math.min(95, Math.max(10, (combined / 4.5) * 100 + (isVulnerable ? 15 : 0)))
   return { status: isOpen ? '🟢 OPEN' : '🔴 TIGHT', prob: Math.round(prob), isOpen }
 }
 

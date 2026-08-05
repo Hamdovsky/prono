@@ -28,7 +28,11 @@ declare module 'core/configEngine' {
 }
 
 declare module 'core/speedCache' {
-  export function speedCache(key: string, ttlMs?: number, staleMs?: number): import('express').RequestHandler
+  export function speedCache(
+    key: string,
+    ttlMs?: number,
+    staleMs?: number
+  ): import('express').RequestHandler
   export function invalidateCache(keyPrefix: string): void
 }
 
@@ -69,8 +73,14 @@ declare module 'core/confidenceScorer' {
 
 declare module 'core/enriched_predictions' {
   const enrichedPredictions: {
-    enrich(match: Record<string, unknown>, prediction: Record<string, unknown>): Promise<Record<string, unknown>>
-    enrichMatches(matches: Record<string, unknown>[], opts?: Record<string, unknown>): Promise<Record<string, unknown>[]>
+    enrich(
+      match: Record<string, unknown>,
+      prediction: Record<string, unknown>
+    ): Promise<Record<string, unknown>>
+    enrichMatches(
+      matches: Record<string, unknown>[],
+      opts?: Record<string, unknown>
+    ): Promise<Record<string, unknown>[]>
   }
   export = enrichedPredictions
 }

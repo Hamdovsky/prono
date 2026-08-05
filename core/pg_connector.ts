@@ -48,7 +48,11 @@ function usingPostgres(): boolean {
 
 const permissionErrors = new Set<string>()
 
-async function query(text: string, params: unknown[] = [], retries = 1): Promise<{ rows: Record<string, unknown>[]; rowCount?: number | null; error?: string }> {
+async function query(
+  text: string,
+  params: unknown[] = [],
+  retries = 1
+): Promise<{ rows: Record<string, unknown>[]; rowCount?: number | null; error?: string }> {
   const p = getPool()
   if (!p) return { rows: [], error: 'No Postgres config' }
 
@@ -101,7 +105,12 @@ async function endPool(): Promise<void> {
   }
 }
 
-async function healthCheck(): Promise<{ ok: boolean; reason?: string; poolSize?: number; idleCount?: number }> {
+async function healthCheck(): Promise<{
+  ok: boolean
+  reason?: string
+  poolSize?: number
+  idleCount?: number
+}> {
   if (!isPostgres) return { ok: false, reason: 'SQLite' }
   try {
     const result = await query('SELECT 1 AS ok')

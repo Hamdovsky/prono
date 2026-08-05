@@ -3,7 +3,7 @@ import logger from '../core/logger'
 import database from '../core/database'
 import TeamRegistry from './teamRegistry'
 import SeededRandom from '../core/deterministic'
-import {  query, usingPostgres  } from '../core/pg_connector'
+import { query, usingPostgres } from '../core/pg_connector'
 
 // 🔐 [INTEGRITY] Team name validator (linked to main DB)
 const teamRegistry = new TeamRegistry(database)

@@ -21,11 +21,9 @@ const path = require('path')
 const ROOT = path.join(__dirname, '..')
 const TREND_PATH = path.join(ROOT, 'data', 'promosport_accuracy_trend.json')
 
-const baseUrl =
-  process.argv[2] || process.env.SITE_BASE_URL || 'https://pronostico.onrender.com'
+const baseUrl = process.argv[2] || process.env.SITE_BASE_URL || 'https://pronostico.onrender.com'
 
-const git = (...args) =>
-  execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8' })
+const git = (...args) => execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8' })
 
 async function fetchJson(url) {
   const res = await fetch(url)
@@ -56,10 +54,7 @@ async function main() {
   try {
     const data = await fetchJson(`${baseUrl}/api/accuracy`)
     if (data && data.entries) {
-      byLeagueCount = Object.values(data.byLeague || {}).reduce(
-        (s, a) => s + (a ? a.length : 0),
-        0
-      )
+      byLeagueCount = Object.values(data.byLeague || {}).reduce((s, a) => s + (a ? a.length : 0), 0)
       summary.push(
         `accuracy_log: ${data.entries.length} entries / ${byLeagueCount} byLeague (non commité, lecture seule)`
       )

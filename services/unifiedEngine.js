@@ -80,10 +80,11 @@ class UnifiedEngine {
         return verdict
       }
 
-      const avg = sources.reduce(
-        (acc, s) => ({ h: acc.h + s.h, x: acc.x + s.x, a: acc.a + s.a }),
-        { h: 0, x: 0, a: 0 }
-      )
+      const avg = sources.reduce((acc, s) => ({ h: acc.h + s.h, x: acc.x + s.x, a: acc.a + s.a }), {
+        h: 0,
+        x: 0,
+        a: 0,
+      })
       const n = sources.length
       const consensus = { h: avg.h / n, x: avg.x / n, a: avg.a / n }
       verdict.consensus = consensus
@@ -114,7 +115,7 @@ class UnifiedEngine {
         const marketProb = 1 / odds[pick.label]
         const modelProb = pick.prob
         const ev = modelProb * odds[pick.label] - 1
-        const valuePct = ((odds[pick.label] / (1 / modelProb)) - 1) * 100
+        const valuePct = (odds[pick.label] / (1 / modelProb) - 1) * 100
         verdict.value = {
           odds: odds[pick.label],
           fairOdds: +(1 / modelProb).toFixed(2),
@@ -123,7 +124,9 @@ class UnifiedEngine {
         }
         // Kelly stake
         if (ev > 0) {
-          verdict.kelly = +(QuantService.calculateKellyFraction(modelProb, odds[pick.label], 0.25) * 100).toFixed(1)
+          verdict.kelly = +(
+            QuantService.calculateKellyFraction(modelProb, odds[pick.label], 0.25) * 100
+          ).toFixed(1)
         } else {
           verdict.kelly = 0
         }
@@ -168,9 +171,11 @@ class UnifiedEngine {
   }
 
   static poissonProbs(lambdaH, lambdaA) {
-    const poisson = (k, lam) => Math.exp(-lam) * Math.pow(lam, k) / factorial(k)
+    const poisson = (k, lam) => (Math.exp(-lam) * Math.pow(lam, k)) / factorial(k)
     const factorial = (n) => (n <= 1 ? 1 : n * factorial(n - 1))
-    let home = 0, draw = 0, away = 0
+    let home = 0,
+      draw = 0,
+      away = 0
     for (let h = 0; h <= 10; h++) {
       for (let a = 0; a <= 10; a++) {
         const prob = poisson(h, lambdaH) * poisson(a, lambdaA)
@@ -204,9 +209,7 @@ class UnifiedEngine {
         totalValueBets: valueBets.length,
         totalTraps: traps.length,
         totalSolids: solids.length,
-        byTier: Object.fromEntries(
-          Object.entries(byTier).map(([k, v]) => [k, v.length])
-        ),
+        byTier: Object.fromEntries(Object.entries(byTier).map(([k, v]) => [k, v.length])),
       },
       highlights: {
         valueBets: valueBets.sort((a, b) => (b.value?.ev || 0) - (a.value?.ev || 0)).slice(0, 10),

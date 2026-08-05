@@ -23,7 +23,7 @@ const MegaCorrelation = ({ matches }) => {
 
   // Arabic text generation based on match data
   const generateTechReport = (m) => {
-    let report = []
+    const report = []
 
     // 1. 1X2 Context & Overall Match Setup
     const hw = parseProb(m.enriched?.home_win_probability || m.home_win_probability || 0)
@@ -49,7 +49,7 @@ const MegaCorrelation = ({ matches }) => {
     report.push(`\n⚔️ **القوة الهجومية والدفاعية:** ${xgAnalysis}`)
 
     // 3. Environment & Travel (Logistics)
-    let logistics = []
+    const logistics = []
     if (m.weather_temp || m.enriched?.weather?.temp) {
       const temp = Math.round(m.weather_temp || m.enriched?.weather?.temp)
       if (temp > 28)
@@ -81,7 +81,7 @@ const MegaCorrelation = ({ matches }) => {
     }
 
     // 5. Market Pulse & News
-    let market = []
+    const market = []
     if (m.enriched?.smartMoney?.label?.includes('SHARP')) {
       market.push(
         'رُصدت تدفقات سيولة ذكية (Sharp Money) مباغتة في الأسواق الآسيوية، ما يؤكد وجود تسريبات قوية أو تحولات غير معلنة في الجاهزية.'

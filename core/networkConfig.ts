@@ -35,10 +35,4 @@ const pooledConfig = {
   scheduling: 'fifo' as const,
 }
 
-export {
-  httpAgent,
-  httpsAgent,
-  getUndiciAgent,
-  getAgent,
-  pooledConfig,
-}
+export { httpAgent, httpsAgent, getUndiciAgent, getAgent, pooledConfig }

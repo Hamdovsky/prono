@@ -8,13 +8,13 @@ import MatchAuditor from '../services/MatchAuditor'
  * Génère des prédictions complètes (gagnant, corners, cartons, buts) pour chaque match
  */
 
-import {  spawn  } from 'child_process'
+import { spawn } from 'child_process'
 import path from 'path'
 import newsService from '../src/services/newsService'
 import axiosModule from 'axios'
 import dataFusionService from '../services/dataFusionService'
-import {  detectBookmakerTrap  } from '../services/oddsMovementService'
-import {  analyzeValue  } from '../src/services/ValueBetEngine'
+import { detectBookmakerTrap } from '../services/oddsMovementService'
+import { analyzeValue } from '../src/services/ValueBetEngine'
 import DeepFormService from '../services/DeepFormService'
 import PlayerPropsService from '../services/playerPropsService'
 import pythonService from './pythonService'

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {   Server as SocketIOServer } from 'socket.io'
+import { Server as SocketIOServer } from 'socket.io'
 import logger from '../core/logger'
 import ComboService from './comboService'
 

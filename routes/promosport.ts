@@ -5,12 +5,12 @@ import axios from 'axios'
 import https from 'https'
 import Database from 'better-sqlite3'
 import logger from '../core/logger'
-import {  speedCache  } from '../core/speedCache'
-import {  scrapePromosport  } from '../core/promosport_scraper'
-import {  generatePromosportGrids, generateGoldCoupon  } from '../core/promosport_engine'
+import { speedCache } from '../core/speedCache'
+import { scrapePromosport } from '../core/promosport_scraper'
+import { generatePromosportGrids, generateGoldCoupon } from '../core/promosport_engine'
 import promosportIntelligence from '../services/promosportIntelligence'
 import doubleOptimizer from '../services/doubleOptimizerService'
-import {  scrapeTunisieGrid  } from '../core/promosport_tunisie_scraper'
+import { scrapeTunisieGrid } from '../core/promosport_tunisie_scraper'
 import crowdHackerService from '../services/crowdHackerService'
 import secretWeaponsTracker from '../services/secretWeaponsTracker'
 import promosportResultService from '../services/promosportResultService'
@@ -358,7 +358,7 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
 
     // Archive predictions in Neon PostgreSQL
     try {
-      import {  Pool  } from 'pg'
+      import { Pool } from 'pg'
       const dbUrl = process.env.DATABASE_URL
       if (dbUrl) {
         const pool = new Pool({
@@ -1024,7 +1024,7 @@ router.get('/history', async (req, res) => {
 
     // Try PostgreSQL first (Neon)
     try {
-      import {  Pool  } from 'pg'
+      import { Pool } from 'pg'
       const dbUrl = process.env.DATABASE_URL
       if (dbUrl) {
         const pool = new Pool({
@@ -1227,8 +1227,8 @@ router.post('/check-results/:concours', async (req, res) => {
 router.get('/gold-coupon', async (req, res) => {
   try {
     import speedCache from '../core/speedCache'
-    import {  scrapePromosport  } from '../core/promosport_scraper'
-    import {  generatePromosportGrids, generateGoldCoupon  } from '../core/promosport_engine'
+    import { scrapePromosport } from '../core/promosport_scraper'
+    import { generatePromosportGrids, generateGoldCoupon } from '../core/promosport_engine'
 
     let scrapedMatches = speedCache.get('promosport_matches')
     if (!scrapedMatches) {
@@ -1265,7 +1265,7 @@ router.get('/gold-coupon', async (req, res) => {
  * POST /api/promosport/retrain
  * Re-import data from JSON, retrain XGBoost, and hot-reload the model.
  */
-import {  execSync  } from 'child_process'
+import { execSync } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 const retrainState = { running: false, lastResult: null }
@@ -1280,7 +1280,7 @@ router.post('/retrain', async (req, res) => {
   const scriptsDir = path.join(__dirname, '..', 'scripts')
   const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
   const steps = []
-  import {  spawn  } from 'child_process'
+  import { spawn } from 'child_process'
 
   async function runStep(name, cmd, args, timeout) {
     logger.info(`[RETRAIN] ${name}...`)

@@ -3,7 +3,7 @@ import axios from 'axios'
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
-import {  execSync  } from 'child_process'
+import { execSync } from 'child_process'
 
 const NEW_API_SECRET = crypto.randomBytes(32).toString('hex')
 

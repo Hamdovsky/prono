@@ -1,4 +1,4 @@
 // @ts-nocheck
-import {  createQuotaManager  } from './sourceQuotaManager'
+import { createQuotaManager } from './sourceQuotaManager'
 
 export = createQuotaManager('rapidapi')

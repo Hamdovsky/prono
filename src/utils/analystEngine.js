@@ -7,7 +7,7 @@ export const classifyMatch = (match) => {
   const prob = match.winProb || match.confidence || 50
   const odd = match.odd || 1.45 // Default if not found
 
-  let tags = []
+  const tags = []
   let logicText = ''
 
   // 1. BANKER Criteria: Over 75% win probability with reasonable odds

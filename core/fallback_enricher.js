@@ -17,9 +17,15 @@ const { pickBest: pickOddsBest } = (function () {
       const ml = markets.find((mk) => String(mk.name).toUpperCase() === 'ML')
       if (!ml || !ml.odds || !ml.odds[0]) continue
       const o = ml.odds[0]
-      const h = parseFloat(o.home), d = parseFloat(o.draw), a = parseFloat(o.away)
+      const h = parseFloat(o.home),
+        d = parseFloat(o.draw),
+        a = parseFloat(o.away)
       if (!h || !a) continue
-      best = { home: h > best.home ? h : best.home, draw: d > best.draw ? d : best.draw, away: a > best.away ? a : best.away }
+      best = {
+        home: h > best.home ? h : best.home,
+        draw: d > best.draw ? d : best.draw,
+        away: a > best.away ? a : best.away,
+      }
     }
     return best.home && best.away ? best : null
   }
@@ -241,7 +247,9 @@ async function attachRealOdds(match) {
           match.odds_away = parseFloat(bsdOdds.away)
           match.odds_source = match.odds_source || 'bsd'
           match._oddsWereFetched = true
-          logger.info(`[FBREF/FALLBACK] Attached real BSD odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})`)
+          logger.info(
+            `[FBREF/FALLBACK] Attached real BSD odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})`
+          )
           return
         }
       } catch (bsdErr) {
@@ -461,9 +469,7 @@ async function enrichMatchesBatch(opts = {}) {
     // honnêteté protège les cotes persistées).
     try {
       if (oddsApiIoService.isAvailable()) {
-        const noOdds = matches.filter(
-          (m) => !oddsApiIoService.isNotFound(m.id) && !_hasOdds(m)
-        )
+        const noOdds = matches.filter((m) => !oddsApiIoService.isNotFound(m.id) && !_hasOdds(m))
         let fetchedOdds = 0
         for (let i = 0; i < noOdds.length; i += 10) {
           if (!oddsApiIoService.isAvailable()) break
@@ -483,8 +489,7 @@ async function enrichMatchesBatch(opts = {}) {
           const byId = new Map(odds.map((o) => [String(o.id), o]))
           for (const w of withIds) {
             const ev = byId.get(String(w.eid))
-            const ml =
-              ev && ev.bookmakers ? pickOddsBest(ev.bookmakers) : null
+            const ml = ev && ev.bookmakers ? pickOddsBest(ev.bookmakers) : null
             if (ml && ml.home && ml.away) {
               w.m.odds_home = ml.home
               w.m.odds_draw = ml.draw
@@ -497,9 +502,7 @@ async function enrichMatchesBatch(opts = {}) {
             }
           }
         }
-        logger.info(
-          `[FALLBACK_ENRICHER] Batch odds: ${fetchedOdds}/${noOdds.length} got real odds`
-        )
+        logger.info(`[FALLBACK_ENRICHER] Batch odds: ${fetchedOdds}/${noOdds.length} got real odds`)
       }
     } catch (e) {
       logger.warn(`[FALLBACK_ENRICHER] Batch odds phase error: ${e.message}`)
@@ -514,7 +517,7 @@ async function enrichMatchesBatch(opts = {}) {
         batch.map(async (m) => {
           try {
             await attachRealOdds(m)
-            let result = await tryXgbEnrichOne(m)
+            const result = await tryXgbEnrichOne(m)
             if (result && result.success) {
               xgbOk++
               return { match: m, result }
@@ -535,32 +538,40 @@ async function enrichMatchesBatch(opts = {}) {
         if (!item) continue
         const m = item.match
         const r = item.result
-try {
-            await database.updatePredictions(m.id, {
-              home_win_probability: r.home_win_probability,
-              draw_probability: r.draw_probability,
-              away_win_probability: r.away_win_probability,
-              ou_25_prob: r.ou_25_prob,
-              btts_prob: r.btts_prob,
-              expected_score: r.expected_score,
-              prediction: r.prediction,
-              prediction_probability: r.prediction_probability,
-              ev_home: r.prediction === '1' ? r.ev_score : null,
-              ev_draw: r.prediction === 'X' ? r.ev_score : null,
-              ev_away: r.prediction === '2' ? r.ev_score : null,
-              ev_score: r.ev_score,
-              insufficient_data: r.insufficient_data ?? 0,
-              home_xg: r.home_xg,
-              away_xg: r.away_xg,
-              xgboost_confidence: r.xgboost_confidence || null,
-              confidence: r.confidence || null,
-              odds_home: r.odds_home ?? (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_home) : null),
-              odds_draw: r.odds_draw ?? (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_draw) : null),
-              odds_away: r.odds_away ?? (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_away) : null),
-              odds_source: r.odds_source || (m._oddsWereFetched && !m._oddsAreSynthetic ? m.odds_source || 'oddsapiio' : null),
-            })
-            enriched++
-          } catch (e) {
+        try {
+          await database.updatePredictions(m.id, {
+            home_win_probability: r.home_win_probability,
+            draw_probability: r.draw_probability,
+            away_win_probability: r.away_win_probability,
+            ou_25_prob: r.ou_25_prob,
+            btts_prob: r.btts_prob,
+            expected_score: r.expected_score,
+            prediction: r.prediction,
+            prediction_probability: r.prediction_probability,
+            ev_home: r.prediction === '1' ? r.ev_score : null,
+            ev_draw: r.prediction === 'X' ? r.ev_score : null,
+            ev_away: r.prediction === '2' ? r.ev_score : null,
+            ev_score: r.ev_score,
+            insufficient_data: r.insufficient_data ?? 0,
+            home_xg: r.home_xg,
+            away_xg: r.away_xg,
+            xgboost_confidence: r.xgboost_confidence || null,
+            confidence: r.confidence || null,
+            odds_home:
+              r.odds_home ??
+              (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_home) : null),
+            odds_draw:
+              r.odds_draw ??
+              (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_draw) : null),
+            odds_away:
+              r.odds_away ??
+              (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_away) : null),
+            odds_source:
+              r.odds_source ||
+              (m._oddsWereFetched && !m._oddsAreSynthetic ? m.odds_source || 'oddsapiio' : null),
+          })
+          enriched++
+        } catch (e) {
           logger.error(`[FALLBACK_ENRICHER] DB write error ${m.id}: ${e.message}`)
         }
       }

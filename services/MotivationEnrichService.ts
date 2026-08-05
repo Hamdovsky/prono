@@ -6,7 +6,7 @@
  * (title race, European spots, relegation zone) and injects them into match objects.
  */
 
-import {  SofaAPI  } from '../SofascoreScraping/src/apiClient'
+import { SofaAPI } from '../SofascoreScraping/src/apiClient'
 
 // Simple in-memory cache: { `${tournamentId}_${seasonId}`: { timestamp, rows } }
 const STANDINGS_CACHE = new Map()

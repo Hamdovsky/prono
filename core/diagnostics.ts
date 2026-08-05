@@ -3,7 +3,8 @@ import logger from './logger'
 
 async function logDiagnostic() {
   try {
-    import db from './database'; const _db = db.db
+    import db from './database'
+    const _db = db.db
     import pg from './pg_connector'
     const usingPG = pg.usingPostgres && pg.usingPostgres()
 

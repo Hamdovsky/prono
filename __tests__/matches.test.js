@@ -81,20 +81,18 @@ describe('Matches API Routes', () => {
     const allUpcoming = (body) => [...(body.elite || []), ...(body.fallback_pool || [])]
 
     it('should return upcoming matches in elite list', async () => {
-      jest
-        .spyOn(database, 'getMatchesByStatuses')
-        .mockResolvedValue([
-          {
-            id: 'match-1',
-            homeTeam: 'Barcelona',
-            awayTeam: 'Real Madrid',
-            league: 'La Liga',
-            startTimestamp: Math.floor(Date.now() / 1000) + 86400,
-            odds_home: 1.95,
-            odds_draw: 3.4,
-            odds_away: 3.8,
-          },
-        ])
+      jest.spyOn(database, 'getMatchesByStatuses').mockResolvedValue([
+        {
+          id: 'match-1',
+          homeTeam: 'Barcelona',
+          awayTeam: 'Real Madrid',
+          league: 'La Liga',
+          startTimestamp: Math.floor(Date.now() / 1000) + 86400,
+          odds_home: 1.95,
+          odds_draw: 3.4,
+          odds_away: 3.8,
+        },
+      ])
 
       const response = await request(app).get('/api/matches/upcoming')
       expect(response.status).toBe(200)
@@ -248,20 +246,18 @@ describe('Matches API Routes', () => {
     })
 
     it('should expose engine probabilities for matches without predictions', async () => {
-      jest
-        .spyOn(database, 'getMatchesByStatuses')
-        .mockResolvedValue([
-          {
-            id: 'unenriched',
-            homeTeam: 'Team X',
-            awayTeam: 'Team Y',
-            league: 'Test',
-            odds_home: 1.85,
-            odds_draw: 3.4,
-            odds_away: 4.2,
-            startTimestamp: Math.floor(Date.now() / 1000) + 86400,
-          },
-        ])
+      jest.spyOn(database, 'getMatchesByStatuses').mockResolvedValue([
+        {
+          id: 'unenriched',
+          homeTeam: 'Team X',
+          awayTeam: 'Team Y',
+          league: 'Test',
+          odds_home: 1.85,
+          odds_draw: 3.4,
+          odds_away: 4.2,
+          startTimestamp: Math.floor(Date.now() / 1000) + 86400,
+        },
+      ])
 
       const response = await request(app).get('/api/matches/upcoming')
       expect(response.status).toBe(200)
@@ -357,15 +353,13 @@ describe('Matches API Routes', () => {
   describe('POST /api/matches/refresh-lineups/:id', () => {
     it('should refresh lineups for a match', async () => {
       const matchId = 'test-match-lineup'
-      jest
-        .spyOn(database, 'getMatchById')
-        .mockResolvedValue({
-          id: matchId,
-          id_sofa: '12345',
-          homeTeam: 'Alpha FC',
-          awayTeam: 'Beta United',
-          startTimestamp: Date.now(),
-        })
+      jest.spyOn(database, 'getMatchById').mockResolvedValue({
+        id: matchId,
+        id_sofa: '12345',
+        homeTeam: 'Alpha FC',
+        awayTeam: 'Beta United',
+        startTimestamp: Date.now(),
+      })
 
       const response = await request(app).post(`/api/matches/refresh-lineups/${matchId}`)
       expect(response.status).toBe(200)

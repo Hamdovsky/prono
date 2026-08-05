@@ -1,5 +1,5 @@
 // @ts-nocheck
-import {  SofaAPI  } from '../SofascoreScraping/src/apiClient'
+import { SofaAPI } from '../SofascoreScraping/src/apiClient'
 import database from '../core/database'
 import logger from '../core/logger'
 

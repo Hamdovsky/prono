@@ -1,7 +1,7 @@
 // @ts-nocheck
 import path from 'path'
 import fs from 'fs'
-import {  usingPostgres, query  } from './pg_connector'
+import { usingPostgres, query } from './pg_connector'
 import logger from './logger'
 
 function sqliteToPg(sql) {
@@ -24,7 +24,7 @@ function sqliteToPg(sql) {
 }
 
 // ── Synchronous query worker (compatibility layer for db.prepare().all/get/run) ──
-import {  Worker  } from 'worker_threads'
+import { Worker } from 'worker_threads'
 
 const PG_SYNC_TIMEOUT_MS = 5000
 

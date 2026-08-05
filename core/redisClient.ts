@@ -3,9 +3,10 @@
 // Celle-ci est utilisée par le cache de l'API ; l'autre par la config centralisée.
 // À terme, fusionner dans une seule. Pour l'instant les deux coexistent.
 import CircuitBreaker from './circuitBreaker'
-import cb from './circuitBreaker'; const redisBreaker = cb.breakers.redis
+import cb from './circuitBreaker'
+const redisBreaker = cb.breakers.redis
 import Redis from 'ioredis'
-import {  performance  } from 'perf_hooks'
+import { performance } from 'perf_hooks'
 import logger from './logger'
 
 // Redis client instance

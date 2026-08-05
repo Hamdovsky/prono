@@ -74,7 +74,7 @@ class NewsAnalysisService {
     let attMod = 1.0
     let defMod = 1.0
     let chaosBoost = 0
-    let criticalNews = []
+    const criticalNews = []
 
     // ── Priority 1: Official confirmed injuries (Sofascore / Transfermarkt) ──
     for (const injury of confirmedInjuries || []) {
@@ -116,7 +116,7 @@ class NewsAnalysisService {
         ) ||
         !reason
       ) {
-        let ratingMultiplier = teamAvgRating && teamAvgRating >= 7.0 ? 1.2 : 1.0
+        const ratingMultiplier = teamAvgRating && teamAvgRating >= 7.0 ? 1.2 : 1.0
         const impact = Math.abs(roleWeight * officialBoost * ratingMultiplier) / 100
 
         if (isGK || isDef) defMod += impact

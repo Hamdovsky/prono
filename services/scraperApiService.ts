@@ -1,7 +1,7 @@
 // @ts-nocheck
 import axios from 'axios'
 import logger from '../core/logger'
-import {  pooledConfig  } from '../core/networkConfig'
+import { pooledConfig } from '../core/networkConfig'
 
 class ScraperApiService {
   constructor() {

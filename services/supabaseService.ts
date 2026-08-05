@@ -1,6 +1,6 @@
 // @ts-nocheck
-import {   getPool, query as pgQuery } from '../core/pg_connector'
-import {  resolve4  } from 'dns/promises'
+import { getPool, query as pgQuery } from '../core/pg_connector'
+import { resolve4 } from 'dns/promises'
 import logger from '../core/logger'
 
 const SYNC_INTERVAL = 5 * 60 * 1000
@@ -58,7 +58,7 @@ class SupabaseService {
           const addrs = await resolve4(parsed.hostname)
           if (addrs.length > 0) {
             const ipUrl = host.replace(parsed.hostname, addrs[0])
-            import {  Pool  } from 'pg'
+            import { Pool } from 'pg'
             const directPool = new Pool({
               connectionString: ipUrl,
               max: 1,

@@ -27,6 +27,32 @@ const scraperProxy = require('./scraperProxy')
 const SCRAPE_CACHE = new Map()
 const CACHE_TTL = 15 * 60 * 1000
 
+const ODDS_SCHEMA = {
+  type: 'object',
+  properties: {
+    matches: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          homeTeam: { type: 'string' },
+          awayTeam: { type: 'string' },
+          odds1X2: {
+            type: 'object',
+            properties: {
+              home: { type: 'number' },
+              draw: { type: 'number' },
+              away: { type: 'number' },
+            },
+          },
+          overUnder25: { type: 'number' },
+          btts: { type: 'boolean' },
+        },
+      },
+    },
+  },
+}
+
 const BASE_DIR = path.resolve(__dirname, '..')
 
 // ── Utility ──────────────────────────────────────────────────────

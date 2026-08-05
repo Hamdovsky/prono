@@ -22,6 +22,7 @@ module.exports = [
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'commonjs',
+      parserOptions: { ecmaFeatures: { jsx: true } },
       globals: {
         require: 'readonly',
         module: 'readonly',
@@ -75,7 +76,25 @@ module.exports = [
         requestAnimationFrame: 'readonly',
         cancelAnimationFrame: 'readonly',
         performance: 'readonly',
+        alert: 'readonly',
+        Notification: 'readonly',
+        KeyboardEvent: 'readonly',
+        Audio: 'readonly',
       },
+    },
+  },
+  {
+    files: [
+      'src/**/*.js',
+      'src/**/*.jsx',
+      'scripts/online_learning_update.js',
+      'scripts/titanium_health_check.js',
+      'services/scrapeService.js',
+    ],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
   {

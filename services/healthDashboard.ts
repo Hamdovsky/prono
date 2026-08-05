@@ -2,7 +2,7 @@
 /**
  * healthDashboard.js — Full system health check
  */
-import {  query  } from '../core/pg_connector'
+import { query } from '../core/pg_connector'
 
 async function getFullHealth() {
   const result = { status: 'ok', timestamp: new Date().toISOString(), services: {} }

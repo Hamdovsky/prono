@@ -1,7 +1,7 @@
 // @ts-nocheck
 import fs from 'fs'
 import path from 'path'
-import {  scrapeTunisieGrid  } from '../core/promosport_tunisie_scraper'
+import { scrapeTunisieGrid } from '../core/promosport_tunisie_scraper'
 import logger from '../core/logger'
 
 const CROWD_PATH = path.join(__dirname, '..', 'data', 'crowd_profile.json')

@@ -21,7 +21,10 @@ class GlobalEventBus extends EventEmitter {
     })
   }
 
-  emitMatchUpdate(match: Record<string, unknown>, prevMatch: Record<string, unknown> | null = null): void {
+  emitMatchUpdate(
+    match: Record<string, unknown>,
+    prevMatch: Record<string, unknown> | null = null
+  ): void {
     this.emit('match_updated', {
       match,
       prevMatch,

@@ -11,7 +11,7 @@
  * Falls back to league defaults when insufficient data (< 20 matches).
  */
 
-import {  query, usingPostgres  } from '../core/pg_connector'
+import { query, usingPostgres } from '../core/pg_connector'
 import logger from '../core/logger'
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000

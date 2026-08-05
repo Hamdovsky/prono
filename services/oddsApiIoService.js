@@ -102,9 +102,7 @@ class OddsApiIoService {
         const reset = err.response?.headers?.['x-ratelimit-reset']
         const resetMs = reset ? new Date(reset).getTime() : Date.now() + 60 * 60 * 1000
         this._quotaExhaustedUntil = resetMs
-        logger.warn(
-          `[OddsAPI.io] Rate limit hit — paused until ${new Date(resetMs).toISOString()}`
-        )
+        logger.warn(`[OddsAPI.io] Rate limit hit — paused until ${new Date(resetMs).toISOString()}`)
       } else if (status === 403) {
         logger.warn(`[OddsAPI.io] Accès refusé (plan): ${err.response?.data?.error || ''}`)
       } else {
@@ -152,12 +150,38 @@ class OddsApiIoService {
     try {
       s = s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
     } catch (_) {}
-    s = s.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+    s = s
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
     const suffixes = [
-      ' fc', ' f.c.', ' sc', ' ac', ' afc', ' us', ' as', ' cf', ' united',
-      ' city', ' town', ' athletic', ' sporting', ' real', ' racing', ' club',
-      ' b', ' ii', ' iii', ' u23', ' u21', ' u20', ' u19', ' reserves',
-      ' reserve', ' youth', ' academy',
+      ' fc',
+      ' f.c.',
+      ' sc',
+      ' ac',
+      ' afc',
+      ' us',
+      ' as',
+      ' cf',
+      ' united',
+      ' city',
+      ' town',
+      ' athletic',
+      ' sporting',
+      ' real',
+      ' racing',
+      ' club',
+      ' b',
+      ' ii',
+      ' iii',
+      ' u23',
+      ' u21',
+      ' u20',
+      ' u19',
+      ' reserves',
+      ' reserve',
+      ' youth',
+      ' academy',
     ]
     for (const suf of suffixes) {
       if (s.endsWith(suf)) {
@@ -261,7 +285,13 @@ class OddsApiIoService {
   async fetchEventsWithOdds(_dateStr) {
     if (!this.isAvailable()) return []
     const popular = [
-      'arsenal', 'liverpool', 'manchester', 'barcelona', 'real madrid', 'bayern', 'psg',
+      'arsenal',
+      'liverpool',
+      'manchester',
+      'barcelona',
+      'real madrid',
+      'bayern',
+      'psg',
     ]
     const seen = new Map()
     for (const term of popular) {

@@ -46,7 +46,7 @@ describe('LRU Eviction', () => {
 
 describe('stale-while-revalidate (Express middleware)', () => {
   function makeReqRes(url) {
-    const req = { originalUrl: url }
+    const req = { originalUrl: url, query: {} }
     let jsonPayload = null
     const res = {
       json: jest.fn((body) => {

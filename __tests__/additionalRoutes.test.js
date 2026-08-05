@@ -171,6 +171,7 @@ jest.mock('../core/promosport_engine', () => ({
   generatePromosportGrids: jest.fn().mockResolvedValue(
     Array.from({ length: 4 }, (_, gi) => ({
       name: `Grille ${gi + 1}`,
+      stats: { totalDoubles: 6, avgConfidence: 0.58 },
       matches: Array.from({ length: 13 }, (_, mi) => ({
         choices: ['1'],
         p1: 0.4,

@@ -78,7 +78,9 @@ beforeAll(() => {
 
 describe('Matches API Routes', () => {
   describe('GET /api/matches/upcoming', () => {
-    it('should return upcoming matches array', async () => {
+    const allUpcoming = (body) => [...(body.elite || []), ...(body.fallback_pool || [])]
+
+    it('should return upcoming matches in elite list', async () => {
       jest
         .spyOn(database, 'getMatchesByStatuses')
         .mockResolvedValue([
@@ -96,8 +98,8 @@ describe('Matches API Routes', () => {
 
       const response = await request(app).get('/api/matches/upcoming')
       expect(response.status).toBe(200)
-      expect(Array.isArray(response.body)).toBe(true)
-      expect(response.body.length).toBeGreaterThan(0)
+      expect(Array.isArray(response.body.elite)).toBe(true)
+      expect(allUpcoming(response.body).length).toBeGreaterThan(0)
 
       jest.restoreAllMocks()
     })
@@ -137,10 +139,9 @@ describe('Matches API Routes', () => {
 
       const response = await request(app).get('/api/matches/upcoming')
       expect(response.status).toBe(200)
-      expect(
-        response.body.some((m) => m.homeTeam.includes('II') || m.awayTeam.includes('II'))
-      ).toBe(false)
-      expect(response.body.some((m) => m.homeTeam === 'Liverpool')).toBe(true)
+      const all = allUpcoming(response.body)
+      expect(all.some((m) => m.homeTeam.includes('II') || m.awayTeam.includes('II'))).toBe(false)
+      expect(all.some((m) => m.homeTeam === 'Liverpool')).toBe(true)
 
       jest.restoreAllMocks()
     })
@@ -169,8 +170,9 @@ describe('Matches API Routes', () => {
 
       const response = await request(app).get('/api/matches/upcoming')
       expect(response.status).toBe(200)
-      expect(response.body.length).toBe(1)
-      expect(response.body[0].id).toBe('m2')
+      const all = allUpcoming(response.body)
+      expect(all.length).toBe(1)
+      expect(all[0].id).toBe('m2')
 
       jest.restoreAllMocks()
     })
@@ -199,7 +201,7 @@ describe('Matches API Routes', () => {
 
       const response = await request(app).get('/api/matches/upcoming')
       expect(response.status).toBe(200)
-      expect(response.body.length).toBe(1)
+      expect(allUpcoming(response.body).length).toBe(1)
 
       jest.restoreAllMocks()
     })
@@ -238,12 +240,14 @@ describe('Matches API Routes', () => {
 
       const response = await request(app).get('/api/matches/upcoming')
       expect(response.status).toBe(200)
-      expect(Array.isArray(response.body)).toBe(true)
+      const all = allUpcoming(response.body)
+      expect(all.some((m) => m.id === 'valid')).toBe(true)
+      expect(all.some((m) => m.id === 'old' || m.id === 'future')).toBe(false)
 
       jest.restoreAllMocks()
     })
 
-    it('should enrich matches without predictions via fastEnrichMatch', async () => {
+    it('should expose engine probabilities for matches without predictions', async () => {
       jest
         .spyOn(database, 'getMatchesByStatuses')
         .mockResolvedValue([
@@ -261,7 +265,8 @@ describe('Matches API Routes', () => {
 
       const response = await request(app).get('/api/matches/upcoming')
       expect(response.status).toBe(200)
-      expect(response.body[0].home_win_probability).toBeDefined()
+      const all = allUpcoming(response.body)
+      expect(all[0].home_win_probability).toBeDefined()
 
       jest.restoreAllMocks()
     })

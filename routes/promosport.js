@@ -83,11 +83,11 @@ function archiveScrapedMatches(concours, date, matches) {
     const insertMatch = db.prepare(`
       INSERT OR IGNORE INTO promosport_archive 
         (concours, date, homeTeam, awayTeam, match_idx, archived_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `)
     const insertGrid = db.prepare(`
       INSERT OR REPLACE INTO promosport_grids (concours, date, grid_data, updated_at)
-      VALUES (?, ?, ?, datetime('now'))
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
     `)
     const tx = db.transaction(() => {
       matches.forEach((m, idx) => {
@@ -847,11 +847,11 @@ router.get('/tunisie/:grid', speedCache('promosport_tn', 120000, 600000), async 
       const insertMatch = db.prepare(`
         INSERT OR IGNORE INTO promosport_archive 
           (concours, grid_no, date, homeTeam, awayTeam, match_idx, result, vote_home, vote_draw, vote_away, score_home, score_away, is_finished, archived_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
       `)
       const insertGrid = db.prepare(`
         INSERT OR REPLACE INTO promosport_grids (concours, date, grid_data, updated_at)
-        VALUES (?, ?, ?, datetime('now'))
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
       `)
       const tx = db.transaction(() => {
         grid.matches.forEach((m) => {

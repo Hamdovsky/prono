@@ -239,6 +239,7 @@ CREATE TABLE IF NOT EXISTS odds_history (
     odds_home REAL,
     odds_draw REAL,
     odds_away REAL,
+    type TEXT DEFAULT 'LIVE',
     timestamp BIGINT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -381,6 +381,7 @@ function initSchema() {
                 odds_home REAL,
                 odds_draw REAL,
                 odds_away REAL,
+                type TEXT DEFAULT 'LIVE',
                 timestamp BIGINT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
@@ -554,6 +555,7 @@ function runMigrations() {
     ['matches', 'result', 'TEXT'],
     ['matches', 'settled_at', 'INTEGER'],
     ['matches', 'market_type', 'TEXT'],
+    ['odds_history', 'type', 'TEXT DEFAULT "LIVE"'],
   ]
 
   let added = 0

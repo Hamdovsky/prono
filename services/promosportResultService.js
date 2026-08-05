@@ -23,7 +23,7 @@ function storePrediction(concours, date, grids) {
         home_team TEXT,
         away_team TEXT,
         choices TEXT,
-        created_at DATETIME DEFAULT datetime('now'),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(concours, grid_name, match_idx)
       )
     `

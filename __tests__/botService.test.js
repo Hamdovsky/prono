@@ -25,6 +25,21 @@ jest.mock('../core/database', () => ({
     ]),
 }))
 
+jest.mock('../core/enriched_predictions', () => ({
+  fastEnrichMatch: jest.fn((m) =>
+    Promise.resolve({
+      ...m,
+      home_win_probability: m.home_win_probability || 60,
+      away_win_probability: m.away_win_probability || 25,
+      draw_probability: m.draw_probability || 15,
+      ou_25_prob: m.ou_25_prob || 70,
+      expected_score: m.expected_score || '2-0',
+      enriched: { confidence: m.enriched?.confidence || 80 },
+    })
+  ),
+  enrichMatch: jest.fn(),
+}))
+
 describe('BotService', () => {
   beforeEach(() => {
     jest.clearAllMocks()

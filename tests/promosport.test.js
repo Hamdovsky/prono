@@ -113,10 +113,10 @@ function makeGrids() {
     intel: 'Test intel', brief: 'Test brief'
   }))
   return [
-    { name: 'Grid ML', matches },
-    { name: 'Grid Crowd', matches },
-    { name: 'Grid Tactical', matches },
-    { name: 'Grid Hybrid', matches }
+    { name: 'Grid ML', matches, stats: { totalDoubles: 6, avgConfidence: 0.58 } },
+    { name: 'Grid Crowd', matches, stats: { totalDoubles: 6, avgConfidence: 0.57 } },
+    { name: 'Grid Tactical', matches, stats: { totalDoubles: 6, avgConfidence: 0.56 } },
+    { name: 'Grid Hybrid', matches, stats: { totalDoubles: 6, avgConfidence: 0.55 } }
   ]
 }
 

@@ -48,8 +48,6 @@ jobs:
 
       - run: npm ci --include=dev
 
-      - run: npm install --save-dev @babel/core @babel/preset-env babel-jest
-        
       - run: npm run build
         env:
           VITE_API_URL: https://pronostico.onrender.com

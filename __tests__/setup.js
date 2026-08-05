@@ -33,7 +33,7 @@ jest.mock('redis-memory-server', () => ({
     start: jest.fn().mockResolvedValue(undefined),
     stop: jest.fn().mockResolvedValue(undefined),
   })),
-}))
+}), { virtual: true })
 
 // Mock fs - use jest.requireActual inside factory to avoid scope violation
 const mockFs = () => {

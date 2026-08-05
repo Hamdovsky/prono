@@ -287,7 +287,7 @@ class DataService {
     if (match.time === 'Invalid Date' || match.startTime === 'Invalid Date') return null
 
     // 3. SANITY CHECK: Timestamp Age
-    let rawTs = match.startTimestamp || match.timestamp || match.startTime
+    const rawTs = match.startTimestamp || match.timestamp || match.startTime
     let tsMs = 0
     if (typeof rawTs === 'string' && rawTs.includes('T')) {
       tsMs = new Date(rawTs).getTime()
@@ -311,7 +311,7 @@ class DataService {
     }
 
     // 🧠 [TIMESTAMP FIX] Handle UNIX seconds or ISO strings
-    let ts = tsMs ? Math.floor(tsMs / 1000) : 0
+    const ts = tsMs ? Math.floor(tsMs / 1000) : 0
 
     return {
       ...match,

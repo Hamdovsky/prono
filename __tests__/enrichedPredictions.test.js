@@ -41,6 +41,7 @@ jest.mock('../core/services/StatisticalEngine', () => ({
   predictCards: jest.fn().mockReturnValue({ home: 2, away: 3 }),
   predictGoals: jest.fn().mockReturnValue({ home: 1.8, away: 1.2 }),
   getPoissonProb: jest.fn().mockReturnValue(0.15),
+  deriveXgFromOdds: jest.fn().mockReturnValue({ h: 1.5, a: 1.2 }),
   _getLeagueBaseXG: jest.fn().mockReturnValue({ h: 1.5, a: 1.2 }),
 }))
 

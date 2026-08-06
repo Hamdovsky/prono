@@ -45,13 +45,14 @@ class QuantumQuantEngine {
   }
 
   analyze(m, xgH, xgA) {
-    // Add team-name based dispersion so identical odds produce different predictions
+    // Team-name based dispersion, only when data is insufficient (gated so that
+    // matches with real odds produce deterministic, data-driven picks)
     const tHash = this._teamHash(m.homeTeam) ^ this._teamHash(m.awayTeam)
-    const dispersion = (tHash % 140) / 1000 - 0.07 // ±7% dispersion for balanced differentiation
+    const dispersion = m.insufficient_data ? (tHash % 140) / 1000 - 0.07 : 0
     const gmParams = StatisticalEngine.getGoalModelParams(m.league)
     const { h: xgHadj, a: xgAadj } = StatisticalEngine.applyGamma(
-      Math.max(0.3, xgH + (m.insufficient_data ? dispersion : dispersion * 0.3)),
-      Math.max(0.3, xgA - (m.insufficient_data ? dispersion : dispersion * 0.3)),
+      Math.max(0.3, xgH + dispersion),
+      Math.max(0.3, xgA - dispersion),
       gmParams.gamma
     )
     const probs = StatisticalEngine.calculatePoissonProbs(xgHadj, xgAadj, m, {

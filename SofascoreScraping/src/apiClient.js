@@ -486,8 +486,8 @@ const SofaAPI = {
     return res ? res.json() : null
   },
 
-  async getOddsFeatured(matchId) {
-    const res = await fetchWithRetry(`${this.BASE}/event/${matchId}/odds/1/featured`)
+  async getOddsFeatured(matchId, marketId = 1) {
+    const res = await fetchWithRetry(`${this.BASE}/event/${matchId}/odds/${marketId}/featured`)
     return res ? res.json() : null
   },
 

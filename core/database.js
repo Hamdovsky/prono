@@ -190,6 +190,10 @@ function initSchema() {
                 odds_home REAL,
                 odds_draw REAL,
                 odds_away REAL,
+                odds_over25 REAL,
+                odds_under25 REAL,
+                odds_btts_yes REAL,
+                odds_btts_no REAL,
                 ev_home REAL,
                 ev_best TEXT,
                 weather_temp REAL,
@@ -580,6 +584,10 @@ function runMigrations() {
     ['matches', 'true_prob_home', 'REAL'],
     ['matches', 'true_prob_draw', 'REAL'],
     ['matches', 'true_prob_away', 'REAL'],
+    ['matches', 'odds_over25', 'REAL'],
+    ['matches', 'odds_under25', 'REAL'],
+    ['matches', 'odds_btts_yes', 'REAL'],
+    ['matches', 'odds_btts_no', 'REAL'],
     ['odds_history', 'type', 'TEXT DEFAULT "LIVE"'],
   ]
 
@@ -741,13 +749,15 @@ const database = {
                     odds_home_open, odds_draw_open, odds_away_open,
                     true_prob_home, true_prob_draw, true_prob_away, true_prob_ou25, true_prob_btts,
                     clv_value, kelly_stake,
-                    weather_temp, weather_desc, weather_humidity, home_form_pts, away_form_pts, insufficient_data
+                    weather_temp, weather_desc, weather_humidity, home_form_pts, away_form_pts, insufficient_data,
+                    odds_over25, odds_under25, odds_btts_yes, odds_btts_no
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?
                 ) ON CONFLICT (id) DO UPDATE SET 
                     bsd_match_id = COALESCE(excluded.bsd_match_id, matches.bsd_match_id),
                     scoreHome = excluded.scoreHome, scoreAway = excluded.scoreAway,
@@ -770,6 +780,10 @@ const database = {
                     odds_home = COALESCE(excluded.odds_home, matches.odds_home),
                     odds_draw = COALESCE(excluded.odds_draw, matches.odds_draw),
                     odds_away = COALESCE(excluded.odds_away, matches.odds_away),
+                    odds_over25 = COALESCE(excluded.odds_over25, matches.odds_over25),
+                    odds_under25 = COALESCE(excluded.odds_under25, matches.odds_under25),
+                    odds_btts_yes = COALESCE(excluded.odds_btts_yes, matches.odds_btts_yes),
+                    odds_btts_no = COALESCE(excluded.odds_btts_no, matches.odds_btts_no),
                     best_odds_home = COALESCE(excluded.best_odds_home, matches.best_odds_home),
                     best_odds_draw = COALESCE(excluded.best_odds_draw, matches.best_odds_draw),
                     best_odds_away = COALESCE(excluded.best_odds_away, matches.best_odds_away),
@@ -843,6 +857,10 @@ const database = {
         m.home_form_pts || 0,
         m.away_form_pts || 0,
         m.insufficient_data || 0,
+        m.odds_over25 || null,
+        m.odds_under25 || null,
+        m.odds_btts_yes || null,
+        m.odds_btts_no || null,
       ]
 
       db.prepare(sql).run(params)
@@ -1151,6 +1169,10 @@ const database = {
                     "odds_home"            = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_home" END,
                     "odds_draw"            = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_draw" END,
                     "odds_away"            = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_away" END,
+                    "odds_over25"          = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_over25" END,
+                    "odds_under25"         = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_under25" END,
+                    "odds_btts_yes"        = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_btts_yes" END,
+                    "odds_btts_no"         = CASE WHEN ? IS NOT NULL THEN ? ELSE "odds_btts_no" END,
                     "motivation_signature" = ?,
                     "insufficient_data" = CASE WHEN ? IS NOT NULL THEN ? ELSE 0 END
                 WHERE id = ?
@@ -1204,6 +1226,14 @@ const database = {
         data.odds_draw ?? null,
         data.odds_away ?? null,
         data.odds_away ?? null,
+        data.odds_over25 ?? null,
+        data.odds_over25 ?? null,
+        data.odds_under25 ?? null,
+        data.odds_under25 ?? null,
+        data.odds_btts_yes ?? null,
+        data.odds_btts_yes ?? null,
+        data.odds_btts_no ?? null,
+        data.odds_btts_no ?? null,
         data.motivation_signature || enriched?.motivation_signature || 'Logique Standard',
         data.insufficient_data ?? null,
         data.insufficient_data ?? null,
@@ -1257,7 +1287,7 @@ const database = {
         try {
           updateTransaction()
           logger.info(
-            `✅ [DB] AI Enrichment persisted for ${matchId} — Home:${hProb.toFixed(1)}% Draw:${dProb.toFixed(1)}% Away:${aProb.toFixed(1)}%`
+            `✅ [DB] AI Enrichment persisted for ${matchId} — Home:${(hProb ?? 0).toFixed(1)}% Draw:${(dProb ?? 0).toFixed(1)}% Away:${(aProb ?? 0).toFixed(1)}%`
           )
           return true
         } catch (err) {

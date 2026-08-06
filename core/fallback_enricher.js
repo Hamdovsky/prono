@@ -210,6 +210,22 @@ async function tryXgbEnrichOne(match) {
   }
 }
 
+function _attachSofaMarkets(match, sofaOdds) {
+  if (!match || !sofaOdds) return
+  const over25 = parseFloat(sofaOdds.over25)
+  const under25 = parseFloat(sofaOdds.under25)
+  const bttsYes = parseFloat(sofaOdds.btts_yes)
+  const bttsNo = parseFloat(sofaOdds.btts_no)
+  if (over25 > 0 && under25 > 0) {
+    match.odds_over25 = over25
+    match.odds_under25 = under25
+  }
+  if (bttsYes > 0 && bttsNo > 0) {
+    match.odds_btts_yes = bttsYes
+    match.odds_btts_no = bttsNo
+  }
+}
+
 async function attachRealOdds(match) {
   if (!match || match._oddsWereFetched) return
   if (match.odds_home && match.odds_draw && match.odds_away) {
@@ -228,8 +244,11 @@ async function attachRealOdds(match) {
         match.odds_away = parseFloat(sofaOdds.away)
         match.odds_source = 'sofascore'
         match._oddsWereFetched = true
+        _attachSofaMarkets(match, sofaOdds)
         logger.info(
-          `[FBREF/FALLBACK] Attached real Sofascore odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})`
+          `[FBREF/FALLBACK] Attached real Sofascore odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})` +
+            (match.odds_over25 ? ` +O/U=${match.odds_over25}` : '') +
+            (match.odds_btts_yes ? ` +BTTS=${match.odds_btts_yes}` : '')
         )
         return
       }
@@ -353,6 +372,10 @@ async function jsEnrichOne(match) {
     odds_home: match._oddsWereFetched && !match._oddsAreSynthetic ? match.odds_home : null,
     odds_draw: match._oddsWereFetched && !match._oddsAreSynthetic ? match.odds_draw : null,
     odds_away: match._oddsWereFetched && !match._oddsAreSynthetic ? match.odds_away : null,
+    odds_over25: match.odds_over25 || null,
+    odds_under25: match.odds_under25 || null,
+    odds_btts_yes: match.odds_btts_yes || null,
+    odds_btts_no: match.odds_btts_no || null,
     odds_source: match.odds_source || null,
   }
 }
@@ -497,6 +520,7 @@ async function enrichMatchesBatch(opts = {}) {
               m.odds_away = parseFloat(sofaOdds.away)
               m.odds_source = 'sofascore'
               m._oddsWereFetched = true
+              _attachSofaMarkets(m, sofaOdds)
               sofaFetched++
             }
           } catch (_) {}
@@ -615,6 +639,10 @@ async function enrichMatchesBatch(opts = {}) {
             odds_away:
               r.odds_away ??
               (m._oddsWereFetched && !m._oddsAreSynthetic ? parseFloat(m.odds_away) : null),
+            odds_over25: r.odds_over25 ?? m.odds_over25 ?? null,
+            odds_under25: r.odds_under25 ?? m.odds_under25 ?? null,
+            odds_btts_yes: r.odds_btts_yes ?? m.odds_btts_yes ?? null,
+            odds_btts_no: r.odds_btts_no ?? m.odds_btts_no ?? null,
             odds_source:
               r.odds_source ||
               (m._oddsWereFetched && !m._oddsAreSynthetic ? m.odds_source || 'oddsapiio' : null),

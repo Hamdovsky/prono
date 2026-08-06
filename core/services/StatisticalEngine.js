@@ -247,31 +247,81 @@ class StatisticalEngine {
     this._leagueParams = paramsMap || {}
   }
 
-  _deriveXgFromOdds(m) {
-    if (m._oddsAreSynthetic) return null
-    const oh = parseFloat(m.odds_home) || 2.0
-    const ox = parseFloat(m.odds_draw) || 3.0
-    const oa = parseFloat(m.odds_away) || 2.0
+  deriveXgFromOdds(m) {
+    if (!m || m._oddsAreSynthetic) return null
+    const oh = parseFloat(m.odds_home)
+    const ox = parseFloat(m.odds_draw)
+    const oa = parseFloat(m.odds_away)
+    if (!(oh > 0 && oa > 0)) return null
 
-    // Probabilités implicites
     const p_h = 1 / oh
-    const p_x = 1 / ox
+    const p_x = ox > 0 ? 1 / ox : 0
     const p_a = 1 / oa
     const sum = p_h + p_x + p_a
+    if (!(sum > 0)) return null
 
-    // Normalisation (retrait de la marge du bookmaker)
     const nh = p_h / sum
-    const nx = p_x / sum
+    const nd = p_x / sum
     const na = p_a / sum
 
     const leagueBase = this._getLeagueBaseXG(m.league)
+    let total = leagueBase.h + leagueBase.a || 2.6
 
-    // Approximation simplifiée xG via probabilités
-    // Un favori à 50% (cote 2.0) a généralement un xG autour de 1.5-1.8
-    const xgH = nh * 3.0
-    const xgA = na * 3.0
+    const over25 = parseFloat(m.odds_over25)
+    const under25 = parseFloat(m.odds_under25)
+    if (over25 > 0 && under25 > 0) {
+      const fromOu = this._solveTotalFromOverUnder(over25, under25, nh, nd, na)
+      if (fromOu > 0) total = fromOu
+    }
 
-    return { h: Math.max(0.5, xgH), a: Math.max(0.5, xgA) }
+    const denom = nh + na + nd || 1
+    const hShare = (nh + nd * 0.5) / denom
+    const aShare = (na + nd * 0.5) / denom
+
+    return {
+      h: Math.max(0.3, Math.min(4.0, total * hShare)),
+      a: Math.max(0.25, Math.min(4.0, total * aShare)),
+    }
+  }
+
+  _solveTotalFromOverUnder(over25, under25, nh, nd, na) {
+    const pOver = 1 / over25
+    const pUnder = 1 / under25
+    const margin = pOver + pUnder
+    if (!(margin > 0)) return 0
+    const target = pOver / margin
+
+    const denom = nh + na + nd || 1
+    const hShare = (nh + nd * 0.5) / denom
+    const aShare = (na + nd * 0.5) / denom
+
+    const pOverAt = (total) => {
+      const lh = Math.max(0.05, total * hShare)
+      const la = Math.max(0.05, total * aShare)
+      let p0 = 0
+      let p1 = 0
+      let p2 = 0
+      for (let i = 0; i <= 2; i++) {
+        for (let j = 0; j <= 2 - i; j++) {
+          const k = i + j
+          const pk = this.getPoissonProb(lh, i) * this.getPoissonProb(la, j)
+          if (k === 0) p0 += pk
+          else if (k === 1) p1 += pk
+          else p2 += pk
+        }
+      }
+      return 1 - (p0 + p1 + p2)
+    }
+
+    let lo = 0.5
+    let hi = 7.0
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2
+      if (pOverAt(mid) > target) hi = mid
+      else lo = mid
+    }
+    const total = (lo + hi) / 2
+    return total > 0.5 && total < 7 ? total : 0
   }
 
   getMatchXG(m) {
@@ -346,7 +396,7 @@ class StatisticalEngine {
         }
 
         if (m.odds_home && m.odds_away && hScored === 0 && aScored === 0) {
-          const derived = this._deriveXgFromOdds(m)
+          const derived = this.deriveXgFromOdds(m)
           if (derived) {
             xgH = derived.h
             xgA = derived.a
@@ -370,7 +420,7 @@ class StatisticalEngine {
           // 🎯 [ODS FIRST] Derive xG from odds (REAL data) before resorting to noise
           const league = (m.league || '').toLowerCase()
           if (m.odds_home && m.odds_away) {
-            const derived = this._deriveXgFromOdds(m)
+            const derived = this.deriveXgFromOdds(m)
             if (derived) {
               xgH = derived.h
               xgA = derived.a

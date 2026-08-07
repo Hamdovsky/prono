@@ -140,8 +140,14 @@ CREATE TABLE IF NOT EXISTS quant_performance (
 CREATE TABLE IF NOT EXISTS leagues_config (
     id SERIAL PRIMARY KEY,
     name TEXT UNIQUE,
-    tier INTEGER DEFAULT 3,
-    active INTEGER DEFAULT 1
+    tier TEXT DEFAULT 'MENA',
+    active INTEGER DEFAULT 1,
+    flag TEXT DEFAULT '',
+    country TEXT DEFAULT '',
+    "displayName" TEXT DEFAULT '',
+    smartScanEnabled INTEGER DEFAULT 1,
+    webhookEnabled INTEGER DEFAULT 1,
+    arabicNewsEnabled INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS league_challenger_weights (
@@ -389,6 +395,61 @@ async function runMigrations() {
       }
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] Column check skipped: ${e.message}`)
+    }
+
+    // ─── leagues_config: ensure frontend columns exist, then seed ───────
+    try {
+      const lcCols = await query(`
+        SELECT column_name, data_type FROM information_schema.columns
+        WHERE table_name = 'leagues_config'
+      `)
+      const lcNames = lcCols.rows.map((r) => r.column_name)
+      const addLcCol = (name, type) =>
+        query(`ALTER TABLE leagues_config ADD COLUMN IF NOT EXISTS "${name}" ${type}`).catch((e) =>
+          logger.warn(`[PG MIGRATIONS] Could not add leagues_config.${name}: ${e.message}`)
+        )
+      if (!lcNames.includes('flag')) await addLcCol('flag', "TEXT DEFAULT ''")
+      if (!lcNames.includes('country')) await addLcCol('country', "TEXT DEFAULT ''")
+      if (!lcNames.includes('displayName')) await addLcCol('displayName', "TEXT DEFAULT ''")
+      if (!lcNames.includes('smartScanEnabled'))
+        await addLcCol('smartScanEnabled', 'INTEGER DEFAULT 1')
+      if (!lcNames.includes('webhookEnabled'))
+        await addLcCol('webhookEnabled', 'INTEGER DEFAULT 1')
+      if (!lcNames.includes('arabicNewsEnabled'))
+        await addLcCol('arabicNewsEnabled', 'INTEGER DEFAULT 0')
+      const tierCol = lcCols.rows.find((r) => r.column_name === 'tier')
+      if (tierCol && tierCol.data_type !== 'text') {
+        await query(`ALTER TABLE leagues_config ALTER COLUMN tier TYPE TEXT USING tier::text`)
+        logger.info('[PG MIGRATIONS] leagues_config.tier migrated to TEXT')
+      }
+
+      const seedLeagues = [
+        [17, 'Premier League', 'ELITE', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', 'Premier League', 0],
+        [8, 'LaLiga', 'ELITE', '🇪🇸', 'Spain', 'LaLiga', 0],
+        [23, 'Serie A', 'ELITE', '🇮🇹', 'Italy', 'Serie A', 0],
+        [35, 'Bundesliga', 'ELITE', '🇩🇪', 'Germany', 'Bundesliga', 0],
+        [34, 'Ligue 1', 'ELITE', '🇫🇷', 'France', 'Ligue 1', 0],
+        [238, 'Primeira Liga', 'TIER1', '🇵🇹', 'Portugal', 'Primeira Liga', 0],
+        [37, 'Eredivisie', 'TIER1', '🇳🇱', 'Netherlands', 'Eredivisie', 0],
+        [808, 'Egyptian Premier League', 'MENA', '🇪🇬', 'Egypt', 'Egyptian Premier League', 1],
+        [955, 'Saudi Pro League', 'MENA', '🇸🇦', 'Saudi Arabia', 'Saudi Pro League', 1],
+        [937, 'Botola Pro', 'MENA', '🇲🇦', 'Morocco', 'Botola Pro', 1],
+        [984, 'Tunisian Ligue 1', 'MENA', '🇹🇳', 'Tunisia', 'Tunisian Ligue 1', 1],
+        [841, 'Algerian Ligue 1', 'MENA', '🇩🇿', 'Algeria', 'Algerian Ligue 1', 1],
+      ]
+      const seedStmt = `
+        INSERT INTO leagues_config
+          (id, name, tier, active, flag, country, "displayName", smartScanEnabled, webhookEnabled, arabicNewsEnabled)
+        VALUES ($1, $2, $3, 1, $4, $5, $6, 1, 1, $7)
+        ON CONFLICT (name) DO NOTHING
+      `
+      for (const row of seedLeagues) {
+        await query(seedStmt, row)
+      }
+      const seeded = await query('SELECT COUNT(*) AS n FROM leagues_config')
+      logger.info(`[PG MIGRATIONS] leagues_config seeded: ${seeded.rows[0].n} leagues (12 expected).`)
+    } catch (e) {
+      logger.warn(`[PG MIGRATIONS] leagues_config seed skipped: ${e.message}`)
     }
 
     // ─── Adaptive Learning Engine tables (not in main SCHEMA_SQL) ───────

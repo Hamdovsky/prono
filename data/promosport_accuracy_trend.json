@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "date": "2026-08-02",
+    "timestamp": 1785708000218,
+    "accuracy": null,
+    "correct": 0,
+    "total": 0,
+    "concoursCount": 0,
+    "logLoss": null,
+    "crowdAccuracy": null
+  }
+]

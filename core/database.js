@@ -292,8 +292,14 @@ function initSchema() {
             CREATE TABLE IF NOT EXISTS leagues_config (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE,
-                tier INTEGER DEFAULT 3,
-                active INTEGER DEFAULT 1
+                tier TEXT DEFAULT 'MENA',
+                active INTEGER DEFAULT 1,
+                flag TEXT DEFAULT '',
+                country TEXT DEFAULT '',
+                displayName TEXT DEFAULT '',
+                smartScanEnabled INTEGER DEFAULT 1,
+                webhookEnabled INTEGER DEFAULT 1,
+                arabicNewsEnabled INTEGER DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS league_challenger_weights (
@@ -589,6 +595,13 @@ function runMigrations() {
     ['matches', 'odds_btts_yes', 'REAL'],
     ['matches', 'odds_btts_no', 'REAL'],
     ['odds_history', 'type', 'TEXT DEFAULT "LIVE"'],
+    ['leagues_config', 'tier', 'TEXT DEFAULT "MENA"'],
+    ['leagues_config', 'flag', 'TEXT DEFAULT ""'],
+    ['leagues_config', 'country', 'TEXT DEFAULT ""'],
+    ['leagues_config', 'displayName', 'TEXT DEFAULT ""'],
+    ['leagues_config', 'smartScanEnabled', 'INTEGER DEFAULT 1'],
+    ['leagues_config', 'webhookEnabled', 'INTEGER DEFAULT 1'],
+    ['leagues_config', 'arabicNewsEnabled', 'INTEGER DEFAULT 0'],
   ]
 
   let added = 0
@@ -614,6 +627,42 @@ function runMigrations() {
   }
 }
 runMigrations()
+
+// ─── LEAGUES CONFIG SEED ─────────────────────────────────────────────
+const LEAGUES_CONFIG_SEED = [
+  [17, 'Premier League', 'ELITE', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', 'Premier League', 0],
+  [8, 'LaLiga', 'ELITE', '🇪🇸', 'Spain', 'LaLiga', 0],
+  [23, 'Serie A', 'ELITE', '🇮🇹', 'Italy', 'Serie A', 0],
+  [35, 'Bundesliga', 'ELITE', '🇩🇪', 'Germany', 'Bundesliga', 0],
+  [34, 'Ligue 1', 'ELITE', '🇫🇷', 'France', 'Ligue 1', 0],
+  [238, 'Primeira Liga', 'TIER1', '🇵🇹', 'Portugal', 'Primeira Liga', 0],
+  [37, 'Eredivisie', 'TIER1', '🇳🇱', 'Netherlands', 'Eredivisie', 0],
+  [808, 'Egyptian Premier League', 'MENA', '🇪🇬', 'Egypt', 'Egyptian Premier League', 1],
+  [955, 'Saudi Pro League', 'MENA', '🇸🇦', 'Saudi Arabia', 'Saudi Pro League', 1],
+  [937, 'Botola Pro', 'MENA', '🇲🇦', 'Morocco', 'Botola Pro', 1],
+  [984, 'Tunisian Ligue 1', 'MENA', '🇹🇳', 'Tunisia', 'Tunisian Ligue 1', 1],
+  [841, 'Algerian Ligue 1', 'MENA', '🇩🇿', 'Algeria', 'Algerian Ligue 1', 1],
+]
+
+function seedLeaguesConfig() {
+  if (!db) return
+  try {
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO leagues_config
+        (id, name, tier, active, flag, country, displayName, smartScanEnabled, webhookEnabled, arabicNewsEnabled)
+      VALUES (?, ?, ?, 1, ?, ?, ?, 1, 1, ?)
+    `)
+    const runSeed = db.transaction(() => {
+      for (const row of LEAGUES_CONFIG_SEED) insert.run(...row)
+    })
+    runSeed()
+    const count = db.prepare('SELECT COUNT(*) AS n FROM leagues_config').get().n
+    logger.info(`🎛️ [DB] leagues_config seeded: ${count} leagues (12 expected).`)
+  } catch (e) {
+    logger.error(`❌ [DB] leagues_config seed failed: ${e.message}`)
+  }
+}
+seedLeaguesConfig()
 
 const database = {
   db: db,

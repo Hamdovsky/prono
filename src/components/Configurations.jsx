@@ -21,6 +21,12 @@ const Configurations = () => {
   const [apifyToken, setApifyToken] = useState('')
   const [activeStrategy, setActiveStrategy] = useState('Balanced')
 
+  // BSD toggle state
+  const [bsdEnabled, setBsdEnabled] = useState(false)
+  const [bsdLoading, setBsdLoading] = useState(false)
+  const [bsdPredictions, setBsdPredictions] = useState([])
+  const [bsdHasKey, setBsdHasKey] = useState(false)
+
   // League sync state
   const [leagues, setLeagues] = useState([])
   const [leaguesLoading, setLeaguesLoading] = useState(true)
@@ -30,7 +36,45 @@ const Configurations = () => {
 
   useEffect(() => {
     fetchLeagues()
+    fetchBsdStatus()
   }, [])
+
+  const fetchBsdStatus = async () => {
+    try {
+      const status = await dataService.fetchBsdStatus()
+      if (status?.success) {
+        setBsdEnabled(status.enabled)
+        setBsdHasKey(status.hasKey)
+      }
+    } catch (_) {}
+  }
+
+  const handleBsdToggle = async (enabled) => {
+    setBsdLoading(true)
+    try {
+      const res = await dataService.toggleBsd(enabled)
+      if (res?.success) {
+        setBsdEnabled(res.enabled)
+        if (res.enabled) {
+          const preds = await dataService.fetchBsdPredictions(50)
+          setBsdPredictions(preds?.predictions || [])
+        } else {
+          setBsdPredictions([])
+        }
+      }
+    } catch (_) {
+      alert('ERREUR: Impossible de changer l\'état BSD.')
+    } finally {
+      setBsdLoading(false)
+    }
+  }
+
+  const handleBsdRefresh = async () => {
+    try {
+      const preds = await dataService.fetchBsdPredictions(50)
+      setBsdPredictions(preds?.predictions || [])
+    } catch (_) {}
+  }
 
   const fetchLeagues = async () => {
     try {
@@ -406,6 +450,112 @@ const Configurations = () => {
             Deploy Changes to Bot
           </button>
         </div>
+      </section>
+
+      {/* ══════ BSD PREDICTIONS TOGGLE ══════ */}
+      <section className="config-section">
+        <div className="section-title">
+          <span className="material-symbols-outlined">insights</span>
+          BSD Predictions — sports.bzzoiro.com
+        </div>
+        <div className="toggle-list">
+          <ToggleItem
+            icon="data_object"
+            title="BSD Predictions Feed"
+            desc={
+              bsdEnabled
+                ? 'ACTIF — affiche les pronostics BSD'
+                : bsdHasKey
+                  ? 'Désactivé — cliquez pour activer'
+                  : 'Clé BSD_API_KEY manquante sur le serveur'
+            }
+            checked={bsdEnabled}
+            onChange={() => handleBsdToggle(!bsdEnabled)}
+            color="#38bdf8"
+          />
+        </div>
+
+        {bsdEnabled && (
+          <div className="bsd-predictions-panel" style={{ marginTop: '14px' }}>
+            <div className="bsd-panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+                {bsdPredictions.length} pronostics récupérés
+              </span>
+              <button
+                onClick={handleBsdRefresh}
+                style={{
+                  background: 'var(--gold)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  color: '#000',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                }}
+              >
+                ↻ REFRESH
+              </button>
+            </div>
+            {bsdPredictions.length === 0 ? (
+              <div style={{ color: '#94a3b8', fontSize: '13px', padding: '10px 0' }}>
+                Aucun pronostic pour le moment — vérifiez que la clé BSD_API_KEY est valide.
+              </div>
+            ) : (
+              <div className="bsd-predictions-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {bsdPredictions.slice(0, 20).map((p) => {
+                  const mr = p.markets?.match_result || {}
+                  const predicted = mr.predicted || '—'
+                  const label =
+                    predicted === 'H' ? '🏠 DOMICILE' : predicted === 'D' ? '🤝 NUL' : predicted === 'A' ? '✈️ EXTERIEUR' : predicted
+                  const prob =
+                    predicted === 'H'
+                      ? mr.prob_home
+                      : predicted === 'D'
+                        ? mr.prob_draw
+                        : predicted === 'A'
+                          ? mr.prob_away
+                          : null
+                  const score = p.markets?.score?.most_likely
+                  const xgH = p.markets?.expected_goals?.home
+                  const xgA = p.markets?.expected_goals?.away
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        background: 'rgba(56,189,248,0.06)',
+                        border: '1px solid rgba(56,189,248,0.25)',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>
+                            {p.event?.home_team} vs {p.event?.away_team}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                            {p.event?.league_name} ·{' '}
+                            {p.event?.event_date ? new Date(p.event.event_date).toLocaleString('fr-FR') : ''}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--gold)' }}>
+                            {label}
+                            {prob != null && <span> · {Math.round(prob)}%</span>}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                            {score ? `Score ${score}` : ''}
+                            {xgH != null && xgA != null ? ` · xG ${xgH}-${xgA}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </section>
     </div>
   )

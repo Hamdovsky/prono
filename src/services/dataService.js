@@ -807,6 +807,33 @@ class DataService {
     }
   }
 
+  async fetchBsdStatus() {
+    try {
+      return await this._get(getApiUrl('/api/bsd/status'))
+    } catch (error) {
+      logger.error('BSD status failed:', error)
+      return null
+    }
+  }
+
+  async toggleBsd(enabled) {
+    try {
+      return await this._post(getApiUrl('/api/bsd/toggle'), { enabled })
+    } catch (error) {
+      logger.error('BSD toggle failed:', error)
+      throw error
+    }
+  }
+
+  async fetchBsdPredictions(limit = 50) {
+    try {
+      return await this._get(getApiUrl(`/api/bsd/predictions?limit=${limit}`))
+    } catch (error) {
+      logger.error('BSD predictions failed:', error)
+      return { success: false, count: 0, predictions: [] }
+    }
+  }
+
   async forceRefresh() {
     try {
       logger.info('🔄 Triggering Manual Refresh (Live)...')

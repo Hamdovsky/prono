@@ -36,6 +36,34 @@ services:
         sync: false
       - key: THERUNDOWN_KEY
         sync: false
+      - key: ODDSAPI_IO_KEY
+        sync: false
+      - key: RAPIDAPI_ENABLED
+        value: "false"
+      # ── Odds : sources gratuites ──
+      - key: SOFASCORE_ODDS_ENABLED
+        value: "true"
+      - key: DISABLE_SOFASCORE
+        value: "false"
+      - key: ODDSAPI_IO_ENABLED
+        value: "true"
+      # ── Odds : sources payantes désactivées ──
+      - key: BSD_ENABLED
+        value: "false"
+      - key: THERUNDOWN_ENABLED
+        value: "false"
+      - key: ODDSPAPI_ENABLED
+        value: "false"
+      - key: SPORTMONKS_ENABLED
+        value: "false"
+      - key: APIFOOTBALL_ENABLED
+        value: "false"
+      - key: BIGBALLS_ENABLED
+        value: "false"
+      - key: PREDIXSPORT_ENABLED
+        value: "false"
+      - key: SPORTAPI_ENABLED
+        value: "false"
 
   # ── Python FastAPI Inference (ML/XGBoost Engine) ────
   - type: web

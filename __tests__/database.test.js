@@ -216,9 +216,23 @@ describe('Database', () => {
   })
 
   describe('getAllLeaguesConfig()', () => {
-    it('should return leagues config array', async () => {
+    it('should return seeded leagues config array', async () => {
       const leagues = await database.getAllLeaguesConfig()
       expect(Array.isArray(leagues)).toBe(true)
+      expect(leagues.length).toBeGreaterThanOrEqual(12)
+    })
+
+    it('should expose frontend fields and valid tiers', async () => {
+      const leagues = await database.getAllLeaguesConfig()
+      const tiers = new Set(leagues.map((l) => l.tier))
+      ;['ELITE', 'TIER1', 'MENA'].forEach((t) => expect(tiers).toContain(t))
+      const first = leagues[0]
+      expect(first).toHaveProperty('flag')
+      expect(first).toHaveProperty('country')
+      expect(first).toHaveProperty('displayName')
+      expect(first).toHaveProperty('smartScanEnabled')
+      expect(first).toHaveProperty('webhookEnabled')
+      expect(first).toHaveProperty('arabicNewsEnabled')
     })
   })
 

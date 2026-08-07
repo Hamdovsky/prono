@@ -8,12 +8,22 @@ d'entraînement du modèle de prédiction 1X2 à partir de 3 sources.
 | Source                | Données                                           | Fréquence       |
 |-----------------------|---------------------------------------------------|-----------------|
 | Football-Data.co.uk   | Résultats, cotes (B365/Pinnacle/Avg/Max), stats de match (tirs, corners, cartons) | Quotidien (matin), CSV direct, pas de rate limit |
-| ClubElo               | Rating Elo pré-match par équipe (lookup as-of)    | Quotidien (matin), API csv.clubelo.com |
+| ClubElo               | Rating Elo pré-match par équipe (lookup as-of)    | Quotidien (matin), API api.clubelo.com |
 | Stats avancées (xG/xA)| xG/xA par match + forme attaque/défense L5/L10     | Tous les 3 jours, `RateLimiter(3.5s)` (~15-20 req/min) |
 
 > Le fournisseur des stats avancées est **Understat** (via `soccerdata`) :
 > FBref ne sert plus xG/xA dans son HTML public. Le débit est plafonné à ~15-20
 > requêtes/minute pour éviter tout blocage.
+
+> **ClubElo — résilience & provenance.** La détection de disponibilité de l'API
+> est un vrai probe HTTP (5 s) : si l'API ne répond pas, le pipeline bascule
+> sans attente sur le cache local, puis sur un Elo calculé localement (K=20,
+> avantage domicile +100, init 1500). L'origine est tracée :
+> - colonne `elo_source` du master (`clubelo` / `cache` / `local`) ;
+> - `elo_source` dans `data/state.json` (dernier build) ;
+> - fichier `data/raw/clubelo/elo_source.txt` (provenance du cache courant).
+> Les valeurs `local` sont auto-cohérentes et sans fuite temporelle, mais ne
+> sont PAS les ratings officiels ClubElo (ex. Man City ~1707 au lieu de ~2050).
 
 ## Commandes
 
@@ -23,6 +33,7 @@ d'entraînement du modèle de prédiction 1X2 à partir de 3 sources.
 .venv/bin/python run_scheduled.py        # quotidien + xG/xA si dû (3 j)
 .venv/bin/python run_scheduled.py --pg   # + backfill Postgres prod
 .venv/bin/python -m pytest               # tests
+.venv/bin/python pipeline.py --task check  # rapport qualité (couverture + provenance)
 ```
 
 ## Sorties (dans `data/`)

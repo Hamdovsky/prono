@@ -37,14 +37,18 @@ def _update_state(patch: dict) -> None:
     STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
-def _get_elo(fd: pd.DataFrame) -> pd.DataFrame:
-    """Elo pré-match par équipe (API ClubElo, sinon cache, sinon calcul local)."""
+def _get_elo(fd: pd.DataFrame) -> tuple[pd.DataFrame, str]:
+    """Elo pré-match par équipe (API ClubElo, sinon cache, sinon calcul local).
+
+    Retourne `(historique, provenance)` avec provenance ∈ {"clubelo", "cache", "local"}.
+    """
     return clubelo_mod.fetch_histories(limiter=RateLimiter(0.0), fallback_results=fd)
 
 
 def _rebuild(fd, elo, adv) -> pd.DataFrame:
+    elo_hist, elo_source = elo
     mapper = TeamMapper()
-    df = align(fd, elo, adv, mapper)
+    df = align(fd, elo_hist, adv, mapper, elo_source=elo_source)
     df = features_mod.compute_features(df)
     store.save(df)
     return df
@@ -59,8 +63,9 @@ def run_daily(force: bool = False) -> pd.DataFrame:
     _update_state({
         "daily_last_run": datetime.now(timezone.utc).isoformat(),
         "last_build": datetime.now(timezone.utc).isoformat(),
+        "elo_source": elo[1],
     })
-    log.info("=== Tâche quotidienne terminée : %d matchs ===", len(df))
+    log.info("=== Tâche quotidienne terminée : %d matchs (Elo source=%s) ===", len(df), elo[1])
     return df
 
 
@@ -74,8 +79,9 @@ def run_fbref(force: bool = False) -> pd.DataFrame:
     _update_state({
         "fbref_last_run": datetime.now(timezone.utc).isoformat(),
         "last_build": datetime.now(timezone.utc).isoformat(),
+        "elo_source": elo[1],
     })
-    log.info("=== Tâche stats avancées terminée : %d matchs ===", len(df))
+    log.info("=== Tâche stats avancées terminée : %d matchs (Elo source=%s) ===", len(df), elo[1])
     return df
 
 
@@ -85,21 +91,32 @@ def build_master(force: bool = False) -> pd.DataFrame:
     fd = football_data_mod.fetch(force=False)
     elo = _get_elo(fd)
     df = _rebuild(fd, elo, _load_advanced())
-    _update_state({"last_build": datetime.now(timezone.utc).isoformat()})
-    log.info("=== Rebuild terminé : %d matchs ===", len(df))
+    _update_state({"last_build": datetime.now(timezone.utc).isoformat(), "elo_source": elo[1]})
+    log.info("=== Rebuild terminé : %d matchs (Elo source=%s) ===", len(df), elo[1])
     return df
+
+
+def run_check() -> dict:
+    """Rapport qualité : couverture par source + provenance Elo (watchdog)."""
+    log.info("=== Vérification qualité du master ===")
+    from build import quality
+    rep = quality.report()
+    log.info("Rapport qualité : %s", json.dumps(rep, default=str))
+    return rep
 
 
 def main(argv=None) -> None:
     setup_logging()
     parser = argparse.ArgumentParser(description="Pipeline de données pronos")
-    parser.add_argument("--task", choices=["daily", "fbref", "build"], default="daily")
+    parser.add_argument("--task", choices=["daily", "fbref", "build", "check"], default="daily")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args(argv)
     if args.task == "fbref":
         run_fbref(force=args.force)
     elif args.task == "build":
         build_master(force=args.force)
+    elif args.task == "check":
+        run_check()
     else:
         run_daily(force=args.force)
 

@@ -37,8 +37,13 @@ def _attach_elo(df: pd.DataFrame, elo_hist: pd.DataFrame, team_col: str, mapper:
 
 
 def align(fd_df: pd.DataFrame, elo_hist: pd.DataFrame | None, adv_df: pd.DataFrame | None,
-          mapper: TeamMapper | None = None) -> pd.DataFrame:
-    """Fusionne Football-Data (base), Elo ClubElo et stats avancées par match."""
+          mapper: TeamMapper | None = None, elo_source: str = "local") -> pd.DataFrame:
+    """Fusionne Football-Data (base), Elo ClubElo et stats avancées par match.
+
+    `elo_source` (clubelo | cache | local) est tracé dans la colonne `elo_source`
+    pour que les consommateurs sachent si l'Elo vient de l'API officielle, d'un
+    cache officiel, ou d'un calcul local de repli.
+    """
     mapper = mapper or TeamMapper()
     df = fd_df.copy()
     df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.floor("D")
@@ -49,6 +54,7 @@ def align(fd_df: pd.DataFrame, elo_hist: pd.DataFrame | None, adv_df: pd.DataFra
     if elo_hist is not None and len(elo_hist):
         df = _attach_elo(df, elo_hist, "home_team", mapper)
         df = _attach_elo(df, elo_hist, "away_team", mapper)
+        df["elo_source"] = elo_source
 
     if adv_df is not None and len(adv_df):
         adv = adv_df.copy()

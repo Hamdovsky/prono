@@ -8,11 +8,18 @@ Chaîne de résilience :
 
 Le calcul local utilise l'algorithme Elo standard (K=20, avantage domicile
 +100, 1500 initial) et sert uniquement de repli quand ClubElo est injoignable.
+
+Provenance (retournée par fetch_histories et tracée dans le master via
+`elo_source`) :
+  - "clubelo" : ratings officiels récupérés à l'instant depuis l'API ;
+  - "cache"   : historique officiel ClubElo en cache (récupéré un jour précédent) ;
+  - "local"   : Elo calculé localement (repli, l'API étant injoignable).
 """
 from __future__ import annotations
 
+import http.client
 from datetime import datetime
-import socket
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -22,6 +29,25 @@ from config import CLUBELO_DIR, LEAGUES, SOCCERDATA_CACHE
 from util import RateLimiter, get_logger
 
 log = get_logger("clubelo")
+
+ELO_SOURCES = ("clubelo", "cache", "local")
+_SOURCE_MARKER = "elo_source.txt"
+
+
+def _marker_path() -> Path:
+    return CLUBELO_DIR / _SOURCE_MARKER
+
+
+def _write_source(source: str) -> None:
+    CLUBELO_DIR.mkdir(parents=True, exist_ok=True)
+    _marker_path().write_text(source, encoding="utf-8")
+
+
+def _read_source(default: str = "local") -> str:
+    try:
+        return _marker_path().read_text(encoding="utf-8").strip()
+    except OSError:
+        return default
 
 
 def current_teams(countries=None) -> list[str]:
@@ -92,37 +118,61 @@ def compute_elo(results: pd.DataFrame, init: float = 1500.0, k: float = 20.0,
 
 
 def _fallback(exc: Exception, max_age: int,
-              fallback_results: pd.DataFrame | None) -> pd.DataFrame:
+              fallback_results: pd.DataFrame | None) -> tuple[pd.DataFrame, str]:
     log.warning("API ClubElo indisponible : %s", exc)
     cached = CLUBELO_DIR / "elo_history.csv"
     if cached.exists():
         age_days = (datetime.now() - datetime.fromtimestamp(cached.stat().st_mtime)).days
         if age_days <= max_age:
-            log.info("Utilisation du cache ClubElo local (%s)", cached)
-            return pd.read_csv(cached, parse_dates=["from"])
+            source = "cache" if _read_source() == "clubelo" else "local"
+            log.info("Utilisation du cache ClubElo local (%s, provenance=%s)", cached, source)
+            _write_source(source)
+            return pd.read_csv(cached, parse_dates=["from"]), source
     if fallback_results is not None and len(fallback_results):
-        return compute_elo(fallback_results)
+        hist = compute_elo(fallback_results)
+        _write_source("local")
+        return hist, "local"
     raise
 
 
 def fetch_histories(limiter: RateLimiter | None = None, max_age: int = 1,
-                    fallback_results: pd.DataFrame | None = None) -> pd.DataFrame:
-    """Historique Elo par équipe, avec repli cache puis calcul local."""
+                    fallback_results: pd.DataFrame | None = None) -> tuple[pd.DataFrame, str]:
+    """Historique Elo par équipe, avec repli cache puis calcul local.
+
+    Retourne `(df, source)` où `source` ∈ {"clubelo", "cache", "local"}.
+    """
     limiter = limiter or RateLimiter(0.0)
     CLUBELO_DIR.mkdir(parents=True, exist_ok=True)
     if not _api_reachable():
-        return _fallback(RuntimeError("api.clubelo.com injoignable (check DNS)"),
+        return _fallback(RuntimeError("api.clubelo.com injoignable (probe HTTP)"),
                          max_age, fallback_results)
     try:
-        return _fetch_from_api(limiter, max_age)
+        hist = _fetch_from_api(limiter, max_age)
+        _write_source("clubelo")
+        return hist, "clubelo"
     except Exception as exc:  # noqa: BLE001
         return _fallback(exc, max_age, fallback_results)
 
 
-def _api_reachable() -> bool:
-    """Check DNS/TCP rapide pour éviter les longues retries quand l'API est down."""
+def _http_probe(host: str, port: int = 80, timeout: float = 5.0) -> bool:
+    """Probe HTTP réel : vrai uniquement si le serveur répond (statut < 500).
+
+    Contrairement à un simple test TCP (qui reste ouvert même quand l'application
+    HTTP est morte — d'où des timeouts lents par équipe), ce probe valide qu'une
+    réponse HTTP arrive réellement dans le délai imparti.
+    """
     try:
-        socket.create_connection(("api.clubelo.com", 80), timeout=5).close()
-        return True
-    except OSError:
+        conn = http.client.HTTPConnection(host, port, timeout=timeout)
+        try:
+            conn.request("GET", "/", headers={"Host": host, "Connection": "close"})
+            resp = conn.getresponse()
+            resp.read()
+            return resp.status < 500
+        finally:
+            conn.close()
+    except (OSError, http.client.HTTPException):
         return False
+
+
+def _api_reachable(timeout: float = 5.0) -> bool:
+    return _http_probe("api.clubelo.com", port=80, timeout=timeout)

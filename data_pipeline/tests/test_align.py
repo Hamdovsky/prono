@@ -96,3 +96,26 @@ def test_join_sans_correspondance_donne_nan() -> None:
     ])
     df = align(fd, _elo([]), adv)
     assert np.isnan(df.loc[0, "home_xg"])
+
+
+def test_elo_source_provenance_et_defaut() -> None:
+    fd = _fd([
+        {"date": "2024-01-10", "home_team": "Arsenal", "away_team": "Chelsea"},
+    ])
+    hist = _elo([
+        ("2024-01-01", "Arsenal", 1500.0),
+        ("2024-01-01", "Chelsea", 1400.0),
+    ])
+    df = align(fd, hist, None, elo_source="cache")
+    assert df.loc[0, "elo_source"] == "cache"
+
+    df2 = align(fd, hist, None)
+    assert df2.loc[0, "elo_source"] == "local"
+
+
+def test_elo_source_absent_sans_historique() -> None:
+    fd = _fd([
+        {"date": "2024-01-10", "home_team": "Arsenal", "away_team": "Chelsea"},
+    ])
+    df = align(fd, None, None)
+    assert "elo_source" not in df.columns

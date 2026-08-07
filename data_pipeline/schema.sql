@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS master_matches (
     odds_a_avg       REAL,
     elo_home         REAL,
     elo_away         REAL,
+    elo_source       TEXT,
     home_xg          REAL,
     away_xg          REAL,
     home_xa          REAL,

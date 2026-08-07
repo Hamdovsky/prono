@@ -173,7 +173,28 @@ const toRawLines = (m) => {
     rawHPct >= rawAPct && rawHPct >= rawDPct ? '1' : rawAPct >= rawDPct ? '2' : 'X'
   const modelWinnerProb = modelWinner === '1' ? rawHPct : modelWinner === '2' ? rawAPct : rawDPct
 
+  // ── MODEL-ONLY PICK: le backend a validé un signal modèle (sufficient=true) mais
+  // sans cotes bookmaker réelles → on affiche le pick avec le badge 🔮 pour ne pas le
+  // faire passer pour un pronostic avec cotes/EV. (Le "bon chemin" : honnête, pas masqué.)
+  const hasRealOddsShown =
+    parseFloat(m.odds_home) > 0 && parseFloat(m.odds_draw) > 0 && parseFloat(m.odds_away) > 0
+  const isModelOnlyPick =
+    !isInsufficient && !hasRealOddsShown && String(m.prediction || '').trim() !== ''
+  const pickLabel = winnerProb ? `${winner} ${Math.round(winnerProb)}%` : winner
+
   // ── HONENETE: aucune donnée bookmaker réelle → pas de verdict par défaut ──
+  if (isModelOnlyPick) {
+    return [
+      `${m.league || m.tournament_name || ''} 🔮 modèle — sans cotes (pas d'EV)`,
+      m.homeTeam || '',
+      m.awayTeam || '',
+      bttsLabel,
+      `${ouPct}%`,
+      pickLabel,
+      `${htPct}%`,
+      htLabel,
+    ]
+  }
   if (hasRealModelSignal) {
     return [
       `${m.league || m.tournament_name || ''} 🔮 modèle`,

@@ -1393,10 +1393,18 @@ class EnrichedPredictionService {
       // (league base-xG defaults). We trust those numbers AS A MODEL OUTPUT — but they are
       // marked as model probabilities and NEVER carry invented odds/value (handled below).
       // Require a non-degenerate probability signal: a clear top pick with a real margin.
-      const sumProbs = (probs.h || 0) + (probs.d || 0) + (probs.a || 0)
-      const topModel = Math.max(probs.h || 0, probs.d || 0, probs.a || 0)
-      const secondModel = [probs.h, probs.d, probs.a].sort((a, b) => b - a)[1] || 0
-      const hasModelSignal = sumProbs > 1.5 && topModel - secondModel >= 0.06 && topModel >= 0.34
+      // JS Poisson engine returns normalized 0–1 fractions (sum ≈ 1); V553 returns
+      // percentages (sum ≈ 100). Detect the scale so the non-degenerate guard below
+      // works for both — otherwise fraction-scale probs (sum ≈ 1) can never pass.
+      const rawSum = (probs.h || 0) + (probs.d || 0) + (probs.a || 0)
+      const probScale = rawSum > 5 ? 100 : 1
+      const normH = (probs.h || 0) / probScale
+      const normD = (probs.d || 0) / probScale
+      const normA = (probs.a || 0) / probScale
+      const sumProbs = normH + normD + normA
+      const topModel = Math.max(normH, normD, normA)
+      const secondModel = [normH, normD, normA].sort((a, b) => b - a)[1] || 0
+      const hasModelSignal = sumProbs > 0.9 && topModel - secondModel >= 0.06 && topModel >= 0.34
       const insufficient = hasRealOdds ? 0 : !hasModelSignal ? 1 : 0
 
       // ── 2.5 CONFIDENCE SCORER (Force du Pronostic) ──
@@ -1419,7 +1427,9 @@ class EnrichedPredictionService {
         topProb: topPick.prob,
         secondProb: secondPick.prob,
         baseSolidMargin,
-        insufficientData: insufficient,
+        // Data-quality penalty: no REAL bookmaker odds → model runs on league
+        // defaults → keep the honest penalty even when the model signal is clear.
+        insufficientData: hasRealOdds ? 0 : 1,
         league: m.league || '',
         marketType,
       })
@@ -1560,13 +1570,15 @@ class EnrichedPredictionService {
       }
 
       // ── HONESTY GATE: insufficient matches MUST NOT carry fake picks / odds / value ──
-      if (insufficient || (m._oddsAreSynthetic && !hasRealOdds)) {
-        if (m._oddsAreSynthetic) {
-          resultData.odds_home = null
-          resultData.odds_draw = null
-          resultData.odds_away = null
-          if (resultData.odds_source) resultData.odds_source = 'synthetic'
-        }
+      // A match is "insufficient" only when there is NO usable model signal (see above).
+      // Matches WITH a clear signal keep the model pick even without bookmaker odds —
+      // the `!hasRealOdds` branch below then neutralizes odds/value (no invented data).
+      if (insufficient) {
+        resultData.odds_home = null
+        resultData.odds_draw = null
+        resultData.odds_away = null
+        if (resultData.odds_source)
+          resultData.odds_source = m._oddsAreSynthetic ? 'synthetic' : 'model_league'
         resultData.prediction = null
         resultData.verdict = 'PENDING'
         resultData.risk_label = 'PENDING'
@@ -1603,7 +1615,8 @@ class EnrichedPredictionService {
           resultData.odds_home = null
           resultData.odds_draw = null
           resultData.odds_away = null
-          if (resultData.odds_source) resultData.odds_source = 'model_league'
+          if (resultData.odds_source)
+            resultData.odds_source = m._oddsAreSynthetic ? 'synthetic' : 'model_league'
         }
       }
 

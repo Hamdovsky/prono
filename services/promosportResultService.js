@@ -9,6 +9,26 @@ function getDb() {
   return new Database(ARCHIVE_PATH)
 }
 
+// Join robuste : match_idx n'est fiable que pour les prédictions backfillées.
+// Pour les grilles générées par l'engine, match_idx = id source (≠ position 1..13),
+// donc on retombe sur le couple home/away (uppercase, comme stocké dans l'archive).
+const MATCH_JOIN_SQL = `
+    AND pp.concours = pa.concours
+    AND (
+      (pp.match_idx IS NOT NULL AND pp.match_idx = pa.match_idx)
+      OR (
+        pp.match_idx IS NULL
+        AND UPPER(COALESCE(pp.home_team, '')) = pa.homeTeam
+        AND UPPER(COALESCE(pp.away_team, '')) = pa.awayTeam
+      )
+    )
+`
+
+// Exclut les placeholders corrompus (insertion sans id ni équipes).
+const VALID_PREDICTION_SQL = `
+    AND (pp.match_idx IS NOT NULL OR (pp.home_team IS NOT NULL AND pp.away_team IS NOT NULL))
+`
+
 function storePrediction(concours, date, grids) {
   try {
     const db = getDb()
@@ -38,13 +58,19 @@ function storePrediction(concours, date, grids) {
     const tx = db.transaction(() => {
       for (const grid of grids) {
         for (const match of grid.matches) {
+          // Skip placeholders: aucune donnée exploitable pour le scoring
+          if (!match) continue
+          if (match.id == null && (!match.home || !match.away)) {
+            logger.warn('[PROMOSPORT-RESULT] Skipping match without id/teams')
+            continue
+          }
           upsert.run(
             String(concours),
             date,
             grid.name,
-            match.id,
-            match.home,
-            match.away,
+            match.id ?? null,
+            match.home ?? null,
+            match.away ?? null,
             JSON.stringify(match.choices)
           )
         }
@@ -123,12 +149,21 @@ function computeAccuracy(concoursNumber) {
     const predictions = db
       .prepare(
         `
-      SELECT pp.*, pa.result, pa.score_home, pa.score_away
+      SELECT pp.*, pa.result, pa.score_home, pa.score_away, pa.match_idx AS archive_match_idx
       FROM promosport_predictions pp
       LEFT JOIN promosport_archive pa
         ON pp.concours = pa.concours
-        AND pp.match_idx = pa.match_idx
-      WHERE pp.concours = ? AND pa.result IS NOT NULL AND pa.result != 'N'
+        AND (
+          (pp.match_idx IS NOT NULL AND pp.match_idx = pa.match_idx)
+          OR (
+            pp.match_idx IS NULL
+            AND UPPER(COALESCE(pp.home_team, '')) = pa.homeTeam
+            AND UPPER(COALESCE(pp.away_team, '')) = pa.awayTeam
+          )
+        )
+      WHERE pp.concours = ?
+        AND pa.result IS NOT NULL AND pa.result != 'N'
+        AND (pp.match_idx IS NOT NULL OR (pp.home_team IS NOT NULL AND pp.away_team IS NOT NULL))
     `
       )
       .all(String(concoursNumber))
@@ -320,8 +355,17 @@ function getConfusionMatrix() {
       SELECT pp.choices, pa.result
       FROM promosport_predictions pp
       INNER JOIN promosport_archive pa
-        ON pp.concours = pa.concours AND pp.match_idx = pa.match_idx
+        ON pp.concours = pa.concours
+        AND (
+          (pp.match_idx IS NOT NULL AND pp.match_idx = pa.match_idx)
+          OR (
+            pp.match_idx IS NULL
+            AND UPPER(COALESCE(pp.home_team, '')) = pa.homeTeam
+            AND UPPER(COALESCE(pp.away_team, '')) = pa.awayTeam
+          )
+        )
       WHERE pa.result IS NOT NULL AND pa.result != 'N'
+        AND (pp.match_idx IS NOT NULL OR (pp.home_team IS NOT NULL AND pp.away_team IS NOT NULL))
     `
       )
       .all()
@@ -393,8 +437,17 @@ function simulateROI(stakePerMatch = 10) {
       SELECT pp.choices, pa.result, pa.match_idx, pp.grid_name, pp.concours
       FROM promosport_predictions pp
       INNER JOIN promosport_archive pa
-        ON pp.concours = pa.concours AND pp.match_idx = pa.match_idx
+        ON pp.concours = pa.concours
+        AND (
+          (pp.match_idx IS NOT NULL AND pp.match_idx = pa.match_idx)
+          OR (
+            pp.match_idx IS NULL
+            AND UPPER(COALESCE(pp.home_team, '')) = pa.homeTeam
+            AND UPPER(COALESCE(pp.away_team, '')) = pa.awayTeam
+          )
+        )
       WHERE pa.result IS NOT NULL AND pa.result != 'N'
+        AND (pp.match_idx IS NOT NULL OR (pp.home_team IS NOT NULL AND pp.away_team IS NOT NULL))
       ORDER BY pp.concours ASC
     `
       )

@@ -4,6 +4,7 @@ import './TopPicks.css'
 
 const TopPicks = () => {
   const [data, setData] = useState(null)
+  const [accuracy, setAccuracy] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -15,6 +16,12 @@ const TopPicks = () => {
       })
       .catch(() => setData(null))
       .finally(() => setLoading(false))
+    fetch(getApiUrl('/api/top-picks/accuracy'))
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setAccuracy(d)
+      })
+      .catch(() => setAccuracy(null))
   }, [])
 
   if (loading) return <div className="top-picks-loading">Chargement des pronostics...</div>
@@ -122,6 +129,41 @@ const TopPicks = () => {
           })}
         </div>
       </div>
+
+      {accuracy && accuracy.total_settled > 0 && (
+        <div className="top-picks-section accuracy-section">
+          <h3>📊 Accuracy Réelle (settled)</h3>
+          <div className="accuracy-stats">
+            <div className="accuracy-stat">
+              <span className="accuracy-label">Global</span>
+              <span className="accuracy-value">{accuracy.win_rate}%</span>
+              <span className="accuracy-sub">
+                {accuracy.won}/{accuracy.total_settled}
+              </span>
+            </div>
+            <div className="accuracy-stat">
+              <span className="accuracy-label">ROI (flat 1u)</span>
+              <span className={`accuracy-value ${accuracy.roi_percent >= 0 ? 'acc-pos' : 'acc-neg'}`}>
+                {accuracy.roi_percent >= 0 ? '+' : ''}
+                {accuracy.roi_percent}%
+              </span>
+              <span className="accuracy-sub">En attente: {accuracy.pending}</span>
+            </div>
+            {accuracy.by_source && (
+              <div className="accuracy-stat">
+                <span className="accuracy-label">Confiance</span>
+                <span className="accuracy-value">
+                  {accuracy.by_source.top_confidence?.win_rate ?? 0}%
+                </span>
+                <span className="accuracy-sub">
+                  {accuracy.by_source.top_confidence?.won ?? 0}/
+                  {accuracy.by_source.top_confidence?.total ?? 0}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

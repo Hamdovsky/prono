@@ -949,6 +949,16 @@ class CronManager {
         } catch (e) {
           logger.error(`[CRON] Daily predictions failed: ${e.message}`)
         }
+        // Persist top-picks for real scoring + try settling any finished ones
+        try {
+          const topPicks = require('./topPicksService')
+          const pipe = topPicks.runScoringPipeline()
+          logger.info(
+            `[CRON] Top-picks pipeline: synced=${pipe.sync.synced} linked=${pipe.link.linked} settled=${pipe.settle.settled}`
+          )
+        } catch (e) {
+          logger.error(`[CRON] Top-picks pipeline failed: ${e.message}`)
+        }
       },
       { timezone: 'Africa/Tunis' }
     )

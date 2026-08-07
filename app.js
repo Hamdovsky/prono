@@ -858,6 +858,29 @@ app.get('/api/analytics/performance', async (req, res) => {
   }
 })
 
+// ─── Top-picks accuracy scoring ──
+const topPicksService = require('./services/topPicksService')
+
+app.get('/api/top-picks/accuracy', async (req, res) => {
+  try {
+    const data = topPicksService.getTopPicksAccuracy()
+    return res.status(200).json({ success: true, ...data })
+  } catch (e) {
+    logger.error(`[API] /api/top-picks/accuracy failed: ${e.message}`)
+    return res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+app.post('/api/top-picks/score', async (req, res) => {
+  try {
+    const result = topPicksService.runScoringPipeline()
+    return res.status(200).json({ success: true, ...result })
+  } catch (e) {
+    logger.error(`[API] /api/top-picks/score failed: ${e.message}`)
+    return res.status(500).json({ success: false, error: e.message })
+  }
+})
+
 app.get('/api/leagues', async (req, res) => {
   try {
     res.json(await database.getAllLeaguesConfig())

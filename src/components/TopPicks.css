@@ -123,3 +123,39 @@
   color: #94a3b8;
   font-size: 15px;
 }
+.accuracy-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.accuracy-stat {
+  flex: 1;
+  min-width: 140px;
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.accuracy-label {
+  font-size: 12px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.accuracy-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+.accuracy-value.acc-pos {
+  color: #22c55e;
+}
+.accuracy-value.acc-neg {
+  color: #ef4444;
+}
+.accuracy-sub {
+  font-size: 12px;
+  color: #64748b;
+}

@@ -2,6 +2,9 @@ const path = require('path')
 const Database = require('better-sqlite3')
 const { execSync } = require('child_process')
 const logger = require('../core/logger')
+const { resolvePython } = require('../core/utils/pythonResolver')
+
+const PYTHON = resolvePython()
 
 const MODEL_PATH = path.join(__dirname, '..', 'models', 'promosport_xgb.json')
 const ARCHIVE_PATH = path.join(__dirname, '..', 'data', 'historical_archive.sqlite')
@@ -45,7 +48,7 @@ print(json.dumps(probs.tolist()))
       }
 
       execSync(
-        `python3 -c "import xgboost as xgb; b=xgb.Booster(); b.load_model('${MODEL_PATH.replace(/\\/g, '\\\\')}'); print('OK')"`,
+        `"${PYTHON}" -c "import xgboost as xgb; b=xgb.Booster(); b.load_model('${MODEL_PATH.replace(/\\/g, '\\\\')}'); print('OK')"`,
         { timeout: 5000, encoding: 'utf8', windowsHide: true }
       )
 
@@ -68,7 +71,7 @@ print(json.dumps(probs.tolist()))
     try {
       const inputJson = JSON.stringify(features)
       const result = execSync(
-        `python "${PYTHON_SCRIPT.replace(/\\/g, '\\\\')}" "${MODEL_PATH.replace(/\\/g, '\\\\')}"`,
+        `"${PYTHON}" "${PYTHON_SCRIPT.replace(/\\/g, '\\\\')}" "${MODEL_PATH.replace(/\\/g, '\\\\')}"`,
         {
           input: inputJson,
           timeout: 10000,

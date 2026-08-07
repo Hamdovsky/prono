@@ -263,6 +263,38 @@ function initSchema() {
             );
 
             -- Full odds_history with minute tracking created below in second batch
+            -- Daily top-picks persisted for real settlement/accuracy scoring
+            CREATE TABLE IF NOT EXISTS top_picks (
+                id TEXT PRIMARY KEY,
+                pick_date TEXT,
+                home_team TEXT,
+                away_team TEXT,
+                league TEXT,
+                prediction TEXT,
+                confidence REAL,
+                home_prob REAL,
+                draw_prob REAL,
+                away_prob REAL,
+                odds_home REAL,
+                odds_draw REAL,
+                odds_away REAL,
+                odds_source TEXT,
+                ev REAL,
+                kelly REAL,
+                has_real_odds INTEGER DEFAULT 0,
+                models TEXT,
+                match_id TEXT,
+                status TEXT DEFAULT 'PENDING',
+                result TEXT,
+                score TEXT,
+                source TEXT DEFAULT 'all',
+                created_at BIGINT,
+                settled_at BIGINT
+            );
+            CREATE INDEX IF NOT EXISTS idx_top_picks_status ON top_picks(status);
+            CREATE INDEX IF NOT EXISTS idx_top_picks_date ON top_picks(pick_date);
+            CREATE INDEX IF NOT EXISTS idx_top_picks_match ON top_picks(match_id);
+
             CREATE TABLE IF NOT EXISTS quant_performance (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 match_id TEXT,

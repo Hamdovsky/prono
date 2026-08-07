@@ -1404,7 +1404,7 @@ class EnrichedPredictionService {
       const sumProbs = normH + normD + normA
       const topModel = Math.max(normH, normD, normA)
       const secondModel = [normH, normD, normA].sort((a, b) => b - a)[1] || 0
-      const hasModelSignal = sumProbs > 0.9 && topModel - secondModel >= 0.06 && topModel >= 0.34
+      const hasModelSignal = sumProbs > 0.9 && topModel - secondModel >= 0.10 && topModel >= 0.45
       const insufficient = hasRealOdds ? 0 : !hasModelSignal ? 1 : 0
 
       // ── 2.5 CONFIDENCE SCORER (Force du Pronostic) ──

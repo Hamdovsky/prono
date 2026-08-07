@@ -794,6 +794,7 @@ router.post('/re-enrich', async (req, res) => {
             home_xg: result.home_xg,
             away_xg: result.away_xg,
             insufficient_data: result.insufficient_data ? 1 : 0,
+            sufficient: result.sufficient ? true : false,
             ai_source: result.ai_source || 'jit',
             quant: result.quant || {},
             enriched: result,

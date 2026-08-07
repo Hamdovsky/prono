@@ -149,7 +149,6 @@ async function tryXgbEnrichOne(match) {
       parseFloat(match.odds_home) > 0 &&
       parseFloat(match.odds_draw) > 0 &&
       parseFloat(match.odds_away) > 0
-    const insufficientData = hasRealOdds ? 0 : 1
 
     const payload = {
       homeTeam: match.homeTeam,
@@ -182,6 +181,16 @@ async function tryXgbEnrichOne(match) {
     const pyDraw = parseFloat(py.draw_probability) || 0
     const pyAway = parseFloat(py.away_win_probability) || 0
     if (pyHome + pyDraw + pyAway <= 0.01) return null
+    // Honest insufficiency: without real bookmaker odds, only a non-degenerate model
+    // signal (clear top pick + real margin) makes the match usable. A coin-flip on
+    // synthetic odds must stay insufficient instead of faking a pick.
+    let insufficientData = hasRealOdds ? 0 : 1
+    if (insufficientData) {
+      const sortedPy = [pyHome, pyDraw, pyAway].sort((a, b) => b - a)
+      const hasModelSignal =
+        pyHome + pyDraw + pyAway > 0.9 && sortedPy[0] - sortedPy[1] >= 0.10 && sortedPy[0] >= 0.45
+      if (hasModelSignal) insufficientData = 0
+    }
     const xgbConf = parseFloat(py.xgboost_confidence || py.confidence || 0)
     const pHome = +(pyHome * 100).toFixed(1)
     const pDraw = +(pyDraw * 100).toFixed(1)
@@ -355,6 +364,14 @@ async function jsEnrichOne(match) {
   const pHome = Math.round(markets.home * 1000) / 10
   const pDraw = Math.round(markets.draw * 1000) / 10
   const pAway = Math.round(markets.away * 1000) / 10
+  // Honest insufficiency: same rule as the XGBoost path — synthetic odds only stay
+  // usable when the model produces a clear top pick with a real margin.
+  if (insufficientData === 1) {
+    const sorted = [pHome, pDraw, pAway].sort((a, b) => b - a)
+    const hasModelSignal =
+      pHome + pDraw + pAway > 90 && sorted[0] - sorted[1] >= 10 && sorted[0] >= 45
+    if (hasModelSignal) insufficientData = 0
+  }
   const result = buildPredictionObject(
     match,
     pHome,
@@ -611,6 +628,13 @@ async function enrichMatchesBatch(opts = {}) {
         if (!item) continue
         const m = item.match
         const r = item.result
+        const hasRealOddsForWrite =
+          m._oddsWereFetched &&
+          !m._oddsAreSynthetic &&
+          parseFloat(m.odds_home) > 0 &&
+          parseFloat(m.odds_draw) > 0 &&
+          parseFloat(m.odds_away) > 0
+        const evScore = hasRealOddsForWrite ? r.ev_score : 0
         try {
           await database.updatePredictions(m.id, {
             home_win_probability: r.home_win_probability,
@@ -621,11 +645,12 @@ async function enrichMatchesBatch(opts = {}) {
             expected_score: r.expected_score,
             prediction: r.prediction,
             prediction_probability: r.prediction_probability,
-            ev_home: r.prediction === '1' ? r.ev_score : null,
-            ev_draw: r.prediction === 'X' ? r.ev_score : null,
-            ev_away: r.prediction === '2' ? r.ev_score : null,
-            ev_score: r.ev_score,
+            ev_home: hasRealOddsForWrite && r.prediction === '1' ? r.ev_score : null,
+            ev_draw: hasRealOddsForWrite && r.prediction === 'X' ? r.ev_score : null,
+            ev_away: hasRealOddsForWrite && r.prediction === '2' ? r.ev_score : null,
+            ev_score: evScore,
             insufficient_data: r.insufficient_data ?? 0,
+            sufficient: r.insufficient_data ? false : true,
             home_xg: r.home_xg,
             away_xg: r.away_xg,
             xgboost_confidence: r.xgboost_confidence || null,

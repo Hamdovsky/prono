@@ -1,10 +1,3 @@
-FROM node:20-slim AS frontend
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --legacy-peer-deps
-COPY . .
-RUN npm run build
-
 FROM node:20-slim
 
 RUN apt-get update && apt-get install -y \
@@ -29,9 +22,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY . .
 
-COPY --from=frontend /app/dist ./dist
+EXPOSE 8000
 
-EXPOSE 3001
-
-CMD python3 -m uvicorn core.fastapi_server:app --host 0.0.0.0 --port 8000 & \
-    node --max-old-space-size=384 server.js
+# FastAPI inference only — the Node/Express server runs in its own service
+# (Dockerfile.production). Starting `node server.js` here duplicated every
+# cron job across two Render instances. No frontend build needed (FastAPI
+# serves no static assets).
+CMD python3 -m uvicorn core.fastapi_server:app --host 0.0.0.0 --port 8000

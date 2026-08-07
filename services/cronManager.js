@@ -114,13 +114,23 @@ class CronManager {
 
     // 8. Cache cleanup + deltaEngine cleanup (Every 6 hours)
     cron.schedule('0 */6 * * *', () => {
-      redisCache.clearExpired()
-      const deltaEngine = require('./deltaEngine')
-      deltaEngine.cleanup()
+      try {
+        redisCache.clearExpired()
+        const deltaEngine = require('./deltaEngine')
+        deltaEngine.cleanup()
+      } catch (e) {
+        logger.warn(`[CRON] Cache/delta cleanup error: ${e.message}`)
+      }
     })
 
     // 9. Combo Refresh (Every hour)
-    cron.schedule('0 * * * *', () => socketService.refreshCombos())
+    cron.schedule('0 * * * *', () => {
+      try {
+        socketService.refreshCombos()
+      } catch (e) {
+        logger.warn(`[CRON] Combo refresh error: ${e.message}`)
+      }
+    })
 
     // 10. Proactive Future Enrichment (every 4 hours) â€” try Account 2 worker first
     cron.schedule(
@@ -230,9 +240,9 @@ class CronManager {
       { timezone: 'Africa/Tunis' }
     )
 
-    // 9.6 Promosport Results Checker (20:00 daily, after matches finish)
+    // 9.6 Promosport Results Checker (20:30 daily — offset from the 20:00 job below to avoid double-fetch)
     cron.schedule(
-      '0 20 * * *',
+      '30 20 * * *',
       async () => {
         logger.info('🏁 [CRON] Checking Promosport results for recent concours...')
         try {

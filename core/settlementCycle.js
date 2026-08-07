@@ -39,9 +39,10 @@ function startSettlementCycle(intervalMs = 15 * 60 * 1000) {
       logger.info(`[SETTLEMENT] Initial: ${settleResult.settled}/${settleResult.total} settled`)
       try {
         const topPicks = require('../services/topPicksService')
+        const sync = topPicks.syncDailyPicks()
         const link = topPicks.linkPicksToMatches()
         const settle = topPicks.settlePendingPicks()
-        logger.info(`[SETTLEMENT] Initial top-picks: ${link.linked} linked, ${settle.settled} settled`)
+        logger.info(`[SETTLEMENT] Initial top-picks: ${sync.synced} synced, ${link.linked} linked, ${settle.settled} settled`)
       } catch (e) {
         logger.warn(`[SETTLEMENT] Initial top-picks error: ${e.message}`)
       }

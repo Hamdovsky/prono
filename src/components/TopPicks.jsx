@@ -30,7 +30,7 @@ const TopPicks = () => {
       <div className="top-picks-empty">Aucun pronostic disponible. Lance daily_predictions.py</div>
     )
 
-  const { top_confidence, top_value, generated_at, total_matches } = data
+  const { top_confidence, top_value, generated_at, total_matches, fallback } = data
   const date = generated_at ? new Date(generated_at).toLocaleDateString('fr-FR') : ''
 
   return (
@@ -38,6 +38,11 @@ const TopPicks = () => {
       <div className="top-picks-header">
         <h2>🎯 Top Pronostics du {date}</h2>
         <span className="top-picks-count">{total_matches} matchs analysés</span>
+        {fallback && (
+          <span className="top-picks-badge top-picks-badge-fallback">
+            Données de secours — le cron quotidien met à jour les pronostics
+          </span>
+        )}
       </div>
 
       <div className="top-picks-section">

@@ -46,7 +46,22 @@ class RedisCache {
       value: typeof value === 'object' ? JSON.stringify(value) : value.toString(),
       expires: Date.now() + ttl * 1000,
     })
+    this._boundFallbackCache()
     return true
+  }
+
+  // Cap the in-memory fallback so a prolonged Redis outage can't leak memory.
+  _boundFallbackCache(maxEntries = 2000) {
+    if (this.fallbackCache.size <= maxEntries) return
+    const now = Date.now()
+    for (const [k, v] of this.fallbackCache.entries()) {
+      if (v.expires < now) this.fallbackCache.delete(k)
+    }
+    if (this.fallbackCache.size <= maxEntries) return
+    const entries = [...this.fallbackCache.entries()].sort((a, b) => a[1].expires - b[1].expires)
+    for (const [k] of entries.slice(0, this.fallbackCache.size - maxEntries)) {
+      this.fallbackCache.delete(k)
+    }
   }
 
   async get(key) {
@@ -98,6 +113,7 @@ class RedisCache {
 
     // Fallback to in-memory
     this.fallbackCache.set(key, { value, expires: Date.now() + ttl * 1000 })
+    this._boundFallbackCache()
     return true
   }
 
@@ -141,6 +157,7 @@ class RedisCache {
     }
 
     this.fallbackCache.set(key, { value, expires: Date.now() + ttl * 1000 })
+    this._boundFallbackCache()
     return true
   }
 
@@ -183,6 +200,7 @@ class RedisCache {
     }
 
     this.fallbackCache.set(key, { value, expires: Date.now() + ttl * 1000 })
+    this._boundFallbackCache()
     return true
   }
 

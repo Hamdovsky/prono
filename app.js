@@ -716,28 +716,13 @@ app.get('/api/errors/recent', securityEngine.authenticate.bind(securityEngine), 
   res.json({ total: filtered.length, errors: filtered.slice(0, 50) })
 })
 
-// ── GLOBAL ERROR HANDLER ──────────────────
-app.use((err, req, res, next) => {
-  const status = err.status || err.statusCode || 500
-
-  trackError(status, req.method, req.url, err.message)
-  logger.error(`💥 [GLOBAL ERROR] ${req.method} ${req.url} - Status: ${status}`, err)
-
-  if (res.headersSent) {
-    return next(err)
-  }
-
-  res.status(status).json({
-    error: 'Internal Server Error',
-    message: err.message,
-    path: req.url,
-    timestamp: new Date().toISOString(),
-  })
-})
-
 // 🤖 AUTO-HEAL ENDPOINTS
 app.get('/api/autoheal/status', (req, res) => {
-  res.json(autoHealAgent.getStatus())
+  try {
+    res.json(autoHealAgent.getStatus())
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })
 
 app.post(
@@ -759,7 +744,11 @@ app.get('/api/autoheal/history', (req, res) => {
 })
 
 app.get('/api/fallback/status', (req, res) => {
-  res.json(apiFallbackManager.getAllStatus())
+  try {
+    res.json(apiFallbackManager.getAllStatus())
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // ─── fbref xG ingestion from local residential-IP scraper ──
@@ -1252,11 +1241,22 @@ app.get('/api/top-picks', async (req, res) => {
     const fs = require('fs')
     const path = require('path')
     const picksPath = path.join(__dirname, 'data', 'daily_predictions.json')
-    if (fs.existsSync(picksPath)) {
-      const data = JSON.parse(fs.readFileSync(picksPath, 'utf-8'))
-      res.json({ success: true, ...data })
+    const fallbackPath = path.join(__dirname, 'data', 'daily_predictions.fallback.json')
+    const readPicks = (file) => {
+      if (!fs.existsSync(file)) return null
+      try {
+        return JSON.parse(fs.readFileSync(file, 'utf-8'))
+      } catch {
+        return null
+      }
+    }
+    const fresh = readPicks(picksPath)
+    if (fresh) {
+      res.json({ success: true, fallback: false, ...fresh })
     } else {
-      res.json({ success: false, error: 'No predictions yet. Run daily_predictions.py first.' })
+      const fb = readPicks(fallbackPath)
+      if (fb) res.json({ success: true, fallback: true, ...fb })
+      else res.json({ success: false, error: 'No predictions yet. Run daily_predictions.py first.' })
     }
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
@@ -1475,6 +1475,27 @@ app.get(/^(?!\/api|\/socket\.io).*/, (req, res) => {
   } catch (err) {
     if (!res.headersSent) res.status(404).send('Not Found')
   }
+})
+
+// ── GLOBAL ERROR HANDLER (LAST middleware) ─────────
+// Must be registered after every route/middleware for Express 4 to route
+// errors here. Declared near the top it was dead code for routes added later.
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500
+
+  trackError(status, req.method, req.url, err.message)
+  logger.error(`💥 [GLOBAL ERROR] ${req.method} ${req.url} - Status: ${status}`, err)
+
+  if (res.headersSent) {
+    return next(err)
+  }
+
+  res.status(status).json({
+    error: 'Internal Server Error',
+    message: err.message,
+    path: req.url,
+    timestamp: new Date().toISOString(),
+  })
 })
 
 module.exports = app

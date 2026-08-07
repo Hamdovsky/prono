@@ -14,7 +14,8 @@ def test_rate_limiter_respecte_l_intervalle() -> None:
     limiter.wait()
     limiter.wait()
     elapsed = time.monotonic() - t0
-    assert elapsed >= 0.2 - 1e-3
+    # Windows : granularité du timer ~15,6 ms → marge de 20 ms (comme le test thread-safe)
+    assert elapsed >= 0.2 - 0.02
 
 
 def test_rate_limiter_intervalle_nul_passe_directement() -> None:

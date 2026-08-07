@@ -10,8 +10,13 @@ const startupBootstrap = require('./core/startupBootstrap')
 // ── Immediate health-check HTTP server (responds BEFORE Express loads) ──
 const server = http.createServer((req, res) => {
   if (req.url === '/api/health' || req.url === '/health' || req.url === '/ping') {
+    // If Express is up, delegate to its real handlers (accurate status).
+    // Otherwise answer "starting" so Render doesn't kill a booting process.
+    if (server._expressApp) {
+      return server._expressApp(req, res)
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ status: 'ok', mode: 'loading', uptime: process.uptime() }))
+    res.end(JSON.stringify({ status: 'starting', mode: 'loading', uptime: process.uptime() }))
     return
   }
   if (server._expressApp) {
@@ -95,6 +100,8 @@ setTimeout(async () => {
 
         // ── Services startup ──
         if (process.env.DISABLE_BACKUP !== 'true') backupService.startAutomatedBackups()
+        const ensurePromosportArchive = require('./core/ensurePromosportArchive')
+        ensurePromosportArchive.ensurePromosportArchive()
         if (process.env.TELEGRAM_BOT_TOKEN) {
           botService.startPolling()
         } else {

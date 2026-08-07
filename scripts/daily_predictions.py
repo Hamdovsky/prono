@@ -93,6 +93,67 @@ def get_upcoming_events(events, days=3):
             pass
     return result
 
+TACTICAL_DB = os.path.join(BASE_DIR, 'data', 'tactical.db')
+
+def fetch_local_events(days=3, limit=200):
+    """Fallback source: scheduled matches from the local tactical DB.
+
+    The live scraper (Flashscore local) already persists upcoming matches with
+    odds into data/tactical.db, so the daily pipeline can run without BSD.
+    """
+    if not os.path.exists(TACTICAL_DB):
+        logging.warning("tactical.db not found — no local fallback events")
+        return []
+    try:
+        import sqlite3
+        conn = sqlite3.connect(TACTICAL_DB)
+        conn.row_factory = sqlite3.Row
+        now = datetime.datetime.now().timestamp()
+        horizon = now + days * 86400
+        rows = conn.execute(
+            """
+            SELECT homeTeam, awayTeam, league, startTimestamp, odds_home, odds_draw, odds_away,
+                   odds_over25, odds_under25, odds_btts_yes, odds_btts_no, home_xg, away_xg,
+                   tournament_name
+            FROM matches
+            WHERE status IN ('scheduled', 'NOT_STARTED', 'NS')
+              AND startTimestamp >= ? AND startTimestamp <= ?
+            ORDER BY startTimestamp ASC
+            LIMIT ?
+            """,
+            (int(now), int(horizon), limit),
+        ).fetchall()
+        conn.close()
+    except Exception as ex:
+        logging.error(f"Local fallback read error: {ex}")
+        return []
+
+    events = []
+    for r in rows:
+        ts = r['startTimestamp']
+        if not ts:
+            continue
+        ed = datetime.datetime.fromtimestamp(ts).isoformat()
+        events.append({
+            'home_team': r['homeTeam'],
+            'away_team': r['awayTeam'],
+            'league': {'name': r['tournament_name'] or r['league'] or 'Unknown'},
+            'event_date': ed,
+            'odds_home': r['odds_home'],
+            'odds_draw': r['odds_draw'],
+            'odds_away': r['odds_away'],
+            'odds_over_25': r['odds_over25'],
+            'odds_under_25': r['odds_under25'],
+            'odds_btts_yes': r['odds_btts_yes'],
+            'odds_btts_no': r['odds_btts_no'],
+            'home_xg': r['home_xg'],
+            'away_xg': r['away_xg'],
+            'odds_source': 'local' if r['odds_home'] else 'default',
+        })
+    if events:
+        logging.info(f"Local fallback: {len(events)} scheduled matches from tactical.db")
+    return events
+
 def enrich_with_odds(m):
     """Enrichir un event BSD avec les cotes via le moteur de fusion."""
     league = m.get('league', {}).get('name', 'Unknown')
@@ -136,7 +197,7 @@ def build_match(m):
         'odds_btts_no': m.get('odds_btts_no'),
         'odds_source': m.get('odds_source', 'default'),
         'event_date': ed,
-        'has_real_odds': m.get('odds_source') in ('bsd', 'betexplorer', '888sport', 'unibet')
+        'has_real_odds': m.get('odds_source') in ('bsd', 'betexplorer', '888sport', 'unibet', 'local')
     }
 
 def safe_float(v, default=0.0):
@@ -171,8 +232,13 @@ def run():
     # 1. Fetch events
     print("\n1. Fetching BSD events...")
     events = fetch_bsd_events()
+    source_label = 'BSD'
     if not events:
-        print("   ERROR: No events fetched")
+        print("   BSD unavailable, falling back to local tactical.db (Flashscore local)...")
+        events = fetch_local_events(days=3)
+        source_label = 'LOCAL'
+    if not events:
+        print("   ERROR: No events fetched (BSD API key missing and no local scheduled matches)")
         return
     
     print(f"   {len(events)} events fetched")
@@ -203,6 +269,10 @@ def run():
     
     enriched = []
     for m in upcoming:
+        if m.get('odds_source') == 'local' and m.get('odds_home'):
+            # Local tactical.db already carries real odds — keep them
+            enriched.append(m)
+            continue
         # Check if BSD has this match
         ht = (m.get('home_team') or '').lower().strip()
         at = (m.get('away_team') or '').lower().strip()
@@ -225,7 +295,7 @@ def run():
             m['odds_source'] = odds.get('source', 'default')
         enriched.append(m)
     
-    real_odds_count = sum(1 for m in enriched if m.get('odds_source') in ('bsd', 'betexplorer', '888sport', 'unibet'))
+    real_odds_count = sum(1 for m in enriched if m.get('odds_source') in ('bsd', 'betexplorer', '888sport', 'unibet', 'local'))
     estimated_count = sum(1 for m in enriched if m.get('odds_source') in ('historical+elo', 'historical'))
     default_count = sum(1 for m in enriched if m.get('odds_source') == 'default')
     print(f"   Real odds: {real_odds_count} | Estimated: {estimated_count} | Default: {default_count}")
@@ -380,6 +450,7 @@ def run():
         'total_errors': len(errors),
         'with_odds': sum(1 for r in results if r['has_real_odds']),
         'with_penaltyblog': pb_count,
+        'event_source': source_label,
         'odds_sources': dict((src, cnt) for src, cnt in sources.items()),
         'top_confidence': by_conf[:10],
         'top_value': by_ev[:10],

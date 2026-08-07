@@ -636,28 +636,6 @@ class EnrichedPredictionService {
       }
     }
 
-    // Gemma 4 (local) tactical briefing enrichment
-    try {
-      import Gemma4Service from '../services/gemma4Service'
-      if (!Gemma4Service.isAvailable()) {
-        logger.debug('[GEMMA4] Skipped — service unavailable.')
-      } else {
-        const briefing = await Gemma4Service.analyzePreMatchVIP(match)
-        if (briefing) {
-          result.tactical_brief = briefing.match_overview
-          result.deep_analysis = {
-            match_overview: briefing.match_overview,
-            tactical_keyup: briefing.tactical_keyup,
-            motivation_verdict: briefing.motivation_verdict,
-            exact_score_prediction: briefing.exact_score_prediction,
-            risk_mitigation: briefing.risk_mitigation,
-          }
-        }
-      }
-    } catch (e) {
-      logger.warn(`[GEMMA4] Failed: ${e.message}`)
-    }
-
     // Python/FastAPI optional enrichment — skip if V553 already succeeded (avoids double HTTP call)
     if (!result.v553) {
       try {
@@ -1482,24 +1460,6 @@ class EnrichedPredictionService {
         fd._base_solid_margin = baseSolidMargin
         resultData.fullData = JSON.stringify(fd)
       } catch (_) {}
-
-      // Gemma 4 tactical briefing (fire-and-forget — non-blocking)
-      import g4Service from '../services/gemma4Service'
-      g4Service
-        .analyzePreMatchVIP(m)
-        .then((briefing) => {
-          if (briefing) {
-            resultData.tactical_brief = briefing.match_overview
-            resultData.deep_analysis = {
-              match_overview: briefing.match_overview,
-              tactical_keyup: briefing.tactical_keyup,
-              motivation_verdict: briefing.motivation_verdict,
-              exact_score_prediction: briefing.exact_score_prediction,
-              risk_mitigation: briefing.risk_mitigation,
-            }
-          }
-        })
-        .catch(() => {})
 
       // ── Don't persist synthetic odds to fullData ──
       // If odds are synthetic, strip them from the result so they never get stored.

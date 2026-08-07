@@ -23,10 +23,6 @@ jest.mock('../services/weatherService', () => ({
   extractWeatherInfo: jest.fn(),
 }))
 
-jest.mock('../services/gemma4Service', () => ({
-  analyzePreMatchVIP: jest.fn().mockRejectedValue(new Error('Mocked')),
-}))
-
 jest.mock('../services/oddsMovementService', () => ({
   detectBookmakerTrap: jest.fn(() => ({ isTrap: false })),
   getSteamForMatch: jest.fn(),
@@ -84,11 +80,7 @@ jest.mock('../src/services/oddsService', () => ({
 
 const enrichedPredictions = require('../core/enriched_predictions')
 
-// Short-circuit gemma4 calls globally to prevent timeouts
-const Gemma4Service = require('../services/gemma4Service')
-Gemma4Service.analyzePreMatchVIP.mockRejectedValue(new Error('Mocked'))
-
-// Stub getAnalyticalPrediction to return a clean mock — avoids all Python/Gemma4/network
+// Stub getAnalyticalPrediction to return a clean mock — avoids all Python/network
 const MOCK_ANALYTICAL = {
   success: true,
   home_win_probability: 55,

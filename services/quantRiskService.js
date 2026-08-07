@@ -43,11 +43,12 @@ class QuantRiskService {
    */
   static recordMarketSnapshot(matchId, odds, type = 'LIVE') {
     try {
+      const now = Date.now()
       const stmt = db.prepare(`
-                INSERT INTO odds_history (match_id, odds_home, odds_draw, odds_away, type)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO odds_history (match_id, odds_home, odds_draw, odds_away, type, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?)
             `)
-      stmt.run(matchId, odds.home, odds.draw, odds.away, type)
+      stmt.run(matchId, odds.home, odds.draw, odds.away, type, now)
     } catch (e) {
       logger.error(`[QuantRisk] Failed to record snapshot: ${e.message}`)
     }

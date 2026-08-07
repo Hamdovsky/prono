@@ -1848,26 +1848,6 @@ FEATURE_NAMES_V55 = FEATURE_NAMES_V54 + [
     'h_news_missing_star', 'a_news_missing_star'
 ]
 
-# V551 Pruned Features
-FEATURE_NAMES_V551 = FEATURE_NAMES_V55 + [
-    'h_xg_per_shot', 'a_xg_per_shot'
-]
-
-# V552 Draw Deadlock
-FEATURE_NAMES_V552 = FEATURE_NAMES_V551 + [
-    'h_draw_deadlock', 'a_draw_deadlock'
-]
-
-# V553 WC2026 Context
-FEATURE_NAMES_V553 = FEATURE_NAMES_V552 + [
-    'h_fifa_rank', 'a_fifa_rank', 'fifa_rank_diff',
-    'h_fifa_pts', 'a_fifa_pts', 'fifa_pts_diff',
-    'h_fifa_confederation', 'a_fifa_confederation',
-    'h_squad_value', 'a_squad_value', 'squad_value_diff',
-    'h_squad_size', 'a_squad_size', 'squad_size_diff',
-    'h_squad_age_avg', 'a_squad_age_avg', 'squad_age_avg_diff'
-]
-
 # V56 Auto-Retrain Set (30 features)
 FEATURE_NAMES_V56 = [
     # 10 Base Stats Diffs
@@ -2275,9 +2255,7 @@ FEATURE_NAMES_V551 = FEATURE_NAMES_V54 + [
 ]
 
 # V552 — Same features as V551, trained with chronological split (2022-2026) + V54-like hyperparams
-FEATURE_NAMES_V552 = FEATURE_NAMES_V551 + [
-    'draw_deadlock', 'draw_defensive_eq'
-]
+FEATURE_NAMES_V552 = FEATURE_NAMES_V551
 
 # V553 — WC2026 Context Features: FIFA ranking, squad value, age, confederation
 FEATURE_NAMES_V553 = FEATURE_NAMES_V552 + [
@@ -2288,17 +2266,7 @@ FEATURE_NAMES_V553 = FEATURE_NAMES_V552 + [
     'avg_age_h', 'avg_age_a',
     'fifa_rank_diff', 'squad_value_diff',
     'conf_uefa_h', 'conf_conmebol_h',
-    'conf_uefa_a', 'conf_conmebol_a',
-    # Tunisia crowd vote features (added from Titanium V3)
-    'h_tn_vote_consent', 'a_tn_vote_consent', 'tn_vote_consent_diff',
-    'h_tn_vote_sentiment', 'a_tn_vote_sentiment', 'tn_vote_sentiment_diff',
-    'h_tn_vote_divergence', 'a_tn_vote_divergence', 'tn_vote_divergence_diff',
-    'h_tn_vote_volatility', 'a_tn_vote_volatility', 'tn_vote_volatility_diff',
-    'h_tn_jackpot_pressure', 'a_tn_jackpot_pressure', 'tn_jackpot_pressure_diff',
-    'h_tn_crowd_conviction', 'a_tn_crowd_conviction', 'tn_crowd_conviction_diff',
-    # Raw promosport vote percentages
-    'vote_home_pct', 'vote_draw_pct', 'vote_away_pct',
-    'vote_advantage_home', 'vote_home_norm',
+    'conf_uefa_a', 'conf_conmebol_a'
 ]
 
 # [TITANIUM V3] ELITE AI FEATURES - Full Environmental Intelligence (V54) + Tunisia Crowdsourcing

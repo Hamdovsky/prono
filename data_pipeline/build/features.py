@@ -79,6 +79,7 @@ def compute_features(df: pd.DataFrame) -> pd.DataFrame:
 
     feat_names = [f"{f}_L{w}" for f in FEATURES for w in WINDOWS]
     team_feats = pd.concat(seqs, ignore_index=True)
+    feat_names = [c for c in feat_names if c in team_feats.columns]
     team_feats = team_feats[["date", "team"] + feat_names].drop_duplicates(["date", "team"])
 
     home = team_feats.rename(columns={"team": "home_team", **{c: f"H_{c}" for c in feat_names}})

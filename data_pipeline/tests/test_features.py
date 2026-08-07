@@ -1,0 +1,69 @@
+"""Tests du feature engineering : moyennes roulantes SANS fuite temporelle."""
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from build.features import compute_features
+
+
+def _master(rows: list[dict]) -> pd.DataFrame:
+    df = pd.DataFrame(rows)
+    df["date"] = pd.to_datetime(df["date"])
+    for col in ("league", "season"):
+        df[col] = df.get(col, "E0" if col == "league" else "2425")
+    return df
+
+
+def test_rolling_feature_utilise_uniquement_les_matchs_anterieurs() -> None:
+    # T marque 2 buts à domicile (match 1) puis 2 buts à l'extérieur (match 2),
+    # puis 1 but à domicile (match 3). La feature gf_L5 de T au match 3 ne doit
+    # PAS inclure le but du match 3 (fuite) : moyenne des matchs 1 et 2 = 2.0.
+    df = _master([
+        {"date": "2024-01-01", "home_team": "T", "away_team": "X",
+         "fthg": 2, "ftag": 0, "ftr": "H"},
+        {"date": "2024-01-08", "home_team": "Z", "away_team": "T",
+         "fthg": 1, "ftag": 2, "ftr": "A"},
+        {"date": "2024-01-15", "home_team": "T", "away_team": "W",
+         "fthg": 1, "ftag": 1, "ftr": "D"},
+    ])
+    out = compute_features(df)
+    row3 = out[out["date"] == pd.Timestamp("2024-01-15")].iloc[0]
+    assert row3["H_gf_L5"] == pytest.approx(2.0)
+
+
+def test_premiere_sortie_dune_equipe_est_nan() -> None:
+    df = _master([
+        {"date": "2024-01-01", "home_team": "T", "away_team": "X",
+         "fthg": 1, "ftag": 1, "ftr": "D"},
+    ])
+    out = compute_features(df)
+    assert np.isnan(out.loc[0, "H_gf_L5"])
+    assert np.isnan(out.loc[0, "H_pts_L5"])
+
+
+def test_pts_calcules_selon_domicile_exterieur() -> None:
+    df = _master([
+        {"date": "2024-01-01", "home_team": "T", "away_team": "X",
+         "fthg": 2, "ftag": 0, "ftr": "H"},
+        {"date": "2024-01-08", "home_team": "T", "away_team": "Y",
+         "fthg": 1, "ftag": 1, "ftr": "D"},
+        {"date": "2024-01-15", "home_team": "Z", "away_team": "T",
+         "fthg": 0, "ftag": 1, "ftr": "A"},
+        {"date": "2024-01-22", "home_team": "T", "away_team": "W",
+         "fthg": 0, "ftag": 0, "ftr": "D"},
+    ])
+    out = compute_features(df)
+    row4 = out[out["date"] == pd.Timestamp("2024-01-22")].iloc[0]
+    # T : victoire (3) + nul domicile (1) + victoire extérieur (3) = 7 pts sur 3 matchs
+    assert row4["H_pts_L5"] == pytest.approx(7.0 / 3.0)
+
+
+def test_work_sans_elo_ni_xg() -> None:
+    df = _master([
+        {"date": "2024-01-01", "home_team": "T", "away_team": "X",
+         "fthg": 1, "ftag": 1, "ftr": "D"},
+    ])
+    out = compute_features(df)
+    assert "F_Elo_Diff" not in out.columns or np.isnan(out["F_Elo_Diff"].iloc[0])

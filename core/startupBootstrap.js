@@ -78,6 +78,7 @@ function importPromosport() {
       cwd: path.join(__dirname, '..'),
       stdio: 'ignore',
       timeout: 120000,
+      windowsHide: true,
     })
     py.on('close', (code) => {
       if (code === 0) logger.info('[BOOT] Promosport archive import OK')

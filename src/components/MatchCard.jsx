@@ -12,8 +12,9 @@ const MatchCard = ({ rawData, style, onClick }) => {
       ou: lines[4],
       winner: lines[5],
       handicap: lines[6],
-      htGoal: lines[7],
+      corners: lines[7],
       score: lines[8] && lines[8] !== '--' ? lines[8] : null,
+      solid: lines[9] === '1',
     }
   }
 
@@ -27,9 +28,10 @@ const MatchCard = ({ rawData, style, onClick }) => {
     return parts.map((w, i) => (i === 0 ? w : w[0] + '.')).join(' ')
   }
 
-  const ouNum = parseFloat(d.ou) || 0
-  const ouDir = ouNum > 50 ? 'over' : 'under'
-  const ouPrec = Math.round(ouNum > 50 ? ouNum : 100 - ouNum)
+  const ouNum = parseFloat(d.ou)
+  const hasOu = Number.isFinite(ouNum) && ouNum > 0
+  const ouDir = hasOu && ouNum > 50 ? 'over' : 'under'
+  const ouPrec = hasOu ? Math.round(ouNum > 50 ? ouNum : 100 - ouNum) : 0
 
   // Verdict binaire (OUI/NON)
   const yesNo = (v) => {
@@ -39,7 +41,7 @@ const MatchCard = ({ rawData, style, onClick }) => {
     return ''
   }
   const bttsVerdict = yesNo(d.btts)
-  const htVerdict = yesNo(d.htGoal)
+  const cornersVerdict = yesNo(d.corners)
 
   // Gagnant : extraire le pick (1/X/2 ou 1X/12/X2) avant la proba
   const winPick = (d.winner || '').split(' ')[0].trim().toUpperCase()
@@ -54,10 +56,16 @@ const MatchCard = ({ rawData, style, onClick }) => {
             ? 'mc-pick-dc'
             : ''
 
+  const solidClass = d.solid ? ' mc-solid' : ''
+  const solidBadge = d.solid ? ' 🎯' : ''
+
   return (
-    <div className="match-card" style={style} onClick={onClick}>
+    <div className={`match-card${solidClass}`} style={style} onClick={onClick}>
       <div className="mc-match-info">
-        <div className="mc-league">{d.league}</div>
+        <div className="mc-league">
+          {d.league}
+          {solidBadge}
+        </div>
         <div className="mc-teams">
           <span>{shortTeam(d.home)}</span>
           <span className="mc-vs">{d.score ? d.score : 'vs'}</span>
@@ -68,17 +76,24 @@ const MatchCard = ({ rawData, style, onClick }) => {
       <div className={`mc-cell mc-btts ${bttsVerdict}`}>{d.btts}</div>
 
       <div className="mc-cell mc-ou-cell">
-        <div className="mc-ou-bar">
-          <div className={`mc-ou-fill ${ouDir}`} style={{ width: `${Math.min(100, ouPrec)}%` }} />
-        </div>
-        <span className={`mc-ou-pct ${ouDir}`}>{ouPrec}%</span>
+        {hasOu ? (
+          <>
+            <div className="mc-ou-bar">
+              <div className={`mc-ou-fill ${ouDir}`} style={{ width: `${Math.min(100, ouPrec)}%` }} />
+            </div>
+            <span className={`mc-ou-label ${ouDir}`}>{ouDir.toUpperCase()}</span>
+            <span className={`mc-ou-pct ${ouDir}`}>{ouPrec}%</span>
+          </>
+        ) : (
+          <span className="mc-ou-na">--</span>
+        )}
       </div>
 
       <div className={`mc-cell mc-winner ${pickClass}`}>{d.winner}</div>
 
       <div className="mc-cell mc-handicap">{d.handicap}</div>
 
-      <div className={`mc-cell mc-htgoal ${htVerdict}`}>{d.htGoal}</div>
+      <div className={`mc-cell mc-corners ${cornersVerdict}`}>{d.corners}</div>
     </div>
   )
 }

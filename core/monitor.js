@@ -12,6 +12,7 @@ function startServer() {
   const server = spawn('node', [SERVER_SCRIPT], {
     stdio: 'inherit', // Pipe output directly to console
     shell: true,
+    windowsHide: true,
   })
 
   server.on('close', (code) => {

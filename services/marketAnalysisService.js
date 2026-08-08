@@ -141,6 +141,32 @@ function htFt(xgH, xgA, maxGoals = 5) {
 }
 
 /* ─── 5. Corners ─── */
+/**
+ * Fast deterministic corners verdict (no Monte-Carlo).
+ * Poisson with lambda = expected total corners (2.8 per xG), summed like overUnder.
+ * Returns { expectedTotal, line, over, under, fairOver, fairUnder, label }.
+ */
+function cornersVerdict(xgH, xgA, line = 10.5) {
+  const CORNERS_PER_XG = 2.8
+  const expectedTotal = Math.max(1, (xgH + xgA) * CORNERS_PER_XG)
+  const floorLine = Math.floor(line)
+  let over = 0
+  for (let k = floorLine + 1; k <= 40; k++) over += poissonProb(expectedTotal, k)
+  const overProb = +over.toFixed(4)
+  const underProb = +(1 - overProb).toFixed(4)
+  const verdict = overProb >= underProb ? 'O' : 'U'
+  const pct = Math.round(Math.max(overProb, underProb) * 100)
+  return {
+    expectedTotal: +expectedTotal.toFixed(1),
+    line,
+    over: overProb,
+    under: underProb,
+    fairOver: probToOdds(overProb),
+    fairUnder: probToOdds(underProb),
+    label: `${verdict} ${line.toFixed(1)} ${pct}%`,
+  }
+}
+
 function corners(xgH, xgA) {
   /* Empirical: ~10.5 corners per PL match, ~2.8 corners per xG */
   const CORNERS_PER_XG = 2.8
@@ -268,6 +294,7 @@ module.exports = {
   doubleChance,
   htFt,
   corners,
+  cornersVerdict,
   cards,
   playerProps,
 }

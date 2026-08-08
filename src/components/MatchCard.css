@@ -92,6 +92,21 @@
 .mc-ou-fill.under {
   background: linear-gradient(90deg, #f87171, #fb7185);
 }
+.mc-ou-label {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.mc-ou-label.over {
+  color: #10b981;
+}
+.mc-ou-label.under {
+  color: #f87171;
+}
+.mc-ou-na {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.25);
+}
 .mc-ou-pct {
   font-size: 10px;
   font-weight: 700;
@@ -140,12 +155,40 @@
   color: #94a3b8;
 }
 
+.mc-corners {
+  width: 18%;
+  min-width: 90px;
+  color: #22d3ee;
+}
+.mc-corners.mc-yes {
+  color: #22c55e;
+}
+.mc-corners.mc-no {
+  color: #94a3b8;
+}
+
+.match-card.mc-solid {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(10, 15, 30, 0.85) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.15);
+}
+.match-card.mc-solid:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.24) 0%, rgba(15, 23, 42, 0.9) 100%);
+}
+.match-card.mc-solid .mc-league {
+  color: #34d399;
+}
+.match-card.mc-solid .mc-winner {
+  color: #10b981;
+}
+
 @media (max-width: 768px) {
   .match-card {
     padding: 6px 6px;
   }
   .mc-btts,
-  .mc-htgoal {
+  .mc-htgoal,
+  .mc-corners {
     display: none;
   }
 }

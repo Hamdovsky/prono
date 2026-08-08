@@ -12,6 +12,7 @@ function scheduleDailyReport() {
       const report = execSync('node scripts/daily_health_report.js', {
         timeout: 30000,
         encoding: 'utf-8',
+        windowsHide: true,
       })
       logger.info('[HEALTH] Daily report:\n' + report.slice(-500))
     } catch (e) {
@@ -33,6 +34,7 @@ function scheduleDailyBackup() {
       const result = execSync('node scripts/auto_backup_db.js', {
         timeout: 60000,
         encoding: 'utf-8',
+        windowsHide: true,
       })
       logger.info('[BACKUP] Daily backup:\n' + result.slice(-300))
     } catch (e) {
@@ -56,6 +58,7 @@ function scheduleWeeklyRetrain() {
       const result = execSync('node scripts/auto_retrain_worker.js', {
         timeout: 300000,
         encoding: 'utf-8',
+        windowsHide: true,
       })
       logger.info('[AUTO-RETRAIN] Weekly retrain:\n' + result.slice(-500))
     } catch (e) {

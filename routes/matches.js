@@ -428,6 +428,9 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
         xgH = adjusted.xgH
         xgA = adjusted.xgA
 
+        m.home_xg = m.home_xg || xgH
+        m.away_xg = m.away_xg || xgA
+
         const { win, btts, over25 } = StatisticalEngine.calculatePoissonProbs(xgH, xgA, m)
         m.home_win_probability = Math.max(1, +(win.home * 100).toFixed(1))
         m.draw_probability = Math.max(1, +(win.draw * 100).toFixed(1))
@@ -440,6 +443,21 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
         m.quant.risk_label = 'BALANCED'
         m.ai_source = m.ai_source || 'RESPONSE_FLOOR'
         m.insufficient_data = 1
+      }
+    }
+
+    // ⚽ [CORNERS VERDICT] Fast Poisson corners prediction per match (no Monte-Carlo).
+    // Uses real xG when available, else the league base xG fallback above.
+    const marketAnalysis = require('../services/marketAnalysisService')
+    for (const m of rawMatches) {
+      const xgH = parseFloat(m.home_xg || m.home_avg_scored || 0)
+      const xgA = parseFloat(m.away_xg || m.away_avg_scored || 0)
+      if (xgH > 0 && xgA > 0) {
+        try {
+          m.cornersVerdict = marketAnalysis.cornersVerdict(xgH, xgA)
+        } catch (_) {
+          /* ignore — corners are best-effort */
+        }
       }
     }
 

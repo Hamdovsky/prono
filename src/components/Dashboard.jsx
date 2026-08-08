@@ -50,6 +50,7 @@ const toRawLines = (m) => {
       score,
       '--',
       score,
+      '0',
     ]
   }
   const enriched = m.enriched || {}
@@ -134,20 +135,20 @@ const toRawLines = (m) => {
   }
   const winnerLabel = winnerProb ? `${winner} ${Math.round(winnerProb)}%` : winner
 
-  // ── MI-TEMPS → verdict OUI/NON (but 1ère mi-temps O0.5) ──
-  const htMkt = markets.first_half || {}
-  let htLabel = '--'
-  if (!isInsufficient) {
-    const htO05 = normalizePct(htMkt['O0.5']?.prob)
-    if (htO05 > 0) {
-      htLabel = htO05 >= 50 ? `OUI ${htO05}%` : `NON ${100 - htO05}%`
-    } else {
-      const htGoalPct = normalizePct(
-        quant.probs?.ht_goal || m.ht_goal_prob || enriched?.ht_goal_prob || 0
-      )
-      htLabel =
-        htGoalPct > 0 ? (htGoalPct >= 50 ? `OUI ${htGoalPct}%` : `NON ${100 - htGoalPct}%`) : '--'
-    }
+  // ── BASE SOLIDE GAGNANT → pick simple 1/2 à ≥65% (seuil du front) ──
+  const solidGagnant =
+    ['1', '2'].includes(String(winner)) && typeof winnerProb === 'number' && winnerProb >= 65
+
+  // ── CORNERS → verdict O/U (nombre total attendu) ──
+  const cornersVerdict = m.cornersVerdict || m.enriched?.cornersVerdict || null
+  let cornersLabel = '--'
+  if (cornersVerdict && typeof cornersVerdict.expectedTotal === 'number') {
+    const line = cornersVerdict.line ?? 10.5
+    const over = Number(cornersVerdict.over ?? 0)
+    const under = Number(cornersVerdict.under ?? 0)
+    const verdict = over >= under ? 'O' : 'U'
+    const pct = Math.round(Math.max(over, under) * 100)
+    cornersLabel = `${verdict} ${line.toFixed(1)} ${pct}%`
   }
 
   // ── HANDICAP (indice de score / score attendu) ──
@@ -192,7 +193,9 @@ const toRawLines = (m) => {
       `${ouPct}%`,
       pickLabel,
       `${htPct}%`,
-      htLabel,
+      cornersLabel,
+      null,
+      solidGagnant ? '1' : '0',
     ]
   }
   if (hasRealModelSignal) {
@@ -204,7 +207,9 @@ const toRawLines = (m) => {
       `${ouPct}%`,
       `${modelWinner} ${Math.round(modelWinnerProb)}%`,
       `${htPct}%`,
-      htLabel,
+      cornersLabel,
+      null,
+      solidGagnant ? '1' : '0',
     ]
   }
   if (isInsufficient) {
@@ -216,7 +221,9 @@ const toRawLines = (m) => {
       '--',
       '🔒 données insuffisantes',
       '--',
-      '--',
+      cornersLabel,
+      null,
+      '0',
     ]
   }
   // ── Cas normal : cotes suffisantes → verdict complet ──
@@ -228,7 +235,9 @@ const toRawLines = (m) => {
     `${ouPct}%`,
     winnerLabel,
     `${htPct}%`,
-    htLabel,
+    cornersLabel,
+    null,
+    solidGagnant ? '1' : '0',
   ]
 }
 
@@ -382,7 +391,7 @@ const Dashboard = () => {
               HANDICAP
             </div>
             <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>
-              MI-TEMPS
+              CORNERS
             </div>
           </div>
           <div style={{ height: virtualHeight }}>

@@ -702,6 +702,7 @@ class CronManager {
             shell: true,
             stdio: ['ignore', 'pipe', 'pipe'],
             timeout: 120000,
+            windowsHide: true,
           })
           let importOut = ''
           imprt.stdout.on('data', (d) => (importOut += d.toString()))
@@ -726,6 +727,7 @@ class CronManager {
             shell: true,
             stdio: ['ignore', 'pipe', 'pipe'],
             timeout: 600000,
+            windowsHide: true,
           })
           let trainOut = ''
           train.stdout.on('data', (d) => (trainOut += d.toString()))
@@ -755,7 +757,7 @@ class CronManager {
             const nodeCmd = process.platform === 'win32' ? 'node.exe' : 'node'
             execSync(
               `${nodeCmd} "${path.join(scriptsDir, 'backfill_promosport_predictions.js')}"`,
-              { timeout: 120000, encoding: 'utf8' }
+              { timeout: 120000, encoding: 'utf8', windowsHide: true }
             )
           } catch (_) {}
 
@@ -821,6 +823,7 @@ class CronManager {
           execSync(`${nodeCmd} "${path.join(scriptsDir, 'crowd_collector.js')}" collect-latest`, {
             timeout: 60000,
             encoding: 'utf8',
+            windowsHide: true,
           })
           logger.info('[CRON] Tunisie crowd scrape done')
         } catch (e) {
@@ -945,6 +948,7 @@ class CronManager {
             shell: true,
             stdio: ['ignore', 'pipe', 'pipe'],
             timeout: 600000,
+            windowsHide: true,
           })
           let predOut = ''
           pred.stdout.on('data', (d) => (predOut += d.toString()))

@@ -19,6 +19,7 @@ class PythonBridgeService {
         const proc = spawn(PYTHON, ['-u', SCRIPT_PATH], {
           stdio: ['pipe', 'pipe', 'pipe'],
           env: { ...process.env, PYTHONUNBUFFERED: '1' },
+          windowsHide: true,
         })
 
         let stdout = ''

@@ -175,6 +175,7 @@ except Exception as e:
     const proc = spawn(pythonBin, ['-c', script], {
       timeout: 60000,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
 
     let stdout = '',

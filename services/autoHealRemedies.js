@@ -33,7 +33,7 @@ class AutoHealRemedies {
             return { success: false, detail: 'fastapi_server.py not found' }
           try {
             try {
-              execSync(`${PYTHON} --version`, { stdio: 'ignore', timeout: 5000 })
+              execSync(`${PYTHON} --version`, { stdio: 'ignore', timeout: 5000, windowsHide: true })
             } catch (_) {
               return { success: false, detail: `Python not available: ${PYTHON}` }
             }

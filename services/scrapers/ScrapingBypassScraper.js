@@ -17,6 +17,7 @@ function callPython(data) {
     const proc = spawn(VENV_PYTHON, [PYTHON_SCRIPT], {
       cwd: BASE_DIR,
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     let stdout = ''
     let stderr = ''

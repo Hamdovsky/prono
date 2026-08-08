@@ -1,11 +1,31 @@
+# ─────────────────────────────────────────────────────────
+# Dockerfile.production — Node/Express server + React frontend
+# Multi-stage build :
+#   Stage 1 : npm ci (toutes les deps, dev incluses) + vite build
+#   Stage 2 : deps production + dist copié depuis le stage 1
+# ─────────────────────────────────────────────────────────
+
+# ── Stage 1: Build React frontend ──
+FROM node:22-slim AS frontend-builder
+WORKDIR /app
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+COPY package.json package-lock.json* ./
+RUN npm ci
+COPY vite.config.mjs ./
+COPY index.html ./
+COPY public/ ./public/
+COPY src/ ./src/
+RUN npm run build
+
+# ── Stage 2: Production server ──
 FROM node:22-slim
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev && npm rebuild better-sqlite3
-RUN npm install --no-save --ignore-scripts vite-plugin-pwa workbox-window
+
 COPY . .
-RUN npm run build
+COPY --from=frontend-builder /app/dist ./dist
 RUN mkdir -p /app/logs /app/data
 
 ENV NODE_ENV=production

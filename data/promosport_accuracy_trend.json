@@ -8,5 +8,15 @@
     "concoursCount": 0,
     "logLoss": null,
     "crowdAccuracy": null
+  },
+  {
+    "date": "2026-08-07",
+    "timestamp": 1786140001864,
+    "accuracy": 27.3,
+    "correct": 2070,
+    "total": 7586,
+    "concoursCount": 397,
+    "logLoss": null,
+    "crowdAccuracy": null
   }
 ]

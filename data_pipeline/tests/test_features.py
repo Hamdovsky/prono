@@ -67,3 +67,33 @@ def test_work_sans_elo_ni_xg() -> None:
     ])
     out = compute_features(df)
     assert "F_Elo_Diff" not in out.columns or np.isnan(out["F_Elo_Diff"].iloc[0])
+
+
+def test_probabilites_cotes_fermees_normalisees() -> None:
+    df = _master([
+        {"date": "2024-01-01", "home_team": "T", "away_team": "X",
+         "fthg": 1, "ftag": 1, "ftr": "D",
+         "odds_h_avg": 2.0, "odds_d_avg": 3.4, "odds_a_avg": 3.8,
+         "odds_h_close_avg": 1.9, "odds_d_close_avg": 3.5, "odds_a_close_avg": 4.0,
+         "odds_o25_close_avg": 1.7, "odds_o25_avg": 1.65},
+    ])
+    out = compute_features(df)
+    row = out.iloc[0]
+    # probas fermées normalisées (somme = 1)
+    s = row["P1_close_avg"] + row["PX_close_avg"] + row["P2_close_avg"]
+    assert s == pytest.approx(1.0)
+    # le favori domicile a la proba la plus haute
+    assert row["P1_close_avg"] > row["PX_close_avg"] > row["P2_close_avg"]
+    # mouvement de marché : ouverture -> fermeture
+    assert row["F_OddsH_Close_Diff"] == pytest.approx(-0.1)  # 1.9 - 2.0
+    assert row["F_O25_Close_Diff"] == pytest.approx(0.05)  # 1.7 - 1.65
+
+
+def test_pas_de_colonnes_cotes_renvoie_nan() -> None:
+    df = _master([
+        {"date": "2024-01-01", "home_team": "T", "away_team": "X",
+         "fthg": 1, "ftag": 1, "ftr": "D"},
+    ])
+    out = compute_features(df)
+    for col in ("P1_close_avg", "P1_open_avg", "F_OddsH_Close_Diff"):
+        assert col not in out.columns or np.isnan(out[col].iloc[0])

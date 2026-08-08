@@ -94,6 +94,24 @@ def compute_features(df: pd.DataFrame) -> pd.DataFrame:
     if {"H_pts_L5", "A_pts_L5"}.issubset(df.columns):
         df["Form_Diff_L5"] = df["H_pts_L5"] - df["A_pts_L5"]
 
+    # Cotes fermées (close) : proxy du marché final, plus informatif que l'ouverture
+    for prefix, h, d, a in [
+        ("_open_", "odds_h_avg", "odds_d_avg", "odds_a_avg"),
+        ("_close_", "odds_h_close_avg", "odds_d_close_avg", "odds_a_close_avg"),
+    ]:
+        if {h, d, a}.issubset(df.columns):
+            inv = 1.0 / df[[h, d, a]].astype(float)
+            total = inv.sum(axis=1).replace(0, np.nan)
+            df[f"P1{prefix}avg"] = inv[h] / total
+            df[f"PX{prefix}avg"] = inv[d] / total
+            df[f"P2{prefix}avg"] = inv[a] / total
+    if {"odds_h_close_avg", "odds_h_avg"}.issubset(df.columns):
+        df["F_OddsH_Close_Diff"] = df["odds_h_close_avg"] - df["odds_h_avg"]
+    if {"odds_o25_close_avg", "odds_o25_avg"}.issubset(df.columns):
+        df["F_O25_Close_Diff"] = df["odds_o25_close_avg"] - df["odds_o25_avg"]
+    if {"odds_ah_h_close_avg", "odds_ah_h_avg"}.issubset(df.columns):
+        df["F_AH_Close_Diff"] = df["odds_ah_h_close_avg"] - df["odds_ah_h_avg"]
+
     ordered = _order_columns(df)
     df = df[ordered].sort_values(["date", "league", "home_team", "away_team"]).reset_index(drop=True)
     log.info("Features : %d matchs, %d colonnes", len(df), len(ordered))

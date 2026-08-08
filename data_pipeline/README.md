@@ -7,7 +7,8 @@ d'entraînement du modèle de prédiction 1X2 à partir de 3 sources.
 
 | Source                | Données                                           | Fréquence       |
 |-----------------------|---------------------------------------------------|-----------------|
-| Football-Data.co.uk   | Résultats, cotes (B365/Pinnacle/Avg/Max), stats de match (tirs, corners, cartons) | Quotidien (matin), CSV direct, pas de rate limit |
+| Football-Data.co.uk   | Résultats, cotes (B365/Pinnacle/Avg/Max), cotes **fermées** (close), totaux >2.5, handicap asiatique, stats de match (tirs, corners, cartons) | Quotidien (matin), CSV direct, pas de rate limit |
+| Football-Data.co.uk — fixtures | Cotes réelles des matchs à venir (1X2 + >2.5 + AH), **source prioritaire pour le quotidien** | Quotidien (matin), `fixtures.csv` |
 | ClubElo               | Rating Elo pré-match par équipe (lookup as-of)    | Quotidien (matin), API api.clubelo.com |
 | Stats avancées (xG/xA)| xG/xA par match + forme attaque/défense L5/L10     | Tous les 3 jours, `RateLimiter(3.5s)` (~15-20 req/min) |
 
@@ -38,10 +39,12 @@ d'entraînement du modèle de prédiction 1X2 à partir de 3 sources.
 
 ## Sorties (dans `data/`)
 
-- `raw/football_data_all.csv` — résultats/cotes/stats bruts consolidés
+- `raw/football_data_all.csv` — résultats/cotes/stats bruts consolidés (résultats + cotes ouvertures/fermées, totaux, AH)
+- `raw/football_data_fixtures.csv` — cotes réelles des matchs à venir (Top-5)
 - `raw/advanced_stats.csv` — xG/xA par match
-- `raw/clubelo/elo_history.csv` — historique Elo
-- `processed/master_dataset.csv` — master (featured)
+- `raw/clubelo/elo_history.csv` — historique Elo **officiel** (API ClubElo)
+- `raw/clubelo/elo_history_local.csv` — Elo recalculé localement (repli si API down)
+- `processed/master_dataset.csv` — master (featured, ~135 colonnes)
 - `processed/master.db` — SQLite, table `master_matches` (schéma : `schema.sql`)
 
 ## Fusion & mapping
@@ -51,6 +54,20 @@ d'entraînement du modèle de prédiction 1X2 à partir de 3 sources.
 difflib). L'Elo est rattaché en **as-of** (rating juste avant le coup d'envoi,
 aucune fuite). `build/features.py` calcule les moyennes roulantes L5/L10
 strictement antérieures au match (`shift(1)`).
+
+**Cotes fermées.** Les colonnes `odds_*_close_*` (cotes au coup d'envoi) sont
+plus informatives que les cotes d'ouverture. `build/features.py` en dérive des
+probabilités normalisées (`P1_close_avg`, `PX_close_avg`, `P2_close_avg`) et des
+signaux de mouvement de marché (`F_OddsH_Close_Diff`, `F_O25_Close_Diff`,
+`F_AH_Close_Diff`). Couverture ~100 % sur les Top-5 (3 saisons).
+
+## Cotes pour les prédictions du jour
+
+`run_daily.py` télécharge aussi `fixtures.csv` (matchs à venir des Top-5 avec
+cotes réelles). `services/oddsFusionEngine.py` consulte ce fichier en **Tier 0**
+(prioritaire) via `_tier0_football_data` : il fournit 1X2 + Over/Under 2.5
+(dérivé) sans aucun appel réseau. Les matchs hors Top-5 ou hors fixtures
+retombent sur la chaîne existante (BSD → BetExplorer → historique → défaut).
 
 ## Pont Postgres (production)
 

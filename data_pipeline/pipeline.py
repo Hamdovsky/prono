@@ -58,6 +58,7 @@ def run_daily(force: bool = False) -> pd.DataFrame:
     """Quotidien matin : Football-Data + ClubElo, puis rebuild du master."""
     log.info("=== Tâche quotidienne (Football-Data + ClubElo) ===")
     fd = football_data_mod.fetch(force=force)
+    football_data_mod.fetch_fixtures(force=force)
     elo = _get_elo(fd)
     df = _rebuild(fd, elo, _load_advanced())
     _update_state({

@@ -23,19 +23,53 @@ class SeasonNotFoundError(RuntimeError):
 RENAME = {
     "Date": "date",
     "HomeTeam": "home_team", "AwayTeam": "away_team",
+    "Time": "kickoff_time",
     "FTHG": "fthg", "FTAG": "ftag", "FTR": "ftr",
     "HTHG": "hthg", "HTAG": "htag", "HTR": "htr",
     "HS": "hs", "AS": "away_shots", "HST": "hst", "AST": "ast",
     "HC": "hc", "AC": "ac", "HY": "hy", "AY": "ay",
     "HR": "hr", "AR": "ar", "HF": "hf", "AF": "af",
+    # Cotes d'ouverture 1X2
     "B365H": "odds_h_b365", "B365D": "odds_d_b365", "B365A": "odds_a_b365",
+    "BFDH": "odds_h_bfd", "BFDD": "odds_d_bfd", "BFDA": "odds_a_bfd",
     "PSH": "odds_h_ps", "PSD": "odds_d_ps", "PSA": "odds_a_ps",
-    "AvgH": "odds_h_avg", "AvgD": "odds_d_avg", "AvgA": "odds_a_avg",
+    "BWH": "odds_h_bw", "BWD": "odds_d_bw", "BWA": "odds_a_bw",
     "MaxH": "odds_h_max", "MaxD": "odds_d_max", "MaxA": "odds_a_max",
+    "AvgH": "odds_h_avg", "AvgD": "odds_d_avg", "AvgA": "odds_a_avg",
+    # Cotes fermées (close) 1X2
+    "B365CH": "odds_h_close_b365", "B365CD": "odds_d_close_b365", "B365CA": "odds_a_close_b365",
+    "BFDCH": "odds_h_close_bfd", "BFDCD": "odds_d_close_bfd", "BFDCA": "odds_a_close_bfd",
+    "PSCH": "odds_h_close_ps", "PSCD": "odds_d_close_ps", "PSCA": "odds_a_close_ps",
+    "BWCH": "odds_h_close_bw", "BWCD": "odds_d_close_bw", "BWCA": "odds_a_close_bw",
+    "MaxCH": "odds_h_close_max", "MaxCD": "odds_d_close_max", "MaxCA": "odds_a_close_max",
+    "AvgCH": "odds_h_close_avg", "AvgCD": "odds_d_close_avg", "AvgCA": "odds_a_close_avg",
+    # Totaux >2.5 buts (ouverture + fermé)
+    "B365>2.5": "odds_o25_b365", "B365<2.5": "odds_u25_b365",
+    "P>2.5": "odds_o25_ps", "P<2.5": "odds_u25_ps",
+    "Max>2.5": "odds_o25_max", "Max<2.5": "odds_u25_max",
+    "Avg>2.5": "odds_o25_avg", "Avg<2.5": "odds_u25_avg",
+    "B365C>2.5": "odds_o25_close_b365", "B365C<2.5": "odds_u25_close_b365",
+    "AvgC>2.5": "odds_o25_close_avg", "AvgC<2.5": "odds_u25_close_avg",
+    # Handicap asiatique (ouverture + fermé)
+    "AHh": "ah_line", "AHCh": "ah_line_close",
+    "B365AHH": "odds_ah_h_b365", "B365AHA": "odds_ah_a_b365",
+    "B365CAHH": "odds_ah_h_close_b365", "B365CAHA": "odds_ah_a_close_b365",
+    "AvgAHH": "odds_ah_h_avg", "AvgAHA": "odds_ah_a_avg",
+    "AvgCAHH": "odds_ah_h_close_avg", "AvgCAHA": "odds_ah_a_close_avg",
 }
 
 BASE_COLS = ["league", "season", "date", "home_team", "away_team"]
 NUM_COLS = list(RENAME.values())
+
+# Fixtures (matchs à venir) : PP/SKB au lieu de PS, et pas de colonnes résultats
+RENAME_FIXTURES = {
+    "PPH": "odds_h_pp", "PPD": "odds_d_pp", "PPA": "odds_a_pp",
+    "SKBH": "odds_h_skb", "SKBD": "odds_d_skb", "SKBA": "odds_a_skb",
+}
+FIXTURE_EXTRA_COLS = [
+    "Referee", "odds_h_pp", "odds_d_pp", "odds_a_pp",
+    "odds_h_skb", "odds_d_skb", "odds_a_skb",
+]
 
 
 @retry(n=4, delay=4, exceptions=(requests.RequestException,))
@@ -115,4 +149,50 @@ def fetch(leagues=None, force: bool = False) -> pd.DataFrame:
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
     log.info("Football-Data : %d matchs", len(df))
+    return df
+
+
+FIXTURES_CSV = RAW_DIR / "football_data_fixtures.csv"
+FIXTURES_URL = "https://www.football-data.co.uk/fixtures.csv"
+
+
+@retry(n=3, delay=3, exceptions=(requests.RequestException,))
+def _download_fixtures() -> bytes:
+    resp = requests.get(FIXTURES_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
+    resp.raise_for_status()
+    return resp.content
+
+
+def fetch_fixtures(leagues=None, force: bool = False) -> pd.DataFrame:
+    """Cotes réelles des matchs à venir (fixtures.csv, 1X2 + totaux + AH).
+
+    Source fiable (même domaine que les CSV de résultats). Utilisée par le
+    quotidien pour fournir les cotes réelles des prochains matchs des Top-5.
+    """
+    leagues = leagues or LEAGUES
+    data = _download_fixtures()
+    df = pd.read_csv(io.BytesIO(data), encoding="utf-8-sig")
+    df = df.rename(columns={**RENAME, **RENAME_FIXTURES})
+    df["league"] = df["Div"].astype(str).str.strip()
+    rev = {cfg["div"]: lkey for lkey, cfg in leagues.items()}
+    df["league"] = df["league"].map(rev)
+    df = df[df["league"].notna()]
+
+    for col in NUM_COLS + FIXTURE_EXTRA_COLS:
+        if col not in df.columns:
+            df[col] = float("nan")
+    df["date"] = pd.to_datetime(df["date"], format="%d/%m/%Y", errors="coerce")
+    df["home_team"] = df["home_team"].fillna("").astype(str).str.strip()
+    df["away_team"] = df["away_team"].fillna("").astype(str).str.strip()
+    df = df[df["date"].notna() & df["home_team"].ne("") & df["away_team"].ne("")]
+    df["season"] = "fixtures"
+
+    cols = list(dict.fromkeys(c for c in BASE_COLS + NUM_COLS + FIXTURE_EXTRA_COLS if c in df.columns))
+    df = df[cols].drop_duplicates(subset=["date", "home_team", "away_team"])
+    df = df.sort_values(["date", "kickoff_time"]).reset_index(drop=True)
+
+    FIXTURES_CSV.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(FIXTURES_CSV, index=False)
+    log.info("Football-Data fixtures : %d matchs à venir (cotes %s)", len(df),
+             "officielles" if len(df) else "aucune")
     return df

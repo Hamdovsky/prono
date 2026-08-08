@@ -4,8 +4,8 @@ OddsFusionEngine — couche de fusion multi-sources pour les cotes.
 Architecture unifiée (toutes les sources travaillent en équipe):
 
   Tier 1: BSD API (Bzzoiro) — cotes réelles 1X2 + OU/BTTS, limité aux matchs WC
-  Tier 2: BetExplorer Bypass (curl_cffi TLS spoofing) — 1X2 via search data-odd
-  Tier 2b: Firecrawl (JS execution) — OU/BTTS sur les pages match BetExplorer
+  Tier 2: BetExplorer Bypass (curl_cffi TLS spoofing) — 1X2 via data-odd statique
+  Tier 2b: BetExplorer HTTP direct — OU/BTTS sur les pages match (data-odd si dispo)
   Tier 3: soccerapi (888sport / Unibet) — scraping bookmakers (optionnel, geo-bloqué)
   Tier 4: ML Monte Carlo — estimation OU/BTTS depuis xG (Poisson)
   Tier 5: Historical averages (soccer_odds table) + Elo estimation
@@ -47,6 +47,67 @@ class OddsFusionEngine:
 
     def _log(self, tier, msg):
         log.info(f'[Tier {tier}] {msg}')
+
+    # ── Tier 0: Football-Data fixtures ───────────────────────
+
+    def _tier0_football_data(self, home, away, league):
+        """Cotes réelles 1X2 + >2.5 + AH des matchs à venir (Football-Data).
+
+        Source fiable : CSV officiel football-data.co.uk, généré par
+        data_pipeline (sources/football_data.py -> football_data_fixtures.csv).
+        Retourne dict compatible avec get_odds() ou None.
+        """
+        try:
+            fixtures_path = os.path.join(BASE_DIR, 'data_pipeline', 'data', 'raw',
+                                         'football_data_fixtures.csv')
+            if not os.path.exists(fixtures_path):
+                return None
+            if getattr(self, '_fd_fixtures_cache', None) is None:
+                import pandas as pd
+                raw = pd.read_csv(fixtures_path)
+                if raw.empty:
+                    return None
+                norm = raw.copy()
+                for col in ['home_team', 'away_team']:
+                    norm[col] = norm[col].fillna('').astype(str).str.lower().str.strip()
+                self._fd_fixtures_cache = norm
+            for _, row in self._fd_fixtures_cache.iterrows():
+                if self._teams_match(row['home_team'], home) and self._teams_match(row['away_team'], away):
+                    h = self._safe_odds(row.get('odds_h_avg') or row.get('odds_h_b365'))
+                    d = self._safe_odds(row.get('odds_d_avg') or row.get('odds_d_b365'))
+                    a = self._safe_odds(row.get('odds_a_avg') or row.get('odds_a_b365'))
+                    if not (h and d and a):
+                        return None
+                    odds = {
+                        'home_win': h, 'draw': d, 'away_win': a,
+                        'over_25': self._safe_odds(row.get('odds_o25_avg') or row.get('odds_o25_b365')),
+                        'under_25': None,
+                        'btts_yes': None, 'btts_no': None,
+                        'source': 'football_data',
+                        '_tiers': ['tier0_football_data'],
+                    }
+                    if odds['over_25']:
+                        odds['under_25'] = self._implied_under25(odds['over_25'])
+                    return odds
+        except Exception as ex:
+            self._log(0, f'football_data fixtures error: {ex}')
+        return None
+
+    def _safe_odds(self, v):
+        try:
+            fv = float(v)
+            return fv if fv > 1.0 else None
+        except (TypeError, ValueError):
+            return None
+
+    def _implied_under25(self, over25):
+        """Under 2.5 dérivé de la cote Over 2.5 (probas complémentaires, marge retirée)."""
+        try:
+            po = 1.0 / float(over25)
+            pu = 1.0 - po
+            return round(1.0 / pu, 2) if pu > 0 else None
+        except (TypeError, ZeroDivisionError, ValueError):
+            return None
 
     # ── Tier 1: BSD API ──────────────────────────────────────
 
@@ -157,12 +218,12 @@ class OddsFusionEngine:
     # ── Tier 2b: Firecrawl OU/BTTS ──────────────────────────
 
     def _tier2b_firecrawl_ou_btts(self, home, away, league, match_url=None):
-        """OU/BTTS depuis BetExplorer via Firecrawl (JS execution).
-        Nécessite match_url (récupéré par Tier 2)."""
+        """OU/BTTS depuis BetExplorer via HTTP direct (data-odd statique).
+        Nécessite match_url (récupéré par Tier 2). data-odd absent -> None (tier4 prend le relais)."""
         if not match_url:
             return None
 
-        self._log(2, '[firecrawl] Fetching OU/BTTS...')
+        self._log(2, '[bypass] Fetching OU/BTTS...')
         try:
             sys.path.insert(0, os.path.join(BASE_DIR, 'scripts'))
             from bypass_scraper import betexplorer_match_ou, betexplorer_match_btts
@@ -179,11 +240,11 @@ class OddsFusionEngine:
                 result['btts_no'] = btts['btts'].get('no')
 
             if result:
-                result['source'] = 'firecrawl'
-                self._log(2, f'[firecrawl] OU={result.get("over_25")}/{result.get("under_25")} BTTS={result.get("btts_yes")}/{result.get("btts_no")}')
+                result['source'] = 'betexplorer'
+                self._log(2, f'[bypass] OU={result.get("over_25")}/{result.get("under_25")} BTTS={result.get("btts_yes")}/{result.get("btts_no")}')
                 return result
         except Exception as ex:
-            self._log(2, f'[firecrawl] Error: {ex}')
+            self._log(2, f'[bypass] Error: {ex}')
         return None
 
     # ── Tier 4: ML Monte Carlo OU/BTTS ──────────────────────
@@ -582,7 +643,7 @@ class OddsFusionEngine:
         Pipeline:
           1. Tier 1: BSD API → 1X2 + OU/BTTS (si dispo)
           2. Tier 2: BetExplorer bypass (curl_cffi) → 1X2 + match_url
-          3. Tier 2b: Firecrawl (JS) → OU/BTTS depuis match_url BetExplorer
+          3. Tier 2b: BetExplorer HTTP direct → OU/BTTS depuis match_url (si data-odd statique)
           4. Tier 4 ML: Monte Carlo → OU/BTTS estimé depuis xG (fallback)
           5. Tier 5: Historical + Elo → 1X2 estimé
           6. Tier 6: Defaults 2.5/3.2/2.8
@@ -598,6 +659,16 @@ class OddsFusionEngine:
         }
         
         match_url = None
+
+        # ── PHASE 0: Football-Data fixtures (source fiable, cotes réelles) ──
+        try:
+            odds = self._tier0_football_data(home, away, league)
+            if odds and odds.get('home_win') is not None:
+                result.update(odds)
+                result['_tiers'].append('tier0_football_data')
+                self._log(0, f'1X2: {home} vs {away}: {odds["home_win"]}/{odds["draw"]}/{odds["away_win"]}')
+        except Exception as ex:
+            self._log(0, f'Error: {ex}')
 
         # ── PHASE 1: 1X2 odds ────────────────────────────────
         

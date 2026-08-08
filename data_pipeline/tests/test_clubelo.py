@@ -105,12 +105,29 @@ def test_fetch_down_utilise_cache_frais_provenance_cache(monkeypatch: pytest.Mon
     assert (tmp_path / clubelo._SOURCE_MARKER).read_text(encoding="utf-8") == "cache"
 
 
-def test_fetch_down_cache_local_marque_local(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def test_fetch_down_utilise_cache_local_separe(monkeypatch: pytest.MonkeyPatch,
+                                                tmp_path) -> None:
     monkeypatch.setattr(clubelo, "CLUBELO_DIR", tmp_path)
     pd.DataFrame({"from": ["2024-01-01"], "elo": [1500.0], "team_raw": ["Arsenal"]}) \
-        .to_csv(tmp_path / "elo_history.csv", index=False)
+        .to_csv(tmp_path / clubelo.ELO_CACHE_LOCAL, index=False)
     (tmp_path / clubelo._SOURCE_MARKER).write_text("local", encoding="utf-8")
     monkeypatch.setattr(clubelo, "_api_reachable", lambda *a, **k: False)
 
     _, source = clubelo.fetch_histories(max_age=1)
     assert source == "local"
+
+
+def test_fetch_down_officiel_prefere_au_local(monkeypatch: pytest.MonkeyPatch,
+                                              tmp_path) -> None:
+    """Le cache officiel ClubElo doit toujours primer sur le cache local."""
+    monkeypatch.setattr(clubelo, "CLUBELO_DIR", tmp_path)
+    pd.DataFrame({"from": ["2024-01-01"], "elo": [2050.0], "team_raw": ["Man City"]}) \
+        .to_csv(tmp_path / clubelo.ELO_CACHE_OFFICIAL, index=False)
+    pd.DataFrame({"from": ["2024-01-01"], "elo": [1500.0], "team_raw": ["Man City"]}) \
+        .to_csv(tmp_path / clubelo.ELO_CACHE_LOCAL, index=False)
+    (tmp_path / clubelo._SOURCE_MARKER).write_text("local", encoding="utf-8")
+    monkeypatch.setattr(clubelo, "_api_reachable", lambda *a, **k: False)
+
+    df, source = clubelo.fetch_histories(max_age=1)
+    assert source == "cache"
+    assert df.loc[0, "elo"] == 2050.0

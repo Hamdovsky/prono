@@ -31,6 +31,12 @@ CREATE TABLE IF NOT EXISTS master_matches (
     odds_h_avg       REAL,
     odds_d_avg       REAL,
     odds_a_avg       REAL,
+    odds_h_close_avg REAL,
+    odds_d_close_avg REAL,
+    odds_a_close_avg REAL,
+    odds_o25_close_avg REAL,
+    ah_line_close    REAL,
+    odds_ah_h_close_avg REAL,
     elo_home         REAL,
     elo_away         REAL,
     elo_source       TEXT,
@@ -66,7 +72,16 @@ CREATE TABLE IF NOT EXISTS master_matches (
     A_pts_L10        REAL,
     F_Elo_Diff       REAL,
     Total_xG_L5      REAL,
-    Form_Diff_L5     REAL
+    Form_Diff_L5     REAL,
+    P1_close_avg     REAL,
+    PX_close_avg     REAL,
+    P2_close_avg     REAL,
+    P1_open_avg      REAL,
+    PX_open_avg      REAL,
+    P2_open_avg      REAL,
+    F_OddsH_Close_Diff REAL,
+    F_O25_Close_Diff REAL,
+    F_AH_Close_Diff  REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_master_date ON master_matches (date);

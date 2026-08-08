@@ -3,8 +3,9 @@
 Chaîne de résilience :
   1. API api.clubelo.com — historique Elo complet par équipe (lookup 'as-of'
      à la date du match pour obtenir le rating juste avant le coup d'envoi) ;
-  2. Cache local (data/raw/clubelo/elo_history.csv) si l'API est indisponible ;
-  3. Calcul local de l'Elo depuis les résultats si aucun historique n'existe.
+  2. Cache officiel (data/raw/clubelo/elo_history.csv) si l'API est indisponible ;
+  3. Cache local (data/raw/clubelo/elo_history_local.csv) ;
+  4. Calcul local de l'Elo depuis les résultats si aucun historique n'existe.
 
 Le calcul local utilise l'algorithme Elo standard (K=20, avantage domicile
 +100, 1500 initial) et sert uniquement de repli quand ClubElo est injoignable.
@@ -32,6 +33,11 @@ log = get_logger("clubelo")
 
 ELO_SOURCES = ("clubelo", "cache", "local")
 _SOURCE_MARKER = "elo_source.txt"
+# Caches distincts pour ne jamais écraser les ratings officiels :
+# - elo_history.csv        -> historique officiel ClubElo (API)
+# - elo_history_local.csv  -> Elo calculé localement (repli)
+ELO_CACHE_OFFICIAL = "elo_history.csv"
+ELO_CACHE_LOCAL = "elo_history_local.csv"
 
 
 def _marker_path() -> Path:
@@ -83,7 +89,7 @@ def _fetch_from_api(limiter: RateLimiter, max_age: int) -> pd.DataFrame:
     hist = pd.concat(frames, ignore_index=True)
     hist["from"] = pd.to_datetime(hist["from"], errors="coerce")
     hist = hist[hist["from"].notna()].sort_values("from")
-    hist.to_csv(CLUBELO_DIR / "elo_history.csv", index=False)
+    hist.to_csv(CLUBELO_DIR / ELO_CACHE_OFFICIAL, index=False)
     log.info("ClubElo (API) : %d relevés pour %d équipes", len(hist), hist["team_raw"].nunique())
     return hist
 
@@ -112,22 +118,42 @@ def compute_elo(results: pd.DataFrame, init: float = 1500.0, k: float = 20.0,
     hist = pd.DataFrame(rows)
     hist["from"] = pd.to_datetime(hist["from"], errors="coerce")
     hist = hist[hist["from"].notna()].sort_values("from")
-    hist.to_csv(CLUBELO_DIR / "elo_history.csv", index=False)
+    hist.to_csv(CLUBELO_DIR / ELO_CACHE_LOCAL, index=False)
     log.info("ClubElo (local) : %d relevés calculés", len(hist))
     return hist
+
+
+def _load_cache(name: str, max_age: int) -> pd.DataFrame | None:
+    """Charge un cache ClubElo s'il existe et est encore frais."""
+    path = CLUBELO_DIR / name
+    if not path.exists():
+        return None
+    age_days = (datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)).days
+    if age_days > max_age:
+        log.info("Cache ClubElo %s trop ancien (%d jours > %d)", name, age_days, max_age)
+        return None
+    return pd.read_csv(path, parse_dates=["from"])
 
 
 def _fallback(exc: Exception, max_age: int,
               fallback_results: pd.DataFrame | None) -> tuple[pd.DataFrame, str]:
     log.warning("API ClubElo indisponible : %s", exc)
-    cached = CLUBELO_DIR / "elo_history.csv"
-    if cached.exists():
-        age_days = (datetime.now() - datetime.fromtimestamp(cached.stat().st_mtime)).days
-        if age_days <= max_age:
-            source = "cache" if _read_source() == "clubelo" else "local"
-            log.info("Utilisation du cache ClubElo local (%s, provenance=%s)", cached, source)
-            _write_source(source)
-            return pd.read_csv(cached, parse_dates=["from"]), source
+    # 1. Cache officiel ClubElo (récupéré un jour où l'API a tourné)
+    official = _load_cache(ELO_CACHE_OFFICIAL, max_age)
+    if official is not None and len(official):
+        source = "cache"
+        log.info("Utilisation du cache officiel ClubElo (%s, provenance=%s)",
+                 ELO_CACHE_OFFICIAL, source)
+        _write_source(source)
+        return official, source
+    # 2. Cache local (Elo calculé précédemment à partir des résultats)
+    local = _load_cache(ELO_CACHE_LOCAL, max_age)
+    if local is not None and len(local):
+        source = "local"
+        log.info("Utilisation du cache Elo local (%s, provenance=%s)", ELO_CACHE_LOCAL, source)
+        _write_source(source)
+        return local, source
+    # 3. Recalcul local depuis les résultats
     if fallback_results is not None and len(fallback_results):
         hist = compute_elo(fallback_results)
         _write_source("local")
@@ -154,20 +180,27 @@ def fetch_histories(limiter: RateLimiter | None = None, max_age: int = 1,
         return _fallback(exc, max_age, fallback_results)
 
 
-def _http_probe(host: str, port: int = 80, timeout: float = 5.0) -> bool:
-    """Probe HTTP réel : vrai uniquement si le serveur répond (statut < 500).
+def _http_probe(host: str, port: int = 80, timeout: float = 5.0,
+                secure: bool = False) -> bool:
+    """Probe HTTP réel : vrai uniquement si le serveur répond avec un statut
+    exploitable (2xx/3xx).
 
     Contrairement à un simple test TCP (qui reste ouvert même quand l'application
     HTTP est morte — d'où des timeouts lents par équipe), ce probe valide qu'une
     réponse HTTP arrive réellement dans le délai imparti.
+
+    Un statut 403/429/5xx (surcharge, blocage, refus) est traité comme
+    indisponible : le serveur répond mais l'API n'est pas utilisable — inutile
+    d'enchaîner la boucle lente par équipe.
     """
+    conn_cls = http.client.HTTPSConnection if secure else http.client.HTTPConnection
     try:
-        conn = http.client.HTTPConnection(host, port, timeout=timeout)
+        conn = conn_cls(host, port, timeout=timeout)
         try:
             conn.request("GET", "/", headers={"Host": host, "Connection": "close"})
             resp = conn.getresponse()
             resp.read()
-            return resp.status < 500
+            return 200 <= resp.status < 400
         finally:
             conn.close()
     except (OSError, http.client.HTTPException):
@@ -175,4 +208,8 @@ def _http_probe(host: str, port: int = 80, timeout: float = 5.0) -> bool:
 
 
 def _api_reachable(timeout: float = 5.0) -> bool:
-    return _http_probe("api.clubelo.com", port=80, timeout=timeout)
+    """Vérifie si l'API ClubElo est réellement exploitable (HTTPS puis HTTP)."""
+    return (
+        _http_probe("api.clubelo.com", port=443, timeout=timeout, secure=True)
+        or _http_probe("api.clubelo.com", port=80, timeout=timeout)
+    )

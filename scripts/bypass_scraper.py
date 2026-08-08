@@ -1,0 +1,572 @@
+"""
+bypass_scraper.py — BetExplorer scraping via curl_cffi (TLS fingerprint spoofing).
+
+Remplace l'ancien module qui dépendait de Firecrawl (API payante).
+Nouvelle stratégie, 100 % gratuite :
+  - Recherche de match via l'URL de ligue (slug) — la recherche /?q= est morte (404)
+  - Cotes 1X2 parsées depuis data-odd du HTML statique des pages ligue/fixtures
+  - OU/BTTS via HTTP direct sur /over-under/ et /both-teams-to-score/
+    (si data-odd absent → retour None, le tier4 ML prend le relais)
+  - Retries bornés + délais jitter : aucun risque de boucle infinie
+
+Commands (CLI, JSON sur stdin):
+  cmd=scrape            fetch any URL with curl_cffi
+  cmd=odds              fetch URL + parse odds from HTML
+  cmd=betexplorer       full pipeline: 1X2 + OU/BTTS + match_url (sortie JS-compatible)
+  cmd=betexplorer_search  1X2 + match_url uniquement
+  cmd=estimate_ou_btts  estimation ML Poisson depuis xG (fallback)
+
+Importable API:
+  scrape_url(url, opts) -> dict
+  parse_odds_from_html(html, url) -> dict
+  betexplorer_search(home, away, league) -> dict
+  betexplorer_match_ou(match_url, use_firecrawl=True) -> dict
+  betexplorer_match_btts(match_url, use_firecrawl=True) -> dict
+  estimate_ou_btts_ml(home, away, league) -> dict
+"""
+
+import sys, json, re, os, math, time, logging, random, unicodedata
+from urllib.parse import urlparse, urljoin
+
+BASE_URL = 'https://www.betexplorer.com'
+MAX_ATTEMPTS = 3
+
+logging.basicConfig(level=logging.INFO, format='[BYBYPASS] %(message)s')
+log = logging.getLogger('BypassScraper')
+
+try:
+    from curl_cffi import requests as curl_requests
+    from curl_cffi.requests import BrowserType
+    HAS_CURL_CFFI = True
+except Exception:
+    curl_requests = None
+    HAS_CURL_CFFI = False
+    class BrowserType:
+        chrome124 = chrome120 = chrome116 = chrome110 = 'chrome'
+
+BROWSER_FINGERPRINTS = {
+    "chrome124": BrowserType.chrome124,
+    "chrome120": BrowserType.chrome120,
+    "chrome116": BrowserType.chrome116,
+    "chrome110": BrowserType.chrome110,
+    "safari17_0": BrowserType.safari17_0,
+    "firefox133": BrowserType.firefox133,
+}
+
+DEFAULT_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,fr;q=0.8",
+}
+
+
+def _requests_fetch(url, headers, timeout, proxy, method, body):
+    import requests
+    proxies = {"http": proxy, "https": proxy} if proxy else None
+    if method.upper() == "GET":
+        return requests.get(url, headers=headers, timeout=timeout, proxies=proxies)
+    if method.upper() == "POST":
+        return requests.post(url, headers=headers, data=body, timeout=timeout, proxies=proxies)
+    return requests.request(method, url, headers=headers, timeout=timeout, proxies=proxies)
+
+
+def scrape_url(url, options=None):
+    """Fetch a URL with TLS fingerprint spoofing. Retries bornés + jitter (jamais infini)."""
+    opts = options or {}
+    fingerprint = opts.get("fingerprint", "chrome124")
+    timeout = opts.get("timeout", 30)
+    proxy = opts.get("proxy")
+    headers = dict(DEFAULT_HEADERS)
+    headers.update(opts.get("headers", {}) or {})
+    method = opts.get("method", "GET")
+    body = opts.get("body")
+    max_attempts = max(1, min(int(opts.get("max_retries", MAX_ATTEMPTS)), 5))
+
+    order = [fingerprint] if fingerprint in BROWSER_FINGERPRINTS else ["chrome124"]
+    order += [k for k in BROWSER_FINGERPRINTS if k not in order]
+
+    last_error = "all fingerprints failed"
+    for attempt in range(max_attempts):
+        fp_name = order[attempt % len(order)]
+        browser = BROWSER_FINGERPRINTS.get(fp_name, BrowserType.chrome124)
+        try:
+            if not HAS_CURL_CFFI:
+                resp = _requests_fetch(url, headers, timeout, proxy, method, body)
+            else:
+                session = curl_requests.Session(impersonate=browser)
+                if proxy:
+                    session.proxies = {"http": proxy, "https": proxy}
+                if method.upper() == "GET":
+                    resp = session.get(url, headers=headers, timeout=timeout)
+                elif method.upper() == "POST":
+                    resp = session.post(url, headers=headers, data=body, timeout=timeout)
+                else:
+                    resp = session.request(method, url, headers=headers, timeout=timeout)
+                try:
+                    session.close()
+                except Exception:
+                    pass
+            status = getattr(resp, "status_code", 0)
+            if status and status >= 400:
+                last_error = f"http_{status}"
+                time.sleep(random.uniform(1.2, 2.5))
+                continue
+            elapsed = 0.0
+            if hasattr(resp, "elapsed"):
+                try:
+                    elapsed = resp.elapsed.total_seconds()
+                except Exception:
+                    elapsed = 0.0
+            return {
+                "status": status,
+                "headers": dict(getattr(resp, "headers", {}) or {}),
+                "body": getattr(resp, "text", "") or "",
+                "url": str(getattr(resp, "url", url)),
+                "elapsed": elapsed,
+                "fingerprint": fp_name,
+            }
+        except Exception as ex:
+            last_error = str(ex)[:200]
+            if attempt < max_attempts - 1:
+                time.sleep(random.uniform(0.8, 2.0))
+    return {"error": last_error, "status": 0, "body": "", "url": url}
+
+
+def parse_odds_from_html(html_text, url):
+    """Parse odds (data-odd) from arbitrary HTML. Site-agnostic."""
+    result = {}
+    if not html_text:
+        return result
+    nums = [float(x) for x in re.findall(r'data-odd=["\']([\d.]+)', html_text)]
+    if len(nums) >= 3:
+        result["home_win"], result["draw"], result["away_win"] = nums[0], nums[1], nums[2]
+        return result
+    nums = re.findall(r'([\d.]{3,5})\s*[-–]\s*([\d.]{3,5})\s*[-–]\s*([\d.]{3,5})', html_text)
+    if nums:
+        try:
+            result["home_win"], result["draw"], result["away_win"] = (
+                float(nums[0][0]), float(nums[0][1]), float(nums[0][2])
+            )
+        except ValueError:
+            pass
+    return result
+
+
+def _to_float(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_team(name):
+    n = (name or '').lower().strip()
+    n = ''.join(c for c in unicodedata.normalize('NFD', n) if unicodedata.category(c) != 'Mn')
+    n = re.sub(r'^(fc|sc|ac|as|us|ec|cd|ca|cr|gr|aek|paok|osa|ifk|bk|ff|ss|nk|fk|sk|rc|ra|ud|ad|cdt)\.?\s+', '', n)
+    n = re.sub(r'\s+(fc|sc|ac|as|us|cf|cd|ca|ec)\.?\s*$', '', n)
+    n = re.sub(r'\s+(united|city|utd)$', '', n)
+    return n.strip()
+
+
+def _teams_match(a, b):
+    a_norm = _normalize_team(a)
+    b_norm = _normalize_team(b)
+    if not a_norm or not b_norm:
+        return False
+    if a_norm == b_norm:
+        return True
+    if a_norm in b_norm or b_norm in a_norm:
+        return True
+    def significant_words(s):
+        return [w for w in re.split(r'[\s\-\.]+', s) if len(w) >= 3]
+    w1 = significant_words(a_norm)
+    w2 = significant_words(b_norm)
+    if not w1 or not w2:
+        return False
+    set1 = set(w1)
+    set2 = set(w2)
+    common = set1 & set2
+    if common:
+        ratio = len(common) / min(len(w1), len(w2))
+        if ratio >= 0.6:
+            return True
+        if ratio >= 0.5:
+            f1, f2 = w1[0], w2[0]
+            if f1 == f2 or f1 in set2 or f2 in set1:
+                return True
+            for w in w1:
+                for v in w2:
+                    if w != v and len(w) >= 4 and len(v) >= 4 and (w.startswith(v) or v.startswith(w)):
+                        return True
+            return False
+    for w in w1:
+        for v in w2:
+            if w != v and len(w) >= 4 and len(v) >= 4 and (w.startswith(v) or v.startswith(w)):
+                return True
+    return False
+
+
+LEAGUE_SLUG_MAPPING = {
+    'Brasileirão Serie B': '/football/brazil/serie-b/',
+    'Brasileirão Serie A': '/football/brazil/serie-a/',
+    'Brasileirao': '/football/brazil/serie-a/',
+    'Segunda División': '/football/spain/segunda-division/',
+    'Segunda Division': '/football/spain/segunda-division/',
+    'USL Championship': '/football/usa/usl-championship/',
+    'Veikkausliiga': '/football/finland/veikkausliiga/',
+    'Botola Pro': '/football/morocco/botola/',
+    'Botola': '/football/morocco/botola/',
+    'Serie A': '/football/italy/serie-a/',
+    'Serie B': '/football/italy/serie-b/',
+    'Premier League': '/football/england/premier-league/',
+    'La Liga': '/football/spain/laliga/',
+    'Ligue 1': '/football/france/ligue-1/',
+    'Ligue 2': '/football/france/ligue-2/',
+    'Bundesliga': '/football/germany/bundesliga/',
+    '2. Bundesliga': '/football/germany/2-bundesliga/',
+    'Championship': '/football/england/championship/',
+    'League One': '/football/england/league-one/',
+    'League Two': '/football/england/league-two/',
+    'MLS': '/football/usa/mls/',
+    'Eredivisie': '/football/netherlands/eredivisie/',
+    'Primeira Liga': '/football/portugal/primeira-liga/',
+    'Liga Portugal': '/football/portugal/primeira-liga/',
+    'Scottish Premiership': '/football/scotland/premier-league/',
+    'Süper Lig': '/football/turkey/super-lig/',
+    'Super Lig': '/football/turkey/super-lig/',
+    'J1 League': '/football/japan/j1-league/',
+    'J2 League': '/football/japan/j2-league/',
+    'K League 1': '/football/south-korea/k-league-1/',
+    'Eliteserien': '/football/norway/eliteserien/',
+    'Allsvenskan': '/football/sweden/allsvenskan/',
+    'Ekstraklasa': '/football/poland/ekstraklasa/',
+    'Liga MX': '/football/mexico/liga-mx/',
+    'Primera División': '/football/argentina/primera-division/',
+    'Primera Division': '/football/argentina/primera-division/',
+    'Liga Profesional': '/football/argentina/primera-division/',
+    'World Cup 2026': '/football/international/world-cup/',
+    'International Friendly': '/football/international/friendly/',
+}
+
+
+def _league_to_betexplorer_slug(league):
+    if not league:
+        return None
+    league_lower = league.lower()
+    for key, slug in LEAGUE_SLUG_MAPPING.items():
+        if key.lower() in league_lower:
+            return slug
+    return None
+
+
+def _match_anchor_parts(a):
+    spans = a.find_all('span')
+    texts = [s.get_text(' ', strip=True) for s in spans if s.get_text(' ', strip=True)]
+    if len(texts) >= 2:
+        return texts[0], texts[-1]
+    text = a.get_text(' ', strip=True)
+    parts = [p.strip() for p in re.split(r'\s[-–—]\s', text) if p.strip()]
+    if len(parts) >= 2:
+        return parts[0], parts[-1]
+    return None, None
+
+
+def _teams_from_slug(href):
+    seg = href.rstrip('/').split('/')[-1]
+    tokens = [t for t in seg.split('-') if t]
+    if len(tokens) < 3:
+        return None, None
+    if re.fullmatch(r'[A-Za-z0-9]{6,10}', tokens[-1]):
+        tokens = tokens[:-1]
+    if len(tokens) == 2:
+        return tokens[0], tokens[1]
+    return None, None
+
+
+def _odds_from_scope(node):
+    cells = node.find_all(attrs={'data-odd': True})
+    vals = [_to_float(c.get('data-odd')) for c in cells]
+    vals = [v for v in vals if v is not None and v > 1.0]
+    if len(vals) >= 3:
+        return {'home_win': vals[0], 'draw': vals[1], 'away_win': vals[2]}
+    return None
+
+
+def _container_odds(node):
+    cur = node
+    for _ in range(4):
+        cur = cur.parent
+        if cur is None:
+            break
+        odds = _odds_from_scope(cur)
+        if odds:
+            return odds
+    return None
+
+
+def _match_hash_from_url(match_url):
+    m = re.search(r'[-]([A-Za-z0-9]{6,10})/?$', match_url.rstrip('/'))
+    return m.group(1) if m else None
+
+
+def _find_match_in_html(html, home, away):
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'html.parser')
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            if '/football/' not in href:
+                continue
+            hp, ap = _match_anchor_parts(a)
+            if not hp or not ap:
+                hp, ap = _teams_from_slug(href)
+            if not hp or not ap:
+                continue
+            if not (_teams_match(hp, home) and _teams_match(ap, away)):
+                continue
+            row_odds = _odds_from_scope(a.find_parent('tr')) if a.find_parent('tr') is not None else None
+            if not row_odds:
+                row_odds = _container_odds(a)
+            if not row_odds:
+                continue
+            match_url = urljoin(BASE_URL + '/', href)
+            return {
+                'odds': row_odds,
+                'match_url': match_url,
+                'match_hash': _match_hash_from_url(match_url),
+            }
+    except Exception as ex:
+        log.debug('find_match error: %s', ex)
+    return None
+
+
+def betexplorer_search(home, away, league=None):
+    """Recherche BetExplorer via la page de ligue (slug). Retourne 1X2 + match_url."""
+    slug = _league_to_betexplorer_slug(league)
+    if not slug:
+        return {"odds": None, "match_url": None, "match_hash": None, "error": "no_league_slug"}
+
+    candidate_urls = [
+        f'{BASE_URL}{slug}fixtures/',
+        f'{BASE_URL}{slug}results/',
+        f'{BASE_URL}{slug}',
+    ]
+    for url in candidate_urls:
+        result = scrape_url(url, {"fingerprint": "chrome124", "timeout": 20})
+        if result.get('error') or result.get('status', 0) != 200:
+            continue
+        match = _find_match_in_html(result.get("body", ""), home, away)
+        if match:
+            match["url_probe"] = url
+            return match
+    return {"odds": None, "match_url": None, "match_hash": None}
+
+
+def _parse_ou_page(html):
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'html.parser')
+        for tr in soup.find_all('tr'):
+            first = tr.find('td') or tr.find('th')
+            if first is None:
+                continue
+            if '2.5' in first.get_text(' ', strip=True):
+                vals = [_to_float(c.get('data-odd')) for c in tr.find_all(attrs={'data-odd': True})]
+                vals = [v for v in vals if v is not None and v > 1.0]
+                if len(vals) >= 2:
+                    return vals[0], vals[1]
+        vals = [_to_float(c.get('data-odd')) for c in soup.find_all(attrs={'data-odd': True})]
+        vals = [v for v in vals if v is not None and v > 1.0]
+        if len(vals) >= 2:
+            return vals[0], vals[1]
+    except Exception as ex:
+        log.debug('ou parse error: %s', ex)
+    return None, None
+
+
+def _parse_btts_page(html):
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'html.parser')
+        vals = [_to_float(c.get('data-odd')) for c in soup.find_all(attrs={'data-odd': True})]
+        vals = [v for v in vals if v is not None and v > 1.0]
+        if len(vals) >= 2:
+            return vals[0], vals[1]
+    except Exception as ex:
+        log.debug('btts parse error: %s', ex)
+    return None, None
+
+
+def betexplorer_match_ou(match_url, use_firecrawl=True):
+    """OU 2.5 depuis /over-under/ (HTTP direct). data-odd absent -> {ou25: None}."""
+    if not use_firecrawl or not match_url:
+        return {"ou25": None, "source": "skipped"}
+    ou_url = match_url.rstrip("/") + "/over-under/"
+    result = scrape_url(ou_url, {"fingerprint": "chrome124", "timeout": 20})
+    if result.get('error') or result.get('status', 0) != 200:
+        return {"ou25": None, "source": "failed"}
+    over, under = _parse_ou_page(result.get("body", ""))
+    ou = {"over_25": over, "under_25": under} if (over and under) else None
+    return {"ou25": ou, "source": "betexplorer" if ou else "static_empty"}
+
+
+def betexplorer_match_btts(match_url, use_firecrawl=True):
+    """BTTS depuis /both-teams-to-score/ (HTTP direct). data-odd absent -> {btts: None}."""
+    if not use_firecrawl or not match_url:
+        return {"btts": None, "source": "skipped"}
+    btts_url = match_url.rstrip("/") + "/both-teams-to-score/"
+    result = scrape_url(btts_url, {"fingerprint": "chrome124", "timeout": 20})
+    if result.get('error') or result.get('status', 0) != 200:
+        return {"btts": None, "source": "failed"}
+    yes, no = _parse_btts_page(result.get("body", ""))
+    btts = {"yes": yes, "no": no} if (yes and no) else None
+    return {"btts": btts, "source": "betexplorer" if btts else "static_empty"}
+
+
+def betexplorer_full(home, away, league=None, use_firecrawl=True):
+    """Pipeline complet: recherche -> 1X2 (+ OU/BTTS si data-odd statique dispo)."""
+    search = betexplorer_search(home, away, league)
+    result = {
+        "odds": None,
+        "over_25": None,
+        "under_25": None,
+        "btts_yes": None,
+        "btts_no": None,
+        "source": None,
+        "match_url": search.get("match_url"),
+        "match_hash": search.get("match_hash"),
+    }
+    if search.get("odds"):
+        result["odds"] = search["odds"]
+        result["source"] = "betexplorer"
+        match_url = search.get("match_url")
+        if match_url and use_firecrawl:
+            ou_result = betexplorer_match_ou(match_url, use_firecrawl=True)
+            if ou_result.get("ou25"):
+                result["over_25"] = ou_result["ou25"].get("over_25")
+                result["under_25"] = ou_result["ou25"].get("under_25")
+            btts_result = betexplorer_match_btts(match_url, use_firecrawl=True)
+            if btts_result.get("btts"):
+                result["btts_yes"] = btts_result["btts"].get("yes")
+                result["btts_no"] = btts_result["btts"].get("no")
+            if result["over_25"] or result["btts_yes"]:
+                result["source"] = "betexplorer+static"
+    return result
+
+
+def compute_ou_btts_from_xg(xg_h, xg_a):
+    """Estimation OU 2.5 + BTTS via Poisson (probas en %)."""
+    ou25 = 0.0
+    for k in range(0, 8):
+        pk = math.exp(-xg_h) * xg_h ** k / math.factorial(k)
+        for l in range(0, 8):
+            pl = math.exp(-xg_a) * xg_a ** l / math.factorial(l)
+            if k + l > 2.5:
+                ou25 += pk * pl
+    btts = (1 - math.exp(-xg_h)) * (1 - math.exp(-xg_a))
+    return round(ou25 * 100, 1), round(btts * 100, 1)
+
+
+def _team_xg(hist, is_home, default):
+    vals = []
+    for m in hist:
+        if not isinstance(m, dict):
+            continue
+        v = None
+        for k in ('expected_goals', 'xg', 'expectedGoals'):
+            if m.get(k) is not None:
+                v = m.get(k)
+                break
+        if v is None:
+            v = m.get('Expected goals_home' if is_home else 'Expected goals_away')
+        if v is None:
+            v = m.get('Expected goals_home' if not is_home else 'Expected goals_away')
+        if v is None:
+            v = m.get('score_for')
+        f = _to_float(v)
+        if f is not None and 0 < f <= 4.5:
+            vals.append(f)
+    if not vals:
+        return default
+    return sum(vals) / len(vals)
+
+
+def _get_history(team, limit=10):
+    """Chargement paresseux de l'historique équipe via core/ml_features."""
+    try:
+        core_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'core')
+        sys.path.insert(0, core_dir)
+        from ml_features import get_team_history
+        return get_team_history(team, limit=limit)
+    except Exception as ex:
+        log.debug('ml_features unavailable: %s', ex)
+        return []
+
+
+def estimate_ou_btts_ml(home, away, league=None):
+    """Fallback ML: estimation OU/BTTS depuis les xG historiques (Poisson)."""
+    h_hist = _get_history(home, limit=10)
+    a_hist = _get_history(away, limit=10)
+
+    xg_h = _team_xg(h_hist, True, 1.2)
+    xg_a = _team_xg(a_hist, False, 1.0)
+
+    ou25_pct, btts_pct = compute_ou_btts_from_xg(xg_h, xg_a)
+    return {
+        "over_25_prob": ou25_pct,
+        "under_25_prob": round(100 - ou25_pct, 1),
+        "btts_yes_prob": btts_pct,
+        "btts_no_prob": round(100 - btts_pct, 1),
+        "source": "ml_estimate",
+    }
+
+
+def main():
+    input_data = json.loads(sys.stdin.read())
+    cmd = input_data.get("cmd", "scrape")
+
+    if cmd == "scrape":
+        url = input_data.get("url", "")
+        options = input_data.get("options", {})
+        result = scrape_url(url, options)
+        print(json.dumps(result, ensure_ascii=False))
+    elif cmd == "odds":
+        url = input_data.get("url", "")
+        options = input_data.get("options", {})
+        scrape_result = scrape_url(url, options)
+        if scrape_result.get('error') or scrape_result.get('status', 0) >= 400:
+            print(json.dumps({"error": scrape_result.get('error') or f'http_{scrape_result.get("status")}', "odds": None}))
+        else:
+            odds = parse_odds_from_html(scrape_result.get("body", ""), url)
+            print(json.dumps({
+                "odds": odds if odds else None,
+                "status": scrape_result.get("status"),
+                "fingerprint": scrape_result.get("fingerprint"),
+                "url": scrape_result.get("url"),
+                "elapsed": scrape_result.get("elapsed"),
+            }, ensure_ascii=False))
+    elif cmd == "betexplorer":
+        home = input_data.get("home", "")
+        away = input_data.get("away", "")
+        league = input_data.get("league", "")
+        use_fc = input_data.get("use_firecrawl", True)
+        result = betexplorer_full(home, away, league, use_firecrawl=use_fc)
+        print(json.dumps(result, ensure_ascii=False))
+    elif cmd == "betexplorer_search":
+        home = input_data.get("home", "")
+        away = input_data.get("away", "")
+        league = input_data.get("league", "")
+        result = betexplorer_search(home, away, league)
+        print(json.dumps(result, ensure_ascii=False))
+    elif cmd == "estimate_ou_btts":
+        home = input_data.get("home", "")
+        away = input_data.get("away", "")
+        league = input_data.get("league", "")
+        result = estimate_ou_btts_ml(home, away, league)
+        print(json.dumps(result, ensure_ascii=False))
+    else:
+        print(json.dumps({"error": f"Unknown command: {cmd}"}))
+
+
+if __name__ == "__main__":
+    main()

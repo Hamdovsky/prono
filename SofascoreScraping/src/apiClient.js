@@ -21,11 +21,52 @@ const USER_AGENTS = [
 
 // Rate Limiter: HUMAN MODE (Indetectable)
 const limiter = new Bottleneck({
-  minTime: 1200, // 🛡️ Raised to mimic human browsing speed
+  minTime: 1800, // 🛡️ Floor: per-request jitter adds 0–1700ms → 1800–3500ms spacing
   maxConcurrent: 2, // 🛡️ Reduced concurrency to avoid IP flags
 })
 
+// Global cooldown after a Sofascore block (403/429). Configurable via
+// SOFASCORE_COOLDOWN_MS (default 8 min). The whole app backs off together
+// instead of hammering a flagged IP.
+const SOFASCORE_COOLDOWN_MS = parseInt(process.env.SOFASCORE_COOLDOWN_MS, 10) || 8 * 60 * 1000
+let cooldownUntil = 0
+
+function _triggerCooldown() {
+  cooldownUntil = Date.now() + SOFASCORE_COOLDOWN_MS
+  console.warn(`🚨 [apiClient] Detection (403/429). Global cooldown ${SOFASCORE_COOLDOWN_MS / 1000}s...`)
+}
+
+async function _enforceCooldown() {
+  const remaining = cooldownUntil - Date.now()
+  if (remaining > 0) {
+    console.warn(`🛡️ [apiClient] Cooldown active, sleeping ${Math.ceil(remaining / 1000)}s...`)
+    await new Promise((r) => setTimeout(r, remaining))
+  }
+}
+
 const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
+
+// Derive a coherent sec-ch-ua Client Hints trio from the chosen User-Agent so
+// the browser fingerprint always matches the one we claim to be (no mismatch
+// between UA and the Google Chrome version advertised in the headers).
+function getSecChUa(ua = '') {
+  const chrome = ua.match(/Chrome\/(\d+)\./)
+  const major = chrome ? chrome[1] : '130'
+  return `"Chromium";v="${major}", "Google Chrome";v="${major}", "Not?A_Brand";v="24"`
+}
+
+function getSecChUaPlatform(ua = '') {
+  if (/Windows NT/.test(ua)) return '"Windows"'
+  if (/Mac OS X/.test(ua)) return '"macOS"'
+  if (/Android/.test(ua)) return '"Android"'
+  if (/iPhone|iPad/.test(ua)) return '"iOS"'
+  if (/Linux/.test(ua)) return '"Linux"'
+  return '"Windows"'
+}
+
+function getSecChUaMobile(ua = '') {
+  return /Android|iPhone|iPad/.test(ua) ? '?1' : '?0'
+}
 
 const BASE_HEADERS = {
   Accept: '*/*',
@@ -302,12 +343,9 @@ async function fetchWithPuppeteer(url) {
       globalBrowser = null
       pagePool.length = 0
     } else if (error.message.includes('HTTP 403') || error.message.includes('HTTP 429')) {
-      // 🚨 [TITANIUM STEALTH] Detection Triggered!
-      const cooldown = 5 * 60 * 1000 // 5 minutes sleep
-      console.error(
-        `🚨 [STEALTH] Detection detected (HTTP 403/429). Entering COOLDOWN for ${cooldown / 1000}s...`
-      )
-      await new Promise((r) => setTimeout(r, cooldown))
+      // 🚨 [TITANIUM STEALTH] Detection Triggered — global cooldown
+      _triggerCooldown()
+      await _enforceCooldown()
     } else if (error.message.includes('timed out') && entry) {
       // 🔄 Non-fatal timeout: recycle only the hung page
       console.warn(
@@ -363,11 +401,13 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
 
     for (let i = 0; i < retries; i++) {
       try {
-        // 🛡️ [TITANIUM STEALTH] Dynamic Jitter
-        const jitter = Math.floor(Math.random() * 1500) + 500
+        // 🛡️ [TITANIUM STEALTH] Dynamic Jitter (0–1700ms, on top of the 1800ms
+        // limiter floor) → 1800–3500ms of human-like spacing between requests.
+        const jitter = Math.floor(Math.random() * 1700)
         await new Promise((r) => setTimeout(r, jitter))
 
         const currentProxy = shieldEngine.getProxy()
+        const ua = getRandomUserAgent()
         const axiosConfig = {
           ...pooledConfig,
           ...options,
@@ -377,7 +417,10 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
           headers: {
             ...BASE_HEADERS,
             Referer: referer,
-            'User-Agent': getRandomUserAgent(),
+            'User-Agent': ua,
+            'sec-ch-ua': getSecChUa(ua),
+            'sec-ch-ua-mobile': getSecChUaMobile(ua),
+            'sec-ch-ua-platform': getSecChUaPlatform(ua),
             ...options.headers,
           },
         }
@@ -434,7 +477,9 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
             return null
           }
 
-          console.warn(`🚨 [apiClient] ${status} on ${url}. Attempting Puppeteer bypass...`)
+          console.warn(`🚨 [apiClient] ${status} on ${url}. Global cooldown, then Puppeteer bypass...`)
+          _triggerCooldown()
+          await _enforceCooldown()
           try {
             return await fetchWithPuppeteer(url)
           } catch (puppeteerErr) {
@@ -578,16 +623,23 @@ const SofaAPI = {
 }
 
 function getSofaHeaders(referer = 'https://www.sofascore.com/') {
+  const ua = getRandomUserAgent()
   return {
     ...BASE_HEADERS,
     Referer: referer,
-    'User-Agent': getRandomUserAgent(),
+    'User-Agent': ua,
+    'sec-ch-ua': getSecChUa(ua),
+    'sec-ch-ua-mobile': getSecChUaMobile(ua),
+    'sec-ch-ua-platform': getSecChUaPlatform(ua),
   }
 }
 
 module.exports = {
   fetchWithRetry,
   getRandomUserAgent,
+  getSecChUa,
+  getSecChUaPlatform,
+  getSecChUaMobile,
   BASE_HEADERS,
   getSofaHeaders,
   SofaAPI,

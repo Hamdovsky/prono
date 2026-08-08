@@ -1,4 +1,9 @@
-const { getRandomUserAgent } = require('../SofascoreScraping/src/apiClient')
+const {
+  getRandomUserAgent,
+  getSecChUa,
+  getSecChUaPlatform,
+  getSecChUaMobile,
+} = require('../SofascoreScraping/src/apiClient')
 const logger = require('../core/logger')
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
@@ -17,6 +22,13 @@ const SOFA_HEADERS = {
 const cache = new Map()
 const CACHE_TTL = 15 * 60 * 1000
 
+// Soft spacing: 1800–3500ms between raw Sofascore fetches (same policy as the
+// odds client) so xG enrichment never outpaces the rate limiter.
+function softDelay() {
+  const ms = 1800 + Math.floor(Math.random() * 1700)
+  return new Promise((r) => setTimeout(r, ms))
+}
+
 class SofascoreXgService {
   constructor() {
     this.enabled = true
@@ -33,11 +45,16 @@ class SofascoreXgService {
     if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
 
     try {
+      await softDelay()
       const url = `${SOFA_API}/event/${sofascoreId}/statistics`
+      const ua = getRandomUserAgent()
       const res = await fetch(url, {
         headers: {
           ...SOFA_HEADERS,
-          'User-Agent': getRandomUserAgent(),
+          'User-Agent': ua,
+          'sec-ch-ua': getSecChUa(ua),
+          'sec-ch-ua-mobile': getSecChUaMobile(ua),
+          'sec-ch-ua-platform': getSecChUaPlatform(ua),
         },
         method: 'GET',
         signal: AbortSignal.timeout(10000),

@@ -11,7 +11,11 @@ function resolvePython() {
   }
   if (process.platform === 'win32') {
     try {
-      const result = execSync('where python', { encoding: 'utf8', timeout: 3000, windowsHide: true })
+      const result = execSync('where python', {
+        encoding: 'utf8',
+        timeout: 3000,
+        windowsHide: true,
+      })
         .split(/\r?\n/)[0]
         .trim()
       if (result) {

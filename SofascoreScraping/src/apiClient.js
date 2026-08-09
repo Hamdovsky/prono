@@ -33,7 +33,9 @@ let cooldownUntil = 0
 
 function _triggerCooldown() {
   cooldownUntil = Date.now() + SOFASCORE_COOLDOWN_MS
-  console.warn(`🚨 [apiClient] Detection (403/429). Global cooldown ${SOFASCORE_COOLDOWN_MS / 1000}s...`)
+  console.warn(
+    `🚨 [apiClient] Detection (403/429). Global cooldown ${SOFASCORE_COOLDOWN_MS / 1000}s...`
+  )
 }
 
 async function _enforceCooldown() {
@@ -477,7 +479,9 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
             return null
           }
 
-          console.warn(`🚨 [apiClient] ${status} on ${url}. Global cooldown, then Puppeteer bypass...`)
+          console.warn(
+            `🚨 [apiClient] ${status} on ${url}. Global cooldown, then Puppeteer bypass...`
+          )
           _triggerCooldown()
           await _enforceCooldown()
           try {

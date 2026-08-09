@@ -59,10 +59,27 @@ jest.mock('../services/liveMatchService', () => ({
   getActiveMatches: jest.fn(() => []),
 }))
 
+jest.mock('../services/openMeteoService', () => ({
+  isAvailable: jest.fn(() => true),
+  fetchByCity: jest.fn().mockResolvedValue({
+    current: { temperature_2m: 8, relative_humidity_2m: 90, weather_code: 63, wind_speed_10m: 20 },
+  }),
+  extractWeatherInfo: jest.fn((d) =>
+    d?.current
+      ? {
+          temp: d.current.temperature_2m,
+          humidity: d.current.relative_humidity_2m,
+          description: 'Light rain',
+        }
+      : null
+  ),
+}))
+
 const request = require('supertest')
 const express = require('express')
 const matchesRouter = require('../routes/matches')
 const database = require('../core/database')
+const StatisticalEngine = require('../core/services/StatisticalEngine')
 
 const { invalidateCache } = require('../core/speedCache')
 const { getSteamForMatch } = require('../services/oddsMovementService')
@@ -263,6 +280,63 @@ describe('Matches API Routes', () => {
       expect(response.status).toBe(200)
       const all = allUpcoming(response.body)
       expect(all[0].home_win_probability).toBeDefined()
+
+      jest.restoreAllMocks()
+    })
+
+    it('should give every match a statistical verdict + corners even without odds', async () => {
+      jest.spyOn(database, 'getMatchesByStatuses').mockResolvedValue([
+        {
+          id: 'no-odds',
+          homeTeam: 'FC Nord',
+          awayTeam: 'FC Sud',
+          league: 'Test',
+          startTimestamp: Math.floor(Date.now() / 1000) + 86400,
+        },
+      ])
+      jest.spyOn(StatisticalEngine, 'getMatchXG').mockReturnValue({ h: 1.4, a: 1.1 })
+
+      const response = await request(app).get('/api/matches/upcoming')
+      expect(response.status).toBe(200)
+      const all = allUpcoming(response.body)
+      expect(all.length).toBe(1)
+      const m = all[0]
+      expect(m.insufficient_data).toBe(1)
+      expect(parseFloat(m.home_win_probability) || 0).toBeGreaterThan(0)
+      expect(parseFloat(m.draw_probability) || 0).toBeGreaterThan(0)
+      expect(parseFloat(m.away_win_probability) || 0).toBeGreaterThan(0)
+      expect(parseFloat(m.btts_prob) || 0).toBeGreaterThan(0)
+      expect(parseFloat(m.ou_25_prob) || 0).toBeGreaterThan(0)
+      expect(m.cornersVerdict).toBeDefined()
+      expect(m.cornersVerdict.expectedTotal).toBeGreaterThan(0)
+
+      jest.restoreAllMocks()
+    })
+
+    it('should JIT-fill missing weather via open-meteo so O/U reflects real conditions', async () => {
+      const openMeteo = require('../services/openMeteoService')
+      openMeteo.fetchByCity.mockClear()
+      jest.spyOn(database, 'getMatchesByStatuses').mockResolvedValue([
+        {
+          id: 'rainy',
+          homeTeam: 'FC Pluie',
+          awayTeam: 'FC Vent',
+          league: 'Test',
+          country_iso: 'FR',
+          startTimestamp: Math.floor(Date.now() / 1000) + 86400,
+        },
+      ])
+      jest.spyOn(StatisticalEngine, 'getMatchXG').mockReturnValue({ h: 1.4, a: 1.1 })
+
+      const response = await request(app).get('/api/matches/upcoming')
+      expect(response.status).toBe(200)
+      const all = allUpcoming(response.body)
+      expect(all.length).toBe(1)
+      const m = all[0]
+      expect(openMeteo.fetchByCity).toHaveBeenCalled()
+      expect(m.weather_temp).toBe(8)
+      expect(m.weather_desc).toContain('rain')
+      expect(m.weather_humidity).toBe(90)
 
       jest.restoreAllMocks()
     })

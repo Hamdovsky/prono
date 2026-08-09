@@ -213,14 +213,34 @@ const toRawLines = (m) => {
     ]
   }
   if (isInsufficient) {
+    // 🔮 Estimation statistique (Poisson/xG) — pas de cotes bookmaker réelles,
+    // donc aucune EV/valeur affichée. Badge distinct pour rester honnête.
+    const totalP = hPct + dPct + aPct
+    let statWinner = '--'
+    let statWinnerProb = 0
+    if (totalP > 0) {
+      const maxP = Math.max(hPct, dPct, aPct)
+      if (maxP >= 65) {
+        statWinner = maxP === hPct ? '1' : maxP === aPct ? '2' : 'X'
+        statWinnerProb = maxP
+      } else {
+        const combos = [
+          { k: '1X', p: hPct + dPct },
+          { k: '12', p: hPct + aPct },
+          { k: 'X2', p: dPct + aPct },
+        ].sort((a, b) => b.p - a.p)
+        statWinner = combos[0].k
+        statWinnerProb = combos[0].p
+      }
+    }
     return [
-      m.league || m.tournament_name || '',
+      `${m.league || m.tournament_name || ''} 🔮 estimation sans cotes`,
       m.homeTeam || '',
       m.awayTeam || '',
-      '--',
-      '--',
-      '🔒 données insuffisantes',
-      '--',
+      bttsLabel,
+      ouPct > 0 ? `${ouPct}%` : '--',
+      statWinnerProb > 0 ? `${statWinner} ${Math.round(statWinnerProb)}%` : '--',
+      totalP > 0 ? `${htPct}%` : '--',
       cornersLabel,
       null,
       '0',

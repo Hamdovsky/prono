@@ -47,8 +47,8 @@ function teamsMatch(pickHome, pickAway, matchHome, matchAway) {
   const ma = teamWords(matchAway)
   if (!ph.length || !pa.length || !mh.length || !ma.length) return false
   const allMatch = (pWords, dWords) =>
-    pWords.every(
-      (pw) => dWords.some((dw) => dw.includes(pw) || (pw.length > 2 && dw.length >= 3 && pw.includes(dw)))
+    pWords.every((pw) =>
+      dWords.some((dw) => dw.includes(pw) || (pw.length > 2 && dw.length >= 3 && pw.includes(dw)))
     )
   return allMatch(ph, mh) && allMatch(pa, ma)
 }
@@ -57,7 +57,11 @@ function teamsMatch(pickHome, pickAway, matchHome, matchAway) {
 
 function pickId(date, home, away) {
   const clean = (s) =>
-    (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)
+    (s || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 40)
   return `${date}_${clean(home)}_${clean(away)}`
 }
 
@@ -97,7 +101,9 @@ function syncDailyPicks() {
   }
 
   const allPicks = Array.isArray(payload.all) ? payload.all : []
-  const topConfKeys = new Set((payload.top_confidence || []).map((p) => pickId(p.date, p.home, p.away)))
+  const topConfKeys = new Set(
+    (payload.top_confidence || []).map((p) => pickId(p.date, p.home, p.away))
+  )
   const topValueKeys = new Set((payload.top_value || []).map((p) => pickId(p.date, p.home, p.away)))
   const now = Date.now()
 
@@ -173,8 +179,7 @@ function syncDailyPicks() {
 
 function _findMatchForPick(pick) {
   const win = dateWindowSec(pick.pick_date || pick.date)
-  const where =
-    `WHERE status IN ('FT', 'finished', 'Finished', 'Ended')
+  const where = `WHERE status IN ('FT', 'finished', 'Finished', 'Ended')
      AND "scoreHome" IS NOT NULL AND "scoreAway" IS NOT NULL
      AND ("startTimestamp" IS NOT NULL OR timestamp IS NOT NULL)
      AND (
@@ -182,12 +187,16 @@ function _findMatchForPick(pick) {
        OR (timestamp BETWEEN ? AND ?)
      )`
 
-  const rows = db.prepare(`SELECT id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", status FROM matches ${where} ORDER BY "startTimestamp" DESC LIMIT 200`).all(
-    win.min,
-    win.max,
-    new Date(win.min * 1000).toISOString(),
-    new Date(win.max * 1000).toISOString()
-  )
+  const rows = db
+    .prepare(
+      `SELECT id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", status FROM matches ${where} ORDER BY "startTimestamp" DESC LIMIT 200`
+    )
+    .all(
+      win.min,
+      win.max,
+      new Date(win.min * 1000).toISOString(),
+      new Date(win.max * 1000).toISOString()
+    )
   for (const r of rows) {
     if (teamsMatch(pick.home_team, pick.away_team, r.homeTeam, r.awayTeam)) {
       return r
@@ -243,9 +252,16 @@ function settlePendingPicks() {
   for (const pick of picks) {
     let match = null
     try {
-      match = db.prepare(`SELECT "scoreHome", "scoreAway", status FROM matches WHERE id = ?`).get(pick.match_id)
+      match = db
+        .prepare(`SELECT "scoreHome", "scoreAway", status FROM matches WHERE id = ?`)
+        .get(pick.match_id)
     } catch (_) {}
-    if (!match || !statusIsFinished(match.status) || match.scoreHome == null || match.scoreAway == null) {
+    if (
+      !match ||
+      !statusIsFinished(match.status) ||
+      match.scoreHome == null ||
+      match.scoreAway == null
+    ) {
       try {
         match = db
           .prepare(`SELECT "scoreHome", "scoreAway" FROM historical_matches WHERE id = ?`)
@@ -271,7 +287,9 @@ function settlePendingPicks() {
         `UPDATE top_picks SET status = 'SETTLED', result = ?, score = ?, settled_at = ? WHERE id = ?`
       ).run(result, `${sh}-${sa}`, Date.now(), pick.id)
       settled++
-      logger.info(`[TOP-PICKS] Settled ${pick.home_team} ${sh}-${sa} ${pick.away_team} → ${result} (${pick.prediction})`)
+      logger.info(
+        `[TOP-PICKS] Settled ${pick.home_team} ${sh}-${sa} ${pick.away_team} → ${result} (${pick.prediction})`
+      )
     } catch (e) {
       logger.warn(`[TOP-PICKS] Settle failed for ${pick.id}: ${e.message}`)
     }
@@ -298,7 +316,8 @@ function getTopPicksAccuracy() {
   let stake = 0
   let returns = 0
   for (const r of rows) {
-    const odds = r.prediction === '1' ? r.odds_home : r.prediction === 'X' ? r.odds_draw : r.odds_away
+    const odds =
+      r.prediction === '1' ? r.odds_home : r.prediction === 'X' ? r.odds_draw : r.odds_away
     if (odds && odds > 1) {
       stake += 1
       returns += r.result === 'WON' ? odds : 0

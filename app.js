@@ -666,6 +666,7 @@ app.use('/api/auth', require('./routes/auth'))
 app.use('/api', require('./routes/valueBets'))
 app.use('/api/bets', require('./routes/bets'))
 app.use('/api/training', require('./routes/training'))
+app.use('/api/titanium', require('./routes/titanium'))
 
 // ── SWAGGER API DOCUMENTATION ─────────────────
 if (swaggerUi && swaggerSpecs) {
@@ -1256,7 +1257,8 @@ app.get('/api/top-picks', async (req, res) => {
     } else {
       const fb = readPicks(fallbackPath)
       if (fb) res.json({ success: true, fallback: true, ...fb })
-      else res.json({ success: false, error: 'No predictions yet. Run daily_predictions.py first.' })
+      else
+        res.json({ success: false, error: 'No predictions yet. Run daily_predictions.py first.' })
     }
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })

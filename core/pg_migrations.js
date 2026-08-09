@@ -448,8 +448,7 @@ async function runMigrations() {
       if (!lcNames.includes('displayName')) await addLcCol('displayName', "TEXT DEFAULT ''")
       if (!lcNames.includes('smartScanEnabled'))
         await addLcCol('smartScanEnabled', 'INTEGER DEFAULT 1')
-      if (!lcNames.includes('webhookEnabled'))
-        await addLcCol('webhookEnabled', 'INTEGER DEFAULT 1')
+      if (!lcNames.includes('webhookEnabled')) await addLcCol('webhookEnabled', 'INTEGER DEFAULT 1')
       if (!lcNames.includes('arabicNewsEnabled'))
         await addLcCol('arabicNewsEnabled', 'INTEGER DEFAULT 0')
       const tierCol = lcCols.rows.find((r) => r.column_name === 'tier')
@@ -482,7 +481,9 @@ async function runMigrations() {
         await query(seedStmt, row)
       }
       const seeded = await query('SELECT COUNT(*) AS n FROM leagues_config')
-      logger.info(`[PG MIGRATIONS] leagues_config seeded: ${seeded.rows[0].n} leagues (12 expected).`)
+      logger.info(
+        `[PG MIGRATIONS] leagues_config seeded: ${seeded.rows[0].n} leagues (12 expected).`
+      )
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] leagues_config seed skipped: ${e.message}`)
     }

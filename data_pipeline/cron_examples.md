@@ -3,13 +3,13 @@
 Un **point d'entrée unique** (`run_scheduled.py`) déclenche les étapes dues
 selon `state.json` :
 
-| Étape            | Cadence             | Déclencheur                       |
-|------------------|---------------------|-----------------------------------|
-| Sauvegarde       | chaque exécution    | toujours (avant toute mise à jour)|
-| Football-Data + ClubElo | quotidien     | `--daily` / par défaut            |
-| Stats avancées (xG/xA)  | 3 jours       | `--fbref` (automatiquement si dû) |
-| Rebuild `master`        | après mise à jour| automatique                    |
-| Boutiques (paris) | quotidien          | `--bases`                         |
+| Étape                   | Cadence           | Déclencheur                        |
+| ----------------------- | ----------------- | ---------------------------------- |
+| Sauvegarde              | chaque exécution  | toujours (avant toute mise à jour) |
+| Football-Data + ClubElo | quotidien         | `--daily` / par défaut             |
+| Stats avancées (xG/xA)  | 3 jours           | `--fbref` (automatiquement si dû)  |
+| Rebuild `master`        | après mise à jour | automatique                        |
+| Boutiques (paris)       | quotidien         | `--bases`                          |
 
 Exécution depuis le répertoire du pipeline :
 
@@ -21,6 +21,7 @@ cd /chemin/vers/prono/data_pipeline
 ```
 
 Sorties (dans `data/`) :
+
 - `processed/master_dataset.csv` — master complet (CSV)
 - `processed/master.db` — master complet (SQLite, table `master_matches`)
 - `state.json` — horodatage des dernières exécutions

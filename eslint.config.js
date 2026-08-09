@@ -103,6 +103,8 @@ module.exports = [
       'tools/',
       '.agents/',
       '.venv/',
+      'data_pipeline/.venv/',
+      'data_pipeline/data/',
       'dist/',
       'dist_test/',
       'data/',

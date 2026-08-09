@@ -17,11 +17,11 @@
     "half",
     "minutes_remaining"
   ],
-  "validation_accuracy": 0.747,
-  "validation_auc": 0.8799842849659507,
-  "validation_brier": 0.14264826476573944,
-  "goal_rate_pct": 4.367368421052632,
-  "synthetic_snapshots": 95000,
-  "historical_matches": 5000,
-  "trained_at": "2026-06-10T19:54:16.032771"
+  "validation_accuracy": 0.7592105263157894,
+  "validation_auc": 0.5556874595294625,
+  "validation_brier": 0.16088365018367767,
+  "goal_rate_pct": 10.763157894736842,
+  "synthetic_snapshots": 3800,
+  "historical_matches": 0,
+  "trained_at": "2026-08-09T05:00:04.181347"
 }

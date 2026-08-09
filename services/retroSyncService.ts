@@ -33,19 +33,20 @@ class RetroSyncService {
         )
         pendingMatches = result.rows || []
       } else {
-        // SQLite: use `timestamp` field (ISO date string)
+        // SQLite: use `startTimestamp` field (epoch seconds), same as PG branch
         pendingMatches = await db
           .prepare(
             `
                     SELECT id, "homeTeam", "awayTeam", timestamp, "fullData"
                     FROM matches
                     WHERE (status IN ('scheduled', 'NOT_STARTED') OR status IS NULL)
-                    AND timestamp < ?
-                    ORDER BY timestamp ASC
+                    AND "startTimestamp" IS NOT NULL
+                    AND "startTimestamp" < ?
+                    ORDER BY "startTimestamp" ASC
                     LIMIT 50
                 `
           )
-          .all(twoHoursAgo)
+          .all(Math.floor(twoHoursAgo / 1000))
       }
 
       if (pendingMatches.length === 0) {

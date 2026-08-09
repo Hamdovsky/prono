@@ -148,7 +148,9 @@ const TopPicks = () => {
             </div>
             <div className="accuracy-stat">
               <span className="accuracy-label">ROI (flat 1u)</span>
-              <span className={`accuracy-value ${accuracy.roi_percent >= 0 ? 'acc-pos' : 'acc-neg'}`}>
+              <span
+                className={`accuracy-value ${accuracy.roi_percent >= 0 ? 'acc-pos' : 'acc-neg'}`}
+              >
                 {accuracy.roi_percent >= 0 ? '+' : ''}
                 {accuracy.roi_percent}%
               </span>

@@ -11,7 +11,9 @@ const PREDICTION_TABLES = ['promosport_predictions', 'promosport_archive']
 function hasArchiveData(db) {
   try {
     for (const t of PREDICTION_TABLES) {
-      const row = db.prepare(`SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name=?`).get(t)
+      const row = db
+        .prepare(`SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name=?`)
+        .get(t)
       if (!row || row.n === 0) return false
       const count = db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get()
       if (!count || count.n === 0) return false
@@ -81,15 +83,31 @@ function restoreFromSnapshot() {
   const tx = db.transaction(() => {
     for (const p of predictions) {
       upsertPred.run(
-        p.concours, p.date, p.grid_name, p.match_idx,
-        p.home_team, p.away_team, p.choices, p.created_at
+        p.concours,
+        p.date,
+        p.grid_name,
+        p.match_idx,
+        p.home_team,
+        p.away_team,
+        p.choices,
+        p.created_at
       )
     }
     for (const a of archive) {
       upsertArch.run(
-        a.concours, a.match_idx, a.homeTeam, a.awayTeam, a.result,
-        a.score_home, a.score_away, a.vote_home, a.vote_draw, a.vote_away,
-        a.date, a.is_finished, a.archived_at
+        a.concours,
+        a.match_idx,
+        a.homeTeam,
+        a.awayTeam,
+        a.result,
+        a.score_home,
+        a.score_away,
+        a.vote_home,
+        a.vote_draw,
+        a.vote_away,
+        a.date,
+        a.is_finished,
+        a.archived_at
       )
     }
   })
@@ -99,7 +117,9 @@ function restoreFromSnapshot() {
   const nArch = db.prepare('SELECT COUNT(*) AS n FROM promosport_archive').get().n
   db.close()
 
-  logger.info(`[PROMOSPORT] Archive restored from snapshot: ${nPred} predictions, ${nArch} archive rows`)
+  logger.info(
+    `[PROMOSPORT] Archive restored from snapshot: ${nPred} predictions, ${nArch} archive rows`
+  )
   return { restored: true, predictions: nPred, archive: nArch }
 }
 

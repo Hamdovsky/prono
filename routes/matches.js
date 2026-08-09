@@ -13,6 +13,12 @@ const ValueBetEngine = require('../src/services/ValueBetEngine')
 const IntegrityService = require('../services/integrity_service')
 const newsService = require('../src/services/newsService')
 
+// Module-level per-city weather cache (in-memory, survives across requests)
+const _weatherCacheRef = (() => {
+  const map = new Map()
+  return { get: () => map }
+})()
+
 // Normalize database.query output (returns { rows } in SQLite mode, or a raw
 // array/promise in some configurations) into a plain array of row objects.
 async function safeQuery(sql, fallback = []) {
@@ -406,28 +412,83 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     // 🚀 JIT enrichment removed — use /api/re-enrich to trigger enrichment separately.
     // Speed and stability are preferred over inline enrichment on the free tier.
 
-    // 🛡️ [GUARANTEED FLOOR] Ensure every match has non-zero predictions (per-match Poisson + features)
+    // 🌦️ [WEATHER JIT] Open-meteo (free, no key) fills missing weather so getMatchXG's
+    // goalMod feeds real conditions into the Over/Under and BTTS probabilities below.
+    // Per-city in-memory cache avoids hammering the API on every request.
+    {
+      const openMeteo = require('../services/openMeteoService')
+      const _weatherCache = _weatherCacheRef.get()
+      const countryMap = {
+        EN: 'London',
+        ES: 'Madrid',
+        IT: 'Rome',
+        DE: 'Berlin',
+        FR: 'Paris',
+        PT: 'Lisbon',
+        NL: 'Amsterdam',
+        BE: 'Brussels',
+        TR: 'Istanbul',
+        GR: 'Athens',
+        RU: 'Moscow',
+        SA: 'Riyadh',
+      }
+      for (const m of rawMatches) {
+        if (m.weather_temp && m.weather_desc) continue
+        const iso = (m.country_iso || '').toUpperCase()
+        const city = countryMap[iso] || m.category_name || m.league || ''
+        if (!city || !openMeteo.isAvailable()) continue
+        try {
+          if (!_weatherCache.has(city)) {
+            const info = openMeteo.extractWeatherInfo(
+              await openMeteo.fetchByCity(city).catch(() => null)
+            )
+            _weatherCache.set(city, info)
+          }
+          const info = _weatherCache.get(city)
+          if (info) {
+            if (!m.weather_temp) m.weather_temp = info.temp
+            if (!m.weather_desc) m.weather_desc = info.description
+            if (!m.weather_humidity) m.weather_humidity = info.humidity
+          }
+        } catch (_) {
+          /* best-effort weather — statistical floor still applies */
+        }
+      }
+    }
+
+    // 🛡️ [STATISTICAL FLOOR + CORNERS] One pass per match.
+    // Every match gets non-zero Poisson probabilities + a corners verdict. xG comes
+    // from StatisticalEngine.getMatchXG (real odds → team stats → league base), so even
+    // matches without bookmaker odds get a coherent statistical estimate — the front
+    // shows it with the "🔮 estimation sans cotes" badge (no EV claim).
     const StatisticalEngine = require('../core/services/StatisticalEngine')
-    const featureEngineer = require('../core/services/FeatureEngineer')
+    const marketAnalysis = require('../services/marketAnalysisService')
     for (const m of rawMatches) {
+      let xgH = 0
+      let xgA = 0
+      try {
+        const xg = StatisticalEngine.getMatchXG(m)
+        xgH = parseFloat(xg?.h) || 0
+        xgA = parseFloat(xg?.a) || 0
+      } catch (_) {
+        /* best-effort — fall back to league base below */
+      }
+
+      // ⚽ Corners verdict for every match (no Monte-Carlo).
+      if (xgH > 0 && xgA > 0) {
+        m.home_xg = m.home_xg || xgH
+        m.away_xg = m.away_xg || xgA
+        m.cornersVerdict = marketAnalysis.cornersVerdict(xgH, xgA)
+      }
+
+      // Probability floor only when the match has no real probabilities yet.
       const hw = parseFloat(m.home_win_probability || 0)
       if (!hw || hw <= 0 || isNaN(hw)) {
-        const baseXG = StatisticalEngine._getLeagueBaseXG(m.league)
-        const _teamHash = (s) => {
-          let h = 0
-          for (let i = 0; i < (s || '').length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
-          return h
+        if (!(xgH > 0 && xgA > 0)) {
+          const baseXG = StatisticalEngine._getLeagueBaseXG(m.league)
+          xgH = Math.max(0.5, baseXG.h)
+          xgA = Math.max(0.5, baseXG.a)
         }
-        const tHash = _teamHash(m.homeTeam) ^ _teamHash(m.awayTeam)
-        const noise = ((tHash % 200) - 100) / 1000
-        let xgH = Math.max(0.5, baseXG.h * (1 + noise * 0.15))
-        let xgA = Math.max(0.5, baseXG.a * (1 - noise * 0.1))
-
-        // Apply free features for better differentiation
-        const adjusted = featureEngineer.applyFeatures(m, xgH, xgA)
-        xgH = adjusted.xgH
-        xgA = adjusted.xgA
-
         m.home_xg = m.home_xg || xgH
         m.away_xg = m.away_xg || xgA
 
@@ -443,21 +504,6 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
         m.quant.risk_label = 'BALANCED'
         m.ai_source = m.ai_source || 'RESPONSE_FLOOR'
         m.insufficient_data = 1
-      }
-    }
-
-    // ⚽ [CORNERS VERDICT] Fast Poisson corners prediction per match (no Monte-Carlo).
-    // Uses real xG when available, else the league base xG fallback above.
-    const marketAnalysis = require('../services/marketAnalysisService')
-    for (const m of rawMatches) {
-      const xgH = parseFloat(m.home_xg || m.home_avg_scored || 0)
-      const xgA = parseFloat(m.away_xg || m.away_avg_scored || 0)
-      if (xgH > 0 && xgA > 0) {
-        try {
-          m.cornersVerdict = marketAnalysis.cornersVerdict(xgH, xgA)
-        } catch (_) {
-          /* ignore — corners are best-effort */
-        }
       }
     }
 

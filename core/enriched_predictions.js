@@ -376,35 +376,45 @@ class EnrichedPredictionService {
         trace.step('SofaTeamData')
       }
 
-      // 0.1 Weather Enrichment (if missing)
+      // 0.1 Weather Enrichment (if missing) — OpenWeatherMap (key) then open-meteo (free, no key)
       if (!match.weather_temp || !match.weather_desc) {
         try {
-          const weatherService = require('../services/weatherService')
-          if (weatherService.isAvailable()) {
-            const countryMap = {
-              EN: 'London',
-              ES: 'Madrid',
-              IT: 'Rome',
-              DE: 'Berlin',
-              FR: 'Paris',
-              PT: 'Lisbon',
-              NL: 'Amsterdam',
-              BE: 'Brussels',
-              TR: 'Istanbul',
-              GR: 'Athens',
-              RU: 'Moscow',
-              SA: 'Riyadh',
+          const countryMap = {
+            EN: 'London',
+            ES: 'Madrid',
+            IT: 'Rome',
+            DE: 'Berlin',
+            FR: 'Paris',
+            PT: 'Lisbon',
+            NL: 'Amsterdam',
+            BE: 'Brussels',
+            TR: 'Istanbul',
+            GR: 'Athens',
+            RU: 'Moscow',
+            SA: 'Riyadh',
+          }
+          const iso = (match.country_iso || '').toUpperCase()
+          const city = countryMap[iso] || match.category_name || ''
+          if (city) {
+            const weatherService = require('../services/weatherService')
+            const openMeteo = require('../services/openMeteoService')
+            const applyInfo = (info) => {
+              if (!info) return
+              match.weather_temp = info.temp
+              match.weather_desc = info.description
+              match.weather_humidity = info.humidity
             }
-            const iso = (match.country_iso || '').toUpperCase()
-            const city = countryMap[iso] || match.category_name || ''
-            if (city) {
-              const w = await weatherService.fetchByCity(city)
-              const info = weatherService.extractWeatherInfo(w)
-              if (info) {
-                match.weather_temp = info.temp
-                match.weather_desc = info.description
-                match.weather_humidity = info.humidity
-              }
+            if (weatherService.isAvailable()) {
+              applyInfo(
+                weatherService.extractWeatherInfo(
+                  await weatherService.fetchByCity(city).catch(() => null)
+                )
+              )
+            }
+            if (!match.weather_temp || !match.weather_desc) {
+              applyInfo(
+                openMeteo.extractWeatherInfo(await openMeteo.fetchByCity(city).catch(() => null))
+              )
             }
           }
         } catch (_) {}
@@ -1382,7 +1392,7 @@ class EnrichedPredictionService {
       const sumProbs = normH + normD + normA
       const topModel = Math.max(normH, normD, normA)
       const secondModel = [normH, normD, normA].sort((a, b) => b - a)[1] || 0
-      const hasModelSignal = sumProbs > 0.9 && topModel - secondModel >= 0.10 && topModel >= 0.45
+      const hasModelSignal = sumProbs > 0.9 && topModel - secondModel >= 0.1 && topModel >= 0.45
       const insufficient = hasRealOdds ? 0 : !hasModelSignal ? 1 : 0
 
       // ── 2.5 CONFIDENCE SCORER (Force du Pronostic) ──
@@ -1504,7 +1514,6 @@ class EnrichedPredictionService {
         resultData.fullData = JSON.stringify(fd)
       } catch (_) {}
 
-    
       // ULTIMATE FALLBACK: ensure non-zero predictions always
       const hWP = parseFloat(resultData.home_win_probability || 0)
       const aWP = parseFloat(resultData.away_win_probability || 0)

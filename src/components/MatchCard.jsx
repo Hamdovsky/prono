@@ -79,7 +79,10 @@ const MatchCard = ({ rawData, style, onClick }) => {
         {hasOu ? (
           <>
             <div className="mc-ou-bar">
-              <div className={`mc-ou-fill ${ouDir}`} style={{ width: `${Math.min(100, ouPrec)}%` }} />
+              <div
+                className={`mc-ou-fill ${ouDir}`}
+                style={{ width: `${Math.min(100, ouPrec)}%` }}
+              />
             </div>
             <span className={`mc-ou-label ${ouDir}`}>{ouDir.toUpperCase()}</span>
             <span className={`mc-ou-pct ${ouDir}`}>{ouPrec}%</span>

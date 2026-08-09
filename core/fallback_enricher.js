@@ -188,7 +188,7 @@ async function tryXgbEnrichOne(match) {
     if (insufficientData) {
       const sortedPy = [pyHome, pyDraw, pyAway].sort((a, b) => b - a)
       const hasModelSignal =
-        pyHome + pyDraw + pyAway > 0.9 && sortedPy[0] - sortedPy[1] >= 0.10 && sortedPy[0] >= 0.45
+        pyHome + pyDraw + pyAway > 0.9 && sortedPy[0] - sortedPy[1] >= 0.1 && sortedPy[0] >= 0.45
       if (hasModelSignal) insufficientData = 0
     }
     const xgbConf = parseFloat(py.xgboost_confidence || py.confidence || 0)

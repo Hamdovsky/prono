@@ -30,27 +30,25 @@ def test_rate_limiter_est_thread_safe() -> None:
 
     limiter = RateLimiter(0.1)
     limiter.wait()  # warm-up : la première attente est libre (pas d'historique)
-    gaps: list[float] = []
-    lock = threading.Lock()
+    t_start = time.monotonic()
 
     def worker() -> None:
         for _ in range(5):
-            t0 = time.monotonic()
             limiter.wait()
-            with lock:
-                gaps.append(time.monotonic() - t0)
 
     threads = [threading.Thread(target=worker) for _ in range(4)]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
-    assert len(gaps) == 20
-    # L'espacement est appliqué globalement : 20 attentes de 0.1 s → ~2 s
-    # au total. On n'exige pas que chaque attente individuelle soit >= 0.08 s,
-    # car un thread qui acquiert le verrou après l'intervalle écoulé a
-    # légitimement une attente (presque) nulle.
-    assert sum(gaps) >= 20 * 0.1 - 0.05
+
+    elapsed = time.monotonic() - t_start
+    # Les 20 appels sont sérialisés par le verrou : chaque mise à jour du
+    # timestamp _last est espacée d'au moins 0.1 s de la précédente, même si
+    # un thread arrive "en retard" (son attente est alors libre, mais l'horloge
+    # murale a de toute façon avancé d'au moins l'intervalle). Le temps mural
+    # total est donc >= 20 x 0.1 s quel que soit l'ordonnancement des threads.
+    assert elapsed >= 20 * 0.1 - 0.05
 
 
 def test_retry_relance_puis_succeed() -> None:

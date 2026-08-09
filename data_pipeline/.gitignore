@@ -4,3 +4,5 @@ __pycache__/
 data/raw/
 data/processed/
 data/soccerdata_cache/
+data/state.json
+predictions/

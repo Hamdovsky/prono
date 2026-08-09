@@ -18,7 +18,7 @@ $LogDir = Join-Path $ProjectDir "logs"
 New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
 
 $TaskName = "Pronos-DataPipeline"
-$Action = New-ScheduledTaskAction -Execute $PythonExe -Argument "`"$SchedulerScript`"" -WorkingDirectory $ProjectDir
+$Action = New-ScheduledTaskAction -Execute $PythonExe -Argument "`"$SchedulerScript`" --bases" -WorkingDirectory $ProjectDir
 $Trigger = New-ScheduledTaskTrigger -Daily -At 07:00
 $Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries

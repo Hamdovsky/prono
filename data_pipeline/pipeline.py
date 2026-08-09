@@ -97,19 +97,39 @@ def build_master(force: bool = False) -> pd.DataFrame:
     return df
 
 
+def _evaluate(rep: dict) -> list[str]:
+    """Critères watchdog : échec si master absent, xG < 75 %, Elo < 60 % ou Elo local."""
+    failures: list[str] = []
+    if "error" in rep.get("summary", {}):
+        return [rep["summary"]["error"]]
+    for c in rep["summary"].get("checks", []):
+        if c.get("source") == "xG" and c.get("coverage_pct", 0) < 75:
+            failures.append(f"Couverture xG trop faible : {c['coverage_pct']}% (< 75 %)")
+        if c.get("source") == "Elo" and c.get("coverage_pct", 0) < 60:
+            failures.append(f"Couverture Elo trop faible : {c['coverage_pct']}% (< 60 %)")
+    if rep["summary"].get("elo_source") == "local":
+        failures.append("Elo en mode local (API ClubElo inaccessible) : ratings non officiels")
+    return failures
+
+
 def run_check() -> dict:
-    """Rapport qualité : couverture par source + provenance Elo (watchdog)."""
+    """Rapport qualité + évaluation watchdog. Échec = code de sortie ≠ 0."""
     log.info("=== Vérification qualité du master ===")
     from build import quality
     rep = quality.report()
-    log.info("Rapport qualité : %s", json.dumps(rep, default=str))
+    rep["failures"] = _evaluate(rep)
+    if rep["failures"]:
+        for f in rep["failures"]:
+            log.error("CHECKS FAILED: %s", f)
+    else:
+        log.info("CHECKS OK")
     return rep
 
 
 def main(argv=None) -> None:
     setup_logging()
     parser = argparse.ArgumentParser(description="Pipeline de données pronos")
-    parser.add_argument("--task", choices=["daily", "fbref", "build", "check"], default="daily")
+    parser.add_argument("--task", choices=["daily", "fbref", "build", "check", "run_check"], default="daily")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args(argv)
     if args.task == "fbref":
@@ -118,6 +138,10 @@ def main(argv=None) -> None:
         build_master(force=args.force)
     elif args.task == "check":
         run_check()
+    elif args.task == "run_check":
+        rep = run_check()
+        if rep.get("failures"):
+            raise SystemExit(1)
     else:
         run_daily(force=args.force)
 

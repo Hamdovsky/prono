@@ -12,9 +12,11 @@ d'entraînement du modèle de prédiction 1X2 à partir de 3 sources.
 | ClubElo               | Rating Elo pré-match par équipe (lookup as-of)    | Quotidien (matin), API api.clubelo.com |
 | Stats avancées (xG/xA)| xG/xA par match + forme attaque/défense L5/L10     | Tous les 3 jours, `RateLimiter(3.5s)` (~15-20 req/min) |
 
-> Le fournisseur des stats avancées est **Understat** (via `soccerdata`) :
-> FBref ne sert plus xG/xA dans son HTML public. Le débit est plafonné à ~15-20
-> requêtes/minute pour éviter tout blocage.
+> Le fournisseur des stats avancées est **FBref** (via `soccerdata`), qui sert
+> à nouveau xG/xA dans son HTML public (fonctionnel). En cas d'échec complet,
+> le pipeline retombe sur le cache local ou sur le **repli Understat**. Le
+> débit est plafonné à ~15-20 requêtes/minute (`FBREF_INTERVAL_SECONDS`) pour
+> éviter tout blocage.
 
 > **ClubElo — résilience & provenance.** La détection de disponibilité de l'API
 > est un vrai probe HTTP (5 s) : si l'API ne répond pas, le pipeline bascule
@@ -29,12 +31,16 @@ d'entraînement du modèle de prédiction 1X2 à partir de 3 sources.
 ## Commandes
 
 ```bash
-.venv/bin/python run_daily.py            # Football-Data + ClubElo → master
-.venv/bin/python run_fbref.py            # stats avancées (xG/xA) → master
-.venv/bin/python run_scheduled.py        # quotidien + xG/xA si dû (3 j)
-.venv/bin/python run_scheduled.py --pg   # + backfill Postgres prod
-.venv/bin/python -m pytest               # tests
-.venv/bin/python pipeline.py --task check  # rapport qualité (couverture + provenance)
+.venv\Scripts\python.exe scripts\run_scheduled.py         # quotidien + xG/xA si dû (3 j) + sauvegarde
+.venv\Scripts\python.exe scripts\run_scheduled.py --bases # + boutiques (paris) quotidiennes
+.venv\Scripts\python.exe scripts\run_scheduled.py --no-backup  # sans sauvegarde data/
+.venv\Scripts\python.exe scripts\backup_data.py           # sauvegarde seule (rétention 7 j)
+.venv\Scripts\python.exe scripts\markets.py --all         # probabilités 1X2/O/U2.5/AH/OC/Corners (val + backtest)
+.venv\Scripts\python.exe scripts\predict_bases.py --auto  # boutiques à valeur positive (1X2/O/U2.5/Corners)
+.venv\Scripts\python.exe scripts\predict_fixtures.py --date 2026-08-15  # prédictions d'une journée de fixtures
+.venv\Scripts\python.exe -m pytest                        # tests (82)
+.venv\Scripts\python.exe pipeline.py --task check         # rapport qualité (couverture + provenance)
+.venv\Scripts\python.exe pipeline.py --task run_check     # rapport + code de sortie ≠ 0 si qualité insuffisante
 ```
 
 ## Sorties (dans `data/`)
@@ -44,8 +50,20 @@ d'entraînement du modèle de prédiction 1X2 à partir de 3 sources.
 - `raw/advanced_stats.csv` — xG/xA par match
 - `raw/clubelo/elo_history.csv` — historique Elo **officiel** (API ClubElo)
 - `raw/clubelo/elo_history_local.csv` — Elo recalculé localement (repli si API down)
-- `processed/master_dataset.csv` — master (featured, ~135 colonnes)
+- `processed/master_dataset.csv` — master (featured, 143 colonnes)
 - `processed/master.db` — SQLite, table `master_matches` (schéma : `schema.sql`)
+- `predictions/markets_*.csv` — probabilités des marchés (via `markets.py`)
+- `predictions/bases_*.csv` — boutiques à valeur positive (via `--bases`/`predict_bases.py`)
+- `state.json` — horodatage des dernières exécutions
+
+## Sauvegarde des données
+
+`scripts/backup_data.py` copie `data/raw/`, `data/processed/` et `state.json`
+vers `backups/data_pipeline/YYYYMMDD/` (à la racine du projet, au-dessus du
+pipeline) avant toute mise à jour. Rétention de 7 jours (`--keep`), reprise
+idempotente (un dossier par jour), option `--include-cache` pour inclure le
+cache `soccerdata` (reconstruit par une re-sélection mais plus lent).
+Activée par défaut dans `run_scheduled.py` (`--no-backup` pour la désactiver).
 
 ## Fusion & mapping
 

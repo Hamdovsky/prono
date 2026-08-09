@@ -29,6 +29,8 @@ FEATURES = {
     "pts": None,
     "shots": ("hs", "away_shots"),
     "shots_a": ("away_shots", "hs"),
+    "corners": ("hc", "ac"),
+    "corners_a": ("ac", "hc"),
 }
 
 XG_COLS = ["home_xg", "away_xg", "home_xa", "away_xa"]

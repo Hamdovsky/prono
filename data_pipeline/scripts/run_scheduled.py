@@ -2,11 +2,12 @@
 
 Exécute toujours la tâche quotidienne (Football-Data + ClubElo + rebuild) et
 déclenche la tâche stats avancées (xG/xA) uniquement si le dernier run date de
-3 jours ou plus (lu dans data/state.json). Permet une seule entrée cron / une
+3 jours ou plus (lu dans data/state.json). Avant tout rebuild, l'état courant
+de data/ est sauvegardé (backup_data). Permet une seule entrée cron / une
 seule tâche Windows au lieu de deux déclencheurs distincts.
 
 Usage :
-    python run_scheduled.py [--force] [--pg] [--pg-dry-run]
+    python scripts/run_scheduled.py [--force] [--no-backup] [--bases] [--pg] [--pg-dry-run]
 """
 from __future__ import annotations
 
@@ -46,8 +47,14 @@ def _fbref_due(state: dict) -> bool:
     return age_days >= FBREF_RUN_INTERVAL_DAYS
 
 
-def run_scheduled(force: bool = False, run_pg: bool = False, pg_dry_run: bool = False) -> None:
+def run_scheduled(force: bool = False, run_pg: bool = False, pg_dry_run: bool = False,
+                  no_backup: bool = False, run_bases: bool = False) -> None:
     state = _state()
+
+    if not no_backup:
+        from backup_data import backup
+        backup()
+
     df = run_daily(force=force)
 
     if _fbref_due(state):
@@ -63,15 +70,25 @@ def run_scheduled(force: bool = False, run_pg: bool = False, pg_dry_run: bool = 
         export(dry_run=pg_dry_run or not run_pg)
         log.info("Scheduled terminé : %d matchs au master", len(df))
 
+    if run_bases:
+        from predict_bases import main as bases_main
+        try:
+            bases_main()
+        except SystemExit as e:
+            log.info("Aucune base émise (exit %s)", e.code)
+
 
 def main() -> None:
     setup_logging()
     parser = argparse.ArgumentParser(description="Pipeline planifié (quotidien + fbref si dû)")
     parser.add_argument("--force", action="store_true", help="Re-télécharge tout, ignore le cache")
+    parser.add_argument("--no-backup", action="store_true", help="Ne pas sauvegarder data/ avant le rebuild")
+    parser.add_argument("--bases", action="store_true", help="Génère les bases solides du jour après le rebuild")
     parser.add_argument("--pg", action="store_true", help="Backfill Postgres prod après le rebuild")
     parser.add_argument("--pg-dry-run", action="store_true", help="Rapport Postgres sans écrire")
     args = parser.parse_args()
-    run_scheduled(force=args.force, run_pg=args.pg, pg_dry_run=args.pg_dry_run)
+    run_scheduled(force=args.force, run_pg=args.pg, pg_dry_run=args.pg_dry_run,
+                  no_backup=args.no_backup, run_bases=args.bases)
 
 
 if __name__ == "__main__":

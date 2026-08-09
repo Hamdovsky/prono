@@ -1,0 +1,25 @@
+[project]
+name = "prono-data-pipeline"
+version = "0.1.0"
+description = "Pipeline de données pronos (Football-Data, ClubElo, FBref)"
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [".venv", "data"]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = [
+    "E501",  # longueur gérée par formateur
+    "B008",  # fonction-call dans les defaults d'arguments (ex. RateLimiter())
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "S101"]
+"scripts/*" = ["B011"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+check_untyped_defs = true
+no_implicit_optional = true

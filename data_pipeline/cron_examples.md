@@ -1,24 +1,35 @@
-# Planification (cron) — Pipeline de données pronos
+# Planification — Pipeline de données pronos
 
-Le pipeline est composé de **2 tâches**, à planifier comme suit :
+Un **point d'entrée unique** (`run_scheduled.py`) déclenche les étapes dues
+selon `state.json` :
 
-| Tâche            | Fréquence              | Commande                                        |
-|------------------|------------------------|-------------------------------------------------|
-| `run_daily.py`   | **Chaque matin**       | Football-Data + ClubElo → rebuild `master`      |
-| `run_fbref.py`   | **Tous les 3 jours**   | Stats avancées (xG/xA) → rebuild `master`       |
+| Étape            | Cadence             | Déclencheur                       |
+|------------------|---------------------|-----------------------------------|
+| Sauvegarde       | chaque exécution    | toujours (avant toute mise à jour)|
+| Football-Data + ClubElo | quotidien     | `--daily` / par défaut            |
+| Stats avancées (xG/xA)  | 3 jours       | `--fbref` (automatiquement si dû) |
+| Rebuild `master`        | après mise à jour| automatique                    |
+| Boutiques (paris) | quotidien          | `--bases`                         |
 
 Exécution depuis le répertoire du pipeline :
 
 ```bash
 cd /chemin/vers/prono/data_pipeline
-.venv/bin/python run_daily.py        # quotidien
-.venv/bin/python run_fbref.py        # tous les 3 jours
+.venv\Scripts\python.exe scripts\run_scheduled.py            # quotidien
+.venv\Scripts\python.exe scripts\run_scheduled.py --bases   # + boutiques
+.venv\Scripts\python.exe scripts\run_scheduled.py --no-backup   # sans sauvegarde
 ```
 
 Sorties (dans `data/`) :
 - `processed/master_dataset.csv` — master complet (CSV)
 - `processed/master.db` — master complet (SQLite, table `master_matches`)
 - `state.json` — horodatage des dernières exécutions
+- `predictions/markets_*.csv` — probabilités des marchés (avec `--bases`)
+- `predictions/bases_*.csv` — boutiques à valeur positive (avec `--bases`)
+
+Sauvegardes (dans `backups/data_pipeline/YYYYMMDD/`) : copie de `data/raw/`,
+`data/processed/` et `state.json` avant chaque mise à jour ; rétention de
+7 jours (`--keep` dans `scripts/backup_data.py`).
 
 ---
 
@@ -26,27 +37,29 @@ Sorties (dans `data/`) :
 
 ```cron
 # Chaque matin à 07:00 (timezone du serveur)
-0 7 * * *  cd /chemin/vers/prono/data_pipeline && .venv/bin/python run_daily.py >> /var/log/prono_pipeline.log 2>&1
-
-# Tous les 3 jours (ex. : 1er, 4, 7, ... de chaque mois à 07:30)
-30 7 1,4,7,10,13,16,19,22,25,28 * *  cd /chemin/vers/prono/data_pipeline && .venv/bin/python run_fbref.py >> /var/log/prono_pipeline.log 2>&1
+0 7 * * *  cd /chemin/vers/prono/data_pipeline && .venv/bin/python scripts/run_scheduled.py --bases >> /var/log/prono_pipeline.log 2>&1
 ```
 
-> La crontab standard ne gère pas « tous les N jours » nativement : la liste
-> `1,4,7,...,28` approche correctement un intervalle de 3 jours.
+> La crontab standard ne gère pas « tous les N jours » nativement :
+> `run_scheduled.py --fbref` vérifie l'horodatage dans `state.json` et
+> n'exécute la mise à jour que si elle est due (3 jours), le reste est géré
+> automatiquement par le point d'entrée unique.
 
 ## Windows (Planificateur de tâches)
 
 1. **Ouvrir le Planificateur de tâches** → « Créer une tâche ».
-2. Onglet **Général** : nom = `Pronos - Pipeline quotidien`, cocher
+2. Onglet **Général** : nom = `Pronos-DataPipeline`, cocher
    « Exécuter avec les autorisations maximales ».
 3. Onglet **Déclencheurs** : « Chaque jour » à 07:00.
 4. Onglet **Actions** :
    - Programme : `C:\Users\HAMDI\prono\data_pipeline\.venv\Scripts\python.exe`
-   - Arguments : `run_daily.py`
+   - Arguments : `scripts\run_scheduled.py --bases`
    - Démarrer dans : `C:\Users\HAMDI\prono\data_pipeline`
-5. Répéter pour `Pronos - Stats avancées` avec le programme `run_fbref.py`,
-   déclencheur « Tous les 3 jours ».
+5. Rien de plus : les étapes dues (Football-Data, ClubElo, xG/xA, backup)
+   sont déclenchées automatiquement.
+
+Le script `scripts\setup_pipeline_tasks.ps1` crée cette tâche en une commande :
+`powershell -ExecutionPolicy Bypass -File scripts\setup_pipeline_tasks.ps1`.
 
 ## Note sur le taux de requêtes (FBref / stats avancées)
 

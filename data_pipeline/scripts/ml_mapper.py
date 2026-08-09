@@ -16,7 +16,7 @@ TARGET_MAP = {"H": 2, "D": 1, "A": 0}
 
 ELO_FEATS = ["elo_home", "elo_away", "F_Elo_Diff"]
 BASIC_ROLLING = [
-    "gf", "ga", "pts", "shots", "shots_a",
+    "gf", "ga", "pts", "shots", "shots_a", "corners", "corners_a",
 ]
 ADV_ROLLING = ["xg", "xga", "xa"]
 
@@ -38,7 +38,8 @@ LEAK_COLUMNS = {"fthg", "ftag", "hthg", "htag", "hs", "away_shots", "hst", "ast"
                 "home_xg", "away_xg", "home_xa", "away_xa"}
 
 
-def prepare(df: pd.DataFrame, mode: str = "full", dropna: bool = True, use_odds: bool = False):
+def prepare(df: pd.DataFrame, mode: str = "full", dropna: bool = True, use_odds: bool = False,
+            target=None):
     """Prépare X (features), y (cible) et les métadonnées pour l'apprentissage.
 
     Parameters
@@ -53,6 +54,9 @@ def prepare(df: pd.DataFrame, mode: str = "full", dropna: bool = True, use_odds:
     use_odds : bool
         Ajouter les probabilités implicites dérivées des cotes moyennes
         (disponibles pré-match, donc sans fuite).
+    target : callable, optional
+        Fonction `target(df) -> Series` d'entiers (cible alternative, ex.
+        Over/Under, BTTS, corners). Par défaut la cible 1X2 est utilisée.
 
     Returns
     -------
@@ -73,12 +77,15 @@ def prepare(df: pd.DataFrame, mode: str = "full", dropna: bool = True, use_odds:
         print(f"[ml_mapper] Features manquantes (mode={mode}) : {missing}")
         if mode == "full" and not df["home_xg"].notna().any():
             print("[ml_mapper] Aucune donnée xG — bascule automatique en mode 'basic'")
-            return prepare(df, "basic", dropna, use_odds)
+            return prepare(df, "basic", dropna, use_odds, target)
 
     meta = df[["date", "league", "season", "home_team", "away_team"]].copy()
     X = df[available].copy()
     X = X.apply(pd.to_numeric, errors="coerce")
-    y = df["ftr"].map(TARGET_MAP).astype(int)
+    if target is None:
+        y = df["ftr"].map(TARGET_MAP).astype(int)
+    else:
+        y = target(df).astype(float)
 
     valid = X.notna().all(axis=1) if dropna else pd.Series(True, index=X.index)
     valid &= y.notna() & df["date"].notna()

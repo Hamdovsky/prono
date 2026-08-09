@@ -2,9 +2,14 @@
 
 Sources :
   - Football-Data.co.uk : résultats + cotes + stats de match (CSV quotidiens)
-  - ClubElo            : rating Elo pré-match (api.clubelo.com)
-  - Stats avancées     : xG/xA par match (fournisseur : Understat via soccerdata,
-                         FBref ne servant plus xG/xA dans son HTML public)
+  - ClubElo            : rating Elo pré-match (api.clubelo.com, HTTP direct)
+  - Stats avancées     : xG/xA par match (FBref via soccerdata — fonctionnel ;
+                         repli cache local, puis Understat en dernier recours)
+
+Chemins (raccourcis) :
+  - advanced_stats.csv : xG/xA brut (FBref, repli Understat)
+  - master_dataset.csv : master final (143 colonnes, featured + Elo as-of)
+  - state.json         : horodatage des dernières exécutions (git-ignoré)
 """
 from __future__ import annotations
 

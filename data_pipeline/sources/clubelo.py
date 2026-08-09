@@ -1,9 +1,15 @@
 """ClubElo : rating Elo pré-match (avant chaque match) pour chaque équipe.
 
+Accès API en HTTP direct (urllib, port 80) : soccerdata a été abandonné pour
+cette source car son client TLS (tls_requests) ralentit chaque requête à ~18 s
+et échoue sur les noms d'équipe composés. L'API répond 403 sur la racine "/"
+et le port 443 est bloqué en amont ; les paths de données (`/YYYY-MM-DD`,
+`/{Club sans espace}`) répondent en HTTP.
+
 Chaîne de résilience :
-  1. API api.clubelo.com — historique Elo complet par équipe (lookup 'as-of'
+  1. Cache officiel frais (data/raw/clubelo/elo_history.csv) s'il a < max_age j ;
+  2. API api.clubelo.com — historique Elo complet par équipe (lookup 'as-of'
      à la date du match pour obtenir le rating juste avant le coup d'envoi) ;
-  2. Cache officiel (data/raw/clubelo/elo_history.csv) si l'API est indisponible ;
   3. Cache local (data/raw/clubelo/elo_history_local.csv) ;
   4. Calcul local de l'Elo depuis les résultats si aucun historique n'existe.
 
@@ -18,15 +24,17 @@ Provenance (retournée par fetch_histories et tracée dans le master via
 """
 from __future__ import annotations
 
-import http.client
+import io
+import re
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import soccerdata as sd
 
-from config import CLUBELO_DIR, LEAGUES, SOCCERDATA_CACHE
+from config import CLUBELO_DIR, LEAGUES
 from util import RateLimiter, get_logger
 
 log = get_logger("clubelo")
@@ -56,31 +64,70 @@ def _read_source(default: str = "local") -> str:
         return default
 
 
+def _http_get(path: str, timeout: float = 20.0) -> str:
+    """GET HTTP sur l'API ClubElo (port 80, le 443 étant souvent bloqué en amont)."""
+    url = f"http://api.clubelo.com{path}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
 def current_teams(countries=None) -> list[str]:
-    """Équipes actuelles de 1re division pour les pays des ligues configurées."""
+    """Équipes actuelles de 1re division pour les pays des ligues configurées.
+
+    L'API ClubElo sert chaque jour un CSV de tous les clubs (`/{YYYY-MM-DD}`)
+    dont la colonne `Club` porte le nom canonique court utilisé dans les URLs
+    (ex. "Man City", "Real Madrid").
+    """
     countries = countries or {cfg["country"] for cfg in LEAGUES.values()}
-    ce = sd.ClubElo(data_dir=SOCCERDATA_CACHE)
-    ratings = ce.read_by_date()
-    country = ratings.get("country", pd.Series(dtype=object))
-    level = ratings.get("level", pd.Series(dtype=float))
-    return ratings[country.isin(countries) & level.eq(1)].index.tolist()
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    ratings = pd.read_csv(io.StringIO(_http_get(f"/{today}")))
+    country = ratings.get("Country", pd.Series(dtype=object))
+    level = ratings.get("Level", pd.Series(dtype=float))
+    return ratings[country.isin(countries) & level.eq(1)]["Club"].astype(str).str.strip().tolist()
+
+
+def _team_path_candidates(club: str) -> list[str]:
+    """Chemins API possibles pour l'historique d'un club, par ordre de fiabilité.
+
+    Le site ClubElo génère les URLs d'équipe en retirant les espaces du nom
+    canonique ("Man City" -> /ManCity). Repli sur le nom encodé avec espaces
+    pour les clubs aux caractères inhabituels (accents).
+    """
+    return [
+        "/" + re.sub(r"[^a-zA-Z0-9-]", "", club),
+        "/" + urllib.parse.quote(club),
+    ]
+
+
+def _fetch_team_history(club: str) -> pd.DataFrame | None:
+    """Historique Elo complet d'un club (CSV API : From, To, Elo, ...)."""
+    for path in _team_path_candidates(club):
+        try:
+            hist = pd.read_csv(io.StringIO(_http_get(path)))
+        except Exception as exc:  # noqa: BLE001
+            log.debug("ClubElo : requête %s échouée (%s)", path, exc)
+            continue
+        if not hist.empty:
+            frame = hist[["From", "Elo"]].rename(columns={"From": "from", "Elo": "elo"})
+            frame["team_raw"] = club
+            return frame
+    return None
 
 
 def _fetch_from_api(limiter: RateLimiter, max_age: int) -> pd.DataFrame:
-    ce = sd.ClubElo(data_dir=SOCCERDATA_CACHE)
     teams = current_teams()
     frames = []
-    for team in teams:
+    for club in teams:
         limiter.wait()
         try:
-            hist = ce.read_team_history(team, max_age=max_age)
+            frame = _fetch_team_history(club)
         except Exception as exc:  # noqa: BLE001
-            log.warning("ClubElo : historique indisponible pour %r (%s)", team, exc)
+            log.warning("ClubElo : historique indisponible pour %r (%s)", club, exc)
             continue
-        hist = hist.reset_index()
-        keep = [c for c in ["from", "elo"] if c in hist.columns]
-        frame = hist[keep].copy()
-        frame["team_raw"] = team
+        if frame is None or frame.empty:
+            log.debug("ClubElo : aucun historique pour %r", club)
+            continue
         frames.append(frame)
 
     if not frames:
@@ -158,7 +205,7 @@ def _fallback(exc: Exception, max_age: int,
         hist = compute_elo(fallback_results)
         _write_source("local")
         return hist, "local"
-    raise
+    raise exc
 
 
 def fetch_histories(limiter: RateLimiter | None = None, max_age: int = 1,
@@ -169,6 +216,14 @@ def fetch_histories(limiter: RateLimiter | None = None, max_age: int = 1,
     """
     limiter = limiter or RateLimiter(0.0)
     CLUBELO_DIR.mkdir(parents=True, exist_ok=True)
+    # 1. Cache officiel frais (récupéré lors d'un run API réussi récent) :
+    #    évite de re-télécharger ~100 historiques à chaque exécution du jour.
+    official = _load_cache(ELO_CACHE_OFFICIAL, max_age)
+    if official is not None and len(official):
+        log.info("ClubElo : réutilisation du cache officiel frais (%s)", ELO_CACHE_OFFICIAL)
+        _write_source("cache")
+        return official, "cache"
+    # 2. API
     if not _api_reachable():
         return _fallback(RuntimeError("api.clubelo.com injoignable (probe HTTP)"),
                          max_age, fallback_results)
@@ -180,36 +235,18 @@ def fetch_histories(limiter: RateLimiter | None = None, max_age: int = 1,
         return _fallback(exc, max_age, fallback_results)
 
 
-def _http_probe(host: str, port: int = 80, timeout: float = 5.0,
-                secure: bool = False) -> bool:
-    """Probe HTTP réel : vrai uniquement si le serveur répond avec un statut
-    exploitable (2xx/3xx).
+def _api_reachable(timeout: float = 10.0) -> bool:
+    """Vérifie si l'API ClubElo est réellement exploitable.
 
-    Contrairement à un simple test TCP (qui reste ouvert même quand l'application
-    HTTP est morte — d'où des timeouts lents par équipe), ce probe valide qu'une
-    réponse HTTP arrive réellement dans le délai imparti.
-
-    Un statut 403/429/5xx (surcharge, blocage, refus) est traité comme
-    indisponible : le serveur répond mais l'API n'est pas utilisable — inutile
-    d'enchaîner la boucle lente par équipe.
+    On probe le path de ratings du jour (`/{YYYY-MM-DD}`, données réelles) avec
+    le MÊME mécanisme urllib que le fetcher : c'est le seul moyen fiable de
+    refléter la disponibilité réelle. La racine "/" répond 403 et le port 443
+    est souvent bloqué en amont, donc ni l'un ni l'autre n'est utilisable comme
+    sonde.
     """
-    conn_cls = http.client.HTTPSConnection if secure else http.client.HTTPConnection
+    today = datetime.utcnow().strftime("%Y-%m-%d")
     try:
-        conn = conn_cls(host, port, timeout=timeout)
-        try:
-            conn.request("GET", "/", headers={"Host": host, "Connection": "close"})
-            resp = conn.getresponse()
-            resp.read()
-            return 200 <= resp.status < 400
-        finally:
-            conn.close()
-    except (OSError, http.client.HTTPException):
+        ratings = pd.read_csv(io.StringIO(_http_get(f"/{today}", timeout=timeout)))
+        return not ratings.empty
+    except Exception:  # noqa: BLE001
         return False
-
-
-def _api_reachable(timeout: float = 5.0) -> bool:
-    """Vérifie si l'API ClubElo est réellement exploitable (HTTPS puis HTTP)."""
-    return (
-        _http_probe("api.clubelo.com", port=443, timeout=timeout, secure=True)
-        or _http_probe("api.clubelo.com", port=80, timeout=timeout)
-    )

@@ -18,54 +18,25 @@ def _fd_results() -> pd.DataFrame:
     })
 
 
-class _FakeConn:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def request(self, *args, **kwargs):
-        pass
-
-    def getresponse(self):
-        class _Resp:
-            status = 200
-
-            def read(self):
-                return b""
-
-        return _Resp()
-
-    def close(self):
-        pass
+def _date_csv(data: str = "1,Arsenal,ENG,1,2000.0,2026-08-01,2026-08-09\n") -> str:
+    return "Rank,Club,Country,Level,Elo,From,To\n" + data
 
 
-class _TimeoutConn:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def request(self, *args, **kwargs):
-        raise OSError("timed out")
-
-    def getresponse(self):
-        raise AssertionError("ne doit pas être appelé")
-
-    def close(self):
-        pass
-
-
-def test_http_probe_ok_quand_le_serveur_repond(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(clubelo.http.client, "HTTPConnection", _FakeConn)
-    assert clubelo._http_probe("api.clubelo.com") is True
-
-
-def test_http_probe_timeout_donne_faux(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(clubelo.http.client, "HTTPConnection", _TimeoutConn)
-    assert clubelo._http_probe("api.clubelo.com") is False
-
-
-def test_api_reachable_suit_le_probe(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(clubelo, "_http_probe", lambda *a, **k: True)
+def test_api_reachable_quand_les_donnees_repondent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(clubelo, "_http_get", lambda *a, **k: _date_csv())
     assert clubelo._api_reachable() is True
-    monkeypatch.setattr(clubelo, "_http_probe", lambda *a, **k: False)
+
+
+def test_api_reachable_faux_sans_donnees(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(clubelo, "_http_get", lambda *a, **k: "Rank,Club,Country,Level,Elo,From,To\n")
+    assert clubelo._api_reachable() is False
+
+
+def test_api_reachable_faux_sur_erreur(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*a, **k):
+        raise OSError("injoignable")
+
+    monkeypatch.setattr(clubelo, "_http_get", boom)
     assert clubelo._api_reachable() is False
 
 

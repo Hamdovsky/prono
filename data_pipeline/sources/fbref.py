@@ -20,6 +20,7 @@ spécification.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -31,17 +32,20 @@ from util import RateLimiter, get_logger
 log = get_logger("fbref")
 
 XG_COLS = ["home_xg", "away_xg", "home_np_xg", "away_np_xg", "home_goals", "away_goals"]
-STATS_SOURCE_FILE = RAW_DIR / "stats_source.txt"
+
+
+def _stats_source_file() -> Path:
+    return RAW_DIR / "stats_source.txt"
 
 
 def _write_stats_source(source: str) -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
-    STATS_SOURCE_FILE.write_text(source, encoding="utf-8")
+    _stats_source_file().write_text(source, encoding="utf-8")
 
 
 def _read_stats_source(default: str = "unknown") -> str:
     try:
-        return STATS_SOURCE_FILE.read_text(encoding="utf-8").strip()
+        return _stats_source_file().read_text(encoding="utf-8").strip()
     except OSError:
         return default
 

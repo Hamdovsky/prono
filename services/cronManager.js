@@ -558,6 +558,22 @@ class CronManager {
       { timezone: 'Europe/Paris' }
     )
 
+    // 19c. Stale matches purge (Daily at 06:00, configurable via STALE_MATCH_CLEANUP_CRON)
+    cron.schedule(
+      process.env.STALE_MATCH_CLEANUP_CRON || '0 6 * * *',
+      async () => {
+        try {
+          const deleted = await database.cleanupStaleMatches()
+          if (deleted > 0) {
+            logger.info(`[CRON] Stale cleanup: ${deleted} matches purged`)
+          }
+        } catch (e) {
+          logger.error(`[CRON] Stale cleanup error: ${e.message}`)
+        }
+      },
+      { timezone: 'Europe/Paris' }
+    )
+
     // 20. OpenLigaDB Sync (Daily at 05:00) â€” via Account 2 worker
     cron.schedule(
       '0 5 * * *',

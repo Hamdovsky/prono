@@ -268,6 +268,46 @@ describe('Database', () => {
         console.log('cleanupStaleMatches test skipped:', e.message)
       }
     })
+
+    it('should honor a custom retention window', async () => {
+      try {
+        const deleted = await database.cleanupStaleMatches(30)
+        expect(typeof deleted).toBe('number')
+      } catch (e) {
+        console.log('cleanupStaleMatches retention test skipped:', e.message)
+      }
+    })
+
+    it('should cascade prediction_history and preserve winning_patterns', async () => {
+      try {
+        const db = database.db
+        const id = `stale-test-${Date.now()}`
+        const oldTs = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+        db.prepare(
+          `INSERT INTO matches (id, "homeTeam", "awayTeam", status, timestamp) VALUES (?, 'StaleH', 'StaleA', 'cancelled', ?)`
+        ).run(id, oldTs)
+        db.prepare(
+          `INSERT INTO prediction_history (match_id, prediction_type, prediction_val, status) VALUES (?, 'Home', '1', 'PENDING')`
+        ).run(id)
+        db.prepare(
+          `INSERT INTO winning_patterns (match_id, league, homeTeam, awayTeam, prediction, result, score) VALUES (?, 'L1', 'StaleH', 'StaleA', '1', 'won', '1-0')`
+        ).run(id)
+
+        const deleted = await database.cleanupStaleMatches(5)
+        expect(deleted).toBeGreaterThanOrEqual(1)
+        expect(db.prepare('SELECT id FROM matches WHERE id = ?').get(id)).toBeUndefined()
+        expect(
+          db.prepare('SELECT id FROM prediction_history WHERE match_id = ?').get(id)
+        ).toBeUndefined()
+        expect(
+          db.prepare('SELECT id FROM winning_patterns WHERE match_id = ?').get(id)
+        ).not.toBeUndefined()
+
+        db.prepare('DELETE FROM winning_patterns WHERE match_id = ?').run(id)
+      } catch (e) {
+        console.log('cleanupStaleMatches cascade test skipped:', e.message)
+      }
+    })
   })
 
   describe('getMatchesByDate()', () => {

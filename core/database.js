@@ -1886,19 +1886,39 @@ const database = {
     }
   },
 
-  cleanupStaleMatches: async () => {
+  cleanupStaleMatches: async (retentionDays) => {
     try {
-      // Delete matches older than 24 hours that are not LIVE
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      const res = db
+      // Delete stale matches older than N days that are not LIVE, plus their
+      // linked prediction_history rows (winning_patterns kept for learning).
+      const parsed = parseInt(retentionDays ?? process.env.STALE_MATCH_RETENTION_DAYS ?? '7', 10)
+      const days = Number.isFinite(parsed) && parsed >= 1 ? parsed : 7
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+      const liveStatuses = ['live', '1H', '2H', 'HT', 'inprogress']
+      const placeholder = liveStatuses.map(() => '?').join(', ')
+
+      const stale = db
         .prepare(
-          "DELETE FROM matches WHERE timestamp < ? AND status NOT IN ('live', '1H', '2H', 'HT')"
+          `SELECT id FROM matches WHERE timestamp < ? AND status NOT IN (${placeholder})`
         )
-        .run(oneDayAgo)
-      if (res.changes > 0) {
-        logger.info(`🧹 [DB] Cleaned up ${res.changes} stale matches older than 24h.`)
-      }
-      return res.changes
+        .all(cutoff, ...liveStatuses)
+      if (stale.length === 0) return 0
+
+      const ids = stale.map((r) => r.id)
+      const idPlaceholder = ids.map(() => '?').join(', ')
+      const run = db.transaction(() => {
+        const matchesRes = db
+          .prepare(`DELETE FROM matches WHERE id IN (${idPlaceholder})`)
+          .run(...ids)
+        const histRes = db
+          .prepare(`DELETE FROM prediction_history WHERE match_id IN (${idPlaceholder})`)
+          .run(...ids)
+        return { matches: matchesRes.changes, history: histRes.changes }
+      })()
+
+      logger.info(
+        `🧹 [DB] Cleaned up ${run.matches} stale matches (older than ${days} days) and ${run.history} linked prediction_history rows.`
+      )
+      return run.matches
     } catch (e) {
       logger.error(`❌ [DB] Cleanup failed: ${e.message}`)
       return 0

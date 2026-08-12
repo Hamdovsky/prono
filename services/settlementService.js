@@ -130,7 +130,9 @@ async function settleFinishedMatches(force = false) {
         `
             SELECT id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", 
                    prediction, league, "ou_25_prob", "home_win_probability", "draw_probability", "away_win_probability",
-                   status, "insufficient_data", "fullData"
+                   status, "insufficient_data", "startTimestamp", "fullData",
+                   "odds_home", "odds_away", "odds_draw",
+                   "best_odds_home", "best_odds_away"
             FROM matches
             WHERE status IN ('FT', 'finished', 'Finished', 'Ended')
               AND "scoreHome" IS NOT NULL AND "scoreAway" IS NOT NULL
@@ -203,6 +205,11 @@ async function settleFinishedMatches(force = false) {
                     UPDATE matches SET "result" = ?, "settled_at" = ? WHERE id = ?
                 `
         ).run(result, now, row.id)
+
+        // 📈 Suivi des Paris: mirror the settled outcome into the bets table
+        try {
+          syncBetToTracker(row, evalPick, result, scoreHome, scoreAway)
+        } catch (_) {}
 
         // Update prediction_history
         const histResult = result === 'WON' ? 'won' : 'lost'
@@ -510,4 +517,251 @@ function _appendToAccuracyLog(row, evalPick, result, scoreHome, scoreAway) {
   })
 }
 
-module.exports = { settleFinishedMatches, fetchMissingScores, getPerformance, evaluatePrediction }
+// ── Suivi des Paris (bets) mirror ─────────────────────────────────
+
+function _getPickOdds(row, pick) {
+  const fd = (() => {
+    try {
+      return typeof row.fullData === 'string' ? JSON.parse(row.fullData) : row.fullData || {}
+    } catch (_) {
+      return {}
+    }
+  })()
+  const first = (...keys) => {
+    for (const k of keys) if (row[k] != null && row[k] !== '') return row[k]
+    for (const k of keys) if (fd[k] != null && fd[k] !== '') return fd[k]
+    return undefined
+  }
+  const p = (pick || '').toString().trim().toUpperCase()
+
+  if (p === '1' || p === 'HOME')
+    return parseFloat(first('odds_home', 'best_odds_home', 'display_odds_home') || 0)
+  if (p === '2' || p === 'AWAY')
+    return parseFloat(first('odds_away', 'best_odds_away', 'display_odds_away') || 0)
+  if (p === 'X' || p === 'DRAW') return parseFloat(first('odds_draw') || 0)
+  if (p === '1X' || p === 'X2' || p === '12') {
+    const h = parseFloat(first('odds_home', 'best_odds_home', 'display_odds_home') || 2) || 2
+    const a = parseFloat(first('odds_away', 'best_odds_away', 'display_odds_away') || 2) || 2
+    const d = parseFloat(first('odds_draw') || 3) || 3
+    let prob = 0
+    if (p === '1X') prob = 1 / h + 1 / d
+    else if (p === 'X2') prob = 1 / a + 1 / d
+    else prob = 1 / h + 1 / a
+    return prob > 0 ? 1 / prob : 0
+  }
+  return 0
+}
+
+function _matchDate(row) {
+  const rawTs = row.startTimestamp
+  if (!rawTs) return new Date().toISOString().split('T')[0]
+  let ms = 0
+  if (typeof rawTs === 'string' && rawTs.includes('T')) ms = new Date(rawTs).getTime()
+  else ms = parseInt(rawTs) > 1e11 ? parseInt(rawTs) : parseInt(rawTs) * 1000
+  if (isNaN(ms)) return new Date().toISOString().split('T')[0]
+  return new Date(ms).toISOString().split('T')[0]
+}
+
+/**
+ * Build the bet row that mirrors a settled outcome into the `bets` table.
+ * Pure: returns null when there is no pick or when the match+pick is already
+ * tracked (idempotency). Stake = 1 flat unit; odds fall back to 2.0 when none
+ * are stored (e.g. O/U picks).
+ */
+function buildBetRecord(row, pick, result, scoreHome, scoreAway) {
+  if (!pick) return null
+  const label = `${row.homeTeam || '?'} vs ${row.awayTeam || '?'}`
+  const existing = db
+    .prepare('SELECT id FROM bets WHERE match_label = ? AND pick = ?')
+    .get(label, pick)
+  if (existing) return null
+
+  const odds = Math.round(_getPickOdds(row, pick) * 100) / 100 || 2
+  const betResult = result === 'WON' ? 'won' : result === 'LOST' ? 'lost' : 'pending'
+  const profit =
+    betResult === 'won'
+      ? Math.round((odds - 1) * 100) / 100
+      : betResult === 'lost'
+        ? -1
+        : 0
+
+  return {
+    match_label: label,
+    league: row.league || '',
+    pick,
+    odds,
+    stake: 1,
+    result: betResult,
+    profit,
+    note: `${scoreHome}-${scoreAway}`,
+    date: _matchDate(row),
+  }
+}
+
+/**
+ * Mirror a settled outcome into the `bets` table (📈 Suivi des Paris).
+ * Idempotent: a match+pick is tracked only once. Pass { dryRun: true } to
+ * preview what would be inserted without writing (used by backfill_bets.js).
+ */
+function syncBetToTracker(row, pick, result, scoreHome, scoreAway, opts = {}) {
+  const record = buildBetRecord(row, pick, result, scoreHome, scoreAway)
+  if (!record) return
+
+  if (!opts.dryRun) {
+    db.prepare(
+      'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, note, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      record.match_label,
+      record.league,
+      record.pick,
+      record.odds,
+      record.stake,
+      record.result,
+      record.profit,
+      record.note,
+      record.date
+    )
+  }
+  logger.info(
+    `[SETTLEMENT] ${opts.dryRun ? '[DRY-RUN] ' : ''}📈 Bet tracked: ${record.match_label} ${record.note} → ${record.result} (${record.pick} @ ${record.odds})`
+  )
+  return record
+}
+
+/**
+ * Normalize a historical_matches row into a settlement-like row (startTimestamp
+ * derived from the ISO timestamp column when absent).
+ */
+function _normalizeHistRow(r) {
+  const row = { ...r }
+  if (row.startTimestamp === undefined || row.startTimestamp === null) {
+    if (row.timestamp) {
+      const iso = String(row.timestamp)
+      row.startTimestamp = iso.includes('T') ? iso : `${iso}T00:00:00Z`
+    }
+  }
+  return row
+}
+
+/**
+ * Backfill 📈 Suivi des Paris from already-settled matches, so past finished
+ * games that were archived before the settlement cycle could mirror them also
+ * appear in the bets tracker. Idempotent (match_label + pick) and supports
+ * --dry-run (no writes).
+ *
+ * Sources:
+ *  - A: matches still present with a stored settlement result (WON/LOST)
+ *  - B: historical_matches (archived finished matches, fullData keeps the real pick)
+ */
+async function backfillBets({ dryRun = false, limit = 1000 } = {}) {
+  const summary = {
+    scanned: 0,
+    inserted: 0,
+    wouldInsert: 0,
+    alreadyPresent: 0,
+    skipped: 0,
+    errors: 0,
+  }
+
+  const track = (row, pick, result, sh, sa) => {
+    if (!pick || !result) {
+      summary.skipped++
+      return
+    }
+    const record = buildBetRecord(row, pick, result, sh, sa)
+    if (!record) {
+      summary.alreadyPresent++
+      return
+    }
+    if (dryRun) {
+      summary.wouldInsert++
+      return
+    }
+    try {
+      db.prepare(
+        'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, note, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(
+        record.match_label,
+        record.league,
+        record.pick,
+        record.odds,
+        record.stake,
+        record.result,
+        record.profit,
+        record.note,
+        record.date
+      )
+      summary.inserted++
+    } catch (e) {
+      summary.errors++
+      logger.warn(`[BACKFILL] Insert error for ${record.match_label}: ${e.message}`)
+    }
+  }
+
+  try {
+    const settled = db
+      .prepare(
+        `
+            SELECT id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", league,
+                   prediction, "fullData", "startTimestamp", result,
+                   "odds_home", "odds_away", "odds_draw", "best_odds_home", "best_odds_away"
+            FROM matches
+            WHERE "result" IN ('WON', 'LOST') AND "scoreHome" IS NOT NULL AND "scoreAway" IS NOT NULL
+            ORDER BY "settled_at" DESC
+            LIMIT ?
+        `
+      )
+      .all(limit)
+
+    for (const row of settled) {
+      summary.scanned++
+      const sh = parseInt(row.scoreHome) || 0
+      const sa = parseInt(row.scoreAway) || 0
+      const evalPick = extractMainPick(row) || row.prediction
+      track(row, evalPick, row.result, sh, sa)
+    }
+
+    const archived = db
+      .prepare(
+        `
+            SELECT id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", league,
+                   "fullData", timestamp
+            FROM historical_matches
+            WHERE "scoreHome" IS NOT NULL AND "scoreAway" IS NOT NULL
+            ORDER BY archived_at DESC
+            LIMIT ?
+        `
+      )
+      .all(limit)
+
+    for (const r of archived) {
+      summary.scanned++
+      const row = _normalizeHistRow(r)
+      const sh = parseInt(row.scoreHome) || 0
+      const sa = parseInt(row.scoreAway) || 0
+      const evalPick = extractMainPick(row)
+      const result = evalPick ? evaluatePrediction(evalPick, sh, sa) : null
+      track(row, evalPick, result, sh, sa)
+    }
+  } catch (e) {
+    logger.error(`[BACKFILL] Error: ${e.message}`)
+    summary.errors++
+  }
+
+  logger.info(
+    `[BACKFILL] ${dryRun ? '[DRY-RUN] ' : ''}scanned=${summary.scanned} ` +
+      `inserted=${summary.inserted} wouldInsert=${summary.wouldInsert} ` +
+      `alreadyPresent=${summary.alreadyPresent} skipped=${summary.skipped} errors=${summary.errors}`
+  )
+  return summary
+}
+
+module.exports = {
+  settleFinishedMatches,
+  fetchMissingScores,
+  getPerformance,
+  evaluatePrediction,
+  buildBetRecord,
+  syncBetToTracker,
+  backfillBets,
+}

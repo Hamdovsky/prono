@@ -36,6 +36,7 @@ const Schemas = require('./utils/Schemas')
 const QuantumQuantEngine = require('./QuantumQuantEngine')
 const confidenceScorer = require('./confidenceScorer')
 const { marketScopeOf } = require('./marketScope')
+const { applyHonestyGate } = require('./honestyGate')
 const featureEngineer = require('./services/FeatureEngineer')
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
@@ -1541,56 +1542,15 @@ class EnrichedPredictionService {
         }
       }
 
-      // ── HONESTY GATE: insufficient matches MUST NOT carry fake picks / odds / value ──
-      // A match is "insufficient" only when there is NO usable model signal (see above).
-      // Matches WITH a clear signal keep the model pick even without bookmaker odds —
-      // the `!hasRealOdds` branch below then neutralizes odds/value (no invented data).
-      if (insufficient) {
-        resultData.odds_home = null
-        resultData.odds_draw = null
-        resultData.odds_away = null
-        if (resultData.odds_source)
-          resultData.odds_source = m._oddsAreSynthetic ? 'synthetic' : 'model_league'
-        resultData.prediction = null
-        resultData.verdict = 'PENDING'
-        resultData.risk_label = 'PENDING'
-        resultData.quant.main_pick = null
-        resultData.quant.risk_label = 'PENDING'
-        resultData.quant.all_picks = []
-        resultData.quant.markets = {}
-        resultData.quant.market_odds = null
-        resultData.quant.ev_score = 0
-        resultData.quant.edge_score = 0
-        resultData.quant.massive_edge = false
-        resultData.draw_value_bet = false
-        resultData.predictions = []
-        resultData.confidence = Math.min(resultData.confidence || 0, 40)
-        if (resultData.enriched) {
-          resultData.enriched.winner = null
-          resultData.enriched.main_predictions = []
-          resultData.enriched.verdict = 'PENDING'
-        }
-        resultData.sufficient = false
-      } else {
-        resultData.sufficient = true
-        // HONESTY: without REAL bookmaker odds there is no way to compute value/edge.
-        // We keep the model's probability pick and verdict, but the value-based metrics
-        // MUST stay neutral — we never present invented odds or value.
-        if (!hasRealOdds) {
-          resultData.quant.ev_score = 0
-          resultData.quant.edge_score = 0
-          resultData.quant.massive_edge = false
-          // market_odds is left at its computed value (undefined when no bookmaker) so
-          // the Dashboard does not treat the match as "insufficient" — it shows the
-          // model pick + probabilities, without any bookmaker odds.
-          resultData.draw_value_bet = false
-          resultData.odds_home = null
-          resultData.odds_draw = null
-          resultData.odds_away = null
-          if (resultData.odds_source)
-            resultData.odds_source = m._oddsAreSynthetic ? 'synthetic' : 'model_league'
-        }
-      }
+      // ── HONESTY GATE (module pur, resets symétriques à chaque passe) ──
+      // Insufficient matches MUST NOT carry fake picks / odds / value. Chaque passe
+      // écrit TOUS les champs dérivés du verdict (risk_label, enriched.*) — jamais
+      // d'héritage silencieux via { ...m, ... }. Voir core/honestyGate.js.
+      applyHonestyGate(resultData, {
+        insufficient,
+        hasRealOdds,
+        oddsSynthetic: m._oddsAreSynthetic,
+      })
 
       return resultData
     } catch (err) {

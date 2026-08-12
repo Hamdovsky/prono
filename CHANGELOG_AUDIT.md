@@ -125,7 +125,60 @@ Répartition de `matches.prediction` (267 matchs) : **261 en 1X2** (1/X/2/1X/X2/
 
 ---
 
-## ÉTAPE 2 — Chantier 2 (prévu) : améliorer le path PENDING (33/42)
+## ÉTAPE 2 — Chantier 2 : path PENDING (33/42) — fix structurel ✅
+
+### Cause racine confirmée
+
+**Contradiction `risk_label:"PENDING"` + `sufficient:true`** (19 matchs du slate actif) :
+`resultData = { ...m, ... }` (`enriched_predictions.js:1434`) **hérite silencieusement des
+champs de la passe précédente**. Le bloc HONESTY GATE était **asymétrique** :
+
+| Champ | Branche `insufficient` | Branche `else` | Conséquence |
+|---|---|---|---|
+| `sufficient` | `false` (l.1574) | `true` (l.1576) | ✅ cohérent |
+| `verdict` / `prediction` | `'PENDING'` / `null` | recalculés frais | ✅ cohérent |
+| `risk_label` (top-level) | `'PENDING'` (l.1557) | **jamais réinitialisé** | ❌ **hérité de `...m`** |
+| `enriched.sufficient` | non touché | non touché | ❌ **hérité** (écrit par fallback_enricher) |
+
+Un match passé de « insuffisant » (passe N) à « suffisant » (passe N+1) **conservait**
+`risk_label:'PENDING'` et `enriched.sufficient:false` périmés → la contradiction. C'est
+l'**écriture via `updatePredictions`/fallback_enricher** (`enriched_predictions.js:1434`) qui
+recréait l'état stale — pas le quant engine (déjà synchrone).
+
+### Décompte réel sur le slate actif (267 matchs `matches`)
+
+| Anomalie | Nb | Explication |
+|---|---|---|
+| `risk_label='PENDING'` + `sufficient:true` | **19** | stale hérité de l'ancienne passe |
+| `enriched.sufficient` contradictoire | **1** (dont inclus dans les 19) | idem, via fallback_enricher |
+| `risk_label='PENDING'` + `sufficient:false` (verdict légitime) | **0** | HONESTY GATE ne produit plus cet état |
+
+Les **33 `historical_matches` PENDING sont des verdicts légitimes** (bulk 08-08, évalués
+comme tels) : le chantier 2 ne les touche pas.
+
+### Correctif appliqué
+
+1. **Module pur `core/honestyGate.js`** (nouveau) : le HONESTY GATE est extrait du
+   `enriched_predictions.js` (remplace les l.1545-1594) pour être testable unitairement.
+   **Resets symétriques** : la branche `else` réinitialise explicitement `risk_label`
+   (`quant.risk_label || verdict || 'SAFE'`) et `enriched.sufficient/risk_label/
+   insufficient_data` — **plus jamais d'héritage via `...m`**. La branche `insufficient`
+   synchronise aussi `enriched.*`.
+2. **Script one-shot `scripts/fix_stale_risk_labels.js`** (`--dry-run` par défaut /
+   `--apply`) : corrige les 19 lignes `matches` à la prochaine exécution manuelle. Ne
+   touche **jamais** `historical_matches`.
+3. **Tests** (`__tests__/chantier2.test.js`, 4 tests) : insuffisant → neutralisation
+   complète + enriched synchro ; suffisant après insuffisant → **risk_label réinitialisé,
+   contradiction éliminée** ; suffisant sans cotes → pick conservé, value neutralisée ;
+   downgrade `quant.risk_label` → reporté sur top-level et enriched.
+
+### Note
+
+Le `market_scope` (Chantier 1) et ce fix structurel sont indépendants. L'évaluation
+accuracy des 19 matchs corrigés reste identique (le verdict/prediction ne change pas —
+seul `risk_label` reflète à nouveau le verdict courant).
+
+---
 
 ## ÉTAPE 2 — Chantier 3 (prévu) : audit des cotes manquantes (D1, 97 % sans cote)
 

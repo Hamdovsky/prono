@@ -231,6 +231,84 @@ seul `risk_label` reflète à nouveau le verdict courant).
 
 ---
 
+## ÉTAPE 2 — Chantier 4 : Diagnostic priors low-data & biais home (D2) — 🔴 PRIORITÉ HAUTE
+
+**Date** : 2026-08-12 — **Statut** : diagnostic validé, **puis FIX appliqué** (voir section « Chantier 4 : FIX APPLIQUÉ » ci-dessous)
+
+### Contexte
+D2 constatait **81 % de prédictions « 1 »** sur le slate actif (267 matchs `matches` : **215 « 1 », 80.5 %**). Le Point 4 devait vérifier si le fallback prior low-data (`LEAGUE_CATEGORY_PRIORS['club friendly']` = 0.42/0.25/0.33, `penaltyblog_engine.py:374-386`) injectait ce biais. **La trouvaille est plus structurante : le biais n'a presque rien à voir avec le prior.**
+
+### Volet 1 — Le fallback prior n'est JAMAIS actif sur le slate
+- **266/267** matchs : `ai_source: TITANIUM_QUANT_V4` (moteur quant JS). **0 marqueur** `low_data` / `prior_source` / `bayesian` dans les fullData.
+- Le prior `league_prior` (`predict_zero_data`, `penaltyblog_engine.py:617-621`) ne s'active que si ni bayésien ni cotes implicites ne tournent. Ici : jamais.
+- **Contribution au biais home : ~0 point.**
+
+### Volet 2 — Le vrai biais : mismatch `prediction` vs `quant.main_pick` à 97 %
+- Colonne `matches.prediction` : 80.5 % « 1 ». **Mais** `enriched.quant.main_pick` (pick réel du moteur) : **1X (94), O0.5 (91), 12 (70), X2 (9) — 0 pick « 1 » pur.**
+- **Mismatch colonne `prediction` vs `quant.main_pick` : 260/267 = 97 %.** Déconnectés par construction.
+- ~73 % du slate partage des probas quasi-constantes (48.4/25.1/26.5 ×158 ; 47.5/24.5/28.0 ×37) et des xG par défaut (1.58/1.1 ×172) → sortie Poisson de **league base-xG** (cotes absentes sur ~97 % des matchs).
+
+### 🐛 Volet 3 — Cause racine : trou de séquencement dans la boucle INDEPENDENT-ENRICH
+1. `server.js:488-536` lit `m` (colonne DB incluse) → `enrichOne(m)`.
+2. `enrichOne` (`server.js:471-485`) retourne probs + `quant` mais **omet la clé `prediction`** (et `verdict`).
+3. `server.js:519` : `updatePredictions(m.id, { ...m, ...enriched })` → `data.prediction` hérite de la **colonne stalée**.
+4. `database.js:1178-1182` : `verdict = data.prediction || enriched.prediction || data.verdict` → **réécrit la valeur stalée**.
+5. Dès qu'un « 1 » entre en colonne (écriture initiale du backfill 08-08 d'ÉTAPE 1b), le pick réel `quant.main_pick` est recalculé à chaque passe mais **ne remonte jamais à la colonne**.
+
+> `RESPONSE_FLOOR` (`routes/matches.js:502`) et `_buildOfflineState` (`enriched_predictions.js:1562`) sont des **fallbacks réels et gated** (probas absentes) ; RESPONSE_FLOOR n'est qu'un floor de **réponse GET** (aucun `updatePredictions` dans cette route) et n'écrit pas la DB.
+
+### Volet 4 — Le prior codé en dur est bien calibré (hypothèse initiale réfutée)
+| Référence | n | Home / Draw / Away |
+|---|---|---|
+| Prior `club friendly` | — | 0.42 / 0.25 / 0.33 |
+| Prior `default` | — | 0.46 / 0.24 / 0.30 |
+| `archive_matches` | 1 096 | 0.426 / 0.255 / 0.319 |
+| `promosport_archive` | 7 586 | 0.424 / 0.257 / 0.321 |
+| `archive_football_data` | 144 397 | 0.449 / 0.269 / 0.282 |
+
+→ Prior global ≈ réalité (écart < 2 pp). Seul écart réel : les **amicaux** (`International Friendly`, n=48 → 0.44/0.33/0.23) : draw sous-estimé (0.25 vs 0.33), away sur-estimé (0.33 vs 0.23).
+
+**Proposition de valeurs corrigées (NON appliquées — diagnostic seul)** : `club friendly` → **0.44/0.33/0.23** ; `default`/`cup` → **~0.43/0.26/0.32** (aligné `archive_football_data`).
+
+### 🔴 Impact sur les métriques existantes — RÉINTERPRÉTATION OBLIGATOIRE
+> **Les mesures de biais home (D2) et de calibration menées avant l'investigation de ce mismatch doivent être réinterprétées à la lumière de cette découverte.** L'accuracyEngine évalue la colonne `prediction`, qui n'est PAS la sortie du moteur (97 % de divergence avec `quant.main_pick`). Les M1/M2 futures et le D2 lui-même risquent de mesurer un artefact de pipeline plutôt que le modèle.
+
+### Suites — PRIORITÉ HAUTE (chantier futur, pas seulement « à planifier »)
+1. **Fix de séquencement** : `enrichOne` doit retourner `prediction: quant.main_pick` (et `verdict`), ou `server.js:519` doit propager `quant.main_pick` vers la colonne — sinon tout nouvel enrichissement continuera de figer la valeur stalée.
+2. **Re-baseline des métriques** après fix (M1/M2 futures sur données propres).
+3. Réévaluer le biais home réel une fois la colonne = sortie moteur.
+
+### Périmètre
+`penaltyblog_engine.py`, `StatisticalEngine.js`, `enriched_predictions.js`, `server.js`, `database.js`, routes : **aucun changement**. Ce volet est documentaire uniquement.
+
+---
+
+## ÉTAPE 2 — Chantier 4 : FIX APPLIQUÉ — enrichOne écrit TOUS les champs dérivés
+
+**Date** : 2026-08-12 — **Statut** : résolu (commit `bb27b4e`, tag `audit-etape2-chantier4-enrichone-before` avant)
+
+### Le fix
+- `core/enrichOne.js` (nouveau module pur, extracté de la closure `server.js`) : le `return` écrit désormais **tous** les champs dérivés — `prediction: quant.main_pick`, `verdict: risk_label`, `risk_label`, `confidence`, `sufficient: true`, `market_scope` (via `core/marketScope.js`), `quant` complet **et** `enriched` (sous-objet incluant `quant`, pour que `updatePredictions` ne laisse plus `enriched.quant.main_pick` stale).
+- `server.js` : la fonction locale `enrichOne` est supprimée, remplacée par `require('./core/enrichOne')` (1 hunk isolé via `git add -p` ; le guard JWT_SECRET en attente reste hors commit).
+- `scripts/sync_enrichone_columns.js` : one-shot **sync** (pas recalcul — voir ci-dessous) qui aligne colonne `prediction`, `market_scope` sur le pick stocké dans fullData. `--dry-run` par défaut, `--apply` pour écrire.
+- `__tests__/chantier4.test.js` : 7 tests (prediction fraîche jamais stale, market_scope par marché : double_chance→`full_time_dc`, first_half O0.5→`first_half`, ou→`full_time_ou`, 1→`full_time_1x2`, enriched synchronisé).
+
+### Résultat (re-mesuré après --apply, 266 matchs actifs)
+| Métrique | Avant | Après |
+|---|---|---|
+| Mismatch colonne `prediction` vs `quant.main_pick` | **251/266 (94 %)** | **0/266** |
+| `market_scope` manquant | — | **0** |
+| Distribution colonne | 80.5 % « 1 » | 1X 95, O0.5 92, 12 68, X2 10, 1 (×1) |
+| market_scope | — | full_time_dc 173, first_half 92, full_time_1x2 1 |
+
+### ⚠️ Point critique — pourquoi le sync ne RECALCULE pas
+`enrichOne` lit `m.insufficient_data` comme entrée (dispersion dans `QuantumQuantEngine.analyze`) et l'écrit `m.insufficient_data || 1`. Recalculer = muter l'entrée du run suivant → **oscillation** (ex : `insufficient_data` 0→`12`, 1→`O0.5`). En boucle server ça n'apparaît pas (matches filtrés après enrichissement) mais un one-shot qui re-passe tout doit **geler les valeurs stockées**, pas les re-dériver. Le script sync est donc déterministe et idempotent.
+
+### Impact D2 — RÉINTERPRÉTATION
+Le biais home « 81 % de 1 » est **un artefact de pipeline** (colonne déconnectée du moteur), pas un biais modèle. La colonne vaut désormais la sortie moteur (1X/O0.5/12/X2). **Toute re-mesure de calibration/accuracy doit se faire sur cette base propre.** Nota : `accuracyEngine` doit filtrer par `market_scope` avant d'évaluer (chantier séparé) — un pick `first_half` (O0.5) ne peut pas être jugé contre les buts full-time.
+
+---
+
 ## ⚠️ POINT DE VIGILANCE — fork `prono` (à ne pas confondre avec `stitch`)
 
 `C:\Users\HAMDI\prono` est un **second dépôt git distinct, toujours actif** :

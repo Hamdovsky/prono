@@ -1,0 +1,17 @@
+{
+  "canonical": {
+    "psg": "paris saint germain",
+    "paris sg": "paris saint germain",
+    "atl": "atletico",
+    "utd": "united",
+    "dep": "deportivo",
+    "munchen": "munich",
+    "muenchen": "munich"
+  },
+  "digraphs": {
+    "ae": "a",
+    "oe": "o",
+    "ue": "u",
+    "aa": "a"
+  }
+}

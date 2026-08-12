@@ -159,46 +159,77 @@ def _to_float(v):
         return None
 
 
+ALIAS_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'betexplorer_aliases.json')
+_ALIAS_CFG = {"canonical": {}, "digraphs": {}}
+
+
+def _load_alias_config():
+    global _ALIAS_CFG
+    try:
+        with open(ALIAS_CONFIG_FILE, encoding='utf-8') as f:
+            cfg = json.load(f)
+        if isinstance(cfg, dict):
+            _ALIAS_CFG = {
+                "canonical": cfg.get("canonical") if isinstance(cfg.get("canonical"), dict) else {},
+                "digraphs": cfg.get("digraphs") if isinstance(cfg.get("digraphs"), dict) else {},
+            }
+    except Exception:
+        _ALIAS_CFG = {"canonical": {}, "digraphs": {}}
+
+
+_load_alias_config()
+
+
 def _normalize_team(name):
     n = (name or '').lower().strip()
     n = ''.join(c for c in unicodedata.normalize('NFD', n) if unicodedata.category(c) != 'Mn')
     n = re.sub(r'^(fc|sc|ac|as|us|ec|cd|ca|cr|gr|aek|paok|osa|ifk|bk|ff|ss|nk|fk|sk|rc|ra|ud|ad|cdt)\.?\s+', '', n)
     n = re.sub(r'\s+(fc|sc|ac|as|us|cf|cd|ca|ec)\.?\s*$', '', n)
-    n = re.sub(r'\s+(united|city|utd)$', '', n)
     return n.strip()
 
 
-def _teams_match(a, b):
-    a_norm = _normalize_team(a)
-    b_norm = _normalize_team(b)
-    if not a_norm or not b_norm:
+def _canonical(name):
+    n = _normalize_team(name)
+    for alias, full in _ALIAS_CFG.get("canonical", {}).items():
+        if not alias or not full:
+            continue
+        n = re.sub(r'\b' + re.escape(alias) + r'\b\.?', full, n)
+    return n.strip()
+
+
+def _translit_digraphs(name):
+    n = name
+    for dg, ch in _ALIAS_CFG.get("digraphs", {}).items():
+        if not dg:
+            continue
+        n = n.replace(dg, ch)
+    return n
+
+
+def _significant_words(s):
+    return [w for w in re.split(r'[\s\-\.]+', s) if len(w) >= 3]
+
+
+def _core_match(a, b):
+    if not a or not b:
         return False
-    if a_norm == b_norm:
+    if a == b:
         return True
-    if a_norm in b_norm or b_norm in a_norm:
+    if a in b or b in a:
         return True
-    def significant_words(s):
-        return [w for w in re.split(r'[\s\-\.]+', s) if len(w) >= 3]
-    w1 = significant_words(a_norm)
-    w2 = significant_words(b_norm)
+    w1 = _significant_words(a)
+    w2 = _significant_words(b)
     if not w1 or not w2:
         return False
-    set1 = set(w1)
-    set2 = set(w2)
-    common = set1 & set2
+    s1 = set(w1)
+    s2 = set(w2)
+    common = s1 & s2
     if common:
         ratio = len(common) / min(len(w1), len(w2))
         if ratio >= 0.6:
             return True
-        if ratio >= 0.5:
-            f1, f2 = w1[0], w2[0]
-            if f1 == f2 or f1 in set2 or f2 in set1:
-                return True
-            for w in w1:
-                for v in w2:
-                    if w != v and len(w) >= 4 and len(v) >= 4 and (w.startswith(v) or v.startswith(w)):
-                        return True
-            return False
+        if ratio >= 0.5 and len(common) >= 2:
+            return True
     for w in w1:
         for v in w2:
             if w != v and len(w) >= 4 and len(v) >= 4 and (w.startswith(v) or v.startswith(w)):
@@ -206,7 +237,127 @@ def _teams_match(a, b):
     return False
 
 
+def _short_prefix_match(a, b):
+    w1 = _significant_words(a)
+    w2 = _significant_words(b)
+    for w in w1:
+        if len(w) != 3:
+            continue
+        for v in w2:
+            if len(v) >= 4 and v != w and v.startswith(w):
+                return True
+    return False
+
+
+_QUALIFIERS = {'united', 'city', 'utd'}
+_QUALIFIER_CANON = {'utd': 'united'}
+
+
+def _canon_qual(q):
+    return _QUALIFIER_CANON.get(q, q)
+
+
+def _split_qualifier(name):
+    words = re.split(r'[\s\-\.]+', name.strip())
+    words = [w for w in words if w]
+    if len(words) >= 2 and words[-1] in _QUALIFIERS:
+        return ' '.join(words[:-1]), _canon_qual(words[-1])
+    return name, None
+
+
+def _qualifier_match(a, b):
+    ab, aq = _split_qualifier(a)
+    bb, bq = _split_qualifier(b)
+    if not aq or not bq:
+        return False
+    if aq != bq:
+        return False
+    if not ab or not bb:
+        return False
+    w1 = _significant_words(ab)
+    w2 = _significant_words(bb)
+    for w in w1:
+        for v in w2:
+            if w != v and len(w) >= 3 and (v.startswith(w) or w.startswith(v)):
+                return True
+    return False
+
+
+def _match_date_tuple(date):
+    if isinstance(date, (int, float)):
+        try:
+            t = time.gmtime(int(date))
+            return (int(time.strftime('%m', t)), int(time.strftime('%d', t)))
+        except Exception:
+            return None
+    s = str(date)[:10]
+    parts = s.split('-')
+    if len(parts) == 3:
+        try:
+            return (int(parts[1]), int(parts[2]))
+        except ValueError:
+            return None
+    return None
+
+
+def _date_close(row_date, match_date, tolerance_days=1):
+    if not row_date or not match_date:
+        return False
+    return abs((row_date[0] * 31 + row_date[1]) - (match_date[0] * 31 + match_date[1])) <= tolerance_days
+
+
+def _teams_match(a, b, ctx=None):
+    a_std = _canonical(a)
+    b_std = _canonical(b)
+    if _core_match(a_std, b_std):
+        return True
+    a_tr = _translit_digraphs(a_std)
+    b_tr = _translit_digraphs(b_std)
+    if a_tr != a_std or b_tr != b_std:
+        if _core_match(a_tr, b_tr) or _core_match(a_tr, b_std) or _core_match(a_std, b_tr):
+            return True
+    if _qualifier_match(a_std, b_std) or _qualifier_match(b_std, a_std):
+        return True
+    if ctx and ctx.get('date') and ctx.get('row_date'):
+        md = _match_date_tuple(ctx['date'])
+        if md and _date_close(ctx['row_date'], md):
+            if _short_prefix_match(a_std, b_std) or _short_prefix_match(b_std, a_std):
+                return True
+    return False
+
+
 LEAGUE_SLUG_MAPPING = {
+    'Northern Premier League': '/football/england/northern-premier-league/',
+    'Southern League Premier: South': '/football/england/southern-league-premier-south/',
+    'Southern League Premier: Central': '/football/england/southern-league-premier-central/',
+    'Isthmian League Premier': '/football/england/isthmian-league-premier/',
+    'Southern League: Central': '/football/england/southern-league-central/',
+    'National League Cup': '/football/england/national-league-cup/',
+    'Regionalliga Nordost': '/football/germany/regionalliga-nordost/',
+    'Regionalliga Nord': '/football/germany/regionalliga-nord/',
+    'Oberliga: Rheinland': '/football/germany/oberliga-rheinland-pfalz-saar/',
+    'Oberliga: Baden': '/football/germany/oberliga-baden-wuerttemberg/',
+    'Oberliga: Hessen': '/football/germany/oberliga-hessen/',
+    'Oberliga: Bremen': '/football/germany/oberliga-bremen/',
+    'Champions League: Qualification': '/football/europe/champions-league-qualification/',
+    'UEFA Super Cup': '/football/europe/uefa-super-cup/',
+    'Championship': '/football/northern-ireland/championship/',
+    'Challenge Cup': '/football/northern-ireland/challenge-cup/',
+    'Premiership': '/football/scotland/premier-league/',
+    'Ykkonen': '/football/finland/ykkonen/',
+    'Australia Cup': '/football/australia/australia-cup/',
+    'DBU Pokalen': '/football/denmark/dbu-pokalen/',
+    'Vtora Liga': '/football/bulgaria/second-league/',
+    'MLS Next Pro': '/football/usa/mls-next-pro/',
+    'Superettan': '/football/sweden/superettan/',
+    'Primera B': '/football/chile/primera-b/',
+    'USL Cup': '/football/usa/usl-cup/',
+    'Leagues Cup': '/football/usa/leagues-cup/',
+    'Copa Argentina': '/football/argentina/copa-argentina/',
+    'Canadian Championship': '/football/canada/canadian-championship/',
+    'Copa Ecuador': '/football/ecuador/copa-ecuador/',
+    'Club Friendlies': '/football/international/friendly/',
+    'Featured Club Friendlies': '/football/international/friendly/',
     'Brasileirão Serie B': '/football/brazil/serie-b/',
     'Brasileirão Serie A': '/football/brazil/serie-a/',
     'Brasileirao': '/football/brazil/serie-a/',
@@ -309,10 +460,25 @@ def _match_hash_from_url(match_url):
     return m.group(1) if m else None
 
 
-def _find_match_in_html(html, home, away):
+def _parse_row_datetime(tr):
+    try:
+        td = tr.find('td', class_='table-main__datetime')
+        if td is None:
+            return None
+        m = re.match(r'(\d{1,2})\.(\d{1,2})\.', td.get_text(' ', strip=True))
+        if not m:
+            return None
+        return (int(m.group(2)), int(m.group(1)))
+    except Exception:
+        return None
+
+
+def _find_match_in_html(html, home, away, date=None):
     try:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, 'html.parser')
+        candidates = []
+        seen_urls = set()
         for a in soup.find_all('a', href=True):
             href = a['href']
             if '/football/' not in href:
@@ -322,25 +488,46 @@ def _find_match_in_html(html, home, away):
                 hp, ap = _teams_from_slug(href)
             if not hp or not ap:
                 continue
-            if not (_teams_match(hp, home) and _teams_match(ap, away)):
+            tr = a.find_parent('tr')
+            row_date = _parse_row_datetime(tr) if tr is not None else None
+            ctx = {'date': date, 'row_date': row_date}
+            if not (_teams_match(hp, home, ctx) and _teams_match(ap, away, ctx)):
                 continue
-            row_odds = _odds_from_scope(a.find_parent('tr')) if a.find_parent('tr') is not None else None
+            row_odds = _odds_from_scope(tr) if tr is not None else None
             if not row_odds:
                 row_odds = _container_odds(a)
             if not row_odds:
                 continue
             match_url = urljoin(BASE_URL + '/', href)
-            return {
+            if match_url in seen_urls:
+                continue
+            seen_urls.add(match_url)
+            candidates.append({
                 'odds': row_odds,
                 'match_url': match_url,
                 'match_hash': _match_hash_from_url(match_url),
-            }
+                'row_date': row_date,
+            })
+        if not candidates:
+            return None
+        if len(candidates) > 1 and date:
+            md = _match_date_tuple(date)
+            if md:
+                close = [c for c in candidates if _date_close(c['row_date'], md)]
+                if close:
+                    candidates = close
+                else:
+                    return None
+        if len(candidates) > 1:
+            log.warning('ambiguous match for %s vs %s: %d candidates', home, away, len(candidates))
+            return None
+        return candidates[0]
     except Exception as ex:
         log.debug('find_match error: %s', ex)
     return None
 
 
-def betexplorer_search(home, away, league=None):
+def betexplorer_search(home, away, league=None, date=None):
     """Recherche BetExplorer via la page de ligue (slug). Retourne 1X2 + match_url."""
     slug = _league_to_betexplorer_slug(league)
     if not slug:
@@ -355,7 +542,7 @@ def betexplorer_search(home, away, league=None):
         result = scrape_url(url, {"fingerprint": "chrome124", "timeout": 20})
         if result.get('error') or result.get('status', 0) != 200:
             continue
-        match = _find_match_in_html(result.get("body", ""), home, away)
+        match = _find_match_in_html(result.get("body", ""), home, away, date=date)
         if match:
             match["url_probe"] = url
             return match
@@ -423,9 +610,9 @@ def betexplorer_match_btts(match_url, use_firecrawl=True):
     return {"btts": btts, "source": "betexplorer" if btts else "static_empty"}
 
 
-def betexplorer_full(home, away, league=None, use_firecrawl=True):
+def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None):
     """Pipeline complet: recherche -> 1X2 (+ OU/BTTS si data-odd statique dispo)."""
-    search = betexplorer_search(home, away, league)
+    search = betexplorer_search(home, away, league, date=date)
     result = {
         "odds": None,
         "over_25": None,
@@ -550,13 +737,15 @@ def main():
         away = input_data.get("away", "")
         league = input_data.get("league", "")
         use_fc = input_data.get("use_firecrawl", True)
-        result = betexplorer_full(home, away, league, use_firecrawl=use_fc)
+        date = input_data.get("date")
+        result = betexplorer_full(home, away, league, use_firecrawl=use_fc, date=date)
         print(json.dumps(result, ensure_ascii=False))
     elif cmd == "betexplorer_search":
         home = input_data.get("home", "")
         away = input_data.get("away", "")
         league = input_data.get("league", "")
-        result = betexplorer_search(home, away, league)
+        date = input_data.get("date")
+        result = betexplorer_search(home, away, league, date=date)
         print(json.dumps(result, ensure_ascii=False))
     elif cmd == "estimate_ou_btts":
         home = input_data.get("home", "")

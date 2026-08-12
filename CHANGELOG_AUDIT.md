@@ -183,3 +183,67 @@ seul `risk_label` reflète à nouveau le verdict courant).
 ## ÉTAPE 2 — Chantier 3 (prévu) : audit des cotes manquantes (D1, 97 % sans cote)
 
 *Chaque modification ultérieure sera ajoutée à ce fichier.*
+
+---
+
+## ÉTAPE 2 — Chantier 3 — Point 1 : robustesse du matcher équipes BetExplorer ✅
+
+### Correctifs appliqués (`scripts/betexplorer_aliases.json` → `canonical`)
+1. **`utd` → `united`** — fix d'une **régression** détectée en validation : `Sydney United 58` ne matchait plus `Sydney Utd` (suffixe numérique `58` + alias manquant). Cas #9 du Bloc 1 (APIA Leichhardt vs Sydney United 58, Australia Cup) : `no_odds` → **trouvé**.
+2. **`dep` → `deportivo`** — amélioration dans le périmètre Point 1 (abréviations d'équipe) : `Dep. A Coruna` ↔ `Deportivo (La) Coruna`.
+
+### Tests ajoutés (`scripts/test_bypass_scraper.py`)
+- `test_teams_match_utd_alias_suffix_number` : `Sydney United 58` ↔ `Sydney Utd` → True
+- `test_teams_match_dep_alias` : `Deportivo (La) Coruna` ↔ `Dep. A Coruna` → True
+- `test_no_false_positive_dep_alias` : `Dep. Madrid` vs `Deportivo Riestra` → False ; `Dep. Madrid` vs `Atletico Tucuman` → False
+
+**Suite complète : 38/38 tests OK.**
+
+### Validation Bloc 1 — Régression (10 matchs reconstitués) : **8/10**
+
+| # | Match (ligue) | Résultat |
+|---|---|---|
+| 1 | PSG vs Aston Villa (UEFA Super Cup) | ✅ trouvé |
+| 2 | Atl. Tucuman vs Independiente (Copa Argentina) | ✅ trouvé |
+| 3 | Helsingborgs IF vs Vaernamo (Superettan) | ✅ trouvé |
+| 4 | Orlando City vs San Luis (Leagues Cup) | ❌ échec légitime (couverture) |
+| 5 | CSKA Sofia II vs Hebar (Vtora Liga) | ❌ échec légitime (couverture) |
+| 6 | PSG vs Marseille (Ligue 1, avec date 2027-02-07) | ✅ trouvé |
+| 7 | Deportes Recoleta vs Rangers (Primera B) | ✅ trouvé |
+| 8 | Club La Union vs Aucas (Copa Ecuador) | ✅ trouvé |
+| 9 | APIA Leichhardt vs Sydney United 58 (Australia Cup) | ✅ trouvé (fix utd) |
+| 10 | Charlotte Independence vs Hartford (USL Cup) | ✅ trouvé |
+
+### Validation Bloc 2 — Stress-test (paires clés)
+- ✅ Trouvé : Barcelona vs Real Madrid (La Liga)
+- ❌ Réseau (page vide / slug manquant), matcher OK : Man Utd vs Leeds (friendlies), Deportivo Coruña vs Real Madrid (friendlies), Bragantino vs Atl. MG (Copa Sudamericana non mappée), Inter Miami vs Leon (Leagues Cup), FC Copenhagen vs Debrecen (Conf. League Qualif non mappée), Chasetown vs Kidsgrove (NPL West), Forfar vs Aberdeen B (slug `Challenge Cup` → Irlande du Nord au lieu d'Écosse)
+- ✅ **Zéro faux positif** confirmé : Man Utd vs Man City → False, Atl. Madrid vs Atl. Mineiro → False, Dep. Madrid vs Deportivo Riestra → False
+
+### Validation Bloc 3 — Aléatoire (6 tirés, ligues mappées)
+- ✅ Trouvé : Daejeon vs FC Seoul (K League 1), Lechia Gdańsk vs Legia (Ekstraklasa), Zagłębie vs Pogoń (Ekstraklasa)
+- ❌ Mapping ligue générique → pays erroné : Riffa vs Al Bahrain (« Premier League » → Angleterre), Ulytau vs Caspiy (« Premier League »), US Monastir vs AS Soliman (« Ligue 1 » → France)
+
+### Points hors périmètre → à traiter en Point 2/3
+1. **Mapping ligue générique par pays** : `Premier League` → Angleterre, `Ligue 1` → France — **impact potentiellement large sur le slate réel** (slate : `Premier League` = Bahreïn/Azerbaïdjan, `Ligue 1` = Tunisie).
+2. **Slug `Challenge Cup` ambigu** (Écosse vs Irlande du Nord) — Forfar vs Aberdeen B non résolu.
+3. **Dépendance à la date** pour désambiguïser les rencontres aller-retour (PSG vs Marseille : 2 candidats Ligue 1 sans date → HONESTY GATE rejette).
+4. **Pages de couverture vides** : friendlies, Leagues Cup, NPL West, Vtora Liga (CSKA Sofia II vs Hebar non listé).
+
+---
+
+## ⚠️ POINT DE VIGILANCE — fork `prono` (à ne pas confondre avec `stitch`)
+
+`C:\Users\HAMDI\prono` est un **second dépôt git distinct, toujours actif** :
+remote `https://github.com/Hamdovsky/prono.git` (identique à l'`origin` de `stitch`),
+historique partagé jusqu'au merge-base `6fefca2`, puis `stitch` a avancé (4 commits d'audit locaux).
+Activité observée jusqu'au 11/08 (`.env`, `app.js`, `scripts/*`).
+
+**Conséquence directe** : `scripts/bypass_scraper.py` (et le `sys.path` de `test_bypass_scraper.py`)
+étaient désynchronisés — le copy `prono` (33 KB, 10/08) est l'ancienne version pré-rebuild
+(mécanisme par pays `_country_betexplorer_slug`), le copy `stitch` (24 KB, rebuild `1cdfb61`)
+est la version cible. **Corrigé au Chantier 3** : `sys.path` du test → relatif au repo `stitch`,
+jamais `prono`.
+
+Aucune action sur `prono` requise pour l'instant. À ne PAS modifier, ne PAS commiter,
+ne PAS fusionner — risque de divergence silencieuse si on édite les deux copies.
+

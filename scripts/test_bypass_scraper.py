@@ -2,11 +2,12 @@
 
 import io
 import json
+import os
 import sys
 from datetime import timedelta
 import pytest
 
-sys.path.insert(0, r'C:\Users\HAMDI\prono\scripts')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bypass_scraper as b
 
 
@@ -281,6 +282,116 @@ def test_main_unknown_command(capsys, monkeypatch):
     b.main()
     out = json.loads(capsys.readouterr().out)
     assert 'error' in out
+
+
+# ── Point 1 — alias abréviation → nom complet ──────────────────────
+
+def test_canonical_alias_psg():
+    assert b._canonical('PSG') == 'paris saint germain'
+    assert b._canonical('Paris SG') == 'paris saint germain'
+
+
+def test_teams_match_psg_vs_full_name():
+    assert b._teams_match('PSG', 'Paris Saint-Germain')
+    assert b._teams_match('Paris Saint-Germain', 'PSG')
+    assert b._teams_match('PSG', 'Paris Saint Germain')
+
+
+def test_teams_match_atl_vs_atletico():
+    assert b._teams_match('Atl. Tucuman', 'Atletico Tucuman')
+    assert b._teams_match('Atletico Tucuman', 'Atl. Tucuman')
+
+
+def test_teams_match_munchen_alias():
+    assert b._teams_match('Bayern Munich', 'Bayern Munchen')
+    assert b._teams_match('Bayern Munich', 'Bayern Muenchen')
+
+
+def test_teams_match_utd_alias_suffix_number():
+    assert b._teams_match('Sydney United 58', 'Sydney Utd')
+    assert b._teams_match('Sydney Utd', 'Sydney United 58')
+
+
+def test_teams_match_dep_alias():
+    assert b._teams_match('Deportivo La Coruna', 'Dep. A Coruna')
+    assert b._teams_match('Deportivo Coruna', 'Dep. A Coruna')
+    assert b._teams_match('Dep. A Coruna', 'Deportivo La Coruna')
+
+
+def test_no_false_positive_dep_alias():
+    assert not b._teams_match('Dep. Madrid', 'Deportivo Riestra')
+    assert not b._teams_match('Dep. Madrid', 'Atletico Tucuman')
+
+
+# ── Point 1 — normalisation d'accents / digraphes ──────────────────
+
+def test_teams_match_accent_digraph():
+    assert b._teams_match('Vaernamo', 'Varnamo')
+    assert b._teams_match('Varnamo', 'Vaernamo')
+    assert b._teams_match('Hacken', 'Häcken')
+
+
+# ── Point 1 — garde anti-faux positifs ─────────────────────────────
+
+def test_no_false_positive_real_first_word():
+    assert not b._teams_match('Real Madrid', 'Real Sociedad')
+    assert not b._teams_match('Real Madrid', 'Real Betis')
+    assert not b._teams_match('Real Sociedad', 'Real Madrid')
+
+
+def test_no_false_positive_shared_city():
+    assert not b._teams_match('Real Madrid', 'Atlético Madrid')
+    assert not b._teams_match('Atl. Madrid', 'Real Madrid')
+
+
+def test_no_false_positive_man_west():
+    assert not b._teams_match('Man Utd', 'Man City')
+    assert not b._teams_match('West Ham', 'West Brom')
+
+
+# ── Point 1 — préfixe court : besoin du contexte (ligue+date) ──────
+
+def test_short_prefix_requires_context_date():
+    assert not b._teams_match('XYZ City', 'XYZI United')
+    assert b._teams_match('XYZ City', 'XYZI United', {'date': '2026-08-12', 'row_date': (8, 12)})
+    assert not b._teams_match('XYZ City', 'XYZI United', {'date': '2026-08-12', 'row_date': (8, 3)})
+
+
+# ── Point 1 — ambiguïté → rejet (HONESTY GATE) ─────────────────────
+
+def _match_row_html(datetime_txt, home, away, href):
+    return (
+        f'<tr><td class="table-main__datetime">{datetime_txt}</td>'
+        f'<td><a href="{href}"><span>{home}</span><span>{away}</span></a></td>'
+        '<td><span data-odd="1.50">1.50</span><span data-odd="4.00">4.00</span>'
+        '<span data-odd="6.00">6.00</span></td></tr>'
+    )
+
+
+def test_find_match_ambiguous_rejected():
+    html = (
+        '<table class="table-main">'
+        + _match_row_html('12.08. 19:00', 'Real Madrid', 'Real Sociedad', '/football/spain/laliga/real-madrid/AAA1111111/')
+        + _match_row_html('12.08. 21:00', 'Real Madrid', 'Real Sociedad', '/football/spain/cup/real-madrid/BBB2222222/')
+        + '</table>'
+    )
+    assert b._find_match_in_html(html, 'Real Madrid', 'Real Sociedad', date='2026-08-12') is None
+    assert b._find_match_in_html(html, 'Real Madrid', 'Real Sociedad') is None
+
+
+def test_find_match_date_disambiguates():
+    html = (
+        '<table class="table-main">'
+        + _match_row_html('12.08. 19:00', 'Deportivo La Coruna', 'Real Madrid', '/football/international/friendly/deportivo/CCC3333333/')
+        + _match_row_html('05.09. 19:00', 'Deportivo La Coruna', 'Real Madrid', '/football/international/friendly/deportivo-2/DDD4444444/')
+        + '</table>'
+    )
+    found = b._find_match_in_html(html, 'Deportivo La Coruna', 'Real Madrid', date='2026-08-12')
+    assert found is not None
+    assert 'CCC3333333' in found['match_url']
+    found2 = b._find_match_in_html(html, 'Deportivo La Coruna', 'Real Madrid', date='2026-09-05')
+    assert found2 is not None
+    assert 'DDD4444444' in found2['match_url']
 
 
 if __name__ == '__main__':

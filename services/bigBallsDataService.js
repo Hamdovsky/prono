@@ -115,14 +115,9 @@ class BigBallsDataService {
               .get(m.home, m.away, m.date?.split('T')[0] || '')
 
             if (existing) {
-              const fd = JSON.parse(
-                database.db.prepare('SELECT fullData FROM matches WHERE id = ?').get(existing.id)
-                  ?.fullData || '{}'
-              )
-              fd.bigballs = { matchId: m.id, league: league.id }
-              database.db
-                .prepare('UPDATE matches SET fullData = ? WHERE id = ?')
-                .run(JSON.stringify(fd), existing.id)
+              // Merge gardé : n'ajoute QUE la clé namespace, ne touche jamais
+              // prediction/confidence/quant/verdict (ré-injection colonnes→fullData).
+              database.mergeFullData(existing.id, 'bigballs', { matchId: m.id, league: league.id })
               updated++
             }
           } catch (_) {}

@@ -1,0 +1,297 @@
+{
+  "generatedAt": "2026-08-12T02:54:54.591Z",
+  "methodology": {
+    "description": "Métrique unifiée : accuracy brute sur prédictions réellement émises, comparées aux résultats finaux, calculée sur matches (FT) + historical_matches. Snapshot au temps T (prédiction/confiance telles qu'enregistrées). Whitelist stricte: 1, X, 2, 1X, X2, 12, O/U+seuil. Labels hors whitelist exclus et comptés (excludedLabels).",
+    "note": "Remplace les fichiers trompeurs promosport_accuracy_trend.json (backfill ML dégénéré « tout-X ») et retro_accuracy_report.json (oracle du favori avec look-ahead) — voir CHANGELOG_AUDIT.md."
+  },
+  "rolling": {
+    "last7days": {
+      "meta": {
+        "generatedAt": "2026-08-12T02:54:54.660Z",
+        "from": 1785898494591,
+        "to": 1786503294591,
+        "marketFilter": "all",
+        "sources": {
+          "matches": "FT|finished|Finished|Ended",
+          "historical_matches": true
+        }
+      },
+      "empty": false,
+      "summary": {
+        "total": 9,
+        "evaluated": 9,
+        "correct": 8,
+        "pushCount": 0,
+        "finishedCount": 441,
+        "noPredictionCount": 432,
+        "accuracy": 0.8888888888888888,
+        "accuracyPct": "88.9%",
+        "logLoss": 94.1101,
+        "brierScore": 562.8343
+      },
+      "calibrationCurve": [
+        {
+          "band": "50-60",
+          "count": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "band": "60-70",
+          "count": 3,
+          "correct": 3,
+          "accuracy": 100
+        },
+        {
+          "band": "70-80",
+          "count": 1,
+          "correct": 1,
+          "accuracy": 100
+        }
+      ],
+      "byLeague": [
+        {
+          "league": "Liga Portugal 2",
+          "total": 2,
+          "correct": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Esiliiga",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "3. Division: Group 6",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Prva Liga",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "I Liga",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Superettan",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Eerste Divisie",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Primera C",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        }
+      ],
+      "excludedLabels": []
+    },
+    "last30days": {
+      "meta": {
+        "generatedAt": "2026-08-12T02:54:54.684Z",
+        "from": 1783911294591,
+        "to": 1786503294591,
+        "marketFilter": "all",
+        "sources": {
+          "matches": "FT|finished|Finished|Ended",
+          "historical_matches": true
+        }
+      },
+      "empty": false,
+      "summary": {
+        "total": 9,
+        "evaluated": 9,
+        "correct": 8,
+        "pushCount": 0,
+        "finishedCount": 441,
+        "noPredictionCount": 432,
+        "accuracy": 0.8888888888888888,
+        "accuracyPct": "88.9%",
+        "logLoss": 94.1101,
+        "brierScore": 562.8343
+      },
+      "calibrationCurve": [
+        {
+          "band": "50-60",
+          "count": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "band": "60-70",
+          "count": 3,
+          "correct": 3,
+          "accuracy": 100
+        },
+        {
+          "band": "70-80",
+          "count": 1,
+          "correct": 1,
+          "accuracy": 100
+        }
+      ],
+      "byLeague": [
+        {
+          "league": "Liga Portugal 2",
+          "total": 2,
+          "correct": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Esiliiga",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "3. Division: Group 6",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Prva Liga",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "I Liga",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Superettan",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Eerste Divisie",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Primera C",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        }
+      ],
+      "excludedLabels": []
+    }
+  },
+  "cumulative": {
+    "meta": {
+      "generatedAt": "2026-08-12T02:54:54.692Z",
+      "from": null,
+      "to": 1786503294591,
+      "marketFilter": "all",
+      "sources": {
+        "matches": "FT|finished|Finished|Ended",
+        "historical_matches": true
+      }
+    },
+    "empty": false,
+    "summary": {
+      "total": 9,
+      "evaluated": 9,
+      "correct": 8,
+      "pushCount": 0,
+      "finishedCount": 441,
+      "noPredictionCount": 432,
+      "accuracy": 0.8888888888888888,
+      "accuracyPct": "88.9%",
+      "logLoss": 94.1101,
+      "brierScore": 562.8343
+    },
+    "calibrationCurve": [
+      {
+        "band": "50-60",
+        "count": 5,
+        "correct": 4,
+        "accuracy": 80
+      },
+      {
+        "band": "60-70",
+        "count": 3,
+        "correct": 3,
+        "accuracy": 100
+      },
+      {
+        "band": "70-80",
+        "count": 1,
+        "correct": 1,
+        "accuracy": 100
+      }
+    ],
+    "byLeague": [
+      {
+        "league": "Liga Portugal 2",
+        "total": 2,
+        "correct": 2,
+        "accuracy": 100
+      },
+      {
+        "league": "Esiliiga",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      },
+      {
+        "league": "3. Division: Group 6",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      },
+      {
+        "league": "Prva Liga",
+        "total": 1,
+        "correct": 0,
+        "accuracy": 0
+      },
+      {
+        "league": "I Liga",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      },
+      {
+        "league": "Superettan",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      },
+      {
+        "league": "Eerste Divisie",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      },
+      {
+        "league": "Primera C",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      }
+    ],
+    "excludedLabels": []
+  }
+}

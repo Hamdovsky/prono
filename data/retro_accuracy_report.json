@@ -1,4 +1,6 @@
 {
+  "deprecated": true,
+  "reason": "Métrique obsolète (ÉTAPE 1 audit). Ce 61.7% est un oracle du favori avec look-ahead massif : computeSurpriseRates() agrège les stats d'équipe sur les 370 concours d'un coup, puis getSurpriseStats() réutilise ces taux globaux pour chaque match passé (y compris le match lui-même). Ne mesure PAS le moteur. Remplacé par data/accuracy_report.json (services/accuracyEngine.js).",
   "generatedAt": "2026-06-24T22:06:06.749Z",
   "totalConcours": 370,
   "totalMatches": 4790,

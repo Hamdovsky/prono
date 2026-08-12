@@ -232,7 +232,15 @@ CREATE TABLE IF NOT EXISTS historical_matches (
     league TEXT,
     fullData TEXT,
     timestamp TEXT,
-    archived_at TIMESTAMPTZ DEFAULT NOW()
+    archived_at TIMESTAMPTZ DEFAULT NOW(),
+    prediction TEXT,
+    confidence REAL,
+    home_win_probability REAL,
+    draw_probability REAL,
+    away_win_probability REAL,
+    expected_score TEXT,
+    result TEXT,
+    settled_at BIGINT
 );
 
 CREATE TABLE IF NOT EXISTS winning_patterns (
@@ -430,6 +438,31 @@ async function runMigrations() {
       }
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] Column check skipped: ${e.message}`)
+    }
+
+    // ─── historical_matches: ensure prediction columns exist ─────────────
+    try {
+      const histCols = await query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'historical_matches'
+      `)
+      const histNames = histCols.rows.map((r) => r.column_name)
+      const addHistCol = (name, type) =>
+        query(`ALTER TABLE historical_matches ADD COLUMN IF NOT EXISTS "${name}" ${type}`).catch(
+          (e) => logger.warn(`[PG MIGRATIONS] Could not add historical_matches.${name}: ${e.message}`)
+        )
+      if (!histNames.includes('prediction')) await addHistCol('prediction', 'TEXT')
+      if (!histNames.includes('confidence')) await addHistCol('confidence', 'REAL')
+      if (!histNames.includes('home_win_probability'))
+        await addHistCol('home_win_probability', 'REAL')
+      if (!histNames.includes('draw_probability')) await addHistCol('draw_probability', 'REAL')
+      if (!histNames.includes('away_win_probability'))
+        await addHistCol('away_win_probability', 'REAL')
+      if (!histNames.includes('expected_score')) await addHistCol('expected_score', 'TEXT')
+      if (!histNames.includes('result')) await addHistCol('result', 'TEXT')
+      if (!histNames.includes('settled_at')) await addHistCol('settled_at', 'BIGINT')
+    } catch (e) {
+      logger.warn(`[PG MIGRATIONS] historical_matches column check skipped: ${e.message}`)
     }
 
     // ─── leagues_config: ensure frontend columns exist, then seed ───────

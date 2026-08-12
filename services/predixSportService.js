@@ -160,14 +160,9 @@ class PredixSportService {
           .get(homeTeam, awayTeam, dateStr)
 
         if (existing) {
-          const fd = JSON.parse(
-            database.db.prepare('SELECT fullData FROM matches WHERE id = ?').get(existing.id)
-              ?.fullData || '{}'
-          )
-          fd.predixsport = mapped
-          database.db
-            .prepare('UPDATE matches SET fullData = ? WHERE id = ?')
-            .run(JSON.stringify(fd), existing.id)
+          // Merge gardé : seule la clé namespace 'predixsport' est écrite,
+          // la prédiction est ré-injectée depuis les colonnes indexées.
+          database.mergeFullData(existing.id, 'predixsport', mapped)
           updated++
         } else {
           logger.info(

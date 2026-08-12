@@ -928,6 +928,50 @@ const pgDb = {
     }
   },
 
+  // ─── MERGE GARDÉ fullData (anti-lost-update) — parité SQLite ──────────
+  // Whitelist stricte + ré-injection des colonnes indexées pour ne jamais perdre
+  // la prédiction lors des syncs de namespace (bigballs/futpython/predixsport).
+  async mergeFullData(matchId, key, value) {
+    try {
+      const row = await query(
+        `SELECT "fullData", prediction, confidence, "home_win_probability", "draw_probability", "away_win_probability", "expected_score", result, "settled_at" FROM matches WHERE id = $1`,
+        [matchId]
+      )
+      if (!row.rows[0]) return false
+      let fd = {}
+      try {
+        fd = typeof row.rows[0].fullData === 'string' ? JSON.parse(row.rows[0].fullData) : row.rows[0].fullData || {}
+      } catch (_) {
+        fd = {}
+      }
+      if (fd[key] && typeof fd[key] === 'object' && value && typeof value === 'object') {
+        fd[key] = { ...fd[key], ...value }
+      } else {
+        fd[key] = value
+      }
+      const authoritative = {
+        prediction: row.rows[0].prediction,
+        confidence: row.rows[0].confidence,
+        home_win_probability: row.rows[0].home_win_probability,
+        draw_probability: row.rows[0].draw_probability,
+        away_win_probability: row.rows[0].away_win_probability,
+        expected_score: row.rows[0].expected_score,
+        result: row.rows[0].result,
+        settled_at: row.rows[0].settled_at,
+      }
+      for (const [k, v] of Object.entries(authoritative)) {
+        if (v !== null && v !== undefined) fd[k] = v
+      }
+      await query(
+        `UPDATE matches SET "fullData" = $1::jsonb, last_updated = $2 WHERE id = $3`,
+        [JSON.stringify(fd), Date.now(), matchId]
+      )
+      return true
+    } catch (_) {
+      return false
+    }
+  },
+
   async archiveFinishedMatches() {
     try {
       const finished = await query(
@@ -939,8 +983,25 @@ const pgDb = {
       for (const r of finished.rows) {
         const sh = r.scoreHome ?? r.scorehome ?? 0,
           sa = r.scoreAway ?? r.scoreaway ?? 0
+
+        // Anti-écrasement : ré-injecte le verdict depuis les colonnes si le fullData a été écrasé.
+        let fd = {}
+        try {
+          fd =
+            typeof (r.fullData ?? r.fulldata) === 'string'
+              ? JSON.parse(r.fullData ?? r.fulldata)
+              : r.fullData ?? r.fulldata ?? {}
+        } catch (_) {
+          fd = {}
+        }
+        const rPrediction = r.prediction
+        if (rPrediction && !fd.prediction) fd.prediction = rPrediction
+        if (r.confidence != null && fd.confidence == null) fd.confidence = r.confidence
+        if (r.result != null && fd.result == null) fd.result = r.result
+        if (r.settled_at != null && fd.settled_at == null) fd.settled_at = r.settled_at
+
         await query(
-          `INSERT INTO historical_matches (id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", league, "fullData", timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING`,
+          `INSERT INTO historical_matches (id, "homeTeam", "awayTeam", "scoreHome", "scoreAway", league, "fullData", timestamp, prediction, confidence, "home_win_probability", "draw_probability", "away_win_probability", "expected_score", result, "settled_at") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) ON CONFLICT (id) DO NOTHING`,
           [
             r.id,
             r.homeTeam,
@@ -948,8 +1009,16 @@ const pgDb = {
             sh,
             sa,
             r.league,
-            (r.fullData ?? r.fulldata) || '{}',
+            JSON.stringify(fd),
             r.timestamp || new Date().toISOString(),
+            r.prediction ?? null,
+            r.confidence ?? null,
+            r.home_win_probability ?? r.homewinprobability ?? null,
+            r.draw_probability ?? r.drawprobability ?? null,
+            r.away_win_probability ?? r.awaywinprobability ?? null,
+            r.expected_score ?? null,
+            r.result ?? null,
+            r.settled_at ?? null,
           ]
         )
         await query(

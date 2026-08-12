@@ -383,7 +383,15 @@ function initSchema() {
                 league TEXT,
                 fullData TEXT,
                 timestamp TEXT,
-                archived_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                prediction TEXT,
+                confidence REAL,
+                home_win_probability REAL,
+                draw_probability REAL,
+                away_win_probability REAL,
+                expected_score TEXT,
+                result TEXT,
+                settled_at INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS winning_patterns (
@@ -634,6 +642,14 @@ function runMigrations() {
     ['leagues_config', 'smartScanEnabled', 'INTEGER DEFAULT 1'],
     ['leagues_config', 'webhookEnabled', 'INTEGER DEFAULT 1'],
     ['leagues_config', 'arabicNewsEnabled', 'INTEGER DEFAULT 0'],
+    ['historical_matches', 'prediction', 'TEXT'],
+    ['historical_matches', 'confidence', 'REAL'],
+    ['historical_matches', 'home_win_probability', 'REAL'],
+    ['historical_matches', 'draw_probability', 'REAL'],
+    ['historical_matches', 'away_win_probability', 'REAL'],
+    ['historical_matches', 'expected_score', 'TEXT'],
+    ['historical_matches', 'result', 'TEXT'],
+    ['historical_matches', 'settled_at', 'INTEGER'],
   ]
 
   let added = 0
@@ -1391,6 +1407,68 @@ const database = {
     }
   },
 
+  // ─── MERGE GARDÉ fullData (anti-lost-update) ──────────────────────────
+  // Les services de sync (bigballs/futpython/predixsport/footballData) ne doivent
+  // JAMAIS perdre la prédiction. Ils n'ont le droit d'écraser QUE leur clé namespace.
+  // La ré-injection des colonnes indexées (source de vérité) protège contre un
+  // stale-read cross-process : même si le fullData lu est obsolète, le verdict
+  // prédiction/confiance/probas est rétabli à l'écriture.
+  mergeFullData: (matchId, key, value) => {
+    try {
+      const row = db
+        .prepare(
+          `SELECT fullData, prediction, confidence, home_win_probability, draw_probability,
+                  away_win_probability, expected_score, result, settled_at
+           FROM matches WHERE id = ?`
+        )
+        .get(matchId)
+      if (!row) return false
+
+      let fd = {}
+      try {
+        fd = typeof row.fullData === 'string' ? JSON.parse(row.fullData) : row.fullData || {}
+      } catch (_) {
+        fd = {}
+      }
+
+      // Whitelist stricte : seule la clé namespace du service est écrasée.
+      if (
+        fd[key] &&
+        typeof fd[key] === 'object' &&
+        value &&
+        typeof value === 'object'
+      ) {
+        fd[key] = { ...fd[key], ...value }
+      } else {
+        fd[key] = value
+      }
+
+      // Ré-injection anti-écrasement : les colonnes indexées font foi.
+      const authoritative = {
+        prediction: row.prediction,
+        confidence: row.confidence,
+        home_win_probability: row.home_win_probability,
+        draw_probability: row.draw_probability,
+        away_win_probability: row.away_win_probability,
+        expected_score: row.expected_score,
+        result: row.result,
+        settled_at: row.settled_at,
+      }
+      for (const [k, v] of Object.entries(authoritative)) {
+        if (v !== null && v !== undefined) fd[k] = v
+      }
+
+      db.prepare('UPDATE matches SET fullData = ?, last_updated = ? WHERE id = ?').run(
+        JSON.stringify(fd),
+        Date.now(),
+        matchId
+      )
+      return true
+    } catch (_) {
+      return false
+    }
+  },
+
   getLatestMatchTimestamp: async () => {
     const row = db.prepare('SELECT MAX(timestamp) as lastupdate FROM matches').get()
     return row?.lastupdate
@@ -1535,8 +1613,11 @@ const database = {
       if (finished.length === 0) return { success: true, archivedCount: 0 }
 
       const insert = db.prepare(`
-                INSERT INTO historical_matches (id, homeTeam, awayTeam, scoreHome, scoreAway, league, fullData, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO historical_matches (
+                    id, homeTeam, awayTeam, scoreHome, scoreAway, league, fullData, timestamp,
+                    prediction, confidence, home_win_probability, draw_probability, away_win_probability,
+                    expected_score, result, settled_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO NOTHING
             `)
 
@@ -1560,6 +1641,20 @@ const database = {
           const sh = r.scoreHome ?? 0
           const sa = r.scoreAway ?? 0
 
+          // Anti-écrasement : la colonne prediction/confiance est la source de vérité.
+          // Si le fullData a été écrasé (ex: backfill externe), on y ré-injecte le verdict
+          // avant l'archivage pour ne RIEN perdre.
+          let fd = {}
+          try {
+            fd = typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData || {}
+          } catch (_) {
+            fd = {}
+          }
+          if (r.prediction && !fd.prediction) fd.prediction = r.prediction
+          if (r.confidence != null && fd.confidence == null) fd.confidence = r.confidence
+          if (r.result && !fd.result) fd.result = r.result
+          if (r.settled_at != null && fd.settled_at == null) fd.settled_at = r.settled_at
+
           insert.run(
             r.id,
             r.homeTeam,
@@ -1567,8 +1662,16 @@ const database = {
             sh,
             sa,
             r.league,
-            r.fullData || '{}',
-            r.timestamp || new Date().toISOString()
+            JSON.stringify(fd),
+            r.timestamp || new Date().toISOString(),
+            r.prediction ?? null,
+            r.confidence ?? null,
+            r.home_win_probability ?? null,
+            r.draw_probability ?? null,
+            r.away_win_probability ?? null,
+            r.expected_score ?? null,
+            r.result ?? null,
+            r.settled_at ?? null
           )
           updateHist.run(sh, sa, sh, sa, sh, sa, r.id)
           deleteStmt.run(r.id)

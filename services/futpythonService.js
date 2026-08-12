@@ -125,15 +125,9 @@ class FutPythonTraderService {
               )
               .get(home, away, dateStr.split('T')[0])
             if (existing) {
-              const fd = JSON.parse(
-                database.db.prepare('SELECT fullData FROM matches WHERE id = ?').get(existing.id)
-                  ?.fullData || '{}'
-              )
-              if (!fd.futpython) fd.futpython = {}
-              fd.futpython[source] = g
-              database.db
-                .prepare('UPDATE matches SET fullData = ? WHERE id = ?')
-                .run(JSON.stringify(fd), existing.id)
+              // Merge gardé : seule la clé namespace 'futpython' (par source) est écrite,
+              // la prédiction est ré-injectée depuis les colonnes indexées.
+              database.mergeFullData(existing.id, 'futpython', { [source]: g })
               total++
             }
           } catch (_) {}

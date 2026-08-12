@@ -149,11 +149,14 @@ async function syncFootballData() {
           )
           .get(home, away, today)
         if (existing) {
-          const fd = JSON.parse(existing.fullData || '{}')
-          fd.footballData = { score, status, competition: 'WC', matchId: m.id }
-          database.db
-            ?.prepare('UPDATE matches SET fullData = ? WHERE id = ?')
-            .run(JSON.stringify(fd), existing.id)
+          // Merge gardé : seule la clé namespace 'footballData' est écrite,
+          // la prédiction est ré-injectée depuis les colonnes indexées.
+          database.mergeFullData(existing.id, 'footballData', {
+            score,
+            status,
+            competition: 'WC',
+            matchId: m.id,
+          })
         }
       } catch (_) {}
     }

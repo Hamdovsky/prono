@@ -153,6 +153,23 @@ def test_league_slug_mapping():
     assert b._league_to_betexplorer_slug(None) is None
 
 
+def test_league_slug_mapping_country_aware():
+    assert b._league_to_betexplorer_slug('Challenge Cup') == '/football/scotland/challenge-cup/'
+    assert b._league_to_betexplorer_slug('Challenge Cup', 'Scotland') == '/football/scotland/challenge-cup/'
+    assert b._league_to_betexplorer_slug('Challenge Cup', 'Northern Ireland') == '/football/northern-ireland/challenge-cup/'
+    assert b._league_to_betexplorer_slug('Premiership') == '/football/south-africa/premiership/'
+    assert b._league_to_betexplorer_slug('Premiership', 'South Africa') == '/football/south-africa/premiership/'
+    assert b._league_to_betexplorer_slug('Premiership', 'Scotland') == '/football/scotland/premier-league/'
+    assert b._league_to_betexplorer_slug('Championship') == '/football/england/championship/'
+    assert b._league_to_betexplorer_slug('Championship', 'England') == '/football/england/championship/'
+    assert b._league_to_betexplorer_slug('Championship', 'Northern Ireland') == '/football/northern-ireland/championship/'
+    assert b._league_to_betexplorer_slug('Vtora Liga', 'Bulgaria') == '/football/bulgaria/second-league/'
+    assert b._league_to_betexplorer_slug('Leagues Cup', 'CONCACAF') == '/football/usa/leagues-cup/'
+    assert b._league_to_betexplorer_slug('Premier League', 'Bahrain') == '/football/bahrain/premier-league/'
+    assert b._league_to_betexplorer_slug('Premier League', 'Kazakhstan') == '/football/kazakhstan/premier-league/'
+    assert b._league_to_betexplorer_slug('Ligue 1', 'Tunisia') == '/football/tunisia/ligue-professionnelle-1/'
+
+
 def test_teams_match():
     assert b._teams_match('Manchester City', 'Man City')
     assert b._teams_match('Arsenal', 'Arsenal')

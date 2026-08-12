@@ -175,7 +175,23 @@ class DataFusionService {
   async _tryScrapeService(match) {
     if (!match.homeTeam || !match.awayTeam) return null
     const scrapeService = require('./scrapeService')
-    const result = await scrapeService.getOdds(match.homeTeam, match.awayTeam, match.league || '')
+    let country = ''
+    if (match.country) {
+      country = match.country
+    } else if (match.category_name) {
+      country = match.category_name
+    } else if (match.fullData) {
+      try {
+        const fd = typeof match.fullData === 'string' ? JSON.parse(match.fullData) : match.fullData
+        country = fd.country || fd.category_name || ''
+      } catch (_) {}
+    }
+    const result = await scrapeService.getOdds(
+      match.homeTeam,
+      match.awayTeam,
+      match.league || '',
+      country
+    )
     if (result && result.home_win && result.away_win) {
       return { home: result.home_win, draw: result.draw, away: result.away_win }
     }

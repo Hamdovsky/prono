@@ -147,13 +147,13 @@ class OddsFusionEngine:
 
     # ── Tier 2: BetExplorer Bypass Scraper (curl_cffi TLS fingerprint) ──
 
-    def _tier2_betexplorer_bypass(self, home, away, league):
+    def _tier2_betexplorer_bypass(self, home, away, league, country=None):
         """BetExplorer via bypass scraper (curl_cffi, recherche directe).
         Retourne 1X2 + match_url si trouvé."""
         try:
             sys.path.insert(0, os.path.join(BASE_DIR, 'scripts'))
             from bypass_scraper import betexplorer_search
-            result = betexplorer_search(home, away, league)
+            result = betexplorer_search(home, away, league, country=country)
             if result and result.get('odds') and result['odds'].get('home_win'):
                 odds = result['odds']
                 odds['source'] = 'betexplorer'
@@ -165,9 +165,9 @@ class OddsFusionEngine:
             self._log(2, f'[bypass] Error: {ex}')
 
         # Fallback: try the legacy cloudscraper method (league pages)
-        return self._tier2_betexplorer_legacy(home, away, league)
+        return self._tier2_betexplorer_legacy(home, away, league, country)
 
-    def _tier2_betexplorer_legacy(self, home, away, league):
+    def _tier2_betexplorer_legacy(self, home, away, league, country=None):
         """Legacy BetExplorer scraper via cloudscraper + BS4 (league pages)."""
         try:
             import cloudscraper
@@ -175,7 +175,7 @@ class OddsFusionEngine:
         except ImportError:
             return None
 
-        league_slug = self._league_to_betexplorer_slug(league)
+        league_slug = self._league_to_betexplorer_slug(league, country)
         if not league_slug:
             return None
 
@@ -413,8 +413,38 @@ class OddsFusionEngine:
                             except: pass
         return None
 
-    def _league_to_betexplorer_slug(self, league):
+    def _league_to_betexplorer_slug(self, league, country=None):
         mapping = {
+            'Northern Premier League': '/football/england/northern-premier-league/',
+            'Southern League Premier: South': '/football/england/southern-league-premier-south/',
+            'Southern League Premier: Central': '/football/england/southern-league-premier-central/',
+            'Isthmian League Premier': '/football/england/isthmian-league-premier/',
+            'Southern League: Central': '/football/england/southern-league-central/',
+            'National League Cup': '/football/england/national-league-cup/',
+            'Regionalliga Nordost': '/football/germany/regionalliga-nordost/',
+            'Regionalliga Nord': '/football/germany/regionalliga-nord/',
+            'Oberliga: Rheinland': '/football/germany/oberliga-rheinland-pfalz-saar/',
+            'Oberliga: Baden': '/football/germany/oberliga-baden-wuerttemberg/',
+            'Oberliga: Hessen': '/football/germany/oberliga-hessen/',
+            'Oberliga: Bremen': '/football/germany/oberliga-bremen/',
+            'Champions League: Qualification': '/football/europe/champions-league-qualification/',
+            'UEFA Super Cup': '/football/europe/uefa-super-cup/',
+            'Challenge Cup': '/football/scotland/challenge-cup/',
+            'Premiership': '/football/south-africa/premiership/',
+            'Ykkonen': '/football/finland/ykkonen/',
+            'Australia Cup': '/football/australia/australia-cup/',
+            'DBU Pokalen': '/football/denmark/dbu-pokalen/',
+            'Vtora Liga': '/football/bulgaria/second-league/',
+            'MLS Next Pro': '/football/usa/mls-next-pro/',
+            'Superettan': '/football/sweden/superettan/',
+            'Primera B': '/football/chile/primera-b/',
+            'USL Cup': '/football/usa/usl-cup/',
+            'Leagues Cup': '/football/usa/leagues-cup/',
+            'Copa Argentina': '/football/argentina/copa-argentina/',
+            'Canadian Championship': '/football/canada/canadian-championship/',
+            'Copa Ecuador': '/football/ecuador/copa-ecuador/',
+            'Club Friendlies': '/football/international/friendly/',
+            'Featured Club Friendlies': '/football/international/friendly/',
             'Brasileirão Serie B': '/football/brazil/serie-b/',
             'Brasileirão Serie A': '/football/brazil/serie-a/',
             'Segunda División': '/football/spain/segunda-division/',
@@ -451,6 +481,16 @@ class OddsFusionEngine:
             'World Cup 2026': '/football/international/world-cup/',
             'International Friendly': '/football/international/friendly/',
         }
+        if country:
+            try:
+                if 'bypass_scraper' not in sys.modules:
+                    sys.path.insert(0, os.path.join(BASE_DIR, 'scripts'))
+                import bypass_scraper
+                for (lk, ck), slug in bypass_scraper.LEAGUE_SLUG_COUNTRY_MAPPING.items():
+                    if lk in league.lower() and ck in country.lower():
+                        return slug
+            except Exception:
+                pass
         for key, slug in mapping.items():
             if key.lower() in league.lower():
                 return slug
@@ -635,7 +675,7 @@ class OddsFusionEngine:
 
     # ── Public API ───────────────────────────────────────────
 
-    def get_odds(self, home, away, league, prefer_real=True, use_soccerapi=False):
+    def get_odds(self, home, away, league, prefer_real=True, use_soccerapi=False, country=None):
         """
         Obtenir les cotes pour un match via la fusion multi-tiers.
         Toutes les sources travaillent en équipe — 1X2, OU/BTTS, ML.
@@ -694,7 +734,7 @@ class OddsFusionEngine:
 
         # Tier 2: BetExplorer bypass (1X2)
         try:
-            odds = self._tier2_betexplorer_bypass(home, away, league)
+            odds = self._tier2_betexplorer_bypass(home, away, league, country)
             if odds and odds.get('home_win') is not None:
                 result['home_win'] = odds['home_win']
                 result['draw'] = odds['draw']

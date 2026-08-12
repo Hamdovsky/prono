@@ -153,13 +153,14 @@ async function scrapeViaFirecrawl(targetUrl, schema) {
 
 // ── Tier 3: Python cloudscraper bridge ──────────────────────────
 // Calls the existing oddsFusionEngine.py directly
-async function scrapeViaPython(home, away, league) {
+async function scrapeViaPython(home, away, league, country) {
   const pythonBin = process.platform === 'win32' ? 'python' : 'python3'
   return new Promise((resolve, reject) => {
     const escapedBase = BASE_DIR.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     const escapedHome = home.replace(/'/g, "\\'")
     const escapedAway = away.replace(/'/g, "\\'")
     const escapedLeague = league.replace(/'/g, "\\'")
+    const escapedCountry = (country || '').replace(/'/g, "\\'")
     const script = `
 import sys, json
 sys.path.insert(0, r'${escapedBase}/services')
@@ -167,7 +168,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 from oddsFusionEngine import OddsFusionEngine
 engine = OddsFusionEngine()
 try:
-    o = engine.get_odds('''${escapedHome}''', '''${escapedAway}''', '''${escapedLeague}''', prefer_real=True, use_soccerapi=False)
+    o = engine.get_odds('''${escapedHome}''', '''${escapedAway}''', '''${escapedLeague}''', prefer_real=True, use_soccerapi=False, country='''${escapedCountry}''')
     print(json.dumps(o))
 except Exception as e:
     print(json.dumps({'error': str(e)}))
@@ -312,8 +313,8 @@ function getSoccerwayUrl(league) {
  * Main entry: get odds for a match.
  * Fallback chain: Python (cloudscraper) → Jina Reader → Firecrawl
  */
-async function getOdds(homeTeam, awayTeam, league) {
-  const cacheKey = `${homeTeam}|${awayTeam}|${league}`
+async function getOdds(homeTeam, awayTeam, league, country) {
+  const cacheKey = `${homeTeam}|${awayTeam}|${league}|${country || ''}`
 
   // Check cache
   const cached = SCRAPE_CACHE.get(cacheKey)
@@ -354,7 +355,7 @@ async function getOdds(homeTeam, awayTeam, league) {
 
   // 1. Try Python cloudscraper (works for BetExplorer)
   try {
-    const result = await scrapeViaPython(homeTeam, awayTeam, league)
+    const result = await scrapeViaPython(homeTeam, awayTeam, league, country)
     if (result && result.home_win && result.draw && result.away_win) {
       result.source = (result.source || 'python') + ':cloudscraper'
       result.scraped_at = new Date().toISOString()

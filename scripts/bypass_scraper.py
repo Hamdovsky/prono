@@ -341,9 +341,8 @@ LEAGUE_SLUG_MAPPING = {
     'Oberliga: Bremen': '/football/germany/oberliga-bremen/',
     'Champions League: Qualification': '/football/europe/champions-league-qualification/',
     'UEFA Super Cup': '/football/europe/uefa-super-cup/',
-    'Championship': '/football/northern-ireland/championship/',
-    'Challenge Cup': '/football/northern-ireland/challenge-cup/',
-    'Premiership': '/football/scotland/premier-league/',
+    'Challenge Cup': '/football/scotland/challenge-cup/',
+    'Premiership': '/football/south-africa/premiership/',
     'Ykkonen': '/football/finland/ykkonen/',
     'Australia Cup': '/football/australia/australia-cup/',
     'DBU Pokalen': '/football/denmark/dbu-pokalen/',
@@ -400,10 +399,32 @@ LEAGUE_SLUG_MAPPING = {
 }
 
 
-def _league_to_betexplorer_slug(league):
+# Ambiguïtés pays-aware : (league_lower, country_lower) -> slug.
+# Challenge Cup = Écosse (slate réel), Premiership = Afrique du Sud (DStv),
+# Championship par défaut = Angleterre (EFL), désambiguïsé par pays.
+LEAGUE_SLUG_COUNTRY_MAPPING = {
+    ('challenge cup', 'scotland'): '/football/scotland/challenge-cup/',
+    ('challenge cup', 'northern ireland'): '/football/northern-ireland/challenge-cup/',
+    ('premiership', 'south africa'): '/football/south-africa/premiership/',
+    ('premiership', 'scotland'): '/football/scotland/premier-league/',
+    ('championship', 'northern ireland'): '/football/northern-ireland/championship/',
+    ('championship', 'england'): '/football/england/championship/',
+    ('premier league', 'bahrain'): '/football/bahrain/premier-league/',
+    ('premier league', 'kazakhstan'): '/football/kazakhstan/premier-league/',
+    ('ligue 1', 'tunisia'): '/football/tunisia/ligue-professionnelle-1/',
+}
+
+
+def _league_to_betexplorer_slug(league, country=None):
     if not league:
         return None
     league_lower = league.lower()
+    # Résolution par pays : désambiguïse les ligues homonymes (Challenge Cup, Premiership, Championship).
+    if country:
+        country_lower = country.lower().strip()
+        for (lk, ck), slug in LEAGUE_SLUG_COUNTRY_MAPPING.items():
+            if lk in league_lower and ck in country_lower:
+                return slug
     for key, slug in LEAGUE_SLUG_MAPPING.items():
         if key.lower() in league_lower:
             return slug
@@ -527,9 +548,9 @@ def _find_match_in_html(html, home, away, date=None):
     return None
 
 
-def betexplorer_search(home, away, league=None, date=None):
+def betexplorer_search(home, away, league=None, date=None, country=None):
     """Recherche BetExplorer via la page de ligue (slug). Retourne 1X2 + match_url."""
-    slug = _league_to_betexplorer_slug(league)
+    slug = _league_to_betexplorer_slug(league, country)
     if not slug:
         return {"odds": None, "match_url": None, "match_hash": None, "error": "no_league_slug"}
 
@@ -610,9 +631,9 @@ def betexplorer_match_btts(match_url, use_firecrawl=True):
     return {"btts": btts, "source": "betexplorer" if btts else "static_empty"}
 
 
-def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None):
+def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None, country=None):
     """Pipeline complet: recherche -> 1X2 (+ OU/BTTS si data-odd statique dispo)."""
-    search = betexplorer_search(home, away, league, date=date)
+    search = betexplorer_search(home, away, league, date=date, country=country)
     result = {
         "odds": None,
         "over_25": None,
@@ -738,14 +759,16 @@ def main():
         league = input_data.get("league", "")
         use_fc = input_data.get("use_firecrawl", True)
         date = input_data.get("date")
-        result = betexplorer_full(home, away, league, use_firecrawl=use_fc, date=date)
+        country = input_data.get("country")
+        result = betexplorer_full(home, away, league, use_firecrawl=use_fc, date=date, country=country)
         print(json.dumps(result, ensure_ascii=False))
     elif cmd == "betexplorer_search":
         home = input_data.get("home", "")
         away = input_data.get("away", "")
         league = input_data.get("league", "")
         date = input_data.get("date")
-        result = betexplorer_search(home, away, league, date=date)
+        country = input_data.get("country")
+        result = betexplorer_search(home, away, league, date=date, country=country)
         print(json.dumps(result, ensure_ascii=False))
     elif cmd == "estimate_ou_btts":
         home = input_data.get("home", "")

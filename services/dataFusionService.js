@@ -71,6 +71,7 @@ class DataFusionService {
     if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
 
     const sorted = [...this.sources].sort((a, b) => a.priority - b.priority)
+    let oddsError = null
 
     // Souces probabilistically-derived odds (xG / prediction-margin) are NOT real
     // bookmaker quotes. They must not be treated as "real odds" for value/honesty.
@@ -126,13 +127,20 @@ class DataFusionService {
         }
 
         if (odds && odds.home && odds.away) {
-          const withFlag = { ...odds, bookmaker: BOOKMAKER_SOURCES.has(source.name) }
+          const isBookmaker =
+            BOOKMAKER_SOURCES.has(source.name) || (odds.bookmaker === true)
+          const withFlag = { ...odds, bookmaker: isBookmaker }
           this.recordSuccess(source.name)
           logger.info(
             `[DATAFUSION] Odds from ${source.name} for ${match.homeTeam} vs ${match.awayTeam}: ${odds.home} / ${odds.draw} / ${odds.away} ${withFlag.bookmaker ? '(bookmaker)' : '(probability-derived)'}`
           )
           cache.set(cacheKey, { ts: Date.now(), data: withFlag })
+          await this._persistOddsOutcome(match, withFlag)
           return withFlag
+        }
+        if (source.name === 'scrapeservice') {
+          if (odds && odds._odds_fetch_error) oddsError = odds._odds_fetch_error
+          continue
         }
         this.recordError(source.name)
       } catch (e) {
@@ -141,10 +149,29 @@ class DataFusionService {
       }
     }
 
+    await this._persistOddsOutcome(match, null, oddsError)
     logger.warn(
       `[DATAFUSION] No odds source available for ${match.id} (${match.homeTeam} vs ${match.awayTeam})`
     )
     return null
+  }
+
+  // Trace le résultat HONNÊTE de la collecte dans matches (voir database.persistOdds):
+  // réussite → odds_home/draw/away + odds_source='betexplorer'; échec →
+  // odds_source=null + odds_fetch_error=raison. Ne modifie jamais les prédictions.
+  async _persistOddsOutcome(match, result, fetchError) {
+    try {
+      const database = require('../core/database')
+      database.persistOdds(match.id, {
+        odds_home: result ? result.home : null,
+        odds_draw: result ? result.draw : null,
+        odds_away: result ? result.away : null,
+        odds_source: result ? result.source || 'betexplorer' : null,
+        odds_fetch_error: fetchError || (result ? null : 'no_source_available'),
+      })
+    } catch (_) {
+      // La traçabilité ne doit jamais casser la collecte des cotes.
+    }
   }
 
   async _getSofaId(match) {
@@ -173,8 +200,8 @@ class DataFusionService {
   }
 
   async _tryScrapeService(match) {
-    if (!match.homeTeam || !match.awayTeam) return null
-    const scrapeService = require('./scrapeService')
+    if (!match.homeTeam || !match.awayTeam)
+      return { _odds_fetch_error: 'scraper:no_teams' }
     let country = ''
     if (match.country) {
       country = match.country
@@ -186,16 +213,34 @@ class DataFusionService {
         country = fd.country || fd.category_name || ''
       } catch (_) {}
     }
-    const result = await scrapeService.getOdds(
-      match.homeTeam,
-      match.awayTeam,
-      match.league || '',
-      country
-    )
-    if (result && result.home_win && result.away_win) {
-      return { home: result.home_win, draw: result.draw, away: result.away_win }
+    const scrapers = require('./scrapers')
+    let result = null
+    try {
+      result = await scrapers.getOdds(match.homeTeam, match.awayTeam, match.league || '', {
+        country,
+        date: match.startTimestamp || null,
+      })
+    } catch (e) {
+      return { _odds_fetch_error: `scrape_exception:${e.message}` }
     }
-    return null
+    if (!result || !result.home_win || !result.away_win) {
+      return { _odds_fetch_error: 'betexplorer:no_match' }
+    }
+    // HONESTY GATE: les cotes dérivées/probabilités ne sont pas des cotes bookmaker.
+    if (
+      result.source === 'default' ||
+      result.source === 'historical' ||
+      result.source === 'historical+elo'
+    ) {
+      return { _odds_fetch_error: `non_bookmaker:${result.source}` }
+    }
+    return {
+      home: result.home_win,
+      draw: result.draw,
+      away: result.away_win,
+      source: result.source || 'betexplorer',
+      bookmaker: true,
+    }
   }
 
   async _tryPolymarket(match) {

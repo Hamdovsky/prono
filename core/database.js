@@ -190,6 +190,8 @@ function initSchema() {
                 odds_home REAL,
                 odds_draw REAL,
                 odds_away REAL,
+                odds_source TEXT,
+                odds_fetch_error TEXT,
                 odds_over25 REAL,
                 odds_under25 REAL,
                 odds_btts_yes REAL,
@@ -279,6 +281,7 @@ function initSchema() {
                 odds_draw REAL,
                 odds_away REAL,
                 odds_source TEXT,
+                odds_fetch_error TEXT,
                 ev REAL,
                 kelly REAL,
                 has_real_odds INTEGER DEFAULT 0,
@@ -624,6 +627,8 @@ function runMigrations() {
     ['matches', 'result', 'TEXT'],
     ['matches', 'settled_at', 'INTEGER'],
     ['matches', 'market_type', 'TEXT'],
+    ['matches', 'odds_fetch_error', 'TEXT'],
+    ['matches', 'odds_source', 'TEXT'],
     ['matches', 'ev_draw', 'REAL'],
     ['matches', 'ev_away', 'REAL'],
     ['matches', 'kelly_stake', 'REAL'],
@@ -1403,6 +1408,42 @@ const database = {
       return false
     } catch (e) {
       logger.error(`❌ [DB] updatePredictions failed for ${matchId}: ${e.message}`)
+      return false
+    }
+  },
+
+  // ─── ÉCRITURE COTES HONNÊTES (dataFusionService.fetchOdds) ─────────
+  // Petit writer dédié aux colonnes odds (home/draw/away + source + erreur).
+  // Ne touche JAMAIS aux prédictions (contrairement à updatePredictions qui
+  // exige fullData+verdict). Permet de tracer dans matches le résultat de la
+  // récupération réelle: réussite → odds_source='betexplorer'; échec →
+  // odds_source=null + odds_fetch_error=raison.
+  persistOdds: (matchId, row = {}) => {
+    try {
+      db.prepare(
+        `UPDATE matches SET
+           odds_home = COALESCE(?, odds_home),
+           odds_draw = COALESCE(?, odds_draw),
+           odds_away = COALESCE(?, odds_away),
+           odds_source = ?,
+           odds_fetch_error = ?,
+           last_updated = ?
+         WHERE id = ?`
+      ).run(
+        row.odds_home ?? null,
+        row.odds_draw ?? null,
+        row.odds_away ?? null,
+        row.odds_source ?? null,
+        row.odds_fetch_error ?? null,
+        Date.now(),
+        matchId
+      )
+      logger.debug(
+        `✅ [DB] odds persisted for ${matchId} (source=${row.odds_source || 'none'}, error=${row.odds_fetch_error || 'none'})`
+      )
+      return true
+    } catch (err) {
+      logger.warn(`[DB] persistOdds failed for ${matchId}: ${err.message}`)
       return false
     }
   },

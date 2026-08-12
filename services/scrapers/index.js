@@ -152,7 +152,7 @@ async function getOdds(homeTeam, awayTeam, league, opts = {}) {
     const bridge = getPythonBridge()
     if (bridge) {
       try {
-        const result = await bridge.getOdds(homeTeam, awayTeam, league, opts.country)
+        const result = await bridge.getOdds(homeTeam, awayTeam, league, opts.country, opts.date)
         if (result && result.home_win) return result
       } catch {}
     }
@@ -162,7 +162,7 @@ async function getOdds(homeTeam, awayTeam, league, opts = {}) {
   for (const { name, scraper } of chain) {
     if (opts.preferSource && opts.preferSource !== name) continue
     try {
-      const result = await scraper.getOdds(homeTeam, awayTeam, league, opts.country)
+      const result = await scraper.getOdds(homeTeam, awayTeam, league, opts.country, opts.date)
       if (result && result.home_win) {
         recordSuccess(name)
         result._scraper = name

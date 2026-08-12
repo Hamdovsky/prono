@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS matches (
     odds_home REAL,
     odds_draw REAL,
     odds_away REAL,
+    odds_source TEXT,
+    odds_fetch_error TEXT,
     ev_home REAL,
     ev_best TEXT,
     weather_temp REAL,
@@ -391,6 +393,8 @@ async function runMigrations() {
             logger.warn(`[PG MIGRATIONS] Could not add ${name}: ${e.message}`)
           )
         await addCol('tournament_id_official', 'TEXT')
+        await addCol('odds_source', 'TEXT')
+        await addCol('odds_fetch_error', 'TEXT')
         await addCol('home_attack_impact', 'REAL')
         await addCol('home_defense_impact', 'REAL')
         await addCol('away_attack_impact', 'REAL')

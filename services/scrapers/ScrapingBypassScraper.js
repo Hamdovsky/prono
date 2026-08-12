@@ -39,8 +39,8 @@ function callPython(data) {
   })
 }
 
-async function getOdds(homeTeam, awayTeam, league, country) {
-  const cacheKey = `odds:${homeTeam}:${awayTeam}:${league}:${country || ''}`
+async function getOdds(homeTeam, awayTeam, league, country, date) {
+  const cacheKey = `odds:${homeTeam}:${awayTeam}:${league}:${country || ''}:${date || ''}`
   const cached = CACHE.get(cacheKey)
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
 
@@ -52,6 +52,7 @@ async function getOdds(homeTeam, awayTeam, league, country) {
         away: awayTeam,
         league,
         country,
+        date,
         options: { fingerprint: fp, timeout: 25 },
       })
       if (result && result.odds && result.odds.home_win) {

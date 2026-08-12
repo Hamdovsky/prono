@@ -403,77 +403,7 @@ process.on('SIGINT', shutDown)
 // Uses ONLY synthetic odds + JS QuantumQuantEngine — no Python, no external APIs
 setTimeout(() => {
   const database = require('./core/database')
-  const StatisticalEngine = require('./core/services/StatisticalEngine')
-  const QuantumQuantEngine = require('./core/QuantumQuantEngine')
-  const featureEngineer = require('./core/services/FeatureEngineer')
-
-  async function enrichOne(m) {
-    // Generate hash-based synthetic odds (deterministic per match)
-    const str = `${m.homeTeam || 'Home'}_vs_${m.awayTeam || 'Away'}_${m.league || ''}`
-    let hash = 0
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i)
-      hash = hash & hash
-    }
-    const seed = Math.abs(hash) / 2147483647
-    const seed2 = ((hash >> 8) & 0xff) / 255
-
-    // Use real odds if available, otherwise synthetic
-    let xgH, xgA
-    if (m.odds_home && m.odds_draw && m.odds_away && !m._oddsAreSynthetic) {
-      // Derive xG from real odds
-      const oh = parseFloat(m.odds_home)
-      const od = parseFloat(m.odds_draw)
-      const oa = parseFloat(m.odds_away)
-      const ph = 1 / oh,
-        pd = 1 / od,
-        pa = 1 / oa
-      const sum = ph + pd + pa
-      const nh = ph / sum,
-        na = pa / sum
-      xgH = Math.max(0.5, Math.min(3.5, nh * 4.0))
-      xgA = Math.max(0.5, Math.min(3.5, na * 4.0))
-    } else {
-      // Synthetic odds fallback
-      const hp = 0.3 + seed * 0.25 // narrower range for more realistic odds
-      const dp = 0.18 + seed2 * 0.16
-      const ap = Math.max(0.08, 1 - hp - dp)
-      const odH = hp / 1.05,
-        odD = dp / 1.05,
-        odA = ap / 1.05
-      const oSum = odH + odD + odA
-      xgH = Math.max(0.5, Math.min(3.5, (odH / oSum) * 4.0))
-      xgA = Math.max(0.5, Math.min(3.5, (odA / oSum) * 4.0))
-    }
-
-    // Apply free features for better differentiation
-    const adjusted = featureEngineer.applyFeatures(m, xgH, xgA)
-    xgH = adjusted.xgH
-    xgA = adjusted.xgA
-
-    // Run QuantumQuantEngine (fast, synchronous)
-    const quantResult = QuantumQuantEngine.analyze(m, xgH, xgA)
-    const probs = quantResult.markets.match_result
-    const hPct = Math.max(1, +(probs['1'].prob * 100).toFixed(1))
-    const dPct = Math.max(1, +(probs['X'].prob * 100).toFixed(1))
-    const aPct = Math.max(1, +(probs['2'].prob * 100).toFixed(1))
-
-    return {
-      home_win_probability: hPct,
-      draw_probability: dPct,
-      away_win_probability: aPct,
-      btts_prob: quantResult.probs.btts,
-      ou_25_prob: quantResult.probs.over25,
-      ai_source: 'TITANIUM_QUANT_V4',
-      insufficient_data: m.insufficient_data || 1,
-      expected_score: quantResult.expected_score,
-      quant: {
-        main_pick: quantResult.main_pick || (hPct >= aPct ? '1' : '2'),
-        ev_score: quantResult.ev_score || '0.00',
-        risk_label: quantResult.risk_label || 'BALANCED',
-      },
-    }
-  }
+  const { enrichOne } = require('./core/enrichOne')
 
   async function runLoop() {
     try {

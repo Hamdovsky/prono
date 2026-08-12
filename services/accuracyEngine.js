@@ -253,6 +253,7 @@ function computeAccuracy(options = {}) {
   const records = []
   const excludedLabels = {}
   let noPredictionCount = 0
+  let pendingCount = 0
   let finishedCount = 0
 
   try {
@@ -265,7 +266,9 @@ function computeAccuracy(options = {}) {
       if (rec) records.push(rec)
       else {
         const pick = normalizeLabel(r.prediction)
-        if (pick && !isAllowed(pick, marketFilter)) {
+        if (pick === 'PENDING') {
+          pendingCount++
+        } else if (pick && !isAllowed(pick, marketFilter)) {
           excludedLabels[pick] = (excludedLabels[pick] || 0) + 1
         } else if (!pick) {
           noPredictionCount++
@@ -291,11 +294,15 @@ function computeAccuracy(options = {}) {
       try {
         fd = JSON.parse(r.fullData || '{}')
       } catch {}
-      const pick = normalizeLabel(fd.prediction ?? fd.quant?.main_pick ?? fd.quant?.all_picks?.[0]?.val ?? null)
-      if (pick && !isAllowed(pick, marketFilter)) {
-        excludedLabels[pick] = (excludedLabels[pick] || 0) + 1
-      } else if (!pick) {
-        noPredictionCount++
+      if (fd.verdict === 'PENDING' || fd.risk_label === 'PENDING') {
+        pendingCount++
+      } else {
+        const pick = normalizeLabel(fd.prediction ?? fd.quant?.main_pick ?? fd.quant?.all_picks?.[0]?.val ?? null)
+        if (pick && !isAllowed(pick, marketFilter)) {
+          excludedLabels[pick] = (excludedLabels[pick] || 0) + 1
+        } else if (!pick) {
+          noPredictionCount++
+        }
       }
     }
   }
@@ -369,6 +376,7 @@ function computeAccuracy(options = {}) {
       pushCount,
       finishedCount,
       noPredictionCount,
+      pendingCount,
       accuracy: accuracy === null ? null : correct / denominator,
       accuracyPct,
       logLoss: logLossCount > 0 ? +((logLossSum / logLossCount) * 100).toFixed(4) : null,

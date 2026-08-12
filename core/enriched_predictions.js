@@ -35,6 +35,7 @@ const DiagnosticTrace = require('./utils/DiagnosticTrace')
 const Schemas = require('./utils/Schemas')
 const QuantumQuantEngine = require('./QuantumQuantEngine')
 const confidenceScorer = require('./confidenceScorer')
+const { marketScopeOf } = require('./marketScope')
 const featureEngineer = require('./services/FeatureEngineer')
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
@@ -1471,6 +1472,7 @@ class EnrichedPredictionService {
         risk_score: 100 - quantResult.confidence,
         verdict: quantResult.risk_label,
         prediction: quantResult.main_pick,
+        market_scope: marketScopeOf(quantResult.main_pick, quantResult.markets),
 
         // UI Predictions Array (for MatchRow)
         predictions: [

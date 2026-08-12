@@ -441,7 +441,7 @@ const pgDb = {
       delete fullData.fullData
       if (fullData.enriched?.enriched) delete fullData.enriched.enriched
 
-      const verdict = data.verdict || data.enriched?.verdict || data.prediction || 'RISKY BET'
+      const verdict = data.prediction || data.enriched?.prediction || data.verdict || null
       const toNull = (v) =>
         v === null || v === undefined || (typeof v === 'number' && (isNaN(v) || !isFinite(v)))
           ? null

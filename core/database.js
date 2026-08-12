@@ -1179,7 +1179,7 @@ const database = {
         data.prediction ||
         (data.enriched && data.enriched.prediction) ||
         data.verdict ||
-        'RISKY BET'
+        null
 
       // Extract scalar values to write into indexed SQLite columns
       // Use null when no source provides a value (allows clearing)

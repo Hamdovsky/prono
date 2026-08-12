@@ -94,6 +94,39 @@ Détails clés :
 
 ---
 
-## ÉTAPE 2 — prévue (whitelist labels sales + audit cotes D1 + biais home D2)
+## ÉTAPE 2 — Chantier 1 : Whitelist des labels de prédiction (D3) ✅
+
+**Date** : 2026-08-12
+**Statut** : appliquée et testée (tests Jest verts, lint 0 erreur) — diff validé par l'utilisateur avant commit
+
+### Diagnostic (validé)
+
+Répartition de `matches.prediction` (267 matchs) : **261 en 1X2** (1/X/2/1X/X2/12), **3 en « O0.5 »**, **2 en « RISKY BET »**, 1 sans pick.
+
+| Valeur | Nb | Verdict diagnostic |
+|---|---|---|
+| `O0.5` | 3 | **Format valide** (O+seuil, déjà accepté par `OU_RE`) mais **anomalie de marché** : ce sont des picks `first_half` du moteur quant (`quant.markets.first_half.O0.5`, prob ~80 %, odds 1.5) promus en `prediction` via `quantResult.main_pick` — le label ne code pas le marché (HT vs FT), l'évaluation accuracy contre les buts FT serait triviale et non représentative |
+| `RISKY BET` | 2 | **Pas un label métier** : fallback par défaut de l'upsert (`database.js:1182` / `pg_database.js:444`) quand aucune prédiction n'est fournie. Les 2 lignes sont des artefacts de test (`update-test-001`, `update-enriched-001` — `database.test.js`) |
+
+### Trouvaille annexe (bug PG latent, corrigé)
+
+`pg_database.js:444` donnait **priorité à `data.verdict` sur `data.prediction`** (`data.verdict || enriched?.verdict || data.prediction`) — l'**inverse** de SQLite. Sur PG, un match avec `verdict:'SAFE'` + `prediction:'1'` aurait écrit `'SAFE'` en colonne → pollution de l'accuracy. **Ordre canonique unifié** appliqué aux deux : `data.prediction || data.enriched?.prediction || data.verdict || null`.
+
+### Correctif appliqué
+
+1. **Fallback null** (`database.js:1182`, `pg_database.js:444`) : le défaut `'RISKY BET'` est remplacé par `null` — un match sans prédiction passe en `noPredictionCount`, plus jamais en garbage label. **+ alignement de l'ordre SQLite/PG** (trouvaille annexe ci-dessus).
+2. **`PENDING` séparé** (`accuracyEngine.js`) : verdict légitime (émission `enriched_predictions.js:1546-1557`, HONESTY GATE « données insuffisantes ») désormais compté dans `summary.pendingCount` — **distinct** de `excludedLabels` (vraies anomalies) et de `noPredictionCount`.
+3. **Option A — `market_scope`** (`core/marketScope.js` nouveau + `enriched_predictions.js:1473`) : dérivation du **marché réel** du main_pick (`full_time_1x2` / `full_time_ou` / `full_time_dc` / `first_half` / `btts` / `unknown`), persistée dans fullData. **Strictement informatif** : rien de changé dans ce qui est promu en colonne `prediction`. Permettra à accuracyEngine d'évaluer chaque pick contre le bon référentiel (ex: O0.5 évalué mi-temps, pas full-time).
+4. **Tests** (`__tests__/chantier1.test.js`, 13 tests) : fallback null, priorité canonique, `PENDING` compté séparément (matches + historique), `marketScopeOf` (first_half/full_time_ou/full_time_1x2/full_time_dc/btts/unknown/null).
+
+### ⚠️ À TRAITER AU CHANTIER 2 (diagnostic seulement, non corrigé ici)
+
+**Contradiction `risk_label:"PENDING"` + `sufficient:true`** sur 2 des 3 matchs « O0.5 » (Anapolis/Guarani, Club Leon W/Tigres W) : le fullData porte en même temps un verdict de rejet (`risk_label:'PENDING'`) et un pick complet (`quant.main_pick`, `predictions[]` non vide). Deux passes d'enrichissement différentes semblent cohabiter dans le même fullData (`enriched.quant.main_pick` = "12" pour Leon, `prediction` "2" pour Anapolis — instabilité du main_pick). À investiguer lors de l'analyse du taux de PENDING.
+
+---
+
+## ÉTAPE 2 — Chantier 2 (prévu) : améliorer le path PENDING (33/42)
+
+## ÉTAPE 2 — Chantier 3 (prévu) : audit des cotes manquantes (D1, 97 % sans cote)
 
 *Chaque modification ultérieure sera ajoutée à ce fichier.*

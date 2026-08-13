@@ -1,53 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import './UltimateMatchCenter.css'
-import { calculateEV } from '../../services/InsightEngine'
+import { calculateEV, analyzeValue } from '../../services/InsightEngine'
 import PlayerProps from '../PlayerProps/PlayerProps'
-import SimulationEngine from '../../services/SimulationEngine'
-
-function PressureWave({ data }) {
-  if (!data?.length) return null
-  const maxV = Math.max(
-    ...data.flatMap((d) => [Math.abs(d.homePressure || 0), Math.abs(d.awayPressure || 0)]),
-    1
-  )
-  const h = 120,
-    w = 600,
-    barW = Math.max(3, (w / data.length) * 0.6)
-  const mid = h / 2
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: h }}>
-      <line x1={0} y1={mid} x2={w} y2={mid} stroke="#475569" strokeWidth={2} />
-      {data.map((d, i) => {
-        const x = (i / data.length) * w + (w / data.length - barW) / 2
-        const hh = (d.homePressure / maxV) * (mid - 5)
-        const ha = (d.awayPressure / maxV) * (mid - 5)
-        return (
-          <g key={i}>
-            {hh > 0 && (
-              <rect
-                x={x}
-                y={mid - hh}
-                width={barW}
-                height={hh}
-                rx={2}
-                fill="#3b82f6"
-                opacity={0.7}
-              />
-            )}
-            {ha > 0 && (
-              <rect x={x} y={mid} width={barW} height={ha} rx={2} fill="#ef4444" opacity={0.7} />
-            )}
-          </g>
-        )
-      })}
-    </svg>
-  )
-}
+import { analyzeMatch } from '../../utils/matchAnalysis'
 
 const UltimateMatchCenter = ({ match, onClose }) => {
-  const [oracleData, setOracleData] = useState(null)
-  const [scanning, setScanning] = useState(true)
-
   // Escape key to close
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -57,45 +14,41 @@ const UltimateMatchCenter = ({ match, onClose }) => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  // Oracle Simulation (PROJECT ORACLE V4)
-  useEffect(() => {
-    if (!match) return
-    setScanning(true)
+  const analysis = useMemo(() => analyzeMatch(match), [match])
 
-    const timer = setTimeout(() => {
-      const hP = parseProb(match.home_win_probability || match.winProb || 0)
-      const dP = parseProb(match.draw_probability || 0)
-      const aP = parseProb(match.away_win_probability || 0)
-      const o25 = parseInt(match.ou25_prob || match.ou_25_prob || 50)
-
-      const results = SimulationEngine.simulateMatch({
-        homeWin: hP,
-        draw: dP,
-        awayWin: aP,
-        ou25: o25,
-      })
-      setOracleData(results)
-      setScanning(false)
-    }, 1200)
-
-    return () => clearTimeout(timer)
-  }, [match])
+  const valueAnalysis = useMemo(() => {
+    if (!analysis?.hasRealOdds) return null
+    return analyzeValue({
+      modelHome: analysis.probs.home,
+      modelDraw: analysis.probs.draw,
+      modelAway: analysis.probs.away,
+      homeOdds: analysis.odds.home,
+      drawOdds: analysis.odds.draw,
+      awayOdds: analysis.odds.away,
+    })
+  }, [analysis])
 
   if (!match) return null
 
-  const parseProb = (val) => {
-    if (!val) return 0
-    const num = parseFloat(String(val).replace('%', ''))
-    if (isNaN(num)) return 0
-    return num <= 1 ? Math.round(num * 100) : Math.round(num)
-  }
-
   const ts = match.startTimestamp ? match.startTimestamp * 1000 : match.startTime
+  const kickoff = ts
+    ? new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : '—'
   const statusUpper = (match.status || '').toUpperCase()
   const isLive =
     statusUpper === 'LIVE' ||
     (match.minute && match.minute !== '0' && statusUpper !== 'FINISHED' && statusUpper !== 'FT')
-  const isFinished = statusUpper === 'FT' || statusUpper === 'FINISHED'
+  const isFinished = statusUpper === 'FT' || statusUpper === 'FINISHED' || analysis?.finished
+
+  const scoreLabel =
+    isFinished && match.homeScore != null && match.awayScore != null
+      ? `${match.homeScore} - ${match.awayScore}`
+      : null
+  const statusLabel = isFinished
+    ? `TERMINÉ ${scoreLabel ? '· ' + scoreLabel : ''}`
+    : isLive
+      ? `EN DIRECT${match.minute ? ` · ${match.minute}'` : ''}`
+      : 'À VENIR'
 
   const xgbConf = match.xgboost_confidence ? parseFloat(match.xgboost_confidence) : 0
   const baseWinP = parseInt(match.home_win_probability || match.winProb || 0)
@@ -103,19 +56,58 @@ const UltimateMatchCenter = ({ match, onClose }) => {
   const ev = calculateEV(winP, match.market_odds || 2.0)
   const reliability = Math.round(match.reliability_index || 50)
 
-  const homeWinP = parseProb(match.home_win_probability || match.winProb || 0)
-  const awayWinP = parseProb(match.away_win_probability || 0)
-  const dnbHome =
-    homeWinP + awayWinP > 0 ? Math.round((homeWinP / (homeWinP + awayWinP)) * 100) : '--'
-  const dnbAway =
-    homeWinP + awayWinP > 0 ? Math.round((awayWinP / (homeWinP + awayWinP)) * 100) : '--'
+  const honestyBadge =
+    analysis?.honesty.mode === 'normal' ? (
+      <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 700 }}>✅ Cotes réelles</span>
+    ) : analysis?.honesty.mode === 'modelOnly' ? (
+      <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 700 }}>
+        🔮 Modèle — sans cotes (pas d'EV)
+      </span>
+    ) : analysis?.honesty.mode === 'modelSignal' ? (
+      <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 700 }}>
+        🔮 Signal modèle (pas d'EV)
+      </span>
+    ) : (
+      <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 700 }}>
+        🔮 Estimation sans cotes
+      </span>
+    )
+
+  const pickClass =
+    analysis?.winner.pick === '1'
+      ? { color: '#38bdf8' }
+      : analysis?.winner.pick === 'X'
+        ? { color: '#94a3b8' }
+        : analysis?.winner.pick === '2'
+          ? { color: '#fb7185' }
+          : { color: '#f1f5f9' }
+
+  const probBars = [
+    { label: '1', name: match.homeTeam, pct: analysis?.probs.home || 0, color: '#38bdf8' },
+    { label: 'X', name: 'Nul', pct: analysis?.probs.draw || 0, color: '#94a3b8' },
+    { label: '2', name: match.awayTeam, pct: analysis?.probs.away || 0, color: '#fb7185' },
+  ]
+
+  const valueRows = valueAnalysis
+    ? [valueAnalysis.home, valueAnalysis.draw, valueAnalysis.away]
+        .filter(Boolean)
+        .map((v) => ({
+          label: v.label,
+          odds: v.odds,
+          model: v.modelProb,
+          fair: v.fairProb,
+          edge: v.edge,
+          ev: v.ev,
+          kelly: v.kelly,
+          tier: v.tier,
+          best: v === valueAnalysis.best,
+        }))
+        .sort((a, b) => b.edge - a.edge)
+    : []
 
   return (
     <div className="umc-overlay" onClick={onClose}>
-      <div
-        className={`umc-modal ${scanning ? 'modal-scanning' : ''}`}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="umc-modal" onClick={(e) => e.stopPropagation()}>
         <button className="umc-close-btn" onClick={onClose}>
           ×
         </button>
@@ -158,25 +150,24 @@ const UltimateMatchCenter = ({ match, onClose }) => {
           className="umc-body"
           style={{ padding: 20, display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 20 }}
         >
-          {/* QUANTUM ORACLE SIMULATOR (The Revolutionary Part) */}
+          {/* INFORMATIONS CLÉS DU MATCH (remplace l'ancien simulateur Monte Carlo) */}
           <div
-            className="col-span-12 umc-panel oracle-panel"
+            className="col-span-12 umc-panel"
             style={{
               background: 'rgba(15, 23, 42, 0.7)',
               border: '1px solid rgba(99, 102, 241, 0.3)',
               padding: 25,
               borderRadius: 20,
-              position: 'relative',
-              overflow: 'hidden',
             }}
           >
             <div
-              className="oracle-header"
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 marginBottom: 20,
+                flexWrap: 'wrap',
+                gap: 8,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -190,103 +181,314 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                     borderRadius: 4,
                   }}
                 >
-                  TITANIUM ORACLE V4
+                  ANALYSE RÉELLE
                 </span>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#f1f5f9' }}>
-                  🤖 محاكي المباراة (10,000 محاكمة رياضية)
+                  ⚡ Informations clés du match
                 </h3>
               </div>
-              {!scanning && (
-                <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 600 }}>
-                  ✅ تم اكتمال المسح الكمي
-                </span>
+              {honestyBadge}
+            </div>
+
+            {/* Row 1 : verdict + probabilités 1/X/2 */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(220px, 0.9fr) 1.5fr',
+                gap: 20,
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  background: 'rgba(0,0,0,0.3)',
+                  borderRadius: 14,
+                  padding: '18px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  border: `2px solid ${analysis?.winner.solid ? 'rgba(245,158,11,0.6)' : 'rgba(255,255,255,0.06)'}`,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.65rem',
+                    color: '#94a3b8',
+                    fontWeight: 800,
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    marginBottom: 6,
+                  }}
+                >
+                  Verdict du modèle
+                </div>
+                <div style={{ fontSize: '2.6rem', fontWeight: 900, ...pickClass }}>{analysis?.winner.pick}</div>
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>
+                  {analysis?.winner.label}
+                </div>
+                {analysis?.winner.solid && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      background: 'rgba(245,158,11,0.12)',
+                      border: '1px solid rgba(245,158,11,0.3)',
+                      color: '#fbbf24',
+                      padding: '2px 10px',
+                      borderRadius: 20,
+                      fontSize: '0.7rem',
+                      fontWeight: 800,
+                    }}
+                  >
+                    🎯 BASE SOLIDE
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  background: 'rgba(0,0,0,0.2)',
+                  borderRadius: 14,
+                  padding: '18px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.65rem',
+                    color: '#94a3b8',
+                    fontWeight: 800,
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    marginBottom: 2,
+                  }}
+                >
+                  Probabilités 1 / X / 2
+                </div>
+                {probBars.map((b) => (
+                  <div key={b.label}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: '0.75rem',
+                        color: '#cbd5e1',
+                        marginBottom: 4,
+                      }}
+                    >
+                      <span>
+                        <b style={{ color: b.color }}>{b.label}</b>{' '}
+                        <span style={{ color: '#64748b' }}>{b.name}</span>
+                      </span>
+                      <b style={{ color: b.color }}>{b.pct}%</b>
+                    </div>
+                    <div
+                      style={{
+                        height: 6,
+                        borderRadius: 4,
+                        background: 'rgba(255,255,255,0.06)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.min(100, b.pct)}%`,
+                          background: b.color,
+                          borderRadius: 4,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Row 2 : marchés chirurgicaux */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 15, marginBottom: 20 }}>
+              <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ fontSize: '0.62rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>
+                  BTTS
+                </div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#10b981', marginTop: 6 }}>
+                  {analysis?.btts.label}
+                </div>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ fontSize: '0.62rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>
+                  Over / Under 2.5
+                </div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#38bdf8', marginTop: 6 }}>
+                  {analysis?.ou.direction} {analysis?.ou.label}
+                </div>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ fontSize: '0.62rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>
+                  Corners
+                </div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#a855f7', marginTop: 6 }}>
+                  {analysis?.corners.label}
+                </div>
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ fontSize: '0.62rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>
+                  Handicap / Score
+                </div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#f59e0b', marginTop: 6 }}>
+                  {analysis?.handicap.label}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 3 : cotes & EV (seulement si cotes réelles) */}
+            <div
+              style={{
+                background: 'rgba(0,0,0,0.25)',
+                borderRadius: 12,
+                padding: '16px 18px',
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '0.62rem',
+                  color: '#94a3b8',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  marginBottom: 10,
+                }}
+              >
+                Cotes & Value (de-vig)
+              </div>
+              {valueRows.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  {valueRows.map((v) => (
+                    <div
+                      key={v.label}
+                      style={{
+                        background: v.best ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)',
+                        border: v.best ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: 10,
+                        padding: '12px 14px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#cbd5e1', fontWeight: 700 }}>
+                          {v.label}
+                          {v.best && (
+                            <span
+                              style={{
+                                marginLeft: 6,
+                                color: v.tier.color,
+                                fontSize: '0.65rem',
+                                fontWeight: 800,
+                              }}
+                            >
+                              {v.tier.label}
+                            </span>
+                          )}
+                        </span>
+                        <b style={{ color: '#f1f5f9', fontSize: '0.9rem' }}>{v.odds.toFixed(2)}</b>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: '0.68rem',
+                          color: '#64748b',
+                          marginTop: 8,
+                        }}
+                      >
+                        <span>Modèle {Math.round(v.model)}%</span>
+                        <span>Fair {v.fair}%</span>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: '0.68rem',
+                          marginTop: 4,
+                        }}
+                      >
+                        <span style={{ color: v.edge >= 0 ? '#10b981' : '#fb7185' }}>
+                          Edge {v.edge >= 0 ? '+' : ''}
+                          {v.edge}%
+                        </span>
+                        <span style={{ color: v.ev > 0 ? '#10b981' : '#fb7185' }}>
+                          EV {v.ev > 0 ? '+' : ''}
+                          {Math.round(v.ev * 100)}%
+                        </span>
+                        <span style={{ color: '#fbbf24' }}>Kelly {v.kelly}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                  🔮 Aucune cote bookmaker réelle — valeur (EV) non calculée.
+                </div>
               )}
             </div>
 
-            {scanning ? (
-              <div
-                className="oracle-scanning-view"
-                style={{ textAlign: 'center', padding: '40px 0' }}
-              >
-                <div className="scan-line-anim"></div>
-                <div className="spinner-v4"></div>
-                <p style={{ color: '#94a3b8', marginTop: 15, fontSize: '0.9rem' }}>
-                  جاري حقن 10,000 سيناريو افتراضي في محرك التوقعات...
-                </p>
-              </div>
-            ) : (
-              <div
-                className="oracle-results-grid"
-                style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 30 }}
-              >
-                <div className="oracle-scores-zone">
-                  <h4 style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 15 }}>
-                    📊 النتائج الأكثر احتمالاً (Score Heatmap)
-                  </h4>
-                  <div
-                    className="score-matrix-v4"
-                    style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}
-                  >
-                    {oracleData?.topScores.map((s, i) => (
-                      <div
-                        key={i}
-                        className="score-card-v4"
-                        style={{
-                          background: 'rgba(0,0,0,0.3)',
-                          padding: '12px 16px',
-                          borderRadius: 10,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          border: '1px solid rgba(255,255,255,0.05)',
-                        }}
-                      >
-                        <span style={{ fontWeight: 800, color: '#f8fafc', fontSize: '1.1rem' }}>
-                          {s.score}
-                        </span>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ color: '#10b981', fontWeight: 700 }}>{s.prob}%</span>
-                          <div
-                            style={{
-                              width: 40,
-                              height: 3,
-                              background: '#10b981',
-                              opacity: s.prob / 20,
-                              marginTop: 4,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* Row 4 : confiance & risque + détails du match */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
+              <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '16px 18px' }}>
+                <div style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', marginBottom: 10 }}>
+                  Confiance & Risque
                 </div>
-                <div className="oracle-analysis-zone">
-                  <h4 style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 15 }}>
-                    ⚡ منحنى الضغط والأهداف المتوقعة
-                  </h4>
-                  {oracleData?.pressureWave?.length > 0 && (
-                    <PressureWave data={oracleData.pressureWave} />
-                  )}
-                  <div
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 6 }}>
+                  <span style={{ color: '#64748b' }}>Fiabilité</span>
+                  <b style={{ color: '#a855f7' }}>{reliability}%</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 6 }}>
+                  <span style={{ color: '#64748b' }}>Confiance XGBoost</span>
+                  <b style={{ color: '#6366f1' }}>{Math.round(xgbConf * 100)}%</b>
+                </div>
+                {match.risk_label && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 6 }}>
+                    <span style={{ color: '#64748b' }}>Risque</span>
+                    <b style={{ color: String(match.risk_label).toLowerCase().includes('low') ? '#10b981' : '#fbbf24' }}>
+                      {String(match.risk_label).toUpperCase()}
+                    </b>
+                  </div>
+                )}
+                {match.prediction && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                    <span style={{ color: '#64748b' }}>Prédiction brute</span>
+                    <b style={{ color: '#f1f5f9', textAlign: 'right' }}>{match.prediction}</b>
+                  </div>
+                )}
+              </div>
+              <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '16px 18px' }}>
+                <div style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', marginBottom: 10 }}>
+                  Détails du match
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 6 }}>
+                  <span style={{ color: '#64748b' }}>Compétition</span>
+                  <b style={{ color: '#f1f5f9', textAlign: 'right' }}>
+                    {match.country ? `${match.country} · ` : ''}
+                    {match.tournament_name || match.league}
+                  </b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 6 }}>
+                  <span style={{ color: '#64748b' }}>Coup d'envoi</span>
+                  <b style={{ color: '#f1f5f9' }}>{kickoff}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                  <span style={{ color: '#64748b' }}>Statut</span>
+                  <b
                     style={{
-                      marginTop: 15,
-                      background: 'rgba(0,0,0,0.2)',
-                      padding: 12,
-                      borderRadius: 10,
-                      fontSize: '0.8rem',
+                      color: isLive ? '#fbbf24' : isFinished ? '#10b981' : '#38bdf8',
                     }}
                   >
-                    <div>
-                      🎯 الأهداف المتوقعة الإجمالية:{' '}
-                      <b style={{ color: '#10b981' }}>{oracleData?.expectedTotal}</b>
-                    </div>
-                    <div style={{ marginTop: 5, color: '#94a3b8' }}>
-                      نوافذ التسجيل القصوى تتمركز في الدقائق 75-90.
-                    </div>
-                  </div>
+                    {statusLabel}
+                  </b>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* KPI STRIP */}
@@ -359,11 +561,11 @@ const UltimateMatchCenter = ({ match, onClose }) => {
               <div style={{ display: 'flex', justifyContent: 'center', gap: 20 }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '0.6rem', color: '#64748b' }}>{match.homeTeam}</div>
-                  <div style={{ fontWeight: 800, color: '#38bdf8' }}>{dnbHome}%</div>
+                  <div style={{ fontWeight: 800, color: '#38bdf8' }}>{dnbOf(analysis, 'home')}%</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '0.6rem', color: '#64748b' }}>{match.awayTeam}</div>
-                  <div style={{ fontWeight: 800, color: '#38bdf8' }}>{dnbAway}%</div>
+                  <div style={{ fontWeight: 800, color: '#38bdf8' }}>{dnbOf(analysis, 'away')}%</div>
                 </div>
               </div>
             </div>
@@ -391,13 +593,13 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '0.6rem', color: '#64748b' }}>1X</div>
                   <div style={{ fontWeight: 800, color: '#38bdf8' }}>
-                    {parseProb(match.homeWinProb) + parseProb(match.drawProb)}%
+                    {(analysis?.probs.home || 0) + (analysis?.probs.draw || 0)}%
                   </div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '0.6rem', color: '#64748b' }}>X2</div>
                   <div style={{ fontWeight: 800, color: '#38bdf8' }}>
-                    {parseProb(match.awayWinProb) + parseProb(match.drawProb)}%
+                    {(analysis?.probs.away || 0) + (analysis?.probs.draw || 0)}%
                   </div>
                 </div>
               </div>
@@ -407,6 +609,13 @@ const UltimateMatchCenter = ({ match, onClose }) => {
       </div>
     </div>
   )
+}
+
+const dnbOf = (analysis, side) => {
+  const h = analysis?.probs.home || 0
+  const a = analysis?.probs.away || 0
+  if (h + a <= 0) return '--'
+  return side === 'home' ? Math.round((h / (h + a)) * 100) : Math.round((a / (h + a)) * 100)
 }
 
 export default UltimateMatchCenter

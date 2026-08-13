@@ -5,6 +5,7 @@ import MatchCard from './MatchCard'
 import dataService from '../services/dataService'
 import { ROUTES, PATH_TO_VIEW } from '../config/routes'
 import { filterMatchesInWindow } from '../utils/timeFilter'
+import { computeRawLines, isFinishedMatch } from '../utils/matchAnalysis'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
 
@@ -95,24 +96,12 @@ const StatusHeader = React.memo(({ count, sidebarOpen, onToggleSidebar }) => (
   </div>
 ))
 
-const FINISHED_STATUSES = new Set(['finished', 'ft', 'ended', 'closed', 'played', 'aet', 'pen'])
-
 // Ligues majeures (différençables par xG fbref/StatsBomb) : priorité d'affichage
 // afin de montrer en premier les "vrais pronostics" (objectif b) au lieu des
 // amicaux/coupes insuffisants.
 const MAJOR_LEAGUE_RE =
   /premier league|championship|champions league|europa league|ligue [12]|bundesliga|serie [ab]|la liga|liga portugal|eredivisie|mls|liga mx|j1 league|k league|scottish premiership|primera division|brasileirão/i
 const isMajorLeague = (name) => MAJOR_LEAGUE_RE.test(String(name || ''))
-
-const isFinishedMatch = (m) => {
-  const s = String(m.status || '').toLowerCase()
-  if (FINISHED_STATUSES.has(s)) return true
-  const sh = parseInt(m.scoreHome)
-  const sa = parseInt(m.scoreAway)
-  if (!isNaN(sh) && !isNaN(sa) && s !== 'scheduled' && s !== 'NOT_STARTED' && s !== 'NS')
-    return true
-  return false
-}
 
 // 🧠 [PERF] Cache par objet match : une même référence de match produit toujours
 // la même liste "raw", évitant de recomputer la normalisation à chaque render
@@ -125,236 +114,6 @@ const toRawLines = (m) => {
   const lines = computeRawLines(m)
   rawLinesCache.set(m, lines)
   return lines
-}
-
-const computeRawLines = (m) => {
-  if (!m) return []
-  const finished = isFinishedMatch(m)
-  const score =
-    finished && m.scoreHome != null && m.scoreAway != null ? `${m.scoreHome}-${m.scoreAway}` : '--'
-  if (finished) {
-    const sh = parseInt(m.scoreHome) || 0
-    const sa = parseInt(m.scoreAway) || 0
-    const result = sh > sa ? '1' : sh < sa ? '2' : 'X'
-    return [
-      m.league || m.tournament_name || '',
-      m.homeTeam || '',
-      m.awayTeam || '',
-      '--',
-      '--',
-      result,
-      score,
-      '--',
-      score,
-      '0',
-    ]
-  }
-  const enriched = m.enriched || {}
-  const quant = m.quant || enriched?.quant || {}
-  const markets = quant.markets || {}
-  const normalizePct = (v) => {
-    const n = Number(v || 0)
-    if (!Number.isFinite(n) || n <= 0) return 0
-    return n > 1 ? Math.round(n) : Math.round(n * 100)
-  }
-
-  // ── HONESTY GATE: données bookmaker réelles absentes (synthetic/insufficient) → pas de pick ──
-  const isInsufficient =
-    m.insufficient_data === 1 || m.sufficient === false || quant.market_odds === null
-
-  // ── BTTS → verdict OUI/NON ──
-  let bttsLabel = '--'
-  let bttsYesPct = 0
-  const bttsMkt = markets.btts
-  if (bttsMkt && (bttsMkt.YES || bttsMkt.NO)) {
-    const yes = normalizePct(bttsMkt.YES?.prob)
-    const no = normalizePct(bttsMkt.NO?.prob)
-    bttsYesPct = yes
-    bttsLabel = yes >= no ? `OUI ${yes}%` : `NON ${no}%`
-  } else {
-    const bttsPct = normalizePct(quant.probs?.btts || m.btts_prob || enriched?.btts_prob || 0)
-    bttsYesPct = bttsPct
-    bttsLabel = bttsPct > 0 ? (bttsPct >= 50 ? `OUI ${bttsPct}%` : `NON ${100 - bttsPct}%`) : '--'
-  }
-
-  // ── O/U 2.5 → proba Over (barre) ──
-  const ouMkt = markets.over_under
-  let ouPct = normalizePct(quant.probs?.over25 || m.ou_25_prob || enriched?.ou_25_prob || 0)
-  if (ouMkt && (ouMkt['O2.5'] || ouMkt['U2.5'])) {
-    const o25 = normalizePct(ouMkt['O2.5']?.prob)
-    const u25 = normalizePct(ouMkt['U2.5']?.prob)
-    ouPct = o25 > 0 ? o25 : u25 > 0 ? 100 - u25 : ouPct
-  }
-
-  // ── GAGNANT → base solide (≥65%) ou double chance si douteux ──
-  const mr = markets.match_result || {}
-  const dc = markets.double_chance || {}
-  const mainPickRaw = (quant.main_pick || '').toString().trim().toUpperCase()
-  const pickProbOf = (pick) => {
-    if (!pick) return null
-    const found = (quant.all_picks || []).find((p) => String(p.val).toUpperCase() === pick)
-    if (found && normalizePct(found.prob) > 0) return normalizePct(found.prob)
-    if (dc[pick]) return normalizePct(dc[pick].prob)
-    if (mr[pick]) return normalizePct(mr[pick].prob)
-    return null
-  }
-
-  const hPct = mr['1']?.prob
-    ? normalizePct(mr['1'].prob)
-    : normalizePct(m.home_win_probability || enriched?.home_win_probability || 0)
-  const dPct = mr['X']?.prob
-    ? normalizePct(mr['X'].prob)
-    : normalizePct(m.draw_probability || enriched?.draw_probability || 0)
-  const aPct = mr['2']?.prob
-    ? normalizePct(mr['2'].prob)
-    : normalizePct(m.away_win_probability || enriched?.away_win_probability || 0)
-  const hasProbs = hPct + dPct + aPct > 0
-
-  let winner = mainPickRaw || '?'
-  let winnerProb = pickProbOf(winner)
-  if (hasProbs) {
-    const maxP = Math.max(hPct, dPct, aPct)
-    if (maxP >= 65) {
-      // Favori net → base solide (pick simple)
-      winner = maxP === hPct ? '1' : maxP === aPct ? '2' : 'X'
-      winnerProb = maxP
-    } else if (['1', 'X', '2'].includes(winner)) {
-      // Pick simple mais match douteux → meilleure double chance selon les données
-      const combos = [
-        { k: '1X', p: hPct + dPct },
-        { k: '12', p: hPct + aPct },
-        { k: 'X2', p: dPct + aPct },
-      ].sort((a, b) => b.p - a.p)
-      winner = combos[0].k
-      winnerProb = combos[0].p
-    }
-  }
-  const winnerLabel = winnerProb ? `${winner} ${Math.round(winnerProb)}%` : winner
-
-  // ── BASE SOLIDE GAGNANT → pick simple 1/2 à ≥65% (seuil du front) ──
-  const solidGagnant =
-    ['1', '2'].includes(String(winner)) && typeof winnerProb === 'number' && winnerProb >= 65
-
-  // ── CORNERS → verdict O/U (nombre total attendu) ──
-  const cornersVerdict = m.cornersVerdict || m.enriched?.cornersVerdict || null
-  let cornersLabel = '--'
-  if (cornersVerdict && typeof cornersVerdict.expectedTotal === 'number') {
-    const line = cornersVerdict.line ?? 10.5
-    const over = Number(cornersVerdict.over ?? 0)
-    const under = Number(cornersVerdict.under ?? 0)
-    const verdict = over >= under ? 'O' : 'U'
-    const pct = Math.round(Math.max(over, under) * 100)
-    cornersLabel = `${verdict} ${line.toFixed(1)} ${pct}%`
-  }
-
-  // ── HANDICAP (indice de score / score attendu) ──
-  const htPct = Math.min(89, Math.round((ouPct + bttsYesPct) / 2 + 5))
-
-  // ── HONESTY GATE OPTIONNELLE (user "je veux voir le prono côtout") ──
-  // Pour un match sans cotes bookmaker réelles (isInsufficient), on n'expose le
-  // pronostic que si le modèle produit des PROBABILITÉS RÉELLEMENT DIFFÉRENTIÉES
-  // (max >= 50 et écart >= 20 points) — i.e. un vrai signal Poisson/xG, pas le
-  // fallback uniforme ~33/33/33. Badge "🔮 modèle — sans cotes (pas d'EV)" pour
-  // rester honnête : aucune valeur probatte ni EV n'est affichée sans cotes.
-  const rawHPct = normalizePct(m.home_win_probability || enriched?.home_win_probability || 0)
-  const rawAPct = normalizePct(m.away_win_probability || enriched?.away_win_probability || 0)
-  const rawDPct = normalizePct(m.draw_probability || enriched?.draw_probability || 0)
-  const modelMax = Math.max(rawHPct, rawAPct, rawDPct)
-  const modelMin = Math.min(rawHPct, rawAPct, rawDPct)
-  const hasRealModelSignal =
-    isInsufficient &&
-    modelMax >= 50 &&
-    modelMax - modelMin >= 20 &&
-    (hPct + aPct > 0 || rawHPct > 0)
-  const modelWinner =
-    rawHPct >= rawAPct && rawHPct >= rawDPct ? '1' : rawAPct >= rawDPct ? '2' : 'X'
-  const modelWinnerProb = modelWinner === '1' ? rawHPct : modelWinner === '2' ? rawAPct : rawDPct
-
-  // ── MODEL-ONLY PICK: le backend a validé un signal modèle (sufficient=true) mais
-  // sans cotes bookmaker réelles → on affiche le pick avec le badge 🔮 pour ne pas le
-  // faire passer pour un pronostic avec cotes/EV. (Le "bon chemin" : honnête, pas masqué.)
-  const hasRealOddsShown =
-    parseFloat(m.odds_home) > 0 && parseFloat(m.odds_draw) > 0 && parseFloat(m.odds_away) > 0
-  const isModelOnlyPick =
-    !isInsufficient && !hasRealOddsShown && String(m.prediction || '').trim() !== ''
-  const pickLabel = winnerProb ? `${winner} ${Math.round(winnerProb)}%` : winner
-
-  // ── HONENETE: aucune donnée bookmaker réelle → pas de verdict par défaut ──
-  if (isModelOnlyPick) {
-    return [
-      `${m.league || m.tournament_name || ''} 🔮 modèle — sans cotes (pas d'EV)`,
-      m.homeTeam || '',
-      m.awayTeam || '',
-      bttsLabel,
-      `${ouPct}%`,
-      pickLabel,
-      `${htPct}%`,
-      cornersLabel,
-      null,
-      solidGagnant ? '1' : '0',
-    ]
-  }
-  if (hasRealModelSignal) {
-    return [
-      `${m.league || m.tournament_name || ''} 🔮 modèle`,
-      m.homeTeam || '',
-      m.awayTeam || '',
-      bttsLabel,
-      `${ouPct}%`,
-      `${modelWinner} ${Math.round(modelWinnerProb)}%`,
-      `${htPct}%`,
-      cornersLabel,
-      null,
-      solidGagnant ? '1' : '0',
-    ]
-  }
-  if (isInsufficient) {
-    // 🔮 Estimation statistique (Poisson/xG) — pas de cotes bookmaker réelles,
-    // donc aucune EV/valeur affichée. Badge distinct pour rester honnête.
-    const totalP = hPct + dPct + aPct
-    let statWinner = '--'
-    let statWinnerProb = 0
-    if (totalP > 0) {
-      const maxP = Math.max(hPct, dPct, aPct)
-      if (maxP >= 65) {
-        statWinner = maxP === hPct ? '1' : maxP === aPct ? '2' : 'X'
-        statWinnerProb = maxP
-      } else {
-        const combos = [
-          { k: '1X', p: hPct + dPct },
-          { k: '12', p: hPct + aPct },
-          { k: 'X2', p: dPct + aPct },
-        ].sort((a, b) => b.p - a.p)
-        statWinner = combos[0].k
-        statWinnerProb = combos[0].p
-      }
-    }
-    return [
-      `${m.league || m.tournament_name || ''} 🔮 estimation sans cotes`,
-      m.homeTeam || '',
-      m.awayTeam || '',
-      bttsLabel,
-      ouPct > 0 ? `${ouPct}%` : '--',
-      statWinnerProb > 0 ? `${statWinner} ${Math.round(statWinnerProb)}%` : '--',
-      totalP > 0 ? `${htPct}%` : '--',
-      cornersLabel,
-      null,
-      '0',
-    ]
-  }
-  // ── Cas normal : cotes suffisantes → verdict complet ──
-  return [
-    m.league || m.tournament_name || '',
-    m.homeTeam || '',
-    m.awayTeam || '',
-    bttsLabel,
-    `${ouPct}%`,
-    winnerLabel,
-    `${htPct}%`,
-    cornersLabel,
-    null,
-    solidGagnant ? '1' : '0',
-  ]
 }
 
 const MatchRowMemo = React.memo(({ index, style, list, onClick }) => {

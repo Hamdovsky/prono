@@ -47,6 +47,13 @@
   font-weight: 400;
   font-size: 9px;
 }
+.mc-time {
+  font-size: 8px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.4px;
+  font-family: 'JetBrains Mono', monospace;
+}
 
 .mc-cell {
   padding: 0 4px;
@@ -191,4 +198,129 @@
   .mc-corners {
     display: none;
   }
+}
+
+/* ═══════════════════════════════════════
+   COMPACT STACKED CARD (mobile)
+   ═══════════════════════════════════════ */
+.mc-compact {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px 12px;
+  min-height: 0;
+}
+
+.mcc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mcc-league {
+  font-size: 9px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mcc-time {
+  font-size: 9px;
+  font-weight: 800;
+  color: #475569;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+.mcc-teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+
+.mcc-team {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.mcc-vs {
+  color: #475569;
+  font-weight: 500;
+  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+.mcc-vs.has-score {
+  color: #00ffaa;
+  font-weight: 800;
+}
+
+.mcc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mcc-chip {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  white-space: nowrap;
+}
+
+.mcc-chip.mcc-btts.yes,
+.mcc-chip.mcc-corners.yes {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+}
+.mcc-chip.mcc-btts.no,
+.mcc-chip.mcc-corners.no {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.mcc-chip.mcc-ou.over {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.1);
+}
+.mcc-chip.mcc-ou.under {
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.mcc-chip.mcc-win.mc-pick-home {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+.mcc-chip.mcc-win.mc-pick-away {
+  color: #fb7185;
+  border-color: rgba(251, 113, 133, 0.35);
+}
+.mcc-chip.mcc-win.mc-pick-draw {
+  color: #94a3b8;
+}
+.mcc-chip.mcc-win.mc-pick-dc {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
 }

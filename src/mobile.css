@@ -384,3 +384,39 @@ body {
     padding-top: env(safe-area-inset-top);
   }
 }
+
+/* ═══════════════════════════════════════
+   MOBILE POLISH — compact cards & spacing
+   ═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  .titanium-scroll {
+    padding-bottom: 16px;
+  }
+  .onyx-grid-container {
+    padding: 10px 10px !important;
+  }
+  .match-card.mc-compact {
+    border-radius: 10px;
+    margin-bottom: 0;
+  }
+  .onyx-list-section {
+    margin-top: 4px;
+  }
+  .onyx-section-title {
+    padding-left: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mcc-teams {
+    font-size: 14px;
+  }
+  .mcc-chip {
+    font-size: 8px;
+    padding: 2px 6px;
+  }
+  .mcc-league,
+  .mcc-time {
+    font-size: 8px;
+  }
+}

@@ -195,3 +195,138 @@
     padding: 8px 6px;
   }
 }
+
+/* ═══════════════════════════════════════
+   STATUS HEADER (sticky, responsive)
+   ═══════════════════════════════════════ */
+.sh-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 45px;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 41, 59, 0.9) 50%, rgba(15, 23, 42, 0.92) 100%);
+  border-bottom: 1px solid rgba(0, 255, 170, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.sh-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sh-toggle {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-toggle:active {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sh-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00ffaa;
+  box-shadow: 0 0 10px #00ffaa;
+  flex-shrink: 0;
+  animation: sh-pulse 2s infinite;
+}
+@keyframes sh-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.sh-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #f8fafc;
+  white-space: nowrap;
+}
+.sh-accent {
+  color: #00ffaa;
+}
+
+.sh-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.sh-mute {
+  font-size: 9px;
+  color: #64748b;
+  font-weight: 900;
+}
+.sh-engine {
+  font-size: 10px;
+  color: #fbbf24;
+  font-weight: 900;
+}
+
+.sh-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.sh-cap-label {
+  font-size: 8px;
+  color: #64748b;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.sh-cap-count {
+  font-size: 14px;
+  color: #00ffaa;
+  font-weight: 900;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .sh-bar {
+    height: 48px;
+    padding: 4px 10px;
+  }
+  .sh-center {
+    display: none;
+  }
+  .sh-cap-label {
+    display: none;
+  }
+  .sh-title {
+    font-size: 10px;
+  }
+  .sh-cap-count {
+    font-size: 13px;
+    padding: 2px 8px;
+    background: rgba(0, 255, 170, 0.1);
+    border: 1px solid rgba(0, 255, 170, 0.25);
+    border-radius: 12px;
+  }
+}

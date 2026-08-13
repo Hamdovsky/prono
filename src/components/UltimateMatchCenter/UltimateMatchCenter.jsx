@@ -148,7 +148,6 @@ const UltimateMatchCenter = ({ match, onClose }) => {
 
         <div
           className="umc-body"
-          style={{ padding: 20, display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 20 }}
         >
           {/* INFORMATIONS CLÉS DU MATCH (remplace l'ancien simulateur Monte Carlo) */}
           <div
@@ -191,14 +190,7 @@ const UltimateMatchCenter = ({ match, onClose }) => {
             </div>
 
             {/* Row 1 : verdict + probabilités 1/X/2 */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(220px, 0.9fr) 1.5fr',
-                gap: 20,
-                marginBottom: 20,
-              }}
-            >
+            <div className="umc-verdict-row">
               <div
                 style={{
                   background: 'rgba(0,0,0,0.3)',
@@ -308,7 +300,7 @@ const UltimateMatchCenter = ({ match, onClose }) => {
             </div>
 
             {/* Row 2 : marchés chirurgicaux */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 15, marginBottom: 20 }}>
+            <div className="umc-markets-grid">
               <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '14px 16px' }}>
                 <div style={{ fontSize: '0.62rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>
                   BTTS
@@ -364,7 +356,7 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                 Cotes & Value (de-vig)
               </div>
               {valueRows.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                <div className="umc-value-grid">
                   {valueRows.map((v) => (
                     <div
                       key={v.label}
@@ -434,7 +426,7 @@ const UltimateMatchCenter = ({ match, onClose }) => {
             </div>
 
             {/* Row 4 : confiance & risque + détails du match */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 15 }}>
+            <div className="umc-cr-grid">
               <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '16px 18px' }}>
                 <div style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', marginBottom: 10 }}>
                   Confiance & Risque
@@ -492,10 +484,7 @@ const UltimateMatchCenter = ({ match, onClose }) => {
           </div>
 
           {/* KPI STRIP */}
-          <div
-            className="col-span-12"
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 15 }}
-          >
+          <div className="col-span-12 umc-kpi-grid">
             {[
               { label: 'ثقة XGBoost', val: `${Math.round(xgbConf * 100)}%`, color: '#6366f1' },
               { label: 'Value (EV+)', val: `+${Math.round(ev * 100)}%`, color: '#10b981' },

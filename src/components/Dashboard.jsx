@@ -18,82 +18,27 @@ const UltimateMatchCenter = lazy(() => import('./UltimateMatchCenter/UltimateMat
 // 🧠 [PERF] Header extrait en sous-composant mémoïsé : il ne se re-rend que si
 // son nombre de matches (compteur) ou l'état du toggle change réellement.
 const StatusHeader = React.memo(({ count, sidebarOpen, onToggleSidebar }) => (
-  <div
-    className="onyx-status-header"
-    style={{
-      background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-      borderBottom: '1px solid rgba(0, 255, 170, 0.3)',
-      padding: '8px 20px',
-      height: '45px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    }}
-  >
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <button
-        onClick={onToggleSidebar}
-        style={{
-          background: 'transparent',
-          border: 'none',
-          color: '#64748b',
-          fontSize: '16px',
-          cursor: 'pointer',
-          padding: '2px 6px',
-          borderRadius: '4px',
-          lineHeight: '1',
-        }}
-      >
-        {sidebarOpen ? '◀' : '▶'}
+  <header className="sh-bar">
+    <div className="sh-left">
+      <button className="sh-toggle" onClick={onToggleSidebar} aria-label="Menu">
+        <span className="sh-burger">{sidebarOpen ? '✕' : '☰'}</span>
       </button>
-      <div
-        className="status-dot live"
-        style={{ width: '8px', height: '8px', boxShadow: '0 0 10px #00ffaa' }}
-      />
-      <span
-        style={{
-          fontSize: '11px',
-          fontWeight: '900',
-          letterSpacing: '1px',
-          color: '#f8fafc',
-        }}
-      >
-        TITANIUM <span style={{ color: '#00ffaa' }}>SENSOR COMMAND</span> v3.0
+      <span className="sh-dot" />
+      <span className="sh-title">
+        TITANIUM <span className="sh-accent">SENSOR</span>
       </span>
     </div>
 
-    <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-        <span style={{ fontSize: '9px', color: '#64748b', fontWeight: '900' }}>MOTEUR:</span>
-        <span style={{ fontSize: '10px', color: '#fbbf24', fontWeight: '900' }}>NEURAL-X</span>
-      </div>
+    <div className="sh-center">
+      <span className="sh-mute">MOTEUR:</span>
+      <span className="sh-engine">NEURAL-X</span>
     </div>
 
-    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        <span
-          style={{
-            fontSize: '8px',
-            color: '#64748b',
-            fontWeight: '900',
-            textTransform: 'uppercase',
-          }}
-        >
-          Capteurs Actifs
-        </span>
-        <span
-          style={{
-            fontSize: '14px',
-            color: '#00ffaa',
-            fontWeight: '900',
-            fontFamily: "'JetBrains Mono', monospace",
-          }}
-        >
-          {count}
-        </span>
-      </div>
+    <div className="sh-right">
+      <span className="sh-cap-label">Capteurs Actifs</span>
+      <span className="sh-cap-count">{count}</span>
     </div>
-  </div>
+  </header>
 ))
 
 // Ligues majeures (différençables par xG fbref/StatsBomb) : priorité d'affichage
@@ -116,10 +61,27 @@ const toRawLines = (m) => {
   return lines
 }
 
-const MatchRowMemo = React.memo(({ index, style, list, onClick }) => {
+const MatchRowMemo = React.memo(({ index, style, list, onClick, compact }) => {
   const m = list[index]
   if (!m) return null
-  return <MatchCard rawData={toRawLines(m)} onClick={onClick} style={style} />
+  const ts = m.startTimestamp
+  const timeLabel = ts
+    ? new Date(ts > 1e11 ? ts : ts * 1000).toLocaleString(undefined, {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : ''
+  return (
+    <MatchCard
+      rawData={toRawLines(m)}
+      onClick={onClick}
+      style={style}
+      timeLabel={timeLabel}
+      compact={compact}
+    />
+  )
 })
 
 const Dashboard = () => {
@@ -139,10 +101,23 @@ const Dashboard = () => {
   const activeView = PATH_TO_VIEW[location.pathname] || 'all-matches'
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    const mq = window.matchMedia('(max-width: 767px)')
+    const apply = () => setIsMobile(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
   }, [])
+
+  // 🧠 Verrouillage du scroll body quand le drawer mobile est ouvert
+  useEffect(() => {
+    if (isMobile && sidebarOpen) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = prev
+      }
+    }
+  }, [isMobile, sidebarOpen])
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth <= 1024) setSidebarOpen(false)
@@ -240,14 +215,14 @@ const Dashboard = () => {
   // 🧠 [PERF] Props stables pour la liste virtuelle : le React.memo des rangées
   // ne re-rend que si la liste (contenu) ou le handler changent réellement.
   const matchRowProps = useMemo(
-    () => ({ list: allMatchesList, onClick: handleSelectMatch }),
-    [allMatchesList, handleSelectMatch]
+    () => ({ list: allMatchesList, onClick: handleSelectMatch, compact: isMobile }),
+    [allMatchesList, handleSelectMatch, isMobile]
   )
 
   const renderMatchList = (list) => {
     if (list.length === 0) return null
-    const ROW_H = 56
-    const HEADER_H = 42
+    const ROW_H = isMobile ? 104 : 56
+    const HEADER_H = isMobile ? 0 : 42
     const listHeight = Math.min(list.length * ROW_H, 800)
     const virtualHeight = listHeight - HEADER_H
 
@@ -255,36 +230,38 @@ const Dashboard = () => {
       <div className="onyx-list-section">
         <div className="onyx-section-title global">📊 TOUS LES MATCHS ({list.length})</div>
         <div style={{ width: '100%' }}>
-          <div
-            style={{
-              display: 'flex',
-              borderBottom: '2px solid #1e293b',
-              padding: '8px 0',
-              fontSize: '11px',
-              color: '#64748b',
-              textTransform: 'uppercase',
-              fontWeight: '800',
-              letterSpacing: '0.8px',
-              background: 'rgba(0,0,0,0.3)',
-            }}
-          >
-            <div style={{ width: '18%', minWidth: '140px', padding: '0 8px' }}>MATCH / FORME</div>
-            <div style={{ width: '14%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>
-              BTTS
+          {!isMobile && (
+            <div
+              style={{
+                display: 'flex',
+                borderBottom: '2px solid #1e293b',
+                padding: '8px 0',
+                fontSize: '11px',
+                color: '#64748b',
+                textTransform: 'uppercase',
+                fontWeight: '800',
+                letterSpacing: '0.8px',
+                background: 'rgba(0,0,0,0.3)',
+              }}
+            >
+              <div style={{ width: '18%', minWidth: '140px', padding: '0 8px' }}>MATCH / FORME</div>
+              <div style={{ width: '14%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>
+                BTTS
+              </div>
+              <div style={{ width: '14%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>
+                O/U
+              </div>
+              <div style={{ width: '18%', minWidth: '100px', padding: '0 8px', textAlign: 'center' }}>
+                GAGNANT
+              </div>
+              <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>
+                HANDICAP
+              </div>
+              <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>
+                CORNERS
+              </div>
             </div>
-            <div style={{ width: '14%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>
-              O/U
-            </div>
-            <div style={{ width: '18%', minWidth: '100px', padding: '0 8px', textAlign: 'center' }}>
-              GAGNANT
-            </div>
-            <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>
-              HANDICAP
-            </div>
-            <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>
-              CORNERS
-            </div>
-          </div>
+          )}
           <div style={{ height: virtualHeight }}>
             <List
               height={virtualHeight}

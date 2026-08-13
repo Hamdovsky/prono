@@ -1,7 +1,7 @@
 import React from 'react'
 import './MatchCard.css'
 
-const MatchCard = ({ rawData, style, onClick }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
     return {
@@ -59,6 +59,34 @@ const MatchCard = ({ rawData, style, onClick }) => {
   const solidClass = d.solid ? ' mc-solid' : ''
   const solidBadge = d.solid ? ' 🎯' : ''
 
+  if (compact) {
+    return (
+      <div className={`match-card mc-compact${solidClass}`} style={style} onClick={onClick}>
+        <div className="mcc-top">
+          <div className="mcc-league">
+            {d.league}
+            {solidBadge}
+          </div>
+          {timeLabel && <div className="mcc-time">{timeLabel}</div>}
+        </div>
+        <div className="mcc-teams">
+          <span className="mcc-team">{shortTeam(d.home)}</span>
+          <span className={`mcc-vs${d.score ? ' has-score' : ''}`}>{d.score ? d.score : 'vs'}</span>
+          <span className="mcc-team">{shortTeam(d.away)}</span>
+        </div>
+        <div className="mcc-chips">
+          <span className={`mcc-chip mcc-btts ${bttsVerdict}`}>BTTS {d.btts}</span>
+          <span className={`mcc-chip mcc-ou ${ouDir}`}>
+            {hasOu ? `O/U ${ouDir.toUpperCase()} ${ouPrec}%` : 'O/U --'}
+          </span>
+          <span className={`mcc-chip mcc-win ${pickClass}`}>{d.winner}</span>
+          <span className="mcc-chip mcc-hcp">H {d.handicap}</span>
+          <span className={`mcc-chip mcc-corners ${cornersVerdict}`}>✚ {d.corners}</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`match-card${solidClass}`} style={style} onClick={onClick}>
       <div className="mc-match-info">
@@ -71,6 +99,7 @@ const MatchCard = ({ rawData, style, onClick }) => {
           <span className="mc-vs">{d.score ? d.score : 'vs'}</span>
           <span>{shortTeam(d.away)}</span>
         </div>
+        {timeLabel && <div className="mc-time">{timeLabel}</div>}
       </div>
 
       <div className={`mc-cell mc-btts ${bttsVerdict}`}>{d.btts}</div>

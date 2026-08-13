@@ -310,6 +310,14 @@ const pgDb = {
       ]
 
       await query(sql, params)
+      if (m.match_key) {
+        // Persist the canonical key (kept out of the heavy INSERT to avoid
+        // renumbering 59 positional params).
+        await query('UPDATE matches SET "match_key" = COALESCE("match_key", $1) WHERE id = $2', [
+          m.match_key,
+          m.id,
+        ]).catch(() => {})
+      }
       return m.id
     } catch (err) {
       logger.error(`[PG DB] insertMatch error: ${err.message}`)
@@ -317,14 +325,29 @@ const pgDb = {
     }
   },
 
-  async getMatchesByStatuses(statuses = []) {
+  async updateMatchResult(matchKey, patch) {
+    if (!matchKey) return 0
+    try {
+      const result = await query(
+        'UPDATE matches SET "scoreHome"=$1, "scoreAway"=$2, status=$3, last_updated=$4 WHERE "match_key"=$5',
+        [patch.scoreHome ?? 0, patch.scoreAway ?? 0, patch.status || 'finished', Date.now(), matchKey]
+      )
+      return result.rowCount || 0
+    } catch (err) {
+      logger.error(`[PG DB] updateMatchResult error: ${err.message}`)
+      return 0
+    }
+  },
+
+  async getMatchesByStatuses(statuses = [], opts = {}) {
     if (!Array.isArray(statuses) || statuses.length === 0) return []
     try {
       const placeholders = statuses.map((_, i) => `$${i + 1}`).join(',')
-      const result = await query(
-        `SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC`,
-        statuses
-      )
+      const limit = parseInt(opts.limit, 10)
+      const sql = `SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC${
+        limit > 0 ? ` LIMIT ${Math.min(limit, 5000)}` : ''
+      }`
+      const result = await query(sql, statuses)
       return result.rows.map((r) => {
         try {
           const parsed =

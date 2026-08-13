@@ -11,10 +11,9 @@ selon `state.json` :
 | Rebuild `master`        | après mise à jour | automatique                        |
 | Boutiques (paris)       | quotidien         | `--bases`                          |
 
-Exécution depuis le répertoire du pipeline :
+Exécution depuis le répertoire du pipeline (`C:\Users\HAMDI\Desktop\HamdiProno\stitch\data_pipeline`) :
 
 ```bash
-cd /chemin/vers/prono/data_pipeline
 .venv\Scripts\python.exe scripts\run_scheduled.py            # quotidien
 .venv\Scripts\python.exe scripts\run_scheduled.py --bases   # + boutiques
 .venv\Scripts\python.exe scripts\run_scheduled.py --no-backup   # sans sauvegarde
@@ -53,9 +52,9 @@ Sauvegardes (dans `backups/data_pipeline/YYYYMMDD/`) : copie de `data/raw/`,
    « Exécuter avec les autorisations maximales ».
 3. Onglet **Déclencheurs** : « Chaque jour » à 07:00.
 4. Onglet **Actions** :
-   - Programme : `C:\Users\HAMDI\prono\data_pipeline\.venv\Scripts\python.exe`
+   - Programme : `C:\Users\HAMDI\Desktop\HamdiProno\stitch\data_pipeline\.venv\Scripts\python.exe`
    - Arguments : `scripts\run_scheduled.py --bases`
-   - Démarrer dans : `C:\Users\HAMDI\prono\data_pipeline`
+   - Démarrer dans : `C:\Users\HAMDI\Desktop\HamdiProno\stitch\data_pipeline`
 5. Rien de plus : les étapes dues (Football-Data, ClubElo, xG/xA, backup)
    sont déclenchées automatiquement.
 

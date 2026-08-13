@@ -129,6 +129,20 @@ function mapLiveScoreEventToMatch(event, stage) {
   }
 }
 
+async function fetchLiveScoreMatches(dateStr) {
+  const stages = await fetchLiveScoreEvents(dateStr)
+  const out = []
+  for (const stage of stages || []) {
+    for (const event of stage?.Events || []) {
+      const eps = (event.Eps || '').toUpperCase()
+      if (eps !== 'NS' && eps !== '') continue
+      const match = mapLiveScoreEventToMatch(event, stage)
+      if (match) out.push(match)
+    }
+  }
+  return out
+}
+
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'sportapi7.p.rapidapi.com'
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || ''
 const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/api/v1`
@@ -645,4 +659,4 @@ async function runCloudSeed() {
   }
 }
 
-module.exports = { runCloudSeed, purgeFakeMatches }
+module.exports = { runCloudSeed, purgeFakeMatches, getDateStr, fetchLiveScoreEvents, fetchLiveScoreMatches }

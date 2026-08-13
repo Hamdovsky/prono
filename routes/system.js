@@ -32,7 +32,7 @@ router.get('/ping', (req, res) => res.send('API_PONG'))
  * GET /api/bot-debug - Debug bot env variables in production safely
  */
 const localOrAuth = (req, res, next) => {
-  const ip = req.ip || req.socket?.remoteAddress || ''
+  const ip = req.socket?.remoteAddress || ''
   const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1'
   if (isLocalhost || process.env.NODE_ENV !== 'production') return next()
   return securityEngine.authenticate(req, res, next)
@@ -282,7 +282,7 @@ router.get('/health', async (req, res) => {
  * 🛡️ Localhost (scraper process) is always trusted — no token required for 127.0.0.1 / ::1
  */
 const localOnlyOrAuth = (req, res, next) => {
-  const ip = req.ip || req.socket?.remoteAddress || ''
+  const ip = req.socket?.remoteAddress || ''
   const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1'
   if (isLocalhost) return next() // Internal scraper — trusted
   return securityEngine.authenticate(req, res, next) // External — require token
@@ -359,6 +359,88 @@ router.get('/db-stats', async (req, res) => {
     })
   } catch (e) {
     res.status(500).json({ error: e.message })
+  }
+})
+
+/**
+ * GET /api/scraper/sources — Resilient scraper health + metrics + scan history
+ */
+router.get('/scraper/sources', async (req, res) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const dataDir = path.join(__dirname, '..', 'data')
+    const statePath = path.join(dataDir, 'scraper_state.json')
+    const historyPath = path.join(dataDir, 'scraper_history.json')
+
+    const readJson = (p) => {
+      if (!fs.existsSync(p)) return null
+      try {
+        return JSON.parse(fs.readFileSync(p, 'utf8'))
+      } catch (_) {
+        return null
+      }
+    }
+
+    const state = readJson(statePath)
+    const historyRaw = readJson(historyPath)
+    const history = Array.isArray(historyRaw) ? historyRaw : []
+    const { computeSourceMetrics, detectSilentFailure } = require('../services/sourceMetrics')
+
+    const metrics = computeSourceMetrics(history)
+    const health = state?.sources || {}
+
+    const sources = {}
+    for (const name of new Set([...Object.keys(health), ...Object.keys(metrics)])) {
+      sources[name] = { ...(health[name] || {}), ...(metrics[name] || {}) }
+    }
+
+    res.json({
+      success: true,
+      sources,
+      history: history.slice(-20).map((s) => ({
+        at: s.finishedAt || s.startedAt,
+        dates: s.dates,
+        coverage: s.coverage,
+        sources: s.sources,
+      })),
+      silentFailure: detectSilentFailure(history, 'livescore'),
+      lastScan: state
+        ? {
+            at: state.lastScanAt,
+            dates: state.dates,
+            coverage: state.coverage,
+            silentFailure: state.silentFailure,
+          }
+        : null,
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+// Simple in-memory lock so only one resilient scan runs at a time.
+let scraperRunInFlight = false
+
+/**
+ * POST /api/scraper/run — Manually trigger the resilient scan
+ * (results J-3..J-1, then fixtures J..J+2, then settlement).
+ * Secured like other admin endpoints: localhost bypass, otherwise Bearer token.
+ */
+router.post('/scraper/run', localOrAuth, async (req, res) => {
+  try {
+    if (scraperRunInFlight) {
+      return res.status(409).json({ success: false, error: 'Un scan est déjà en cours' })
+    }
+    scraperRunInFlight = true
+    const { runResilientScan } = require('../services/scraperBridge')
+    const result = await runResilientScan()
+    res.json({ success: !!result.success, result })
+  } catch (e) {
+    logger.error(`[SCRAPER] Manual run failed: ${e.message}`)
+    res.status(500).json({ success: false, error: e.message })
+  } finally {
+    scraperRunInFlight = false
   }
 })
 
@@ -488,7 +570,11 @@ router.get('/test-seed', localOrAuth, async (req, res) => {
  * POST /api/sync-matches
  * Secure cloud synchronization webhook to receive matches pushed from local environments.
  */
-router.post('/sync-matches', express.json({ limit: '50mb' }), async (req, res) => {
+router.post(
+  '/sync-matches',
+  express.json({ limit: '50mb' }),
+  securityEngine.authenticate.bind(securityEngine),
+  async (req, res) => {
   try {
     const { matches } = req.body
     if (!Array.isArray(matches)) {
@@ -571,7 +657,8 @@ router.post('/sync-matches', express.json({ limit: '50mb' }), async (req, res) =
     logger.error(`❌ [SYNC API] Transaction failed: ${e.message}`)
     res.status(500).json({ error: e.message })
   }
-})
+  }
+)
 
 /**
  * GET /api/backtest — Validate prediction accuracy on historical fixtures

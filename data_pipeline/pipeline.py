@@ -9,13 +9,11 @@ import pandas as pd
 
 import build.features as features_mod
 import build.store as store
-import sources.clubelo as clubelo_mod
-import sources.fbref as fbref_mod
-import sources.football_data as football_data_mod
 from build.align import align
 from config import ADVANCED_CSV, STATE_FILE
+from sources import SOURCE_BY_NAME
 from team_mapping import TeamMapper
-from util import RateLimiter, get_logger, setup_logging
+from util import get_logger, setup_logging
 
 log = get_logger("pipeline")
 
@@ -38,11 +36,14 @@ def _update_state(patch: dict) -> None:
 
 
 def _get_elo(fd: pd.DataFrame) -> tuple[pd.DataFrame, str]:
-    """Elo pré-match par équipe (API ClubElo, sinon cache, sinon calcul local).
+    """Elo pré-match par équipe via la source ClubElo (registre homogène).
 
     Retourne `(historique, provenance)` avec provenance ∈ {"clubelo", "cache", "local"}.
     """
-    return clubelo_mod.fetch_histories(limiter=RateLimiter(0.0), fallback_results=fd)
+    src = SOURCE_BY_NAME["clubelo"]
+    src.fallback_results = fd
+    res = src.fetch()
+    return res.df, res.provenance
 
 
 def _rebuild(fd, elo, adv) -> pd.DataFrame:
@@ -57,8 +58,9 @@ def _rebuild(fd, elo, adv) -> pd.DataFrame:
 def run_daily(force: bool = False) -> pd.DataFrame:
     """Quotidien matin : Football-Data + ClubElo, puis rebuild du master."""
     log.info("=== Tâche quotidienne (Football-Data + ClubElo) ===")
-    fd = football_data_mod.fetch(force=force)
-    football_data_mod.fetch_fixtures(force=force)
+    fb = SOURCE_BY_NAME["football_data"]
+    fd = fb.fetch(force=force).df
+    fb.fetch_fixtures(force=force)
     elo = _get_elo(fd)
     df = _rebuild(fd, elo, _load_advanced())
     _update_state({
@@ -73,8 +75,8 @@ def run_daily(force: bool = False) -> pd.DataFrame:
 def run_fbref(force: bool = False) -> pd.DataFrame:
     """Tous les 3 jours : stats avancées (xG/xA), puis rebuild du master."""
     log.info("=== Tâche stats avancées (xG/xA) ===")
-    adv = fbref_mod.fetch(limiter=RateLimiter(3.5), force=force)
-    fd = football_data_mod.fetch()
+    adv = SOURCE_BY_NAME["fbref"].fetch(force=force).df
+    fd = SOURCE_BY_NAME["football_data"].fetch().df
     elo = _get_elo(fd)
     df = _rebuild(fd, elo, adv)
     _update_state({
@@ -89,7 +91,7 @@ def run_fbref(force: bool = False) -> pd.DataFrame:
 def build_master(force: bool = False) -> pd.DataFrame:
     """Reconstruit le master à partir des données déjà en cache (aucun réseau)."""
     log.info("=== Rebuild du master (cache) ===")
-    fd = football_data_mod.fetch(force=False)
+    fd = SOURCE_BY_NAME["football_data"].fetch(force=False).df
     elo = _get_elo(fd)
     df = _rebuild(fd, elo, _load_advanced())
     _update_state({"last_build": datetime.now(timezone.utc).isoformat(), "elo_source": elo[1]})

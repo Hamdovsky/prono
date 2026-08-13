@@ -4,6 +4,7 @@ const axios = require('axios')
 const https = require('https')
 const Database = require('better-sqlite3')
 const logger = require('../core/logger')
+const securityEngine = require('../core/securityEngine')
 const { speedCache } = require('../core/speedCache')
 const { scrapePromosport } = require('../core/promosport_scraper')
 const { generatePromosportGrids, generateGoldCoupon } = require('../core/promosport_engine')
@@ -1351,7 +1352,7 @@ const path = require('path')
 const fs = require('fs')
 const retrainState = { running: false, lastResult: null }
 
-router.post('/retrain', async (req, res) => {
+router.post('/retrain', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   if (retrainState.running)
     return res.status(409).json({ success: false, error: 'Retrain already in progress' })
   retrainState.running = true
@@ -1484,7 +1485,7 @@ router.get('/retrain/status', (req, res) => {
 /**
  * GET /api/promosport/diagnostic
  */
-router.get('/diagnostic', async (req, res) => {
+router.get('/diagnostic', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   const { execSync: es } = require('child_process')
   const diag = { python: null, pip: null, deps: {}, importTest: null }
   try {
@@ -1517,7 +1518,11 @@ router.get('/diagnostic', async (req, res) => {
   }
   // Quick pip install test for one package
   if (req.query.install) {
-    const pkg = req.query.install
+    // Security: whitelist package name to prevent command injection
+    const pkg = String(req.query.install)
+    if (!/^[A-Za-z0-9_.-]+$/.test(pkg)) {
+      return res.status(400).json({ error: 'Invalid package name' })
+    }
     const start = Date.now()
     try {
       const out = es(`python3 -m pip install --no-cache-dir ${pkg} 2>&1 | tail -5`, {

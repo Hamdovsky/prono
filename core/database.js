@@ -88,7 +88,11 @@ if (process.env.DATABASE_URL) {
 
 // ── SQLite initialization (only reached when DATABASE_URL is NOT set) ──
 let db = null
-const dbPath = path.resolve(__dirname, '../data/tactical.db')
+// SQLITE_DB_PATH overrides the default DB for tests (see __tests__/db-isolation.js),
+// so `npm run test` never touches the production data/tactical.db.
+const dbPath = process.env.SQLITE_DB_PATH
+  ? path.resolve(process.env.SQLITE_DB_PATH)
+  : path.resolve(__dirname, '../data/tactical.db')
 try {
   const Database = require('better-sqlite3')
   const dbDir = path.dirname(dbPath)
@@ -626,6 +630,7 @@ function runMigrations() {
     ['player_stats', 'heatmap_danger', 'REAL DEFAULT 0'],
     ['matches', 'result', 'TEXT'],
     ['matches', 'settled_at', 'INTEGER'],
+    ['matches', 'match_key', 'TEXT'],
     ['matches', 'market_type', 'TEXT'],
     ['matches', 'odds_fetch_error', 'TEXT'],
     ['matches', 'odds_source', 'TEXT'],
@@ -840,7 +845,7 @@ const database = {
 
       const sql = `
                 INSERT INTO matches (
-                    id, bsd_match_id, homeTeam, awayTeam, league, scoreHome, scoreAway, 
+                    id, match_key, bsd_match_id, homeTeam, awayTeam, league, scoreHome, scoreAway, 
                     minute, status, prediction, confidence, fullData, timestamp, startTimestamp,
                     possession_home, possession_away, dangerous_attacks_home, dangerous_attacks_away,
                     shots_on_target_home, shots_on_target_away, corners_home, corners_away,
@@ -854,13 +859,14 @@ const database = {
                     weather_temp, weather_desc, weather_humidity, home_form_pts, away_form_pts, insufficient_data,
                     odds_over25, odds_under25, odds_btts_yes, odds_btts_no
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?
                 ) ON CONFLICT (id) DO UPDATE SET 
+                    match_key = COALESCE(excluded.match_key, matches.match_key),
                     bsd_match_id = COALESCE(excluded.bsd_match_id, matches.bsd_match_id),
                     scoreHome = excluded.scoreHome, scoreAway = excluded.scoreAway,
                     minute = excluded.minute, status = excluded.status, 
@@ -901,6 +907,7 @@ const database = {
 
       const params = [
         m.id,
+        m.match_key || null,
         m.bsd_match_id || null,
         m.homeTeam,
         m.awayTeam,
@@ -973,12 +980,38 @@ const database = {
     }
   },
 
-  getMatchesByStatuses: async (statuses = []) => {
+  updateMatchResult: async (matchKey, patch) => {
+    if (!matchKey) return 0
+    try {
+      const r = db
+        .prepare(
+          'UPDATE matches SET "scoreHome"=?, "scoreAway"=?, status=?, last_updated=? WHERE "match_key"=?'
+        )
+        .run(
+          patch.scoreHome ?? 0,
+          patch.scoreAway ?? 0,
+          patch.status || 'finished',
+          Date.now(),
+          matchKey
+        )
+      return r.changes || 0
+    } catch (err) {
+      logger.error(`SQLite updateMatchResult error: ${err.message}`)
+      return 0
+    }
+  },
+
+  getMatchesByStatuses: async (statuses = [], opts = {}) => {
     if (!Array.isArray(statuses) || statuses.length === 0) return []
     try {
       const placeholders = statuses.map(() => '?').join(',')
+      const limit = parseInt(opts.limit, 10)
       const res = db
-        .prepare(`SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC`)
+        .prepare(
+          `SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC${
+            limit > 0 ? ` LIMIT ${Math.min(limit, 5000)}` : ''
+          }`
+        )
         .all(statuses)
       return res.map((r) => {
         try {

@@ -1,16 +1,99 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react'
 import { useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
-import UltimateMatchCenter from './UltimateMatchCenter/UltimateMatchCenter'
 import MatchCard from './MatchCard'
 import dataService from '../services/dataService'
 import { ROUTES, PATH_TO_VIEW } from '../config/routes'
+import { filterMatchesInWindow } from '../utils/timeFilter'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
 
 import './Dashboard.css'
 
+// 🧠 [PERF] Composants lourds chargés à la demande (code-splitting)
 const Promosport = lazy(() => import('./Promosport'))
+const UltimateMatchCenter = lazy(() => import('./UltimateMatchCenter/UltimateMatchCenter'))
+
+// 🧠 [PERF] Header extrait en sous-composant mémoïsé : il ne se re-rend que si
+// son nombre de matches (compteur) ou l'état du toggle change réellement.
+const StatusHeader = React.memo(({ count, sidebarOpen, onToggleSidebar }) => (
+  <div
+    className="onyx-status-header"
+    style={{
+      background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+      borderBottom: '1px solid rgba(0, 255, 170, 0.3)',
+      padding: '8px 20px',
+      height: '45px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button
+        onClick={onToggleSidebar}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          color: '#64748b',
+          fontSize: '16px',
+          cursor: 'pointer',
+          padding: '2px 6px',
+          borderRadius: '4px',
+          lineHeight: '1',
+        }}
+      >
+        {sidebarOpen ? '◀' : '▶'}
+      </button>
+      <div
+        className="status-dot live"
+        style={{ width: '8px', height: '8px', boxShadow: '0 0 10px #00ffaa' }}
+      />
+      <span
+        style={{
+          fontSize: '11px',
+          fontWeight: '900',
+          letterSpacing: '1px',
+          color: '#f8fafc',
+        }}
+      >
+        TITANIUM <span style={{ color: '#00ffaa' }}>SENSOR COMMAND</span> v3.0
+      </span>
+    </div>
+
+    <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+        <span style={{ fontSize: '9px', color: '#64748b', fontWeight: '900' }}>MOTEUR:</span>
+        <span style={{ fontSize: '10px', color: '#fbbf24', fontWeight: '900' }}>NEURAL-X</span>
+      </div>
+    </div>
+
+    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+        <span
+          style={{
+            fontSize: '8px',
+            color: '#64748b',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+          }}
+        >
+          Capteurs Actifs
+        </span>
+        <span
+          style={{
+            fontSize: '14px',
+            color: '#00ffaa',
+            fontWeight: '900',
+            fontFamily: "'JetBrains Mono', monospace",
+          }}
+        >
+          {count}
+        </span>
+      </div>
+    </div>
+  </div>
+))
 
 const FINISHED_STATUSES = new Set(['finished', 'ft', 'ended', 'closed', 'played', 'aet', 'pen'])
 
@@ -31,7 +114,20 @@ const isFinishedMatch = (m) => {
   return false
 }
 
+// 🧠 [PERF] Cache par objet match : une même référence de match produit toujours
+// la même liste "raw", évitant de recomputer la normalisation à chaque render
+// (et permettant au React.memo de MatchCard de sauter les re-renders).
+const rawLinesCache = new WeakMap()
 const toRawLines = (m) => {
+  if (!m) return []
+  const cached = rawLinesCache.get(m)
+  if (cached) return cached
+  const lines = computeRawLines(m)
+  rawLinesCache.set(m, lines)
+  return lines
+}
+
+const computeRawLines = (m) => {
   if (!m) return []
   const finished = isFinishedMatch(m)
   const score =
@@ -304,20 +400,29 @@ const Dashboard = () => {
     }
   }, [])
 
-  const handleRefresh = () => dataService.refreshAllData()
+  const handleRefresh = useCallback(() => dataService.refreshAllData(), [])
+  const handleSelectMatch = useCallback((m) => setSelectedMatch(m), [])
 
-  const handleLeagueChange = (league) => {
-    setActiveLeague(league)
-    if (typeof window !== 'undefined' && window.innerWidth <= 1024) setSidebarOpen(false)
-  }
+  const handleLeagueChange = useCallback(
+    (league) => {
+      setActiveLeague(league)
+      if (typeof window !== 'undefined' && window.innerWidth <= 1024) setSidebarOpen(false)
+    },
+    []
+  )
 
-  const handleDateChange = (date) => {
-    setActiveDate(date)
-    if (typeof window !== 'undefined' && window.innerWidth <= 1024) setSidebarOpen(false)
-  }
+  const handleDateChange = useCallback(
+    (date) => {
+      setActiveDate(date)
+      if (typeof window !== 'undefined' && window.innerWidth <= 1024) setSidebarOpen(false)
+    },
+    []
+  )
 
   const allMatchesList = useMemo(() => {
-    return matches
+    // Filtre temporel (AUJOURD'HUI/DEMAIN/3 J/7 J) — jours calendaires locaux
+    const dateFiltered = filterMatchesInWindow(matches, activeDate, Date.now())
+    return dateFiltered
       .filter((m) => {
         const s = String(m.status || '').toLowerCase()
         if (['postponed', 'canceled'].includes(s)) return false
@@ -371,7 +476,14 @@ const Dashboard = () => {
           : 0
         return aFin ? bTime - aTime : aTime - bTime
       })
-  }, [matches, searchQuery])
+  }, [matches, activeDate, searchQuery])
+
+  // 🧠 [PERF] Props stables pour la liste virtuelle : le React.memo des rangées
+  // ne re-rend que si la liste (contenu) ou le handler changent réellement.
+  const matchRowProps = useMemo(
+    () => ({ list: allMatchesList, onClick: handleSelectMatch }),
+    [allMatchesList, handleSelectMatch]
+  )
 
   const renderMatchList = (list) => {
     if (list.length === 0) return null
@@ -419,7 +531,7 @@ const Dashboard = () => {
               height={virtualHeight}
               rowCount={list.length}
               rowHeight={ROW_H}
-              rowProps={{ list, onClick: setSelectedMatch }}
+              rowProps={matchRowProps}
               width="100%"
               className="titanium-virtual-list"
               style={{ overflowX: 'hidden' }}
@@ -499,87 +611,11 @@ const Dashboard = () => {
       )}
 
       <main className="titanium-main">
-        <div
-          className="onyx-status-header"
-          style={{
-            background: 'linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-            borderBottom: '1px solid rgba(0, 255, 170, 0.3)',
-            padding: '8px 20px',
-            height: '45px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              onClick={() => setSidebarOpen((s) => !s)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#64748b',
-                fontSize: '16px',
-                cursor: 'pointer',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                lineHeight: '1',
-              }}
-            >
-              {sidebarOpen ? '◀' : '▶'}
-            </button>
-            <div
-              className="status-dot live"
-              style={{ width: '8px', height: '8px', boxShadow: '0 0 10px #00ffaa' }}
-            />
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: '900',
-                letterSpacing: '1px',
-                color: '#f8fafc',
-              }}
-            >
-              TITANIUM <span style={{ color: '#00ffaa' }}>SENSOR COMMAND</span> v3.0
-            </span>
-          </div>
-
-          <div
-            className="onyx-header-center"
-            style={{ flex: 1, display: 'flex', justifyContent: 'center' }}
-          >
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <span style={{ fontSize: '9px', color: '#64748b', fontWeight: '900' }}>MOTEUR:</span>
-              <span style={{ fontSize: '10px', color: '#fbbf24', fontWeight: '900' }}>
-                NEURAL-X
-              </span>
-            </div>
-          </div>
-
-          <div
-            className="onyx-header-right"
-            style={{ display: 'flex', gap: '20px', alignItems: 'center' }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span
-                style={{
-                  fontSize: '8px',
-                  color: '#64748b',
-                  fontWeight: '900',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Capteurs Actifs
-              </span>
-              <span
-                style={{
-                  fontSize: '14px',
-                  color: '#00ffaa',
-                  fontWeight: '900',
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                {matches.length}
-              </span>
-            </div>
-          </div>
-        </div>
+        <StatusHeader
+          count={matches.length}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((s) => !s)}
+        />
 
         <div className="titanium-scroll">
           {activeView === 'promosport' ? (
@@ -658,7 +694,9 @@ const Dashboard = () => {
       </main>
 
       {selectedMatch && (
-        <UltimateMatchCenter match={selectedMatch} onClose={() => setSelectedMatch(null)} />
+        <Suspense fallback={null}>
+          <UltimateMatchCenter match={selectedMatch} onClose={() => setSelectedMatch(null)} />
+        </Suspense>
       )}
     </div>
   )

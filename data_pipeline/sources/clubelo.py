@@ -26,15 +26,16 @@ from __future__ import annotations
 
 import io
 import re
-import urllib.parse
-import urllib.request
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 import numpy as np
 import pandas as pd
+import requests
 
-from config import CLUBELO_DIR, LEAGUES
+from .base import BaseSource, KIND_ELO
+from config import CLUBELO_DIR, CLUBELO_INTERVAL_SECONDS, LEAGUES, STATE_FILE
 from util import RateLimiter, get_logger
 
 log = get_logger("clubelo")
@@ -67,9 +68,9 @@ def _read_source(default: str = "local") -> str:
 def _http_get(path: str, timeout: float = 20.0) -> str:
     """GET HTTP sur l'API ClubElo (port 80, le 443 étant souvent bloqué en amont)."""
     url = f"http://api.clubelo.com{path}"
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read().decode("utf-8", errors="replace")
+    resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=timeout)
+    resp.raise_for_status()
+    return resp.content.decode("utf-8", errors="replace")
 
 
 def current_teams(countries=None) -> list[str]:
@@ -96,7 +97,7 @@ def _team_path_candidates(club: str) -> list[str]:
     """
     return [
         "/" + re.sub(r"[^a-zA-Z0-9-]", "", club),
-        "/" + urllib.parse.quote(club),
+        "/" + quote(club),
     ]
 
 
@@ -250,3 +251,29 @@ def _api_reachable(timeout: float = 10.0) -> bool:
         return not ratings.empty
     except Exception:  # noqa: BLE001
         return False
+
+
+class ClubEloSource(BaseSource):
+    """Source ClubElo sous le contrat homogène (historique Elo pré-match).
+
+    La chaîne de résilience (API -> cache officiel -> cache local -> calcul
+    local) reste dans `fetch_histories` ; le pipeline injecte les résultats
+    Football-Data via ``fallback_results`` avant d'appeler ``fetch``.
+    """
+
+    name = "clubelo"
+    kind = KIND_ELO
+    rate_limit_s = CLUBELO_INTERVAL_SECONDS
+
+    def __init__(self, state_file=STATE_FILE):
+        super().__init__(state_file)
+        self.fallback_results: pd.DataFrame | None = None
+
+    def _fetch(self, leagues=None, seasons=None, force: bool = False):
+        df, source = fetch_histories(
+            limiter=RateLimiter(0.0),  # le rate limit est déjà appliqué par BaseSource
+            max_age=1,
+            fallback_results=self.fallback_results,
+        )
+        warnings = [] if source != "local" else ["Elo local (repli) : ratings non officiels"]
+        return df, source, warnings

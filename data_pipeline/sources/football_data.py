@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+from .base import BaseSource, KIND_BASE
 from config import FD_BASE_URL, FOOTBALL_DATA_DIR, LEAGUES, RAW_DIR, season_codes
 from util import get_logger, retry
 
@@ -76,9 +77,10 @@ FIXTURE_EXTRA_COLS = [
 def _download(season_code: str, file_stem: str) -> bytes:
     url = f"{FD_BASE_URL}/{season_code}/{file_stem}.csv"
     resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
-    if resp.status_code == 404:
+    # Un fichier de saison pas encore publié peut répondre 404, 300 ou un HTML
+    # d'erreur — on le traite comme "saison non publiée" (pas un crash).
+    if resp.status_code == 404 or resp.status_code >= 300:
         raise SeasonNotFoundError(url)
-    resp.raise_for_status()
     return resp.content
 
 
@@ -119,7 +121,13 @@ def fetch(leagues=None, force: bool = False) -> pd.DataFrame:
                 except SeasonNotFoundError as exc:
                     log.info("Saison %s non publiée pour %s (%s) — ignorée", code, lkey, exc)
                     continue
-                df = _read_csv(data)
+                try:
+                    df = _read_csv(data)
+                except Exception as exc:
+                    # Fichier courant malformé (page HTML, colonnes absentes…) :
+                    # on ignore plutôt que de casser toute la récolte.
+                    log.warning("Fichier %s illisible (%s) — ignoré", fpath, exc)
+                    continue
                 if not _valid_div(df, cfg["div"]):
                     log.warning("Fichier %s incohérent (Div attendu=%s) — ignoré", fpath, cfg["div"])
                     continue
@@ -196,3 +204,23 @@ def fetch_fixtures(leagues=None, force: bool = False) -> pd.DataFrame:
     log.info("Football-Data fixtures : %d matchs à venir (cotes %s)", len(df),
              "officielles" if len(df) else "aucune")
     return df
+
+
+class FootballDataSource(BaseSource):
+    """Source Football-Data.co.uk sous le contrat homogène (résultats + fixtures).
+
+    Authentifie le registre ``SOURCES`` ; la logique de récolte reste dans les
+    fonctions module `fetch` / `fetch_fixtures` (rétro-compat des tests).
+    """
+
+    name = "football_data"
+    kind = KIND_BASE
+    rate_limit_s = 0.0  # CSV directs, aucun rate limit nécessaire
+
+    def _fetch(self, leagues=None, seasons=None, force: bool = False):
+        df = fetch(leagues=leagues, force=force)
+        return df, "football-data.co.uk", []
+
+    def fetch_fixtures(self, leagues=None, force: bool = False):
+        """Cotes officielles des matchs à venir (même source, sans rate limit)."""
+        return fetch_fixtures(leagues=leagues, force=force)

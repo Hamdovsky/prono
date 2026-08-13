@@ -1,12 +1,10 @@
-"""
-setup_pipeline_tasks.ps1 — Planifie la tâche quotidienne du pipeline de données.
-
-Exécute run_scheduled.py (Football-Data + ClubElo chaque matin, xG/xA tous les
-3 jours si dû) via le Planificateur de tâches Windows, à 07:00.
-
-Usage :
-    powershell -ExecutionPolicy Bypass -File scripts\setup_pipeline_tasks.ps1
-"""
+# setup_pipeline_tasks.ps1 — Planifie la tâche quotidienne du pipeline de données.
+#
+# Exécute run_scheduled.py (Football-Data + ClubElo chaque matin, xG/xA tous les
+# 3 jours si dû) via le Planificateur de tâches Windows, à 07:00.
+#
+# Usage :
+#     powershell -ExecutionPolicy Bypass -File scripts\setup_pipeline_tasks.ps1
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectDir = Split-Path -Parent $ScriptDir
 $PythonExe = Join-Path $ProjectDir ".venv\Scripts\python.exe"

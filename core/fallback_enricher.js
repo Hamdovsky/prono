@@ -430,7 +430,12 @@ function _generateSyntheticOdds(homeTeam, awayTeam, league) {
 
 async function getStaleMatches() {
   try {
-    const res = await database.getAllMatches()
+    const res = await database.getMatchesByStatuses([
+      'scheduled',
+      'upcoming',
+      'NOT_STARTED',
+      'NS',
+    ])
     if (!res || res.length === 0) return []
     const stale = res.filter((m) => {
       const h = parseFloat(m.home_win_probability)

@@ -39,6 +39,60 @@ const { marketScopeOf } = require('./marketScope')
 const { applyHonestyGate } = require('./honestyGate')
 const featureEngineer = require('./services/FeatureEngineer')
 
+// ── Enrichment dedup / cooldown (process-wide, memory only)
+// Empêche les boucles redondantes (boot, cron, uptime-robot) de relancer
+// le même pipeline sur les mêmes matchs dans un court intervalle.
+const ENRICH_COOLDOWN_MS = 10 * 60 * 1000
+const _enrichedAtCache = new Map()
+const _inFlight = new Map()
+
+function _cooldownKey(m) {
+  return `${m.id || `${m.homeTeam}|${m.awayTeam}`}|${String(!!m.insufficient_data)}|${m.startTimestamp || 0}`
+}
+
+function _isEnrichedRecently(m) {
+  const ts = _enrichedAtCache.get(_cooldownKey(m))
+  return ts && Date.now() - ts < ENRICH_COOLDOWN_MS
+}
+
+function _markEnriched(m) {
+  try {
+    _enrichedAtCache.set(_cooldownKey(m), Date.now())
+    if (_enrichedAtCache.size > 5000) {
+      const now = Date.now()
+      for (const [k, v] of _enrichedAtCache) {
+        if (now - v > ENRICH_COOLDOWN_MS) _enrichedAtCache.delete(k)
+      }
+    }
+  } catch (_) {}
+}
+
+function _dedupe(key, runner) {
+  if (_inFlight.has(key)) return _inFlight.get(key)
+  const p = runner().finally(() => _inFlight.delete(key))
+  _inFlight.set(key, p)
+  return p
+}
+
+async function _mapLimit(items, concurrency, mapper) {
+  const results = new Array(items.length)
+  let cursor = 0
+  async function worker() {
+    while (cursor < items.length) {
+      const i = cursor
+      cursor++
+      try {
+        results[i] = await mapper(items[i], i)
+      } catch (err) {
+        results[i] = err
+      }
+    }
+  }
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
+  await Promise.all(workers)
+  return results
+}
+
 const SOFA_API = 'https://www.sofascore.com/api/v1'
 const SOFA_HEADERS = {
   'User-Agent':
@@ -1687,7 +1741,9 @@ class EnrichedPredictionService {
 
     // Détection des matchs nécessitant enrichissement
     // On enrichit uniquement les matchs sans probabilités ou marqués insufficient_data
-    const needsEnrichment = force
+    // Sauf si force:true (démarrage) — mais on saute quand même les matchs déjà
+    // enrichis récemment (cooldown) pour éviter les pipelines redondants.
+    const needsEnrichment = (force
       ? matches
       : matches.filter((m) => {
           const isInsufficientData = parseInt(m.insufficient_data) === 1
@@ -1698,24 +1754,37 @@ class EnrichedPredictionService {
             isInsufficientData
           )
         })
+    ).filter((m) => {
+      if (!_isEnrichedRecently(m)) return true
+      if (m.home_win_probability && parseFloat(m.home_win_probability) > 0) return false
+      return force === true
+    })
 
     const alreadyEnriched = matches.filter((m) => !needsEnrichment.includes(m))
 
     logger.info(
-      `⚡ [ENRICH] ${alreadyEnriched.length} déjà enrichis, ${needsEnrichment.length} à traiter (fastMode=${fastMode})`
+      `⚡ [ENRICH] ${alreadyEnriched.length} déjà enrichis, ${needsEnrichment.length} à traiter (fastMode=${fastMode}, force=${force})`
     )
 
     if (fastMode) {
-      // JS-only instantané (<100ms)
-      const fastResults = await Promise.all(
-        needsEnrichment.map(async (m) => {
+      // JS-only instantané (<100ms) — concurrence bornée pour éviter les spikes
+      const FAST_CONCURRENCY = parseInt(process.env.ENRICH_FAST_CONCURRENCY || '10', 10)
+      const fastResults = await _mapLimit(
+        needsEnrichment,
+        FAST_CONCURRENCY,
+        async (m) => {
           try {
-            return await this.fastEnrichMatch(m, { skipBayesian: options.skipBayesian })
+            const key = `fast:${_cooldownKey(m)}`
+            const result = await _dedupe(key, () =>
+              this.fastEnrichMatch(m, { skipBayesian: options.skipBayesian })
+            )
+            _markEnriched(m)
+            return result
           } catch (err) {
             logger.error(`❌ [ENRICH] Fast path failed for ${m.homeTeam}:`, err.message)
             return m
           }
-        })
+        }
       )
       return [...alreadyEnriched, ...fastResults]
     }
@@ -1731,9 +1800,14 @@ class EnrichedPredictionService {
       const batch = needsEnrichment.slice(i, i + CONCURRENCY)
       const batchResults = await Promise.all(
         batch.map((m) =>
-          this.enrichMatch(m, BULK_TIMEOUT).catch((err) => {
-            logger.error(`❌ [ENRICH] Deep path failed for ${m.homeTeam}:`, err.message)
-            return this.fastEnrichMatch(m)
+          _dedupe(`deep:${_cooldownKey(m)}`, () =>
+            this.enrichMatch(m, BULK_TIMEOUT).catch((err) => {
+              logger.error(`❌ [ENRICH] Deep path failed for ${m.homeTeam}:`, err.message)
+              return this.fastEnrichMatch(m)
+            })
+          ).then((result) => {
+            _markEnriched(m)
+            return result
           })
         )
       )
@@ -1750,8 +1824,9 @@ class EnrichedPredictionService {
    * Version pour dashboard: Ultra rapide, rendu en < 50ms
    */
   async enrichMatchesDashboard(matches) {
-    // PAS D'ATTENTE, PAS DE PYTHON, RENDU INSTANTANÉ
-    return Promise.all(matches.map((m) => this.fastEnrichMatch(m)))
+    // PAS D'ATTENTE, PAS DE PYTHON, RENDU INSTANTANÉ — mais concurrence bornée
+    const DASH_CONCURRENCY = parseInt(process.env.ENRICH_DASH_CONCURRENCY || '10', 10)
+    return _mapLimit(matches, DASH_CONCURRENCY, (m) => this.fastEnrichMatch(m))
   }
 
   /**

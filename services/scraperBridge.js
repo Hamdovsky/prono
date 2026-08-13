@@ -38,11 +38,14 @@ async function runLocalScraper() {
 
   if (onRender) {
     logger.info(
-      `[SCRAPER BRIDGE] Render env detected — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`
+      `[SCRAPER BRIDGE] Render env detected �?" using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`
     )
     try {
       const httpScraperService = require('./httpScraperService')
       const fallbackCount = await httpScraperService.processFallback({ fullScan })
+      await runResilientScan().catch((e) =>
+        logger.warn(`[SCRAPER BRIDGE] Resilient scan skipped: ${e.message}`)
+      )
       return { success: true, fallback: true, fallbackCount }
     } catch (fbErr) {
       try {
@@ -90,4 +93,143 @@ async function runLocalScraper() {
   }
 }
 
-module.exports = { triggerScrape }
+function dateStrOffset(offset) {
+  const d = new Date()
+  d.setDate(d.getDate() + (offset || 0))
+  return d.toISOString().split('T')[0]
+}
+
+// Runs the resilient multi-source fixture scan (Livescore primary + Sofascore
+// fallback + OpenLigaDB backfill), backfilling match_key first. Best-effort.
+async function runResilientScan() {
+  try {
+    const {
+      SourceOrchestrator,
+      createDefaultProviders,
+      createDefaultStore,
+      backfillMatchKeys,
+    } = require('./sourceOrchestrator')
+    const store = createDefaultStore()
+    const backfilled = await backfillMatchKeys(store).catch(() => 0)
+    if (backfilled > 0) logger.info(`[SCRAPER BRIDGE] match_key backfilled for ${backfilled} rows`)
+
+    let telegram = null
+    // Only load botService when Telegram is configured. Its module load can
+    // block synchronously, and it is already cached inside the server anyway.
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+      try {
+        telegram = require('./botService')
+      } catch (e) {
+        logger.warn(`[SCRAPER BRIDGE] botService unavailable: ${e.message}`)
+      }
+    }
+
+    const orchestrator = new SourceOrchestrator({
+      providers: createDefaultProviders(),
+      store,
+      telegram,
+    })
+
+    // 1) Results pass: settle past fixtures with final scores (J-3..J-1).
+    const resultsDates = [dateStrOffset(-3), dateStrOffset(-2), dateStrOffset(-1)]
+    const results = await orchestrator.runResultsScan({ dates: resultsDates })
+    if (results.updated > 0) {
+      logger.info(
+        `[SCRAPER BRIDGE] Results: ${results.updated} matches settled (${results.fetched} fetched)`
+      )
+    }
+
+    // 2) Fixtures pass: refresh scheduled matches (J, J+1, J+2).
+    const dates = [dateStrOffset(0), dateStrOffset(1), dateStrOffset(2)]
+    const summary = await orchestrator.runScan({ dates })
+    logger.info(
+      `[SCRAPER BRIDGE] Resilient scan done: ${summary.coverage.totalUnique} unique, ${summary.coverage.new} new, ${summary.coverage.mena} MENA`
+    )
+
+    // 3) Settle any newly finished matches (best-effort).
+    if (results.updated > 0) {
+      try {
+        const settlement = require('./settlementService')
+        if (typeof settlement.settleFinishedMatches === 'function') {
+          const settled = await settlement.settleFinishedMatches(true)
+          logger.info(`[SCRAPER BRIDGE] Settlement done: ${JSON.stringify(settled)}`)
+        }
+      } catch (e) {
+        logger.warn(`[SCRAPER BRIDGE] Settlement skipped: ${e.message}`)
+      }
+    }
+
+    return { success: true, results, summary }
+  } catch (e) {
+    logger.error(`[SCRAPER BRIDGE] Resilient scan failed: ${e.message}`)
+    return { success: false, error: e.message }
+  }
+}
+
+let _resultsScanInFlight = false
+
+// 🏁 Passe "résultats uniquement" (horaire) : récupère les scores finaux des
+// matchs récemment terminés (J-2..aujourd'hui) et règle les pronostics, sans
+// relancer le scan complet des fixtures. Léger et idempotent (upsert).
+async function runResultsOnlyScan({ dates } = {}) {
+  if (_resultsScanInFlight) {
+    logger.info('[SCRAPER BRIDGE] Results-only scan skipped — already in flight')
+    return { success: true, skipped: true }
+  }
+  _resultsScanInFlight = true
+  try {
+    const {
+      SourceOrchestrator,
+      createDefaultProviders,
+      createDefaultStore,
+      backfillMatchKeys,
+    } = require('./sourceOrchestrator')
+    const store = createDefaultStore()
+    const backfilled = await backfillMatchKeys(store).catch(() => 0)
+    if (backfilled > 0) logger.info(`[SCRAPER BRIDGE] match_key backfilled for ${backfilled} rows`)
+
+    let telegram = null
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+      try {
+        telegram = require('./botService')
+      } catch (e) {
+        logger.warn(`[SCRAPER BRIDGE] botService unavailable: ${e.message}`)
+      }
+    }
+
+    const orchestrator = new SourceOrchestrator({
+      providers: createDefaultProviders(),
+      store,
+      telegram,
+    })
+
+    const resultsDates =
+      dates || [dateStrOffset(-2), dateStrOffset(-1), dateStrOffset(0)]
+    const results = await orchestrator.runResultsScan({ dates: resultsDates })
+    logger.info(
+      `[SCRAPER BRIDGE] Hourly results: ${results.updated} settled (${results.fetched} fetched)`
+    )
+
+    let settled = null
+    if (results.updated > 0) {
+      try {
+        const settlement = require('./settlementService')
+        if (typeof settlement.settleFinishedMatches === 'function') {
+          settled = await settlement.settleFinishedMatches(true)
+          logger.info(`[SCRAPER BRIDGE] Settlement done: ${JSON.stringify(settled)}`)
+        }
+      } catch (e) {
+        logger.warn(`[SCRAPER BRIDGE] Settlement skipped: ${e.message}`)
+      }
+    }
+
+    return { success: true, results, settled }
+  } catch (e) {
+    logger.error(`[SCRAPER BRIDGE] Results-only scan failed: ${e.message}`)
+    return { success: false, error: e.message }
+  } finally {
+    _resultsScanInFlight = false
+  }
+}
+
+module.exports = { triggerScrape, runLocalScraper, runResilientScan, runResultsOnlyScan }

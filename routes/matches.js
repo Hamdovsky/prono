@@ -13,10 +13,21 @@ const ValueBetEngine = require('../src/services/ValueBetEngine')
 const IntegrityService = require('../services/integrity_service')
 const newsService = require('../src/services/newsService')
 
-// Module-level per-city weather cache (in-memory, survives across requests)
+// Module-level per-city weather cache (in-memory, survives across requests).
+// Borné à 200 entrées pour éviter une croissance mémoire illimitée.
 const _weatherCacheRef = (() => {
   const map = new Map()
-  return { get: () => map }
+  const MAX = 200
+  return {
+    get: () => map,
+    put: (key, value) => {
+      map.set(key, value)
+      if (map.size > MAX) {
+        const oldest = map.keys().next().value
+        if (oldest !== undefined) map.delete(oldest)
+      }
+    },
+  }
 })()
 
 // Normalize database.query output (returns { rows } in SQLite mode, or a raw
@@ -223,12 +234,10 @@ router.get('/live/goal-predictions', async (req, res) => {
 router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
   try {
     // [PREMATCH ONLY] strictly filter out live/in-progress matches
-    const allMatches = await database.getMatchesByStatuses([
-      'scheduled',
-      'upcoming',
-      'NOT_STARTED',
-      'NS',
-    ])
+    const allMatches = await database.getMatchesByStatuses(
+      ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
+      { limit: 500 }
+    )
     // Auto-populate if DB is near-empty (fresh deploy on Render) — fire & forget
     if (allMatches.length < 5) {
       const today = new Date().toISOString().split('T')[0]
@@ -284,12 +293,10 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     // If no upcoming matches, fallback to recent matches (last 7 days)
     if (rawMatches.length === 0) {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime()
-      const allMatches = await database.getMatchesByStatuses([
-        'scheduled',
-        'upcoming',
-        'NOT_STARTED',
-        'NS',
-      ])
+      const allMatches = await database.getMatchesByStatuses(
+        ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
+        { limit: 500 }
+      )
       rawMatches = allMatches.filter((m) => {
         let rawTs = m.startTimestamp
         if (!rawTs || rawTs === 0) {
@@ -442,7 +449,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
             const info = openMeteo.extractWeatherInfo(
               await openMeteo.fetchByCity(city).catch(() => null)
             )
-            _weatherCache.set(city, info)
+            _weatherCacheRef.put(city, info)
           }
           const info = _weatherCache.get(city)
           if (info) {
@@ -568,17 +575,11 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     // 🏁 [FINISHED] Include recently finished matches (with real scores) so the
     // dashboard can show "tous les matchs" including settled fixtures.
     let finished_pool = []
-    try {
-      const finishedRaw = await database.getMatchesByStatuses([
-        'finished',
-        'FT',
-        'Finished',
-        'ended',
-        'closed',
-        'played',
-        'aet',
-        'pen',
-      ])
+try {
+        const finishedRaw = await database.getMatchesByStatuses(
+          ['finished', 'FT', 'Finished', 'ended', 'closed', 'played', 'aet', 'pen'],
+          { limit: 500 }
+        )
       const nowMs = Date.now()
       const finishedWindowMs = 30 * 24 * 60 * 60 * 1000 // last 30 days
       const withScore = (finishedRaw || []).filter((m) => {
@@ -667,7 +668,10 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
 router.get('/predictions', async (req, res) => {
   try {
     const db = require('../core/database')
-    const matches = await db.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
+    const matches = await db.getMatchesByStatuses(
+      ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
+      { limit: 500 }
+    )
     const minConf = parseFloat(req.query.min_confidence) || 75
 
     const quality = matches
@@ -749,12 +753,10 @@ router.get('/odds/steam/:matchId', async (req, res) => {
  */
 router.get('/market/edge', async (req, res) => {
   try {
-    const allMatches = await database.getMatchesByStatuses([
-      'scheduled',
-      'upcoming',
-      'NOT_STARTED',
-      'NS',
-    ])
+    const allMatches = await database.getMatchesByStatuses(
+      ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
+      { limit: 500 }
+    )
     const matches = allMatches.filter((m) => m.source === 'africanobet')
     const results = []
     for (const m of matches) {
@@ -828,7 +830,10 @@ router.post('/re-enrich', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' })
     }
     const db = require('../core/database')
-    const matches = await db.getMatchesByStatuses(['scheduled', 'upcoming', 'NOT_STARTED', 'NS'])
+    const matches = await db.getMatchesByStatuses(
+      ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
+      { limit: 200 }
+    )
     if (!matches || matches.length === 0) {
       return res.json({ success: true, enriched: 0, message: 'No matches to enrich' })
     }

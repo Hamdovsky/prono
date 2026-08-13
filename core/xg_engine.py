@@ -237,8 +237,8 @@ def apply_market_and_league(xg_h, xg_a, features, match_obj, h_att_mod, a_att_mo
     h_def_index = calculate_composite_defense(features, is_home=True)
     a_def_index = calculate_composite_defense(features, is_home=False)
 
-    xg_h = (xg_h * (0.90 + 0.10 * h_composite_attack) / a_def_index) * league_goals_mult
-    xg_a = (xg_a * (0.90 + 0.10 * a_composite_attack) / h_def_index) * league_goals_mult
+    xg_h = (xg_h * (0.90 + 0.10 * h_composite_attack) / a_def_index) * league_goals_mult * h_att_mod
+    xg_a = (xg_a * (0.90 + 0.10 * a_composite_attack) / h_def_index) * league_goals_mult * a_att_mod
 
     return xg_h, xg_a, h_composite_attack, a_composite_attack, h_att_mod, a_att_mod
 

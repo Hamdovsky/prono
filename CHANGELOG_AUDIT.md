@@ -325,3 +325,28 @@ jamais `prono`.
 Aucune action sur `prono` requise pour l'instant. À ne PAS modifier, ne PAS commiter,
 ne PAS fusionner — risque de divergence silencieuse si on édite les deux copies.
 
+---
+
+## ⚠️ Diagnostic — market_scope `unknown` (BLOC 3 re-test, C3P3)
+
+**Fait lors du re-test réseau Bloc 3 (voir ci-dessus) :** 202/262 matchs du slate
+actif portent `fullData.market_scope = 'unknown'` dans la colonne `matches.market_type`
+(NULL partout via ce chemin) et `enriched.quant` ne contient que 3 clés
+(`main_pick`, `ev_score`, `risk_label`) — **sans `markets`**.
+
+**Conclusion : PAS un marché non couvert, artefact de persistance précédant le fix P0.**
+
+- `marketScopeOf(pick, fd.quant.markets)` (objet **top-level**, complet) → **0/266 `unknown`**.
+  Tous les picks du slate (`1X`, `O0.5`, `12`, `X2`, `1`) sont couverts par les
+  5 marchés définis dans `core/marketScope.js`
+  (`match_result`, `over_under`, `double_chance`, `first_half`, `btts`).
+- `marketScopeOf(pick, enriched.quant.markets)` → **216/266 `unknown`** car
+  `enriched.quant.markets` est présent dans seulement **50/266** lignes.
+- Les timestamps `last_updated` des lignes `unknown` (06:35–07:40 UTC) précèdent
+  le commit P0 `bb27b4e` (07:43 UTC) → ces écritures proviennent de l'**ancien**
+  chemin d'enrichissement, dont `enriched.quant` était tronqué.
+
+**À traiter dans le futur chantier « filtre market_scope accuracyEngine »** :
+dériver le scope depuis `fd.quant.markets` (top-level, source fiable) et backfiller
+`fullData.market_scope` (exemple : `livescore_1806476`, pick `12` → `full_time_dc`).
+

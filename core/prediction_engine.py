@@ -333,6 +333,9 @@ def process_prediction(match_obj: dict) -> dict:
     best_outcome_tmp = max(outcomes_tmp, key=lambda x: x[1])
     surgical_selection = best_outcome_tmp[0]
     surgical_prob = best_outcome_tmp[1]
+    # Utilise la probabilité réelle de la sélection (au lieu de la constante 0.34)
+    # pour l'index de valeur et la calibration de confiance (calibrate_confidence).
+    selection_prob = surgical_prob
 
     surgical_verdict, backup_verdict = get_best_surgical_market(
         match_obj, surgical_selection, surgical_selection, surgical_prob,

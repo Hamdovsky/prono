@@ -79,7 +79,8 @@ def calibrate_confidence(p_h, p_d, p_a, selection_prob, composite_confidence,
     odds_d = _safe_float(match_obj.get('odds_draw') or match_obj.get('draw_odds'), 0.0)
     odds_a = _safe_float(match_obj.get('odds_away') or match_obj.get('away_odds'), 0.0)
     temp_win_prob = safe_sel_p / 100 if safe_sel_p > 1 else safe_sel_p
-    temp_odds = odds_h if selection_prob > 50 else (odds_a if selection_prob < 34 else odds_d)
+    sel_pct = safe_sel_p * 100  # selection_prob est une proba 0-1, seuils en %
+    temp_odds = odds_h if sel_pct > 50 else (odds_a if sel_pct < 34 else odds_d)
     value_index = (temp_win_prob * temp_odds)
     is_value_bet = value_index > 1.10
 
@@ -94,7 +95,10 @@ def calibrate_confidence(p_h, p_d, p_a, selection_prob, composite_confidence,
         confidence *= 0.95
 
     # V70 Calibrated Confidence Mapping
-    calibrated_base = min(90.0, 40.0 + safe_sel_p * 60.0)
+    # Échelle proportionnelle à la proba de sélection : les matchs déséquilibrés
+    # ne font plus l'objet d'un plancher artificiel ~60.4% → NO BET possible,
+    # et les favoris forts plafonnent plus bas (anti-sur-confiance).
+    calibrated_base = min(84.0, 28.0 + safe_sel_p * 56.0)
     signal_bonus = 0
     if safe_sel_p > 0.50:
         news_impact = _safe_float(match_obj.get('news_impact', 0), 0.0)

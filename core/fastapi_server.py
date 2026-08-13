@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, Header, Depends
 from pydantic import BaseModel
-import sys, os, json, subprocess, numpy as np, threading, math, uvicorn
+import sys, os, json, subprocess, numpy as np, threading, math, uvicorn, asyncio
+import concurrent.futures
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -103,43 +104,56 @@ async def health_check():
         "cwd": os.getcwd()
     }
 
+# Thread pool pour les calculs CPU-bound (Monte Carlo, ML) — évite de bloquer
+# l'event loop uvicorn et permet un timeout global par requête.
+_PREDICTION_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+_PREDICTION_TIMEOUT_S = float(os.environ.get('FASTAPI_PREDICT_TIMEOUT_S', '120'))
+
+
+def _run_prediction_payload(payload):
+    match_data = clean_data(payload)
+    task = match_data.get('task', 'PREDICTION')
+    if task == 'PLAYER_PROPS':
+        engine = get_engine('props')
+        return engine(match_data)
+    if task == 'MEGA_CORRELATION':
+        engine = get_engine('mega')
+        return engine.process_match(match_data)
+    if task == 'SENTIMENT':
+        engine = get_engine('sentiment')
+        headlines = match_data.get('headlines', [])
+        text = match_data.get('text', '')
+        results = []
+        if headlines:
+            for h in headlines:
+                results.append(engine(h))
+        elif text:
+            results.append(engine(text))
+        if results:
+            if "error" in results[0]:
+                return {"success": False, "error": results[0]["error"]}
+            avg_score = sum(r['score'] for r in results) / len(results)
+            avg_subj = sum(r['subjectivity'] for r in results) / len(results)
+            final_label = "Neutral"
+            if avg_score >= 0.05: final_label = "Positive"
+            elif avg_score <= -0.05: final_label = "Negative"
+            return {"success": True, "score": round(avg_score, 3), "label": final_label, "subjectivity": round(avg_subj, 3), "lang": results[0].get('lang', 'En'), "details": results}
+        return {"success": False, "error": "No text to analyze"}
+    engine = get_engine('prediction')
+    return engine(match_data)
+
+
 @app.post("/predict")
 async def predict_endpoint(payload: dict, _=Depends(optional_auth)):
     try:
-        match_data = clean_data(payload)
-        task = match_data.get('task', 'PREDICTION')
-        if task == 'PLAYER_PROPS':
-            engine = get_engine('props')
-            result = engine(match_data)
-        elif task == 'MEGA_CORRELATION':
-            engine = get_engine('mega')
-            result = engine.process_match(match_data)
-        elif task == 'SENTIMENT':
-            engine = get_engine('sentiment')
-            headlines = match_data.get('headlines', [])
-            text = match_data.get('text', '')
-            results = []
-            if headlines:
-                for h in headlines:
-                    results.append(engine(h))
-            elif text:
-                results.append(engine(text))
-            if results:
-                if "error" in results[0]:
-                    result = {"success": False, "error": results[0]["error"]}
-                else:
-                    avg_score = sum(r['score'] for r in results) / len(results)
-                    avg_subj = sum(r['subjectivity'] for r in results) / len(results)
-                    final_label = "Neutral"
-                    if avg_score >= 0.05: final_label = "Positive"
-                    elif avg_score <= -0.05: final_label = "Negative"
-                    result = {"success": True, "score": round(avg_score, 3), "label": final_label, "subjectivity": round(avg_subj, 3), "lang": results[0].get('lang', 'En'), "details": results}
-            else:
-                result = {"success": False, "error": "No text to analyze"}
-        else:
-            engine = get_engine('prediction')
-            result = engine(match_data)
+        loop = asyncio.get_running_loop()
+        result = await asyncio.wait_for(
+            loop.run_in_executor(_PREDICTION_EXECUTOR, _run_prediction_payload, payload),
+            timeout=_PREDICTION_TIMEOUT_S,
+        )
         return convert_numpy(result)
+    except asyncio.TimeoutError:
+        raise HTTPException(504, detail=f"Prediction timed out after {_PREDICTION_TIMEOUT_S}s")
     except Exception as e:
         import traceback
         traceback.print_exc()

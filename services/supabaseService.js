@@ -154,7 +154,8 @@ class SupabaseService {
         player_ratings_home TEXT,
         player_ratings_away TEXT,
         home_team_id TEXT,
-        away_team_id TEXT
+        away_team_id TEXT,
+        match_key TEXT
       );
 
       CREATE TABLE IF NOT EXISTS prediction_history (
@@ -205,6 +206,7 @@ class SupabaseService {
       () => {}
     )
     await this.query('ALTER TABLE matches ALTER COLUMN last_updated TYPE BIGINT').catch(() => {})
+    await this.query('ALTER TABLE matches ADD COLUMN IF NOT EXISTS match_key TEXT').catch(() => {})
     return true
   }
 

@@ -154,7 +154,7 @@ async function scrapeViaFirecrawl(targetUrl, schema) {
 // ── Tier 3: Python cloudscraper bridge ──────────────────────────
 // Calls the existing oddsFusionEngine.py directly
 async function scrapeViaPython(home, away, league, country) {
-  const pythonBin = process.platform === 'win32' ? 'python' : 'python3'
+  const pythonBin = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3')
   return new Promise((resolve, reject) => {
     const escapedBase = BASE_DIR.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     const escapedHome = home.replace(/'/g, "\\'")
@@ -164,6 +164,7 @@ async function scrapeViaPython(home, away, league, country) {
     const script = `
 import sys, json
 sys.path.insert(0, r'${escapedBase}/services')
+sys.path.insert(0, r'${escapedBase}/scripts')
 sys.stdout.reconfigure(encoding='utf-8')
 from oddsFusionEngine import OddsFusionEngine
 engine = OddsFusionEngine()
@@ -357,7 +358,8 @@ async function getOdds(homeTeam, awayTeam, league, country) {
   try {
     const result = await scrapeViaPython(homeTeam, awayTeam, league, country)
     if (result && result.home_win && result.draw && result.away_win) {
-      result.source = (result.source || 'python') + ':cloudscraper'
+      result.source = result.source || 'python'
+      result.transport = 'cloudscraper'
       result.scraped_at = new Date().toISOString()
       SCRAPE_CACHE.set(cacheKey, { ts: Date.now(), data: result })
       return result

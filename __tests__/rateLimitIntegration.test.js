@@ -63,11 +63,15 @@ describe('localOrAuth pattern (localhost bypasses auth)', () => {
     expect(res.status).not.toBe(403)
   })
 
-  it('should require valid token for external IP on protected routes', async () => {
+  it('should ignore spoofed X-Forwarded-For (localhost decision uses real socket only)', async () => {
     process.env.NODE_ENV = 'production'
+    // The real socket here is localhost, so it bypasses regardless of a
+    // client-supplied external X-Forwarded-For header. The header must NOT
+    // influence the localhost/auth decision (req.ip is ignored).
     const ip = '203.0.113.77'
     const res = await request(app).get('/api/bot-debug').set('X-Forwarded-For', ip)
-    expect(res.status).toBe(401)
+    expect(res.status).not.toBe(401)
+    expect(res.status).not.toBe(403)
   })
 
   it('should accept valid token from external IP', async () => {

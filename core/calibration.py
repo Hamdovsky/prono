@@ -18,13 +18,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 CALIBRATION_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'calibration_params.json')
 
 # Default Platt params (A=scale, B=shift) — stored per model version
+# |A| < 1 compresse les logits vers le centre (anti-overconfidence) :
+# un favori à 75% est ramené vers ~69%, un outsider à 8% vers ~11%.
+# (Un B>0 constant ne suffit pas : la renormalisation annule l'effet.)
 DEFAULT_PARAMS = {
-    'v23_home': {'A': -1.0, 'B': 0.0},
-    'v23_draw': {'A': -1.0, 'B': 0.0},
-    'v23_away': {'A': -1.0, 'B': 0.0},
-    'v54_home': {'A': -1.2, 'B': 0.1},
-    'v54_draw': {'A': -1.1, 'B': 0.05},
-    'v54_away': {'A': -1.2, 'B': 0.1},
+    'v23_home': {'A': -0.85, 'B': 0.0},
+    'v23_draw': {'A': -0.90, 'B': 0.0},
+    'v23_away': {'A': -0.85, 'B': 0.0},
+    'v54_home': {'A': -0.85, 'B': 0.0},
+    'v54_draw': {'A': -0.90, 'B': 0.0},
+    'v54_away': {'A': -0.85, 'B': 0.0},
 }
 
 def load_calibration():

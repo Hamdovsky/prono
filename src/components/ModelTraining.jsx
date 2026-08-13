@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import './ModelTraining.css'
+import { getAdminToken, setAdminToken, clearAdminToken } from '../utils/adminAuth'
 
 const TRAIN_API = '/api/training'
 
@@ -24,6 +25,8 @@ export default function ModelTraining() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [diag, setDiag] = useState(null)
+  const [askToken, setAskToken] = useState(false)
+  const [tokenInput, setTokenInput] = useState('')
   const logEndRef = useRef(null)
 
   const fetchAll = useCallback(async () => {
@@ -66,9 +69,30 @@ export default function ModelTraining() {
     }
   }
 
+  const confirmToken = () => {
+    if (!tokenInput.trim()) return
+    setAdminToken(tokenInput)
+    setTokenInput('')
+    setAskToken(false)
+    fetchDiag()
+  }
+
   const fetchDiag = async () => {
+    const token = getAdminToken()
+    if (!token) {
+      setAskToken(true)
+      return
+    }
     try {
-      const r = await fetch('/api/promosport/diagnostic')
+      const r = await fetch('/api/promosport/diagnostic', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (r.status === 401 || r.status === 403) {
+        clearAdminToken()
+        setError('Token invalide — ressaisissez-le.')
+        setAskToken(true)
+        return
+      }
       const j = await r.json()
       setDiag(j)
     } catch (e) {
@@ -106,6 +130,53 @@ export default function ModelTraining() {
         <div className="mt-error">
           {error}
           <button onClick={() => setError(null)}>✕</button>
+        </div>
+      )}
+
+      {askToken && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: '10px 14px',
+            borderRadius: 8,
+            background: 'rgba(239,68,68,0.08)',
+            border: '1px solid rgba(239,68,68,0.3)',
+          }}
+        >
+          <div
+            style={{
+              color: '#fbbf24',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              marginBottom: 8,
+            }}
+          >
+            🔐 Token d'administration requis pour le diagnostic
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input
+              type="password"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmToken()
+              }}
+              placeholder="API Secret Key"
+              style={{
+                flex: 1,
+                padding: '6px 10px',
+                fontSize: '0.8rem',
+                background: '#0f172a',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: 6,
+                color: '#e2e8f0',
+                outline: 'none',
+              }}
+            />
+            <button className="mt-btn mt-btn-secondary" onClick={confirmToken}>
+              OK
+            </button>
+          </div>
         </div>
       )}
 

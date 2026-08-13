@@ -18,6 +18,8 @@ services:
         value: "10000"
       - key: API_SECRET_KEY
         sync: false
+      - key: JWT_SECRET
+        sync: false
       - key: INFERENCE_URL
         value: https://prono-fastapi-ibps.onrender.com
       - key: USE_MODEL_MANAGER

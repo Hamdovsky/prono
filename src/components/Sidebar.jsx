@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES, NAV_ITEMS } from '../config/routes'
 import { useTheme } from '../contexts/ThemeContext'
 import { useI18n } from '../contexts/I18nContext'
+import { filterMatchesInWindow } from '../utils/timeFilter'
 import './Sidebar.css'
 
 const PINNED_LEAGUES = [
@@ -116,108 +117,81 @@ const Sidebar = ({
     navigate(ROUTES[view] || '/')
   }
 
-  const activeCounts = {}
+  // 🧠 [PERF] Calculs mémoïsés : ne se recalculent que si les matches ou la
+  // fenêtre temporelle changent réellement (pas à chaque render de parent).
+  const { activeCounts, pinnedWithCounts, menaWithCounts, otherLeagues, totalFilteredMatches } =
+    useMemo(() => {
+      const counts = {}
 
-  const getLocalDayStart = (offsetDays = 0) => {
-    const d = new Date()
-    d.setDate(d.getDate() + offsetDays)
-    d.setHours(0, 0, 0, 0)
-    return d.getTime()
-  }
+      // Compteurs restreints à la fenêtre temporelle active (jours locaux).
+      // Logique partagée avec Dashboard (src/utils/timeFilter.js) — corrige
+      // l'off-by-one des bornes 3/7 jours ("N jours incluant aujourd'hui").
+      filterMatchesInWindow(matches, activeDate, Date.now()).forEach((m) => {
+        const l = (m.league || 'Unknown').toLowerCase()
+        counts[l] = (counts[l] || 0) + 1
+      })
 
-  const getLocalDayEnd = (offsetDays = 0) => {
-    const d = new Date()
-    d.setDate(d.getDate() + offsetDays)
-    d.setHours(23, 59, 59, 999)
-    return d.getTime()
-  }
+      const pinnedWithCounts = PINNED_LEAGUES.map((pinned) => {
+        let count = 0
+        Object.keys(counts).forEach((activeLeagueName) => {
+          const isMena = MENA_LEAGUES.some((mena) =>
+            mena.keywords.some((kw) => activeLeagueName.includes(kw))
+          )
+          if (!isMena && pinned.keywords.some((kw) => activeLeagueName.includes(kw))) {
+            count += counts[activeLeagueName]
+          }
+        })
+        return { ...pinned, count }
+      })
 
-  matches.forEach((m) => {
-    let dateMs = null
-    if (m.startTimestamp) {
-      dateMs = m.startTimestamp > 1e11 ? m.startTimestamp : m.startTimestamp * 1000
-    } else if (m.timestamp) {
-      dateMs = new Date(m.timestamp).getTime()
-    } else if (m.startTime) {
-      dateMs = new Date(m.startTime).getTime()
-    } else if (m.date) {
-      dateMs = new Date(m.date).getTime()
-    }
+      const menaWithCounts = MENA_LEAGUES.map((mena) => {
+        let count = 0
+        Object.keys(counts).forEach((activeLeagueName) => {
+          if (mena.keywords.some((kw) => activeLeagueName.includes(kw))) {
+            count += counts[activeLeagueName]
+          }
+        })
+        return { ...mena, count }
+      })
 
-    if (!dateMs) {
-      dateMs = Date.now()
-    }
-
-    if (activeDate === 'Today' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd())) return
-    if (activeDate === 'Tomorrow' && (dateMs < getLocalDayStart(1) || dateMs > getLocalDayEnd(1)))
-      return
-    if (activeDate === 'Next 3 Days' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd(3)))
-      return
-    if (activeDate === 'Next 7 Days' && (dateMs < getLocalDayStart() || dateMs > getLocalDayEnd(7)))
-      return
-
-    const l = (m.league || 'Unknown').toLowerCase()
-    activeCounts[l] = (activeCounts[l] || 0) + 1
-  })
-
-  const pinnedWithCounts = PINNED_LEAGUES.map((pinned) => {
-    let count = 0
-    Object.keys(activeCounts).forEach((activeLeagueName) => {
-      const isMena = MENA_LEAGUES.some((mena) =>
-        mena.keywords.some((kw) => activeLeagueName.includes(kw))
-      )
-      if (!isMena && pinned.keywords.some((kw) => activeLeagueName.includes(kw))) {
-        count += activeCounts[activeLeagueName]
+      const isPinnedOrMena = (leagueName) => {
+        const lower = leagueName.toLowerCase()
+        return (
+          PINNED_LEAGUES.some((p) => p.keywords.some((kw) => lower.includes(kw))) ||
+          MENA_LEAGUES.some((m) => m.keywords.some((kw) => lower.includes(kw)))
+        )
       }
-    })
-    return { ...pinned, count }
-  })
 
-  const menaWithCounts = MENA_LEAGUES.map((mena) => {
-    let count = 0
-    Object.keys(activeCounts).forEach((activeLeagueName) => {
-      if (mena.keywords.some((kw) => activeLeagueName.includes(kw))) {
-        count += activeCounts[activeLeagueName]
+      const getCountryForOther = (name) => {
+        const lower = name.toLowerCase()
+        if (lower.includes('algerian')) return '🇩🇿 Algérie : '
+        if (lower.includes('tunisian')) return '🇹🇳 Tunisie : '
+        if (lower.includes('egyptian')) return '🇪🇬 Égypte : '
+        if (lower.includes('moroccan') || lower.includes('botola')) return '🇲🇦 Maroc : '
+        if (lower.includes('premier league')) return '🏴󠁧󠁢󠁥󠁮󠁧󠁿 Angleterre : '
+        if (lower.includes('laliga')) return '🇪🇸 Espagne : '
+        if (lower.includes('serie a')) return '🇮🇹 Italie : '
+        if (lower.includes('bundesliga')) return '🇩🇪 Allemagne : '
+        if (lower.includes('brazil')) return '🇧🇷 Brésil : '
+        if (lower.includes('usa') || lower.includes('mls')) return '🇺🇸 USA : '
+        return '⚽ '
       }
-    })
-    return { ...mena, count }
-  })
 
-  const isPinnedOrMena = (leagueName) => {
-    const lower = leagueName.toLowerCase()
-    return (
-      PINNED_LEAGUES.some((p) => p.keywords.some((kw) => lower.includes(kw))) ||
-      MENA_LEAGUES.some((m) => m.keywords.some((kw) => lower.includes(kw)))
-    )
-  }
+      const otherLeagues = Object.entries(counts)
+        .filter(([name]) => !isPinnedOrMena(name))
+        .map(([name, count]) => ({
+          id: name,
+          name: (
+            getCountryForOther(name) + name.replace(/^([A-Za-z]+ )(\1)/i, '$1').toUpperCase()
+          ).substring(0, 35),
+          count,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
 
-  const getCountryForOther = (name) => {
-    const lower = name.toLowerCase()
-    if (lower.includes('algerian')) return '🇩🇿 Algérie : '
-    if (lower.includes('tunisian')) return '🇹🇳 Tunisie : '
-    if (lower.includes('egyptian')) return '🇪🇬 Égypte : '
-    if (lower.includes('moroccan') || lower.includes('botola')) return '🇲🇦 Maroc : '
-    if (lower.includes('premier league')) return '🏴󠁧󠁢󠁥󠁮󠁧󠁿 Angleterre : '
-    if (lower.includes('laliga')) return '🇪🇸 Espagne : '
-    if (lower.includes('serie a')) return '🇮🇹 Italie : '
-    if (lower.includes('bundesliga')) return '🇩🇪 Allemagne : '
-    if (lower.includes('brazil')) return '🇧🇷 Brésil : '
-    if (lower.includes('usa') || lower.includes('mls')) return '🇺🇸 USA : '
-    return '⚽ '
-  }
+      const totalFilteredMatches = Object.values(counts).reduce((a, b) => a + b, 0)
 
-  const otherLeagues = Object.entries(activeCounts)
-    .filter(([name]) => !isPinnedOrMena(name))
-    .map(([name, count]) => ({
-      id: name,
-      name: (
-        getCountryForOther(name) + name.replace(/^([A-Za-z]+ )(\1)/i, '$1').toUpperCase()
-      ).substring(0, 35),
-      count,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name))
-
-  const totalFilteredMatches = Object.values(activeCounts).reduce((a, b) => a + b, 0)
+      return { activeCounts: counts, pinnedWithCounts, menaWithCounts, otherLeagues, totalFilteredMatches }
+    }, [matches, activeDate])
 
   return (
     <aside className={`flash-sidebar ${isOpen ? '' : 'collapsed'}`}>
@@ -553,4 +527,4 @@ const Sidebar = ({
   )
 }
 
-export default Sidebar
+export default React.memo(Sidebar)

@@ -18,6 +18,9 @@ module.exports = {
     },
   },
   testMatch: ['**/__tests__/**/*.test.js', '**/tests/**/*.test.js'],
+  // setupFiles runs BEFORE any test file is required (guarantees SQLITE_DB_PATH
+  // is set before core/database.js module-level `const dbPath` executes).
+  setupFiles: ['<rootDir>/__tests__/db-isolation.js'],
   setupFilesAfterEnv: ['<rootDir>/__tests__/setup.js'],
   testTimeout: 30000,
   maxWorkers: 2,

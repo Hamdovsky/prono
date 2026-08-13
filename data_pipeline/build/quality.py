@@ -59,12 +59,29 @@ def report(csv_path: Path = MASTER_CSV, state_file: Path = STATE_FILE) -> dict:
     else:
         log.warning("Colonne elo_source absente du master.")
 
+    # Couverture par source (registre homogène : traçage dans state.json)
+    sources = state.get("sources", {})
+    for name, info in sources.items():
+        checks.append({
+            "source": f"src_{name}",
+            "kind": info.get("kind"),
+            "provenance": info.get("provenance"),
+            "rows": info.get("rows"),
+            "last_run": info.get("last_run"),
+            "duration_s": info.get("duration_s"),
+            "warnings": info.get("warnings", []),
+        })
+    if sources:
+        log.info("Sources tracées : %s",
+                 ", ".join(f"{n}={i.get('provenance')}" for n, i in sources.items()))
+
     summary = {
         "rows": int(len(df)),
         "first_match": str(df["date"].min().date()) if df["date"].notna().any() else None,
         "last_match": str(df["date"].max().date()) if df["date"].notna().any() else None,
         "last_build": state.get("last_build"),
         "elo_source": state.get("elo_source"),
+        "sources": sources,
         "checks": checks,
     }
     report_dict["summary"] = summary

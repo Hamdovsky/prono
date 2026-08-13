@@ -35,11 +35,22 @@ class OpenLigaDBService {
     return this.enabled
   }
 
-  async _fetch(endpoint) {
+  _sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+  }
+
+  async _fetch(endpoint, attempt = 0) {
     try {
       const { data } = await axios.get(`${OPENLIGADB_BASE}${endpoint}`, { timeout: 10000 })
       return data
     } catch (e) {
+      const status = e.response?.status
+      // 429 = rate limited: back off and retry once before giving up.
+      if ((status === 429 || status >= 500) && attempt < 1) {
+        logger.warn(`[OPENLIGADB] GET ${endpoint} ${status} -> retry ${attempt + 1} in 2s`)
+        await this._sleep(2000)
+        return this._fetch(endpoint, attempt + 1)
+      }
       logger.warn(`[OPENLIGADB] GET ${endpoint} failed: ${e.message}`)
       return null
     }
@@ -121,6 +132,7 @@ class OpenLigaDBService {
         }
         break // Only try next season if current season had no data
       }
+      await this._sleep(400) // pace requests to avoid 429 rate limiting
     }
 
     return matches

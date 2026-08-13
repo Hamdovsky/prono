@@ -470,6 +470,29 @@ class CronManager {
       { timezone: 'Africa/Tunis' }
     )
 
+    // 14b. [TITANIUM] Hourly Results-Only Pass (every hour at :45) — settles
+    // scores as soon as they drop, without re-running the full fixture scan.
+    cron.schedule(
+      '45 * * * *',
+      async () => {
+        logger.info('🏁 [CRON] Launching hourly results-only pass...')
+        try {
+          const { runResultsOnlyScan } = require('./scraperBridge')
+          const res = await runResultsOnlyScan()
+          if (res?.success && !res?.skipped) {
+            logger.info(
+              `✅ [CRON] Hourly results: ${res.results?.updated ?? 0} settled (${res.results?.fetched ?? 0} fetched)`
+            )
+          } else if (res?.skipped) {
+            logger.info('⏭️ [CRON] Hourly results skipped (already in flight)')
+          }
+        } catch (e) {
+          logger.error(`❌ [CRON] Hourly results pass error: ${e.message}`)
+        }
+      },
+      { timezone: 'Africa/Tunis' }
+    )
+
     // 15. [AUTOHEAL] Autopilot system patrol (Every 15 minutes) â€” includes stale xG detection & fix
     cron.schedule('*/15 * * * *', () => {
       try {

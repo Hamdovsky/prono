@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { getAdminToken, setAdminToken, clearAdminToken } from '../utils/adminAuth'
 
 const NUM_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6']
 
@@ -11,6 +12,8 @@ export default function PromosportAccuracy({ onClose }) {
   const [tab, setTab] = useState('overview')
   const [retraining, setRetraining] = useState(false)
   const [retrainResult, setRetrainResult] = useState(null)
+  const [askToken, setAskToken] = useState(false)
+  const [tokenInput, setTokenInput] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -35,16 +38,40 @@ export default function PromosportAccuracy({ onClose }) {
     })
   }, [])
 
+  const confirmToken = () => {
+    if (!tokenInput.trim()) return
+    setAdminToken(tokenInput)
+    setTokenInput('')
+    setAskToken(false)
+    handleRetrain()
+  }
+
   const handleRetrain = async () => {
+    const token = getAdminToken()
+    if (!token) {
+      setAskToken(true)
+      return
+    }
     setRetraining(true)
+    setRetrainResult(null)
     try {
-      const res = await fetch('/api/promosport/retrain', { method: 'POST' })
+      const res = await fetch('/api/promosport/retrain', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.status === 401 || res.status === 403) {
+        clearAdminToken()
+        setRetrainResult({ success: false, error: 'Token invalide — ressaisissez-le.' })
+        setAskToken(true)
+        return
+      }
       const data = await res.json()
       setRetrainResult(data)
     } catch (e) {
       setRetrainResult({ success: false, error: e.message })
+    } finally {
+      setRetraining(false)
     }
-    setRetraining(false)
   }
 
   if (loading)
@@ -102,6 +129,57 @@ export default function PromosportAccuracy({ onClose }) {
           )}
         </div>
       </div>
+
+      {askToken && (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: '8px 12px',
+            borderRadius: 8,
+            background: 'rgba(239,68,68,0.08)',
+            border: '1px solid rgba(239,68,68,0.3)',
+          }}
+        >
+          <div style={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.7rem', marginBottom: 6 }}>
+            🔐 Token d'administration requis pour le retrain
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input
+              type="password"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmToken()
+              }}
+              placeholder="API Secret Key"
+              style={{
+                flex: 1,
+                padding: '6px 10px',
+                fontSize: '0.7rem',
+                background: '#0f172a',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: 6,
+                color: '#e2e8f0',
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={confirmToken}
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.7rem',
+                background: 'rgba(59,130,246,0.2)',
+                border: '1px solid rgba(59,130,246,0.4)',
+                borderRadius: 6,
+                color: '#60a5fa',
+                cursor: 'pointer',
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
       {retrainResult && (
         <div

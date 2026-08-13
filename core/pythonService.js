@@ -57,9 +57,18 @@ class PythonService {
       return { success: false, error: 'circuit_open' }
     }
 
+    // Défense en profondeur : timeoutMs doit être un nombre > 0 (un appelant
+    // pourrait passer un objet par erreur → axios ignorerait le timeout).
+    const resolvedTimeout =
+      typeof timeoutMs === 'number' && timeoutMs > 0
+        ? timeoutMs
+        : typeof timeoutMs === 'object' && timeoutMs && typeof timeoutMs.timeoutMs === 'number'
+          ? timeoutMs.timeoutMs
+          : 180000
+
     try {
       const response = await axios.post(`${FASTAPI_URL}/predict`, matchData, {
-        timeout: timeoutMs,
+        timeout: resolvedTimeout,
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
       })

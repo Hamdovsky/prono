@@ -428,6 +428,7 @@ async function runMigrations() {
         await addCol('autopsy_result', 'TEXT')
         await addCol('is_autopsied', 'INTEGER DEFAULT 0')
         await addCol('bsd_match_id', 'TEXT')
+        await addCol('match_key', 'TEXT')
         await addCol('best_odds_home', 'REAL')
         await addCol('best_odds_draw', 'REAL')
         await addCol('best_odds_away', 'REAL')

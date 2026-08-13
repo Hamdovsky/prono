@@ -26,7 +26,8 @@ import numpy as np
 import pandas as pd
 import soccerdata as sd
 
-from config import ADVANCED_CSV, LEAGUES, RAW_DIR, SOCCERDATA_CACHE, soccerdata_seasons
+from .base import BaseSource, KIND_ADVANCED
+from config import ADVANCED_CSV, FBREF_INTERVAL_SECONDS, LEAGUES, RAW_DIR, SOCCERDATA_CACHE, soccerdata_seasons
 from util import RateLimiter, get_logger
 
 log = get_logger("fbref")
@@ -241,3 +242,27 @@ def fetch(leagues=None, seasons=None, limiter: RateLimiter | None = None, force:
     _write_stats_source(provider)
     log.info("Stats avancées (%s) : %d matchs", provider, len(base))
     return base
+
+
+class FbrefSource(BaseSource):
+    """Stats avancées (xG/xA + buts) sous le contrat homogène.
+
+    Le rate limit (3,5 s, soit ~15-20 requêtes/min) est appliqué ici depuis
+    ``FBREF_INTERVAL_SECONDS`` : plus besoin de le passer depuis le pipeline.
+    La provenance (fbref | understat) est lue depuis ``stats_source.txt``.
+    """
+
+    name = "fbref"
+    kind = KIND_ADVANCED
+    rate_limit_s = FBREF_INTERVAL_SECONDS
+
+    def _fetch(self, leagues=None, seasons=None, force: bool = False):
+        df = fetch(
+            leagues=leagues,
+            seasons=seasons,
+            limiter=RateLimiter(0.0),  # le rate limit est déjà appliqué par BaseSource
+            force=force,
+        )
+        provenance = _read_stats_source()
+        warnings = [] if provenance != "understat" else ["Repli Understat (FBref indisponible)"]
+        return df, provenance, warnings

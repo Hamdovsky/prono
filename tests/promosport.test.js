@@ -274,9 +274,9 @@ describe('Promosport Routes', () => {
   })
 
   describe('POST /api/promosport/retrain', () => {
-    it('returns steps on success', async () => {
+    it('rejects unauthenticated retrain', async () => {
       const res = await request(app).post('/api/promosport/retrain')
-      expect([200, 500]).toContain(res.status)
+      expect([401, 403]).toContain(res.status)
     })
   })
 })

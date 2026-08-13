@@ -101,4 +101,6 @@ const MatchCard = ({ rawData, style, onClick }) => {
   )
 }
 
-export default MatchCard
+// 🧠 [PERF] Mémoïsé : avec rawData (liste stable via WeakMap) et onClick (stable),
+// une rangée ne se re-rend que si son contenu change réellement.
+export default React.memo(MatchCard)

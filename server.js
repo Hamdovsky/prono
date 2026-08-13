@@ -1,5 +1,15 @@
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config()
+require('dotenv').config()
+
+// Production guard: JWT_SECRET is required on Render to keep sessions stable
+// across redeploys. Without it authService.js silently falls back to a random
+// value at boot, invalidating every token on restart. Keyed on the real
+// platform marker so a stray NODE_ENV=production never blocks local dev.
+const isRenderProduction = process.env.RENDER === 'true' || process.env.RENDER === '1'
+if (isRenderProduction && !process.env.JWT_SECRET) {
+  console.error(
+    '[FATAL] JWT_SECRET is not set in production. Add it via Render Dashboard -> Environment -> JWT_SECRET then redeploy.'
+  )
+  process.exit(1)
 }
 
 const http = require('http')
@@ -195,12 +205,10 @@ setTimeout(async () => {
 
         async function enrichBatch(batchSize) {
           const enrichedPredictions = require('./core/enriched_predictions')
-          const matches = await database.getMatchesByStatuses([
-            'scheduled',
-            'upcoming',
-            'NOT_STARTED',
-            'NS',
-          ])
+          const matches = await database.getMatchesByStatuses(
+            ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
+            { limit: 500 }
+          )
           if (matches.length === 0) return 0
           const batch = matches.slice(0, batchSize)
           logger.info(`[AUTO-ENRICH] Batch: ${batch.length}/${matches.length} matches...`)
@@ -246,12 +254,10 @@ setTimeout(async () => {
 
         setTimeout(async function runEnrichBatches() {
           try {
-            const remaining = await database.getMatchesByStatuses([
-              'scheduled',
-              'upcoming',
-              'NOT_STARTED',
-              'NS',
-            ])
+            const remaining = await database.getMatchesByStatuses(
+              ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
+              { limit: 500 }
+            )
             if (remaining.length === 0) {
               logger.info(`[AUTO-ENRICH] All matches enriched, stopping.`)
               return

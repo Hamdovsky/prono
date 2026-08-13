@@ -332,7 +332,24 @@ app.get('/api/debug/state', async (req, res) => {
   }
 })
 
-app.get('/metrics', async (req, res) => {
+// Metrics basic-auth guard. Credentials: METRICS_USER/METRICS_PASSWORD,
+// falling back to API_SECRET_KEY as the password (no extra secret needed).
+// Local dev with no credentials stays open (localhost only).
+function protectMetrics(req, res, next) {
+  const user = process.env.METRICS_USER || 'metrics'
+  const pass = process.env.METRICS_PASSWORD || process.env.API_SECRET_KEY
+  if (!pass) {
+    if (process.env.NODE_ENV !== 'production') return next()
+    return res.status(401).json({ error: 'Metrics auth not configured' })
+  }
+  const expected = Buffer.from(`${user}:${pass}`).toString('base64')
+  const provided = (req.headers.authorization || '').replace(/^Basic /i, '')
+  if (provided === expected) return next()
+  res.set('WWW-Authenticate', 'Basic realm="metrics"')
+  return res.status(401).json({ error: 'Unauthorized' })
+}
+
+app.get('/metrics', protectMetrics, async (req, res) => {
   res.set('Content-Type', register.contentType)
   res.end(await register.metrics())
 })
@@ -791,7 +808,10 @@ app.post(
 const fallbackEnricher = require('./core/fallback_enricher')
 const settlementService = require('./services/settlementService')
 
-app.post('/api/cron/auto-enrich', async (req, res) => {
+app.post(
+  '/api/cron/auto-enrich',
+  securityEngine.authenticate.bind(securityEngine),
+  async (req, res) => {
   logger.info('[API] ⏰ UptimeRobot triggered fallback enrichment...')
   try {
     const result = await fallbackEnricher.enrichMatchesBatch()
@@ -800,10 +820,14 @@ app.post('/api/cron/auto-enrich', async (req, res) => {
     logger.error(`[API] auto-enrich failed: ${e.message}`)
     return res.status(500).json({ success: false, error: e.message })
   }
-})
+  }
+)
 
 // Also expose a GET variant for simple uptime pings
-app.get('/api/cron/auto-enrich', async (req, res) => {
+app.get(
+  '/api/cron/auto-enrich',
+  securityEngine.authenticate.bind(securityEngine),
+  async (req, res) => {
   logger.info('[API] ⏰ Fallback enrichment triggered via GET...')
   try {
     const result = await fallbackEnricher.enrichMatchesBatch()
@@ -812,10 +836,14 @@ app.get('/api/cron/auto-enrich', async (req, res) => {
     logger.error(`[API] auto-enrich GET failed: ${e.message}`)
     return res.status(500).json({ success: false, error: e.message })
   }
-})
+  }
+)
 
 // ─── Settlement Engine (UptimeRobot / cron-job.org friendly) ──
-app.post('/api/cron/settle', async (req, res) => {
+app.post(
+  '/api/cron/settle',
+  securityEngine.authenticate.bind(securityEngine),
+  async (req, res) => {
   logger.info('[API] ⏰ Settlement triggered...')
   try {
     const result = await settlementService.settleFinishedMatches(req.query?.force === 'true')
@@ -824,9 +852,13 @@ app.post('/api/cron/settle', async (req, res) => {
     logger.error(`[API] Settlement failed: ${e.message}`)
     return res.status(500).json({ success: false, error: e.message })
   }
-})
+  }
+)
 
-app.get('/api/cron/settle', async (req, res) => {
+app.get(
+  '/api/cron/settle',
+  securityEngine.authenticate.bind(securityEngine),
+  async (req, res) => {
   logger.info('[API] ⏰ Settlement triggered via GET...')
   try {
     const result = await settlementService.settleFinishedMatches(req.query?.force === 'true')
@@ -835,7 +867,8 @@ app.get('/api/cron/settle', async (req, res) => {
     logger.error(`[API] Settlement GET failed: ${e.message}`)
     return res.status(500).json({ success: false, error: e.message })
   }
-})
+  }
+)
 
 // ─── Analytics ──
 app.get('/api/analytics/performance', async (req, res) => {

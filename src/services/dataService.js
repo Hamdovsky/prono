@@ -22,10 +22,11 @@ class DataService {
     if (data == null) return
     const matches = Array.isArray(data) ? data : data?.matches || null
     if (matches && Array.isArray(matches) && matches.length > 0) {
-      this.upcomingPredictions = matches
-        .map((m) => this._normalizeMatch(m, 'upcoming'))
-        .filter((m) => m !== null)
-      this.upcomingSubscribers.forEach((cb) => cb(this.upcomingPredictions))
+      this._setUpcomingPredictions(
+        matches
+          .map((m) => this._normalizeMatch(m, 'upcoming'))
+          .filter((m) => m !== null)
+      )
     } else if (data && typeof data === 'object' && !Array.isArray(data) && !data.matches) {
       // Server signaled a refetch (e.g. { refetch: true })
       this.fetchUpcomingPredictions()
@@ -540,6 +541,41 @@ class DataService {
     this.statusSubscribers.forEach((cb) => cb(status))
   }
 
+  // 🧠 [PERF] Émission diffs : on ne notifie les abonnés "upcoming" que si le
+  // contenu a réellement changé. Sinon on garde la référence stable → les
+  // consommateurs mémoïsés (Dashboard/List) ne se re-rendent pas à chaque poll.
+  _setUpcomingPredictions(normalized) {
+    const sig = this._upcomingSignature(normalized)
+    if (this.upcomingPredictions && sig === this._upcomingSignatureCache) {
+      return false
+    }
+    this._upcomingSignatureCache = sig
+    this.upcomingPredictions = normalized
+    this.upcomingSubscribers.forEach((cb) => cb(this.upcomingPredictions))
+    return true
+  }
+
+  _upcomingSignature(list) {
+    if (!list) return 'null'
+    let sig = String(list.length)
+    const n = Math.min(list.length, 40)
+    for (let i = 0; i < n; i++) {
+      const m = list[i]
+      if (!m) continue
+      sig +=
+        '|' +
+        (m.match_key || m.id || i) +
+        ':' +
+        (m.status || '') +
+        ':' +
+        (m.scoreHome ?? '') +
+        (m.scoreAway ?? '') +
+        ':' +
+        (m.prediction || '')
+    }
+    return sig
+  }
+
   // --- Fetchers ---
   async fetchLiveUpdates() {
     if (this._liveFetchPromise) return this._liveFetchPromise
@@ -621,22 +657,22 @@ class DataService {
               ...(Array.isArray(raw?.fallback_pool) ? raw.fallback_pool : []),
               ...(Array.isArray(raw?.finished_pool) ? raw.finished_pool : []),
             ]
-        this.upcomingPredictions = rawMatches
-          .map((m) => {
-            try {
-              return this._normalizeMatch(m, 'upcoming')
-            } catch (e) {
-              return null
-            }
-          })
-          .filter((m) => m !== null)
+        const normalized = deduplicateMatches(
+          rawMatches
+            .map((m) => {
+              try {
+                return this._normalizeMatch(m, 'upcoming')
+              } catch (e) {
+                return null
+              }
+            })
+            .filter((m) => m !== null)
+        )
 
-        // ✅ Dédoublonnage aussi sur les matchs à venir
-        this.upcomingPredictions = deduplicateMatches(this.upcomingPredictions)
+        logger.info(`✅ [DATA] Normalized ${normalized.length} matches.`)
 
-        logger.info(`✅ [DATA] Normalized ${this.upcomingPredictions.length} matches.`)
-
-        this.upcomingSubscribers.forEach((cb) => cb(this.upcomingPredictions))
+        // 🧠 [PERF] Ne notifie que si le contenu a changé (référence stable sinon)
+        this._setUpcomingPredictions(normalized)
       } catch (error) {
         logger.error('❌ [DATA] Failed to fetch upcoming predictions:', error.message)
       } finally {
@@ -947,7 +983,12 @@ class DataService {
 
   // 10s when live matches are active, 60s when idle/scheduled only
   async refreshAllData() {
-    this._notifyStatus('loading')
+    // 🧠 [PERF] Ne pas basculer en 'loading' si des données sont déjà affichées
+    // (évite un re-render complet du Dashboard à chaque poll).
+    const hasData =
+      (this.upcomingPredictions && this.upcomingPredictions.length > 0) ||
+      (this.matches && this.matches.length > 0)
+    if (!hasData) this._notifyStatus('loading')
     try {
       await Promise.allSettled([
         this.fetchLiveUpdates(),

@@ -84,6 +84,17 @@ class DataFusionService {
       'sportmonks',
       'oddsapiio',
     ])
+    // Sources qui renvoient de vraies cotes bookmaker malgré le nom générique.
+    const REAL_SCRAPE_SOURCES = new Set([
+      'betexplorer',
+      'betexplorer+firecrawl',
+      'football_data',
+      'scraperapi:betexplorer',
+      'jina:reader',
+      'firecrawl',
+      '888sport',
+      'unibet',
+    ])
 
     for (const source of sorted) {
       if (!this.isSourceAvailable(source)) continue
@@ -128,7 +139,7 @@ class DataFusionService {
 
         if (odds && odds.home && odds.away) {
           const isBookmaker =
-            BOOKMAKER_SOURCES.has(source.name) || (odds.bookmaker === true)
+            BOOKMAKER_SOURCES.has(source.name) || REAL_SCRAPE_SOURCES.has(odds.source)
           const withFlag = { ...odds, bookmaker: isBookmaker }
           this.recordSuccess(source.name)
           logger.info(
@@ -190,6 +201,7 @@ class DataFusionService {
   }
 
   async _trySofascore(match) {
+    if (process.env.DISABLE_SOFASCORE === 'true') return null
     const sofaId = await this._getSofaId(match)
     // Sofascore search by team name is 403-blocked from Render's IP;
     // only proceed when a Sofascore ID is already known (oddsService routes through scraperProxy if available).

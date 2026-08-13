@@ -12,6 +12,7 @@ import './App.css'
 import './styles/themes.css'
 
 const AccuracyDashboard = lazy(() => import('./components/AccuracyDashboard'))
+const ScraperDashboard = lazy(() => import('./components/ScraperDashboard'))
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
                   <Route path="/grids" element={<GridHotDetector />} />
                   <Route path="/bets" element={<BetTracker />} />
                   <Route path="/training" element={<ModelTraining />} />
+                  <Route path="/scraper" element={<ScraperDashboard />} />
                   <Route path="*" element={<Dashboard />} />
                 </Routes>
               </Suspense>

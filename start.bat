@@ -5,11 +5,9 @@ echo =====================================================
 echo   [%time%]  TITANIUM V50 ULTRA - Initializing...
 echo =====================================================
 
-REM --- 1. Kill previous instances & Cleanup ---
-echo [%time%] Purging legacy processes and Clearing Memory...
-taskkill /F /IM node.exe /T >nul 2>&1
-taskkill /F /IM python.exe /T >nul 2>&1
-taskkill /F /IM streamlit.exe /T >nul 2>&1
+REM --- 1. Stop only this project's services & archive stale logs ---
+echo [%time%] Stopping project services (targeted kill)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\stop_local_services.ps1"
 
 REM --- 2. Check Python Environment (.venv) ---
 echo [%time%] Verifying Python Strategic Core...
@@ -38,7 +36,8 @@ echo =====================================================================
 echo.
 
 cd /d %~dp0
-call npx concurrently "node --max-old-space-size=512 tools\start-redis.js" "npm run scraper" "streamlit run core/command_center.py" "node --max-old-space-size=512 server.js" "npm run learn" "npx vite" "node scripts/live_value_alerts.js" ".venv\Scripts\python.exe -m uvicorn core.fastapi_server:app --host 127.0.0.1 --port 8000 --workers 1" --names "REDIS,SCRAPER,COMMAND,API_CORE,LEARN,UI_DASH,LIVE_ALERTS,ML_CORE" --prefix-colors "blue.bold,yellow.bold,red.bold,green.bold,magenta.bold,cyan.bold,yellow.dim,white.bold" --kill-others --restart-tries 3 --restart-after 10000
+set PORT=3001
+call npx concurrently "bin\redis\redis-server.exe bin\redis\redis.windows.conf" "npm run scraper" "streamlit run core/command_center.py" "node --max-old-space-size=512 server.js" "npm run learn" "npx vite" "node scripts/live_value_alerts.js" ".venv\Scripts\python.exe -m uvicorn core.fastapi_server:app --host 127.0.0.1 --port 8000 --workers 1" --names "REDIS,SCRAPER,COMMAND,API_CORE,LEARN,UI_DASH,LIVE_ALERTS,ML_CORE" --prefix-colors "blue.bold,yellow.bold,red.bold,green.bold,magenta.bold,cyan.bold,yellow.dim,white.bold" --kill-others --restart-tries 10 --restart-after 10000
 
 echo.
 echo [%time%] Titanium Services have been gracefully shut down.

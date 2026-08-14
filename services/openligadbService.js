@@ -3,6 +3,10 @@ const logger = require('../core/logger')
 
 const OPENLIGADB_BASE = 'https://api.openligadb.de'
 
+// Ligues avec un "current group" valide sur api.openligadb.de (gratuit, sans clé).
+// Les slugs sans groupe courant (ex. EM/WC/Nations League hors saison, compétitions
+// non couvertes) renvoient 404 et sont retirées pour éviter les requêtes inutiles.
+// short cut valides vérifiés : bl1, bl2, bl3, dfb, ucl, uel, ch1, Eredivisie.
 const LEAGUES = [
   { shortcut: 'bl1', name: 'Bundesliga 1' },
   { shortcut: 'bl2', name: 'Bundesliga 2' },
@@ -10,17 +14,8 @@ const LEAGUES = [
   { shortcut: 'dfb', name: 'DFB-Pokal' },
   { shortcut: 'ucl', name: 'Champions League' },
   { shortcut: 'uel', name: 'Europa League' },
-  { shortcut: 'al1', name: 'Austrian Bundesliga' },
-  { shortcut: 'nl1', name: 'Eredivisie' },
-  { shortcut: 'tr1', name: 'Turkish Super Lig' },
   { shortcut: 'ch1', name: 'Swiss Super League' },
-  { shortcut: 'sc1', name: 'Scottish Premiership' },
-  { shortcut: 'sk1', name: 'Slovak Super Liga' },
-  { shortcut: 'li1', name: 'Liechtensteiner Cup' },
-  { shortcut: 'bul1', name: 'Bulgarian A Group' },
-  { shortcut: 'em', name: 'European Championship' },
-  { shortcut: 'wc', name: 'World Cup' },
-  { shortcut: 'nl', name: 'Nations League' },
+  { shortcut: 'Eredivisie', name: 'Eredivisie' },
 ]
 
 class OpenLigaDBService {

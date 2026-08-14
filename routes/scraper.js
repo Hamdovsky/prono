@@ -108,6 +108,104 @@ function calcNextScraperRun() {
   return times[0].toISOString()
 }
 
+function freeSourcesDiagnostic() {
+  const dataDir = path.join(__dirname, '..', 'data')
+  const statePath = path.join(dataDir, 'scraper_state.json')
+  const readJson = (p) => {
+    if (!fs.existsSync(p)) return null
+    try {
+      return JSON.parse(fs.readFileSync(p, 'utf8'))
+    } catch (_) {
+      return null
+    }
+  }
+  const state = readJson(statePath)
+  const health = state?.sources || {}
+
+  const sofastate = health.livescore || {}
+  const openligadbEnabled = (() => {
+    try {
+      return require('../services/openligadbService').enabled !== false
+    } catch (_) {
+      return false
+    }
+  })()
+  const sportscoreEnabled = (() => {
+    try {
+      return require('../services/sportScoreService').enabled !== false
+    } catch (_) {
+      return false
+    }
+  })()
+  const betexplorerEnabled = process.env.BETEXPLORER_ENABLED !== 'false'
+
+  const blockedUntil = sofastate.cooldownRemainingMs > 0 ? new Date(Date.now() + sofastate.cooldownRemainingMs).toISOString() : null
+
+  // Pipeline Python (Football-Data UK + ClubElo) — diagnostics read-only
+  const pipelineState = readJson(path.join(dataDir, '..', 'data_pipeline', 'data', 'state.json'))
+  const pipelineBase = (pipelineState?.sources || {}).football_data || {}
+  const pipelineElo = (pipelineState?.sources || {}).clubelo || {}
+  const clubeloDir = path.join(dataDir, '..', 'data_pipeline', 'data', 'raw', 'clubelo')
+  const clubeloMarker = fs.existsSync(path.join(clubeloDir, 'elo_source.txt'))
+    ? fs.readFileSync(path.join(clubeloDir, 'elo_source.txt'), 'utf8').trim()
+    : null
+
+  const fdDir = path.join(dataDir, '..', 'data_pipeline', 'data', 'raw', 'football_data')
+  let fdFiles = 0
+  if (fs.existsSync(fdDir)) {
+    try {
+      fdFiles = fs.readdirSync(fdDir).filter((f) => f.endsWith('.csv')).length
+    } catch (_) {
+      fdFiles = 0
+    }
+  }
+
+  return {
+    sofascore: {
+      available: true,
+      disabled: sofastate.disabled === true || process.env.DISABLE_SOFASCORE === 'true',
+      blocked: !!blockedUntil,
+      blockedUntil,
+      error: sofastate.lastErrorType || null,
+      detail: blockedUntil ? 'Cooldown Sofascore actif (403/429)' : 'Active',
+    },
+    openligadb: {
+      available: openligadbEnabled,
+      disabled: !openligadbEnabled,
+      error: health.openligadb?.lastErrorType || null,
+      detail: openligadbEnabled ? 'Gratuit, sans clé' : 'Désactivée',
+    },
+    sportscore: {
+      available: sportscoreEnabled,
+      disabled: !sportscoreEnabled,
+      error: null,
+      detail: sportscoreEnabled ? 'Gratuit, sans clé (live)' : 'Désactivée',
+    },
+    betexplorer: {
+      available: betexplorerEnabled,
+      disabled: !betexplorerEnabled,
+      error: null,
+      detail: betexplorerEnabled ? 'Gratuit, sans clé (bypass web)' : 'Désactivée',
+    },
+    footballDataUK: {
+      available: fdFiles > 0,
+      disabled: false,
+      error: pipelineBase.warnings?.length ? pipelineBase.warnings.join('; ') : null,
+      detail: pipelineBase.provenance
+        ? `${pipelineBase.provenance} — ${pipelineBase.rows || 0} lignes, ${fdFiles} CSV`
+        : `${fdFiles} CSV`,
+    },
+    clubelo: {
+      available: !!clubeloMarker,
+      disabled: false,
+      error: pipelineElo.warnings?.length ? pipelineElo.warnings.join('; ') : null,
+      detail: clubeloMarker
+        ? `Elo ${clubeloMarker} (${pipelineElo.rows || 0} relevés)`
+        : 'Provenance inconnue',
+    },
+  }
+}
+
 /**
  * GET /api/scraper/status
  */
@@ -117,6 +215,7 @@ router.get('/scraper/status', async (req, res) => {
   res.json({
     ...scraperSchedule,
     ...progress,
+    freeSourcesDiagnostic: freeSourcesDiagnostic(),
   })
 })
 

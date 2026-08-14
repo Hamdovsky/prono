@@ -77,7 +77,8 @@
 
 .scraper-lastscan,
 .scraper-sources,
-.scraper-history {
+.scraper-history,
+.scraper-progress {
   background: var(--card-bg);
   border: 1px solid var(--border-dark);
   border-radius: var(--radius-lg);
@@ -86,7 +87,8 @@
 }
 
 .scraper-lastscan h3,
-.scraper-section {
+.scraper-section,
+.scraper-progress h3 {
   margin: 0 0 14px;
   font-size: 16px;
   color: var(--text-secondary);
@@ -167,6 +169,81 @@
 
 .scraper-history-row:last-child {
   border-bottom: none;
+}
+
+.scraper-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.scraper-progress-badge {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.scraper-progress-badge-live {
+  color: var(--success);
+}
+
+.scraper-progress-bar {
+  height: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.scraper-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), #ffd166);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.scraper-progress-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.scraper-progress-task {
+  padding-top: 10px;
+  border-top: 1px solid var(--border-dark);
+}
+
+.scraper-progress-league {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+}
+
+.scraper-popup {
+  max-width: 560px;
+  padding: 20px;
+}
+
+.popup-sources {
+  background: var(--card-bg);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.popup-sources h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--text-secondary);
 }
 
 @media (max-width: 600px) {

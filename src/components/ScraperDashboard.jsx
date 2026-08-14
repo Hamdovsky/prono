@@ -67,6 +67,7 @@ export default function ScraperDashboard() {
   const [error, setError] = useState(null)
   const [scanning, setScanning] = useState(false)
   const [scanMsg, setScanMsg] = useState(null)
+  const [progress, setProgress] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -82,9 +83,22 @@ export default function ScraperDashboard() {
     }
   }, [])
 
+  const loadProgress = useCallback(async () => {
+    try {
+      const res = await fetch(getApiUrl('/api/scraper/status'))
+      if (!res.ok) return
+      setProgress(await res.json())
+    } catch (_) {
+      /* polling non-bloquant */
+    }
+  }, [])
+
   useEffect(() => {
     load()
-  }, [load])
+    loadProgress()
+    const id = setInterval(loadProgress, 4000)
+    return () => clearInterval(id)
+  }, [load, loadProgress])
 
   const runScan = async () => {
     const token = localStorage.getItem('admin_token')
@@ -129,6 +143,11 @@ export default function ScraperDashboard() {
     }
   }
 
+  const openProgressPopup = () => {
+    const origin = window.location.origin
+    window.open(`${origin}/scraper-progress`, 'scraperProgress', 'width=560,height=700')
+  }
+
   const sources = data?.sources || {}
   const sourceNames = Object.keys(sources).sort()
   const lastScan = data?.lastScan
@@ -141,6 +160,9 @@ export default function ScraperDashboard() {
           <p className="scraper-sub">Sources, métriques, historique et scan manuel</p>
         </div>
         <div className="scraper-dash-actions">
+          <button className="scraper-btn" onClick={openProgressPopup} disabled={loading || scanning}>
+            ↗ Progression
+          </button>
           <button className="scraper-btn" onClick={load} disabled={loading || scanning}>
             {loading ? '…' : '⟳ Rafraîchir'}
           </button>
@@ -161,6 +183,54 @@ export default function ScraperDashboard() {
       )}
 
       {error && <div className="scraper-msg scraper-msg-error">Erreur de chargement: {error}</div>}
+
+      <div className="scraper-progress">
+        <div className="scraper-progress-head">
+          <h3>Progression du scraper (Sofascore)</h3>
+          {progress?.isRunning ? (
+            <span className="scraper-progress-badge scraper-progress-badge-live">● Scan en cours</span>
+          ) : (
+            <span className="scraper-progress-badge">Idle</span>
+          )}
+        </div>
+
+        {progress && (progress.total ?? 0) > 0 ? (
+          <>
+            <div className="scraper-progress-bar">
+              <div className="scraper-progress-fill" style={{ width: `${Math.max(0, Math.min(100, progress.percent || 0))}%` }} />
+            </div>
+            <div className="scraper-progress-stats">
+              <div>
+                <span className="scraper-k">Traités</span>
+                <span className="scraper-v">{progress.done ?? 0} / {progress.total ?? 0}</span>
+              </div>
+              <div>
+                <span className="scraper-k">Pourcentage</span>
+                <span className="scraper-v">{Math.round(progress.percent || 0)}%</span>
+              </div>
+              <div>
+                <span className="scraper-k">Erreurs</span>
+                <span className="scraper-v">{progress.failed ?? 0}</span>
+              </div>
+              <div>
+                <span className="scraper-k">Restants</span>
+                <span className="scraper-v">{progress.remaining ?? 0}</span>
+              </div>
+            </div>
+            {progress.currentTask && (
+              <div className="scraper-progress-task">
+                <span className="scraper-k">Match en cours</span>
+                <span className="scraper-v">{progress.currentTask}</span>
+                {progress.currentLeague && progress.currentLeague !== 'N/A' && (
+                  <span className="scraper-progress-league">{progress.currentLeague}</span>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="scraper-sub">Aucun scan en cours.</div>
+        )}
+      </div>
 
       <div className="scraper-lastscan">
         <h3>Dernier scan</h3>

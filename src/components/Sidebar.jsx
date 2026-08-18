@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ROUTES, NAV_ITEMS } from '../config/routes'
 import { useTheme } from '../contexts/ThemeContext'
 import { useI18n } from '../contexts/I18nContext'
-import { filterMatchesInWindow } from '../utils/timeFilter'
+import { filterMatchesInWindow, isMatchEligible } from '../utils/timeFilter'
 import './Sidebar.css'
 
 const PINNED_LEAGUES = [
@@ -126,10 +126,15 @@ const Sidebar = ({
       // Compteurs restreints à la fenêtre temporelle active (jours locaux).
       // Logique partagée avec Dashboard (src/utils/timeFilter.js) — corrige
       // l'off-by-one des bornes 3/7 jours ("N jours incluant aujourd'hui").
-      filterMatchesInWindow(matches, activeDate, Date.now()).forEach((m) => {
-        const l = (m.league || 'Unknown').toLowerCase()
-        counts[l] = (counts[l] || 0) + 1
-      })
+      // On applique aussi isMatchEligible : le total du Sidebar est alors
+      // TOUJOURS égal au nombre de matchs réellement listés dans le Dashboard.
+      const nowMs = Date.now()
+      filterMatchesInWindow(matches, activeDate, nowMs)
+        .filter((m) => isMatchEligible(m, nowMs))
+        .forEach((m) => {
+          const l = (m.league || 'Unknown').toLowerCase()
+          counts[l] = (counts[l] || 0) + 1
+        })
 
       const pinnedWithCounts = PINNED_LEAGUES.map((pinned) => {
         let count = 0
@@ -179,13 +184,19 @@ const Sidebar = ({
 
       const otherLeagues = Object.entries(counts)
         .filter(([name]) => !isPinnedOrMena(name))
-        .map(([name, count]) => ({
-          id: name,
-          name: (
+        .map(([name, count]) => {
+          // Troncature centrée : on garde le DÉBUT (drapeau + nom) et la FIN
+          // (suffixe distinctif "GROUP A/B", "ROUND OF 32"…) pour éviter que
+          // deux ligues différentes ne deviennent identiques une fois coupées.
+          const label = (
             getCountryForOther(name) + name.replace(/^([A-Za-z]+ )(\1)/i, '$1').toUpperCase()
-          ).substring(0, 35),
-          count,
-        }))
+          )
+          const short = (s) => {
+            if (s.length <= 34) return s
+            return s.slice(0, 15) + '…' + s.slice(-16)
+          }
+          return { id: name, name: short(label), count }
+        })
         .sort((a, b) => a.name.localeCompare(b.name))
 
       const totalFilteredMatches = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -340,6 +351,26 @@ const Sidebar = ({
           <span className="flash-icon">🧠</span>
           <span className="flash-label" style={{ fontWeight: 'bold' }}>
             ENTRAÎNEMENT
+          </span>
+        </button>
+
+        {/* ── FIABILITÉ (métrique honnête) ─────────────────── */}
+        <button
+          className={`flash-nav-item ${activeView === 'accuracy' ? 'active' : ''}`}
+          onClick={() => handleNav('accuracy')}
+          style={{
+            marginTop: '4px',
+            background:
+              activeView === 'accuracy'
+                ? 'linear-gradient(90deg, rgba(244,63,94,0.15) 0%, transparent 100%)'
+                : 'transparent',
+            borderLeft: activeView === 'accuracy' ? '2px solid #f43f5e' : 'none',
+            color: '#f43f5e',
+          }}
+        >
+          <span className="flash-icon">🎛️</span>
+          <span className="flash-label" style={{ fontWeight: 'bold' }}>
+            FIABILITÉ
           </span>
         </button>
       </div>

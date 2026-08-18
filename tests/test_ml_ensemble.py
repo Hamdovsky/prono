@@ -124,3 +124,52 @@ class TestRunXGBoostInference:
         required = ['p_h_xgb', 'p_d_xgb', 'p_a_xgb', 'p_h_ai', 'p_d_ai', 'p_a_ai', 'has_xgb', 'ai_source', 'explainer_data', 'analysis']
         for key in required:
             assert key in result
+
+
+class TestApplyExternalXGBBlend:
+    def test_no_external_no_change(self):
+        from ml_ensemble import apply_external_xgb_blend
+        h, d, a, tag, analysis = apply_external_xgb_blend(0.5, 0.3, 0.2, {'league': 'Ligue 2'})
+        assert tag == ""
+        assert abs(h - 0.5) < 0.001
+
+    def test_missing_teams_no_change(self):
+        from ml_ensemble import apply_external_xgb_blend
+        h, d, a, tag, _ = apply_external_xgb_blend(0.5, 0.3, 0.2, {'league': 'Premier League'})
+        assert tag == ""
+
+    def test_sums_to_one_after_blend(self):
+        from ml_ensemble import apply_external_xgb_blend
+        match_obj = {'league': 'Premier League', 'homeTeam': 'Man United', 'awayTeam': 'Arsenal'}
+        h, d, a, tag, analysis = apply_external_xgb_blend(0.5, 0.3, 0.2, match_obj)
+        assert tag == "+ExternalXGB"
+        assert abs(h + d + a - 1.0) < 0.001
+        assert all(0.0 <= p <= 1.0 for p in (h, d, a))
+
+    def test_extended_match_obj_tracks_member(self):
+        from ml_ensemble import apply_external_xgb_blend
+        match_obj = {'league': 'Premier League', 'homeTeam': 'Man United', 'awayTeam': 'Arsenal'}
+        apply_external_xgb_blend(0.5, 0.3, 0.2, match_obj)
+        assert isinstance(match_obj.get('_external_xgb'), dict)
+        assert 'home' in match_obj['_external_xgb']
+        assert '_external_xgb_weight' in match_obj
+
+    def test_weight_capped(self):
+        from ml_ensemble import _get_external_xgb_weight
+        assert _get_external_xgb_weight('Premier League') == 0.20
+        assert 0.0 <= _get_external_xgb_weight('Unknown League') <= 0.50
+
+
+class TestConfluenceWithExternal:
+    def test_external_confirmation_boosts(self):
+        from confidence_engine import evaluate_confluence
+        match_obj = {'_external_xgb': {'home': 0.50, 'draw': 0.28, 'away': 0.22}, 'odds_home': 1.95, 'odds_draw': 3.4, 'odds_away': 4.1}
+        penalty, report, reason = evaluate_confluence(0.52, 0.26, 0.22, 0.50, 0.27, 0.23, 0.0, 0.0, 'T1', True, match_obj)
+        assert report.get('level') == 'STRONG'
+        assert penalty <= 0.0
+
+    def test_external_absent_no_error(self):
+        from confidence_engine import evaluate_confluence
+        match_obj = {'odds_home': 1.95}
+        penalty, report, reason = evaluate_confluence(0.52, 0.26, 0.22, 0.50, 0.27, 0.23, 0.0, 0.0, 'T1', True, match_obj)
+        assert report.get('external_divergence') is None

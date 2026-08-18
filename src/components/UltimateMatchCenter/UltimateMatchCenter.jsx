@@ -4,7 +4,7 @@ import { calculateEV, analyzeValue } from '../../services/InsightEngine'
 import PlayerProps from '../PlayerProps/PlayerProps'
 import { analyzeMatch } from '../../utils/matchAnalysis'
 
-const UltimateMatchCenter = ({ match, onClose }) => {
+const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
   // Escape key to close
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -56,16 +56,23 @@ const UltimateMatchCenter = ({ match, onClose }) => {
   const ev = calculateEV(winP, match.market_odds || 2.0)
   const reliability = Math.round(match.reliability_index || 50)
 
+  // Sans cotes bookmaker → les marchés ne sont pas calibrés : on les masque au
+  // lieu d'afficher des % trompeurs. Gating par marché (1X2 / O-U / BTTS).
+  const maskedWinner = !analysis?.winner.pick || analysis?.winner.pick === '?'
+  const maskedOu = !analysis?.hasOuOdds
+  const maskedBtts = !analysis?.hasBttsOdds
+  const maskedCorners = !analysis?.hasRealOdds
+
   const honestyBadge =
     analysis?.honesty.mode === 'normal' ? (
       <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 700 }}>✅ Cotes réelles</span>
     ) : analysis?.honesty.mode === 'modelOnly' ? (
       <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 700 }}>
-        🔮 Modèle — sans cotes (pas d'EV)
+        🔮 Sans cotes (pas d'EV)
       </span>
     ) : analysis?.honesty.mode === 'modelSignal' ? (
       <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 700 }}>
-        🔮 Signal modèle (pas d'EV)
+        🔮 Signal (pas d'EV)
       </span>
     ) : (
       <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 700 }}>
@@ -187,6 +194,14 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                 </h3>
               </div>
               {honestyBadge}
+              {relData?.n >= 20 && (
+                <span
+                  className={`mc-rel ${relData.pct >= 60 ? 'mc-rel-good' : 'mc-rel-low'}`}
+                  title={`Précision réelle du bracket de confiance · ${relData.correct}/${relData.n} bons`}
+                >
+                  réel ≈{Math.round(relData.pct)}% ({relData.n})
+                </span>
+              )}
             </div>
 
             {/* Row 1 : verdict + probabilités 1/X/2 */}
@@ -211,13 +226,16 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                     letterSpacing: '1px',
                     textTransform: 'uppercase',
                     marginBottom: 6,
+                    display: 'none',
                   }}
                 >
                   Verdict du modèle
                 </div>
-                <div style={{ fontSize: '2.6rem', fontWeight: 900, ...pickClass }}>{analysis?.winner.pick}</div>
+                <div style={{ fontSize: '2.6rem', fontWeight: 900, ...pickClass }}>
+                  {maskedWinner ? '--' : analysis?.winner.pick}
+                </div>
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>
-                  {analysis?.winner.label}
+                  {maskedWinner ? 'estimation non calée (pas de cotes)' : analysis?.winner.label}
                 </div>
                 {analysis?.winner.solid && (
                   <div
@@ -306,7 +324,7 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                   BTTS
                 </div>
                 <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#10b981', marginTop: 6 }}>
-                  {analysis?.btts.label}
+                  {maskedBtts ? '--' : analysis?.btts.label}
                 </div>
               </div>
               <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '14px 16px' }}>
@@ -314,7 +332,7 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                   Over / Under 2.5
                 </div>
                 <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#38bdf8', marginTop: 6 }}>
-                  {analysis?.ou.direction} {analysis?.ou.label}
+                  {maskedOu ? '--' : `${analysis?.ou.direction} ${analysis?.ou.label}`}
                 </div>
               </div>
               <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '14px 16px' }}>
@@ -322,7 +340,7 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                   Corners
                 </div>
                 <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#a855f7', marginTop: 6 }}>
-                  {analysis?.corners.label}
+                  {maskedCorners ? '--' : analysis?.corners.label}
                 </div>
               </div>
               <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: '14px 16px' }}>
@@ -394,7 +412,6 @@ const UltimateMatchCenter = ({ match, onClose }) => {
                           marginTop: 8,
                         }}
                       >
-                        <span>Modèle {Math.round(v.model)}%</span>
                         <span>Fair {v.fair}%</span>
                       </div>
                       <div

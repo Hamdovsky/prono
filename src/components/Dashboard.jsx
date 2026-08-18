@@ -4,7 +4,7 @@ import Sidebar from './Sidebar'
 import MatchCard from './MatchCard'
 import dataService from '../services/dataService'
 import { ROUTES, PATH_TO_VIEW } from '../config/routes'
-import { filterMatchesInWindow } from '../utils/timeFilter'
+import { filterMatchesInWindow, isMatchEligible } from '../utils/timeFilter'
 import { computeRawLines, isFinishedMatch } from '../utils/matchAnalysis'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
@@ -48,6 +48,18 @@ const MAJOR_LEAGUE_RE =
   /premier league|championship|champions league|europa league|ligue [12]|bundesliga|serie [ab]|la liga|liga portugal|eredivisie|mls|liga mx|j1 league|k league|scottish premiership|primera division|brasileirão/i
 const isMajorLeague = (name) => MAJOR_LEAGUE_RE.test(String(name || ''))
 
+// Bande de confiance → précision réelle issue du backtest (bracketAccuracy).
+const bandOf = (conf) => {
+  const c = Number(conf)
+  if (!c) return null
+  if (c < 50) return '0-50'
+  if (c < 60) return '50-60'
+  if (c < 70) return '60-70'
+  if (c < 80) return '70-80'
+  if (c < 90) return '80-90'
+  return '90+'
+}
+
 // 🧠 [PERF] Cache par objet match : une même référence de match produit toujours
 // la même liste "raw", évitant de recomputer la normalisation à chaque render
 // (et permettant au React.memo de MatchCard de sauter les re-renders).
@@ -61,7 +73,7 @@ const toRawLines = (m) => {
   return lines
 }
 
-const MatchRowMemo = React.memo(({ index, style, list, onClick, compact }) => {
+const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracketMap }) => {
   const m = list[index]
   if (!m) return null
   const ts = m.startTimestamp
@@ -73,13 +85,17 @@ const MatchRowMemo = React.memo(({ index, style, list, onClick, compact }) => {
         minute: '2-digit',
       })
     : ''
+  const raw = toRawLines(m)
+  const band = m?.confidence ? bandOf(m.confidence) : null
+  const reliability = bracketMap && band ? bracketMap[band] : undefined
   return (
     <MatchCard
-      rawData={toRawLines(m)}
+      rawData={raw}
       onClick={onClick}
       style={style}
       timeLabel={timeLabel}
       compact={compact}
+      reliability={reliability}
     />
   )
 })
@@ -97,6 +113,7 @@ const Dashboard = () => {
   )
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
   const [selectedMatch, setSelectedMatch] = useState(null)
+  const [bracketMap, setBracketMap] = useState({})
 
   const activeView = PATH_TO_VIEW[location.pathname] || 'all-matches'
 
@@ -134,6 +151,35 @@ const Dashboard = () => {
     }
   }, [])
 
+  // Précision réelle par bracket de confiance (backtest /api/accuracy/report).
+  // Honnête : un match à 72% de confiance affiche la précision RÉELLE du
+  // bracket 70-80 (≈53%) au lieu d'un % rassurant jamais atteint.
+  useEffect(() => {
+    let cancelled = false
+    dataService
+      .fetchAccuracyReport()
+      .then((report) => {
+        if (cancelled || !report) return
+        const map = {}
+        const brackets = report?.latest?.bracketAccuracy
+        if (brackets && typeof brackets === 'object') {
+          for (const [band, v] of Object.entries(brackets)) {
+            if (!v || typeof v.accuracy !== 'number') continue
+            map[band] = {
+              pct: v.accuracy,
+              n: v.count || 0,
+              correct: Math.round((v.count || 0) * (v.accuracy / 100)),
+            }
+          }
+        }
+        setBracketMap(map)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const handleRefresh = useCallback(() => dataService.refreshAllData(), [])
   const handleSelectMatch = useCallback((m) => setSelectedMatch(m), [])
 
@@ -156,10 +202,12 @@ const Dashboard = () => {
   const allMatchesList = useMemo(() => {
     // Filtre temporel (AUJOURD'HUI/DEMAIN/3 J/7 J) — jours calendaires locaux
     const dateFiltered = filterMatchesInWindow(matches, activeDate, Date.now())
+    const nowMs = Date.now()
     return dateFiltered
       .filter((m) => {
-        const s = String(m.status || '').toLowerCase()
-        if (['postponed', 'canceled'].includes(s)) return false
+        // 🕐 Masque reportés/annulés et matchs déjà joués (heure de début
+        // passée ou terminés) — logique partagée avec Sidebar (timeFilter.js).
+        if (!isMatchEligible(m, nowMs)) return false
 
         if (searchQuery) {
           const q = searchQuery
@@ -186,14 +234,20 @@ const Dashboard = () => {
         const bProbs =
           parseFloat(b.home_win_probability || b.away_win_probability || b.draw_probability || 0) >
           0
+        const aHasOdds =
+          parseFloat(a.odds_home) > 0 && parseFloat(a.odds_draw) > 0 && parseFloat(a.odds_away) > 0
+        const bHasOdds =
+          parseFloat(b.odds_home) > 0 && parseFloat(b.odds_draw) > 0 && parseFloat(b.odds_away) > 0
         const aInsuff =
-          a.insufficient_data === 1 || a.sufficient === false || a.quant?.market_odds === null
+          (a.insufficient_data === 1 || a.sufficient === false || a.quant?.market_odds === null) &&
+          !aHasOdds
         const bInsuff =
-          b.insufficient_data === 1 || b.sufficient === false || b.quant?.market_odds === null
+          (b.insufficient_data === 1 || b.sufficient === false || b.quant?.market_odds === null) &&
+          !bHasOdds
         const aMajor = isMajorLeague(a.league || a.tournament_name)
         const bMajor = isMajorLeague(b.league || b.tournament_name)
-        const aScore = (aProbs && !aInsuff ? 1 : 0) + (aMajor ? 1 : 0)
-        const bScore = (bProbs && !bInsuff ? 1 : 0) + (bMajor ? 1 : 0)
+        const aScore = (aProbs && !aInsuff ? 1 : 0) + (aMajor ? 1 : 0) + (aHasOdds ? 2 : 0)
+        const bScore = (bProbs && !bInsuff ? 1 : 0) + (bMajor ? 1 : 0) + (bHasOdds ? 2 : 0)
         if (aScore !== bScore) return bScore - aScore
         const aFin = isFinishedMatch(a)
         const bFin = isFinishedMatch(b)
@@ -215,8 +269,8 @@ const Dashboard = () => {
   // 🧠 [PERF] Props stables pour la liste virtuelle : le React.memo des rangées
   // ne re-rend que si la liste (contenu) ou le handler changent réellement.
   const matchRowProps = useMemo(
-    () => ({ list: allMatchesList, onClick: handleSelectMatch, compact: isMobile }),
-    [allMatchesList, handleSelectMatch, isMobile]
+    () => ({ list: allMatchesList, onClick: handleSelectMatch, compact: isMobile, bracketMap }),
+    [allMatchesList, handleSelectMatch, isMobile, bracketMap]
   )
 
   const renderMatchList = (list) => {
@@ -348,7 +402,7 @@ const Dashboard = () => {
 
       <main className="titanium-main">
         <StatusHeader
-          count={matches.length}
+          count={allMatchesList.length}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((s) => !s)}
         />
@@ -431,7 +485,15 @@ const Dashboard = () => {
 
       {selectedMatch && (
         <Suspense fallback={null}>
-          <UltimateMatchCenter match={selectedMatch} onClose={() => setSelectedMatch(null)} />
+          <UltimateMatchCenter
+            match={selectedMatch}
+            onClose={() => setSelectedMatch(null)}
+            reliability={
+              selectedMatch?.confidence && bracketMap[bandOf(selectedMatch.confidence)]
+                ? bracketMap[bandOf(selectedMatch.confidence)]
+                : undefined
+            }
+          />
         </Suspense>
       )}
     </div>

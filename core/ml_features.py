@@ -474,6 +474,10 @@ def calculate_rolling_averages(history_list, window=30, league_name=''):
     else:
         alpha = 0.15  # Default
 
+    weighted_goals = 0.0
+    weighted_points = 0.0
+    total_weight = 0.0
+
     for i, m in enumerate(history):
         weight = math.pow(1 - alpha, i)
         weighted_goals += m.get('score_for', 0) * weight
@@ -743,46 +747,6 @@ def calculate_momentum_trend(graph_data):
         trend = recent[-1]['value'] - recent[0]['value']
         
     return h_avg, a_avg, trend
-
-def calculate_travel_fatigue(home_country, away_country):
-    """
-    [DISTANCE-AWARE] Estimates away team travel fatigue based on geographic distance.
-    Returns a fatigue multiplier (0.0 = no extra fatigue, higher = more fatigued).
-    """
-    if not home_country or not away_country or home_country == away_country:
-        return 0.0
-
-    # Continent groupings for distance estimation
-    CONTINENT_MAP = {
-        'europe': ['england', 'spain', 'france', 'germany', 'italy', 'portugal', 'netherlands',
-                   'belgium', 'scotland', 'turkey', 'greece', 'switzerland', 'austria', 'sweden',
-                   'denmark', 'norway', 'poland', 'czech', 'russia', 'ukraine', 'croatia', 'serbia'],
-        'south_america': ['brazil', 'argentina', 'colombia', 'chile', 'uruguay', 'peru', 'ecuador', 'venezuela'],
-        'north_america': ['usa', 'mexico', 'canada', 'costa rica', 'honduras', 'guatemala'],
-        'africa': ['morocco', 'egypt', 'nigeria', 'senegal', 'ghana', 'ivory coast', 'cameroon', 
-                   'south africa', 'algeria', 'tunisia', 'kenya', 'ethiopia'],
-        'asia': ['japan', 'south korea', 'china', 'saudi arabia', 'uae', 'qatar', 'iran',
-                 'india', 'australia', 'thailand', 'indonesia'],
-        'middle_east': ['saudi arabia', 'uae', 'qatar', 'iran', 'iraq', 'jordan', 'kuwait']
-    }
-
-    def get_continent(country):
-        c = (country or '').lower()
-        for continent, countries in CONTINENT_MAP.items():
-            if any(x in c for x in countries):
-                return continent
-        return 'unknown'
-
-    home_cont = get_continent(home_country)
-    away_cont = get_continent(away_country)
-
-    if home_cont == away_cont and home_cont != 'unknown':
-        return 0.8   # Same continent — minimal fatigue (e.g., Madrid → London)
-    elif home_cont == 'unknown' or away_cont == 'unknown':
-        return 1.2   # Unknown geography — moderate conservative penalty
-    else:
-        return 2.0   # Intercontinental — heavy fatigue (e.g., Tokyo → London)
-
 
 def calculate_cumulative_fatigue(history_list, num_matches=3):
     """
@@ -1302,7 +1266,7 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     # 7. Market & Environmental (TITANIUM)
     features['h_att_imp'] = float(row.get('home_att') or 1.0)
     features['a_att_imp'] = float(row.get('away_att') or 1.0)
-    features['news_sent'] = float(row.get('news_sentiment', 0))
+    features['news_sent'] = float(row.get('news_sentiment') or 0)
     features['odds_h'] = float(row.get('odds_home') or 1.5)
     features['odds_a'] = float(row.get('odds_away') or 1.5)
     features['temp'] = float(row.get('weather_temp') or 20.0)
@@ -1774,121 +1738,6 @@ FEATURE_NAMES_V51 = FEATURE_NAMES_V27 + [
     'h2h_away_win_rate',
     'h2h_draw_rate',
     'h2h_total_matches'
-]
-
-# V52 Line Movement Intelligence (Market Psychology)
-FEATURE_NAMES_V52 = FEATURE_NAMES_V51 + [
-    'h_odds_move_24h',
-    'a_odds_move_24h',
-    'd_odds_move_24h',
-    'market_reliability'
-]
-
-# V53 Enhanced Features (xGA, xPTS, Efficiency, Streaks, H2H Advanced, Bayesian Shrink)
-FEATURE_NAMES_V53 = FEATURE_NAMES_V52 + [
-    'h_xga', 'a_xga', 'xga_diff',
-    'h_xg_overperformance', 'a_xg_overperformance',
-    'h_xpts', 'a_xpts',
-    'h_conversion_rate', 'a_conversion_rate',
-    'h_sot_rate', 'a_sot_rate',
-    'h_shot_volume', 'a_shot_volume',
-    'h_clean_streak', 'a_clean_streak',
-    'h_scoring_streak', 'a_scoring_streak',
-    'h_win_streak', 'a_win_streak',
-    'h2h_avg_goals', 'h2h_over25_rate', 'h2h_avg_xg', 'h2h_archive_matches',
-    'h_shrink_factor', 'a_shrink_factor',
-    'day_of_week', 'kickoff_hour',
-    'match_importance',
-    'h_successful_dribbles', 'a_successful_dribbles',
-    'h_accurate_long_balls', 'a_accurate_long_balls',
-    'h_accurate_crosses', 'a_accurate_crosses',
-    'h_opp_half_passes', 'a_opp_half_passes',
-    'h_duels_won_pct', 'a_duels_won_pct',
-    'h_accurate_opp_half_passes', 'a_accurate_opp_half_passes',
-    'h_acc_own_half_passes', 'a_acc_own_half_passes',
-    'h_long_ball_pct', 'a_long_ball_pct',
-    'h_cross_pct', 'a_cross_pct',
-    'h_ground_duels', 'a_ground_duels',
-    'h_aerial_duel_pct', 'a_aerial_duel_pct',
-    'h_total_duels', 'a_total_duels',
-    'h_ball_recovery', 'a_ball_recovery',
-    'h_blocked_shots', 'a_blocked_shots',
-    'h_assists', 'a_assists',
-    'h_shots_sot_faced', 'a_shots_sot_faced',
-    'h_bc_conceded', 'a_bc_conceded',
-    'h_ppda', 'a_ppda',
-    'h_prog_passes', 'a_prog_passes',
-    'h_sca', 'a_sca',
-    'h_xg_per_shot', 'a_xg_per_shot',
-    'h_sot_per_possession', 'a_sot_per_possession',
-    'h_goals_per_xg', 'a_goals_per_xg',
-    'h_elo_x_home_advantage', 'a_elo_x_home_advantage',
-    'h_sharp_money_x_odds_move', 'a_sharp_money_x_odds_move'
-]
-
-# V54 FBref + Cross Features
-FEATURE_NAMES_V54 = FEATURE_NAMES_V53 + [
-    'h_sin_day', 'a_sin_day', 'h_cos_day', 'a_cos_day',
-    'h_sin_month', 'a_sin_month', 'h_cos_month', 'a_cos_month',
-    'h_data_quality_gate', 'a_data_quality_gate',
-    'h_implied_prob_h', 'a_implied_prob_h',
-    'h_implied_prob_d', 'a_implied_prob_d',
-    'h_implied_prob_a', 'a_implied_prob_a'
-]
-
-# V55 Bayesian Shrinkage + Football Efficiency Crosses
-FEATURE_NAMES_V55 = FEATURE_NAMES_V54 + [
-    'h_bayesian_shrink', 'a_bayesian_shrink',
-    'h_day_sin', 'a_day_sin', 'h_day_cos', 'a_day_cos',
-    'h_month_sin', 'a_month_sin', 'h_month_cos', 'a_month_cos',
-    'h_is_derby', 'a_is_derby',
-    'h_news_missing_gk', 'a_news_missing_gk',
-    'h_news_missing_scorer', 'a_news_missing_scorer',
-    'h_news_missing_captain', 'a_news_missing_captain',
-    'h_news_missing_star', 'a_news_missing_star'
-]
-
-# V56 Auto-Retrain Set (30 features)
-FEATURE_NAMES_V56 = [
-    # 10 Base Stats Diffs
-    'h_pos_diff', 'a_pos_diff',
-    'h_xg_diff', 'a_xg_diff',
-    'h_sot_diff', 'a_sot_diff',
-    'h_bc_diff', 'a_bc_diff',
-    'h_corners_diff', 'a_corners_diff',
-    # 4 Ratings
-    'h_rating_diff', 'a_rating_diff',
-    # 8 Form/H2H
-    'h_last5_win', 'a_last5_win',
-    'h_last5_draw', 'a_last5_draw',
-    'h_last5_loss', 'a_last5_loss',
-    'h2h_homes', 'h2h_aways',
-    # 4 Efficiency
-    'h_xg_per_shot_diff', 'a_xg_per_shot_diff',
-    'h_sot_per_poss_diff', 'a_sot_per_poss_diff',
-    'h_goals_per_xg_diff', 'a_goals_per_xg_diff',
-    # 4 Temporal
-    'h_rest_days_diff', 'a_rest_days_diff',
-    'h_travel_km', 'a_travel_km',
-    'h_time_diff_hours', 'a_time_diff_hours',
-    'h_home_field_adv_diff', 'a_home_field_adv_diff'
-]
-
-# TITANIUM V3 Elite Features (V54 + Tunisia Specific)
-FEATURE_NAMES_TITANIUM = FEATURE_NAMES_V54 + [
-    'h_pts', 'a_pts', 'pts_diff',
-    'humidity',
-    'ip_h', 'ip_d', 'ip_a',
-    'is_extreme_weather',
-    'news_is_missing_gk', 'news_is_missing_scorer', 'news_is_missing_captain', 'news_is_missing_star',
-    'odds_velocity', 'is_derby',
-    # Tunisia Specific Features
-    'h_tn_vote_consent', 'a_tn_vote_consent', 'tn_vote_consent_diff',
-    'h_tn_vote_sentiment', 'a_tn_vote_sentiment', 'tn_vote_sentiment_diff',
-    'h_tn_vote_divergence', 'a_tn_vote_divergence', 'tn_vote_divergence_diff',
-    'h_tn_vote_volatility', 'a_tn_vote_volatility', 'tn_vote_volatility_diff',
-    'h_tn_jackpot_pressure', 'a_tn_jackpot_pressure', 'tn_jackpot_pressure_diff',
-    'h_tn_crowd_conviction', 'a_tn_crowd_conviction', 'tn_crowd_conviction_diff'
 ]
 
 # V52 Line Movement Intelligence (Market Psychology)

@@ -1028,6 +1028,18 @@ const database = {
             awayTeam: r.awayTeam || parsed.awayTeam,
             league: r.league || parsed.league,
             insufficient_data: r.insufficient_data,
+            // 💾 DB columns are authoritative — the fullData blob (often stale,
+            // e.g. livescore null odds) must NOT override backfilled odds.
+            odds_home: r.odds_home ?? parsed.odds_home,
+            odds_draw: r.odds_draw ?? parsed.odds_draw,
+            odds_away: r.odds_away ?? parsed.odds_away,
+            odds_source: r.odds_source ?? parsed.odds_source,
+            best_odds_home: r.best_odds_home ?? parsed.best_odds_home,
+            best_odds_draw: r.best_odds_draw ?? parsed.best_odds_draw,
+            best_odds_away: r.best_odds_away ?? parsed.best_odds_away,
+            odds_home_open: r.odds_home_open ?? parsed.odds_home_open,
+            odds_draw_open: r.odds_draw_open ?? parsed.odds_draw_open,
+            odds_away_open: r.odds_away_open ?? parsed.odds_away_open,
           }
         } catch (e) {
           return r
@@ -1057,6 +1069,16 @@ const database = {
             awayTeam: r.awayTeam || parsed.awayTeam,
             league: r.league || parsed.league,
             insufficient_data: r.insufficient_data,
+            odds_home: r.odds_home ?? parsed.odds_home,
+            odds_draw: r.odds_draw ?? parsed.odds_draw,
+            odds_away: r.odds_away ?? parsed.odds_away,
+            odds_source: r.odds_source ?? parsed.odds_source,
+            best_odds_home: r.best_odds_home ?? parsed.best_odds_home,
+            best_odds_draw: r.best_odds_draw ?? parsed.best_odds_draw,
+            best_odds_away: r.best_odds_away ?? parsed.best_odds_away,
+            odds_home_open: r.odds_home_open ?? parsed.odds_home_open,
+            odds_draw_open: r.odds_draw_open ?? parsed.odds_draw_open,
+            odds_away_open: r.odds_away_open ?? parsed.odds_away_open,
           }
         } catch (e) {
           return r
@@ -1458,6 +1480,10 @@ const database = {
            odds_home = COALESCE(?, odds_home),
            odds_draw = COALESCE(?, odds_draw),
            odds_away = COALESCE(?, odds_away),
+           odds_over25 = COALESCE(?, odds_over25),
+           odds_under25 = COALESCE(?, odds_under25),
+           odds_btts_yes = COALESCE(?, odds_btts_yes),
+           odds_btts_no = COALESCE(?, odds_btts_no),
            odds_source = ?,
            odds_fetch_error = ?,
            last_updated = ?
@@ -1466,6 +1492,10 @@ const database = {
         row.odds_home ?? null,
         row.odds_draw ?? null,
         row.odds_away ?? null,
+        row.odds_over25 ?? null,
+        row.odds_under25 ?? null,
+        row.odds_btts_yes ?? null,
+        row.odds_btts_no ?? null,
         row.odds_source ?? null,
         row.odds_fetch_error ?? null,
         Date.now(),
@@ -2012,8 +2042,49 @@ const database = {
     }
   },
 
-  getMatchesStartingSoon: async (hours = 4) => {
+  getMatchesMissingMarkets: async () => {
     try {
+      // Matches that already carry real 1X2 odds but still lack O/U 2.5 and/or
+      // BTTS markets. These are the rows whose dashboard O/U + BTTS cells render
+      // "--" — the enricher must backfill their markets.
+      const res = db
+        .prepare(
+          `SELECT * FROM matches
+                 WHERE status IN ('scheduled', 'upcoming', 'NOT_STARTED', 'NS')
+                 AND homeTeam IS NOT NULL AND awayTeam IS NOT NULL
+                 AND (
+                     (odds_over25 IS NULL OR odds_over25 = 0 OR odds_under25 IS NULL OR odds_under25 = 0)
+                     OR (odds_btts_yes IS NULL OR odds_btts_yes = 0 OR odds_btts_no IS NULL OR odds_btts_no = 0)
+                 )
+                 ORDER BY timestamp ASC`
+        )
+        .all()
+      return res.map((r) => {
+        try {
+          const parsed = r.fullData
+            ? typeof r.fullData === 'string'
+              ? JSON.parse(r.fullData)
+              : r.fullData
+            : {}
+          return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+          }
+        } catch (e) {
+          return r
+        }
+      })
+    } catch (e) {
+      logger.error(`[DB] getMatchesMissingMarkets failed: ${e.message}`)
+      return []
+    }
+  },
+
+  getMatchesStartingSoon: async (hours = 4) => {    try {
       const now = new Date()
       const future = new Date(now.getTime() + hours * 3600 * 1000)
       const nowIso = now.toISOString()

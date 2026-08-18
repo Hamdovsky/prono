@@ -6,6 +6,7 @@ export const ROUTES = {
   markets: '/markets',
   bets: '/bets',
   training: '/training',
+  accuracy: '/accuracy',
 }
 
 export const PATH_TO_VIEW = Object.fromEntries(Object.entries(ROUTES).map(([k, v]) => [v, k]))
@@ -19,6 +20,7 @@ export const NAV_ITEMS = [
       { view: 'promosport', label: 'PROMOSPORT', icon: '💰', color: '#10b981' },
       { view: 'bets', label: 'SUIVI DES PARIS', icon: '📈', color: '#f59e0b' },
       { view: 'training', label: 'ENTRAÎNEMENT', icon: '🧠', color: '#8b5cf6' },
+      { view: 'accuracy', label: 'FIABILITÉ', icon: '🎛️', color: '#f43f5e' },
     ],
   },
 ]

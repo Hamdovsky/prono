@@ -358,6 +358,10 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
           : null,
         bsdVsCrowdTrap: gridMatch.bsdVsCrowdTrap || false,
         bsdRecommended: gridMatch.bsdRecommended || null,
+        source: gridMatch.source || 'stat',
+        xgbBlended: gridMatch.xgbBlended || false,
+        coverage: gridMatch.coverage || null,
+        odds: gridMatch.odds || null,
       }
     })
 

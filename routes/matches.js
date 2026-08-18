@@ -701,6 +701,10 @@ router.get('/predictions', async (req, res) => {
         odds_home: parseFloat(m.odds_home || 0),
         odds_draw: parseFloat(m.odds_draw || 0),
         odds_away: parseFloat(m.odds_away || 0),
+        odds_over25: parseFloat(m.odds_over25 || 0),
+        odds_under25: parseFloat(m.odds_under25 || 0),
+        odds_btts_yes: parseFloat(m.odds_btts_yes || 0),
+        odds_btts_no: parseFloat(m.odds_btts_no || 0),
       }))
 
     quality.sort(

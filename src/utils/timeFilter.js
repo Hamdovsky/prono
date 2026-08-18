@@ -8,6 +8,8 @@
  * navigateur (les matchs sont alors affichés en jours locaux du user).
  */
 
+import { isFinishedMatch } from './matchAnalysis'
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // Fenêtre calendar-days pour chaque bouton :
@@ -84,4 +86,17 @@ export function filterMatchesInWindow(matches, activeDate, nowMs, tzOffsetMinute
     if (ms === null) ms = nowMs
     return ms >= win.start && ms <= win.end
   })
+}
+
+// Éligibilité "liste" : un match est compté/listé s'il est dans le futur et
+// encore jouable. Logique partagée entre le compteur du Sidebar/header et la
+// liste du Dashboard afin qu'ils affichent TOUJOURS le même nombre
+// (source de vérité unique).
+export function isMatchEligible(m, nowMs = Date.now()) {
+  if (!m) return false
+  const s = String(m.status || '').toLowerCase()
+  if (['postponed', 'canceled'].includes(s)) return false
+  const ms = extractMatchMs(m)
+  if (ms !== null && ms <= nowMs) return false
+  return !isFinishedMatch(m)
 }

@@ -1,7 +1,7 @@
 import React from 'react'
 import './MatchCard.css'
 
-const MatchCard = ({ rawData, style, onClick, timeLabel, compact }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
     return {
@@ -59,13 +59,36 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact }) => {
   const solidClass = d.solid ? ' mc-solid' : ''
   const solidBadge = d.solid ? ' 🎯' : ''
 
+  // Fiabilité honnête par bracket de confiance (précision réelle du backtest) :
+  // n < 20 → insuffisant. Le libellé « réel » distingue la précision MESURÉE
+  // de la confiance affichée du pick.
+  const relBadge = (() => {
+    if (!reliability || !reliability.n) return null
+    if (reliability.n < 20)
+      return (
+        <span className="mc-rel mc-rel-insuf" title="Échantillon trop petit pour être fiable">
+          éch. insuffisant
+        </span>
+      )
+    const cls = reliability.pct >= 60 ? 'mc-rel-good' : 'mc-rel-low'
+    return (
+      <span
+        className={`mc-rel ${cls}`}
+        title={`Précision réelle du bracket de confiance · ${reliability.correct}/${reliability.n} bons`}
+      >
+        réel ≈{Math.round(reliability.pct)}% ({reliability.n})
+      </span>
+    )
+  })()
+
   if (compact) {
     return (
       <div className={`match-card mc-compact${solidClass}`} style={style} onClick={onClick}>
         <div className="mcc-top">
           <div className="mcc-league">
-            {d.league}
+            <span className="mcc-league-name">{d.league}</span>
             {solidBadge}
+            {relBadge}
           </div>
           {timeLabel && <div className="mcc-time">{timeLabel}</div>}
         </div>
@@ -91,8 +114,9 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact }) => {
     <div className={`match-card${solidClass}`} style={style} onClick={onClick}>
       <div className="mc-match-info">
         <div className="mc-league">
-          {d.league}
+          <span className="mc-league-name">{d.league}</span>
           {solidBadge}
+          {relBadge}
         </div>
         <div className="mc-teams">
           <span>{shortTeam(d.home)}</span>

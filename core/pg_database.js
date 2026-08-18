@@ -415,14 +415,24 @@ const pgDb = {
               ? JSON.parse(r.fullData ?? r.fulldata)
               : (r.fullData ?? r.fulldata)
             : {}
-        return {
-          ...r,
-          ...parsed,
-          id: r.id,
-          homeTeam: r.homeTeam || parsed.homeTeam,
-          awayTeam: r.awayTeam || parsed.awayTeam,
-          league: r.league || parsed.league,
-        }
+return {
+            ...r,
+            ...parsed,
+            id: r.id,
+            homeTeam: r.homeTeam || parsed.homeTeam,
+            awayTeam: r.awayTeam || parsed.awayTeam,
+            league: r.league || parsed.league,
+            odds_home: r.odds_home ?? parsed.odds_home,
+            odds_draw: r.odds_draw ?? parsed.odds_draw,
+            odds_away: r.odds_away ?? parsed.odds_away,
+            odds_source: r.odds_source ?? parsed.odds_source,
+            best_odds_home: r.best_odds_home ?? parsed.best_odds_home,
+            best_odds_draw: r.best_odds_draw ?? parsed.best_odds_draw,
+            best_odds_away: r.best_odds_away ?? parsed.best_odds_away,
+            odds_home_open: r.odds_home_open ?? parsed.odds_home_open,
+            odds_draw_open: r.odds_draw_open ?? parsed.odds_draw_open,
+            odds_away_open: r.odds_away_open ?? parsed.odds_away_open,
+          }
       } catch (e) {
         return r
       }

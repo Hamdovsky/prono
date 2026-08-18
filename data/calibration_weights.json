@@ -1,0 +1,160 @@
+{
+  "Qualification": {
+    "xgb_adjustment": -0.1,
+    "poisson_adjustment": 0.1,
+    "ou_bias": 0.0,
+    "quality": "poor",
+    "brier1x2": 0.254892,
+    "logloss1x2": 1.250854,
+    "brierOU": 0.250965,
+    "confidence": 1.0,
+    "matches": 23
+  },
+  "Round of 16": {
+    "xgb_adjustment": -0.1,
+    "poisson_adjustment": 0.1,
+    "ou_bias": 0.0,
+    "quality": "poor",
+    "brier1x2": 0.277421,
+    "logloss1x2": 1.307535,
+    "brierOU": 0.268633,
+    "confidence": 0.15,
+    "matches": 3
+  },
+  "Serie B": {
+    "xgb_adjustment": -0.1,
+    "poisson_adjustment": 0.1,
+    "ou_bias": 0.0,
+    "quality": "poor",
+    "brier1x2": 0.26033,
+    "logloss1x2": 1.258239,
+    "brierOU": 0.243733,
+    "confidence": 0.15,
+    "matches": 3
+  },
+  "1. Deild": {
+    "xgb_adjustment": -0.03,
+    "poisson_adjustment": 0.03,
+    "ou_bias": 2.0,
+    "quality": "good",
+    "brier1x2": 0.189671,
+    "logloss1x2": 0.95766,
+    "brierOU": 0.309667,
+    "confidence": 0.3,
+    "matches": 6
+  },
+  "Unknown": {
+    "xgb_adjustment": -0.05,
+    "poisson_adjustment": 0.05,
+    "ou_bias": 0.0,
+    "quality": "fair",
+    "brier1x2": 0.212007,
+    "logloss1x2": 1.047627,
+    "brierOU": 0.246911,
+    "confidence": 0.9,
+    "matches": 18
+  },
+  "Oberliga: Bremen": {
+    "xgb_adjustment": -0.1,
+    "poisson_adjustment": 0.1,
+    "ou_bias": 0.0,
+    "quality": "poor",
+    "brier1x2": 0.282497,
+    "logloss1x2": 1.471917,
+    "brierOU": 0.250467,
+    "confidence": 0.15,
+    "matches": 3
+  },
+  "Primera DivisiÃ³n": {
+    "xgb_adjustment": -0.05,
+    "poisson_adjustment": 0.05,
+    "ou_bias": 0.0,
+    "quality": "fair",
+    "brier1x2": 0.215342,
+    "logloss1x2": 1.06903,
+    "brierOU": 0.254791,
+    "confidence": 0.55,
+    "matches": 11
+  },
+  "Liga de Ascenso: Apertura: Group B": {
+    "xgb_adjustment": -0.03,
+    "poisson_adjustment": 0.03,
+    "ou_bias": 0.0,
+    "quality": "good",
+    "brier1x2": 0.190197,
+    "logloss1x2": 0.96453,
+    "brierOU": 0.25202,
+    "confidence": 0.25,
+    "matches": 5
+  },
+  "Premiership": {
+    "xgb_adjustment": -0.17,
+    "poisson_adjustment": 0.17,
+    "ou_bias": 0.0,
+    "quality": "very_poor",
+    "brier1x2": 0.330639,
+    "logloss1x2": 1.655907,
+    "brierOU": 0.256867,
+    "confidence": 0.15,
+    "matches": 3
+  },
+  "Northern Premier League": {
+    "xgb_adjustment": -0.05,
+    "poisson_adjustment": 0.05,
+    "ou_bias": 0.0,
+    "quality": "fair",
+    "brier1x2": 0.227273,
+    "logloss1x2": 1.144068,
+    "brierOU": 0.240214,
+    "confidence": 0.35,
+    "matches": 7
+  },
+  "DEFAULT": {
+    "xgb_adjustment": 0.0,
+    "poisson_adjustment": 0.0,
+    "ou_bias": 0.0,
+    "quality": "unknown",
+    "confidence": 0.0,
+    "external_xgb_weight": 0.2
+  },
+  "Premier League": {
+    "xgb_adjustment": 0.0,
+    "poisson_adjustment": 0.0,
+    "ou_bias": 0.0,
+    "quality": "unknown",
+    "confidence": 0.0,
+    "external_xgb_weight": 0.2
+  },
+  "LaLiga": {
+    "xgb_adjustment": 0.0,
+    "poisson_adjustment": 0.0,
+    "ou_bias": 0.0,
+    "quality": "unknown",
+    "confidence": 0.0,
+    "external_xgb_weight": 0.2
+  },
+  "Serie A": {
+    "xgb_adjustment": 0.0,
+    "poisson_adjustment": 0.0,
+    "ou_bias": 0.0,
+    "quality": "unknown",
+    "confidence": 0.0,
+    "external_xgb_weight": 0.2
+  },
+  "Bundesliga": {
+    "xgb_adjustment": 0.0,
+    "poisson_adjustment": 0.0,
+    "ou_bias": 0.0,
+    "quality": "unknown",
+    "confidence": 0.0,
+    "external_xgb_weight": 0.2
+  },
+  "Ligue 1": {
+    "xgb_adjustment": 0.0,
+    "poisson_adjustment": 0.0,
+    "ou_bias": 0.0,
+    "quality": "unknown",
+    "confidence": 0.0,
+    "external_xgb_weight": 0.2
+  }
+}

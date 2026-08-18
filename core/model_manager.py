@@ -155,10 +155,35 @@ def get_v56_booster():
 
 
 def get_main_booster():
+    """
+    Return the primary XGBoost booster with a resilient fallback chain.
+
+    V24 is the historical main model, but newer V55/V551/V552/V553 models are
+    strictly better when available. Instead of failing the whole prediction
+    when V24 is missing, fall through the chain so predictions keep working.
+    """
     global _XGB_BOOSTER
     if _XGB_BOOSTER is None:
         _XGB_BOOSTER = _load_booster(XGB_MODEL_PATH, "V24 Legacy")
-    return _XGB_BOOSTER
+    if _XGB_BOOSTER is not None:
+        return _XGB_BOOSTER
+
+    # Fallback chain: prefer newest models when V24 is unavailable.
+    for name, path in (
+        ("V553 Premium", V553_PREMIUM_MODEL_PATH),
+        ("V553", V553_MODEL_PATH),
+        ("V552", V552_MODEL_PATH),
+        ("V551", V551_MODEL_PATH),
+        ("V55", V55_MODEL_PATH),
+        ("V56", V56_MODEL_PATH),
+    ):
+        if os.path.exists(path):
+            candidate = _load_booster(path, name)
+            if candidate is not None:
+                _XGB_BOOSTER = candidate
+                sys.stderr.write(f"[XGB] V24 unavailable - using {name} as main booster.\n")
+                return candidate
+    return None
 
 
 def get_corners_model():

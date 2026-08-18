@@ -12,6 +12,44 @@ import SkillsPanel from './SkillsPanel'
 import EdgePanel from './EdgePanel'
 import PromosportAccuracy from './PromosportAccuracy'
 
+// Verdict GAGNANT cohérent avec matchAnalysis.js (1/X/2 si >= 65%, sinon double-chance).
+const computeGagnant = (m) => {
+  const h = m?.mlProbs?.h ?? m?.probs?.h ?? 0
+  const x = m?.mlProbs?.x ?? m?.mlProbs?.n ?? m?.probs?.n ?? 0
+  const a = m?.mlProbs?.a ?? m?.probs?.a ?? 0
+  if (!(h + x + a > 0)) return { pick: '--', prob: 0 }
+  const maxP = Math.max(h, x, a)
+  if (maxP >= 65) {
+    const pick = maxP === h ? '1' : maxP === a ? '2' : 'X'
+    return { pick, prob: maxP }
+  }
+  const combos = [
+    { k: '1X', p: h + x },
+    { k: '12', p: h + a },
+    { k: 'X2', p: x + a },
+  ].sort((a, b) => b.p - a.p)
+  return { pick: combos[0].k, prob: Math.round(combos[0].p) }
+}
+
+const SOURCE_LABELS = {
+  ml: 'ML',
+  archive: 'ARCH',
+  xg: 'xG',
+  stat: 'STAT',
+}
+
+const coverageSummary = (matches) => {
+  const s = { db: 0, odds: 0, arch: 0, alias: 0, total: matches.length }
+  for (const m of matches) {
+    const c = m?.coverage || {}
+    if (c.dbMatch) s.db++
+    if (c.realOdds) s.odds++
+    if (c.archStats) s.arch++
+    if (c.aliasHome && c.aliasAway) s.alias++
+  }
+  return s
+}
+
 const Promosport = () => {
   const [loading, setLoading] = useState(true)
   const [loadingStep, setLoadingStep] = useState(0)
@@ -32,6 +70,7 @@ const Promosport = () => {
 
   const [matches, setMatches] = useState([])
   const [doubleCounts, setDoubleCounts] = useState([6, 6, 6, 6])
+  const [showCoverage, setShowCoverage] = useState(false)
 
   const loadingMessages = [
     'Scraping des données Promosport',
@@ -1813,6 +1852,145 @@ const Promosport = () => {
             >
               Double ⬤ / Triple ⬤ — © TITANIUM NEURAL-X v3.0
             </p>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+              <button
+                onClick={() => setShowCoverage(!showCoverage)}
+                title="Couverture des données : match en base, cotes réelles 1X2, stats archive, alias registre"
+                style={{
+                  background: showCoverage
+                    ? 'rgba(52, 211, 153, 0.15)'
+                    : 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${showCoverage ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                  color: showCoverage ? '#34d399' : '#94a3b8',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.7rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  letterSpacing: '1px',
+                }}
+              >
+                {showCoverage ? '▾ CACHER' : '▸'} 🗄️ COUVERTURE & COTES
+              </button>
+            </div>
+            {showCoverage && (
+              <div
+                style={{
+                  overflowX: 'auto',
+                  marginBottom: '16px',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '10px',
+                  padding: '10px',
+                }}
+              >
+                {(() => {
+                  const s = coverageSummary(matches)
+                  return (
+                    <div
+                      style={{
+                        fontSize: '0.7rem',
+                        color: '#94a3b8',
+                        marginBottom: '8px',
+                        display: 'flex',
+                        gap: '16px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span>
+                        🗄️ Base DB:{' '}
+                        <b style={{ color: s.db === s.total ? '#34d399' : '#fbbf24' }}>
+                          {s.db}/{s.total}
+                        </b>
+                      </span>
+                      <span>
+                        🎯 Cotes réelles:{' '}
+                        <b style={{ color: s.odds === s.total ? '#34d399' : '#fbbf24' }}>
+                          {s.odds}/{s.total}
+                        </b>
+                      </span>
+                      <span>
+                        📚 Stats archive:{' '}
+                        <b style={{ color: s.arch === s.total ? '#34d399' : '#fbbf24' }}>
+                          {s.arch}/{s.total}
+                        </b>
+                      </span>
+                      <span>
+                        🏷️ Alias:{' '}
+                        <b style={{ color: s.alias === s.total ? '#34d399' : '#fbbf24' }}>
+                          {s.alias}/{s.total}
+                        </b>
+                      </span>
+                    </div>
+                  )
+                })()}
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.68rem' }}>
+                  <thead>
+                    <tr
+                      style={{
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        fontSize: '0.62rem',
+                        borderBottom: '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <th style={{ padding: '6px 4px', textAlign: 'left' }}>Match</th>
+                      <th style={{ padding: '6px 4px', textAlign: 'center' }}>Base DB</th>
+                      <th style={{ padding: '6px 4px', textAlign: 'center' }}>Cotes H/D/A</th>
+                      <th style={{ padding: '6px 4px', textAlign: 'center' }}>Stats arch.</th>
+                      <th style={{ padding: '6px 4px', textAlign: 'center' }}>Alias</th>
+                      <th style={{ padding: '6px 4px', textAlign: 'center' }}>Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matches.map((m) => {
+                      const c = m?.coverage || {}
+                      const dot = (good) => (
+                        <span style={{ color: good ? '#34d399' : '#dc2626', fontWeight: 'bold' }}>
+                          {good ? '✓' : '✗'}
+                        </span>
+                      )
+                      return (
+                        <tr
+                          key={m.id}
+                          style={{
+                            borderBottom: '1px solid rgba(255,255,255,0.03)',
+                            color: '#cbd5e1',
+                          }}
+                        >
+                          <td style={{ padding: '5px 4px', whiteSpace: 'nowrap' }}>
+                            {m.id}. {m.home} vs {m.away}
+                          </td>
+                          <td style={{ padding: '5px 4px', textAlign: 'center' }}>
+                            {dot(c.dbMatch)}
+                          </td>
+                          <td style={{ padding: '5px 4px', textAlign: 'center' }}>
+                            {m.odds?.h > 0 ? (
+                              <span style={{ color: '#94a3b8' }}>
+                                {m.odds.h}/{m.odds.d}/{m.odds.a}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#dc2626' }}>sans</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '5px 4px', textAlign: 'center' }}>
+                            {dot(c.archStats)}
+                          </td>
+                          <td style={{ padding: '5px 4px', textAlign: 'center' }}>
+                            {dot(c.aliasHome && c.aliasAway)}
+                          </td>
+                          <td style={{ padding: '5px 4px', textAlign: 'center' }}>
+                            <span style={{ color: '#fbbf24' }}>
+                              {SOURCE_LABELS[m.source] || 'ML'}
+                              {m.xgbBlended ? '+XGB' : ''}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
               <table
                 className="promosport-table"
@@ -1881,6 +2059,18 @@ const Promosport = () => {
                     >
                       %2
                     </th>
+                    <th
+                      style={{
+                        padding: '8px 6px',
+                        textAlign: 'center',
+                        minWidth: '62px',
+                        color: '#34d399',
+                        fontSize: '0.65rem',
+                        letterSpacing: '1px',
+                      }}
+                    >
+                      GAGNANT
+                    </th>
                     <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: '150px' }}>
                       Équipe 2
                     </th>
@@ -1913,6 +2103,10 @@ const Promosport = () => {
                     const p1 = match.mlProbs?.h ?? match.probs?.h ?? 0
                     const px = match.mlProbs?.x ?? match.mlProbs?.n ?? match.probs?.n ?? 0
                     const p2 = match.mlProbs?.a ?? match.probs?.a ?? 0
+                    const gagnant = computeGagnant(match)
+                    const isGagSimple =
+                      ['1', '2'].includes(String(gagnant.pick)) && gagnant.prob >= 65
+                    const srcText = `${SOURCE_LABELS[match.source] || 'ML'}${match.xgbBlended ? '+XGB' : ''}`
                     return (
                       <tr
                         key={match.id}
@@ -1945,6 +2139,19 @@ const Promosport = () => {
                           }}
                         >
                           {match.home}
+                          <div
+                            style={{
+                              fontSize: '0.6rem',
+                              color: match.odds?.h > 0 ? '#94a3b8' : '#475569',
+                              marginTop: '3px',
+                              whiteSpace: 'nowrap',
+                              fontWeight: 'normal',
+                            }}
+                          >
+                            {match.odds?.h > 0
+                              ? `@ ${match.odds.h}/${match.odds.d}/${match.odds.a}`
+                              : 'sans cotes'}
+                          </div>
                         </td>
                         <td style={{ padding: '10px 4px', textAlign: 'center' }}>
                           <span
@@ -1968,6 +2175,36 @@ const Promosport = () => {
                           >
                             {p2}%
                           </span>
+                        </td>
+                        <td style={{ padding: '10px 4px', textAlign: 'center', minWidth: '62px' }}>
+                          <span
+                            style={{
+                              color: isGagSimple ? '#34d399' : '#fbbf24',
+                              fontWeight: 'bold',
+                              fontSize: '0.95rem',
+                              display: 'inline-block',
+                              background: isGagSimple
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : 'rgba(251, 191, 36, 0.15)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {gagnant.pick} {gagnant.prob > 0 ? `${gagnant.prob}%` : ''}
+                          </span>
+                          <div
+                            style={{
+                              fontSize: '0.55rem',
+                              color: '#475569',
+                              marginTop: '3px',
+                              fontWeight: '700',
+                              letterSpacing: '0.5px',
+                            }}
+                            title={`Source proba: ${match.source || 'ml'}${match.xgbBlended ? ' + XGBoost' : ''}`}
+                          >
+                            {srcText}
+                          </div>
                         </td>
                         <td
                           style={{

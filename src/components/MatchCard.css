@@ -24,14 +24,20 @@
   padding-right: 8px;
 }
 .mc-league {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 8px;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.6px;
+}
+.mc-league-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 .mc-teams {
   display: flex;
@@ -219,14 +225,21 @@
 }
 
 .mcc-league {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 9px;
   font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.6px;
+  min-width: 0;
+}
+.mcc-league-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .mcc-time {
@@ -323,4 +336,37 @@
 .mcc-chip.mcc-win.mc-pick-dc {
   color: #fbbf24;
   border-color: rgba(251, 191, 36, 0.35);
+}
+
+/* ═══════════════════════════════════════
+   FIABILITÉ HONNÊTE (badge par ligue)
+   ═══════════════════════════════════════ */
+.mc-rel {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin-left: 0;
+  vertical-align: middle;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.mc-rel-good {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.mc-rel-low {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+.mc-rel-insuf {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px dashed rgba(148, 163, 184, 0.3);
 }

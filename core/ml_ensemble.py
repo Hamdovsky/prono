@@ -34,6 +34,13 @@ def _load_dynamic_weights():
         with open(_DYNAMIC_WEIGHTS_PATH, 'r') as f:
             _DYNAMIC_WEIGHTS_CACHE = json.load(f)
             _DYNAMIC_WEIGHTS_TS = now
+    except FileNotFoundError:
+        sys.stderr.write(
+            "[WARN] league_dynamic_weights.json missing — auto-backtest never ran. "
+            "Run `node services/autoBacktestService.js` or the daily cron before expecting feedback.\n"
+        )
+        _DYNAMIC_WEIGHTS_CACHE = {}
+        _DYNAMIC_WEIGHTS_TS = now
     except Exception:
         _DYNAMIC_WEIGHTS_CACHE = {}
         _DYNAMIC_WEIGHTS_TS = now
@@ -50,6 +57,13 @@ def _load_calibration_weights():
         with open(_CALIBRATION_WEIGHTS_PATH, 'r') as f:
             _CALIBRATION_WEIGHTS_CACHE = json.load(f)
             _CALIBRATION_WEIGHTS_TS = now
+    except FileNotFoundError:
+        sys.stderr.write(
+            "[WARN] calibration_weights.json missing — run `python core/backtest_feedback.py` "
+            "after the auto-backtest has written calibration_metrics.json.\n"
+        )
+        _CALIBRATION_WEIGHTS_CACHE = {}
+        _CALIBRATION_WEIGHTS_TS = now
     except Exception:
         _CALIBRATION_WEIGHTS_CACHE = {}
         _CALIBRATION_WEIGHTS_TS = now
@@ -63,7 +77,7 @@ def _get_league_weights(league_name):
     # Source 1: Dynamic weights from binary accuracy backtest
     dynamic = _load_dynamic_weights().get(league_name)
     if dynamic:
-        model_edge = dynamic.get('edge', 0)
+        model_edge = dynamic.get('edge', 0) or 0
         if model_edge > 3:
             static = {
                 "xgb_weight": dynamic.get('xgb_weight', static['xgb_weight']),
@@ -406,6 +420,66 @@ def apply_predixsport_blend(p_h_ai, p_d_ai, p_a_ai, match_obj):
     return p_h_ai, p_d_ai, p_a_ai, "", analysis
 
 
+_EXTERNAL_XGB_CALIBRATION_KEY = 'external_xgb_weight'
+
+
+def _get_external_xgb_weight(league_name):
+    """Per-league external XGBoost blend weight from calibration_weights.json (default 0.20)."""
+    try:
+        cal = _load_calibration_weights().get(league_name)
+        if cal and cal.get(_EXTERNAL_XGB_CALIBRATION_KEY) is not None:
+            w = float(cal[_EXTERNAL_XGB_CALIBRATION_KEY])
+            return max(0.0, min(0.50, w))
+    except Exception:
+        pass
+    return 0.20
+
+
+def apply_external_xgb_blend(p_h_ai, p_d_ai, p_a_ai, match_obj):
+    """
+    Blend external XGBoost (msoczi/football_predictions) as an extra ensemble member.
+    Active only for the 5 supported European leagues. Weight from calibration_weights.json.
+    """
+    analysis = {}
+    try:
+        from external_xgb import predict_external
+
+        league = match_obj.get('league', '') or match_obj.get('league_name', '')
+        home = match_obj.get('homeTeam', '')
+        away = match_obj.get('awayTeam', '')
+        ext = predict_external(league, home, away)
+        if not ext:
+            return p_h_ai, p_d_ai, p_a_ai, '', analysis
+
+        xh, xd, xa = ext['xgb']['home'], ext['xgb']['draw'], ext['xgb']['away']
+        s_x = xh + xd + xa
+        if s_x <= 0:
+            return p_h_ai, p_d_ai, p_a_ai, '', analysis
+        xh, xd, xa = xh / s_x, xd / s_x, xa / s_x
+
+        w = _get_external_xgb_weight(str(league))
+        p_h_ai = (p_h_ai * (1.0 - w)) + (xh * w)
+        p_d_ai = (p_d_ai * (1.0 - w)) + (xd * w)
+        p_a_ai = (p_a_ai * (1.0 - w)) + (xa * w)
+        s = p_h_ai + p_d_ai + p_a_ai
+        if s > 0:
+            p_h_ai, p_d_ai, p_a_ai = p_h_ai / s, p_d_ai / s, p_a_ai / s
+
+        analysis["ExternalXGB"] = (
+            f"External ensemble (msoczi XGBoost) weight={w:.2f}: "
+            f"H={xh:.3f} D={xd:.3f} A={xa:.3f} | tree={ext.get('tree_label')}"
+        )
+        try:
+            match_obj['_external_xgb'] = {'home': xh, 'draw': xd, 'away': xa}
+            match_obj['_external_xgb_weight'] = w
+        except Exception:
+            pass
+        return p_h_ai, p_d_ai, p_a_ai, "+ExternalXGB", analysis
+    except Exception as _ext_err:
+        sys.stderr.write(f"⚠️ [ExternalXGB] {_ext_err}\n")
+        return p_h_ai, p_d_ai, p_a_ai, '', analysis
+
+
 def run_shap_explainability(active_feature_vector, active_feature_names, XGB_BOOSTER,
                             p_h_xgb, p_d_xgb, p_a_xgb):
     """Run SHAP-Lite explainability to get top 5 feature impacts."""
@@ -485,12 +559,18 @@ def blend_final_probabilities(p_h_ai, p_d_ai, p_a_ai, p_h_poi, p_d_poi, p_a_poi,
     else:
         p_h, p_d, p_a = 0.33, 0.33, 0.34
 
-    # Platt scaling calibration for XGBoost outputs
+    # Calibration : carte isotonique (confiance→taux réel) quand l'historique
+    # réglé est suffisant, sinon repli sur Platt scaling. Les deux sont
+    # défensifs : toute erreur laisse les probabilités brutes inchangées.
     if has_xgb:
         try:
-            from calibration import calibrate_probs
-            p_h, p_d, p_a = calibrate_probs(p_h, p_d, p_a, model_version='v54')
+            from calibration_iso import isotonic_calibrate
+            p_h, p_d, p_a = isotonic_calibrate(p_h, p_d, p_a)
         except Exception:
-            pass
+            try:
+                from calibration import calibrate_probs
+                p_h, p_d, p_a = calibrate_probs(p_h, p_d, p_a, model_version='v54')
+            except Exception:
+                pass
 
     return p_h, p_d, p_a, ai_fusion_weight, ai_source_label

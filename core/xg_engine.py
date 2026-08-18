@@ -134,15 +134,15 @@ def apply_squad_intelligence(xg_h, xg_a, match_obj, news_data):
     intel_h = news_data.get('home', {}).get('intelligence', {}).get('features', {}) if isinstance(news_data, dict) else {}
     intel_a = news_data.get('away', {}).get('intelligence', {}).get('features', {}) if isinstance(news_data, dict) else {}
 
-    h_is_gk_out = float(intel_h.get('is_missing_gk') or match_obj.get('is_missing_gk', 0))
-    h_is_scorer_out = float(intel_h.get('is_missing_scorer') or match_obj.get('is_missing_scorer', 0))
-    h_is_captain_out = float(intel_h.get('is_missing_captain') or match_obj.get('is_missing_captain', 0))
-    h_is_star_out = float(intel_h.get('is_missing_star') or match_obj.get('is_missing_star', 0))
+    h_is_gk_out = float(intel_h.get('is_missing_gk') or match_obj.get('is_missing_gk') or 0)
+    h_is_scorer_out = float(intel_h.get('is_missing_scorer') or match_obj.get('is_missing_scorer') or 0)
+    h_is_captain_out = float(intel_h.get('is_missing_captain') or match_obj.get('is_missing_captain') or 0)
+    h_is_star_out = float(intel_h.get('is_missing_star') or match_obj.get('is_missing_star') or 0)
 
-    a_is_gk_out = float(intel_a.get('is_missing_gk') or match_obj.get('is_missing_gk_away', 0))
-    a_is_scorer_out = float(intel_a.get('is_missing_scorer') or match_obj.get('is_missing_scorer_away', 0))
-    a_is_captain_out = float(intel_a.get('is_missing_captain') or match_obj.get('is_missing_captain_away', 0))
-    a_is_star_out = float(intel_a.get('is_missing_star') or match_obj.get('is_missing_star_away', 0))
+    a_is_gk_out = float(intel_a.get('is_missing_gk') or match_obj.get('is_missing_gk_away') or 0)
+    a_is_scorer_out = float(intel_a.get('is_missing_scorer') or match_obj.get('is_missing_scorer_away') or 0)
+    a_is_captain_out = float(intel_a.get('is_missing_captain') or match_obj.get('is_missing_captain_away') or 0)
+    a_is_star_out = float(intel_a.get('is_missing_star') or match_obj.get('is_missing_star_away') or 0)
 
     if h_is_gk_out > 0: h_def_mod *= 1.25
     if h_is_scorer_out > 0: h_att_mod *= 0.70

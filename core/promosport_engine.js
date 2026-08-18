@@ -1,9 +1,12 @@
+const fs = require('fs')
+const path = require('path')
 const logger = require('./logger')
 const mlPredictionService = require('../services/mlPredictionService')
 const doubleOptimizer = require('../services/doubleOptimizerService')
 const db = require('./database')
 const promosportMLService = require('../services/promosportMLService')
 const StatisticalEngine = require('./services/StatisticalEngine')
+const bypassScraper = require('../services/scrapers/ScrapingBypassScraper')
 const axios = require('axios')
 const FASTAPI_URL = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
 
@@ -70,6 +73,98 @@ function seededRand(seed) {
   return ((hash >>> 0) % 100000) / 100000
 }
 
+// ─── 💰 BetExplorer odds fallback (cotes réelles pour matchs concours sans cotes) ──────────
+const ODDS_CACHE_PATH = path.join(__dirname, '..', 'data', 'promosport_odds_cache.json')
+const ODDS_CACHE_TTL = 6 * 60 * 60 * 1000
+const ODDS_FETCH_TIMEOUT = 12000
+const oddsMemoryCache = new Map()
+let oddsFileCache = null
+
+function loadOddsFileCache() {
+  if (oddsFileCache) return oddsFileCache
+  try {
+    oddsFileCache = JSON.parse(fs.readFileSync(ODDS_CACHE_PATH, 'utf8')) || {}
+  } catch (_) {
+    oddsFileCache = {}
+  }
+  return oddsFileCache
+}
+
+function persistOddsCache() {
+  try {
+    fs.writeFileSync(ODDS_CACHE_PATH, JSON.stringify(oddsFileCache))
+  } catch (_) {}
+}
+
+function getLeagueHint(home, away, m) {
+  const bad = new Set(['', 'promosport', 'inconnu', 'unknown'])
+  const direct = String(m.leagueName || '').trim()
+  if (!bad.has(direct.toLowerCase())) {
+    return { name: direct, country: String(m.category || m.country || '').trim() }
+  }
+  try {
+    const row = db
+      .prepare(
+        'SELECT league, category_name FROM matches WHERE (LOWER(homeTeam) = LOWER(?) OR LOWER(awayTeam) = LOWER(?)) AND league IS NOT NULL LIMIT 1'
+      )
+      .get(home, away)
+    if (row && row.league) return { name: row.league, country: row.category_name || '' }
+  } catch (_) {}
+  return { name: '', country: '' }
+}
+
+async function fetchBetexplorerOdds(home, away, m) {
+  const key = `${String(home).toLowerCase().trim()}|${String(away).toLowerCase().trim()}`
+  const mem = oddsMemoryCache.get(key)
+  if (mem && Date.now() - mem.ts < ODDS_CACHE_TTL) return mem.data
+  const cached = loadOddsFileCache()[key]
+  if (cached && Date.now() - cached.ts < ODDS_CACHE_TTL) {
+    oddsMemoryCache.set(key, { ts: cached.ts, data: cached.data })
+    return cached.data
+  }
+  const league = getLeagueHint(home, away, m)
+  let result = null
+  try {
+    result = await Promise.race([
+      bypassScraper.getOdds(home, away, league.name, league.country, m.startTimestamp),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('odds timeout')), ODDS_FETCH_TIMEOUT)),
+    ])
+  } catch (_) {
+    result = null
+  }
+  const data =
+    result && result.home_win
+      ? {
+          home_win: +result.home_win,
+          draw: result.draw ? +result.draw : null,
+          away_win: result.away_win ? +result.away_win : null,
+          _source: result._source || 'betexplorer',
+        }
+      : null
+  oddsMemoryCache.set(key, { ts: Date.now(), data })
+  loadOddsFileCache()[key] = { ts: Date.now(), data }
+  persistOddsCache()
+  return data
+}
+
+function teamInRegistry(name) {
+  if (!name) return false
+  try {
+    const normalized = String(name)
+      .toLowerCase()
+      .trim()
+      .replace(/%20/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/[.\-]/g, '')
+    const row = db
+      .prepare('SELECT name FROM team_registry WHERE normalized = ? OR name LIKE ? LIMIT 1')
+      .get(normalized, `%${normalized}%`)
+    return !!row
+  } catch (e) {
+    return false
+  }
+}
+
 async function generatePromosportGrids(scrapedMatches, customDoubles) {
   if (!scrapedMatches || scrapedMatches.length === 0) {
     logger.warn('[PROMOSPORT-ENGINE] No scraped matches provided')
@@ -85,7 +180,9 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
     const enrichedMatches = await Promise.all(
       scrapedMatches.map(async (m) => {
         try {
-          // A. Resolve Aliases
+          // A. Resolve Aliases (pré-existence registre connue AVANT auto-création)
+          const hasAliasHome = teamInRegistry(m.homeTeam)
+          const hasAliasAway = teamInRegistry(m.awayTeam)
           const homeAlias = await db.resolveTeamName(m.homeTeam)
           const awayAlias = await db.resolveTeamName(m.awayTeam)
 
@@ -118,12 +215,19 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             Math.abs(px - 0.33) < 0.05 &&
             Math.abs(p2 - 0.34) < 0.05
 
-          // Try team-specific historical Promosport stats from archive
+          // Team-specific historical Promosport stats from archive (toujours, pour la couverture)
           let teamStats = null
           if (isFlat || p1 === null || px === null || p2 === null) {
             teamStats =
               db.getTeamPromosportStats(m.homeTeam) || db.getTeamPromosportStats(m.awayTeam)
           }
+          if (!teamStats) {
+            teamStats = db.getTeamPromosportStats(m.homeTeam) || db.getTeamPromosportStats(m.awayTeam)
+          }
+
+          // Source de la probabilité (exposée à l'UI pour le badge qualité)
+          let probSource = 'stat'
+          if (p1 !== null && px !== null && p2 !== null && !isFlat) probSource = 'ml'
 
           if (isFlat) {
             if (teamStats) {
@@ -135,6 +239,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
               p1 = p1Team * 0.7 + 0.424 * 0.3
               px = pxTeamHome * 0.35 + pxTeamAway * 0.35 + 0.259 * 0.3
               p2 = p2Team * 0.7 + 0.317 * 0.3
+              probSource = 'archive'
               logger.info(
                 `🧪 [PROMOSPORT-ENGINE] Archive stats used for ${m.homeTeam} (${teamStats.homeGames}H/${teamStats.awayGames}A)`
               )
@@ -145,6 +250,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
                 p1 = xgFallback.p1
                 px = xgFallback.px
                 p2 = xgFallback.p2
+                probSource = 'xg'
                 logger.info(
                   `🧪 [PROMOSPORT-ENGINE] xG fallback used for ${m.homeTeam} vs ${m.awayTeam}`
                 )
@@ -153,6 +259,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
                 p1 = eng.p1
                 px = eng.px
                 p2 = eng.p2
+                probSource = 'stat'
                 logger.info(
                   `🧪 [PROMOSPORT-ENGINE] StatisticalEngine fallback used for ${m.homeTeam} vs ${m.awayTeam}`
                 )
@@ -166,11 +273,13 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
               p1 = teamStats.homeWinRate !== null ? teamStats.homeWinRate : 0.424
               px = (teamStats.homeDrawRate || 0.259) * 0.5 + (teamStats.awayDrawRate || 0.259) * 0.5
               p2 = teamStats.awayWinRate !== null ? teamStats.awayWinRate : 0.317
+              probSource = 'archive'
             } else {
               const eng = fallbackProbsFromStatisticalEngine(m)
               p1 = eng.p1
               px = eng.px
               p2 = eng.p2
+              probSource = 'stat'
             }
           }
 
@@ -191,22 +300,40 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             bsdPx = null,
             bsdP2 = null
           let bsdVsCrowdDelta = 0
+          const applyBsd = (o) => {
+            if (!o || !(o.odds_home > 1) || !(o.odds_draw > 1) || !(o.odds_away > 1)) return
+            const oh = +o.odds_home,
+              od = +o.odds_draw,
+              oa = +o.odds_away
+            const vig = 1 / oh + 1 / od + 1 / oa
+            bsdP1 = 1 / oh / vig
+            bsdPx = 1 / od / vig
+            bsdP2 = 1 / oa / vig
+            bsdVsCrowdDelta = Math.max(
+              Math.abs((m.homeWinProbability || 0.33) / 100 - bsdP1),
+              Math.abs((m.awayWinProbability || 0.34) / 100 - bsdP2)
+            )
+          }
           try {
             bsdOdds = await db.getMatchByTeams(m.homeTeam, m.awayTeam)
-            if (bsdOdds && bsdOdds.odds_home && bsdOdds.odds_draw && bsdOdds.odds_away) {
-              const oh = bsdOdds.odds_home,
-                od = bsdOdds.odds_draw,
-                oa = bsdOdds.odds_away
-              const vig = 1 / oh + 1 / od + 1 / oa
-              bsdP1 = 1 / oh / vig
-              bsdPx = 1 / od / vig
-              bsdP2 = 1 / oa / vig
-              bsdVsCrowdDelta = Math.max(
-                Math.abs((m.homeWinProbability || 0.33) / 100 - bsdP1),
-                Math.abs((m.awayWinProbability || 0.34) / 100 - bsdP2)
+            applyBsd(bsdOdds)
+          } catch (_) {}
+          // 💰 [BETEXPLORER] Cotes réelles (cache 6h) si absentes en DB et du concours
+          if (!bsdP1 && !(m.odds_home > 1 && m.odds_draw > 1 && m.odds_away > 1)) {
+            const be = await fetchBetexplorerOdds(m.homeTeam, m.awayTeam, m)
+            if (be) {
+              bsdOdds = {
+                odds_home: be.home_win,
+                odds_draw: be.draw,
+                odds_away: be.away_win,
+                _source: be._source,
+              }
+              applyBsd(bsdOdds)
+              logger.info(
+                `💰 [PROMOSPORT-ENGINE] BetExplorer odds ${be.home_win}/${be.draw}/${be.away_win} pour ${m.homeTeam} vs ${m.awayTeam}`
               )
             }
-          } catch (_) {}
+          }
 
           const H = -(
             p1 * Math.log2(Math.max(0.01, p1)) +
@@ -249,6 +376,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             p2,
             entropy: H,
             confidence: confidence,
+            source: probSource,
             isHighPressure,
             isCrowdTrap,
             isAwayCrowdTrap,
@@ -262,6 +390,21 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             bsdVsCrowdDelta,
             bsdVsCrowdTrap,
             bsdRecommended,
+            coverage: {
+              aliasHome: hasAliasHome,
+              aliasAway: hasAliasAway,
+              dbMatch: !!dbMatch,
+              realOdds: !!(
+                (m.odds_home && m.odds_draw && m.odds_away) ||
+                (bsdOdds && bsdOdds.odds_home && bsdOdds.odds_draw && bsdOdds.odds_away)
+              ),
+              archStats: !!teamStats,
+            },
+            odds: {
+              h: m.odds_home || bsdOdds?.odds_home || null,
+              d: m.odds_draw || bsdOdds?.odds_draw || null,
+              a: m.odds_away || bsdOdds?.odds_away || null,
+            },
             intel: pred.intel || {
               form: 60 + seededRand(`${m.homeTeam}_form`) * 20,
               logistics: 70 + seededRand(`${m.awayTeam}_logistics`) * 10,
@@ -308,6 +451,7 @@ async function generatePromosportGrids(scrapedMatches, customDoubles) {
             m.p1 = m.p1 * (1 - blendWeight) + p.p1 * blendWeight
             m.px = m.px * (1 - blendWeight) + p.px * blendWeight
             m.p2 = m.p2 * (1 - blendWeight) + p.p2 * blendWeight
+            m.xgbBlended = true
             const t = m.p1 + m.px + m.p2
             m.p1 /= t
             m.px /= t
@@ -490,6 +634,10 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
           brief: '🏁 Match déjà joué — résultat connu',
           isHighPressure: false,
           isFinished: true,
+          source: m.source || 'stat',
+          xgbBlended: m.xgbBlended || false,
+          coverage: m.coverage || null,
+          odds: m.odds || null,
         }
       }
 
@@ -579,6 +727,10 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
         bsdP1: m.bsdP1,
         bsdPx: m.bsdPx,
         bsdP2: m.bsdP2,
+        source: m.source || 'stat',
+        xgbBlended: m.xgbBlended || false,
+        coverage: m.coverage || null,
+        odds: m.odds || null,
       }
     })
 

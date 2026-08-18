@@ -65,7 +65,7 @@ from xg_engine import (
 )
 from ml_ensemble import (
     select_model_booster, run_xgboost_inference,
-    apply_v4_ensemble, apply_predixsport_blend,
+    apply_v4_ensemble, apply_predixsport_blend, apply_external_xgb_blend,
     run_shap_explainability, predict_secondary_markets,
     blend_final_probabilities, LEAGUE_WEIGHT_MATRIX,
 )
@@ -210,6 +210,11 @@ def process_prediction(match_obj: dict) -> dict:
     p_h_ai, p_d_ai, p_a_ai, ps_tag, ps_analysis = apply_predixsport_blend(p_h_ai, p_d_ai, p_a_ai, match_obj)
     analysis.update(ps_analysis)
     ai_source += ps_tag
+
+    # External XGBoost Blend (msoczi ensemble member, top-5 European leagues)
+    p_h_ai, p_d_ai, p_a_ai, ext_tag, ext_analysis = apply_external_xgb_blend(p_h_ai, p_d_ai, p_a_ai, match_obj)
+    analysis.update(ext_analysis)
+    ai_source += ext_tag
 
     # SHAP Explainability
     if has_xgb:
@@ -581,6 +586,20 @@ def process_prediction(match_obj: dict) -> dict:
     temp_win_prob = (surgical_confidence / 100.0) if surgical_confidence > 1 else (surgical_confidence / 100.0)
 
     # === FINAL SERIALIZATION ===
+    ensemble_block = None
+    _ext = match_obj.get('_external_xgb')
+    if isinstance(_ext, dict):
+        ensemble_block = {
+            "active": True,
+            "members": [
+                {"name": "stitch_v4", "probs": {"home": float(round(p_h_xgb, 4)), "draw": float(round(p_d_xgb, 4)), "away": float(round(p_a_xgb, 4))}},
+                {"name": "poisson_mc", "probs": {"home": float(round(p_h_poi, 4)), "draw": float(round(p_d_poi, 4)), "away": float(round(p_a_poi, 4))}},
+                {"name": "external_xgb", "probs": {"home": float(round(_ext.get('home', 0), 4)), "draw": float(round(_ext.get('draw', 0), 4)), "away": float(round(_ext.get('away', 0), 4))}}
+            ],
+            "weights": {"external_xgb": float(match_obj.get('_external_xgb_weight', 0.20)), "stitch_v4": 0.85, "poisson_mc": 0.15},
+            "confluence_level": str(confluence_report.get('level', 'UNAVAILABLE')) if confluence_report else 'UNAVAILABLE',
+            "confluence_penalty": float(confluence_penalty)
+        }
     return {
         "success": True,
         "is_suspicious": is_suspicious_flag,
@@ -589,6 +608,7 @@ def process_prediction(match_obj: dict) -> dict:
         "risk_reasons": risk_reasons,
         "league_tier": str(league_tier),
         "ai_source": str(ai_source),
+        "ensemble": ensemble_block,
         "xgboost_confidence": float(confidence / 100.0),
         "home_win_probability": float(p_h),
         "draw_probability": float(p_d),

@@ -103,6 +103,16 @@ def compute_calibration_weights(calibration_metrics, dynamic_weights, accuracy_h
         # Confidence level: how much to trust this adjustment
         confidence = min(1.0, matches / 20.0)  # full confidence at 20+ matches
 
+        # External XGBoost (msoczi) blend weight: boost when calibration is strong
+        ext_weight_map = {
+            'excellent': 0.25,
+            'good': 0.20,
+            'fair': 0.15,
+            'poor': 0.10,
+            'very_poor': 0.05,
+        }
+        external_xgb_weight = ext_weight_map.get(quality, 0.20) * (0.5 + 0.5 * confidence)
+
         weights[league] = {
             'xgb_adjustment': round(xgb_adj, 4),
             'poisson_adjustment': round(poi_adj, 4),
@@ -113,6 +123,7 @@ def compute_calibration_weights(calibration_metrics, dynamic_weights, accuracy_h
             'brierOU': brier_ou,
             'confidence': round(confidence, 3),
             'matches': matches,
+            'external_xgb_weight': round(external_xgb_weight, 3),
         }
 
     # Always include DEFAULT
@@ -122,6 +133,7 @@ def compute_calibration_weights(calibration_metrics, dynamic_weights, accuracy_h
         'ou_bias': 0.0,
         'quality': 'unknown',
         'confidence': 0.0,
+        'external_xgb_weight': 0.20,
     }
 
     return weights
@@ -129,6 +141,16 @@ def compute_calibration_weights(calibration_metrics, dynamic_weights, accuracy_h
 
 def print_summary(calibration_metrics):
     """Print human-readable calibration summary."""
+
+    def _safe_print(*args):
+        # Windows cp1252 console cannot encode check/cross markers.
+        try:
+            print(*args)
+        except UnicodeEncodeError:
+            text = ' '.join(str(a) for a in args)
+            text = text.replace('\u2713', '[OK]').replace('\u2717', '[X]')
+            print(text.encode('cp1252', errors='replace').decode('cp1252'))
+
     print("=" * 70)
     print("CALIBRATION FEEDBACK SUMMARY")
     print("=" * 70)
@@ -139,22 +161,22 @@ def print_summary(calibration_metrics):
         brier = g.get('brier1x2', 0)
         ll = g.get('logloss1x2', 0)
         n = g.get('matches', 0)
-        print(f"\n  Global: Brier={brier:.4f}  LogLoss={ll:.4f}  ({n} matches)")
-        print(f"  Quality: {'Excellent' if brier < 0.15 else 'Good' if brier < 0.20 else 'Fair' if brier < 0.25 else 'Poor' if brier < 0.30 else 'Very Poor'}")
+        _safe_print(f"\n  Global: Brier={brier:.4f}  LogLoss={ll:.4f}  ({n} matches)")
+        _safe_print(f"  Quality: {'Excellent' if brier < 0.15 else 'Good' if brier < 0.20 else 'Fair' if brier < 0.25 else 'Poor' if brier < 0.30 else 'Very Poor'}")
 
     # Per-league
     leagues = {k: v for k, v in calibration_metrics.items() if not k.startswith('_') and v.get('matches', 0) >= 3}
     if leagues:
-        print(f"\n  Per-League Calibration ({len(leagues)} leagues):")
-        print(f"  {'League':<35} {'Brier':>7} {'LogLoss':>9} {'OU':>7} {'N':>5}")
-        print(f"  {'-'*35} {'-'*7} {'-'*9} {'-'*7} {'-'*5}")
+        _safe_print(f"\n  Per-League Calibration ({len(leagues)} leagues):")
+        _safe_print(f"  {'League':<35} {'Brier':>7} {'LogLoss':>9} {'OU':>7} {'N':>5}")
+        _safe_print(f"  {'-'*35} {'-'*7} {'-'*9} {'-'*7} {'-'*5}")
         for lg, m in sorted(leagues.items(), key=lambda x: x[1].get('brier1x2', 1)):
             brier = m.get('brier1x2', 0)
             ll = m.get('logloss1x2', 0)
             brier_ou = m.get('brierOU', 0)
             n = m.get('matches', 0)
-            marker = '✓' if brier < 0.20 else '~' if brier < 0.25 else '✗'
-            print(f"  {lg:<35} {brier:>6.4f} {ll:>8.4f} {brier_ou:>6.4f} {n:>5} {marker}")
+            marker = 'OK' if brier < 0.20 else '~' if brier < 0.25 else 'X'
+            _safe_print(f"  {lg:<35} {brier:>6.4f} {ll:>8.4f} {brier_ou:>6.4f} {n:>5} {marker}")
     print()
 
 

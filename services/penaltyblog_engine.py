@@ -1,4 +1,5 @@
 import os, sys, json, pickle, time, logging, sqlite3
+import gc
 import pandas as pd
 import numpy as np
 
@@ -301,8 +302,13 @@ class PenaltyblogEngine:
         results = {}
         for league in df['league'].tolist():
             log.info(f'[FitAll] Processing {league}...')
-            model = self.fit_league_model(league)
-            results[league] = 'fitted' if model else 'skipped'
+            try:
+                model = self.fit_league_model(league)
+                results[league] = 'fitted' if model else 'skipped'
+            except MemoryError:
+                gc.collect()
+                log.warning(f'[FitAll] MemoryError for {league}, skipping')
+                results[league] = 'oom_skipped'
         return results
 
     def backtest_league(self, league, test_size=50):
@@ -557,6 +563,20 @@ class BayesianLowDataHandler:
             log.warning(f'[Bayesian] Not enough similar matches for {league} ({len(matches)})')
             return None
 
+        # Plafonner les équipes uniques: le MCMC de HierarchicalBayesianGoalModel
+        # alloue shape (n_total_samples, n_teams, ...) -> 478 equipes = OOM 2.5GiB
+        # sur une machine 8Go. On garde les MAX_TEAMS equipes les plus frequentes.
+        MAX_TEAMS = 30
+        team_counter = {}
+        for m in matches:
+            team_counter[m['home']] = team_counter.get(m['home'], 0) + 1
+            team_counter[m['away']] = team_counter.get(m['away'], 0) + 1
+        top_teams = {t for t, _ in sorted(team_counter.items(), key=lambda kv: -kv[1])[:MAX_TEAMS]}
+        matches = [m for m in matches if m['home'] in top_teams and m['away'] in top_teams]
+        if len(matches) < 5:
+            log.warning(f'[Bayesian] Too few matches after team cap for {league} ({len(matches)})')
+            return None
+
         gh = np.array([m['home_goals'] for m in matches], dtype=int)
         ga = np.array([m['away_goals'] for m in matches], dtype=int)
         th = np.array([m['home'] for m in matches])
@@ -564,10 +584,14 @@ class BayesianLowDataHandler:
 
         try:
             model = pb.models.HierarchicalBayesianGoalModel(gh, ga, th, ta)
-            model.fit(n_samples=2000, burn=1000, n_chains=2, thin=1)
+            model.fit(n_samples=500, burn=200, n_chains=1, thin=2)
             self._bayesian_models[league] = model
             log.info(f'[Bayesian] Fitted hierarchical model for {league} ({len(matches)} matches)')
             return model
+        except MemoryError:
+            gc.collect()
+            log.warning(f'[Bayesian] MCMC MemoryError for {league}, falling back to priors')
+            return None
         except Exception as e:
             log.warning(f'[Bayesian] Fit failed for {league}: {e}')
             return None

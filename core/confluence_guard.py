@@ -36,7 +36,8 @@ def evaluate_confluence(
     momentum_h: float = 0.0,
     momentum_a: float = 0.0,
     league_tier: str = 'DEFAULT',
-    has_xgb: bool = True
+    has_xgb: bool = True,
+    p_external: tuple = None  # (p_home, p_draw, p_away) from external msoczi XGBoost (optional)
 ) -> dict:
     """
     Évalue la confluence entre les modèles et retourne un rapport de confiance.
@@ -78,11 +79,23 @@ def evaluate_confluence(
         market_div = _total_variation(xh, xd, xa, mh, md, ma)
         mkt_winner = _winner_label(mh, md, ma)
 
+    # Divergence XGBoost <-> External (msoczi)
+    ext_div = None
+    ext_winner = None
+    if p_external and all(v >= 0 for v in p_external) and sum(p_external) > 0:
+        eh, ed, ea = p_external
+        s_e = eh + ed + ea
+        if s_e > 0:
+            eh, ed, ea = eh / s_e, ed / s_e, ea / s_e
+        ext_div = _total_variation(xh, xd, xa, eh, ed, ea)
+        ext_winner = _winner_label(eh, ed, ea)
+
     # Vainqueur de consensus
     winners = [xgb_winner, poi_winner]
     if mkt_winner: winners.append(mkt_winner)
-    
-    if len(winners) == 3 and len(set(winners)) == 3:
+    if ext_winner: winners.append(ext_winner)
+
+    if len(set(winners)) == len(winners) >= 3:
         consensus_winner = 'CONFLICT'
         all_agree = False
     else:
@@ -98,15 +111,22 @@ def evaluate_confluence(
         # ⚫ TROIS AVIS DIFFÉRENTS — conflit pur, forcer NO BET
         level = 'CRITICAL'
         penalty = 0.50
+        _ext_win_str = f" / Ext→{ext_winner}" if ext_winner else ""
         reason_parts.append(
-            f"⚫ Conflit total: XGB→{xgb_winner} / Poisson→{poi_winner} / Marché→{mkt_winner or 'N/A'}"
+            f"⚫ Conflit total: XGB→{xgb_winner} / Poisson→{poi_winner} "
+            f"/ Marché→{mkt_winner or 'N/A'}{_ext_win_str}"
         )
 
     elif all_agree and xgb_poi_div < 0.10:
         # 🟢 CONSENSUS FORT : tous les modèles convergent
         level = 'STRONG'
         penalty = -0.08  # Bonus confiance
-        reason_parts.append(f"✅ Consensus fort ({consensus_winner}), écart {xgb_poi_div:.1%}")
+        _ext_bonus = ""
+        if ext_winner == xgb_winner:
+            # L'externe confirme le consensus → bonus supplémentaire
+            penalty = -0.12
+            _ext_bonus = f" + Ext confirme ({ext_winner})"
+        reason_parts.append(f"✅ Consensus fort ({consensus_winner}), écart {xgb_poi_div:.1%}{_ext_bonus}")
 
     elif xgb_winner == poi_winner and xgb_poi_div < 0.20:
         # 🟡 MODÉRÉ : XGBoost et Poisson d'accord mais avec un écart raisonnable
@@ -116,6 +136,9 @@ def evaluate_confluence(
         if mkt_winner and mkt_winner != xgb_winner:
             penalty = 0.08  # Le marché diverge légèrement
             reason_parts.append(f"⚠️ Marché prédit {mkt_winner} (divergence modérée)")
+        if ext_winner and ext_winner == xgb_winner:
+            penalty = max(-0.04, penalty - 0.04)
+            reason_parts.append(f"✅ Ext confirme {ext_winner}")
 
     elif xgb_winner != poi_winner and xgb_poi_div > 0.25:
         # 🔴 CRITIQUE : désaccord fort entre XGBoost et Poisson sur le vainqueur
@@ -184,7 +207,8 @@ def evaluate_confluence(
         'should_no_bet': should_no_bet,
         'consensus_winner': consensus_winner,
         'xgb_poi_divergence': round(xgb_poi_div, 3),
-        'market_divergence': round(market_div, 3) if market_div else None
+        'market_divergence': round(market_div, 3) if market_div else None,
+        'external_divergence': round(ext_div, 3) if ext_div is not None else None
     }
 
 

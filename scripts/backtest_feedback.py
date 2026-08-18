@@ -35,8 +35,13 @@ def _load_json(p, default=None):
 def load_accuracy_log():
     """Load per-league accuracy from JS settlement log."""
     log = _load_json(ACCURACY_LOG_PATH, {})
-    # Remove meta keys
-    log.pop('_global', None)
+    # accuracyStore.js writes { entries, lastUpdated, recordStreak, byLeague: {lg: [...]} },
+    # while older writers produced a flat {league: [entries]} dict. Normalize to flat.
+    if isinstance(log, dict) and 'byLeague' in log and isinstance(log.get('byLeague'), dict):
+        log = log['byLeague']
+    # Remove meta keys / any non-list leftovers
+    for key in ('_global', 'entries', 'lastUpdated', 'recordStreak', 'byLeague'):
+        log.pop(key, None)
     return log
 
 
@@ -112,7 +117,9 @@ def compute_training_weights(accuracy_log, dynamic_weights, accuracy_history):
         # Source 2: league_dynamic_weights.json (model edge vs odds)
         if league in dynamic_weights:
             dw = dynamic_weights[league]
-            edge = dw.get('edge', 0)
+            # Guard against null/NaN written before accuracy/edge were populated
+            edge = dw.get('edge')
+            edge = edge if isinstance(edge, (int, float)) else 0.0
             if edge < -5:
                 # Model significantly worse than odds → train harder on this league
                 w *= 1.8

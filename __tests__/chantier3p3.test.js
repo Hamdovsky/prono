@@ -140,4 +140,86 @@ describe('fetchOdds → services/scrapers (branchement C3P3 + honest gate)', () 
     expect(persistArgs[1].odds_source).toBeNull()
     expect(persistArgs[1].odds_fetch_error).toBe('scrape_exception:ECONNRESET')
   })
+
+  test('market-only: O/U + BTTS sans 1X2 → persiste les 4 colonnes (gate relâché)', async () => {
+    scrapers.getOdds.mockResolvedValue({
+      over_25: 1.85,
+      under_25: 1.9,
+      btts_yes: 1.72,
+      btts_no: 2.05,
+      source: 'betexplorer',
+    })
+
+    const m = matchFixture()
+    const odds = await svc.fetchOdds(m)
+
+    expect(odds).toEqual({
+      home: null,
+      draw: null,
+      away: null,
+      source: 'betexplorer',
+      bookmaker: true,
+      over25: 1.85,
+      under25: 1.9,
+      btts_yes: 1.72,
+      btts_no: 2.05,
+    })
+    const persistArgs = mockPersistOdds.mock.calls[0]
+    expect(persistArgs[1].odds_source).toBe('betexplorer')
+    expect(persistArgs[1].odds_fetch_error).toBeNull()
+    expect(persistArgs[1].odds_over25).toBe(1.85)
+    expect(persistArgs[1].odds_under25).toBe(1.9)
+    expect(persistArgs[1].odds_btts_yes).toBe(1.72)
+    expect(persistArgs[1].odds_btts_no).toBe(2.05)
+    expect(persistArgs[1].odds_home).toBeNull()
+  })
+
+  test('1X2 + O/U + BTTS simultanés → tous les marchés passent', async () => {
+    scrapers.getOdds.mockResolvedValue({
+      home_win: 2.25,
+      draw: 3.55,
+      away_win: 2.55,
+      over_25: 1.45,
+      under_25: 2.55,
+      btts_yes: 1.42,
+      btts_no: 2.68,
+      source: 'betexplorer',
+    })
+
+    const m = matchFixture()
+    const odds = await svc.fetchOdds(m)
+
+    expect(odds).toMatchObject({
+      home: 2.25,
+      draw: 3.55,
+      away: 2.55,
+      source: 'betexplorer',
+      bookmaker: true,
+      over25: 1.45,
+      under25: 2.55,
+      btts_yes: 1.42,
+      btts_no: 2.68,
+    })
+    const persistArgs = mockPersistOdds.mock.calls[0]
+    expect(persistArgs[1].odds_over25).toBe(1.45)
+    expect(persistArgs[1].odds_btts_yes).toBe(1.42)
+  })
+
+  test('market-only depuis source dérivée (default) → toujours gâté par l honesty gate', async () => {
+    scrapers.getOdds.mockResolvedValue({
+      over_25: 1.85,
+      under_25: 1.9,
+      btts_yes: 1.72,
+      btts_no: 2.05,
+      source: 'default',
+    })
+
+    const m = matchFixture()
+    const outcome = await svc.fetchOdds(m)
+
+    expect(outcome).toBeNull()
+    const persistArgs = mockPersistOdds.mock.calls[0]
+    expect(persistArgs[1].odds_source).toBeNull()
+    expect(persistArgs[1].odds_fetch_error).toBe('non_bookmaker:default')
+  })
 })

@@ -668,6 +668,15 @@ class EnrichedPredictionService {
         return { success: false, source: 'seed_skip' }
       }
 
+      // If the FastAPI circuit is open, predict() would just return
+      // 'circuit_open' for every retry — bail out immediately to avoid
+      // 3 warn logs × 645 matches of pure noise.
+      const poolStatus =
+        typeof pythonService.getPoolStatus === 'function' ? pythonService.getPoolStatus() : null
+      if (poolStatus && poolStatus.circuit === 'OPEN') {
+        return { success: false, circuitOpen: true, fallback: true }
+      }
+
       // Pre-fetch SofaScore team data if not already populated
       if (
         !match._sofaTeamDataFetched &&
@@ -686,7 +695,6 @@ class EnrichedPredictionService {
           await new Promise((r) => setTimeout(r, 1000))
         }
 
-        import pythonService from '../core/pythonService'
         const pyMatch = {
           homeTeam: match.homeTeam,
           awayTeam: match.awayTeam,

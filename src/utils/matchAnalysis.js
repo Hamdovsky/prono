@@ -62,8 +62,14 @@ export function analyzeMatch(m) {
   const quant = m.quant || enriched?.quant || {}
   const markets = quant.markets || {}
 
+  const hasRealOdds =
+    parseFloat(m.odds_home) > 0 && parseFloat(m.odds_draw) > 0 && parseFloat(m.odds_away) > 0
+  const hasOuOdds = parseFloat(m.odds_over25) > 0 || parseFloat(m.odds_under25) > 0
+  const hasBttsOdds = parseFloat(m.odds_btts_yes) > 0 || parseFloat(m.odds_btts_no) > 0
+
   const isInsufficient =
-    m.insufficient_data === 1 || m.sufficient === false || quant.market_odds === null
+    (m.insufficient_data === 1 || m.sufficient === false || quant.market_odds === null) &&
+    !hasRealOdds
   out.honesty.insufficient = isInsufficient
 
   // ── BTTS ──
@@ -103,39 +109,60 @@ export function analyzeMatch(m) {
   }
 
   // ── Probabilités 1/X/2 ──
+  // Source la plus forte : cotes réelles → probas dé-vigées (P = 1/odds ÷ Σ 1/odds).
+  // Sinon : blend 50/50 entre modèle (home/draw/away_win_probability) et marchés
+  // (quant.markets.match_result) quand les deux existent (réduction de variance).
   const mr = markets.match_result || {}
   const dc = markets.double_chance || {}
-  const hPct = mr['1']?.prob
-    ? normalizePct(mr['1'].prob)
-    : normalizePct(m.home_win_probability || enriched?.home_win_probability || 0)
-  const dPct = mr['X']?.prob
-    ? normalizePct(mr['X'].prob)
-    : normalizePct(m.draw_probability || enriched?.draw_probability || 0)
-  const aPct = mr['2']?.prob
-    ? normalizePct(mr['2'].prob)
-    : normalizePct(m.away_win_probability || enriched?.away_win_probability || 0)
+  const mktH = mr['1'] ? normalizePct(mr['1'].prob) : 0
+  const mktD = mr['X'] ? normalizePct(mr['X'].prob) : 0
+  const mktA = mr['2'] ? normalizePct(mr['2'].prob) : 0
+  const modelH = normalizePct(m.home_win_probability || enriched?.home_win_probability || 0)
+  const modelD = normalizePct(m.draw_probability || enriched?.draw_probability || 0)
+  const modelA = normalizePct(m.away_win_probability || enriched?.away_win_probability || 0)
+
+  let hPct = 0
+  let dPct = 0
+  let aPct = 0
+  if (hasRealOdds) {
+    const ih = 1 / parseFloat(m.odds_home)
+    const id = 1 / parseFloat(m.odds_draw)
+    const ia = 1 / parseFloat(m.odds_away)
+    const sumInv = ih + id + ia
+    if (sumInv > 0) {
+      hPct = Math.round((ih / sumInv) * 100)
+      dPct = Math.round((id / sumInv) * 100)
+      aPct = Math.round((ia / sumInv) * 100)
+    }
+  } else {
+    const hasModel = modelH + modelD + modelA > 0
+    const hasMkt = mktH + mktD + mktA > 0
+    if (hasModel && hasMkt) {
+      hPct = Math.round((modelH + mktH) / 2)
+      dPct = Math.round((modelD + mktD) / 2)
+      aPct = Math.round((modelA + mktA) / 2)
+    } else if (hasModel) {
+      hPct = modelH
+      dPct = modelD
+      aPct = modelA
+    } else if (hasMkt) {
+      hPct = mktH
+      dPct = mktD
+      aPct = mktA
+    }
+  }
   out.probs = { home: hPct, draw: dPct, away: aPct }
   const hasProbs = hPct + dPct + aPct > 0
 
-  // ── GAGNANT ──
-  const mainPickRaw = (quant.main_pick || '').toString().trim().toUpperCase()
-  const pickProbOf = (pick) => {
-    if (!pick) return null
-    const found = (quant.all_picks || []).find((p) => String(p.val).toUpperCase() === pick)
-    if (found && normalizePct(found.prob) > 0) return normalizePct(found.prob)
-    if (dc[pick]) return normalizePct(dc[pick].prob)
-    if (mr[pick]) return normalizePct(mr[pick].prob)
-    return null
-  }
-
-  let winner = mainPickRaw || '?'
-  let winnerProb = pickProbOf(winner)
+  // ── GAGNANT : toujours un vrai 1/X/2 ou une double chance ──
+  let winner = '?'
+  let winnerProb = null
   if (hasProbs) {
     const maxP = Math.max(hPct, dPct, aPct)
     if (maxP >= 65) {
       winner = maxP === hPct ? '1' : maxP === aPct ? '2' : 'X'
       winnerProb = maxP
-    } else if (['1', 'X', '2'].includes(winner)) {
+    } else {
       const combos = [
         { k: '1X', p: hPct + dPct },
         { k: '12', p: hPct + aPct },
@@ -180,11 +207,11 @@ export function analyzeMatch(m) {
     rawHPct >= rawAPct && rawHPct >= rawDPct ? '1' : rawAPct >= rawDPct ? '2' : 'X'
   const modelWinnerProb = modelWinner === '1' ? rawHPct : modelWinner === '2' ? rawAPct : rawDPct
 
-  const hasRealOdds =
-    parseFloat(m.odds_home) > 0 && parseFloat(m.odds_draw) > 0 && parseFloat(m.odds_away) > 0
   const isModelOnlyPick =
     !isInsufficient && !hasRealOdds && String(m.prediction || '').trim() !== ''
   out.hasRealOdds = hasRealOdds
+  out.hasOuOdds = hasOuOdds
+  out.hasBttsOdds = hasBttsOdds
   out.odds = {
     home: parseFloat(m.odds_home) || 0,
     draw: parseFloat(m.odds_draw) || 0,
@@ -257,29 +284,33 @@ export function computeRawLines(m) {
   const mode = a.honesty.mode
   const leagueLabel =
     mode === 'modelOnly'
-      ? `${a.league} 🔮 modèle — sans cotes (pas d'EV)`
-      : mode === 'modelSignal'
-        ? `${a.league} 🔮 modèle`
+? `${a.league} 🔮 sans cotes (pas d'EV)`
+        : mode === 'modelSignal'
+          ? `${a.league} 🔮 signal`
         : mode === 'insufficient'
           ? `${a.league} 🔮 estimation sans cotes`
           : a.league
-  const winnerCell = mode === 'insufficient' ? (a.winner.prob > 0 ? a.winner.label : '--') : a.winner.label
-  const ouCell = mode === 'insufficient' ? (a.ou.pct > 0 ? a.ou.label : '--') : a.ou.label
+  const winnerCell =
+    !a.winner.pick || a.winner.pick === '?' ? '--' : a.winner.label
+  const ouCell = !a.hasOuOdds ? (a.ou.pct > 0 ? a.ou.label : '--') : a.ou.label
   const hcCell =
     mode === 'insufficient'
       ? a.probs.home + a.probs.draw + a.probs.away > 0
         ? a.handicap.label
         : '--'
       : a.handicap.label
+  const bttsCell = !a.hasBttsOdds ? (a.btts.pct > 0 ? a.btts.label : '--') : a.btts.label
+  const cornersCell =
+    mode === 'insufficient' ? (a.corners.pct > 0 ? a.corners.label : '--') : a.corners.label
   return [
     leagueLabel,
     a.homeTeam,
     a.awayTeam,
-    a.btts.label,
+    bttsCell,
     ouCell,
     winnerCell,
     hcCell,
-    a.corners.label,
+    cornersCell,
     null,
     a.winner.solid ? '1' : '0',
   ]

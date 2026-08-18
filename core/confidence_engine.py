@@ -21,6 +21,21 @@ from data_loader import (
 from feature_engineer import calculate_composite_confidence
 
 
+def _get_external_probs(match_obj):
+    """Returns external msoczi XGBoost probs (h, d, a) from match_obj if present."""
+    try:
+        _ext = match_obj.get('_external_xgb')
+        if _ext and isinstance(_ext, dict):
+            _h = _safe_float(_ext.get('home'), -1.0)
+            _d = _safe_float(_ext.get('draw'), -1.0)
+            _a = _safe_float(_ext.get('away'), -1.0)
+            if _h >= 0 and _d >= 0 and _a >= 0 and (_h + _d + _a) > 0:
+                return (_h, _d, _a)
+    except Exception:
+        pass
+    return None
+
+
 def evaluate_confluence(p_h_xgb, p_d_xgb, p_a_xgb, p_h_poi, p_d_poi, p_a_poi,
                         h_mom, a_mom, league_tier, has_xgb, match_obj):
     """
@@ -43,7 +58,8 @@ def evaluate_confluence(p_h_xgb, p_d_xgb, p_a_xgb, p_h_poi, p_d_poi, p_a_poi,
             momentum_h=h_mom,
             momentum_a=a_mom,
             league_tier=league_tier,
-            has_xgb=has_xgb
+            has_xgb=has_xgb,
+            p_external=_get_external_probs(match_obj)
         )
         _confluence_penalty = _confluence_report.get('penalty', 0.0)
         return _confluence_penalty, _confluence_report, _confluence_report.get('reason', '')

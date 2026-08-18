@@ -34,6 +34,39 @@ router.get('/accuracy', async (req, res) => {
 })
 
 /**
+ * GET /api/accuracy/report — métrique honnête + tendance.
+ * Source unique pour le badge de fiabilité par carte et la page /accuracy.
+ */
+router.get('/accuracy/report', async (req, res) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const read = (rel, def) => {
+      const p = path.join(__dirname, '..', 'data', rel)
+      if (!fs.existsSync(p)) return def
+      try {
+        return JSON.parse(fs.readFileSync(p, 'utf-8'))
+      } catch (e) {
+        return def
+      }
+    }
+    const honest = read('accuracy_report.json', null)
+    const rawTrend = read('accuracy_trend.json', null)
+    const trend = Array.isArray(rawTrend) ? rawTrend : []
+    const latest = trend.length > 0 ? trend[trend.length - 1] : read('backtest_results.json', null)
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      honest,
+      trend,
+      latest,
+    })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+/**
  * POST /api/accuracy/run
  */
 router.post('/accuracy/run', async (req, res) => {

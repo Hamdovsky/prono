@@ -236,34 +236,60 @@ function _attachSofaMarkets(match, sofaOdds) {
 }
 
 async function attachRealOdds(match) {
-  if (!match || match._oddsWereFetched) return
-  if (match.odds_home && match.odds_draw && match.odds_away) {
-    match._oddsWereFetched = true
+  if (!match) return
+  const has1x2 = parseFloat(match.odds_home) > 0 && parseFloat(match.odds_draw) > 0 && parseFloat(match.odds_away) > 0
+  const hasOu = parseFloat(match.odds_over25) > 0 || parseFloat(match.odds_under25) > 0
+  const hasBtts = parseFloat(match.odds_btts_yes) > 0 || parseFloat(match.odds_btts_no) > 0
+  // NOTE: _oddsWereFetched can be persisted into fullData by a previous run, so
+  // it must NOT block fetching missing O/U + BTTS markets for matches that
+  // already carry 1X2 odds (the bug that left those columns empty).
+  if (match._oddsWereFetched && has1x2 && hasOu && hasBtts) {
     return
+  }
+  if (match._oddsWereFetched && !has1x2) {
+    // Stale flag persisted from an earlier run but the 1X2 odds were lost —
+    // allow a fresh attempt.
+    match._oddsWereFetched = false
   }
   try {
     // Free source first: Sofascore odds (no key, no quota). Best-effort — if
     // the deployment IP is blocked, it returns null and we fall through.
+    // Fetches 1X2 + O/U 2.5 + BTTS in one call, so it also fills the markets
+    // for matches that already carry 1X2 odds.
     const sofascoreOdds = require('../services/sofascoreOddsService')
     if (sofascoreOdds.isAvailable()) {
       const sofaOdds = await sofascoreOdds.fetchOddsForMatch(match)
-      if (sofaOdds && parseFloat(sofaOdds.home) > 0 && parseFloat(sofaOdds.away) > 0) {
-        match.odds_home = parseFloat(sofaOdds.home)
-        match.odds_draw = parseFloat(sofaOdds.draw)
-        match.odds_away = parseFloat(sofaOdds.away)
-        match.odds_source = 'sofascore'
-        match._oddsWereFetched = true
-        _attachSofaMarkets(match, sofaOdds)
-        logger.info(
-          `[FBREF/FALLBACK] Attached real Sofascore odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})` +
-            (match.odds_over25 ? ` +O/U=${match.odds_over25}` : '') +
-            (match.odds_btts_yes ? ` +BTTS=${match.odds_btts_yes}` : '')
-        )
-        return
+      if (sofaOdds) {
+        if (!has1x2 && parseFloat(sofaOdds.home) > 0 && parseFloat(sofaOdds.away) > 0) {
+          match.odds_home = parseFloat(sofaOdds.home)
+          match.odds_draw = parseFloat(sofaOdds.draw)
+          match.odds_away = parseFloat(sofaOdds.away)
+          match.odds_source = 'sofascore'
+          match._oddsWereFetched = true
+          _attachSofaMarkets(match, sofaOdds)
+          logger.info(
+            `[FBREF/FALLBACK] Attached real Sofascore odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})` +
+              (match.odds_over25 ? ` +O/U=${match.odds_over25}` : '') +
+              (match.odds_btts_yes ? ` +BTTS=${match.odds_btts_yes}` : '')
+          )
+          return
+        }
+        if (has1x2 && (!hasOu || !hasBtts)) {
+          // 1X2 already present — still grab O/U + BTTS markets if missing.
+          _attachSofaMarkets(match, sofaOdds)
+          match.odds_source = match.odds_source || 'sofascore'
+          match._oddsWereFetched = true
+          logger.info(
+            `[FBREF/FALLBACK] Attached Sofascore markets for ${match.homeTeam} vs ${match.awayTeam} (${match.league})` +
+              (match.odds_over25 ? ` +O/U=${match.odds_over25}` : '') +
+              (match.odds_btts_yes ? ` +BTTS=${match.odds_btts_yes}` : '')
+          )
+          return
+        }
       }
     }
     const oddsApiIo = require('../services/oddsApiIoService')
-    if (oddsApiIo.isAvailable()) {
+    if (oddsApiIo.isAvailable() && !has1x2) {
       const realOdds = await oddsApiIo.fetchOddsForMatch(match)
       if (realOdds && parseFloat(realOdds.home) > 0 && parseFloat(realOdds.away) > 0) {
         match.odds_home = parseFloat(realOdds.home)
@@ -279,29 +305,40 @@ async function attachRealOdds(match) {
     // BSD dispose déjà des probs (bsd_home_win_prob) mais pas toujours des
     // odds persistées → on les récupère pour libérer le gate honnêteté.
     const bsdService = require('../services/bsdService')
-    if (
-      bsdService.isAvailable() &&
-      String(match.bsd_match_id || '').length > 0 &&
-      (!match.odds_home || !match.odds_draw || !match.odds_away)
-    ) {
+    if (bsdService.isAvailable() && String(match.bsd_match_id || '').length > 0) {
       try {
         const bsdOdds = await bsdService.fetchOdds(match.bsd_match_id)
-        if (bsdOdds && parseFloat(bsdOdds.home) > 0 && parseFloat(bsdOdds.away) > 0) {
-          match.odds_home = parseFloat(bsdOdds.home)
-          match.odds_draw = parseFloat(bsdOdds.draw)
-          match.odds_away = parseFloat(bsdOdds.away)
-          match.odds_source = match.odds_source || 'bsd'
-          match._oddsWereFetched = true
-          logger.info(
-            `[FBREF/FALLBACK] Attached real BSD odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})`
-          )
-          return
+        if (bsdOdds) {
+          if (!has1x2 && parseFloat(bsdOdds.home) > 0 && parseFloat(bsdOdds.away) > 0) {
+            match.odds_home = parseFloat(bsdOdds.home)
+            match.odds_draw = parseFloat(bsdOdds.draw)
+            match.odds_away = parseFloat(bsdOdds.away)
+            match.odds_source = match.odds_source || 'bsd'
+            match._oddsWereFetched = true
+            _attachSofaMarkets(match, bsdOdds)
+            logger.info(
+              `[FBREF/FALLBACK] Attached real BSD odds for ${match.homeTeam} vs ${match.awayTeam} (${match.league})`
+            )
+          } else if (has1x2 && (!hasOu || !hasBtts)) {
+            // 1X2 already present — still grab O/U + BTTS from BSD.
+            _attachSofaMarkets(match, bsdOdds)
+            match.odds_source = match.odds_source || 'bsd'
+            match._oddsWereFetched = true
+            logger.info(
+              `[FBREF/FALLBACK] Attached BSD markets for ${match.homeTeam} vs ${match.awayTeam} (${match.league})`
+            )
+          }
+          if (match._oddsWereFetched) return
         }
       } catch (bsdErr) {
         logger.warn(`[FBREF/FALLBACK] BSD odds fetch failed for ${match.id}: ${bsdErr.message}`)
       }
     }
-    if (!match._oddsWereFetched) {
+    if (!match._oddsWereFetched && has1x2) {
+      // 1X2 are real bookmaker odds → EV remains valid even if markets (O/U,
+      // BTTS) couldn't be fetched (e.g. source IP-blocked).
+      match._oddsWereFetched = true
+    } else if (!match._oddsWereFetched) {
       match._oddsWereFetched = false
     }
   } catch (_) {}
@@ -318,12 +355,10 @@ async function jsEnrichOne(match) {
   // If no real odds present, try to fetch REAL bookmaker odds (OddsAPI.io 1xbet/22Bet)
   // before falling back to synthetic odds. This is what turns small-league matches
   // from "insufficient" into real Gagnants while staying honest (real odds only).
+  // attachRealOdds also backfills O/U 2.5 + BTTS markets for matches that already
+  // carry 1X2 odds.
   let insufficientData = 0
-  if (!match.odds_home || !match.odds_draw || !match.odds_away) {
-    await attachRealOdds(match)
-  } else {
-    match._oddsWereFetched = true
-  }
+  await attachRealOdds(match)
 
   if (match._oddsWereFetched) {
     const hasAll = parseFloat(match.odds_home) > 0 && parseFloat(match.odds_away) > 0
@@ -526,30 +561,43 @@ async function enrichMatchesBatch(opts = {}) {
 
     // ── Batch Odds Collection ──
     // 1) Sofascore (FREE, no key/quota): fetch real 1X2 odds for every match
-    //    still missing them. This is what turns small-league matches from
+    //    still missing them, and O/U 2.5 + BTTS markets for every match still
+    //    missing them. This is what turns small-league matches from
     //    "insufficient" into real Gagnants while staying honest.
     try {
       const sofascoreOdds = require('../services/sofascoreOddsService')
       if (sofascoreOdds.isAvailable()) {
-        const noOdds = matches.filter((m) => !_hasOdds(m))
+        const needSofa = matches.filter((m) => {
+          const has1 = _hasOdds(m)
+          const hasOu =
+            parseFloat(m.odds_over25) > 0 || parseFloat(m.odds_under25) > 0
+          const hasBtts =
+            parseFloat(m.odds_btts_yes) > 0 || parseFloat(m.odds_btts_no) > 0
+          return !has1 || !hasOu || !hasBtts
+        })
         let sofaFetched = 0
-        for (const m of noOdds) {
+        let marketOnly = 0
+        for (const m of needSofa) {
           try {
             const sofaOdds = await sofascoreOdds.fetchOddsForMatch(m)
-            if (sofaOdds && parseFloat(sofaOdds.home) > 0 && parseFloat(sofaOdds.away) > 0) {
+            if (!sofaOdds) continue
+            if (!_hasOdds(m) && parseFloat(sofaOdds.home) > 0 && parseFloat(sofaOdds.away) > 0) {
               m.odds_home = parseFloat(sofaOdds.home)
               m.odds_draw = parseFloat(sofaOdds.draw)
               m.odds_away = parseFloat(sofaOdds.away)
               m.odds_source = 'sofascore'
               m._oddsWereFetched = true
-              _attachSofaMarkets(m, sofaOdds)
               sofaFetched++
+            }
+            _attachSofaMarkets(m, sofaOdds)
+            if (!_hasOdds(m) && (parseFloat(m.odds_over25) > 0 || parseFloat(m.odds_btts_yes) > 0)) {
+              marketOnly++
             }
           } catch (_) {}
         }
-        if (sofaFetched > 0) {
+        if (sofaFetched > 0 || marketOnly > 0) {
           logger.info(
-            `[FALLBACK_ENRICHER] Sofascore odds: ${sofaFetched}/${noOdds.length} got real odds`
+            `[FALLBACK_ENRICHER] Sofascore odds: ${sofaFetched}/${needSofa.length} got 1X2 + ${marketOnly} got O/U/BTTS markets`
           )
         }
       }
@@ -696,9 +744,66 @@ async function enrichMatchesBatch(opts = {}) {
   }
 }
 
+// ── O/U + BTTS Market Backfill ──────────────────────────────────────
+// Remplit odds_over25/odds_under25/odds_btts_yes/odds_btts_no pour tous les
+// matches programmés qui ont déjà des cotes 1X2 mais pas de marchés (les cellules
+// "--" du dashboard). Priorité aux marchés majeurs (fbref) puis au kickoff.
+async function backfillMarkets(opts = {}) {
+  const limit = opts.limit || 300
+  logger.info(`[FALLBACK_ENRICHER] Backfilling O/U + BTTS markets (limit: ${limit})...`)
+  try {
+    const rows = await database.getMatchesMissingMarkets()
+    if (!rows || rows.length === 0) {
+      logger.info('[FALLBACK_ENRICHER] No matches missing O/U + BTTS markets.')
+      return { scanned: 0, updated: 0 }
+    }
+    rows.sort((a, b) => {
+      const pa = fbrefService.isMajorLeague(a.league || a.tournament_name || '') ? 0 : 1
+      const pb = fbrefService.isMajorLeague(b.league || b.tournament_name || '') ? 0 : 1
+      if (pa !== pb) return pa - pb
+      return _startTs(a) - _startTs(b)
+    })
+    const batch = rows.slice(0, limit)
+    let updated = 0
+    for (const m of batch) {
+      try {
+        const hasOu =
+          parseFloat(m.odds_over25) > 0 || parseFloat(m.odds_under25) > 0
+        const hasBtts =
+          parseFloat(m.odds_btts_yes) > 0 || parseFloat(m.odds_btts_no) > 0
+        if (hasOu && hasBtts) continue
+        await attachRealOdds(m)
+        const ouNow =
+          parseFloat(m.odds_over25) > 0 || parseFloat(m.odds_under25) > 0
+        const bttsNow =
+          parseFloat(m.odds_btts_yes) > 0 || parseFloat(m.odds_btts_no) > 0
+        if (ouNow || bttsNow) {
+          await database.updatePredictions(m.id, {
+            odds_over25: parseFloat(m.odds_over25) > 0 ? m.odds_over25 : null,
+            odds_under25: parseFloat(m.odds_under25) > 0 ? m.odds_under25 : null,
+            odds_btts_yes: parseFloat(m.odds_btts_yes) > 0 ? m.odds_btts_yes : null,
+            odds_btts_no: parseFloat(m.odds_btts_no) > 0 ? m.odds_btts_no : null,
+            odds_source: m.odds_source || 'sofascore',
+          })
+          updated++
+        }
+      } catch (_) {}
+    }
+    logger.info(
+      `[FALLBACK_ENRICHER] Market backfill done: ${updated}/${batch.length} got O/U and/or BTTS markets`
+    )
+    return { scanned: batch.length, updated }
+  } catch (e) {
+    logger.error(`[FALLBACK_ENRICHER] Market backfill failed: ${e.message}`)
+    return { scanned: 0, updated: 0, error: e.message }
+  }
+}
+
 module.exports = {
   enrichOne: jsEnrichOne,
   enrichMatchesBatch,
+  backfillMarkets,
+  attachRealOdds,
   buildScoreMatrix,
   calculateMarkets,
   tryXgbEnrichOne,

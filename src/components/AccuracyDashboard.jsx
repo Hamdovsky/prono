@@ -151,6 +151,7 @@ export default function AccuracyDashboard() {
   const [perf, setPerf] = useState(null)
   const [tracker, setTracker] = useState(null)
   const [autopsyData, setAutopsyData] = useState(null)
+  const [honest, setHonest] = useState(null)
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState(null)
@@ -159,16 +160,18 @@ export default function AccuracyDashboard() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [accRes, perfRes, trackerRes, autopsyRes] = await Promise.all([
+      const [accRes, perfRes, trackerRes, autopsyRes, honestRes] = await Promise.all([
         fetch(getApiUrl('/api/accuracy')),
         fetch(getApiUrl('/api/analytics/performance')),
         fetch(getApiUrl('/api/accuracy/tracker')),
         fetch(getApiUrl('/api/autopsy/report')).catch(() => null),
+        fetch(getApiUrl('/api/accuracy/report')).catch(() => null),
       ])
       if (accRes.ok) setLog(await accRes.json())
       if (perfRes.ok) setPerf(await perfRes.json())
       if (trackerRes.ok) setTracker(await trackerRes.json())
       if (autopsyRes?.ok) setAutopsyData(await autopsyRes.json())
+      if (honestRes?.ok) setHonest(await honestRes.json())
       setError(null)
     } catch (e) {
       setError(e.message)
@@ -270,6 +273,66 @@ export default function AccuracyDashboard() {
             />
             <KpiCard label="Total analysé" value={tracker?.total || 0} color="#6366f1" />
           </div>
+
+          {/* ── VÉRITÉ TERRAIN (métrique honnête /api/accuracy/report) ── */}
+          {honest?.latest && (
+            <div className="acc-chart-card">
+              <h3>🩸 Vérité terrain — précision réelle sur prédictions réglées</h3>
+              <div className="acc-kpis">
+                <KpiCard
+                  label="Précision réelle"
+                  value={`${honest.latest.overall?.accuracy ?? '—'}%`}
+                  color={getAccColor(honest.latest.overall?.accuracy)}
+                />
+                <KpiCard
+                  label="Best pick"
+                  value={`${honest.latest.overall?.bestPickAccuracy ?? '—'}%`}
+                  color={getAccColor(honest.latest.overall?.bestPickAccuracy)}
+                />
+                <KpiCard
+                  label="Edge vs cotes"
+                  value={`${honest.latest.overall?.edge ?? '—'}%`}
+                  color={(honest.latest.overall?.edge || 0) >= 0 ? '#10b981' : '#ef4444'}
+                />
+                <KpiCard
+                  label="Confiance moyenne"
+                  value={`${honest.latest.overall?.avgConfidence ?? '—'}%`}
+                  color="#94a3b8"
+                />
+                <KpiCard
+                  label="Matchs évalués"
+                  value={honest.latest.totalMatches ?? honest.latest.overall?.matches ?? 0}
+                  color="#6366f1"
+                />
+              </div>
+              {honest.latest.bracketAccuracy && (
+                <MiniTable
+                  data={Object.entries(honest.latest.bracketAccuracy).map(([bracket, v]) => ({
+                    bracket,
+                    accuracy: v.accuracy,
+                    count: v.count,
+                  }))}
+                  emptyMsg="Aucun bracket."
+                  columns={[
+                    { key: 'bracket', label: 'Bracket', bold: true },
+                    {
+                      key: 'accuracy',
+                      label: 'Précision réelle',
+                      align: 'center',
+                      color: (r) => getAccColor(r.accuracy),
+                      render: (r) => `${r.accuracy}%`,
+                    },
+                    { key: 'count', label: 'n', align: 'center', color: '#94a3b8' },
+                  ]}
+                />
+              )}
+              <p style={{ fontSize: 10, color: '#64748b', marginTop: 10 }}>
+                Source: backtest 72h sur matchs réglés (bracket 90+% = 0% réel → les confiances
+                affichées étaient sur-calibrées). La carte isotonique recalibre les nouvelles
+                prédictions.
+              </p>
+            </div>
+          )}
 
           {perf?.confidence_breakdown && (
             <div className="acc-chart-card">

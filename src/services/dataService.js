@@ -365,12 +365,15 @@ class DataService {
       winProb:
         parseFloat(
           match.winProb ||
-            (match.enriched ? match.enriched.winnerProbability * 100 : match.confidence) ||
+            match.confidence ||
+            match.prediction_probability ||
+            (match.enriched ? match.enriched.winnerProbability * 100 : 0) ||
             0
         ) || 0,
       confidence:
         parseFloat(
           match.confidence ||
+            match.prediction_probability ||
             (match.enriched ? match.enriched.winnerProbability * 100 : match.winProb) ||
             50
         ) || 50,
@@ -794,6 +797,15 @@ class DataService {
     } catch (error) {
       logger.error('❌ [DATA] Failed to fetch skills:', error.message)
       return { skills: [] }
+    }
+  }
+
+  async fetchAccuracyReport() {
+    try {
+      return await this._get(getApiUrl('/api/accuracy/report'))
+    } catch (error) {
+      logger.error('❌ [DATA] Failed to fetch accuracy report:', error.message)
+      return null
     }
   }
 

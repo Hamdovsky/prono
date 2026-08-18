@@ -142,6 +142,11 @@ src/data/news_cache.json
 .venv/
 venv/
 
+# Runtime artifacts (downloaded data, Redis dump, stray logs)
+downloaded_files/
+dump.rdb
+*.err
+
 # OS files
 Thumbs.db
 Desktop.ini

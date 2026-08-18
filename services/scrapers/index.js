@@ -110,9 +110,21 @@ function isHealthy(name) {
 // ── Mode detection ──────────────────────────────────────────────
 
 function getMode() {
+  // Env wins over the persisted sentinel (dashboard toggle).
   if (process.env.FIRECRAWL_API_KEY) {
     return 'firecrawl_primary'
   }
+  // Sentinel written by setMode() — re-read on startup/restart so the toggle
+  // actually persists across processes.
+  const sentinelPath = path.join(__dirname, '..', 'data', '.scraper_mode')
+  try {
+    if (fs.existsSync(sentinelPath)) {
+      const persisted = fs.readFileSync(sentinelPath, 'utf-8').trim()
+      if (persisted === 'firecrawl_primary' || persisted === 'jina_primary') {
+        return persisted
+      }
+    }
+  } catch (_) {}
   return 'jina_primary'
 }
 
@@ -135,6 +147,20 @@ function getPriorityChain() {
 
 // ── Public API ──────────────────────────────────────────────────
 
+// Un résultat est exploitable s'il porte au moins un marché réel (1X2 OU O/U OU BTTS).
+function hasAnyMarket(result) {
+  if (!result) return false
+  return Boolean(
+    (result.home_win && result.away_win) ||
+      result.over_25 ||
+      result.under_25 ||
+      result.btts_yes ||
+      result.btts_no ||
+      result.over25 ||
+      result.under25
+  )
+}
+
 /**
  * Get odds via the automated toggle chain.
  * Tries each scraper in priority order. Returns first successful result.
@@ -153,7 +179,7 @@ async function getOdds(homeTeam, awayTeam, league, opts = {}) {
     if (bridge) {
       try {
         const result = await bridge.getOdds(homeTeam, awayTeam, league, opts.country, opts.date)
-        if (result && result.home_win) return result
+        if (hasAnyMarket(result)) return result
       } catch {}
     }
     return null
@@ -161,9 +187,9 @@ async function getOdds(homeTeam, awayTeam, league, opts = {}) {
 
   for (const { name, scraper } of chain) {
     if (opts.preferSource && opts.preferSource !== name) continue
-    try {
-      const result = await scraper.getOdds(homeTeam, awayTeam, league, opts.country, opts.date)
-      if (result && result.home_win) {
+try {
+        const result = await scraper.getOdds(homeTeam, awayTeam, league, opts.country, opts.date)
+        if (result && hasAnyMarket(result)) {
         recordSuccess(name)
         result._scraper = name
         result._mode = getMode()
@@ -244,17 +270,6 @@ function setMode(mode) {
   }
   return false
 }
-
-// Load persisted mode on startup
-try {
-  const sentinelPath = path.join(__dirname, '..', 'data', '.scraper_mode')
-  if (fs.existsSync(sentinelPath)) {
-    const persisted = fs.readFileSync(sentinelPath, 'utf-8').trim()
-    if (persisted === 'firecrawl_primary' || persisted === 'jina_primary') {
-      // Mode is auto-detected from env, sentinel is just for persistence
-    }
-  }
-} catch {}
 
 module.exports = {
   getOdds,

@@ -27,6 +27,19 @@ $markers = @(
 $killed = 0
 Get-CimInstance Win32_Process -Filter "Name='node.exe' OR Name='python.exe' OR Name='streamlit.exe' OR Name='redis-server.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
     $cmd = $_.CommandLine
+    $isRedis = $_.Name -ieq 'redis-server.exe'
+    if ($isRedis) {
+        # On ne tue QUE le redis lié à ce dossier (bin\redis du projet). Le
+        # redis fourni par le service Windows (PID 5776 sur 6379) doit rester:
+        # l'application s'y connecte (PONG). Le tuer = conflit de bind à chaque boot.
+        $localBin = Join-Path $ProjectDir "bin\redis"
+        if ($cmd -and (($cmd -like "*$localBin*") -or ($cmd -like "*redis.windows.conf*"))) {
+            Write-Host "Kill PID $($_.ProcessId) $($_.Name): $($cmd.Trim())"
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+            $killed++
+        }
+        return
+    }
     if (-not $cmd) { return }
     $matched = $markers | Where-Object { $cmd -like "*$_*" }
     if (-not $matched) { return }

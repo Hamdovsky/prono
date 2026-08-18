@@ -21,7 +21,7 @@ class CronManager {
   }
 
   init(socketService) {
-    logger.info('â° [CRON] Initializing master scheduler...')
+    logger.info('⏰ [CRON] Initializing master scheduler...')
 
     // Heartbeat — écrit un timestamp Redis toutes les 5 min
     cron.schedule('*/5 * * * *', async () => {
@@ -45,7 +45,7 @@ class CronManager {
       { timezone: 'Europe/Paris' }
     )
 
-    // 2. Auto-Scraper (toutes les 3h de 06:00 Ã  21:00)
+    // 2. Auto-Scraper (toutes les 3h de 06:00 à 21:00)
     cron.schedule('0 6,9,12,15,18,21 * * *', (label) => this.launchScraper(label), {
       timezone: 'Europe/Paris',
     })
@@ -58,7 +58,7 @@ class CronManager {
           const matches = (await database.getTodayMatches?.()) || []
           if (matches.length > 0) snapshotOdds(matches)
         } catch (e) {
-          logger.error(`âŒ [CRON] Odds Error: ${e.message}`)
+          logger.error(`❌ [CRON] Odds Error: ${e.message}`)
         }
       },
       { timezone: 'Europe/Paris' }
@@ -71,14 +71,14 @@ class CronManager {
     cron.schedule(
       '30 */6 * * *',
       () => {
-        logger.info('ðŸ§  [CRON] Launching Online Learning Incremental Update...')
+        logger.info('🧠 [CRON] Launching Online Learning Incremental Update...')
         const proc = spawn(
           'node',
           [path.join(__dirname, '..', 'scripts', 'online_learning_update.js')],
           { stdio: 'inherit', windowsHide: true }
         )
         proc.on('close', (code) =>
-          logger.info(`âœ… [CRON] Online Learning finished (code ${code})`)
+          logger.info(`✅ [CRON] Online Learning finished (code ${code})`)
         )
       },
       { timezone: 'Africa/Tunis' }
@@ -92,7 +92,7 @@ class CronManager {
           stdio: 'inherit',
           windowsHide: true,
         })
-        proc.on('close', (code) => logger.info(`âœ… [CRON] H2H Success (code ${code})`))
+        proc.on('close', (code) => logger.info(`✅ [CRON] H2H Success (code ${code})`))
       },
       { timezone: 'Europe/Paris' }
     )
@@ -165,6 +165,13 @@ class CronManager {
           logger.info(
             `✅ [CRON] Free Fallback: ${result.enriched}/${result.total} enriched (XGB:${result.xgbOk} JS:${result.jsOk})`
           )
+        }
+        // 10c-bis. O/U + BTTS market backfill — fills odds_over25/odds_under25/
+        // odds_btts_yes/odds_btts_no for matches that already carry 1X2 odds
+        // (fixes the dashboard cells that render "--").
+        const mkt = await fallbackEnricher.backfillMarkets({ limit: 150 })
+        if (mkt.updated > 0) {
+          logger.info(`✅ [CRON] Market backfill: ${mkt.updated}/${mkt.scanned} got O/U + BTTS`)
         }
       } catch (e) {
         logger.warn(`⚠️ [CRON] Free Fallback error: ${e.message}`)
@@ -280,14 +287,14 @@ class CronManager {
     cron.schedule(
       '0 */2 * * *',
       () => {
-        logger.info('ðŸš€ [CRON] Launching Universal Bulk Predictor...')
+        logger.info('🚀 [CRON] Launching Universal Bulk Predictor...')
         const proc = spawn(
           'node',
           [path.join(__dirname, '..', 'scripts', 'universal_predictor.js')],
           { stdio: 'inherit', windowsHide: true }
         )
         proc.on('close', (code) =>
-          logger.info(`âœ… [CRON] Universal Predictor finished (code ${code})`)
+          logger.info(`✅ [CRON] Universal Predictor finished (code ${code})`)
         )
       },
       { timezone: 'Europe/Paris' }
@@ -297,14 +304,14 @@ class CronManager {
     cron.schedule(
       '0 10 * * *',
       () => {
-        logger.info('ðŸš€ [CRON] Launching Surgical Elite 50 Pronostic (10:00 AM)...')
+        logger.info('🚀 [CRON] Launching Surgical Elite 50 Pronostic (10:00 AM)...')
         const proc = spawn(
           'node',
           [path.join(__dirname, '..', 'scripts', 'surgical_elite_50.js')],
           { stdio: 'inherit', windowsHide: true }
         )
         proc.on('close', (code) =>
-          logger.info(`âœ… [CRON] Surgical Elite 50 finished (code ${code})`)
+          logger.info(`✅ [CRON] Surgical Elite 50 finished (code ${code})`)
         )
       },
       { timezone: 'Europe/Paris' }
@@ -314,14 +321,14 @@ class CronManager {
     cron.schedule(
       '0 14 * * *',
       () => {
-        logger.info('ðŸš€ [CRON] Launching Surgical Elite 50 Afternoon Refresh...')
+        logger.info('🚀 [CRON] Launching Surgical Elite 50 Afternoon Refresh...')
         const proc = spawn(
           'node',
           [path.join(__dirname, '..', 'scripts', 'surgical_elite_50.js')],
           { stdio: 'inherit', windowsHide: true }
         )
         proc.on('close', (code) =>
-          logger.info(`âœ… [CRON] Elite 50 Afternoon finished (code ${code})`)
+          logger.info(`✅ [CRON] Elite 50 Afternoon finished (code ${code})`)
         )
       },
       { timezone: 'Europe/Paris' }
@@ -331,7 +338,7 @@ class CronManager {
     cron.schedule(
       '0 10 * * *',
       () => {
-        logger.info('ðŸš€ [CRON] Launching MR. X Daily Broadcast...')
+        logger.info('🚀 [CRON] Launching MR. X Daily Broadcast...')
         const botService = require('./botService')
         botService.sendMrXBroadcast()
       },
@@ -376,11 +383,11 @@ class CronManager {
     cron.schedule(
       '0 5 * * 0',
       () => {
-        logger.info('ðŸš€ [CRON] Launching Weekly Live Goal Model Retrain...')
+        logger.info('🚀 [CRON] Launching Weekly Live Goal Model Retrain...')
         const { runLiveModelRetrain } = require('../scripts/auto_retrain_worker')
         runLiveModelRetrain().then((res) => {
           if (res.success) {
-            logger.info('âœ… [CRON] Live goal model retrained successfully')
+            logger.info('✅ [CRON] Live goal model retrained successfully')
           }
         })
       },
@@ -391,7 +398,7 @@ class CronManager {
     cron.schedule(
       '0 6 * * 0',
       async () => {
-        logger.info('ðŸ“ [CRON] Launching Weekly Dixon-Coles GoalModel MLE Fit...')
+        logger.info('📐 [CRON] Launching Weekly Dixon-Coles GoalModel MLE Fit...')
         try {
           const http = require('http')
           const body = JSON.stringify({})
@@ -427,12 +434,12 @@ class CronManager {
             req.end()
           })
           if (result?.success) {
-            logger.info(`âœ… [CRON] GoalModel fit started: ${result.total} leagues`)
+            logger.info(`✅ [CRON] GoalModel fit started: ${result.total} leagues`)
           } else {
-            logger.warn(`âš ï¸ [CRON] GoalModel fit issue: ${JSON.stringify(result)}`)
+            logger.warn(`⚠️ [CRON] GoalModel fit issue: ${JSON.stringify(result)}`)
           }
         } catch (e) {
-          logger.error(`âŒ [CRON] GoalModel fit failed: ${e.message}`)
+          logger.error(`❌ [CRON] GoalModel fit failed: ${e.message}`)
         }
       },
       { timezone: 'Africa/Tunis' }
@@ -442,14 +449,14 @@ class CronManager {
     cron.schedule(
       '0 9 * * *',
       () => {
-        logger.info('ðŸš€ [CRON] Launching Daily Surgical Dispatch...')
+        logger.info('🚀 [CRON] Launching Daily Surgical Dispatch...')
         const proc = spawn(
           'node',
           [path.join(__dirname, '..', 'scripts', 'surgical_daily_dispatch.js')],
           { stdio: 'inherit', windowsHide: true }
         )
         proc.on('close', (code) =>
-          logger.info(`âœ… [CRON] Surgical Dispatch finished (code ${code})`)
+          logger.info(`✅ [CRON] Surgical Dispatch finished (code ${code})`)
         )
       },
       { timezone: 'Africa/Tunis' }
@@ -459,13 +466,13 @@ class CronManager {
     cron.schedule(
       '15 * * * *',
       () => {
-        logger.info('ðŸš€ [CRON] Launching Hourly Results Report...')
+        logger.info('🚀 [CRON] Launching Hourly Results Report...')
         const proc = spawn(
           'node',
           [path.join(__dirname, '..', 'scripts', 'surgical_results_report.js')],
           { stdio: 'inherit', windowsHide: true }
         )
-        proc.on('close', (code) => logger.info(`âœ… [CRON] Results Report finished (code ${code})`))
+        proc.on('close', (code) => logger.info(`✅ [CRON] Results Report finished (code ${code})`))
       },
       { timezone: 'Africa/Tunis' }
     )
@@ -499,7 +506,7 @@ class CronManager {
         const autoHealAgent = require('./autoHealAgent')
         autoHealAgent.patrol()
       } catch (e) {
-        logger.error(`âŒ [CRON] AutoHeal patrol error: ${e.message}`)
+        logger.error(`❌ [CRON] AutoHeal patrol error: ${e.message}`)
       }
     })
 
@@ -1016,7 +1023,7 @@ class CronManager {
       { timezone: 'Africa/Tunis' }
     )
 
-    logger.info('âœ… [CRON] Scheduler active')
+    logger.info('✅ [CRON] Scheduler active')
 
     // 🚀 [RESUME] Trigger scraper 30s after boot to repopulate DB on Render wake-up
     setTimeout(() => {
@@ -1028,26 +1035,34 @@ class CronManager {
   async launchScraper(label) {
     if (this.scraperSchedule.running) return
 
-    // ðŸ”’ [LOCK CHECK] If the external scraper process already holds the Redis lock,
-    // skip spawning a duplicate.
+    // 🔒 [LOCK CHECK] If the external scraper process already holds the Redis lock,
+    // skip spawning a duplicate. A lock older than 25 minutes is considered stale
+    // (crashed/hung instance) and is ignored so scans keep running.
     try {
-      const isLocked = await redisCache.get('scraper:lock')
-      if (isLocked) {
-        logger.info(
-          `ðŸš« [CRON] Scraper (${label}) skipped â€” external instance already active (Redis lock held).`
+      const lockVal = await redisCache.get('scraper:lock')
+      if (lockVal) {
+        const ts = parseInt(lockVal, 10)
+        const isFresh = Number.isFinite(ts) && Date.now() - ts < 25 * 60 * 1000
+        if (isFresh) {
+          logger.info(
+            `ðŸš« [CRON] Scraper (${label}) skipped â€” external instance already active (Redis lock held).`
+          )
+          return
+        }
+        logger.warn(
+          `⚠️ [CRON] Scraper lock present but stale (${lockVal}) â€” proceeding with local scan.`
         )
-        return
       }
     } catch (lockErr) {
       logger.warn(
-        `âš ï¸ [CRON] Could not check scraper lock: ${lockErr.message}. Proceeding with launch.`
+        `⚠️ [CRON] Could not check scraper lock: ${lockErr.message}. Proceeding with launch.`
       )
     }
 
     this.scraperSchedule.running = true
     this.scraperSchedule.lastRun = new Date().toISOString()
 
-    // â±ï¸ Auto-reset after 30 minutes si le flag reste bloquÃ©
+    // ⏱️ Auto-reset after 30 minutes si le flag reste bloqué
     const safetyTimer = setTimeout(
       () => {
         if (this.scraperSchedule.running) {
@@ -1058,7 +1073,7 @@ class CronManager {
       30 * 60 * 1000
     )
 
-    logger.info(`ðŸ“¡ [CRON] Launching Scraper (${label}) via bridge...`)
+    logger.info(`📡 [CRON] Launching Scraper (${label}) via bridge...`)
 
     // Use scraper bridge: calls serverless worker if configured, otherwise runs locally
     const scraperBridge = require('./scraperBridge')
@@ -1077,7 +1092,7 @@ class CronManager {
     try {
       invalidateCache('upcoming')
     } catch (_) {}
-    logger.info(`âœ… [CRON] Scraper (${label}) finished via bridge.`)
+    logger.info(`✅ [CRON] Scraper (${label}) finished via bridge.`)
   }
 
   async runAdaptiveLearning() {
@@ -1088,13 +1103,13 @@ class CronManager {
         .all()
       if (rows.length > 0) await adaptiveLearning.processBatch(rows)
     } catch (e) {
-      logger.error(`âŒ [CRON] Learning Error: ${e.message}`)
+      logger.error(`❌ [CRON] Learning Error: ${e.message}`)
     }
   }
 
   async runProactiveEnrichment() {
     try {
-      logger.info('ðŸ§  [CRON] Starting proactive 4-hour enrichment cycle...')
+      logger.info('🧠 [CRON] Starting proactive 4-hour enrichment cycle...')
       const now = Date.now()
       const lookupEnd = now + 3 * 24 * 60 * 60 * 1000
 
@@ -1111,7 +1126,7 @@ class CronManager {
           const isStale = !m.home_win_probability || parseFloat(m.home_win_probability) === 0
           return isFuture && isStale
         })
-        .slice(0, 300) // ðŸš€ Increased from 50 to 300 to fulfill the "minimum 50" requirement across all markets
+        .slice(0, 300) // 🚀 Increased from 50 to 300 to fulfill the "minimum 50" requirement across all markets
 
       let filteredNeedsEnrichment = needsEnrichment
       if (process.env.RAPIDAPI_ENABLED === 'true') {
@@ -1126,7 +1141,7 @@ class CronManager {
             const footballDataService = require('./footballDataService')
             await footballDataService.processFallbackFixtures()
           } catch (fdErr) {
-            logger.error(`âŒ [CRON] FootballData fallback failed: ${fdErr.message}`)
+            logger.error(`❌ [CRON] FootballData fallback failed: ${fdErr.message}`)
           }
           return
         }
@@ -1142,22 +1157,22 @@ class CronManager {
         }
 
         logger.info(
-          `ðŸ§  [CRON] RapidAPI active: filtered enrichment to ${filteredNeedsEnrichment.length} matches within remaining quota (${quotaStatus.remaining}).`
+          `🧠 [CRON] RapidAPI active: filtered enrichment to ${filteredNeedsEnrichment.length} matches within remaining quota (${quotaStatus.remaining}).`
         )
       }
 
       if (filteredNeedsEnrichment.length > 0) {
-        logger.info(`ðŸ§  [CRON] Enriching ${filteredNeedsEnrichment.length} future matches...`)
+        logger.info(`🧠 [CRON] Enriching ${filteredNeedsEnrichment.length} future matches...`)
         const enriched = await enrichedPredictions.enrichMatches(filteredNeedsEnrichment)
         for (const m of enriched) {
           await database.updatePredictions(m.id, m)
         }
-        logger.info('âœ… [CRON] Proactive enrichment cycle complete.')
+        logger.info('✅ [CRON] Proactive enrichment cycle complete.')
       } else {
-        logger.info('âœ… [CRON] All future matches are already up to date.')
+        logger.info('✅ [CRON] All future matches are already up to date.')
       }
     } catch (e) {
-      logger.error(`âŒ [CRON] Proactive Enrichment Error: ${e.message}`)
+      logger.error(`❌ [CRON] Proactive Enrichment Error: ${e.message}`)
     }
   }
 }

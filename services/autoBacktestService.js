@@ -55,14 +55,21 @@ function getActualBTTS(scoreHome, scoreAway) {
   return scoreHome > 0 && scoreAway > 0 ? 'YES' : 'NO'
 }
 
+function getScorePair(m) {
+  // Matches table uses camelCase (scoreHome/scoreAway); historical_matches and
+  // some providers use snake_case. Normalize so the backtest never reads NaN.
+  const sh = m.scoreHome ?? m.score_home ?? m['scoreHome'] ?? null
+  const sa = m.scoreAway ?? m.score_away ?? m['scoreAway'] ?? null
+  return [parseInt(sh), parseInt(sa)]
+}
+
 /**
  * Compute Brier Score and Log Loss for a single match prediction.
  * Brier = mean((predicted - actual)^2) for 1X2 — lower is better (0 = perfect).
  * Log Loss = -sum(actual * log(predicted)) — lower is better.
  */
 function computeCalibrationMetrics(match) {
-  const scoreH = parseInt(match.score_home)
-  const scoreA = parseInt(match.score_away)
+  const [scoreH, scoreA] = getScorePair(match)
   if (isNaN(scoreH) || isNaN(scoreA)) return null
 
   const pHome = parseFloat(match.home_win_probability || 0) / 100
@@ -122,8 +129,7 @@ function computeCalibrationMetrics(match) {
   }
 }
 function evaluatePrediction(match) {
-  const scoreH = parseInt(match.score_home)
-  const scoreA = parseInt(match.score_away)
+  const [scoreH, scoreA] = getScorePair(match)
   if (isNaN(scoreH) || isNaN(scoreA)) return null
 
   const totalGoals = scoreH + scoreA
@@ -202,9 +208,12 @@ async function runAutoBacktest() {
     // Get finished matches from last 48h with scores
     const allMatches = await database.getAllMatches()
     const recentFinished = allMatches.filter((m) => {
-      const scoreH = parseInt(m.score_home)
-      const scoreA = parseInt(m.score_away)
+      const [scoreH, scoreA] = getScorePair(m)
       if (isNaN(scoreH) || isNaN(scoreA)) return false
+      // Skip rows that are placeholders (0-0 but never played).
+      if (scoreH === 0 && scoreA === 0 && !m.result && m.status !== 'FT' && m.status !== 'finished' && m.status !== 'Ended') {
+        return false
+      }
       const ts = m.startTimestamp || m.timestamp
       if (!ts) return false
       const matchTime =
@@ -219,6 +228,49 @@ async function runAutoBacktest() {
 
     if (recentFinished.length === 0) {
       logger.info('[BACKTEST] No recently finished matches to evaluate.')
+
+      // Fallback: evaluate archived matches (dev/SQLite environments where the
+      // settlement loop never ran). This keeps the dynamic-weight feedback
+      // loop alive even when the matches table is 100% scheduled.
+      try {
+        const archived =
+          typeof database.getRecentArchivedMatches === 'function'
+            ? await database.getRecentArchivedMatches(100)
+            : []
+        if (archived.length === 0) {
+          logger.info('[BACKTEST] No archived matches either — nothing to evaluate.')
+          return { processed: 0 }
+        }
+        const archivedResults = archived.map(evaluatePrediction).filter(Boolean)
+        if (archivedResults.length === 0) {
+          logger.info('[BACKTEST] Archived matches found but none had usable predictions.')
+          return { processed: 0 }
+        }
+        logger.info(`[BACKTEST] Evaluating ${archivedResults.length} archived matches as fallback...`)
+        const fallbackResult = buildBacktestReport(archivedResults)
+        fallbackResult.source = 'archived-fallback'
+        _saveJson(RESULTS_PATH, fallbackResult)
+        // Populate per-league accuracy/edge BEFORE computing weights — without
+        // it _computeDynamicWeights reads undefined → NaN → null edge/news_boost
+        // and every league stays stuck on the 0.75 default.
+        const fallbackStats = _finalizeLeagueStats(_aggregateLeagueStats(archivedResults))
+        const weights = _computeDynamicWeights(fallbackStats)
+        _saveJson(WEIGHTS_PATH, weights)
+        // accuracy_trend.json is a rolling ARRAY (route /api/backtest/results
+        // le lit ainsi) — the fallback must append, not overwrite with a dict.
+        const existingHistory = _loadJson(HISTORY_PATH, null)
+        const history = Array.isArray(existingHistory) ? existingHistory : []
+        history.push(fallbackResult)
+        if (history.length > 90) history.splice(0, history.length - 90)
+        _saveJson(HISTORY_PATH, history)
+        saveCalibrationMetrics(archived, archivedResults)
+        logger.info(
+          `[BACKTEST] Archived fallback done — accuracy: ${fallbackResult.overall.accuracy}%`
+        )
+        return fallbackResult
+      } catch (e) {
+        logger.warn(`[BACKTEST] Archived fallback failed: ${e.message}`)
+      }
       return { processed: 0 }
     }
 
@@ -228,35 +280,7 @@ async function runAutoBacktest() {
     const results = recentFinished.map(evaluatePrediction).filter(Boolean)
 
     // ── Per-league accuracy ──
-    const leagueStats = {}
-    for (const r of results) {
-      const lg = r.league
-      if (!leagueStats[lg]) {
-        leagueStats[lg] = {
-          correct: 0,
-          total: 0,
-          correctBest: 0,
-          correctOdds: 0,
-          sumConfidence: 0,
-          results: [],
-        }
-      }
-      leagueStats[lg].total++
-      if (r.result1x2 === 'WON') leagueStats[lg].correct++
-      if (r.bestPickResult === 'WON') leagueStats[lg].correctBest++
-      if (r.oddsPickResult === 'WON') leagueStats[lg].correctOdds++
-      leagueStats[lg].sumConfidence += r.confidence
-      leagueStats[lg].results.push(r)
-    }
-
-    for (const lg of Object.keys(leagueStats)) {
-      const s = leagueStats[lg]
-      s.accuracy = s.total > 0 ? +((s.correct / s.total) * 100).toFixed(1) : 0
-      s.bestPickAccuracy = s.total > 0 ? +((s.correctBest / s.total) * 100).toFixed(1) : 0
-      s.oddsAccuracy = s.total > 0 ? +((s.correctOdds / s.total) * 100).toFixed(1) : 0
-      s.avgConfidence = s.total > 0 ? +(s.sumConfidence / s.total).toFixed(1) : 0
-      s.edge = +(s.accuracy - s.oddsAccuracy).toFixed(1) // model vs odds-implied
-    }
+    const leagueStats = _finalizeLeagueStats(_aggregateLeagueStats(results))
 
     // ── Per-confidence-bracket accuracy ──
     const brackets = {
@@ -288,52 +312,12 @@ async function runAutoBacktest() {
       }
     }
 
-    // ── Overall stats ──
-    const totalCorrect = results.filter((r) => r.result1x2 === 'WON').length
-    const totalBest = results.filter((r) => r.bestPickResult === 'WON').length
-    const totalOdds = results.filter((r) => r.oddsPickResult === 'WON').length
-    const avgConfidence =
-      results.length > 0
-        ? +(results.reduce((s, r) => s + r.confidence, 0) / results.length).toFixed(1)
-        : 0
-
-    const overallAccuracy =
-      results.length > 0 ? +((totalCorrect / results.length) * 100).toFixed(1) : 0
-    const overallBest = results.length > 0 ? +((totalBest / results.length) * 100).toFixed(1) : 0
-    const overallOdds = results.length > 0 ? +((totalOdds / results.length) * 100).toFixed(1) : 0
-
-    const backtestResult = {
-      timestamp: new Date().toISOString(),
-      period: `Last 72h`,
-      totalMatches: results.length,
-      overall: {
-        accuracy: overallAccuracy,
-        bestPickAccuracy: overallBest,
-        oddsImpliedAccuracy: overallOdds,
-        edge: +(overallAccuracy - overallOdds).toFixed(1),
-        avgConfidence,
-      },
-      bracketAccuracy: bracketSummary,
-      leagueBreakdown: Object.fromEntries(
-        Object.entries(leagueStats)
-          .filter(([_, s]) => s.total >= 2)
-          .sort((a, b) => b[1].accuracy - a[1].accuracy)
-          .map(([lg, s]) => [
-            lg,
-            {
-              accuracy: s.accuracy,
-              bestPick: s.bestPickAccuracy,
-              odds: s.oddsAccuracy,
-              edge: s.edge,
-              avgConf: s.avgConfidence,
-              matches: s.total,
-            },
-          ])
-      ),
-    }
+    // ── Build unified report (also used by the archived fallback) ──
+    const backtestResult = buildBacktestReport(results)
 
     // ── Persist results ──
-    const history = _loadJson(HISTORY_PATH, [])
+    const existingHistory = _loadJson(HISTORY_PATH, null)
+    const history = Array.isArray(existingHistory) ? existingHistory : []
     history.push(backtestResult)
     if (history.length > 90) history.splice(0, history.length - 90)
     _saveJson(HISTORY_PATH, history)
@@ -352,62 +336,7 @@ async function runAutoBacktest() {
     } catch (_) {}
 
     // ── Compute per-match calibration metrics (Brier Score + LogLoss) ──
-    const calibrationResults = recentFinished.map(computeCalibrationMetrics).filter(Boolean)
-    if (calibrationResults.length > 0) {
-      // Aggregate per-league
-      const calByLeague = {}
-      for (const cm of calibrationResults) {
-        // Find league from the original results array
-        const origResult = results.find(
-          (r) => r.pHome === cm.pHome * 100 && r.pAway === cm.pAway * 100
-        )
-        const lg = origResult ? origResult.league : 'Unknown'
-        if (!calByLeague[lg])
-          calByLeague[lg] = {
-            brier1x2: [],
-            logloss1x2: [],
-            brierOU: [],
-            loglossOU: [],
-            brierBTTS: [],
-            loglossBTTS: [],
-          }
-        calByLeague[lg].brier1x2.push(cm.brier1x2)
-        calByLeague[lg].logloss1x2.push(cm.logloss1x2)
-        calByLeague[lg].brierOU.push(cm.brierOU)
-        calByLeague[lg].loglossOU.push(cm.loglossOU)
-        calByLeague[lg].brierBTTS.push(cm.brierBTTS)
-        calByLeague[lg].loglossBTTS.push(cm.loglossBTTS)
-      }
-
-      const calibrationMetrics = {}
-      for (const [lg, vals] of Object.entries(calByLeague)) {
-        const avg = (arr) =>
-          arr.length > 0 ? +(arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(6) : null
-        calibrationMetrics[lg] = {
-          brier1x2: avg(vals.brier1x2),
-          logloss1x2: avg(vals.logloss1x2),
-          brierOU: avg(vals.brierOU),
-          loglossOU: avg(vals.loglossOU),
-          brierBTTS: avg(vals.brierBTTS),
-          loglossBTTS: avg(vals.loglossBTTS),
-          matches: vals.brier1x2.length,
-        }
-      }
-
-      // Global averages
-      const allBrier = calibrationResults.map((c) => c.brier1x2)
-      const allLogloss = calibrationResults.map((c) => c.logloss1x2)
-      calibrationMetrics['_global'] = {
-        brier1x2: +(allBrier.reduce((s, v) => s + v, 0) / allBrier.length).toFixed(6),
-        logloss1x2: +(allLogloss.reduce((s, v) => s + v, 0) / allLogloss.length).toFixed(6),
-        matches: calibrationResults.length,
-      }
-
-      _saveJson(CALIBRATION_PATH, calibrationMetrics)
-      logger.info(
-        `[BACKTEST] Calibration metrics saved: ${calibrationResults.length} matches, global Brier=${calibrationMetrics['_global'].brier1x2}`
-      )
-    }
+    saveCalibrationMetrics(recentFinished, results)
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
     logger.info(
@@ -418,6 +347,197 @@ async function runAutoBacktest() {
   } catch (e) {
     logger.error(`[BACKTEST] Error: ${e.message}`)
     return { error: e.message }
+  }
+}
+
+/**
+ * Compute per-league Brier Score + LogLoss (1X2/OU/BTTS) and persist them to
+ * calibration_metrics.json, which backtest_feedback.py turns into blend weights.
+ */
+function saveCalibrationMetrics(matches, results) {
+  const calibrationResults = matches.map(computeCalibrationMetrics).filter(Boolean)
+  if (calibrationResults.length === 0) {
+    logger.info('[BACKTEST] No calibration data available (missing probs/scores).')
+    return null
+  }
+
+  // Aggregate per-league
+  const calByLeague = {}
+  for (const cm of calibrationResults) {
+    // Find league from the original results array
+    const origResult = results.find(
+      (r) => r.pHome === cm.pHome * 100 && r.pAway === cm.pAway * 100
+    )
+    const lg = origResult ? origResult.league : 'Unknown'
+    if (!calByLeague[lg])
+      calByLeague[lg] = {
+        brier1x2: [],
+        logloss1x2: [],
+        brierOU: [],
+        loglossOU: [],
+        brierBTTS: [],
+        loglossBTTS: [],
+      }
+    calByLeague[lg].brier1x2.push(cm.brier1x2)
+    calByLeague[lg].logloss1x2.push(cm.logloss1x2)
+    calByLeague[lg].brierOU.push(cm.brierOU)
+    calByLeague[lg].loglossOU.push(cm.loglossOU)
+    calByLeague[lg].brierBTTS.push(cm.brierBTTS)
+    calByLeague[lg].loglossBTTS.push(cm.loglossBTTS)
+  }
+
+  const calibrationMetrics = {}
+  for (const [lg, vals] of Object.entries(calByLeague)) {
+    const avg = (arr) =>
+      arr.length > 0 ? +(arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(6) : null
+    calibrationMetrics[lg] = {
+      brier1x2: avg(vals.brier1x2),
+      logloss1x2: avg(vals.logloss1x2),
+      brierOU: avg(vals.brierOU),
+      loglossOU: avg(vals.loglossOU),
+      brierBTTS: avg(vals.brierBTTS),
+      loglossBTTS: avg(vals.loglossBTTS),
+      matches: vals.brier1x2.length,
+    }
+  }
+
+  // Global averages
+  const allBrier = calibrationResults.map((c) => c.brier1x2)
+  const allLogloss = calibrationResults.map((c) => c.logloss1x2)
+  calibrationMetrics['_global'] = {
+    brier1x2: +(allBrier.reduce((s, v) => s + v, 0) / allBrier.length).toFixed(6),
+    logloss1x2: +(allLogloss.reduce((s, v) => s + v, 0) / allLogloss.length).toFixed(6),
+    matches: calibrationResults.length,
+  }
+
+  _saveJson(CALIBRATION_PATH, calibrationMetrics)
+  logger.info(
+    `[BACKTEST] Calibration metrics saved: ${calibrationResults.length} matches, global Brier=${calibrationMetrics['_global'].brier1x2}`
+  )
+  return calibrationMetrics
+}
+
+/**
+ * Aggregate per-league win/odds/confidence stats from evaluation results.
+ */
+function _aggregateLeagueStats(results) {
+  const leagueStats = {}
+  for (const r of results) {
+    const lg = r.league
+    if (!leagueStats[lg]) {
+      leagueStats[lg] = {
+        correct: 0,
+        total: 0,
+        correctBest: 0,
+        correctOdds: 0,
+        sumConfidence: 0,
+        results: [],
+      }
+    }
+    leagueStats[lg].total++
+    if (r.result1x2 === 'WON') leagueStats[lg].correct++
+    if (r.bestPickResult === 'WON') leagueStats[lg].correctBest++
+    if (r.oddsPickResult === 'WON') leagueStats[lg].correctOdds++
+    leagueStats[lg].sumConfidence += r.confidence
+    leagueStats[lg].results.push(r)
+  }
+  return leagueStats
+}
+
+/**
+ * Compute per-league accuracy/bestPick/odds/edge from aggregated counts.
+ * Required before _computeDynamicWeights() — without accuracy/edge the dynamic
+ * weights degrade to the 0.75 default (NaN → null in JSON).
+ */
+function _finalizeLeagueStats(leagueStats) {
+  for (const s of Object.values(leagueStats)) {
+    s.accuracy = s.total > 0 ? +((s.correct / s.total) * 100).toFixed(1) : 0
+    s.bestPickAccuracy = s.total > 0 ? +((s.correctBest / s.total) * 100).toFixed(1) : 0
+    s.oddsAccuracy = s.total > 0 ? +((s.correctOdds / s.total) * 100).toFixed(1) : 0
+    s.avgConfidence = s.total > 0 ? +(s.sumConfidence / s.total).toFixed(1) : 0
+    s.edge = +(s.accuracy - s.oddsAccuracy).toFixed(1) // model vs odds-implied
+  }
+  return leagueStats
+}
+
+/**
+ * Build the unified backtest report (accuracy, confidence brackets, per-league
+ * breakdown) from an array of evaluatePrediction() results.
+ */
+function buildBacktestReport(results) {
+  const leagueStats = _aggregateLeagueStats(results)
+
+  // ── Per-confidence-bracket accuracy ──
+  const brackets = {
+    '0-50': { c: 0, t: 0 },
+    '50-60': { c: 0, t: 0 },
+    '60-70': { c: 0, t: 0 },
+    '70-80': { c: 0, t: 0 },
+    '80-90': { c: 0, t: 0 },
+    '90+': { c: 0, t: 0 },
+  }
+  for (const r of results) {
+    const conf = r.confidence > 1 ? r.confidence : r.confidence * 100
+    let key
+    if (conf >= 90) key = '90+'
+    else if (conf >= 80) key = '80-90'
+    else if (conf >= 70) key = '70-80'
+    else if (conf >= 60) key = '60-70'
+    else if (conf >= 50) key = '50-60'
+    else key = '0-50'
+    brackets[key].t++
+    if (r.result1x2 === 'WON') brackets[key].c++
+  }
+
+  const bracketSummary = {}
+  for (const [k, v] of Object.entries(brackets)) {
+    bracketSummary[k] = {
+      accuracy: v.t > 0 ? +((v.c / v.t) * 100).toFixed(1) : 0,
+      count: v.t,
+    }
+  }
+
+  const totalCorrect = results.filter((r) => r.result1x2 === 'WON').length
+  const totalBest = results.filter((r) => r.bestPickResult === 'WON').length
+  const totalOdds = results.filter((r) => r.oddsPickResult === 'WON').length
+  const avgConfidence =
+    results.length > 0
+      ? +(results.reduce((s, r) => s + r.confidence, 0) / results.length).toFixed(1)
+      : 0
+
+  const overallAccuracy =
+    results.length > 0 ? +((totalCorrect / results.length) * 100).toFixed(1) : 0
+  const overallBest = results.length > 0 ? +((totalBest / results.length) * 100).toFixed(1) : 0
+  const overallOdds = results.length > 0 ? +((totalOdds / results.length) * 100).toFixed(1) : 0
+
+  return {
+    timestamp: new Date().toISOString(),
+    period: `Last 72h`,
+    totalMatches: results.length,
+    overall: {
+      accuracy: overallAccuracy,
+      bestPickAccuracy: overallBest,
+      oddsImpliedAccuracy: overallOdds,
+      edge: +(overallAccuracy - overallOdds).toFixed(1),
+      avgConfidence,
+    },
+    bracketAccuracy: bracketSummary,
+    leagueBreakdown: Object.fromEntries(
+      Object.entries(leagueStats)
+        .filter(([_, s]) => s.total >= 2)
+        .sort((a, b) => b[1].accuracy - a[1].accuracy)
+        .map(([lg, s]) => [
+          lg,
+          {
+            accuracy: s.accuracy,
+            bestPick: s.bestPickAccuracy,
+            odds: s.oddsAccuracy,
+            edge: s.edge,
+            avgConf: s.avgConfidence,
+            matches: s.total,
+          },
+        ])
+    ),
   }
 }
 
@@ -489,4 +609,10 @@ function _computeDynamicWeights(leagueStats) {
   return weights
 }
 
-module.exports = { runAutoBacktest, evaluatePrediction }
+module.exports = {
+  runAutoBacktest,
+  evaluatePrediction,
+  buildBacktestReport,
+  _aggregateLeagueStats,
+  _finalizeLeagueStats,
+}

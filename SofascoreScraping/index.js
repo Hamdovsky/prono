@@ -1,3 +1,4 @@
+require('dotenv').config()
 const fs = require('fs')
 const path = require('path')
 const Workflow = require('./src/Workflow')
@@ -20,7 +21,7 @@ async function runCycle() {
       setTimeout(runCycle, 60000)
       return
     }
-    await redisCache.set('scraper:lock', 'locked', 3600)
+    await redisCache.set('scraper:lock', String(Date.now()), 3600)
   } catch (e) {
     console.warn('⚠️ [SCRAPER] Lock system warning:', e.message)
   }

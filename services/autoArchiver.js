@@ -18,6 +18,7 @@ const path = require('path')
 const logger = require('../core/logger')
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
+const SOFA_DISABLED = process.env.DISABLE_SOFASCORE !== undefined && process.env.DISABLE_SOFASCORE !== 'false'
 const SOFA_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -119,6 +120,7 @@ function getDb() {
 async function fetchFinishedMatchesForDate(dateStr) {
   // dateStr format: YYYY-MM-DD
   try {
+    if (SOFA_DISABLED) return []
     const url = `${SOFA_API}/sport/football/scheduled-events/${dateStr}`
     const res = await axios.get(url, { headers: SOFA_HEADERS, timeout: 15000 })
     const events = res.data?.events || []
@@ -145,6 +147,7 @@ async function fetchFinishedMatchesForDate(dateStr) {
 
 async function fetchMatchStats(eventId) {
   try {
+    if (SOFA_DISABLED) return null
     const url = `${SOFA_API}/event/${eventId}/statistics`
     const res = await axios.get(url, { headers: SOFA_HEADERS, timeout: 8000 })
     return res.data?.statistics || null

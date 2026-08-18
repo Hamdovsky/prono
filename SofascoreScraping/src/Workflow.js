@@ -16,7 +16,23 @@ const NeuralMetaRefiner = require('../../services/NeuralMetaRefiner')
 const ConfidenceCalibrationEngine = require('../../services/ConfidenceCalibrationEngine')
 
 // Use robust API wrapper for retries, User-Agent rotation, and bypassing bans
-const { fetchWithRetry, SofaAPI } = require('./apiClient')
+const { fetchWithRetry, SofaAPI, sofaDisabled: _sofaDisabled } = require('./apiClient')
+
+// 🛡️ [NO-SOFASCORE MODE] Free/no-key alternative sources
+const openLigaDB = require('../../services/openligadbService')
+const sportScore = require('../../services/sportScoreService')
+const bypassScraper = require('../../services/scrapers/ScrapingBypassScraper')
+const jinaScraper = require('../../services/scrapers/JinaScraper')
+const scrapeOdds = require('../../services/scrapeService')
+
+function shouldUseSofa() {
+  return !_sofaDisabled()
+}
+
+// Cherry-picked list of event statuses that are considered "live" and thus
+// useless for pre-match analysis. Kept centralized so the filter and the
+// fallback decision share the exact same definition.
+const LIVE_STATUSES = ['live', 'inprogress', '1h', '2h', 'ht', 'ongoing']
 
 // ── Shared progress file (IPC between scraper process and server) ────────────
 const PROGRESS_FILE = path.join(__dirname, '../../data/scraper_progress.json')
@@ -35,7 +51,17 @@ function writeProgress(data) {
 
 function loadState() {
   try {
-    if (fs.existsSync(STATE_FILE)) return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))
+    if (fs.existsSync(STATE_FILE)) {
+      const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))
+      if (state && typeof state === 'object') {
+        // Coerce a valid numeric full-scan timestamp; the state file sometimes
+        // only carries `lastScanAt` (ISO), which previously made `now - ts`
+        // evaluate to NaN and print "(NaNm ago)" while forcing 0-day scanning.
+        const ts = Number(state.lastFullScan)
+        state.lastFullScan = Number.isFinite(ts) && ts > 0 ? ts : Date.parse(state.lastScanAt || '') || 0
+        return state
+      }
+    }
   } catch (_) {}
   return { lastFullScan: 0 }
 }
@@ -59,6 +85,15 @@ const REDIS_TTL_STANDINGS = 43200 // 12 hours
  * Fetch season statistics for one team — returns per-match averages.
  */
 async function fetchTeamStats(teamId, uniqueTournamentId, seasonId) {
+  if (!shouldUseSofa()) {
+    return {
+      insufficient_data: true,
+      matchesPlayed: 0,
+      avgRating: 6.5,
+      avgGoalsScored: 1.0,
+      avgGoalsConceded: 1.0,
+    }
+  }
   const cacheKey = `stats_${teamId}_${uniqueTournamentId}_${seasonId}`
   const cachedData = await getCache(cacheKey)
   if (cachedData) return cachedData
@@ -184,6 +219,7 @@ async function fetchTeamStats(teamId, uniqueTournamentId, seasonId) {
  * Fetch Head-to-Head history for a match.
  */
 async function fetchH2H(matchId, homeId, awayId) {
+  if (!shouldUseSofa()) return null
   const cacheKey = `h2h_${Math.min(homeId, awayId)}_${Math.max(homeId, awayId)}`
   const cachedData = await getCache(cacheKey)
   if (cachedData) return cachedData
@@ -202,6 +238,7 @@ async function fetchH2H(matchId, homeId, awayId) {
  * Fetch last 5 matches (Form) for a team in a specific tournament.
  */
 async function fetchTeamForm(teamId, tournamentId, seasonId) {
+  if (!shouldUseSofa()) return null
   const cacheKey = `form_${teamId}_${tournamentId}_${seasonId}`
   const cachedData = await getCache(cacheKey)
   if (cachedData) return cachedData
@@ -220,6 +257,7 @@ async function fetchTeamForm(teamId, tournamentId, seasonId) {
  * Fetch current league standings.
  */
 async function fetchStandings(tournamentId, seasonId) {
+  if (!shouldUseSofa()) return null
   const cacheKey = `standing_${tournamentId}_${seasonId}`
   const cachedData = await getCache(cacheKey)
   if (cachedData) return cachedData
@@ -420,9 +458,80 @@ class Workflow {
         console.warn(`⚠️ [HTTP] httpScraperService load error: ${e.message}`)
       }
 
-      // FALLBACK: Sofascore API (if HTTP returned nothing)
+      // 🛡️ [NO-SOFASCORE MODE] PRIMARY: OpenLigaDB (free, no key) + SportScore (free, no key)
       if (allEvents.length === 0) {
-        console.log('📡 [FALLBACK] HTTP returned 0 events. Trying Sofascore API...')
+        try {
+          if (openLigaDB.isAvailable()) {
+            for (const d of datesToFetch) {
+              try {
+                const matches = await openLigaDB.fetchEvents(d)
+                if (matches && matches.length > 0) {
+                  console.log(`📊 [OPENLIGADB] Found ${matches.length} fixtures for ${d}`)
+                  for (const m of matches) {
+                    const ev = this._httpFixtureToEvent(m)
+                    ev.source = 'openligadb'
+                    allEvents.push(ev)
+                  }
+                }
+              } catch (e) {
+                console.warn(`⚠️ [OPENLIGADB] Fetch error for ${d}: ${e.message}`)
+              }
+            }
+          } else {
+            console.log('⚠️ [OPENLIGADB] Service unavailable.')
+          }
+        } catch (e) {
+          console.warn(`⚠️ [OPENLIGADB] Load error: ${e.message}`)
+        }
+      }
+
+      // SportScore live is prematch-filtered below (only scheduled kept), but we
+      // still merge its events so live matches are tracked in DB statuses.
+      if (!shouldUseSofa() || allEvents.length === 0) {
+        try {
+          if (sportScore.isAvailable()) {
+            const live = await sportScore.fetchLiveEvents()
+            if (live && live.length > 0) {
+              console.log(`📺 [SPORTSCORE] Found ${live.length} live events`)
+              for (const m of live) {
+                const ev = this._httpFixtureToEvent(m)
+                ev.source = 'sportscore'
+                allEvents.push(ev)
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`⚠️ [SPORTSCORE] Error: ${e.message}`)
+        }
+
+        // 📅 [SPORTSCORE] Scheduled (upcoming) fixtures — real pre-match source
+        // when Sofascore API is 403-blocked and OpenLigaDB is rate-limited.
+        try {
+          if (sportScore.isAvailable()) {
+            const scheduled = await sportScore.fetchScheduledEvents()
+            if (scheduled && scheduled.length > 0) {
+              console.log(`📅 [SPORTSCORE] Found ${scheduled.length} scheduled events`)
+              for (const m of scheduled) {
+                const ev = this._httpFixtureToEvent(m)
+                ev.source = 'sportscore'
+                allEvents.push(ev)
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`⚠️ [SPORTSCORE] Scheduled error: ${e.message}`)
+        }
+      }
+
+      // FALLBACK: Sofascore API (only when no PRE-MATCH events made it through)
+      // Live-only events (e.g. SportScore) must not suppress the fallback:
+      // they get filtered out below anyway, leaving 0 analyzable matches.
+      const hasScheduledEvents = allEvents.some((ev) => {
+        const status = (ev.status?.type || 'scheduled').toLowerCase()
+        return !LIVE_STATUSES.includes(status)
+      })
+      if (!hasScheduledEvents && shouldUseSofa()) {
+        console.log('📡 [FALLBACK] No scheduled events from free sources. Trying Sofascore API...')
         for (const d of datesToFetch) {
           console.log(`📡 [API] Fetching scheduled events for: ${d}`)
           try {
@@ -434,6 +543,8 @@ class Workflow {
             console.error(`❌ [API] Error fetching for ${d}: ${e.message}`)
           }
         }
+      } else if (!hasScheduledEvents) {
+        console.log('🛡️ [NO-SOFASCORE] All sources returned no scheduled events.')
       }
 
       if (needsFullScan) {
@@ -443,7 +554,7 @@ class Workflow {
       console.log(`📊 [API] Total merged events: ${allEvents.length}`)
 
       // 🎯 [V54] PRIORITY TOURNAMENT SWEEP (Missing but Wanted Leagues)
-      if (needsFullScan) {
+      if (needsFullScan && shouldUseSofa()) {
         console.log('🎯 [V54] Checking for priority tournaments requiring forced sync...')
         const forceLeagues = Object.values(LEAGUE_MAP).filter((l) => l.forceSync && l.sofascoreId)
 
@@ -492,7 +603,7 @@ class Workflow {
       for (const event of allEvents) {
         // 🛡️ [PREMATCH ONLY] Skip matches that are already in progress
         const status = (event.status?.type || 'scheduled').toLowerCase()
-        if (['live', 'inprogress', '1h', '2h', 'ht', 'ongoing'].includes(status)) continue
+        if (LIVE_STATUSES.includes(status)) continue
 
         const match = Extractor.extractMatch(event)
         if (!match) continue
@@ -723,7 +834,7 @@ class Workflow {
                     match.awayTeam,
                     match.timestamp,
                     {
-                      countryHint: match.category || '',
+                      countryHint: match.category_name || '',
                       homeTeamId: match._homeTeamId,
                       awayTeamId: match._awayTeamId,
                     }
@@ -775,6 +886,37 @@ class Workflow {
                   else if (name === '2' || name === 'away') match.odds_away = val
                 }
               })
+            }
+          }
+
+          // 🛡️ [NO-SOFASCORE] Fallback odds: BetExplorer (Python) → Soccerway (Jina)
+          if (!match.odds_home) {
+            try {
+              let altOdds = await bypassScraper.getOdds(
+                match.homeTeam?.name || match.homeTeam,
+                match.awayTeam?.name || match.awayTeam,
+                match.league,
+                match.category_name || '',
+                match.timestamp
+              )
+              if (!altOdds || !altOdds.home_win) {
+                altOdds = await jinaScraper.getOdds(
+                  match.homeTeam?.name || match.homeTeam,
+                  match.awayTeam?.name || match.awayTeam,
+                  match.league
+                )
+              }
+              if (altOdds && altOdds.home_win) {
+                match.odds_home = altOdds.home_win
+                match.odds_draw = altOdds.draw
+                match.odds_away = altOdds.away_win
+                match.odds_source = altOdds.source || altOdds._scraper || 'bypass'
+                console.log(
+                  `💰 [ODDS-FALLBACK] ${match.homeTeam} vs ${match.awayTeam}: H=${match.odds_home} D=${match.odds_draw} A=${match.odds_away} (${match.odds_source})`
+                )
+              }
+            } catch (e) {
+              console.warn(`⚠️ [ODDS-FALLBACK] Error for ${match.homeTeam} vs ${match.awayTeam}: ${e.message}`)
             }
           }
 
@@ -1173,10 +1315,11 @@ class Workflow {
             match.meta_correction_a = refined.meta_correction_a
 
             // Calibrate Confidence based on Failure Intelligence
-            match.confidence = await ConfidenceCalibrationEngine.calibrate(
+            const calibration = await ConfidenceCalibrationEngine.calibrate(
               match,
               match.confidence || 0
             )
+            match.confidence = calibration.calibratedConfidence
             match.v22_success_rate = match.confidence
 
             console.log(

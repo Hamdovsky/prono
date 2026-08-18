@@ -43,6 +43,15 @@ class QuantRiskService {
    */
   static recordMarketSnapshot(matchId, odds, type = 'LIVE') {
     try {
+      if (!matchId) return null
+      // odds_history.match_id has a FK → matches(id). Enrichment can fire for
+      // matches not yet persisted (e.g. live/scraper rows), which would throw
+      // FOREIGN KEY constraint failed. Skip silently instead of spamming logs.
+      const parent = db.prepare('SELECT id FROM matches WHERE id = ?').get(matchId)
+      if (!parent) {
+        logger.debug(`[QuantRisk] Skipping snapshot for unknown match ${matchId} (not in matches)`)
+        return null
+      }
       const now = Date.now()
       const stmt = db.prepare(`
                 INSERT INTO odds_history (match_id, odds_home, odds_draw, odds_away, type, timestamp)

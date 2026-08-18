@@ -22,6 +22,7 @@ const https = require('https')
 const http = require('http')
 const { spawn } = require('child_process')
 const path = require('path')
+const fs = require('fs')
 const scraperProxy = require('./scraperProxy')
 
 const SCRAPE_CACHE = new Map()
@@ -153,8 +154,20 @@ async function scrapeViaFirecrawl(targetUrl, schema) {
 
 // ── Tier 3: Python cloudscraper bridge ──────────────────────────
 // Calls the existing oddsFusionEngine.py directly
+// Le venv local (.venv) embarque curl_cffi + bs4, nécessaires au bypass BetExplorer.
+// Sur Render/Docker, PYTHON_BIN ou python3 pointe déjà vers /opt/venv (Dockerfile).
+function resolvePythonBin() {
+  if (process.env.PYTHON_BIN) return process.env.PYTHON_BIN
+  if (process.platform === 'win32') {
+    const venvPy = path.join(BASE_DIR, '.venv', 'Scripts', 'python.exe')
+    if (fs.existsSync(venvPy)) return venvPy
+    return 'python'
+  }
+  return 'python3'
+}
+
 async function scrapeViaPython(home, away, league, country) {
-  const pythonBin = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3')
+  const pythonBin = resolvePythonBin()
   return new Promise((resolve, reject) => {
     const escapedBase = BASE_DIR.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
     const escapedHome = home.replace(/'/g, "\\'")
@@ -310,6 +323,21 @@ function getSoccerwayUrl(league) {
 
 // ── Public API ──────────────────────────────────────────────────
 
+// Un résultat est exploitable s'il porte au moins un marché réel (1X2 OU O/U OU BTTS).
+// Permet aux tiers de remonter des cotes "market-only" (O/U + BTTS sans 1X2).
+function hasAnyMarket(result) {
+  if (!result) return false
+  return Boolean(
+    (result.home_win && result.away_win) ||
+      result.over_25 ||
+      result.under_25 ||
+      result.btts_yes ||
+      result.btts_no ||
+      result.over25 ||
+      result.under25
+  )
+}
+
 /**
  * Main entry: get odds for a match.
  * Fallback chain: Python (cloudscraper) → Jina Reader → Firecrawl
@@ -331,7 +359,7 @@ async function getOdds(homeTeam, awayTeam, league, country) {
       try {
         const html = await scraperProxy.fetchText(targetUrl, { render: false, timeout: 25000 })
         const matches = extractOddsFromMarkdown(html, homeTeam, awayTeam)
-        if (matches.length > 0 && matches[0].home_win) {
+        if (matches.length > 0 && hasAnyMarket(matches[0])) {
           const m = matches[0]
           const result = {
             home_win: m.home_win,
@@ -357,7 +385,7 @@ async function getOdds(homeTeam, awayTeam, league, country) {
   // 1. Try Python cloudscraper (works for BetExplorer)
   try {
     const result = await scrapeViaPython(homeTeam, awayTeam, league, country)
-    if (result && result.home_win && result.draw && result.away_win) {
+    if (hasAnyMarket(result)) {
       result.source = result.source || 'python'
       result.transport = 'cloudscraper'
       result.scraped_at = new Date().toISOString()
@@ -376,7 +404,7 @@ async function getOdds(homeTeam, awayTeam, league, country) {
     try {
       const markdown = await scrapeViaJina(targetUrl)
       const matches = extractOddsFromMarkdown(markdown, homeTeam, awayTeam)
-      if (matches.length > 0 && matches[0].home_win) {
+      if (matches.length > 0 && hasAnyMarket(matches[0])) {
         const m = matches[0]
         const result = {
           home_win: m.home_win,

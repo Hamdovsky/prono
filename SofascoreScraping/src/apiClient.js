@@ -19,6 +19,16 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0',
 ]
 
+// 🛡️ [NO-SOFASCORE MODE]
+// When DISABLE_SOFASCORE != 'false', the whole API client short-circuits and
+// returns empty/null payloads without touching www.sofascore.com, without
+// sleeping on the 403/429 cooldown and without launching Puppeteer.
+const SOFA_DISABLED = process.env.DISABLE_SOFASCORE !== undefined && process.env.DISABLE_SOFASCORE !== 'false'
+
+function sofaDisabled() {
+  return SOFA_DISABLED
+}
+
 // Rate Limiter: HUMAN MODE (Indetectable)
 const limiter = new Bottleneck({
   minTime: 1800, // 🛡️ Floor: per-request jitter adds 0–1700ms → 1800–3500ms spacing
@@ -32,6 +42,7 @@ const SOFASCORE_COOLDOWN_MS = parseInt(process.env.SOFASCORE_COOLDOWN_MS, 10) ||
 let cooldownUntil = 0
 
 function _triggerCooldown() {
+  if (sofaDisabled()) return
   cooldownUntil = Date.now() + SOFASCORE_COOLDOWN_MS
   console.warn(
     `🚨 [apiClient] Detection (403/429). Global cooldown ${SOFASCORE_COOLDOWN_MS / 1000}s...`
@@ -39,6 +50,7 @@ function _triggerCooldown() {
 }
 
 async function _enforceCooldown() {
+  if (sofaDisabled()) return
   const remaining = cooldownUntil - Date.now()
   if (remaining > 0) {
     console.warn(`🛡️ [apiClient] Cooldown active, sleeping ${Math.ceil(remaining / 1000)}s...`)
@@ -373,6 +385,15 @@ async function fetchWithPuppeteer(url) {
  * Robust fetch with retries and backoff using Axios, with Puppeteer fallback
  */
 async function fetchWithRetry(url, options = {}, retries = 3) {
+  // 🛡️ [NO-SOFASCORE MODE] Never contact Sofascore when disabled
+  if (sofaDisabled()) {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ events: [], statistics: null }),
+    }
+  }
+
   return limiter.schedule(async () => {
     let lastError = null
 
@@ -640,6 +661,7 @@ function getSofaHeaders(referer = 'https://www.sofascore.com/') {
 
 module.exports = {
   fetchWithRetry,
+  sofaDisabled,
   getRandomUserAgent,
   getSecChUa,
   getSecChUaPlatform,

@@ -21,6 +21,8 @@ const SOFA_HEADERS = {
 
 const cache = new Map()
 const CACHE_TTL = 15 * 60 * 1000
+const SOFA_DISABLED =
+  process.env.DISABLE_SOFASCORE !== undefined && process.env.DISABLE_SOFASCORE !== 'false'
 
 // Soft spacing: 1800–3500ms between raw Sofascore fetches (same policy as the
 // odds client) so xG enrichment never outpaces the rate limiter.
@@ -35,7 +37,7 @@ class SofascoreXgService {
   }
 
   isAvailable() {
-    return this.enabled
+    return this.enabled && !SOFA_DISABLED
   }
 
   async fetchMatchXg(sofascoreId) {

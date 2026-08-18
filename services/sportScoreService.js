@@ -47,6 +47,42 @@ class SportScoreService {
       return []
     }
   }
+
+  async fetchScheduledEvents() {
+    if (!this.enabled) return []
+
+    try {
+      const { data } = await axios.get(`${this.baseUrl}/api/widget/matches/`, {
+        params: { sport: 'football', limit: 50 },
+        timeout: 10000,
+      })
+
+      if (!data?.matches?.length) return []
+
+      return data.matches
+        .filter((m) => m.status === 'upcoming' && !m.home_score && !m.away_score)
+        .map((m) => {
+          const ts = m.time ? new Date(m.time).getTime() / 1000 : undefined
+          return {
+            source: 'sportscore',
+            id: `ss_${m.home}_${m.away}`.replace(/\s+/g, '_').toLowerCase(),
+            homeTeam: m.home,
+            awayTeam: m.away,
+            league: m.competition || 'Unknown',
+            category_name: m.competition || 'Unknown',
+            startTimestamp: ts,
+            status: 'scheduled',
+            homeWinP: 33,
+            drawP: 34,
+            awayWinP: 33,
+          }
+        })
+    } catch (err) {
+      this._lastError = err.message
+      logger.warn(`[SPORTSCORE] Erreur: ${err.message}`)
+      return []
+    }
+  }
 }
 
 module.exports = new SportScoreService()

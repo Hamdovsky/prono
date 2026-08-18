@@ -51,6 +51,7 @@ class Extractor {
 
     const match = {
       id: event.id.toString(),
+      source: event.source || 'unknown',
       league: tournamentName,
       category_name: categoryName,
       category_id: categoryId,

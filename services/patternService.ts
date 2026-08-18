@@ -7,6 +7,27 @@ import logger from '../core/logger'
 const WEIGHTS_FILE = path.join(__dirname, '..', 'data', 'model_weights.json')
 const CACHE_MAX_AGE = 5 * 60 * 1000 // 5 minutes
 
+// Matches arrive either as `score: {home, away}` (live) or `scoreHome/scoreAway`
+// (DB rows). Normalize so pattern matching never reads undefined.
+function getScorePair(match) {
+  if (!match) return { home: 0, away: 0 }
+  if (match.score && typeof match.score.home === 'number' && typeof match.score.away === 'number') {
+    return { home: match.score.home, away: match.score.away }
+  }
+  const sh = match.scoreHome ?? match.score_home ?? 0
+  const sa = match.scoreAway ?? match.score_away ?? 0
+  return { home: parseInt(sh) || 0, away: parseInt(sa) || 0 }
+}
+
+// winning_patterns stores score as a "H-A" string (or optionally an object).
+function parsePatternScore(score) {
+  if (score && typeof score === 'object' && !Array.isArray(score)) {
+    return { home: parseInt(score.home) || 0, away: parseInt(score.away) || 0 }
+  }
+  const parts = String(score || '0-0').split('-')
+  return { home: parseInt(parts[0]) || 0, away: parseInt(parts[1]) || 0 }
+}
+
 class PatternService {
   constructor() {
     this.patternMatchCache = new Map()
@@ -14,7 +35,8 @@ class PatternService {
 
   async logWinningPattern(match) {
     try {
-      const scoreState = `${match.score.home}-${match.score.away}`
+      const { home, away } = getScorePair(match)
+      const scoreState = `${home}-${away}`
       const timePeriod = match.minute && match.minute.includes('2nd') ? '2nd_half' : '1st_half'
 
       // Insert into SQLite pattern history
@@ -55,7 +77,8 @@ class PatternService {
         }
       }
 
-      const currentScoreState = `${match.score.home}-${match.score.away}`
+      const { home: curHome, away: curAway } = getScorePair(match)
+      const currentScoreState = `${curHome}-${curAway}`
       const currentTimePeriod =
         match.minute && match.minute.includes('2nd') ? '2nd_half' : '1st_half'
       const currentPressure = match.stats?.pressure?.home || 0
@@ -73,8 +96,8 @@ class PatternService {
             (Date.now() - new Date(p.timestamp).getTime()) / (1000 * 60 * 60 * 24 * 7)
           const decayFactor = Math.max(0.7, 1 - patternAge * 0.02)
           const leagueMatch = p.league === match.league ? 30 : 0
-          const scoreStateMatch =
-            p.score?.home === match.score.home && p.score?.away === match.score.away ? 25 : 0
+          const pScore = parsePatternScore(p.score)
+          const scoreStateMatch = pScore.home === curHome && pScore.away === curAway ? 25 : 0
           const pPressure = p.stats?.pressure?.home || 0
           const pressureSimilarity = Math.abs(pPressure - currentPressure) < 15 ? 15 : 0
           const probSimilarity = Math.abs((p.winProb || 50) - (match.winProb || 50)) < 10 ? 5 : 0

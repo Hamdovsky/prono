@@ -6,11 +6,16 @@ module.exports = {
   priority: 3,
   type: 'fixtures',
   enabled: process.env.OPENLIGADB_ENABLED !== 'false',
-  // Rate-limits aggressively (429): needs a longer window than the default 20s.
-  timeoutMs: 60000,
+  // Requests are parallelized inside the service (concurrency 3), so the whole
+  // fetch stays well under this cap.
+  timeoutMs: 45000,
   rate: { max: 10, perMs: 60000, minTime: 300 },
   async fetch(dateStr) {
     const svc = require('../../services/openligadbService')
     return svc.fetchEvents(dateStr)
+  },
+  async fetchResults(dateStr) {
+    const svc = require('../../services/openligadbService')
+    return svc.fetchResults(dateStr)
   },
 }

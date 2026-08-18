@@ -183,8 +183,10 @@ _load_alias_config()
 def _normalize_team(name):
     n = (name or '').lower().strip()
     n = ''.join(c for c in unicodedata.normalize('NFD', n) if unicodedata.category(c) != 'Mn')
-    n = re.sub(r'^(fc|sc|ac|as|us|ec|cd|ca|cr|gr|aek|paok|osa|ifk|bk|ff|ss|nk|fk|sk|rc|ra|ud|ad|cdt)\.?\s+', '', n)
-    n = re.sub(r'\s+(fc|sc|ac|as|us|cf|cd|ca|ec)\.?\s*$', '', n)
+    parts = [p for p in re.split(r'[\s\-]+', n) if p]
+    if len(parts) > 1:
+        n = re.sub(r'^(fc|sc|ac|as|us|ec|cd|ca|cr|gr|aek|paok|osa|ifk|bk|ff|ss|nk|fk|sk|rc|ra|ud|ad|cdt)\.?\s+', '', n)
+        n = re.sub(r'\s+(fc|sc|ac|as|us|cf|cd|ca|ec)\.?\s*$', '', n)
     return n.strip()
 
 
@@ -391,6 +393,23 @@ LEAGUE_SLUG_MAPPING = {
     'Allsvenskan': '/football/sweden/allsvenskan/',
     'Ekstraklasa': '/football/poland/ekstraklasa/',
     'Liga MX': '/football/mexico/liga-mx/',
+    'LaLiga': '/football/spain/laliga/',
+    'Laliga': '/football/spain/laliga/',
+    'Conference League': '/football/europe/conference-league/',
+    'UEFA Conference League': '/football/europe/conference-league/',
+    'Uefa Conference League': '/football/europe/conference-league/',
+    'Europa League': '/football/europe/europa-league/',
+    'UEFA Europa League': '/football/europe/europa-league/',
+    'Uefa Europa League': '/football/europe/europa-league/',
+    'Champions League': '/football/europe/champions-league/',
+    'UEFA Champions League': '/football/europe/champions-league/',
+    'Uefa Champions League': '/football/europe/champions-league/',
+    'Brasileirão': '/football/brazil/brasileirao-serie-a/',
+    'Brasileirao': '/football/brazil/brasileirao-serie-a/',
+    'Campeonato Brasileiro': '/football/brazil/brasileirao-serie-a/',
+    'Copa Libertadores': '/football/south-america/copa-libertadores/',
+    'Copa Lib': '/football/south-america/copa-libertadores/',
+    'Primera de Chile': '/football/chile/primera-division/',
     'Primera División': '/football/argentina/primera-division/',
     'Primera Division': '/football/argentina/primera-division/',
     'Liga Profesional': '/football/argentina/primera-division/',
@@ -412,6 +431,16 @@ LEAGUE_SLUG_COUNTRY_MAPPING = {
     ('premier league', 'bahrain'): '/football/bahrain/premier-league/',
     ('premier league', 'kazakhstan'): '/football/kazakhstan/premier-league/',
     ('ligue 1', 'tunisia'): '/football/tunisia/ligue-professionnelle-1/',
+    ('premier league', 'belarus'): '/football/belarus/premier-league/',
+    ('premier league', 'azerbaijan'): '/football/azerbaijan/premier-league/',
+    ('premier league', 'tanzania'): '/football/tanzania/premier-league/',
+    ('premier league', 'bosnia'): '/football/bosnia-and-herzegovina/premier-league/',
+    ('premier league', 'ukraine'): '/football/ukraine/premier-league/',
+    ('premier league', 'armenia'): '/football/armenia/premier-league/',
+    ('premier league', 'el salvador'): '/football/el-salvador/primera-division/',
+    ('bundesliga', 'austria'): '/football/austria/bundesliga/',
+    ('bundesliga 2', 'austria'): '/football/austria/2-liga/',
+    ('liga mx', 'mexico'): '/football/mexico/liga-mx/',
 }
 
 
@@ -429,6 +458,36 @@ def _league_to_betexplorer_slug(league, country=None):
         if key.lower() in league_lower:
             return slug
     return None
+
+
+def _alternative_slugs(league, country=None):
+    """Slugs candidats pour une ligue générique ("Premier League", "Bundesliga", ...).
+    Ordre : pays explicitement fourni d'abord, puis slug générique par défaut
+    (Angleterre/Allemagne — cas le plus courant), puis les pays-aware restants."""
+    if not league:
+        return []
+    league_lower = league.lower()
+    country_lower = (country or '').lower().strip()
+    country_slugs = []
+    for (lk, ck), slug in LEAGUE_SLUG_COUNTRY_MAPPING.items():
+        if lk in league_lower:
+            country_slugs.append((ck, slug))
+    default = _league_to_betexplorer_slug(league)
+    ordered = []
+    seen = set()
+    if country_lower:
+        for ck, slug in country_slugs:
+            if ck in country_lower and slug not in seen:
+                seen.add(slug)
+                ordered.append(slug)
+    if default and default not in seen:
+        seen.add(default)
+        ordered.append(default)
+    for ck, slug in country_slugs:
+        if slug not in seen:
+            seen.add(slug)
+            ordered.append(slug)
+    return ordered
 
 
 def _match_anchor_parts(a):
@@ -548,25 +607,42 @@ def _find_match_in_html(html, home, away, date=None):
     return None
 
 
-def betexplorer_search(home, away, league=None, date=None, country=None):
-    """Recherche BetExplorer via la page de ligue (slug). Retourne 1X2 + match_url."""
-    slug = _league_to_betexplorer_slug(league, country)
-    if not slug:
-        return {"odds": None, "match_url": None, "match_hash": None, "error": "no_league_slug"}
+GRACE_SLUGS = [
+    '/football/spain/laliga/',
+    '/football/europe/conference-league/',
+    '/football/europe/europa-league/',
+    '/football/europe/champions-league/',
+    '/football/south-america/copa-libertadores/',
+]
 
-    candidate_urls = [
-        f'{BASE_URL}{slug}fixtures/',
-        f'{BASE_URL}{slug}results/',
-        f'{BASE_URL}{slug}',
-    ]
-    for url in candidate_urls:
-        result = scrape_url(url, {"fingerprint": "chrome124", "timeout": 20})
-        if result.get('error') or result.get('status', 0) != 200:
-            continue
-        match = _find_match_in_html(result.get("body", ""), home, away, date=date)
-        if match:
-            match["url_probe"] = url
-            return match
+
+def betexplorer_search(home, away, league=None, date=None, country=None):
+    """Recherche BetExplorer via la page de ligue (slug). Retourne 1X2 + match_url.
+    Sonde les slugs par pays quand le nom de ligue est générique.
+    Pour une ligue inconnue (None/'Promosport'/...), sonde les compétitions majeures."""
+    league_l = (league or '').strip().lower()
+    unknown = league_l in ('', 'promosport', 'inconnu', 'unknown')
+    if unknown:
+        slugs = GRACE_SLUGS
+    else:
+        slugs = _alternative_slugs(league, country)
+        if not slugs:
+            return {"odds": None, "match_url": None, "match_hash": None, "error": "no_league_slug"}
+
+    for slug in slugs:
+        candidate_urls = [
+            f'{BASE_URL}{slug}fixtures/',
+            f'{BASE_URL}{slug}results/',
+            f'{BASE_URL}{slug}',
+        ]
+        for url in candidate_urls:
+            result = scrape_url(url, {"fingerprint": "chrome124", "timeout": 20})
+            if result.get('error') or result.get('status', 0) != 200:
+                continue
+            match = _find_match_in_html(result.get("body", ""), home, away, date=date)
+            if match:
+                match["url_probe"] = url
+                return match
     return {"odds": None, "match_url": None, "match_hash": None}
 
 
@@ -605,10 +681,100 @@ def _parse_btts_page(html):
     return None, None
 
 
+# ── AJAX odds endpoint ─────────────────────────────────────────
+# BetExplorer charge les tables O/U + BTTS via /match-odds/{hash}/{pre}/.../odds/
+# (JSON dont le champ `odds` contient le HTML des cotes par bookmaker).
+# Les pages /over-under/ et /both-teams-to-score/ sont renderées côté JS :
+# le HTML statique ne contient aucun data-odd. C'est CET endpoint AJAX qui a les vraies cotes.
+
+def _event_hash_from_url(match_url):
+    """Extrait le hash BetExplorer (8 car.) depuis une URL de match."""
+    if not match_url:
+        return None
+    m = re.search(r'/([A-Za-z0-9]{6,10})/?$', match_url.rstrip('/'))
+    return m.group(1) if m else None
+
+
+def _match_odds_ajax_html(match_hash, bettype, timeout=25):
+    """Récupère le HTML des cotes pour un bettype via l'endpoint AJAX."""
+    if not match_hash:
+        return None
+    url = f'{BASE_URL}/match-odds/{match_hash}/0/{bettype}/odds/?lang=en'
+    result = scrape_url(url, {"fingerprint": "chrome124", "timeout": timeout})
+    if result.get('error') or result.get('status', 0) != 200:
+        return None
+    try:
+        data = json.loads(result.get("body", "") or "{}")
+        return data.get("odds") or None
+    except Exception:
+        return None
+
+
+def _parse_ou25_from_ajax(html):
+    """Extrait les cotes O/U 2.5 (Over/Under) depuis le HTML AJAX des cotes.
+    Chaque bookmaker a une rangée par ligne de total (0.5, 1.5, 2.5, ...).
+    On moyenne les cotes Over et Under sur la ligne Total=2.5 de tous les bookmakers."""
+    if not html:
+        return None, None
+    overs, unders = [], []
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'html.parser')
+        for tr in soup.find_all('tr'):
+            total_cell = tr.find('td', class_='table-main__doubleparameter')
+            if total_cell is None:
+                continue
+            total = total_cell.get_text(' ', strip=True)
+            if total != '2.5':
+                continue
+            odds = [_to_float(c.get('data-odd')) for c in tr.find_all(attrs={'data-odd': True})]
+            odds = [v for v in odds if v is not None and v > 1.0]
+            if len(odds) >= 2:
+                overs.append(odds[0])
+                unders.append(odds[1])
+    except Exception as ex:
+        log.debug('ou ajax parse error: %s', ex)
+    if not overs:
+        return None, None
+    over = round(sum(overs) / len(overs), 2)
+    under = round(sum(unders) / len(unders), 2)
+    return over, under
+
+
+def _parse_btts_from_ajax(html):
+    """Extrait les cotes BTTS (Yes/No) depuis le HTML AJAX des cotes."""
+    if not html:
+        return None, None
+    yes_odds, no_odds = [], []
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'html.parser')
+        for tr in soup.find_all('tr'):
+            odds = [_to_float(c.get('data-odd')) for c in tr.find_all(attrs={'data-odd': True})]
+            odds = [v for v in odds if v is not None and v > 1.0]
+            if len(odds) >= 2:
+                yes_odds.append(odds[0])
+                no_odds.append(odds[1])
+    except Exception as ex:
+        log.debug('btts ajax parse error: %s', ex)
+    if not yes_odds:
+        return None, None
+    yes = round(sum(yes_odds) / len(yes_odds), 2)
+    no = round(sum(no_odds) / len(no_odds), 2)
+    return yes, no
+
+
 def betexplorer_match_ou(match_url, use_firecrawl=True):
-    """OU 2.5 depuis /over-under/ (HTTP direct). data-odd absent -> {ou25: None}."""
+    """OU 2.5 depuis /match-odds/{hash}/0/ou/odds/ (AJAX, vraies cotes).
+    Fallback sur la page statique /over-under/. data-odd absent -> {ou25: None}."""
     if not use_firecrawl or not match_url:
         return {"ou25": None, "source": "skipped"}
+    match_hash = _event_hash_from_url(match_url)
+    ajax_html = _match_odds_ajax_html(match_hash, 'ou')
+    if ajax_html:
+        over, under = _parse_ou25_from_ajax(ajax_html)
+        if over and under:
+            return {"ou25": {"over_25": over, "under_25": under}, "source": "betexplorer:ajax"}
     ou_url = match_url.rstrip("/") + "/over-under/"
     result = scrape_url(ou_url, {"fingerprint": "chrome124", "timeout": 20})
     if result.get('error') or result.get('status', 0) != 200:
@@ -619,9 +785,16 @@ def betexplorer_match_ou(match_url, use_firecrawl=True):
 
 
 def betexplorer_match_btts(match_url, use_firecrawl=True):
-    """BTTS depuis /both-teams-to-score/ (HTTP direct). data-odd absent -> {btts: None}."""
+    """BTTS depuis /match-odds/{hash}/0/bts/odds/ (AJAX, vraies cotes).
+    Fallback sur la page statique /both-teams-to-score/. data-odd absent -> {btts: None}."""
     if not use_firecrawl or not match_url:
         return {"btts": None, "source": "skipped"}
+    match_hash = _event_hash_from_url(match_url)
+    ajax_html = _match_odds_ajax_html(match_hash, 'bts')
+    if ajax_html:
+        yes, no = _parse_btts_from_ajax(ajax_html)
+        if yes and no:
+            return {"btts": {"yes": yes, "no": no}, "source": "betexplorer:ajax"}
     btts_url = match_url.rstrip("/") + "/both-teams-to-score/"
     result = scrape_url(btts_url, {"fingerprint": "chrome124", "timeout": 20})
     if result.get('error') or result.get('status', 0) != 200:
@@ -631,8 +804,12 @@ def betexplorer_match_btts(match_url, use_firecrawl=True):
     return {"btts": btts, "source": "betexplorer" if btts else "static_empty"}
 
 
-def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None, country=None):
-    """Pipeline complet: recherche -> 1X2 (+ OU/BTTS si data-odd statique dispo)."""
+def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None, country=None, skip_extras=False):
+    """Pipeline complet: recherche -> 1X2 (+ OU/BTTS si data-odd statique dispo).
+
+    skip_extras=True : retourne uniquement le 1X2 de la page (pas d'AJAX OU/BTTS) —
+    ~2-3s au lieu de ~6-10s, idéal pour les backfills volumineux.
+    """
     search = betexplorer_search(home, away, league, date=date, country=country)
     result = {
         "odds": None,
@@ -647,6 +824,8 @@ def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None, cou
     if search.get("odds"):
         result["odds"] = search["odds"]
         result["source"] = "betexplorer"
+        if skip_extras:
+            return result
         match_url = search.get("match_url")
         if match_url and use_firecrawl:
             ou_result = betexplorer_match_ou(match_url, use_firecrawl=True)
@@ -761,6 +940,14 @@ def main():
         date = input_data.get("date")
         country = input_data.get("country")
         result = betexplorer_full(home, away, league, use_firecrawl=use_fc, date=date, country=country)
+        print(json.dumps(result, ensure_ascii=False))
+    elif cmd == "betexplorer_1x2":
+        home = input_data.get("home", "")
+        away = input_data.get("away", "")
+        league = input_data.get("league", "")
+        date = input_data.get("date")
+        country = input_data.get("country")
+        result = betexplorer_full(home, away, league, use_firecrawl=False, date=date, country=country, skip_extras=True)
         print(json.dumps(result, ensure_ascii=False))
     elif cmd == "betexplorer_search":
         home = input_data.get("home", "")

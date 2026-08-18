@@ -181,6 +181,12 @@ class Persistence {
       matchData.weather_desc || null
     )
 
+    if (matchData.source) {
+      this.db
+        .prepare('UPDATE matches SET source = ? WHERE id = ?')
+        .run(matchData.source, matchData.id)
+    }
+
     if (matchData.odds_home) {
       console.log(
         `💰 [PERSIST] ${matchData.homeTeam} vs ${matchData.awayTeam}: H=${matchData.odds_home} (DB INSERT)`

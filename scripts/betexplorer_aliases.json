@@ -6,8 +6,17 @@
     "utd": "united",
     "dep": "deportivo",
     "caspiy": "kaspij aktau",
+    "shafa": "safa baku",
     "munchen": "munich",
-    "muenchen": "munich"
+    "muenchen": "munich",
+    "nijmegen": "nimegue",
+    "salonique": "paok",
+    "crvena zvezda": "etoile rouge",
+    "red star": "etoile rouge",
+    "viktoria plzen": "plzen",
+    "bodo/glimt": "bodo glimt",
+    "partizan belgrade": "partizan",
+    "ajax": "ajax amsterdam"
   },
   "digraphs": {
     "ae": "a",

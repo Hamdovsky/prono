@@ -137,13 +137,20 @@ class DataFusionService {
             break
         }
 
-        if (odds && odds.home && odds.away) {
+        // Market-only accepté: 1X2 OU O/U 2.5 OU BTTS (pas besoin d'avoir tout).
+        const has1x2 = odds && odds.home && odds.away
+        const hasOu = odds && (odds.over25 != null || odds.under25 != null)
+        const hasBtts = odds && (odds.btts_yes != null || odds.btts_no != null)
+        if (has1x2 || hasOu || hasBtts) {
           const isBookmaker =
             BOOKMAKER_SOURCES.has(source.name) || REAL_SCRAPE_SOURCES.has(odds.source)
           const withFlag = { ...odds, bookmaker: isBookmaker }
           this.recordSuccess(source.name)
+          const logLine = has1x2
+            ? `${odds.home} / ${odds.draw} / ${odds.away}`
+            : `${odds.over25 ?? '—'} / ${odds.under25 ?? '—'} / BTTS ${odds.btts_yes ?? '—'}`
           logger.info(
-            `[DATAFUSION] Odds from ${source.name} for ${match.homeTeam} vs ${match.awayTeam}: ${odds.home} / ${odds.draw} / ${odds.away} ${withFlag.bookmaker ? '(bookmaker)' : '(probability-derived)'}`
+            `[DATAFUSION] Odds from ${source.name} for ${match.homeTeam} vs ${match.awayTeam}: ${logLine} ${withFlag.bookmaker ? '(bookmaker)' : '(probability-derived)'}`
           )
           cache.set(cacheKey, { ts: Date.now(), data: withFlag })
           await this._persistOddsOutcome(match, withFlag)
@@ -168,8 +175,8 @@ class DataFusionService {
   }
 
   // Trace le résultat HONNÊTE de la collecte dans matches (voir database.persistOdds):
-  // réussite → odds_home/draw/away + odds_source='betexplorer'; échec →
-  // odds_source=null + odds_fetch_error=raison. Ne modifie jamais les prédictions.
+  // réussite → odds_home/draw/away (+ O/U 2.5 + BTTS si fournis) + odds_source='betexplorer';
+  // échec → odds_source=null + odds_fetch_error=raison. Ne modifie jamais les prédictions.
   async _persistOddsOutcome(match, result, fetchError) {
     try {
       const database = require('../core/database')
@@ -177,6 +184,10 @@ class DataFusionService {
         odds_home: result ? result.home : null,
         odds_draw: result ? result.draw : null,
         odds_away: result ? result.away : null,
+        odds_over25: result ? result.over25 : null,
+        odds_under25: result ? result.under25 : null,
+        odds_btts_yes: result ? result.btts_yes : null,
+        odds_btts_no: result ? result.btts_no : null,
         odds_source: result ? result.source || 'betexplorer' : null,
         odds_fetch_error: fetchError || (result ? null : 'no_source_available'),
       })
@@ -235,10 +246,14 @@ class DataFusionService {
     } catch (e) {
       return { _odds_fetch_error: `scrape_exception:${e.message}` }
     }
-    if (!result || !result.home_win || !result.away_win) {
+    const has1x2 = result && result.home_win && result.away_win
+    const hasOu = result && (result.over_25 != null || result.over25 != null)
+    const hasBtts = result && (result.btts_yes != null || result.bttsYes != null)
+    if (!result || (!has1x2 && !hasOu && !hasBtts)) {
       return { _odds_fetch_error: 'betexplorer:no_match' }
     }
     // HONESTY GATE: les cotes dérivées/probabilités ne sont pas des cotes bookmaker.
+    // On ne garde le marché que s'il provient d'une vraie source (betexplorer/BSD/etc).
     if (
       result.source === 'default' ||
       result.source === 'historical' ||
@@ -246,13 +261,24 @@ class DataFusionService {
     ) {
       return { _odds_fetch_error: `non_bookmaker:${result.source}` }
     }
-    return {
-      home: result.home_win,
-      draw: result.draw,
-      away: result.away_win,
+    const out = {
+      home: result.home_win ?? null,
+      draw: result.draw ?? null,
+      away: result.away_win ?? null,
       source: result.source || 'betexplorer',
       bookmaker: true,
     }
+    const over25 = result.over_25 || result.over25 || null
+    const under25 = result.under_25 || result.under25 || null
+    const bttsYes = result.btts_yes || result.bttsYes || null
+    const bttsNo = result.btts_no || result.bttsNo || null
+    if (over25 != null || under25 != null || bttsYes != null || bttsNo != null) {
+      out.over25 = over25
+      out.under25 = under25
+      out.btts_yes = bttsYes
+      out.btts_no = bttsNo
+    }
+    return out
   }
 
   async _tryPolymarket(match) {
@@ -314,11 +340,21 @@ class DataFusionService {
     const bsdService = require('./bsdService')
     if (!bsdService.isAvailable()) return null
     const oddsData = await bsdService.fetchOdds(bsdId)
-    if (oddsData && oddsData.odds) {
-      const home = oddsData.odds.home_win || null
-      const draw = oddsData.odds.draw || null
-      const away = oddsData.odds.away_win || null
-      if (home && away) return { home, draw, away }
+    if (oddsData) {
+      const home = oddsData.home || oddsData.odds?.home_win || null
+      const draw = oddsData.draw || oddsData.odds?.draw || null
+      const away = oddsData.away || oddsData.odds?.away_win || null
+      if (home && away) {
+        return {
+          home,
+          draw,
+          away,
+          over25: oddsData.over25 || null,
+          under25: oddsData.under25 || null,
+          btts_yes: oddsData.btts_yes || null,
+          btts_no: oddsData.btts_no || null,
+        }
+      }
     }
     return null
   }

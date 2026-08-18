@@ -60,6 +60,10 @@ async function getOdds(homeTeam, awayTeam, league, country, date) {
           home_win: result.odds.home_win,
           draw: result.odds.draw || null,
           away_win: result.odds.away_win || null,
+          over_25: result.over_25 || null,
+          under_25: result.under_25 || null,
+          btts_yes: result.btts_yes || null,
+          btts_no: result.btts_no || null,
           _source: result.source || 'betexplorer',
           _scraper: 'bypass',
           _fingerprint: result.fingerprint || fp,
@@ -72,6 +76,40 @@ async function getOdds(homeTeam, awayTeam, league, country, date) {
       continue
     }
   }
+  return null
+}
+
+// ⚡ Variante backfill : 1X2 seulement (skip AJAX OU/BTTS) + fingerprint unique.
+// ~2-4s/match au lieu de ~6-10s, et surtout sans les 5 fingerprints des échecs.
+async function getOdds1x2(homeTeam, awayTeam, league, country, date) {
+  const cacheKey = `odds1x2:${homeTeam}:${awayTeam}:${league}:${country || ''}:${date || ''}`
+  const cached = CACHE.get(cacheKey)
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
+
+  try {
+    const result = await callPython({
+      cmd: 'betexplorer_1x2',
+      home: homeTeam,
+      away: awayTeam,
+      league,
+      country,
+      date,
+      options: { fingerprint: BROWSER_FINGERPRINTS[0], timeout: 25 },
+    })
+    if (result && result.odds && result.odds.home_win) {
+      const out = {
+        home_win: result.odds.home_win,
+        draw: result.odds.draw || null,
+        away_win: result.odds.away_win || null,
+        _source: result.source || 'betexplorer',
+        _scraper: 'bypass',
+        _fingerprint: result.fingerprint,
+        _elapsed: result.elapsed,
+      }
+      CACHE.set(cacheKey, { data: out, ts: Date.now() })
+      return out
+    }
+  } catch (err) {}
   return null
 }
 
@@ -109,6 +147,7 @@ function clearCache() {
 
 module.exports = {
   getOdds,
+  getOdds1x2,
   scrapeUrl,
   isAvailable,
   getCacheSize,

@@ -180,6 +180,27 @@ async function backfillScores() {
   console.log(
     `\n✅ [BACKFILL SCORES] Done. Updated: ${updated}, Failed: ${failed}, Skipped: ${skipped}, Total: ${matches.length}`
   )
+
+  // ⚡ Trigger settlement so freshly backfilled scores feed accuracyStore,
+  // the bets tracker, prediction_history and the adaptive-learning loop.
+  if (updated > 0) {
+    try {
+      const settlement = require('../services/settlementService')
+      if (typeof settlement.settleFinishedMatches === 'function') {
+        const settled = await settlement.settleFinishedMatches(true)
+        console.log(`✅ [BACKFILL SCORES] Settlement done: ${JSON.stringify(settled)}`)
+      }
+    } catch (e) {
+      logger.warn(`[BACKFILL SCORES] Settlement skipped: ${e.message}`)
+    }
+    try {
+      const { runAutoBacktest } = require('../services/autoBacktestService')
+      await runAutoBacktest()
+    } catch (e) {
+      logger.warn(`[BACKFILL SCORES] Auto-backtest skipped: ${e.message}`)
+    }
+  }
+
   return { processed: updated, failed, skipped, total: matches.length }
 }
 

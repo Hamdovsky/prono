@@ -38,7 +38,7 @@ async function runLocalScraper() {
 
   if (onRender) {
     logger.info(
-      `[SCRAPER BRIDGE] Render env detected �?" using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`
+      `[SCRAPER BRIDGE] Render env detected — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`
     )
     try {
       const httpScraperService = require('./httpScraperService')

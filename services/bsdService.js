@@ -220,6 +220,10 @@ class BsdService {
         odds_home: odds.home,
         odds_draw: odds.draw,
         odds_away: odds.away,
+        odds_over25: odds.over25,
+        odds_under25: odds.under25,
+        odds_btts_yes: odds.btts_yes,
+        odds_btts_no: odds.btts_no,
         odds_source: 'bsd',
         bsd_match_id: match.id.replace('bsd_', ''),
       })
@@ -237,17 +241,40 @@ class BsdService {
   }
 
   async fetchOdds(matchId) {
-    const data = await this._fetch(
-      `/odds/?event_id=${matchId}&market=1x2&bookmaker=consensus&limit=3`
-    )
-    if (!data?.results) return null
-    const odds = { home: null, draw: null, away: null }
-    for (const r of data.results) {
-      if (r.outcome === 'HOME') odds.home = r.decimal_odds
-      else if (r.outcome === 'DRAW') odds.draw = r.decimal_odds
-      else if (r.outcome === 'AWAY') odds.away = r.decimal_odds
+    const [d1, d5, d6] = await Promise.all([
+      this._fetch(`/odds/?event_id=${matchId}&market=1x2&bookmaker=consensus&limit=3`),
+      this._fetch(`/odds/?event_id=${matchId}&market=over_under_25&bookmaker=consensus&limit=3`),
+      this._fetch(`/odds/?event_id=${matchId}&market=btts&bookmaker=consensus&limit=3`),
+    ])
+    const odds = { home: null, draw: null, away: null, over25: null, under25: null, btts_yes: null, btts_no: null }
+    const apply = (data, mapper) => {
+      if (!data?.results) return
+      for (const r of data.results) {
+        const pair = mapper(r)
+        if (pair) odds[pair[0]] = pair[1]
+      }
     }
-    return odds.home || odds.draw || odds.away ? odds : null
+    apply(d1, (r) => {
+      if (r.outcome === 'HOME') return ['home', r.decimal_odds]
+      if (r.outcome === 'DRAW') return ['draw', r.decimal_odds]
+      if (r.outcome === 'AWAY') return ['away', r.decimal_odds]
+      return null
+    })
+    apply(d5, (r) => {
+      const out = String(r.outcome || '').toUpperCase()
+      if (out === 'OVER') return ['over25', r.decimal_odds]
+      if (out === 'UNDER') return ['under25', r.decimal_odds]
+      return null
+    })
+    apply(d6, (r) => {
+      const out = String(r.outcome || '').toUpperCase()
+      if (out === 'YES') return ['btts_yes', r.decimal_odds]
+      if (out === 'NO') return ['btts_no', r.decimal_odds]
+      return null
+    })
+    return odds.home || odds.draw || odds.away || odds.over25 || odds.under25 || odds.btts_yes || odds.btts_no
+      ? odds
+      : null
   }
 
   async fetchUpcomingEvents() {
@@ -408,21 +435,50 @@ class BsdService {
     const bestHome = oddsData?.home || null
     const bestDraw = oddsData?.draw || null
     const bestAway = oddsData?.away || null
+    const bestOver = oddsData?.over25 || null
+    const bestUnder = oddsData?.under25 || null
+    const bestBttsYes = oddsData?.btts_yes || null
+    const bestBttsNo = oddsData?.btts_no || null
 
-    if (bestHome || bestDraw || bestAway) {
+    if (bestHome || bestDraw || bestAway || bestOver || bestUnder || bestBttsYes || bestBttsNo) {
       try {
         database.db
           ?.prepare(
             `
-          UPDATE matches SET odds_home = ?, odds_draw = ?, odds_away = ?, insufficient_data = 0
+          UPDATE matches SET
+            odds_home = COALESCE(?, odds_home),
+            odds_draw = COALESCE(?, odds_draw),
+            odds_away = COALESCE(?, odds_away),
+            odds_over25 = COALESCE(?, odds_over25),
+            odds_under25 = COALESCE(?, odds_under25),
+            odds_btts_yes = COALESCE(?, odds_btts_yes),
+            odds_btts_no = COALESCE(?, odds_btts_no),
+            insufficient_data = 0
           WHERE id = ?
         `
           )
-          .run(bestHome, bestDraw, bestAway, matchId)
+          .run(
+            bestHome,
+            bestDraw,
+            bestAway,
+            bestOver,
+            bestUnder,
+            bestBttsYes,
+            bestBttsNo,
+            matchId
+          )
       } catch (_) {}
     }
 
-    return { home: bestHome, draw: bestDraw, away: bestAway }
+    return {
+      home: bestHome,
+      draw: bestDraw,
+      away: bestAway,
+      over25: bestOver,
+      under25: bestUnder,
+      btts_yes: bestBttsYes,
+      btts_no: bestBttsNo,
+    }
   }
 
   async _backfillLeagueNames() {
@@ -576,19 +632,36 @@ class BsdService {
       try {
         const oddsData = await this.fetchOdds(m.bsd_match_id)
         if (!oddsData) continue
-        const bsdHome = oddsData?.odds?.home_win || null
-        const bsdDraw = oddsData?.odds?.draw || null
-        const bsdAway = oddsData?.odds?.away_win || null
-        if (bsdHome || bsdDraw || bsdAway) {
+        const bsdHome = oddsData?.home || null
+        const bsdDraw = oddsData?.draw || null
+        const bsdAway = oddsData?.away || null
+        const bsdOver = oddsData?.over25 || null
+        const bsdUnder = oddsData?.under25 || null
+        const bsdBttsYes = oddsData?.btts_yes || null
+        const bsdBttsNo = oddsData?.btts_no || null
+        if (bsdHome || bsdDraw || bsdAway || bsdOver || bsdUnder || bsdBttsYes || bsdBttsNo) {
           db.prepare(
             `
             UPDATE matches SET
               best_odds_home = MAX(COALESCE(best_odds_home, 0), COALESCE(?, 0)),
               best_odds_draw = MAX(COALESCE(best_odds_draw, 0), COALESCE(?, 0)),
-              best_odds_away = MAX(COALESCE(best_odds_away, 0), COALESCE(?, 0))
+              best_odds_away = MAX(COALESCE(best_odds_away, 0), COALESCE(?, 0)),
+              odds_over25 = COALESCE(?, odds_over25),
+              odds_under25 = COALESCE(?, odds_under25),
+              odds_btts_yes = COALESCE(?, odds_btts_yes),
+              odds_btts_no = COALESCE(?, odds_btts_no)
             WHERE id = ?
           `
-          ).run(bsdHome || 0, bsdDraw || 0, bsdAway || 0, m.id)
+          ).run(
+            bsdHome || 0,
+            bsdDraw || 0,
+            bsdAway || 0,
+            bsdOver,
+            bsdUnder,
+            bsdBttsYes,
+            bsdBttsNo,
+            m.id
+          )
           count++
         }
       } catch (_) {}

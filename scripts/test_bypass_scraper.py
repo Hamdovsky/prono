@@ -170,6 +170,22 @@ def test_league_slug_mapping_country_aware():
     assert b._league_to_betexplorer_slug('Ligue 1', 'Tunisia') == '/football/tunisia/ligue-professionnelle-1/'
 
 
+def test_alternative_slugs_ordering():
+    # Pays explicite d'abord, puis défaut (Angleterre), puis les autres pays-aware.
+    slugs = b._alternative_slugs('Premier League', 'Tanzania')
+    assert slugs[0] == '/football/tanzania/premier-league/'
+    assert '/football/england/premier-league/' in slugs
+    # Sans pays : défaut en premier, puis les pays-aware.
+    slugs2 = b._alternative_slugs('Premier League')
+    assert slugs2[0] == '/football/england/premier-league/'
+    assert '/football/belarus/premier-league/' in slugs2
+    assert '/football/azerbaijan/premier-league/' in slugs2
+    assert len(slugs2) == len(set(slugs2))
+    assert b._alternative_slugs('Bundesliga', 'Austria')[0] == '/football/austria/bundesliga/'
+    assert b._alternative_slugs(None) == []
+    assert b._alternative_slugs('Federal A') == []
+
+
 def test_teams_match():
     assert b._teams_match('Manchester City', 'Man City')
     assert b._teams_match('Arsenal', 'Arsenal')

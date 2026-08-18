@@ -46,6 +46,39 @@ def _get_elo(fd: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     return res.df, res.provenance
 
 
+def _completeness(df: pd.DataFrame) -> dict:
+    """Suivi de complétude par source/ligue pour data/state.json."""
+    stats: dict = {"master_rows": int(len(df)), "leagues": {}}
+    if "league" in df.columns:
+        counts = df["league"].value_counts()
+        stats["leagues"] = {
+            str(k): int(v) for k, v in counts.head(30).items()
+        }
+    # Cotes réelles des affiches à venir (football-data fixtures CSV).
+    from sources.football_data import FIXTURES_CSV
+
+    if FIXTURES_CSV.exists():
+        try:
+            fx = pd.read_csv(FIXTURES_CSV)
+            odds_cols = ["odds_h_avg", "odds_d_avg", "odds_a_avg"]
+            n_odds = (
+                int(fx[odds_cols].notna().all(axis=1).sum())
+                if all(c in fx.columns for c in odds_cols)
+                else 0
+            )
+            stats["odds"] = {"fixtures": int(len(fx)), "with_odds": n_odds}
+        except Exception as e:  # pragma: no cover - CSV mal formé
+            log.warning("Complétude cotes impossible : %s", e)
+            stats["odds"] = {"fixtures": 0, "with_odds": 0}
+    # Couverture cotes du master (historique).
+    if {"odds_h_avg", "odds_d_avg", "odds_a_avg"}.issubset(df.columns):
+        stats["master_odds_coverage"] = round(
+            float(df[["odds_h_avg", "odds_d_avg", "odds_a_avg"]].notna().all(axis=1).mean()),
+            4,
+        )
+    return stats
+
+
 def _rebuild(fd, elo, adv) -> pd.DataFrame:
     elo_hist, elo_source = elo
     mapper = TeamMapper()
@@ -67,6 +100,7 @@ def run_daily(force: bool = False) -> pd.DataFrame:
         "daily_last_run": datetime.now(timezone.utc).isoformat(),
         "last_build": datetime.now(timezone.utc).isoformat(),
         "elo_source": elo[1],
+        "completeness": _completeness(df),
     })
     log.info("=== Tâche quotidienne terminée : %d matchs (Elo source=%s) ===", len(df), elo[1])
     return df
@@ -83,6 +117,7 @@ def run_fbref(force: bool = False) -> pd.DataFrame:
         "fbref_last_run": datetime.now(timezone.utc).isoformat(),
         "last_build": datetime.now(timezone.utc).isoformat(),
         "elo_source": elo[1],
+        "completeness": _completeness(df),
     })
     log.info("=== Tâche stats avancées terminée : %d matchs (Elo source=%s) ===", len(df), elo[1])
     return df

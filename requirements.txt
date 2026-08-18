@@ -41,5 +41,9 @@ penaltyblog>=1.11.0
 # --- Web Scraping (scripts/) ---
 beautifulsoup4>=4.12.0
 
+# --- TLS Bypass / Anti-bot (scripts/bypass_scraper.py, services/oddsFusionEngine.py) ---
+curl_cffi>=0.7.0
+cloudscraper>=1.2.71
+
 # --- Database (inference/) ---
 psycopg2-binary>=2.9.0

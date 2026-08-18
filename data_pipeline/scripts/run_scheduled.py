@@ -47,6 +47,23 @@ def _fbref_due(state: dict) -> bool:
     return age_days >= FBREF_RUN_INTERVAL_DAYS
 
 
+def _alert_degraded() -> None:
+    """Alerte Telegram (best-effort) si une source du pipeline est dégradée."""
+    from notify import notify
+
+    state = _state()
+    msgs = []
+    if state.get("elo_source") == "local":
+        msgs.append("Elo en repli LOCAL (API ClubElo injoignable) : ratings non officiels.")
+    fbref = state.get("sources", {}).get("fbref", {})
+    if fbref.get("provenance") == "understat":
+        msgs.append("xG en repli Understat (FBref 403).")
+    if not state.get("sources", {}).get("football_data", {}).get("rows"):
+        msgs.append("Football-Data : aucun match récolté.")
+    if msgs:
+        notify("[PRONO-PIPELINE] " + " ".join(msgs))
+
+
 def run_scheduled(force: bool = False, run_pg: bool = False, pg_dry_run: bool = False,
                   no_backup: bool = False, run_bases: bool = False) -> None:
     state = _state()
@@ -64,6 +81,8 @@ def run_scheduled(force: bool = False, run_pg: bool = False, pg_dry_run: bool = 
     else:
         log.info("Stats avancées pas encore dues (dernier run : %s).",
                  state.get("fbref_last_run"))
+
+    _alert_degraded()
 
     if run_pg or pg_dry_run:
         from build.pg_export import export

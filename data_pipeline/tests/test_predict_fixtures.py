@@ -5,7 +5,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from predict_fixtures import _asof, implied_probs, load_fixtures_auto, parse_date
+from predict_fixtures import (
+    _asof,
+    implied_probs,
+    load_fixtures_auto,
+    load_football_data_odds,
+    merge_odds,
+    parse_date,
+)
 
 
 def test_parse_date_iso() -> None:
@@ -77,3 +84,59 @@ def test_load_fixtures_auto_filtre_affiches_futures(monkeypatch) -> None:
     assert len(out) == 1
     assert out.iloc[0]["home_team"] == "Arsenal"
     assert out.iloc[0]["league"] == "ENG-Premier League"
+
+
+def test_load_football_data_odds_absent(tmp_path) -> None:
+    out = load_football_data_odds(tmp_path / "inexistant.csv")
+    assert out.empty
+
+
+def test_load_football_data_odds_filtre(tmp_path) -> None:
+    p = tmp_path / "fixtures.csv"
+    p.write_text(
+        "date,home_team,away_team,odds_h_avg,odds_d_avg,odds_a_avg\n"
+        "19/08/2026,Atl. Madrid,Malaga,1.3,5.25,10.19\n"
+        "pas-une-date,Team A,Team B,2.0,3.0,4.0\n",
+        encoding="utf-8",
+    )
+    out = load_football_data_odds(p)
+    assert len(out) == 1
+    assert out.iloc[0]["home_team"] == "Atl. Madrid"
+    assert out.iloc[0]["odds_h_avg"] == pytest.approx(1.3)
+
+
+def test_merge_odds_alignement_par_equipe(tmp_path, monkeypatch) -> None:
+    import predict_fixtures as pf
+
+    p = tmp_path / "fixtures.csv"
+    p.write_text(
+        "date,home_team,away_team,odds_h_avg,odds_d_avg,odds_a_avg\n"
+        "2026-08-21,Arsenal,Coventry City,1.5,4.0,6.0\n",
+        encoding="utf-8",
+    )
+    odds = load_football_data_odds(p)
+    fixtures = pd.DataFrame({
+        "date": pd.to_datetime(["2026-08-21", "2026-08-22"]),
+        "home_team": ["Arsenal", "Chelsea"],
+        "away_team": ["Coventry City", "Man City"],
+        "league": ["ENG-Premier League", "ENG-Premier League"],
+    })
+    merged = merge_odds(fixtures, odds)
+
+    # Affiche couverte : cotes réelles.
+    assert merged.loc[0, "odds_h_avg"] == pytest.approx(1.5)
+    # Affiche non couverte : NaN conservé.
+    assert pd.isna(merged.loc[1, "odds_h_avg"])
+    assert pd.isna(merged.loc[1, "odds_a_avg"])
+
+
+def test_merge_odds_vide_garde_nan(tmp_path) -> None:
+    fixtures = pd.DataFrame({
+        "date": pd.to_datetime(["2026-08-21"]),
+        "home_team": ["Arsenal"],
+        "away_team": ["Coventry City"],
+        "league": ["ENG-Premier League"],
+    })
+    merged = merge_odds(fixtures, pd.DataFrame())
+    assert pd.isna(merged.loc[0, "odds_h_avg"])
+    assert "odds_d_avg" in merged.columns

@@ -40,6 +40,11 @@ from team_mapping import TeamMapper  # noqa: E402
 REPORTS_DIR = ROOT / "data" / "processed" / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Cotes réelles des matchs à venir (football-data.co.uk/fixtures.csv), écrites
+# par sources/football_data.py:fetch_fixtures() lors du quotidien.
+FOOTBALL_DATA_ODDS_CSV = ROOT / "data" / "raw" / "football_data_fixtures.csv"
+ODDS_COLS = ("odds_h_avg", "odds_d_avg", "odds_a_avg")
+
 # Features roulantes "nues" (sans préfixe H_/A_) par équipe
 BARE_FEATS = [f"{m}_L{w}" for m in BASIC_ROLLING + ADV_ROLLING for w in (5, 10)]
 # Correspondance clé pipeline <-> nom soccerdata/Understat
@@ -99,6 +104,59 @@ def load_fixtures_auto() -> pd.DataFrame:
     df = pd.concat(out, ignore_index=True)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     return df
+
+
+def load_football_data_odds(path: Path | None = None) -> pd.DataFrame:
+    """Cotes 1X2 réelles des affiches à venir (football-data fixtures CSV).
+
+    Retourne un DataFrame (date, home_team, away_team, odds_h_avg,
+    odds_d_avg, odds_a_avg) aligné sur la journée calendaire, vide si le
+    fichier est absent ou sans cotes exploitables.
+    """
+    path = path or FOOTBALL_DATA_ODDS_CSV
+    if not path.exists():
+        return pd.DataFrame()
+    df = pd.read_csv(path)
+    if not all(c in df.columns for c in ("date", "home_team", "away_team") + ODDS_COLS):
+        return pd.DataFrame()
+    df = df[["date", "home_team", "away_team"] + list(ODDS_COLS)].copy()
+    df["date"] = df["date"].map(parse_date)
+    df = df.dropna(subset=["date"])
+    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.tz_localize(None).dt.floor("D")
+    df = df[df[list(ODDS_COLS)].notna().all(axis=1)]
+    return df.drop_duplicates(subset=["date", "home_team", "away_team"], keep="first")
+
+
+def merge_odds(fixtures: pd.DataFrame, odds: pd.DataFrame) -> pd.DataFrame:
+    """Fusionne les cotes réelles sur les affiches auto (mode --auto).
+
+    Alignement sur (date, équipe domicile, équipe extérieure) via le TeamMapper,
+    exactement la même normalisation que build_fixture_features. Les affiches
+    sans cotes gardent des NaN : le modèle XGBoost les gère en features manquantes.
+    """
+    if odds is None or odds.empty:
+        out = fixtures.copy()
+        for col in ODDS_COLS:
+            out[col] = float("nan")
+        return out
+
+    mapper = TeamMapper()
+    fx = fixtures.copy()
+    fx["date"] = pd.to_datetime(fx["date"], errors="coerce").dt.tz_localize(None).dt.floor("D")
+    fx["_home_m"] = fx["home_team"].map(mapper.map)
+    fx["_away_m"] = fx["away_team"].map(mapper.map)
+
+    od = odds.copy()
+    od["_home_m"] = od["home_team"].map(mapper.map)
+    od["_away_m"] = od["away_team"].map(mapper.map)
+
+    merged = fx.merge(
+        od[["date", "_home_m", "_away_m"] + list(ODDS_COLS)],
+        on=["date", "_home_m", "_away_m"],
+        how="left",
+    )
+    merged = merged.drop(columns=["_home_m", "_away_m"])
+    return merged
 
 
 def build_team_form(master: pd.DataFrame) -> dict:
@@ -202,13 +260,29 @@ def main() -> None:
         print("[predict] Aucune affiche future dans les fixtures fournies.")
         return
 
-    has_odds = all(c in fixtures.columns for c in ("odds_h_avg", "odds_d_avg", "odds_a_avg"))
-    n_odds = int(fixtures[["odds_h_avg", "odds_d_avg", "odds_a_avg"]].notna().all(axis=1).sum()) if has_odds else 0
-    use_odds = has_odds and n_odds == len(fixtures)
+    # Mode --auto : fusionne les cotes réelles football-data (best-effort) pour
+    # activer les features cotes et la détection de valeur sur les affiches couvertes.
+    if args.fixtures is None:
+        odds = load_football_data_odds()
+        if not odds.empty:
+            before = len(fixtures)
+            fixtures = merge_odds(fixtures, odds)
+            n_merged = int(fixtures[list(ODDS_COLS)].notna().all(axis=1).sum())
+            print(f"[predict] Cotes football-data fusionnées : {n_merged}/{before} affiches")
+
+    has_odds = all(c in fixtures.columns for c in ODDS_COLS)
+    n_odds = int(fixtures[list(ODDS_COLS)].notna().all(axis=1).sum()) if has_odds else 0
+    # Le modèle garde les features cotes dès qu'au moins une affiche en a ; les
+    # autres reçoivent NaN (géré par XGBoost). La valeur n'est calculée que là où
+    # des cotes existent.
+    use_odds = has_odds and n_odds > 0
     if not has_odds:
         print("[predict] Pas de cotes fournies : prédiction sans features cotes.")
-    elif not use_odds:
-        print(f"[predict] Cotes partielles ({n_odds}/{len(fixtures)}) : prédiction sans features cotes.")
+    elif n_odds < len(fixtures):
+        print(
+            f"[predict] Cotes partielles ({n_odds}/{len(fixtures)}) : features cotes actives, "
+            f"valeur calculée uniquement sur les affiches avec cotes."
+        )
 
     print(f"[predict] {len(fixtures)} affiches (mode={args.mode}, odds={use_odds})")
 

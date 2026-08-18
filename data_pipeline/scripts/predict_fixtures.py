@@ -11,8 +11,7 @@ Sources de fixtures :
   --fixtures fichier.csv  : CSV manuel (date, league, home_team, away_team,
                             [odds_h_avg, odds_d_avg, odds_a_avg]) ;
   --auto (défaut)         : affiches à venir de la saison en cours via
-                            Understat (soccerdata) — vide tant que la saison
-                            n'est pas publiée.
+                            Sofascore (soccerdata), repli Understat.
 
 Usage :
     python scripts/predict_fixtures.py [--auto | --fixtures affiches.csv]
@@ -32,7 +31,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from config import LEAGUES, MASTER_CSV, SOCCERDATA_CACHE  # noqa: E402
+from config import LEAGUES, MASTER_CSV  # noqa: E402
+from sources.fbref import fetch_schedule  # noqa: E402
 from ml_mapper import BASIC_ROLLING, ADV_ROLLING, ODDS_FEATURES, feature_names, prepare  # noqa: E402
 from backtest import CLASS_LABELS, calibrate_model  # noqa: E402
 from team_mapping import TeamMapper  # noqa: E402
@@ -80,20 +80,18 @@ def load_fixtures_csv(path: Path) -> pd.DataFrame:
     return raw
 
 
-def load_fixtures_understat() -> pd.DataFrame:
-    import soccerdata as sd
-
+def load_fixtures_auto() -> pd.DataFrame:
+    """Fixtures saison en cours via Sofascore (repli Understat)."""
     out = []
     for key, cfg in LEAGUES.items():
-        us = sd.Understat(leagues=cfg["name"], seasons=[2026], data_dir=SOCCERDATA_CACHE)
-        sched = us.read_schedule()
+        sched = fetch_schedule(leagues={key: cfg})
         if sched is None or sched.empty:
             continue
-        sched = sched.reset_index()
-        if "is_result" not in sched.columns or "date" not in sched.columns:
-            continue
-        sched = sched[(sched["is_result"] == False)]  # noqa: E712
-        sched = sched[["date", "home_team", "away_team"]].copy()
+        sched = sched[sched["date"].notna() & sched["home_team"].ne("") & sched["away_team"].ne("")]
+        if "home_score" in sched.columns:
+            sched = sched[sched["home_score"].isna()]
+        cols = [c for c in ("date", "home_team", "away_team") if c in sched.columns]
+        sched = sched[cols].copy()
         sched["league"] = cfg["name"]
         out.append(sched)
     if not out:
@@ -183,21 +181,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Prédiction 1X2 des matchs à venir")
     parser.add_argument("--fixtures", type=Path, default=None,
                         help="CSV manuel : date, league, home_team, away_team [, odds_h_avg, odds_d_avg, odds_a_avg]")
-    parser.add_argument("--auto", action="store_true", help="Affiches à venir via Understat (défaut si pas de --fixtures)")
+    parser.add_argument("--auto", action="store_true", help="Affiches à venir via Sofascore (défaut si pas de --fixtures)")
     parser.add_argument("--mode", choices=["full", "basic"], default="full")
     args = parser.parse_args()
 
     if args.fixtures is not None:
         fixtures = load_fixtures_csv(args.fixtures)
     else:
-        fixtures = load_fixtures_understat()
+        fixtures = load_fixtures_auto()
 
     if fixtures.empty:
-        print("[predict] Aucune affiche à prédire (saison 2627 pas encore publiée).")
+        print("[predict] Aucune affiche à prédire (saison en cours non publiée).")
         print("[predict] Fournissez un CSV avec --fixtures (date, league, home_team, away_team [, cotes]).")
         return
 
-    fixtures["date"] = pd.to_datetime(fixtures["date"], errors="coerce")
+    fixtures["date"] = pd.to_datetime(fixtures["date"], errors="coerce").dt.tz_localize(None).dt.floor("D")
     fixtures = fixtures.dropna(subset=["date"])
     fixtures = fixtures[fixtures["date"] >= pd.Timestamp.now().normalize()]
     if fixtures.empty:

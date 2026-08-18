@@ -95,3 +95,85 @@ def test_fetch_fbref_gardele_provider(monkeypatch, tmp_path) -> None:
     assert len(out) == 1
     assert fbref._read_stats_source() == "fbref"
     assert "home_xa" in out.columns
+
+
+def _schedule_sofascore() -> pd.DataFrame:
+    """Calendrier 26-27 façon soccerdata Sofascore (résultats + affiches)."""
+    return pd.DataFrame({
+        "round": [1, 1, 1, 1],
+        "week": [1, 1, 1, 1],
+        "date": pd.to_datetime(["2026-08-21", "2026-08-22", "2026-08-15", "2026-08-16"]),
+        "home_team": ["Arsenal", "Brentford", "Chelsea", "Liverpool"],
+        "away_team": ["Coventry City", "Tottenham Hotspur", "Man City", "Newcastle"],
+        "home_score": [float("nan"), float("nan"), 2, 0],
+        "away_score": [float("nan"), float("nan"), 1, 1],
+        "game_id": [1, 2, 3, 4],
+    })
+
+
+def test_normalize_schedule_garde_fixtures() -> None:
+    out = fbref._normalize_schedule(_schedule_sofascore())
+    assert len(out) == 4
+    assert list(out.columns) == ["date", "home_team", "away_team", "home_score", "away_score"]
+    assert out["home_score"].isna().sum() == 2
+    assert out["date"].dt.tz is None
+
+
+def test_normalize_schedule_colonnes_manquantes() -> None:
+    df = pd.DataFrame({"date": ["2026-08-21"], "home_team": ["Arsenal"]})
+    assert fbref._normalize_schedule(df).empty
+
+
+def test_normalize_schedule_deduplique() -> None:
+    df = _schedule_sofascore()
+    df = pd.concat([df, df.iloc[[0]]], ignore_index=True)
+    out = fbref._normalize_schedule(df)
+    assert len(out) == 4
+
+
+def test_try_sofascore_schedule_echec_retourne_none(monkeypatch) -> None:
+    class _Fake:
+        def __init__(self, **kwargs):
+            pass
+
+        def read_schedule(self, force_cache=False):
+            raise RuntimeError("network down")
+
+    monkeypatch.setattr(fbref.sd, "Sofascore", _Fake)
+    assert fbref._try_sofascore_schedule(["ENG-Premier League"], [2026], fbref.RateLimiter(0.0), False) is None
+
+
+def test_fetch_schedule_sofascore_prioritaire(monkeypatch) -> None:
+    def _fake(names, seasons, limiter, force):
+        return _schedule_sofascore()
+
+    monkeypatch.setattr(fbref, "_try_sofascore_schedule", _fake)
+    monkeypatch.setattr(fbref, "_try_understat_schedule", lambda *a, **k: None)
+    monkeypatch.setattr(fbref, "_patch_understat_rosters", lambda: None)
+
+    out = fbref.fetch_schedule()
+    assert len(out) == 4
+    assert "home_score" in out.columns
+
+
+def test_fetch_schedule_repli_understat(monkeypatch) -> None:
+    monkeypatch.setattr(fbref, "_try_sofascore_schedule", lambda *a, **k: None)
+    monkeypatch.setattr(fbref, "_patch_understat_rosters", lambda: None)
+
+    def _fake(names, seasons, limiter, force):
+        df = _schedule_sofascore().copy()
+        return df[["date", "home_team", "away_team", "home_score", "away_score"]]
+
+    monkeypatch.setattr(fbref, "_try_understat_schedule", _fake)
+    out = fbref.fetch_schedule()
+    assert len(out) == 4
+
+
+def test_soccerdata_current_season(monkeypatch) -> None:
+    from datetime import datetime
+    from config import current_season_years, soccerdata_current_season
+
+    monkeypatch.setattr("config.datetime", datetime)
+    start, _ = current_season_years(datetime(2026, 8, 18))
+    assert start == 2026
+    assert soccerdata_current_season() == [2026]

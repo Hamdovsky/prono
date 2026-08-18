@@ -21,6 +21,7 @@ DATA_DIR = PACKAGE_DIR / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 SOCCERDATA_CACHE = DATA_DIR / "soccerdata_cache"
+SOFASCORE_CACHE = SOCCERDATA_CACHE / "Sofascore"
 FOOTBALL_DATA_DIR = RAW_DIR / "football_data"
 CLUBELO_DIR = RAW_DIR / "clubelo"
 
@@ -72,3 +73,9 @@ def soccerdata_seasons() -> list[int]:
     """
     start, _ = current_season_years()
     return list(range(start - HISTORICAL_SEASONS, start + 1))
+
+
+def soccerdata_current_season() -> list[int]:
+    """Année de début de la saison en cours côté soccerdata (ex. [2026] = 2627)."""
+    start, _ = current_season_years()
+    return [start]

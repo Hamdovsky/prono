@@ -14,6 +14,11 @@ Le xA est TOUJOURS issu d'Understat (FBref n'expose pas le xA équipe dans ses
 matchlogs) : dans le chemin FBref, il est fusionné depuis le cache
 advanced_stats.csv produit par les runs Understat précédents.
 
+Fixtures saison en cours : Sofascore (via soccerdata) fournit le calendrier
+26-27 alors qu'Understat ne l'a pas encore publié. La chaîne des fixtures est :
+Sofascore d'abord, puis Understat (Sofascore expose home_score/away_score NaN
+pour les affiches à venir).
+
 Le débit est limité à ~15-20 requêtes/min (intervalle 3,5 s) conformément à la
 spécification.
 """
@@ -27,7 +32,7 @@ import pandas as pd
 import soccerdata as sd
 
 from .base import BaseSource, KIND_ADVANCED
-from config import ADVANCED_CSV, FBREF_INTERVAL_SECONDS, LEAGUES, RAW_DIR, SOCCERDATA_CACHE, soccerdata_seasons
+from config import ADVANCED_CSV, FBREF_INTERVAL_SECONDS, LEAGUES, RAW_DIR, SOCCERDATA_CACHE, SOFASCORE_CACHE, soccerdata_current_season, soccerdata_seasons
 from util import RateLimiter, get_logger
 
 log = get_logger("fbref")
@@ -201,6 +206,105 @@ def _fetch_understat(names: list[str], seasons: list[int], limiter: RateLimiter,
     base = base[base["date"].notna() & base["home_team"].ne("") & base["away_team"].ne("")]
     base = base.drop_duplicates(["date", "home_team", "away_team"])
     return base
+
+
+def _try_sofascore_schedule(names: list[str], seasons: list[int], limiter: RateLimiter,
+                            force: bool) -> pd.DataFrame | None:
+    """Fixtures + résultats via Sofascore (soccerdata).
+
+    Sofascore est la seule source soccerdata qui publie le calendrier de la
+    saison en cours dans cet environnement (Understat retarde la publication).
+    Les affiches à venir ont home_score/away_score NaN.
+    """
+    limiter.wait()
+    try:
+        sc = sd.Sofascore(leagues=names, seasons=seasons, data_dir=SOFASCORE_CACHE)
+        sched = sc.read_schedule(force_cache=force)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Sofascore : échec read_schedule (%s)", exc)
+        return None
+    if sched is None or sched.empty:
+        log.warning("Sofascore : aucun calendrier reçu")
+        return None
+    base = _normalize_schedule(sched)
+    if base.empty:
+        log.warning("Sofascore : calendrier inexploitable")
+        return None
+    log.info("Sofascore : %d matchs de calendrier normalisés", len(base))
+    return base
+
+
+def _try_understat_schedule(names: list[str], seasons: list[int], limiter: RateLimiter,
+                            force: bool) -> pd.DataFrame | None:
+    """Repli fixtures via Understat (soccerdata) si Sofascore échoue."""
+    limiter.wait()
+    try:
+        us = sd.Understat(leagues=names, seasons=seasons, data_dir=SOCCERDATA_CACHE)
+        sched = us.read_schedule(force_cache=force)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Understat : échec read_schedule (%s)", exc)
+        return None
+    if sched is None or sched.empty:
+        log.warning("Understat : aucun calendrier reçu")
+        return None
+    base = _normalize_schedule(sched)
+    if base.empty:
+        log.warning("Understat : calendrier inexploitable")
+        return None
+    log.info("Understat : %d matchs de calendrier normalisés", len(base))
+    return base
+
+
+def _normalize_schedule(sched: pd.DataFrame) -> pd.DataFrame:
+    """Colonnes homogènes date/home_team/away_team (+ scores si présents).
+
+    La distinction affiche à venir vs résultat repose sur home_score/away_score
+    (NaN = affiche à venir), équivalent à is_result==False.
+    """
+    df = sched.reset_index()
+    df = df.rename(columns={c: str(c).lower().replace(" ", "_") for c in df.columns})
+    keep = [c for c in ["date", "home_team", "away_team", "home_score", "away_score", "is_result"] if c in df.columns]
+    if not {"date", "home_team", "away_team"}.issubset(keep):
+        return pd.DataFrame()
+    out = df[keep].copy()
+    out["date"] = pd.to_datetime(out["date"], errors="coerce").dt.floor("D")
+    out["home_team"] = out["home_team"].fillna("").astype(str).str.strip()
+    out["away_team"] = out["away_team"].fillna("").astype(str).str.strip()
+    out = out[out["date"].notna() & out["home_team"].ne("") & out["away_team"].ne("")]
+    if "is_result" in out.columns:
+        out["is_result"] = out["is_result"].astype(bool)
+    return out.drop_duplicates(["date", "home_team", "away_team"])
+
+
+def fetch_schedule(leagues=None, seasons=None, limiter: RateLimiter | None = None,
+                   force: bool = False) -> pd.DataFrame:
+    """Calendrier (fixtures + résultats) des ligues/saisons demandées.
+
+    Chaîne : Sofascore d'abord (saison en cours publiée), puis Understat.
+    """
+    leagues = leagues or LEAGUES
+    seasons = seasons if seasons is not None else soccerdata_current_season()
+    limiter = limiter or RateLimiter()
+    names = [cfg["name"] for cfg in leagues.values()]
+
+    _patch_understat_rosters()
+
+    base = _try_sofascore_schedule(names, seasons, limiter, force)
+    provider = "sofascore"
+    if base is None or base.empty:
+        base = _try_understat_schedule(names, seasons, limiter, force)
+        provider = "understat"
+        log.info("Fixtures : repli Understat (%d matchs)", len(base) if base is not None else 0)
+    else:
+        log.info("Fixtures : Sofascore (%d matchs)", len(base))
+
+    if base is None or base.empty:
+        return pd.DataFrame()
+    base["date"] = pd.to_datetime(base["date"], errors="coerce").dt.floor("D")
+    base["home_team"] = base["home_team"].fillna("").astype(str).str.strip()
+    base["away_team"] = base["away_team"].fillna("").astype(str).str.strip()
+    base = base[base["date"].notna() & base["home_team"].ne("") & base["away_team"].ne("")]
+    return base.drop_duplicates(["date", "home_team", "away_team"])
 
 
 def fetch(leagues=None, seasons=None, limiter: RateLimiter | None = None, force: bool = False) -> pd.DataFrame:

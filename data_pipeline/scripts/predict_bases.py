@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from config import MASTER_CSV  # noqa: E402
 from ml_mapper import prepare  # noqa: E402
 from markets import MARKETS, build_classifier  # noqa: E402
-from predict_fixtures import build_fixture_features, load_fixtures_csv, load_fixtures_understat  # noqa: E402
+from predict_fixtures import build_fixture_features, load_fixtures_auto, load_fixtures_csv  # noqa: E402
 
 REPORTS_DIR = ROOT / "data" / "processed" / "reports"
 
@@ -148,14 +148,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Bases solides multi-marchés")
     parser.add_argument("--fixtures", type=Path, default=None,
                         help="CSV manuel : date, league, home_team, away_team [, cotes]")
-    parser.add_argument("--auto", action="store_true", help="Affiches à venir via Understat")
+    parser.add_argument("--auto", action="store_true", help="Affiches à venir via Sofascore")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
     if args.fixtures is not None:
         fixtures = load_fixtures_csv(args.fixtures)
     else:
-        fixtures = load_fixtures_understat()
+        fixtures = load_fixtures_auto()
 
     if fixtures.empty:
         print("[bases] Aucune affiche à prédire. Fournissez un CSV avec --fixtures.")

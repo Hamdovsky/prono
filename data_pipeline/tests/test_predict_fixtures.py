@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from predict_fixtures import _asof, implied_probs, parse_date
+from predict_fixtures import _asof, implied_probs, load_fixtures_auto, parse_date
 
 
 def test_parse_date_iso() -> None:
@@ -56,3 +56,24 @@ def test_implied_probs_normalisees() -> None:
     assert sum(out.values()) == pytest.approx(1.0)
     assert out["implied_h"] == pytest.approx(0.5, abs=1e-3)
     assert out["implied_a"] == pytest.approx(1 / 6, abs=1e-3)
+
+
+def test_load_fixtures_auto_filtre_affiches_futures(monkeypatch) -> None:
+    import predict_fixtures as pf
+
+    def _fake_fetch_schedule(leagues=None, seasons=None, limiter=None, force=False):
+        return pd.DataFrame({
+            "date": pd.to_datetime(["2026-08-21", "2026-08-15"]),
+            "home_team": ["Arsenal", "Chelsea"],
+            "away_team": ["Coventry City", "Man City"],
+            "home_score": [float("nan"), 2],
+            "away_score": [float("nan"), 1],
+        })
+
+    monkeypatch.setattr(pf, "fetch_schedule", _fake_fetch_schedule)
+    monkeypatch.setattr(pf, "LEAGUES", {"E0": {"name": "ENG-Premier League"}})
+
+    out = load_fixtures_auto()
+    assert len(out) == 1
+    assert out.iloc[0]["home_team"] == "Arsenal"
+    assert out.iloc[0]["league"] == "ENG-Premier League"

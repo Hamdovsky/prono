@@ -1308,6 +1308,11 @@ const database = {
         )
         data.originalPrediction = verdictPolicy.originalPrediction
         data.prediction = verdict
+        // Audit A0 : le fullData ci-dessus a été construit AVANT ce hook —
+        // réinjecter le verdict original (invariant set-if-absent).
+        if (!fullData.originalPrediction) {
+          fullData.originalPrediction = verdictPolicy.originalPrediction
+        }
       }
 
       // Extract scalar values to write into indexed SQLite columns

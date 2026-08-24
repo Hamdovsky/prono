@@ -539,6 +539,11 @@ return {
         )
         data.originalPrediction = verdictPolicy.originalPrediction
         data.prediction = verdict
+        // Audit A0 : le fullData ci-dessus a été construit AVANT ce hook —
+        // réinjecter le verdict original (invariant set-if-absent).
+        if (!fullData.originalPrediction) {
+          fullData.originalPrediction = verdictPolicy.originalPrediction
+        }
       }
 
       // Audit BT1 : dérivation + persistance du pick BTTS au temps T

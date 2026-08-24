@@ -722,3 +722,56 @@ l'outil d'édition, jamais par un pipeline shell de troncature.
 
 
 
+
+---
+
+## Phase 1 — Bridge football-data.co.uk (cotes bookmaker gratuites) — 2026-08-24
+
+### Contexte
+Gate honnêteté : 92 % des matchs à venir affichent « 🔮 est. modèle » (26/328 avec
+vraies cotes, source livescore). Sweep nocturne `[CRON] Odds sweep: 0/549` : cause
+racine `_tryFbref` (priorité 1) pendait **30 s timeout par match** avant d'atteindre
+les vraies sources — et fbref ne fournit aucune cote bookmaker (stats xG uniquement).
+
+### Changements
+1. `services/dataFusionService.js`
+   - **fbref retiré** de la chaîne odds (fini le pendeur 30 s/match).
+   - **Chaîne réduite aux sources gratuites réellement fonctionnelles** :
+     `sofascore` (dormant, kill-switch DISABLE_SOFASCORE) + `scrapeservice`
+     (BetExplorer via bypass) + **`footballdata`**. Les stubs d'APIs payantes
+     (polymarket, bsd, therundown, apifootball, oddspapi, sportmonks, oddsapiio)
+     brûlaient 5 erreurs + cooldown chacun par match sans jamais renvoyer de
+     cote → retirés de la chaîne ; `BOOKMAKER_SOURCES` = {footballdata}.
+   - **Nouveau bridge FD-Odds** : `_loadFootballData()` indexe les CSV locaux
+     `data_pipeline/data/raw/football_data_{fixtures,all}.csv` (refresh 07h00,
+     ~10 600 lignes historique + fixtures J-3→J) avec normalisation d'équipes
+     (accents + alias `team_aliases.json`), tolérance date ±1 j et inversion
+     home/away. `_tryFootballdata(match)` réel remplace le stub : renvoie
+     cotes 1X2 + O/U 2.5 (priorité Avg → B365 → PP/SkyBet), timestamps
+     secondes→ms corrigés.
+2. `services/accuracyEngine.js` — marché O/U alimenté par cotes archivées :
+   `pickOdds` gère `O2.5/U2.5` via colonnes `odds_over25/odds_under25`
+   (seuil 2.5 uniquement) ; records live/historiques enrichis.
+3. `__tests__/accuracyEngine.test.js` — schéma étendu + tests ROI O/U ;
+   suite **18/18 verte**.
+4. Tâche planifiée `Pronos-DataPipeline` réparée : passait l'argument fantôme
+   `--bases` (supprimé lors d'un refactor) → exit 1 quotidien à 07h00 malgré un
+   pipeline qui réussissait ; relancée manuellement (5 263 matchs, master OK),
+   arguments corrigés.
+
+### Métriques (sonde post-déploiement)
+- Enrichissement immédiat : **4/400 matchs à venir** (Fulham-Chelsea,
+  Osasuna-Levante, Bologna-Lazio, Roma-Fiorentina — tous avec O/U) —
+  football-data ne publie les cotes que J-3→J ; lookup total 0,1 s (CSV local).
+- Historique : 10 602 lignes indexées pour le rétro-ROI (roiEvFiltered,
+  avgOddsWinners/Losers, byMarket.OU).
+- Boot vérifié après cleanup : warnings sources mortes 24 → ~0.
+
+### Limites honnêtes
+- Couverture football-data = **Top-5 européens uniquement** ; une partie des
+  « ligues » DB est polluée par des noms génériques (« Premier League » =
+  Torpedo Zhodino/Biélorussie, « Serie A » = Botafogo/Brésil) qui ne matcheront
+  jamais — à corriger côté mapping de ligues si souhaité.
+- La couverture large hors Top-5 passe par la **Phase 2 SofascoreBypass**
+  (curl_cffi validé en live : search/team-events/event-odds 200, cotes au
+  format fractionnel à convertir decimal = 1 + num/den).

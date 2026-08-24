@@ -176,6 +176,15 @@ function combinedOdds(o1, o2) {
 
 function pickOdds(pick, odds) {
   if (!odds) return null
+  if (isOU(pick)) {
+    // Audit Phase 1 FD-Odds : cotes O/U archivées (colonnes odds_over25/25,
+    // alimentées par le bridge football-data). Seuil 2.5 uniquement.
+    const thr = parseFloat(pick.slice(1))
+    if (thr === 2.5) {
+      return pick[0] === 'O' ? validOdds(odds.over25) : validOdds(odds.under25)
+    }
+    return null
+  }
   if (isBTTS(pick)) {
     // Audit BT2 : cotes BTTS archivées (colonnes odds_btts_yes/no, rares)
     if (pick === 'BTTSYES') return validOdds(odds.bttsYes)
@@ -247,6 +256,8 @@ function recordsFromMatches(r, options) {
     away: fd.odds_away ?? fd.away_odds ?? fd.odds?.away_win,
     bttsYes: fd.odds_btts_yes ?? fd.btts_yes_odds ?? fd.odds?.btts_yes,
     bttsNo: fd.odds_btts_no ?? fd.btts_no_odds ?? fd.odds?.btts_no,
+    over25: fd.odds_over25 ?? fd.odds?.over25,
+    under25: fd.odds_under25 ?? fd.odds?.under25,
   }
 
   const primary = buildRecord(
@@ -263,6 +274,8 @@ function recordsFromMatches(r, options) {
         home: validOdds(r.odds_home) != null ? r.odds_home : fdOdds.home,
         draw: validOdds(r.odds_draw) != null ? r.odds_draw : fdOdds.draw,
         away: validOdds(r.odds_away) != null ? r.odds_away : fdOdds.away,
+        over25: validOdds(r.odds_over25) != null ? r.odds_over25 : fdOdds.over25,
+        under25: validOdds(r.odds_under25) != null ? r.odds_under25 : fdOdds.under25,
       },
       kellyStakePct: r.kelly_stake != null ? Number(r.kelly_stake) : null,
       source: 'matches',
@@ -366,6 +379,8 @@ function recordsFromHistorical(r, options) {
         home: fd.odds_home ?? fd.home_odds ?? fd.odds?.home_win ?? null,
         draw: fd.odds_draw ?? fd.draw_odds ?? fd.odds?.draw ?? null,
         away: fd.odds_away ?? fd.away_odds ?? fd.odds?.away_win ?? null,
+        over25: fd.odds_over25 ?? fd.odds?.over25 ?? null,
+        under25: fd.odds_under25 ?? fd.odds?.under25 ?? null,
       },
       kellyStakePct: fd.kelly_stake != null ? Number(fd.kelly_stake) : null,
       source: 'historical_matches',

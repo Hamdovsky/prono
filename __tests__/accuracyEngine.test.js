@@ -24,6 +24,7 @@ function makeDb(rows) {
       odds_home REAL, odds_draw REAL, odds_away REAL, kelly_stake REAL,
       btts_prob REAL, btts_pick TEXT, btts_pick_prob REAL,
       odds_btts_yes REAL, odds_btts_no REAL,
+      odds_over25 REAL, odds_under25 REAL,
       timestamp TEXT, startTimestamp INTEGER
     );
     CREATE TABLE historical_matches (
@@ -38,11 +39,13 @@ function makeDb(rows) {
       home_win_probability, draw_probability, away_win_probability,
       odds_home, odds_draw, odds_away, kelly_stake,
       btts_prob, btts_pick, btts_pick_prob, odds_btts_yes, odds_btts_no,
+      odds_over25, odds_under25,
       timestamp, startTimestamp)
      VALUES (@id, @homeTeam, @awayTeam, @league, @scoreHome, @scoreAway, @status, @prediction, @confidence,
       @home_win_probability, @draw_probability, @away_win_probability,
       @odds_home, @odds_draw, @odds_away, @kelly_stake,
       @btts_prob, @btts_pick, @btts_pick_prob, @odds_btts_yes, @odds_btts_no,
+      @odds_over25, @odds_under25,
       @timestamp, @startTimestamp)`
   )
   const insH = db.prepare(
@@ -65,6 +68,8 @@ function makeDb(rows) {
       btts_pick_prob: r.btts_pick_prob ?? null,
       odds_btts_yes: r.odds_btts_yes ?? null,
       odds_btts_no: r.odds_btts_no ?? null,
+      odds_over25: r.odds_over25 ?? null,
+      odds_under25: r.odds_under25 ?? null,
       ...r,
     })
   }
@@ -477,5 +482,76 @@ describe('accuracyEngine — marché BTTS', () => {
     // 0-0 → BTTS YES incorrect
     expect(mk.BTTS.correct).toBe(0)
     expect(mk.BTTS.total).toBe(1)
+  })
+
+  test('historical_matches : btts_pick depuis fullData archivé (snapshot T)', () => {
+    const db = makeDb({
+      historical: [
+        {
+          id: 'h1', homeTeam: 'AA', awayTeam: 'BB', league: 'Liga',
+          scoreHome: 0, scoreAway: 0,
+          timestamp: new Date(TS.base).toISOString(),
+          archived_at: new Date(TS.base + 3600).toISOString(),
+          fullData: JSON.stringify({
+            prediction: 'X',
+            confidence: 60,
+            btts_pick: 'BTTS YES',
+            btts_prob: 66,
+          }),
+        },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    expect(res.summary.total).toBe(2)
+    const mk = Object.fromEntries(res.byMarket.map((m) => [m.market, m]))
+    // 0-0 → BTTS YES incorrect
+    expect(mk.BTTS.correct).toBe(0)
+    expect(mk.BTTS.total).toBe(1)
+  })
+
+  // ── Audit Phase 1 FD-Odds (2026-08-24) — marché O/U avec cotes réelles ──
+  test('ROI flat sur cotes O/U 2.5 archivées (bridge football-data)', () => {
+    const db = makeDb({
+      matches: [
+        {
+          id: 'm1', homeTeam: 'A', awayTeam: 'B', league: 'E0',
+          scoreHome: 3, scoreAway: 1, status: 'FT', prediction: 'O2.5', confidence: 70,
+          odds_over25: 1.85, odds_under25: 2.05,
+          timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+        {
+          id: 'm2', homeTeam: 'C', awayTeam: 'D', league: 'E0',
+          scoreHome: 3, scoreAway: 1, status: 'FT', prediction: 'U2.5', confidence: 70,
+          odds_over25: 1.85, odds_under25: 2.05,
+          timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    const ou = res.byMarket.find((m) => m.market === 'OU')
+    expect(ou.roiBets).toBe(2)
+    // m1 O gagné @1.85 (+0.85), m2 U perdu (-1) → net -0.15 / 2 misés
+    expect(ou.flatRoi).toBe(-7.5)
+    expect(res.byMarket.find((m) => m.market === 'OU').avgOddsWinners).toBe(1.85)
+    // Le marché OU alimente aussi le résumé ROI global
+    expect(res.summary.roiBets).toBe(2)
+  })
+
+  test('pickOdds O/U : seuils autres que 2.5 restent exclus du ROI', () => {
+    const db = makeDb({
+      matches: [
+        {
+          id: 'm1', homeTeam: 'A', awayTeam: 'B', league: 'E0',
+          scoreHome: 2, scoreAway: 2, status: 'FT', prediction: 'O3.5', confidence: 60,
+          odds_over25: 1.9, odds_under25: 2.0,
+          timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    // évalué pour l'accuracy mais sans pari possible (pas de cote O3.5 archivée)
+    expect(res.summary.evaluated).toBe(1)
+    expect(res.summary.roiBets).toBe(0)
+    expect(res.summary.oddsMissingByMarket.OU).toBe(1)
   })
 })

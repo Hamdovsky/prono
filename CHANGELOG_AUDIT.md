@@ -956,3 +956,33 @@ identité. Jest 18/18. Stack relancée healthy, log live
 Effet assumé : confiances affichées et Top Picks recalculés sur probas brutes
 honnêtes — c'est la condition pour que les gardes reconstruisent des
 calibrations fiables quand les données propres suffiront (auto).
+
+---
+
+## Cohérence du gel (couche affichage) + mapping équipes complet — 2026-08-24
+
+### A. probabilityCalibrator gelé lui aussi
+Troisième et dernière couche : l'affichage Promosport/MegaTicket utilisait la
+courbe globale encore inversée (35 %->91.9 %). Fixes :
+- `PROBA_CALIB_IDENTITY=true` (défaut .env) -> identité ; réactivation par
+  `check_iso_gate.js --activate` qui réarme désormais les TROIS couches
+  (ISO_RUNTIME_APPLY, PROBA_CALIB_IDENTITY) après refit propre.
+- **Garde de santé permanente** dans loadCalibration : une courbe non-monotone
+  est ignorée (identité + warning) — plus jamais de fou non-monotone même si
+  un fichier de rapport se dégrade.
+Sonde : 35->35 / 75->75 / 85->85.
+
+### B. Mapping équipes : zéro orphelin, xG 80 % -> **99,7 %**
+Le pipeline journalier loguait des dizaines d'« équipe non mappée » (noms
+FBref + abréviations football-data.co.uk) -> features Elo/xG ratées pour ces
+clubs, V4/XGBoost dégradés. `team_aliases.json` enrichi :
+- +2 canoniques initiaux (Saint-Etienne, Hamburger SV) puis +12 clubs promus/
+  absents (Sunderland, Racing Santander, Deportivo La Coruna, Levante,
+  Real Oviedo, Real Valladolid, Pisa, St Pauli, Holstein Kiel, Le Havre,
+  Paris FC, Malaga) — référentiel : 130 canoniques.
+- Aliens abréviations vers existants : VfB Stuttgart/RasenBallsport Leipzig/
+  FC Cologne/FC Heidenheim/Parma Calcio 1913/Nott'm Forest/Ath Bilbao/
+  Ath Madrid/M'gladbach/Darmstadt/Ein Frankfurt/St Etienne/Santander/
+  Dep. A Coruna/Oviedo/Valladolid/Le Havre AC.
+Résultat pipeline : **0 équipe non mappée**, Elo 100 %, **xG couvert 99,7 %**
+(contre 80 % en début d'audit).

@@ -87,6 +87,19 @@ function activateIso() {
   fs.writeFileSync(envPath, env)
   console.log('[GATE] .env: ISO_SOURCE=accuracy_report')
 
+  // 1bis. Audit gel cascade : ré-armer l'application runtime APRÈS un refit
+  // sur données propres (sinon le gel ISO_RUNTIME_APPLY=false resterait).
+  try {
+    let env2 = fs.readFileSync(envPath, 'utf8')
+    if (/^ISO_RUNTIME_APPLY=.*/m.test(env2)) {
+      env2 = env2.replace(/^ISO_RUNTIME_APPLY=.*/m, 'ISO_RUNTIME_APPLY=true')
+    } else {
+      env2 += (env2.endsWith('\n') ? '' : '\n') + 'ISO_RUNTIME_APPLY=true\n'
+    }
+    fs.writeFileSync(envPath, env2)
+    console.log('[GATE] .env: ISO_RUNTIME_APPLY=true (application runtime réarmée)')
+  } catch (_) {}
+
   // 2. refit isotonique depuis les agrégats accuracyEngine
   try {
     const py = fs.existsSync(path.join(root, '.venv', 'Scripts', 'python.exe'))

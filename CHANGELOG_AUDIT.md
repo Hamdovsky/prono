@@ -915,3 +915,44 @@ Refactor associé : `check_iso_gate.js` et `check_market_gates.js` exportent
 leurs fonctions (`isoGate`, `gate1x2`, `gateBtts`, …) avec garde
 `require.main === module` — comportement CLI inchangé pour les tâches
 planifiées. Lecture seule : `status_audit.js` n'active jamais rien.
+
+---
+
+## Gel de la cascade de calibration — 2026-08-24
+
+### Diagnostic (audit précision complet)
+Les probabilités traversaient **3 correcteurs empilés entraînés sur l'ère
+contaminée** (pré-fix) :
+1. **Isotonique Python runtime** (`calibration_iso.isotonic_calibrate` via
+   `confidence_engine.py`) appliquée à CHAQUE prédiction. Preuve mesurée :
+   (0.55, 0.25, 0.20) -> **(0.32, 0.38, 0.30)** — distorsion massive allant
+   jusqu'à inverser le classement des issues !
+2. **`services/calibrator.js`** (Top Picks : filtre + EV + Kelly) — courbe PAVA
+   construite sur bets/historical contaminés : tout le DC effondré en paliers
+   (35 %->63.4 = 65 %->63.4), discrimination détruite.
+3. **probabilityCalibrator** (affichage Promosport) — bandes globales inversées
+   (35 %->91.9 %).
+(`ml_ensemble.py:646` déjà derrière ENABLE_ISO_CALIBRATION=0 — dormant.)
+
+### Fixes
+1. **Python** : `ISO_RUNTIME_APPLY=false` court-circuite `isotonic_calibrate`
+   (identité) — couvre aussi le fallback caché vers calibrate_probs v54.
+   Réactivation UNIQUEMENT par `check_iso_gate.js --activate` (refit propre,
+   qui réarme désormais ISO_RUNTIME_APPLY=true lui-même).
+2. **Node** : `MARKET_CALIB_IDENTITY=true` (défaut) -> identité tant que
+   <150 échantillons propres ; `buildCurve` filtrée définitivement sur
+   `h.timestamp >= cutoff-gel` (24/08T19hZ). Leçon validée en probe :
+   filtrer sur b.created_at était faux (pari récent -> prédiction ancienne) ;
+   AUTO-UNFREEZE intégré quand nClean >= 150. La contamination ne peut plus
+   revenir même en forçant le flag.
+
+### Validation
+Sondes : Python (0.55,0.25,0.20)->identité avec flag / distorsion sans ;
+Node DC75->75, DC55->55, « échantillon propre: 0/150 », flag-off toujours
+identité. Jest 18/18. Stack relancée healthy, log live
+« [CALIBRATOR] identité imposée ». Flags documentés dans .env.example
+(.env local modifié, non commité).
+
+Effet assumé : confiances affichées et Top Picks recalculés sur probas brutes
+honnêtes — c'est la condition pour que les gardes reconstruisent des
+calibrations fiables quand les données propres suffiront (auto).

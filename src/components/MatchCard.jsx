@@ -2,6 +2,12 @@ import React from 'react'
 import './MatchCard.css'
 import { DISABLE_BTTS_DISPLAY } from '../utils/displayPolicy'
 
+// Reconstruit (audit BT3-fix, 2026-08-24) : mapping complet des 13 cases
+// produites par computeRawLines (matchAnalysis.js), incluant winnerDc[10],
+// ouLines[11] (O/U multi-lignes) et cornersExact[12] — absents de la
+// version 159 lignes qui cassait les colonnes O/U LIGNES / BUT 1ER MT /
+// CORNERS du Dashboard. Masquage BTTS conservé (VITE_DISABLE_BTTS_DISPLAY).
+
 const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
@@ -12,10 +18,13 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
       btts: lines[3],
       ou: lines[4],
       winner: lines[5],
-      handicap: lines[6],
+      htGoal: lines[6],
       corners: lines[7],
       score: lines[8] && lines[8] !== '--' ? lines[8] : null,
       solid: lines[9] === '1',
+      winnerDc: lines[10],
+      ouLines: lines[11],
+      cornersExact: lines[12],
     }
   }
 
@@ -29,10 +38,36 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
     return parts.map((w, i) => (i === 0 ? w : w[0] + '.')).join(' ')
   }
 
-  const ouNum = parseFloat(d.ou)
-  const hasOu = Number.isFinite(ouNum) && ouNum > 0
-  const ouDir = hasOu && ouNum > 50 ? 'over' : 'under'
-  const ouPrec = hasOu ? Math.round(ouNum > 50 ? ouNum : 100 - ouNum) : 0
+  // ── O/U : priorité aux multi-lignes (OULINES "1.5:76|2.5:56|…") ──
+  const ouLines = (d.ouLines || '')
+    .split('|')
+    .map((chunk) => {
+      const [lineStr, pctStr] = chunk.split(':')
+      const line = parseFloat(lineStr)
+      const pct = parseFloat(pctStr)
+      if (!Number.isFinite(line) || !Number.isFinite(pct)) return null
+      return { line, pct, dir: pct > 50 ? 'over' : 'under' }
+    })
+    .filter(Boolean)
+
+  const bestOu =
+    ouLines.length > 0
+      ? ouLines.reduce((best, l) => (!best || l.pct > best.pct ? l : best), null)
+      : null
+
+  const ouNumFromCell = parseFloat(d.ou)
+  const hasOuCell = Number.isFinite(ouNumFromCell) && ouNumFromCell > 0
+  const hasOu = ouLines.length > 0 || hasOuCell || !!bestOu
+  const ouDir = hasOu
+    ? bestOu
+      ? bestOu.dir
+      : ouNumFromCell > 50
+        ? 'over'
+        : 'under'
+    : 'under'
+  const ouPrec = hasOu
+    ? Math.round(bestOu ? bestOu.pct : ouNumFromCell > 50 ? ouNumFromCell : 100 - ouNumFromCell)
+    : 0
 
   // Verdict binaire (OUI/NON)
   const yesNo = (v) => {
@@ -41,7 +76,8 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
     if (s.startsWith('NON')) return 'no'
     return ''
   }
-  const bttsVerdict = yesNo(d.btts)
+  const bttsDisplay = DISABLE_BTTS_DISPLAY ? '--' : d.btts
+  const bttsVerdict = DISABLE_BTTS_DISPLAY ? '' : yesNo(d.btts)
   const cornersVerdict = yesNo(d.corners)
 
   // Gagnant : extraire le pick (1/X/2 ou 1X/12/X2) avant la proba
@@ -82,6 +118,9 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
     )
   })()
 
+  const hasDc = d.winnerDc && d.winnerDc !== '--'
+  const cornersLabel = d.cornersExact ? `✚ ${d.cornersExact}` : d.corners
+
   if (compact) {
     return (
       <div className={`match-card mc-compact${solidClass}`} style={style} onClick={onClick}>
@@ -103,11 +142,16 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
             BTTS {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
           </span>
           <span className={`mcc-chip mcc-ou ${ouDir}`}>
-            {hasOu ? `O/U ${ouDir.toUpperCase()} ${ouPrec}%` : 'O/U --'}
+            {bestOu
+              ? `${bestOu.dir === 'over' ? 'O' : 'U'}${bestOu.line.toFixed(1)} ${bestOu.pct}%`
+              : hasOuCell
+                ? `O/U ${ouDir.toUpperCase()} ${ouPrec}%`
+                : 'O/U --'}
           </span>
           <span className={`mcc-chip mcc-win ${pickClass}`}>{d.winner}</span>
-          <span className="mcc-chip mcc-hcp">H {d.handicap}</span>
-          <span className={`mcc-chip mcc-corners ${cornersVerdict}`}>✚ {d.corners}</span>
+          {hasDc && <span className="mcc-chip mcc-dc">DC {d.winnerDc}</span>}
+          <span className={`mcc-chip mcc-ht ${yesNo(d.htGoal)}`}>1er MT {d.htGoal}</span>
+          <span className="mcc-chip mcc-corners">{cornersLabel}</span>
         </div>
       </div>
     )
@@ -134,13 +178,19 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
       </div>
 
       <div className="mc-cell mc-ou-cell">
-        {hasOu ? (
+        {ouLines.length > 0 ? (
+          <div className="mc-ou-lines">
+            {ouLines.map((l) => (
+              <span key={l.line} className={`mc-ou-line ${l.dir}`}>
+                {l.dir === 'over' ? 'O' : 'U'}
+                {l.line.toFixed(1)} {l.pct}%
+              </span>
+            ))}
+          </div>
+        ) : hasOuCell ? (
           <>
             <div className="mc-ou-bar">
-              <div
-                className={`mc-ou-fill ${ouDir}`}
-                style={{ width: `${Math.min(100, ouPrec)}%` }}
-              />
+              <div className={`mc-ou-fill ${ouDir}`} style={{ width: `${Math.min(100, ouPrec)}%` }} />
             </div>
             <span className={`mc-ou-label ${ouDir}`}>{ouDir.toUpperCase()}</span>
             <span className={`mc-ou-pct ${ouDir}`}>{ouPrec}%</span>
@@ -152,9 +202,9 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
 
       <div className={`mc-cell mc-winner ${pickClass}`}>{d.winner}</div>
 
-      <div className="mc-cell mc-handicap">{d.handicap}</div>
+      <div className={`mc-cell mc-ht ${yesNo(d.htGoal)}`}>{d.htGoal}</div>
 
-      <div className={`mc-cell mc-corners ${cornersVerdict}`}>{d.corners}</div>
+      <div className="mc-cell mc-corners">{cornersLabel}</div>
     </div>
   )
 }

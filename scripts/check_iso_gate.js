@@ -89,6 +89,7 @@ function activateIso() {
 
   // 1bis. Audit gel cascade : ré-armer l'application runtime APRÈS un refit
   // sur données propres (sinon le gel ISO_RUNTIME_APPLY=false resterait).
+  // Réarme aussi la couche affichage (probabilityCalibrator).
   try {
     let env2 = fs.readFileSync(envPath, 'utf8')
     if (/^ISO_RUNTIME_APPLY=.*/m.test(env2)) {
@@ -96,8 +97,15 @@ function activateIso() {
     } else {
       env2 += (env2.endsWith('\n') ? '' : '\n') + 'ISO_RUNTIME_APPLY=true\n'
     }
+    if (/^PROBA_CALIB_IDENTITY=.*/m.test(env2)) {
+      env2 = env2.replace(/^PROBA_CALIB_IDENTITY=.*/m, 'PROBA_CALIB_IDENTITY=false')
+    } else {
+      env2 += (env2.endsWith('\n') ? '' : '\n') + 'PROBA_CALIB_IDENTITY=false\n'
+    }
     fs.writeFileSync(envPath, env2)
-    console.log('[GATE] .env: ISO_RUNTIME_APPLY=true (application runtime réarmée)')
+    console.log(
+      '[GATE] .env: ISO_RUNTIME_APPLY=true + PROBA_CALIB_IDENTITY=false (runtime et affichage réarmés)'
+    )
   } catch (_) {}
 
   // 2. refit isotonique depuis les agrégats accuracyEngine

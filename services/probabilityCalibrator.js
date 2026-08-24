@@ -56,6 +56,23 @@ class ProbabilityCalibrator {
         return
       }
       bins.sort((a, b) => a.min - b.min)
+      // Audit gel cascade (2026-08-24) : garde de santé permanente — une
+      // courbe non monotone (ex: 30-40% -> 91.9%) est le symptôme de données
+      // contaminées ; on l'ignore (identité) plutôt que d'afficher du fou.
+      let monotone = true
+      for (let i = 1; i < bins.length; i++) {
+        if (bins[i].calibrated < bins[i - 1].calibrated - 1e-9) {
+          monotone = false
+          break
+        }
+      }
+      if (!monotone) {
+        logger.warn(
+          '[CALIBRATOR] courbe non-monotone détectée (données contaminées ?) — identité imposée'
+        )
+        this.calibrationCurve = null
+        return
+      }
       this.calibrationCurve = bins
       this.lastLoaded = Date.now()
       logger.info(
@@ -68,6 +85,11 @@ class ProbabilityCalibrator {
   }
 
   calibrateProb(prob) {
+    // Audit gel cascade (2026-08-24) : couche AFFICHAGE gelée elle aussi tant
+    // que la fenêtre glissante contient du pré-fix. Réactivation par
+    // check_iso_gate.js --activate (PROBA_CALIB_IDENTITY=false) + garde
+    // monotone permanente dans loadCalibration().
+    if (process.env.PROBA_CALIB_IDENTITY !== 'false') return prob
     this.loadCalibration()
     if (!this.calibrationCurve) return prob // identité
     for (const bin of this.calibrationCurve) {

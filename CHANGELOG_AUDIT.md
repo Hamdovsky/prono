@@ -860,3 +860,42 @@ schéma. Fix : `settled_at=Date.now()` posé dès que le score final/status
 finished arrive (patch.settled_at prioritaire). Les indicateurs de fraîcheur
 de settle deviennent utilisables ; la ligne fd.settled_at existante (sync
 fullData) en profite.
+
+---
+
+## Étapes A+B — Gardes de sortie 1X2/BTTS + fixes persistance/settle — 2026-08-24
+
+### A0 : bug de persistance `originalPrediction` corrigé
+Le hook P4 tournait (logs `[MARKET_POLICY]`) mais **0 ligne** ne portait
+`fullData.originalPrediction` : dans `updatePredictions` (SQLite ET PG),
+`fullData` était construit AVANT que le hook ne pose la clé sur `data`.
+Fix set-if-absent après hook, deux backends. Le pick BTTS n'était pas
+touché (écrit directement dans fullData). Les colonnes `btts_pick*`
+n'existent pas en base — le pick vit dans fullData JSON, ce qu'accuracyEngine
+lit déjà via son fallback.
+
+### B : settled_at — leçon de pollution assumée
+Premier backfill naïf (`scoreHome IS NOT NULL`) a posé settled_at sur les
+1037 lignes scheduled (score 0-0 = défaut d'insertion, PAS un résultat).
+**Réparé** : remise à NULL des 1037 ; script réécrit avec garde de statut
+(`finished/FT` pour matches, proxy archived_at pour historical_matches,
+587 lignes légitimement backfillées). `updateMatchResult` (fix précédent)
+reste le point d'entrée propre pour les futurs settles.
+
+### A1+A2 : gardes de sortie (`scripts/check_market_gates.js`)
+Miroir de l'ISO gate, critères du plan :
+- 1X2 pur : >=42,6 % sur n>=200 verdicts ORIGINAUX post-fix settlés -> GO =
+  DISABLE_PURE_1X2=false. État : **n=0** (les originalPrediction commencent
+  seulement à s'accumuler grâce à A0).
+- BTTS : >=55 % ET ROI flat >0 sur n>=200 picks post-fix settlés -> GO =
+  VITE_DISABLE_BTTS_DISPLAY=false. État : n=0 en données propres.
+Sources bi-tables : matches.settled_at OU historical_matches.archived_at ;
+cotes BTTS via colonne ou fallback fullData. `--activate` bascule .env et
+redémarre la stack UNIQUEMENT si GO. Tâche hebdo `Pronos-MarketGates`
+(lundi 07:50, log logs/market_gates.log).
+
+### Correction honnête ISO gate (C1)
+Le « 631/200 OK » précédent comptait des 0-0 non joués. C1 corrigé :
+prédiction émise post-fix (timestamp) ET settle réel, bi-tables ->
+**55/200, PAS ENCORE**. C2 (courbe monotone) toujours fausse tant que la
+fenêtre 30j contient du pré-fix. Activation auto conservée quand tout passera.

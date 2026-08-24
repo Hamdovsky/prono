@@ -28,13 +28,22 @@ const N_MIN = 200
 const { db } = require(path.join(root, 'core', 'database'))
 let nPost = 0
 try {
-  const row = db
+  // Settles réels : matches.settled_at (posé par updateMatchResult) OU
+  // historical_matches.archived_at (archivage post-match). Les lignes
+  // scheduled avec score 0-0 par défaut sont exclues.
+  const a = db
     .prepare(
       `SELECT COUNT(*) AS n FROM matches
-       WHERE timestamp >= ? AND prediction IS NOT NULL AND scoreHome IS NOT NULL`
+       WHERE timestamp >= ? AND prediction IS NOT NULL AND settled_at IS NOT NULL`
     )
     .get(CUTOFF)
-  nPost = row.n
+  const b = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM historical_matches
+       WHERE timestamp >= ? AND prediction IS NOT NULL`
+    )
+    .get(CUTOFF)
+  nPost = (a.n || 0) + (b.n || 0)
 } catch (e) {
   console.log('[GATE] lecture DB impossible:', e.message)
 }

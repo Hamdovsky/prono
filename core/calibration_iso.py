@@ -266,7 +266,14 @@ def _load_model():
 def isotonic_calibrate(p_h, p_d, p_a):
     """Apply the isotonic map to the top pick, then scale the two lower probs
     to fill the remaining mass (their relative ratio is preserved).
-    Falls back to Platt when the model is absent (data insufficient)."""
+    Falls back to Platt when the model is absent (data insufficient).
+
+    Audit gel cascade (2026-08-24) : tant que ISO_RUNTIME_APPLY=false, aucune
+    transformation n'est appliquée (identité) — le modèle actuel est fité sur
+    des données pré-fix ; seul le gate ISO (check_iso_gate.js --activate)
+    réactive une calibration après refit sur données propres."""
+    if os.environ.get('ISO_RUNTIME_APPLY', 'true').strip().lower() == 'false':
+        return p_h, p_d, p_a
     model = _load_model()
     if model is None:
         try:

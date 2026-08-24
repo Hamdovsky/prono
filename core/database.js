@@ -1010,15 +1010,19 @@ const database = {
   updateMatchResult: async (matchKey, patch) => {
     if (!matchKey) return 0
     try {
+      // Audit étape 3 : horodatage du settle (epoch ms) au moment où le score final est posé
+      const settledAt =
+        patch.settled_at ?? (patch.status === 'finished' || patch.scoreHome != null ? Date.now() : null)
       const r = db
         .prepare(
-          'UPDATE matches SET "scoreHome"=?, "scoreAway"=?, status=?, last_updated=? WHERE "match_key"=?'
+          'UPDATE matches SET "scoreHome"=?, "scoreAway"=?, status=?, last_updated=?, settled_at=? WHERE "match_key"=?'
         )
         .run(
           patch.scoreHome ?? 0,
           patch.scoreAway ?? 0,
           patch.status || 'finished',
           Date.now(),
+          settledAt,
           matchKey
         )
       return r.changes || 0

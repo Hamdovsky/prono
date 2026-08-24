@@ -836,3 +836,27 @@ Scan 27 lignes étiquetées Top-5 → **19 réétiquetées** (Kuwait ×6, Tanzan
 Egypt ×3, Belarus ×2, Kazakhstan/Israel/Ecuador/Brazil ×1), **8 vrais Top-5**
 conservés (pays vérifiés England/Spain/Italy). Vérif post-fix : ne restent à
 venir sous label Top-5 pur que LaLiga×4 / PL×1 / Serie A×1, tous pays corrects.
+
+---
+
+## Étapes 2+3 — Garde ISO_CAL automatisé + horodatage settled_at — 2026-08-24
+
+### Étape 2 : garde de réactivation isotonique (`scripts/check_iso_gate.js`)
+Vérifie les deux critères du plan V2 avant toute activation d'ISO_SOURCE :
+- **C1** : n>=200 picks post-fix (cutoff 23/08 20h UTC) avec settle connu
+  → **déjà OK : 631** (la DB tourne à haut volume).
+- **C2** : courbe de calibration monotone (bandes triées, montée globale,
+  aucune chute >3 pts, >=4 bandes n>=30) → **PAS ENCORE** : la fenêtre 30j
+  contient encore les données pré-fix contaminées (bande 30-40 % -> 91,9 %,
+  bande 90-100 % -> 50 % = courbe inversée typique de la sur-confiance ancienne).
+`--activate` bascule .env + relance `calibration_iso.py --fit`
+(ISO_SOURCE=accuracy_report) UNIQUEMENT si GO ; sinon simple rapport.
+Tâche planifiée hebdomadaire `Pronos-ISO-Gate` (lundi 07:45, log
+logs/iso_gate.log) → activation automatique dès que C2 devient vrai.
+
+### Étape 3 : settled_at enfin alimenté
+`updateMatchResult` (SQLite + PG) n'écrivait jamais la colonne malgré le
+schéma. Fix : `settled_at=Date.now()` posé dès que le score final/status
+finished arrive (patch.settled_at prioritaire). Les indicateurs de fraîcheur
+de settle deviennent utilisables ; la ligne fd.settled_at existante (sync
+fullData) en profite.

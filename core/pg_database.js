@@ -355,9 +355,12 @@ const pgDb = {
   async updateMatchResult(matchKey, patch) {
     if (!matchKey) return 0
     try {
+      // Audit étape 3 : horodatage du settle (epoch ms) au moment où le score final est posé
+      const settledAt =
+        patch.settled_at ?? (patch.status === 'finished' || patch.scoreHome != null ? Date.now() : null)
       const result = await query(
-        'UPDATE matches SET "scoreHome"=$1, "scoreAway"=$2, status=$3, last_updated=$4 WHERE "match_key"=$5',
-        [patch.scoreHome ?? 0, patch.scoreAway ?? 0, patch.status || 'finished', Date.now(), matchKey]
+        'UPDATE matches SET "scoreHome"=$1, "scoreAway"=$2, status=$3, last_updated=$4, settled_at=$5 WHERE "match_key"=$6',
+        [patch.scoreHome ?? 0, patch.scoreAway ?? 0, patch.status || 'finished', Date.now(), settledAt, matchKey]
       )
       return result.rowCount || 0
     } catch (err) {

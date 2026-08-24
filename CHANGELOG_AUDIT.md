@@ -775,3 +775,39 @@ les vraies sources — et fbref ne fournit aucune cote bookmaker (stats xG uniqu
 - La couverture large hors Top-5 passe par la **Phase 2 SofascoreBypass**
   (curl_cffi validé en live : search/team-events/event-odds 200, cotes au
   format fractionnel à convertir decimal = 1 + num/den).
+
+---
+
+## Phase 2 — SofascoreBypass (contournement ban) + sentinelle no-data — 2026-08-24
+
+### Changements
+1. `scripts/sofascore_bypass.py` (nouveau) — accès API publique Sofascore via
+   curl_cffi (fingerprints chrome124/safari17_0/firefox133 en rotation) :
+   `resolve` (search team -> /team/{id}/events/{next,last}/0 -> event id,
+   matching par contenance normalisée ±7 j) et `odds` (/event/{id}/odds/1/all).
+   Décodage : cotes fractionnelles -> décimales (« 9/1 » -> 10.0), 1X2 par
+   choix 1/X/2, O/U 2.5 par marchés « Match goals » à `choiceGroup=2.5`
+   (les lignes 0.5→10 sont des marchés séparés !), BTTS par marketName.
+2. `services/scrapers/SofascoreBypass.js` (nouveau) — wrapper Node :
+   spawn venv python (curl_cffi présent dans .venv ET data_pipeline/.venv),
+   cache event-id 12 h + cotes 10 min, timeouts 35 s, ne jette jamais.
+3. `services/dataFusionService.js`
+   - `_trySofascore` réécrit : bypass direct (plus de chemin mort
+     oddsService->scraperProxy payant), kill-switch DISABLE_SOFASCORE gardé ;
+     « sofascore » ajouté aux BOOKMAKER_SOURCES (agrégat bookmakers réels).
+   - **Sentinelle `_odds_no_data`** : une recherche propre sans données
+     (équipe absente du CSV/Sofascore) n'est plus comptée comme erreur de
+     source -> fini les cooldowns 5 min abusifs qui faisaient rater des
+     matchs couverts (90 % des matchs DB = ligues obscures).
+
+### Validation live
+- Schalke/Hallescher : resolve -> event 16287064 ; odds 11.0/6.25/1.22 +
+  O/U 1.40/2.875 + BTTS 1.95/1.80 (~1,7 s).
+- Roma/Fiorentina via fetchOdds complet : sofascore 1.70/3.90/4.75 (bookmaker)
+  ; cohérent avec football-data 1.57/3.95/5.76.
+- Stack relancée : API ok, **0 cooldown** après sentinelle (vs 6+ avant).
+- Sonde 30 prochains matchs DB : **ENRICHIS 10/30 (33 %)**, tous avec
+  1X2 + O/U + BTTS, source `betexplorer` (le chantier BetExplorer local
+  répond !) — vs **4/400 (1 %)** avant Phases 1+2. Couverture cumulée :
+  football-data (Top-5, J-3→J) + BetExplorer (large, y c. ligues exotiques)
+  + Sofascore (redondance).

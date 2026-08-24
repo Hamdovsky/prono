@@ -223,6 +223,8 @@ class DataFusionService {
     // bookmaker quotes. They must not be treated as "real odds" for value/honesty.
     const BOOKMAKER_SOURCES = new Set([
       'footballdata',
+      // Sofascore agrège des cotes réelles de bookmakers partenaires.
+      'sofascore',
     ])
     // Sources qui renvoient de vraies cotes bookmaker malgré le nom générique.
     const REAL_SCRAPE_SOURCES = new Set([
@@ -275,6 +277,13 @@ class DataFusionService {
           case 'oddsapiio':
             odds = await this._tryOddsApiIo(match)
             break
+        }
+
+        // Recherche propre sans données (équipe/rencontre absentes de la
+        // source) : ce n'est PAS une erreur de source — pas de cooldown.
+        if (odds && odds._odds_no_data) {
+          oddsError = oddsError || 'no_data'
+          continue
         }
 
         // Market-only accepté: 1X2 OU O/U 2.5 OU BTTS (pas besoin d'avoir tout).
@@ -353,13 +362,17 @@ class DataFusionService {
 
   async _trySofascore(match) {
     if (process.env.DISABLE_SOFASCORE === 'true') return null
+    // Audit Phase 2 : accès via curl_cffi (scripts/sofascore_bypass.py) —
+    // contournement du ban TLS/IP ; resolve auto de l'event id si absent.
     const sofaId = await this._getSofaId(match)
-    // Sofascore search by team name is 403-blocked from Render's IP;
-    // only proceed when a Sofascore ID is already known (oddsService routes through scraperProxy if available).
-    if (!sofaId) return null
-    const oddsService = require('../src/services/oddsService')
-    const odds = await oddsService.getLiveOdds(sofaId)
-    return odds ? { home: odds.home, draw: odds.draw, away: odds.away } : null
+    const bypass = require('./scrapers/SofascoreBypass')
+    const odds = await bypass.getOddsForMatch({
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      startTimestamp: match.startTimestamp || null,
+      sofascore_id: sofaId,
+    })
+    return odds || { _odds_no_data: true }
   }
 
   async _tryScrapeService(match) {
@@ -543,7 +556,7 @@ class DataFusionService {
           }
         }
       }
-      return null
+      return { _odds_no_data: true }
     } catch (e) {
       return { _odds_fetch_error: `footballdata:${e.message}` }
     }

@@ -899,3 +899,19 @@ Le « 631/200 OK » précédent comptait des 0-0 non joués. C1 corrigé :
 prédiction émise post-fix (timestamp) ET settle réel, bi-tables ->
 **55/200, PAS ENCORE**. C2 (courbe monotone) toujours fausse tant que la
 fenêtre 30j contient du pré-fix. Activation auto conservée quand tout passera.
+
+---
+
+## Étape A — Statut consolidé + gates en modules importables — 2026-08-24
+
+`scripts/status_audit.js` : un seul rapport pour tout le suivi d'audit —
+1) état des 3 gardes (ISO_CAL / 1X2 pur / BTTS, logique **importée** des
+scripts de gates sans duplication des critères), 2) couverture cotes à venir
+(odds_source renseigné, détail par source), 3) derniers événements politiques
+du journal ([MARKET_POLICY], [LEAGUE_POLICY], dernière cote DATAFUSION),
+4) dernier résultat + prochaine exécution des 4 tâches planifiées audit.
+
+Refactor associé : `check_iso_gate.js` et `check_market_gates.js` exportent
+leurs fonctions (`isoGate`, `gate1x2`, `gateBtts`, …) avec garde
+`require.main === module` — comportement CLI inchangé pour les tâches
+planifiées. Lecture seule : `status_audit.js` n'active jamais rien.

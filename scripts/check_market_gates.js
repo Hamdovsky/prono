@@ -128,22 +128,6 @@ function gateBtts() {
   }
 }
 
-// ---------------- RAPPORT ----------------
-const g12 = gate1x2()
-const gbt = gateBtts()
-console.log('=== GATES MARCHÉS (sortie de masque sur preuves) ===')
-console.log(
-  `1X2 pur : n=${g12.n}/${N_MIN} précision=${g12.acc != null ? g12.acc.toFixed(1) + '%' : '-'} (requis >=42,6%) -> ${g12.pass ? 'GO' : 'PAS ENCORE'}`
-)
-if (g12.byOrig && Object.keys(g12.byOrig).length) {
-  for (const [k, v] of Object.entries(g12.byOrig)) {
-    console.log(`   verdict ${k}: ${v.ok}/${v.n}`)
-  }
-}
-console.log(
-  `BTTS   : n=${gbt.n}/${N_MIN} précision=${gbt.acc != null ? gbt.acc.toFixed(1) + '%' : '-'} ROI=${gbt.roi != null ? gbt.roi.toFixed(1) + '%' : '-'} (${gbt.bets} bets, profit ${gbt.profit}u) -> ${gbt.pass ? 'GO' : 'PAS ENCORE'}`
-)
-
 // ---------------- ACTIVATION CONDITIONNELLE ----------------
 function setEnvFlag(key, value) {
   const envPath = path.join(root, '.env')
@@ -175,21 +159,41 @@ function restartStack() {
   )
 }
 
-if (process.argv.includes('--activate')) {
-  let activated = false
-  if (g12.pass) {
-    setEnvFlag('DISABLE_PURE_1X2', 'false')
-    console.log('[GATES] ACTIVÉ : DISABLE_PURE_1X2=false — le 1X2 pur redevient émissible.')
-    activated = true
+module.exports = { gate1x2, gateBtts, N_MIN, CUTOFF }
+
+if (require.main === module) {
+  process.chdir(root)
+  const g12 = gate1x2()
+  const gbt = gateBtts()
+  console.log('=== GATES MARCHÉS (sortie de masque sur preuves) ===')
+  console.log(
+    `1X2 pur : n=${g12.n}/${N_MIN} précision=${g12.acc != null ? g12.acc.toFixed(1) + '%' : '-'} (requis >=42,6%) -> ${g12.pass ? 'GO' : 'PAS ENCORE'}`
+  )
+  if (g12.byOrig && Object.keys(g12.byOrig).length) {
+    for (const [k, v] of Object.entries(g12.byOrig)) {
+      console.log(`   verdict ${k}: ${v.ok}/${v.n}`)
+    }
   }
-  if (gbt.pass) {
-    setEnvFlag('VITE_DISABLE_BTTS_DISPLAY', 'false')
-    console.log('[GATES] ACTIVÉ : VITE_DISABLE_BTTS_DISPLAY=false — affichage BTTS rétabli.')
-    activated = true
-  }
-  if (activated) {
-    restartStack()
-  } else {
-    console.log('[GATES] --activate : aucun critère GO, rien modifié.')
+  console.log(
+    `BTTS   : n=${gbt.n}/${N_MIN} précision=${gbt.acc != null ? gbt.acc.toFixed(1) + '%' : '-'} ROI=${gbt.roi != null ? gbt.roi.toFixed(1) + '%' : '-'} (${gbt.bets} bets, profit ${gbt.profit}u) -> ${gbt.pass ? 'GO' : 'PAS ENCORE'}`
+  )
+
+  if (process.argv.includes('--activate')) {
+    let activated = false
+    if (g12.pass) {
+      setEnvFlag('DISABLE_PURE_1X2', 'false')
+      console.log('[GATES] ACTIVÉ : DISABLE_PURE_1X2=false — le 1X2 pur redevient émissible.')
+      activated = true
+    }
+    if (gbt.pass) {
+      setEnvFlag('VITE_DISABLE_BTTS_DISPLAY', 'false')
+      console.log('[GATES] ACTIVÉ : VITE_DISABLE_BTTS_DISPLAY=false — affichage BTTS rétabli.')
+      activated = true
+    }
+    if (activated) {
+      restartStack()
+    } else {
+      console.log('[GATES] --activate : aucun critère GO, rien modifié.')
+    }
   }
 }

@@ -249,13 +249,17 @@ async function runAutoBacktest() {
         logger.info(`[BACKTEST] Evaluating ${archivedResults.length} archived matches as fallback...`)
         const fallbackResult = buildBacktestReport(archivedResults)
         fallbackResult.source = 'archived-fallback'
+        // Audit P2 : ces prédictions ne sont PAS des snapshots au temps T
+        // (lignes archivées hétérogènes) — mesure non comparable à accuracyEngine.
+        fallbackResult.methodology = 'archived-fallback-non-snapshot'
+        fallbackResult.provisional = true
         _saveJson(RESULTS_PATH, fallbackResult)
-        // Populate per-league accuracy/edge BEFORE computing weights — without
-        // it _computeDynamicWeights reads undefined → NaN → null edge/news_boost
-        // and every league stays stuck on the 0.75 default.
-        const fallbackStats = _finalizeLeagueStats(_aggregateLeagueStats(archivedResults))
-        const weights = _computeDynamicWeights(fallbackStats)
-        _saveJson(WEIGHTS_PATH, weights)
+        // Audit P2 : NE PLUS ajuster league_dynamic_weights.json depuis le
+        // fallback. L'ancien comportement nourrissait la boucle live avec une
+        // mesure fausse (37% vs 66% rolling) et faussait les poids par ligue.
+        logger.warn(
+          '[BACKTEST] Fallback archivé : poids dynamiques et confidenceScorer GELÉS (données non-snapshot).'
+        )
         // accuracy_trend.json is a rolling ARRAY (route /api/backtest/results
         // le lit ainsi) — the fallback must append, not overwrite with a dict.
         const existingHistory = _loadJson(HISTORY_PATH, null)
@@ -314,6 +318,8 @@ async function runAutoBacktest() {
 
     // ── Build unified report (also used by the archived fallback) ──
     const backtestResult = buildBacktestReport(results)
+    backtestResult.methodology = 'local-db-72h-recorded-predictions'
+    backtestResult.provisional = false
 
     // ── Persist results ──
     const existingHistory = _loadJson(HISTORY_PATH, null)
@@ -340,7 +346,7 @@ async function runAutoBacktest() {
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
     logger.info(
-      `[BACKTEST] Done in ${elapsed}s — ${results.length} matches, accuracy: ${overallAccuracy}% (edge vs odds: ${backtestResult.overall.edge}%)`
+      `[BACKTEST] Done in ${elapsed}s — ${results.length} matches, accuracy: ${backtestResult.overall.accuracy}% (edge vs odds: ${backtestResult.overall.edge}%)`
     )
 
     return backtestResult

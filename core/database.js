@@ -1,6 +1,7 @@
 const path = require('path')
 const fs = require('fs')
 const logger = require('./logger')
+const { applyMarketPolicy, deriveBttsPick } = require('./marketPolicy')
 
 // 🚀 [DB TOGGLE] If DATABASE_URL is set, use Neon PostgreSQL directly — skip SQLite entirely
 if (process.env.DATABASE_URL) {
@@ -811,6 +812,23 @@ const database = {
         }
       }
 
+      // Audit P4 : politique marchés — masquage réversible du 1X2 pur
+      const __policy = applyMarketPolicy(m.prediction, m)
+      if (__policy.converted) {
+        logger.info(
+          `[MARKET_POLICY] ${m.id} ${__policy.originalPrediction} -> ${__policy.prediction} (DISABLE_PURE_1X2)`
+        )
+        m.originalPrediction = __policy.originalPrediction
+        m.prediction = __policy.prediction
+      }
+
+      // Audit BT1 : dérivation + persistance du pick BTTS au temps T
+      const __btts = deriveBttsPick(m)
+      if (__btts.bttsPick) {
+        m.btts_pick = __btts.bttsPick
+        m.btts_pick_prob = __btts.bttsProb
+      }
+
       const dataToSave = { ...m }
       delete dataToSave.fullData
 
@@ -1006,13 +1024,36 @@ const database = {
     try {
       const placeholders = statuses.map(() => '?').join(',')
       const limit = parseInt(opts.limit, 10)
+      const params = [...statuses]
+      let extraClause = ''
+      // Optional startAfter (epoch seconds): drop stale scheduled matches so the
+      // LIMIT is never consumed by long-past rows that no longer count as upcoming.
+      if (opts.startAfter) {
+        extraClause += ' AND "startTimestamp" IS NOT NULL AND "startTimestamp" >= ?'
+        params.push(parseFloat(opts.startAfter))
+      }
+      // Optional startBefore (epoch seconds): cap the future horizon.
+      if (opts.startBefore) {
+        extraClause += ' AND "startTimestamp" <= ?'
+        params.push(parseFloat(opts.startBefore))
+      }
+      // orderBy 'start' : tri par coup d'envoi (les PROCHAINS matchs d'abord)
+      // au lieu de la date d'insertion — sinon les vieilles lignes déjà jouées
+      // saturent le LIMIT et masquent les matchs à venir réels.
+      // 'start_desc' : les plus proches dans le passé d'abord (fallback "récents").
+      const orderClause =
+        opts.orderBy === 'start'
+          ? 'ORDER BY "startTimestamp" ASC'
+          : opts.orderBy === 'start_desc'
+            ? 'ORDER BY "startTimestamp" DESC'
+            : 'ORDER BY timestamp ASC'
       const res = db
         .prepare(
-          `SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC${
+          `SELECT * FROM matches WHERE status IN (${placeholders})${extraClause} ${orderClause}${
             limit > 0 ? ` LIMIT ${Math.min(limit, 5000)}` : ''
           }`
         )
-        .all(statuses)
+        .all(params)
       return res.map((r) => {
         try {
           const parsed = r.fullData
@@ -1235,11 +1276,26 @@ const database = {
       delete fullData.fullData
       if (fullData.enriched && fullData.enriched.enriched) delete fullData.enriched.enriched
 
-      const verdict =
+      const rawVerdict =
         data.prediction ||
         (data.enriched && data.enriched.prediction) ||
         data.verdict ||
         null
+      // Audit P4 : politique marchés (masquage réversible du 1X2 pur)
+      const verdictPolicy = applyMarketPolicy(rawVerdict, {
+        home_win_probability:
+          data.home_win_probability ?? enriched?.home_win_probability ?? fullData.home_win_probability,
+        away_win_probability:
+          data.away_win_probability ?? enriched?.away_win_probability ?? fullData.away_win_probability,
+      })
+      const verdict = verdictPolicy.converted ? verdictPolicy.prediction : rawVerdict
+      if (verdictPolicy.converted) {
+        logger.info(
+          `[MARKET_POLICY] ${matchId} ${verdictPolicy.originalPrediction} -> ${verdict} (DISABLE_PURE_1X2)`
+        )
+        data.originalPrediction = verdictPolicy.originalPrediction
+        data.prediction = verdict
+      }
 
       // Extract scalar values to write into indexed SQLite columns
       // Use null when no source provides a value (allows clearing)
@@ -1281,6 +1337,16 @@ const database = {
           : enriched?.btts_prob !== undefined
             ? parseFloat(enriched.btts_prob)
             : null
+      // Audit BT1 (2026-08-24) : dérivation + persistance du pick BTTS au temps T
+      const bttsDeriv = deriveBttsPick({
+        quant: fullData.quant || enriched?.quant || null,
+        btts_prob: bttsp,
+      })
+      if (bttsDeriv.bttsPick) {
+        data.btts_pick = bttsDeriv.bttsPick
+        fullData.btts_pick = bttsDeriv.bttsPick
+        fullData.btts_pick_prob = bttsDeriv.bttsProb
+      }
       const expScr =
         data.expected_score || enriched?.expected_score || fullData.expected_score || null
       const conf =

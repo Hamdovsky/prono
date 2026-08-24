@@ -1,9 +1,9 @@
-[
-  {
+{
+  "0": {
     "deprecated": true,
     "reason": "Métrique obsolète (ÉTAPE 1 audit). Cet accuracy ~27% reflète un backfill ML dégénéré « tout-X » (4932/5133 prédictions = X, modèle promosport_xgb.json effondré), pas la performance du moteur. Remplacé par data/accuracy_report.json (services/accuracyEngine.js)."
   },
-  {
+  "1": {
     "date": "2026-08-02",
     "timestamp": 1785708000218,
     "accuracy": null,
@@ -13,7 +13,7 @@
     "logLoss": null,
     "crowdAccuracy": null
   },
-  {
+  "2": {
     "date": "2026-08-07",
     "timestamp": 1786140001864,
     "accuracy": 27.3,
@@ -23,7 +23,7 @@
     "logLoss": null,
     "crowdAccuracy": null
   },
-  {
+  "3": {
     "date": "2026-08-11",
     "timestamp": 1786485605879,
     "accuracy": 27.3,
@@ -32,5 +32,6 @@
     "concoursCount": 397,
     "logLoss": null,
     "crowdAccuracy": null
-  }
-]
+  },
+  "_deprecatedNote": "DEPRECATED 2026-08-24 (audit P1-P5) : métrique dégénérée « tout-X » du backfill ML promosport_xgb.json (96% de nuls prédits) + look-ahead (_getTeamStats sans filtre beforeDate). Source fiable : accuracy_report.json généré par services/accuracyEngine.js (snapshot au temps T). Voir CHANGELOG_AUDIT.md ÉTAPE 1."
+}

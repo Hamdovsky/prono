@@ -12,9 +12,12 @@ const MarketSensorService = require('../services/MarketSensorService')
  */
 router.get('/accuracy/trend', (req, res) => {
   try {
-    const p = path.join(__dirname, '..', 'data', 'promosport_accuracy_trend.json')
+    // Audit P5 : promosport_accuracy_trend.json déprécié (backfill dégénéré +
+    // look-ahead) → remplacé par accuracy_trend.json (array rolling tenu par
+    // autoBacktestService, persisté via scripts/sync_accuracy_git.js).
+    const p = path.join(__dirname, '..', 'data', 'accuracy_trend.json')
     const trend = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : []
-    res.json({ success: true, trend, updatedAt: new Date().toISOString() })
+    res.json({ success: true, trend: Array.isArray(trend) ? trend : [], updatedAt: new Date().toISOString() })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message })
   }

@@ -1,4 +1,5 @@
 import React from 'react'
+import { DISABLE_BTTS_DISPLAY } from '../utils/displayPolicy'
 
 const G = (p) => ({
   display: 'flex',
@@ -485,21 +486,24 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
           </V>
         </div>
 
-        {/* BOX 3: BTTS */}
+        {/* BOX 3: BTTS — masqué si VITE_DISABLE_BTTS_DISPLAY (audit BT3 :
+            signal 50-53% ~ hasard, voir CHANGELOG_AUDIT.md « Marché BTTS ») */}
         <div
           style={G({
             bg: 'rgba(239,68,68,0.04)',
-            border: `1px solid ${scoreBtts ? 'rgba(0,255,170,0.12)' : 'rgba(239,68,68,0.15)'}`,
+            border: `1px solid ${DISABLE_BTTS_DISPLAY ? 'rgba(100,116,139,0.15)' : scoreBtts ? 'rgba(0,255,170,0.12)' : 'rgba(239,68,68,0.15)'}`,
           })}
         >
-          <L c={scoreBtts ? '#00ffaa' : '#f87171'} s="7px" w="900">
+          <L c={DISABLE_BTTS_DISPLAY ? '#64748b' : scoreBtts ? '#00ffaa' : '#f87171'} s="7px" w="900">
             BTTS
           </L>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-            <V c={scoreBtts ? '#00ffaa' : '#f87171'} s="18px">
-              {scoreBtts ? 'OUI' : 'NON'}
+            <V c={DISABLE_BTTS_DISPLAY ? '#64748b' : scoreBtts ? '#00ffaa' : '#f87171'} s="18px">
+              {DISABLE_BTTS_DISPLAY ? '--' : scoreBtts ? 'OUI' : 'NON'}
             </V>
-            <Pct v={scoreBtts ? bttsPct : 100 - bttsPct} c={scoreBtts ? '#00ffaa' : '#f87171'} />
+            {!DISABLE_BTTS_DISPLAY && (
+              <Pct v={scoreBtts ? bttsPct : 100 - bttsPct} c={scoreBtts ? '#00ffaa' : '#f87171'} />
+            )}
           </div>
         </div>
 

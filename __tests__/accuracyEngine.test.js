@@ -21,6 +21,9 @@ function makeDb(rows) {
       scoreHome INTEGER, scoreAway INTEGER,
       status TEXT, prediction TEXT, confidence REAL,
       home_win_probability REAL, draw_probability REAL, away_win_probability REAL,
+      odds_home REAL, odds_draw REAL, odds_away REAL, kelly_stake REAL,
+      btts_prob REAL, btts_pick TEXT, btts_pick_prob REAL,
+      odds_btts_yes REAL, odds_btts_no REAL,
       timestamp TEXT, startTimestamp INTEGER
     );
     CREATE TABLE historical_matches (
@@ -30,11 +33,17 @@ function makeDb(rows) {
       fullData TEXT, timestamp TEXT, archived_at TEXT
     );
   `)
-  const insM = db.prepare(
+    const insM = db.prepare(
     `INSERT INTO matches (id, homeTeam, awayTeam, league, scoreHome, scoreAway, status, prediction, confidence,
-      home_win_probability, draw_probability, away_win_probability, timestamp, startTimestamp)
+      home_win_probability, draw_probability, away_win_probability,
+      odds_home, odds_draw, odds_away, kelly_stake,
+      btts_prob, btts_pick, btts_pick_prob, odds_btts_yes, odds_btts_no,
+      timestamp, startTimestamp)
      VALUES (@id, @homeTeam, @awayTeam, @league, @scoreHome, @scoreAway, @status, @prediction, @confidence,
-      @home_win_probability, @draw_probability, @away_win_probability, @timestamp, @startTimestamp)`
+      @home_win_probability, @draw_probability, @away_win_probability,
+      @odds_home, @odds_draw, @odds_away, @kelly_stake,
+      @btts_prob, @btts_pick, @btts_pick_prob, @odds_btts_yes, @odds_btts_no,
+      @timestamp, @startTimestamp)`
   )
   const insH = db.prepare(
     `INSERT INTO historical_matches (id, homeTeam, awayTeam, league, scoreHome, scoreAway, fullData, timestamp, archived_at)
@@ -46,7 +55,16 @@ function makeDb(rows) {
       draw_probability: r.draw_probability ?? null,
       away_win_probability: r.away_win_probability ?? null,
       confidence: r.confidence ?? null,
+      odds_home: r.odds_home ?? null,
+      odds_draw: r.odds_draw ?? null,
+      odds_away: r.odds_away ?? null,
+      kelly_stake: r.kelly_stake ?? null,
       startTimestamp: r.startTimestamp ?? null,
+      btts_prob: r.btts_prob ?? null,
+      btts_pick: r.btts_pick ?? null,
+      btts_pick_prob: r.btts_pick_prob ?? null,
+      odds_btts_yes: r.odds_btts_yes ?? null,
+      odds_btts_no: r.odds_btts_no ?? null,
       ...r,
     })
   }
@@ -156,6 +174,11 @@ describe('accuracyEngine — nominal', () => {
     const res = computeAccuracy({ db })
     expect(res.summary.logLoss).not.toBeNull()
     expect(res.summary.brierScore).not.toBeNull()
+    // Moyennes réelles (sum/n), unités naturelles — PAS ×100/×1000
+    // m1 : -ln(0.80)=0.2231, m2 : -ln(0.50)=0.6931 → avg 0.4581
+    expect(res.summary.logLoss).toBeCloseTo(0.4581, 4)
+    // m1 brier : (0.8-1)²+(0.1-0)²+(0.1-0)²=0.06 ; m2 : (0.2)²+(0.3)²+(0.5-1)²=0.38 → avg 0.22
+    expect(res.summary.brierScore).toBeCloseTo(0.22, 4)
     expect(res.calibrationCurve.length).toBeGreaterThan(0)
     expect(res.byLeague.length).toBe(2)
     expect(res.byLeague[0].league).toBe('L1')
@@ -163,6 +186,64 @@ describe('accuracyEngine — nominal', () => {
     const b80 = res.calibrationCurve.find((b) => b.band === '80-90')
     expect(b80.count).toBe(1)
     expect(b80.accuracy).toBe(100)
+  })
+
+  test('calcule le ROI (flat 1u + Quarter-Kelly cap 2%) et exclut les odds manquantes', () => {
+    const db = makeDb({
+      matches: [
+        {
+          id: 'm1', homeTeam: 'A', awayTeam: 'B', league: 'L1',
+          scoreHome: 1, scoreAway: 0, status: 'FT', prediction: '1', confidence: 80,
+          home_win_probability: 80, draw_probability: 10, away_win_probability: 10,
+          odds_home: 1.60, odds_draw: 4.0, odds_away: 6.0, kelly_stake: 3.0,
+          timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+        {
+          id: 'm2', homeTeam: 'C', awayTeam: 'D', league: 'L1',
+          scoreHome: 0, scoreAway: 1, status: 'FT', prediction: '1', confidence: 20,
+          home_win_probability: 20, draw_probability: 30, away_win_probability: 50,
+          odds_home: 1.50, odds_draw: 4.0, odds_away: 6.0, kelly_stake: 1.0,
+          timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+        {
+          id: 'm3', homeTeam: 'E', awayTeam: 'F', league: 'L1',
+          scoreHome: 2, scoreAway: 1, status: 'FT', prediction: '1', confidence: 55,
+          home_win_probability: 50, draw_probability: 25, away_win_probability: 25,
+          odds_home: null, odds_draw: null, odds_away: null,
+          timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    // m1 gagné (1) @1.60 → flat profit +0.60 ; m2 perdu → -1 ; m3 sans cotes → exclu
+    expect(res.summary.roiBets).toBe(2)
+    expect(res.summary.roiExcluded).toBe(1)
+    expect(res.summary.staked).toBe(2)
+    expect(res.summary.netProfit).toBeCloseTo(-0.4, 6)
+    expect(res.summary.roi).toBeCloseTo(-20, 6)
+    // Quarter-Kelly : stake archivé 3%×0.25=0.0075 + 1%×0.25=0.0025 → 0.01 (cap 2% = 0.02 non atteint)
+    expect(res.summary.kellyBets).toBe(2)
+    expect(res.summary.kellyStaked).toBeCloseTo(0.01, 6)
+    // kelly m1 : +0.0075*(1.6-1)=+0.0045 ; m2 : -0.0025 → net 0.0020
+    expect(res.summary.kellyNetProfit).toBeCloseTo(0.002, 6)
+  })
+
+  test('cap explicite du Quarter-Kelly à 2% du bankroll', () => {
+    const db = makeDb({
+      matches: [
+        {
+          id: 'm1', homeTeam: 'A', awayTeam: 'B', league: 'L1',
+          scoreHome: 1, scoreAway: 0, status: 'FT', prediction: '1', confidence: 95,
+          home_win_probability: 95, draw_probability: 3, away_win_probability: 2,
+          odds_home: 1.10, odds_draw: 9.0, odds_away: 20.0, kelly_stake: 20.0,
+          timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    // 20% × 0.25 = 0.05 brut → capé à 0.02 (2 % du bankroll)
+    expect(res.summary.kellyBets).toBe(1)
+    expect(res.summary.kellyStaked).toBeCloseTo(0.02, 6)
   })
 })
 
@@ -265,6 +346,10 @@ describe('accuracyEngine — cas vides', () => {
     expect(res.summary.accuracyPct).toBeNull()
     expect(res.summary.logLoss).toBeNull()
     expect(res.summary.brierScore).toBeNull()
+    expect(res.summary.roi).toBeNull()
+    expect(res.summary.roiBets).toBe(0)
+    expect(res.summary.staked).toBe(0)
+    expect(res.summary.netProfit).toBe(0)
     expect(Number.isNaN(res.summary.accuracy)).toBe(false)
     expect(res.calibrationCurve).toEqual([])
     expect(res.byLeague).toEqual([])
@@ -296,5 +381,101 @@ describe('accuracyEngine — snapshot au temps T', () => {
     expect(res.summary.total).toBe(2)
     // Le pick vient de fullData archivé, pas des colonnes recalculées
     expect(res.summary.accuracyPct).toBe('50.0%')
+  })
+})
+
+// ── Audit BT2 (2026-08-24) — marché BTTS émis via fullData.btts_pick ──
+describe('accuracyEngine — marché BTTS', () => {
+  function bttsRow({ id, pick = 'X', sh, sa, bttsPick, bttsProb = 71, oYes = 1.85, oNo = 2.0 }) {
+    return {
+      id,
+      homeTeam: 'H' + id,
+      awayTeam: 'A' + id,
+      league: 'L1',
+      scoreHome: sh,
+      scoreAway: sa,
+      status: 'FT',
+      prediction: pick,
+      confidence: 60,
+      timestamp: new Date(TS.base).toISOString(),
+      startTimestamp: TS.base,
+      btts_prob: bttsProb,
+      btts_pick: bttsPick,
+      odds_btts_yes: oYes,
+      odds_btts_no: oNo,
+    }
+  }
+
+  test('second record BTTS émis quand fullData/colonne btts_pick présent', () => {
+    const db = makeDb({
+      matches: [bttsRow({ id: 'm1', pick: 'X', sh: 1, sa: 1, bttsPick: 'BTTS YES' })],
+    })
+    const res = computeAccuracy({ db })
+    // 2 records : le pick principal 'X' (correct sur 1-1) + 'BTTS YES' (correct)
+    expect(res.summary.total).toBe(2)
+    expect(res.summary.correct).toBe(2)
+    const mk = Object.fromEntries(res.byMarket.map((m) => [m.market, m]))
+    expect(mk.BTTS).toBeDefined()
+    expect(mk.BTTS.total).toBe(1)
+    expect(mk.BTTS.correct).toBe(1)
+  })
+
+  test('BTTS NO incorrect sur match avec buts des deux côtés', () => {
+    const db = makeDb({
+      matches: [
+        bttsRow({ id: 'm1', sh: 1, sa: 1, bttsPick: 'BTTS NO' }),
+        bttsRow({ id: 'm2', sh: 2, sa: 0, bttsPick: 'BTTS NO' }),
+      ],
+    })
+    const res = computeAccuracy({ db })
+    // m1 : BTTS NO perdu (1-1) ; m2 : BTTS NO gagné (2-0). Picks principaux X→? hors scope :
+    // m1 X correct, m2 X incorrect → total records 4, corrects attendus 2 (BTTS m2 + X m1)
+    expect(res.summary.total).toBe(4)
+    expect(res.summary.correct).toBe(2)
+    const mk = Object.fromEntries(res.byMarket.map((m) => [m.market, m]))
+    expect(mk.BTTS.accuracy).toBe(50)
+  })
+
+  test('ROI flat sur cote BTTS + filtre marketFilter=btts', () => {
+    const db = makeDb({
+      matches: [bttsRow({ id: 'm1', sh: 1, sa: 1, bttsPick: 'BTTS YES', oYes: 1.85 })],
+    })
+    const resAll = computeAccuracy({ db })
+    expect(resAll.byMarket.find((m) => m.market === 'BTTS').roiBets).toBe(1)
+    expect(resAll.byMarket.find((m) => m.market === 'BTTS').flatRoi).toBe(85)
+
+    const resBtts = computeAccuracy({ db, marketFilter: 'btts' })
+    expect(resBtts.summary.total).toBe(1)
+    expect(resBtts.byMarket[0].market).toBe('BTTS')
+
+    const res12 = computeAccuracy({ db, marketFilter: '1x2' })
+    // Le filtre 1x2 exclut le record BTTS → seul le pick principal reste
+    expect(res12.summary.total).toBe(1)
+    expect(res12.byMarket.some((m) => m.market === 'BTTS')).toBe(false)
+  })
+
+  test('historical_matches : btts_pick depuis fullData archivé (snapshot T)', () => {
+    const db = makeDb({
+      historical: [
+        {
+          id: 'h1', homeTeam: 'AA', awayTeam: 'BB', league: 'Liga',
+          scoreHome: 0, scoreAway: 0,
+          timestamp: new Date(TS.base).toISOString(),
+          archived_at: new Date(TS.base + 3600).toISOString(),
+          fullData: JSON.stringify({
+            prediction: 'X',
+            confidence: 60,
+            btts_pick: 'BTTS YES',
+            btts_prob: 66,
+          }),
+        },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    expect(res.summary.total).toBe(2)
+    const mk = Object.fromEntries(res.byMarket.map((m) => [m.market, m]))
+    // 0-0 → BTTS YES incorrect
+    expect(mk.BTTS.correct).toBe(0)
+    expect(mk.BTTS.total).toBe(1)
   })
 })

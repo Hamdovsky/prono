@@ -5,6 +5,7 @@
 
 const sharpService = require('../../services/SharpIntelligenceService')
 const correlationEngine = require('../../services/MarketCorrelationEngine')
+const logger = require('../logger')
 
 class MarketIntelligenceService {
   async analyze(match, probabilities) {
@@ -33,19 +34,48 @@ class MarketIntelligenceService {
   }
 
   applyMarketBoosts(match, intelligence) {
-    let xgboost_confidence = match.xgboost_confidence
+    const original = match.xgboost_confidence
+    let xgboost_confidence = original
+    const contributions = []
 
-    // Boost Confidence if Sharp Money aligns with AI
+    // Boost si sharp money aligné — plafonné à +0.02 (audit P1b : l'ancien
+    // +0.05 arbitraire recréait de la sur-confiance). Chaque boost est logué.
     if (intelligence.sharp_score >= 70 && xgboost_confidence > 0) {
-      xgboost_confidence = Math.min(0.98, xgboost_confidence + 0.05)
+      const before = xgboost_confidence
+      xgboost_confidence = Math.min(0.98, xgboost_confidence + 0.02)
+      contributions.push({
+        factor: 'sharp_money',
+        sharp_score: intelligence.sharp_score,
+        before: +before.toFixed(4),
+        after: +xgboost_confidence.toFixed(4),
+        delta: +(xgboost_confidence - before).toFixed(4),
+      })
     }
 
-    // Boost overall confidence if correlation is elite
+    // Rattrapage vers master_confidence — progression plafonnée à +0.02/appel
+    // (audit P1b : l'ancien saut direct vers master_confidence pouvait ajouter
+    // +0.20 d'un coup). Chaque rattrapage est logué.
     if (
       intelligence.correlation &&
       intelligence.correlation.master_confidence > xgboost_confidence * 100
     ) {
-      xgboost_confidence = intelligence.correlation.master_confidence / 100
+      const before = xgboost_confidence
+      const target = intelligence.correlation.master_confidence / 100
+      xgboost_confidence = Math.min(0.98, Math.min(before + 0.02, target))
+      contributions.push({
+        factor: 'correlation_master',
+        master_confidence: intelligence.correlation.master_confidence,
+        target: +target.toFixed(4),
+        before: +before.toFixed(4),
+        after: +xgboost_confidence.toFixed(4),
+        delta: +(xgboost_confidence - before).toFixed(4),
+      })
+    }
+
+    if (contributions.length > 0) {
+      logger.info(
+        `[MARKET_BOOST] ${match?.id ?? match?.homeTeam ?? 'match'} confiance ${original?.toFixed ? original.toFixed(3) : original} -> ${xgboost_confidence.toFixed(3)} boosts=${JSON.stringify(contributions)}`
+      )
     }
 
     return xgboost_confidence

@@ -2,6 +2,7 @@ const path = require('path')
 const fs = require('fs')
 const { usingPostgres, query } = require('./pg_connector')
 const logger = require('./logger')
+const { applyMarketPolicy, deriveBttsPick } = require('./marketPolicy')
 
 function sqliteToPg(sql) {
   return sql
@@ -184,6 +185,23 @@ const pgDb = {
         return false
       }
 
+      // Audit P4 : politique marchés — masquage réversible du 1X2 pur
+      const __policy = applyMarketPolicy(m.prediction, m)
+      if (__policy.converted) {
+        logger.info(
+          `[MARKET_POLICY] ${m.id} ${__policy.originalPrediction} -> ${__policy.prediction} (DISABLE_PURE_1X2)`
+        )
+        m.originalPrediction = __policy.originalPrediction
+        m.prediction = __policy.prediction
+      }
+
+      // Audit BT1 : dérivation + persistance du pick BTTS au temps T
+      const __btts = deriveBttsPick(m)
+      if (__btts.bttsPick) {
+        m.btts_pick = __btts.bttsPick
+        m.btts_pick_prob = __btts.bttsProb
+      }
+
       const dataToSave = { ...m }
       delete dataToSave.fullData
       const fullData = JSON.stringify(dataToSave)
@@ -344,10 +362,30 @@ const pgDb = {
     try {
       const placeholders = statuses.map((_, i) => `$${i + 1}`).join(',')
       const limit = parseInt(opts.limit, 10)
-      const sql = `SELECT * FROM matches WHERE status IN (${placeholders}) ORDER BY timestamp ASC${
+      const params = [...statuses]
+      let extraClause = ''
+      if (opts.startAfter) {
+        extraClause += ` AND "startTimestamp" IS NOT NULL AND "startTimestamp" >= $${params.length + 1}`
+        params.push(parseFloat(opts.startAfter))
+      }
+      if (opts.startBefore) {
+        extraClause += ` AND "startTimestamp" <= $${params.length + 1}`
+        params.push(parseFloat(opts.startBefore))
+      }
+      // orderBy 'start' : tri par coup d'envoi (les PROCHAINS matchs d'abord)
+      // au lieu de la date d'insertion — sinon les vieilles lignes déjà jouées
+      // saturent le LIMIT et masquent les matchs à venir réels.
+      // 'start_desc' : les plus proches dans le passé d'abord (fallback "récents").
+      const orderClause =
+        opts.orderBy === 'start'
+          ? 'ORDER BY "startTimestamp" ASC'
+          : opts.orderBy === 'start_desc'
+            ? 'ORDER BY "startTimestamp" DESC'
+            : 'ORDER BY timestamp ASC'
+      const sql = `SELECT * FROM matches WHERE status IN (${placeholders})${extraClause} ${orderClause}${
         limit > 0 ? ` LIMIT ${Math.min(limit, 5000)}` : ''
       }`
-      const result = await query(sql, statuses)
+      const result = await query(sql, params)
       return result.rows.map((r) => {
         try {
           const parsed =
@@ -474,7 +512,33 @@ return {
       delete fullData.fullData
       if (fullData.enriched?.enriched) delete fullData.enriched.enriched
 
-      const verdict = data.prediction || data.enriched?.prediction || data.verdict || null
+      const rawVerdict = data.prediction || data.enriched?.prediction || data.verdict || null
+      // Audit P4 : politique marchés (masquage réversible du 1X2 pur)
+      const verdictPolicy = applyMarketPolicy(rawVerdict, {
+        home_win_probability:
+          data.home_win_probability || enriched?.home_win_probability || fullData.home_win_probability,
+        away_win_probability:
+          data.away_win_probability || enriched?.away_win_probability || fullData.away_win_probability,
+      })
+      const verdict = verdictPolicy.converted ? verdictPolicy.prediction : rawVerdict
+      if (verdictPolicy.converted) {
+        logger.info(
+          `[MARKET_POLICY] ${matchId} ${verdictPolicy.originalPrediction} -> ${verdict} (DISABLE_PURE_1X2)`
+        )
+        data.originalPrediction = verdictPolicy.originalPrediction
+        data.prediction = verdict
+      }
+
+      // Audit BT1 : dérivation + persistance du pick BTTS au temps T
+      const bttsDerivPg = deriveBttsPick({
+        quant: fullData.quant || enriched?.quant || null,
+        btts_prob: data.btts_prob ?? enriched?.btts_prob ?? fullData.btts_prob ?? null,
+      })
+      if (bttsDerivPg.bttsPick) {
+        data.btts_pick = bttsDerivPg.bttsPick
+        fullData.btts_pick = bttsDerivPg.bttsPick
+        fullData.btts_pick_prob = bttsDerivPg.bttsProb
+      }
       const toNull = (v) =>
         v === null || v === undefined || (typeof v === 'number' && (isNaN(v) || !isFinite(v)))
           ? null

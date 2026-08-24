@@ -350,3 +350,375 @@ actif portent `fullData.market_scope = 'unknown'` dans la colonne `matches.marke
 dériver le scope depuis `fd.quant.markets` (top-level, source fiable) et backfiller
 `fullData.market_scope` (exemple : `livescore_1806476`, pick `12` → `full_time_dc`).
 
+---
+
+# AUDIT ROI & CALIBRATION — P1 → P5 (2026-08-24)
+
+Constats initiaux : précision globale 65,8 % (7j)/66,8 % (30j) mais **ROI flat
+négatif** (−6,9 %/−8,2 %), 1X2 pur à 40,5 %, backtest 72h « à 37 % », et deux
+fichiers dépréciés encore lus par des modules actifs.
+
+## Cause racine n°1 — Sur-confiance systémique (corrigée en P1)
+
+`services/probabilityCalibrator.js/.ts` lisait encore `retro_accuracy_report.json`
+(fichier déprécié ÉTAPE 1 : oracle du favori avec look-ahead) et appliquait la
+courbe biaisée `EV_OPTIMIZED` + des défauts codés en dur encore pires :
+`0.60-0.70 → 0.90`, `0.70-0.80 → 0.99`, `≥0.80 → 1.0`, fallback `×1.15`.
+Preuve avant/après (`calibrateProb`) :
+
+| Probabilité brute | AVANT | APRÈS |
+|---|---|---|
+| 0.65 (bin 60-70) | 0.899 | ≈0.45 (bande 50-60 réelle 42,8 % après normalisation) |
+| 0.75 | **0.989** | **0.667** (réel observé bande 70-80 : 66,7 %) |
+| 0.85 | **1.000** | **0.643** (réel bande 80-90 : 64,3 %) |
+
+Correctif P1 : source unique = `data/accuracy_report.json`
+(`rolling.last30days.calibrationCurve`, snapshot au temps T), bandes avec
+n < 30 ignorées, **fallback identité** (plus aucun défaut gonflant, plus de ×1.15).
+
+## P1b — Harmonisation confiance affichée
+
+- `MarketIntelligenceService.applyMarketBoosts` : boost sharp +0.05 arbitraire →
+  **+0.02 plafonné**, rattrapage correlation (ancien saut direct jusqu'à +0.20)
+  → progression **+0.02 max/appel**, et **log structuré `[MARKET_BOOST]`**
+  (sharp_score, master_confidence, avant/après/delta par contribution).
+- `promosportIntelligence.js/.ts optimizeGrid()` : la confiance affichée et les
+  seuils de pick utilisent désormais les probabilités **calibrées** (`p1Cal/pxCal/p2Cal`
+  exposés) et non plus les brutes.
+- `src/components/MegaTicket1000.jsx` : **suppression de toutes les probabilités
+  et cotes fabriquées** (ex : DNB prob 0.94 hardcodé, DC 0.9, Score Exact 2-1
+  prob 0.11…). Chaque sélection est dérivée des vraies probabilités modèle
+  (normalisées 1X2 ; combos O/U via `ou_25_prob`) et des cotes réelles quand
+  elles existent (sinon fair-value). La composition DIAMOND (garde globalProb
+  ≥ 0.78) repose donc sur des chiffres honnêtes.
+- Seuils UI codés en dur inventoriés (re-validation différée, cf. Différé) :
+  `IntelligenceCard.jsx:65` (Golden ≥88), `MarketTerminal.jsx` (couleurs ≥70/55),
+  `TicketDuJour.jsx:310` (filtre ≥75), `DataScienceLab.jsx:49` (>0.85).
+
+## P2 — Boucle backtest → live blindée
+
+`services/autoBacktestService.js` : quand aucun match fini en 72h n'existe en base,
+l'ancien code retombait sur 100 matchs **archivés non-snapshot** puis mettait à jour
+`league_dynamic_weights.json` ET nourrissait la mesure qui alimente le live.
+C'est l'explication du faux « 37 % sur 72h » (`source: archived-fallback`,
+méthodologie incompatible avec accuracyEngine). Correctif :
+- **poids dynamiques gelés** en fallback (plus d'écriture `league_dynamic_weights.json`),
+- rapport marqué `methodology: 'archived-fallback-non-snapshot'` + `provisional: true`
+  (chemin normal : `local-db-72h-recorded-predictions`).
+
+## P3 — ROI : échantillon élargi + vue EV-filtrée
+
+Pourquoi 44 paris/1516 : `accuracyEngine` exclut tout pick sans cote exploitable
+(`roiExcluded: 1472`) — cause n°1 = cotes manquantes (O/U structurellement sans
+cotes archivées + colonnes odds_* vides). Correctifs :
+- `recordFromMatches` : fallback sur les cotes figées dans `fullData` quand les
+  colonnes sont vides (même logique que historical_matches).
+- Nouvelles métriques dans le rapport : `avgOddsWinners` / `avgOddsLosers`
+  (global + par marché) — le cœur de l'analyse « pourquoi le ROI est négatif » ;
+  `oddsMissingByMarket` (diagnostic des exclusions par marché).
+- `roiEvFiltered` : vue alternative ne comptant comme pariables que les picks à
+  espérance modèle positive (**p × cote > 1.05**). Kelly volontairement écarté
+  tant que calibration non validée sur n ≥ 200 (décision utilisateur : flat stake).
+
+## P4 — Marché 1X2 pur masqué (réversible)
+
+Diagnostic (`scripts/diagnose_1x2.js`, n=1252, sortie `data/diagnosis_1x2.json`) :
+- accuracy 1X2 pur **42,2 % < break-even 42,6 %** → verdict : maintien du masquage ;
+- pas de biais directionnel majeur (picks 1 : 41,6 %, picks 2 : 43,6 %) ;
+- distribution réelle équilibrée (1: 40,2 %, 2: 39,5 %, X: 20,3 %) ;
+- **sur-confiance confirmée** : confiance affichée ~74 % vs réel ~42 %.
+
+Implémentation : nouveau module `core/marketPolicy.js` + flag
+`DISABLE_PURE_1X2=true` (.env / .env.example). Branché aux 4 points d'écriture
+(`database.js insertMatch/updatePredictions`, `pg_database.js idem`) :
+'1'→'1X', '2'→'X2', 'X'→côté probable, original conservé dans
+`fullData.originalPrediction`. Réactivation : ≥ 42,6 % calibré sur n ≥ 200.
+
+## P5 — Nettoyage fichiers dépréciés
+
+- Renommés avec `_deprecatedNote` explicative : `data/promosport_accuracy_trend.deprecated.json`,
+  `data/retro_accuracy_report.deprecated.json`.
+- Redirections : `routes/evolution.js` (/api/evolution/accuracy/trend →
+  `data/accuracy_trend.json`) ; `scripts/sync_accuracy_git.js` (committe
+  `accuracy_trend.json` + `accuracy_report.json`).
+- Neutralisés par guard d'exécution (warn + exit 0, n'écrivent plus) :
+  `scripts/accuracy_snapshot.js/.ts`, `scripts/retro_accuracy_analysis.js/.ts`.
+- Grep final : **zéro référence active** (uniquement commentaires/doc historiques).
+- Doc mise à jour : `docs/SCRIPTS_DOCUMENTATION.md`.
+
+## Différé (post-stabilisation)
+
+1. Comparer la courbe JS recalibrée vs Python isotonic (`confidence_engine.py`)
+   dès n ≥ 200 post-P1 — vérifier la non-divergence des deux systèmes.
+2. Re-valider les seuils UI (liste P1b) sur la nouvelle échelle.
+3. Tester 1/4 Kelly en shadow mode parallèle au flat stake, bascule seulement si
+   calibration stable et n ≥ 200 paris.
+4. Backfiller `fullData.market_scope` (chantier existant, section précédente).
+
+---
+
+# VÉRIFICATIONS DIFFÉRÉES J+0 (2026-08-24) — exécution des points 1-3 du différé
+
+Préambule honnête : **0 échantillons post-P1** en base locale au moment de
+l'analyse (déploiement du jour). Analyses menées sur l'échantillon total
+(n=2299 évalués avec confiance stockée, majoritairement pré-P1) — conclusions
+marquées 🔶 provisoires. Décision : **pas de sonde Neon**, point de contrôle
+**J+30** sur base locale.
+
+## 1. Courbe JS vs Python isotonic — divergence majeure, contamination prouvée
+
+**Fait** : `models/isotonic_model.pkl` fitted le **2026-08-23T03:51:31**, cinq
+secondes après l'écriture du `backtest_results.json` biaisé (03:51:26,
+`source: archived-fallback`, 37 %). Le fit (n=201) a absorbé les brackets
+contaminés via `_bracket_aggregates()`.
+
+Échelle native Python (confiance stockée, n=2299) vs sortie iso :
+
+| Bande | n | Réel | Python iso | Écart |
+|---|---|---|---|---|
+| 50-60 % | 9 | 44,4 % | 32,3 % | −12 pts |
+| 60-70 % | 14 | 42,9 % | 36,4 % | −6 pts |
+| 70-80 % | 1430 | **53,6 %** | **39,5 %** | **−14 pts** |
+| 80-90 % | 583 | **54,7 %** | **46,7 %** | **−8 pts** |
+| 90-100 % | 52 | 40,4 % | 50,0 % | +9,6 pts |
+
+Côté JS (proba-pick, rolling 30j accuracyEngine) : 70-80 → **66,7 %**,
+80-90 → 64,3 %. Écart JS↔Python jusqu'à **27 pts** (bande 70-80).
+
+Causes : (1) contamination fallback ; (2) périmètres différents (Python =
+accuracy_log 1X2 seul ; JS = tous marchés snapshot-T) ; (3) échelles
+différentes (confiance stockée ≠ proba du pick) ; (4) warning sklearn
+1.8.0 picklé vs runtime 1.9.0.
+
+### Correctifs appliqués
+
+- **V1** — `core/calibration_iso.py::_bracket_aggregates()` : brackets ingérés
+  UNIQUEMENT si `methodology === 'local-db-72h-recorded-predictions'` ET
+  `provisional === false`. Preuve : appel sur le fichier actuel → **0 bracket**
+  + warning `[ISO-CAL] brackets ignorés`. Le cron nocturne fittera proprement
+  sur les entrées per-pick 1X2 de `accuracy_log.json` seul.
+- **V2-prêt** — nouvelle `_accuracy_report_aggregates()` lisant
+  `accuracy_report.json → rolling.last30days.calibrationCurve` (6 bandes
+  extraites : mid 35→91,9 % … mid 75→66,7 %, bande 90-100 exclue n<30),
+  activable par env `ISO_SOURCE=accuracy_report`. **Non activée — refit
+  effectif différé** à n ≥ 200 post-P1 (évite un « isotonic v2 » encore biaisé
+  par l'historique pré-P1).
+
+## 2. Seuils UI — mesurés sur l'échelle pré-P1 🔶
+
+| Seuil | n dessus | Précision dessus | Dessous | Verdict / action |
+|---|---|---|---|---|
+| Golden ≥88 (`IntelligenceCard`) | 123 | **45,5 %** | 54,7 % | 🔴 Inversé → **délabelé immédiatement (V3)** |
+| Verte ≥70 (`MarketTerminal`) | 2065 | 53,6 % | 59,4 % | 🟠 Conserver, re-mesurer post-P1 |
+| Jaune ≥55 (`MarketTerminal`) | 2081 | 53,5 % | 60,6 % | 🟠 Idem |
+| TicketDuJour ≥75 | 1178 | **55,3 %** | 53,1 % | 🟡 Seul discriminant (+2,2 pts) — conserver |
+| DataLab >85 | 272 | 52,6 % | 54,4 % | 🔴 Non discriminant — re-mesurer post-P1 |
+
+**V3 appliqué** : `IntelligenceCard.jsx` — suppression de `isGolden`
+(`is_confirmed && confidence >= 88`) et de la classe `golden-pick`. Le badge
+sélectionnait pire que la moyenne et induisait activement en erreur.
+Réactivation possible plus tard sur valeur CALIBRÉE + n minimal, ou via le
+pattern MatchCard « réel ≈X% (n) » quand les données bracket atteignent le
+composant. Les autres seuils ne sont pas retouchés : ils sont calibrés sur
+l'échelle gonflée qui disparaît avec P1 — re-mesure à J+30 avant ajustement.
+
+## 3. Kelly ¼ shadow — test statistiquement vide, verdict structurel
+
+Seuls 13-16 paris simulables (cotes+probs complets, tout historique) :
+
+| Mode | Paris | ROI | Mise moy. | σ mises | Max DD |
+|---|---|---|---|---|---|
+| Flat EV>1.05 | 13 | −7,62 % | 1u | 0 | 6u |
+| Kelly¼ probas brutes | 13 | −7,62 % | 2u (=cap) | 0 | 12u |
+| Kelly¼ probas calibrées | 16 | −12,75 % | 2u (=cap) | 0 | 14u |
+
+Enseignement structurel : probas brutes gonflées ⇒ f\* > plafond en permanence
+⇒ Kelly¼ **dégénère en flat ×2** (σ=0) et **double le drawdown**.
+**Décision : ne pas activer.** Critères de bascule future : n ≥ 200 paris
+post-P1 ET courbe de calibration monotone croissante ET `roiEvFiltered`
+positif sur 30 j consécutifs. Shadow logging automatisé à câbler à ce stade.
+
+## Point de contrôle J+30 (base locale uniquement)
+
+1. `node scripts/accuracy_report.js` — vérifier que la calibrationCurve est
+   monotone croissante sur les bandes peuplées (n ≥ 30).
+2. Compter les évalués post-P1 (`ts ≥ 2026-08-24`, cible n ≥ 200).
+3. Si OK : activer `ISO_SOURCE=accuracy_report` + refit isotonic sous sklearn
+   1.9.0 (purge du pickle 1.8.0), puis re-comparer JS↔Python.
+4. Re-mesurer les seuils UI restants (≥70/≥55/≥75/>85) sur l'échelle calibrée.
+5. Ré-exécuter la sim Kelly shadow sur les paris post-P1.
+
+---
+
+## Contrôle J+1 post-V1 (2026-08-24, 03h16–04h00 UTC)
+
+### Constat principal : le cron nocturne ne peut pas tirer sans serveur
+
+- Aucun process Node projet actif cette nuit (seuls `omniroute` hors projet).
+  La seule tâche planifiée Windows est `Pronos-DataPipeline` (07:00, pipeline
+  data Python) — rien ne relance `server.js`. Or `cronSchedules.init()` vit
+  dans le serveur : sans lui, ni auto-backtest ni fit isotonic nocturne.
+- Démarrage manuel de `node server.js` (04h15 locale) pour contrôle en direct.
+- Boot réel : `[SETTLEMENT] Done: 116 settled` (le flux repart) et startup
+  auto-backtest à 03:16:58Z → fallback archivé détecté et…
+  **`[BACKTEST] Fallback archivé : poids dynamiques et confidenceScorer GELÉS
+  (données non-snapshot)`** → preuve en production réelle du garde-fou P2.
+- Le cron quotidien est reprogrammé à J+1 quand le boot a lieu après 02:30 UTC
+  (`cronSchedules.js:106`) → chaîne exécutée manuellement à l'identique
+  (`runAutoBacktest()` + `runIsotonicCalibration()`, équivalent cron).
+
+### Preuve V1 sur passage réel
+
+```
+[ISO-CAL] brackets ignorés (source non-snapshot/provisional:
+          methodology='archived-fallback-non-snapshot', provisional=True)
+[ISO-CAL] Fitted on 196 1X2 samples (log + backtest brackets)
+   Brier before=0.2365 -> after=0.1936
+```
+
+Le fichier biaisé fraîchement régénéré par le fallback a bien été REFUSÉ.
+Fit effectué uniquement sur les entrées per-pick 1X2 d'accuracy_log.json.
+
+### État post-fit (`--check`)
+
+| | AVANT (contaminé, 23/08) | APRÈS (J+1, gardé) | Réel observé |
+|---|---|---|---|
+| fitted_at | 23/08 03:51:31 | **24/08 03:54:39** | — |
+| n_samples | 201 (incl. brackets biaisés) | **196 (per-pick seul)** | — |
+| conf 70 % → | 39,5 % | **50,0 %** | ~53,6 % |
+| conf 80 % → | 46,7 % | **75,0 %** | ~64,3 % |
+| conf 90 % → | 48,4 % | 75,0 % | 40-66 % (n faible) |
+| Brier | 0.2239→0.1598 | 0.2365→0.1936 | — |
+
+La carte redevient croissante et se rapproche du réel ; le palier à 75 % sur
+les bandes hautes reflète les limites des 196 per-pick pré-P1 (max_conf 81,3 %
+— peu de données au-dessus). **ISO_SOURCE=accuracy_report reste NON activé**
+(refit V2 différé maintenu jusqu'à n ≥ 200 post-P1).
+
+### Inflow accuracy_log — point de vigilance
+
+- Toujours **196 per-pick 1X2**, dernier timestamp **2026-08-19 13:45Z** :
+  les 116 settlements du boot n'ont alimenté aucune entrée 1X2 (marchés
+  DC/OU majoritaires dans ce lot ou picks sans probas exploitables).
+- Rythme historique : 3→19→34→51/jour (13-16 août) puis quasi-nul.
+- Estimation n≥200 NOUVEaux : non calculable au rythme actuel (~0/jour) tant
+  que le serveur ne tourne pas en continu. Décision requise (hors audit) :
+  service local permanent vs fenêtres planifiées vs reconsidérer la sonde Neon.
+
+### Décisions & suites
+
+1. Serveur de contrôle **arrêté après vérification** (voir ci-dessous).
+2. Prochain passage cron réel : prochaine nuit avec serveur actif — la garde
+   V1 est désormais prouvée sur les deux chemins (appel unitaire + chaîne complète).
+3. Point de contrôle J+30 inchangé (critères : n≥200 post-P1 · courbe monotone ·
+   roiEvFiltered positif 30 j).
+
+---
+
+## Option 2 — Fenêtres planifiées Windows (2026-08-24, suite contrôle J+1)
+
+Décision : tester les fenêtres planifiées 5-7 jours avant toute sonde Neon.
+Si le compteur per-pick 1X2 reste bloqué à 196 au **2026-08-31** → décision Neon.
+
+### Mise en place
+
+- **Script** : `scripts/server_window.ps1 -Minutes 25` — démarre `node server.js`
+  (anti-doublon intégré), laisse tourner 25 min (settlements initiaux à +3 min,
+  cycle toutes les 15 min, auto-backtest startup à +30 s), arrêt propre, puis
+  fit isotonic **garde V1 incluse** (`calibration_iso.py --fit`).
+- **Tâche planifiée** : `Pronos-Fenetres-P1` (Ready) — triggers quotidiens
+  **07:10** (juste après `Pronos-DataPipeline` 07h00 → résultats frais réglés)
+  et **22:45** (fin des matchs du soir). Timezone machine : UTC+01.
+
+### Test end-to-end du jour (fenêtre 4 min)
+
+- Boot PID 18136 → `[SETTLEMENT] Done: 200 settled` → arrêt propre → fit :
+  brackets refusés par la garde (`provisional=True`) + fit sur 196 per-pick,
+  Brier 0.2365→0.1936. Logs : `logs/scheduled_windows.log`.
+- Compteur inchangé (196, dernier 19/08) : **normal** — les 200 settlements
+  étaient des re-settlements idempotents de matchs déjà connus
+  (`accuracyStore.appendResult` remplace par match_id). Le compteur ne bougera
+  qu'avec de VRAIS nouveaux matchs réglés — objectif exact des fenêtres.
+
+### Procédure de contrôle J+7 (2026-08-31)
+
+1. Compteur : compter les per-pick 1X2 avec timestamp > 24/08 dans
+   `data/accuracy_log.json` (byLeague[].[].market==='1X2').
+2. `python core/calibration_iso.py --check` — n_samples et probes.
+3. `Get-ScheduledTaskInfo Pronos-Fenetres-P1` — LastRunTime/LastTaskResult.
+4. Si nouveaux ≈ 0 sur 7 jours → activer la sonde Neon (lecture seule) ou
+   service permanent ; sinon poursuivre jusqu'à n≥200 puis basculer
+   `ISO_SOURCE=accuracy_report` + refit (V2).
+
+---
+
+# MARCHÉ BTTS — état des lieux & tracking (2026-08-24, audit BT1→BT4)
+
+## État des lieux des 3 marchés supplémentaires du dashboard
+
+| Marché | Pick émis/persisté ? | Résultat réel dispo ? | Précision mesurable ? |
+|---|---|---|---|
+| **BTTS** | ❌ (proba `matches.btts_prob` seule ; pick dérivé côté frontend) | ✅ dérivable des scores FT | **Oui — baseline dérivée : 50,0 % global · 53,4 % à 65 %+ de confiance (n=726)** |
+| But 1ère MT | ❌ heuristique frontend (`MatchRow.jsx` : (O/U+BTTS)/2+5, cap 89 %) | ❌ aucun score mi-temps stocké (0 ligne) | Non — double manque (modèle + data HT). Dépriorisé |
+| O/U corners | ⚠️ volant (`routes/matches.js` → `cornersVerdict`, non persisté) | ❌ colonnes corners_home/away jamais renseignées (0 ligne FT) | Non — bloqué par l'absence de source gratuite de corners FT. Dépriorisé |
+
+Autres constats : `accuracy_log.json` ne contient AUCUN pick BTTS
+(distribution : DC 2234 · OTHER[=O0.5] 943 · 1X2 196) bien que
+`classifyMarket` supporte 'BTTS*' ; `calibration_metrics.json` a un
+brierBTTS par ligue mais `_global` repose sur le fallback archivé et des
+ligues à n≈2 → non exploitable.
+
+## Correctifs appliqués
+
+- **BT1** — `core/marketPolicy.js::deriveBttsPick()` (source prioritaire
+  `quant.markets.btts.YES`, fallback colonne `btts_prob`, seuil ≥50 %),
+  persisté en `fullData.btts_pick`/`btts_pick_prob` au temps T aux 4 points
+  d'écriture DB (mêmes hooks que P4). Zéro migration SQL.
+- **BT2** — `services/accuracyEngine.js` : whitelist étendue
+  (**BTTSYES/BTTSNO** après normalisation), `isCorrect` via scores,
+  `marketKey→'BTTS'`, filtre `'all'|'btts'`, et **second record par match**
+  quand `btts_pick` existe (matches ET historical), avec `pBtts` +
+  cotes `odds_btts_yes/no` → ROI flat/calibration/EV-filtre fonctionnent
+  pour BTTS comme pour DC/OU/1X2. `byMarket.BTTS` inclut désormais
+  avgOddsWinners/Losers.
+- **BT3** — masquage UI réversible `VITE_DISABLE_BTTS_DISPLAY=true`
+  (.env/.env.example) via nouveau `src/utils/displayPolicy.js`, branché sur
+  MatchRow (BOX BTTS → '--'), MatchCard (chip/cellule), MarketTerminal
+  (2 blocs + header tableau), EdgePanel (onglet+vue). Inputs internes
+  (heuristiques HT/scores exacts) inchangés.
+- **Tests** — 4 nouveaux cas Jest (émission second record, BTTS NO incorrect,
+  ROI flat @1.85 + filtres, snapshot historical) → suite accuracyEngine :
+  **15/15 verts**.
+
+## Baseline historique vs mesure propre (distinction importante)
+
+Les 726 matchs passés ne possèdent pas de `btts_pick` archivé au temps T :
+leur précision (50,0 % / 53,4 %) est une **baseline DÉRIVée** (re-pick
+post-hoc sur proba stockée), pas la mesure de picks émis. Le tracking propre
+démarre au prochain settlement post-BT1. Ne pas confondre les deux séries.
+
+## Critère de réactivation de l'affichage BTTS (double condition, n ≥ 200 picks émis post-BT1)
+
+1. Précision calibrée ≥ **55 %** (bandes peuplées, courbe monotone) ;
+2. **Rentabilité réelle croisée** — exactement comme le diagnostic global :
+   `byMarket.BTTS.flatRoi > 0` ou `roiEvFiltered > 0`, lus avec
+   `avgOddsWinners vs avgOddsLosers`. Une précision ≥55 % avec des cotes
+   moyennes défavorables reste perdante (leçon du marché global).
+   Caveat : cotes BTTS archivées rares aujourd'hui (n=11 FT) → le croisement
+   ROI ne sera significatif qu'après accumulation.
+
+### ⚠️ Incident exécution BT3 (transparence)
+
+L'insertion des imports via une commande shell (`Get-Content -TotalCount N |
+Set-Content`) a **tronqué** les 4 composants à leurs seules lignes d'en-tête.
+`git checkout -- <fichiers>` a restauré les versions HEAD (fonctionnelles),
+et les masquages ont été réappliqués via édition contrôlée. Résiduel : la
+version de travail NON commitée de `MatchCard.jsx` (205 lignes vs 159 HEAD)
+a été perdue — vérification faite : HEAD contient déjà toutes les features
+visibles (parseRow, relBadge, mcc-chips, bttsVerdict) ; il s'agissait donc
+d'une variante redondante, mais l'incident justifie un commit rapide du
+travail en cours. Leçon retenue : toute réécriture de fichier passe par
+l'outil d'édition, jamais par un pipeline shell de troncature.
+
+
+

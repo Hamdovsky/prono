@@ -122,18 +122,29 @@ class PromosportIntelligence {
 
     return enrichedMatches.map((m) => {
       const isDouble = doubleIndices.includes(m.id)
+      // Audit P1b : confiance affichée = probabilités CALIBRÉES (même source
+      // que le calcul d'edge des secret weapons), plus jamais les probas brutes.
+      const cal = probabilityCalibrator.calibrate(m.p1, m.px, m.p2)
       let pred = ''
       if (strategy === 'value') {
-        const edge = m.p1 > 0.4 ? '1' : m.p2 > 0.4 ? '2' : 'X'
-        pred = isDouble ? (m.p1 > m.p2 ? '1X' : 'X2') : edge
+        const edge = cal.p1 > 0.4 ? '1' : cal.p2 > 0.4 ? '2' : 'X'
+        pred = isDouble ? (cal.p1 > cal.p2 ? '1X' : 'X2') : edge
       } else if (strategy === 'secure') {
-        const best = m.p1 > m.p2 ? (m.p1 > m.px ? '1' : 'X') : m.p2 > m.px ? '2' : 'X'
-        pred = isDouble ? (m.p1 > m.p2 ? '1X' : 'X2') : best
+        const best = cal.p1 > cal.p2 ? (cal.p1 > cal.px ? '1' : 'X') : cal.p2 > cal.px ? '2' : 'X'
+        pred = isDouble ? (cal.p1 > cal.p2 ? '1X' : 'X2') : best
       } else {
-        const best = m.p1 > 0.5 ? '1' : m.p2 > 0.5 ? '2' : 'X'
-        pred = isDouble ? (m.p1 > m.p2 ? '1X' : 'X2') : best
+        const best = cal.p1 > 0.5 ? '1' : cal.p2 > 0.5 ? '2' : 'X'
+        pred = isDouble ? (cal.p1 > cal.p2 ? '1X' : 'X2') : best
       }
-      return { ...m, pred, isDouble, confidence: (Math.max(m.p1, m.px, m.p2) * 100).toFixed(1) }
+      return {
+        ...m,
+        pred,
+        isDouble,
+        p1Cal: cal.p1,
+        pxCal: cal.px,
+        p2Cal: cal.p2,
+        confidence: (Math.max(cal.p1, cal.px, cal.p2) * 100).toFixed(1),
+      }
     })
   }
 

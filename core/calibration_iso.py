@@ -37,6 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ACCURACY_LOG_PATH = os.path.join(ROOT, 'data', 'accuracy_log.json')
 BACKTEST_PATH = os.path.join(ROOT, 'data', 'backtest_results.json')
+ACCURACY_REPORT_PATH = os.path.join(ROOT, 'data', 'accuracy_report.json')
 MODEL_PATH = os.path.join(ROOT, 'models', 'isotonic_model.pkl')
 PARAMS_PATH = os.path.join(ROOT, 'models', 'isotonic_params.json')
 
@@ -89,11 +90,29 @@ def _iter_accuracy_entries():
 
 
 def _bracket_aggregates():
-    """Yield (midpoint_conf, win_rate, weight) from backtest bracketAccuracy."""
+    """Yield (midpoint_conf, win_rate, weight) from backtest bracketAccuracy.
+
+    Audit V1 (2026-08-24) — garde anti-contamination : les brackets ne sont
+    ingérés QUE si le rapport provient du chemin normal (prédictions
+    enregistrées en base locale, snapshot fiable, flag provisional=False).
+    L'ancien comportement avalait le rapport 'archived-fallback' non-snapshot
+    (37% vs 66% rolling) : le modèle fitted le 2026-08-23T03:51:31 — cinq
+    secondes après l'écriture du fallback (03:51:26) — en porte la trace.
+    """
     report = _load_json(BACKTEST_PATH, {}) or {}
     brackets = report.get('bracketAccuracy') if isinstance(report, dict) else None
     if not isinstance(brackets, dict):
         return
+
+    methodology = report.get('methodology')
+    provisional = report.get('provisional')
+    if methodology != 'local-db-72h-recorded-predictions' or provisional is not False:
+        sys.stderr.write(
+            '[ISO-CAL] brackets ignorés (source non-snapshot/provisional: '
+            f'methodology={methodology!r}, provisional={provisional!r})\n'
+        )
+        return
+
     bounds = {'0-50': 25, '50-60': 55, '60-70': 65, '70-80': 75, '80-90': 85, '90+': 95}
     for band, mid in bounds.items():
         b = brackets.get(band)
@@ -106,6 +125,47 @@ def _bracket_aggregates():
         if count < 1:
             continue
         yield mid, min(1.0, max(0.0, acc / 100.0)), float(count)
+
+
+def _accuracy_report_aggregates():
+    """V2-prêt (audit 2026-08-24) — source unique accuracyEngine.
+
+    Yield (midpoint_conf, win_rate, weight) depuis la calibrationCurve du
+    rapport unifié data/accuracy_report.json (rolling 30j, snapshot au temps
+    T, tous marchés). Activée uniquement par ISO_SOURCE=accuracy_report —
+    refit effectif DIFFÉRÉ jusqu'à disposer d'échantillons post-P1 (n≥200,
+    voir CHANGELOG_AUDIT.md « Vérifications différées »).
+
+    ⚠️ Échelle : ces bins portent sur la probabilité du pick (tous marchés),
+    pas sur la confiance 1X2 pure historique — divergence de périmètre à
+    garder en tête lors de la comparaison avec les entrées per-pick du log.
+    """
+    report = _load_json(ACCURACY_REPORT_PATH, {}) or {}
+    curve = (
+        report.get('rolling', {}).get('last30days', {}).get('calibrationCurve')
+        if isinstance(report, dict)
+        else None
+    )
+    if not isinstance(curve, list):
+        sys.stderr.write('[ISO-CAL] accuracy_report.json: calibrationCurve absente\n')
+        return
+    for band in curve:
+        if not isinstance(band, dict):
+            continue
+        raw = str(band.get('band', ''))
+        parts = raw.split('-')
+        if len(parts) != 2:
+            continue
+        try:
+            lo, hi = int(parts[0]), int(parts[1])
+            acc = float(band.get('accuracy'))
+            count = float(band.get('count') or 0)
+        except (TypeError, ValueError):
+            continue
+        if count < MIN_SAMPLES:
+            continue
+        mid = (lo + hi) / 2.0
+        yield mid, min(1.0, max(0.0, acc / 100.0)), count * AGG_WEIGHT
 
 
 def fit():
@@ -121,7 +181,20 @@ def fit():
         X.append([float(conf)])
         y.append(1.0 if ok else 0.0)
         w.append(1.0)
-    for mid, rate, count in _bracket_aggregates():
+    # V2-prêt : source des agrégats commutable par ISO_SOURCE.
+    #  - 'brackets' (défaut)  : backtest_results.json — UNIQUEMENT si le rapport
+    #    est un snapshot fiable (garde anti-contamination V1), sinon vide.
+    #  - 'accuracy_report'    : calibrationCurve du rapport unifié accuracyEngine
+    #    (à activer quand les données post-P1 sont suffisantes, refit différé).
+    iso_source = os.environ.get('ISO_SOURCE', 'brackets').strip().lower()
+    if iso_source == 'accuracy_report':
+        sys.stderr.write(
+            '[ISO-CAL] ISO_SOURCE=accuracy_report — agrégats depuis accuracyEngine\n'
+        )
+        aggregates = _accuracy_report_aggregates()
+    else:
+        aggregates = _bracket_aggregates()
+    for mid, rate, count in aggregates:
         X.append([float(mid)])
         y.append(float(rate))
         w.append(AGG_WEIGHT * count)

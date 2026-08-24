@@ -12,9 +12,10 @@
  *  - Snapshot au temps T : n'utilise QUE la prédiction et la confiance telles
  *    qu'enregistrées à l'origine (colonne prediction / fullData archivée).
  *    AUCUN recalcul avec des données plus fraîches, aucun backfill rétroactif.
- *  - Whitelist stricte : 1, X, 2, 1X, X2, 12, O<seuil>, U<seuil>. Tout autre
- *    label (RISKY BET, PENDING, …) est EXCLU du calcul et compté dans
- *    `excludedLabels` — jamais ignoré silencieusement.
+ *  - Whitelist stricte : 1, X, 2, 1X, X2, 12, O<seuil>, U<seuil>,
+ *    BTTS YES / BTTS NO (audit BT2 — émis via fullData.btts_pick au temps T).
+ *    Tout autre label (RISKY BET, PENDING, …) est EXCLU du calcul et compté
+ *    dans `excludedLabels` — jamais ignoré silencieusement.
  *  - Deux vues avec le même code : rolling (7j/30j) et cumulé → seul le filtre
  *    de fenêtre change.
  *  - Métriques : accuracy brute, Brier score, log-loss, courbe de calibration
@@ -23,7 +24,14 @@
 
 const FT_STATUSES = ['FT', 'finished', 'Finished', 'Ended']
 const VALID_1X2 = new Set(['1', 'X', '2', '1X', 'X2', '12'])
+// Audit BT2 : labels BTTS normalisés (normalizeLabel supprime les espaces :
+// 'BTTS YES' -> 'BTTSYES'). Émis par deriveBttsPick() et persistés en
+// fullData.btts_pick au temps T.
+const BTTS_RE = /^BTTS(YES|NO)$/
 const OU_RE = /^[OU](\d+(?:\.\d+)?)$/
+// Quarter-Kelly : cap explicite à 2 % du bankroll (évite les stakes gonflés).
+const KELLY_FRAC = 0.25
+const KELLY_CAP_PCT = 2.0
 
 let _db = null
 function getDb(injected) {
@@ -44,12 +52,28 @@ function is1x2(label) {
   return VALID_1X2.has(label)
 }
 
+function isBTTS(label) {
+  return BTTS_RE.test(label)
+}
+
 function isOU(label) {
   return OU_RE.test(label)
 }
 
+// Marché d'un pick : '1X2' (simple), 'DC' (double chance), 'OU' (over/under).
+function marketKey(label) {
+  const p = normalizeLabel(label)
+  if (!p) return null
+  if (p === '1' || p === 'X' || p === '2') return '1X2'
+  if (p === '1X' || p === 'X2' || p === '12') return 'DC'
+  if (isBTTS(p)) return 'BTTS'
+  if (isOU(p)) return 'OU'
+  return null
+}
+
 function isAllowed(label, marketFilter) {
   if (is1x2(label)) return marketFilter === 'all' || marketFilter === '1x2'
+  if (isBTTS(label)) return marketFilter === 'all' || marketFilter === 'btts'
   if (isOU(label)) return marketFilter === 'all' || marketFilter === 'over_under'
   return false
 }
@@ -68,6 +92,12 @@ function actualOutcome(scoreHome, scoreAway) {
  *  - O/U : total de buts au-dessus (O) ou en dessous (U) du seuil
  */
 function isCorrect(pick, actual, scoreHome, scoreAway) {
+  if (isBTTS(pick)) {
+    // Audit BT2 : réel BTTS dérivé des scores finaux (les deux équipes marquent)
+    if (scoreHome == null || scoreAway == null) return null
+    const actualBtts = scoreHome > 0 && scoreAway > 0 ? 'BTTSYES' : 'BTTSNO'
+    return pick === actualBtts
+  }
   if (is1x2(pick)) {
     if (pick.length === 1) return pick === actual
     return pick.includes(actual)
@@ -87,7 +117,10 @@ function isCorrect(pick, actual, scoreHome, scoreAway) {
  */
 function pickProbability(pick, probs) {
   if (!probs) return null
-  const { p1, px, p2 } = probs
+  const { p1, px, p2, pBtts } = probs
+  if (isBTTS(pick)) {
+    return pBtts != null && Number.isFinite(pBtts) ? pBtts * 100 : null
+  }
   if (p1 == null || px == null || p2 == null) return null
   if (is1x2(pick)) {
     let prob
@@ -126,12 +159,75 @@ function computeBrier(p1, px, p2, actual) {
 }
 
 /**
- * Extraction de la prédiction depuis une ligne `matches` (colonnes directes).
+ * Cotes de l'issue prédite (retour nul si absentes ou invalides).
+ * Les cotes doivent être strictement > 1 (sinon non pariable) : un match sans
+ * cotes exploitables est SKIP — jamais une valeur par défaut biaisée.
  */
-function recordFromMatches(r, options) {
+function validOdds(v) {
+  return v != null && Number(v) > 1.0 ? Number(v) : null
+}
+
+function combinedOdds(o1, o2) {
+  const a = validOdds(o1)
+  const b = validOdds(o2)
+  if (a == null || b == null) return null
+  return 1 / ((1 / a) + (1 / b))
+}
+
+function pickOdds(pick, odds) {
+  if (!odds) return null
+  if (isBTTS(pick)) {
+    // Audit BT2 : cotes BTTS archivées (colonnes odds_btts_yes/no, rares)
+    if (pick === 'BTTSYES') return validOdds(odds.bttsYes)
+    if (pick === 'BTTSNO') return validOdds(odds.bttsNo)
+    return null
+  }
+  if (is1x2(pick)) {
+    if (pick === '1') return validOdds(odds.home)
+    if (pick === 'X') return validOdds(odds.draw)
+    if (pick === '2') return validOdds(odds.away)
+    if (pick === '1X') return combinedOdds(odds.home, odds.draw)
+    if (pick === 'X2') return combinedOdds(odds.draw, odds.away)
+    if (pick === '12') return combinedOdds(odds.home, odds.away)
+  }
+  return null // O/U : pas de cotes enregistrées → exclu du ROI (compté à part)
+}
+
+/**
+ * Profit d'un pari en Quarter-Kelly (fraction × 0.25), plafonné explicitement
+ * à KELLY_CAP_PCT % du bankroll (paramètre par défaut : 1.0 = 100 %).
+ * Retourne null si aucun stake enregistré ou si odds invalides.
+ */
+function kellyStake(stakePct, odds) {
+  const o = validOdds(odds)
+  if (stakePct == null || Number(stakePct) <= 0 || o == null) return null
+  const frac = (Number(stakePct) / 100) * KELLY_FRAC
+  return Math.min(frac, KELLY_CAP_PCT / 100)
+}
+
+/**
+ * Extraction de la prédiction depuis une ligne `matches` (colonnes directes).
+ * Audit P3 : si les colonnes odds_* sont vides (cause n°1 des 1472 exclusions
+ * ROI), on retombe sur les cotes figées dans fullData au moment du pronostic.
+ * Audit BT2 : si fullData.btts_pick existe (persisté au temps T par BT1),
+ * émet un SECOND record marché BTTS — mesuré comme DC/OU/1X2.
+ * @returns {Array} 0 à 2 records
+ */
+function recordsFromMatches(r, options) {
+  const out = []
   const pick = normalizeLabel(r.prediction)
   const actual = actualOutcome(r.scoreHome, r.scoreAway)
   const confidence = r.confidence != null ? Number(r.confidence) : null
+
+  let fd = {}
+  if (r.fullData) {
+    try {
+      fd = typeof r.fullData === 'string' ? JSON.parse(r.fullData) : r.fullData || {}
+    } catch {
+      fd = {}
+    }
+  }
+
   const probs =
     r.home_win_probability != null || r.draw_probability != null || r.away_win_probability != null
       ? {
@@ -139,27 +235,88 @@ function recordFromMatches(r, options) {
           px: r.draw_probability != null ? r.draw_probability / 100 : null,
           p2: r.away_win_probability != null ? r.away_win_probability / 100 : null,
         }
-      : null
-  return buildRecord({
-    matchId: r.id,
-    league: r.league || 'Unknown',
-    pick,
-    actual,
-    scoreHome: r.scoreHome,
-    scoreAway: r.scoreAway,
-    confidence,
-    probs,
-    source: 'matches',
-    ts: r.startTimestamp || parseDateTs(r.timestamp),
-  }, options)
+      : {
+          p1: fd.home_win_probability != null ? fd.home_win_probability / 100 : null,
+          px: fd.draw_probability != null ? fd.draw_probability / 100 : null,
+          p2: fd.away_win_probability != null ? fd.away_win_probability / 100 : null,
+        }
+
+  const fdOdds = {
+    home: fd.odds_home ?? fd.home_odds ?? fd.odds?.home_win,
+    draw: fd.odds_draw ?? fd.draw_odds ?? fd.odds?.draw,
+    away: fd.odds_away ?? fd.away_odds ?? fd.odds?.away_win,
+    bttsYes: fd.odds_btts_yes ?? fd.btts_yes_odds ?? fd.odds?.btts_yes,
+    bttsNo: fd.odds_btts_no ?? fd.btts_no_odds ?? fd.odds?.btts_no,
+  }
+
+  const primary = buildRecord(
+    {
+      matchId: r.id,
+      league: r.league || 'Unknown',
+      pick,
+      actual,
+      scoreHome: r.scoreHome,
+      scoreAway: r.scoreAway,
+      confidence,
+      probs,
+      odds: {
+        home: validOdds(r.odds_home) != null ? r.odds_home : fdOdds.home,
+        draw: validOdds(r.odds_draw) != null ? r.odds_draw : fdOdds.draw,
+        away: validOdds(r.odds_away) != null ? r.odds_away : fdOdds.away,
+      },
+      kellyStakePct: r.kelly_stake != null ? Number(r.kelly_stake) : null,
+      source: 'matches',
+      ts: r.startTimestamp || parseDateTs(r.timestamp),
+    },
+    options
+  )
+  if (primary) out.push(primary)
+
+  // ── Record BTTS secondaire (audit BT2) ──
+  const btsPick = normalizeLabel(r.btts_pick ?? fd.btts_pick ?? null)
+  if (btsPick && isBTTS(btsPick)) {
+    const pBttsRaw = r.btts_prob ?? fd.btts_prob ?? fd.btts_pick_prob ?? null
+    const pBtts =
+      pBttsRaw != null && Number.isFinite(Number(pBttsRaw)) && Number(pBttsRaw) > 0
+        ? Number(pBttsRaw) / 100
+        : null
+    const brec = buildRecord(
+      {
+        matchId: r.id + '|BTTS',
+        league: r.league || 'Unknown',
+        pick: btsPick,
+        actual,
+        scoreHome: r.scoreHome,
+        scoreAway: r.scoreAway,
+        confidence: pBtts != null ? +(pBtts * 100).toFixed(1) : null,
+        probs: { p1: null, px: null, p2: null, pBtts },
+        odds: {
+          home: null,
+          draw: null,
+          away: null,
+          bttsYes: validOdds(r.odds_btts_yes) != null ? r.odds_btts_yes : fdOdds.bttsYes,
+          bttsNo: validOdds(r.odds_btts_no) != null ? r.odds_btts_no : fdOdds.bttsNo,
+        },
+        kellyStakePct: null,
+        source: 'matches|BTTS',
+        ts: r.startTimestamp || parseDateTs(r.timestamp),
+      },
+      options
+    )
+    if (brec) out.push(brec)
+  }
+
+  return out
 }
 
 /**
  * Extraction de la prédiction depuis une ligne `historical_matches`.
  * Les colonnes prediction/confidence n'existent pas : elles sont dans fullData
  * (archivée telle quelle au moment du pronostic → snapshot au temps T).
+ * Audit BT2 : émet aussi le record BTTS secondaire si fullData.btts_pick.
+ * @returns {Array} 0 à 2 records
  */
-function recordFromHistorical(r, options) {
+function recordsFromHistorical(r, options) {
   let fd = {}
   try {
     fd = JSON.parse(r.fullData || '{}')
@@ -194,18 +351,68 @@ function recordFromHistorical(r, options) {
         : null
   const probs = p1 != null || px != null || p2 != null ? { p1, px, p2 } : null
 
-  return buildRecord({
-    matchId: r.id,
-    league: r.league || 'Unknown',
-    pick,
-    actual,
-    scoreHome: r.scoreHome,
-    scoreAway: r.scoreAway,
-    confidence,
-    probs,
-    source: 'historical_matches',
-    ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
-  }, options)
+  const out = []
+  const primary = buildRecord(
+    {
+      matchId: r.id,
+      league: r.league || 'Unknown',
+      pick,
+      actual,
+      scoreHome: r.scoreHome,
+      scoreAway: r.scoreAway,
+      confidence,
+      probs,
+      odds: {
+        home: fd.odds_home ?? fd.home_odds ?? fd.odds?.home_win ?? null,
+        draw: fd.odds_draw ?? fd.draw_odds ?? fd.odds?.draw ?? null,
+        away: fd.odds_away ?? fd.away_odds ?? fd.odds?.away_win ?? null,
+      },
+      kellyStakePct: fd.kelly_stake != null ? Number(fd.kelly_stake) : null,
+      source: 'historical_matches',
+      ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
+    },
+    options
+  )
+  if (primary) out.push(primary)
+
+  // ── Record BTTS secondaire (audit BT2) ──
+  const btsPick = normalizeLabel(fd.btts_pick ?? null)
+  if (btsPick && isBTTS(btsPick)) {
+    const pBttsRaw =
+      fd.btts_prob ?? fd.btts_pick_prob ?? fd.quant?.markets?.btts?.YES?.prob ?? null
+    const pBtts =
+      pBttsRaw != null && Number.isFinite(Number(pBttsRaw)) && Number(pBttsRaw) > 0
+        ? Number(pBttsRaw) <= 1
+          ? Number(pBttsRaw)
+          : Number(pBttsRaw) / 100
+        : null
+    const brec = buildRecord(
+      {
+        matchId: r.id + '|BTTS',
+        league: r.league || 'Unknown',
+        pick: btsPick,
+        actual,
+        scoreHome: r.scoreHome,
+        scoreAway: r.scoreAway,
+        confidence: pBtts != null ? +(pBtts * 100).toFixed(1) : null,
+        probs: { p1: null, px: null, p2: null, pBtts },
+        odds: {
+          home: null,
+          draw: null,
+          away: null,
+          bttsYes: fd.odds_btts_yes ?? fd.btts_yes_odds ?? fd.odds?.btts_yes ?? null,
+          bttsNo: fd.odds_btts_no ?? fd.btts_no_odds ?? fd.odds?.btts_no ?? null,
+        },
+        kellyStakePct: null,
+        source: 'historical_matches|BTTS',
+        ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
+      },
+      options
+    )
+    if (brec) out.push(brec)
+  }
+
+  return out
 }
 
 function parseDateTs(v) {
@@ -262,8 +469,8 @@ function computeAccuracy(options = {}) {
       .all(...FT_STATUSES)
     for (const r of liveRows) {
       finishedCount++
-      const rec = recordFromMatches(r, { from, to, marketFilter })
-      if (rec) records.push(rec)
+      const recs = recordsFromMatches(r, { from, to, marketFilter })
+      if (recs.length) records.push(...recs)
       else {
         const pick = normalizeLabel(r.prediction)
         if (pick === 'PENDING') {
@@ -287,8 +494,8 @@ function computeAccuracy(options = {}) {
   }
   for (const r of histRows) {
     finishedCount++
-    const rec = recordFromHistorical(r, { from, to, marketFilter })
-    if (rec) records.push(rec)
+    const recs = recordsFromHistorical(r, { from, to, marketFilter })
+    if (recs.length) records.push(...recs)
     else {
       let fd = {}
       try {
@@ -315,8 +522,27 @@ function computeAccuracy(options = {}) {
   let logLossCount = 0
   let brierSum = 0
   let brierCount = 0
+  // ROI (flat 1u baseline + Quarter-Kelly cap 2 %)
+  let roiBets = 0
+  let roiExcluded = 0
+  let flatStaked = 0
+  let flatProfit = 0
+  let kellyBets = 0
+  let kellyStaked = 0
+  let kellyProfit = 0
+  // Audit P3 : vue ROI alternative filtrée sur l'espérance positive +
+  // diagnostic cotes (gagnants vs perdants, cotes manquantes par marché).
+  let evBets = 0
+  let evStaked = 0
+  let evProfit = 0
+  let nOddsWinners = 0
+  let sumOddsWinners = 0
+  let nOddsLosers = 0
+  let sumOddsLosers = 0
+  const oddsMissingByMarket = {}
   const calib = {}
   const leagueMap = {}
+  const byMarket = {} // { 1X2 | DC | OU } → réussite + cote moyenne + ROI flat
 
   for (const rec of records) {
     const ok = isCorrect(rec.pick, rec.actual, rec.scoreHome, rec.scoreAway)
@@ -338,6 +564,48 @@ function computeAccuracy(options = {}) {
       brierCount++
     }
 
+    // ROI : cotes de l'issue prédite. Absentes ou ≤ 1.0 → SKIP (jamais de
+    // division par une cote invalide). O/U sans cotes → exclu compté à part.
+    const odds = pickOdds(rec.pick, rec.odds)
+    if (odds != null) {
+      const isPush = isOU(rec.pick) && rec.scoreHome + rec.scoreAway === parseFloat(rec.pick.slice(1))
+      const isWin = ok === true
+      // Baseline : 1 unité plate par pari (push = remboursé, profit 0)
+      roiBets++
+      flatStaked += 1
+      if (isWin) {
+        flatProfit += odds - 1
+        nOddsWinners++
+        sumOddsWinners += odds
+      } else if (!isPush) {
+        flatProfit -= 1
+        nOddsLosers++
+        sumOddsLosers += odds
+      }
+      // Vue EV-filtrée (audit P3) : on ne compte comme « pariable » que les
+      // picks dont l'espérance modèle est positive : p × cote > 1.05.
+      const pPick = pickProbability(rec.pick, rec.probs)
+      if (pPick != null && (pPick / 100) * odds > 1.05) {
+        evBets++
+        evStaked += 1
+        if (isWin) evProfit += odds - 1
+        else if (!isPush) evProfit -= 1
+      }
+      // Quarter-Kelly (0.25 × fraction, cap 2 % du bankroll) si stake archivé
+      const kStake = kellyStake(rec.kellyStakePct, odds)
+      if (kStake != null) {
+        kellyBets++
+        kellyStaked += kStake
+        if (isWin) kellyProfit += kStake * (odds - 1)
+        else if (!isPush) kellyProfit -= kStake
+      }
+    } else {
+      roiExcluded++
+      // Diagnostic (audit P3) : pourquoi ce pick est exclu du ROI ?
+      const mkMiss = marketKey(rec.pick) || 'unknown'
+      oddsMissingByMarket[mkMiss] = (oddsMissingByMarket[mkMiss] || 0) + 1
+    }
+
     const pickProb = pickProbability(rec.pick, rec.probs) ?? rec.confidence
     if (pickProb != null) {
       const band = calibrationBands(pickProb)
@@ -352,6 +620,42 @@ function computeAccuracy(options = {}) {
     if (!leagueMap[lg]) leagueMap[lg] = { count: 0, correct: 0 }
     leagueMap[lg].count++
     if (ok) leagueMap[lg].correct++
+
+    // ── Décomposition par marché (1X2 / DC / OU) ──
+    const mk = marketKey(rec.pick)
+    if (mk) {
+      if (!byMarket[mk])
+        byMarket[mk] = {
+          count: 0,
+          correct: 0,
+          sumOdds: 0,
+          roiBets: 0,
+          flatStaked: 0,
+          flatProfit: 0,
+          nOddsWinners: 0,
+          sumOddsWinners: 0,
+          nOddsLosers: 0,
+          sumOddsLosers: 0,
+        }
+      byMarket[mk].count++
+      if (ok === true) byMarket[mk].correct++
+      const mOdds = pickOdds(rec.pick, rec.odds)
+      if (mOdds != null) {
+        const isPush = isOU(rec.pick) && rec.scoreHome + rec.scoreAway === parseFloat(rec.pick.slice(1))
+        byMarket[mk].roiBets++
+        byMarket[mk].sumOdds += mOdds
+        byMarket[mk].flatStaked += 1
+        if (ok === true) {
+          byMarket[mk].flatProfit += mOdds - 1
+          byMarket[mk].nOddsWinners++
+          byMarket[mk].sumOddsWinners += mOdds
+        } else if (!isPush) {
+          byMarket[mk].flatProfit -= 1
+          byMarket[mk].nOddsLosers++
+          byMarket[mk].sumOddsLosers += mOdds
+        }
+      }
+    }
   }
 
   // L'accuracy est calculée sur les matchs évalués hors push (traitement standard :
@@ -379,8 +683,31 @@ function computeAccuracy(options = {}) {
       pendingCount,
       accuracy: accuracy === null ? null : correct / denominator,
       accuracyPct,
-      logLoss: logLossCount > 0 ? +((logLossSum / logLossCount) * 100).toFixed(4) : null,
-      brierScore: brierCount > 0 ? +((brierSum / brierCount) * 1000).toFixed(4) : null,
+      logLoss: logLossCount > 0 ? +(logLossSum / logLossCount).toFixed(4) : null,
+      brierScore: brierCount > 0 ? +(brierSum / brierCount).toFixed(4) : null,
+      // ROI live : baseline 1u plate + Quarter-Kelly (0.25, cap 2 %)
+      roiBets,
+      roiExcluded,
+      staked: +flatStaked.toFixed(2),
+      netProfit: +flatProfit.toFixed(2),
+      roi: flatStaked > 0 ? +((flatProfit / flatStaked) * 100).toFixed(2) : null,
+      // Audit P3 : cotes moyennes gagnants vs perdants (le cœur de l'analyse ROI)
+      avgOddsWinners: nOddsWinners > 0 ? +(sumOddsWinners / nOddsWinners).toFixed(2) : null,
+      avgOddsLosers: nOddsLosers > 0 ? +(sumOddsLosers / nOddsLosers).toFixed(2) : null,
+      oddsMissingByMarket,
+      // Audit P3 : vue alternative — seuls les picks à espérance modèle positive
+      // (p × cote > 1.05) sont comptés comme pariables. Kelly volontairement
+      // écarté tant que la calibration n'est pas validée sur n≥200 paris.
+      roiEvFiltered: {
+        bets: evBets,
+        staked: +evStaked.toFixed(2),
+        netProfit: +evProfit.toFixed(2),
+        roi: evStaked > 0 ? +((evProfit / evStaked) * 100).toFixed(2) : null,
+      },
+      kellyBets,
+      kellyStaked: +kellyStaked.toFixed(4),
+      kellyNetProfit: +kellyProfit.toFixed(4),
+      kellyRoi: kellyStaked > 0 ? +((kellyProfit / kellyStaked) * 100).toFixed(2) : null,
     },
     calibrationCurve: Object.entries(calib)
       .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
@@ -398,9 +725,23 @@ function computeAccuracy(options = {}) {
         accuracy: +((d.correct / d.count) * 100).toFixed(1),
       }))
       .sort((a, b) => b.total - a.total),
+    byMarket: Object.entries(byMarket)
+      .map(([market, d]) => ({
+        market,
+        total: d.count,
+        correct: d.correct,
+        accuracy: +((d.correct / Math.max(1, d.count)) * 100).toFixed(1),
+        avgOdds: d.roiBets > 0 ? +((d.sumOdds / d.roiBets) * 1).toFixed(2) : null,
+        avgOddsWinners:
+          d.nOddsWinners > 0 ? +(d.sumOddsWinners / d.nOddsWinners).toFixed(2) : null,
+        avgOddsLosers: d.nOddsLosers > 0 ? +(d.sumOddsLosers / d.nOddsLosers).toFixed(2) : null,
+        roiBets: d.roiBets,
+        flatRoi: d.flatStaked > 0 ? +((d.flatProfit / d.flatStaked) * 100).toFixed(2) : null,
+      }))
+      .sort((a, b) => b.total - a.total),
     excludedLabels: Object.entries(excludedLabels).map(([label, count]) => ({
       label,
-      reason: `Label hors whitelist (valides: 1, X, 2, 1X, X2, 12, O/U+seuil) — exclu du calcul d'accuracy`,
+        reason: `Label hors whitelist (valides: 1, X, 2, 1X, X2, 12, O/U+seuil, BTTS YES/NO) — exclu du calcul d'accuracy`,
       count,
     })),
   }

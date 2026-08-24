@@ -62,7 +62,12 @@ const IntelligenceCard = ({ match, onOpenUltimate }) => {
 
   const confidence =
     match.confidence || enriched.main_predictions?.[0]?.probability || xgbConf || homeWinPct || 50
-  const isGolden = (match.is_confirmed || enriched.is_confirmed) && confidence >= 88
+  // Audit V3 (2026-08-24) : badge « Golden » délabelé — mesuré inversé
+  // (précision 45,5% au-dessus du seuil ≥88 vs 54,7% en dessous, n=2299).
+  // L'ancienne condition `is_confirmed && confidence >= 88` sélectionnait
+  // pire que la moyenne. Remplacé par l'affichage honnête de la précision
+  // réelle (pattern MatchCard « réel ≈X% ») quand les données bracket sont
+  // disponibles. Voir CHANGELOG_AUDIT.md « Vérifications différées ».
   const isSmartMoney = match.is_smart_money || enriched.is_smart_money
 
   const calculateStake = () => {
@@ -99,7 +104,7 @@ const IntelligenceCard = ({ match, onOpenUltimate }) => {
   }
 
   return (
-    <div className={`titanium-card ${isGolden ? 'golden-pick' : ''}`}>
+    <div className="titanium-card">
       {/* Header: Verdict Badge & Time */}
       <div className="titanium-card-header">
         <div className="header-left">

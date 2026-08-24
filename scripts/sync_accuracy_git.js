@@ -19,7 +19,11 @@ const fs = require('fs')
 const path = require('path')
 
 const ROOT = path.join(__dirname, '..')
-const TREND_PATH = path.join(ROOT, 'data', 'promosport_accuracy_trend.json')
+// Audit P5 : promosport_accuracy_trend.json est déprécié (backfill ML dégénéré
+// « tout-X » + look-ahead). Le trend persisté est désormais accuracy_trend.json
+// (array rolling tenu par autoBacktestService) + accuracy_report.json
+// (métrique unifiée accuracyEngine).
+const TREND_PATH = path.join(ROOT, 'data', 'accuracy_trend.json')
 
 const baseUrl = process.argv[2] || process.env.SITE_BASE_URL || 'https://pronostico.onrender.com'
 
@@ -35,7 +39,7 @@ async function main() {
   const ts = new Date().toISOString()
   const summary = []
 
-  // 1) Trend promosport
+  // 1) Trend rolling (accuracy_trend.json — autoBacktestService)
   try {
     const data = await fetchJson(`${baseUrl}/api/evolution/accuracy/trend`)
     if (data && data.success && Array.isArray(data.trend)) {
@@ -65,9 +69,10 @@ async function main() {
     summary.push(`accuracy_log: erreur -> ${e.message}`)
   }
 
-  // 3) Commit + push si changements (seul le trend est commité dans data/)
+  // 3) Commit + push si changements (trend rolling + rapport unifié)
   try {
-    git('add', 'data/promosport_accuracy_trend.json')
+    git('add', 'data/accuracy_trend.json')
+    git('add', 'data/accuracy_report.json')
     const status = git('status', '--porcelain')
     if (status.trim()) {
       git('commit', '-m', `data: accuracy snapshot [${ts}] (${summary.join(' | ')})`)

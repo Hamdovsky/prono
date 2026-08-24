@@ -2,64 +2,78 @@ const fs = require('fs')
 const path = require('path')
 const logger = require('../core/logger')
 
+/**
+ * ProbabilityCalibrator — P1 audit 2026-08
+ * Source unique : data/accuracy_report.json (accuracyEngine.js — snapshot au
+ * temps T, sans look-ahead). L'ancienne lecture de retro_accuracy_report.json
+ * injectait la courbe biaisée « oracle du favori » (0.6-0.7 → 0.90,
+ * 0.7-0.8 → 0.99, ≥0.8 → 1.0) et gonflait artificiellement les probabilités.
+ * Sans données fiables → IDENTITÉ (aucune transformation), jamais de défauts
+ * codés en dur gonflants. Miroir de probabilityCalibrator.ts.
+ */
 class ProbabilityCalibrator {
   constructor() {
-    this.calibrationCurve = null
+    this.calibrationCurve = null // null = identité
     this.lastLoaded = 0
-    this.TTL = 86400000
+    this.TTL = 86400000 // 24h — accuracy_report.json est régénéré quotidiennement
+    this.MIN_SAMPLES_PER_BAND = 30 // bande trop peu peuplée → ignorée (identité)
   }
 
   loadCalibration() {
     if (this.calibrationCurve && Date.now() - this.lastLoaded < this.TTL) return
     try {
-      const reportPath = path.join(__dirname, '..', 'data', 'retro_accuracy_report.json')
+      const reportPath = path.join(__dirname, '..', 'data', 'accuracy_report.json')
       if (!fs.existsSync(reportPath)) {
-        logger.warn('[CALIBRATOR] No retro report found, using defaults')
-        this.calibrationCurve = this.getDefaultCurve()
+        logger.warn('[CALIBRATOR] accuracy_report.json absent — calibration identité')
+        this.calibrationCurve = null
         return
       }
       const report = JSON.parse(fs.readFileSync(reportPath, 'utf-8'))
-      const cal = report.calibration?.EV_OPTIMIZED
-      if (!cal) {
-        this.calibrationCurve = this.getDefaultCurve()
+      const curve = report?.rolling?.last30days?.calibrationCurve
+      if (!Array.isArray(curve) || curve.length === 0) {
+        logger.warn('[CALIBRATOR] calibrationCurve absente du rapport — calibration identité')
+        this.calibrationCurve = null
         return
       }
 
-      this.calibrationCurve = [
-        { min: 0, max: 0.5, calibrated: 0.5 },
-        { min: 0.5, max: 0.6, calibrated: (cal['50-60']?.actual || 53.6) / 100 },
-        { min: 0.6, max: 0.7, calibrated: (cal['60-70']?.actual || 89.9) / 100 },
-        { min: 0.7, max: 0.8, calibrated: (cal['70-80']?.actual || 98.9) / 100 },
-        { min: 0.8, max: 0.9, calibrated: (cal['80-90']?.actual || 100) / 100 },
-        { min: 0.9, max: 1.01, calibrated: (cal['90+']?.actual || 100) / 100 },
-      ]
+      const bins = []
+      for (const band of curve) {
+        const m = /^(\d+)-(\d+)$/.exec(String(band.band))
+        const acc = Number(band.accuracy)
+        const n = Number(band.count) || 0
+        if (!m || !Number.isFinite(acc)) continue
+        if (n < this.MIN_SAMPLES_PER_BAND) continue
+        bins.push({
+          min: Number(m[1]) / 100,
+          max: Number(m[2]) / 100,
+          calibrated: acc / 100,
+          count: n,
+        })
+      }
+      if (bins.length === 0) {
+        logger.warn('[CALIBRATOR] Aucune bande exploitable (n<30 partout) — identité')
+        this.calibrationCurve = null
+        return
+      }
+      bins.sort((a, b) => a.min - b.min)
+      this.calibrationCurve = bins
       this.lastLoaded = Date.now()
       logger.info(
-        `[CALIBRATOR] Loaded empirical calibration curve (${this.calibrationCurve.length} bins)`
+        `[CALIBRATOR] Courbe empirique accuracyEngine chargée (${bins.length} bandes, rolling 30j)`
       )
     } catch (err) {
-      logger.error('[CALIBRATOR] Failed to load:', err.message)
-      this.calibrationCurve = this.getDefaultCurve()
+      logger.error('[CALIBRATOR] Échec chargement:', err.message)
+      this.calibrationCurve = null
     }
-  }
-
-  getDefaultCurve() {
-    return [
-      { min: 0, max: 0.5, calibrated: 0.5 },
-      { min: 0.5, max: 0.6, calibrated: 0.536 },
-      { min: 0.6, max: 0.7, calibrated: 0.899 },
-      { min: 0.7, max: 0.8, calibrated: 0.989 },
-      { min: 0.8, max: 0.9, calibrated: 1.0 },
-      { min: 0.9, max: 1.01, calibrated: 1.0 },
-    ]
   }
 
   calibrateProb(prob) {
     this.loadCalibration()
+    if (!this.calibrationCurve) return prob // identité
     for (const bin of this.calibrationCurve) {
       if (prob >= bin.min && prob < bin.max) return bin.calibrated
     }
-    return Math.min(1, prob * 1.15)
+    return prob // hors bandes connues : identité (fini le ×1.15)
   }
 
   calibrate(p1, px, p2) {

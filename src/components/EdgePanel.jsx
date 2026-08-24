@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { getApiUrl } from '../config/apiConfig'
+import { DISABLE_BTTS_DISPLAY } from '../utils/displayPolicy'
 
 const VALUE_COLORS = {
   DIAMOND: { bg: 'rgba(99,102,241,0.15)', border: '#6366f1', label: '💎 DIAMOND' },
@@ -296,12 +297,14 @@ const EdgePanel = () => {
               label="O/U"
               n={data.totalMarkets?.overUnder}
             />
+            {!DISABLE_BTTS_DISPLAY && (
             <MktTabBtn
               active={mktTab === 'btts'}
               onClick={() => setMktTab('btts')}
               label="BTTS"
               n={data.totalMarkets?.btts}
             />
+            )}
             <MktTabBtn
               active={mktTab === 'doubleChance'}
               onClick={() => setMktTab('doubleChance')}
@@ -335,7 +338,7 @@ const EdgePanel = () => {
           </div>
 
           {mktTab === 'overUnder' && <OUView items={data.markets?.overUnder || []} />}
-          {mktTab === 'btts' && <BTTSView items={data.markets?.btts || []} />}
+          {!DISABLE_BTTS_DISPLAY && mktTab === 'btts' && <BTTSView items={data.markets?.btts || []} />}
           {mktTab === 'doubleChance' && <DCView items={data.markets?.doubleChance || []} />}
           {mktTab === 'htFt' && <HTFTView items={data.markets?.htFt || []} />}
           {mktTab === 'corners' && <CornersView items={data.markets?.corners || []} />}

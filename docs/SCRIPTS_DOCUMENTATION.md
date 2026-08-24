@@ -552,7 +552,14 @@ Le compte Postgres Neon peut aussi atteindre son quota gratuit.
 
 Sérialiser la précision hors-container **via git** : un script local récupère
 le trend depuis l'API du site déployé et le commit/push dans le repo
-(`data/promosport_accuracy_trend.json`). Ainsi l'historique survit aux redeploys.
+(`data/accuracy_trend.json`). Ainsi l'historique survit aux redeploys.
+
+> ⚠️ **Audit P5 (2026-08-24)** : `promosport_accuracy_trend.json` est
+> déprécié (métrique dégénérée « tout-X » + look-ahead) et renommé
+> `promosport_accuracy_trend.deprecated.json`. Le trend persisté est
+> désormais `data/accuracy_trend.json` (array rolling tenu par
+> autoBacktestService), complété par `data/accuracy_report.json`
+> (métrique unifiée accuracyEngine).
 
 ### 📡 Endpoint exposé
 
@@ -561,7 +568,7 @@ GET /api/evolution/accuracy/trend
 → { "success": true, "trend": [...], "updatedAt": "..." }
 ```
 
-Ajouté dans `routes/evolution.js`. Lit `data/promosport_accuracy_trend.json`.
+Ajouté dans `routes/evolution.js`. Lit `data/accuracy_trend.json`.
 
 ### 🔁 Script de synchro
 
@@ -573,16 +580,16 @@ node scripts/sync_accuracy_git.js [baseUrl]
 
 Ce que fait le script :
 
-1. `GET /api/evolution/accuracy/trend` → écrit `data/promosport_accuracy_trend.json`
+1. `GET /api/evolution/accuracy/trend` → écrit `data/accuracy_trend.json`
 2. `GET /api/accuracy` → résume (lecture seule, `accuracy_log.json` est ignoré
    par `.gitignore`)
-3. `git add data/promosport_accuracy_trend.json` → commit → push sur `main`
+3. `git add data/accuracy_trend.json data/accuracy_report.json` → commit → push sur `main`
 
 ### ⚠️ Pourquoi pas dans le container ?
 
 Pousser depuis Render vers `main` redéclencherait l'auto-deploy → boucle infinie.
 Le script est donc conçu pour tourner **en local** (ou cron de votre machine).
-Le fichier `data/promosport_accuracy_trend.json` est **tracké** (pas ignoré),
+Le fichier `data/accuracy_trend.json` est **tracké** (pas ignoré),
 contrairement à `data/accuracy_log.json`.
 
 ---

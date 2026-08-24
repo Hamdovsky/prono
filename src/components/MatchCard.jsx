@@ -1,5 +1,6 @@
 import React from 'react'
 import './MatchCard.css'
+import { DISABLE_BTTS_DISPLAY } from '../utils/displayPolicy'
 
 const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability }) => {
   const parseRow = (lines) => {
@@ -98,7 +99,9 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
           <span className="mcc-team">{shortTeam(d.away)}</span>
         </div>
         <div className="mcc-chips">
-          <span className={`mcc-chip mcc-btts ${bttsVerdict}`}>BTTS {d.btts}</span>
+          <span className={`mcc-chip mcc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`}>
+            BTTS {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
+          </span>
           <span className={`mcc-chip mcc-ou ${ouDir}`}>
             {hasOu ? `O/U ${ouDir.toUpperCase()} ${ouPrec}%` : 'O/U --'}
           </span>
@@ -126,7 +129,9 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
         {timeLabel && <div className="mc-time">{timeLabel}</div>}
       </div>
 
-      <div className={`mc-cell mc-btts ${bttsVerdict}`}>{d.btts}</div>
+      <div className={`mc-cell mc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`}>
+        {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
+      </div>
 
       <div className="mc-cell mc-ou-cell">
         {hasOu ? (

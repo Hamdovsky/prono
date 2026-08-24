@@ -1,4 +1,5 @@
 {
+  "_deprecatedNote": "DEPRECATED 2026-08-24 (audit P1-P5) : oracle du favori avec look-ahead massif (computeSurpriseRates agrège les 370 concours y compris futurs). NE PAS utiliser pour calibrer (l ancien probabilityCalibrator lisaient ce fichier -> sur-confiance 0.99/1.0 corrigée en P1). Source fiable : accuracy_report.json. Voir CHANGELOG_AUDIT.md ÉTAPE 1.",
   "deprecated": true,
   "reason": "Métrique obsolète (ÉTAPE 1 audit). Ce 61.7% est un oracle du favori avec look-ahead massif : computeSurpriseRates() agrège les stats d'équipe sur les 370 concours d'un coup, puis getSurpriseStats() réutilise ces taux globaux pour chaque match passé (y compris le match lui-même). Ne mesure PAS le moteur. Remplacé par data/accuracy_report.json (services/accuracyEngine.js).",
   "generatedAt": "2026-06-24T22:06:06.749Z",

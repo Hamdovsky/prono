@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { DISABLE_BTTS_DISPLAY } from '../utils/displayPolicy'
 
 const fmtPct = (v) => Math.round(parseFloat(v || 0))
 const fmtOdds = (v) => (v ? parseFloat(v).toFixed(2) : '-')
@@ -214,7 +215,8 @@ const MatchCard = ({ m, compact }) => {
             </div>
           </div>
 
-          {/* BTTS */}
+          {/* BTTS — masqué si VITE_DISABLE_BTTS_DISPLAY (audit BT3) */}
+          {!DISABLE_BTTS_DISPLAY && (
           <div style={{ flex: '0 0 auto', minWidth: 70 }}>
             <div
               style={{
@@ -259,6 +261,7 @@ const MatchCard = ({ m, compact }) => {
               })}
             </div>
           </div>
+          )}
 
           {/* O/U 2.5 */}
           <div style={{ flex: '0 0 auto', minWidth: 70 }}>
@@ -551,7 +554,8 @@ const MatchTableRow = ({ m }) => {
         })}
       </div>
 
-      {/* BTTS */}
+      {/* BTTS — masqué si VITE_DISABLE_BTTS_DISPLAY (audit BT3) */}
+      {!DISABLE_BTTS_DISPLAY && (
       <div style={{ display: 'flex', gap: 2, flex: '0 0 100px' }}>
         {[
           ['YES', 'O'],
@@ -561,6 +565,7 @@ const MatchTableRow = ({ m }) => {
           return <MktMini key={k} label={l} prob={mkt?.prob} odds={mkt?.odds} ev={mkt?.ev} />
         })}
       </div>
+      )}
 
       {/* O/U */}
       <div style={{ display: 'flex', gap: 2, flex: '0 0 100px' }}>
@@ -780,7 +785,9 @@ const MarketTerminal = ({ matches }) => {
               >
                 <div style={{ minWidth: 180, flex: '0 0 180px' }}>Match</div>
                 <div style={{ flex: '0 0 150px', textAlign: 'center' }}>1X2</div>
+                {!DISABLE_BTTS_DISPLAY && (
                 <div style={{ flex: '0 0 100px', textAlign: 'center' }}>BTTS</div>
+                )}
                 <div style={{ flex: '0 0 100px', textAlign: 'center' }}>O/U 2.5</div>
                 <div style={{ flex: '0 0 120px', textAlign: 'center' }}>DC</div>
                 <div style={{ flex: '0 0 100px', textAlign: 'center' }}>CS / EV</div>

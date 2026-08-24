@@ -91,6 +91,85 @@ const MegaTicket1000 = ({ matches }) => {
     let globalProb = 1.0
     const TARGET = levels[riskLevel].target
 
+    // Audit P1b : plus aucune probabilité/cote fabriquée. Chaque sélection est
+    // dérivée des vraies probabilités du modèle (1X2, O/U 2.5) et des cotes
+    // réelles quand elles existent (sinon cote fair-value du modèle).
+    const buildPick = (m, enriched) => {
+      const rawH = parseFloat(m.home_win_probability ?? enriched.home_win_probability) || 0
+      const rawD = parseFloat(m.draw_probability ?? enriched.draw_probability) || 0
+      const rawA = parseFloat(m.away_win_probability ?? enriched.away_win_probability) || 0
+      const s = rawH + rawD + rawA
+      const nH = s > 0 ? rawH / s : 1 / 3
+      const nD = s > 0 ? rawD / s : 1 / 3
+      const nA = s > 0 ? rawA / s : 1 / 3
+
+      const oH = parseFloat(m.odds_home ?? enriched.odds_home)
+      const oD = parseFloat(m.odds_draw ?? enriched.odds_draw)
+      const oA = parseFloat(m.odds_away ?? enriched.odds_away)
+      const hasOdds = [oH, oD, oA].every((v) => Number.isFinite(v) && v > 1.01)
+      let fH = nH,
+        fD = nD,
+        fA = nA
+      if (hasOdds) {
+        const iH = 1 / oH,
+          iD = 1 / oD,
+          iA = 1 / oA
+        const mg = iH + iD + iA
+        fH = iH / mg
+        fD = iD / mg
+        fA = iA / mg
+      }
+      const mktOdd = (real, fair) =>
+        Number.isFinite(real) && real > 1.01 ? +real.toFixed(2) : +(1 / fair).toFixed(2)
+      const dc1xOdd = +(1 / (hasOdds ? fH + fD : nH + nD)).toFixed(2)
+      const dcx2Odd = +(1 / (hasOdds ? fA + fD : nA + nD)).toFixed(2)
+      const dnbHOdd = +((hasOdds ? fH + fA : nH + nA) / (hasOdds ? fH : nH)).toFixed(2)
+      const dnbAOdd = +((hasOdds ? fH + fA : nH + nA) / (hasOdds ? fA : nA)).toFixed(2)
+
+      const ouRaw = parseFloat(m.ou_25_prob ?? enriched.ou_25_prob)
+      const pOver =
+        Number.isFinite(ouRaw) && ouRaw > 0 && ouRaw < 100 ? ouRaw / 100 : null
+
+      let pick = null
+      if (riskLevel === 'DIAMOND') {
+        if (rawH > 85) pick = { label: 'Victoire (DNB): ' + m.homeTeam, prob: nH, odd: dnbHOdd }
+        else if (rawA > 85)
+          pick = { label: 'Victoire (DNB): ' + m.awayTeam, prob: nA, odd: dnbAOdd }
+        else if (rawH >= rawA)
+          pick = { label: 'Double Chance: 1X', prob: nH + nD, odd: dc1xOdd }
+        else pick = { label: 'Double Chance: X2', prob: nA + nD, odd: dcx2Odd }
+      } else if (riskLevel === 'GOLD') {
+        if (rawH > 65)
+          pick = { label: 'Victoire: ' + m.homeTeam, prob: nH, odd: mktOdd(oH, fH) }
+        else if (rawA > 65)
+          pick = { label: 'Victoire: ' + m.awayTeam, prob: nA, odd: mktOdd(oA, fA) }
+        else if (nH + nD >= nA + nD)
+          pick = { label: 'Double Chance: 1X', prob: nH + nD, odd: dc1xOdd }
+        else pick = { label: 'Double Chance: X2', prob: nA + nD, odd: dcx2Odd }
+      } else {
+        const combo = (label, p) => ({ label, prob: p, odd: +(1 / p).toFixed(2) })
+        const straightBest = () => {
+          const mx = Math.max(nH, nA, nD)
+          if (mx === nH)
+            return { label: 'Victoire: ' + m.homeTeam, prob: nH, odd: mktOdd(oH, fH) }
+          if (mx === nA) return { label: 'Victoire: ' + m.awayTeam, prob: nA, odd: mktOdd(oA, fA) }
+          return { label: 'Match Nul (X)', prob: nD, odd: mktOdd(oD, fD) }
+        }
+        if (riskLevel === 'ULTRA') {
+          if (rawH > 60 && pOver != null) pick = combo('1 & +2.5 Buts', nH * pOver)
+          else if (rawA > 60 && pOver != null) pick = combo('2 & +2.5 Buts', nA * pOver)
+          else if (pOver != null) pick = combo('Nul & -2.5 Buts', nD * (1 - pOver))
+          else pick = straightBest()
+        } else {
+          if (rawH > 75 && pOver != null) pick = combo('1 & +2.5 Buts', nH * pOver)
+          else if (rawA > 75 && pOver != null) pick = combo('2 & +2.5 Buts', nA * pOver)
+          else if (rawD > 35 && pOver != null) pick = combo('Nul & -2.5 Buts', nD * (1 - pOver))
+          else pick = straightBest()
+        }
+      }
+      return pick
+    }
+
     for (const m of upcoming) {
       // Stop conditions change for DIAMOND
       if (totalMultiplier >= TARGET) break
@@ -101,45 +180,15 @@ const MegaTicket1000 = ({ matches }) => {
       }
 
       const enriched = m.enriched || {}
-      let pick = null
+      const pick = buildPick(m, enriched)
 
-      const hWin = parseFloat(m.home_win_probability || enriched.home_win_probability || 0)
-      const aWin = parseFloat(m.away_win_probability || enriched.away_win_probability || 0)
-      const dWin = parseFloat(m.draw_probability || enriched.draw_probability || 0)
-
-      // TIERED PICK LOGIC
-      if (riskLevel === 'DIAMOND') {
-        // Focus: Elite Safety (X2, 1X, DNB, Under 4.5) - Confidence > 85-95%
-        if (hWin > 85) pick = { label: 'Victoire (DNB): ' + m.homeTeam, odd: 1.35, prob: 0.94 }
-        else if (aWin > 85) pick = { label: 'Victoire (DNB): ' + m.awayTeam, odd: 1.42, prob: 0.92 }
-        else if (hWin > 70) pick = { label: 'Double Chance: 1X', odd: 1.28, prob: 0.9 }
-        else if (aWin > 70) pick = { label: 'Double Chance: X2', odd: 1.32, prob: 0.88 }
-        else pick = { label: 'Moins de 4.5 Buts', odd: 1.2, prob: 0.96 }
-      } else if (riskLevel === 'GOLD') {
-        if (hWin > 65) pick = { label: 'Victoire: ' + m.homeTeam, odd: 1.85, prob: 0.54 }
-        else if (aWin > 65) pick = { label: 'Victoire: ' + m.awayTeam, odd: 2.1, prob: 0.47 }
-        else pick = { label: 'Double Chance: 1X', odd: 1.65, prob: 0.6 }
-      } else if (riskLevel === 'ULTRA') {
-        if (hWin > 60) pick = { label: '1 & +2.5 Buts', odd: 4.2, prob: 0.23 }
-        else if (aWin > 60) pick = { label: '2 & +2.5 Buts', odd: 4.8, prob: 0.2 }
-        else pick = { label: 'Nul à la Mi-Temps', odd: 3.2, prob: 0.31 }
-      } else if (riskLevel === 'MEGA') {
-        if (hWin > 75) pick = { label: 'Score Exact: 3-0', odd: 12.0, prob: 0.08 }
-        else if (hWin > 65) pick = { label: 'Score Exact: 2-1', odd: 9.2, prob: 0.11 }
-        else if (aWin > 65) pick = { label: 'Score Exact: 1-2', odd: 11.5, prob: 0.08 }
-        else if (dWin > 35) pick = { label: 'Score Exact: 1-1', odd: 7.4, prob: 0.13 }
-        else {
-          // DYNAMIC 1X2 FALLBACK
-          const maxProb = Math.max(hWin, aWin, dWin)
-          if (maxProb === hWin)
-            pick = { label: 'Victoire: ' + m.homeTeam + ' (1)', odd: 2.15, prob: 0.45 }
-          else if (maxProb === aWin)
-            pick = { label: 'Victoire: ' + m.awayTeam + ' (2)', odd: 3.8, prob: 0.25 }
-          else pick = { label: 'Match Nul (X)', odd: 3.3, prob: 0.3 }
-        }
-      }
-
-      if (pick) {
+      if (
+        pick &&
+        Number.isFinite(pick.prob) &&
+        pick.prob > 0.001 &&
+        Number.isFinite(pick.odd) &&
+        pick.odd > 1
+      ) {
         // For Diamond, we check if adding this lowers us too much
         const nextProb = globalProb * pick.prob
         if (riskLevel === 'DIAMOND' && nextProb < 0.78 && selections.length > 0) continue

@@ -2,6 +2,7 @@ const path = require('path')
 const fs = require('fs')
 const logger = require('./logger')
 const { applyMarketPolicy, deriveBttsPick } = require('./marketPolicy')
+const { applyLeaguePolicy } = require('./leaguePolicy')
 
 // 🚀 [DB TOGGLE] If DATABASE_URL is set, use Neon PostgreSQL directly — skip SQLite entirely
 if (process.env.DATABASE_URL) {
@@ -827,6 +828,14 @@ const database = {
       if (__btts.bttsPick) {
         m.btts_pick = __btts.bttsPick
         m.btts_pick_prob = __btts.bttsProb
+      }
+
+      // Audit étape 1 : politique ligues — désambiguïsation Top-5 par pays
+      const __lg = applyLeaguePolicy(m)
+      if (__lg.changed) {
+        logger.info(
+          `[LEAGUE_POLICY] ${m.id} '${__lg.from}' -> '${__lg.to}' (pays=${__lg.country})`
+        )
       }
 
       const dataToSave = { ...m }

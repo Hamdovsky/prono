@@ -811,3 +811,28 @@ les vraies sources — et fbref ne fournit aucune cote bookmaker (stats xG uniqu
   répond !) — vs **4/400 (1 %)** avant Phases 1+2. Couverture cumulée :
   football-data (Top-5, J-3→J) + BetExplorer (large, y c. ligues exotiques)
   + Sofascore (redondance).
+
+---
+
+## Étape 1 — Politique ligues : désambiguïsation Top-5 par pays — 2026-08-24
+
+### Problème
+La source livescore étiquette les matchs par le seul nom local du championnat :
+Torpedo Zhodino (Biélorussie) « Premier League », Botafogo (Brésil) « Serie A »,
+Kuwait SC « Premier League », etc. → pollution des stats par ligue, routage
+XGBoost top-5 erroné pour des matchs non-européens, bruit dans leagues_config.
+
+### Changements
+1. `core/leaguePolicy.js` (nouveau) : `GENERIC_TOP5` {Premier League=England,
+   LaLiga=Spain, Serie A=Italy, Bundesliga=Germany, Ligue 1=France} ;
+   `resolveTrueLeague(league, country)` réétiquette `« {Pays} - {ligue} »`
+   quand le pays extrait (fullData.country > category) ne correspond pas au
+   pays officiel ; `applyLeaguePolicy(m)` hook non-bloquant.
+2. Câblé dans `core/database.js::insertMatch` et `core/pg_database.js::insertMatch`
+   (même motif que P4/BT1), log `[LEAGUE_POLICY] id 'ancien' -> 'nouveau' (pays=X)`.
+
+### Réparation one-shot (`scripts/repair_league_names.js`, idempotent)
+Scan 27 lignes étiquetées Top-5 → **19 réétiquetées** (Kuwait ×6, Tanzania ×4,
+Egypt ×3, Belarus ×2, Kazakhstan/Israel/Ecuador/Brazil ×1), **8 vrais Top-5**
+conservés (pays vérifiés England/Spain/Italy). Vérif post-fix : ne restent à
+venir sous label Top-5 pur que LaLiga×4 / PL×1 / Serie A×1, tous pays corrects.

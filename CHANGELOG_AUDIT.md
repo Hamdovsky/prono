@@ -1854,6 +1854,23 @@ cotes 1X2 et O/U 2.5 (`odds_over`/`odds_under`), pas de cotes Corners/HT.
   `python -m core.fetch_market_odds --url https://www.football-data.co.uk/mm/mmz2025.csv`
   (et saisons précédentes), puis `npm run accuracy -- --marketFilter corners|ht`.
 
+## Status live (2026-08-25) — NON PEUPLE depuis cet environnement
+- Le réseau atteint football-data.co.uk, mais le site **ne sert plus de CSV
+  statiques** aux chemins historiques (`/england/E0/E0z2024.csv` -> accueil HTML,
+  `/mm/` -> 404, listings de répertoires sans lien `.csv`). Fetch automatique
+  impossible depuis ici.
+- Aucune autre source de cotes gratuite n'est câblée dans le repo (l'archive a
+  été construite en externe ; `soccer_odds` est une table live API-Football
+  distincte, non historique).
+- **Conséquence** : les colonnes `odds_corner_*`/`odds_ht_*` restent NULL ->
+  ROI Corners/HT reste proprement **exclu** du calcul (jamais de ROI fabriqué).
+- Pour activer le ROI en conditions réelles, deux options :
+  1. Fournir un CSV local (téléchargé manuellement) :
+     `python -m core.fetch_market_odds --csv chemin.csv` (script déjà prêt/testé).
+  2. Câbler `fetch_market_odds` sur une source d'odds historiques disponible
+     (API-Football archive, oddsportal, …) — hors périmètre ici (souvent payant
+     ou nécessitant une clé).
+
 ---
 
 # E — Comparaison MC-vs-modèle (O/U & marchés) — FAITE (2026-08-25)

@@ -1280,3 +1280,24 @@ Actions (toutes gated, sans risque prod ; aucun push) :
 - Le track d'audit complet (P0 + Phase 9 + Phase 10 + calibration isotonique +
   M0 trace + M1 Meta-Refiner×1 + M2 gap learning honnête + M3 F1 closing-skew) est
   terminé, commité, et validé sans régression. Aucun déploiement/push.
+
+### Vérification absence_impact_pondéré (Phase 9 — chemin live)
+Audit du câblage de la feature `absence_impact_pondéré` (restait à prouver qu'elle
+n'était pas du code mort) :
+- `dataFusionService.js:378-391` : `_trySofascore` appelle `bypass.getAbsencesForMatch`
+  et persiste `absence_impact_pondéré` dans la table `matches` (UPDATE). -> stockage OK.
+- `core/predict.js:7` + `core/pythonService.js:70` : le client Node transmet `matchData`
+  (donc le champ `absence_impact_pondéré` chargé depuis `matches`) à `POST /predict`.
+- `core/fastapi_server.py:171` : `/predict` passe le payload tel quel à
+  `process_prediction`.
+- `core/prediction_engine.py:117` lit `match_obj.get("absence_impact_pondéré")` -> `ctx["absence_impact"]`.
+- `core/baseline_features.py:109-112` : `build()` injecte `ctx["absence_impact"]` dans
+  `feats["absence_impact_pondéré"]` (testé : test_baseline_fallback.py:76-77).
+- Allowlist 42 features (`backtest_walkforward.py:59`) inclut `absence_impact_pondéré`.
+
+**Conclusion** : la feature est entièrement câblée de bout en bout. Elle est
+**affamée de données live** (absences Sofascore réellement fetchées en prod), pas
+du code mort. Aucun défaut code à corriger ; l'effet réel sera mesurable une fois
+les absences live accumulées (backtest alors requis avant activation d'un poids > 0).
+Note mineure (non bloquante) : dataFusionService stocke `max(impact.home, impact.away)`
+en scalaire unique — acceptable pour une feature scalaire.

@@ -1,0 +1,28 @@
+{
+  "w": [
+    0.3427,
+    0.3647,
+    -0.1245,
+    0.8376
+  ],
+  "mu": [
+    2.6019,
+    1.9938,
+    9.983
+  ],
+  "sigma": [
+    1.0323,
+    0.8775,
+    3.6175
+  ],
+  "n": 38672,
+  "base_rate": 0.6989,
+  "logloss_model": 0.5912,
+  "logloss_baseline": 0.6118,
+  "features": [
+    "xg_home",
+    "xg_away",
+    "corners_total",
+    "intercept"
+  ]
+}

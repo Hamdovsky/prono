@@ -165,6 +165,18 @@ def record_engine_prob_trace(home, away, league, date, p_h, p_d, p_a, ai_source,
         pass
 
 
+def _safe_ht_goal_prob(xg_h, xg_a, corners_total):
+    """P(HT > 0.5) par match via modele logistique calibre (audit Q4 bis).
+    Retourne None si le modele est absent -> marketPolicy utilise le prior ligue.
+    """
+    try:
+        from ht_model import ht_prob as _htp
+        p = _htp(xg_h, xg_a, corners_total)
+        return float(p) if p is not None else None
+    except Exception:
+        return None
+
+
 def process_prediction(match_obj: dict) -> dict:
     home_name = match_obj.get('homeTeam', 'Home')
     away_name = match_obj.get('awayTeam', 'Away')
@@ -777,6 +789,7 @@ def process_prediction(match_obj: dict) -> dict:
         "is_confirmed": bool(is_confirmed),
         "expected_corners": float(expected_corners),
         "expected_cards": float(expected_cards),
+        "ht_goal_prob": _safe_ht_goal_prob(xg_h, xg_a, expected_corners),
         "precision_bets": precision_bets,
         "deep_audit_required": bool(deep_audit_required),
         "explainer_data": explainer_data,

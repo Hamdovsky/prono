@@ -1699,9 +1699,20 @@ jamais emis -> marche HT invisible en precision.
 
 ## Impact
 - Le marche **HT devient mesurable** (avant : 0 pick). Baseline attendue ~ 69 %
-  (taux reel P(HT>0.5) sur l'archive). Amelioration suivante (Q4 bis) : remplacer
-  le prior par la proba HT par-match de `StatisticalEngine` (quand routee vers
-  `fullData.quant.markets.ht.goal_yes`).
+  (taux reel P(HT>0.5) sur l'archive).
+
+## Q4 bis — HT par match (modele logistique, 2026-08-25)
+- `core/ht_model.py` (nouveau) : inference `ht_prob(xg_h, xg_a, corners_total)`
+  pure-Python, poids dans `data/ht_model.json`.
+- `core/train_ht_model.py` (nouveau) : fit logistique sur archive_football_data
+  (label HT>0, features xg_home/xg_away/corners_total). **n=38 672, base=0.699,
+  log-loss modele 0.5912 vs baseline 0.6118 (gain +0.021)**.
+- `core/prediction_engine.py` : `_safe_ht_goal_prob()` ajoute `ht_goal_prob` au
+  payload de prediction (try/except ; None si modele absent -> prior ligue
+  conserve). `deriveHTPick` (marketPolicy) le consomme en priorite sur le prior
+  ligue -> le pick HT mesure (Q1) utilise desormais une proba par match.
+- `tests/test_ht_model.py` (nouveau, 4/4 verts). `py_compile` prediction_engine OK.
+- Le prior ligue (HT_RATIOS) reste le fallback data-driven si le modele est absent.
 
 ## Validation
 - `python -m core.train_ht` -> OK (`data/ht_ratios.json`).

@@ -11,11 +11,14 @@ Responsibilities:
   6. Main Four predictions assembly
 """
 import math
+import os
 from data_loader import safe_float as _safe_float, f_feat as _f_feat
 from predictor import calculate_ah_dnb_probs
 from corners_calib import load_calibration, p_over_corner
 
 _CORNER_LINE = 9.5
+_BTTS_MODEL_ENABLED = os.environ.get("BTTS_MODEL_ENABLED", "false").lower() == "true"
+_OU_MODEL_ENABLED = os.environ.get("OU_MODEL_ENABLED", "false").lower() == "true"
 
 
 def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15,
@@ -50,19 +53,67 @@ def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15
     if not odds_in_range(selection_odds):
         return [{"market": "NO BET (ODDS_RANGE)", "probability": 0, "reason": f"Cote principale {selection_odds:.2f} hors range [1.45, 2.30]"}]
 
+    # Over/Under (Q5) : P(Over ligne) via modele logistique calibre sur archive
+    # quand OU_MODEL_ENABLED, sinon Monte Carlo brut (mc_ou25/mc_ou35).
+    total_xg = xg_h + xg_a
+    p25 = p35 = None
+    if _OU_MODEL_ENABLED:
+        try:
+            from ou_model import ou_prob as _ou_prob
+            p25 = _ou_prob(total_xg, 2.5)
+            p35 = _ou_prob(total_xg, 3.5)
+        except Exception:
+            p25 = p35 = None
+
     # Over/Under 2.5
-    if mc_ou25 >= 58:
-        precision_bets.append({"market": "Over 2.5 Buts", "probability": int(round(mc_ou25)), "reason": f"Monte Carlo ({int(mc_ou25)}%): Forte probabilité de 3+ buts (xG total {xg_h+xg_a:.2f})"})
-    elif mc_ou25 <= 42:
-        under_prob = round(100 - mc_ou25)
-        precision_bets.append({"market": "Under 2.5 Buts", "probability": int(under_prob), "reason": f"Monte Carlo ({int(under_prob)}%): Faible probabilité de 3+ buts (xG total {xg_h+xg_a:.2f})"})
+    if p25 is not None:
+        if p25 >= 0.55:
+            precision_bets.append({
+                "market": "Over 2.5 Buts",
+                "probability": int(round(p25 * 100)),
+                "reason": f"Modele O/U calibre : P(>2.5)={p25*100:.0f}% (xG {total_xg:.2f})",
+            })
+        elif p25 <= 0.45:
+            precision_bets.append({
+                "market": "Under 2.5 Buts",
+                "probability": int(round((1 - p25) * 100)),
+                "reason": f"Modele O/U calibre : P(<=2.5)={(1-p25)*100:.0f}% (xG {total_xg:.2f})",
+            })
+    else:
+        if mc_ou25 >= 58:
+            precision_bets.append({"market": "Over 2.5 Buts", "probability": int(round(mc_ou25)), "reason": f"Monte Carlo ({int(mc_ou25)}%): Forte probabilité de 3+ buts (xG total {total_xg:.2f})"})
+        elif mc_ou25 <= 42:
+            under_prob = round(100 - mc_ou25)
+            precision_bets.append({"market": "Under 2.5 Buts", "probability": int(under_prob), "reason": f"Monte Carlo ({int(under_prob)}%): Faible probabilité de 3+ buts (xG total {total_xg:.2f})"})
 
-    if mc_ou35 >= 55:
-        precision_bets.append({"market": "Over 3.5 Buts", "probability": int(round(mc_ou35)), "reason": f"Monte Carlo ({int(mc_ou35)}%): Probabilité de 4+ buts (match ouvert)"})
+    if p35 is not None:
+        if p35 >= 0.55:
+            precision_bets.append({
+                "market": "Over 3.5 Buts",
+                "probability": int(round(p35 * 100)),
+                "reason": f"Modele O/U calibre : P(>3.5)={p35*100:.0f}% (xG {total_xg:.2f})",
+            })
+    else:
+        if mc_ou35 >= 55:
+            precision_bets.append({"market": "Over 3.5 Buts", "probability": int(round(mc_ou35)), "reason": f"Monte Carlo ({int(mc_ou35)}%): Probabilité de 4+ buts (match ouvert)"})
 
-    # BTTS
+    # BTTS (Q3) : P(BTTS) via modele logistique calibre sur archive quand active,
+    # sinon heuristique legacy (xg_h*xg_a*30+40). Gate BTTS_MODEL_ENABLED.
     if xg_h >= 1.2 and xg_a >= 1.1 and bc_h >= 1.5 and bc_a >= 1.5:
-        precision_bets.append({"market": "BTTS : OUI", "probability": int(min(88, (xg_h*xg_a)*30 + 40)), "reason": "Les deux équipes génèrent des occasions nettes"})
+        if _BTTS_MODEL_ENABLED:
+            try:
+                from btts_model import btts_prob as _btts_prob
+                _pb = _btts_prob(xg_h, xg_a)
+            except Exception:
+                _pb = min(0.88, (xg_h * xg_a) * 30 + 40) / 100.0
+        else:
+            _pb = min(0.88, (xg_h * xg_a) * 30 + 40) / 100.0
+        precision_bets.append({
+            "market": "BTTS : OUI",
+            "probability": int(round(_pb * 100)),
+            "reason": "Les deux équipes génèrent des occasions nettes"
+            + (" [modele BTTS calibre]" if _BTTS_MODEL_ENABLED else ""),
+        })
 
     # Clean Sheet
     if xg_a < 0.8 and sot_a < 2.5 and p_h > 60:

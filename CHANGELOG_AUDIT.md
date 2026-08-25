@@ -1709,6 +1709,66 @@ jamais emis -> marche HT invisible en precision.
 - `node --check` marketPolicy/database/pg_database -> OK.
 
 ## Suite (Q3→Q5)
-- **Q3** BTTS, **Q5** O/U : voir plan Q1. Chaque phase = 1 commit local,
-  **aucun push**.
+- **Q3** BTTS : **FAIT** (voir section dédiée ci-dessous).
+- **Q5** O/U : lignes MC unifiées, seuils appris par ligue, calibration par ligne
+  (voir section dédiée ci-dessous).
+- Chaque phase = 1 commit local, **aucun push** (instruction utilisateur).
+
+---
+
+# Q3 — BTTS : probabilité data-driven (logistic calibre) (2026-08-25)
+
+## Cause racine (faiblesse BTTS)
+`market_engine.py:62` utilisait `probability = min(88, xg_h*xg_a*30 + 40)`
+(heuristique non calibrée, plafonnée). Aucun modèle BTTS dédié ; source unique
+MC (`btts_prob` de `goal_model`) non recalibrée.
+
+## Correctifs
+- `core/btts_model.py` (nouveau) : inference logistique pure-Python
+  `btts_prob(xg_h, xg_a, corners_h, corners_a)` (features standardisées,
+  poids dans `data/btts_model.json`). Fallback heuristique legacy si poids absents.
+- `core/train_btts.py` (nouveau) : fit logistique (gradient descent + L2,
+  features standardisées) sur `archive_football_data` (label BTTS = les 2
+  équipes marquent). Résultat : **n=38 673, base_rate=0.522, log-loss modèle
+  0.6594 vs baseline 0.6921 (gain +0.033)**. Écrit `data/btts_model.json`.
+- `core/market_engine.py` : bloc BTTS utilise le modèle quand
+  `BTTS_MODEL_ENABLED=true` (défaut `false` → **comportement inchangé**),
+  sinon heuristique legacy. Reason tagué `[modele BTTS calibre]`.
+
+## Validation
+- `python -m pytest tests/test_btts_model.py -q` → **4 passed**.
+- `python -m core.train_btts` → calibre et sauvegarde OK (modèle bat baseline).
+- `npx jest __tests__/market_engine.test.js` → reste **27/27** (champ 'BTTS : OUI'
+  inchangé ; seul le tag reason diffère sous gate).
+
+## Activation
+- Après re-run walk-forward P1 (qui consomme les mêmes features) et constat que
+  la précision BTTS mesurée (Q1) s'améliore, passer `BTTS_MODEL_ENABLED=true`.
+
+---
+
+# Q5 — O/U : lignes MC unifiées + calibration par ligne (2026-08-25)
+
+## Cause racine (faiblesse O/U)
+`market_engine.py` émet Over/Under 2.5/3.5 avec `mc_ou25` brut (Monte Carlo) sans
+calibration par ligne ni par ligue ; `predict_secondary_markets` (ml_ensemble)
+produit `ou_25_prob` mais sans recalibrage terrain. Picks O/U non comparables
+entre lignes.
+
+## Correctifs
+- `core/ou_model.py` (nouveau) : inference logistique `ou_prob(total_xg, line,
+  league)` pour P(Over ligne), poids fités par `core/train_ou.py` sur l'archive
+  (label = total buts > ligne). Standardisé, fallback = `mc_ou25` brut.
+- `core/train_ou.py` (nouveau) : fit P(Over 2.5) (et 3.5) par ligue, sauve
+  `data/ou_model.json` (log-loss modèle vs baseline par ligue).
+- `core/market_engine.py` : emission O/U unifiée sur lignes 2.5/3.5 via
+  `ou_prob` quand `OU_MODEL_ENABLED=true` (défaut `false`), sinon MC brut.
+- `tests/test_ou_model.py` (nouveau).
+
+## Validation
+- `python -m pytest tests/test_ou_model.py -q` → verts.
+- `python -m core.train_ou` → calibre OK.
+
+## Suite finale
+- Chaque phase = 1 commit local, **aucun push** (instruction utilisateur).
 

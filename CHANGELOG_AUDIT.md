@@ -1481,6 +1481,20 @@ quotidiennement une fois la trace accumulée (peut être branché sur le cron P3
 
 ---
 
+## Vérification régression (fin track précision)
+
+- **pytest** : 283 passés / 5 échecs = les **échecs préexistants** dus à `penaltyblog`
+  non installé (`test_engine`×2, `test_fallback`×2, `test_predictions`×1). Aucun nouveau
+  échec lié à P1-P4.
+- **jest** : 609 passés / 1 échec = `freeProxyPool.test.js` (test réseau/proxy, hors
+  périmètre P1-P4 — non introduit par ces changements).
+- **node --check** : `Workflow.js` + `cronManager.js` OK.
+
+**Commits locaux** (pas de push) : `1fb5e6b` (P1), `bee5cbf` (P2), `e0c0c7f` (P3),
+`8f73f8e` (P4). Aucun push Render (conformément à la consigne).
+
+---
+
 ## P4 — Ajustement draw-prior + recalibration sur probas servies 🔶 (en cours, gated)
 
 **Date** : 2026-08-25

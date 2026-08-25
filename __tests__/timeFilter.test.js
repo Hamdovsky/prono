@@ -10,6 +10,8 @@ const {
   getLocalDayEnd,
   extractMatchMs,
   filterMatchesInWindow,
+  isMatchEligible,
+  selectEligibleMatches,
 } = require('../src/utils/timeFilter.js')
 
 const TZ = -60 // UTC+1
@@ -141,5 +143,76 @@ describe('filterMatchesInWindow — 4 cas avec dates figées', () => {
   it('filtre inconnu ou absent => aucun filtrage', () => {
     expect(filterMatchesInWindow(ALL, null, NOW, TZ).length).toBe(ALL.length)
     expect(filterMatchesInWindow(ALL, 'unknown', NOW, TZ).length).toBe(ALL.length)
+  })
+})
+
+describe('isMatchEligible', () => {
+  it('rejette postponed/canceled', () => {
+    expect(isMatchEligible(match('m', Date.now() + 3600000), Date.now())).toBe(true)
+    expect(isMatchEligible({ ...match('m', Date.now() + 3600000), status: 'postponed' }, Date.now())).toBe(false)
+    expect(isMatchEligible({ ...match('m', Date.now() + 3600000), status: 'canceled' }, Date.now())).toBe(false)
+    expect(isMatchEligible({ ...match('m', Date.now() + 3600000), status: 'Cancelled' }, Date.now())).toBe(false)
+  })
+
+  it('rejette un match déjà commencé ou terminé', () => {
+    const NOW = Date.parse('2026-08-13T20:00:00Z')
+    expect(isMatchEligible(match('past', Date.parse('2026-08-13T18:00:00Z')), NOW)).toBe(false)
+    expect(isMatchEligible(match('futur', Date.parse('2026-08-13T21:30:00Z')), NOW)).toBe(true)
+    expect(
+      isMatchEligible({ ...match('fini', Date.parse('2026-08-13T12:00:00Z')), status: 'finished' }, NOW)
+    ).toBe(false)
+  })
+
+  it('rejette les statuts en direct / interrompus (jamais listés comme à venir)', () => {
+    const FUTUR = Date.now() + 3600000
+    for (const s of ['live', 'inprogress', '1st_half', '2nd_half', 'ht', 'abandoned', 'suspended']) {
+      expect(isMatchEligible({ ...match('m', FUTUR), status: s }, Date.now())).toBe(false)
+    }
+    expect(isMatchEligible({ ...match('m', FUTUR), isLive: true }, Date.now())).toBe(false)
+  })
+
+  it('rejette un match avec minute affichée (déjà démarré) même si statut scheduled', () => {
+    const FUTUR = Date.now() + 3600000
+    expect(isMatchEligible({ ...match('m', FUTUR), status: 'scheduled', minute: 63 }, Date.now())).toBe(false)
+    expect(isMatchEligible({ ...match('m', FUTUR), status: 'scheduled', minute: '45+' }, Date.now())).toBe(false)
+    expect(isMatchEligible({ ...match('m', FUTUR), status: 'scheduled' }, Date.now())).toBe(true)
+  })
+
+  it('rejette un match avec score complet alors que le statut est vide/inconnu', () => {
+    expect(isMatchEligible({ id: 'x', homeTeam: 'A', awayTeam: 'B', scoreHome: '2', scoreAway: '1' }, Date.now())).toBe(false)
+    expect(isMatchEligible({ ...match('m', Date.now() + 3600000), scoreHome: '2', scoreAway: '1' }, Date.now())).toBe(false)
+  })
+
+  it('traite un match sans timestamp comme jouable (non terminé)', () => {
+    expect(isMatchEligible({ id: 'x', homeTeam: 'A', awayTeam: 'B' }, Date.now())).toBe(true)
+  })
+})
+
+describe('selectEligibleMatches — fenêtre active vide → repli sur les prochains matchs', () => {
+  const TZ = -60 // UTC+1
+  const EVENING = Date.parse('2026-08-13T20:00:00Z') // local 21:00 jeudi 13/08
+
+  const ALL = [
+    match('tonight-started', Date.parse('2026-08-13T18:00:00Z')), // 19:00 local, déjà commencé
+    match('tonight-future', Date.parse('2026-08-13T21:30:00Z')), // 22:30 local, pas encore commencé
+    match('finished-today', Date.parse('2026-08-13T12:00:00Z')), // terminé aujourd'hui
+    match('tomorrow', Date.parse('2026-08-14T18:00:00Z')), // 19:00 local demain
+  ]
+  const POSTPONED = { ...match('postponed', Date.parse('2026-08-13T21:00:00Z')), status: 'postponed' }
+
+  it("fenêtre non vide : liste uniquement les matchs jouables de la fenêtre", () => {
+    const res = selectEligibleMatches(ALL.concat([POSTPONED]), 'Today', EVENING, TZ)
+    expect(res.map((m) => m.id)).toEqual(['tonight-future'])
+  })
+
+  it('fenêtre vide (fin de soirée) : repli automatique sur les prochains matchs', () => {
+    const LATE = Date.parse('2026-08-13T22:30:00Z') // local 23:30 — le dernier match du jour est commencé
+    const res = selectEligibleMatches(ALL.concat([POSTPONED]), 'Today', LATE, TZ)
+    expect(res.map((m) => m.id)).toEqual(['tomorrow'])
+  })
+
+  it('aucun match jouable nulle part : retourne la fenêtre (vide) plutôt que de planter', () => {
+    const res = selectEligibleMatches([match('past', Date.parse('2026-08-13T18:00:00Z'))], 'Today', EVENING, TZ)
+    expect(res).toEqual([])
   })
 })

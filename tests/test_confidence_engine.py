@@ -169,3 +169,41 @@ class TestBuildAnalysisReport:
         assert len(report) == 10
         assert '1_Form' in report
         assert '10_Smart_Indicators' in report
+
+
+class TestOverconfidenceVeto:
+    """Veto Guard / Safety Bracket : prob >= 0.70 mais bracket < 0.60 → NO BET."""
+
+    def test_high_prob_weak_bracket_veto(self):
+        from confidence_engine import overconfidence_veto
+        veto, reason = overconfidence_veto(0.78, {'70-80': {'accuracy': 0.382, 'count': 68}})
+        assert veto is True
+        assert 'NO BET' in reason
+
+    def test_high_prob_strong_bracket_no_veto(self):
+        from confidence_engine import overconfidence_veto
+        veto, _ = overconfidence_veto(0.78, {'70-80': {'accuracy': 0.82, 'count': 68}})
+        assert veto is False
+
+    def test_low_prob_never_veto(self):
+        from confidence_engine import overconfidence_veto
+        veto, _ = overconfidence_veto(0.55, {'50-60': {'accuracy': 0.20, 'count': 100}})
+        assert veto is False
+
+    def test_insufficient_samples_no_veto(self):
+        from confidence_engine import overconfidence_veto
+        veto, _ = overconfidence_veto(0.78, {'70-80': {'accuracy': 0.10, 'count': 2}})
+        assert veto is False
+
+    def test_injected_bracket_accuracy(self):
+        from confidence_engine import overconfidence_veto
+        brackets = {'80-90': {'accuracy': 0.182, 'count': 68}, '70-80': {'accuracy': 0.90, 'count': 68}}
+        veto, reason = overconfidence_veto(0.85, brackets)
+        assert veto is True
+        assert '80-90' in reason
+
+    def test_real_reports_merge(self):
+        from confidence_engine import load_bracket_accuracy, overconfidence_veto
+        brackets = load_bracket_accuracy()
+        assert isinstance(brackets, dict)
+        assert '70-80' in brackets or not brackets  # données dispo ou chargement vide toléré

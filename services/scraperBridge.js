@@ -41,7 +41,7 @@ async function runLocalScraper() {
       `[SCRAPER BRIDGE] Render env detected — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`
     )
     try {
-      const httpScraperService = require('./httpScraperService')
+      const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
       const fallbackCount = await httpScraperService.processFallback({ fullScan })
       await runResilientScan().catch((e) =>
         logger.warn(`[SCRAPER BRIDGE] Resilient scan skipped: ${e.message}`)
@@ -78,13 +78,22 @@ async function runLocalScraper() {
     const workflow = new Workflow(leagues)
     const result = await workflow.start()
     logger.info('[SCRAPER BRIDGE] Local scraper completed')
+    // 🔑 Always refresh upcoming fixtures (J..J+2) via the resilient
+    // multi-source scan so the dashboard never ends up with 0 future
+    // matches (the dev Workflow path alone was leaving the DB empty of
+    // upcoming fixtures). Dedup by match_key makes overlap harmless.
+    try {
+      await runResilientScan()
+    } catch (e) {
+      logger.warn(`[SCRAPER BRIDGE] Resilient scan skipped after workflow: ${e.message}`)
+    }
     return { success: true, result }
   } catch (err) {
     logger.error(
       `[SCRAPER BRIDGE] Local scraper failed: ${err.message} — falling back to HTTP scraper`
     )
     try {
-      const httpScraperService = require('./httpScraperService')
+      const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
       const fallbackCount = await httpScraperService.processFallback({ fullScan })
       return { success: true, fallback: true, fallbackCount }
     } catch (fbErr) {

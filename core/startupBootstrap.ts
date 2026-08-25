@@ -106,7 +106,7 @@ async function warmThetaOptimizer() {
 
 async function syncBSD() {
   try {
-    import bsd from '../services/bsdService'
+    const bsd = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     if (bsd.isAvailable()) {
       logger.info('[BOOT] BSD API available — syncing fixtures...')
       const n = await bsd.fullSync()

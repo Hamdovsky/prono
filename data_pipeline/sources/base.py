@@ -18,6 +18,7 @@ import pandas as pd
 import requests
 
 from config import STATE_FILE
+from proxy_manager import fetch_with_proxy
 from util import RateLimiter, get_logger, retry
 
 log = get_logger("base")
@@ -64,7 +65,7 @@ class HttpClient:
 
     @retry(n=3, delay=3.0, exceptions=(requests.RequestException,))
     def get_bytes(self, url: str, timeout: float = 30.0) -> bytes:
-        resp = requests.get(url, headers={"User-Agent": self.USER_AGENT}, timeout=timeout)
+        resp = fetch_with_proxy(url, headers={"User-Agent": self.USER_AGENT}, timeout=timeout)
         resp.raise_for_status()
         return resp.content
 

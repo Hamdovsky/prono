@@ -5,7 +5,7 @@ const database = require('../core/database')
 const { speedCache, invalidateCache } = require('../core/speedCache')
 const enrichedPredictions = require('../core/enriched_predictions')
 const { sanitizeMatches } = require('../core/matchSanitizer')
-const bsdService = require('../services/bsdService')
+const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 const liveGoalPredictor = require('../services/LiveGoalPredictor')
 const liveMatchService = require('../services/liveMatchService')
 const { getSteamForMatch } = require('../services/oddsMovementService')
@@ -121,6 +121,33 @@ router.post('/debug/bsd-backfill', async (req, res) => {
 })
 
 /**
+ * GET /api/top-picks/daily
+ * 🔥 Top Picks du Jour — moteur de sélection STRICT (services/topPicksEngine).
+ * Edge >= 5%, EV >= 5%, proba calibrée 55-75%, guards sécurité, top 3-5.
+ */
+router.get('/top-picks/daily', async (req, res) => {
+  try {
+    const topPicksEngine = require('../services/topPicksEngine')
+    const limit = parseInt(req.query.limit) || 5
+    const days = parseInt(req.query.days) || 14
+    const result = await topPicksEngine.selectTopPicksOfDay({ limit, days })
+    res.json({
+      success: true,
+      date: new Date().toISOString().slice(0, 10),
+      count: result.picks.length,
+      picks: result.picks,
+      analyzed: result.analyzed,
+      rejected: result.rejected,
+      filters: result.filters,
+      generatedAt: result.generatedAt,
+    })
+  } catch (e) {
+    logger.error(`[TOP-PICKS] /api/top-picks/daily failed: ${e.message}`, { stack: e.stack })
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
  * GET /api/live
  * Live matches with goal prediction analysis
  */
@@ -231,12 +258,54 @@ router.get('/live/goal-predictions', async (req, res) => {
   }
 })
 
+// 🚫 [PLAYED GUARD] Exclut tout match déjà joué / en cours / annulé, même si la
+// ligne DB porte encore un statut "scheduled" (ligne stale jamais mise à jour).
+const _NOT_STARTED_STATUSES = new Set([
+  'scheduled', 'upcoming', 'not_started', 'notstarted', 'ns', 'prematch',
+  'fixture', 'timed', '',
+])
+const _DEAD_OR_LIVE_STATUSES = new Set([
+  'finished', 'ft', 'ended', 'closed', 'played', 'aet', 'pen', 'ap',
+  'match_finished', 'awarded', 'walkover',
+  'live', 'inprogress', 'in_progress', 'in play', 'in_play', 'playing',
+  '1st_half', 'first_half', '2nd_half', 'second_half', 'ht', 'half_time',
+  'halftime', 'break', 'extra_time', 'et', 'awaiting_extra_time',
+  'awaiting_penalties', 'abandoned', 'suspended', 'interrupted', 'delayed',
+  'postponed', 'canceled', 'cancelled',
+])
+function isPlayedOrDeadMatch(m) {
+  const status = String(m.status || '').toLowerCase().trim()
+  if (_DEAD_OR_LIVE_STATUSES.has(status)) return true
+  // fullData peut contenir le statut/score à jour même si les colonnes sont stales
+  let fd = m.fullData
+  if (typeof fd === 'string') {
+    try { fd = JSON.parse(fd) } catch (e) { fd = null }
+  }
+  const fdStatus = String(fd?.status?.type || fd?.status || '').toLowerCase().trim()
+  if (fdStatus && !_NOT_STARTED_STATUSES.has(fdStatus)) return true
+  const sh = parseInt(m.scoreHome != null ? m.scoreHome : fd?.homeScore?.current ?? fd?.scoreHome, 10)
+  const sa = parseInt(m.scoreAway != null ? m.scoreAway : fd?.awayScore?.current ?? fd?.scoreAway, 10)
+  // ⚠️ 0-0 est la valeur PAR DÉFAUT en DB pour un match à venir : seul un score
+  // non nul (au moins une équipe a marqué) prouve que le match s'est joué.
+  // Un vrai 0-0 final reste de toute façon filtré côté front (coup d'envoi passé).
+  if (!isNaN(sh) && !isNaN(sa) && (sh > 0 || sa > 0)) return true
+  return false
+}
+
 router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
   try {
-    // [PREMATCH ONLY] strictly filter out live/in-progress matches
+    // [PREMATCH ONLY] strictly filter out live/in-progress matches.
+    // startAfter (12h lookback) excludes long-stale scheduled rows in SQL so the
+    // LIMIT is never consumed by matches that already kicked off.
+    const nowMsForQuery = Date.now()
+    // [PREMATCH STRICT] On ne garde que les matchs PAS ENCORE commencés
+    // (grâce de 10 min pour le coup d'envoi imminent). L'ancien lookback 12h
+    // faisait remonter des centaines de matchs déjà joués qui saturaient le
+    // LIMIT au détriment des vrais matchs à venir.
+    const lookbackSec = Math.floor((nowMsForQuery - 10 * 60 * 1000) / 1000)
     const allMatches = await database.getMatchesByStatuses(
       ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
-      { limit: 500 }
+      { limit: 500, startAfter: lookbackSec, orderBy: 'start' }
     )
     // Auto-populate if DB is near-empty (fresh deploy on Render) — fire & forget
     if (allMatches.length < 5) {
@@ -295,7 +364,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime()
       const allMatches = await database.getMatchesByStatuses(
         ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
-        { limit: 500 }
+        { limit: 500, startBefore: Math.floor(Date.now() / 1000), orderBy: 'start_desc' }
       )
       rawMatches = allMatches.filter((m) => {
         let rawTs = m.startTimestamp
@@ -322,6 +391,13 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     }
 
     // 🔁 [STRICT DEDUP] Prioritize most imminent match per team pair
+    const beforePlayedGuard = rawMatches.length
+    rawMatches = rawMatches.filter((m) => !isPlayedOrDeadMatch(m))
+    if (rawMatches.length < beforePlayedGuard) {
+      logger.info(
+        `[UPCOMING] 🚫 Played/dead guard removed ${beforePlayedGuard - rawMatches.length} stale matches`
+      )
+    }
     const teamPairMap = new Map()
     rawMatches.forEach((m) => {
       const home = (m.homeTeam || '').toLowerCase().trim()
@@ -511,6 +587,12 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
         m.quant.risk_label = 'BALANCED'
         m.ai_source = m.ai_source || 'RESPONSE_FLOOR'
         m.insufficient_data = 1
+      }
+
+      // 📏 Lignes O/U complètes (O1.5/O2.5/O3.5/O4.5 + under) : l'API renvoie
+      // toujours les 4 lignes, même pour les matchs déjà enrichis (stale fullData).
+      if (m.quant && m.quant.markets && m.quant.markets.over_under) {
+        marketAnalysis.ensureOuLines(m.quant.markets, parseFloat(m.home_xg) || 0, parseFloat(m.away_xg) || 0)
       }
     }
 

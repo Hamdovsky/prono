@@ -52,6 +52,19 @@ CLUBELO_INTERVAL_SECONDS = 0.8
 
 FD_BASE_URL = "https://www.football-data.co.uk/mmz4281"
 
+# ── Gestion des proxies (Proxy Manager) ─────────────────────────────────────
+# Sources de listes de proxies libres, re-vérifiées régulièrement par leurs
+# mainteneurs. La liste est rafraîchie en mémoire toutes les PROXY_REFRESH_MIN.
+PROXY_SOURCES = [
+    "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
+    "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
+]
+PROXY_REFRESH_MIN = 30                 # rafraîchissement du cache en mémoire
+PROXY_FETCH_TIMEOUT = 10.0             # timeout pour télécharger les listes
+PROXY_HEALTH_TIMEOUT = 3.0             # health-check court avant chaque usage
+PROXY_MAX_ATTEMPTS = 4                 # nb max de proxies essayés par rotation
+PROXY_RETRY_STATUS = (403, 429, 503)   # statuts HTTP déclenchant la rotation
+
 
 def current_season_years(now: datetime | None = None) -> tuple[int, int]:
     """Années de début/fin de la saison en cours (les saisons démarrent en août)."""

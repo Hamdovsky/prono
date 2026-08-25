@@ -4,7 +4,7 @@ import Sidebar from './Sidebar'
 import MatchCard from './MatchCard'
 import dataService from '../services/dataService'
 import { ROUTES, PATH_TO_VIEW } from '../config/routes'
-import { filterMatchesInWindow, isMatchEligible } from '../utils/timeFilter'
+import { selectEligibleMatches } from '../utils/timeFilter'
 import { computeRawLines, isFinishedMatch } from '../utils/matchAnalysis'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
@@ -13,6 +13,8 @@ import './Dashboard.css'
 
 // 🧠 [PERF] Composants lourds chargés à la demande (code-splitting)
 const Promosport = lazy(() => import('./Promosport'))
+const TopPicksWidget = lazy(() => import('./TopPicksWidget'))
+const ProPlanWidget = lazy(() => import('./ProPlanWidget'))
 const UltimateMatchCenter = lazy(() => import('./UltimateMatchCenter/UltimateMatchCenter'))
 
 // 🧠 [PERF] Header extrait en sous-composant mémoïsé : il ne se re-rend que si
@@ -200,15 +202,15 @@ const Dashboard = () => {
   )
 
   const allMatchesList = useMemo(() => {
-    // Filtre temporel (AUJOURD'HUI/DEMAIN/3 J/7 J) — jours calendaires locaux
-    const dateFiltered = filterMatchesInWindow(matches, activeDate, Date.now())
+    // Filtre temporel (AUJOURD'HUI/DEMAIN/3 J/7 J) — jours calendaires locaux.
+    // selectEligibleMatches retombe sur les prochains matchs (7 jours) quand la
+    // fenêtre active est vide (ex. fin de soirée) afin de ne jamais être vide.
     const nowMs = Date.now()
+    const dateFiltered = selectEligibleMatches(matches, activeDate, nowMs)
     return dateFiltered
       .filter((m) => {
         // 🕐 Masque reportés/annulés et matchs déjà joués (heure de début
         // passée ou terminés) — logique partagée avec Sidebar (timeFilter.js).
-        if (!isMatchEligible(m, nowMs)) return false
-
         if (searchQuery) {
           const q = searchQuery
             .toLowerCase()
@@ -303,13 +305,13 @@ const Dashboard = () => {
                 BTTS
               </div>
               <div style={{ width: '14%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>
-                O/U
+                O/U LIGNES
               </div>
               <div style={{ width: '18%', minWidth: '100px', padding: '0 8px', textAlign: 'center' }}>
-                GAGNANT
+                GAGNANT 1X2
               </div>
               <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>
-                HANDICAP
+                BUT 1ER MT
               </div>
               <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>
                 CORNERS
@@ -411,6 +413,11 @@ const Dashboard = () => {
           {activeView === 'promosport' ? (
             <Suspense fallback={<LoadingSkeleton type="table" label="Promosport IA..." />}>
               <Promosport />
+            </Suspense>
+          ) : activeView === 'millionaire' ? (
+            <Suspense fallback={<LoadingSkeleton type="table" label="Top Picks du Jour..." />}>
+              <TopPicksWidget />
+              <ProPlanWidget />
             </Suspense>
           ) : (
             <div className="onyx-grid-container" style={{ padding: '16px 18px' }}>

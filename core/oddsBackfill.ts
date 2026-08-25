@@ -10,7 +10,7 @@ import logger from './logger'
 import therundownService from '../services/therundownService'
 import oddspapiService from '../services/oddspapiService'
 import sportmonksService from '../services/sportmonksService'
-import bsdService from '../services/bsdService'
+const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 
 // Normaliseur minimal (backend CommonJS — le normaliseur frontend est ESM)
 function normalizeTeam(name) {

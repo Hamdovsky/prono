@@ -3,11 +3,11 @@ const database = require('./database')
 const logger = require('./logger')
 const { createQuotaManager } = require('../services/sourceQuotaManager')
 const rapidApiQuotaManager = require('../services/rapidApiQuotaManager')
-const bsdService = require('../services/bsdService')
+const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 const therundownService = require('../services/therundownService')
 const oddspapiService = require('../services/oddspapiService')
 const sportmonksService = require('../services/sportmonksService')
-const apifootballService = require('../services/apifootballService')
+const apifootballService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 const openligadbService = require('../services/openligadbService')
 
 const fdQuotaManager = createQuotaManager('footballdata')

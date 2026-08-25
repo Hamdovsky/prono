@@ -436,7 +436,7 @@ class Workflow {
       const allEvents = []
       // PRIMARY: httpScraperService (API-Football / Football-Data.org)
       try {
-        const httpScraperService = require('../../services/httpScraperService')
+        const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
         if (httpScraperService.isAvailable()) {
           for (const d of datesToFetch) {
             try {
@@ -1343,7 +1343,7 @@ class Workflow {
               '🚨 [FALLBACK] RapidAPI quota exhausted during scraping! Triggering FootballData fallback...'
             )
             try {
-              const footballDataService = require('../../services/footballDataService')
+              const footballDataService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
               await footballDataService.processFallbackFixtures()
             } catch (fdErr) {
               console.error('❌ [FALLBACK] FootballData fallback failed:', fdErr.message)
@@ -1387,7 +1387,7 @@ class Workflow {
                 )
                 rapidApiExhausted = true
                 try {
-                  const footballDataService = require('../../services/footballDataService')
+                  const footballDataService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
                   await footballDataService.processFallbackFixtures()
                 } catch (fdErr) {
                   console.error('❌ [FALLBACK] FootballData fallback failed:', fdErr.message)

@@ -247,15 +247,16 @@ class OddsMovementAnalyzer {
     return this.sharpSignals.get(matchId) || null
   }
 
-  /**
-   * Appliquer le signal sharp money à une prédiction
-   */
+/**
+    * Appliquer le signal sharp money à une prédiction
+    */
   applyToPrediction(matchId, prediction) {
     const signal = this.sharpSignals.get(matchId)
     if (!signal || signal.signals.length === 0) return prediction
 
     const p = { ...prediction }
     let adjusted = false
+    let noBet = false
 
     for (const sig of signal.signals) {
       if (sig.type === 'SHARP_HOME' && p.verdict !== 'Home' && sig.rating > 0.6) {
@@ -291,12 +292,30 @@ class OddsMovementAnalyzer {
         p.is_smart_money = true
         adjusted = true
       }
+
+      // NO BET VETO: Sharp money strongly contradicts our verdict
+      if (signal.sharpScore > 0.7) {
+        const sharpDirection = signal.signals.find(s => s.direction)
+        if (sharpDirection) {
+          const verdictDir = p.verdict === 'Home' ? 'home' : (p.verdict === 'Away' ? 'away' : null)
+          if (verdictDir && sharpDirection.direction !== verdictDir) {
+            noBet = true
+            p.no_bet_reason = `SHARP_CONTRADICTION: Sharp money (${signal.sharpScore.toFixed(2)}) on ${sharpDirection.direction} vs our ${verdictDir}`
+            p.verdict = 'NO BET (SHARP_CONTRADICTION)'
+          }
+        }
+      }
     }
 
     if (adjusted) {
       p.analysis = p.analysis || {}
       p.analysis.smart_money = signal.interpretation
       p.analysis.sharp_score = signal.sharpScore
+    }
+
+    if (noBet) {
+      p.verdict = 'NO BET (SHARP_CONTRADICTION)'
+      p.no_bet = true
     }
 
     return p

@@ -13,6 +13,21 @@ jest.mock('axios', () => ({
   })),
 }))
 
+jest.mock('../services/dataFusionService', () => ({
+  fetchOdds: jest.fn().mockResolvedValue(null),
+}))
+
+jest.mock('../services/scrapers', () => ({
+  getOdds: jest.fn().mockResolvedValue(null),
+  getLiveScores: jest.fn().mockResolvedValue([]),
+  getResults: jest.fn().mockResolvedValue([]),
+  getStatus: jest.fn(() => ({})),
+  setMode: jest.fn(() => true),
+  getMode: jest.fn(() => 'jina_primary'),
+  isHealthy: jest.fn(() => true),
+  resetHealth: jest.fn(),
+}))
+
 jest.mock('../core/pythonService', () => ({
   predict: jest.fn().mockRejectedValue(new Error('Mocked')),
 }))
@@ -90,6 +105,7 @@ const MOCK_ANALYTICAL = {
   expected_score: '1 - 1',
 }
 enrichedPredictions.getAnalyticalPrediction = jest.fn().mockResolvedValue(MOCK_ANALYTICAL)
+enrichedPredictions._tryBayesianLowData = jest.fn().mockResolvedValue(null)
 
 describe('EnrichedPredictions', () => {
   describe('fastEnrichMatch()', () => {

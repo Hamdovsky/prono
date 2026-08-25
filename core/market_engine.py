@@ -17,14 +17,35 @@ from predictor import calculate_ah_dnb_probs
 
 def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15,
                             expected_corners, expected_cards, home_name, away_name,
-                            has_xgb, features):
-    """Generate precision betting suggestions across multiple markets."""
+                            has_xgb, features, odds_h=0.0, odds_d=0.0, odds_a=0.0):
+    """Generate precision betting suggestions across multiple markets.
+    
+    Args:
+        odds_h, odds_d, odds_a: Optional odds for 1X2 to apply odds range filter [1.45, 2.30]
+    """
     precision_bets = []
 
     bc_h = _f_feat('home_big_chances', features, 1.0) if has_xgb else 1.0
     bc_a = _f_feat('away_big_chances', features, 1.0) if has_xgb else 1.0
     sot_h = _f_feat('home_sot', features, 3.0) if has_xgb else 3.0
     sot_a = _f_feat('away_sot', features, 3.0) if has_xgb else 3.0
+
+    # Odds range filter helper
+    def odds_in_range(odds):
+        return 1.45 <= odds <= 2.30 if odds > 0 else True
+    
+    # Determine selection odds for range filter
+    max_prob = max(p_h, p_d, p_a)
+    if max_prob == p_h:
+        selection_odds = odds_h
+    elif max_prob == p_a:
+        selection_odds = odds_a
+    else:
+        selection_odds = odds_d
+    
+    # Skip all precision bets if main selection odds out of range
+    if not odds_in_range(selection_odds):
+        return [{"market": "NO BET (ODDS_RANGE)", "probability": 0, "reason": f"Cote principale {selection_odds:.2f} hors range [1.45, 2.30]"}]
 
     # Over/Under 2.5
     if mc_ou25 >= 58:

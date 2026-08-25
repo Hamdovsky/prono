@@ -215,9 +215,6 @@ Verdict + Confiance + Score attendu
 
 | Service                     | Rôle                            |
 | --------------------------- | ------------------------------- |
-| `bsdService.js`             | API BSD (fixtures, odds, stats) |
-| `predixSportService.js`     | API PredixSport                 |
-| `bigBallsDataService.js`    | API Big Balls Data              |
 | `liveMatchService.js`       | Polling multi-source live       |
 | `LiveGoalPredictor.js`      | Prédiction de buts live         |
 | `adaptiveLearningEngine.js` | Apprentissage adaptatif         |

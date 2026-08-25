@@ -493,18 +493,26 @@ class DataService {
   // --- Subscriptions ---
   subscribe(callback) {
     this.subscribers.push(callback)
+    if (this.matches.length) callback(this.matches)
     this.fetchLiveUpdates()
     return () => (this.subscribers = this.subscribers.filter((sub) => sub !== callback))
   }
 
   subscribeCombos(callback) {
     this.comboSubscribers.push(callback)
+    if (this.combos) callback(this.combos)
     this.fetchCombos()
     return () => (this.comboSubscribers = this.comboSubscribers.filter((sub) => sub !== callback))
   }
 
   subscribeUpcoming(callback) {
     this.upcomingSubscribers.push(callback)
+    // 🔧 [FIX] Émettre immédiatement les données déjà en cache. Sinon, un
+    // abonné qui s'inscrit APRÈS la fin du fetch initial (cas typique : le
+    // Dashboard monte après que startAutoUpdate() a déjà peuplé
+    // upcomingPredictions) ne reçoit jamais les données (signature identique
+    // → pas de ré-émission) et reste bloqué sur une liste vide "0 match".
+    if (this.upcomingPredictions) callback(this.upcomingPredictions)
     this.fetchUpcomingPredictions()
     // 🔁 Cold-start resilience: on Render free tier the server may be
     // asleep when the page loads, so the first fetch fails. Retry with a
@@ -528,6 +536,7 @@ class DataService {
 
   subscribeHealth(callback) {
     this.healthSubscribers.push(callback)
+    if (this.healthCache) callback(this.healthCache)
     this.fetchHealth()
     return () => (this.healthSubscribers = this.healthSubscribers.filter((sub) => sub !== callback))
   }

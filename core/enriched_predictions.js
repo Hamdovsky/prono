@@ -46,6 +46,29 @@ const ENRICH_COOLDOWN_MS = 10 * 60 * 1000
 const _enrichedAtCache = new Map()
 const _inFlight = new Map()
 
+// ── Circuit-breaker simple pour /bayesian/predict (low-data)
+// Évite de bloquer l'enrichissement en masse 2s par match quand
+// FastAPI est down : 3 échecs consécutifs → ouvert 30s.
+const BAYESIAN_FAIL_THRESHOLD = 3
+const BAYESIAN_COOLDOWN_MS = 30 * 1000
+const _bayesianBreaker = {
+  failures: 0,
+  openUntil: 0,
+  isOpen() {
+    return Date.now() < this.openUntil
+  },
+  recordSuccess() {
+    this.failures = 0
+    this.openUntil = 0
+  },
+  recordFailure() {
+    this.failures += 1
+    if (this.failures >= BAYESIAN_FAIL_THRESHOLD) {
+      this.openUntil = Date.now() + BAYESIAN_COOLDOWN_MS
+    }
+  },
+}
+
 function _cooldownKey(m) {
   return `${m.id || `${m.homeTeam}|${m.awayTeam}`}|${String(!!m.insufficient_data)}|${m.startTimestamp || 0}`
 }
@@ -1048,6 +1071,7 @@ class EnrichedPredictionService {
   }
 
   async _tryBayesianLowData(m) {
+    if (_bayesianBreaker.isOpen()) return null
     try {
       const http = require('http')
       const payload = JSON.stringify({
@@ -1060,63 +1084,78 @@ class EnrichedPredictionService {
         away_team_id: m.away_team_id || 0,
       })
       return new Promise((resolve) => {
+        let req
+        let settled = false
         const timer = setTimeout(() => {
-          req.destroy()
-          resolve(null)
-        }, 6000)
-        const req = http.request(
-          {
-            hostname: '127.0.0.1',
-            port: 8000,
-            path: '/bayesian/predict',
-            method: 'POST',
-            agent: false,
-            headers: {
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload),
-            },
-            timeout: 5000,
-          },
-          (res) => {
-            let data = ''
-            res.on('data', (d) => (data += d))
-            res.on('end', () => {
-              clearTimeout(timer)
-              try {
-                const parsed = JSON.parse(data)
-                if (parsed && parsed.success) {
-                  const bayes_home =
-                    parseFloat(parsed.home_win_probability ?? parsed.home_win ?? 0) * 100
-                  const bayes_draw = parseFloat(parsed.draw_probability ?? parsed.draw ?? 0) * 100
-                  const bayes_away =
-                    parseFloat(parsed.away_win_probability ?? parsed.away_win ?? 0) * 100
-                  resolve({
-                    home_win_probability: bayes_home,
-                    draw_probability: bayes_draw,
-                    away_win_probability: bayes_away,
-                    expected_score: parsed.expected_score,
-                    btts_prob: parseFloat(parsed.btts_prob ?? parsed.btts_yes ?? 0) * 100,
-                    ou_25_prob: parseFloat(parsed.ou_25_prob ?? parsed.over_25 ?? 0) * 100,
-                    confidence: parseFloat(parsed.confidence ?? 0) * 100,
-                    ai_source: 'BAYESIAN_LOWDATA',
-                  })
-                } else {
-                  resolve(null)
-                }
-              } catch (_) {
-                resolve(null)
-              }
-            })
-          }
-        )
-        req.on('error', () => {
+          if (req) req.destroy()
+          _bayesianBreaker.recordFailure()
+          settle(null)
+        }, 2000)
+        const settle = (val) => {
+          if (settled) return
+          settled = true
           clearTimeout(timer)
-          resolve(null)
+          resolve(val)
+        }
+        try {
+          req = http.request(
+            {
+              hostname: '127.0.0.1',
+              port: 8000,
+              path: '/bayesian/predict',
+              method: 'POST',
+              agent: false,
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+              },
+              timeout: 2000,
+            },
+            (res) => {
+              let data = ''
+              res.on('data', (d) => (data += d))
+              res.on('end', () => {
+                _bayesianBreaker.recordSuccess()
+                try {
+                  const parsed = JSON.parse(data)
+                  if (parsed && parsed.success) {
+                    const bayes_home =
+                      parseFloat(parsed.home_win_probability ?? parsed.home_win ?? 0) * 100
+                    const bayes_draw = parseFloat(parsed.draw_probability ?? parsed.draw ?? 0) * 100
+                    const bayes_away =
+                      parseFloat(parsed.away_win_probability ?? parsed.away_win ?? 0) * 100
+                    settle({
+                      home_win_probability: bayes_home,
+                      draw_probability: bayes_draw,
+                      away_win_probability: bayes_away,
+                      expected_score: parsed.expected_score,
+                      btts_prob: parseFloat(parsed.btts_prob ?? parsed.btts_yes ?? 0) * 100,
+                      ou_25_prob: parseFloat(parsed.ou_25_prob ?? parsed.over_25 ?? 0) * 100,
+                      confidence: parseFloat(parsed.confidence ?? 0) * 100,
+                      ai_source: 'BAYESIAN_LOWDATA',
+                    })
+                  } else {
+                    settle(null)
+                  }
+                } catch (_) {
+                  settle(null)
+                }
+              })
+            }
+          )
+        } catch (_) {
+          _bayesianBreaker.recordFailure()
+          settle(null)
+          return
+        }
+        req.on('error', () => {
+          _bayesianBreaker.recordFailure()
+          settle(null)
         })
         req.on('timeout', () => {
           req.destroy()
-          clearTimeout(timer)
-          resolve(null)
+          _bayesianBreaker.recordFailure()
+          settle(null)
         })
         req.write(payload)
         req.end()
@@ -1212,6 +1251,7 @@ class EnrichedPredictionService {
           return {
             ...m,
             ...bayesian,
+            expected_score: bayesian.expected_score || '0 - 0',
             success: true,
             prediction: bh > ba ? '1' : '2',
             insufficient_data: 1,
@@ -1271,7 +1311,7 @@ class EnrichedPredictionService {
         // 2. BSD prediction API (via bsd_match_id)
         if (!(parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5) && m.bsd_match_id) {
           try {
-            const bsdService = require('../services/bsdService')
+            const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             if (bsdService.isAvailable()) {
               const pred = await bsdService.fetchPredictions(m.bsd_match_id)
               if (pred && pred.xg) {
@@ -1290,7 +1330,7 @@ class EnrichedPredictionService {
             const fd = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData || {}
             const fixtureId = fd.fixtureId
             if (fixtureId) {
-              const afService = require('../services/apifootballService')
+              const afService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
               if (afService.isAvailable()) {
                 const preds = await afService.fetchPredictions(fixtureId)
                 if (preds && preds.length > 0 && preds[0].predictions) {
@@ -1311,7 +1351,7 @@ class EnrichedPredictionService {
             const fd = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData || {}
             const bbMatchId = fd.bigballs?.matchId
             if (bbMatchId) {
-              const bbsService = require('../services/bigBallsDataService')
+              const bbsService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
               if (bbsService.isAvailable()) {
                 const stats = await bbsService.getMatchStats(bbMatchId)
                 if (stats) {
@@ -1330,7 +1370,7 @@ class EnrichedPredictionService {
         // 5. FutPythonTrader data (Comprehensive match info)
         if (!(parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5)) {
           try {
-            const fpService = require('../services/futpythonService')
+            const fpService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             if (fpService.isAvailable()) {
               const fpData = await fpService.enrichMatch(m)
               if (fpData) {
@@ -1703,6 +1743,8 @@ class EnrichedPredictionService {
         2: { prob: p.win.away, odds: m.odds_away, ev: calcEV(p.win.away, m.odds_away) },
       },
       over_under: {
+        'O1.5': { prob: p.over15, odds: 1.4, ev: calcEV(p.over15, 1.4) },
+        'U1.5': { prob: p.under15, odds: 2.6, ev: calcEV(p.under15, 2.6) },
         'O2.5': {
           prob: p.over25,
           odds: m.odds_over25 || 1.85,
@@ -1714,6 +1756,9 @@ class EnrichedPredictionService {
           ev: calcEV(p.under25, m.odds_under25 || 1.95),
         },
         'O3.5': { prob: p.over35, odds: 3.2, ev: calcEV(p.over35, 3.2) },
+        'U3.5': { prob: p.under35, odds: 1.45, ev: calcEV(p.under35, 1.45) },
+        'O4.5': { prob: p.over45, odds: 6.0, ev: calcEV(p.over45, 6.0) },
+        'U4.5': { prob: p.under45, odds: 1.12, ev: calcEV(p.under45, 1.12) },
       },
       btts: {
         YES: {

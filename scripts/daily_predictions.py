@@ -1,6 +1,6 @@
 """
 daily_predictions.py — Pipeline automatique de pronostics
-Tourne chaque jour : fetch BSD -> enrich odds (fusion) -> V553 -> Top 10 -> sauvegarde
+Tourne chaque jour : fetch events (sources gratuites) -> enrich odds (fusion) -> V553 -> Top 10 -> sauvegarde
 """
 
 import requests, datetime, os, sys, json, math, time, logging
@@ -53,27 +53,7 @@ def get_odds_engine():
         _odds_engine = OddsFusionEngine()
     return _odds_engine
 
-# ── BSD fetch ──────────────────────────────────────────────
-
-def fetch_bsd_events():
-    BSD_KEY = get_key('BSD_API_KEY')
-    if not BSD_KEY:
-        logging.error("BSD_API_KEY not found")
-        return []
-    headers = {'Authorization': f'Token {BSD_KEY}'}
-    
-    all_events = []
-    next_url = 'https://sports.bzzoiro.com/api/events/?sport=1&limit=200'
-    while next_url:
-        try:
-            r = requests.get(next_url, headers=headers, timeout=30)
-            data = r.json()
-            all_events.extend(data.get('results', []))
-            next_url = data.get('next')
-        except Exception as ex:
-            logging.error(f"BSD fetch error: {ex}")
-            break
-    return all_events
+# ── Free event sources (no paid APIs) ────────────────────
 
 def get_todays_events(events):
     today = datetime.date.today().isoformat()
@@ -155,7 +135,7 @@ def fetch_local_events(days=3, limit=200):
     return events
 
 def enrich_with_odds(m):
-    """Enrichir un event BSD avec les cotes via le moteur de fusion."""
+    """Enrichir un event avec les cotes via le moteur de fusion."""
     league = m.get('league', {}).get('name', 'Unknown')
     home = m.get('home_team', '?')
     away = m.get('away_team', '?')
@@ -197,7 +177,7 @@ def build_match(m):
         'odds_btts_no': m.get('odds_btts_no'),
         'odds_source': m.get('odds_source', 'default'),
         'event_date': ed,
-        'has_real_odds': m.get('odds_source') in ('bsd', 'betexplorer', '888sport', 'unibet', 'local')
+        'has_real_odds': m.get('odds_source') in ('betexplorer', '888sport', 'unibet', 'local')
     }
 
 def safe_float(v, default=0.0):
@@ -229,16 +209,12 @@ def run():
     print(f"DAILY PREDICTIONS - {datetime.date.today()}")
     print("=" * 60)
     
-    # 1. Fetch events
-    print("\n1. Fetching BSD events...")
-    events = fetch_bsd_events()
-    source_label = 'BSD'
+    # 1. Fetch events (free sources only)
+    print("\n1. Fetching local scheduled events...")
+    events = fetch_local_events(days=3)
+    source_label = 'LOCAL'
     if not events:
-        print("   BSD unavailable, falling back to local tactical.db (Flashscore local)...")
-        events = fetch_local_events(days=3)
-        source_label = 'LOCAL'
-    if not events:
-        print("   ERROR: No events fetched (BSD API key missing and no local scheduled matches)")
+        print("   ERROR: No events fetched (no local scheduled matches in tactical.db)")
         return
     
     print(f"   {len(events)} events fetched")
@@ -251,51 +227,30 @@ def run():
     
     # 2. Enrich matches with odds via fusion engine (batch)
     print(f"\n2. Enriching {len(upcoming)} matches with odds (fusion engine)...")
-    # Pre-fetch BSD events for today to minimize API calls
     from oddsFusionEngine import OddsFusionEngine
     engine = OddsFusionEngine()
-    today_bsd_events = None
-    if engine.bsd_key:
-        try:
-            today = datetime.date.today().isoformat()
-            hdrs = {'Authorization': f'Token {engine.bsd_key}'}
-            r = requests.get(
-                f'{engine.bsd_base}/events/?sport=1&date_from={today}&date_to={today}&limit=200',
-                headers=hdrs, timeout=15
-            )
-            today_bsd_events = {f'{e.get("home_team","").lower().strip()}|{e.get("away_team","").lower().strip()}'
-                                for e in r.json().get('results', [])}
-        except: pass
-    
+
     enriched = []
     for m in upcoming:
         if m.get('odds_source') == 'local' and m.get('odds_home'):
             # Local tactical.db already carries real odds — keep them
             enriched.append(m)
             continue
-        # Check if BSD has this match
         ht = (m.get('home_team') or '').lower().strip()
         at = (m.get('away_team') or '').lower().strip()
-        key = f'{ht}|{at}'
         league = m.get('league', {}).get('name', 'Unknown')
-        
-        if today_bsd_events and key in today_bsd_events:
-            # BSD has real odds for this match
-            odds = enrich_with_odds(m)
-        else:
-            # Skip BSD check, go straight to other tiers
-            odds = engine.get_odds(ht, at, league, prefer_real=False)
-            m['odds_home'] = odds.get('home_win')
-            m['odds_draw'] = odds.get('draw')
-            m['odds_away'] = odds.get('away_win')
-            m['odds_over_25'] = odds.get('over_25')
-            m['odds_under_25'] = odds.get('under_25')
-            m['odds_btts_yes'] = odds.get('btts_yes')
-            m['odds_btts_no'] = odds.get('btts_no')
-            m['odds_source'] = odds.get('source', 'default')
+        odds = engine.get_odds(ht, at, league, prefer_real=False)
+        m['odds_home'] = odds.get('home_win')
+        m['odds_draw'] = odds.get('draw')
+        m['odds_away'] = odds.get('away_win')
+        m['odds_over_25'] = odds.get('over_25')
+        m['odds_under_25'] = odds.get('under_25')
+        m['odds_btts_yes'] = odds.get('btts_yes')
+        m['odds_btts_no'] = odds.get('btts_no')
+        m['odds_source'] = odds.get('source', 'default')
         enriched.append(m)
     
-    real_odds_count = sum(1 for m in enriched if m.get('odds_source') in ('bsd', 'betexplorer', '888sport', 'unibet', 'local'))
+    real_odds_count = sum(1 for m in enriched if m.get('odds_source') in ('betexplorer', '888sport', 'unibet', 'local'))
     estimated_count = sum(1 for m in enriched if m.get('odds_source') in ('historical+elo', 'historical'))
     default_count = sum(1 for m in enriched if m.get('odds_source') == 'default')
     print(f"   Real odds: {real_odds_count} | Estimated: {estimated_count} | Default: {default_count}")

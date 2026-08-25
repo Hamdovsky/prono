@@ -8,7 +8,11 @@
  * navigateur (les matchs sont alors affichés en jours locaux du user).
  */
 
-import { isFinishedMatch } from './matchAnalysis'
+import {
+  isFinishedMatch,
+  LIVE_OR_STARTED_STATUSES,
+  DEAD_STATUSES,
+} from './matchAnalysis'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -92,11 +96,32 @@ export function filterMatchesInWindow(matches, activeDate, nowMs, tzOffsetMinute
 // encore jouable. Logique partagée entre le compteur du Sidebar/header et la
 // liste du Dashboard afin qu'ils affichent TOUJOURS le même nombre
 // (source de vérité unique).
-export function isMatchEligible(m, nowMs = Date.now()) {
+export function isMatchEligible(m, nowMs = Date.now(), tzOffsetMinutes) {
   if (!m) return false
-  const s = String(m.status || '').toLowerCase()
-  if (['postponed', 'canceled'].includes(s)) return false
+  const s = String(m.status || '').toLowerCase().trim()
+  // Reporté/annulé/forfait → jamais listé.
+  if (DEAD_STATUSES.has(s)) return false
+  // Déjà commencé / en direct → plus un "match à venir".
+  if (LIVE_OR_STARTED_STATUSES.has(s)) return false
+  if (m.isLive === true) return false
   const ms = extractMatchMs(m)
+  // Coup d'envoi passé ⇒ match joué/en cours → exclu (garde principale).
   if (ms !== null && ms <= nowMs) return false
   return !isFinishedMatch(m)
+}
+
+// Sélecteur partagé Dashboard/Sidebar (source de vérité unique).
+// Filtre par fenêtre temporelle active + éligibilité (futur et jouable).
+// Si la fenêtre active ne contient aucun match jouable (ex. tard le soir,
+// tous les matchs du jour déjà commencés), on retombe automatiquement sur
+// les prochains matchs à venir (7 jours) pour ne jamais afficher un écran
+// vide alors que des matchs existent.
+export function selectEligibleMatches(matches, activeDate, nowMs = Date.now(), tzOffsetMinutes) {
+  const list = (Array.isArray(matches) ? matches : []).filter((m) =>
+    isMatchEligible(m, nowMs, tzOffsetMinutes)
+  )
+  const inWindow = filterMatchesInWindow(list, activeDate, nowMs, tzOffsetMinutes)
+  if (inWindow.length > 0) return inWindow
+  const upcoming = filterMatchesInWindow(list, 'Next 7 Days', nowMs, tzOffsetMinutes)
+  return upcoming.length > 0 ? upcoming : inWindow
 }

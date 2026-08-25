@@ -88,6 +88,40 @@
   justify-content: center;
   gap: 4px;
 }
+.mc-ou-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+}
+.mc-ou-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.25;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+.mc-ou-line.over {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+.mc-ou-line.under {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.05);
+}
+.mc-ou-line-key {
+  letter-spacing: 0.3px;
+  opacity: 0.9;
+}
+.mc-ou-line-val {
+  text-align: right;
+  min-width: 26px;
+}
 .mc-ou-bar {
   width: 28px;
   height: 3px;
@@ -136,6 +170,16 @@
 .mc-winner {
   width: 18%;
   min-width: 100px;
+}
+.mc-win-base {
+  font-size: 12px;
+  font-weight: 900;
+}
+.mc-win-dc {
+  font-size: 8px;
+  font-weight: 800;
+  color: #c084fc;
+  letter-spacing: 0.3px;
 }
 .mc-winner.mc-pick-home {
   color: #10b981;
@@ -320,6 +364,22 @@
   color: #a78bfa;
   border-color: rgba(167, 139, 250, 0.35);
   background: rgba(167, 139, 250, 0.1);
+}
+
+.mcc-chip.mcc-dc {
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.35);
+  background: rgba(192, 132, 252, 0.08);
+}
+.mcc-chip.mcc-ht.yes {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.1);
+}
+.mcc-chip.mcc-ht.no {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.1);
 }
 
 .mcc-chip.mcc-win.mc-pick-home {

@@ -51,6 +51,63 @@ describe('marketAnalysisService.cornersVerdict', () => {
   })
 })
 
+describe('marketAnalysisService.ensureOuLines', () => {
+  test('adds the 4 explicit O/U lines (O1.5/U1.5/O4.5/U4.5)', () => {
+    const markets = {
+      over_under: { 'O2.5': { prob: 0.6 }, 'U2.5': { prob: 0.4 } },
+    }
+    marketAnalysis.ensureOuLines(markets, 1.5, 1.2)
+    const ou = markets.over_under
+    for (const k of ['O1.5', 'U1.5', 'O4.5', 'U4.5']) {
+      expect(typeof ou[k].prob).toBe('number')
+      expect(ou[k].prob).toBeGreaterThan(0)
+      expect(ou[k].prob).toBeLessThan(1)
+    }
+    expect(ou['O1.5'].prob).toBeGreaterThan(ou['O4.5'].prob)
+  })
+
+  test('is idempotent — never overrides an existing line', () => {
+    const markets = {
+      over_under: {
+        'O2.5': { prob: 0.6 },
+        'U2.5': { prob: 0.4 },
+        'O1.5': { prob: 0.99, odds: 9.9 },
+      },
+    }
+    marketAnalysis.ensureOuLines(markets, 1.5, 1.2)
+    expect(markets.over_under['O1.5']).toEqual({ prob: 0.99, odds: 9.9 })
+  })
+
+  test('short-circuits when all 4 lines already exist', () => {
+    const markets = {
+      over_under: {
+        'O1.5': { prob: 0.9 },
+        'U1.5': { prob: 0.1 },
+        'O2.5': { prob: 0.6 },
+        'U2.5': { prob: 0.4 },
+        'O3.5': { prob: 0.4 },
+        'U3.5': { prob: 0.6 },
+        'O4.5': { prob: 0.2 },
+        'U4.5': { prob: 0.8 },
+      },
+    }
+    const before = JSON.stringify(markets.over_under)
+    marketAnalysis.ensureOuLines(markets, 1.5, 1.2)
+    expect(JSON.stringify(markets.over_under)).toBe(before)
+  })
+
+  test('tolerates missing xG (falls back to league base)', () => {
+    const markets = { over_under: { 'O2.5': { prob: 0.6 }, 'U2.5': { prob: 0.4 } } }
+    expect(() => marketAnalysis.ensureOuLines(markets, 0, 0)).not.toThrow()
+    expect(markets.over_under['O1.5']).toBeDefined()
+  })
+
+  test('returns markets unchanged when there is no over_under section', () => {
+    const markets = { match_result: {} }
+    expect(marketAnalysis.ensureOuLines(markets, 1.5, 1.2)).toBe(markets)
+  })
+})
+
 describe('marketAnalysisService legacy corners', () => {
   test('corners() still returns results per line', () => {
     const c = marketAnalysis.corners(1.5, 1.2)

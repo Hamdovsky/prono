@@ -1,10 +1,19 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
+const path = require('path')
 
 let _cache = null
 
 function resolvePython() {
   if (_cache) return _cache
+  // 🆓 Prefer local venv (contains curl_cffi + soccerdata + xgboost + penaltyblog)
+  const venvPy = process.platform === 'win32'
+    ? path.join(__dirname, '..', '..', '.venv', 'Scripts', 'python.exe')
+    : path.join(__dirname, '..', '..', '.venv', 'bin', 'python')
+  if (fs.existsSync(venvPy)) {
+    _cache = venvPy
+    return _cache
+  }
   if (process.env.PYTHON_PATH) {
     _cache = process.env.PYTHON_PATH
     return _cache

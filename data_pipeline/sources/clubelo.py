@@ -36,6 +36,7 @@ import requests
 
 from .base import BaseSource, KIND_ELO
 from config import CLUBELO_DIR, CLUBELO_INTERVAL_SECONDS, LEAGUES, STATE_FILE
+from proxy_manager import fetch_with_proxy
 from util import RateLimiter, get_logger
 
 log = get_logger("clubelo")
@@ -68,7 +69,7 @@ def _read_source(default: str = "local") -> str:
 def _http_get(path: str, timeout: float = 20.0) -> str:
     """GET HTTP sur l'API ClubElo (port 80, le 443 étant souvent bloqué en amont)."""
     url = f"http://api.clubelo.com{path}"
-    resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=timeout)
+    resp = fetch_with_proxy(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=timeout)
     resp.raise_for_status()
     return resp.content.decode("utf-8", errors="replace")
 

@@ -111,7 +111,8 @@ const RAM_THRESHOLD_MB = 1500 // 🔄 Restart if RAM > 1.5GB
 async function getBrowser() {
   // 🛡️ Skip Puppeteer when DISABLE_SOFASCORE is set (Render/cloud env without Chrome)
   if (process.env.DISABLE_SOFASCORE === 'true') {
-    throw new Error('Puppeteer disabled via DISABLE_SOFASCORE')
+    console.warn('[apiClient] Puppeteer disabled (DISABLE_SOFASCORE) — SofaScore handled by Python/curl_cffi. Skipping browser launch.');
+    return null;
   }
 
   // 🧠 Check if restart needed (RAM or Request Count)

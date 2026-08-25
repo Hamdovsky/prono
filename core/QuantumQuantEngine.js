@@ -113,6 +113,8 @@ class QuantumQuantEngine {
         2: { prob: p.win.away, odds: m.odds_away, ev: calcEV(p.win.away, m.odds_away) },
       },
       over_under: {
+        'O1.5': { prob: p.over15, odds: 1.4, ev: calcEV(p.over15, 1.4) },
+        'U1.5': { prob: p.under15, odds: 2.6, ev: calcEV(p.under15, 2.6) },
         'O2.5': {
           prob: p.over25,
           odds: m.odds_over25 || 1.85,
@@ -124,6 +126,9 @@ class QuantumQuantEngine {
           ev: calcEV(p.under25, m.odds_under25 || 1.95),
         },
         'O3.5': { prob: p.over35, odds: 3.2, ev: calcEV(p.over35, 3.2) },
+        'U3.5': { prob: p.under35, odds: 1.45, ev: calcEV(p.under35, 1.45) },
+        'O4.5': { prob: p.over45, odds: 6.0, ev: calcEV(p.over45, 6.0) },
+        'U4.5': { prob: p.under45, odds: 1.12, ev: calcEV(p.under45, 1.12) },
       },
       btts: {
         YES: {

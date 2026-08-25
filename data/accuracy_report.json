@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-15T13:05:28.980Z",
+  "generatedAt": "2026-08-24T02:27:02.893Z",
   "methodology": {
     "description": "Métrique unifiée : accuracy brute sur prédictions réellement émises, comparées aux résultats finaux, calculée sur matches (FT) + historical_matches. Snapshot au temps T (prédiction/confiance telles qu'enregistrées). Whitelist stricte: 1, X, 2, 1X, X2, 12, O/U+seuil. Labels hors whitelist exclus et comptés (excludedLabels).",
     "note": "Remplace les fichiers trompeurs promosport_accuracy_trend.json (backfill ML dégénéré « tout-X ») et retro_accuracy_report.json (oracle du favori avec look-ahead) — voir CHANGELOG_AUDIT.md."
@@ -7,9 +7,9 @@
   "rolling": {
     "last7days": {
       "meta": {
-        "generatedAt": "2026-08-15T13:18:56.207Z",
-        "from": 1786194328980,
-        "to": 1786799128980,
+        "generatedAt": "2026-08-24T02:27:03.149Z",
+        "from": 1786933622893,
+        "to": 1787538422893,
         "marketFilter": "all",
         "sources": {
           "matches": "FT|finished|Finished|Ended",
@@ -18,137 +18,309 @@
       },
       "empty": false,
       "summary": {
-        "total": 570,
-        "evaluated": 570,
-        "correct": 437,
+        "total": 1334,
+        "evaluated": 1334,
+        "correct": 670,
         "pushCount": 0,
-        "finishedCount": 1041,
+        "finishedCount": 3239,
         "noPredictionCount": 399,
-        "pendingCount": 72,
-        "accuracy": 0.7666666666666667,
-        "accuracyPct": "76.7%",
-        "logLoss": 112.4577,
-        "brierScore": 681.368
+        "pendingCount": 106,
+        "accuracy": 0.5022488755622189,
+        "accuracyPct": "50.2%",
+        "logLoss": 1.1314,
+        "brierScore": 0.6888,
+        "roiBets": 9,
+        "roiExcluded": 1325,
+        "staked": 9,
+        "netProfit": 2.78,
+        "roi": 30.86,
+        "avgOddsWinners": 1.68,
+        "avgOddsLosers": 3.81,
+        "oddsMissingByMarket": {
+          "DC": 253,
+          "1X2": 983,
+          "OU": 89
+        },
+        "roiEvFiltered": {
+          "bets": 4,
+          "staked": 4,
+          "netProfit": 1.36,
+          "roi": 34
+        },
+        "kellyBets": 0,
+        "kellyStaked": 0,
+        "kellyNetProfit": 0,
+        "kellyRoi": null
       },
       "calibrationCurve": [
         {
           "band": "30-40",
-          "count": 50,
-          "correct": 48,
-          "accuracy": 96
+          "count": 27,
+          "correct": 23,
+          "accuracy": 85.2
         },
         {
           "band": "40-50",
-          "count": 110,
-          "correct": 103,
-          "accuracy": 93.6
+          "count": 527,
+          "correct": 257,
+          "accuracy": 48.8
         },
         {
           "band": "50-60",
-          "count": 19,
-          "correct": 12,
-          "accuracy": 63.2
+          "count": 252,
+          "correct": 104,
+          "accuracy": 41.3
         },
         {
           "band": "60-70",
-          "count": 16,
-          "correct": 7,
-          "accuracy": 43.8
+          "count": 147,
+          "correct": 63,
+          "accuracy": 42.9
         },
         {
           "band": "70-80",
-          "count": 250,
-          "correct": 185,
-          "accuracy": 74
+          "count": 287,
+          "correct": 165,
+          "accuracy": 57.5
         },
         {
           "band": "80-90",
-          "count": 113,
-          "correct": 76,
-          "accuracy": 67.3
+          "count": 89,
+          "correct": 58,
+          "accuracy": 65.2
         },
         {
           "band": "90-100",
-          "count": 12,
-          "correct": 6,
-          "accuracy": 50
+          "count": 5,
+          "correct": 0,
+          "accuracy": 0
         }
       ],
       "byLeague": [
         {
-          "league": "Qualification",
-          "total": 27,
-          "correct": 20,
-          "accuracy": 74.1
+          "league": "NM Cup: Round 1",
+          "total": 48,
+          "correct": 27,
+          "accuracy": 56.3
         },
         {
-          "league": "Challenge Cup",
-          "total": 20,
-          "correct": 13,
-          "accuracy": 65
+          "league": "Qualification",
+          "total": 43,
+          "correct": 15,
+          "accuracy": 34.9
+        },
+        {
+          "league": "Premier League",
+          "total": 41,
+          "correct": 21,
+          "accuracy": 51.2
+        },
+        {
+          "league": "Championship",
+          "total": 25,
+          "correct": 12,
+          "accuracy": 48
+        },
+        {
+          "league": "National League: North",
+          "total": 24,
+          "correct": 11,
+          "accuracy": 45.8
         },
         {
           "league": "Northern Premier League",
-          "total": 12,
-          "correct": 10,
-          "accuracy": 83.3
+          "total": 22,
+          "correct": 12,
+          "accuracy": 54.5
+        },
+        {
+          "league": "Emperor's Cup",
+          "total": 22,
+          "correct": 12,
+          "accuracy": 54.5
+        },
+        {
+          "league": "National League: South",
+          "total": 20,
+          "correct": 9,
+          "accuracy": 45
+        },
+        {
+          "league": "Super League",
+          "total": 17,
+          "correct": 6,
+          "accuracy": 35.3
+        },
+        {
+          "league": "Oberliga: Bayern North",
+          "total": 17,
+          "correct": 9,
+          "accuracy": 52.9
+        },
+        {
+          "league": "Serie B",
+          "total": 17,
+          "correct": 7,
+          "accuracy": 41.2
+        },
+        {
+          "league": "League 1",
+          "total": 17,
+          "correct": 3,
+          "accuracy": 17.6
+        },
+        {
+          "league": "League 2",
+          "total": 17,
+          "correct": 6,
+          "accuracy": 35.3
+        },
+        {
+          "league": "MLS",
+          "total": 16,
+          "correct": 5,
+          "accuracy": 31.3
+        },
+        {
+          "league": "Svenska Cupen: Qualification",
+          "total": 16,
+          "correct": 7,
+          "accuracy": 43.8
+        },
+        {
+          "league": "Isthmian League: North Division",
+          "total": 15,
+          "correct": 8,
+          "accuracy": 53.3
+        },
+        {
+          "league": "Northern Premier League: West Division",
+          "total": 15,
+          "correct": 6,
+          "accuracy": 40
+        },
+        {
+          "league": "Oberliga: Bayern South",
+          "total": 15,
+          "correct": 4,
+          "accuracy": 26.7
+        },
+        {
+          "league": "Premier League U18",
+          "total": 15,
+          "correct": 4,
+          "accuracy": 26.7
+        },
+        {
+          "league": "Promotion League",
+          "total": 14,
+          "correct": 8,
+          "accuracy": 57.1
+        },
+        {
+          "league": "2. Liga",
+          "total": 13,
+          "correct": 5,
+          "accuracy": 38.5
+        },
+        {
+          "league": "King's Cup",
+          "total": 13,
+          "correct": 9,
+          "accuracy": 69.2
+        },
+        {
+          "league": "National League",
+          "total": 13,
+          "correct": 7,
+          "accuracy": 53.8
+        },
+        {
+          "league": "Isthmian League: South Central Division",
+          "total": 11,
+          "correct": 6,
+          "accuracy": 54.5
+        },
+        {
+          "league": "Isthmian League: South East Division",
+          "total": 11,
+          "correct": 6,
+          "accuracy": 54.5
+        },
+        {
+          "league": "1. Deild",
+          "total": 11,
+          "correct": 6,
+          "accuracy": 54.5
+        },
+        {
+          "league": "Round of 16",
+          "total": 11,
+          "correct": 4,
+          "accuracy": 36.4
+        },
+        {
+          "league": "Prva Liga",
+          "total": 11,
+          "correct": 5,
+          "accuracy": 45.5
+        },
+        {
+          "league": "Southern League Premier: Central",
+          "total": 11,
+          "correct": 6,
+          "accuracy": 54.5
         },
         {
           "league": "Southern League Premier: South",
           "total": 11,
-          "correct": 9,
-          "accuracy": 81.8
+          "correct": 5,
+          "accuracy": 45.5
         },
         {
-          "league": "Southern League Premier: Central",
+          "league": "Northern Premier League: East Division",
           "total": 10,
-          "correct": 9,
-          "accuracy": 90
+          "correct": 4,
+          "accuracy": 40
         },
         {
-          "league": "Isthmian League Premier Division",
+          "league": "Eerste Divisie",
           "total": 10,
           "correct": 7,
           "accuracy": 70
         },
         {
-          "league": "Round of 16",
+          "league": "2. Division A",
           "total": 10,
-          "correct": 6,
-          "accuracy": 60
+          "correct": 4,
+          "accuracy": 40
         },
         {
-          "league": "J1 League",
+          "league": "DFB Cup: Round 1",
           "total": 10,
-          "correct": 8,
-          "accuracy": 80
+          "correct": 2,
+          "accuracy": 20
         },
         {
-          "league": "Premier League",
+          "league": "J2 League",
           "total": 10,
-          "correct": 6,
-          "accuracy": 60
+          "correct": 7,
+          "accuracy": 70
         },
         {
-          "league": "Premiership",
+          "league": "Greece Cup: Preliminary Round",
           "total": 9,
           "correct": 5,
           "accuracy": 55.6
         },
         {
-          "league": "Championship",
+          "league": "Persian Gulf Pro League",
           "total": 9,
-          "correct": 6,
-          "accuracy": 66.7
+          "correct": 3,
+          "accuracy": 33.3
         },
         {
-          "league": "Oberliga: Hessen",
-          "total": 9,
-          "correct": 6,
-          "accuracy": 66.7
-        },
-        {
-          "league": "Ligue 2",
+          "league": "Iraq Stars League",
           "total": 9,
           "correct": 6,
           "accuracy": 66.7
@@ -156,413 +328,761 @@
         {
           "league": "Ligue 3",
           "total": 9,
-          "correct": 8,
-          "accuracy": 88.9
+          "correct": 3,
+          "accuracy": 33.3
         },
         {
-          "league": "Regionalliga Bayern",
-          "total": 9,
-          "correct": 8,
-          "accuracy": 88.9
-        },
-        {
-          "league": "Regionalliga Nord",
-          "total": 8,
-          "correct": 6,
-          "accuracy": 75
-        },
-        {
-          "league": "Oberliga: Bremen",
+          "league": "Northern Premier League: Midlands Division",
           "total": 8,
           "correct": 5,
           "accuracy": 62.5
         },
         {
-          "league": "Oberliga: Bayern South",
+          "league": "Regionalliga Bayern",
           "total": 8,
           "correct": 6,
           "accuracy": 75
         },
         {
-          "league": "J2 League",
+          "league": "Liga Leumit",
           "total": 8,
-          "correct": 6,
-          "accuracy": 75
-        },
-        {
-          "league": "Eerste Divisie",
-          "total": 7,
-          "correct": 6,
-          "accuracy": 85.7
-        },
-        {
-          "league": "Super League",
-          "total": 7,
-          "correct": 6,
-          "accuracy": 85.7
-        },
-        {
-          "league": "Leagues Cup",
-          "total": 7,
-          "correct": 5,
-          "accuracy": 71.4
-        },
-        {
-          "league": "Club Friendlies 2026",
-          "total": 7,
-          "correct": 5,
-          "accuracy": 71.4
-        },
-        {
-          "league": "Regionalliga Nordost",
-          "total": 6,
-          "correct": 6,
-          "accuracy": 100
-        },
-        {
-          "league": "Primera B",
-          "total": 6,
           "correct": 4,
-          "accuracy": 66.7
+          "accuracy": 50
         },
         {
-          "league": "Queensland",
-          "total": 6,
+          "league": "1st Division",
+          "total": 8,
           "correct": 6,
-          "accuracy": 100
+          "accuracy": 75
         },
         {
-          "league": "NPL Victoria",
-          "total": 6,
-          "correct": 6,
-          "accuracy": 100
-        },
-        {
-          "league": "NPL Western Australia",
-          "total": 6,
-          "correct": 5,
-          "accuracy": 83.3
-        },
-        {
-          "league": "Persian Gulf Pro League",
-          "total": 6,
-          "correct": 5,
-          "accuracy": 83.3
+          "league": "Liga II",
+          "total": 8,
+          "correct": 2,
+          "accuracy": 25
         },
         {
           "league": "JD Cymru Premier",
-          "total": 6,
+          "total": 8,
           "correct": 5,
-          "accuracy": 83.3
+          "accuracy": 62.5
         },
         {
-          "league": "NPL South Australia",
+          "league": "Isthmian League Premier Division",
+          "total": 8,
+          "correct": 3,
+          "accuracy": 37.5
+        },
+        {
+          "league": "Regionalliga Südwest",
+          "total": 8,
+          "correct": 1,
+          "accuracy": 12.5
+        },
+        {
+          "league": "J3 League",
+          "total": 8,
+          "correct": 1,
+          "accuracy": 12.5
+        },
+        {
+          "league": "Tweede Divisie",
+          "total": 8,
+          "correct": 4,
+          "accuracy": 50
+        },
+        {
+          "league": "Liga MX: Apertura",
+          "total": 7,
+          "correct": 4,
+          "accuracy": 57.1
+        },
+        {
+          "league": "2nd league",
+          "total": 7,
+          "correct": 6,
+          "accuracy": 85.7
+        },
+        {
+          "league": "Division 2: Norra Goetaland",
+          "total": 7,
+          "correct": 5,
+          "accuracy": 71.4
+        },
+        {
+          "league": "Division 2: Soedra Goetaland",
+          "total": 7,
+          "correct": 5,
+          "accuracy": 71.4
+        },
+        {
+          "league": "Japanese Emperor's Cup",
+          "total": 7,
+          "correct": 1,
+          "accuracy": 14.3
+        },
+        {
+          "league": "2. Deild",
+          "total": 7,
+          "correct": 2,
+          "accuracy": 28.6
+        },
+        {
+          "league": "Ligue 2",
+          "total": 7,
+          "correct": 3,
+          "accuracy": 42.9
+        },
+        {
+          "league": "Premier League 2",
+          "total": 7,
+          "correct": 4,
+          "accuracy": 57.1
+        },
+        {
+          "league": "Oberliga: Baden-Wurttemberg",
+          "total": 7,
+          "correct": 3,
+          "accuracy": 42.9
+        },
+        {
+          "league": "Oberliga: Rheinland-Pfalz/Saar",
+          "total": 7,
+          "correct": 3,
+          "accuracy": 42.9
+        },
+        {
+          "league": "J1 League",
+          "total": 7,
+          "correct": 2,
+          "accuracy": 28.6
+        },
+        {
+          "league": "Southern League: Central Divison",
+          "total": 6,
+          "correct": 2,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Esiliiga",
           "total": 6,
           "correct": 4,
           "accuracy": 66.7
         },
         {
-          "league": "New South Wales League One",
+          "league": "I Liga",
           "total": 6,
-          "correct": 5,
-          "accuracy": 83.3
+          "correct": 4,
+          "accuracy": 66.7
         },
         {
-          "league": "Queensland Premier League",
-          "total": 6,
-          "correct": 5,
-          "accuracy": 83.3
-        },
-        {
-          "league": "South Australia State League 1",
+          "league": "Liga Profesional: Clausura",
           "total": 6,
           "correct": 3,
           "accuracy": 50
         },
         {
-          "league": "J3 League",
+          "league": "Division Intermedia",
+          "total": 6,
+          "correct": 1,
+          "accuracy": 16.7
+        },
+        {
+          "league": "Primera C",
+          "total": 6,
+          "correct": 3,
+          "accuracy": 50
+        },
+        {
+          "league": "Cup",
+          "total": 6,
+          "correct": 2,
+          "accuracy": 33.3
+        },
+        {
+          "league": "NPL Victoria",
           "total": 6,
           "correct": 4,
           "accuracy": 66.7
         },
         {
-          "league": "Prva Liga",
+          "league": "Women's Toppserien",
+          "total": 6,
+          "correct": 6,
+          "accuracy": 100
+        },
+        {
+          "league": "Saudi Professional League",
+          "total": 6,
+          "correct": 4,
+          "accuracy": 66.7
+        },
+        {
+          "league": "1st League",
+          "total": 6,
+          "correct": 4,
+          "accuracy": 66.7
+        },
+        {
+          "league": "3rd Division",
+          "total": 6,
+          "correct": 4,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Regionalliga West",
+          "total": 6,
+          "correct": 1,
+          "accuracy": 16.7
+        },
+        {
+          "league": "Oberliga: Bremen",
+          "total": 6,
+          "correct": 5,
+          "accuracy": 83.3
+        },
+        {
+          "league": "Women's Elitettan",
+          "total": 6,
+          "correct": 3,
+          "accuracy": 50
+        },
+        {
+          "league": "NPL Western Australia",
+          "total": 6,
+          "correct": 3,
+          "accuracy": 50
+        },
+        {
+          "league": "New South Wales League One",
+          "total": 6,
+          "correct": 3,
+          "accuracy": 50
+        },
+        {
+          "league": "League One",
+          "total": 6,
+          "correct": 3,
+          "accuracy": 50
+        },
+        {
+          "league": "Oberliga: Hessen",
+          "total": 6,
+          "correct": 4,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Oberliga: Flens",
+          "total": 6,
+          "correct": 1,
+          "accuracy": 16.7
+        },
+        {
+          "league": "NB II",
+          "total": 6,
+          "correct": 5,
+          "accuracy": 83.3
+        },
+        {
+          "league": "Division 1: South",
+          "total": 6,
+          "correct": 3,
+          "accuracy": 50
+        },
+        {
+          "league": "Victoria Premier League One",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "Vtora Liga",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "Liga Portugal 2",
+          "total": 5,
+          "correct": 2,
+          "accuracy": 40
+        },
+        {
+          "league": "LaLiga",
           "total": 5,
           "correct": 3,
           "accuracy": 60
         },
         {
-          "league": "Serie B",
+          "league": "Primera Nacional",
           "total": 5,
           "correct": 4,
           "accuracy": 80
         },
         {
-          "league": "NPL New South Wales",
+          "league": "Women's Liga MX: Apertura",
+          "total": 5,
+          "correct": 2,
+          "accuracy": 40
+        },
+        {
+          "league": "Challenger Pro League",
           "total": 5,
           "correct": 3,
           "accuracy": 60
         },
         {
-          "league": "Oberliga: Bayern North",
+          "league": "Primera B: Clausura",
           "total": 5,
           "correct": 4,
           "accuracy": 80
         },
         {
-          "league": "Oberliga: Hamburg",
+          "league": "Premiership",
           "total": 5,
           "correct": 4,
           "accuracy": 80
         },
         {
-          "league": "Division 2: Vaestra Goetaland",
+          "league": "Qatar Stars League",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "Prva NL",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "Ykkonen",
+          "total": 5,
+          "correct": 1,
+          "accuracy": 20
+        },
+        {
+          "league": "2. SNL",
+          "total": 5,
+          "correct": 3,
+          "accuracy": 60
+        },
+        {
+          "league": "2nd Division",
           "total": 5,
           "correct": 5,
           "accuracy": 100
         },
         {
-          "league": "Superettan",
-          "total": 4,
-          "correct": 4,
+          "league": "Danmarksserien: Group 1",
+          "total": 5,
+          "correct": 5,
           "accuracy": 100
         },
         {
-          "league": "Champions League: Qualification",
+          "league": "Danmarksserien: Group 2",
+          "total": 5,
+          "correct": 3,
+          "accuracy": 60
+        },
+        {
+          "league": "Oberliga: Hamburg",
+          "total": 5,
+          "correct": 2,
+          "accuracy": 40
+        },
+        {
+          "league": "II Liga",
+          "total": 5,
+          "correct": 2,
+          "accuracy": 40
+        },
+        {
+          "league": "NPL Capital",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "Division 2: Soedra Svealand",
+          "total": 5,
+          "correct": 3,
+          "accuracy": 60
+        },
+        {
+          "league": "Veikkausliiga",
+          "total": 4,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Liga 1",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "NB I",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "MLS Next Pro",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Malta Premier: Opening Round",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "LaLiga 2",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Serie A",
           "total": 4,
           "correct": 1,
           "accuracy": 25
         },
         {
-          "league": "Ykkonen",
+          "league": "Primera B",
           "total": 4,
-          "correct": 4,
-          "accuracy": 100
+          "correct": 0,
+          "accuracy": 0
         },
         {
-          "league": "OFC Champions League: Group B",
-          "total": 4,
-          "correct": 4,
-          "accuracy": 100
-        },
-        {
-          "league": "NPL Capital",
+          "league": "Copa Paraguay",
           "total": 4,
           "correct": 2,
           "accuracy": 50
         },
         {
-          "league": "Oberliga: Rheinland-Pfalz/Saar",
+          "league": "A-Liga Women",
           "total": 4,
           "correct": 4,
           "accuracy": 100
         },
         {
-          "league": "2.Division Norrland: Promotion Group",
+          "league": "Primera A: Clausura",
           "total": 4,
-          "correct": 2,
-          "accuracy": 50
-        },
-        {
-          "league": "Federal A: Relegation Group A",
-          "total": 4,
-          "correct": 2,
-          "accuracy": 50
-        },
-        {
-          "league": "Federal A: Relegation Group B",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "Coppa Italia: Round of 32",
-          "total": 4,
-          "correct": 2,
-          "accuracy": 50
-        },
-        {
-          "league": "Victoria Premier League One",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "2. Liga",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "2nd Division",
-          "total": 4,
-          "correct": 4,
-          "accuracy": 100
-        },
-        {
-          "league": "Regionalliga West",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "Liga de Expansion MX: Apertura",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "Cup",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "National Women's Soccer League",
-          "total": 4,
-          "correct": 4,
-          "accuracy": 100
-        },
-        {
-          "league": "I Liga",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Liga Portugal 2",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Women's Liga MX: Apertura",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Liga Profesional: Clausura",
-          "total": 3,
           "correct": 1,
-          "accuracy": 33.3
+          "accuracy": 25
         },
         {
-          "league": "Featured Club Friendlies",
-          "total": 3,
-          "correct": 3,
+          "league": "Ykkosliiga",
+          "total": 4,
+          "correct": 4,
           "accuracy": 100
         },
         {
-          "league": "Vtora Liga",
-          "total": 3,
+          "league": "Pro League",
+          "total": 4,
           "correct": 3,
-          "accuracy": 100
+          "accuracy": 75
         },
         {
-          "league": "MLS Next Pro",
-          "total": 3,
+          "league": "Virsliga",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "League of Ireland Premier Division",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "Danmarksserien: Group 3",
+          "total": 4,
           "correct": 2,
-          "accuracy": 66.7
+          "accuracy": 50
         },
         {
-          "league": "DBU Pokalen",
-          "total": 3,
-          "correct": 1,
-          "accuracy": 33.3
-        },
-        {
-          "league": "Northern New South Wales",
-          "total": 3,
+          "league": "Danmarksserien: Group 4",
+          "total": 4,
           "correct": 2,
-          "accuracy": 66.7
+          "accuracy": 50
         },
         {
-          "league": "Federal A: Promotion Group A",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Federal A: Promotion Group B",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Saudi Professional League",
-          "total": 3,
+          "league": "Women's Allsvenskan",
+          "total": 4,
           "correct": 2,
-          "accuracy": 66.7
-        },
-        {
-          "league": "1. Deild",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Danmarksserien: Group 2",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Oberliga: Niederrhein",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Iraq Stars League",
-          "total": 3,
-          "correct": 1,
-          "accuracy": 33.3
-        },
-        {
-          "league": "2. SNL",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
+          "accuracy": 50
         },
         {
           "league": "K-League 1",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
         },
         {
-          "league": "Liga II",
+          "league": "NPL New South Wales",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "K League 2",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "K3 League",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Division 2: Norra Svealand",
+          "total": 4,
+          "correct": 1,
+          "accuracy": 25
+        },
+        {
+          "league": "Division 2: Vaestra Goetaland",
+          "total": 4,
+          "correct": 1,
+          "accuracy": 25
+        },
+        {
+          "league": "Women's Kansallinen Liiga: Championship",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Coppa Italia: Round of 32",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Parva Liga",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Erovnuli Liga",
+          "total": 3,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "3. Division: Group 3",
           "total": 3,
           "correct": 1,
           "accuracy": 33.3
         },
         {
-          "league": "Primera C",
-          "total": 2,
+          "league": "3. Division: Group 4",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Allsvenskan",
+          "total": 3,
           "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Club Friendlies 2026",
+          "total": 3,
+          "correct": 3,
           "accuracy": 100
+        },
+        {
+          "league": "ASEAN Championship: Final Stage",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "National League Cup: Group A",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "National League Cup: Group C",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "OFC Champions League Final Stage",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "National Women's Soccer League",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "NorZone Premier League",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Frauen-Bundesliga",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Kategoria Superiore",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Serie C: Group C",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "2.Division Norrland: Relegation Group",
+          "total": 3,
+          "correct": 3,
+          "accuracy": 100
+        },
+        {
+          "league": "Challenge League",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Primera División: Clausura",
+          "total": 3,
+          "correct": 3,
+          "accuracy": 100
+        },
+        {
+          "league": "Primera B Metropolitana",
+          "total": 3,
+          "correct": 3,
+          "accuracy": 100
+        },
+        {
+          "league": "1st League: FBiH",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "B-Liga Women",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Women's WE League",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Women's Eredivisie",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "2.Division Norrland: Promotion Group",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Ligue I",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "A Lyga",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "3. Division: Group 2",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "3. Division: Group 6",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Toto Cup Al: Placement Matches",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Süper Lig",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Primeira Liga",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
         },
         {
           "league": "Serie C: 1st Stage",
           "total": 2,
-          "correct": 2,
-          "accuracy": 100
+          "correct": 0,
+          "accuracy": 0
         },
         {
-          "league": "Primera División",
+          "league": "Besta deildin",
           "total": 2,
-          "correct": 2,
-          "accuracy": 100
+          "correct": 0,
+          "accuracy": 0
         },
         {
-          "league": "Serie A",
+          "league": "1. CFL",
           "total": 2,
           "correct": 1,
           "accuracy": 50
         },
         {
-          "league": "Liga de Ascenso: Apertura: Group B",
+          "league": "Liga 2: Group B",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Super Liga",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "1st Lig",
           "total": 2,
           "correct": 2,
           "accuracy": 100
@@ -574,19 +1094,37 @@
           "accuracy": 50
         },
         {
-          "league": "3rd Division",
+          "league": "Primera División",
           "total": 2,
-          "correct": 2,
-          "accuracy": 100
+          "correct": 0,
+          "accuracy": 0
         },
         {
-          "league": "Oberliga: Baden-Wurttemberg",
+          "league": "Primera División: Apertura",
           "total": 2,
-          "correct": 2,
-          "accuracy": 100
+          "correct": 1,
+          "accuracy": 50
         },
         {
-          "league": "CONCACAF Central American Cup: Group A",
+          "league": "Liga de Ascenso: Apertura: Group B",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "National League Cup: Group B",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "National League Cup: Group D",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Women's Premier Division",
           "total": 2,
           "correct": 2,
           "accuracy": 100
@@ -598,70 +1136,100 @@
           "accuracy": 50
         },
         {
-          "league": "CONCACAF Central American Cup: Group C",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "Division 2: Soedra Svealand",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "Liga 1",
+          "league": "CONCACAF Central American Cup: Group D",
           "total": 2,
           "correct": 1,
           "accuracy": 50
         },
         {
-          "league": "Primera Nacional",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "League One",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "2nd league",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "1st Division",
+          "league": "Australia FFA Cup",
           "total": 2,
           "correct": 1,
           "accuracy": 50
         },
         {
-          "league": "Oberliga: Flens",
-          "total": 2,
-          "correct": 1,
-          "accuracy": 50
-        },
-        {
-          "league": "FAI Cup",
+          "league": "Kazakhstan Cup Final Stage",
           "total": 2,
           "correct": 2,
           "accuracy": 100
         },
         {
-          "league": "Malta Premier: Opening Round",
+          "league": "Caribbean Club Championship: Group A",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Regionalliga Nord",
+          "total": 2,
+          "correct": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Liga Nacional: Apertura",
           "total": 2,
           "correct": 0,
           "accuracy": 0
         },
         {
-          "league": "Division Intermedia",
+          "league": "USL League One",
           "total": 2,
           "correct": 1,
           "accuracy": 50
+        },
+        {
+          "league": "Liga de Expansion MX: Apertura",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Superleague",
+          "total": 2,
+          "correct": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Ligue 1",
+          "total": 2,
+          "correct": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Belgian Pro League",
+          "total": 2,
+          "correct": 2,
+          "accuracy": 100
+        },
+        {
+          "league": "Bundesliga",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Ekstraklasa",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Meistriliiga",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Oberliga: Niederrhein",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Serie C: Group A",
+          "total": 2,
+          "correct": 2,
+          "accuracy": 100
         },
         {
           "league": "Liga 1: Clausura",
@@ -670,16 +1238,22 @@
           "accuracy": 100
         },
         {
-          "league": "Division 2: Norra Goetaland",
+          "league": "Division 1: North",
           "total": 2,
           "correct": 2,
           "accuracy": 100
         },
         {
-          "league": "Pro League",
+          "league": "Segunda División",
           "total": 2,
           "correct": 1,
           "accuracy": 50
+        },
+        {
+          "league": "Primera Division: Clausura",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
         },
         {
           "league": "Primera Division",
@@ -688,112 +1262,58 @@
           "accuracy": 100
         },
         {
-          "league": "Danmarksserien: Group 1",
+          "league": "NPL South Australia: Play-Off",
           "total": 2,
           "correct": 2,
           "accuracy": 100
         },
         {
-          "league": "Esiliiga",
+          "league": "NPL Northern NSW: Qualification",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "1st League: RS",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Erovnuli Liga 2",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Oberliga: Niedersachsen",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Campionato Primavera 1",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Durand Cup: Knockout Stage",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "3. Division: Group 6",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Durand Cup: Group F",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Durand Cup: Group E",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "National League Cup: Group C",
+          "league": "3. Division: Group 5",
           "total": 1,
           "correct": 0,
           "accuracy": 0
         },
         {
-          "league": "Danmarksserien: Group 3",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Canadian Championship",
+          "league": "Liga 2: Group A",
           "total": 1,
           "correct": 0,
           "accuracy": 0
-        },
-        {
-          "league": "Durand Cup: Group D",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Durand Cup: Group B",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "Women's Kansallinen Liiga: Championship",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Women's Africa Cup of Nations: Final Stage",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "UEFA Super Cup",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Copa Argentina",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "USL Cup Final Stage",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "Eredivisie",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Primeira Liga",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Allsvenskan",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
         },
         {
           "league": "Superliga",
@@ -802,16 +1322,94 @@
           "accuracy": 100
         },
         {
-          "league": "Eliteserien",
+          "league": "3. Division: Group 1",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Federal A: Promotion Group A",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "Bundesliga",
+          "league": "Federal A: Relegation Group B",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "EFL Trophy North: Group B",
           "total": 1,
           "correct": 1,
           "accuracy": 100
+        },
+        {
+          "league": "EFL Trophy North: Group E",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "EFL Trophy South: Group F",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "EFL Trophy South: Group G",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Caribbean Club Championship: Group B",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "CONCACAF Central American Cup: Group A",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Copa Argentina",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "DBU Pokalen",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "EFL Trophy North: Group D",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "USL Championship",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "CONCACAF Central American Cup: Group C",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Copa Ecuador",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
         },
         {
           "league": "HNL",
@@ -820,115 +1418,25 @@
           "accuracy": 100
         },
         {
-          "league": "Ekstraklasa",
+          "league": "National 1: Group B",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "Parva Liga",
+          "league": "National 1: Group C",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "Veikkausliiga",
+          "league": "Oberliga: Westfalen",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "NorZone Premier League",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "1st League: FBiH",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "National League: South",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Meistriliiga",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "Ykkosliiga",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "Women's Kansallinen Liiga: Qualification Play-offs 2026",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "3. Liga",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Regionalliga Südwest",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Oberliga: Niedersachsen",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Oberliga NOFV Nord 25/26",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Oberliga: NOFV-Sud",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "NB I",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "2. Deild",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Superleague",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "1st League",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Women's Toppserien",
+          "league": "Serie C: Group B",
           "total": 1,
           "correct": 1,
           "accuracy": 100
@@ -940,82 +1448,16 @@
           "accuracy": 100
         },
         {
-          "league": "II Liga",
+          "league": "Liga 3: Group A",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "Liga 3: Group B",
+          "league": "Federal A: Promotion Group B",
           "total": 1,
           "correct": 0,
           "accuracy": 0
-        },
-        {
-          "league": "Scottish League Cup: Round of 16",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Division 1: North",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Division 1: South",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "Division 2: Soedra Goetaland",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Women's Allsvenskan",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "1st Lig",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "Primera División: Clausura",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Segunda División",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Segunda División: Occidental",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Challenger Pro League",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Primera División: Apertura",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
         },
         {
           "league": "Primera Division: Apertura",
@@ -1024,25 +1466,96 @@
           "accuracy": 100
         },
         {
-          "league": "3. Division: Group 3",
+          "league": "Eredivisie",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "NPL Tasmania: Play-offs",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "South Australia State League: Play-Off",
           "total": 1,
           "correct": 0,
           "accuracy": 0
         },
         {
-          "league": "K League 2",
+          "league": "Women's FAI Cup",
           "total": 1,
           "correct": 1,
           "accuracy": 100
+        },
+        {
+          "league": "1. Division",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Women's 1. Division",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Liga 3: Group B",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "MTN 8",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        }
+      ],
+      "byMarket": [
+        {
+          "market": "1X2",
+          "total": 989,
+          "correct": 418,
+          "accuracy": 42.3,
+          "avgOdds": 2.62,
+          "avgOddsWinners": 2.03,
+          "avgOddsLosers": 3.81,
+          "roiBets": 6,
+          "flatRoi": 35.33
+        },
+        {
+          "market": "DC",
+          "total": 256,
+          "correct": 166,
+          "accuracy": 64.8,
+          "avgOdds": 1.22,
+          "avgOddsWinners": 1.22,
+          "avgOddsLosers": null,
+          "roiBets": 3,
+          "flatRoi": 21.93
+        },
+        {
+          "market": "OU",
+          "total": 89,
+          "correct": 86,
+          "accuracy": 96.6,
+          "avgOdds": null,
+          "avgOddsWinners": null,
+          "avgOddsLosers": null,
+          "roiBets": 0,
+          "flatRoi": null
         }
       ],
       "excludedLabels": []
     },
     "last30days": {
       "meta": {
-        "generatedAt": "2026-08-15T13:18:56.721Z",
-        "from": 1784207128980,
-        "to": 1786799128980,
+        "generatedAt": "2026-08-24T02:27:03.304Z",
+        "from": 1784946422893,
+        "to": 1787538422893,
         "marketFilter": "all",
         "sources": {
           "matches": "FT|finished|Finished|Ended",
@@ -1051,68 +1564,246 @@
       },
       "empty": false,
       "summary": {
-        "total": 570,
-        "evaluated": 570,
-        "correct": 437,
+        "total": 2745,
+        "evaluated": 2745,
+        "correct": 1671,
         "pushCount": 0,
-        "finishedCount": 1041,
+        "finishedCount": 3239,
         "noPredictionCount": 399,
-        "pendingCount": 72,
-        "accuracy": 0.7666666666666667,
-        "accuracyPct": "76.7%",
-        "logLoss": 112.4577,
-        "brierScore": 681.368
+        "pendingCount": 95,
+        "accuracy": 0.6087431693989072,
+        "accuracyPct": "60.9%",
+        "logLoss": 1.117,
+        "brierScore": 0.6773,
+        "roiBets": 55,
+        "roiExcluded": 2690,
+        "staked": 55,
+        "netProfit": -1.01,
+        "roi": -1.83,
+        "avgOddsWinners": 1.54,
+        "avgOddsLosers": 2.23,
+        "oddsMissingByMarket": {
+          "DC": 1018,
+          "1X2": 1226,
+          "OU": 446
+        },
+        "roiEvFiltered": {
+          "bets": 13,
+          "staked": 13,
+          "netProfit": -0.99,
+          "roi": -7.62
+        },
+        "kellyBets": 0,
+        "kellyStaked": 0,
+        "kellyNetProfit": 0,
+        "kellyRoi": null
       },
       "calibrationCurve": [
         {
           "band": "30-40",
-          "count": 50,
-          "correct": 48,
-          "accuracy": 96
+          "count": 135,
+          "correct": 124,
+          "accuracy": 91.9
         },
         {
           "band": "40-50",
-          "count": 110,
-          "correct": 103,
-          "accuracy": 93.6
+          "count": 903,
+          "correct": 541,
+          "accuracy": 59.9
         },
         {
           "band": "50-60",
-          "count": 19,
-          "correct": 12,
-          "accuracy": 63.2
+          "count": 325,
+          "correct": 139,
+          "accuracy": 42.8
         },
         {
           "band": "60-70",
-          "count": 16,
-          "correct": 7,
-          "accuracy": 43.8
+          "count": 198,
+          "correct": 89,
+          "accuracy": 44.9
         },
         {
           "band": "70-80",
-          "count": 250,
-          "correct": 185,
-          "accuracy": 74
+          "count": 836,
+          "correct": 558,
+          "accuracy": 66.7
         },
         {
           "band": "80-90",
-          "count": 113,
-          "correct": 76,
-          "accuracy": 67.3
+          "count": 322,
+          "correct": 207,
+          "accuracy": 64.3
         },
         {
           "band": "90-100",
-          "count": 12,
-          "correct": 6,
+          "count": 26,
+          "correct": 13,
           "accuracy": 50
         }
       ],
       "byLeague": [
         {
+          "league": "Premier League",
+          "total": 76,
+          "correct": 45,
+          "accuracy": 59.2
+        },
+        {
           "league": "Qualification",
-          "total": 27,
+          "total": 70,
+          "correct": 35,
+          "accuracy": 50
+        },
+        {
+          "league": "Championship",
+          "total": 50,
+          "correct": 31,
+          "accuracy": 62
+        },
+        {
+          "league": "NM Cup: Round 1",
+          "total": 48,
+          "correct": 27,
+          "accuracy": 56.3
+        },
+        {
+          "league": "Northern Premier League",
+          "total": 44,
+          "correct": 30,
+          "accuracy": 68.2
+        },
+        {
+          "league": "National League: North",
+          "total": 36,
+          "correct": 22,
+          "accuracy": 61.1
+        },
+        {
+          "league": "League 2",
+          "total": 34,
+          "correct": 17,
+          "accuracy": 50
+        },
+        {
+          "league": "Southern League Premier: South",
+          "total": 33,
+          "correct": 21,
+          "accuracy": 63.6
+        },
+        {
+          "league": "Southern League Premier: Central",
+          "total": 32,
+          "correct": 22,
+          "accuracy": 68.8
+        },
+        {
+          "league": "Super League",
+          "total": 31,
+          "correct": 17,
+          "accuracy": 54.8
+        },
+        {
+          "league": "National League: South",
+          "total": 31,
+          "correct": 16,
+          "accuracy": 51.6
+        },
+        {
+          "league": "Cup",
+          "total": 31,
+          "correct": 13,
+          "accuracy": 41.9
+        },
+        {
+          "league": "Serie B",
+          "total": 30,
+          "correct": 13,
+          "accuracy": 43.3
+        },
+        {
+          "league": "League 1",
+          "total": 30,
+          "correct": 15,
+          "accuracy": 50
+        },
+        {
+          "league": "Isthmian League Premier Division",
+          "total": 29,
+          "correct": 18,
+          "accuracy": 62.1
+        },
+        {
+          "league": "Premiership",
+          "total": 26,
+          "correct": 18,
+          "accuracy": 69.2
+        },
+        {
+          "league": "Club Friendlies 2026",
+          "total": 26,
           "correct": 20,
-          "accuracy": 74.1
+          "accuracy": 76.9
+        },
+        {
+          "league": "Oberliga: Bayern North",
+          "total": 26,
+          "correct": 16,
+          "accuracy": 61.5
+        },
+        {
+          "league": "Prva Liga",
+          "total": 25,
+          "correct": 10,
+          "accuracy": 40
+        },
+        {
+          "league": "2. Liga",
+          "total": 25,
+          "correct": 11,
+          "accuracy": 44
+        },
+        {
+          "league": "National League",
+          "total": 25,
+          "correct": 15,
+          "accuracy": 60
+        },
+        {
+          "league": "Oberliga: Bayern South",
+          "total": 24,
+          "correct": 10,
+          "accuracy": 41.7
+        },
+        {
+          "league": "MLS",
+          "total": 24,
+          "correct": 10,
+          "accuracy": 41.7
+        },
+        {
+          "league": "Primera Nacional",
+          "total": 22,
+          "correct": 17,
+          "accuracy": 77.3
+        },
+        {
+          "league": "Emperor's Cup",
+          "total": 22,
+          "correct": 12,
+          "accuracy": 54.5
+        },
+        {
+          "league": "Round of 16",
+          "total": 21,
+          "correct": 10,
+          "accuracy": 47.6
+        },
+        {
+          "league": "Oberliga: Hessen",
+          "total": 21,
+          "correct": 14,
+          "accuracy": 66.7
         },
         {
           "league": "Challenge Cup",
@@ -1121,118 +1812,694 @@
           "accuracy": 65
         },
         {
-          "league": "Northern Premier League",
+          "league": "Iraq Stars League",
+          "total": 19,
+          "correct": 11,
+          "accuracy": 57.9
+        },
+        {
+          "league": "Eerste Divisie",
+          "total": 18,
+          "correct": 14,
+          "accuracy": 77.8
+        },
+        {
+          "league": "Serie A",
+          "total": 18,
+          "correct": 12,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Ligue 3",
+          "total": 18,
+          "correct": 11,
+          "accuracy": 61.1
+        },
+        {
+          "league": "Persian Gulf Pro League",
+          "total": 18,
+          "correct": 10,
+          "accuracy": 55.6
+        },
+        {
+          "league": "J2 League",
+          "total": 18,
+          "correct": 13,
+          "accuracy": 72.2
+        },
+        {
+          "league": "Liga Profesional: Clausura",
+          "total": 17,
+          "correct": 10,
+          "accuracy": 58.8
+        },
+        {
+          "league": "J1 League",
+          "total": 17,
+          "correct": 10,
+          "accuracy": 58.8
+        },
+        {
+          "league": "Regionalliga Bayern",
+          "total": 17,
+          "correct": 14,
+          "accuracy": 82.4
+        },
+        {
+          "league": "Tweede Divisie",
+          "total": 17,
+          "correct": 11,
+          "accuracy": 64.7
+        },
+        {
+          "league": "Primera C",
+          "total": 16,
+          "correct": 10,
+          "accuracy": 62.5
+        },
+        {
+          "league": "Oberliga: Rheinland-Pfalz/Saar",
+          "total": 16,
+          "correct": 11,
+          "accuracy": 68.8
+        },
+        {
+          "league": "Ligue 2",
+          "total": 16,
+          "correct": 9,
+          "accuracy": 56.3
+        },
+        {
+          "league": "JD Cymru Premier",
+          "total": 16,
+          "correct": 12,
+          "accuracy": 75
+        },
+        {
+          "league": "Super Liga",
+          "total": 16,
+          "correct": 8,
+          "accuracy": 50
+        },
+        {
+          "league": "Promotion League",
+          "total": 16,
+          "correct": 9,
+          "accuracy": 56.3
+        },
+        {
+          "league": "King's Cup",
+          "total": 16,
+          "correct": 10,
+          "accuracy": 62.5
+        },
+        {
+          "league": "Svenska Cupen: Qualification",
+          "total": 16,
+          "correct": 7,
+          "accuracy": 43.8
+        },
+        {
+          "league": "1st League",
+          "total": 15,
+          "correct": 10,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Isthmian League: North Division",
+          "total": 15,
+          "correct": 8,
+          "accuracy": 53.3
+        },
+        {
+          "league": "Northern Premier League: West Division",
+          "total": 15,
+          "correct": 6,
+          "accuracy": 40
+        },
+        {
+          "league": "Premier League U18",
+          "total": 15,
+          "correct": 4,
+          "accuracy": 26.7
+        },
+        {
+          "league": "Oberliga: Baden-Wurttemberg",
+          "total": 14,
+          "correct": 8,
+          "accuracy": 57.1
+        },
+        {
+          "league": "Regionalliga Nord",
+          "total": 14,
+          "correct": 12,
+          "accuracy": 85.7
+        },
+        {
+          "league": "Oberliga: Bremen",
+          "total": 14,
+          "correct": 10,
+          "accuracy": 71.4
+        },
+        {
+          "league": "Primera B",
+          "total": 14,
+          "correct": 6,
+          "accuracy": 42.9
+        },
+        {
+          "league": "1. Deild",
+          "total": 14,
+          "correct": 9,
+          "accuracy": 64.3
+        },
+        {
+          "league": "Regionalliga Südwest",
+          "total": 14,
+          "correct": 6,
+          "accuracy": 42.9
+        },
+        {
+          "league": "Regionalliga West",
+          "total": 14,
+          "correct": 7,
+          "accuracy": 50
+        },
+        {
+          "league": "J3 League",
+          "total": 14,
+          "correct": 5,
+          "accuracy": 35.7
+        },
+        {
+          "league": "Primera B Metropolitana",
+          "total": 14,
+          "correct": 8,
+          "accuracy": 57.1
+        },
+        {
+          "league": "MLS Next Pro",
+          "total": 13,
+          "correct": 7,
+          "accuracy": 53.8
+        },
+        {
+          "league": "3rd Division",
+          "total": 13,
+          "correct": 10,
+          "accuracy": 76.9
+        },
+        {
+          "league": "Coppa Italia: Round of 32",
+          "total": 13,
+          "correct": 8,
+          "accuracy": 61.5
+        },
+        {
+          "league": "2nd league",
+          "total": 13,
+          "correct": 10,
+          "accuracy": 76.9
+        },
+        {
+          "league": "1st Division",
+          "total": 13,
+          "correct": 9,
+          "accuracy": 69.2
+        },
+        {
+          "league": "2. Deild",
+          "total": 13,
+          "correct": 8,
+          "accuracy": 61.5
+        },
+        {
+          "league": "2. SNL",
+          "total": 13,
+          "correct": 10,
+          "accuracy": 76.9
+        },
+        {
+          "league": "Division 2: Norra Goetaland",
+          "total": 13,
+          "correct": 9,
+          "accuracy": 69.2
+        },
+        {
+          "league": "New South Wales League One",
+          "total": 13,
+          "correct": 9,
+          "accuracy": 69.2
+        },
+        {
+          "league": "NB II",
+          "total": 13,
+          "correct": 11,
+          "accuracy": 84.6
+        },
+        {
+          "league": "I Liga",
+          "total": 12,
+          "correct": 7,
+          "accuracy": 58.3
+        },
+        {
+          "league": "Serie C: 1st Stage",
+          "total": 12,
+          "correct": 7,
+          "accuracy": 58.3
+        },
+        {
+          "league": "Vtora Liga",
+          "total": 12,
+          "correct": 9,
+          "accuracy": 75
+        },
+        {
+          "league": "Ykkonen",
+          "total": 12,
+          "correct": 7,
+          "accuracy": 58.3
+        },
+        {
+          "league": "Saudi Professional League",
+          "total": 12,
+          "correct": 8,
+          "accuracy": 66.7
+        },
+        {
+          "league": "NPL Victoria",
           "total": 12,
           "correct": 10,
           "accuracy": 83.3
         },
         {
-          "league": "Southern League Premier: South",
+          "league": "NPL Western Australia",
+          "total": 12,
+          "correct": 8,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Oberliga: Flens",
+          "total": 12,
+          "correct": 5,
+          "accuracy": 41.7
+        },
+        {
+          "league": "Division 2: Soedra Goetaland",
+          "total": 12,
+          "correct": 7,
+          "accuracy": 58.3
+        },
+        {
+          "league": "Liga II",
+          "total": 12,
+          "correct": 4,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Women's Elitettan",
+          "total": 12,
+          "correct": 7,
+          "accuracy": 58.3
+        },
+        {
+          "league": "Esiliiga",
           "total": 11,
           "correct": 9,
           "accuracy": 81.8
         },
         {
-          "league": "Southern League Premier: Central",
-          "total": 10,
-          "correct": 9,
-          "accuracy": 90
+          "league": "Women's Liga MX: Apertura",
+          "total": 11,
+          "correct": 8,
+          "accuracy": 72.7
         },
         {
-          "league": "Isthmian League Premier Division",
+          "league": "Featured Club Friendlies",
+          "total": 11,
+          "correct": 9,
+          "accuracy": 81.8
+        },
+        {
+          "league": "2.Division Norrland: Promotion Group",
+          "total": 11,
+          "correct": 8,
+          "accuracy": 72.7
+        },
+        {
+          "league": "2nd Division",
+          "total": 11,
+          "correct": 11,
+          "accuracy": 100
+        },
+        {
+          "league": "Division 1: South",
+          "total": 11,
+          "correct": 6,
+          "accuracy": 54.5
+        },
+        {
+          "league": "Division 2: Vaestra Goetaland",
+          "total": 11,
+          "correct": 7,
+          "accuracy": 63.6
+        },
+        {
+          "league": "1st Lig",
+          "total": 11,
+          "correct": 7,
+          "accuracy": 63.6
+        },
+        {
+          "league": "LaLiga 2",
+          "total": 11,
+          "correct": 6,
+          "accuracy": 54.5
+        },
+        {
+          "league": "Liga MX: Apertura",
+          "total": 11,
+          "correct": 4,
+          "accuracy": 36.4
+        },
+        {
+          "league": "Liga Nacional: Apertura",
+          "total": 11,
+          "correct": 8,
+          "accuracy": 72.7
+        },
+        {
+          "league": "Isthmian League: South Central Division",
+          "total": 11,
+          "correct": 6,
+          "accuracy": 54.5
+        },
+        {
+          "league": "Isthmian League: South East Division",
+          "total": 11,
+          "correct": 6,
+          "accuracy": 54.5
+        },
+        {
+          "league": "Liga Portugal 2",
           "total": 10,
           "correct": 7,
           "accuracy": 70
         },
         {
-          "league": "Round of 16",
+          "league": "Liga 1",
           "total": 10,
           "correct": 6,
           "accuracy": 60
         },
         {
-          "league": "J1 League",
+          "league": "1st League: FBiH",
+          "total": 10,
+          "correct": 3,
+          "accuracy": 30
+        },
+        {
+          "league": "League One",
+          "total": 10,
+          "correct": 7,
+          "accuracy": 70
+        },
+        {
+          "league": "Danmarksserien: Group 2",
+          "total": 10,
+          "correct": 7,
+          "accuracy": 70
+        },
+        {
+          "league": "Oberliga: Hamburg",
+          "total": 10,
+          "correct": 6,
+          "accuracy": 60
+        },
+        {
+          "league": "II Liga",
+          "total": 10,
+          "correct": 5,
+          "accuracy": 50
+        },
+        {
+          "league": "Women's Allsvenskan",
           "total": 10,
           "correct": 8,
           "accuracy": 80
         },
         {
-          "league": "Premier League",
+          "league": "Pro League",
           "total": 10,
-          "correct": 6,
-          "accuracy": 60
+          "correct": 5,
+          "accuracy": 50
         },
         {
-          "league": "Premiership",
+          "league": "Primera División: Clausura",
+          "total": 10,
+          "correct": 9,
+          "accuracy": 90
+        },
+        {
+          "league": "Primera Division",
+          "total": 10,
+          "correct": 9,
+          "accuracy": 90
+        },
+        {
+          "league": "National Women's Soccer League",
+          "total": 10,
+          "correct": 7,
+          "accuracy": 70
+        },
+        {
+          "league": "Danmarksserien: Group 1",
+          "total": 10,
+          "correct": 8,
+          "accuracy": 80
+        },
+        {
+          "league": "Northern Premier League: East Division",
+          "total": 10,
+          "correct": 4,
+          "accuracy": 40
+        },
+        {
+          "league": "2. Division A",
+          "total": 10,
+          "correct": 4,
+          "accuracy": 40
+        },
+        {
+          "league": "DFB Cup: Round 1",
+          "total": 10,
+          "correct": 2,
+          "accuracy": 20
+        },
+        {
+          "league": "Superettan",
+          "total": 9,
+          "correct": 8,
+          "accuracy": 88.9
+        },
+        {
+          "league": "Danmarksserien: Group 3",
+          "total": 9,
+          "correct": 7,
+          "accuracy": 77.8
+        },
+        {
+          "league": "Regionalliga Nordost",
+          "total": 9,
+          "correct": 8,
+          "accuracy": 88.9
+        },
+        {
+          "league": "NPL Capital",
+          "total": 9,
+          "correct": 6,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Division 2: Soedra Svealand",
+          "total": 9,
+          "correct": 7,
+          "accuracy": 77.8
+        },
+        {
+          "league": "NPL New South Wales",
           "total": 9,
           "correct": 5,
           "accuracy": 55.6
         },
         {
-          "league": "Championship",
+          "league": "Victoria Premier League One",
           "total": 9,
-          "correct": 6,
-          "accuracy": 66.7
+          "correct": 7,
+          "accuracy": 77.8
         },
         {
-          "league": "Oberliga: Hessen",
+          "league": "Women's Toppserien",
           "total": 9,
-          "correct": 6,
-          "accuracy": 66.7
+          "correct": 9,
+          "accuracy": 100
         },
         {
-          "league": "Ligue 2",
+          "league": "Liga 1: Clausura",
           "total": 9,
-          "correct": 6,
-          "accuracy": 66.7
+          "correct": 5,
+          "accuracy": 55.6
         },
         {
-          "league": "Ligue 3",
+          "league": "Challenger Pro League",
+          "total": 9,
+          "correct": 7,
+          "accuracy": 77.8
+        },
+        {
+          "league": "Division 2: Norra Svealand",
+          "total": 9,
+          "correct": 5,
+          "accuracy": 55.6
+        },
+        {
+          "league": "Süper Lig",
           "total": 9,
           "correct": 8,
           "accuracy": 88.9
         },
         {
-          "league": "Regionalliga Bayern",
+          "league": "USL League One",
           "total": 9,
-          "correct": 8,
-          "accuracy": 88.9
+          "correct": 7,
+          "accuracy": 77.8
         },
         {
-          "league": "Regionalliga Nord",
+          "league": "Primera Division: Clausura",
+          "total": 9,
+          "correct": 5,
+          "accuracy": 55.6
+        },
+        {
+          "league": "Greece Cup: Preliminary Round",
+          "total": 9,
+          "correct": 5,
+          "accuracy": 55.6
+        },
+        {
+          "league": "Primera División",
           "total": 8,
           "correct": 6,
           "accuracy": 75
         },
         {
-          "league": "Oberliga: Bremen",
+          "league": "Federal A: Promotion Group B",
+          "total": 8,
+          "correct": 4,
+          "accuracy": 50
+        },
+        {
+          "league": "Federal A: Relegation Group B",
+          "total": 8,
+          "correct": 4,
+          "accuracy": 50
+        },
+        {
+          "league": "Primeira Liga",
+          "total": 8,
+          "correct": 4,
+          "accuracy": 50
+        },
+        {
+          "league": "Ekstraklasa",
           "total": 8,
           "correct": 5,
           "accuracy": 62.5
         },
         {
-          "league": "Oberliga: Bayern South",
+          "league": "Ykkosliiga",
+          "total": 8,
+          "correct": 7,
+          "accuracy": 87.5
+        },
+        {
+          "league": "3. Liga",
+          "total": 8,
+          "correct": 7,
+          "accuracy": 87.5
+        },
+        {
+          "league": "NB I",
+          "total": 8,
+          "correct": 5,
+          "accuracy": 62.5
+        },
+        {
+          "league": "Malta Premier: Opening Round",
+          "total": 8,
+          "correct": 4,
+          "accuracy": 50
+        },
+        {
+          "league": "Liga de Expansion MX: Apertura",
+          "total": 8,
+          "correct": 5,
+          "accuracy": 62.5
+        },
+        {
+          "league": "Division Intermedia",
+          "total": 8,
+          "correct": 2,
+          "accuracy": 25
+        },
+        {
+          "league": "Segunda División",
+          "total": 8,
+          "correct": 7,
+          "accuracy": 87.5
+        },
+        {
+          "league": "3. Division: Group 3",
+          "total": 8,
+          "correct": 3,
+          "accuracy": 37.5
+        },
+        {
+          "league": "A-Liga Women",
+          "total": 8,
+          "correct": 8,
+          "accuracy": 100
+        },
+        {
+          "league": "LaLiga",
           "total": 8,
           "correct": 6,
           "accuracy": 75
         },
         {
-          "league": "J2 League",
+          "league": "Belgian Pro League",
           "total": 8,
           "correct": 6,
           "accuracy": 75
         },
         {
-          "league": "Eerste Divisie",
-          "total": 7,
-          "correct": 6,
-          "accuracy": 85.7
+          "league": "Women's Premier Division",
+          "total": 8,
+          "correct": 8,
+          "accuracy": 100
         },
         {
-          "league": "Super League",
-          "total": 7,
-          "correct": 6,
-          "accuracy": 85.7
+          "league": "Northern Premier League: Midlands Division",
+          "total": 8,
+          "correct": 5,
+          "accuracy": 62.5
+        },
+        {
+          "league": "Liga Leumit",
+          "total": 8,
+          "correct": 4,
+          "accuracy": 50
         },
         {
           "league": "Leagues Cup",
@@ -1241,22 +2508,118 @@
           "accuracy": 71.4
         },
         {
-          "league": "Club Friendlies 2026",
+          "league": "Federal A: Promotion Group A",
+          "total": 7,
+          "correct": 6,
+          "accuracy": 85.7
+        },
+        {
+          "league": "Federal A: Relegation Group A",
+          "total": 7,
+          "correct": 2,
+          "accuracy": 28.6
+        },
+        {
+          "league": "Parva Liga",
           "total": 7,
           "correct": 5,
           "accuracy": 71.4
         },
         {
-          "league": "Regionalliga Nordost",
+          "league": "Oberliga: Niederrhein",
+          "total": 7,
+          "correct": 5,
+          "accuracy": 71.4
+        },
+        {
+          "league": "Superleague",
+          "total": 7,
+          "correct": 4,
+          "accuracy": 57.1
+        },
+        {
+          "league": "Division 1: North",
+          "total": 7,
+          "correct": 7,
+          "accuracy": 100
+        },
+        {
+          "league": "K-League 1",
+          "total": 7,
+          "correct": 5,
+          "accuracy": 71.4
+        },
+        {
+          "league": "Danmarksserien: Group 4",
+          "total": 7,
+          "correct": 4,
+          "accuracy": 57.1
+        },
+        {
+          "league": "3. Division: Group 1",
+          "total": 7,
+          "correct": 5,
+          "accuracy": 71.4
+        },
+        {
+          "league": "3. Division: Group 2",
+          "total": 7,
+          "correct": 4,
+          "accuracy": 57.1
+        },
+        {
+          "league": "B-Liga Women",
+          "total": 7,
+          "correct": 6,
+          "accuracy": 85.7
+        },
+        {
+          "league": "Erovnuli Liga 2",
+          "total": 7,
+          "correct": 4,
+          "accuracy": 57.1
+        },
+        {
+          "league": "Japanese Emperor's Cup",
+          "total": 7,
+          "correct": 1,
+          "accuracy": 14.3
+        },
+        {
+          "league": "Premier League 2",
+          "total": 7,
+          "correct": 4,
+          "accuracy": 57.1
+        },
+        {
+          "league": "3. Division: Group 6",
+          "total": 6,
+          "correct": 3,
+          "accuracy": 50
+        },
+        {
+          "league": "Eredivisie",
           "total": 6,
           "correct": 6,
           "accuracy": 100
         },
         {
-          "league": "Primera B",
+          "league": "Bundesliga",
           "total": 6,
-          "correct": 4,
-          "accuracy": 66.7
+          "correct": 5,
+          "accuracy": 83.3
+        },
+        {
+          "league": "HNL",
+          "total": 6,
+          "correct": 6,
+          "accuracy": 100
+        },
+        {
+          "league": "Veikkausliiga",
+          "total": 6,
+          "correct": 2,
+          "accuracy": 33.3
         },
         {
           "league": "Queensland",
@@ -1265,40 +2628,22 @@
           "accuracy": 100
         },
         {
-          "league": "NPL Victoria",
+          "league": "NorZone Premier League",
           "total": 6,
-          "correct": 6,
-          "accuracy": 100
+          "correct": 3,
+          "accuracy": 50
         },
         {
-          "league": "NPL Western Australia",
+          "league": "FAI Cup",
           "total": 6,
-          "correct": 5,
-          "accuracy": 83.3
-        },
-        {
-          "league": "Persian Gulf Pro League",
-          "total": 6,
-          "correct": 5,
-          "accuracy": 83.3
-        },
-        {
-          "league": "JD Cymru Premier",
-          "total": 6,
-          "correct": 5,
-          "accuracy": 83.3
+          "correct": 4,
+          "accuracy": 66.7
         },
         {
           "league": "NPL South Australia",
           "total": 6,
           "correct": 4,
           "accuracy": 66.7
-        },
-        {
-          "league": "New South Wales League One",
-          "total": 6,
-          "correct": 5,
-          "accuracy": 83.3
         },
         {
           "league": "Queensland Premier League",
@@ -1313,52 +2658,124 @@
           "accuracy": 50
         },
         {
-          "league": "J3 League",
+          "league": "Primera Division: Apertura",
           "total": 6,
           "correct": 4,
           "accuracy": 66.7
         },
         {
-          "league": "Prva Liga",
-          "total": 5,
-          "correct": 3,
-          "accuracy": 60
-        },
-        {
-          "league": "Serie B",
-          "total": 5,
-          "correct": 4,
-          "accuracy": 80
-        },
-        {
-          "league": "NPL New South Wales",
-          "total": 5,
-          "correct": 3,
-          "accuracy": 60
-        },
-        {
-          "league": "Oberliga: Bayern North",
-          "total": 5,
-          "correct": 4,
-          "accuracy": 80
-        },
-        {
-          "league": "Oberliga: Hamburg",
-          "total": 5,
-          "correct": 4,
-          "accuracy": 80
-        },
-        {
-          "league": "Division 2: Vaestra Goetaland",
-          "total": 5,
+          "league": "USL Championship",
+          "total": 6,
           "correct": 5,
-          "accuracy": 100
+          "accuracy": 83.3
         },
         {
-          "league": "Superettan",
-          "total": 4,
+          "league": "Erovnuli Liga",
+          "total": 6,
+          "correct": 2,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Besta deildin",
+          "total": 6,
+          "correct": 2,
+          "accuracy": 33.3
+        },
+        {
+          "league": "1. CFL",
+          "total": 6,
+          "correct": 1,
+          "accuracy": 16.7
+        },
+        {
+          "league": "2.Division Norrland: Relegation Group",
+          "total": 6,
+          "correct": 5,
+          "accuracy": 83.3
+        },
+        {
+          "league": "Southern League: Central Divison",
+          "total": 6,
+          "correct": 2,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Liga de Ascenso: Apertura: Group B",
+          "total": 5,
+          "correct": 3,
+          "accuracy": 60
+        },
+        {
+          "league": "Women's Kansallinen Liiga: Championship",
+          "total": 5,
           "correct": 4,
-          "accuracy": 100
+          "accuracy": 80
+        },
+        {
+          "league": "Allsvenskan",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "Meistriliiga",
+          "total": 5,
+          "correct": 1,
+          "accuracy": 20
+        },
+        {
+          "league": "Oberliga: Niedersachsen",
+          "total": 5,
+          "correct": 2,
+          "accuracy": 40
+        },
+        {
+          "league": "Division Profesional: Clausura",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "Primera División: Apertura",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "K League 2",
+          "total": 5,
+          "correct": 3,
+          "accuracy": 60
+        },
+        {
+          "league": "Toto Cup Al: Placement Matches",
+          "total": 5,
+          "correct": 3,
+          "accuracy": 60
+        },
+        {
+          "league": "3. Division: Group 4",
+          "total": 5,
+          "correct": 1,
+          "accuracy": 20
+        },
+        {
+          "league": "Primera B: Clausura",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "Qatar Stars League",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
+        },
+        {
+          "league": "Prva NL",
+          "total": 5,
+          "correct": 4,
+          "accuracy": 80
         },
         {
           "league": "Champions League: Qualification",
@@ -1367,10 +2784,28 @@
           "accuracy": 25
         },
         {
-          "league": "Ykkonen",
+          "league": "Australia Cup",
           "total": 4,
-          "correct": 4,
-          "accuracy": 100
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "National League Cup: Group C",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "DBU Pokalen",
+          "total": 4,
+          "correct": 1,
+          "accuracy": 25
+        },
+        {
+          "league": "CONCACAF Central American Cup: Group B",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
         },
         {
           "league": "OFC Champions League: Group B",
@@ -1379,130 +2814,106 @@
           "accuracy": 100
         },
         {
-          "league": "NPL Capital",
+          "league": "Liga 3: Group B",
           "total": 4,
-          "correct": 2,
-          "accuracy": 50
-        },
-        {
-          "league": "Oberliga: Rheinland-Pfalz/Saar",
-          "total": 4,
-          "correct": 4,
-          "accuracy": 100
-        },
-        {
-          "league": "2.Division Norrland: Promotion Group",
-          "total": 4,
-          "correct": 2,
-          "accuracy": 50
-        },
-        {
-          "league": "Federal A: Relegation Group A",
-          "total": 4,
-          "correct": 2,
-          "accuracy": 50
-        },
-        {
-          "league": "Federal A: Relegation Group B",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "Coppa Italia: Round of 32",
-          "total": 4,
-          "correct": 2,
-          "accuracy": 50
-        },
-        {
-          "league": "Victoria Premier League One",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "2. Liga",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "2nd Division",
-          "total": 4,
-          "correct": 4,
-          "accuracy": 100
-        },
-        {
-          "league": "Regionalliga West",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "Liga de Expansion MX: Apertura",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "Cup",
-          "total": 4,
-          "correct": 3,
-          "accuracy": 75
-        },
-        {
-          "league": "National Women's Soccer League",
-          "total": 4,
-          "correct": 4,
-          "accuracy": 100
-        },
-        {
-          "league": "I Liga",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Liga Portugal 2",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Women's Liga MX: Apertura",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Liga Profesional: Clausura",
-          "total": 3,
           "correct": 1,
-          "accuracy": 33.3
+          "accuracy": 25
         },
         {
-          "league": "Featured Club Friendlies",
+          "league": "Scottish League Cup: Round of 16",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "Segunda División: Occidental",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "2. Bundesliga",
+          "total": 4,
+          "correct": 4,
+          "accuracy": 100
+        },
+        {
+          "league": "2. division: group 1",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "ASEAN Championship: Final Stage",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "1. Division",
+          "total": 4,
+          "correct": 4,
+          "accuracy": 100
+        },
+        {
+          "league": "3. Division: Group 5",
+          "total": 4,
+          "correct": 1,
+          "accuracy": 25
+        },
+        {
+          "league": "Liga 3: Group A",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "A Lyga",
+          "total": 4,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Copa Paraguay",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "Primera A: Clausura",
+          "total": 4,
+          "correct": 1,
+          "accuracy": 25
+        },
+        {
+          "league": "Virsliga",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "League of Ireland Premier Division",
+          "total": 4,
+          "correct": 3,
+          "accuracy": 75
+        },
+        {
+          "league": "K3 League",
+          "total": 4,
+          "correct": 2,
+          "accuracy": 50
+        },
+        {
+          "league": "CONCACAF Central American Cup: Group A",
           "total": 3,
           "correct": 3,
           "accuracy": 100
         },
         {
-          "league": "Vtora Liga",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "MLS Next Pro",
+          "league": "CONCACAF Central American Cup: Group C",
           "total": 3,
           "correct": 2,
           "accuracy": 66.7
-        },
-        {
-          "league": "DBU Pokalen",
-          "total": 3,
-          "correct": 1,
-          "accuracy": 33.3
         },
         {
           "league": "Northern New South Wales",
@@ -1511,232 +2922,232 @@
           "accuracy": 66.7
         },
         {
-          "league": "Federal A: Promotion Group A",
+          "league": "Superliga",
           "total": 3,
           "correct": 3,
           "accuracy": 100
         },
         {
-          "league": "Federal A: Promotion Group B",
+          "league": "Eliteserien",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Serie D: Play-off",
           "total": 3,
           "correct": 3,
           "accuracy": 100
         },
         {
-          "league": "Saudi Professional League",
+          "league": "Oberliga: Westfalen",
+          "total": 3,
+          "correct": 3,
+          "accuracy": 100
+        },
+        {
+          "league": "Liga de Ascenso: Apertura: Group A",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Liga 2: Group A",
           "total": 3,
           "correct": 2,
           "accuracy": 66.7
         },
         {
-          "league": "1. Deild",
+          "league": "Liga 2: Group B",
           "total": 3,
-          "correct": 3,
-          "accuracy": 100
+          "correct": 2,
+          "accuracy": 66.7
         },
         {
-          "league": "Danmarksserien: Group 2",
+          "league": "Segunda División: Central-Oriental",
           "total": 3,
-          "correct": 3,
-          "accuracy": 100
+          "correct": 2,
+          "accuracy": 66.7
         },
         {
-          "league": "Oberliga: Niederrhein",
+          "league": "National League Cup: Group A",
           "total": 3,
-          "correct": 3,
-          "accuracy": 100
+          "correct": 2,
+          "accuracy": 66.7
         },
         {
-          "league": "Iraq Stars League",
-          "total": 3,
-          "correct": 1,
-          "accuracy": 33.3
-        },
-        {
-          "league": "2. SNL",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "K-League 1",
-          "total": 3,
-          "correct": 3,
-          "accuracy": 100
-        },
-        {
-          "league": "Liga II",
+          "league": "Guatemala Division 2",
           "total": 3,
           "correct": 1,
           "accuracy": 33.3
         },
         {
-          "league": "Primera C",
-          "total": 2,
+          "league": "OFC Champions League Final Stage",
+          "total": 3,
           "correct": 2,
-          "accuracy": 100
+          "accuracy": 66.7
         },
         {
-          "league": "Serie C: 1st Stage",
-          "total": 2,
+          "league": "Frauen-Bundesliga",
+          "total": 3,
           "correct": 2,
-          "accuracy": 100
+          "accuracy": 66.7
         },
         {
-          "league": "Primera División",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
+          "league": "Kategoria Superiore",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
         },
         {
-          "league": "Serie A",
+          "league": "Serie C: Group C",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Challenge League",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Women's WE League",
+          "total": 3,
+          "correct": 2,
+          "accuracy": 66.7
+        },
+        {
+          "league": "Women's Eredivisie",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Ligue I",
+          "total": 3,
+          "correct": 1,
+          "accuracy": 33.3
+        },
+        {
+          "league": "Women's Africa Cup of Nations: Final Stage",
           "total": 2,
           "correct": 1,
           "accuracy": 50
         },
         {
-          "league": "Liga de Ascenso: Apertura: Group B",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "Australia Cup",
+          "league": "Copa Argentina",
           "total": 2,
           "correct": 1,
           "accuracy": 50
         },
         {
-          "league": "3rd Division",
+          "league": "Oberliga NOFV Nord 25/26",
           "total": 2,
           "correct": 2,
           "accuracy": 100
         },
         {
-          "league": "Oberliga: Baden-Wurttemberg",
+          "league": "Oberliga: NOFV-Sud",
           "total": 2,
           "correct": 2,
           "accuracy": 100
         },
         {
-          "league": "CONCACAF Central American Cup: Group A",
+          "league": "National Division",
           "total": 2,
           "correct": 2,
           "accuracy": 100
         },
         {
-          "league": "CONCACAF Central American Cup: Group B",
+          "league": "Women's 1. Division",
           "total": 2,
           "correct": 1,
           "accuracy": 50
         },
         {
-          "league": "CONCACAF Central American Cup: Group C",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "Division 2: Soedra Svealand",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "Liga 1",
+          "league": "Toto Cup Al: Knockout Stage",
           "total": 2,
           "correct": 1,
           "accuracy": 50
         },
         {
-          "league": "Primera Nacional",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "League One",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "2nd league",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "1st Division",
-          "total": 2,
-          "correct": 1,
-          "accuracy": 50
-        },
-        {
-          "league": "Oberliga: Flens",
-          "total": 2,
-          "correct": 1,
-          "accuracy": 50
-        },
-        {
-          "league": "FAI Cup",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "Malta Premier: Opening Round",
+          "league": "National League Cup: Group B",
           "total": 2,
           "correct": 0,
           "accuracy": 0
         },
         {
-          "league": "Division Intermedia",
+          "league": "National League Cup: Group D",
           "total": 2,
           "correct": 1,
           "accuracy": 50
         },
         {
-          "league": "Liga 1: Clausura",
+          "league": "Categoría Primera A",
           "total": 2,
-          "correct": 2,
-          "accuracy": 100
+          "correct": 0,
+          "accuracy": 0
         },
         {
-          "league": "Division 2: Norra Goetaland",
-          "total": 2,
-          "correct": 2,
-          "accuracy": 100
-        },
-        {
-          "league": "Pro League",
+          "league": "CONCACAF Central American Cup: Group D",
           "total": 2,
           "correct": 1,
           "accuracy": 50
         },
         {
-          "league": "Primera Division",
+          "league": "Australia FFA Cup",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Kazakhstan Cup Final Stage",
           "total": 2,
           "correct": 2,
           "accuracy": 100
         },
         {
-          "league": "Danmarksserien: Group 1",
+          "league": "Caribbean Club Championship: Group A",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Ligue 1",
           "total": 2,
           "correct": 2,
           "accuracy": 100
         },
         {
-          "league": "Esiliiga",
-          "total": 1,
-          "correct": 1,
+          "league": "Serie C: Group A",
+          "total": 2,
+          "correct": 2,
           "accuracy": 100
         },
         {
-          "league": "3. Division: Group 6",
-          "total": 1,
-          "correct": 1,
+          "league": "NPL South Australia: Play-Off",
+          "total": 2,
+          "correct": 2,
           "accuracy": 100
+        },
+        {
+          "league": "NPL Northern NSW: Qualification",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "1st League: RS",
+          "total": 2,
+          "correct": 1,
+          "accuracy": 50
+        },
+        {
+          "league": "Campionato Primavera 1",
+          "total": 2,
+          "correct": 0,
+          "accuracy": 0
         },
         {
           "league": "Durand Cup: Group F",
@@ -1746,18 +3157,6 @@
         },
         {
           "league": "Durand Cup: Group E",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "National League Cup: Group C",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "Danmarksserien: Group 3",
           "total": 1,
           "correct": 1,
           "accuracy": 100
@@ -1781,25 +3180,7 @@
           "accuracy": 0
         },
         {
-          "league": "Women's Kansallinen Liiga: Championship",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Women's Africa Cup of Nations: Final Stage",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
           "league": "UEFA Super Cup",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Copa Argentina",
           "total": 1,
           "correct": 1,
           "accuracy": 100
@@ -1811,262 +3192,147 @@
           "accuracy": 0
         },
         {
-          "league": "Eredivisie",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Primeira Liga",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Allsvenskan",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Superliga",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Eliteserien",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Bundesliga",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "HNL",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Ekstraklasa",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Parva Liga",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Veikkausliiga",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "NorZone Premier League",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "1st League: FBiH",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "National League: South",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Meistriliiga",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
-          "league": "Ykkosliiga",
-          "total": 1,
-          "correct": 0,
-          "accuracy": 0
-        },
-        {
           "league": "Women's Kansallinen Liiga: Qualification Play-offs 2026",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "3. Liga",
+          "league": "2. Division: Group 2",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "Regionalliga Südwest",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Oberliga: Niedersachsen",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Oberliga NOFV Nord 25/26",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Oberliga: NOFV-Sud",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "NB I",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "2. Deild",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Superleague",
+          "league": "Trophee des Champions",
           "total": 1,
           "correct": 0,
           "accuracy": 0
         },
         {
-          "league": "1st League",
+          "league": "Durand Cup: Knockout Stage",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "Women's Toppserien",
+          "league": "EFL Trophy North: Group B",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "Division Profesional: Clausura",
+          "league": "EFL Trophy North: Group E",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "II Liga",
+          "league": "EFL Trophy South: Group F",
           "total": 1,
           "correct": 1,
           "accuracy": 100
         },
         {
-          "league": "Liga 3: Group B",
+          "league": "EFL Trophy South: Group G",
           "total": 1,
           "correct": 0,
           "accuracy": 0
         },
         {
-          "league": "Scottish League Cup: Round of 16",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Division 1: North",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Division 1: South",
+          "league": "Caribbean Club Championship: Group B",
           "total": 1,
           "correct": 0,
           "accuracy": 0
         },
         {
-          "league": "Division 2: Soedra Goetaland",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Women's Allsvenskan",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "1st Lig",
+          "league": "EFL Trophy North: Group D",
           "total": 1,
           "correct": 0,
           "accuracy": 0
         },
         {
-          "league": "Primera División: Clausura",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Segunda División",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Segunda División: Occidental",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Challenger Pro League",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Primera División: Apertura",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "Primera Division: Apertura",
-          "total": 1,
-          "correct": 1,
-          "accuracy": 100
-        },
-        {
-          "league": "3. Division: Group 3",
+          "league": "Copa Ecuador",
           "total": 1,
           "correct": 0,
           "accuracy": 0
         },
         {
-          "league": "K League 2",
+          "league": "National 1: Group B",
           "total": 1,
           "correct": 1,
           "accuracy": 100
+        },
+        {
+          "league": "National 1: Group C",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "Serie C: Group B",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "NPL Tasmania: Play-offs",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "South Australia State League: Play-Off",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        },
+        {
+          "league": "Women's FAI Cup",
+          "total": 1,
+          "correct": 1,
+          "accuracy": 100
+        },
+        {
+          "league": "MTN 8",
+          "total": 1,
+          "correct": 0,
+          "accuracy": 0
+        }
+      ],
+      "byMarket": [
+        {
+          "market": "1X2",
+          "total": 1252,
+          "correct": 528,
+          "accuracy": 42.2,
+          "avgOdds": 2.37,
+          "avgOddsWinners": 2.06,
+          "avgOddsLosers": 2.64,
+          "roiBets": 26,
+          "flatRoi": -5.04
+        },
+        {
+          "market": "DC",
+          "total": 1047,
+          "correct": 718,
+          "accuracy": 68.6,
+          "avgOdds": 1.27,
+          "avgOddsWinners": 1.27,
+          "avgOddsLosers": 1.27,
+          "roiBets": 29,
+          "flatRoi": 1.04
+        },
+        {
+          "market": "OU",
+          "total": 446,
+          "correct": 425,
+          "accuracy": 95.3,
+          "avgOdds": null,
+          "avgOddsWinners": null,
+          "avgOddsLosers": null,
+          "roiBets": 0,
+          "flatRoi": null
         }
       ],
       "excludedLabels": []
@@ -2074,9 +3340,9 @@
   },
   "cumulative": {
     "meta": {
-      "generatedAt": "2026-08-15T13:18:56.890Z",
+      "generatedAt": "2026-08-24T02:27:03.451Z",
       "from": null,
-      "to": 1786799128980,
+      "to": 1787538422893,
       "marketFilter": "all",
       "sources": {
         "matches": "FT|finished|Finished|Ended",
@@ -2085,68 +3351,246 @@
     },
     "empty": false,
     "summary": {
-      "total": 570,
-      "evaluated": 570,
-      "correct": 437,
+      "total": 2745,
+      "evaluated": 2745,
+      "correct": 1671,
       "pushCount": 0,
-      "finishedCount": 1041,
+      "finishedCount": 3239,
       "noPredictionCount": 399,
-      "pendingCount": 72,
-      "accuracy": 0.7666666666666667,
-      "accuracyPct": "76.7%",
-      "logLoss": 112.4577,
-      "brierScore": 681.368
+      "pendingCount": 95,
+      "accuracy": 0.6087431693989072,
+      "accuracyPct": "60.9%",
+      "logLoss": 1.117,
+      "brierScore": 0.6773,
+      "roiBets": 55,
+      "roiExcluded": 2690,
+      "staked": 55,
+      "netProfit": -1.01,
+      "roi": -1.83,
+      "avgOddsWinners": 1.54,
+      "avgOddsLosers": 2.23,
+      "oddsMissingByMarket": {
+        "DC": 1018,
+        "1X2": 1226,
+        "OU": 446
+      },
+      "roiEvFiltered": {
+        "bets": 13,
+        "staked": 13,
+        "netProfit": -0.99,
+        "roi": -7.62
+      },
+      "kellyBets": 0,
+      "kellyStaked": 0,
+      "kellyNetProfit": 0,
+      "kellyRoi": null
     },
     "calibrationCurve": [
       {
         "band": "30-40",
-        "count": 50,
-        "correct": 48,
-        "accuracy": 96
+        "count": 135,
+        "correct": 124,
+        "accuracy": 91.9
       },
       {
         "band": "40-50",
-        "count": 110,
-        "correct": 103,
-        "accuracy": 93.6
+        "count": 903,
+        "correct": 541,
+        "accuracy": 59.9
       },
       {
         "band": "50-60",
-        "count": 19,
-        "correct": 12,
-        "accuracy": 63.2
+        "count": 325,
+        "correct": 139,
+        "accuracy": 42.8
       },
       {
         "band": "60-70",
-        "count": 16,
-        "correct": 7,
-        "accuracy": 43.8
+        "count": 198,
+        "correct": 89,
+        "accuracy": 44.9
       },
       {
         "band": "70-80",
-        "count": 250,
-        "correct": 185,
-        "accuracy": 74
+        "count": 836,
+        "correct": 558,
+        "accuracy": 66.7
       },
       {
         "band": "80-90",
-        "count": 113,
-        "correct": 76,
-        "accuracy": 67.3
+        "count": 322,
+        "correct": 207,
+        "accuracy": 64.3
       },
       {
         "band": "90-100",
-        "count": 12,
-        "correct": 6,
+        "count": 26,
+        "correct": 13,
         "accuracy": 50
       }
     ],
     "byLeague": [
       {
+        "league": "Premier League",
+        "total": 76,
+        "correct": 45,
+        "accuracy": 59.2
+      },
+      {
         "league": "Qualification",
-        "total": 27,
+        "total": 70,
+        "correct": 35,
+        "accuracy": 50
+      },
+      {
+        "league": "Championship",
+        "total": 50,
+        "correct": 31,
+        "accuracy": 62
+      },
+      {
+        "league": "NM Cup: Round 1",
+        "total": 48,
+        "correct": 27,
+        "accuracy": 56.3
+      },
+      {
+        "league": "Northern Premier League",
+        "total": 44,
+        "correct": 30,
+        "accuracy": 68.2
+      },
+      {
+        "league": "National League: North",
+        "total": 36,
+        "correct": 22,
+        "accuracy": 61.1
+      },
+      {
+        "league": "League 2",
+        "total": 34,
+        "correct": 17,
+        "accuracy": 50
+      },
+      {
+        "league": "Southern League Premier: South",
+        "total": 33,
+        "correct": 21,
+        "accuracy": 63.6
+      },
+      {
+        "league": "Southern League Premier: Central",
+        "total": 32,
+        "correct": 22,
+        "accuracy": 68.8
+      },
+      {
+        "league": "Super League",
+        "total": 31,
+        "correct": 17,
+        "accuracy": 54.8
+      },
+      {
+        "league": "National League: South",
+        "total": 31,
+        "correct": 16,
+        "accuracy": 51.6
+      },
+      {
+        "league": "Cup",
+        "total": 31,
+        "correct": 13,
+        "accuracy": 41.9
+      },
+      {
+        "league": "Serie B",
+        "total": 30,
+        "correct": 13,
+        "accuracy": 43.3
+      },
+      {
+        "league": "League 1",
+        "total": 30,
+        "correct": 15,
+        "accuracy": 50
+      },
+      {
+        "league": "Isthmian League Premier Division",
+        "total": 29,
+        "correct": 18,
+        "accuracy": 62.1
+      },
+      {
+        "league": "Premiership",
+        "total": 26,
+        "correct": 18,
+        "accuracy": 69.2
+      },
+      {
+        "league": "Club Friendlies 2026",
+        "total": 26,
         "correct": 20,
-        "accuracy": 74.1
+        "accuracy": 76.9
+      },
+      {
+        "league": "Oberliga: Bayern North",
+        "total": 26,
+        "correct": 16,
+        "accuracy": 61.5
+      },
+      {
+        "league": "Prva Liga",
+        "total": 25,
+        "correct": 10,
+        "accuracy": 40
+      },
+      {
+        "league": "2. Liga",
+        "total": 25,
+        "correct": 11,
+        "accuracy": 44
+      },
+      {
+        "league": "National League",
+        "total": 25,
+        "correct": 15,
+        "accuracy": 60
+      },
+      {
+        "league": "Oberliga: Bayern South",
+        "total": 24,
+        "correct": 10,
+        "accuracy": 41.7
+      },
+      {
+        "league": "MLS",
+        "total": 24,
+        "correct": 10,
+        "accuracy": 41.7
+      },
+      {
+        "league": "Primera Nacional",
+        "total": 22,
+        "correct": 17,
+        "accuracy": 77.3
+      },
+      {
+        "league": "Emperor's Cup",
+        "total": 22,
+        "correct": 12,
+        "accuracy": 54.5
+      },
+      {
+        "league": "Round of 16",
+        "total": 21,
+        "correct": 10,
+        "accuracy": 47.6
+      },
+      {
+        "league": "Oberliga: Hessen",
+        "total": 21,
+        "correct": 14,
+        "accuracy": 66.7
       },
       {
         "league": "Challenge Cup",
@@ -2155,118 +3599,694 @@
         "accuracy": 65
       },
       {
-        "league": "Northern Premier League",
+        "league": "Iraq Stars League",
+        "total": 19,
+        "correct": 11,
+        "accuracy": 57.9
+      },
+      {
+        "league": "Eerste Divisie",
+        "total": 18,
+        "correct": 14,
+        "accuracy": 77.8
+      },
+      {
+        "league": "Serie A",
+        "total": 18,
+        "correct": 12,
+        "accuracy": 66.7
+      },
+      {
+        "league": "Ligue 3",
+        "total": 18,
+        "correct": 11,
+        "accuracy": 61.1
+      },
+      {
+        "league": "Persian Gulf Pro League",
+        "total": 18,
+        "correct": 10,
+        "accuracy": 55.6
+      },
+      {
+        "league": "J2 League",
+        "total": 18,
+        "correct": 13,
+        "accuracy": 72.2
+      },
+      {
+        "league": "Liga Profesional: Clausura",
+        "total": 17,
+        "correct": 10,
+        "accuracy": 58.8
+      },
+      {
+        "league": "J1 League",
+        "total": 17,
+        "correct": 10,
+        "accuracy": 58.8
+      },
+      {
+        "league": "Regionalliga Bayern",
+        "total": 17,
+        "correct": 14,
+        "accuracy": 82.4
+      },
+      {
+        "league": "Tweede Divisie",
+        "total": 17,
+        "correct": 11,
+        "accuracy": 64.7
+      },
+      {
+        "league": "Primera C",
+        "total": 16,
+        "correct": 10,
+        "accuracy": 62.5
+      },
+      {
+        "league": "Oberliga: Rheinland-Pfalz/Saar",
+        "total": 16,
+        "correct": 11,
+        "accuracy": 68.8
+      },
+      {
+        "league": "Ligue 2",
+        "total": 16,
+        "correct": 9,
+        "accuracy": 56.3
+      },
+      {
+        "league": "JD Cymru Premier",
+        "total": 16,
+        "correct": 12,
+        "accuracy": 75
+      },
+      {
+        "league": "Super Liga",
+        "total": 16,
+        "correct": 8,
+        "accuracy": 50
+      },
+      {
+        "league": "Promotion League",
+        "total": 16,
+        "correct": 9,
+        "accuracy": 56.3
+      },
+      {
+        "league": "King's Cup",
+        "total": 16,
+        "correct": 10,
+        "accuracy": 62.5
+      },
+      {
+        "league": "Svenska Cupen: Qualification",
+        "total": 16,
+        "correct": 7,
+        "accuracy": 43.8
+      },
+      {
+        "league": "1st League",
+        "total": 15,
+        "correct": 10,
+        "accuracy": 66.7
+      },
+      {
+        "league": "Isthmian League: North Division",
+        "total": 15,
+        "correct": 8,
+        "accuracy": 53.3
+      },
+      {
+        "league": "Northern Premier League: West Division",
+        "total": 15,
+        "correct": 6,
+        "accuracy": 40
+      },
+      {
+        "league": "Premier League U18",
+        "total": 15,
+        "correct": 4,
+        "accuracy": 26.7
+      },
+      {
+        "league": "Oberliga: Baden-Wurttemberg",
+        "total": 14,
+        "correct": 8,
+        "accuracy": 57.1
+      },
+      {
+        "league": "Regionalliga Nord",
+        "total": 14,
+        "correct": 12,
+        "accuracy": 85.7
+      },
+      {
+        "league": "Oberliga: Bremen",
+        "total": 14,
+        "correct": 10,
+        "accuracy": 71.4
+      },
+      {
+        "league": "Primera B",
+        "total": 14,
+        "correct": 6,
+        "accuracy": 42.9
+      },
+      {
+        "league": "1. Deild",
+        "total": 14,
+        "correct": 9,
+        "accuracy": 64.3
+      },
+      {
+        "league": "Regionalliga Südwest",
+        "total": 14,
+        "correct": 6,
+        "accuracy": 42.9
+      },
+      {
+        "league": "Regionalliga West",
+        "total": 14,
+        "correct": 7,
+        "accuracy": 50
+      },
+      {
+        "league": "J3 League",
+        "total": 14,
+        "correct": 5,
+        "accuracy": 35.7
+      },
+      {
+        "league": "Primera B Metropolitana",
+        "total": 14,
+        "correct": 8,
+        "accuracy": 57.1
+      },
+      {
+        "league": "MLS Next Pro",
+        "total": 13,
+        "correct": 7,
+        "accuracy": 53.8
+      },
+      {
+        "league": "3rd Division",
+        "total": 13,
+        "correct": 10,
+        "accuracy": 76.9
+      },
+      {
+        "league": "Coppa Italia: Round of 32",
+        "total": 13,
+        "correct": 8,
+        "accuracy": 61.5
+      },
+      {
+        "league": "2nd league",
+        "total": 13,
+        "correct": 10,
+        "accuracy": 76.9
+      },
+      {
+        "league": "1st Division",
+        "total": 13,
+        "correct": 9,
+        "accuracy": 69.2
+      },
+      {
+        "league": "2. Deild",
+        "total": 13,
+        "correct": 8,
+        "accuracy": 61.5
+      },
+      {
+        "league": "2. SNL",
+        "total": 13,
+        "correct": 10,
+        "accuracy": 76.9
+      },
+      {
+        "league": "Division 2: Norra Goetaland",
+        "total": 13,
+        "correct": 9,
+        "accuracy": 69.2
+      },
+      {
+        "league": "New South Wales League One",
+        "total": 13,
+        "correct": 9,
+        "accuracy": 69.2
+      },
+      {
+        "league": "NB II",
+        "total": 13,
+        "correct": 11,
+        "accuracy": 84.6
+      },
+      {
+        "league": "I Liga",
+        "total": 12,
+        "correct": 7,
+        "accuracy": 58.3
+      },
+      {
+        "league": "Serie C: 1st Stage",
+        "total": 12,
+        "correct": 7,
+        "accuracy": 58.3
+      },
+      {
+        "league": "Vtora Liga",
+        "total": 12,
+        "correct": 9,
+        "accuracy": 75
+      },
+      {
+        "league": "Ykkonen",
+        "total": 12,
+        "correct": 7,
+        "accuracy": 58.3
+      },
+      {
+        "league": "Saudi Professional League",
+        "total": 12,
+        "correct": 8,
+        "accuracy": 66.7
+      },
+      {
+        "league": "NPL Victoria",
         "total": 12,
         "correct": 10,
         "accuracy": 83.3
       },
       {
-        "league": "Southern League Premier: South",
+        "league": "NPL Western Australia",
+        "total": 12,
+        "correct": 8,
+        "accuracy": 66.7
+      },
+      {
+        "league": "Oberliga: Flens",
+        "total": 12,
+        "correct": 5,
+        "accuracy": 41.7
+      },
+      {
+        "league": "Division 2: Soedra Goetaland",
+        "total": 12,
+        "correct": 7,
+        "accuracy": 58.3
+      },
+      {
+        "league": "Liga II",
+        "total": 12,
+        "correct": 4,
+        "accuracy": 33.3
+      },
+      {
+        "league": "Women's Elitettan",
+        "total": 12,
+        "correct": 7,
+        "accuracy": 58.3
+      },
+      {
+        "league": "Esiliiga",
         "total": 11,
         "correct": 9,
         "accuracy": 81.8
       },
       {
-        "league": "Southern League Premier: Central",
-        "total": 10,
-        "correct": 9,
-        "accuracy": 90
+        "league": "Women's Liga MX: Apertura",
+        "total": 11,
+        "correct": 8,
+        "accuracy": 72.7
       },
       {
-        "league": "Isthmian League Premier Division",
+        "league": "Featured Club Friendlies",
+        "total": 11,
+        "correct": 9,
+        "accuracy": 81.8
+      },
+      {
+        "league": "2.Division Norrland: Promotion Group",
+        "total": 11,
+        "correct": 8,
+        "accuracy": 72.7
+      },
+      {
+        "league": "2nd Division",
+        "total": 11,
+        "correct": 11,
+        "accuracy": 100
+      },
+      {
+        "league": "Division 1: South",
+        "total": 11,
+        "correct": 6,
+        "accuracy": 54.5
+      },
+      {
+        "league": "Division 2: Vaestra Goetaland",
+        "total": 11,
+        "correct": 7,
+        "accuracy": 63.6
+      },
+      {
+        "league": "1st Lig",
+        "total": 11,
+        "correct": 7,
+        "accuracy": 63.6
+      },
+      {
+        "league": "LaLiga 2",
+        "total": 11,
+        "correct": 6,
+        "accuracy": 54.5
+      },
+      {
+        "league": "Liga MX: Apertura",
+        "total": 11,
+        "correct": 4,
+        "accuracy": 36.4
+      },
+      {
+        "league": "Liga Nacional: Apertura",
+        "total": 11,
+        "correct": 8,
+        "accuracy": 72.7
+      },
+      {
+        "league": "Isthmian League: South Central Division",
+        "total": 11,
+        "correct": 6,
+        "accuracy": 54.5
+      },
+      {
+        "league": "Isthmian League: South East Division",
+        "total": 11,
+        "correct": 6,
+        "accuracy": 54.5
+      },
+      {
+        "league": "Liga Portugal 2",
         "total": 10,
         "correct": 7,
         "accuracy": 70
       },
       {
-        "league": "Round of 16",
+        "league": "Liga 1",
         "total": 10,
         "correct": 6,
         "accuracy": 60
       },
       {
-        "league": "J1 League",
+        "league": "1st League: FBiH",
+        "total": 10,
+        "correct": 3,
+        "accuracy": 30
+      },
+      {
+        "league": "League One",
+        "total": 10,
+        "correct": 7,
+        "accuracy": 70
+      },
+      {
+        "league": "Danmarksserien: Group 2",
+        "total": 10,
+        "correct": 7,
+        "accuracy": 70
+      },
+      {
+        "league": "Oberliga: Hamburg",
+        "total": 10,
+        "correct": 6,
+        "accuracy": 60
+      },
+      {
+        "league": "II Liga",
+        "total": 10,
+        "correct": 5,
+        "accuracy": 50
+      },
+      {
+        "league": "Women's Allsvenskan",
         "total": 10,
         "correct": 8,
         "accuracy": 80
       },
       {
-        "league": "Premier League",
+        "league": "Pro League",
         "total": 10,
-        "correct": 6,
-        "accuracy": 60
+        "correct": 5,
+        "accuracy": 50
       },
       {
-        "league": "Premiership",
+        "league": "Primera División: Clausura",
+        "total": 10,
+        "correct": 9,
+        "accuracy": 90
+      },
+      {
+        "league": "Primera Division",
+        "total": 10,
+        "correct": 9,
+        "accuracy": 90
+      },
+      {
+        "league": "National Women's Soccer League",
+        "total": 10,
+        "correct": 7,
+        "accuracy": 70
+      },
+      {
+        "league": "Danmarksserien: Group 1",
+        "total": 10,
+        "correct": 8,
+        "accuracy": 80
+      },
+      {
+        "league": "Northern Premier League: East Division",
+        "total": 10,
+        "correct": 4,
+        "accuracy": 40
+      },
+      {
+        "league": "2. Division A",
+        "total": 10,
+        "correct": 4,
+        "accuracy": 40
+      },
+      {
+        "league": "DFB Cup: Round 1",
+        "total": 10,
+        "correct": 2,
+        "accuracy": 20
+      },
+      {
+        "league": "Superettan",
+        "total": 9,
+        "correct": 8,
+        "accuracy": 88.9
+      },
+      {
+        "league": "Danmarksserien: Group 3",
+        "total": 9,
+        "correct": 7,
+        "accuracy": 77.8
+      },
+      {
+        "league": "Regionalliga Nordost",
+        "total": 9,
+        "correct": 8,
+        "accuracy": 88.9
+      },
+      {
+        "league": "NPL Capital",
+        "total": 9,
+        "correct": 6,
+        "accuracy": 66.7
+      },
+      {
+        "league": "Division 2: Soedra Svealand",
+        "total": 9,
+        "correct": 7,
+        "accuracy": 77.8
+      },
+      {
+        "league": "NPL New South Wales",
         "total": 9,
         "correct": 5,
         "accuracy": 55.6
       },
       {
-        "league": "Championship",
+        "league": "Victoria Premier League One",
         "total": 9,
-        "correct": 6,
-        "accuracy": 66.7
+        "correct": 7,
+        "accuracy": 77.8
       },
       {
-        "league": "Oberliga: Hessen",
+        "league": "Women's Toppserien",
         "total": 9,
-        "correct": 6,
-        "accuracy": 66.7
+        "correct": 9,
+        "accuracy": 100
       },
       {
-        "league": "Ligue 2",
+        "league": "Liga 1: Clausura",
         "total": 9,
-        "correct": 6,
-        "accuracy": 66.7
+        "correct": 5,
+        "accuracy": 55.6
       },
       {
-        "league": "Ligue 3",
+        "league": "Challenger Pro League",
+        "total": 9,
+        "correct": 7,
+        "accuracy": 77.8
+      },
+      {
+        "league": "Division 2: Norra Svealand",
+        "total": 9,
+        "correct": 5,
+        "accuracy": 55.6
+      },
+      {
+        "league": "Süper Lig",
         "total": 9,
         "correct": 8,
         "accuracy": 88.9
       },
       {
-        "league": "Regionalliga Bayern",
+        "league": "USL League One",
         "total": 9,
-        "correct": 8,
-        "accuracy": 88.9
+        "correct": 7,
+        "accuracy": 77.8
       },
       {
-        "league": "Regionalliga Nord",
+        "league": "Primera Division: Clausura",
+        "total": 9,
+        "correct": 5,
+        "accuracy": 55.6
+      },
+      {
+        "league": "Greece Cup: Preliminary Round",
+        "total": 9,
+        "correct": 5,
+        "accuracy": 55.6
+      },
+      {
+        "league": "Primera División",
         "total": 8,
         "correct": 6,
         "accuracy": 75
       },
       {
-        "league": "Oberliga: Bremen",
+        "league": "Federal A: Promotion Group B",
+        "total": 8,
+        "correct": 4,
+        "accuracy": 50
+      },
+      {
+        "league": "Federal A: Relegation Group B",
+        "total": 8,
+        "correct": 4,
+        "accuracy": 50
+      },
+      {
+        "league": "Primeira Liga",
+        "total": 8,
+        "correct": 4,
+        "accuracy": 50
+      },
+      {
+        "league": "Ekstraklasa",
         "total": 8,
         "correct": 5,
         "accuracy": 62.5
       },
       {
-        "league": "Oberliga: Bayern South",
+        "league": "Ykkosliiga",
+        "total": 8,
+        "correct": 7,
+        "accuracy": 87.5
+      },
+      {
+        "league": "3. Liga",
+        "total": 8,
+        "correct": 7,
+        "accuracy": 87.5
+      },
+      {
+        "league": "NB I",
+        "total": 8,
+        "correct": 5,
+        "accuracy": 62.5
+      },
+      {
+        "league": "Malta Premier: Opening Round",
+        "total": 8,
+        "correct": 4,
+        "accuracy": 50
+      },
+      {
+        "league": "Liga de Expansion MX: Apertura",
+        "total": 8,
+        "correct": 5,
+        "accuracy": 62.5
+      },
+      {
+        "league": "Division Intermedia",
+        "total": 8,
+        "correct": 2,
+        "accuracy": 25
+      },
+      {
+        "league": "Segunda División",
+        "total": 8,
+        "correct": 7,
+        "accuracy": 87.5
+      },
+      {
+        "league": "3. Division: Group 3",
+        "total": 8,
+        "correct": 3,
+        "accuracy": 37.5
+      },
+      {
+        "league": "A-Liga Women",
+        "total": 8,
+        "correct": 8,
+        "accuracy": 100
+      },
+      {
+        "league": "LaLiga",
         "total": 8,
         "correct": 6,
         "accuracy": 75
       },
       {
-        "league": "J2 League",
+        "league": "Belgian Pro League",
         "total": 8,
         "correct": 6,
         "accuracy": 75
       },
       {
-        "league": "Eerste Divisie",
-        "total": 7,
-        "correct": 6,
-        "accuracy": 85.7
+        "league": "Women's Premier Division",
+        "total": 8,
+        "correct": 8,
+        "accuracy": 100
       },
       {
-        "league": "Super League",
-        "total": 7,
-        "correct": 6,
-        "accuracy": 85.7
+        "league": "Northern Premier League: Midlands Division",
+        "total": 8,
+        "correct": 5,
+        "accuracy": 62.5
+      },
+      {
+        "league": "Liga Leumit",
+        "total": 8,
+        "correct": 4,
+        "accuracy": 50
       },
       {
         "league": "Leagues Cup",
@@ -2275,22 +4295,118 @@
         "accuracy": 71.4
       },
       {
-        "league": "Club Friendlies 2026",
+        "league": "Federal A: Promotion Group A",
+        "total": 7,
+        "correct": 6,
+        "accuracy": 85.7
+      },
+      {
+        "league": "Federal A: Relegation Group A",
+        "total": 7,
+        "correct": 2,
+        "accuracy": 28.6
+      },
+      {
+        "league": "Parva Liga",
         "total": 7,
         "correct": 5,
         "accuracy": 71.4
       },
       {
-        "league": "Regionalliga Nordost",
+        "league": "Oberliga: Niederrhein",
+        "total": 7,
+        "correct": 5,
+        "accuracy": 71.4
+      },
+      {
+        "league": "Superleague",
+        "total": 7,
+        "correct": 4,
+        "accuracy": 57.1
+      },
+      {
+        "league": "Division 1: North",
+        "total": 7,
+        "correct": 7,
+        "accuracy": 100
+      },
+      {
+        "league": "K-League 1",
+        "total": 7,
+        "correct": 5,
+        "accuracy": 71.4
+      },
+      {
+        "league": "Danmarksserien: Group 4",
+        "total": 7,
+        "correct": 4,
+        "accuracy": 57.1
+      },
+      {
+        "league": "3. Division: Group 1",
+        "total": 7,
+        "correct": 5,
+        "accuracy": 71.4
+      },
+      {
+        "league": "3. Division: Group 2",
+        "total": 7,
+        "correct": 4,
+        "accuracy": 57.1
+      },
+      {
+        "league": "B-Liga Women",
+        "total": 7,
+        "correct": 6,
+        "accuracy": 85.7
+      },
+      {
+        "league": "Erovnuli Liga 2",
+        "total": 7,
+        "correct": 4,
+        "accuracy": 57.1
+      },
+      {
+        "league": "Japanese Emperor's Cup",
+        "total": 7,
+        "correct": 1,
+        "accuracy": 14.3
+      },
+      {
+        "league": "Premier League 2",
+        "total": 7,
+        "correct": 4,
+        "accuracy": 57.1
+      },
+      {
+        "league": "3. Division: Group 6",
+        "total": 6,
+        "correct": 3,
+        "accuracy": 50
+      },
+      {
+        "league": "Eredivisie",
         "total": 6,
         "correct": 6,
         "accuracy": 100
       },
       {
-        "league": "Primera B",
+        "league": "Bundesliga",
         "total": 6,
-        "correct": 4,
-        "accuracy": 66.7
+        "correct": 5,
+        "accuracy": 83.3
+      },
+      {
+        "league": "HNL",
+        "total": 6,
+        "correct": 6,
+        "accuracy": 100
+      },
+      {
+        "league": "Veikkausliiga",
+        "total": 6,
+        "correct": 2,
+        "accuracy": 33.3
       },
       {
         "league": "Queensland",
@@ -2299,40 +4415,22 @@
         "accuracy": 100
       },
       {
-        "league": "NPL Victoria",
+        "league": "NorZone Premier League",
         "total": 6,
-        "correct": 6,
-        "accuracy": 100
+        "correct": 3,
+        "accuracy": 50
       },
       {
-        "league": "NPL Western Australia",
+        "league": "FAI Cup",
         "total": 6,
-        "correct": 5,
-        "accuracy": 83.3
-      },
-      {
-        "league": "Persian Gulf Pro League",
-        "total": 6,
-        "correct": 5,
-        "accuracy": 83.3
-      },
-      {
-        "league": "JD Cymru Premier",
-        "total": 6,
-        "correct": 5,
-        "accuracy": 83.3
+        "correct": 4,
+        "accuracy": 66.7
       },
       {
         "league": "NPL South Australia",
         "total": 6,
         "correct": 4,
         "accuracy": 66.7
-      },
-      {
-        "league": "New South Wales League One",
-        "total": 6,
-        "correct": 5,
-        "accuracy": 83.3
       },
       {
         "league": "Queensland Premier League",
@@ -2347,52 +4445,124 @@
         "accuracy": 50
       },
       {
-        "league": "J3 League",
+        "league": "Primera Division: Apertura",
         "total": 6,
         "correct": 4,
         "accuracy": 66.7
       },
       {
-        "league": "Prva Liga",
-        "total": 5,
-        "correct": 3,
-        "accuracy": 60
-      },
-      {
-        "league": "Serie B",
-        "total": 5,
-        "correct": 4,
-        "accuracy": 80
-      },
-      {
-        "league": "NPL New South Wales",
-        "total": 5,
-        "correct": 3,
-        "accuracy": 60
-      },
-      {
-        "league": "Oberliga: Bayern North",
-        "total": 5,
-        "correct": 4,
-        "accuracy": 80
-      },
-      {
-        "league": "Oberliga: Hamburg",
-        "total": 5,
-        "correct": 4,
-        "accuracy": 80
-      },
-      {
-        "league": "Division 2: Vaestra Goetaland",
-        "total": 5,
+        "league": "USL Championship",
+        "total": 6,
         "correct": 5,
-        "accuracy": 100
+        "accuracy": 83.3
       },
       {
-        "league": "Superettan",
-        "total": 4,
+        "league": "Erovnuli Liga",
+        "total": 6,
+        "correct": 2,
+        "accuracy": 33.3
+      },
+      {
+        "league": "Besta deildin",
+        "total": 6,
+        "correct": 2,
+        "accuracy": 33.3
+      },
+      {
+        "league": "1. CFL",
+        "total": 6,
+        "correct": 1,
+        "accuracy": 16.7
+      },
+      {
+        "league": "2.Division Norrland: Relegation Group",
+        "total": 6,
+        "correct": 5,
+        "accuracy": 83.3
+      },
+      {
+        "league": "Southern League: Central Divison",
+        "total": 6,
+        "correct": 2,
+        "accuracy": 33.3
+      },
+      {
+        "league": "Liga de Ascenso: Apertura: Group B",
+        "total": 5,
+        "correct": 3,
+        "accuracy": 60
+      },
+      {
+        "league": "Women's Kansallinen Liiga: Championship",
+        "total": 5,
         "correct": 4,
-        "accuracy": 100
+        "accuracy": 80
+      },
+      {
+        "league": "Allsvenskan",
+        "total": 5,
+        "correct": 4,
+        "accuracy": 80
+      },
+      {
+        "league": "Meistriliiga",
+        "total": 5,
+        "correct": 1,
+        "accuracy": 20
+      },
+      {
+        "league": "Oberliga: Niedersachsen",
+        "total": 5,
+        "correct": 2,
+        "accuracy": 40
+      },
+      {
+        "league": "Division Profesional: Clausura",
+        "total": 5,
+        "correct": 4,
+        "accuracy": 80
+      },
+      {
+        "league": "Primera División: Apertura",
+        "total": 5,
+        "correct": 4,
+        "accuracy": 80
+      },
+      {
+        "league": "K League 2",
+        "total": 5,
+        "correct": 3,
+        "accuracy": 60
+      },
+      {
+        "league": "Toto Cup Al: Placement Matches",
+        "total": 5,
+        "correct": 3,
+        "accuracy": 60
+      },
+      {
+        "league": "3. Division: Group 4",
+        "total": 5,
+        "correct": 1,
+        "accuracy": 20
+      },
+      {
+        "league": "Primera B: Clausura",
+        "total": 5,
+        "correct": 4,
+        "accuracy": 80
+      },
+      {
+        "league": "Qatar Stars League",
+        "total": 5,
+        "correct": 4,
+        "accuracy": 80
+      },
+      {
+        "league": "Prva NL",
+        "total": 5,
+        "correct": 4,
+        "accuracy": 80
       },
       {
         "league": "Champions League: Qualification",
@@ -2401,10 +4571,28 @@
         "accuracy": 25
       },
       {
-        "league": "Ykkonen",
+        "league": "Australia Cup",
         "total": 4,
-        "correct": 4,
-        "accuracy": 100
+        "correct": 2,
+        "accuracy": 50
+      },
+      {
+        "league": "National League Cup: Group C",
+        "total": 4,
+        "correct": 2,
+        "accuracy": 50
+      },
+      {
+        "league": "DBU Pokalen",
+        "total": 4,
+        "correct": 1,
+        "accuracy": 25
+      },
+      {
+        "league": "CONCACAF Central American Cup: Group B",
+        "total": 4,
+        "correct": 2,
+        "accuracy": 50
       },
       {
         "league": "OFC Champions League: Group B",
@@ -2413,130 +4601,106 @@
         "accuracy": 100
       },
       {
-        "league": "NPL Capital",
+        "league": "Liga 3: Group B",
         "total": 4,
-        "correct": 2,
-        "accuracy": 50
-      },
-      {
-        "league": "Oberliga: Rheinland-Pfalz/Saar",
-        "total": 4,
-        "correct": 4,
-        "accuracy": 100
-      },
-      {
-        "league": "2.Division Norrland: Promotion Group",
-        "total": 4,
-        "correct": 2,
-        "accuracy": 50
-      },
-      {
-        "league": "Federal A: Relegation Group A",
-        "total": 4,
-        "correct": 2,
-        "accuracy": 50
-      },
-      {
-        "league": "Federal A: Relegation Group B",
-        "total": 4,
-        "correct": 3,
-        "accuracy": 75
-      },
-      {
-        "league": "Coppa Italia: Round of 32",
-        "total": 4,
-        "correct": 2,
-        "accuracy": 50
-      },
-      {
-        "league": "Victoria Premier League One",
-        "total": 4,
-        "correct": 3,
-        "accuracy": 75
-      },
-      {
-        "league": "2. Liga",
-        "total": 4,
-        "correct": 3,
-        "accuracy": 75
-      },
-      {
-        "league": "2nd Division",
-        "total": 4,
-        "correct": 4,
-        "accuracy": 100
-      },
-      {
-        "league": "Regionalliga West",
-        "total": 4,
-        "correct": 3,
-        "accuracy": 75
-      },
-      {
-        "league": "Liga de Expansion MX: Apertura",
-        "total": 4,
-        "correct": 3,
-        "accuracy": 75
-      },
-      {
-        "league": "Cup",
-        "total": 4,
-        "correct": 3,
-        "accuracy": 75
-      },
-      {
-        "league": "National Women's Soccer League",
-        "total": 4,
-        "correct": 4,
-        "accuracy": 100
-      },
-      {
-        "league": "I Liga",
-        "total": 3,
-        "correct": 3,
-        "accuracy": 100
-      },
-      {
-        "league": "Liga Portugal 2",
-        "total": 3,
-        "correct": 3,
-        "accuracy": 100
-      },
-      {
-        "league": "Women's Liga MX: Apertura",
-        "total": 3,
-        "correct": 3,
-        "accuracy": 100
-      },
-      {
-        "league": "Liga Profesional: Clausura",
-        "total": 3,
         "correct": 1,
-        "accuracy": 33.3
+        "accuracy": 25
       },
       {
-        "league": "Featured Club Friendlies",
+        "league": "Scottish League Cup: Round of 16",
+        "total": 4,
+        "correct": 3,
+        "accuracy": 75
+      },
+      {
+        "league": "Segunda División: Occidental",
+        "total": 4,
+        "correct": 3,
+        "accuracy": 75
+      },
+      {
+        "league": "2. Bundesliga",
+        "total": 4,
+        "correct": 4,
+        "accuracy": 100
+      },
+      {
+        "league": "2. division: group 1",
+        "total": 4,
+        "correct": 3,
+        "accuracy": 75
+      },
+      {
+        "league": "ASEAN Championship: Final Stage",
+        "total": 4,
+        "correct": 3,
+        "accuracy": 75
+      },
+      {
+        "league": "1. Division",
+        "total": 4,
+        "correct": 4,
+        "accuracy": 100
+      },
+      {
+        "league": "3. Division: Group 5",
+        "total": 4,
+        "correct": 1,
+        "accuracy": 25
+      },
+      {
+        "league": "Liga 3: Group A",
+        "total": 4,
+        "correct": 2,
+        "accuracy": 50
+      },
+      {
+        "league": "A Lyga",
+        "total": 4,
+        "correct": 0,
+        "accuracy": 0
+      },
+      {
+        "league": "Copa Paraguay",
+        "total": 4,
+        "correct": 2,
+        "accuracy": 50
+      },
+      {
+        "league": "Primera A: Clausura",
+        "total": 4,
+        "correct": 1,
+        "accuracy": 25
+      },
+      {
+        "league": "Virsliga",
+        "total": 4,
+        "correct": 3,
+        "accuracy": 75
+      },
+      {
+        "league": "League of Ireland Premier Division",
+        "total": 4,
+        "correct": 3,
+        "accuracy": 75
+      },
+      {
+        "league": "K3 League",
+        "total": 4,
+        "correct": 2,
+        "accuracy": 50
+      },
+      {
+        "league": "CONCACAF Central American Cup: Group A",
         "total": 3,
         "correct": 3,
         "accuracy": 100
       },
       {
-        "league": "Vtora Liga",
-        "total": 3,
-        "correct": 3,
-        "accuracy": 100
-      },
-      {
-        "league": "MLS Next Pro",
+        "league": "CONCACAF Central American Cup: Group C",
         "total": 3,
         "correct": 2,
         "accuracy": 66.7
-      },
-      {
-        "league": "DBU Pokalen",
-        "total": 3,
-        "correct": 1,
-        "accuracy": 33.3
       },
       {
         "league": "Northern New South Wales",
@@ -2545,232 +4709,232 @@
         "accuracy": 66.7
       },
       {
-        "league": "Federal A: Promotion Group A",
+        "league": "Superliga",
         "total": 3,
         "correct": 3,
         "accuracy": 100
       },
       {
-        "league": "Federal A: Promotion Group B",
+        "league": "Eliteserien",
+        "total": 3,
+        "correct": 1,
+        "accuracy": 33.3
+      },
+      {
+        "league": "Serie D: Play-off",
         "total": 3,
         "correct": 3,
         "accuracy": 100
       },
       {
-        "league": "Saudi Professional League",
+        "league": "Oberliga: Westfalen",
+        "total": 3,
+        "correct": 3,
+        "accuracy": 100
+      },
+      {
+        "league": "Liga de Ascenso: Apertura: Group A",
+        "total": 3,
+        "correct": 1,
+        "accuracy": 33.3
+      },
+      {
+        "league": "Liga 2: Group A",
         "total": 3,
         "correct": 2,
         "accuracy": 66.7
       },
       {
-        "league": "1. Deild",
+        "league": "Liga 2: Group B",
         "total": 3,
-        "correct": 3,
-        "accuracy": 100
+        "correct": 2,
+        "accuracy": 66.7
       },
       {
-        "league": "Danmarksserien: Group 2",
+        "league": "Segunda División: Central-Oriental",
         "total": 3,
-        "correct": 3,
-        "accuracy": 100
+        "correct": 2,
+        "accuracy": 66.7
       },
       {
-        "league": "Oberliga: Niederrhein",
+        "league": "National League Cup: Group A",
         "total": 3,
-        "correct": 3,
-        "accuracy": 100
+        "correct": 2,
+        "accuracy": 66.7
       },
       {
-        "league": "Iraq Stars League",
-        "total": 3,
-        "correct": 1,
-        "accuracy": 33.3
-      },
-      {
-        "league": "2. SNL",
-        "total": 3,
-        "correct": 3,
-        "accuracy": 100
-      },
-      {
-        "league": "K-League 1",
-        "total": 3,
-        "correct": 3,
-        "accuracy": 100
-      },
-      {
-        "league": "Liga II",
+        "league": "Guatemala Division 2",
         "total": 3,
         "correct": 1,
         "accuracy": 33.3
       },
       {
-        "league": "Primera C",
-        "total": 2,
+        "league": "OFC Champions League Final Stage",
+        "total": 3,
         "correct": 2,
-        "accuracy": 100
+        "accuracy": 66.7
       },
       {
-        "league": "Serie C: 1st Stage",
-        "total": 2,
+        "league": "Frauen-Bundesliga",
+        "total": 3,
         "correct": 2,
-        "accuracy": 100
+        "accuracy": 66.7
       },
       {
-        "league": "Primera División",
-        "total": 2,
-        "correct": 2,
-        "accuracy": 100
+        "league": "Kategoria Superiore",
+        "total": 3,
+        "correct": 1,
+        "accuracy": 33.3
       },
       {
-        "league": "Serie A",
+        "league": "Serie C: Group C",
+        "total": 3,
+        "correct": 2,
+        "accuracy": 66.7
+      },
+      {
+        "league": "Challenge League",
+        "total": 3,
+        "correct": 2,
+        "accuracy": 66.7
+      },
+      {
+        "league": "Women's WE League",
+        "total": 3,
+        "correct": 2,
+        "accuracy": 66.7
+      },
+      {
+        "league": "Women's Eredivisie",
+        "total": 3,
+        "correct": 1,
+        "accuracy": 33.3
+      },
+      {
+        "league": "Ligue I",
+        "total": 3,
+        "correct": 1,
+        "accuracy": 33.3
+      },
+      {
+        "league": "Women's Africa Cup of Nations: Final Stage",
         "total": 2,
         "correct": 1,
         "accuracy": 50
       },
       {
-        "league": "Liga de Ascenso: Apertura: Group B",
-        "total": 2,
-        "correct": 2,
-        "accuracy": 100
-      },
-      {
-        "league": "Australia Cup",
+        "league": "Copa Argentina",
         "total": 2,
         "correct": 1,
         "accuracy": 50
       },
       {
-        "league": "3rd Division",
+        "league": "Oberliga NOFV Nord 25/26",
         "total": 2,
         "correct": 2,
         "accuracy": 100
       },
       {
-        "league": "Oberliga: Baden-Wurttemberg",
+        "league": "Oberliga: NOFV-Sud",
         "total": 2,
         "correct": 2,
         "accuracy": 100
       },
       {
-        "league": "CONCACAF Central American Cup: Group A",
+        "league": "National Division",
         "total": 2,
         "correct": 2,
         "accuracy": 100
       },
       {
-        "league": "CONCACAF Central American Cup: Group B",
+        "league": "Women's 1. Division",
         "total": 2,
         "correct": 1,
         "accuracy": 50
       },
       {
-        "league": "CONCACAF Central American Cup: Group C",
-        "total": 2,
-        "correct": 2,
-        "accuracy": 100
-      },
-      {
-        "league": "Division 2: Soedra Svealand",
-        "total": 2,
-        "correct": 2,
-        "accuracy": 100
-      },
-      {
-        "league": "Liga 1",
+        "league": "Toto Cup Al: Knockout Stage",
         "total": 2,
         "correct": 1,
         "accuracy": 50
       },
       {
-        "league": "Primera Nacional",
-        "total": 2,
-        "correct": 2,
-        "accuracy": 100
-      },
-      {
-        "league": "League One",
-        "total": 2,
-        "correct": 2,
-        "accuracy": 100
-      },
-      {
-        "league": "2nd league",
-        "total": 2,
-        "correct": 2,
-        "accuracy": 100
-      },
-      {
-        "league": "1st Division",
-        "total": 2,
-        "correct": 1,
-        "accuracy": 50
-      },
-      {
-        "league": "Oberliga: Flens",
-        "total": 2,
-        "correct": 1,
-        "accuracy": 50
-      },
-      {
-        "league": "FAI Cup",
-        "total": 2,
-        "correct": 2,
-        "accuracy": 100
-      },
-      {
-        "league": "Malta Premier: Opening Round",
+        "league": "National League Cup: Group B",
         "total": 2,
         "correct": 0,
         "accuracy": 0
       },
       {
-        "league": "Division Intermedia",
+        "league": "National League Cup: Group D",
         "total": 2,
         "correct": 1,
         "accuracy": 50
       },
       {
-        "league": "Liga 1: Clausura",
+        "league": "Categoría Primera A",
         "total": 2,
-        "correct": 2,
-        "accuracy": 100
+        "correct": 0,
+        "accuracy": 0
       },
       {
-        "league": "Division 2: Norra Goetaland",
-        "total": 2,
-        "correct": 2,
-        "accuracy": 100
-      },
-      {
-        "league": "Pro League",
+        "league": "CONCACAF Central American Cup: Group D",
         "total": 2,
         "correct": 1,
         "accuracy": 50
       },
       {
-        "league": "Primera Division",
+        "league": "Australia FFA Cup",
+        "total": 2,
+        "correct": 1,
+        "accuracy": 50
+      },
+      {
+        "league": "Kazakhstan Cup Final Stage",
         "total": 2,
         "correct": 2,
         "accuracy": 100
       },
       {
-        "league": "Danmarksserien: Group 1",
+        "league": "Caribbean Club Championship: Group A",
+        "total": 2,
+        "correct": 1,
+        "accuracy": 50
+      },
+      {
+        "league": "Ligue 1",
         "total": 2,
         "correct": 2,
         "accuracy": 100
       },
       {
-        "league": "Esiliiga",
-        "total": 1,
-        "correct": 1,
+        "league": "Serie C: Group A",
+        "total": 2,
+        "correct": 2,
         "accuracy": 100
       },
       {
-        "league": "3. Division: Group 6",
-        "total": 1,
-        "correct": 1,
+        "league": "NPL South Australia: Play-Off",
+        "total": 2,
+        "correct": 2,
         "accuracy": 100
+      },
+      {
+        "league": "NPL Northern NSW: Qualification",
+        "total": 2,
+        "correct": 0,
+        "accuracy": 0
+      },
+      {
+        "league": "1st League: RS",
+        "total": 2,
+        "correct": 1,
+        "accuracy": 50
+      },
+      {
+        "league": "Campionato Primavera 1",
+        "total": 2,
+        "correct": 0,
+        "accuracy": 0
       },
       {
         "league": "Durand Cup: Group F",
@@ -2780,18 +4944,6 @@
       },
       {
         "league": "Durand Cup: Group E",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "National League Cup: Group C",
-        "total": 1,
-        "correct": 0,
-        "accuracy": 0
-      },
-      {
-        "league": "Danmarksserien: Group 3",
         "total": 1,
         "correct": 1,
         "accuracy": 100
@@ -2815,25 +4967,7 @@
         "accuracy": 0
       },
       {
-        "league": "Women's Kansallinen Liiga: Championship",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Women's Africa Cup of Nations: Final Stage",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
         "league": "UEFA Super Cup",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Copa Argentina",
         "total": 1,
         "correct": 1,
         "accuracy": 100
@@ -2845,262 +4979,147 @@
         "accuracy": 0
       },
       {
-        "league": "Eredivisie",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Primeira Liga",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Allsvenskan",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Superliga",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Eliteserien",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Bundesliga",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "HNL",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Ekstraklasa",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Parva Liga",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Veikkausliiga",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "NorZone Premier League",
-        "total": 1,
-        "correct": 0,
-        "accuracy": 0
-      },
-      {
-        "league": "1st League: FBiH",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "National League: South",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Meistriliiga",
-        "total": 1,
-        "correct": 0,
-        "accuracy": 0
-      },
-      {
-        "league": "Ykkosliiga",
-        "total": 1,
-        "correct": 0,
-        "accuracy": 0
-      },
-      {
         "league": "Women's Kansallinen Liiga: Qualification Play-offs 2026",
         "total": 1,
         "correct": 1,
         "accuracy": 100
       },
       {
-        "league": "3. Liga",
+        "league": "2. Division: Group 2",
         "total": 1,
         "correct": 1,
         "accuracy": 100
       },
       {
-        "league": "Regionalliga Südwest",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Oberliga: Niedersachsen",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Oberliga NOFV Nord 25/26",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Oberliga: NOFV-Sud",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "NB I",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "2. Deild",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Superleague",
+        "league": "Trophee des Champions",
         "total": 1,
         "correct": 0,
         "accuracy": 0
       },
       {
-        "league": "1st League",
+        "league": "Durand Cup: Knockout Stage",
         "total": 1,
         "correct": 1,
         "accuracy": 100
       },
       {
-        "league": "Women's Toppserien",
+        "league": "EFL Trophy North: Group B",
         "total": 1,
         "correct": 1,
         "accuracy": 100
       },
       {
-        "league": "Division Profesional: Clausura",
+        "league": "EFL Trophy North: Group E",
         "total": 1,
         "correct": 1,
         "accuracy": 100
       },
       {
-        "league": "II Liga",
+        "league": "EFL Trophy South: Group F",
         "total": 1,
         "correct": 1,
         "accuracy": 100
       },
       {
-        "league": "Liga 3: Group B",
+        "league": "EFL Trophy South: Group G",
         "total": 1,
         "correct": 0,
         "accuracy": 0
       },
       {
-        "league": "Scottish League Cup: Round of 16",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Division 1: North",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Division 1: South",
+        "league": "Caribbean Club Championship: Group B",
         "total": 1,
         "correct": 0,
         "accuracy": 0
       },
       {
-        "league": "Division 2: Soedra Goetaland",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Women's Allsvenskan",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "1st Lig",
+        "league": "EFL Trophy North: Group D",
         "total": 1,
         "correct": 0,
         "accuracy": 0
       },
       {
-        "league": "Primera División: Clausura",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Segunda División",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Segunda División: Occidental",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Challenger Pro League",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Primera División: Apertura",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "Primera Division: Apertura",
-        "total": 1,
-        "correct": 1,
-        "accuracy": 100
-      },
-      {
-        "league": "3. Division: Group 3",
+        "league": "Copa Ecuador",
         "total": 1,
         "correct": 0,
         "accuracy": 0
       },
       {
-        "league": "K League 2",
+        "league": "National 1: Group B",
         "total": 1,
         "correct": 1,
         "accuracy": 100
+      },
+      {
+        "league": "National 1: Group C",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      },
+      {
+        "league": "Serie C: Group B",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      },
+      {
+        "league": "NPL Tasmania: Play-offs",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      },
+      {
+        "league": "South Australia State League: Play-Off",
+        "total": 1,
+        "correct": 0,
+        "accuracy": 0
+      },
+      {
+        "league": "Women's FAI Cup",
+        "total": 1,
+        "correct": 1,
+        "accuracy": 100
+      },
+      {
+        "league": "MTN 8",
+        "total": 1,
+        "correct": 0,
+        "accuracy": 0
+      }
+    ],
+    "byMarket": [
+      {
+        "market": "1X2",
+        "total": 1252,
+        "correct": 528,
+        "accuracy": 42.2,
+        "avgOdds": 2.37,
+        "avgOddsWinners": 2.06,
+        "avgOddsLosers": 2.64,
+        "roiBets": 26,
+        "flatRoi": -5.04
+      },
+      {
+        "market": "DC",
+        "total": 1047,
+        "correct": 718,
+        "accuracy": 68.6,
+        "avgOdds": 1.27,
+        "avgOddsWinners": 1.27,
+        "avgOddsLosers": 1.27,
+        "roiBets": 29,
+        "flatRoi": 1.04
+      },
+      {
+        "market": "OU",
+        "total": 446,
+        "correct": 425,
+        "accuracy": 95.3,
+        "avgOdds": null,
+        "avgOddsWinners": null,
+        "avgOddsLosers": null,
+        "roiBets": 0,
+        "flatRoi": null
       }
     ],
     "excludedLabels": []

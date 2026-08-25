@@ -95,12 +95,54 @@ def select_favorite(r: dict) -> list[tuple[int, float]]:
     return [(idx, r[pkey] * r[okey] - 1)]
 
 
+# Veto Guard / Safety Bracket (miroir du moteur de production) : on saute tout
+# pari dont la probabilité modèle >= 0.70 mais le taux de succès historique du
+# bracket est < 0.60. Les brackets sont dérivés de l'OOS lui-même (calibration
+# empirique du modèle) → permet de vérifier si le filtre améliore le ROI.
+GUARD_MIN_PROB = 0.70
+GUARD_MAX_HIT = 0.60
+GUARD_MIN_SAMPLES = 5
+
+
+def _bracket_key(prob: float) -> str | None:
+    if prob >= 0.90:
+        return "90-100"
+    if prob >= 0.80:
+        return "80-90"
+    if prob >= 0.70:
+        return "70-80"
+    return None
+
+
+def bracket_hitrate(rows: list[dict]) -> dict:
+    """Taux de réussite empirique par bande de probabilité sur les rows OOS."""
+    agg: dict[str, dict] = defaultdict(lambda: {"n": 0, "wins": 0})
+    for r in rows:
+        for idx, pkey, _ in OUTCOMES.values():
+            band = _bracket_key(r[pkey])
+            if band is None:
+                continue
+            agg[band]["n"] += 1
+            if r["y"] == idx:
+                agg[band]["wins"] += 1
+    return {b: {"n": a["n"], "hit": a["wins"] / a["n"] if a["n"] else 0.0}
+            for b, a in agg.items()}
+
+
 def evaluate(rows: list[dict], select, kelly: bool = False,
-             bankroll: float = 1000.0, kelly_cap: float = 0.05, kelly_frac: float = 0.5) -> list[dict]:
+             bankroll: float = 1000.0, kelly_cap: float = 0.05, kelly_frac: float = 0.5,
+             guard: bool = False, brackets: dict | None = None) -> list[dict]:
     bets: list[dict] = []
     bal = bankroll
+    brackets = brackets or {}
     for r in rows:
         for idx, value in select(r):
+            if guard:
+                prob = r[PKMAP[idx]]
+                band = _bracket_key(prob)
+                info = brackets.get(band) if band else None
+                if info and info["n"] >= GUARD_MIN_SAMPLES and info["hit"] < GUARD_MAX_HIT:
+                    continue  # Veto Guard : bracket trop faible pour prob >= 0.70
             odds = r[ODMAP[idx]]
             if kelly:
                 b = odds - 1
@@ -114,8 +156,8 @@ def evaluate(rows: list[dict], select, kelly: bool = False,
             ret = stake * odds if win else 0.0
             bal = bal - stake + ret
             bets.append({
-                "date": r["date"], "season": r["season"], "league": r["league"],
-                "home": r["home"], "away": r["away"], "y": r["y"],
+                "date": r["date"], "season": r.get("season", "n/a"), "league": r.get("league", "n/a"),
+                "home": r.get("home", ""), "away": r.get("away", ""), "y": r["y"],
                 "stake": float(stake), "odds": float(odds), "ret": float(ret),
                 "value": float(value), "win": bool(win),
             })
@@ -176,6 +218,8 @@ def main() -> None:
     parser.add_argument("--odds", action="store_true", default=True, help="utiliser les cotes implicites (défaut)")
     parser.add_argument("--thresholds", type=str, default="0,0.02,0.05,0.08,0.10",
                         help="seuils de value à tester (virgules)")
+    parser.add_argument("--guard", action="store_true", default=False,
+                        help="appliquer le Veto Guard (prob>=0.70 et bracket<0.60 -> skip)")
     args = parser.parse_args()
     thresholds = [float(t) for t in args.thresholds.split(",") if t.strip() != ""]
 
@@ -186,6 +230,9 @@ def main() -> None:
 
     strategies: dict = {}
     series: dict[str, list] = {}
+    brackets = bracket_hitrate(rows)
+    print(f"[bet] brackets OOS (Veto Guard): " +
+          ", ".join(f"{b}: {a['hit']:.0%} (n={a['n']})" for b, a in sorted(brackets.items())))
     for thr in thresholds:
         bets = evaluate(rows, lambda r, t=thr: select_threshold(r, t))
         label = f"value>={thr:g}"
@@ -193,11 +240,23 @@ def main() -> None:
         strategies[label]["per_season"] = per_season(bets)
         if thr == 0.05:
             series["value>=0.05"] = cum_series(bets)
+        if args.guard:
+            bets_g = evaluate(rows, lambda r, t=thr: select_threshold(r, t), guard=True, brackets=brackets)
+            label_g = f"value>={thr:g} + guard"
+            strategies[label_g] = summarize(bets_g)
+            strategies[label_g]["per_season"] = per_season(bets_g)
+            if thr == 0.05:
+                series["value>=0.05 + guard"] = cum_series(bets_g)
 
     bets_argmax = evaluate(rows, select_argmax)
     strategies["argmax (modele)"] = summarize(bets_argmax)
     strategies["argmax (modele)"]["per_season"] = per_season(bets_argmax)
     series["argmax"] = cum_series(bets_argmax)
+    if args.guard:
+        bets_argmax_g = evaluate(rows, select_argmax, guard=True, brackets=brackets)
+        strategies["argmax + guard"] = summarize(bets_argmax_g)
+        strategies["argmax + guard"]["per_season"] = per_season(bets_argmax_g)
+        series["argmax + guard"] = cum_series(bets_argmax_g)
 
     bets_fav = evaluate(rows, select_favorite)
     strategies["favori (marche)"] = summarize(bets_fav)
@@ -212,7 +271,8 @@ def main() -> None:
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "mode": args.mode, "use_odds": args.odds, "splits": args.splits, "seed": args.seed,
-        "n_oos": len(rows), "thresholds": thresholds,
+        "n_oos": len(rows), "thresholds": thresholds, "guard": args.guard,
+        "guard_brackets": brackets,
         "vig_avg": round(float((1 / master[["odds_h_avg", "odds_d_avg", "odds_a_avg"]].astype(float)).sum(axis=1).mean()), 4),
         "strategies": strategies,
     }

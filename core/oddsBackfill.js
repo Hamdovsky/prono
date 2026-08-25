@@ -9,7 +9,7 @@ const logger = require('./logger')
 const therundownService = require('../services/therundownService')
 const oddspapiService = require('../services/oddspapiService')
 const sportmonksService = require('../services/sportmonksService')
-const bsdService = require('../services/bsdService')
+const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 const oddsApiIoService = require('../services/oddsApiIoService')
 const bypassScraper = require('../services/scrapers/ScrapingBypassScraper')
 

@@ -1,11 +1,21 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, Header, Depends
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 import sys, os, json, subprocess, numpy as np, threading, math, uvicorn, asyncio
 import concurrent.futures
 
 sys.path.append(os.path.dirname(__file__))
 
-app = FastAPI(title="Titanium Quant Inference API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Eagerly load every inference engine at startup so /health and the
+    # first prediction request reflect a real, ready state.
+    ensure_all_engines_loaded()
+    yield
+
+
+app = FastAPI(title="Titanium Quant Inference API", lifespan=lifespan)
 
 # ── Auth dependency ──
 async def require_auth(authorization: str = Header(None)):
@@ -26,6 +36,19 @@ async def optional_auth(authorization: str = Header(None)):
 
 # ── Lazy load engines ──
 _engines = {'prediction': None, 'props': None, 'mega': None, 'sentiment': None}
+
+def ensure_all_engines_loaded():
+    """Eagerly load every inference engine so /health and the first
+    prediction request reflect a real, ready state instead of lazy None."""
+    results = {}
+    for name in list(_engines.keys()):
+        try:
+            engine = get_engine(name)
+            results[name] = engine is not None
+        except Exception:
+            results[name] = False
+    return results
+
 
 def get_engine(name):
     if _engines[name] is not None:
@@ -95,6 +118,7 @@ async def health_check():
         'v24_hybrid': os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v24_hybrid.json'),
         'titanium_v2': os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'titanium_v2.json')
     }
+    ensure_all_engines_loaded()
     return {
         "status": "healthy",
         "version": "3.6",
@@ -103,6 +127,7 @@ async def health_check():
         "python_version": sys.version,
         "cwd": os.getcwd()
     }
+
 
 # Thread pool pour les calculs CPU-bound (Monte Carlo, ML) — évite de bloquer
 # l'event loop uvicorn et permet un timeout global par requête.
@@ -372,9 +397,9 @@ async def backtest_endpoint(limit: int = Query(100, le=5000), league: str = ""):
         home_score = f.get('score_home') or 0
         away_score = f.get('score_away') or 0
         actual = 'H' if home_score > away_score else ('A' if home_score < away_score else 'D')
-        odds_h = float(f.get('odds_home', 2.0))
-        odds_a = float(f.get('odds_away', 2.0))
-        odds_d = float(f.get('odds_draw', 3.0))
+        odds_h = max(float(f.get('odds_home', 2.0) or 2.0), 1.01)
+        odds_a = max(float(f.get('odds_away', 2.0) or 2.0), 1.01)
+        odds_d = max(float(f.get('odds_draw', 3.0) or 3.0), 1.01)
         imp_total = 1/odds_h + 1/odds_d + 1/odds_a
         p_h, p_d, p_a = (1/odds_h)/imp_total, (1/odds_d)/imp_total, (1/odds_a)/imp_total
         pred = ['H', 'D', 'A'][max(enumerate([p_h, p_d, p_a]), key=lambda x: x[1])[0]]
@@ -415,9 +440,9 @@ async def backtest_trend_endpoint(league: str = ""):
         home_score = f.get('score_home') or 0
         away_score = f.get('score_away') or 0
         actual = 'H' if home_score > away_score else ('A' if home_score < away_score else 'D')
-        odds_h = float(f.get('odds_home', 2.0))
-        odds_a = float(f.get('odds_away', 2.0))
-        odds_d = float(f.get('odds_draw', 3.0))
+        odds_h = max(float(f.get('odds_home', 2.0) or 2.0), 1.01)
+        odds_a = max(float(f.get('odds_away', 2.0) or 2.0), 1.01)
+        odds_d = max(float(f.get('odds_draw', 3.0) or 3.0), 1.01)
         imp_total = 1/odds_h + 1/odds_d + 1/odds_a
         p_h, p_d, p_a = (1/odds_h)/imp_total, (1/odds_d)/imp_total, (1/odds_a)/imp_total
         pred = ['H', 'D', 'A'][max(enumerate([p_h, p_d, p_a]), key=lambda x: x[1])[0]]

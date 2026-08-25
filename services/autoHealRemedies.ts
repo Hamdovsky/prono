@@ -373,7 +373,7 @@ class AutoHealRemedies {
         description: 'API-Football (API-Sports) inaccessible',
         check: async () => {
           try {
-            import svc from './apifootballService'
+            const svc = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             if (!svc.enabled) return { detected: false }
             const data = await svc._fetch('/status')
             if (!data) return { detected: true, detail: 'No response from API' }
@@ -383,7 +383,7 @@ class AutoHealRemedies {
           }
         },
         fix: async () => {
-          import svc from './apifootballService'
+          const svc = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
           svc._authFailed = false
           svc._quotaExhausted = false
           return { success: true, detail: 'APIFootball flags reset — will retry on next call' }
@@ -419,7 +419,7 @@ class AutoHealRemedies {
         description: 'Big Balls Data API inaccessible',
         check: async () => {
           try {
-            import svc from './bigBallsDataService'
+            const svc = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             if (!svc.enabled) return { detected: false }
             const sports = await svc.getSports()
             if (!sports || sports.length === 0)
@@ -430,7 +430,7 @@ class AutoHealRemedies {
           }
         },
         fix: async () => {
-          import svc from './bigBallsDataService'
+          const svc = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
           svc._authFailed = false
           svc._quotaExhausted = false
           return { success: true, detail: 'BigBallsData flags reset' }
@@ -465,7 +465,7 @@ class AutoHealRemedies {
         description: 'PredixSport API inaccessible',
         check: async () => {
           try {
-            import svc from './predixSportService'
+            const svc = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             if (!svc.enabled) return { detected: false }
             const matches = await svc.fetchUpcoming(1)
             if (!Array.isArray(matches)) return { detected: true, detail: 'No response from API' }
@@ -475,7 +475,7 @@ class AutoHealRemedies {
           }
         },
         fix: async () => {
-          import svc from './predixSportService'
+          const svc = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
           svc._authFailed = false
           svc._quotaExhausted = false
           return { success: true, detail: 'PredixSport flags reset — will retry on next call' }

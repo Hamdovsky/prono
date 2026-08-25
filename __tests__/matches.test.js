@@ -313,6 +313,47 @@ describe('Matches API Routes', () => {
       jest.restoreAllMocks()
     })
 
+    it('should expose all 4 O/U lines even when the stored match only has O2.5/O3.5', async () => {
+      jest.spyOn(database, 'getMatchesByStatuses').mockResolvedValue([
+        {
+          id: 'stale-ou',
+          homeTeam: 'FC Nord',
+          awayTeam: 'FC Sud',
+          league: 'Test',
+          startTimestamp: Math.floor(Date.now() / 1000) + 86400,
+          home_win_probability: 55,
+          draw_probability: 25,
+          away_win_probability: 20,
+          home_xg: 1.5,
+          away_xg: 1.2,
+          quant: {
+            markets: {
+              over_under: {
+                'O2.5': { prob: 0.6 },
+                'U2.5': { prob: 0.4 },
+                'O3.5': { prob: 0.35 },
+                'U3.5': { prob: 0.65 },
+              },
+            },
+          },
+        },
+      ])
+      jest.spyOn(StatisticalEngine, 'getMatchXG').mockReturnValue({ h: 1.5, a: 1.2 })
+
+      const response = await request(app).get('/api/matches/upcoming')
+      expect(response.status).toBe(200)
+      const all = allUpcoming(response.body)
+      expect(all.length).toBe(1)
+      const ou = all[0].quant.markets.over_under
+      for (const k of ['O1.5', 'U1.5', 'O2.5', 'U2.5', 'O3.5', 'U3.5', 'O4.5', 'U4.5']) {
+        expect(typeof ou[k].prob).toBe('number')
+        expect(ou[k].prob).toBeGreaterThan(0)
+      }
+      expect(ou['O1.5'].prob).toBeGreaterThan(ou['O4.5'].prob)
+
+      jest.restoreAllMocks()
+    })
+
     it('should JIT-fill missing weather via open-meteo so O/U reflects real conditions', async () => {
       const openMeteo = require('../services/openMeteoService')
       openMeteo.fetchByCity.mockClear()

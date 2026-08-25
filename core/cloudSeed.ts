@@ -4,11 +4,11 @@ import database from './database'
 import logger from './logger'
 import { createQuotaManager } from '../services/sourceQuotaManager'
 import rapidApiQuotaManager from '../services/rapidApiQuotaManager'
-import bsdService from '../services/bsdService'
+const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 import therundownService from '../services/therundownService'
 import oddspapiService from '../services/oddspapiService'
 import sportmonksService from '../services/sportmonksService'
-import apifootballService from '../services/apifootballService'
+const apifootballService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 import openligadbService from '../services/openligadbService'
 
 const fdQuotaManager = createQuotaManager('footballdata')

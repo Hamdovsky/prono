@@ -269,6 +269,32 @@ function playerProps(xgH, xgA, homePlayers, awayPlayers) {
 }
 
 /* ─── Public API ─── */
+
+// Complète les lignes O/U manquantes (O1.5 / U1.5 / O4.5 / U4.5) dans
+// quant.markets.over_under d'un match, via le Poisson du StatisticalEngine.
+// Idempotent : ne remplace jamais une ligne déjà présente.
+function ensureOuLines(markets, xgH, xgA) {
+  if (!markets || !markets.over_under) return markets
+  const ou = markets.over_under
+  if (ou['O1.5'] && ou['U1.5'] && ou['O4.5'] && ou['U4.5']) return markets
+  try {
+    const StatisticalEngine = require('../core/services/StatisticalEngine')
+    const p = StatisticalEngine.calculatePoissonProbs(xgH || 1.2, xgA || 1.0, {})
+    const patch = {
+      'O1.5': { prob: p.over15, odds: 1.4 },
+      'U1.5': { prob: p.under15, odds: 2.6 },
+      'O4.5': { prob: p.over45, odds: 6.0 },
+      'U4.5': { prob: p.under45, odds: 1.12 },
+    }
+    for (const [k, v] of Object.entries(patch)) {
+      if (!ou[k]) ou[k] = { ...v, ev: v.prob * (v.odds || 2.0) - 1 }
+    }
+  } catch (e) {
+    logger.debug(`[MARKET] ensureOuLines skipped: ${e.message}`)
+  }
+  return markets
+}
+
 function analyzeAll(match, model) {
   const xgH = model?.xgH ?? model?.homeXG ?? 1.2
   const xgA = model?.xgA ?? model?.awayXG ?? 1.0
@@ -289,6 +315,7 @@ function analyzeAll(match, model) {
 
 module.exports = {
   analyzeAll,
+  ensureOuLines,
   overUnder,
   btts,
   doubleChance,

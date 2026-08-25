@@ -304,7 +304,7 @@ async function attachRealOdds(match) {
     // souvent offline/offquota sur le free tier, on complète via bsd_match_id —
     // BSD dispose déjà des probs (bsd_home_win_prob) mais pas toujours des
     // odds persistées → on les récupère pour libérer le gate honnêteté.
-    const bsdService = require('../services/bsdService')
+    const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     if (bsdService.isAvailable() && String(match.bsd_match_id || '').length > 0) {
       try {
         const bsdOdds = await bsdService.fetchOdds(match.bsd_match_id)

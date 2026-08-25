@@ -1,0 +1,96 @@
+{
+  "generatedAt": "2026-08-24T02:15:31.018Z",
+  "sampleSize": 1252,
+  "minSampleForReactivation": 200,
+  "reactivationThresholdPct": 42.6,
+  "verdict": "SOUS LE SEUIL (42.2% < 42.6%) — maintien du masquage DISABLE_PURE_1X2",
+  "directionalBias": {
+    "note": "accuracy par issue PRÉDITE (sur-prédiction ?) + distribution des issues RÉELLES",
+    "byPredicted": {
+      "1": {
+        "predicted": "1",
+        "total": 847,
+        "correct": 352,
+        "accuracy": 41.6,
+        "sampleOk": true
+      },
+      "2": {
+        "predicted": "2",
+        "total": 404,
+        "correct": 176,
+        "accuracy": 43.6,
+        "sampleOk": true
+      },
+      "X": {
+        "predicted": "X",
+        "total": 1,
+        "correct": 0,
+        "accuracy": 0,
+        "sampleOk": false
+      }
+    },
+    "actualDistribution": {
+      "1": {
+        "count": 503,
+        "share": 40.2
+      },
+      "2": {
+        "count": 495,
+        "share": 39.5
+      },
+      "X": {
+        "count": 254,
+        "share": 20.3
+      }
+    }
+  },
+  "errorConcentration": {
+    "favori_domestic_strong": {
+      "desc": "cote dom ≤ 1.60 (favori net)",
+      "total": 5,
+      "correct": 2,
+      "accuracy": 40,
+      "sampleOk": false
+    },
+    "equilibre": {
+      "desc": "cote dom 1.60–2.50 (équilibré)",
+      "total": 8,
+      "correct": 3,
+      "accuracy": 37.5,
+      "sampleOk": false
+    },
+    "outsider_ou_serre": {
+      "desc": "cote dom > 2.50 ou absente (outsider/serré)",
+      "total": 1239,
+      "correct": 523,
+      "accuracy": 42.2,
+      "sampleOk": true
+    }
+  },
+  "drawImpact": {
+    "picksX": 1,
+    "accuracyAllPicks": 42.2,
+    "accuracyExcludingXPicks": 42.2,
+    "note": "Si accuracyExcludingXPicks >> accuracyAllPicks → le nul structurel plombe le 1X2 ; envisager l'exclusion des picks X plutôt que du marché entier."
+  },
+  "confidenceVsReality": {
+    "1": {
+      "avgConfidence": 74,
+      "realAccuracy": 41.6,
+      "n": 847,
+      "overconfident": true
+    },
+    "2": {
+      "avgConfidence": 74.3,
+      "realAccuracy": 43.6,
+      "n": 404,
+      "overconfident": true
+    },
+    "X": {
+      "avgConfidence": 51.6,
+      "realAccuracy": 0,
+      "n": 1,
+      "overconfident": true
+    }
+  }
+}

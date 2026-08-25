@@ -3,7 +3,8 @@ OddsFusionEngine — couche de fusion multi-sources pour les cotes.
 
 Architecture unifiée (toutes les sources travaillent en équipe):
 
-  Tier 1: BSD API (Bzzoiro) — cotes réelles 1X2 + OU/BTTS, limité aux matchs WC
+  Tier 1: SofaScore Live (curl_cffi TLS spoofing) — cotes réelles 1X2 + OU/BTTS + xG
+  Tier 1b: BetExplorer cache local — 1X2/OU/BTTS
   Tier 2: BetExplorer Bypass (curl_cffi TLS spoofing) — 1X2 via data-odd statique
   Tier 2b: BetExplorer HTTP direct — OU/BTTS sur les pages match (data-odd si dispo)
   Tier 3: soccerapi (888sport / Unibet) — scraping bookmakers (optionnel, geo-bloqué)
@@ -27,8 +28,6 @@ log = logging.getLogger('OddsFusion')
 
 class OddsFusionEngine:
     def __init__(self):
-        self.bsd_key = self._get_key('BSD_API_KEY')
-        self.bsd_base = 'https://sports.bzzoiro.com/api'
         self._league_odds_cache = {}
         self._history_db = os.path.join(DATA_DIR, 'historical_archive.sqlite')
 
@@ -109,40 +108,141 @@ class OddsFusionEngine:
         except (TypeError, ZeroDivisionError, ValueError):
             return None
 
-    # ── Tier 1: BSD API ──────────────────────────────────────
+    # ── Fusion consensus multi-sources ────────────────────────
 
-    def _tier1_bsd(self, home, away, league):
-        """BSD API — cotes réelles. Retourne dict ou None."""
-        if not self.bsd_key:
+    # Priorité : plus bas = source la plus fiable. Les sources "réelles"
+    # (cotes de bookmakers/scraping) priment sur les estimations (ML/historique).
+    SOURCE_PRIORITY = {
+        'football_data': 1,
+        'sofascore': 2,
+        'betexplorer-live': 3,
+        'betexplorer': 3,
+        'betexplorer+firecrawl': 3,
+        'jina': 5,
+        'ml_monte_carlo': 6,
+        'historical+elo': 7,
+        'historical': 7,
+        'default': 9,
+    }
+
+    REAL_SOURCES = ('football_data', 'sofascore', 'betexplorer-live',
+                    'betexplorer', 'betexplorer+firecrawl', 'jina')
+
+    # Bornes de validité d'une cote (élimine les valeurs aberrantes Sofascore).
+    FIELD_BOUNDS = {
+        'home_win': (1.01, 30.0), 'draw': (1.01, 30.0), 'away_win': (1.01, 30.0),
+        'over_25': (1.01, 12.0), 'under_25': (1.01, 12.0),
+        'btts_yes': (1.01, 6.0), 'btts_no': (1.01, 6.0),
+        'corners_over': (1.01, 12.0), 'corners_under': (1.01, 12.0),
+    }
+
+    @staticmethod
+    def _fuse_field(values_with_source, field=None, consensus_spread=0.25):
+        """Choisit la meilleure cote d'un marché parmi plusieurs sources.
+
+        - Filtre les valeurs hors bornes (cotes aberrantes).
+        - Privilégie les sources 'réelles' (REAL_SOURCES).
+        - Consensus : si >=2 sources réelles proches (écart <= spread), moyenne.
+        - En cas de désaccord, retire les outliers (>2x le min) puis moyenne
+          les valeurs saines (robuste aux lignes pourries d'une source).
+        """
+        if not values_with_source:
             return None
-        headers = {'Authorization': f'Token {self.bsd_key}'}
-        today = datetime.date.today().isoformat()
-        url = f'{self.bsd_base}/v2/events/?date_from={today}&date_to={today}&limit=100'
+        lo, hi = OddsFusionEngine.FIELD_BOUNDS.get(field, (1.01, 1000.0))
+        valid = [(v, s) for v, s in values_with_source
+                 if v is not None and lo <= float(v) <= hi]
+        if not valid:
+            return None
+        reals = [x for x in valid if x[1] in OddsFusionEngine.REAL_SOURCES]
+        pool = reals if reals else valid
+        pool = sorted(pool, key=lambda x: OddsFusionEngine.SOURCE_PRIORITY.get(x[1], 9))
+        if len(reals) >= 2:
+            vals = sorted(v for v, s in reals)
+            kept = [v for v in vals if v <= 2.0 * vals[0]]
+            if len(kept) >= 2:
+                return round(sum(kept) / len(kept), 3)
+            return round(kept[0], 3)
+        return pool[0][0]
+
+    # ── Tier 1a: SofaScore Live cache (curl_cffi TLS-spoofing, source primaire) ──
+
+    def _tier1a_sofascore(self, home, away, league):
+        """Cotes 1X2 + OU/BTTS + Corners + xG depuis le cache SofaScore
+        (scripts/cacheSofascoreOdds.py -> data/odds_cache.json).
+
+        Source gratuite, sans clé API, prioritaire (considérée 'real').
+        Corners/xG best-effort : non settés si absents (fallback ML/tier4).
+        """
         try:
-            r = requests.get(url, headers=headers, timeout=10)
-            data = r.json()
-            for e in data.get('results', []):
-                ht = e.get('home_team') or ''
-                at = e.get('away_team') or ''
-                # Utiliser le fuzzy matching comme Tier 2 (supporte accents, variantes)
-                if self._teams_match(ht, home) and self._teams_match(at, away):
-                    mid = e.get('id')
-                    odds_url = f'{self.bsd_base}/v2/events/{mid}/odds/'
-                    r2 = requests.get(odds_url, headers=headers, timeout=10)
-                    o = r2.json().get('odds', {})
-                    if o.get('home_win') is not None:
+            cache_path = os.path.join(BASE_DIR, 'data', 'odds_cache.json')
+            if not os.path.exists(cache_path):
+                return None
+            if getattr(self, '_sofa_cache', None) is None:
+                with open(cache_path, 'r', encoding='utf-8') as f:
+                    self._sofa_cache = json.load(f)
+            for key, odds in self._sofa_cache.items():
+                if odds.get('source') != 'sofascore':
+                    continue
+                cached_home = (odds.get('homeTeam') or '').lower().strip()
+                cached_away = (odds.get('awayTeam') or '').lower().strip()
+                if not cached_home or not cached_away:
+                    continue
+                if (self._teams_match(cached_home, home) and self._teams_match(cached_away, away)) or \
+                   (self._teams_match(cached_home, away) and self._teams_match(cached_away, home)):
+                    result = {
+                        'home_win': self._safe_odds(odds.get('home')),
+                        'draw': self._safe_odds(odds.get('draw')),
+                        'away_win': self._safe_odds(odds.get('away')),
+                        'over_25': self._safe_odds(odds.get('over25')),
+                        'under_25': self._safe_odds(odds.get('under25')),
+                        'btts_yes': self._safe_odds(odds.get('btts_yes')),
+                        'btts_no': self._safe_odds(odds.get('btts_no')),
+                        'corners_over': self._safe_odds(odds.get('corners_over')),
+                        'corners_under': self._safe_odds(odds.get('corners_under')),
+                        'home_xg': odds.get('home_xg'),
+                        'away_xg': odds.get('away_xg'),
+                        'shots_h': odds.get('shots_h'),
+                        'shots_a': odds.get('shots_a'),
+                        'source': 'sofascore',
+                        '_tiers': ['tier1a_sofascore'],
+                    }
+                    return result
+        except Exception as ex:
+            self._log(1, f'[sofascore-cache] Error: {ex}')
+        return None
+
+    # ── Tier 1b: BetExplorer Live cache (scraping local, anti-détection) ──
+
+    def _tier1b_betexplorer_cache(self, home, away, league):
+        """Cotes 1X2 live réelles issues du scraping BetExplorer (scripts/betexplorerLive.js).
+
+        Source locale, sans clé API, prioritaire (considérée 'real'). Le cache
+        data/odds_cache.json est produit par le scraper et contient home/draw/away.
+        """
+        try:
+            cache_path = os.path.join(BASE_DIR, 'data', 'odds_cache.json')
+            if not os.path.exists(cache_path):
+                return None
+            if getattr(self, '_be_cache', None) is None:
+                with open(cache_path, 'r', encoding='utf-8') as f:
+                    self._be_cache = json.load(f)
+            for key, odds in self._be_cache.items():
+                cached_home = (odds.get('homeTeam') or '').lower().strip()
+                cached_away = (odds.get('awayTeam') or '').lower().strip()
+                if not cached_home or not cached_away:
+                    continue
+                if (self._teams_match(cached_home, home) and self._teams_match(cached_away, away)) or \
+                   (self._teams_match(cached_home, away) and self._teams_match(cached_away, home)):
+                    if odds.get('home') and odds.get('draw') and odds.get('away'):
                         return {
-                            'home_win': o['home_win'],
-                            'draw': o['draw'],
-                            'away_win': o['away_win'],
-                            'over_25': o.get('over_25_goals'),
-                            'under_25': o.get('under_25_goals'),
-                            'btts_yes': o.get('btts_yes'),
-                            'btts_no': o.get('btts_no'),
-                            'source': 'bsd'
+                            'home_win': float(odds['home']),
+                            'draw': float(odds['draw']),
+                            'away_win': float(odds['away']),
+                            'source': 'betexplorer-live',
+                            '_tiers': ['tier1b_betexplorer_cache'],
                         }
         except Exception as ex:
-            self._log(1, f'Error: {ex}')
+            self._log(1, f'[betexplorer-cache] Error: {ex}')
         return None
 
     # ── Tier 2: BetExplorer Bypass Scraper (curl_cffi TLS fingerprint) ──
@@ -675,141 +775,120 @@ class OddsFusionEngine:
 
     # ── Public API ───────────────────────────────────────────
 
+    def _tier_jina(self, home, away, league):
+        """Cotes depuis le cache Jina (data/jina_odds.json) si présent.
+        Produit par services/scrapers/JinaScraper.js. Source 'real' basse
+        priorité (parsing markdown fragile)."""
+        try:
+            path = os.path.join(BASE_DIR, 'data', 'jina_odds.json')
+            if not os.path.exists(path):
+                return None
+            if getattr(self, '_jina_cache', None) is None:
+                with open(path, 'r', encoding='utf-8') as f:
+                    self._jina_cache = json.load(f)
+            for key, o in self._jina_cache.items():
+                ch = (o.get('homeTeam') or o.get('home') or '').lower().strip()
+                ca = (o.get('awayTeam') or o.get('away') or '').lower().strip()
+                if not ch or not ca:
+                    continue
+                if (self._teams_match(ch, home) and self._teams_match(ca, away)) or \
+                   (self._teams_match(ch, away) and self._teams_match(ca, home)):
+                    return {
+                        'home_win': self._safe_odds(o.get('home') or o.get('home_win')),
+                        'draw': self._safe_odds(o.get('draw')),
+                        'away_win': self._safe_odds(o.get('away') or o.get('away_win')),
+                        'over_25': self._safe_odds(o.get('over25') or o.get('over_25')),
+                        'under_25': self._safe_odds(o.get('under25') or o.get('under_25')),
+                        'btts_yes': self._safe_odds(o.get('btts_yes')),
+                        'btts_no': self._safe_odds(o.get('btts_no')),
+                        'source': 'jina',
+                    }
+        except Exception:
+            pass
+        return None
+
     def get_odds(self, home, away, league, prefer_real=True, use_soccerapi=False, country=None):
+        """Obtenir les cotes fusionnées (consensus multi-sources) pour un match.
+
+        Toutes les sources gratuites travaillent en équipe : football-data,
+        Sofascore (cache live), BetExplorer (live + bypass), Jina, puis les
+        estimations ML Monte Carlo / historique+Elo, enfin les défauts.
+        La fusion privilégie la source la plus fiable et moyenne les cotes
+        réelles concordantes (consensus) pour réduire le bruit.
         """
-        Obtenir les cotes pour un match via la fusion multi-tiers.
-        Toutes les sources travaillent en équipe — 1X2, OU/BTTS, ML.
-        
-        Pipeline:
-          1. Tier 1: BSD API → 1X2 + OU/BTTS (si dispo)
-          2. Tier 2: BetExplorer bypass (curl_cffi) → 1X2 + match_url
-          3. Tier 2b: BetExplorer HTTP direct → OU/BTTS depuis match_url (si data-odd statique)
-          4. Tier 4 ML: Monte Carlo → OU/BTTS estimé depuis xG (fallback)
-          5. Tier 5: Historical + Elo → 1X2 estimé
-          6. Tier 6: Defaults 2.5/3.2/2.8
-        
-        Returns:
-            dict avec home_win, draw, away_win, over_25, under_25, btts_yes, btts_no, source
-        """
-        result = {
-            'home_win': None, 'draw': None, 'away_win': None,
-            'over_25': None, 'under_25': None,
-            'btts_yes': None, 'btts_no': None,
-            'source': None, '_tiers': [],
-        }
-        
+        candidates = []
         match_url = None
 
-        # ── PHASE 0: Football-Data fixtures (source fiable, cotes réelles) ──
-        try:
-            odds = self._tier0_football_data(home, away, league)
-            if odds and odds.get('home_win') is not None:
-                result.update(odds)
-                result['_tiers'].append('tier0_football_data')
-                self._log(0, f'1X2: {home} vs {away}: {odds["home_win"]}/{odds["draw"]}/{odds["away_win"]}')
-        except Exception as ex:
-            self._log(0, f'Error: {ex}')
+        o = self._tier0_football_data(home, away, league)
+        if o: candidates.append(o)
+        o = self._tier1a_sofascore(home, away, league)
+        if o: candidates.append(o)
+        o = self._tier1b_betexplorer_cache(home, away, league)
+        if o: candidates.append(o)
+        o = self._tier2_betexplorer_bypass(home, away, league, country)
+        if o:
+            candidates.append(o)
+            match_url = match_url or o.get('match_url')
+        if match_url:
+            o = self._tier2b_firecrawl_ou_btts(home, away, league, match_url)
+            if o:
+                o = dict(o)
+                o['source'] = 'betexplorer+firecrawl'
+                candidates.append(o)
+        o = self._tier4_ml_ou_btts(home, away, league)
+        if o: candidates.append(o)
+        if use_soccerapi:
+            o = self._tier3_soccerapi(home, away, league)
+            if o: candidates.append(o)
+        o = self._tier_jina(home, away, league)
+        if o: candidates.append(o)
 
-        # ── PHASE 1: 1X2 odds ────────────────────────────────
-        
-        # Tier 1: BSD API (1X2 + OU/BTTS)
-        try:
-            odds = self._tier1_bsd(home, away, league)
-            if odds and odds.get('home_win') is not None:
-                result['home_win'] = odds['home_win']
-                result['draw'] = odds['draw']
-                result['away_win'] = odds['away_win']
-                result['over_25'] = odds.get('over_25')
-                result['under_25'] = odds.get('under_25')
-                result['btts_yes'] = odds.get('btts_yes')
-                result['btts_no'] = odds.get('btts_no')
-                result['source'] = odds.get('source', 'bsd')
-                result['_tiers'].append('tier1_bsd')
-                self._log(1, f'1X2: {home} vs {away}: {odds["home_win"]}/{odds["draw"]}/{odds["away_win"]}')
-                if result['over_25'] and result['btts_yes']:
-                    # BSD a TOUT (1X2 + OU/BTTS), on retourne direct
-                    return result
-        except Exception as ex:
-            self._log(1, f'Error: {ex}')
+        has_real = any(c.get('source') in self.REAL_SOURCES for c in candidates)
+        if not prefer_real or not has_real:
+            o = self._tier5_historical_elo(home, away, league)
+            if o: candidates.append(o)
 
-        # Tier 2: BetExplorer bypass (1X2)
-        try:
-            odds = self._tier2_betexplorer_bypass(home, away, league, country)
-            if odds and odds.get('home_win') is not None:
-                result['home_win'] = odds['home_win']
-                result['draw'] = odds['draw']
-                result['away_win'] = odds['away_win']
-                result['source'] = odds.get('source', 'betexplorer')
-                result['_tiers'].append('tier2_bypass')
-                match_url = odds.get('match_url')
-                self._log(2, f'1X2: {home} vs {away}: {odds["home_win"]}/{odds["draw"]}/{odds["away_win"]}')
-        except Exception as ex:
-            self._log(2, f'Error: {ex}')
+        # Defaults toujours présents (dernier recours)
+        candidates.append(self._tier6_defaults(home, away, league))
 
-        # Tier 2b: Firecrawl OU/BTTS (si match_url trouvé)
-        if match_url and not (result['over_25'] and result['btts_yes']):
+        # ── Fusion par marché (priorité + consensus) ──
+        fields = ['home_win', 'draw', 'away_win', 'over_25', 'under_25',
+                  'btts_yes', 'btts_no']
+        result = {f: None for f in fields}
+        for f in fields:
+            vals = [(c.get(f), c.get('source')) for c in candidates if c.get(f) is not None]
+            result[f] = self._fuse_field(vals, field=f)
+
+        # Dériver under_25 / btts_no manquants
+        if result['over_25'] and not result['under_25']:
+            result['under_25'] = self._implied_under25(result['over_25'])
+        if result['btts_yes'] and not result['btts_no']:
             try:
-                ou_btts = self._tier2b_firecrawl_ou_btts(home, away, league, match_url)
-                if ou_btts:
-                    if ou_btts.get('over_25'): result['over_25'] = ou_btts['over_25']
-                    if ou_btts.get('under_25'): result['under_25'] = ou_btts['under_25']
-                    if ou_btts.get('btts_yes'): result['btts_yes'] = ou_btts['btts_yes']
-                    if ou_btts.get('btts_no'): result['btts_no'] = ou_btts['btts_no']
-                    result['_tiers'].append('tier2b_firecrawl')
-            except Exception as ex:
-                self._log(2, f'[firecrawl] Error: {ex}')
+                py = 1.0 / result['btts_yes']
+                pu = 1 - py
+                result['btts_no'] = round(1.0 / pu, 3) if pu > 0 else None
+            except Exception:
+                pass
 
-        # Tier 4 ML: OU/BTTS Monte Carlo (fallback)
-        if not (result['over_25'] and result['btts_yes']):
-            try:
-                ml = self._tier4_ml_ou_btts(home, away, league)
-                if ml:
-                    if not result['over_25']: result['over_25'] = ml.get('over_25')
-                    if not result['under_25']: result['under_25'] = ml.get('under_25')
-                    if not result['btts_yes']: result['btts_yes'] = ml.get('btts_yes')
-                    if not result['btts_no']: result['btts_no'] = ml.get('btts_no')
-                    result['_tiers'].append('tier4_ml')
-                    self._log(4, f'ML OU/BTTS: {home} vs {away}: OU={ml.get("over_25")}')
-            except Exception as ex:
-                self._log(4, f'[ml] Error: {ex}')
+        # Champs uniques (xG / tirs / corners / probas) : meilleure source
+        for f in ('corners_over', 'corners_under', 'home_xg', 'away_xg',
+                  'shots_h', 'shots_a'):
+            vals = [(c.get(f), c.get('source')) for c in candidates if c.get(f) is not None]
+            result[f] = self._fuse_field(vals, field=f) if vals else None
 
-        # Tier 3: soccerapi (optionnel, geo-bloqué France)
-        if use_soccerapi and not result['home_win']:
-            try:
-                odds = self._tier3_soccerapi(home, away, league)
-                if odds and odds.get('home_win') is not None:
-                    result['home_win'] = odds['home_win']
-                    result['draw'] = odds['draw']
-                    result['away_win'] = odds['away_win']
-                    result['source'] = odds.get('source', '888sport')
-                    result['_tiers'].append('tier3_soccerapi')
-            except Exception as ex:
-                self._log(3, f'Error: {ex}')
+        for c in candidates:
+            if c.get('_probabilities'):
+                result['_probabilities'] = c['_probabilities']
+                break
 
-        # ── PHASE 2: Fallbacks si pas de 1X2 ─────────────────
-
-        if not result['home_win']:
-            if not prefer_real:
-                try:
-                    odds = self._tier5_historical_elo(home, away, league)
-                    if odds and odds.get('home_win') is not None:
-                        result['home_win'] = odds['home_win']
-                        result['draw'] = odds['draw']
-                        result['away_win'] = odds['away_win']
-                        result['source'] = odds.get('source', 'historical+elo')
-                        result['_tiers'].append('tier5_historical')
-                        self._log(5, f'Historical: {odds["home_win"]}/{odds["draw"]}/{odds["away_win"]}')
-                except Exception as ex:
-                    self._log(5, f'Error: {ex}')
-
-            if not result['home_win']:
-                defaults = self._tier6_defaults(home, away, league)
-                result['home_win'] = defaults['home_win']
-                result['draw'] = defaults['draw']
-                result['away_win'] = defaults['away_win']
-                result['source'] = 'default'
-                result['_tiers'].append('tier6_default')
-
+        real_used = [c['source'] for c in candidates
+                     if c.get('source') in self.REAL_SOURCES
+                     and any(c.get(f) is not None for f in fields)]
+        result['source'] = real_used[0] if real_used else 'default'
+        result['_tiers'] = [c.get('source') for c in candidates if c.get('source') != 'default']
+        result['match_url'] = match_url
+        result['_consensus'] = len([c for c in candidates
+                                    if c.get('source') in self.REAL_SOURCES]) >= 2
         return result
 
     def enrich_batch(self, matches):
@@ -826,13 +905,22 @@ class OddsFusionEngine:
             m['odds_under_25'] = odds.get('under_25')
             m['odds_btts_yes'] = odds.get('btts_yes')
             m['odds_btts_no'] = odds.get('btts_no')
+            m['odds_corners_over'] = odds.get('corners_over')
+            m['odds_corners_under'] = odds.get('corners_under')
+            m['odds_home_xg'] = odds.get('home_xg')
+            m['odds_away_xg'] = odds.get('away_xg')
+            m['odds_shots_h'] = odds.get('shots_h')
+            m['odds_shots_a'] = odds.get('shots_a')
             m['odds_source'] = odds.get('source', 'default')
             m['odds_tiers'] = odds.get('_tiers', [])
-            real_sources = ('bsd', 'betexplorer', 'betexplorer+firecrawl', '888sport', 'unibet', 'firecrawl')
-            m['has_real_odds'] = odds.get('source') in real_sources
+            m['odds_consensus'] = odds.get('_consensus', False)
+            m['has_real_odds'] = (
+                odds.get('source') in self.REAL_SOURCES
+                or any(t in self.REAL_SOURCES for t in (odds.get('_tiers') or []))
+            )
             m['has_real_ou_btts'] = (
                 m.get('odds_over_25') is not None or m.get('odds_btts_yes') is not None
-            ) and odds.get('source') in ('bsd', 'betexplorer+firecrawl', 'firecrawl')
+            ) and m['has_real_odds']
         return matches
 
 

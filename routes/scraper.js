@@ -14,6 +14,34 @@ const localOrAuth = (req, res, next) => {
   return securityEngine.authenticate(req, res, next)
 }
 
+/**
+ * GET /api/odds/status — couverture des cotes réelles sur les matchs
+ * programmés (1X2 / O2.5 / BTTS) + santé des sources (services/oddsSweeper).
+ */
+router.get('/odds/status', async (req, res) => {
+  try {
+    const oddsSweeper = require('../services/oddsSweeper')
+    res.json({ success: true, ...(await oddsSweeper.getStatus()) })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
+ * POST /api/odds/sweep — déclenche manuellement une passe de récupération
+ * des cotes (BetExplorer free pool). Query : ?limit=N pour une passe courte.
+ */
+router.post('/odds/sweep', localOrAuth, async (req, res) => {
+  try {
+    const oddsSweeper = require('../services/oddsSweeper')
+    const limit = parseInt(req.query.limit) || 0
+    const result = await oddsSweeper.sweep({ force: true, limit })
+    res.json({ success: true, ...result })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
 const userAgents = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -362,7 +390,7 @@ router.post('/scan-today', async (req, res) => {
 router.post('/http-scan', async (req, res) => {
   try {
     logger.info('⚡ [API] Triggering HTTP-only API scan...')
-    const httpScraperService = require('../services/httpScraperService')
+    const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     const date = req.query.date || new Date().toISOString().split('T')[0]
     const count = await httpScraperService.processFallback(date)
     res.json({ success: true, message: `HTTP scan complete`, matchesInserted: count })

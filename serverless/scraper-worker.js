@@ -112,7 +112,7 @@ app.post('/scrape', requireAuth, async (req, res) => {
 
       // 1. Fire all primary sources in parallel with timeouts
       const sources = []
-      const httpScraperService = require('../services/httpScraperService')
+      const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
       if (httpScraperService.isAvailable()) {
         sources.push(
           timedFetch(httpScraperService.fetchAllFixtures(dateStr), 'api-football').catch(() => [])
@@ -121,7 +121,7 @@ app.post('/scrape', requireAuth, async (req, res) => {
 
       // BSD
       try {
-        const bsdService = require('../services/bsdService')
+        const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
         if (bsdService.isAvailable()) {
           sources.push(
             timedFetch(bsdService.fetchEvents(dateStr), 'bsd')
@@ -234,7 +234,7 @@ app.post('/sync/bsd', requireAuth, async (req, res) => {
   await runTask(
     'bsd-sync',
     async () => {
-      const bsdService = require('../services/bsdService')
+      const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
       if (!bsdService.isAvailable()) return { error: 'BSD not available' }
       const count = await bsdService.fullSync()
       return { synced: count }
@@ -249,7 +249,7 @@ app.post('/sync/predixsport', requireAuth, async (req, res) => {
   await runTask(
     'predixsport-sync',
     async () => {
-      const predixSportService = require('../services/predixSportService')
+      const predixSportService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
       const result = await predixSportService.syncUpcoming()
       return { synced: result?.length || 0 }
     },
@@ -263,7 +263,7 @@ app.post('/sync/bigballsdata', requireAuth, async (req, res) => {
   await runTask(
     'bigballsdata-sync',
     async () => {
-      const bbs = require('../services/bigBallsDataService')
+      const bbs = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
       const result = await bbs.syncUpcoming()
       return { synced: result?.length || 0 }
     },

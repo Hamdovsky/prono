@@ -28,11 +28,11 @@ class NeuralMetaRefiner {
       const rows = db.db
         .prepare(
           `
-                SELECT league, prediction_type, probability, result, created_at
+                SELECT league, prediction_type, probability, result, timestamp
                 FROM prediction_history
                 WHERE result IS NOT NULL
-                  AND created_at >= ?
-                ORDER BY created_at DESC
+                  AND timestamp >= ?
+                ORDER BY timestamp DESC
             `
         )
         .all(cutoffDate)
@@ -50,7 +50,7 @@ class NeuralMetaRefiner {
         stats[key].count++
 
         // Count recent entries (last 30 days) for confidence weighting
-        const createdTs = new Date(r.created_at).getTime()
+        const createdTs = new Date(r.timestamp).getTime()
         if (Date.now() - createdTs < 30 * 86400000) {
           stats[key].recentCount++
         }

@@ -71,27 +71,6 @@ class TestBlendFinalProbabilities:
         assert p_a == 0.34
 
 
-class TestApplyPredixSportBlend:
-    def test_no_predixsport_no_change(self):
-        from ml_ensemble import apply_predixsport_blend
-        h, d, a, tag, analysis = apply_predixsport_blend(0.5, 0.3, 0.2, {})
-        assert tag == ""
-        assert abs(h - 0.5) < 0.001
-
-    def test_valid_predixsport_blends(self):
-        from ml_ensemble import apply_predixsport_blend
-        match_obj = {'predixsport': {'home_win': 0.6, 'draw': 0.2, 'away_win': 0.2}}
-        h, d, a, tag, analysis = apply_predixsport_blend(0.5, 0.3, 0.2, match_obj)
-        assert tag == "+PredixSport"
-        assert abs(h + d + a - 1.0) < 0.001
-
-    def test_zero_sum_predixsport_ignored(self):
-        from ml_ensemble import apply_predixsport_blend
-        match_obj = {'predixsport': {'home_win': 0, 'draw': 0, 'away_win': 0}}
-        h, d, a, tag, _ = apply_predixsport_blend(0.5, 0.3, 0.2, match_obj)
-        assert tag == ""
-
-
 class TestPredictSecondaryMarkets:
     def test_default_values(self):
         from ml_ensemble import predict_secondary_markets

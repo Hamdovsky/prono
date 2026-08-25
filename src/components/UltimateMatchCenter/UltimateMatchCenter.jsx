@@ -68,15 +68,15 @@ const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
       <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 700 }}>✅ Cotes réelles</span>
     ) : analysis?.honesty.mode === 'modelOnly' ? (
       <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 700 }}>
-        🔮 Sans cotes (pas d'EV)
+        🔮 Est. modèle (réf. cotes)
       </span>
     ) : analysis?.honesty.mode === 'modelSignal' ? (
       <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 700 }}>
-        🔮 Signal (pas d'EV)
+        🔮 Signal modèle (réf. cotes)
       </span>
     ) : (
       <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 700 }}>
-        🔮 Estimation sans cotes
+        🔮 Est. modèle (réf. cotes)
       </span>
     )
 
@@ -437,7 +437,22 @@ const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
                 </div>
               ) : (
                 <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                  🔮 Aucune cote bookmaker réelle — valeur (EV) non calculée.
+                  {analysis?.impliedOdds ? (
+                    <div>
+                      <div style={{ marginBottom: 8 }}>
+                        🔮 Pas de cote bookmaker réelle — EV non calculable. Cotes
+                        <b style={{ color: '#cbd5e1' }}> implicites du modèle</b> (référence, hors marge
+                        bookmaker) :
+                      </div>
+                      <div style={{ display: 'flex', gap: 12, fontWeight: 700, color: '#e2e8f0' }}>
+                        <span>1 → {analysis.impliedOdds.home}</span>
+                        <span>X → {analysis.impliedOdds.draw}</span>
+                        <span>2 → {analysis.impliedOdds.away}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>🔮 Aucune cote bookmaker réelle — valeur (EV) non calculée.</div>
+                  )}
                 </div>
               )}
             </div>

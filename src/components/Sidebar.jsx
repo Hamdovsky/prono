@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ROUTES, NAV_ITEMS } from '../config/routes'
 import { useTheme } from '../contexts/ThemeContext'
 import { useI18n } from '../contexts/I18nContext'
-import { filterMatchesInWindow, isMatchEligible } from '../utils/timeFilter'
+import { selectEligibleMatches } from '../utils/timeFilter'
 import './Sidebar.css'
 
 const PINNED_LEAGUES = [
@@ -128,9 +128,10 @@ const Sidebar = ({
       // l'off-by-one des bornes 3/7 jours ("N jours incluant aujourd'hui").
       // On applique aussi isMatchEligible : le total du Sidebar est alors
       // TOUJOURS égal au nombre de matchs réellement listés dans le Dashboard.
+      // selectEligibleMatches retombe sur les prochains matchs (7 jours)
+      // quand la fenêtre active est vide → compteurs synchronisés.
       const nowMs = Date.now()
-      filterMatchesInWindow(matches, activeDate, nowMs)
-        .filter((m) => isMatchEligible(m, nowMs))
+      selectEligibleMatches(matches, activeDate, nowMs)
         .forEach((m) => {
           const l = (m.league || 'Unknown').toLowerCase()
           counts[l] = (counts[l] || 0) + 1

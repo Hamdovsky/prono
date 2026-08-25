@@ -106,8 +106,8 @@ function analyzeValue({ modelHome, modelDraw, modelAway, homeOdds, drawOdds, awa
   const d = parseFloat(drawOdds) || null
   const a = parseFloat(awayOdds) || null
 
-  // De-vig the market
-  const fair = deVig(h || 2.0, d || 3.4, a || 3.5)
+  // De-vig the market (aucune cote factice : seules les cotes réelles comptent)
+  const fair = deVig(h, d, a)
 
   const buildOutcome = (label, modelProb, odds, fairProb, outcomeKey) => {
     if (!odds || odds < MIN_ODDS_VALUE || !modelProb) return null

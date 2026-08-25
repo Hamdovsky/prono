@@ -1052,7 +1052,7 @@ class EnrichedPredictionService {
         // 2. BSD prediction API (via bsd_match_id)
         if (!(parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5) && m.bsd_match_id) {
           try {
-            import bsdService from '../services/bsdService'
+            const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             if (bsdService.isAvailable()) {
               const pred = await bsdService.fetchPredictions(m.bsd_match_id)
               if (pred && pred.xg) {
@@ -1071,7 +1071,7 @@ class EnrichedPredictionService {
             const fd = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData || {}
             const fixtureId = fd.fixtureId
             if (fixtureId) {
-              import afService from '../services/apifootballService'
+              const afService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
               if (afService.isAvailable()) {
                 const preds = await afService.fetchPredictions(fixtureId)
                 if (preds && preds.length > 0 && preds[0].predictions) {
@@ -1092,7 +1092,7 @@ class EnrichedPredictionService {
             const fd = typeof m.fullData === 'string' ? JSON.parse(m.fullData) : m.fullData || {}
             const bbMatchId = fd.bigballs?.matchId
             if (bbMatchId) {
-              import bbsService from '../services/bigBallsDataService'
+              const bbsService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
               if (bbsService.isAvailable()) {
                 const stats = await bbsService.getMatchStats(bbMatchId)
                 if (stats) {
@@ -1111,7 +1111,7 @@ class EnrichedPredictionService {
         // 5. FutPythonTrader data (Comprehensive match info)
         if (!(parseFloat(m.home_xg) > 0.5 && parseFloat(m.away_xg) > 0.5)) {
           try {
-            import fpService from '../services/futpythonService'
+            const fpService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             if (fpService.isAvailable()) {
               const fpData = await fpService.enrichMatch(m)
               if (fpData) {

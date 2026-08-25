@@ -42,7 +42,7 @@ async function runLocalScraper() {
       `[SCRAPER BRIDGE] Render env detected — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`
     )
     try {
-      import httpScraperService from './httpScraperService'
+      const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
       const fallbackCount = await httpScraperService.processFallback({ fullScan })
       return { success: true, fallback: true, fallbackCount }
     } catch (fbErr) {
@@ -82,7 +82,7 @@ async function runLocalScraper() {
       `[SCRAPER BRIDGE] Local scraper failed: ${err.message} — falling back to HTTP scraper`
     )
     try {
-      import httpScraperService from './httpScraperService'
+      const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
       const fallbackCount = await httpScraperService.processFallback({ fullScan })
       return { success: true, fallback: true, fallbackCount }
     } catch (fbErr) {

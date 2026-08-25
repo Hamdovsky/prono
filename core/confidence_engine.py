@@ -12,13 +12,131 @@ Responsibilities:
   7. World Cup / FIFA rank logic
   8. 10-point analysis report
 """
+import json
 import sys
+from pathlib import Path
 from data_loader import (
     safe_float as _safe_float, f_feat as _f_feat,
     apply_gap_learning_weight, get_league_draw_multiplier,
     get_league_volatility_penalty, get_h2h_modifier,
 )
 from feature_engineer import calculate_composite_confidence
+try:
+    from calibration_iso import isotonic_calibrate
+except Exception:
+    isotonic_calibrate = None
+
+# Veto Guard / Safety Bracket
+_OVERCONF_MIN_PROB = 0.70      # prob pick >= 70 %
+_OVERCONF_MAX_HIT = 0.55       # hit-rate historique du bracket < 55% (stricter)
+_OVERCONF_MIN_SAMPLES = 20     # samples minimum pour faire confiance au bracket (was 5)
+_OVERCONF_DATA_DIRS = (
+    Path(__file__).resolve().parents[1] / "data",     # stitch/data
+    Path(__file__).resolve().parents[2] / "data",     # repo racine/data
+)
+
+
+def _bracket_key(prob: float) -> str:
+    """Bande de calibration (10 %) pour une probabilité pick 0-1."""
+    if prob >= 0.90:
+        return "90-100"
+    if prob >= 0.80:
+        return "80-90"
+    if prob >= 0.70:
+        return "70-80"
+    if prob >= 0.60:
+        return "60-70"
+    if prob >= 0.50:
+        return "50-60"
+    if prob >= 0.40:
+        return "40-50"
+    if prob >= 0.30:
+        return "30-40"
+    if prob >= 0.20:
+        return "20-30"
+    if prob >= 0.10:
+        return "10-20"
+    return "0-10"
+
+
+def load_bracket_accuracy() -> dict:
+    """Charge le taux de succès historique par bande de confiance.
+
+    Sources (fusion, priorité à la plus fraîche) :
+      - data/backtest_results.json  → bracketAccuracy (bandes 0-50…90+)
+      - data/accuracy_report.json   → cumulative.calibrationCurve (bandes 10 %)
+    Retourne {band: {"accuracy": float (0-1), "count": int}}.
+    """
+    brackets: dict[str, dict] = {}
+    for d in _OVERCONF_DATA_DIRS:
+        for fname in ("backtest_results.json", "accuracy_report.json"):
+            p = d / fname
+            if not p.exists():
+                continue
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if fname == "backtest_results.json":
+                for band, info in (data.get("bracketAccuracy") or {}).items():
+                    if not isinstance(info, dict):
+                        continue
+                    hit = _safe_float(info.get("accuracy"), None)
+                    if hit is None:
+                        continue
+                    # Normalise "90+" (backtest) vers "90-100" (calibrationCurve)
+                    if band == "90+":
+                        band = "90-100"
+                    brackets.setdefault(band, {"accuracy": 0.0, "count": 0})
+                    old_acc = brackets[band]["accuracy"]
+                    old_n = brackets[band]["count"]
+                    n = int(info.get("count", 0) or 0)
+                    if old_n + n > 0:
+                        brackets[band]["accuracy"] = (old_acc * old_n + (hit / 100.0) * n) / (old_n + n)
+                    brackets[band]["count"] = old_n + n
+            else:
+                curve = (data.get("cumulative") or {}).get("calibrationCurve") or []
+                for entry in curve:
+                    band = entry.get("band")
+                    acc = entry.get("accuracy")
+                    n = int(entry.get("count", 0) or 0)
+                    if not band or acc is None or n <= 0:
+                        continue
+                    brackets.setdefault(band, {"accuracy": 0.0, "count": 0})
+                    old_acc = brackets[band]["accuracy"]
+                    old_n = brackets[band]["count"]
+                    brackets[band]["accuracy"] = (old_acc * old_n + (acc / 100.0) * n) / (old_n + n)
+                    brackets[band]["count"] = old_n + n
+    return brackets
+
+
+def overconfidence_veto(pick_probability, bracket_accuracy=None,
+                        min_prob=_OVERCONF_MIN_PROB, max_hit=_OVERCONF_MAX_HIT,
+                        min_samples=_OVERCONF_MIN_SAMPLES):
+    """Safety Bracket : prob pick >= 0.70 mais taux de succès historique du
+    bracket < 0.60 → veto de la recommandation.
+
+    Retourne (veto: bool, reason: str). bracket_accuracy peut être injecté
+    (tests) ; sinon chargé depuis les rapports data/.
+    """
+    try:
+        if pick_probability is None or pick_probability < min_prob:
+            return False, ""
+        if bracket_accuracy is None:
+            bracket_accuracy = load_bracket_accuracy()
+        band = _bracket_key(pick_probability)
+        info = bracket_accuracy.get(band)
+        if not info or int(info.get("count", 0)) < min_samples:
+            return False, ""
+        hit = _safe_float(info.get("accuracy"), None)
+        if hit is None or hit >= max_hit:
+            return False, ""
+        reason = (f"Veto Guard: prob pick {pick_probability:.0%} mais historique "
+                  f"bracket {band} = {hit:.0%} (n={info['count']}) < {max_hit:.0%} → NO BET")
+        return True, reason
+    except Exception as e:
+        sys.stderr.write(f"⚠️ [VetoGuard] {e}\n")
+        return False, ""
 
 
 def _get_external_probs(match_obj):
@@ -90,6 +208,14 @@ def calibrate_confidence(p_h, p_d, p_a, selection_prob, composite_confidence,
     analysis = {}
     safe_sel_p = _safe_float(selection_prob, 0.5)
 
+    # Apply Isotonic Calibration to probabilities (if model available)
+    if isotonic_calibrate is not None:
+        try:
+            p_h, p_d, p_a = isotonic_calibrate(p_h, p_d, p_a)
+            analysis["IsotonicCalibration"] = "Applied"
+        except Exception as e:
+            analysis["IsotonicCalibration"] = f"Failed: {e}"
+
     # Value Index
     odds_h = _safe_float(match_obj.get('odds_home') or match_obj.get('home_odds'), 0.0)
     odds_d = _safe_float(match_obj.get('odds_draw') or match_obj.get('draw_odds'), 0.0)
@@ -98,7 +224,13 @@ def calibrate_confidence(p_h, p_d, p_a, selection_prob, composite_confidence,
     sel_pct = safe_sel_p * 100  # selection_prob est une proba 0-1, seuils en %
     temp_odds = odds_h if sel_pct > 50 else (odds_a if sel_pct < 34 else odds_d)
     value_index = (temp_win_prob * temp_odds)
-    is_value_bet = value_index > 1.10
+    
+    # Odds Range Filter: Only accept bets with odds between 1.45 and 2.30
+    odds_in_range = 1.45 <= temp_odds <= 2.30
+    if not odds_in_range:
+        analysis["OddsRangeVeto"] = f"Cote {temp_odds:.2f} hors range [1.45, 2.30]"
+    
+    is_value_bet = value_index > 1.06 and odds_in_range
 
     # Blend composite confidence with surgical confidence
     confidence = (composite_confidence * 0.6) + (surgical_confidence * 0.4)
@@ -128,13 +260,16 @@ def calibrate_confidence(p_h, p_d, p_a, selection_prob, composite_confidence,
     if mot_factor != 1.0:
         confidence *= (1.0 + (mot_factor - 1.0) * 0.1)
 
-    # V110 No-History Penalty (reduced from 25% to 12% for cold start)
+    # V25 Bayesian Shrinkage for Low-Data Matches (replaces No-History Penalty)
     h_hist_len = features.get('h_hist_len', 0)
     a_hist_len = features.get('a_hist_len', 0)
-    if h_hist_len + a_hist_len < 5:
-        hist_penalty = 1.0 - ((5 - (h_hist_len + a_hist_len)) / 5.0) * 0.12
-        confidence *= hist_penalty
-        analysis["NoHistoryPenalty"] = f"Penalty: {hist_penalty:.0%} (hist={h_hist_len}+{a_hist_len})"
+    n_eff = h_hist_len + a_hist_len
+    if n_eff < 30:
+        # Prior strength: k=15 for known leagues, k=25 for UNKNOWN/T3
+        k = 25 if league_tier in ('UNKNOWN', 'T3') else 15
+        shrinkage = n_eff / (n_eff + k) if n_eff > 0 else 0.0
+        confidence *= shrinkage
+        analysis["BayesianShrinkage"] = f"Shrinkage: {shrinkage:.2f} (n_eff={n_eff}, k={k}, tier={league_tier})"
 
     # V26 Reliability Index
     completeness = features.get('data_completeness', 50.0)
@@ -257,20 +392,23 @@ def apply_draw_and_world_cup(p_h, p_d, p_a, league_name_str, tourn_name_str, fea
     return p_h, p_d, p_a, confidence_adj
 
 
-def determine_verdict(confidence, p_d, confluence_penalty):
+def determine_verdict(confidence, p_d, confluence_penalty, is_value_bet=False, value_index=0.0):
     """Determine the base verdict from confidence and draw probability."""
     if confluence_penalty >= 0.35: return "NO BET"
     elif confidence < 55: return "NO BET"
     elif confidence < 70: return "RISKY"
     elif p_d > 0.40: return "DRAW TRAP"
+    # Reject value bet if confidence too low (Phase 3: min 60% for value bets)
+    if is_value_bet and confidence < 60:
+        return "NO BET (LOW_CONF_VALUE)"
     return "SAFE BET"
 
 
 def assess_risk(league_tier, h_dmf, a_dmf, h_is_dz, a_is_dz,
                 odds_h, odds_d, odds_a, odds_h_open, odds_a_open,
-                p_h, p_a, features, confidence):
+                p_h, p_a, features, confidence, match_obj=None):
     """
-    V80 Match Integrity & Risk Detection (7 rules).
+    V80 Match Integrity & Risk Detection (8 rules - added Rule 8 Steam Drift).
     Returns: (risk_score, risk_reasons, is_suspicious_flag, is_safe_bet_flag)
     """
     risk_score = 0
@@ -310,6 +448,24 @@ def assess_risk(league_tier, h_dmf, a_dmf, h_is_dz, a_is_dz,
     if league_tier == 'T3' and (o_drop_h > 0.15 or o_drop_a > 0.15):
         risk_score += 4
         risk_reasons.append("تنبيه: انخفاض مريب في الاحتمالات في دوري منخفض التصنيف (High Integrity Risk).")
+
+    # Rule 7: Extreme Odds Movement (Steam) on favorite
+    max_drop = max(o_drop_h, o_drop_a)
+    if max_drop > 0.30:
+        risk_score += 4
+        risk_reasons.append(f"⚡ حركة حادة في الأودز (Steam >30%): السوق يتفاعل بقوة.")
+
+    # Rule 8: Steam Drift >10% within 12h before kickoff
+    if match_obj:
+        ts = _safe_float(match_obj.get('startTimestamp', 0))
+        if ts > 0:
+            import time
+            hours_to_kickoff = max(0, (ts - time.time()) / 3600.0)
+            if hours_to_kickoff <= 12:
+                max_change = max(abs(o_drop_h), abs(o_drop_a))
+                if max_change > 0.10:
+                    risk_score += 10
+                    risk_reasons.append(f"🛑 STEAM DRIFT VETO: تغير الأودز >10% في آخر {hours_to_kickoff:.1f}h — مخاطرة عالية.")
 
     is_suspicious_flag = bool(risk_score >= 8)
     is_safe_bet_flag = bool(confidence > 80.0 and league_tier == 'T1' and risk_score < 3)
@@ -428,6 +584,12 @@ def apply_post_verdict(confidence, surgical_confidence, value_index, league_tier
     if confidence >= 82: verdict = "SAFE BET"
     elif confidence >= 60: verdict = "STRONG BET"
     else: verdict = "RISKY BET"
+
+    # Phase 3: Reject value bet if confidence < 60
+    is_value_bet = value_index > 1.06
+    if is_value_bet and confidence < 60:
+        verdict = "NO BET (LOW_CONF_VALUE)"
+        analysis["LowConfValueVeto"] = f"Value bet rejected: confidence {confidence:.1f}% < 60%"
 
     # V98 SURGICAL STRIKE
     if confidence > 88 and value_index > 1.15 and league_tier == 'T1':

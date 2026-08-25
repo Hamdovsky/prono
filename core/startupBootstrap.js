@@ -106,7 +106,7 @@ async function warmThetaOptimizer() {
 
 async function syncBSD() {
   try {
-    const bsd = require('../services/bsdService')
+    const bsd = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     if (bsd.isAvailable()) {
       logger.info('[BOOT] BSD API available — syncing fixtures...')
       const n = await bsd.fullSync()
@@ -118,8 +118,8 @@ async function syncBSD() {
 }
 
 async function syncFootballData() {
-  const fdKey = process.env.FOOTBALLDATA_KEY || ''
-  if (!fdKey || fdKey.startsWith('CHANGER_MOI')) return
+  // Paid API removed — system is free-only
+  return
   try {
     const https = require('https')
     const today = new Date().toISOString().split('T')[0]

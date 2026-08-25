@@ -64,6 +64,46 @@ class CronManager {
       { timezone: 'Europe/Paris' }
     )
 
+    // 3b. Real Odds Sweep (BetExplorer free pool) — toutes les 15 min.
+    // Récupère les cotes réelles (1X2 + O2.5 + BTTS) des matchs programmés
+    // qui en manquent (services/oddsSweeper.js) et alimente odds_history (CLV).
+    cron.schedule(
+      '*/15 * * * *',
+      async () => {
+        try {
+          const oddsSweeper = require('./oddsSweeper')
+          const res = await oddsSweeper.sweep()
+          if (res && res.success && res.stats) {
+            logger.info(
+              `✅ [CRON] Odds sweep: ${res.stats.fetched}/${res.stats.targeted} (échecs ${res.stats.failed}) — couverture 1X2 ${res.stats.coverage?.with1x2 ?? 0}/${res.stats.coverage?.total ?? 0}`
+            )
+          }
+        } catch (e) {
+          logger.error(`❌ [CRON] Odds sweep error: ${e.message}`)
+        }
+      },
+      { timezone: 'Europe/Paris' }
+    )
+
+    // 3c. Top-Picks scoring pipeline (sync → link → settle) — 2x/jour.
+    // Ferme la boucle : les top_picks PENDING sont réglés automatiquement
+    // contre les scores réels (services/topPicksService.js).
+    cron.schedule(
+      '0 2,12 * * *',
+      async () => {
+        try {
+          const { runScoringPipeline } = require('./topPicksService')
+          const r = runScoringPipeline()
+          logger.info(
+            `✅ [CRON] Top-picks scoring: sync=${r.sync.synced} link=${r.link.linked} settle=${r.settle.settled}`
+          )
+        } catch (e) {
+          logger.error(`❌ [CRON] Top-picks scoring error: ${e.message}`)
+        }
+      },
+      { timezone: 'Europe/Paris' }
+    )
+
     // 4. Daily Auto-Archiver (04:00)
     cron.schedule('0 4 * * *', () => autoArchiver.runArchiver(2), { timezone: 'Europe/Paris' })
 
@@ -517,7 +557,7 @@ class CronManager {
         const result = await workerBridge.callWorker('sync/predixsport')
         if (!result?.success) {
           try {
-            const predixSportService = require('./predixSportService')
+            const predixSportService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             await predixSportService.syncUpcoming()
           } catch (e) {
             logger.error(`[CRON] PredixSport sync error: ${e.message}`)
@@ -534,7 +574,7 @@ class CronManager {
         const result = await workerBridge.callWorker('sync/bigballsdata')
         if (!result?.success) {
           try {
-            const bbs = require('./bigBallsDataService')
+            const bbs = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             await bbs.syncUpcoming()
           } catch (e) {
             logger.error(`[CRON] BBS sync error: ${e.message}`)
@@ -986,8 +1026,52 @@ class CronManager {
       '0 6 * * *',
       async () => {
         logger.info('[CRON] Launching daily predictions pipeline...')
+
+        // 🛡️ Safety net: if the DB has no upcoming fixtures (e.g. a stuck or
+        // skipped scraper), force a resilient fixtures scan so the dashboard
+        // never displays an empty "TOUS LES MATCHS 0" state.
+        try {
+          const db = require('../core/database')
+          const all = (typeof db.getAllMatches === 'function' && (await db.getAllMatches())) || []
+          const now = Date.now() / 1000
+          const upcoming = all.filter((m) => (m.startTimestamp || 0) > now).length
+          if (upcoming === 0) {
+            logger.warn('[CRON] 0 upcoming matches in DB — forcing resilient fixtures scan')
+            const { runResilientScan } = require('./scraperBridge')
+            await runResilientScan().catch((e) =>
+              logger.warn(`[CRON] Forced resilient scan failed: ${e.message}`)
+            )
+          }
+        } catch (e) {
+          logger.warn(`[CRON] Upcoming-check skipped: ${e.message}`)
+        }
+
         const { resolvePython } = require('../core/utils/pythonResolver')
         const pythonCmd = resolvePython()
+        const cronRoot = path.join(__dirname, '..')
+        // 🆓 Free pipeline refresh (curl_cffi SofaScore odds + soccerdata fixtures) before predictions
+        for (const step of ['services/soccerdataService.py', 'scripts/cacheSofascoreOdds.py']) {
+          try {
+            await new Promise((res, rej) => {
+              const p = spawn(pythonCmd, [step], {
+                cwd: cronRoot,
+                shell: true,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                timeout: 600000,
+                windowsHide: true,
+              })
+              let out = ''
+              p.stdout.on('data', (d) => (out += d.toString()))
+              p.on('close', (c) =>
+                c === 0 ? res() : rej(new Error(step + ' exited ' + c + ': ' + out.slice(-300)))
+              )
+              p.on('error', rej)
+            })
+            logger.info('[CRON] ' + step + ' OK')
+          } catch (e) {
+            logger.error('[CRON] ' + step + ' failed: ' + e.message)
+          }
+        }
         try {
           const pred = spawn(pythonCmd, ['scripts/daily_predictions.py'], {
             cwd: path.join(__dirname, '..'),
@@ -1138,7 +1222,7 @@ class CronManager {
             'ðŸ›‘ [CRON] Proactive enrichment skipped â€” RapidAPI quota is exhausted. Running FootballData.io fallback...'
           )
           try {
-            const footballDataService = require('./footballDataService')
+            const footballDataService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             await footballDataService.processFallbackFixtures()
           } catch (fdErr) {
             logger.error(`❌ [CRON] FootballData fallback failed: ${fdErr.message}`)

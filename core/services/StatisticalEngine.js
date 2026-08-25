@@ -745,9 +745,14 @@ class StatisticalEngine {
     return {
       ...full,
       first_half: ht,
+      over15: full.ou[1.5],
+      under15: full.u[1.5],
       over25: full.ou[2.5],
       under25: full.u[2.5],
       over35: full.ou[3.5],
+      under35: full.u[3.5],
+      over45: full.ou[4.5],
+      under45: full.u[4.5],
       ht_goal: ht.goal_yes,
     }
   }

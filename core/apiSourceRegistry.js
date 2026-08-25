@@ -9,16 +9,6 @@ function registerAll(apiFallbackManager, services) {
 
   try {
     apiFallbackManager.registerSource({
-      name: 'BSD',
-      priority: 1,
-      isAvailable: () => services.bsd.isAvailable(),
-      getQuotaStatus: () => ({ available: services.bsd.isAvailable() }),
-      fetchEvents: (dateStr) => services.bsd.fetchEvents(dateStr),
-      fetchOdds: (matchId) => services.bsd.fetchOdds(matchId),
-      fetchPredictions: (matchId) => services.bsd.fetchPredictions(matchId),
-      fetchLiveEvents: () => services.bsd.fetchLiveEvents(),
-    })
-    apiFallbackManager.registerSource({
       name: 'TheRundown',
       priority: 2,
       isAvailable: () => services.therundown.isAvailable(),
@@ -43,15 +33,6 @@ function registerAll(apiFallbackManager, services) {
       fetchOdds: (fixtureId) => services.sportmonks.fetchPrematchOdds(fixtureId),
     })
     apiFallbackManager.registerSource({
-      name: 'APIFootball',
-      priority: 5,
-      isAvailable: () => services.apifootball.isAvailable(),
-      getQuotaStatus: () => services.apifootball.getQuotaStatus(),
-      fetchEvents: (dateStr) => services.apifootball.fetchEvents(dateStr),
-      fetchOdds: (fixtureId) => services.apifootball.fetchOdds(fixtureId),
-      fetchPredictions: (fixtureId) => services.apifootball.fetchPredictions(fixtureId),
-    })
-    apiFallbackManager.registerSource({
       name: 'OpenLigaDB',
       priority: 6,
       isAvailable: () => services.openligadb.isAvailable(),
@@ -59,32 +40,11 @@ function registerAll(apiFallbackManager, services) {
       fetchEvents: (dateStr) => services.openligadb.fetchEvents(dateStr),
     })
     apiFallbackManager.registerSource({
-      name: 'PredixSport',
-      priority: 7,
-      isAvailable: () => services.predixSport.isAvailable(),
-      getQuotaStatus: () => ({ available: services.predixSport.isAvailable() }),
-      fetchEvents: () => services.predixSport.fetchUpcoming(),
-    })
-    apiFallbackManager.registerSource({
-      name: 'BigBallsData',
-      priority: 8,
-      isAvailable: () => services.bigBallsData.isAvailable(),
-      getQuotaStatus: () => ({ available: services.bigBallsData.isAvailable() }),
-      fetchEvents: (league, status) => services.bigBallsData.getMatches(league, status),
-    })
-    apiFallbackManager.registerSource({
       name: 'OddsAPIio',
       priority: 9,
       isAvailable: () => services.oddsApiIo.isAvailable(),
       getQuotaStatus: () => ({ available: services.oddsApiIo.isAvailable() }),
       fetchEvents: (sport, status, limit) => services.oddsApiIo.getEvents(sport, status, limit),
-    })
-    apiFallbackManager.registerSource({
-      name: 'FutPythonTrader',
-      priority: 10,
-      isAvailable: () => services.futpython.isAvailable(),
-      getQuotaStatus: () => ({ available: services.futpython.isAvailable() }),
-      fetchEvents: (source, params) => services.futpython.getMatches(source, params),
     })
     apiFallbackManager.registerSource({
       name: 'ClearSports',
@@ -112,7 +72,7 @@ function registerAll(apiFallbackManager, services) {
       fetchEvents: (dateStr) => services.apiNinjas.fetchEvents(dateStr),
       fetchLiveEvents: () => services.apiNinjas.fetchLiveEvents(),
     })
-    logger.info('[FALLBACK] 13 API sources registered (BSD → APINinjas)')
+    logger.info('[FALLBACK] 8 API sources registered (TheRundown → APINinjas)')
   } catch (fbErr) {
     logger.warn(`[FALLBACK] Registration error: ${fbErr.message}`)
   }

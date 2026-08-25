@@ -82,7 +82,6 @@ setTimeout(async () => {
     const apiFallbackManager = require('./services/apiFallbackManager')
     const autoHealAgent = require('./services/autoHealAgent')
     const retroSync = require('./services/retroSyncService')
-    const clvService = require('./services/clvService')
     const _redisClient = require('./core/redisClient')
 
     const redisCache = {
@@ -130,16 +129,11 @@ setTimeout(async () => {
 
         // ── API Source Registration ──
         apiSourceRegistry.registerAll(apiFallbackManager, {
-          bsd: require('./services/bsdService'),
           therundown: require('./services/therundownService'),
           oddspapi: require('./services/oddspapiService'),
           sportmonks: require('./services/sportmonksService'),
-          apifootball: require('./services/apifootballService'),
           openligadb: require('./services/openligadbService'),
-          predixSport: require('./services/predixSportService'),
-          bigBallsData: require('./services/bigBallsDataService'),
           oddsApiIo: require('./services/oddsApiIoService'),
-          futpython: require('./services/futpythonService'),
           clearSports: require('./services/clearSportsService'),
           sportApi: require('./services/sportApiService'),
           apiNinjas: require('./services/apiNinjasService'),
@@ -154,7 +148,6 @@ setTimeout(async () => {
           retroSync.syncPastMatches(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 60000)),
         ]).catch((e) => logger.warn(`[RETROSYNC] Error: ${e.message}`))
-        clvService.start().catch((e) => logger.warn(`[CLV] Error: ${e.message}`))
         const scrapedOddsService = require('./services/scrapedOddsService')
         scrapedOddsService
           .ensureTable()

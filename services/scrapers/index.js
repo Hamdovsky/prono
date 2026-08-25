@@ -18,6 +18,7 @@ let _bypass = null
 let _firecrawl = null
 let _jina = null
 let _pythonBridge = null
+let _freeProxy = null
 
 function getBypass() {
   if (!_bypass) {
@@ -70,12 +71,24 @@ function getPythonBridge() {
   return _pythonBridge
 }
 
+function getFreeProxy() {
+  if (!_freeProxy) {
+    try {
+      _freeProxy = require('./freeProxyPool')
+    } catch {
+      _freeProxy = null
+    }
+  }
+  return _freeProxy
+}
+
 // ── Health tracking ────────────────────────────────────────────
 const health = {
   bypass: { failures: 0, lastFailure: null, disabled: false },
   firecrawl: { failures: 0, lastFailure: null, disabled: false },
   jina: { failures: 0, lastFailure: null, disabled: false },
   python: { failures: 0, lastFailure: null, disabled: false },
+  free_proxy: { failures: 0, lastFailure: null, disabled: false },
 }
 const MAX_FAILURES = 3
 const COOLDOWN_MS = 5 * 60 * 1000 // 5 min before re-trying a failed scraper
@@ -161,6 +174,36 @@ function hasAnyMarket(result) {
   )
 }
 
+// ── Palier "free_proxy" (primaire quand activé & sain) ──────────
+// Réutilise le TLS-bypass à travers une IP libre du pool (monosans/proxy-list),
+// pour économiser les paliers payants. Auto-dégradation : si le taux de succès
+// du pool passe sous 25 %, le routeur rend la priorité aux scrapers payants.
+function tryFreeProxyOdds(homeTeam, awayTeam, league, country, date) {
+  const pool = getFreeProxy()
+  const bypass = getBypass()
+  if (!pool || !bypass || !pool.isEnabled() || pool.isDegraded()) return null
+  return (async () => {
+    for (let i = 0; i < 3; i++) {
+      const proxy = pool.getProxy()
+      if (!proxy) break
+      try {
+        const result = await bypass.getOdds(homeTeam, awayTeam, league, country, date, pool.getProxyUrl(proxy))
+        if (result && hasAnyMarket(result)) {
+          pool.recordAttempt(true)
+          result._scraper = 'free_proxy'
+          result._mode = getMode()
+          return result
+        }
+        pool.recordAttempt(false)
+      } catch (err) {
+        pool.recordAttempt(false)
+        pool.markBad(proxy)
+      }
+    }
+    return null
+  })()
+}
+
 /**
  * Get odds via the automated toggle chain.
  * Tries each scraper in priority order. Returns first successful result.
@@ -168,10 +211,16 @@ function hasAnyMarket(result) {
  * @param {string} homeTeam
  * @param {string} awayTeam
  * @param {string} league
- * @param {object} [opts] - { timeout, preferSource }
+ * @param {object} [opts] - { timeout, preferSource, skipFreeProxy }
  * @returns {Promise<object|null>}
  */
 async function getOdds(homeTeam, awayTeam, league, opts = {}) {
+  // Palier free-proxy en premier (source principale quand activé & sain).
+  if (!opts.skipFreeProxy && !opts.preferSource) {
+    const viaProxy = await tryFreeProxyOdds(homeTeam, awayTeam, league, opts.country, opts.date)
+    if (viaProxy) return viaProxy
+  }
+
   const chain = getPriorityChain()
   if (chain.length === 0) {
     // Final fallback: try Python bridge directly
@@ -243,13 +292,16 @@ async function getResults(league) {
  * Get current router status.
  */
 function getStatus() {
+  const pool = getFreeProxy()
   return {
     mode: getMode(),
     firecrawl_key_set: !!process.env.FIRECRAWL_API_KEY,
+    free_proxy_enabled: !!(pool && pool.isEnabled()),
     chain: getPriorityChain().map((s) => s.name),
     health: Object.fromEntries(
       Object.entries(health).map(([k, v]) => [k, { disabled: v.disabled, failures: v.failures }])
     ),
+    free_proxy: pool ? pool.getStatus() : null,
     cache_size: {
       bypass: getBypass()?.getCacheSize?.() || 0,
       firecrawl: getFirecrawl()?.getCacheSize?.() || 0,

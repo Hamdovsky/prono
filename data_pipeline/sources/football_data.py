@@ -13,6 +13,7 @@ import requests
 
 from .base import BaseSource, KIND_BASE
 from config import FD_BASE_URL, FOOTBALL_DATA_DIR, LEAGUES, RAW_DIR, season_codes
+from proxy_manager import fetch_with_proxy
 from util import get_logger, retry
 
 log = get_logger("football_data")
@@ -76,7 +77,7 @@ FIXTURE_EXTRA_COLS = [
 @retry(n=4, delay=4, exceptions=(requests.RequestException,))
 def _download(season_code: str, file_stem: str) -> bytes:
     url = f"{FD_BASE_URL}/{season_code}/{file_stem}.csv"
-    resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
+    resp = fetch_with_proxy(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
     # Un fichier de saison pas encore publié peut répondre 404, 300 ou un HTML
     # d'erreur — on le traite comme "saison non publiée" (pas un crash).
     if resp.status_code == 404 or resp.status_code >= 300:
@@ -166,7 +167,7 @@ FIXTURES_URL = "https://www.football-data.co.uk/fixtures.csv"
 
 @retry(n=3, delay=3, exceptions=(requests.RequestException,))
 def _download_fixtures() -> bytes:
-    resp = requests.get(FIXTURES_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
+    resp = fetch_with_proxy(FIXTURES_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
     resp.raise_for_status()
     return resp.content
 

@@ -1,0 +1,344 @@
+[
+  {
+    "id": "marseille-strasbourg-2026-08-21",
+    "home": "Marseille",
+    "away": "Strasbourg",
+    "league": "f1",
+    "country": "F1",
+    "date": "2026-08-21",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "arsenal-coventry-2026-08-21",
+    "home": "Arsenal",
+    "away": "Coventry",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-21",
+    "kickoff_time": "20:00"
+  },
+  {
+    "id": "betis-sociedad-2026-08-21",
+    "home": "Betis",
+    "away": "Sociedad",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-08-21",
+    "kickoff_time": "20:00"
+  },
+  {
+    "id": "hull-man-united-2026-08-22",
+    "home": "Hull",
+    "away": "Man United",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-22",
+    "kickoff_time": "12:30"
+  },
+  {
+    "id": "everton-crystal-palace-2026-08-22",
+    "home": "Everton",
+    "away": "Crystal Palace",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-22",
+    "kickoff_time": "15:00"
+  },
+  {
+    "id": "ipswich-sunderland-2026-08-22",
+    "home": "Ipswich",
+    "away": "Sunderland",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-22",
+    "kickoff_time": "15:00"
+  },
+  {
+    "id": "nottm-forest-leeds-2026-08-22",
+    "home": "Nott'm Forest",
+    "away": "Leeds",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-22",
+    "kickoff_time": "15:00"
+  },
+  {
+    "id": "ath-bilbao-sevilla-2026-08-22",
+    "home": "Ath Bilbao",
+    "away": "Sevilla",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-08-22",
+    "kickoff_time": "16:00"
+  },
+  {
+    "id": "lens-auxerre-2026-08-22",
+    "home": "Lens",
+    "away": "Auxerre",
+    "league": "f1",
+    "country": "F1",
+    "date": "2026-08-22",
+    "kickoff_time": "16:15"
+  },
+  {
+    "id": "brentford-tottenham-2026-08-22",
+    "home": "Brentford",
+    "away": "Tottenham",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-22",
+    "kickoff_time": "17:30"
+  },
+  {
+    "id": "inter-monza-2026-08-22",
+    "home": "Inter",
+    "away": "Monza",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-22",
+    "kickoff_time": "17:30"
+  },
+  {
+    "id": "udinese-como-2026-08-22",
+    "home": "Udinese",
+    "away": "Como",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-22",
+    "kickoff_time": "17:30"
+  },
+  {
+    "id": "valencia-celta-2026-08-22",
+    "home": "Valencia",
+    "away": "Celta",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-08-22",
+    "kickoff_time": "18:30"
+  },
+  {
+    "id": "le-mans-brest-2026-08-22",
+    "home": "Le Mans",
+    "away": "Brest",
+    "league": "f1",
+    "country": "F1",
+    "date": "2026-08-22",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "nice-lorient-2026-08-22",
+    "home": "Nice",
+    "away": "Lorient",
+    "league": "f1",
+    "country": "F1",
+    "date": "2026-08-22",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "toulouse-lyon-2026-08-22",
+    "home": "Toulouse",
+    "away": "Lyon",
+    "league": "f1",
+    "country": "F1",
+    "date": "2026-08-22",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "troyes-paris-fc-2026-08-22",
+    "home": "Troyes",
+    "away": "Paris FC",
+    "league": "f1",
+    "country": "F1",
+    "date": "2026-08-22",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "genoa-napoli-2026-08-22",
+    "home": "Genoa",
+    "away": "Napoli",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-22",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "parma-cagliari-2026-08-22",
+    "home": "Parma",
+    "away": "Cagliari",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-22",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "espanol-real-madrid-2026-08-22",
+    "home": "Espanol",
+    "away": "Real Madrid",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-08-22",
+    "kickoff_time": "20:30"
+  },
+  {
+    "id": "brighton-aston-villa-2026-08-23",
+    "home": "Brighton",
+    "away": "Aston Villa",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-23",
+    "kickoff_time": "14:00"
+  },
+  {
+    "id": "man-city-bournemouth-2026-08-23",
+    "home": "Man City",
+    "away": "Bournemouth",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-23",
+    "kickoff_time": "14:00"
+  },
+  {
+    "id": "angers-lille-2026-08-23",
+    "home": "Angers",
+    "away": "Lille",
+    "league": "f1",
+    "country": "F1",
+    "date": "2026-08-23",
+    "kickoff_time": "14:00"
+  },
+  {
+    "id": "ath-madrid-villarreal-2026-08-23",
+    "home": "Ath Madrid",
+    "away": "Villarreal",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-08-23",
+    "kickoff_time": "16:00"
+  },
+  {
+    "id": "le-havre-monaco-2026-08-23",
+    "home": "Le Havre",
+    "away": "Monaco",
+    "league": "f1",
+    "country": "F1",
+    "date": "2026-08-23",
+    "kickoff_time": "16:15"
+  },
+  {
+    "id": "newcastle-liverpool-2026-08-23",
+    "home": "Newcastle",
+    "away": "Liverpool",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-23",
+    "kickoff_time": "16:30"
+  },
+  {
+    "id": "frosinone-juventus-2026-08-23",
+    "home": "Frosinone",
+    "away": "Juventus",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-23",
+    "kickoff_time": "17:30"
+  },
+  {
+    "id": "venezia-lecce-2026-08-23",
+    "home": "Venezia",
+    "away": "Lecce",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-23",
+    "kickoff_time": "17:30"
+  },
+  {
+    "id": "getafe-santander-2026-08-23",
+    "home": "Getafe",
+    "away": "Santander",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-08-23",
+    "kickoff_time": "18:30"
+  },
+  {
+    "id": "paris-sg-rennes-2026-08-23",
+    "home": "Paris SG",
+    "away": "Rennes",
+    "league": "f1",
+    "country": "F1",
+    "date": "2026-08-23",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "atalanta-sassuolo-2026-08-23",
+    "home": "Atalanta",
+    "away": "Sassuolo",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-23",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "torino-milan-2026-08-23",
+    "home": "Torino",
+    "away": "Milan",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-23",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "elche-barcelona-2026-08-23",
+    "home": "Elche",
+    "away": "Barcelona",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-08-23",
+    "kickoff_time": "20:30"
+  },
+  {
+    "id": "bologna-lazio-2026-08-24",
+    "home": "Bologna",
+    "away": "Lazio",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-24",
+    "kickoff_time": "17:30"
+  },
+  {
+    "id": "osasuna-levante-2026-08-24",
+    "home": "Osasuna",
+    "away": "Levante",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-08-24",
+    "kickoff_time": "18:30"
+  },
+  {
+    "id": "roma-fiorentina-2026-08-24",
+    "home": "Roma",
+    "away": "Fiorentina",
+    "league": "i1",
+    "country": "I1",
+    "date": "2026-08-24",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "fulham-chelsea-2026-08-24",
+    "home": "Fulham",
+    "away": "Chelsea",
+    "league": "e0",
+    "country": "E0",
+    "date": "2026-08-24",
+    "kickoff_time": "20:00"
+  },
+  {
+    "id": "malaga-la-coruna-2026-08-24",
+    "home": "Malaga",
+    "away": "La Coruna",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-08-24",
+    "kickoff_time": "20:30"
+  }
+]

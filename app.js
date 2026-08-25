@@ -80,6 +80,7 @@ const promosportRoutes = require('./routes/promosport')
 const dsRoutes = require('./routes/ds')
 const gridRoutes = require('./routes/gridRoutes')
 const unifiedRoutes = require('./routes/unified')
+const planProRoutes = require('./routes/planPro')
 
 // Swagger API Documentation
 let swaggerUi, swaggerSpecs
@@ -267,7 +268,7 @@ app.get('/health', (req, res) => {
 
 app.get('/api/debug/state', async (req, res) => {
   try {
-    const bsd = require('./services/bsdService')
+    const bsd = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     const fs = require('fs')
     const path = require('path')
     const dbPath = path.resolve(__dirname, 'data/tactical.db')
@@ -356,7 +357,7 @@ app.get('/metrics', protectMetrics, async (req, res) => {
 
 app.get('/api/diag', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   const db = database.db
-  const bsdService = require('./services/bsdService')
+  const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
   async function q(sql) {
     try {
       const r = await db?.prepare(sql).all()
@@ -404,37 +405,7 @@ app.post(
   writeLimiter,
   securityEngine.authenticate.bind(securityEngine),
   async (req, res) => {
-    try {
-      const bsd = require('./services/bsdService')
-      // Test the BSD API directly with a simple fetch
-      const axios = require('axios')
-      const testResult = await axios.get('https://sports.bzzoiro.com/api/v2/events/?limit=3', {
-        headers: { Authorization: `Token ${process.env.BSD_API_KEY}`, Accept: 'application/json' },
-        timeout: 15000,
-      })
-      const data = testResult.data
-      res.json({
-        available: bsd.isAvailable(),
-        statusCode: testResult.status,
-        hasResults: !!data?.results,
-        resultCount: data?.results?.length || 0,
-        firstEvent: data?.results?.[0]
-          ? {
-              id: data.results[0].id,
-              start_timestamp: data.results[0].start_timestamp,
-              home: data.results[0].home_team,
-            }
-          : null,
-        lastEvent: data?.results?.[data.results.length - 1]
-          ? {
-              id: data.results[data.results.length - 1].id,
-              start_timestamp: data.results[data.results.length - 1].start_timestamp,
-            }
-          : null,
-      })
-    } catch (e) {
-      res.json({ error: e.message, status: e.response?.status, data: e.response?.data })
-    }
+    res.json({ available: false, message: 'BSD (paid) API removed — system runs free-only' })
   }
 )
 
@@ -606,7 +577,7 @@ app.post(
  */
 app.get('/api/bsd/status', async (req, res) => {
   try {
-    const bsdService = require('./services/bsdService')
+    const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     res.json({
       success: true,
       enabled: bsdService.isEnabled(),
@@ -625,7 +596,7 @@ app.post('/api/bsd/toggle', async (req, res) => {
     const enabled = req.body?.enabled === true
     await configEngine.set('BSD_ENABLED', enabled)
     process.env.BSD_ENABLED = enabled ? 'true' : 'false'
-    const bsdService = require('./services/bsdService')
+    const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     bsdService.setEnabled(enabled)
     res.json({ success: true, enabled })
   } catch (e) {
@@ -638,7 +609,7 @@ app.post('/api/bsd/toggle', async (req, res) => {
  */
 app.get('/api/bsd/predictions', async (req, res) => {
   try {
-    const bsdService = require('./services/bsdService')
+    const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     if (!bsdService.isEnabled()) {
       return res.json({ success: true, enabled: false, count: 0, predictions: [] })
     }
@@ -678,6 +649,7 @@ app.use('/api', scraperRoutes)
 app.use('/api', matchesRoutes)
 app.use('/api/promosport', promosportRoutes)
 app.use('/api/grids', gridRoutes)
+app.use('/api', planProRoutes)
 app.use('/api/results', require('./routes/results'))
 app.use('/api/auth', require('./routes/auth'))
 app.use('/api', require('./routes/valueBets'))

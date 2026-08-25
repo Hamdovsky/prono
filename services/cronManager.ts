@@ -476,7 +476,7 @@ class CronManager {
         const result = await workerBridge.callWorker('sync/predixsport')
         if (!result?.success) {
           try {
-            import predixSportService from './predixSportService'
+            const predixSportService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             await predixSportService.syncUpcoming()
           } catch (e) {
             logger.error(`[CRON] PredixSport sync error: ${e.message}`)
@@ -493,7 +493,7 @@ class CronManager {
         const result = await workerBridge.callWorker('sync/bigballsdata')
         if (!result?.success) {
           try {
-            import bbs from './bigBallsDataService'
+            const bbs = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             await bbs.syncUpcoming()
           } catch (e) {
             logger.error(`[CRON] BBS sync error: ${e.message}`)
@@ -1030,7 +1030,7 @@ class CronManager {
             '🛑 [CRON] Proactive enrichment skipped — RapidAPI quota is exhausted. Running FootballData.io fallback...'
           )
           try {
-            import footballDataService from './footballDataService'
+            const footballDataService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
             await footballDataService.processFallbackFixtures()
           } catch (fdErr) {
             logger.error(`❌ [CRON] FootballData fallback failed: ${fdErr.message}`)

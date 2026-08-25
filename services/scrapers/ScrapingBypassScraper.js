@@ -39,7 +39,7 @@ function callPython(data) {
   })
 }
 
-async function getOdds(homeTeam, awayTeam, league, country, date) {
+async function getOdds(homeTeam, awayTeam, league, country, date, proxy) {
   const cacheKey = `odds:${homeTeam}:${awayTeam}:${league}:${country || ''}:${date || ''}`
   const cached = CACHE.get(cacheKey)
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
@@ -53,7 +53,7 @@ async function getOdds(homeTeam, awayTeam, league, country, date) {
         league,
         country,
         date,
-        options: { fingerprint: fp, timeout: 25 },
+        options: { fingerprint: fp, timeout: 25, proxy },
       })
       if (result && result.odds && result.odds.home_win) {
         const out = {
@@ -81,7 +81,7 @@ async function getOdds(homeTeam, awayTeam, league, country, date) {
 
 // ⚡ Variante backfill : 1X2 seulement (skip AJAX OU/BTTS) + fingerprint unique.
 // ~2-4s/match au lieu de ~6-10s, et surtout sans les 5 fingerprints des échecs.
-async function getOdds1x2(homeTeam, awayTeam, league, country, date) {
+async function getOdds1x2(homeTeam, awayTeam, league, country, date, proxy) {
   const cacheKey = `odds1x2:${homeTeam}:${awayTeam}:${league}:${country || ''}:${date || ''}`
   const cached = CACHE.get(cacheKey)
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
@@ -94,7 +94,7 @@ async function getOdds1x2(homeTeam, awayTeam, league, country, date) {
       league,
       country,
       date,
-      options: { fingerprint: BROWSER_FINGERPRINTS[0], timeout: 25 },
+      options: { fingerprint: BROWSER_FINGERPRINTS[0], timeout: 25, proxy },
     })
     if (result && result.odds && result.odds.home_win) {
       const out = {

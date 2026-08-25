@@ -17,10 +17,8 @@ log = logging.getLogger('Penaltyblog')
 
 
 class PenaltyblogEngine:
-    def __init__(self, db_path=None, bsd_api_key=None, bsd_base_url=None):
+    def __init__(self, db_path=None):
         self.db_path = db_path or os.path.join(DATA_DIR, 'historical_archive.sqlite')
-        self.bsd_key = bsd_api_key or self._get_env_key('BSD_API_KEY')
-        self.bsd_base = bsd_base_url or 'https://sports.bzzoiro.com/api'
         self.models = {}
         self.ratings_cache = {}
         os.makedirs(MODELS_DIR, exist_ok=True)
@@ -78,37 +76,6 @@ class PenaltyblogEngine:
         df = df.iloc[::-1].reset_index(drop=True)
         return df
 
-    def _get_bsd_odds(self, home, away):
-        if not self.bsd_key:
-            return None
-        headers = {'Authorization': f'Token {self.bsd_key}'}
-        today = time.strftime('%Y-%m-%d')
-        url = f'{self.bsd_base}/v2/events/?date_from={today}&date_to={today}&limit=100'
-        try:
-            import requests
-            r = requests.get(url, headers=headers, timeout=10)
-            data = r.json()
-            for e in data.get('results', []):
-                ht = (e.get('home_team') or '').lower()
-                at = (e.get('away_team') or '').lower()
-                if home.lower() in ht and away.lower() in at:
-                    mid = e.get('id')
-                    r2 = requests.get(f'{self.bsd_base}/v2/events/{mid}/odds/', headers=headers, timeout=10)
-                    o = r2.json().get('odds', {})
-                    if o.get('home_win') is not None:
-                        return {
-                            'home_win': float(o['home_win']),
-                            'draw': float(o['draw']),
-                            'away_win': float(o['away_win']),
-                            'over_25': float(o['over_25_goals']) if o.get('over_25_goals') else None,
-                            'under_25': float(o['under_25_goals']) if o.get('under_25_goals') else None,
-                            'btts_yes': float(o['btts_yes']) if o.get('btts_yes') else None,
-                            'btts_no': float(o['btts_no']) if o.get('btts_no') else None,
-                        }
-        except Exception as ex:
-            log.warning(f'BSD odds fetch error: {ex}')
-        return None
-
     def fit_league_model(self, league, force=False):
         cache_path = os.path.join(MODELS_DIR, f"{league.replace(' ', '_').replace('/', '_')}.pkl")
         if not force and os.path.exists(cache_path):
@@ -160,25 +127,6 @@ class PenaltyblogEngine:
         if league not in self.models:
             model = self.fit_league_model(league)
             if model is None:
-                log.warning(f'[Predict] No model for {league}, trying BSD odds fallback')
-                odds = self._get_bsd_odds(home_team, away_team)
-                if odds:
-                    implied = self.implied_probabilities(odds['home_win'], odds['draw'], odds['away_win'])
-                    return {
-                        'success': True,
-                        'model': 'bsd_odds',
-                        'home_win': implied['home_prob'],
-                        'draw': implied['draw_prob'],
-                        'away_win': implied['away_prob'],
-                        'home_odds': odds['home_win'],
-                        'draw_odds': odds['draw'],
-                        'away_odds': odds['away_win'],
-                        'over_25': odds.get('over_25'),
-                        'under_25': odds.get('under_25'),
-                        'btts_yes': odds.get('btts_yes'),
-                        'btts_no': odds.get('btts_no'),
-                        'implied_method': implied['method'],
-                    }
                 return {'success': False, 'error': f'No model for {league}'}
 
         model = self.models[league]

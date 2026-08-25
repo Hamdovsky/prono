@@ -616,7 +616,7 @@ GRACE_SLUGS = [
 ]
 
 
-def betexplorer_search(home, away, league=None, date=None, country=None):
+def betexplorer_search(home, away, league=None, date=None, country=None, proxy=None):
     """Recherche BetExplorer via la page de ligue (slug). Retourne 1X2 + match_url.
     Sonde les slugs par pays quand le nom de ligue est générique.
     Pour une ligue inconnue (None/'Promosport'/...), sonde les compétitions majeures."""
@@ -636,7 +636,10 @@ def betexplorer_search(home, away, league=None, date=None, country=None):
             f'{BASE_URL}{slug}',
         ]
         for url in candidate_urls:
-            result = scrape_url(url, {"fingerprint": "chrome124", "timeout": 20})
+            opts = {"fingerprint": "chrome124", "timeout": 20}
+            if proxy:
+                opts["proxy"] = proxy
+            result = scrape_url(url, opts)
             if result.get('error') or result.get('status', 0) != 200:
                 continue
             match = _find_match_in_html(result.get("body", ""), home, away, date=date)
@@ -695,12 +698,15 @@ def _event_hash_from_url(match_url):
     return m.group(1) if m else None
 
 
-def _match_odds_ajax_html(match_hash, bettype, timeout=25):
+def _match_odds_ajax_html(match_hash, bettype, timeout=25, proxy=None):
     """Récupère le HTML des cotes pour un bettype via l'endpoint AJAX."""
     if not match_hash:
         return None
     url = f'{BASE_URL}/match-odds/{match_hash}/0/{bettype}/odds/?lang=en'
-    result = scrape_url(url, {"fingerprint": "chrome124", "timeout": timeout})
+    opts = {"fingerprint": "chrome124", "timeout": timeout}
+    if proxy:
+        opts["proxy"] = proxy
+    result = scrape_url(url, opts)
     if result.get('error') or result.get('status', 0) != 200:
         return None
     try:
@@ -764,19 +770,22 @@ def _parse_btts_from_ajax(html):
     return yes, no
 
 
-def betexplorer_match_ou(match_url, use_firecrawl=True):
+def betexplorer_match_ou(match_url, use_firecrawl=True, proxy=None):
     """OU 2.5 depuis /match-odds/{hash}/0/ou/odds/ (AJAX, vraies cotes).
     Fallback sur la page statique /over-under/. data-odd absent -> {ou25: None}."""
     if not use_firecrawl or not match_url:
         return {"ou25": None, "source": "skipped"}
     match_hash = _event_hash_from_url(match_url)
-    ajax_html = _match_odds_ajax_html(match_hash, 'ou')
+    ajax_html = _match_odds_ajax_html(match_hash, 'ou', proxy=proxy)
     if ajax_html:
         over, under = _parse_ou25_from_ajax(ajax_html)
         if over and under:
             return {"ou25": {"over_25": over, "under_25": under}, "source": "betexplorer:ajax"}
     ou_url = match_url.rstrip("/") + "/over-under/"
-    result = scrape_url(ou_url, {"fingerprint": "chrome124", "timeout": 20})
+    opts = {"fingerprint": "chrome124", "timeout": 20}
+    if proxy:
+        opts["proxy"] = proxy
+    result = scrape_url(ou_url, opts)
     if result.get('error') or result.get('status', 0) != 200:
         return {"ou25": None, "source": "failed"}
     over, under = _parse_ou_page(result.get("body", ""))
@@ -784,19 +793,22 @@ def betexplorer_match_ou(match_url, use_firecrawl=True):
     return {"ou25": ou, "source": "betexplorer" if ou else "static_empty"}
 
 
-def betexplorer_match_btts(match_url, use_firecrawl=True):
+def betexplorer_match_btts(match_url, use_firecrawl=True, proxy=None):
     """BTTS depuis /match-odds/{hash}/0/bts/odds/ (AJAX, vraies cotes).
     Fallback sur la page statique /both-teams-to-score/. data-odd absent -> {btts: None}."""
     if not use_firecrawl or not match_url:
         return {"btts": None, "source": "skipped"}
     match_hash = _event_hash_from_url(match_url)
-    ajax_html = _match_odds_ajax_html(match_hash, 'bts')
+    ajax_html = _match_odds_ajax_html(match_hash, 'bts', proxy=proxy)
     if ajax_html:
         yes, no = _parse_btts_from_ajax(ajax_html)
         if yes and no:
             return {"btts": {"yes": yes, "no": no}, "source": "betexplorer:ajax"}
     btts_url = match_url.rstrip("/") + "/both-teams-to-score/"
-    result = scrape_url(btts_url, {"fingerprint": "chrome124", "timeout": 20})
+    opts = {"fingerprint": "chrome124", "timeout": 20}
+    if proxy:
+        opts["proxy"] = proxy
+    result = scrape_url(btts_url, opts)
     if result.get('error') or result.get('status', 0) != 200:
         return {"btts": None, "source": "failed"}
     yes, no = _parse_btts_page(result.get("body", ""))
@@ -804,13 +816,14 @@ def betexplorer_match_btts(match_url, use_firecrawl=True):
     return {"btts": btts, "source": "betexplorer" if btts else "static_empty"}
 
 
-def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None, country=None, skip_extras=False):
+def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None, country=None, skip_extras=False, proxy=None):
     """Pipeline complet: recherche -> 1X2 (+ OU/BTTS si data-odd statique dispo).
 
     skip_extras=True : retourne uniquement le 1X2 de la page (pas d'AJAX OU/BTTS) —
     ~2-3s au lieu de ~6-10s, idéal pour les backfills volumineux.
+    proxy : 'host:port' ou 'http://host:port' optionnel (pool free-proxy).
     """
-    search = betexplorer_search(home, away, league, date=date, country=country)
+    search = betexplorer_search(home, away, league, date=date, country=country, proxy=proxy)
     result = {
         "odds": None,
         "over_25": None,
@@ -828,11 +841,11 @@ def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None, cou
             return result
         match_url = search.get("match_url")
         if match_url and use_firecrawl:
-            ou_result = betexplorer_match_ou(match_url, use_firecrawl=True)
+            ou_result = betexplorer_match_ou(match_url, use_firecrawl=True, proxy=proxy)
             if ou_result.get("ou25"):
                 result["over_25"] = ou_result["ou25"].get("over_25")
                 result["under_25"] = ou_result["ou25"].get("under_25")
-            btts_result = betexplorer_match_btts(match_url, use_firecrawl=True)
+            btts_result = betexplorer_match_btts(match_url, use_firecrawl=True, proxy=proxy)
             if btts_result.get("btts"):
                 result["btts_yes"] = btts_result["btts"].get("yes")
                 result["btts_no"] = btts_result["btts"].get("no")
@@ -939,7 +952,8 @@ def main():
         use_fc = input_data.get("use_firecrawl", True)
         date = input_data.get("date")
         country = input_data.get("country")
-        result = betexplorer_full(home, away, league, use_firecrawl=use_fc, date=date, country=country)
+        proxy = (input_data.get("options") or {}).get("proxy")
+        result = betexplorer_full(home, away, league, use_firecrawl=use_fc, date=date, country=country, proxy=proxy)
         print(json.dumps(result, ensure_ascii=False))
     elif cmd == "betexplorer_1x2":
         home = input_data.get("home", "")
@@ -947,7 +961,8 @@ def main():
         league = input_data.get("league", "")
         date = input_data.get("date")
         country = input_data.get("country")
-        result = betexplorer_full(home, away, league, use_firecrawl=False, date=date, country=country, skip_extras=True)
+        proxy = (input_data.get("options") or {}).get("proxy")
+        result = betexplorer_full(home, away, league, use_firecrawl=False, date=date, country=country, skip_extras=True, proxy=proxy)
         print(json.dumps(result, ensure_ascii=False))
     elif cmd == "betexplorer_search":
         home = input_data.get("home", "")

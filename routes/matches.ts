@@ -6,7 +6,7 @@ import database from '../core/database'
 import { speedCache, invalidateCache } from '../core/speedCache'
 import enrichedPredictions from '../core/enriched_predictions'
 import { sanitizeMatches } from '../core/matchSanitizer'
-import bsdService from '../services/bsdService'
+const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 import liveGoalPredictor from '../services/LiveGoalPredictor'
 import liveMatchService from '../services/liveMatchService'
 import { getSteamForMatch } from '../services/oddsMovementService'

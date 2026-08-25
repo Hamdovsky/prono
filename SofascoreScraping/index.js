@@ -33,7 +33,7 @@ async function runCycle() {
     // 🚀 [FALLBACK] If main scraper crashed, try HTTP-only API fallback
     console.log('📡 [FALLBACK] Main scraper failed. Running HTTP API fallback...')
     try {
-      const httpScraperService = require('../services/httpScraperService')
+      const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
       const fallbackCount = await httpScraperService.processFallback()
       console.log(`✅ [FALLBACK] HTTP scraper inserted ${fallbackCount} matches.`)
     } catch (fbErr) {

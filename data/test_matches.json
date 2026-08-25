@@ -1,0 +1,26 @@
+[
+  {
+    "id": "arsenal-coventry-city-2026-08-21",
+    "home": "Arsenal",
+    "away": "Coventry City",
+    "league": "eng-premier-league",
+    "country": "ENG",
+    "date": "2026-08-21"
+  },
+  {
+    "id": "brentford-tottenham-hotspur-2026-08-22",
+    "home": "Brentford",
+    "away": "Tottenham Hotspur",
+    "league": "eng-premier-league",
+    "country": "ENG",
+    "date": "2026-08-22"
+  },
+  {
+    "id": "everton-crystal-palace-2026-08-22",
+    "home": "Everton",
+    "away": "Crystal Palace",
+    "league": "eng-premier-league",
+    "country": "ENG",
+    "date": "2026-08-22"
+  }
+]

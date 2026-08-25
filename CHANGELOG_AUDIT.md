@@ -1074,12 +1074,27 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
   (LR 1X2 0,88209 / OU25 0,57971 / RF BTTS 0,61651) -> entraînement reproductible.
 - `test_train_baselines_export_et_predict` : export + reload + predict validés (5/5).
 
+### C-suite. Baseline Dixon-Coles (✅ commit d5dd489)
+- `dixon_coles_params` / `dixon_coles_predict` : impl. MAISON (penaltyblog absent
+  du venv -> scipy L-BFGS-B). Poisson + rho (correction bas-scores 0-0/1-0/0-1/1-1)
+  + décroissance temporelle xi=0.0019, par ligue (attack/defense sum-zero).
+- RUN OFFICIEL (5 modèles) : DC bat le Poisson naïf sur les 3 marchés mais
+  reste au-dessus de LR/RF/XGB :
+  - 1X2 : LR 0,882 < RF 0,888 < XGB 0,900 < DC 0,9996 < Poisson 1,006
+  - OU25 : LR 0,580 < XGB 0,591 < RF 0,602 < DC 0,692 < Poisson 0,696
+  - BTTS : RF 0,617 < XGB 0,623 < LR 0,634 < DC 0,695 < Poisson 0,699
+- **BUG corrigé** : extraction O/U2.5 utilisait `triu_indices(G+1,3)` qui oubliait
+  des cellules total≥3 (ex. (1,2)) -> Poisson OU25 sur-estimé (1,41). Corrigé par
+  masque `i+j>=3` -> 0,696 (cohérent). `BASELINE_EVAL.md` mis à jour (table
+  corrigée + ligne DC). `test_dixon_coles_proba_valides` ajouté (6/6 pytest).
+- Décision : DC = **baseline classique de référence** (toute évolution du runtime
+  doit rester < DC). ML (LR/RF) confortés comme modèles retenus.
+
 ### Reste à faire (hors P0)
 - Activer `absence_impact_pondéré` dans le modèle SEULEMENT après accumulation
   live + backtest walk-forward prouvant un gain (sinon rester désactivé).
-- Dixon-Coles penaltyblog comme 2e itération de baseline (Phase C suite) — optionnelle.
 - Brancher les artefacts `baseline_*.pkl` dans le runtime FastAPI comme fallback
   explicite (ils sont DÉJÀ couverts par le MC existant ; à faire si on veut un
   switch A/B LL vs baseline sans réentraîner le XGB).
-- Validation transverse : jest 610/610 PASS, pytest 14/14 PASS (P0 + Phase 9 + 10).
+- Validation transverse : jest 610/610 PASS, pytest 15/15 PASS (P0 + 9 + 10 + DC).
 - AUCUN push Render effectué (déploiement = action manuelle séparée).

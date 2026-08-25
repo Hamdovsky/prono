@@ -90,23 +90,36 @@ except Exception:
 ELO_DATA = get_elo_data()
 
 
-def _attach_baseline_fallback(match_obj: dict):
+def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
     """Phase 10 suite : A/B des baselines walk-forward (LR/RF retenus), sous
-    kill-switch BASELINE_FALLBACK=on. Renvoie None si désactivé ou match inconnu
-    de master_dataset (pas de feature store live -> voir CHANGELOG)."""
+    kill-switch BASELINE_FALLBACK=on. Feature store live (Elo/xG/cotes open)
+    pour les matchs non archivés dans master_dataset."""
     try:
         if os.environ.get("BASELINE_FALLBACK", "off").lower() != "on":
             return None
         from core.baseline_fallback import predict_for_match
 
+        home = match_obj.get("homeTeam") or match_obj.get("home_team")
+        away = match_obj.get("awayTeam") or match_obj.get("away_team")
+        elo_h = ELO_DATA.get(home, 1500) if ELO_DATA else 1500
+        elo_a = ELO_DATA.get(away, 1500) if ELO_DATA else 1500
+        ctx = {
+            "elo_h": elo_h, "elo_a": elo_a, "xg_h": xg_h, "xg_a": xg_a,
+            "P1_open": match_obj.get("P1_open_avg") or match_obj.get("odds_home_open"),
+            "PX_open": match_obj.get("PX_open_avg") or match_obj.get("odds_draw_open"),
+            "P2_open": match_obj.get("P2_open_avg") or match_obj.get("odds_away_open"),
+            "odds_h": match_obj.get("odds_home_open") or match_obj.get("odds_home"),
+            "odds_d": match_obj.get("odds_draw_open") or match_obj.get("odds_draw"),
+            "odds_a": match_obj.get("odds_away_open") or match_obj.get("odds_away"),
+        }
         date = match_obj.get("date") or match_obj.get("kickoff")
         key = {
             "league": match_obj.get("league"),
-            "home_team": match_obj.get("homeTeam") or match_obj.get("home_team"),
-            "away_team": match_obj.get("awayTeam") or match_obj.get("away_team"),
+            "home_team": home,
+            "away_team": away,
             "date": date,
         }
-        return predict_for_match(key)
+        return predict_for_match(key, ctx)
     except Exception:
         return None
 
@@ -729,7 +742,7 @@ def process_prediction(match_obj: dict) -> dict:
         "motivation_signature": str(motivation_signature),
         "twin_match_dna": twin_dna,
         "twin_match_verdict": twin_verdict,
-        "baseline_fallback": _attach_baseline_fallback(match_obj),
+        "baseline_fallback": _attach_baseline_fallback(match_obj, xg_h, xg_a),
         "kelly_stake": float(round(max(0, (((confidence/100) * (temp_odds-1)) - (1-(confidence/100))) / (temp_odds-1) * 0.25 * 100), 1)) if (temp_odds > 1 and confidence > 0) else 0
     }
 

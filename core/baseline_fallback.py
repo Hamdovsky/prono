@@ -61,18 +61,56 @@ def _match_key(match: dict):
     )
 
 
-def predict_for_match(match: dict, markets=("1x2", "ou25", "btts")) -> dict | None:
-    """Renvoie {market: [p_home, p_draw, p_away] | [p_no, p_yes]} ou None si
-    match inconnu de master_dataset (kill-switch already géré par l'appelant)."""
+def predict_for_match(match: dict, ctx: dict | None = None,
+                      markets=("1x2", "ou25", "btts")) -> dict | None:
+    """Renvoie {market: [p_home, p_draw, p_away] | [p_no, p_yes]} ou None.
+
+    - Si le match est dans master_dataset -> features exactes (historique/replay).
+    - Sinon si `ctx` fourni -> feature store live (Elo/xG/open imputés, reste
+      médian-imputé) -> fallback A/B sur matchs live.
+    - Sinon None.
+    """
     if not match:
         return None
     row = _index().get(_match_key(match))
-    if row is None:
-        return None
-    try:
-        from core.backtest_walkforward import FEATURE_ALLOWLIST
-    except Exception:
-        return None
+    if row is not None:
+        try:
+            from core.backtest_walkforward import FEATURE_ALLOWLIST
+        except Exception:
+            return None
+        return _predict_from_rows({m: row for m in markets}, markets)
+    if ctx is not None:
+        from core import baseline_features
+
+        feats = baseline_features.build(ctx)
+        return predict_from_features(feats, markets)
+    return None
+
+
+def _predict_from_rows(rows_by_market: dict, markets) -> dict | None:
+    out = {}
+    for m in markets:
+        model = MODEL_FOR_MARKET.get(m)
+        if not model:
+            continue
+        pkl = MODELS_DIR / f"baseline_{model}_{m}.pkl"
+        if not pkl.exists():
+            continue
+        row = rows_by_market.get(m)
+        if row is None:
+            continue
+        try:
+            bundle = joblib.load(pkl)
+            feats = bundle["features"]
+            x = [float(row.get(f)) if pd_notna(row.get(f)) else 0.0 for f in feats]
+            proba = bundle["model"].predict_proba([x])[0]
+            out[m] = [round(float(p), 5) for p in proba]
+        except Exception:
+            continue
+    return out or None
+
+
+def predict_from_features(feats: dict, markets=("1x2", "ou25", "btts")) -> dict | None:
     out = {}
     for m in markets:
         model = MODEL_FOR_MARKET.get(m)
@@ -83,8 +121,7 @@ def predict_for_match(match: dict, markets=("1x2", "ou25", "btts")) -> dict | No
             continue
         try:
             bundle = joblib.load(pkl)
-            feats = bundle["features"]
-            x = [float(row.get(f)) if pd_notna(row.get(f)) else 0.0 for f in feats]
+            x = [float(feats.get(f, 0.0)) for f in bundle["features"]]
             proba = bundle["model"].predict_proba([x])[0]
             out[m] = [round(float(p), 5) for p in proba]
         except Exception:

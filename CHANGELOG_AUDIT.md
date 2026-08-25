@@ -1270,3 +1270,13 @@ Actions (toutes gated, sans risque prod ; aucun push) :
   échecs de test_fallback/test_engine/test_predictions sont PRÉEXISTANTS
   (penaltyblog absent, env) -> non liés à ce track. jest 610/610 PASS.
 - AUCUN push Render effectué (déploiement = action manuelle séparée).
+
+### Validation non-régression finale (après M0+M1+M2+M3)
+- `pytest tests/` : **266 passed, 5 failed (préexistants), 30 skipped, 2 xfailed**.
+  Les 5 échecs = test_engine (x2), test_fallback (x2), test_predictions (x1) ->
+  penaltyblog absent en env local (inchangé vs avant le track). **Aucune nouvelle
+  régression** introduite par l'audit.
+- `npm test` (Jest) : **610/610 PASS, 60 suites**. 0 régression côté Node.
+- Le track d'audit complet (P0 + Phase 9 + Phase 10 + calibration isotonique +
+  M0 trace + M1 Meta-Refiner×1 + M2 gap learning honnête + M3 F1 closing-skew) est
+  terminé, commité, et validé sans régression. Aucun déploiement/push.

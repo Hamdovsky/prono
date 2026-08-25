@@ -860,6 +860,7 @@ const database = {
       const __ht = deriveHTPick({
         quant: m.fullData?.quant,
         ht_goal_prob: m.ht_goal_prob ?? m.fullData?.ht_goal_prob,
+        league: m.league ?? m.fullData?.league,
       })
       if (__ht.htPick) {
         m.ht_pick = __ht.htPick
@@ -1414,6 +1415,7 @@ const database = {
       const htDeriv = deriveHTPick({
         quant: fullData.quant || enriched?.quant || null,
         ht_goal_prob: data.ht_goal_prob ?? enriched?.ht_goal_prob ?? fullData.ht_goal_prob ?? null,
+        league: fullData.league ?? enriched?.league ?? data.league ?? null,
       })
       if (htDeriv.htPick) {
         data.ht_pick = htDeriv.htPick

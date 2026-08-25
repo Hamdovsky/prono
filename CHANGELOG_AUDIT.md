@@ -1672,3 +1672,43 @@ déjà mais sa proba servie était arbitraire.
 - **Q3** BTTS, **Q4** HT, **Q5** O/U : voir plan Q1. Chaque phase = 1 commit
   local, **aucun push**.
 
+---
+
+# Q4 — HT : prior P(HT Over 0.5) appris + activation mesure (2026-08-25)
+
+## Cause racine (faiblesse HT)
+`StatisticalEngine.calculateFirstHalfProbs` utilisait `mc_ou25 * 0.95` (heuristique
+hardcodee) ; aucun `ht_goal_prob` n'etait surfaced -> le pick HT (Q1) n'etait
+jamais emis -> marche HT invisible en precision.
+
+## Correctifs
+- `core/train_ht.py` (nouveau) : calcule P(total HT > 0) sur
+  `archive_football_data` (score_home_ht+score_away_ht, n=54 194). Resultat :
+  **global = 0.6939**, par ligue E0=0.7002 / SP1=0.6863 / D1=0.7302 / I1=0.6891 /
+  F1=0.6682. Ecrit `data/ht_ratios.json`.
+- `core/marketPolicy.js` : `deriveHTPick` utilise desormais ce prior (constante
+  `HT_RATIOS`, par ligue puis global) comme **fallback data-driven** quand aucune
+  proba modele n'est disponible. Integre en constante (non lu au runtime) car le
+  `fs` global est mock sous Jest — robuste en prod, rafraichissable via
+  `python -m core.train_ht`.
+- Emetteurs `core/database.js` + `core/pg_database.js` : passent `league` a
+  `deriveHTPick` (memes hooks que Q1) -> le pick HT est desormais **emis au temps T**
+  et mesure par accuracyEngine (recordsFromMatches/Historical `|HT`).
+- `__tests__/marketPolicy.test.js` (nouveau, 5/5 verts) couvre BTTS/Corners/HT
+  dont le fallback prior archive.
+
+## Impact
+- Le marche **HT devient mesurable** (avant : 0 pick). Baseline attendue ~ 69 %
+  (taux reel P(HT>0.5) sur l'archive). Amelioration suivante (Q4 bis) : remplacer
+  le prior par la proba HT par-match de `StatisticalEngine` (quand routee vers
+  `fullData.quant.markets.ht.goal_yes`).
+
+## Validation
+- `python -m core.train_ht` -> OK (`data/ht_ratios.json`).
+- `npx jest __tests__/marketPolicy.test.js` -> **5/5 verts**.
+- `node --check` marketPolicy/database/pg_database -> OK.
+
+## Suite (Q3→Q5)
+- **Q3** BTTS, **Q5** O/U : voir plan Q1. Chaque phase = 1 commit local,
+  **aucun push**.
+

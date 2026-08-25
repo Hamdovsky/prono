@@ -17,6 +17,28 @@ const DISABLE_PURE_1X2 =
     .trim()
     .toLowerCase() === 'true'
 
+// Audit Q4 : prior P(HT Over 0.5) appris sur l'archive (core/train_ht.py ->
+// data/ht_ratios.json, n=54194). Integre en constante pour rester testable sous
+// le mock fs global de Jest et robuste en prod (aucune lecture fichier au runtime).
+// Rafraichi via `python -m core.train_ht` quand l'archive grossit.
+const HT_RATIOS = {
+  global: 0.6939,
+  by_league: {
+    E0: 0.7002,
+    SP1: 0.6863,
+    D1: 0.7302,
+    I1: 0.6891,
+    F1: 0.6682,
+  },
+}
+
+function _htPrior(league) {
+  if (league && HT_RATIOS.by_league && HT_RATIOS.by_league[league] != null) {
+    return HT_RATIOS.by_league[league]
+  }
+  return HT_RATIOS.global != null ? HT_RATIOS.global : null
+}
+
 function applyMarketPolicy(prediction, probs) {
   if (!prediction) return { prediction, converted: false }
   const p = String(prediction).trim().toUpperCase()
@@ -108,6 +130,10 @@ function deriveHTPick(src) {
   if (p == null && src?.ht_goal_prob != null) {
     const v = Number(src.ht_goal_prob)
     if (Number.isFinite(v) && v > 0) p = v <= 1 ? v * 100 : v
+  }
+  if (p == null) {
+    const prior = _htPrior(src?.league)
+    if (prior != null) p = prior * 100
   }
   if (p == null || !Number.isFinite(p)) return { htPick: null, htProb: null }
   const htProb = +Math.min(99.9, Math.max(0.1, p)).toFixed(1)

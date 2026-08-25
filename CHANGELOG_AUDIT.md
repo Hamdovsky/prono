@@ -1301,3 +1301,13 @@ du code mort. Aucun défaut code à corriger ; l'effet réel sera mesurable une 
 les absences live accumulées (backtest alors requis avant activation d'un poids > 0).
 Note mineure (non bloquante) : dataFusionService stocke `max(impact.home, impact.away)`
 en scalaire unique — acceptable pour une feature scalaire.
+
+### Smoke-test runtime M3 (validation service du modele adopte)
+- `tests/test_v55_serve_smoke.py` : charge le booster V55 de PROD via `model_manager`,
+  construit le vecteur via le VRAI pipeline (`extract_ml_features` + `FEATURE_NAMES_V55`,
+  comme `ml_ensemble.py`), et assert des probas valides (sum=1, [0,1], non-NaN) — tant
+  en distribution d'entraînement qu'en **condition de service (closing=0)**.
+- Résultat : probas servies **identiques** avec/sans closing (ex `[0.2251,0.2371,0.5379]`)
+  -> le modèle est INVARIANT aux closing odds : **skew F1 supprimé**, service consistant.
+  Test = guard de régression si un futur ré-entraînement réintroduit le skew.
+- Commit `e12a47c` + test. Aucun push.

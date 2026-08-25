@@ -1090,11 +1090,25 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
 - Décision : DC = **baseline classique de référence** (toute évolution du runtime
   doit rester < DC). ML (LR/RF) confortés comme modèles retenus.
 
+### 10-suite. Fallback A/B FastAPI (✅ commit 0e9cde4)
+- `core/baseline_fallback.py` : charge `models/baseline_{lr,rf}_{market}.pkl`
+  (LR 1X2/OU25, RF BTTS) et prédit pour un match via lookup master_dataset
+  (clé ligue+équipes+date). `predict_for_match` renvoie None si match inconnu.
+- Hook `_attach_baseline_fallback` dans `prediction_engine.process_prediction` :
+  attache `baseline_fallback` au résultat **SEULEMENT si BASELINE_FALLBACK=on**
+  (défaut OFF -> zéro impact prod, import paresseux -> zéro risque si module KO).
+- Test `tests/test_baseline_fallback.py` : 2 PASS (réel valide sum=1, inconnu None,
+  default-off). Smoke : probs 1X2 [0,27/0,37/0,36], OU25 [0,51/0,49], BTTS [0,32/0,68].
+- **Limite honnête** : pas de feature store live -> le fallback ne s'active que
+  pour les matchs présents dans master_dataset (historique/replay). Matchs futurs
+  non archivés -> None (les runtime league codes diffèrent aussi des codes master).
+  Activation réelle en prod nécessite le feature store (voir reste).
+
 ### Reste à faire (hors P0)
 - Activer `absence_impact_pondéré` dans le modèle SEULEMENT après accumulation
   live + backtest walk-forward prouvant un gain (sinon rester désactivé).
-- Brancher les artefacts `baseline_*.pkl` dans le runtime FastAPI comme fallback
-  explicite (ils sont DÉJÀ couverts par le MC existant ; à faire si on veut un
-  switch A/B LL vs baseline sans réentraîner le XGB).
-- Validation transverse : jest 610/610 PASS, pytest 15/15 PASS (P0 + 9 + 10 + DC).
+- **Feature store** : produire les 41 features allowlist à l'inférence (depuis
+  master/agrégats + normalisation ligue runtime->master) pour que le fallback A/B
+  s'active sur les matchs live et pas seulement historiques.
+- Validation transverse : jest 610/610 PASS, pytest vert (suites P0 + 9 + 10 + DC + fallback).
 - AUCUN push Render effectué (déploiement = action manuelle séparée).

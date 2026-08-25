@@ -129,7 +129,9 @@
     "Holstein Kiel",
     "Le Havre",
     "Paris FC",
-    "Malaga"
+    "Malaga",
+    "Hull City",
+    "Le Mans FC"
   ],
   "aliases": {
     "Manchester United": [
@@ -405,7 +407,9 @@
       "Santander"
     ],
     "Deportivo La Coruna": [
-      "Dep. A Coruna"
+      "Dep. A Coruna",
+      "La Coruna",
+      "Dep Coruna"
     ],
     "Real Oviedo": [
       "Oviedo"
@@ -415,6 +419,16 @@
     ],
     "Le Havre": [
       "Le Havre AC"
+    ],
+    "Sunderland": [],
+    "Hull City": [
+      "Hull"
+    ],
+    "Le Mans FC": [
+      "Le Mans"
+    ],
+    "Coventry City": [
+      "Coventry"
     ]
   }
 }

@@ -1742,8 +1742,14 @@ MC (`btts_prob` de `goal_model`) non recalibrée.
   inchangé ; seul le tag reason diffère sous gate).
 
 ## Activation
-- Après re-run walk-forward P1 (qui consomme les mêmes features) et constat que
-  la précision BTTS mesurée (Q1) s'améliore, passer `BTTS_MODEL_ENABLED=true`.
+- **Validée et activée par défaut** (commit `bbbf071` + suivant) : `core/validate_markets.py`
+  sur holdout chronologique (20 % derniers, n=7 735) donne
+  **BTTS pick@0.5 : modèle 0.622 vs legacy 0.455** et
+  **O/U 2.5 pick@0.5 : modèle 0.635 vs Poisson legacy 0.559**. Les gates
+  `BTTS_MODEL_ENABLED` / `OU_MODEL_ENABLED` sont donc passés à `true` par défaut
+  (réversible via env `=false`). Pas de re-run walk-forward P1 nécessaire (le
+  harnais évalue le 1X2, pas les picks de marché ; la mesure équivaut est
+  accuracyEngine `marketFilter='btts'/'over_under'`, désormais alimentée).
 
 ---
 

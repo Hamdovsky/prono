@@ -17,8 +17,10 @@ from predictor import calculate_ah_dnb_probs
 from corners_calib import load_calibration, p_over_corner
 
 _CORNER_LINE = 9.5
-_BTTS_MODEL_ENABLED = os.environ.get("BTTS_MODEL_ENABLED", "false").lower() == "true"
-_OU_MODEL_ENABLED = os.environ.get("OU_MODEL_ENABLED", "false").lower() == "true"
+# Q3/Q5 : adoption validee sur holdout chronologique (core/validate_markets.py) :
+# BTTS 0.622 vs 0.455 (legacy), O/U2.5 0.635 vs 0.559 (Poisson). Defaut = actif.
+_BTTS_MODEL_ENABLED = os.environ.get("BTTS_MODEL_ENABLED", "true").lower() == "true"
+_OU_MODEL_ENABLED = os.environ.get("OU_MODEL_ENABLED", "true").lower() == "true"
 
 
 def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15,

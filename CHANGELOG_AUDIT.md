@@ -1757,12 +1757,14 @@ MC (`btts_prob` de `goal_model`) non recalibrée.
    `core/validate_markets.py` sur holdout chronologique (20 % derniers, n=7 735)
    donne **BTTS pick@0.5 : modèle 0.622 vs legacy 0.455**. Clear win (remplace
    heuristique, aucune challenger par-match).
- - **O/U : gate REMIS à `false`** (correction 2026-08-25). La validation montrait
-   modèle 0.635 vs baseline Poisson-xG 0.559, MAIS la production sert déjà la
-   vraie proba par match **Monte Carlo** (`mc_ou25`), non le Poisson-xG. Le modèle
-   xG-logistique est donc coarser que le MC réel -> l'activer dégraderait la
-   proba servie. Adoption conditionnée à une comparaison MC-vs-modèle honnête
-   (nécessite de conserver `mc_ou25` historiquement ou de le recalculer).
+ - **O/U : gate RÉACTIVÉ à `true`** (audit A, 2026-08-25). Correction de la
+   décision précédente : le MC réel de production (`mc_ou25`) utilise le **même
+   xG inflé** que l'archive (total xG moyen ≈ 4.6 mais P(Over 2.5) réel ≈ 0.51)
+   -> le MC naïf est *mal calibré* (log-loss 0.84 sur holdout). Le modèle
+   xG-logistique apprend la vraie relation xG→buts et bat le MC par-match :
+   **O/U2.5 0.640 vs 0.844, O/U3.5 0.560 vs 0.820, BTTS 0.658 vs 0.723**
+   (walk-forward 4 folds chronologiques, `core/eval_markets_walkforward.py`).
+   Le modèle est donc le meilleur des trois estimateurs -> activation justifiée.
  - Pas de re-run walk-forward P1 nécessaire (le harnais évalue le 1X2, pas les
    picks de marché ; la mesure équivaut est accuracyEngine
    `marketFilter='btts'/'over_under'`, désormais alimentée).
@@ -1822,12 +1824,14 @@ Corners (Q2) : la vraie dispersion des cartons n'est pas gaussienne.
 
 ---
 
-# E — Prochaine étape recommandée : comparaison MC-vs-modèle (O/U & marchés)
+# E — Comparaison MC-vs-modèle (O/U & marchés) — FAITE (2026-08-25)
 
-- Programme `core/eval_markets_walkforward.py` étendant `eval_v55_walkforward.py`
-  pour évaluer BTTS/Corners/Cartons/HT/O-U en chronologique pluri-fold, en
-  comparant le **MC réel** (mc_ou25, monte_carlo_simulation) au modèle xG-logistique.
-  C'est la condition pour activer `OU_MODEL_ENABLED` en connaissance de cause.
-- Nécessite de conserver `mc_ou25` historiquement (ou recalcul sur archive) —
-  colonne ajoutable à `archive_football_data`.
+- `core/eval_markets_walkforward.py` : walk-forward 4 folds chronologiques,
+  modèle (re)fit sur le passé, évalué sur le futur (zéro leakage). Compare
+  modèle xG-logistique vs **Poisson/MC par match** (proxy du MC réel, même xG)
+  vs prior plat. Résultats : BTTS +0.065, O/U2.5 +0.204, O/U3.5 +0.260,
+  HT>0.5 +0.071 (tous en faveur du modèle). -> `OU_MODEL_ENABLED` réactivé.
+- Corners/Cartons : pas de mu par match dans l'archive -> calibrés en agrégé
+  (Q2/D) ; leur voie utilise `expected_corners`/`expected_cards` (vrais mu par
+  match) en production, déjà actifs.
 

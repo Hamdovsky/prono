@@ -18,12 +18,12 @@ from corners_calib import load_calibration, p_over_corner
 from cards_calib import load_calibration as load_cards_calib, p_over_cards as _p_over_cards
 
 _CORNER_LINE = 9.5
-# Q3/Q5 : BTTS modele adopte par defaut (remplace heuristique, clear win sur holdout).
-# O/U : gate REMIS a false -> la production utilise deja la vraie proba par match
-# Monte Carlo (mc_ou25), superieure au modele xG-logistique (qui ne bat que le
-# baseline Poisson-xG, pas le MC). Adoption conditionnee a une comparaison MC-vs-modele.
+# Q3/Q5 + audit A (walk-forward) : BTTS et O/U modeles ACTIFS par defaut.
+# Le modele xG-logistique bat le MC/Poisson par-match (meme xG infle, mal calibre) :
+# O/U2.5 modele 0.640 vs MC 0.844, O/U3.5 0.560 vs 0.820, BTTS 0.658 vs 0.723
+# (core/eval_markets_walkforward.py, 4 folds chronologiques, fit sur passe).
 _BTTS_MODEL_ENABLED = os.environ.get("BTTS_MODEL_ENABLED", "true").lower() == "true"
-_OU_MODEL_ENABLED = os.environ.get("OU_MODEL_ENABLED", "false").lower() == "true"
+_OU_MODEL_ENABLED = os.environ.get("OU_MODEL_ENABLED", "true").lower() == "true"
 
 
 def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15,

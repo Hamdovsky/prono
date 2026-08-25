@@ -1118,10 +1118,19 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
   une "vraie" proba live tant que les formes L5/L10 ne sont pas calculées au fil
   de l'eau (amélioration possible : dériver les formes depuis les matchs récents).
 
+### Feature store : formes roulantes (✅ commit 9f37ed2)
+- `baseline_features._team_rolling` : calcule pts/gf/ga/xg/xga/shots L5/L10 par
+  équipe depuis master_dataset, **strictement sur matches antérieurs à la date
+  du match** -> zéro fuite même en live. Remplit H_*/A_* + Total_xG_L5 +
+  Form_Diff_L5 (avant médian-imputés).
+- Hook : `ctx` transmet home_team/away_team/date -> build() dérive les formes.
+- `test_build_utilise_formes_roulantes` : 3/3 (formes ≠ médiane, bornées 0..3).
+- Fallback live désormais **1er ordre** (Elo + xG + cotes open + formes réelles).
+
 ### Reste à faire (hors P0)
 - Activer `absence_impact_pondéré` dans le modèle SEULEMENT après accumulation
   live + backtest walk-forward prouvant un gain (sinon rester désactivé).
-- Affiner le feature store : dériver les formes L5/L10 et Total_xG_L5 depuis les
-  matchs récents au lieu de médian-imputer (rendrait le fallback live 1er ordre).
+- (Option) Backtester le fallback live en A/B contre le MC runtime sur une
+  saison pour quantifier l'écart et décider d'un blend éventuel.
 - Validation transverse : jest 610/610 PASS, pytest vert (suites P0 + 9 + 10 + DC + fallback).
 - AUCUN push Render effectué (déploiement = action manuelle séparée).

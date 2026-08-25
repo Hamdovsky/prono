@@ -1441,3 +1441,128 @@ par syntaxe + parité avec les autres crons existants.)
 
 **Effet attendu** : les probabilités servies et leur confiance sont désormais la sortie
 mesurée du modèle (calibrée), et la calibration se rafraîchit quotidiennement.
+
+---
+
+## P4 — Draws + recalibration servie ✅ (mesure + hook gated, recalib différée)
+
+**Fichiers** : `core/eval_v55_walkforward.py` (sweep draw-prior), `core/ml_ensemble.py`
+(`apply_draw_prior` + hook gated `DRAW_PRIOR_K` dans `blend_final_probabilities`),
+`tests/test_draw_prior.py` (3/3 verts), `core/recalibrate_served.py` (outil différé,
+gardé par `SERVED_CALIB_MIN_SAMPLES=300`).
+
+**Sweep draw-prior (walk-forward honnête, test=6000)** :
+
+| Modèle | log_loss brut | best_k | log_loss avec k | Δ |
+|---|---|---|---|---|
+| prod_v55_optimized | 0.7281 | 0.800 | 0.7189 | -0.0092 |
+| pref1_v55 | 0.7714 | 0.800 | 0.7616 | -0.0098 |
+| noclose_v55 | 0.7164 | 0.800 | 0.7075 | -0.0089 |
+
+→ Le **k optimal est 0.8 (borne basse testée)** : les modèles **surestiment les nuls**.
+BUT : baisser p_d améliore la calibration (log-loss↓) **mais réduit le recall des nuls**
+(déjà la classe la plus faible, 0.564 prod). Critère d'adoption convenu (log_loss↓ ET
+accuracy draws↑) **non satisfait** → le prior draw n'est PAS activé. Hook laissé en place
+(`DRAW_PRIOR_K=1.0` par défaut = off) pour tuning futur si le recall draw est jugé moins
+prioritaire que la calibration.
+
+**Recalibration sur probas SERVIES (`recalibrate_served.py`)** : outil qui refit l'isotonic
+sur la trace M0 (sortie moteur) jointe aux résultats réels. **Différé** : nécessite ≥300
+matchs réglés dans `data/engine_prob_trace.jsonl` (actuellement 33 → no-op sûr). À lancer
+quotidiennement une fois la trace accumulée (peut être branché sur le cron P3).
+
+**Résumé précision (fin du track)** :
+- Fuites temporelles corrigées (P1) ; gain réel prod vs pref1 = **+2.68 pts** (pas +3.95).
+- Skew closing supprimé (M3) ; nuls +7 pts recall.
+- Artefact `noclose_v55` est le meilleur modèle mesuré (0.7015) — voir recommandation P1
+  (ré-adopter comme prod après validation inference 218 dims).
+- Confiance servie désormais transparente + calibration auto-rafraîchie (P3).
+- Draws surestimés → recalibration servie recommandée (P4-2) plutôt qu'un prior brutal.
+
+---
+
+## P4 — Ajustement draw-prior + recalibration sur probas servies 🔶 (en cours, gated)
+
+**Date** : 2026-08-25
+**Statut** : code prêt, **NON ACTIVÉ** (gated par défaut). Activation conditionnelle
+post-walk-forward + post-accumulation de la trace M0.
+
+### A. Draw-prior ajustable — code prêt, off par défaut
+
+**Fichiers** : `core/eval_v55_walkforward.py` (sweep `draw_prior_sweep`),
+`core/ml_ensemble.py` (`apply_draw_prior` + gate `DRAW_PRIOR_K`), `tests/test_draw_prior.py`
+(3/3 verts).
+
+**Problème observé en P1** : recall draw = 0.493–0.575 (le plus faible des 3 issues).
+Le walk-forward évalue les modèles sur le test set le plus récent : la sous-représentation
+du nul en confiance peut refléter une calibration de la probabilité draw défavorable.
+
+**Solution livrée (gated, aucune activation sans preuve)** :
+
+1. `apply_draw_prior(p_h, p_d, p_a, k)` (fonction pure, testable) :
+   `p_d' = p_d * k`, puis renormalisation `p_h' + p_d' + p_a' = 1`.
+   - `k=1.0` : identité (off, pas de modification).
+   - `k>1.0` : boost du nul (part相对的 du nul augmente).
+   - `k<1.0` : rétrécit le nul.
+2. Hook dans `blend_final_probabilities` (fin de chaîne, **après** Meta-Refiner/M1 et
+   **après** activation V4/M2) — donc post-toutes les retouches existantes, ordre canonique
+   respecté. Gated par `DRAW_PRIOR_K` (env, défaut `1.0`).
+3. `draw_prior_sweep(y_true, proba, k_grid)` : cherche le `k` (grille par défaut
+   `[0.8..1.3]` x11) qui minimise le log-loss. **Évalué par fold dans le walk-forward
+   P1** (intégré à `eval_v55_walkforward.py:main`) — `results.models[name].best_draw_prior`
+   est désormais écrit dans le rapport.
+4. Tests `tests/test_draw_prior.py` : 3/3 verts (off noop, k=1.5 boost + normalisation,
+   k=0.5 réduit). Suite pytest globale : **283 passed, 4 failed préexistants** (test_engine
+   `stoke_city`/`al_masry`, test_fallback x2, test_predictions — tous penaltyblog/env,
+   NON liés à P4 ; vérifié par `git stash` sur la version pré-P4 : mêmes 4 échecs).
+
+**Critère d'activation** : `best_k != 1.0` **ET** gain log-loss vs baseline **ET**
+rappel draw amélioré **ET** validation sur fold out-of-sample (pas seulement in-sample).
+Cible : `data/v55_walkforward_report.json` après prochaine exécution du harness P1
+intégré (déjà intégré dans la version actuelle — re-run suffit).
+
+### B. Recalibration sur probas réellement servies — script prêt, inactif
+
+**Fichier** : `core/recalibrate_served.py` (nouveau, **non importé par le runtime**).
+
+**Pourquoi** : la calibration isotonic actuelle est fittée sur
+`backtest_results.json` / `accuracy_log.json` (cf. gel cascade du 24/08). Ces sources
+agrègent des probas **après** Meta-Refiner/JS-overwrites/affichage — donc décalées de
+la sortie moteur réelle (trace M0). Refit propre = utiliser la trace M0 jointe aux
+résultats réels.
+
+**Implémentation** :
+- Lit `data/engine_prob_trace.jsonl` (sortie `record_engine_prob_trace`, M0).
+- Joint via `archive_football_data` (clé home+away+league+date LIKE) pour récupérer
+  le score final et dériver l'issue 0/1/2.
+- Calcule la confiance = `max(p_h, p_d, p_a) * 100` et le verdict = argmax des probas.
+- Si `n >= SERVED_CALIB_MIN_SAMPLES` (défaut 300) : fit `IsotonicRegression`
+  (sklearn) sur `(confidence, was_correct)` → `data/served_isotonic.pkl` +
+  `data/served_isotonic_params.json` (`source: engine_prob_trace (served)`).
+- Sinon : log `[SERVED-CAL] Insufficient samples — recalibration deferred (no change)`
+  et exit sans rien écrire. **Aucun risque d'écrasement** tant que la trace n'a pas
+  accumulé.
+
+**Critère d'activation** : `n_trace >= 300` ET `n_trace / 30 jours` suffisant pour
+significativité + **convergence avec la calibration actuelle gelée** (sinon divergerait).
+Run prévu : tâche planifiée `Pronos-ServedCal` (à créer, hors audit) après vérification
+que la trace s'accumule correctement (boot récents = 116 settled par boot, ~0 actuellement
+sans serveur persistant — déjà documenté dans la section "Option 2 — Fenêtres planifiées").
+
+### Validation non-régression
+- `python -m pytest tests/test_draw_prior.py -v` → **3/3 verts**.
+- `python -m pytest tests/ -q` → **283 passed, 4 failed préexistants** (confirmés
+  indépendants via `git stash` de la version pré-P4). Aucune régression P4.
+- `npx jest --silent` → **609/610 verts** (1 échec préexistant `freeProxyPool.test.js`,
+  indépendant).
+- `draw_prior_sweep` testé sur données synthétiques : renvoie bien un couple
+  `(best_k, best_logloss)` cohérent (test unitaire manuel dans le terminal).
+
+### Décisions restantes
+- Activation effective de `DRAW_PRIOR_K` : à faire **après re-run** du walk-forward P1
+  intégré (qui écrit `best_draw_prior` par fold) et inspection humaine des résultats.
+- Activation de `recalibrate_served.py` en cron : à programmer après accumulation
+  confirmée de la trace M0 (cf. section fenêtres planifiées).
+- Les 4 échecs pytest préexistants (test_engine, test_fallback, test_predictions) ne
+  sont **pas** dans le périmètre P4 ; seront traités en chantier séparé (env +
+  penaltyblog réinstall).

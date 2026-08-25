@@ -64,6 +64,10 @@
             "support": 1858.0
           }
         }
+      },
+      "best_draw_prior": {
+        "best_k": 0.8,
+        "best_logloss": 0.7188979387283325
       }
     },
     "pref1_v55": {
@@ -118,6 +122,10 @@
             "support": 1858.0
           }
         }
+      },
+      "best_draw_prior": {
+        "best_k": 0.8,
+        "best_logloss": 0.7616223692893982
       }
     },
     "noclose_v55": {
@@ -172,6 +180,10 @@
             "support": 1858.0
           }
         }
+      },
+      "best_draw_prior": {
+        "best_k": 0.8,
+        "best_logloss": 0.7074841260910034
       }
     }
   },

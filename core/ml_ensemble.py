@@ -692,4 +692,20 @@ def blend_final_probabilities(p_h_ai, p_d_ai, p_a_ai, p_h_poi, p_d_poi, p_a_poi,
             except Exception:
                 pass
 
+    # P4 (audit): optional draw-prior adjustment, gated by DRAW_PRIOR_K (default 1.0 = off).
+    # Multiplies the draw probability by k then renormalises. Only enabled once a
+    # walk-forward sweep has selected a k that lowers log-loss AND raises draw accuracy.
+    draw_k = float(os.getenv('DRAW_PRIOR_K', '1.0') or 1.0)
+    if has_xgb and draw_k != 1.0:
+        p_h, p_d, p_a = apply_draw_prior(p_h, p_d, p_a, draw_k)
+
     return p_h, p_d, p_a, ai_fusion_weight, ai_source_label
+
+
+def apply_draw_prior(p_h, p_d, p_a, k=1.0):
+    """Multiply the draw probability by k and renormalise. Pure/testable."""
+    p_d = p_d * float(k)
+    s = p_h + p_d + p_a
+    if s > 0:
+        return p_h / s, p_d / s, p_a / s
+    return p_h, p_d, p_a

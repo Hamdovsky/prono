@@ -104,6 +104,25 @@ def evaluate_predictions(y_true, proba, names=("H", "D", "A")):
     }
 
 
+def draw_prior_sweep(y_true, proba, k_grid=None):
+    """Find the draw-prior multiplier k (bounded) that minimises log-loss on a set.
+    Applied as p_d *= k then renormalise. Returns best_k and its log-loss."""
+    if k_grid is None:
+        k_grid = np.linspace(0.8, 1.3, 11)
+    y_true = np.asarray(y_true)
+    proba = np.asarray(proba)
+    best = None
+    for k in k_grid:
+        adj = proba.copy()
+        adj[:, 1] = adj[:, 1] * k
+        s = adj.sum(axis=1, keepdims=True)
+        adj = adj / s
+        ll = float(log_loss(y_true, adj, labels=[0, 1, 2]))
+        if best is None or ll < best[1]:
+            best = (float(k), ll)
+    return {"best_k": best[0], "best_logloss": best[1]}
+
+
 def evaluate_model(path, X, y, sw, feature_names, zero_closing=True):
     import xgboost as xgb
     booster = xgb.Booster()
@@ -180,6 +199,9 @@ def main():
             test_m["per_class"]["H"]["recall"],
             test_m["per_class"]["D"]["recall"],
             test_m["per_class"]["A"]["recall"]))
+        dp = draw_prior_sweep(y[test_idx], proba_full[test_idx])
+        results["models"][name]["best_draw_prior"] = dp
+        print("   draw-prior sweep: best_k=%.3f -> log_loss=%.4f" % (dp["best_k"], dp["best_logloss"]))
 
     # Improvement summary vs pref1
     if "pref1_v55" in results["models"] and "prod_v55_optimized" in results["models"]:

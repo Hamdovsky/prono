@@ -998,3 +998,62 @@ Résultat pipeline : **0 équipe non mappée**, Elo 100 %, **xG couvert 99,7 %**
   de ~0 (C1=14, 1X2 n=2, BTTS n=4).
 - `status_audit.js` : nouvelle section « GELS CASCADE » (état des 5 flags .env)
   + dernière ligne [CALIBRATOR] dans les événements.
+
+---
+
+## P0 — Audit données + baseline backtestable ✅ (2026-08-25)
+
+Objectif : probabilités réalistes, non-leakées, backtestables, avec gardes de
+réactivation automatiques. Aucune donnée/résultat fabriqué. Validateurs + gates
+iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
+
+### A. Data Quality (✅ commit c6f6351 + 80eec0b)
+- `data_pipeline/data_quality.py` (compute_dq / summarize / write_availability),
+  branchement dans `pipeline.py::_rebuild`, `availability.json` généré.
+- `data_pipeline/tests/test_data_quality.py` : 6 tests PASS.
+- Build réel : 5301 matchs, DQ moyenne 0,996, 8 matchs < 0,8, 2 incohérents.
+- Alias `team_aliases.json` enrichi (132 canoniques) : 0 équipe non mappée,
+  Elo 100 %, xG couvert 99,7 %.
+
+### B. Moteur walk-forward (✅ commit 97db99e)
+- `core/backtest_walkforward.py` : folds mensuels (expanding window), embargo 7j,
+  métriques LogLoss/Brier/Acc/ECE, tripwire leakage B0 (corrélation max one-hot
+  vs cible > 0,97 -> exclusion auto), persistance immuable `backtest_runs.sqlite`.
+- `tests/test_walkforward.py` : 4 tests PASS (embargo, tripwire, run synth,
+  poisson). Embargo respecté sur 100 % des folds.
+
+### C/D. Baseline Poisson vs ML (✅ commit 97db99e + docs/BASELINE_EVAL.md)
+- `poisson_params` / `poisson_predict` : baseline attaque/défense shrinkée (k=3)
+  par ligue, grille scores 0..10, dérive 1X2/OU25/BTTS.
+- RUN OFFICIEL (saison 2526, n=1752, 10 folds, embargo OK) :
+  - 1X2 : LR 0,882 < RF 0,888 < XGB 0,900 < Poisson 1,006  -> **LR gagnant**
+  - OU25 : LR 0,580 < XGB 0,591 < RF 0,602 < Poisson 1,411  -> **LR gagnant**
+  - BTTS : RF 0,617 < XGB 0,623 < LR 0,634 < Poisson 0,699  -> **RF gagnant**
+- Décisions : LR + RF KEEP ; XGB (features master) ne bat pas LR -> gardé
+  conditionnel (re-tester après features enrichies) ; Poisson DROP comme
+  prédicteur, GARDÉ comme baseline de contrôle. Dixon-Coles penaltyblog = itér 2
+  (non couvert ici ; le MC DC runtime reste inchangé). ECE pré-calibration.
+
+### E. Groundwork lineups/injuries Sofascore (✅ commit ea21796)
+- `scripts/sofascore_bypass.py` : cmds `lineups`/`injuries`
+  (`/event/{id}/lineups`, `/event/{id}/injuries`) ; parsers `parse_lineups` /
+  `parse_injuries` tolérants (validés sur payload réel lineups event 16287064 :
+  confirmed, formation 4-4-2, 20 joueurs). Fix encodage stdout UTF-8 + import `re`.
+- `services/scrapers/SofascoreBypass.js` : `getLineups` / `getInjuries` (cache).
+- `core/database.js` + `core/pg_migrations.js` : table `player_absences`
+  (event_id, side, team, player, position, status, detail) + upsert
+  `savePlayerAbsences` / `getPlayerAbsences` (SQLite smoke-testé : create+upsert
+  +read OK). Feature `absence_impact_pondéré` stockée mais DÉSACTIVÉE du modèle.
+- `tests/test_sofascore_lineups.py` : 3 tests PASS (parsers, cas vide).
+
+### Gardes de réactivation (codées en amont, dans .env)
+- ISO_REARM_AT, MARKET_REARM_AT, ISO/MC gates : réarmeront les isotoniques/MC
+  APRÈS accumulation post-gel, jamais sur données historiques (B2/C2 respectés).
+
+### Reste à faire (hors P0)
+- Phase 9 : brancher l'ingestion `savePlayerAbsences` dans le sweep (kill-switch
+  safe) + calculer `absence_impact_pondéré` et l'activer si gain backtest prouvé.
+- Dixon-Coles penaltyblog comme 2e itération de baseline (Phase C suite).
+- Ré-entraînement master (Phase 10) sur features enrichies, puis re-run walk-forward.
+- Validation transverse : jest 606/606 PASS, pytest 13/13 PASS (P0).
+- AUCUN push Render effectué (déploiement = action manuelle séparée).

@@ -84,6 +84,28 @@ def _rebuild(fd, elo, adv) -> pd.DataFrame:
     mapper = TeamMapper()
     df = align(fd, elo_hist, adv, mapper, elo_source=elo_source)
     df = features_mod.compute_features(df)
+    # Audit P0 Phase 2 : Data Quality Score par match + contrat de fraîcheur.
+    try:
+        from config import MASTER_CSV, STATE_FILE
+
+        import data_quality as dq_mod
+
+        dq = dq_mod.compute_dq(df)
+        for c in dq.columns:
+            df[c] = dq[c]
+        dq_mod.write_availability(
+            STATE_FILE, MASTER_CSV.parent / "availability.json"
+        )
+        s = dq_mod.summarize(dq)
+        log.info(
+            "[DQ] moyenne=%.3f | matchs<0.8: %d/%d | incoherents: %d",
+            s["dq_mean"],
+            s["below_0_8"],
+            s["rows"],
+            s["incoherent"],
+        )
+    except Exception as e:  # pragma: no cover - la DQ ne doit pas casser le build
+        log.warning("DQ indisponible : %s", e)
     store.save(df)
     return df
 

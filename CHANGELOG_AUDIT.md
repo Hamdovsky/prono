@@ -1104,11 +1104,24 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
   non archivés -> None (les runtime league codes diffèrent aussi des codes master).
   Activation réelle en prod nécessite le feature store (voir reste).
 
+### Feature store live (✅ commit 4958746)
+- `core/baseline_features.py` : `build(ctx)` reconstruit les 41 features allowlist
+  depuis les signaux runtime (Elo `ELO_DATA`, `xg_h/xg_a`, cotes open) et
+  médian-impute le reste (formes L5/L10, dérivés historiques) -> prior sage.
+- `baseline_fallback.predict_for_match(match, ctx)` : si match dans master_dataset
+  -> features exactes (historique/replay) ; sinon si `ctx` -> feature store live
+  -> fallback A/B actif sur matchs **live** non archivés.
+- Hook `_attach_baseline_fallback(match_obj, xg_h, xg_a)` : passe Elo/xG/open du
+  runtime. Toujours gated `BASELINE_FALLBACK=on` (défaut OFF). Test live ajouté.
+- **Honnêteté** : le fallback live est DÉGRADÉ (formes médian-imputées) -> signal
+  valide mais moins fin que le chemin historique exact. À ne pas présenter comme
+  une "vraie" proba live tant que les formes L5/L10 ne sont pas calculées au fil
+  de l'eau (amélioration possible : dériver les formes depuis les matchs récents).
+
 ### Reste à faire (hors P0)
 - Activer `absence_impact_pondéré` dans le modèle SEULEMENT après accumulation
   live + backtest walk-forward prouvant un gain (sinon rester désactivé).
-- **Feature store** : produire les 41 features allowlist à l'inférence (depuis
-  master/agrégats + normalisation ligue runtime->master) pour que le fallback A/B
-  s'active sur les matchs live et pas seulement historiques.
+- Affiner le feature store : dériver les formes L5/L10 et Total_xG_L5 depuis les
+  matchs récents au lieu de médian-imputer (rendrait le fallback live 1er ordre).
 - Validation transverse : jest 610/610 PASS, pytest vert (suites P0 + 9 + 10 + DC + fallback).
 - AUCUN push Render effectué (déploiement = action manuelle séparée).

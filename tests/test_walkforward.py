@@ -16,6 +16,7 @@ from core.backtest_walkforward import (  # noqa: E402
     poisson_params,
     poisson_predict,
     run_backtest,
+    train_baselines,
 )
 
 
@@ -69,3 +70,18 @@ def test_poisson_proba_valides():
     proba = poisson_predict(params, df.tail(20), "btts")
     assert proba.shape == (20, 2)
     assert ((proba >= 0) & (proba <= 1)).all()
+
+
+def test_train_baselines_export_et_predict(tmp_path):
+    # Phase 10 : entraîne sur synthétique, exporte, recharge, prédit.
+    import joblib
+
+    meta = train_baselines(["btts"], ["lr"], df=_synthetic(), out_dir=tmp_path)
+    art = meta["markets"]["btts"]["lr"]
+    assert art["n_features"] >= 1
+    p = tmp_path / art["path"]
+    assert p.exists()
+    bundle = joblib.load(p)
+    proba = bundle["model"].predict_proba(_synthetic().tail(5)[bundle["features"]].astype(float))
+    assert proba.shape[1] == 2 and ((proba >= 0) & (proba <= 1)).all()
+

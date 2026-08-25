@@ -23,6 +23,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import joblib
+
 import numpy as np
 import pandas as pd
 
@@ -390,14 +392,72 @@ def persist_run(cfg: dict, results: dict, audit: dict, db_path: Path) -> str:
     return run_id
 
 
+def train_baselines(markets: list[str], models: list[str], df: pd.DataFrame | None = None,
+                    out_dir: Path | None = None) -> dict:
+    """Phase 10 : (ré)entraîne les modèles RETENUS (LR 1X2/OU25, RF BTTS) sur
+    l'allowlist causale (entraînement final, pas de fuite : colonnes cibles/
+    closing/stats in-match exclues) et exporte les artefacts + métadonnées.
+
+    NB : la validation OOS est donnée par run_backtest (walk-forward) ; ici on
+    produit le modèle de production entraîné sur tout le master.
+    """
+    if df is None:
+        df = build_targets(load_master())
+    else:
+        df = build_targets(df)
+    factories = _make_models()
+    MODELS_DIR = out_dir if out_dir is not None else (ROOT / "models")
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    meta = {
+        "trained_at": datetime.now(timezone.utc).isoformat(),
+        "n_rows": int(len(df)),
+        "allowlist_len": len(FEATURE_ALLOWLIST),
+        "markets": {},
+    }
+    for market in markets:
+        ycol = f"y_{market}"
+        sub = df.dropna(subset=[ycol])
+        binary = market in ("ou25", "btts")
+        available = [f for f in FEATURE_ALLOWLIST if f in sub.columns]
+        feats = leakage_tripwire(sub, available, market)
+        X = sub[feats].apply(lambda c: c.astype(float).fillna(c.median()))
+        y = sub[ycol].astype(int)
+        for mname in models:
+            fac = factories.get(mname)
+            if fac is None:
+                continue
+            clf = fac(2 if binary else 3)
+            clf.fit(X, y)
+            artefact = {"model": clf, "features": feats, "market": market, "binary": binary}
+            p = MODELS_DIR / f"baseline_{mname}_{market}.pkl"
+            joblib.dump(artefact, p)
+            meta["markets"].setdefault(market, {})[mname] = {
+                "path": p.name, "n_features": len(feats), "features": feats,
+            }
+    (MODELS_DIR / "baseline_metadata.json").write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False)
+    )
+    return meta
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description="Backtest walk-forward (P0)")
     ap.add_argument("--markets", default="1x2,ou25,btts")
     ap.add_argument("--models", default="lr,rf,xgb")
+    ap.add_argument("--train", action="store_true",
+                    help="Phase 10 : (ré)entraîne et exporte les modèles retenus")
+    ap.add_argument("--print-top", type=int, default=12)
     args = ap.parse_args(argv)
 
     markets = [m.strip() for m in args.markets.split(",") if m.strip()]
     models = [m.strip() for m in args.models.split(",") if m.strip()]
+
+    if args.train:
+        meta = train_baselines(markets, models)
+        print(json.dumps({"trained": True, "markets": list(meta["markets"].keys()),
+                          "n_rows": meta["n_rows"]}, ensure_ascii=False))
+        return
+
     print(f"[BACKTEST] marchés={markets} modèles={models} (folds mensuels, embargo {EMBARGO_DAYS}j)")
     results, audit = run_backtest(markets, models)
     cfg = {"markets": markets, "models": models, "embargo_days": EMBARGO_DAYS,

@@ -473,9 +473,32 @@ def run_xgboost_inference(active_feature_vector, active_feature_names, XGB_BOOST
     }
 
 
+_V4_ENSEMBLE_ENABLED = os.environ.get("V4_ENSEMBLE_ENABLED", "true").lower() not in ("0", "false", "off")
+_V4_ACTIVATIONS = {"count": 0, "by_league": {}}
+
+
+def _get_v4_weight(league_name):
+    """Per-league V4 blend weight from calibration_weights.json (default 0.85).
+    Mirrors _get_external_xgb_weight. Replaces the previous hardcoded 0.85 so the
+    V2/V4 split can be tuned per league from measurement."""
+    try:
+        cal = _load_calibration_weights().get(str(league_name))
+        if cal and cal.get("v4_weight") is not None:
+            w = float(cal["v4_weight"])
+            return max(0.0, min(1.0, w))
+    except Exception:
+        pass
+    return 0.85
+
+
 def apply_v4_ensemble(p_h_ai, p_d_ai, p_a_ai, match_obj, has_xgb):
-    """Blend V2+V4 ensemble (85% V4 stats-based + 15% V2 historical)."""
+    """Blend V2+V4 ensemble (per-league V4 weight + (1-w) V2 historical).
+    V4 is only applied when live/in-play stats are present (has_v4_stats);
+    pre-match predictions therefore never depend on in-match V4 features."""
     analysis = {}
+    if not _V4_ENSEMBLE_ENABLED:
+        return p_h_ai, p_d_ai, p_a_ai, "", analysis
+
     xgb = get_xgb()
     v4_booster = get_titanium_v4_booster()
     hp = match_obj.get('home_possession', 0)
@@ -491,7 +514,8 @@ def apply_v4_ensemble(p_h_ai, p_d_ai, p_a_ai, match_obj, has_xgb):
             v4_probs = v4_booster.predict(xgb.DMatrix(v4_vec))[0]
             p_h_v4, p_d_v4, p_a_v4 = float(v4_probs[2]), float(v4_probs[1]), float(v4_probs[0])
 
-            v4_weight = 0.85
+            league = match_obj.get('league', '') or match_obj.get('league_name', '')
+            v4_weight = _get_v4_weight(league)
             p_h_ai = (p_h_v4 * v4_weight) + (p_h_ai * (1.0 - v4_weight))
             p_d_ai = (p_d_v4 * v4_weight) + (p_d_ai * (1.0 - v4_weight))
             p_a_ai = (p_a_v4 * v4_weight) + (p_a_ai * (1.0 - v4_weight))
@@ -500,7 +524,12 @@ def apply_v4_ensemble(p_h_ai, p_d_ai, p_a_ai, match_obj, has_xgb):
             if s_ens > 0:
                 p_h_ai, p_d_ai, p_a_ai = p_h_ai/s_ens, p_d_ai/s_ens, p_a_ai/s_ens
 
-            analysis["V4-Ensemble"] = f"V2+V4 blend: {v4_weight*100:.0f}% V4 (stats-based) + {(1-v4_weight)*100:.0f}% V2 (historical)"
+            _V4_ACTIVATIONS["count"] += 1
+            _V4_ACTIVATIONS["by_league"][league] = _V4_ACTIVATIONS["by_league"].get(league, 0) + 1
+            analysis["V4-Ensemble"] = (
+                f"V2+V4 blend: {v4_weight*100:.0f}% V4 (stats-based, league={league}) "
+                f"+ {(1-v4_weight)*100:.0f}% V2 (historical)"
+            )
         except Exception as _v4_err:
             sys.stderr.write(f"⚠️ [V4-Ensemble] {_v4_err}\n")
 

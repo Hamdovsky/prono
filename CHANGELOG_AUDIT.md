@@ -1380,3 +1380,32 @@ chevauchement). Même test futur pour les 3 modèles.
 
 **Aucun changement de modèle déployé à ce stade** (P1 = mesure + révision journal). Swap différé
 en P2/P4 avec validation inference. Rapport persistant : `data/v55_walkforward_report.json`.
+
+---
+
+## P2 — F4 (ensemble V4) ✅ (correctif partiel + clarification)
+
+**Fichiers** : `core/ml_ensemble.py` (`apply_v4_ensemble` + `_get_v4_weight` + gate
+`V4_ENSEMBLE_ENABLED` + compteur `_V4_ACTIVATIONS`), `tests/test_ml_ensemble_v4.py` (4/4 verts).
+
+**Correctif appliqué** :
+- Poids V4 **paramétrable par ligue** via `calibration_weights.json[league].v4_weight`
+  (fallback 0.85, clamp [0,1]) — fini le 0.85 hardcodé. Miroir de `_get_external_xgb_weight`.
+- Gate `V4_ENSEMBLE_ENABLED` (défaut `true` = comportement inchangé) pour pouvoir
+  désactiver le blend V4 sans redéploiement.
+- Compteur d'activations V4 (`_V4_ACTIVATIONS`) par ligue → observabilité (combien de
+  prédictions passent par le blend V4).
+
+**Clarification F4 (révision du plan)** : contrairement à F1, **V4 n'est PAS un skew
+pré-match**. `apply_v4_ensemble` ne s'active QUE si `has_v4_stats` (possession/stats
+présents) — donc les pronostics pré-match ne dépendent jamais des features in-match V4.
+V4 est un modèle **in-play**. De plus, ses seules features historiques (`h2h_*`) proviennent
+de `match_obj['h2h_data']` (enrichissement live Sofascore), et `sb_*` de `stats` live.
+→ Un « ré-entraînement V4 sans features in-match » est **inutilisable pré-match** (toutes
+features = 0 → modèle dégénéré). Le plan initial prévoyait `scripts/retrain_titanium_v4_nomatch.py`
+mais il produirait un artefact non-viable ; il est **volontairement NON créé** pour ne pas
+ship du code trompeur.
+**Recommandation** : le pronostic pré-match doit reposer sur V55 (déjà corrigé en M3/P1) ;
+V4 reste un correctif in-play légitime, désormais pesé par ligue et traçable.
+
+**Tests** : `python -m pytest tests/test_ml_ensemble_v4.py -q` → 4 passed.

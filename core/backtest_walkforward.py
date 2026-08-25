@@ -678,6 +678,65 @@ def train_calibrators(markets: list[str] | None = None,
     return report
 
 
+def nested_calibration_report(markets: list[str] | None = None) -> dict:
+    """Estimation HONNÊTE de l'ECE de production : split imbriqué. Pour chaque
+    fold (modèle fit sur train, OOF sur val), on split la val temporellement
+    (1e moitié = fit du calibrateur, 2e moitié = évaluation). Le calibrateur
+    n'a JAMAIS vu les données d'évaluation -> ECE non-optimiste (réaliste prod).
+    """
+    if markets is None:
+        markets = ["1x2", "ou25", "btts"]
+    df = build_targets(load_master())
+    factories = _make_models()
+    report: dict = {}
+    for market in markets:
+        ycol = f"y_{market}"
+        sub = df.dropna(subset=[ycol])
+        binary = market in ("ou25", "btts")
+        fac = factories["lr"] if market != "btts" else factories["rf"]
+        cal_preds, cal_true = [], []
+        for fold in month_folds(sub):
+            train, v = fold["train"], fold["val"]
+            available = [f for f in FEATURE_ALLOWLIST if f in train.columns and f in v.columns]
+            if len(available) < 3:
+                continue
+            feats = leakage_tripwire(train, available, market)
+            clf = fac(3 if not binary else 2)
+            clf.fit(train[feats], train[ycol].astype(int))
+            raw = clf.predict_proba(v[feats])
+            y = v[ycol].astype(int).to_numpy()
+            order = v["date"].argsort().to_numpy()
+            k = len(order) // 2
+            tr, te = order[:k], order[k:]
+            if len(tr) < 5 or len(te) < 5:
+                continue
+            if binary:
+                ir = IsotonicRegression(out_of_bounds="clip", y_min=1e-4, y_max=1 - 1e-4)
+                ir.fit(raw[tr, 1], y[tr].astype(float))
+                cal_te = np.column_stack([1 - ir.predict(raw[te, 1]), ir.predict(raw[te, 1])])
+            else:
+                iso = []
+                for c in range(3):
+                    ir = IsotonicRegression(out_of_bounds="clip", y_min=1e-4, y_max=1 - 1e-4)
+                    ir.fit(raw[tr, c], (y[tr] == c).astype(float))
+                    iso.append(ir)
+                cal_te = np.column_stack([iso[c].predict(raw[te, c]) for c in range(3)])
+                cal_te = cal_te / cal_te.sum(1, keepdims=True)
+            cal_preds.append(cal_te)
+            cal_true.append(y[te])
+        if not cal_preds:
+            continue
+        cp = np.vstack(cal_preds)
+        ct = np.concatenate(cal_true)
+        m = metrics_binary(ct, cp[:, 1]) if binary else metrics_multi(ct, cp)
+        report[market] = {
+            "ece_honest": round(float(m["ece"]), 5),
+            "logloss_honest": round(float(m["logloss"]), 5),
+            "n_eval": int(len(ct)),
+        }
+    return report
+
+
 def apply_calibration(market: str, proba, calibrators: dict) -> np.ndarray:
     """Applique le calibrateur d'un marché à une prédiction (1 ou N échantillons)."""
     iso = calibrators.get(market)
@@ -703,6 +762,8 @@ def main(argv=None) -> None:
                     help="Phase 10 : (ré)entraîne et exporte les modèles retenus")
     ap.add_argument("--calibrate", action="store_true",
                     help="Étape suivante : fit isotonic sur OOF et exporte baseline_calibrators.pkl")
+    ap.add_argument("--calibrate-check", action="store_true",
+                    help="Estimation HONNETE de l'ECE prod (split imbriqué, calibrateur jamais sur données d'eval)")
     ap.add_argument("--print-top", type=int, default=12)
     args = ap.parse_args(argv)
 
@@ -721,6 +782,13 @@ def main(argv=None) -> None:
             b, a = r["before"], r["after"]
             print(f"[{market}] ECE {b['ece']:.4f}->{a['ece']:.4f} | "
                   f"logloss {b['logloss']:.4f}->{a['logloss']:.4f}")
+        return
+
+    if args.calibrate_check:
+        rep = nested_calibration_report(markets)
+        for market, r in rep.items():
+            print(f"[{market}] ECE_prod_honnete={r['ece_honest']:.4f} "
+                  f"logloss={r['logloss_honest']:.4f} (n_eval={r['n_eval']})")
         return
 
     print(f"[BACKTEST] marchés={markets} modèles={models} (folds mensuels, embargo {EMBARGO_DAYS}j)")

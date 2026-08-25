@@ -110,3 +110,14 @@ def test_calibration_active_sur_serving():
     for v in (p_cal, p_raw):
         for mk in v:
             assert abs(sum(v[mk]) - 1) < 1e-3 and all(0 <= x <= 1 for x in v[mk])
+
+
+def test_nested_calibration_report_honnete():
+    from core import backtest_walkforward as bw
+
+    rep = bw.nested_calibration_report(["ou25", "btts"])
+    for market in ("ou25", "btts"):
+        assert market in rep
+        # ECE honnete (calibrateur jamais sur eval) borne dans un range realiste.
+        assert 0.0 <= rep[market]["ece_honest"] <= 0.3
+        assert rep[market]["n_eval"] > 100

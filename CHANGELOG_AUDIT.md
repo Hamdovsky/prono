@@ -1169,6 +1169,13 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
     sera un peu supérieur). Le gain de calibration est réel et sans fuite.
 - Servi par défaut (`BASELINE_CALIBRATE=on`, désactivable) dans
   `predict_from_features`/`_predict_from_rows`. Test `test_calibration_active_sur_serving`.
+- **Estimation honnête (split imbriqué, `--calibrate-check`)** : calibrateur fit
+  sur 1e moitié temporelle de chaque mois-val, évalué sur la 2e (jamais vue par
+  le fit) -> ECE prod réaliste : 1X2 0.068, O/U2.5 0.085, BTTS 0.066
+  (poolé, n_eval=879). Le calibrateur LIVRÉ (fit sur tout l'OOF, +de données)
+  sera au moins aussi bon ; ECE prod attendu ~0.05-0.07. Les ECE->0 du fit OOF
+  étaient optimistes (calibrateur sur ses propres données). Test
+  `test_nested_calibration_report_honnete`.
 
 ### Reste à faire (hors P0)
 - Confirmer l'effet de `absence_impact_pondéré` : accumuler les absences live,

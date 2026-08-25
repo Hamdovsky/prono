@@ -54,6 +54,7 @@ FEATURE_ALLOWLIST = [
     "P1_open_avg", "PX_open_avg", "P2_open_avg",
     "odds_h_avg", "odds_d_avg", "odds_a_avg",
     "odds_o25_avg", "odds_u25_avg",
+    "absence_impact_pondéré",
 ]
 
 TRIPWIRE_CORR = 0.97

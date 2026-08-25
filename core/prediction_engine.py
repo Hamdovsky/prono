@@ -112,6 +112,7 @@ def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
             "odds_h": match_obj.get("odds_home_open") or match_obj.get("odds_home"),
             "odds_d": match_obj.get("odds_draw_open") or match_obj.get("odds_draw"),
             "odds_a": match_obj.get("odds_away_open") or match_obj.get("odds_away"),
+            "absence_impact": match_obj.get("absence_impact_pondéré"),
         }
         date = match_obj.get("date") or match_obj.get("kickoff")
         key = {

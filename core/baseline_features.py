@@ -106,6 +106,10 @@ def build(ctx: dict | None) -> dict:
     ):
         if ctx.get(src) is not None:
             feats[dst] = float(ctx[src])
+    # Absences (Phase 9) : valeur live si fournie, sinon mediane (=0 historique).
+    # Gated : aucun effet tant que le scraping live ne fournit pas la donnee.
+    if ctx.get("absence_impact") is not None:
+        feats["absence_impact_pondéré"] = float(ctx["absence_impact"])
 
     # Formes L5/L10 roulantes depuis master_dataset (strictement antérieures)
     ht, at, dt = ctx.get("home_team"), ctx.get("away_team"), ctx.get("date")

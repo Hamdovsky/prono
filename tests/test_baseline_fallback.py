@@ -62,3 +62,30 @@ def test_build_utilise_formes_roulantes():
     assert isinstance(feats["Form_Diff_L5"], float)
     assert feats["Total_xG_L5"] >= 0
     os.environ["BASELINE_FALLBACK"] = "off"
+
+
+def test_absence_impact_passe_au_modele():
+    from core import baseline_features as bfs
+
+    os.environ["BASELINE_FALLBACK"] = "on"
+    base = {"home_team": "Arsenal", "away_team": "Chelsea", "date": "2026-09-01",
+            "elo_h": 1850, "elo_a": 1800, "xg_h": 1.8, "xg_a": 1.2}
+    sans = bfs.build(dict(base))
+    avec = bfs.build(dict(base, absence_impact=0.7))
+    # Par defaut (None) le feature vaut 0 (mediane historique) ; fourni -> valeur.
+    assert sans["absence_impact_pondéré"] == 0.0
+    assert avec["absence_impact_pondéré"] == 0.7
+    # Note honnete : le modele est entraene sur historique absence=0 -> poids ~0,
+    # donc la prediction ne bouge PAS encore. Le feature est correctement plombe
+    # (42 features) et n'aura d'effet qu'apres accumulation live + re-entrainement.
+    import core.baseline_fallback as bf
+    p_sans = bf.predict_for_match({"league": "E0", "home_team": "Arsenal",
+                                   "away_team": "Chelsea", "date": "2026-09-01"}, ctx=dict(base))
+    p_avec = bf.predict_for_match({"league": "E0", "home_team": "Arsenal",
+                                   "away_team": "Chelsea", "date": "2026-09-01"},
+                                  ctx=dict(base, absence_impact=0.7))
+    assert p_avec is not None and p_sans is not None
+    for v in (p_sans, p_avec):
+        # predict_from_features arrondit a 5 dec -> somme <= 1 a ~1.5e-5 pres.
+        assert abs(sum(v["1x2"]) - 1) < 1e-3 and all(0 <= x <= 1 for x in v["1x2"])
+    os.environ["BASELINE_FALLBACK"] = "off"

@@ -1138,8 +1138,25 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
 - Note : une 1re éval naive pkl-sur-val donnait des scores MEILLEURS -> c'était
   une fuite (pkl avait vu les 1752 val rows). Corrigé en round-trip par fold.
 
+### Absence_impact : préparation dimension + câblage (✅ commit à venir, GATED)
+- `absence_impact_pondéré` ajoutée à FEATURE_ALLOWLIST (42 features) + colonne
+  `=0` dans master_dataset.csv (VALeur historique véridique : absences passées
+  non disponibles car events Sofascore expirés -> pas de fabrication).
+- Pickles ré-entraînés (42 features). Walk-forward lr INCHANGÉ (absence=0 ->
+  aucun effet) ; rf varie du bruit négligeable. Reproductibilité OK.
+- `baseline_features.build` lit `ctx['absence_impact']` (live) ; hook
+  prediction_engine passe `match_obj['absence_impact_pondéré']` (best-effort).
+- **Honnêteté** : le modèle a un poids ~0 sur cette feature (jamais vu de
+  variation) -> elle n'INFLUENCE PAS encore les prédictions. Elle n'aura d'effet
+  réel qu'après (1) accumulation live des absences via le scraping, (2) re-
+  entraînement des pickles, (3) backtest walk-forward prouvant un gain. Désactivable
+  à tout moment en retirant la colonne de l'allowlist. Aucun risque prod tant que
+  les données live ne sont pas fournies.
+- Test `test_absence_impact_passe_au_modele` : câblage vérifié (feature plombée,
+  prédictions valides), sans prétendre un gain non validé.
+
 ### Reste à faire (hors P0)
-- Activer `absence_impact_pondéré` dans le modèle SEULEMENT après accumulation
-  live + backtest walk-forward prouvant un gain (sinon rester désactivé).
+- Confirmer l'effet de `absence_impact_pondéré` : accumuler les absences live,
+  re-entraîner, backtester -> activer seulement si gain prouvé.
 - Validation transverse : jest 610/610 PASS, pytest vert (suites P0 + 9 + 10 + DC + fallback).
 - AUCUN push Render effectué (déploiement = action manuelle séparée).

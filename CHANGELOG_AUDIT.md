@@ -1345,3 +1345,38 @@ sur ~100 matchs FT ; si dégradation vs baseline, rollback selon ci-dessus.
 
 **Interdit** : jamais de `git push --force` (instruction présente dans AGENTS.md hors
 sujet) ; jamais de déploiement sans accord utilisateur explicite.
+
+---
+
+## P1 — Ré-mesure honnête V55 (walk-forward chronologique) ✅
+
+**Fichiers** : `core/eval_v55_walkforward.py` (harness + fonctions pures testables),
+`tests/test_v55_walkforward_eval.py` (4/4 verts), `data/v55_walkforward_report.json`.
+
+**Correctif W1** : `train_v55.py:848` faisait un `train_test_split(stratify=y)` **aléatoire**
+(fonction `_chronological_split` ignorait les dates) → fuite temporelle. Le nouvel harness
+split strictement chronologique : `train = plus ancien`, `test = plus récent` (20 %, aucun
+chevauchement). Même test futur pour les 3 modèles.
+
+**Résultats (limit=30000, test=6000 matchs les plus récents, classes 0=H 1=D 2=A)** :
+
+| Modèle | Acc | LogLoss | Brier | ECE | Recall H/D/A |
+|---|---|---|---|---|---|
+| pref1 (ancien prod, leaky) | 0.6628 | 0.7714 | 0.4537 | 0.0769 | 0.698/0.493/0.752 |
+| **prod_v55_optimized (déployé)** | 0.6897 | 0.7281 | 0.4243 | 0.0822 | 0.723/0.564/0.745 |
+| **noclose_v55 (artefact)** | **0.7015** | **0.7164** | **0.4163** | 0.0873 | 0.735/0.575/0.757 |
+
+**Constats (révision honnête)** :
+- Le gain réel **prod vs pref1 = +2.68 pts** (et non +3.95 annoncé en M3) : l'A/B M3
+  utilisait le split aléatoire fuite. Le signe est confirmé (skew-fix aide) mais l'ampleur
+  était surestimée. → **M3 A/B révisé à Δ=+0.0268** (chronologique).
+- Le fix F1 aide **surtout les nuls** : recall draw +7.1 pts (0.493→0.564 prod, 0.575 noclose).
+- **L'artefact `noclose_v55` surpasse même le modèle déployé** (0.7015 > 0.6897) en eval
+  chronologique. Cause probable : hyperparams/params différents entre `train_v55` (prod) et
+  `scripts/retrain_v55_noclose.py`. → **Recommandation P1** : ré-adopter l'artefact noclose
+  comme prod (vérifier l'interface 218 dims côté inference avant swap) OU ré-entraîner prod
+  avec les mêmes params que le script noclose pour égaler 0.7015.
+- ECE prod (0.0822) reste élevé → confirme W6 (calibration résiduelle à recaler sur probas servies).
+
+**Aucun changement de modèle déployé à ce stade** (P1 = mesure + révision journal). Swap différé
+en P2/P4 avec validation inference. Rapport persistant : `data/v55_walkforward_report.json`.

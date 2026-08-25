@@ -65,7 +65,7 @@ from xg_engine import (
 )
 from ml_ensemble import (
     select_model_booster, run_xgboost_inference,
-    apply_v4_ensemble, apply_predixsport_blend, apply_external_xgb_blend,
+    apply_v4_ensemble, apply_external_xgb_blend,
     run_shap_explainability, predict_secondary_markets,
     blend_final_probabilities, LEAGUE_WEIGHT_MATRIX,
 )
@@ -80,9 +80,35 @@ from confidence_engine import (
     apply_draw_and_world_cup, determine_verdict,
     assess_risk, apply_veto_shield,
     build_analysis_report, apply_post_verdict,
+    overconfidence_veto,
 )
+try:
+    from meta_refiner import refine_prediction as _meta_refine
+except Exception:
+    _meta_refine = None
 
 ELO_DATA = get_elo_data()
+
+
+def _attach_baseline_fallback(match_obj: dict):
+    """Phase 10 suite : A/B des baselines walk-forward (LR/RF retenus), sous
+    kill-switch BASELINE_FALLBACK=on. Renvoie None si désactivé ou match inconnu
+    de master_dataset (pas de feature store live -> voir CHANGELOG)."""
+    try:
+        if os.environ.get("BASELINE_FALLBACK", "off").lower() != "on":
+            return None
+        from core.baseline_fallback import predict_for_match
+
+        date = match_obj.get("date") or match_obj.get("kickoff")
+        key = {
+            "league": match_obj.get("league"),
+            "home_team": match_obj.get("homeTeam") or match_obj.get("home_team"),
+            "away_team": match_obj.get("awayTeam") or match_obj.get("away_team"),
+            "date": date,
+        }
+        return predict_for_match(key)
+    except Exception:
+        return None
 
 
 def process_prediction(match_obj: dict) -> dict:
@@ -106,10 +132,16 @@ def process_prediction(match_obj: dict) -> dict:
     sys.stderr.write(f"  [LeagueTier] {league_name_str} -> {league_tier}/{confidence_tag}\n")
 
     # --- SEEDING: History + Features ---
-    h_hist = get_team_history(home_name, limit=30)
-    a_hist = get_team_history(away_name, limit=30)
+    try:
+        _match_ts = int(match_obj.get('startTimestamp', 0))
+    except Exception:
+        _match_ts = 0
+    _hist_cutoff = _match_ts if _match_ts > 0 else None
+
+    h_hist = get_team_history(home_name, limit=30, current_match_ts=_hist_cutoff)
+    a_hist = get_team_history(away_name, limit=30, current_match_ts=_hist_cutoff)
     features = {'h_hist_len': len(h_hist), 'a_hist_len': len(a_hist)}
-    features.update(extract_ml_features(match_obj, fetch_history=True))
+    features.update(extract_ml_features(match_obj, fetch_history=True, current_match_ts=_hist_cutoff))
     raw_features = dict(features)
 
     # --- V50+ Imputation & QoP ---
@@ -173,6 +205,25 @@ def process_prediction(match_obj: dict) -> dict:
         except Exception: news_data = {}
     h_att_mod, h_def_mod, a_att_mod, a_def_mod = apply_squad_intelligence(xg_h, xg_a, match_obj, news_data)
 
+    # KEY ABSENCES VETO: 2+ key players out in attack/defense
+    intel_h = news_data.get('home', {}).get('intelligence', {}).get('features', {}) if isinstance(news_data, dict) else {}
+    intel_a = news_data.get('away', {}).get('intelligence', {}).get('features', {}) if isinstance(news_data, dict) else {}
+    h_key_absent = sum([
+        intel_h.get('is_missing_gk', 0), intel_h.get('is_missing_scorer', 0),
+        intel_h.get('is_missing_captain', 0), intel_h.get('is_missing_star', 0),
+        match_obj.get('is_missing_gk', 0), match_obj.get('is_missing_scorer', 0),
+        match_obj.get('is_missing_captain', 0), match_obj.get('is_missing_star', 0)
+    ])
+    a_key_absent = sum([
+        intel_a.get('is_missing_gk', 0), intel_a.get('is_missing_scorer', 0),
+        intel_a.get('is_missing_captain', 0), intel_a.get('is_missing_star', 0),
+        match_obj.get('is_missing_gk_away', 0), match_obj.get('is_missing_scorer_away', 0),
+        match_obj.get('is_missing_captain_away', 0), match_obj.get('is_missing_star_away', 0)
+    ])
+    if h_key_absent >= 2 or a_key_absent >= 2:
+        sys.stderr.write(f"🛑 KEY_ABSENCES_VETO: Home={h_key_absent}, Away={a_key_absent} key players out\n")
+        return {"success": False, "error": "KEY_ABSENCES_VETO", "home_absent": h_key_absent, "away_absent": a_key_absent}
+
     h_dmf, a_dmf, h_fatigue, a_fatigue, h_is_dz, a_is_dz, motivation_signature, h_att_mod, h_def_mod, a_att_mod, a_def_mod = compute_dmf_fatigue(
         match_obj, features, h_hist, a_hist, h_att_mod, h_def_mod, a_att_mod, a_def_mod
     )
@@ -205,11 +256,6 @@ def process_prediction(match_obj: dict) -> dict:
     p_h_ai, p_d_ai, p_a_ai, v4_tag, v4_analysis = apply_v4_ensemble(p_h_ai, p_d_ai, p_a_ai, match_obj, has_xgb)
     analysis.update(v4_analysis)
     ai_source += v4_tag
-
-    # PredixSport Blend
-    p_h_ai, p_d_ai, p_a_ai, ps_tag, ps_analysis = apply_predixsport_blend(p_h_ai, p_d_ai, p_a_ai, match_obj)
-    analysis.update(ps_analysis)
-    ai_source += ps_tag
 
     # External XGBoost Blend (msoczi ensemble member, top-5 European leagues)
     p_h_ai, p_d_ai, p_a_ai, ext_tag, ext_analysis = apply_external_xgb_blend(p_h_ai, p_d_ai, p_a_ai, match_obj)
@@ -255,6 +301,20 @@ def process_prediction(match_obj: dict) -> dict:
     )
     if ai_source == "Standard-Poisson":
         ai_source = ai_source_label
+
+    # Meta-Refiner: Bayesian bias correction per league/prediction-type
+    if _meta_refine is not None:
+        try:
+            p_h, _ = _meta_refine(league_name_str, 'home', p_h)
+            p_d, _ = _meta_refine(league_name_str, 'draw', p_d)
+            p_a, _ = _meta_refine(league_name_str, 'away', p_a)
+            # Renormalize
+            s = p_h + p_d + p_a
+            if s > 0:
+                p_h, p_d, p_a = p_h / s, p_d / s, p_a / s
+            analysis["MetaRefiner"] = "Applied"
+        except Exception as _mr_err:
+            analysis["MetaRefiner"] = f"Failed: {_mr_err}"
 
     # Confluence Guard
     confluence_penalty, confluence_report, confluence_reason = evaluate_confluence(
@@ -318,10 +378,15 @@ def process_prediction(match_obj: dict) -> dict:
     h_dominance = (h_shot_eff * 1.2) + (h_composite_attack * 0.8)
     a_dominance = (a_shot_eff * 1.2) + (a_composite_attack * 0.8)
 
+    # Get odds for odds range filter
+    odds_h = _safe_float(match_obj.get('odds_home') or match_obj.get('home_odds'), 0.0)
+    odds_d = _safe_float(match_obj.get('odds_draw') or match_obj.get('draw_odds'), 0.0)
+    odds_a = _safe_float(match_obj.get('odds_away') or match_obj.get('away_odds'), 0.0)
+
     precision_bets = generate_precision_bets(
         xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15,
         expected_corners, expected_cards, home_name, away_name,
-        has_xgb, features
+        has_xgb, features, odds_h, odds_d, odds_a
     )
     dnb_h, dnb_a, dc_h, dc_a, dc_12 = calculate_ah_dnb_probs(p_h, p_d, p_a)
     dnb_ah_bets, dnb_h, dnb_a, dc_h, dc_a, dc_12 = generate_dnb_ah_bets(
@@ -462,6 +527,7 @@ def process_prediction(match_obj: dict) -> dict:
 
     # Verdict
     verdict = apply_post_verdict(confidence, surgical_confidence, value_index, league_tier, analysis)
+    status_code = "ACTIVE"
 
     # Power Tubes
     def _get_tube_pct(val_0_100):
@@ -494,16 +560,13 @@ def process_prediction(match_obj: dict) -> dict:
     )
 
     # Risk Assessment
-    odds_h = _safe_float(match_obj.get('odds_home') or match_obj.get('home_odds'), 0.0)
-    odds_d = _safe_float(match_obj.get('odds_draw') or match_obj.get('draw_odds'), 0.0)
-    odds_a = _safe_float(match_obj.get('odds_away') or match_obj.get('away_odds'), 0.0)
     odds_h_open = _safe_float(match_obj.get('odds_home_open'), odds_h)
     odds_a_open = _safe_float(match_obj.get('odds_away_open'), odds_a)
 
     risk_score, risk_reasons, is_suspicious_flag, is_safe_bet_flag = assess_risk(
         league_tier, h_dmf, a_dmf, h_is_dz, a_is_dz,
         odds_h, odds_d, odds_a, odds_h_open, odds_a_open,
-        p_h, p_a, features, confidence
+        p_h, p_a, features, confidence, match_obj
     )
 
     # Veto Shield
@@ -516,6 +579,18 @@ def process_prediction(match_obj: dict) -> dict:
         analysis["Shield"] = shield_reason
     if veto_verdict:
         verdict = veto_verdict
+
+    # Veto Guard / Safety Bracket : prob pick >= 0.70 mais historique du
+    # bracket < 0.60 → NO BET (status = NO_BET_OVERCONFIDENT)
+    overconf_veto, overconf_reason = overconfidence_veto(max(confidence, surgical_confidence) / 100.0)
+    if overconf_veto:
+        no_bet = True
+        verdict = "NO BET (OVERCONFIDENT)"
+        selection = "No Bet"
+        selection_label = "No Bet"
+        precision_bets = []
+        analysis["Shield"] = f"🛡️ {overconf_reason}"
+        status_code = "NO_BET_OVERCONFIDENT"
 
     # Friendly/Tier1 thresholds
     tournament_tag = str(match_obj.get('league', '')).lower()
@@ -530,7 +605,10 @@ def process_prediction(match_obj: dict) -> dict:
         analysis["Shield"] = f"🛡️ VETO ALPHA: Confiance < 50%."
 
     if no_bet:
-        verdict = "NO BET (SHIELDED)" if zero_failure_veto else "NO BET"
+        if 'overconf_veto' in locals() and overconf_veto:
+            verdict = "NO BET (OVERCONFIDENT)"
+        else:
+            verdict = "NO BET (SHIELDED)" if zero_failure_veto else "NO BET"
         selection = "No Bet"
         selection_label = "No Bet"
         confidence = 0
@@ -619,6 +697,7 @@ def process_prediction(match_obj: dict) -> dict:
         "ou_25_prob": float(sim['ou_25_prob']),
         "btts_prob": float(sim['btts_prob']),
         "verdict": str("NO BET" if no_bet else selection_label),
+        "status": str("NO_BET_OVERCONFIDENT" if no_bet and 'overconf_veto' in locals() and overconf_veto else ("NO BET" if no_bet else status_code)),
         "power_score": float(power_score),
         "chaos_level": float(0.0),
         "main_predictions": main_four,
@@ -650,6 +729,7 @@ def process_prediction(match_obj: dict) -> dict:
         "motivation_signature": str(motivation_signature),
         "twin_match_dna": twin_dna,
         "twin_match_verdict": twin_verdict,
+        "baseline_fallback": _attach_baseline_fallback(match_obj),
         "kelly_stake": float(round(max(0, (((confidence/100) * (temp_odds-1)) - (1-(confidence/100))) / (temp_odds-1) * 0.25 * 100), 1)) if (temp_odds > 1 and confidence > 0) else 0
     }
 

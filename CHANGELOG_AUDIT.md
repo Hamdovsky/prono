@@ -986,3 +986,15 @@ clubs, V4/XGBoost dégradés. `team_aliases.json` enrichi :
   Dep. A Coruna/Oviedo/Valladolid/Le Havre AC.
 Résultat pipeline : **0 équipe non mappée**, Elo 100 %, **xG couvert 99,7 %**
 (contre 80 % en début d'audit).
+
+---
+
+## Cohérence cutoffs post-gel + visibilité gels — 2026-08-25
+
+- `check_iso_gate.js` / `check_market_gates.js` : cutoff aligné sur le **gel de
+  la cascade** (24/08T19hZ) au lieu du fix P4 (23/08T20hZ). Les probas émises
+  entre les deux restaient déformées par l'isotonique runtime encore active ->
+  les gardes ne doivent compter QUE du post-gel. Compteurs honnêtement repartis
+  de ~0 (C1=14, 1X2 n=2, BTTS n=4).
+- `status_audit.js` : nouvelle section « GELS CASCADE » (état des 5 flags .env)
+  + dernière ligne [CALIBRATOR] dans les événements.

@@ -26,9 +26,32 @@ function line() {
   console.log('-'.repeat(62))
 }
 
-// ---------- 1. Gardes ----------
+// ---------- 0. État des gels (cascade calibration) ----------
+function envFlag(key) {
+  try {
+    const m = fs.readFileSync(path.join(root, '.env'), 'utf8').match(new RegExp(`^${key}=(.*)$`, 'm'))
+    return m ? m[1].trim() : '(absent)'
+  } catch (_) {
+    return '?'
+  }
+}
 console.log('AUDIT STITCH — STATUT CONSOLIDÉ —', new Date().toLocaleString('fr-FR'))
 line()
+console.log('0) GELS CASCADE CALIBRATION')
+const gels = [
+  ['ISO_RUNTIME_APPLY', 'false', 'isotonique python runtime'],
+  ['MARKET_CALIB_IDENTITY', 'true', 'calibrage TopPicks'],
+  ['PROBA_CALIB_IDENTITY', 'true', 'affichage Promosport'],
+  ['DISABLE_PURE_1X2', 'true', 'masque 1X2 pur'],
+  ['VITE_DISABLE_BTTS_DISPLAY', 'true', 'masque affichage BTTS'],
+]
+for (const [k, frozenVal, label] of gels) {
+  const v = envFlag(k)
+  const etat = v === frozenVal ? 'GELÉ' : 'ACTIF'
+  console.log(`   ${k.padEnd(26)}=${v.padEnd(7)} ${label.padEnd(24)} -> ${etat}`)
+}
+
+// ---------- 1. Gardes ----------
 const iso = isoGate()
 const g12 = gate1x2()
 const gbt = gateBtts()
@@ -93,6 +116,7 @@ try {
   }
   show('[MARKET_POLICY]', /\[MARKET_POLICY\]/)
   show('[LEAGUE_POLICY]', /\[LEAGUE_POLICY\]/)
+  show('[CALIBRATOR]', /\[CALIBRATOR\]/)
   show('[DATAFUSION cote]', /Odds from/)
 } catch (_) {}
 

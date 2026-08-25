@@ -2,8 +2,8 @@
  * Audit étape 2 : garde de réactivation de la calibration isotonique.
  *
  * Critères (plan V2, validés) :
- *   C1. n >= 200 picks enregistrés APRÈS les fixes d'honnêteté (post-P1,
- *       cutoff 2026-08-23T20:00Z) et settle connus (score final posé).
+ *   C1. n >= 200 picks enregistrés APRÈS le gel de la cascade (post-gel,
+ *       cutoff 2026-08-24T19:00Z) et settle connus (score final posé).
  *   C2. Courbe de calibration monotone croissante : dernière bande > première,
  *       aucune chute consécutive > 3 pts, au moins 4 bandes avec n >= 30.
  *
@@ -20,7 +20,10 @@ const { execFileSync } = require('child_process')
 
 const root = path.join(__dirname, '..')
 
-const CUTOFF = '2026-08-23T20:00:00.000Z'
+// Cutoff COHÉRENCE GEL (audit 24/08) : les probas émises entre le fix P4
+// (23/08 20hZ) et le gel de la cascade (24/08 19hZ) restent déformées par
+// l'isotonique runtime encore active. Seules les données POST-GEL comptent.
+const CUTOFF = '2026-08-24T19:00:00.000Z'
 const N_MIN = 200
 
 // ---------- C1 : volume post-fix ----------

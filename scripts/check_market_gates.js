@@ -9,7 +9,8 @@
  *     Critère de sortie : précision >= 55 % ET ROI flat > 0 sur n >= 200 picks
  *     btts_pick post-fix settlés (ROI via cotes odds_btts_yes/no persistées au sweep).
  *
- * Cutoff commun : déploiement des fixes (commit d5d182c) = 2026-08-23T20:00Z.
+ * Cutoff commun : le GEL de la cascade de calibration (2026-08-24T19:00Z) —
+ * seules les prédictions émises sur probas brutes honnêtes comptent.
  * Tant que les critères ne sont pas réunis : simple rapport chiffré.
  * --activate : applique les bascules .env des gates en GO + redémarre la stack.
  *
@@ -25,7 +26,9 @@ const root = path.join(__dirname, '..')
 process.chdir(root)
 const { db } = require(path.join(root, 'core', 'database'))
 
-const CUTOFF = '2026-08-23T20:00:00.000Z'
+// Cutoff COHÉRENCE GEL (audit 24/08) : post-gel cascade uniquement — les
+// probas émises entre le fix P4 et le gel (24/08 19hZ) sont déformées.
+const CUTOFF = '2026-08-24T19:00:00.000Z'
 const N_MIN = 200
 const CUTOFF_MS = Date.parse(CUTOFF)
 

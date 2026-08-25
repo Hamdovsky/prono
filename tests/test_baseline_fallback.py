@@ -45,3 +45,20 @@ def test_predict_for_match_reel_et_inconnu():
     for v in live.values():
         assert abs(sum(v) - 1) < 1e-6 and all(0 <= p <= 1 for p in v)
     os.environ["BASELINE_FALLBACK"] = "off"
+
+
+def test_build_utilise_formes_roulantes():
+    from core import baseline_features as bfs
+
+    os.environ["BASELINE_FALLBACK"] = "on"
+    ctx = {
+        "home_team": "Arsenal", "away_team": "Chelsea", "date": "2026-09-01",
+        "elo_h": 1850, "elo_a": 1800, "xg_h": 1.8, "xg_a": 1.2,
+    }
+    feats = bfs.build(ctx)
+    # Les formes viennent de l'historique réel, pas de la médiane master.
+    assert feats["H_pts_L5"] != bfs.medians().get("H_pts_L5")
+    assert 0 <= feats["H_pts_L5"] <= 3 and 0 <= feats["A_pts_L5"] <= 3
+    assert isinstance(feats["Form_Diff_L5"], float)
+    assert feats["Total_xG_L5"] >= 0
+    os.environ["BASELINE_FALLBACK"] = "off"

@@ -105,6 +105,7 @@ def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
         elo_a = ELO_DATA.get(away, 1500) if ELO_DATA else 1500
         ctx = {
             "elo_h": elo_h, "elo_a": elo_a, "xg_h": xg_h, "xg_a": xg_a,
+            "home_team": home, "away_team": away, "date": date,
             "P1_open": match_obj.get("P1_open_avg") or match_obj.get("odds_home_open"),
             "PX_open": match_obj.get("PX_open_avg") or match_obj.get("odds_draw_open"),
             "P2_open": match_obj.get("P2_open_avg") or match_obj.get("odds_away_open"),

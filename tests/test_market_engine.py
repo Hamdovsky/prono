@@ -39,7 +39,9 @@ class TestGeneratePrecisionBets:
         from market_engine import generate_precision_bets
         bets = generate_precision_bets(1.5, 1.2, 50, 30, 20, 50, 30, 70, 11.0, 3.5, 'H', 'A', True, {})
         markets = [b['market'] for b in bets]
-        assert 'Over 8.5 Corners' in markets
+        assert 'Over 9.5 Corners' in markets
+        bet = next(b for b in bets if b['market'] == 'Over 9.5 Corners')
+        assert bet['probability'] >= 55
 
     def test_corners_under_when_low(self):
         from market_engine import generate_precision_bets

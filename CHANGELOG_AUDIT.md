@@ -1628,12 +1628,47 @@ settlé sur le résultat réel (total corners / score mi-temps).
   `accuracyEngine.js` : OK.
 
 ## Suite (Q2→Q5)
-- **Q2** Corners : remplacer l'heuristique orpheline (`market_engine.py:69-72`)
-  par un modèle entraîné sur `archive_football_data` (corners_home/away) ;
-  ligne 9.5 servie depuis le modèle (cohérent avec `deriveCornerPick`).
+- **Q2** Corners : **FAIT** (voir section dédiée ci-dessous).
 - **Q3** BTTS : challenger RandomForest + calibration binaire, source unique MC.
 - **Q4** HT : ratios appris (`data/ht_ratios.json`), surfacer `ht_goal_prob` →
   active le pick HT mesuré ici.
 - **Q5** O/U : lignes MC unifiées, seuils appris par ligue, calibration par ligne.
 - Chaque phase = 1 commit local, **aucun push** (instruction utilisateur).
+
+---
+
+# Q2 — Corners : probabilité O/U calibree (Negative Binomial) (2026-08-25)
+
+## Cause racine (faiblesse Corners)
+`market_engine.py:69-72` utilisait une **heuristique** `probability = 60 + (ec-9)*10`
+(plafonnée 85-87 %), ligne incohérente (Over 8.5 / Under 9.5), et non calibrée sur
+le terrain. Le vrai modèle de corners (`ml_ensemble` → `expected_corners`) existait
+déjà mais sa proba servie était arbitraire.
+
+## Correctifs
+- `core/corners_calib.py` (nouveau) : `p_over_corner(mu, line)` via Negative
+  Binomial (PMF en boucle, sans scipy), `load_calibration()` lit
+  `data/corners_calibration.json` (fallback mu=10.6, alpha=0.45).
+- `core/train_corners.py` (nouveau) : fitte `alpha` sur
+  `archive_football_data` (corners_home+away, n=39 677). Résultat :
+  `mu=10.11, var=12.30, alpha=0.021` → **P(Over 9.5) observée 0.543 vs prédite
+  0.556 (écart 0.013)**. Écrit `data/corners_calibration.json`.
+- `core/market_engine.py` : remplacé l'heuristique par
+  `Over/Under 9.5 Corners` avec `probability = round(P(Over 9.5)*100)` (seuil
+  émission ≥55 % / ≤45 %), ligne **9.5 cohérente avec `deriveCornerPick`** (Q1).
+- `tests/test_corners_calib.py` (nouveau, 6/6 verts) + `tests/test_market_engine.py`
+  mis à jour (Over/Under 9.5, proba ≥55 %).
+
+## Validation
+- `python -m pytest tests/test_corners_calib.py -q` → **6 passed**.
+- `python -m pytest tests/test_market_engine.py -q` → **27 passed** (échec
+  `test_corners_over_when_high` résolu par la mise à jour du format de ligne).
+- `python -m pytest tests/ -q` → reste à **5 échecs préexistants**
+  (test_engine / test_fallback x2 / test_predictions — penaltyblog non installé,
+  hors périmètre), **aucune régression Q2**.
+- `python -m core.train_corners` → calibre et sauvegarde OK.
+
+## Suite (Q3→Q5)
+- **Q3** BTTS, **Q4** HT, **Q5** O/U : voir plan Q1. Chaque phase = 1 commit
+  local, **aucun push**.
 

@@ -13,6 +13,9 @@ Responsibilities:
 import math
 from data_loader import safe_float as _safe_float, f_feat as _f_feat
 from predictor import calculate_ah_dnb_probs
+from corners_calib import load_calibration, p_over_corner
+
+_CORNER_LINE = 9.5
 
 
 def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15,
@@ -65,11 +68,27 @@ def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15
     if xg_a < 0.8 and sot_a < 2.5 and p_h > 60:
         precision_bets.append({"market": f"Clean Sheet : {home_name}", "probability": int(min(80, 100 - (xg_a*50))), "reason": f"Attaque de {away_name} très inefficace"})
 
-    # Corners
-    if expected_corners >= 10.0:
-        precision_bets.append({"market": "Over 8.5 Corners", "probability": int(min(87, 60 + (expected_corners - 9)*10)), "reason": f"Moyenne simulée : {expected_corners} corners"})
-    elif expected_corners <= 7.5:
-        precision_bets.append({"market": "Under 9.5 Corners", "probability": int(min(85, 60 + (8.5 - expected_corners)*10)), "reason": f"Moyenne simulée : {expected_corners} corners"})
+    # Corners (Q2) : proba O/U 9.5 via Negative Binomial calibree sur l'archive.
+    # Remplace l'heuristique (60 + (ec-9)*10) par P(Over ligne | mu=expected_corners).
+    if expected_corners is not None:
+        try:
+            ec = float(expected_corners)
+            _calib = load_calibration()
+            _pov = p_over_corner(ec, _CORNER_LINE, calib=_calib)
+            if _pov is not None and _pov >= 0.55:
+                precision_bets.append({
+                    "market": f"Over {_CORNER_LINE} Corners",
+                    "probability": int(round(_pov * 100)),
+                    "reason": f"NegBinom calibre (alpha={_calib['alpha']:.2f}) : P(> {_CORNER_LINE}) = {_pov*100:.0f}% (mu={ec:.1f})",
+                })
+            elif _pov is not None and _pov <= 0.45:
+                precision_bets.append({
+                    "market": f"Under {_CORNER_LINE} Corners",
+                    "probability": int(round((1 - _pov) * 100)),
+                    "reason": f"NegBinom calibre (alpha={_calib['alpha']:.2f}) : P(<= {_CORNER_LINE}) = {(1-_pov)*100:.0f}% (mu={ec:.1f})",
+                })
+        except Exception:
+            pass
 
     # Cards
     if expected_cards >= 4.8:

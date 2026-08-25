@@ -1752,15 +1752,20 @@ MC (`btts_prob` de `goal_model`) non recalibrée.
 - `npx jest __tests__/market_engine.test.js` → reste **27/27** (champ 'BTTS : OUI'
   inchangé ; seul le tag reason diffère sous gate).
 
-## Activation
-- **Validée et activée par défaut** (commit `bbbf071` + suivant) : `core/validate_markets.py`
-  sur holdout chronologique (20 % derniers, n=7 735) donne
-  **BTTS pick@0.5 : modèle 0.622 vs legacy 0.455** et
-  **O/U 2.5 pick@0.5 : modèle 0.635 vs Poisson legacy 0.559**. Les gates
-  `BTTS_MODEL_ENABLED` / `OU_MODEL_ENABLED` sont donc passés à `true` par défaut
-  (réversible via env `=false`). Pas de re-run walk-forward P1 nécessaire (le
-  harnais évalue le 1X2, pas les picks de marché ; la mesure équivaut est
-  accuracyEngine `marketFilter='btts'/'over_under'`, désormais alimentée).
+ ## Activation
+ - **BTTS : validée et activée par défaut** (`BTTS_MODEL_ENABLED=true`) :
+   `core/validate_markets.py` sur holdout chronologique (20 % derniers, n=7 735)
+   donne **BTTS pick@0.5 : modèle 0.622 vs legacy 0.455**. Clear win (remplace
+   heuristique, aucune challenger par-match).
+ - **O/U : gate REMIS à `false`** (correction 2026-08-25). La validation montrait
+   modèle 0.635 vs baseline Poisson-xG 0.559, MAIS la production sert déjà la
+   vraie proba par match **Monte Carlo** (`mc_ou25`), non le Poisson-xG. Le modèle
+   xG-logistique est donc coarser que le MC réel -> l'activer dégraderait la
+   proba servie. Adoption conditionnée à une comparaison MC-vs-modèle honnête
+   (nécessite de conserver `mc_ou25` historiquement ou de le recalculer).
+ - Pas de re-run walk-forward P1 nécessaire (le harnais évalue le 1X2, pas les
+   picks de marché ; la mesure équivaut est accuracyEngine
+   `marketFilter='btts'/'over_under'`, désormais alimentée).
 
 ---
 
@@ -1788,4 +1793,41 @@ entre lignes.
 
 ## Suite finale
 - Chaque phase = 1 commit local, **aucun push** (instruction utilisateur).
+
+---
+
+# D — Marché Cartons : ligne 3.5 calibrée NegBinom (2026-08-25)
+
+## Cause racine (faiblesse Cartons)
+`market_engine.py` émet `Over 3.5 Cartons` via heuristique
+`65 + (expected_cards - 4.5)*10` (sans calibration sur archive). Même motif que
+Corners (Q2) : la vraie dispersion des cartons n'est pas gaussienne.
+
+## Correctifs
+- `core/cards_calib.py` (nouveau) : `p_over_cards(mu, line, alpha)` /
+  `p_under_cards` via Negative Binomial (PMF boucle, sans scipy). Ligne 3.5.
+- `core/train_cards.py` (nouveau) : fit `alpha` sur `yellow_home + yellow_away`
+  (n=40 066). **mu=3.98, var=4.46, alpha=0.030** ;
+  **P(Over 3.5) observée=0.566 vs prédite=0.563 (écart 0.003)** → calibration
+  quasi parfaite. Sauve `data/cards_calibration.json`.
+- `core/market_engine.py` : bloc Cartons remplacé par la proba NegBinom
+  (garde `>= 0.55` → Over, `<= 0.45` → Under ; sinon rien), `expected_cards`
+  comme mu. Miroir exact de la voie Corners (Q2).
+- `tests/test_cards_calib.py` (nouveau, 6/6 verts) ; `test_market_engine` (33/33).
+
+## Impact
+- Marché Cartons désormais calibre sur archive (pas d'heuristique ad-hoc).
+- Aucun changement de défaut serveur : la voie s'active dès qu'`expected_cards`
+  est fourni (toujours le cas via ml_ensemble).
+
+---
+
+# E — Prochaine étape recommandée : comparaison MC-vs-modèle (O/U & marchés)
+
+- Programme `core/eval_markets_walkforward.py` étendant `eval_v55_walkforward.py`
+  pour évaluer BTTS/Corners/Cartons/HT/O-U en chronologique pluri-fold, en
+  comparant le **MC réel** (mc_ou25, monte_carlo_simulation) au modèle xG-logistique.
+  C'est la condition pour activer `OU_MODEL_ENABLED` en connaissance de cause.
+- Nécessite de conserver `mc_ou25` historiquement (ou recalcul sur archive) —
+  colonne ajoutable à `archive_football_data`.
 

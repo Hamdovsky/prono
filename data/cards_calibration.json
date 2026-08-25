@@ -1,0 +1,9 @@
+{
+  "n": 40066,
+  "mu": 3.9846,
+  "alpha": 0.0298,
+  "line": 3.5,
+  "variance": 4.4574,
+  "p_over_observed": 0.5656,
+  "p_over_predicted": 0.5628
+}

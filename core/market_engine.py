@@ -15,12 +15,15 @@ import os
 from data_loader import safe_float as _safe_float, f_feat as _f_feat
 from predictor import calculate_ah_dnb_probs
 from corners_calib import load_calibration, p_over_corner
+from cards_calib import load_calibration as load_cards_calib, p_over_cards as _p_over_cards
 
 _CORNER_LINE = 9.5
-# Q3/Q5 : adoption validee sur holdout chronologique (core/validate_markets.py) :
-# BTTS 0.622 vs 0.455 (legacy), O/U2.5 0.635 vs 0.559 (Poisson). Defaut = actif.
+# Q3/Q5 : BTTS modele adopte par defaut (remplace heuristique, clear win sur holdout).
+# O/U : gate REMIS a false -> la production utilise deja la vraie proba par match
+# Monte Carlo (mc_ou25), superieure au modele xG-logistique (qui ne bat que le
+# baseline Poisson-xG, pas le MC). Adoption conditionnee a une comparaison MC-vs-modele.
 _BTTS_MODEL_ENABLED = os.environ.get("BTTS_MODEL_ENABLED", "true").lower() == "true"
-_OU_MODEL_ENABLED = os.environ.get("OU_MODEL_ENABLED", "true").lower() == "true"
+_OU_MODEL_ENABLED = os.environ.get("OU_MODEL_ENABLED", "false").lower() == "true"
 
 
 def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15,
@@ -143,9 +146,27 @@ def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15
         except Exception:
             pass
 
-    # Cards
-    if expected_cards >= 4.8:
-        precision_bets.append({"market": "Over 3.5 Cartons", "probability": int(min(85, 65 + (expected_cards - 4.5)*10)), "reason": f"Agressivité élevée : {expected_cards} indice estimé"})
+    # Cards (D) : proba O/U 3.5 via Negative Binomial calibree sur l'archive.
+    # Remplace l'heuristique (65 + (ec-4.5)*10) par P(Over ligne | mu=expected_cards).
+    if expected_cards is not None:
+        try:
+            ec = float(expected_cards)
+            _cc = load_cards_calib()
+            _pov = _p_over_cards(ec, _cc["line"], calib=_cc)
+            if _pov is not None and _pov >= 0.55:
+                precision_bets.append({
+                    "market": f"Over {_cc['line']} Cartons",
+                    "probability": int(round(_pov * 100)),
+                    "reason": f"NegBinom calibre (alpha={_cc['alpha']:.2f}) : P(> {_cc['line']})={_pov*100:.0f}% (mu={ec:.1f})",
+                })
+            elif _pov is not None and _pov <= 0.45:
+                precision_bets.append({
+                    "market": f"Under {_cc['line']} Cartons",
+                    "probability": int(round((1 - _pov) * 100)),
+                    "reason": f"NegBinom calibre (alpha={_cc['alpha']:.2f}) : P(<= {_cc['line']})={(1-_pov)*100:.0f}% (mu={ec:.1f})",
+                })
+        except Exception:
+            pass
 
     return precision_bets
 

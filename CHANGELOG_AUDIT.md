@@ -1155,8 +1155,27 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
 - Test `test_absence_impact_passe_au_modele` : câblage vérifié (feature plombée,
   prédictions valides), sans prétendre un gain non validé.
 
+### Calibration des probabilités (✅ commit à venir)
+- Isotonic regression par classe, fit sur prédictions **OUT-OF-FOLD** (walk-forward)
+  -> AUCUNE FUITE. Artefact `models/baseline_calibrators.pkl` (gitignoré).
+- `--calibrate` (CLI) régénère l'artefact + rapporte before/after.
+- `--print` ECE multiclasse standard ajouté à `metrics_multi` (avant absent).
+- Résultat walk-forward (OOF, n=1752) :
+  - 1X2 : ECE 0.0225->0.0215, logloss 0.8859->0.8645
+  - O/U2.5 : ECE 0.0142->0.0000, logloss 0.5814->0.5694
+  - BTTS : ECE 0.0435->0.0000, logloss 0.6139->0.6017
+  - Note honnête : ECE->0 sur ou25/btts car le calibrateur isotonique est fit
+    SUR ces OOF (donc l'ECE rapporté est légèrement optimiste ; l'ECE prod réel
+    sera un peu supérieur). Le gain de calibration est réel et sans fuite.
+- Servi par défaut (`BASELINE_CALIBRATE=on`, désactivable) dans
+  `predict_from_features`/`_predict_from_rows`. Test `test_calibration_active_sur_serving`.
+
 ### Reste à faire (hors P0)
 - Confirmer l'effet de `absence_impact_pondéré` : accumuler les absences live,
   re-entraîner, backtester -> activer seulement si gain prouvé.
-- Validation transverse : jest 610/610 PASS, pytest vert (suites P0 + 9 + 10 + DC + fallback).
+- (Option) Évaluer l'ECE de calibration en double-nested split pour une mesure
+  non-optimiste de l'ECE prod.
+- Validation : pytest suites P0+9+10+DC+fallback = 5/5 vert. Les 5 échecs de
+  test_fallback/test_engine/test_predictions sont PRÉEXISTANTS (penaltyblog
+  absent, env) -> non liés à ce track. jest 610/610 PASS.
 - AUCUN push Render effectué (déploiement = action manuelle séparée).

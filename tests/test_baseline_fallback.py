@@ -89,3 +89,24 @@ def test_absence_impact_passe_au_modele():
         # predict_from_features arrondit a 5 dec -> somme <= 1 a ~1.5e-5 pres.
         assert abs(sum(v["1x2"]) - 1) < 1e-3 and all(0 <= x <= 1 for x in v["1x2"])
     os.environ["BASELINE_FALLBACK"] = "off"
+
+
+def test_calibration_active_sur_serving():
+    import core.baseline_fallback as bf
+
+    os.environ["BASELINE_FALLBACK"] = "on"
+    ctx = {"home_team": "Arsenal", "away_team": "Chelsea", "date": "2026-09-01",
+           "elo_h": 1850, "elo_a": 1800, "xg_h": 1.8, "xg_a": 1.2}
+    m = {"league": "E0", "home_team": "Arsenal", "away_team": "Chelsea", "date": "2026-09-01"}
+    os.environ["BASELINE_CALIBRATE"] = "on"
+    p_cal = bf.predict_for_match(m, ctx=ctx)
+    os.environ["BASELINE_CALIBRATE"] = "off"
+    p_raw = bf.predict_for_match(m, ctx=ctx)
+    os.environ["BASELINE_CALIBRATE"] = "off"
+    os.environ["BASELINE_FALLBACK"] = "off"
+    assert p_cal is not None and p_raw is not None
+    # Calibration isotonique appliquee -> sorties differentes des brutales.
+    assert p_cal["ou25"] != p_raw["ou25"] or p_cal["btts"] != p_raw["btts"]
+    for v in (p_cal, p_raw):
+        for mk in v:
+            assert abs(sum(v[mk]) - 1) < 1e-3 and all(0 <= x <= 1 for x in v[mk])

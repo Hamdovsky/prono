@@ -27,6 +27,8 @@ from pathlib import Path
 
 import joblib
 
+from sklearn.isotonic import IsotonicRegression
+
 import numpy as np
 import pandas as pd
 
@@ -180,8 +182,17 @@ def metrics_multi(y_true, proba) -> dict:
     onehot = np.zeros_like(proba)
     onehot[np.arange(len(y)), y] = 1
     brier = float(np.mean(((proba - onehot) ** 2).sum(axis=1)))
+    # ECE multiclasse standard (confiance = proba max, par bin de 0.1)
+    conf = proba.max(axis=1)
+    correct = (proba.argmax(axis=1) == y).astype(float)
+    bins = np.clip((conf * 10).astype(int), 0, 9)
+    ece = 0.0
+    for b in range(10):
+        m = bins == b
+        if m.any():
+            ece += m.mean() * abs(correct[m].mean() - conf[m].mean())
     return {"n": int(len(y)), "logloss": round(ll, 5), "brier": round(brier, 5),
-            "acc": round(acc, 5)}
+            "acc": round(acc, 5), "ece": round(float(ece), 5)}
 
 
 # ----------------------------------------------------------------- baseline Poisson
@@ -605,12 +616,93 @@ def train_baselines(markets: list[str], models: list[str], df: pd.DataFrame | No
     return meta
 
 
+# ----------------------------------------------------------- calibration (étape suivante)
+def train_calibrators(markets: list[str] | None = None,
+                      out_dir: Path | None = None) -> dict:
+    """Calibre les sorties des modèles retenus (LR/RF) via isotonic regression
+    fit sur les prédictions OUT-OF-FOLD (walk-forward) -> AUCUNE FUITE.
+
+    Pour chaque marché : prédiction OOF par fold (modèle retenu), fit isotonic
+    par classe sur (p_brute, indicatrice_classe), puis renormalisation.
+    Renvoie le rapport before/after (ECE + logloss) et sauvegarde l'artefact.
+    """
+    if markets is None:
+        markets = ["1x2", "ou25", "btts"]
+    df = build_targets(load_master())
+    factories = _make_models()
+    cal: dict = {}
+    report: dict = {}
+    for market in markets:
+        ycol = f"y_{market}"
+        sub = df.dropna(subset=[ycol])
+        binary = market in ("ou25", "btts")
+        model_name = "lr" if market != "btts" else "rf"
+        fac = factories.get(model_name)
+        raws, ys = [], []
+        for fold in month_folds(sub):
+            train, v = fold["train"], fold["val"]
+            available = [f for f in FEATURE_ALLOWLIST if f in train.columns and f in v.columns]
+            if len(available) < 3:
+                continue
+            feats = leakage_tripwire(train, available, market)
+            clf = fac(3 if not binary else 2)
+            clf.fit(train[feats], train[ycol].astype(int))
+            raws.append(clf.predict_proba(v[feats]))
+            ys.append(v[ycol].astype(int).to_numpy())
+        if not raws:
+            continue
+        raw = np.vstack(raws)
+        y_all = np.concatenate(ys)
+        if binary:
+            ir = IsotonicRegression(out_of_bounds="clip", y_min=1e-4, y_max=1 - 1e-4)
+            ir.fit(raw[:, 1], y_all.astype(float))
+            cal[market] = [ir]
+            cal_p = np.column_stack([1 - ir.predict(raw[:, 1]), ir.predict(raw[:, 1])])
+            before = metrics_binary(y_all, raw[:, 1])
+            after = metrics_binary(y_all, cal_p[:, 1])
+        else:
+            iso = []
+            for c in range(3):
+                ir = IsotonicRegression(out_of_bounds="clip", y_min=1e-4, y_max=1 - 1e-4)
+                ir.fit(raw[:, c], (y_all == c).astype(float))
+                iso.append(ir)
+            cal[market] = iso
+            cal_p = np.column_stack([iso[c].predict(raw[:, c]) for c in range(3)])
+            cal_p = cal_p / cal_p.sum(1, keepdims=True)
+            before = metrics_multi(y_all, raw)
+            after = metrics_multi(y_all, cal_p)
+        report[market] = {"before": before, "after": after}
+    out_dir = out_dir if out_dir is not None else (ROOT / "models")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(cal, out_dir / "baseline_calibrators.pkl")
+    return report
+
+
+def apply_calibration(market: str, proba, calibrators: dict) -> np.ndarray:
+    """Applique le calibrateur d'un marché à une prédiction (1 ou N échantillons)."""
+    iso = calibrators.get(market)
+    if iso is None:
+        return np.asarray(proba, dtype=float)
+    raw = np.asarray(proba, dtype=float)
+    if raw.ndim == 1:
+        raw = raw.reshape(1, -1)
+    if market in ("ou25", "btts"):
+        yes = iso[0].predict(raw[:, 1])
+        cal = np.column_stack([1 - yes, yes])
+    else:
+        cal = np.column_stack([iso[c].predict(raw[:, c]) for c in range(raw.shape[1])])
+        cal = cal / cal.sum(1, keepdims=True)
+    return cal
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description="Backtest walk-forward (P0)")
     ap.add_argument("--markets", default="1x2,ou25,btts")
     ap.add_argument("--models", default="lr,rf,xgb")
     ap.add_argument("--train", action="store_true",
                     help="Phase 10 : (ré)entraîne et exporte les modèles retenus")
+    ap.add_argument("--calibrate", action="store_true",
+                    help="Étape suivante : fit isotonic sur OOF et exporte baseline_calibrators.pkl")
     ap.add_argument("--print-top", type=int, default=12)
     args = ap.parse_args(argv)
 
@@ -621,6 +713,14 @@ def main(argv=None) -> None:
         meta = train_baselines(markets, models)
         print(json.dumps({"trained": True, "markets": list(meta["markets"].keys()),
                           "n_rows": meta["n_rows"]}, ensure_ascii=False))
+        return
+
+    if args.calibrate:
+        report = train_calibrators(markets)
+        for market, r in report.items():
+            b, a = r["before"], r["after"]
+            print(f"[{market}] ECE {b['ece']:.4f}->{a['ece']:.4f} | "
+                  f"logloss {b['logloss']:.4f}->{a['logloss']:.4f}")
         return
 
     print(f"[BACKTEST] marchés={markets} modèles={models} (folds mensuels, embargo {EMBARGO_DAYS}j)")

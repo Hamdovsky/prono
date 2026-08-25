@@ -9,10 +9,12 @@ impact sur la prod. Pour les matchs absents de master_dataset (futurs non encore
 archivés), renvoie None (pas de feature store live -> voir CHANGELOG).
 """
 from __future__ import annotations
-
 import os
 
 import joblib
+
+import numpy as np
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +23,23 @@ MASTER_CSV = ROOT / "data_pipeline" / "data" / "processed" / "master_dataset.csv
 
 # Modèles RETENUS (BASELINE_EVAL) : LR pour 1X2+O/U2.5, RF pour BTTS.
 MODEL_FOR_MARKET = {"1x2": "lr", "ou25": "lr", "btts": "rf"}
+
+_cal_cache: dict = {}
+
+
+def _calibrators():
+    if not _cal_cache:
+        p = MODELS_DIR / "baseline_calibrators.pkl"
+        _cal_cache["c"] = joblib.load(p) if p.exists() else {}
+    return _cal_cache["c"]
+
+
+def _apply_cal(market: str, proba):
+    if os.environ.get("BASELINE_CALIBRATE", "on").lower() != "on":
+        return proba
+    from core.backtest_walkforward import apply_calibration
+    return apply_calibration(market, proba, _calibrators())
+
 
 _cache: dict = {}
 
@@ -104,6 +123,7 @@ def _predict_from_rows(rows_by_market: dict, markets) -> dict | None:
             feats = bundle["features"]
             x = [float(row.get(f)) if pd_notna(row.get(f)) else 0.0 for f in feats]
             proba = bundle["model"].predict_proba([x])[0]
+            proba = np.asarray(_apply_cal(m, proba)).ravel()
             out[m] = [round(float(p), 5) for p in proba]
         except Exception:
             continue
@@ -123,6 +143,7 @@ def predict_from_features(feats: dict, markets=("1x2", "ou25", "btts")) -> dict 
             bundle = joblib.load(pkl)
             x = [float(feats.get(f, 0.0)) for f in bundle["features"]]
             proba = bundle["model"].predict_proba([x])[0]
+            proba = np.asarray(_apply_cal(m, proba)).ravel()
             out[m] = [round(float(p), 5) for p in proba]
         except Exception:
             continue

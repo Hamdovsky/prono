@@ -662,6 +662,7 @@ function runMigrations() {
     ['matches', 'odds_under25', 'REAL'],
     ['matches', 'odds_btts_yes', 'REAL'],
     ['matches', 'odds_btts_no', 'REAL'],
+    ['matches', 'absence_impact_pondéré', 'REAL DEFAULT 0'],
     ['odds_history', 'type', 'TEXT DEFAULT "LIVE"'],
     ['leagues_config', 'tier', 'TEXT DEFAULT "MENA"'],
     ['leagues_config', 'flag', 'TEXT DEFAULT ""'],

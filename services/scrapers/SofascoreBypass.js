@@ -154,4 +154,79 @@ async function getInjuries(eventId) {
   return null
 }
 
-module.exports = { getOddsForMatch, resolveEvent, getOdds, getLineups, getInjuries }
+// Poids par poste (impact sur xG attendu) — défense/poste bas, attaque élevé.
+const POS_WEIGHT = { G: 1.0, D: 0.5, M: 0.6, F: 0.7 }
+// Sévérité par statut d'absence.
+const STATUS_WEIGHT = { injured: 1.0, suspended: 1.0, doubtful: 0.4 }
+
+/**
+ * Calcule l'impact pondéré des absences par côté (home/away), 0..1.
+ * @param {Array<{team?:string,player?:string,position?:string,status?:string}>} items
+ * @param {string} homeTeam
+ * @param {string} awayTeam
+ * @returns {{home:number, away:number}}
+ */
+function computeAbsenceImpact(items, homeTeam, awayTeam) {
+  const hk = normKey(homeTeam)
+  const ak = normKey(awayTeam)
+  const acc = { home: 0, away: 0 }
+  for (const r of items || []) {
+    const side =
+      normKey(r.team) === hk ? 'home' : normKey(r.team) === ak ? 'away' : 'unknown'
+    if (side === 'unknown') continue
+    const pos = String(r.position || '').toUpperCase().slice(0, 1)
+    const w = (STATUS_WEIGHT[String(r.status || '').toLowerCase()] || 0.6) *
+      (POS_WEIGHT[pos] != null ? POS_WEIGHT[pos] : 0.5)
+    acc[side] += w
+  }
+  // Normalisation : ~3 absences clés saturent l'impact à 1.0.
+  return {
+    home: Math.min(1, +(acc.home / 3).toFixed(3)),
+    away: Math.min(1, +(acc.away / 3).toFixed(3)),
+  }
+}
+
+/**
+ * Phase 9 : résout l'event, récupère les absences, persiste dans player_absences,
+ * et renvoie l'impact pondéré. Jamais d'exception (kill-switch friendly).
+ * @returns {Promise<{found:boolean, impact?:{home:number,away:number}, eventId?:number|null}>}
+ */
+async function getAbsencesForMatch(match) {
+  try {
+    if (!match || !match.homeTeam || !match.awayTeam) return { found: false }
+    let eventId =
+      match.sofascore_id != null ? Number(match.sofascore_id) : null
+    if (!eventId) eventId = await resolveEvent(match.homeTeam, match.awayTeam, match.startTimestamp)
+    if (!eventId) return { found: false }
+    const inj = await getInjuries(eventId)
+    if (!inj || !inj.found) return { found: false, eventId }
+    const rows = (inj.injuries || []).map((r) => ({
+      side: normKey(r.team) === normKey(match.homeTeam) ? 'home'
+        : normKey(r.team) === normKey(match.awayTeam) ? 'away' : 'unknown',
+      team: r.team,
+      player: r.player,
+      position: r.position,
+      status: r.status,
+      detail: r.detail,
+    }))
+    try {
+      const db = require('../../core/database')
+      if (db && db.savePlayerAbsences) db.savePlayerAbsences(eventId, rows)
+    } catch (_) {
+      // persistance best-effort ; ne bloque pas le calcul d'impact
+    }
+    return { found: true, eventId, impact: computeAbsenceImpact(inj.injuries, match.homeTeam, match.awayTeam) }
+  } catch (_) {
+    return { found: false }
+  }
+}
+
+module.exports = {
+  getOddsForMatch,
+  resolveEvent,
+  getOdds,
+  getLineups,
+  getInjuries,
+  getAbsencesForMatch,
+  computeAbsenceImpact,
+}

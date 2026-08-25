@@ -372,6 +372,29 @@ class DataFusionService {
       startTimestamp: match.startTimestamp || null,
       sofascore_id: sofaId,
     })
+    // Phase 9 (groundwork) : absences -> impact pondéré stocké, HORS modèle.
+    try {
+      if (match.id) {
+        const abs = await bypass.getAbsencesForMatch({
+          homeTeam: match.homeTeam,
+          awayTeam: match.awayTeam,
+          startTimestamp: match.startTimestamp || null,
+          sofascore_id: sofaId,
+        })
+        if (abs.found && abs.impact) {
+          odds.absenceImpact = abs.impact
+          const db = require('../core/database')
+          if (db && db.query) {
+            await db.query(
+              'UPDATE matches SET absence_impact_pondéré = ? WHERE id = ?',
+              [Math.max(abs.impact.home, abs.impact.away), String(match.id)]
+            )
+          }
+        }
+      }
+    } catch (_) {
+      // L'impact des absences ne doit jamais casser la fusion des cotes.
+    }
     return odds || { _odds_no_data: true }
   }
 

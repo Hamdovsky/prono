@@ -759,6 +759,11 @@ async function runMigrations() {
       ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "${currentUser || 'your_user'}";`)
     }
 
+    // Phase 9 : ajout best-effort de la colonne absence_impact_pondéré (idempotent).
+    try {
+      await query('ALTER TABLE matches ADD COLUMN IF NOT EXISTS "absence_impact_pondéré" REAL DEFAULT 0')
+    } catch (_) {}
+
     // Track migration version
     try {
       await query(MIGRATIONS_TABLE_SQL)

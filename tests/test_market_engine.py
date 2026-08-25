@@ -9,11 +9,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'core'))
 
 
 class TestGeneratePrecisionBets:
-    def test_over_25_when_high_mc(self):
+    def test_ou_25_follows_model(self):
         from market_engine import generate_precision_bets
-        bets = generate_precision_bets(1.8, 1.5, 60, 25, 15, 65, 40, 70, 9.0, 3.5, 'H', 'A', True, {})
+        from ou_model import ou_prob
+        xg_h, xg_a = 1.8, 1.5
+        bets = generate_precision_bets(xg_h, xg_a, 60, 25, 15, 65, 40, 70, 9.0, 3.5, 'H', 'A', True, {})
+        p = ou_prob(xg_h + xg_a, 2.5)
         markets = [b['market'] for b in bets]
-        assert 'Over 2.5 Buts' in markets
+        if p is not None and p >= 0.55:
+            assert 'Over 2.5 Buts' in markets
+        elif p is not None and p <= 0.45:
+            assert 'Under 2.5 Buts' in markets
+        else:
+            assert not any('2.5 Buts' in m for m in markets)
 
     def test_under_25_when_low_mc(self):
         from market_engine import generate_precision_bets

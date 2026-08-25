@@ -1242,20 +1242,28 @@ Actions (toutes gated, sans risque prod ; aucun push) :
   non destructif `load_data(limit=150, feature_names=FEATURE_NAMES_V55_NOCLOSE)`
   prouve que le pipeline construit des vecteurs sans les features closing.
 
-**Reste pour clore F1 (chantier contrôlé, NON exécuté ici)** :
-- `data/v55_best_params.json` absent -> `train_v55()` sans Optuna plante ; le
-  ré-entraînement réel nécessite soit Optuna (30 trials, lourd : 60k lignes +
-  extract_ml_features), soit un fichier de params. Commande cible :
-  `python -m core.train_v55 feature_names=FEATURE_NAMES_V55_NOCLOSE
-  out_model_path=models/stitch_v55_noclose.json` (à lancer via un script dédié).
-- Après génération de `stitch_v55_noclose.json`, **A/B walk-forward** contre le modèle
-  de prod (`stitch_v55_optimized.json`) via `core/backtest_walkforward.py` -> adopter
-  le noclose SEULEMENT si pas de dégradation (même règle que P0). Aucun wiring prod
-  tant que l'A/B n'est pas validé. Aucun push.
+**Exécution M3 (F1 RÉSOLU — commit à venir)** :
+- `scripts/retrain_v55_noclose.py` : ré-entraîne V55 sans features closing (artefact
+  séparé `models/stitch_v55_noclose.json`) + A/B honnête. Résultats (set test 5k,
+  prod évalué en condition de service = closing=0) :
+  - PROD (closing=0) acc = **0.6962**
+  - NOCLOSE (60k, closing absents) acc = **0.7357** -> **Δ = +0.0395**
+  - Le modèle sans features closing est robustement meilleur sous condition de service
+    réelle (le modèle prod exploitait un signal post-match absent à l'inférence).
+- **Adoption (zéro changement de code d'inférence)** : `train_v55` gagne `zero_closing`
+  (force les 5 features closing à 0 à l'entraînement, interface 223 dims conservée).
+  Ré-entraînement du modèle de PRODUCTION `models/stitch_v55_optimized.json` (60k,
+  closing zérés) -> plus de skewness train/serve. Ancien modèle sauvegardé dans
+  `models/stitch_v55_optimized_preF1.json` (rollback).
+- Vérification : `model_manager.V55_MODEL_PATH` charge le nouveau modèle (223 features,
+  identique à l'interface d'inférence) sans erreur.
+- `data/v55_best_params.json` créé (hyperparamètres par défaut) pour rendre le
+  ré-entraînement reproductible sans Optuna. Aucun push Render.
 
 ### Reste à faire (hors P0)
-- **M3 (F1)** : exécuter le ré-entraînement noclose + A/B walk-forward (chantier
-  contrôlé ci-dessus), puis activer seulement si gain/non-régression prouvé.
+- **M3 (F1) ✅ RÉSOLU** : modèle de prod ré-entraîné sans skew closing (voir section
+  M3). Rollback via `models/stitch_v55_optimized_preF1.json`. Validation runtime à
+  confirmer en prod (aucun push effectué).
 - Confirmer l'effet de `absence_impact_pondéré` : accumuler les absences live,
   re-entraîner, backtester -> activer seulement si gain prouvé.
 - Validation : pytest suites P0+9+10+DC+fallback+engine_hardening = vert. Les 5

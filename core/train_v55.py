@@ -16,7 +16,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from ml_features import extract_ml_features, FEATURE_NAMES_V55, FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553, FEATURE_VOLATILITY, get_wc2026_team_data
+from ml_features import extract_ml_features, FEATURE_NAMES_V55, FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553, FEATURE_VOLATILITY, get_wc2026_team_data, CLOSING_DERIVED_FEATURES
 from top_analyst_engine import process_match_for_top_analyst
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -724,7 +724,7 @@ def _chronological_split(X, y, sw, split_dates):
     train_idx = [i for i, d in enumerate(sw) if d < 0]  # dummy, overridden below
     return train_test_split(X, y, sw, test_size=0.3, random_state=42, stratify=y)
 
-def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=False, modern=False, wc2026=False, premium=False, feature_names=None, out_model_path=None):
+def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=False, modern=False, wc2026=False, premium=False, feature_names=None, out_model_path=None, max_rows=None, zero_closing=False):
     if premium:
         tag = "V553_PREMIUM"
     elif wc2026:
@@ -814,7 +814,17 @@ def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=Fa
     print("=" * 60)
 
     limit = 60000 if premium else (30000 if (post2010 or modern or wc2026) else 60000)
+    if max_rows is not None:
+        limit = max_rows
     X, y, sw, match_dates = load_data(limit=limit, min_year=min_year, feature_names=feat_names, wc2026=(wc2026 or premium), premium=premium)
+    if zero_closing:
+        # F1 : les features derivees des closing odds valent ~0 a l'inference (closing
+        # odds inexistantes avant le match). On les force a 0 a l'entrainement aussi ->
+        # plus de skewness train/serve, interface 218 dims conservee (adoption sans
+        # changement de code d'inference).
+        for c in CLOSING_DERIVED_FEATURES:
+            if c in X.columns:
+                X[c] = 0.0
     if len(X) < 100:
         print("[FAIL] Not enough data.")
         return

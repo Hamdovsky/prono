@@ -13,9 +13,11 @@ Usage :
         --markets 1x2,ou25,btts --models lr,rf,xgb [--print-top 12]
 """
 from __future__ import annotations
-
 import argparse
+
 import hashlib
+
+import os
 import json
 import sqlite3
 import sys
@@ -423,8 +425,9 @@ def run_backtest(markets: list[str], models: list[str], df: pd.DataFrame | None 
         for mname in models:
             is_poisson = mname == "poisson"
             is_dc = mname == "dc"
-            factory = None if (is_poisson or is_dc) else factories.get(mname)
-            if not is_poisson and not is_dc and factory is None:
+            is_pkl = mname == "pkl"
+            factory = None if (is_poisson or is_dc or is_pkl) else factories.get(mname)
+            if not is_poisson and not is_dc and not is_pkl and factory is None:
                 continue
             per_fold = []
             for fold in month_folds(sub):
@@ -451,28 +454,64 @@ def run_backtest(markets: list[str], models: list[str], df: pd.DataFrame | None 
                         print(f"[WARN] {market}/{fold['fold']}: <3 features disponibles, fold sauté")
                         continue
                     feats = leakage_tripwire(train, available, market)
-                    Xtr, Xva = train[feats], v[feats]
-                    clf = factory(len(CLASSES_1X2) if not binary else 2)
-                    try:
-                        clf.fit(Xtr, train[ycol].astype(int))
-                    except Exception as e:
-                        print(f"[WARN] fit {mname}/{market}/{fold['fold']}: {e}")
-                        continue
-
-                    if binary:
-                        p1 = clf.predict_proba(Xva)[:, 1]
-                        mt = metrics_binary(v[ycol], p1)
+                    if is_pkl:
+                        # Fidélité déploiement/recherche SANS fuite : on re-entraîne
+                        # le modèle retenu (lr/rf) sur le train du fold, on le
+                        # sérialise puis on le RECHARGE et prédit -> vérifie que le
+                        # chemin pickle (train -> dump -> load -> predict) reproduit
+                        # exactement le chemin recherche (train -> predict). Les
+                        # artefacts baseline_*.pkl livrés sont entraînés sur TOUTE
+                        # l'historique et évalués en prod sur des matchs futurs
+                        # (jamais vus) -> pas de fuite en production.
+                        model = "lr" if market != "btts" else "rf"
+                        clf = factories[model](len(CLASSES_1X2) if not binary else 2)
+                        clf.fit(train[feats], train[ycol].astype(int))
+                        import tempfile
+                        tmp = tempfile.NamedTemporaryFile(suffix=".pkl", delete=False)
+                        joblib.dump({"model": clf}, tmp.name)
+                        bundle = joblib.load(tmp.name)
+                        try:
+                            os.remove(tmp.name)
+                        except OSError:
+                            pass
+                        Xva = v[feats]
+                        if binary:
+                            p1 = bundle["model"].predict_proba(Xva)[:, 1]
+                            mt = metrics_binary(v[ycol], p1)
+                        else:
+                            proba = np.zeros((len(v), 3))
+                            cls = list(bundle["model"].classes_)
+                            raw = bundle["model"].predict_proba(Xva)
+                            for j, c in enumerate(cls):
+                                if c < 3:
+                                    proba[:, c] = raw[:, j]
+                            renorm = proba.sum(axis=1, keepdims=True)
+                            renorm[renorm == 0] = 1
+                            proba = proba / renorm
+                            mt = metrics_multi(v[ycol].astype(int), proba)
                     else:
-                        proba = np.zeros((len(v), 3))
-                        cls = list(clf.classes_)
-                        raw = clf.predict_proba(Xva)
-                        for j, c in enumerate(cls):
-                            if c < 3:
-                                proba[:, c] = raw[:, j]
-                        renorm = proba.sum(axis=1, keepdims=True)
-                        renorm[renorm == 0] = 1
-                        proba = proba / renorm
-                        mt = metrics_multi(v[ycol].astype(int), proba)
+                        Xtr, Xva = train[feats], v[feats]
+                        clf = factory(len(CLASSES_1X2) if not binary else 2)
+                        try:
+                            clf.fit(Xtr, train[ycol].astype(int))
+                        except Exception as e:
+                            print(f"[WARN] fit {mname}/{market}/{fold['fold']}: {e}")
+                            continue
+
+                        if binary:
+                            p1 = clf.predict_proba(Xva)[:, 1]
+                            mt = metrics_binary(v[ycol], p1)
+                        else:
+                            proba = np.zeros((len(v), 3))
+                            cls = list(clf.classes_)
+                            raw = clf.predict_proba(Xva)
+                            for j, c in enumerate(cls):
+                                if c < 3:
+                                    proba[:, c] = raw[:, j]
+                            renorm = proba.sum(axis=1, keepdims=True)
+                            renorm[renorm == 0] = 1
+                            proba = proba / renorm
+                            mt = metrics_multi(v[ycol].astype(int), proba)
                 mt["fold"] = fold["fold"]
                 per_fold.append(mt)
                 fold_audit.append({

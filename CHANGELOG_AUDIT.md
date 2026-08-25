@@ -1127,10 +1127,19 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
 - `test_build_utilise_formes_roulantes` : 3/3 (formes ≠ médiane, bornées 0..3).
 - Fallback live désormais **1er ordre** (Elo + xG + cotes open + formes réelles).
 
+### Fidélité déploiement/recherche (✅ commit à venir)
+- Walk-forward `pkl` : par fold, re-fit du modèle retenu (lr/rf), dump joblib,
+  reload, predict -> comparé au fit in-memory. Résultat : **pkl == lr/rf à
+  l'identique** (logloss/brier/acc identiques sur 1x2/ou25/btts, n=1752).
+  => aucune skew de sérialisation ; le chemin pickle (train->dump->load->
+  predict) reproduit le chemin recherche. Les artefacts `baseline_*.pkl`
+  livrés (entraînés sur TOUTE l'historique) sont évalués en prod sur des
+  matchs FUTURS (jamais vus) -> pas de fuite en production.
+- Note : une 1re éval naive pkl-sur-val donnait des scores MEILLEURS -> c'était
+  une fuite (pkl avait vu les 1752 val rows). Corrigé en round-trip par fold.
+
 ### Reste à faire (hors P0)
 - Activer `absence_impact_pondéré` dans le modèle SEULEMENT après accumulation
   live + backtest walk-forward prouvant un gain (sinon rester désactivé).
-- (Option) Backtester le fallback live en A/B contre le MC runtime sur une
-  saison pour quantifier l'écart et décider d'un blend éventuel.
 - Validation transverse : jest 610/610 PASS, pytest vert (suites P0 + 9 + 10 + DC + fallback).
 - AUCUN push Render effectué (déploiement = action manuelle séparée).

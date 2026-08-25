@@ -1409,3 +1409,35 @@ ship du code trompeur.
 V4 reste un correctif in-play légitime, désormais pesé par ligue et traçable.
 
 **Tests** : `python -m pytest tests/test_ml_ensemble_v4.py -q` → 4 passed.
+
+---
+
+## P3 — Serving assaini (hybride) ✅
+
+**Fichiers** : `SofascoreScraping/src/Workflow.js` (gate overwrites + trace `overwrites`),
+`services/cronManager.js` (cron autoBacktest 03h), `core/calibration_iso.py` (garde
+fraîcheur), `tests/test_calibration_iso_freshness.py` (5/5 verts).
+
+**Choix hybride (validé)** : on **retire les 2 overwrites opaques** par défaut, on
+**conserve le Meta-Refiner** (correction bayésienne mesurée par settlement).
+- Gate `WORKFLOW_PROBA_OVERWRITES` (défaut `off` = nouveau comportement) :
+  - `off` (défaut) : `match.confidence` = `max(H,A)` dérivé des probabilités du modèle
+    (transparent, comparable à settlement) au lieu de `v22_success_rate`/`power_score`.
+  - `on` : restaure l'ancien comportement opaque (rollback sans redéploiement).
+- `match.overwrites[]` enregistre la source de chaque overwrite (traçabilité brute/servie).
+- Poisson fallback : déjà transparent, ajout du même traçage.
+- Le Meta-Refiner (`:1311`) reste actif et recalibre `match.confidence` par-dessus.
+
+**Cron auto-backtest** : `cron.schedule('0 3 * * *')` → `autoBacktestService.runAutoBacktest()`
+(avant : jamais appelé → `backtest_results.json` stagnerait). Try/catch + log.
+
+**Garde fraîcheur calibration** : `calibration_iso._backtest_is_fresh()` vérifie
+`data/backtest_results.json` (champ `updated`) ; si âge > `ISO_BACKTEST_MAX_AGE_DAYS` (7) :
+`isotonic_calibrate` **neutralise** (identité) → plus de miscalibration sur données périmées.
+
+**Validation** : pytest 5/5 (fraîcheur + neutralisation) ; `node --check` cronManager.js &
+Workflow.js OK. (Pas de test jest unitaire du cron : graphe de dépendances lourd ; validé
+par syntaxe + parité avec les autres crons existants.)
+
+**Effet attendu** : les probabilités servies et leur confiance sont désormais la sortie
+mesurée du modèle (calibrée), et la calibration se rafraîchit quotidiennement.

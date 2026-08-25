@@ -1156,9 +1156,15 @@ class Workflow {
               /* timeout — use Poisson fallback below */
             }
 
+            // P3 (audit): opaque confidence overwrites are gated. Default (off) uses a
+            // TRANSPARENT probability-derived confidence so the served confidence is the
+            // one actually measured by settlement. Set WORKFLOW_PROBA_OVERWRITES=on to
+            // restore the previous opaque audit metrics (power_score / v22_success_rate).
+            const USE_OPAQUE_OVERWRITES = (process.env.WORKFLOW_PROBA_OVERWRITES || 'off').toLowerCase() === 'on'
+            match.overwrites = match.overwrites || []
+
             if (audit && audit.home_win_probability > 0) {
               match.expected_score = audit.expected_score || '1-1'
-              match.xgboost_confidence = audit.power_score / 100 || 0.5
               match.home_win_probability = audit.home_win_probability * 100 || 33
               match.draw_probability = audit.draw_probability * 100 || 33
               match.away_win_probability = audit.away_win_probability * 100 || 33
@@ -1167,12 +1173,23 @@ class Workflow {
               match.prediction = audit.verdict || audit.direct_prediction || 'ANALYSED'
               match.power_score = audit.power_score || 50
 
-              // 🚀 [TITANIUM ACC%] Capture accurate confidence metrics
-              match.v22_success_rate =
-                audit.v22_success_rate ||
-                audit.surgical_confidence ||
-                Math.max(match.home_win_probability, match.away_win_probability)
-              match.confidence = match.v22_success_rate
+              const probConfidence = Math.max(match.home_win_probability, match.away_win_probability)
+              if (USE_OPAQUE_OVERWRITES) {
+                // legacy: opaque audit metrics (non-measurable vs settlement)
+                match.xgboost_confidence = audit.power_score / 100 || 0.5
+                match.v22_success_rate =
+                  audit.v22_success_rate ||
+                  audit.surgical_confidence ||
+                  probConfidence
+                match.confidence = match.v22_success_rate
+                match.overwrites.push({ field: 'confidence', source: 'opaque_v22' })
+              } else {
+                // transparent: confidence derived from the model probabilities themselves
+                match.xgboost_confidence = probConfidence / 100
+                match.v22_success_rate = probConfidence
+                match.confidence = probConfidence
+                match.overwrites.push({ field: 'confidence', source: 'transparent_prob' })
+              }
 
               console.log(
                 `🧠 [PREDICT] ${match.homeTeam}: H=${match.home_win_probability?.toFixed(1)}% D=${match.draw_probability?.toFixed(1)}% A=${match.away_win_probability?.toFixed(1)}%`
@@ -1216,11 +1233,13 @@ class Workflow {
               match.xgboost_confidence =
                 Math.max(match.home_win_probability, match.away_win_probability) / 100
 
-              // 🚀 [TITANIUM ACC%] Fallback confidence
+              // 🚀 [TITANIUM ACC%] Fallback confidence (transparent, probability-derived)
               match.v22_success_rate = Math.round(
                 Math.max(match.home_win_probability, match.away_win_probability)
               )
               match.confidence = match.v22_success_rate
+              match.overwrites = match.overwrites || []
+              match.overwrites.push({ field: 'confidence', source: 'poisson_fallback' })
 
               console.log(
                 `📊 [POISSON] ${match.homeTeam}: H=${match.home_win_probability}% D=${match.draw_probability}% A=${match.away_win_probability}%`

@@ -11,6 +11,7 @@ const { snapshotOdds } = require('./oddsMovementService')
 const autoArchiver = require('./autoArchiver')
 const retroSync = require('./retroSyncService')
 const adaptiveLearning = require('./adaptiveLearningEngine')
+const autoBacktestService = require('./autoBacktestService')
 const enrichedPredictions = require('../core/enriched_predictions')
 const { runAutoRetrain, runV56Retrain } = require('../scripts/auto_retrain_worker')
 const { invalidateCache } = require('../core/speedCache')
@@ -106,6 +107,22 @@ class CronManager {
 
     // 4. Daily Auto-Archiver (04:00)
     cron.schedule('0 4 * * *', () => autoArchiver.runArchiver(2), { timezone: 'Europe/Paris' })
+
+    // 4b. Daily Auto-Backtest (03:00) — refreshes data/backtest_results.json so the
+    // isotonic confidence calibration stays on recent settled observations (P3 audit).
+    // Without this, calibration_iso neutralizes itself after ISO_BACKTEST_MAX_AGE_DAYS.
+    cron.schedule(
+      '0 3 * * *',
+      async () => {
+        try {
+          const res = await autoBacktestService.runAutoBacktest()
+          logger.info(`✅ [CRON] Auto-backtest done (${res?.matches ?? '?'} matches)`)
+        } catch (e) {
+          logger.error(`❌ [CRON] Auto-backtest error: ${e.message}`)
+        }
+      },
+      { timezone: 'Europe/Paris' }
+    )
 
     // 5. Online Learning Incremental Update (every 6 hours â€” after archiver at 04:00)
     cron.schedule(

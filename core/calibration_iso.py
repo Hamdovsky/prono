@@ -263,6 +263,30 @@ def _load_model():
         return None
 
 
+BACKTEST_MAX_AGE_DAYS = int(os.environ.get('ISO_BACKTEST_MAX_AGE_DAYS', '7'))
+
+
+def _backtest_is_fresh():
+    """True if data/backtest_results.json exists, has an 'updated' timestamp,
+    and is at most ISO_BACKTEST_MAX_AGE_DAYS old. A stale backtest means the
+    isotonic map was fit on outdated observations -> calibration must be
+    neutralized to avoid miscalibrating served probabilities."""
+    data = _load_json(BACKTEST_PATH)
+    if not data:
+        return False
+    updated = data.get('updated')
+    if not updated:
+        return False
+    try:
+        from datetime import datetime
+        ts = datetime.fromisoformat(str(updated).replace('Z', '+00:00'))
+        now = datetime.now(ts.tzinfo) if ts.tzinfo else datetime.now()
+        age_days = (now - ts).days
+    except Exception:
+        return False
+    return age_days <= BACKTEST_MAX_AGE_DAYS
+
+
 def isotonic_calibrate(p_h, p_d, p_a):
     """Apply the isotonic map to the top pick, then scale the two lower probs
     to fill the remaining mass (their relative ratio is preserved).
@@ -281,6 +305,13 @@ def isotonic_calibrate(p_h, p_d, p_a):
             return calibrate_probs(p_h, p_d, p_a, model_version='v54')
         except Exception:
             return p_h, p_d, p_a
+
+    if not _backtest_is_fresh():
+        sys.stderr.write(
+            '[ISO-CAL] backtest_results.json stale (>%d days) — calibration neutralized\n'
+            % BACKTEST_MAX_AGE_DAYS
+        )
+        return p_h, p_d, p_a
 
     probs = [p_h, p_d, p_a]
     idx = max(range(3), key=lambda i: probs[i])

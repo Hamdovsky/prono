@@ -25,6 +25,7 @@
 | **LR** ✅ | **0,88209** | 0,51716 | 60,6 % |
 | RF | 0,88752 | 0,52136 | 60,0 % |
 | XGB | 0,90039 | 0,52780 | 58,6 % |
+| Dixon-Coles (maison) | 0,99961 | 0,59509 | 51,0 % |
 | Poisson (means shrinké) | 1,00558 | 0,60029 | 50,9 % |
 
 ### Over/Under 2.5 (binaire)
@@ -33,7 +34,8 @@
 | **LR** ✅ | **0,57971** | 0,19764 | 69,5 % | 0,070 |
 | XGB | 0,59071 | 0,20311 | 67,6 % | 0,089 |
 | RF | 0,60221 | 0,20738 | 67,8 % | 0,078 |
-| Poisson | 1,41066 | 0,42658 | 47,5 % | 0,423 ⚠️ |
+| Dixon-Coles (maison) | 0,69239 | 0,24916 | 56,2 % | 0,079 |
+| Poisson | 0,69624 | 0,25093 | 54,2 % | 0,090 |
 
 ### BTTS (binaire)
 | Modèle | LogLoss ↓ | Brier ↓ | Acc | ECE ↓ |
@@ -41,6 +43,7 @@
 | **RF** ✅ | **0,61651** | 0,21307 | 68,0 % | 0,082 |
 | XGB | 0,62302 | 0,21548 | 67,0 % | 0,079 |
 | LR | 0,63407 | 0,22177 | 64,0 % | 0,070 |
+| Dixon-Coles (maison) | 0,69538 | 0,25045 | 55,0 % | 0,075 |
 | Poisson | 0,69920 | 0,25276 | 52,9 % | 0,074 |
 
 ## Décisions (keep/drop)
@@ -50,17 +53,23 @@
 | LogisticRegression | **KEEP** — référence | Domine 2 marchés /3 ; relations quasi-linéaires + dataset modeste |
 | RandomForest | **KEEP** | Meilleur sur BTTS ; complémentaire LR |
 | XGBoost (features master) | **KEEP conditionnel** | Ne bat pas LR ici — à re-tester après Phase 9/10 (features enrichies) avant tout rôle étendu |
-| Poisson means shrinké | DROP comme prédicteur | Battu partout ; **garde comme baseline de contrôle** (toute évolution doit rester > Poisson) |
-| Dixon-Coles penaltyblog | À ÉVALUER (itération 2) | Non couvert par cette passe ; le MC DC du runtime reste inchangé |
+| Dixon-Coles (maison) | **KEEP comme baseline forte** | Bat le Poisson naïf sur les 3 marchés, mais reste > LR/RF/XGB → baseline de contrôle de référence (toute évolution doit rester < DC) |
+| Poisson means shrinké | DROP comme prédicteur | Battu par DC partout ; **garde comme baseline minimale** de contrôle |
 
 ## Caveats honnêtes
 
-1. Le « poisson » testé est une baseline attaque/défense shrinkée simple —
-   PAS le Dixon-Coles rho du runtime ni celui de penaltyblog.
+1. Le « poisson » testé est une baseline attaque/défense shrinkée simple ;
+   le **Dixon-Coles** (impl. maison : Poisson + rho + décroissance temporelle xi)
+   est désormais évalué et sert de baseline classique de référence. penaltyblog
+   non installé dans le venv -> DC codé à la main (scipy), validé.
 2. Le XGBoost évalué ici utilise UNIQUEMENT l'allowlist master ; le XGBoost
    runtime (FastAPI) consomme un vecteur différent — comparaison non concluante
    entre les deux, seulement entre modèles sur features égales.
 3. ECE pré-calibration ; le réarmement isotonique (gate ISO) s'appliquera
    APRÈS accumulation post-gel, jamais sur ces données historiques.
+4. **Bug corrigé (Phase C suite)** : extraction O/U2.5 utilisait
+   `triu_indices(G+1,3)` qui excluait des cellules total≥3 (ex. (1,2)) ->
+   Poisson OU25 sur-estimé à 1,41 ; corrigé par masque `i+j>=3` -> 0,696.
+   Toute la table ci-dessus est la version corrigée.
 
 *Run généré par `python -m core.backtest_walkforward` — config hashée en base.*

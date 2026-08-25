@@ -11,6 +11,8 @@ sys.path.insert(0, str(ROOT / "data_pipeline"))
 
 from core.backtest_walkforward import (  # noqa: E402
     build_targets,
+    dixon_coles_params,
+    dixon_coles_predict,
     leakage_tripwire,
     month_folds,
     poisson_params,
@@ -70,6 +72,17 @@ def test_poisson_proba_valides():
     proba = poisson_predict(params, df.tail(20), "btts")
     assert proba.shape == (20, 2)
     assert ((proba >= 0) & (proba <= 1)).all()
+
+
+def test_dixon_coles_proba_valides():
+    df = _synthetic()
+    params = dixon_coles_params(df)
+    assert params  # au moins une ligue ajustée
+    for market in ("1x2", "ou25", "btts"):
+        proba = dixon_coles_predict(params, df.tail(20), market)
+        assert proba.shape[1] == (3 if market == "1x2" else 2)
+        assert ((proba >= 0) & (proba <= 1)).all()
+        assert np.allclose(proba.sum(1), 1)
 
 
 def test_train_baselines_export_et_predict(tmp_path):

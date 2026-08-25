@@ -240,7 +240,8 @@ def poisson_predict(params: dict, val: pd.DataFrame, market: str) -> np.ndarray:
         for lh, la in zip(ph, pa):
             ph_, pa_ = _poisson_pm(lh), _poisson_pm(la)
             grid = np.outer(ph_, pa_)
-            over = np.tril(grid, -(int(2.5) + 1)).sum()  # total > 2.5 ⇔ sous-diagonale stricte
+            ii, jj = np.indices(grid.shape)
+            over = grid[ii + jj >= 3].sum()  # total > 2.5 ⇔ i + j >= 3
             res.append([1 - over, over])
         return np.array(res)
     if market == "btts":
@@ -262,6 +263,124 @@ def poisson_predict(params: dict, val: pd.DataFrame, market: str) -> np.ndarray:
         tot = h + d + a
         res.append([h / tot, d / tot, a / tot])
     return np.array(res)
+
+
+# ----------------------------------------------------------------- Dixon-Coles (Phase C suite)
+def _dc_tau(rho, x, y, lh, la):
+    if x == 0 and y == 0:
+        return 1 - lh * la * rho
+    if x == 0 and y == 1:
+        return 1 + la * rho
+    if x == 1 and y == 0:
+        return 1 + lh * rho
+    if x == 1 and y == 1:
+        return 1 - rho
+    return 1.0
+
+
+def dixon_coles_params(train: pd.DataFrame, xi: float = 0.0019) -> dict:
+    """Dixon-Coles par ligue : Poisson + rho (correction bas-scores) + décroissance
+    temporelle (xi). Renvoie {league: {teams, mu, home, rho, attack[], defense[]}}.
+    penaltyblog non dispo dans le venv -> implémentation maison (scipy)."""
+    from scipy.optimize import minimize
+
+    out: dict = {}
+    sub = train.dropna(subset=["fthg", "ftag", "league", "home_team", "away_team", "date"]).copy()
+    sub["date"] = pd.to_datetime(sub["date"])
+    for lg, g in sub.groupby("league"):
+        teams = sorted(set(g["home_team"]) | set(g["away_team"]))
+        T = len(teams)
+        if T < 2 or len(g) < 10:
+            continue
+        idx = {t: i for i, t in enumerate(teams)}
+        h = g["home_team"].map(idx).to_numpy()
+        a = g["away_team"].map(idx).to_numpy()
+        x = g["fthg"].to_numpy(float)
+        y = g["ftag"].to_numpy(float)
+        maxd = g["date"].max()
+        days = (maxd - g["date"]).dt.days.to_numpy()
+        w = np.exp(-xi * days)
+
+        def negll(pv):
+            mu, home, rho = pv[0], pv[1], pv[2]
+            att = pv[3:3 + T] - pv[3:3 + T].mean()
+            deff = pv[3 + T:3 + 2 * T] - pv[3 + T:3 + 2 * T].mean()
+            lh = np.exp(mu + home + att[h] - deff[a])
+            la = np.exp(mu + att[a] - deff[h])
+            t = np.ones_like(x, dtype=float)
+            t = np.where((x == 0) & (y == 0), 1 - lh * la * rho, t)
+            t = np.where((x == 0) & (y == 1), 1 + la * rho, t)
+            t = np.where((x == 1) & (y == 0), 1 + lh * rho, t)
+            t = np.where((x == 1) & (y == 1), 1 - rho, t)
+            pen = 1e6 if np.any(t <= 0) else 0.0
+            lam_h = np.clip(lh, 1e-6, None)
+            lam_a = np.clip(la, 1e-6, None)
+            ll = w * (x * np.log(lam_h) - lam_h + y * np.log(lam_a) - lam_a +
+                      np.log(np.clip(t, 1e-12, None)))
+            return -ll.sum() + pen
+
+        x0 = np.concatenate([[np.log(1.35), 0.1, 0.02], np.zeros(2 * T)])
+        bounds = [(-2, 2), (-1, 1), (-0.2, 0.2)] + [(-3, 3)] * (2 * T)
+        try:
+            res = minimize(negll, x0, method="L-BFGS-B", bounds=bounds)
+            pv = res.x
+        except Exception:  # noqa: BLE001
+            continue
+        out[lg] = {
+            "teams": teams,
+            "mu": float(pv[0]), "home": float(pv[1]), "rho": float(pv[2]),
+            "attack": (pv[3:3 + T] - pv[3:3 + T].mean()).tolist(),
+            "defense": (pv[3 + T:3 + 2 * T] - pv[3 + T:3 + 2 * T].mean()).tolist(),
+        }
+    return out
+
+
+def dixon_coles_predict(dc_params: dict, val: pd.DataFrame, market: str, max_goals: int = 10) -> np.ndarray:
+    import math
+
+    G = max_goals
+    fac = np.array([math.factorial(i) for i in range(G + 1)], dtype=float)
+    gx = np.arange(G + 1)
+    out = []
+    for _, r in val.iterrows():
+        e = dc_params.get(r["league"])
+        if e is None:
+            lh, la, rho = 1.35, 1.1, 0.0
+        else:
+            teams = e["teams"]
+            idx = {t: i for i, t in enumerate(teams)}
+            hi = idx.get(r["home_team"])
+            ai = idx.get(r["away_team"])
+            a_h = e["attack"][hi] if hi is not None else 0.0
+            d_a = e["defense"][ai] if ai is not None else 0.0
+            a_a = e["attack"][ai] if ai is not None else 0.0
+            d_h = e["defense"][hi] if hi is not None else 0.0
+            lh = max(np.exp(e["mu"] + e["home"] + a_h - d_a), 0.05)
+            la = max(np.exp(e["mu"] + a_a - d_h), 0.05)
+            rho = e["rho"]
+        pmh = np.exp(-lh) * lh ** gx / fac
+        pma = np.exp(-la) * la ** gx / fac
+        grid = np.outer(pmh, pma)
+        for i in range(G + 1):
+            for j in range(G + 1):
+                grid[i, j] *= _dc_tau(rho, i, j, lh, la)
+        s = grid.sum()
+        if s > 0:
+            grid /= s
+        ii, jj = np.indices(grid.shape)
+        if market == "ou25":
+            over = grid[ii + jj >= 3].sum()  # total > 2.5 ⇔ i + j >= 3
+            out.append([1 - over, over])
+        elif market == "btts":
+            yes = (1 - pmh[0]) * (1 - pma[0])
+            out.append([1 - yes, yes])
+        else:
+            h = np.tril(grid, -1).sum()
+            d = np.trace(grid)
+            a = np.triu(grid, 1).sum()
+            tot = h + d + a
+            out.append([h / tot, d / tot, a / tot])
+    return np.array(out)
 
 
 # ----------------------------------------------------------------- folds
@@ -303,13 +422,19 @@ def run_backtest(markets: list[str], models: list[str], df: pd.DataFrame | None 
         results[market] = {}
         for mname in models:
             is_poisson = mname == "poisson"
-            factory = None if is_poisson else factories.get(mname)
-            if not is_poisson and factory is None:
+            is_dc = mname == "dc"
+            factory = None if (is_poisson or is_dc) else factories.get(mname)
+            if not is_poisson and not is_dc and factory is None:
                 continue
             per_fold = []
             for fold in month_folds(sub):
                 train, v = fold["train"], fold["val"]
-                if is_poisson:
+                if is_dc:
+                    dc_params = dixon_coles_params(train)
+                    proba = dixon_coles_predict(dc_params, v, market)
+                    mt = (metrics_binary(v[ycol], proba[:, 1]) if binary
+                          else metrics_multi(v[ycol].astype(int), proba))
+                elif is_poisson:
                     # Baseline Poisson (Phase 4) : fit analytique par ligue.
                     params_lg = poisson_params(
                         train[["league", "home_team", "away_team", "fthg", "ftag"]]

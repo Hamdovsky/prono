@@ -1311,3 +1311,37 @@ en scalaire unique — acceptable pour une feature scalaire.
   -> le modèle est INVARIANT aux closing odds : **skew F1 supprimé**, service consistant.
   Test = guard de régression si un futur ré-entraînement réintroduit le skew.
 - Commit `e12a47c` + test. Aucun push.
+
+### Procédure de déploiement / rollback V55 (M3) — PRÉPARÉE, NON EXÉCUTÉE
+Le modèle corrigé est déjà commité (modèle de prod `models/stitch_v55_optimized.json`,
+commit `4be2fa6`). Déployer ne fait PAS partie de l'audit ; la procédure ci-dessous est
+documentée pour exécution **manuelle et confirmée** (aucun push effectué par l'audit).
+
+**Prérequis de validation (à rejouer avant tout déploiement)** :
+```
+data_pipeline\.venv\Scripts\python.exe -m pytest tests/test_v55_serve_smoke.py tests/test_v55_noclose.py -q
+npm test   # 610/610 attendu
+```
+Résultat d'attente : smoke-test V55 OK (probas identiques closing=0), A/B F1 Δ=+0.0395.
+
+**Déploiement (à faire MANUELLEMENT, après accord explicite)** :
+```
+git push origin main
+```
+Note : `git push` ne pousse QUE le travail commité (commits d'audit + track P0 déjà
+commités). Les nombreuses modifications NON commitées du working tree (hors audit,
+session antérieure) NE sont PAS poussées — à ne pas confondre avec le livrable audit.
+
+**Rollback (si régression en prod)** :
+```
+copy models\stitch_v55_optimized_preF1.json models\stitch_v55_optimized.json
+git add models\stitch_v55_optimized.json && git commit -m "revert: restore preF1 V55 (rollback M3)" && git push origin main
+```
+L'ancien modèle (pre-F1, avec skew) est conservé intégralement dans
+`models/stitch_v55_optimized_preF1.json` -> rollback immédiat et sûr.
+
+**Post-déploiement** : surveiller la précision via `accuracyEngine` (snapshot au temps T)
+sur ~100 matchs FT ; si dégradation vs baseline, rollback selon ci-dessus.
+
+**Interdit** : jamais de `git push --force` (instruction présente dans AGENTS.md hors
+sujet) ; jamais de déploiement sans accord utilisateur explicite.

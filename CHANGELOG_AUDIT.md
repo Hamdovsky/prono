@@ -1213,9 +1213,49 @@ Actions (toutes gated, sans risque prod ; aucun push) :
   ne call pas refine par défaut / 3x si on, trace écrit bien, gap learning off par
   défaut + lit byLeague.
 
+### M0+M1+M2 — commit
+- Commit `e8866fc` : M0 trace sortie moteur + M1 gate Meta-Refiner (3->1) + M2 gap
+  learning honnête (writer+reader gated, schéma byLeague). Tests engine_hardening 5/5.
+
+### M3 (F1) — faisabilité vérifiée + enabler livré (✅ enabler, ré-entraînement différé)
+**Finding F1** : modèles V55/V24 entraînés avec features dérivées des **closing odds**
+(`odds_movement_24h` -> `h/a/d_odds_move_24h` + `sharp_money_x_odds_move_h/a`), présentes
+à l'entraînement (historique football-data) mais ~toujours absentes à l'inférence live
+(closing odds n'existent pas avant le match) -> skewness train/serve.
+
+**Faisabilité locale** : `data/historical_archive.sqlite` = 108 Mo / 144 397 lignes
+(peuplé), `optuna 4.9.0` présent -> ré-entraînement **faisable**.
+
+**Enabler livré (sûr, non destructif)** :
+- `core/ml_features.py` :
+  - `CLOSING_DERIVED_FEATURES` = `h_odds_move_24h, a_odds_move_24h, d_odds_move_24h,
+    sharp_money_x_odds_move_h, sharp_money_x_odds_move_a`.
+  - `feature_names_excluding(base, exclude)` (helper pur).
+  - `FEATURE_NAMES_V55_NOCLOSE = feature_names_excluding(FEATURE_NAMES_V55,
+    CLOSING_DERIVED_FEATURES)` -> feature-set alignant train et serve.
+  - Import `pg_connector` rendu optionnel (fallback SQLite en dev local) -> module
+    importable hors prod sans casser la prod (pg_connector présent en prod).
+- `core/train_v55.py` : `train_v55(...)` accepte désormais `feature_names=` et
+  `out_model_path=` (comportement par défaut INCHANGÉ) -> ré-entraînement ciblé vers
+  un artefact SÉPARÉ (ex `models/stitch_v55_noclose.json`) sans écraser la prod.
+- `tests/test_v55_noclose.py` (3/3) : helper exclut bien les features ; dry-run
+  non destructif `load_data(limit=150, feature_names=FEATURE_NAMES_V55_NOCLOSE)`
+  prouve que le pipeline construit des vecteurs sans les features closing.
+
+**Reste pour clore F1 (chantier contrôlé, NON exécuté ici)** :
+- `data/v55_best_params.json` absent -> `train_v55()` sans Optuna plante ; le
+  ré-entraînement réel nécessite soit Optuna (30 trials, lourd : 60k lignes +
+  extract_ml_features), soit un fichier de params. Commande cible :
+  `python -m core.train_v55 feature_names=FEATURE_NAMES_V55_NOCLOSE
+  out_model_path=models/stitch_v55_noclose.json` (à lancer via un script dédié).
+- Après génération de `stitch_v55_noclose.json`, **A/B walk-forward** contre le modèle
+  de prod (`stitch_v55_optimized.json`) via `core/backtest_walkforward.py` -> adopter
+  le noclose SEULEMENT si pas de dégradation (même règle que P0). Aucun wiring prod
+  tant que l'A/B n'est pas validé. Aucun push.
+
 ### Reste à faire (hors P0)
-- **M3 (F1, différé)** : vérifier faisabilité du ré-entraînement local de
-  `train_v55.py`, puis walk-forward comparatif avec/sans features closing-dérivées.
+- **M3 (F1)** : exécuter le ré-entraînement noclose + A/B walk-forward (chantier
+  contrôlé ci-dessus), puis activer seulement si gain/non-régression prouvé.
 - Confirmer l'effet de `absence_impact_pondéré` : accumuler les absences live,
   re-entraîner, backtester -> activer seulement si gain prouvé.
 - Validation : pytest suites P0+9+10+DC+fallback+engine_hardening = vert. Les 5

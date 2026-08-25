@@ -9,7 +9,19 @@ DB_TACTICAL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'dat
 ELO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'elo_ratings.json')
 STYLES_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'team_styles.json')
 
-from pg_connector import using_postgres, get_pg_connection, query as pg_query, get_league_params
+try:
+    from pg_connector import using_postgres, get_pg_connection, query as pg_query, get_league_params
+except Exception:
+    # Dev local sans pg_connector : on simule le mode SQLite (using_postgres() -> False).
+    # En prod (pg_connector present) ce bloc n'est pas utilise.
+    def using_postgres():
+        return False
+    def get_pg_connection(*a, **k):
+        raise RuntimeError("pg_connector indisponible en dev local")
+    def pg_query(*a, **k):
+        raise RuntimeError("pg_connector indisponible en dev local")
+    def get_league_params(*a, **k):
+        return {}
 
 def load_json(path):
     if os.path.exists(path):
@@ -275,6 +287,93 @@ def _get_team_history_pg(team_name, limit=10, current_match_ts=None):
         sys.stderr.write(f"[PG] get_team_history error: {Exception}\n")
         return []
 
+
+def _get_team_history_master(team_name, limit=10, current_match_ts=None):
+    """Team history from data_pipeline master.db (pre-computed rolling features).
+    Falls back to None if master.db is unavailable (caller continues to archive)."""
+    try:
+        from data_loader import get_master_connection
+        conn = get_master_connection()
+        if conn is None:
+            return None
+
+        clean_name = team_name.strip()
+
+        import time
+        from datetime import datetime
+        cutoff_ts = int(current_match_ts) if current_match_ts else int(time.time())
+        cutoff_date = datetime.fromtimestamp(cutoff_ts).strftime('%Y-%m-%d')
+
+        rows = conn.execute("""
+            SELECT date, home_team, away_team, fthg, ftag, ftr,
+                   elo_home, elo_away, home_xg, away_xg,
+                   H_xg_L5, H_xga_L5, A_xg_L5, A_xga_L5,
+                   H_gf_L5, H_ga_L5, A_gf_L5, A_ga_L5,
+                   H_pts_L5, A_pts_L5,
+                   H_xg_L10, H_xga_L10, A_xg_L10, A_xga_L10,
+                   H_gf_L10, H_ga_L10, A_gf_L10, A_ga_L10,
+                   H_pts_L10, A_pts_L10
+            FROM master_matches
+            WHERE (home_team = ? OR away_team = ?)
+              AND fthg IS NOT NULL AND ftag IS NOT NULL
+              AND date < ?
+            ORDER BY date DESC LIMIT ?
+        """, (clean_name, clean_name, cutoff_date, limit)).fetchall()
+        if not rows:
+            return None
+
+        history = []
+        for r in rows:
+            h_team = r['home_team'] or ''
+            a_team = r['away_team'] or ''
+            is_home = (h_team.strip().lower() == clean_name.lower())
+
+            s_for = _f(r['fthg'], 0)
+            s_ag = _f(r['ftag'], 0)
+            if not is_home:
+                s_for, s_ag = s_ag, s_for
+
+            points = 3.0 if s_for > s_ag else (1.0 if s_for == s_ag else 0.0)
+
+            norm = {
+                'score_for': s_for,
+                'score_against': s_ag,
+                'points': points,
+                'opponent_name': a_team if is_home else h_team,
+                'match_date': r['date'] or '',
+            }
+            # Carry pre-computed rolling features normalized to THIS team's perspective
+            _FEAT_SIDE = {
+                'pts_L5': ('H_pts_L5', 'A_pts_L5'),
+                'xg_L5': ('H_xg_L5', 'A_xg_L5'),
+                'xga_L5': ('H_xga_L5', 'A_xga_L5'),
+                'gf_L5': ('H_gf_L5', 'A_gf_L5'),
+                'ga_L5': ('H_ga_L5', 'A_ga_L5'),
+                'pts_L10': ('H_pts_L10', 'A_pts_L10'),
+                'xg_L10': ('H_xg_L10', 'A_xg_L10'),
+                'xga_L10': ('H_xga_L10', 'A_xga_L10'),
+                'gf_L10': ('H_gf_L10', 'A_gf_L10'),
+                'ga_L10': ('H_ga_L10', 'A_ga_L10'),
+            }
+            for out_key, (h_key, a_key) in _FEAT_SIDE.items():
+                val = r[h_key] if is_home else r[a_key]
+                if val is not None:
+                    norm[out_key] = _f(val, 0)
+            if r['elo_home'] is not None:
+                norm['elo'] = _f(r['elo_home'], 1500) if is_home else _f(r['elo_away'], 1500)
+            if r['home_xg'] is not None and r['away_xg'] is not None:
+                norm['xg_for'] = _f(r['home_xg'], 0) if is_home else _f(r['away_xg'], 0)
+                norm['xg_against'] = _f(r['away_xg'], 0) if is_home else _f(r['home_xg'], 0)
+
+            history.append(norm)
+
+        return history[:limit]
+    except Exception:
+        import sys
+        sys.stderr.write("[PG] master history error\n")
+        return None
+
+
 @functools.lru_cache(maxsize=256)
 def get_team_history(team_name, limit=10, current_match_ts=None):
     # Use Neon PostgreSQL first if available
@@ -282,6 +381,11 @@ def get_team_history(team_name, limit=10, current_match_ts=None):
         pg_hist = _get_team_history_pg(team_name, limit, current_match_ts)
         if pg_hist:
             return pg_hist
+
+    # Use master.db (data_pipeline pre-computed features) next — richest local source
+    master_hist = _get_team_history_master(team_name, limit, current_match_ts)
+    if master_hist:
+        return master_hist
 
     conn = get_db_connection()
     if not conn: return []
@@ -424,7 +528,10 @@ def get_team_history(team_name, limit=10, current_match_ts=None):
         AND date < ?
         ORDER BY match_date DESC LIMIT ?
         """
-        rows_intl = conn.execute(query_intl, (clean_name, cutoff_date, clean_name, cutoff_date, limit)).fetchall()
+        try:
+            rows_intl = conn.execute(query_intl, (clean_name, cutoff_date, clean_name, cutoff_date, limit)).fetchall()
+        except Exception:
+            rows_intl = []
 
         for r in rows_intl:
             h_team = r['home_team'] or ''
@@ -454,12 +561,22 @@ def calculate_rolling_averages(history_list, window=30, league_name=''):
     V20 Quantum Decay: Uses a 30-match window with exponential weighting.
     Recent matches have significantly higher influence on the average.
     For cold start (< 3 matches), blends with league-average defaults.
+    If history entries carry pre-computed rolling features (master.db), those
+    take precedence over recomputing from raw score/points.
     """
     LEAGUE_AVG_GOALS = 1.2
     LEAGUE_AVG_PTS = 1.0
 
     if not history_list:
         return LEAGUE_AVG_GOALS, LEAGUE_AVG_PTS
+
+    # Pre-computed rolling features (master.db) — most recent match carries L5/L10
+    if history_list:
+        first = history_list[0]
+        if 'pts_L5' in first and 'xg_L5' in first:
+            return _f(first['xg_L5'], LEAGUE_AVG_GOALS), _f(first['pts_L5'], LEAGUE_AVG_PTS)
+        if 'pts_L5' in first and 'gf_L5' in first:
+            return _f(first['gf_L5'], LEAGUE_AVG_GOALS), _f(first['pts_L5'], LEAGUE_AVG_PTS)
 
     history = history_list[:min(len(history_list), window)]
 
@@ -1822,6 +1939,26 @@ FEATURE_NAMES_V55 = FEATURE_NAMES_V54 + [
     'has_actual_xg', 'has_actual_odds', 'has_match_stats',
     'is_modern_football_era', 'data_completeness_score'
 ]
+
+# Features derivees des closing odds (odds_movement_24h) : presentes a l'entrainement
+# (historique football-data), mais ~toujours absentes a l'inference live (closing odds
+# n'existent pas avant le match) -> skewness train/serve (audit F1). A exclure du re-entrainement.
+CLOSING_DERIVED_FEATURES = [
+    'h_odds_move_24h', 'a_odds_move_24h', 'd_odds_move_24h',
+    'sharp_money_x_odds_move_h', 'sharp_money_x_odds_move_a',
+]
+
+
+def feature_names_excluding(base, exclude):
+    """Retourne une copie de `base` sans les features de `exclude` (ordre conserve)."""
+    exclude_set = set(exclude)
+    return [f for f in base if f not in exclude_set]
+
+
+# V55 sans les features derivees des closing odds : aligne train et serve (feature
+# absente des deux cotes -> fin du skewness). Utilise pour re-entrainer un artefact
+# separe (ex: stitch_v55_noclose.json) sans ecraser le modele de production.
+FEATURE_NAMES_V55_NOCLOSE = feature_names_excluding(FEATURE_NAMES_V55, CLOSING_DERIVED_FEATURES)
 
 # V56 — Auto-Retrain Feature Set: simple match stats + form + H2H
 # Designed for weekly auto-retrain from soccer_fixtures + soccer_match_stats

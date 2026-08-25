@@ -724,7 +724,7 @@ def _chronological_split(X, y, sw, split_dates):
     train_idx = [i for i, d in enumerate(sw) if d < 0]  # dummy, overridden below
     return train_test_split(X, y, sw, test_size=0.3, random_state=42, stratify=y)
 
-def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=False, modern=False, wc2026=False, premium=False):
+def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=False, modern=False, wc2026=False, premium=False, feature_names=None, out_model_path=None):
     if premium:
         tag = "V553_PREMIUM"
     elif wc2026:
@@ -793,6 +793,13 @@ def train_v55(use_optuna=False, use_optuna_cv=False, use_v551=False, post2010=Fa
         min_year = 2010 if post2010 else None
         val_cut = test_cut = None
         v552_params = None
+
+    # Overrides permettant un re-entrainement cible (ex: V55 sans features closing-derivees)
+    # sans ecraser le modele de production. Comportement par defaut INCHANGE.
+    if feature_names is not None:
+        feat_names = feature_names
+    if out_model_path is not None:
+        model_path = out_model_path
 
     print("=" * 60)
     if premium:

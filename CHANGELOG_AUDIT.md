@@ -1177,12 +1177,48 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
   étaient optimistes (calibrateur sur ses propres données). Test
   `test_nested_calibration_report_honnete`.
 
+### Audit moteur principal : M0+M1+M2 (✅ commit à venir)
+Cartographie du flux `process_prediction` (core/prediction_engine.py). Findings :
+
+- **F1 (skew train/serve)** : modèles V55/V24 entraînés avec `odds_movement_24h`
+  dérivé des **closing odds**, mais à l'inférence cette feature vaut ~toujours 0
+  (snapshots 2h seulement ligues ELITE/TIER1) -> métriques d'entraînement
+  optimistes. -> chantier M3 (ré-entraînement) différé.
+- **F2 (Meta-Refiner x3)** : 2 applications Python (ml_ensemble.py:441 +
+  prediction_engine.py:321) + 1 JS (Workflow.js:1311) lisent la MÊME table
+  `prediction_history` -> triple shrinkage bayésien empilé.
+- **F3 (Gap Learning mort)** : `vote_was_misleading` jamais écrit par le runtime
+  `.js` (que par le `.ts` non déployé) -> fonction no-op permanente.
+- **F4** : `apply_v4_ensemble` poids 85/15 hardcodés + features in-match.
+- **F5** : backtest officiel mesure les probas post-retouches JS, pas la sortie brute.
+
+Actions (toutes gated, sans risque prod ; aucun push) :
+- **M0** — `record_engine_prob_trace()` (prediction_engine.py) : trace append-only
+  `data/engine_prob_trace.jsonl` des probas à la SORTIE moteur (pre-JS) -> permet
+  enfin de backtester la sortie RÉELLE du moteur vs probas DB. Env ENGINE_PROB_TRACE.
+- **M1** — `meta_refiner_python_enabled()` (ml_ensemble.py) : désactive par défaut
+  les 2 applications Python du Meta-Refiner -> il ne reste que l'application JS
+  (celle mesurée par settlement/backtest). Flag `META_REFINER_PY=on` restaure le
+  legacy triple (rollback). Empilement F2 résolu (3 -> 1).
+- **M2** — Gap Learning rendu HONNÊTE :
+  - `settlementService.js` calcule `wasMisleading = confidence>0.60 && !isCorrect`
+    (corrige le bug de scale 0..1 vs 0..100 du `.ts`) et le passe à appendResult.
+  - `core/accuracyStore.js` persiste `vote_was_misleading`.
+  - `core/data_loader.py` : lecteur gateable (`GAP_LEARNING_ENABLED`, défaut off)
+    ET lit le schéma unifié `byLeague` (le flat `log[league]` n'existait plus ->
+    gap learning était AUSSI mort par mismatch de schema). Double inertie F3 retirée
+    (données vraies + lecture correcte), activation toujours conditionnée à un
+    backtest prouvant le gain (même règle que absence_impact).
+- Tests `tests/test_engine_hardening.py` (5/5) : gate helper, run_xgboost_inference
+  ne call pas refine par défaut / 3x si on, trace écrit bien, gap learning off par
+  défaut + lit byLeague.
+
 ### Reste à faire (hors P0)
+- **M3 (F1, différé)** : vérifier faisabilité du ré-entraînement local de
+  `train_v55.py`, puis walk-forward comparatif avec/sans features closing-dérivées.
 - Confirmer l'effet de `absence_impact_pondéré` : accumuler les absences live,
   re-entraîner, backtester -> activer seulement si gain prouvé.
-- (Option) Évaluer l'ECE de calibration en double-nested split pour une mesure
-  non-optimiste de l'ECE prod.
-- Validation : pytest suites P0+9+10+DC+fallback = 5/5 vert. Les 5 échecs de
-  test_fallback/test_engine/test_predictions sont PRÉEXISTANTS (penaltyblog
-  absent, env) -> non liés à ce track. jest 610/610 PASS.
+- Validation : pytest suites P0+9+10+DC+fallback+engine_hardening = vert. Les 5
+  échecs de test_fallback/test_engine/test_predictions sont PRÉEXISTANTS
+  (penaltyblog absent, env) -> non liés à ce track. jest 610/610 PASS.
 - AUCUN push Render effectué (déploiement = action manuelle séparée).

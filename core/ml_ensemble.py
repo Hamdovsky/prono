@@ -252,8 +252,114 @@ def select_model_booster(features, league_tier, match_obj=None):
     return active_feature_names, active_feature_vector, None, None
 
 
+def _get_league_draw_base_rate(league_name):
+    """
+    Empirical league draw base rate from archive_football_data (league_code match).
+    Used by the draw dampener to correct systematic draw over-prediction.
+    Returns a float in (0, 1); falls back to 0.27 when unknown.
+    """
+    try:
+        import sqlite3
+        _cache = getattr(_get_league_draw_base_rate, '_draw_cache', None)
+        if _cache is None:
+            _cache = {}
+            _get_league_draw_base_rate._draw_cache = _cache
+        if league_name in _cache:
+            return _cache[league_name]
+        db_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'historical_archive.sqlite')
+        if not os.path.exists(db_path):
+            return 0.27
+        conn = sqlite3.connect(db_path)
+        code = _league_name_to_code(str(league_name))
+        q = "SELECT COUNT(*), SUM(CASE WHEN score_home = score_away THEN 1.0 ELSE 0 END) FROM archive_football_data WHERE score_home IS NOT NULL AND score_away IS NOT NULL"
+        params = []
+        if code:
+            q += " AND league_code = ?"
+            params.append(code)
+        row = conn.execute(q, params).fetchone()
+        conn.close()
+        rate = 0.27
+        if row and row[0] and row[0] > 200:
+            rate = float(row[1]) / float(row[0])
+            rate = max(0.20, min(0.40, rate))
+        _cache[league_name] = rate
+        return rate
+    except Exception:
+        import traceback
+        sys.stderr.write(f"[DrawBaseRate] error: {traceback.format_exc()}\n")
+        return 0.27
+
+
+def _league_name_to_code(league_name):
+    """Map common league display names to football-data.co.uk league codes."""
+    ln = (league_name or '').lower()
+    mapping = {
+        'premier league': 'E0', 'england': 'E0',
+        'la liga': 'SP1', 'laliga': 'SP1', 'spain': 'SP1', 'liga': 'SP1',
+        'serie a': 'I1', 'italy': 'I1',
+        'bundesliga': 'D1', 'germany': 'D1',
+        'ligue 1': 'F1', 'france': 'F1',
+    }
+    for key, code in mapping.items():
+        if key in ln:
+            return code
+    return None
+
+
+def apply_draw_dampener(p_h, p_d, p_a, league_name, base_rate=None):
+    """
+    Post-hoc correction for systematic draw over-prediction in trained XGB models.
+    If the model's draw probability exceeds the empirical league draw rate by a
+    wide margin, pull it down toward the base rate and redistribute the excess
+    to home/away proportionally to their current mass.
+    Returns (p_h, p_d, p_a) normalized.
+    """
+    try:
+        if base_rate is None:
+            base_rate = _get_league_draw_base_rate(league_name)
+        base_rate = max(0.20, min(0.40, float(base_rate)))
+        s = p_h + p_d + p_a
+        if s <= 0:
+            return p_h, p_d, p_a
+        p_h, p_d, p_a = p_h / s, p_d / s, p_a / s
+
+        # Only act when the model is clearly over-confident on draws.
+        # Excess beyond 1.35x the base rate is treated as model noise.
+        excess = p_d - base_rate
+        if excess <= 0:
+            return p_h, p_d, p_a
+
+        max_allowed = base_rate * 1.35
+        if p_d <= max_allowed:
+            return p_h, p_d, p_a
+
+        dampened_d = max_allowed
+        removed = p_d - dampened_d
+
+        hw = p_h + p_a
+        if hw > 0:
+            p_h += removed * (p_h / hw)
+            p_a += removed * (p_a / hw)
+        p_d = dampened_d
+
+        s2 = p_h + p_d + p_a
+        return p_h / s2, p_d / s2, p_a / s2
+    except Exception:
+        return p_h, p_d, p_a
+
+
+def meta_refiner_python_enabled() -> bool:
+    """Garde du 1er application Python du Meta-Refiner (NeuralMetaRefiner).
+
+    Par défaut OFF : on garde UNE SEULE correction (celle JS post-moteur, mesurée
+    par settlement/backtest). Activer via META_REFINER_PY=on pour restaurer le
+    comportement legacy (3 corrections empilées = sur-lissage bayésien).
+    """
+    return os.environ.get("META_REFINER_PY", "off").lower() == "on"
+
+
 def run_xgboost_inference(active_feature_vector, active_feature_names, XGB_BOOSTER,
-                          sim, features, match_obj, league_name, league_tier):
+                           sim, features, match_obj, league_name, league_tier):
     """
     Run XGBoost Monte Carlo simulation and blend with Poisson.
     Returns: dict with p_h_xgb, p_d_xgb, p_a_xgb, p_h_ai, p_d_ai, p_a_ai,
@@ -332,20 +438,27 @@ def run_xgboost_inference(active_feature_vector, active_feature_names, XGB_BOOST
                 if n_sent != 0:
                     n_boost = l_strat['news_boost'] * n_sent
                     p_h_ai = max(0.01, min(0.95, p_h_ai * (1.0 + n_boost)))
+
+                # Draw Dampener: correct systematic draw over-prediction in trained models
+                p_h_ai, p_d_ai, p_a_ai = apply_draw_dampener(p_h_ai, p_d_ai, p_a_ai, league_name)
+                analysis["DrawDampener"] = (
+                    f"Draw dampened to empirical base rate for league ({_get_league_draw_base_rate(league_name):.3f})"
+                )
             else:
                 print("⚠️ [PREDICTION] XGBoost/Monte-Carlo indisponible, Poisson uniquement")
                 ai_source = "Poisson-only (MC failed)"
 
-        # Neural Meta-Refiner
-        p_h_refined, h_factor = refine_prediction(league_name, "Home", p_h_ai)
-        p_a_refined, a_factor = refine_prediction(league_name, "Away", p_a_ai)
-        p_d_refined, d_factor = refine_prediction(league_name, "Draw", p_d_ai)
+        # Neural Meta-Refiner (1e application Python, désactivable — voir meta_refiner_python_enabled)
+        if meta_refiner_python_enabled():
+            p_h_refined, h_factor = refine_prediction(league_name, "Home", p_h_ai)
+            p_a_refined, a_factor = refine_prediction(league_name, "Away", p_a_ai)
+            p_d_refined, d_factor = refine_prediction(league_name, "Draw", p_d_ai)
 
-        if abs(h_factor - 1.0) > 0.02 or abs(a_factor - 1.0) > 0.02:
-            p_h_ai, p_d_ai, p_a_ai = p_h_refined, p_d_refined, p_a_refined
-            s_ref = p_h_ai + p_d_ai + p_a_ai
-            p_h_ai, p_d_ai, p_a_ai = p_h_ai/s_ref, p_d_ai/s_ref, p_a_ai/s_ref
-            analysis["Meta-Refiner"] = f"الرقابة الذكية: تم تعديل الاحتمالات بناءً على الأداء التاريخي للدوري ({h_factor:.2f}x H, {a_factor:.2f}x A)."
+            if abs(h_factor - 1.0) > 0.02 or abs(a_factor - 1.0) > 0.02:
+                p_h_ai, p_d_ai, p_a_ai = p_h_refined, p_d_refined, p_a_refined
+                s_ref = p_h_ai + p_d_ai + p_a_ai
+                p_h_ai, p_d_ai, p_a_ai = p_h_ai/s_ref, p_d_ai/s_ref, p_a_ai/s_ref
+                analysis["Meta-Refiner"] = f"الرقابة الذكية: تم تعديل الاحتمالات بناءً على الأداء التاريخي للدوري ({h_factor:.2f}x H, {a_factor:.2f}x A)."
 
         has_xgb = True
     except Exception as e:
@@ -392,32 +505,6 @@ def apply_v4_ensemble(p_h_ai, p_d_ai, p_a_ai, match_obj, has_xgb):
             sys.stderr.write(f"⚠️ [V4-Ensemble] {_v4_err}\n")
 
     return p_h_ai, p_d_ai, p_a_ai, "+V4-Ensemble" if "V4-Ensemble" in analysis else "", analysis
-
-
-def apply_predixsport_blend(p_h_ai, p_d_ai, p_a_ai, match_obj):
-    """Blend external PredixSport API predictions (20% weight for top-5 leagues)."""
-    analysis = {}
-    _predixsport = match_obj.get('predixsport', None)
-    _ps_home = _safe_float(_predixsport.get('home_win') if isinstance(_predixsport, dict) else None, None)
-    _ps_draw = _safe_float(_predixsport.get('draw') if isinstance(_predixsport, dict) else None, None)
-    _ps_away = _safe_float(_predixsport.get('away_win') if isinstance(_predixsport, dict) else None, None)
-
-    if _ps_home and _ps_draw and _ps_away and _ps_home + _ps_draw + _ps_away > 0:
-        ps_sum = _ps_home + _ps_draw + _ps_away
-        _ps_home /= ps_sum
-        _ps_draw /= ps_sum
-        _ps_away /= ps_sum
-        ps_weight = 0.20
-        p_h_ai = (p_h_ai * (1.0 - ps_weight)) + (_ps_home * ps_weight)
-        p_d_ai = (p_d_ai * (1.0 - ps_weight)) + (_ps_draw * ps_weight)
-        p_a_ai = (p_a_ai * (1.0 - ps_weight)) + (_ps_away * ps_weight)
-        s_ps = p_h_ai + p_d_ai + p_a_ai
-        if s_ps > 0:
-            p_h_ai, p_d_ai, p_a_ai = p_h_ai/s_ps, p_d_ai/s_ps, p_a_ai/s_ps
-        analysis["PredixSport"] = f"External model blend (20%): H={_ps_home:.3f} D={_ps_draw:.3f} A={_ps_away:.3f}"
-        return p_h_ai, p_d_ai, p_a_ai, "+PredixSport", analysis
-
-    return p_h_ai, p_d_ai, p_a_ai, "", analysis
 
 
 _EXTERNAL_XGB_CALIBRATION_KEY = 'external_xgb_weight'
@@ -562,7 +649,10 @@ def blend_final_probabilities(p_h_ai, p_d_ai, p_a_ai, p_h_poi, p_d_poi, p_a_poi,
     # Calibration : carte isotonique (confiance→taux réel) quand l'historique
     # réglé est suffisant, sinon repli sur Platt scaling. Les deux sont
     # défensifs : toute erreur laisse les probabilités brutes inchangées.
-    if has_xgb:
+    # NOTE: désactivé par défaut — la carte isotonique actuelle a été ajustée
+    # sur des échantillons de l'ancien modèle biaisé et détruit la précision.
+    # Réactiver via ENABLE_ISO_CALIBRATION=1 après un refit propre.
+    if has_xgb and os.getenv('ENABLE_ISO_CALIBRATION', '0') == '1':
         try:
             from calibration_iso import isotonic_calibrate
             p_h, p_d, p_a = isotonic_calibrate(p_h, p_d, p_a)

@@ -502,6 +502,10 @@ function _appendToAccuracyLog(row, evalPick, result, scoreHome, scoreAway) {
   const predicted = evalPick || (row.prediction || '').toUpperCase() || '—'
   const actual = scoreHome > scoreAway ? '1' : scoreHome < scoreAway ? '2' : 'X'
   const isCorrect = result === 'WON'
+  // vote_was_misleading : modèle très confiant (>60%) mais prediction erronée.
+  // (Échelle 0..1 ici ; le .ts historique utilisait un seuil >60 sur une échelle
+  //  0..100, donc toujours faux -> corrigé. Voir data_loader.apply_gap_learning_weight.)
+  const wasMisleading = confidence > 0.60 && !isCorrect
 
   accuracyStore.appendResult({
     match_id: row.id,
@@ -512,6 +516,7 @@ function _appendToAccuracyLog(row, evalPick, result, scoreHome, scoreAway) {
     actual,
     is_correct: isCorrect,
     confidence: Math.round(confidence * 10) / 10,
+    vote_was_misleading: wasMisleading,
     market: classifyMarket(predicted),
     timestamp: String(Date.now()),
   })

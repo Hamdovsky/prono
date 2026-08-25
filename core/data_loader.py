@@ -27,6 +27,7 @@ ELO_PATH = os.path.join(PROJECT_DIR, 'data', 'elo_ratings.json')
 DB_ARCHIVE_PATH = os.path.join(PROJECT_DIR, 'data', 'historical_archive.sqlite')
 TACTICAL_DB_PATH = os.path.join(PROJECT_DIR, 'data', 'tactical.db')
 ACCURACY_LOG_PATH = os.path.join(PROJECT_DIR, 'data', 'accuracy_log.json')
+MASTER_DB_PATH = os.path.join(PROJECT_DIR, 'data_pipeline', 'data', 'processed', 'master.db')
 
 from pg_connector import using_postgres, get_pg_connection, query as pg_query
 
@@ -34,6 +35,7 @@ from pg_connector import using_postgres, get_pg_connection, query as pg_query
 _ELO_DATA = None
 _DB_CONN = None
 _TACTICAL_CONN = None
+_MASTER_CONN = None
 _LEAGUE_DRAW_CACHE = {}
 _TEAM_STRENGTH_CACHE = {}
 _LEAGUE_HA_CACHE = {}
@@ -126,6 +128,21 @@ def get_tactical_connection():
         except Exception:
             return None
     return _TACTICAL_CONN
+
+
+def get_master_connection():
+    """Get or create persistent SQLite connection to the data_pipeline master DB
+    (pre-computed rolling features: xG, pts, Elo, market probs)."""
+    global _MASTER_CONN
+    if not os.path.exists(MASTER_DB_PATH):
+        return None
+    if _MASTER_CONN is None:
+        try:
+            _MASTER_CONN = sqlite3.connect(MASTER_DB_PATH, check_same_thread=False)
+            _MASTER_CONN.row_factory = sqlite3.Row
+        except Exception:
+            return None
+    return _MASTER_CONN
 
 
 # ============================================================================
@@ -505,14 +522,23 @@ def get_historical_patterns(home_team, away_team, match_month):
 # ============================================================================
 
 def apply_gap_learning_weight(prob_dict, league_name):
-    """Refines probabilities based on historical accuracy in this specific league."""
+    """Refines probabilities based on historical accuracy in this specific league.
+
+    Désactivé par défaut (GAP_LEARNING_ENABLED != 'on') : aucun changement de
+    comportement tant que l'activation n'est pas validée par backtest (même
+    philosophie que absence_impact). Le champ vote_was_misleading est désormais
+    écrit en amont (accuracyStore.js) ; ici on lit le schéma unifié byLeague.
+    """
+    if os.environ.get("GAP_LEARNING_ENABLED", "off").lower() != "on":
+        return prob_dict, 0.0
     if not os.path.exists(ACCURACY_LOG_PATH):
         return prob_dict, 0.0
     try:
         with open(ACCURACY_LOG_PATH, 'r', encoding='utf-8') as f:
             log_data = json.load(f)
 
-        league_log = log_data.get(str(league_name), [])
+        # Schéma unifié accuracyStore : log_data["byLeague"][league] = [...]
+        league_log = log_data.get("byLeague", {}).get(str(league_name), [])
         if not league_log:
             return prob_dict, 0.0
 

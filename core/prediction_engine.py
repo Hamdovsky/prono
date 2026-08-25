@@ -18,6 +18,7 @@ import sys
 import math
 import os
 import numpy as np
+from datetime import datetime, timezone
 
 from goal_model import load_or_fit_goalmodel_parameters, expg_from_probabilities
 
@@ -68,6 +69,7 @@ from ml_ensemble import (
     apply_v4_ensemble, apply_external_xgb_blend,
     run_shap_explainability, predict_secondary_markets,
     blend_final_probabilities, LEAGUE_WEIGHT_MATRIX,
+    meta_refiner_python_enabled,
 )
 from market_engine import (
     generate_precision_bets, generate_dnb_ah_bets,
@@ -124,6 +126,43 @@ def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
         return predict_for_match(key, ctx)
     except Exception:
         return None
+
+
+def record_engine_prob_trace(home, away, league, date, p_h, p_d, p_a, ai_source,
+                              meta_refiner_on, gap_on):
+    """M0 : trace structuré append-only des probabilités à la SORTIE du moteur
+    Python (avant les retouches JS en aval). Permet de backtester la sortie réelle
+    du moteur vs les probas stockées en DB (post-JS).
+
+    Chemin configurable via ENV ENGINE_PROB_TRACE (défaut data/engine_prob_trace.jsonl).
+    Aucun impact sur le calcul : échec silencieux.
+    """
+    path = os.environ.get("ENGINE_PROB_TRACE")
+    if not path:
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "data", "engine_prob_trace.jsonl")
+    try:
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        rec = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "league": league,
+            "home": home, "away": away,
+            "date": str(date)[:10] if date else None,
+            "engine_exit": {
+                "home": round(float(p_h), 4),
+                "draw": round(float(p_d), 4),
+                "away": round(float(p_a), 4),
+            },
+            "ai_source": ai_source,
+            "meta_refiner_py": bool(meta_refiner_on),
+            "gap_learning": bool(gap_on),
+        }
+        with open(path, "a", encoding="utf-8") as _f:
+            _f.write(json.dumps(rec, default=str) + "\n")
+    except Exception:
+        pass
 
 
 def process_prediction(match_obj: dict) -> dict:
@@ -318,7 +357,10 @@ def process_prediction(match_obj: dict) -> dict:
         ai_source = ai_source_label
 
     # Meta-Refiner: Bayesian bias correction per league/prediction-type
-    if _meta_refine is not None:
+    # (Application Python #2 — désactivable, voir meta_refiner_python_enabled.
+    #  Par défaut OFF afin de ne garder qu'une seule correction, celle JS
+    #  post-moteur qui est celle mesurée par settlement/backtest.)
+    if _meta_refine is not None and meta_refiner_python_enabled():
         try:
             p_h, _ = _meta_refine(league_name_str, 'home', p_h)
             p_d, _ = _meta_refine(league_name_str, 'draw', p_d)
@@ -671,6 +713,19 @@ def process_prediction(match_obj: dict) -> dict:
             os.makedirs(_d, exist_ok=True)
         with open(_tf, 'a', encoding='utf-8') as _f:
             _f.write(json.dumps(__prob_trace__[-1], default=str) + '\n')
+    except Exception:
+        pass
+
+    # Trace structuré de sortie moteur (M0) : permet de backtester la proba
+    # BRUTE du moteur Python vs les probas post-retouches JS stockées en DB.
+    try:
+        record_engine_prob_trace(
+            home_name, away_name, league_name_str,
+            match_obj.get('date') or match_obj.get('startTimestamp'),
+            p_h, p_d, p_a, ai_source,
+            meta_refiner_python_enabled(),
+            os.environ.get("GAP_LEARNING_ENABLED", "off").lower() == "on",
+        )
     except Exception:
         pass
 

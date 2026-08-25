@@ -176,6 +176,7 @@ function appendResult(entry) {
     actual: entry.actual,
     is_correct: entry.is_correct,
     confidence: entry.confidence,
+    vote_was_misleading: Boolean(entry.vote_was_misleading),
     market: entry.market,
     timestamp: entry.timestamp ?? String(Date.now()),
   }

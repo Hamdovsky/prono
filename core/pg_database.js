@@ -2,7 +2,7 @@ const path = require('path')
 const fs = require('fs')
 const { usingPostgres, query } = require('./pg_connector')
 const logger = require('./logger')
-const { applyMarketPolicy, deriveBttsPick } = require('./marketPolicy')
+const { applyMarketPolicy, deriveBttsPick, deriveCornerPick, deriveHTPick } = require('./marketPolicy')
 const { applyLeaguePolicy } = require('./leaguePolicy')
 
 function sqliteToPg(sql) {
@@ -201,6 +201,24 @@ const pgDb = {
       if (__btts.bttsPick) {
         m.btts_pick = __btts.bttsPick
         m.btts_pick_prob = __btts.bttsProb
+      }
+
+      // Audit Q1 : dérivation + persistance des picks Corners / HT au temps T
+      const __corner = deriveCornerPick({
+        quant: m.fullData?.quant,
+        expected_corners: m.expected_corners ?? m.fullData?.expected_corners,
+      })
+      if (__corner.cornerPick) {
+        m.corner_pick = __corner.cornerPick
+        m.corner_pick_prob = __corner.cornerProb
+      }
+      const __ht = deriveHTPick({
+        quant: m.fullData?.quant,
+        ht_goal_prob: m.ht_goal_prob ?? m.fullData?.ht_goal_prob,
+      })
+      if (__ht.htPick) {
+        m.ht_pick = __ht.htPick
+        m.ht_pick_prob = __ht.htProb
       }
 
       // Audit étape 1 : politique ligues — désambiguïsation Top-5 par pays
@@ -555,6 +573,25 @@ return {
         data.btts_pick = bttsDerivPg.bttsPick
         fullData.btts_pick = bttsDerivPg.bttsPick
         fullData.btts_pick_prob = bttsDerivPg.bttsProb
+      }
+      // Audit Q1 : dérivation + persistance des picks Corners / HT au temps T
+      const cornerDerivPg = deriveCornerPick({
+        quant: fullData.quant || enriched?.quant || null,
+        expected_corners: data.expected_corners ?? enriched?.expected_corners ?? fullData.expected_corners ?? null,
+      })
+      if (cornerDerivPg.cornerPick) {
+        data.corner_pick = cornerDerivPg.cornerPick
+        fullData.corner_pick = cornerDerivPg.cornerPick
+        fullData.corner_pick_prob = cornerDerivPg.cornerProb
+      }
+      const htDerivPg = deriveHTPick({
+        quant: fullData.quant || enriched?.quant || null,
+        ht_goal_prob: data.ht_goal_prob ?? enriched?.ht_goal_prob ?? fullData.ht_goal_prob ?? null,
+      })
+      if (htDerivPg.htPick) {
+        data.ht_pick = htDerivPg.htPick
+        fullData.ht_pick = htDerivPg.htPick
+        fullData.ht_pick_prob = htDerivPg.htProb
       }
       const toNull = (v) =>
         v === null || v === undefined || (typeof v === 'number' && (isNaN(v) || !isFinite(v)))

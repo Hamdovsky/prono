@@ -29,6 +29,9 @@ const VALID_1X2 = new Set(['1', 'X', '2', '1X', 'X2', '12'])
 // fullData.btts_pick au temps T.
 const BTTS_RE = /^BTTS(YES|NO)$/
 const OU_RE = /^[OU](\d+(?:\.\d+)?)$/
+// Audit Q1 : marchés Corners (O/U ligne, défaut 9.5) et HT (O/U 0.5).
+const CORNER_RE = /^CORNERS(OVER|UNDER)(\d+(?:\.\d+)?)$/
+const HT_RE = /^HT(OVER|UNDER)0\.5$/
 // Quarter-Kelly : cap explicite à 2 % du bankroll (évite les stakes gonflés).
 const KELLY_FRAC = 0.25
 const KELLY_CAP_PCT = 2.0
@@ -60,6 +63,14 @@ function isOU(label) {
   return OU_RE.test(label)
 }
 
+function isCorner(label) {
+  return CORNER_RE.test(label)
+}
+
+function isHT(label) {
+  return HT_RE.test(label)
+}
+
 // Marché d'un pick : '1X2' (simple), 'DC' (double chance), 'OU' (over/under).
 function marketKey(label) {
   const p = normalizeLabel(label)
@@ -68,6 +79,8 @@ function marketKey(label) {
   if (p === '1X' || p === 'X2' || p === '12') return 'DC'
   if (isBTTS(p)) return 'BTTS'
   if (isOU(p)) return 'OU'
+  if (isCorner(p)) return 'CORNER'
+  if (isHT(p)) return 'HT'
   return null
 }
 
@@ -75,6 +88,8 @@ function isAllowed(label, marketFilter) {
   if (is1x2(label)) return marketFilter === 'all' || marketFilter === '1x2'
   if (isBTTS(label)) return marketFilter === 'all' || marketFilter === 'btts'
   if (isOU(label)) return marketFilter === 'all' || marketFilter === 'over_under'
+  if (isCorner(label)) return marketFilter === 'all' || marketFilter === 'corners'
+  if (isHT(label)) return marketFilter === 'all' || marketFilter === 'ht'
   return false
 }
 
@@ -91,7 +106,27 @@ function actualOutcome(scoreHome, scoreAway) {
  *  - 1X2 double chance (1X/X2/12) : le résultat appartient au pick
  *  - O/U : total de buts au-dessus (O) ou en dessous (U) du seuil
  */
-function isCorrect(pick, actual, scoreHome, scoreAway) {
+function isCorrect(pick, actual, scoreHome, scoreAway, ctx) {
+  if (isCorner(pick)) {
+    const ch = ctx?.cornersHome
+    const ca = ctx?.cornersAway
+    if (ch == null || ca == null) return null
+    const m = pick.match(CORNER_RE)
+    if (!m) return null
+    const line = parseFloat(m[2])
+    const over = m[1] === 'OVER'
+    const total = Number(ch) + Number(ca)
+    const actualCorner = total > line ? `CORNERSOVER${m[2]}` : `CORNERSUNDER${m[2]}`
+    return pick === actualCorner
+  }
+  if (isHT(pick)) {
+    const hth = ctx?.htHome
+    const hta = ctx?.htAway
+    if (hth == null || hta == null) return null
+    const total = Number(hth) + Number(hta)
+    const actualHT = total > 0.5 ? 'HTOVER0.5' : 'HTUNDER0.5'
+    return pick === actualHT
+  }
   if (isBTTS(pick)) {
     // Audit BT2 : réel BTTS dérivé des scores finaux (les deux équipes marquent)
     if (scoreHome == null || scoreAway == null) return null
@@ -117,9 +152,15 @@ function isCorrect(pick, actual, scoreHome, scoreAway) {
  */
 function pickProbability(pick, probs) {
   if (!probs) return null
-  const { p1, px, p2, pBtts } = probs
+  const { p1, px, p2, pBtts, pCorner, pHT } = probs
   if (isBTTS(pick)) {
     return pBtts != null && Number.isFinite(pBtts) ? pBtts * 100 : null
+  }
+  if (isCorner(pick)) {
+    return pCorner != null && Number.isFinite(pCorner) ? pCorner * 100 : null
+  }
+  if (isHT(pick)) {
+    return pHT != null && Number.isFinite(pHT) ? pHT * 100 : null
   }
   if (p1 == null || px == null || p2 == null) return null
   if (is1x2(pick)) {
@@ -280,6 +321,10 @@ function recordsFromMatches(r, options) {
       kellyStakePct: r.kelly_stake != null ? Number(r.kelly_stake) : null,
       source: 'matches',
       ts: r.startTimestamp || parseDateTs(r.timestamp),
+      cornersHome: r.corners_home,
+      cornersAway: r.corners_away,
+      htHome: r.score_home_ht,
+      htAway: r.score_away_ht,
     },
     options
   )
@@ -313,10 +358,79 @@ function recordsFromMatches(r, options) {
         kellyStakePct: null,
         source: 'matches|BTTS',
         ts: r.startTimestamp || parseDateTs(r.timestamp),
+        cornersHome: r.corners_home,
+        cornersAway: r.corners_away,
+        htHome: r.score_home_ht,
+        htAway: r.score_away_ht,
       },
       options
     )
     if (brec) out.push(brec)
+  }
+
+  // ── Record Corners secondaire (audit Q1) ──
+  const corPick = normalizeLabel(r.corner_pick ?? fd.corner_pick ?? null)
+  if (corPick && isCorner(corPick)) {
+    const pCorRaw =
+      r.corner_pick_prob ?? fd.corner_pick_prob ?? fd.corner_prob ?? null
+    const pCorner =
+      pCorRaw != null && Number.isFinite(Number(pCorRaw)) && Number(pCorRaw) > 0
+        ? Number(pCorRaw) / 100
+        : null
+    const crec = buildRecord(
+      {
+        matchId: r.id + '|CORNER',
+        league: r.league || 'Unknown',
+        pick: corPick,
+        actual,
+        scoreHome: r.scoreHome,
+        scoreAway: r.scoreAway,
+        confidence: pCorner != null ? +(pCorner * 100).toFixed(1) : null,
+        probs: { p1: null, px: null, p2: null, pCorner },
+        odds: { home: null, draw: null, away: null, bttsYes: null, bttsNo: null },
+        kellyStakePct: null,
+        source: 'matches|CORNER',
+        ts: r.startTimestamp || parseDateTs(r.timestamp),
+        cornersHome: r.corners_home,
+        cornersAway: r.corners_away,
+        htHome: r.score_home_ht,
+        htAway: r.score_away_ht,
+      },
+      options
+    )
+    if (crec) out.push(crec)
+  }
+
+  // ── Record HT secondaire (audit Q1) ──
+  const htPick = normalizeLabel(r.ht_pick ?? fd.ht_pick ?? null)
+  if (htPick && isHT(htPick)) {
+    const pHTRaw = r.ht_pick_prob ?? fd.ht_pick_prob ?? fd.ht_prob ?? null
+    const pHT =
+      pHTRaw != null && Number.isFinite(Number(pHTRaw)) && Number(pHTRaw) > 0
+        ? Number(pHTRaw) / 100
+        : null
+    const hrec = buildRecord(
+      {
+        matchId: r.id + '|HT',
+        league: r.league || 'Unknown',
+        pick: htPick,
+        actual,
+        scoreHome: r.scoreHome,
+        scoreAway: r.scoreAway,
+        confidence: pHT != null ? +(pHT * 100).toFixed(1) : null,
+        probs: { p1: null, px: null, p2: null, pHT },
+        odds: { home: null, draw: null, away: null, bttsYes: null, bttsNo: null },
+        kellyStakePct: null,
+        source: 'matches|HT',
+        ts: r.startTimestamp || parseDateTs(r.timestamp),
+        cornersHome: r.corners_home,
+        cornersAway: r.corners_away,
+        htHome: r.score_home_ht,
+        htAway: r.score_away_ht,
+      },
+      options
+    )
+    if (hrec) out.push(hrec)
   }
 
   return out
@@ -385,6 +499,10 @@ function recordsFromHistorical(r, options) {
       kellyStakePct: fd.kelly_stake != null ? Number(fd.kelly_stake) : null,
       source: 'historical_matches',
       ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
+      cornersHome: r.corners_home,
+      cornersAway: r.corners_away,
+      htHome: r.score_home_ht,
+      htAway: r.score_away_ht,
     },
     options
   )
@@ -421,10 +539,82 @@ function recordsFromHistorical(r, options) {
         kellyStakePct: null,
         source: 'historical_matches|BTTS',
         ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
+        cornersHome: r.corners_home,
+        cornersAway: r.corners_away,
+        htHome: r.score_home_ht,
+        htAway: r.score_away_ht,
       },
       options
     )
     if (brec) out.push(brec)
+  }
+
+  // ── Record Corners secondaire (audit Q1) ──
+  const corPick = normalizeLabel(fd.corner_pick ?? null)
+  if (corPick && isCorner(corPick)) {
+    const pCorRaw = fd.corner_pick_prob ?? fd.corner_prob ?? null
+    const pCorner =
+      pCorRaw != null && Number.isFinite(Number(pCorRaw)) && Number(pCorRaw) > 0
+        ? Number(pCorRaw) <= 1
+          ? Number(pCorRaw)
+          : Number(pCorRaw) / 100
+        : null
+    const crec = buildRecord(
+      {
+        matchId: r.id + '|CORNER',
+        league: r.league || 'Unknown',
+        pick: corPick,
+        actual,
+        scoreHome: r.scoreHome,
+        scoreAway: r.scoreAway,
+        confidence: pCorner != null ? +(pCorner * 100).toFixed(1) : null,
+        probs: { p1: null, px: null, p2: null, pCorner },
+        odds: { home: null, draw: null, away: null, bttsYes: null, bttsNo: null },
+        kellyStakePct: null,
+        source: 'historical_matches|CORNER',
+        ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
+        cornersHome: r.corners_home,
+        cornersAway: r.corners_away,
+        htHome: r.score_home_ht,
+        htAway: r.score_away_ht,
+      },
+      options
+    )
+    if (crec) out.push(crec)
+  }
+
+  // ── Record HT secondaire (audit Q1) ──
+  const htPick = normalizeLabel(fd.ht_pick ?? null)
+  if (htPick && isHT(htPick)) {
+    const pHTRaw = fd.ht_pick_prob ?? fd.ht_prob ?? null
+    const pHT =
+      pHTRaw != null && Number.isFinite(Number(pHTRaw)) && Number(pHTRaw) > 0
+        ? Number(pHTRaw) <= 1
+          ? Number(pHTRaw)
+          : Number(pHTRaw) / 100
+        : null
+    const hrec = buildRecord(
+      {
+        matchId: r.id + '|HT',
+        league: r.league || 'Unknown',
+        pick: htPick,
+        actual,
+        scoreHome: r.scoreHome,
+        scoreAway: r.scoreAway,
+        confidence: pHT != null ? +(pHT * 100).toFixed(1) : null,
+        probs: { p1: null, px: null, p2: null, pHT },
+        odds: { home: null, draw: null, away: null, bttsYes: null, bttsNo: null },
+        kellyStakePct: null,
+        source: 'historical_matches|HT',
+        ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
+        cornersHome: r.corners_home,
+        cornersAway: r.corners_away,
+        htHome: r.score_home_ht,
+        htAway: r.score_away_ht,
+      },
+      options
+    )
+    if (hrec) out.push(hrec)
   }
 
   return out
@@ -560,7 +750,7 @@ function computeAccuracy(options = {}) {
   const byMarket = {} // { 1X2 | DC | OU } → réussite + cote moyenne + ROI flat
 
   for (const rec of records) {
-    const ok = isCorrect(rec.pick, rec.actual, rec.scoreHome, rec.scoreAway)
+    const ok = isCorrect(rec.pick, rec.actual, rec.scoreHome, rec.scoreAway, rec)
     if (ok === null) continue
     evaluated++
     if (ok) correct++
@@ -762,4 +952,10 @@ function computeAccuracy(options = {}) {
   }
 }
 
-module.exports = { computeAccuracy }
+module.exports = {
+  computeAccuracy,
+  normalizeLabel,
+  marketKey,
+  isCorrect,
+  pickProbability,
+}

@@ -1,7 +1,7 @@
 const path = require('path')
 const fs = require('fs')
 const logger = require('./logger')
-const { applyMarketPolicy, deriveBttsPick } = require('./marketPolicy')
+const { applyMarketPolicy, deriveBttsPick, deriveCornerPick, deriveHTPick } = require('./marketPolicy')
 const { applyLeaguePolicy } = require('./leaguePolicy')
 
 // 🚀 [DB TOGGLE] If DATABASE_URL is set, use Neon PostgreSQL directly — skip SQLite entirely
@@ -847,6 +847,25 @@ const database = {
         m.btts_pick_prob = __btts.bttsProb
       }
 
+      // Audit Q1 : dérivation + persistance des picks Corners / HT au temps T
+      // (stockés dans fullData via mergedData, comme btts_pick — pas de colonne)
+      const __corner = deriveCornerPick({
+        quant: m.fullData?.quant,
+        expected_corners: m.expected_corners ?? m.fullData?.expected_corners,
+      })
+      if (__corner.cornerPick) {
+        m.corner_pick = __corner.cornerPick
+        m.corner_pick_prob = __corner.cornerProb
+      }
+      const __ht = deriveHTPick({
+        quant: m.fullData?.quant,
+        ht_goal_prob: m.ht_goal_prob ?? m.fullData?.ht_goal_prob,
+      })
+      if (__ht.htPick) {
+        m.ht_pick = __ht.htPick
+        m.ht_pick_prob = __ht.htProb
+      }
+
       // Audit étape 1 : politique ligues — désambiguïsation Top-5 par pays
       const __lg = applyLeaguePolicy(m)
       if (__lg.changed) {
@@ -1381,6 +1400,25 @@ const database = {
         data.btts_pick = bttsDeriv.bttsPick
         fullData.btts_pick = bttsDeriv.bttsPick
         fullData.btts_pick_prob = bttsDeriv.bttsProb
+      }
+      // Audit Q1 : dérivation + persistance des picks Corners / HT au temps T
+      const cornerDeriv = deriveCornerPick({
+        quant: fullData.quant || enriched?.quant || null,
+        expected_corners: data.expected_corners ?? enriched?.expected_corners ?? fullData.expected_corners ?? null,
+      })
+      if (cornerDeriv.cornerPick) {
+        data.corner_pick = cornerDeriv.cornerPick
+        fullData.corner_pick = cornerDeriv.cornerPick
+        fullData.corner_pick_prob = cornerDeriv.cornerProb
+      }
+      const htDeriv = deriveHTPick({
+        quant: fullData.quant || enriched?.quant || null,
+        ht_goal_prob: data.ht_goal_prob ?? enriched?.ht_goal_prob ?? fullData.ht_goal_prob ?? null,
+      })
+      if (htDeriv.htPick) {
+        data.ht_pick = htDeriv.htPick
+        fullData.ht_pick = htDeriv.htPick
+        fullData.ht_pick_prob = htDeriv.htProb
       }
       const expScr =
         data.expected_score || enriched?.expected_score || fullData.expected_score || null

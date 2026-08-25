@@ -1580,3 +1580,60 @@ sans serveur persistant — déjà documenté dans la section "Option 2 — Fen�
 - Les 4 échecs pytest préexistants (test_engine, test_fallback, test_predictions) ne
   sont **pas** dans le périmètre P4 ; seront traités en chantier séparé (env +
   penaltyblog réinstall).
+
+---
+
+# Q1 — Mesure marchés Corners / HT (2026-08-25, audit précision marchés)
+
+## Objectif
+Rendre le système **mesurable** sur les marchés Corners (O/U ligne, défaut 9.5)
+et But 1ère MT (O/U 0.5), au même titre que BTTS (audit BT1/BT2) : pick dérivé
+au temps T, persisté dans `fullData`, et **second record** dans accuracyEngine
+settlé sur le résultat réel (total corners / score mi-temps).
+
+## Modifications
+- `core/marketPolicy.js` : `deriveCornerPick(src)` (source prioritaire
+  `quant.markets.corners.expected`, fallback `expected_corners` — **dispo** via
+  `prediction_engine.py:778`/`ml_ensemble.py:635` ; ligne `CORNER_LINE` défaut 9.5,
+  seuil = total attendu ≥ ligne) + `deriveHTPick(src)` (source prioritaire
+  `quant.markets.ht.goal_yes`, fallback `ht_goal_prob` ; seuil 50 %).
+  Les deux renvoient `null` si aucune donnée → **aucun comportement changé** pour
+  les matchs sans ces champs.
+- `core/database.js` + `core/pg_database.js` : émission des picks aux 2 hooks
+  d'écriture (miroir exact BTTS), persistés dans `fullData.corner_pick` /
+  `fullData.ht_pick` (+ `_prob`). **Zéro migration SQL** (comme btts_pick).
+- `services/accuracyEngine.js` :
+  - `CORNER_RE` / `HT_RE`, `isCorner()` / `isHT()`, `marketKey→'CORNER'|'HT'`,
+    filtre `'all'|'corners'|'ht'`.
+  - `isCorrect` étendu (contexte `ctx` = record) : Corners compare
+    `cornersHome+cornersAway` vs ligne ; HT compare `htHome+htAway` vs 0.5.
+  - `pickProbability` renvoie `pCorner*100` / `pHT*100`.
+  - `recordsFromMatches` + `recordsFromHistorical` : **second record** CORNER/HT
+    par match (quand le pick existe), avec contexte corners/HT transmis.
+  - `module.exports` étendu (`normalizeLabel`, `marketKey`, `isCorrect`,
+    `pickProbability`) pour testabilité.
+- `__tests__/accuracyEngine.test.js` : table `matches` étendue (colonnes corners/HT),
+  +4 tests Q1 (Corners settle OK, Corners sans total→exclu, HT settle OK,
+  pickProbability Corners/HT). **22/22 verts**.
+
+## États des lieux (post-Q1)
+| Marché | Pick émis ? | Résultat réel dispo ? | Mesurable ? |
+|---|---|---|---|
+| **Corners** | ✅ (dès `expected_corners` présent — **actif**) | ✅ `matches.corners_home/away` (settlement) + `historical_matches` (~27 %) | **Oui** |
+| **But 1ère MT** | ⚠️ dès `quant.markets.ht.goal_yes`/`ht_goal_prob` (à brancher en Q4) | ✅ `historical_matches.score_home_ht/away_ht` (~38 %) ; `matches` pas encore | **Oui** une fois la prob HT surfacée |
+
+## Validation non-régression
+- `npx jest` → **614/614 verts** (aucune régression).
+- `node --check` sur `marketPolicy.js`, `database.js`, `pg_database.js`,
+  `accuracyEngine.js` : OK.
+
+## Suite (Q2→Q5)
+- **Q2** Corners : remplacer l'heuristique orpheline (`market_engine.py:69-72`)
+  par un modèle entraîné sur `archive_football_data` (corners_home/away) ;
+  ligne 9.5 servie depuis le modèle (cohérent avec `deriveCornerPick`).
+- **Q3** BTTS : challenger RandomForest + calibration binaire, source unique MC.
+- **Q4** HT : ratios appris (`data/ht_ratios.json`), surfacer `ht_goal_prob` →
+  active le pick HT mesuré ici.
+- **Q5** O/U : lignes MC unifiées, seuils appris par ligue, calibration par ligne.
+- Chaque phase = 1 commit local, **aucun push** (instruction utilisateur).
+

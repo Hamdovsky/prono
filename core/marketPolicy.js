@@ -62,4 +62,62 @@ function deriveBttsPick(src) {
   return { bttsPick: bttsProb >= 50 ? 'BTTS YES' : 'BTTS NO', bttsProb }
 }
 
-module.exports = { applyMarketPolicy, isPure1x2Disabled: () => DISABLE_PURE_1X2, deriveBttsPick }
+/**
+ * Audit « marchés supplémentaires » (2026-08-25) — dérivation du pick Corners
+ * (O/U d'une ligne, défaut 9.5) au temps T. Source prioritaire :
+ * quant.markets.corners.expected, sinon colonne expected_corners. Le pick est
+ * OVER si le total attendu >= ligne, UNDER sinon. Probabilité = confiance
+ * linéaire autour de la ligne (50 % sur la ligne). Null si aucune donnée.
+ */
+function deriveCornerPick(src) {
+  const line = Number(process.env.CORNER_LINE || '9.5')
+  let ec = null
+  const q = src?.quant?.markets?.corners
+  if (q) {
+    const v = Number(q.expected != null ? q.expected : q.expected_corners)
+    if (Number.isFinite(v) && v > 0) ec = v
+  }
+  if (ec == null && src?.expected_corners != null) {
+    const v = Number(src.expected_corners)
+    if (Number.isFinite(v) && v > 0) ec = v
+  }
+  if (ec == null || !Number.isFinite(ec)) return { cornerPick: null, cornerProb: null, line }
+  const over = ec >= line
+  const prob = +Math.min(95, Math.max(5, Math.round(50 + (ec - line) * 12))).toFixed(1)
+  return {
+    cornerPick: over ? `CORNERS OVER ${line}` : `CORNERS UNDER ${line}`,
+    cornerProb: prob,
+    line,
+  }
+}
+
+/**
+ * Audit « marchés supplémentaires » (2026-08-25) — dérivation du pick HT
+ * (O/U 0.5 but en 1re mi-temps) au temps T. Source prioritaire :
+ * quant.markets.ht.goal_yes (prob Over 0.5), sinon ht_goal_prob. Seuil 50 %.
+ * Null si aucune donnée exploitable.
+ */
+function deriveHTPick(src) {
+  let p = null
+  const q = src?.quant?.markets?.ht
+  if (q) {
+    const raw = q.goal_yes != null ? q.goal_yes : q.over_05
+    const v = Number(raw)
+    if (Number.isFinite(v) && v > 0) p = v <= 1 ? v * 100 : v
+  }
+  if (p == null && src?.ht_goal_prob != null) {
+    const v = Number(src.ht_goal_prob)
+    if (Number.isFinite(v) && v > 0) p = v <= 1 ? v * 100 : v
+  }
+  if (p == null || !Number.isFinite(p)) return { htPick: null, htProb: null }
+  const htProb = +Math.min(99.9, Math.max(0.1, p)).toFixed(1)
+  return { htPick: htProb >= 50 ? 'HT OVER 0.5' : 'HT UNDER 0.5', htProb }
+}
+
+module.exports = {
+  applyMarketPolicy,
+  isPure1x2Disabled: () => DISABLE_PURE_1X2,
+  deriveBttsPick,
+  deriveCornerPick,
+  deriveHTPick,
+}

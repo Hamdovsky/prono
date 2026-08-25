@@ -133,4 +133,25 @@ async function getOddsForMatch(match) {
   }
 }
 
-module.exports = { getOddsForMatch, resolveEvent, getOdds }
+const lineupsCache = new Map() // eventId -> { data, expiresAt }
+
+async function getLineups(eventId) {
+  if (eventId == null) return null
+  const hit = lineupsCache.get(eventId)
+  if (hit && Date.now() < hit.expiresAt) return hit.data
+  const res = await callPy(['lineups', '--event', String(eventId)])
+  if (res && res.found) {
+    lineupsCache.set(eventId, { data: res, expiresAt: Date.now() + CACHE_TTL_EVENT })
+    return res
+  }
+  return null
+}
+
+async function getInjuries(eventId) {
+  if (eventId == null) return null
+  const res = await callPy(['injuries', '--event', String(eventId)])
+  if (res && res.found) return res
+  return null
+}
+
+module.exports = { getOddsForMatch, resolveEvent, getOdds, getLineups, getInjuries }

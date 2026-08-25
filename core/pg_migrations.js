@@ -292,8 +292,23 @@ CREATE TABLE IF NOT EXISTS odds_history (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS odds_patterns (
+CREATE TABLE IF NOT EXISTS player_absences (
     id SERIAL PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    side TEXT,
+    team TEXT,
+    player TEXT NOT NULL,
+    position TEXT,
+    status TEXT,
+    detail TEXT,
+    source TEXT DEFAULT 'sofascore',
+    fetched_at BIGINT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(event_id, player, status)
+);
+CREATE INDEX IF NOT EXISTS idx_player_absences_event_id ON player_absences(event_id);
+
+CREATE TABLE IF NOT EXISTS odds_patterns (    id SERIAL PRIMARY KEY,
     pattern_hash TEXT UNIQUE NOT NULL,
     pattern_type TEXT NOT NULL,
     movement_profile TEXT NOT NULL,

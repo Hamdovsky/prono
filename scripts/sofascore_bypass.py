@@ -10,9 +10,16 @@ Sortie : UN objet JSON unique sur stdout. Les logs vont sur stderr.
 """
 import argparse
 import json
+import os
 import re
 import sys
 import time
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:  # noqa: BLE001
+    pass
 import unicodedata
 
 from curl_cffi import requests
@@ -175,6 +182,77 @@ def cmd_odds(args):
     print(json.dumps({"found": bool(found), "odds": out}, ensure_ascii=False))
 
 
+def _pos(p):
+    pos = p.get("position")
+    return (pos or {}).get("position") if isinstance(pos, dict) else pos
+
+
+def parse_lineups(data: dict) -> dict:
+    """Parse tolérant de /event/{id}/lineups -> {found, confirmed, teams[]}."""
+    if not isinstance(data, dict):
+        return {"found": False, "confirmed": False, "teams": []}
+    out = {"found": bool(data), "confirmed": bool(data.get("confirmed", False)), "teams": []}
+    for side in ("home", "away"):
+        block = data.get(side) or {}
+        players = []
+        for p in (block.get("players") or [])[:30]:
+            pl = p.get("player") or {}
+            players.append({
+                "name": pl.get("name"),
+                "position": _pos(pl),
+                "shirt": p.get("shirtNumber"),
+                "substitute": bool(p.get("substitute")),
+            })
+        out["teams"].append({
+            "side": side,
+            "team": (block.get("team") or {}).get("name"),
+            "formation": block.get("formation"),
+            "n_players": len(players),
+            "players": players,
+        })
+    return out
+
+
+def cmd_lineups(args):
+    """Compositions officielles d'un événement (Phase 9 groundwork)."""
+    try:
+        data = api_get("/event/%d/lineups" % int(args.event))
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"found": False, "error": str(e)}))
+        return
+    print(json.dumps(parse_lineups(data), ensure_ascii=False))
+
+
+def parse_injuries(data) -> dict:
+    """Parse tolérant de /event/{id}/injuries -> {found, n, injuries[]}."""
+    if not isinstance(data, dict):
+        return {"found": False, "n": 0, "injuries": []}
+    rows = data.get("injuries") if isinstance(data, dict) else None
+    rows = rows or (data if isinstance(data, list) else [])
+    items = []
+    for r in rows[:40]:
+        pl = r.get("player") or {}
+        tm = r.get("team") or {}
+        items.append({
+            "team": tm.get("name"),
+            "player": pl.get("name"),
+            "position": _pos(pl),
+            "status": r.get("statusType") or r.get("type"),
+            "detail": r.get("details"),
+        })
+    return {"found": bool(items), "n": len(items), "injuries": items}
+
+
+def cmd_injuries(args):
+    """Absences/blessures/suspensions annoncées pour un événement."""
+    try:
+        data = api_get("/event/%d/injuries" % int(args.event))
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"found": False, "error": str(e)}))
+        return
+    print(json.dumps(parse_injuries(data), ensure_ascii=False))
+
+
 def main():
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -184,11 +262,19 @@ def main():
     pr.add_argument("--ts", default=None)
     po = sub.add_parser("odds")
     po.add_argument("--event", required=True)
+    pl = sub.add_parser("lineups")
+    pl.add_argument("--event", required=True)
+    pi = sub.add_parser("injuries")
+    pi.add_argument("--event", required=True)
     args = p.parse_args()
     t0 = time.time()
     try:
         if args.cmd == "resolve":
             cmd_resolve(args)
+        elif args.cmd == "lineups":
+            cmd_lineups(args)
+        elif args.cmd == "injuries":
+            cmd_injuries(args)
         else:
             cmd_odds(args)
     except Exception as e:  # noqa: BLE001

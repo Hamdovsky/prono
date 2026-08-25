@@ -466,6 +466,22 @@ function initSchema() {
             );
             CREATE INDEX IF NOT EXISTS idx_odds_history_match_id ON odds_history(match_id);
 
+            CREATE TABLE IF NOT EXISTS player_absences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id TEXT NOT NULL,
+                side TEXT,
+                team TEXT,
+                player TEXT NOT NULL,
+                position TEXT,
+                status TEXT,
+                detail TEXT,
+                source TEXT DEFAULT 'sofascore',
+                fetched_at BIGINT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(event_id, player, status)
+            );
+            CREATE INDEX IF NOT EXISTS idx_player_absences_event_id ON player_absences(event_id);
+
             CREATE TABLE IF NOT EXISTS odds_patterns (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 pattern_hash TEXT UNIQUE NOT NULL,
@@ -2431,6 +2447,57 @@ const database = {
     } catch (e) {
       logger.warn(`[DB] getTeamPromosportStats failed for ${teamName}: ${e.message}`)
       return null
+    }
+  },
+
+  /**
+   * Phase 9 groundwork : persiste les absences (blessures/suspensions) d'un event.
+   * Désactivé du modèle pour l'instant (feature absence_impact_pondéré calculée plus tard).
+   * @param {string|number} eventId
+   * @param {Array<{side?:string,team?:string,player:string,position?:string,status?:string,detail?:string}>} rows
+   * @param {{source?:string}} [opts]
+   */
+  savePlayerAbsences(eventId, rows, opts = {}) {
+    if (!eventId || !Array.isArray(rows) || !rows.length) return { changes: 0 }
+    const now = Date.now()
+    const src = opts.source || 'sofascore'
+    const stmt = db.prepare(
+      `INSERT OR REPLACE INTO player_absences
+        (event_id, side, team, player, position, status, detail, source, fetched_at)
+       VALUES (@event_id, @side, @team, @player, @position, @status, @detail, @source, @fetched_at)`
+    )
+    const run = db.transaction((items) => {
+      for (const r of items) {
+        stmt.run({
+          event_id: String(eventId),
+          side: r.side || null,
+          team: r.team || null,
+          player: r.player,
+          position: r.position || null,
+          status: r.status || null,
+          detail: r.detail || null,
+          source: src,
+          fetched_at: now,
+        })
+      }
+    })
+    try {
+      run(rows)
+      return { changes: rows.length }
+    } catch (e) {
+      logger.warn(`[DB] savePlayerAbsences failed for ${eventId}: ${e.message}`)
+      return { changes: 0 }
+    }
+  },
+
+  getPlayerAbsences(eventId) {
+    try {
+      return db
+        .prepare('SELECT * FROM player_absences WHERE event_id = ?')
+        .all(String(eventId))
+    } catch (e) {
+      logger.warn(`[DB] getPlayerAbsences failed for ${eventId}: ${e.message}`)
+      return []
     }
   },
 }

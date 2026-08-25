@@ -1824,6 +1824,38 @@ Corners (Q2) : la vraie dispersion des cartons n'est pas gaussienne.
 
 ---
 
+# C — ROI Corners/HT : collecte des cotes (2026-08-25)
+
+## Cause racine
+`accuracyEngine.pickOdds` renvoyait `null` pour les marches Corners/HT -> ces
+picks étaient exclus du ROI (comptabilises a part). L'archive ne contient que les
+cotes 1X2 et O/U 2.5 (`odds_over`/`odds_under`), pas de cotes Corners/HT.
+
+## Correctifs
+- `services/accuracyEngine.js` : `pickOdds` gère désormais `isCorner`/`isHT`
+  (lit `odds.cornerOver/cornerUnder` et `odds.htOver/htUnder`). Propagation de
+  ces cotes dans `recordsFromMatches` et `recordsFromHistorical` (depuis
+  `r.odds_corner_*`/`r.odds_ht_*` et `fullData`). `pickOdds`/`recordsFromHistorical`
+  exportés pour les tests.
+- Migration schéma `archive_football_data` : colonnes `odds_corner_over`,
+  `odds_corner_under`, `corner_line`, `odds_ht_over`, `odds_ht_under`, `ht_line`
+  (REAL, idempotent via `ensure_schema`). **Appliquée à `data/historical_archive.sqlite`**.
+- `core/fetch_market_odds.py` (nouveau) : fetch GRATUIT depuis football-data.co.uk
+  (CSV public, aucune API payante). `extract_odds` matche les colonnes corner/HT
+  (regex best-effort, priorité bookmaker B365>PS>LB>WH>VC), `upsert` lie sur
+  (match_date, home_team, away_team) normalisés. CLI : `--url <csv>` ou `--csv`.
+- `tests/test_fetch_market_odds.py` (7/7), `__tests__/accuracyEngineCornerHtRoi.test.js` (5/5).
+
+## Impact
+- ROI Corners/HT désormais calculable dès que les cotes sont collectées.
+- Données réelles UNIQUEMENT : les colonnes restent NULL tant que le fetch n'est
+  pas exécuté -> ROI reste proprement exclu (jamais de ROI fabriqué).
+- Commande à lancer (côté utilisateur, nécessite les CSV football-data) :
+  `python -m core.fetch_market_odds --url https://www.football-data.co.uk/mm/mmz2025.csv`
+  (et saisons précédentes), puis `npm run accuracy -- --marketFilter corners|ht`.
+
+---
+
 # E — Comparaison MC-vs-modèle (O/U & marchés) — FAITE (2026-08-25)
 
 - `core/eval_markets_walkforward.py` : walk-forward 4 folds chronologiques,

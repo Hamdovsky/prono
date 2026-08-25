@@ -232,6 +232,14 @@ function pickOdds(pick, odds) {
     if (pick === 'BTTSNO') return validOdds(odds.bttsNo)
     return null
   }
+  if (isCorner(pick)) {
+    // Audit C : ROI Corners — cotes archivées (odds_corner_over/under, ligne 9.5)
+    return pick.includes('OVER') ? validOdds(odds.cornerOver) : validOdds(odds.cornerUnder)
+  }
+  if (isHT(pick)) {
+    // Audit C : ROI HT — cotes archivées (odds_ht_over/under, ligne 0.5)
+    return pick.includes('OVER') ? validOdds(odds.htOver) : validOdds(odds.htUnder)
+  }
   if (is1x2(pick)) {
     if (pick === '1') return validOdds(odds.home)
     if (pick === 'X') return validOdds(odds.draw)
@@ -299,6 +307,10 @@ function recordsFromMatches(r, options) {
     bttsNo: fd.odds_btts_no ?? fd.btts_no_odds ?? fd.odds?.btts_no,
     over25: fd.odds_over25 ?? fd.odds?.over25,
     under25: fd.odds_under25 ?? fd.odds?.under25,
+    cornerOver: fd.odds_corner_over ?? fd.odds?.corner_over,
+    cornerUnder: fd.odds_corner_under ?? fd.odds?.corner_under,
+    htOver: fd.odds_ht_over ?? fd.odds?.ht_over,
+    htUnder: fd.odds_ht_under ?? fd.odds?.ht_under,
   }
 
   const primary = buildRecord(
@@ -317,6 +329,10 @@ function recordsFromMatches(r, options) {
         away: validOdds(r.odds_away) != null ? r.odds_away : fdOdds.away,
         over25: validOdds(r.odds_over25) != null ? r.odds_over25 : fdOdds.over25,
         under25: validOdds(r.odds_under25) != null ? r.odds_under25 : fdOdds.under25,
+        cornerOver: validOdds(r.odds_corner_over) != null ? r.odds_corner_over : fdOdds.cornerOver,
+        cornerUnder: validOdds(r.odds_corner_under) != null ? r.odds_corner_under : fdOdds.cornerUnder,
+        htOver: validOdds(r.odds_ht_over) != null ? r.odds_ht_over : fdOdds.htOver,
+        htUnder: validOdds(r.odds_ht_under) != null ? r.odds_ht_under : fdOdds.htUnder,
       },
       kellyStakePct: r.kelly_stake != null ? Number(r.kelly_stake) : null,
       source: 'matches',
@@ -495,6 +511,10 @@ function recordsFromHistorical(r, options) {
         away: fd.odds_away ?? fd.away_odds ?? fd.odds?.away_win ?? null,
         over25: fd.odds_over25 ?? fd.odds?.over25 ?? null,
         under25: fd.odds_under25 ?? fd.odds?.under25 ?? null,
+        cornerOver: r.odds_corner_over != null ? r.odds_corner_over : (fd.odds_corner_over ?? fd.odds?.corner_over ?? null),
+        cornerUnder: r.odds_corner_under != null ? r.odds_corner_under : (fd.odds_corner_under ?? fd.odds?.corner_under ?? null),
+        htOver: r.odds_ht_over != null ? r.odds_ht_over : (fd.odds_ht_over ?? fd.odds?.ht_over ?? null),
+        htUnder: r.odds_ht_under != null ? r.odds_ht_under : (fd.odds_ht_under ?? fd.odds?.ht_under ?? null),
       },
       kellyStakePct: fd.kelly_stake != null ? Number(fd.kelly_stake) : null,
       source: 'historical_matches',
@@ -958,4 +978,6 @@ module.exports = {
   marketKey,
   isCorrect,
   pickProbability,
+  pickOdds,
+  recordsFromHistorical,
 }

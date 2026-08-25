@@ -1835,3 +1835,30 @@ Corners (Q2) : la vraie dispersion des cartons n'est pas gaussienne.
   (Q2/D) ; leur voie utilise `expected_corners`/`expected_cards` (vrais mu par
   match) en production, déjà actifs.
 
+---
+
+# B — Smoke-test flux bout-en-bout (contrat champs, 2026-08-25)
+
+## Objectif
+Verifier que les champs emis par `prediction_engine.py` (`ht_goal_prob`,
+`expected_corners`, `expected_cards`) arrivent bien jusqu'aux picks Corners/HT
+via les accesseurs de `core/database.js` / `core/pg_database.js`, sans rupture
+de contrat de nommage.
+
+## Realise
+- `__tests__/marketPipelineContract.test.js` (nouveau) : reproduit EXACTEMENT les
+  accesseurs `m.ht_goal_prob ?? m.fullData?.ht_goal_prob` et
+  `m.expected_corners ?? m.fullData?.expected_corners` (database.js:854-863,
+  pg_database.js:209-218), puis pilote `deriveHTPick`/`deriveCornerPick`.
+  Verifie Over/Under HT et Corners selon le seuil, et le fallback prior ligue
+  (HT_RATIOS) quand `ht_goal_prob` absent. 6/6 verts.
+- Regression complete : **Jest 625/625**, market **Pytest 55/55** (verts).
+
+## Limite (hors portee local)
+- Run complet du serveur FastAPI+Node impossible en local : `penaltyblog` non
+  installe (5 echecs pytest pre-existants) et services Render suspendus. Le
+  contrat de champ est donc verrouille par test ; le flux live complet
+  (process_prediction -> DB -> accuracyEngine) necessite le serveur actif.
+- Cartons : deja mesures via la voie `over_under` existante (market "Over 3.5
+  Cartons" matche MAT), pas de pick persiste dedie (contrairement a Corners/HT).
+

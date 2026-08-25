@@ -1050,10 +1050,36 @@ iso/marché codés AVANT d'ajuster le moteur (principe d'audit).
 - ISO_REARM_AT, MARKET_REARM_AT, ISO/MC gates : réarmeront les isotoniques/MC
   APRÈS accumulation post-gel, jamais sur données historiques (B2/C2 respectés).
 
+### 9. Ingestion lineups/injuries dans le sweep (✅ commit 876d87f)
+- `SofascoreBypass.getAbsencesForMatch(match)` : résout l'event, récupère
+  `/event/{id}/injuries`, persiste dans `player_absences` (via `savePlayerAbsences`),
+  calcule `absence_impact_pondéré` (pondération poste × sévérité, normalisée /3).
+- Hook dans `dataFusionService._trySofascore` (déjà sous kill-switch
+  `DISABLE_SOFASCORE`) : impact attaché aux cotes + colonne `matches.absence_impact_pondéré`
+  mise à jour (best-effort, try/catch — ne casse jamais la fusion).
+- `computeAbsenceImpact` fonction pure testée (4 tests jest PASS).
+- **Garde d'honnêteté** : feature stockée mais VOLONTAIREMENT HORS `FEATURE_ALLOWLIST`
+  (modèle l'ignore). Les absences passées ne sont pas dans master_dataset
+  (events expirés) -> gain backtest impossible sur historique -> activation
+  conditionnée à l'accumulation live + re-run walk-forward prouvant le gain.
+
+### 10. Ré-entraînement modèles retenus (✅ commit b9873dd)
+- `train_baselines(markets, models, out_dir)` : (ré)entraîne LR/RF sur l'allowlist
+  causale (41 features, colonnes cibles/closing/stats in-match exclues -> 0 fuite)
+  et exporte `models/baseline_{lr,rf}_{1x2,ou25,btts}.pkl` + `baseline_metadata.json`.
+- CLI : `--train` sur `core.backtest_walkforward` régénère les artefacts (idempotent).
+  (.pkl ignorés par .gitignore -> artefacts = build reproductible, pas versionnés.)
+- Modèles RETENUS (BASELINE_EVAL) : **LR** pour 1X2+O/U2.5, **RF** pour BTTS.
+- Re-run walk-forward de CONTRÔLE : chiffres IDENTIQUES à la passe initiale
+  (LR 1X2 0,88209 / OU25 0,57971 / RF BTTS 0,61651) -> entraînement reproductible.
+- `test_train_baselines_export_et_predict` : export + reload + predict validés (5/5).
+
 ### Reste à faire (hors P0)
-- Phase 9 : brancher l'ingestion `savePlayerAbsences` dans le sweep (kill-switch
-  safe) + calculer `absence_impact_pondéré` et l'activer si gain backtest prouvé.
-- Dixon-Coles penaltyblog comme 2e itération de baseline (Phase C suite).
-- Ré-entraînement master (Phase 10) sur features enrichies, puis re-run walk-forward.
-- Validation transverse : jest 606/606 PASS, pytest 13/13 PASS (P0).
+- Activer `absence_impact_pondéré` dans le modèle SEULEMENT après accumulation
+  live + backtest walk-forward prouvant un gain (sinon rester désactivé).
+- Dixon-Coles penaltyblog comme 2e itération de baseline (Phase C suite) — optionnelle.
+- Brancher les artefacts `baseline_*.pkl` dans le runtime FastAPI comme fallback
+  explicite (ils sont DÉJÀ couverts par le MC existant ; à faire si on veut un
+  switch A/B LL vs baseline sans réentraîner le XGB).
+- Validation transverse : jest 610/610 PASS, pytest 14/14 PASS (P0 + Phase 9 + 10).
 - AUCUN push Render effectué (déploiement = action manuelle séparée).

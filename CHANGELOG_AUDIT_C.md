@@ -284,6 +284,41 @@ sur l'ère moderne, et les picks perdent à toutes les cotes réalistes.
 - Garder le cron HT/corners (C3/C7) : il alimente la mesure qui tranchera sur n réel.
 - Re-test possible : brancher `expected_corners` du pipeline complet dans ce même harnais.
 
+---
+
+## C9 — Backtest 1X2 PUR qualité d'équipe vs vraies cotes : PAS D'EDGE non plus 🔴 (2026-08-26)
+
+**Outil** : `scripts/backtest_1x2_quality.py` (nouveau). Prédicteur = forces
+attaque/défense par équipe/ligue shrinkées k=3 + Poisson score-grid (moteur identique à
+`core/backtest_walkforward.poisson_params/predict`) — exactement « la qualité des équipes ».
+Données : 42 221 matchs AVEC vraies cotes 1X2 archivées (2002→2026-05). Zéro fuite
+(refit périodique sur passé uniquement, warmup 3000).
+
+### Résultats (stratégie edge : p > 1/cote + 3 %)
+
+| Périmètre | Paris | Hit | ROI |
+|---|---|---|---|
+| Global 2004→2026 | 32 300 | 28.9 % | **−7.13 %** |
+| Ère moderne 2020+ | 9 628 | 28.5 % | **−8.20 %** |
+| Par année | 22 années négatives / 23 | — | pire : −15.7 % (2024) |
+
+Log-loss modèle 1.011 ; base rates réels H 45.3 / D 25.8 / A 28.9 %.
+
+### Lecture honnête
+1. Un modèle « qualité d'équipe » pur, même correctement construit, **ne bat pas les
+   cotes bookmakers** sur le 1X2 — structurellement (marge ~5 % + modèles marché supérieurs).
+   Converge avec le walk-forward P0 (Poisson 1.006 < LR 0.882 log-loss).
+2. **Conséquence design** : la préférence DC du moteur (picks 1X/X2 majoritaires) n'est
+   PAS de la lâcheté — c'est ce qui survit mathématiquement. Le masque P4 est d'ailleurs
+   déjà INACTIF (.env sans flag) : ces picks viennent de la logique main_pick du moteur.
+3. Forcer l'affichage 1X2 pur = présenter des picks dont on PROUVE qu'ils perdent face
+   aux cotes. Option acceptable en « colonne info » (originalPrediction existe en fullData
+   depuis A0), pas en pick principal pariable.
+
+### Reste ouvert (demande utilisateur)
+- Afficher le 1X2 pur en information complémentaire (colonne dédiée), sans remplacer
+  le pick discipliné — à implémenter si confirmé.
+
 ## Prochaines actions (hors scope)
 - `npm install` dans le worktree puis lancer les tests Jest (état : bloqué par env)
 - Re-run du script de backfill CSV après chaque mise à jour football_data (07h00 quotidien)

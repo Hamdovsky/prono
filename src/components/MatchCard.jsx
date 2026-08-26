@@ -1,6 +1,6 @@
 import React from 'react'
 import './MatchCard.css'
-import { DISABLE_BTTS_DISPLAY } from '../utils/displayPolicy'
+import { DISABLE_BTTS_DISPLAY, DISABLE_CORNERS_DISPLAY } from '../utils/displayPolicy'
 
 // Reconstruit (audit BT3-fix, 2026-08-24) : mapping complet des 13 cases
 // produites par computeRawLines (matchAnalysis.js), incluant winnerDc[10],
@@ -78,7 +78,10 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
   }
   const bttsDisplay = DISABLE_BTTS_DISPLAY ? '--' : d.btts
   const bttsVerdict = DISABLE_BTTS_DISPLAY ? '' : yesNo(d.btts)
-  const cornersVerdict = yesNo(d.corners)
+  // Corners masqués si VITE_DISABLE_CORNERS_DISPLAY (audit C8 : pas d'edge moderne)
+  const cornersDisplay = DISABLE_CORNERS_DISPLAY ? '--' : d.corners
+  const cornersVerdict = DISABLE_CORNERS_DISPLAY ? '' : yesNo(d.corners)
+  const cornersExactLabel = DISABLE_CORNERS_DISPLAY ? null : d.cornersExact
 
   // Gagnant : extraire le pick (1/X/2 ou 1X/12/X2) avant la proba
   const winPick = (d.winner || '').split(' ')[0].trim().toUpperCase()
@@ -119,7 +122,11 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
   })()
 
   const hasDc = d.winnerDc && d.winnerDc !== '--'
-  const cornersLabel = d.cornersExact ? `✚ ${d.cornersExact}` : d.corners
+  const cornersLabel = DISABLE_CORNERS_DISPLAY
+    ? '--'
+    : cornersExactLabel
+      ? `✚ ${cornersExactLabel}`
+      : d.corners
 
   if (compact) {
     return (

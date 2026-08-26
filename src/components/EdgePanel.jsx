@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { getApiUrl } from '../config/apiConfig'
-import { DISABLE_BTTS_DISPLAY } from '../utils/displayPolicy'
+import { DISABLE_BTTS_DISPLAY, DISABLE_CORNERS_DISPLAY } from '../utils/displayPolicy'
 
 const VALUE_COLORS = {
   DIAMOND: { bg: 'rgba(99,102,241,0.15)', border: '#6366f1', label: '💎 DIAMOND' },
@@ -317,12 +317,14 @@ const EdgePanel = () => {
               label="HT/FT"
               n={data.totalMarkets?.htFt}
             />
-            <MktTabBtn
-              active={mktTab === 'corners'}
-              onClick={() => setMktTab('corners')}
-              label="CORNERS"
-              n={data.totalMarkets?.corners}
-            />
+            {!DISABLE_CORNERS_DISPLAY && (
+              <MktTabBtn
+                active={mktTab === 'corners'}
+                onClick={() => setMktTab('corners')}
+                label="CORNERS"
+                n={data.totalMarkets?.corners}
+              />
+            )}
             <MktTabBtn
               active={mktTab === 'cards'}
               onClick={() => setMktTab('cards')}
@@ -341,7 +343,7 @@ const EdgePanel = () => {
           {!DISABLE_BTTS_DISPLAY && mktTab === 'btts' && <BTTSView items={data.markets?.btts || []} />}
           {mktTab === 'doubleChance' && <DCView items={data.markets?.doubleChance || []} />}
           {mktTab === 'htFt' && <HTFTView items={data.markets?.htFt || []} />}
-          {mktTab === 'corners' && <CornersView items={data.markets?.corners || []} />}
+          {!DISABLE_CORNERS_DISPLAY && mktTab === 'corners' && <CornersView items={data.markets?.corners || []} />}
           {mktTab === 'cards' && <CardsView items={data.markets?.cards || []} />}
           {mktTab === 'playerProps' && <PropsView items={data.markets?.playerProps || []} />}
         </div>

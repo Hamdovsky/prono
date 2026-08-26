@@ -1859,17 +1859,24 @@ cotes 1X2 et O/U 2.5 (`odds_over`/`odds_under`), pas de cotes Corners/HT.
   statiques** aux chemins historiques (`/england/E0/E0z2024.csv` -> accueil HTML,
   `/mm/` -> 404, listings de répertoires sans lien `.csv`). Fetch automatique
   impossible depuis ici.
-- Aucune autre source de cotes gratuite n'est câblée dans le repo (l'archive a
-  été construite en externe ; `soccer_odds` est une table live API-Football
-  distincte, non historique).
+- Aucune clé d'API d'odds n'est présente en local (`ODDSPAPI_KEY`, `RAPIDAPI_KEY`,
+  `BSD_API_KEY` toutes absentes) ; les services du projet (oddspapi, sportapi,
+  sportmonks, clearsports) sont des APIs **live** (cotes courantes), pas des
+  archives historiques -> inutilisables pour le ROI de matchs passés. Aucune
+  fabrique de cotes (interdit).
 - **Conséquence** : les colonnes `odds_corner_*`/`odds_ht_*` restent NULL ->
   ROI Corners/HT reste proprement **exclu** du calcul (jamais de ROI fabriqué).
-- Pour activer le ROI en conditions réelles, deux options :
-  1. Fournir un CSV local (téléchargé manuellement) :
-     `python -m core.fetch_market_odds --csv chemin.csv` (script déjà prêt/testé).
-  2. Câbler `fetch_market_odds` sur une source d'odds historiques disponible
-     (API-Football archive, oddsportal, …) — hors périmètre ici (souvent payant
-     ou nécessitant une clé).
+- Le script `core/fetch_market_odds.py` a été renforcé (audit C+) :
+  * formats de colonnes élargis (bookmakers B365/PS/LB/WH/VC/SO/PIN/MAX/BET/UNI/MAR,
+    prefixes `C>`/`C<` corners, `CH>`/`CH<` HT) ;
+  * colonnes directes `odds_corner_over/under/corner_line/odds_ht_over/under/ht_line`
+    acceptées telles quelles ;
+  * `--template` (affiche un CSV d'exemple) et `--dry-run` (compte sans écrire).
+- **Route validée pour activer le ROI réel** : l'utilisateur fournit un CSV
+  d'odds historiques (export football-data/oddsportal/API-Football), puis :
+  `python -m core.fetch_market_odds --csv chemin.csv`
+  puis `npm run accuracy -- --marketFilter corners` / `ht`. Aucune donnée
+  fabriquée : seules les cotes réelles fournies peuplent les colonnes.
 
 ---
 

@@ -67,6 +67,34 @@ def test_extract_odds_empty():
     assert extract_odds({"B365H": "2.0"}) is None
 
 
+def test_extract_odds_broadened_formats():
+    # bookmakers etendus (PIN, BET)
+    row = {
+        "PINC>9.5": "1.85",
+        "PINC<9.5": "1.95",
+        "BETCH>0.5": "2.05",
+        "BETCH<0.5": "1.75",
+    }
+    o = extract_odds(row)
+    assert o["odds_corner_over"] == 1.85
+    assert o["corner_line"] == 9.5
+    assert o["odds_ht_over"] == 2.05
+    assert o["ht_line"] == 0.5
+
+
+def test_extract_odds_direct_columns():
+    row = {
+        "odds_corner_over": "1.9",
+        "odds_corner_under": "1.9",
+        "corner_line": "9.5",
+        "odds_ht_over": "2.1",
+        "odds_ht_under": "1.7",
+        "ht_line": "0.5",
+    }
+    o = extract_odds(row)
+    assert o["odds_corner_over"] == 1.9 and o["odds_ht_under"] == 1.7
+
+
 def test_ensure_schema_idempotent():
     con = sqlite3.connect(":memory:")
     con.execute("CREATE TABLE archive_football_data (id INTEGER)")

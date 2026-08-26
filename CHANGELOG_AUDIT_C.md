@@ -364,6 +364,43 @@ cotes sont devenues vraies. L'edge résiduel (+7 à +33 pts) sur ligues à couve
 fine est désormais MESURABLE honnêtement par accuracyEngine (byMarket.OU/BTTS,
 cotes archivées au temps T).
 
+---
+
+## C11 — Continuité scraper au redémarrage : reprise là où il s'est arrêté ✅ (2026-08-26)
+
+**Demande utilisateur** : « au redémarrage du serveur, que ça reprenne depuis où ça
+s'est fermé, pas scraper depuis le début ».
+
+### État des lieux (ce qui existait DÉJÀ)
+- **Workflow d'enrichissement** (`SofascoreScraping/src/Workflow.js:~700`) : logique
+  `[RESUME] Fast-forwarded X already-analyzed matches` — au prochain passage, il
+  relit la DB et saute les matchs déjà analysés. Aucun re-travail.
+- **`insertMatch`** : upsert idempotent (`ON CONFLICT DO UPDATE` avec COALESCE sur
+  les cotes) → re-scanner le même match n'écrase rien.
+- **`data/scraper_state.json`** : lastScanAt + dates couvertes + santé des sources
+  (cooldowns) → l'état de scan quotidien persiste.
+
+### Ce qui MANQUAIT (corrigé)
+1. **Flag `isRunning:true` coincé** si kill/crash en plein batch (constaté :
+   batch 1/31 interrompu à 05:00). Nouveau `resetStaleScraperProgress()`
+   (`core/utils.js`) appelé UNE fois au boot via startupBootstrap :
+   - ne touche QUE les runs silencieux > 30 min (protège un batch vivant),
+   - pose `interrupted:true` + note explicative, log `[SCRAPER-RESUME]`.
+2. **Preuve de continuité au boot** : nouveau journal `[CONTINUITE]` dans
+   startupBootstrap affichant les compteurs DB survivants (matches / finished /
+   cotes 1X2 / O/U / BTTS / HT) + message « reprise où arrêté ».
+
+### Validation
+- Batch frais (13 min) : correctement IGNORÉ par le reset (protection run vivant).
+- Batch simulé vieux de 2 h : détecté → `isRunning:false`, `interrupted:true`,
+  note posée, log clair ; état réel restauré après test (batch possiblement vivant).
+- Syntaxe : startupBootstrap.js + utils.js OK (node --check).
+
+### Garantie finale pour l'utilisateur
+Fermer/rouvrir le serveur = **zéro perte** (SQLite sur disque) et **reprise
+automatique** : les matchs déjà scrapés/analysés sont fast-forwardés, seuls les
+manquants sont traités. Le journal [CONTINUITE] au boot le prouve chiffre à l'appui.
+
 ## Prochaines actions (hors scope)
 - `npm install` dans le worktree puis lancer les tests Jest (état : bloqué par env)
 - Re-run du script de backfill CSV après chaque mise à jour football_data (07h00 quotidien)

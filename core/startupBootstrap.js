@@ -257,9 +257,45 @@ async function runAll({ port, onStartServices }) {
         await Promise.allSettled([warmThetaOptimizer(), syncBSD(), syncFootballData()])
         await runCloudSeed()
         await emergencyReseed()
-      })(),
-      bail,
-    ])
+
+        // ── C11 : continuité scraper au redémarrage ──────────────────
+        try {
+          const { resetStaleScraperProgress } = require('./utils')
+          await resetStaleScraperProgress()
+        } catch (_) {}
+
+        // Journal de continuité : prouve que les données locales ont survécu
+        // à l'arrêt (compteurs DB) — le scraping reprend là où il s'était
+        // arrêté (Workflow fast-forward les matchs déjà analysés).
+        try {
+          const db = require('./database')
+          const cnt = async (sql) => {
+            try {
+              const res = await db.query(sql)
+              const v = res?.rows?.[0]?.n ?? res?.[0]?.n ?? 0
+              return parseInt(v, 10) || 0
+            } catch {
+              return '?'
+            }
+          }
+          const nMatches = await cnt('SELECT count(*) AS n FROM matches')
+          const nFinished = await cnt("SELECT count(*) AS n FROM matches WHERE status='finished'")
+          const n1x2 = await cnt('SELECT count(*) AS n FROM matches WHERE odds_home IS NOT NULL')
+          const nOu = await cnt('SELECT count(*) AS n FROM matches WHERE odds_over25 IS NOT NULL')
+          const nBtts = await cnt('SELECT count(*) AS n FROM matches WHERE odds_btts_yes IS NOT NULL')
+          let nHt = '?'
+          try {
+            nHt = await cnt('SELECT count(*) AS n FROM matches WHERE ht_score_home IS NOT NULL')
+          } catch (_) {}
+          logger.info(
+            `[CONTINUITE] Données locales préservées : matches=${nMatches}` +
+              ` | finished=${nFinished} | cotes1X2=${n1x2} | O/U=${nOu} | BTTS=${nBtts} | HT=${nHt}`
+          )
+          logger.info("[CONTINUITE] Le scraping reprendra là où il s'était arrêté (aucun re-scan depuis zéro).")
+        } catch (_) {}
+       })(),
+       bail,
+     ])
   } catch (e) {
     logger.warn(`[BOOT] ${e.message} — continuing with partial initialization`)
   }

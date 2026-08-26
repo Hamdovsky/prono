@@ -178,6 +178,23 @@ def cmd_odds(args):
             if "both" in blob or "btts" in blob:
                 out.setdefault("btts_yes", by_name.get("yes"))
                 out.setdefault("btts_no", by_name.get("no"))
+        # Corners : marketId=21 « Corners 2-Way », ligne dans choiceGroup.
+        # On garde la ligne la plus BASSE (ligne principale type 9.5).
+        mid = market.get("marketId")
+        mname_l = str(market.get("marketName") or "").lower()
+        if mid == 21 or ("corner" in mname_l):
+            try:
+                line_v = float(str(market.get("choiceGroup") or "").replace(",", "."))
+            except (TypeError, ValueError):
+                line_v = None
+            over_c = by_name.get("over")
+            under_c = by_name.get("under")
+            if over_c or under_c:
+                cur_line = out.get("corner_line")
+                if cur_line is None or (line_v is not None and line_v < cur_line):
+                    out["corner_line"] = line_v
+                    out["corner_over"] = over_c
+                    out["corner_under"] = under_c
     found = any(out.get(k) for k in ("home", "draw", "away"))
     print(json.dumps({"found": bool(found), "odds": out}, ensure_ascii=False))
 

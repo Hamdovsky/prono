@@ -60,14 +60,49 @@ function setCache(matchId, data) {
 // donc les valeurs par défaut documentées (1.5) avec log d'avertissement.
 const CORNERS_MARKET_ID = 21
 
+// Fallback transport : le fetch natif Node est bloqué par Sofascore (403 TLS).
+// SofascoreBypass spawn `scripts/sofascore_bypass.py` via curl_cffi (fingerprints
+// navigateur) et renvoie {home, draw, away, over25, under25, btts_yes, btts_no,
+// corner_line, corner_over, corner_under}. Utilisé si le chemin direct échoue.
+let bypass = null
+try {
+  bypass = require('../../services/scrapers/SofascoreBypass')
+} catch (e) {
+  // Optionnel : prod Render sans venv Python -> chemin direct seul
+}
+
+/**
+ * Normalise la sortie du bypass Python vers le format getLiveOdds.
+ */
+function _fromBypass(odds) {
+  if (!odds) return null
+  const out = {
+    home: odds.home ?? null,
+    draw: odds.draw ?? null,
+    away: odds.away ?? null,
+    corner_over: odds.corner_over ?? null,
+    corner_under: odds.corner_under ?? null,
+    corner_line: odds.corner_line ?? null,
+    ht_over: null,
+    ht_under: null,
+    ht_over15: null,
+    ht_btts: null,
+  }
+  if (!out.home || !out.away) return null
+  return out
+}
+
 // ── Core fetch ──────────────────────────────────────────────────
 /**
  * getLiveOdds(matchId)
  * Returns: { home, draw, away, corner_over, corner_under, corner_line,
  *            ht_over, ht_under, ht_over15, ht_btts } or null on failure.
  *
- * 1X2 comes from Sofascore market 1; Corners/HT are extracted from the
- * same free Sofascore odds API (no paid key needed).
+ * Transport : fetch natif Node (rapide) ; en cas d'échec (403 Sofascore),
+ * fallback SofascoreBypass (curl_cffi Python). Même payload /odds/1/all :
+ * 1X2 = marketId 1, Corners = marketId 21 (choiceGroup = ligne principale).
+ * HT Over/Under et HT BTTS ne sont PAS servis par l'API Sofascore gratuite
+ * (validé 2026-05 : tous endpoints /odds/{2,HT,...}/all = 404) -> toujours null.
  */
 async function getLiveOdds(matchId) {
   if (!matchId) return null
@@ -75,6 +110,7 @@ async function getLiveOdds(matchId) {
   const cached = getCached(matchId)
   if (cached) return cached
 
+  // ── Chemin direct ──
   try {
     const url = `${SOFA_API}/event/${matchId}/odds/1/all`
     const res = await fetch(url, {
@@ -85,12 +121,11 @@ async function getLiveOdds(matchId) {
       method: 'GET',
     })
 
-    if (!res.ok) return null
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     const markets = data?.markets
     if (!markets || !Array.isArray(markets)) {
-      console.error(`[OddsService] No markets found for ${matchId}`)
-      return null
+      throw new Error('No markets found')
     }
 
     // Standard Market ID for 1X2 in Sofascore is 1
@@ -100,8 +135,7 @@ async function getLiveOdds(matchId) {
       markets[0]
 
     if (!market1x2?.choices) {
-      console.error(`[OddsService] No choices found in market for ${matchId}`)
-      return null
+      throw new Error('No choices in market')
     }
 
     const odds = {
@@ -144,8 +178,7 @@ async function getLiveOdds(matchId) {
     }
 
     if (!odds.home || !odds.away) {
-      console.error(`[OddsService] Incomplete odds for ${matchId}:`, odds)
-      return null
+      throw new Error(`Incomplete 1X2: ${JSON.stringify(odds)}`)
     }
 
     // Corners (marketId=21) : un seul appel, choiceGroup = ligne principale
@@ -175,9 +208,23 @@ async function getLiveOdds(matchId) {
     setCache(matchId, odds)
     return odds
   } catch (err) {
-    console.error(`[OddsService] Error fetching ${matchId}: ${err.message}`)
-    return null
+    console.error(`[OddsService] Direct fetch failed for ${matchId}: ${err.message}`)
   }
+
+  // ── Fallback bypass (curl_cffi Python) ──
+  if (bypass && typeof bypass.getOdds === 'function') {
+    try {
+      const raw = await bypass.getOdds(String(matchId))
+      const odds = _fromBypass(raw)
+      if (odds) {
+        setCache(matchId, odds)
+        return odds
+      }
+    } catch (e) {
+      console.error(`[OddsService] Bypass failed for ${matchId}: ${e.message}`)
+    }
+  }
+  return null
 }
 
 module.exports = { getLiveOdds, CORNERS_MARKET_ID }

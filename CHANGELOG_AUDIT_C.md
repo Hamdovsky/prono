@@ -156,15 +156,56 @@ précision des picks HT/Corners sur ce sous-ensemble. C'est **insuffisant statis
 200+) mais c'est le point de départ. Le worker 2x/jour (câblé en C3) continuera d'accumuler
 pour les matchs récents via Sofascore live.
 
-## État final post-audit C2+C3+C4+C5
+## État final post-audit C2+C3+C4+C5+C6
 
 | Métrique | Avant C2-C5 | Après |
 |---|---|---|
-| Corners cotes en live | 0/req (13 IDs faux) | 1/req (marketId=21 validé) |
+| Corners cotes en live | 0/req (13 IDs faux + 403 transport) | **réelles, 3/3 eventIds validés** (marketId=21 + bypass curl_cffi) |
 | HT OU/HT BTTS cotes | inconnu (404 partout) | null honnête (défaut 1.5) |
 | Colonnes HT/corners en DB | 0/6 | 6/6 (matches + historical) |
 | historical_matches avec HT | 0/3969 | 28/3969 |
 | Extraction auto | aucune | cron 2x/jour + script CLI |
+
+---
+
+## C6 — Transport oddsService réparé : fallback curl_cffi + corners LIVE validés ✅ (2026-08-26)
+
+### Constat (test live)
+`oddsService.getLiveOdds` retournait **null sur 3/3 eventIds réels en ~150 ms** :
+Sofascore renvoie **HTTP 403** au fetch natif Node (fingerprint TLS non navigateur).
+Le mapping Corners était correct (C2) mais le transport était mort — et le wrapper
+`SofascoreBypass.js` (curl_cffi, Phase 2) n'était pas branché sur ce service.
+
+### Correctifs appliqués
+1. **`scripts/sofascore_bypass.py::cmd_odds`** : extraction des CORNERS ajoutée dans
+   le MÊME appel `/odds/1/all` (zéro requête supplémentaire) — `marketId == 21`
+   (ou marketName contient « corner »), garde la ligne `choiceGroup` la plus BASSE
+   (ligne principale), sorties `corner_line/corner_over/corner_under`.
+2. **`src/services/oddsService.js`** restructuré :
+   - Les échecs du chemin direct sont maintenant des `throw` (les anciens
+     `return null` early-return **contournaient le catch** où vivait le fallback —
+     bug d'intégration trouvé par le test live) ;
+   - Fallback `SofascoreBypass.getOdds(eventId)` (spawn Python curl_cffi,
+     fingerprints chrome124/safari17_0/firefox133) normalisé via `_fromBypass()`
+     vers le format getLiveOdds (HT toujours null, cf. C2) ;
+   - Cache 15 min conservé (les deux chemins l'alimentent).
+
+### Validation LIVE (3/3 verts, après correctif)
+| Event | 1X2 | Corners | Latence |
+|---|---|---|---|
+| 16287064 Schalke/Hallescher | 11 / 6.5 / 1.22 | ligne 10.5 · O 1.909 / U 1.8 | 2.1 s |
+| 14023928 Aston Villa/Liverpool | 2.75 / 3.5 / 2.45 | ligne 10.5 · O 2.0 / U 1.727 | 0.9 s |
+| 14109920 Rizespor/Beşiktaş | 3 / 3.75 / 2.1 | ligne 9.5 · O 1.833 / U 1.833 | 0.8 s |
+
+(La valeur 14109920 O 1.833 = 5/6 + 1 correspond exactement au payload brut
+du probe — chaîne de conversion fraction→décimale vérifiée de bout en bout.)
+
+### Réponse à « est-ce que le corner marche bien ? »
+**OUI, désormais, en conditions réelles** : cotes Corners réelles servies au moteur
+(`QuantumQuantEngine._cornerMarkets`) via `enriched_predictions` (câblage C existant).
+Avant C6 : mapping bon mais 403 systématique → corners jamais servis en prod.
+Coût : spawn Python ~0.8–2 s au premier call par match (cache 15 min ensuite) ;
+sur Render sans venv Python, `bypass` est null → dégradation propre en null (pas de crash).
 
 ## Prochaines actions (hors scope)
 - `npm install` dans le worktree puis lancer les tests Jest (état : bloqué par env)

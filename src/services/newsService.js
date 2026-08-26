@@ -11,6 +11,7 @@ const { getSofaHeaders, fetchWithRetry } = require('../../SofascoreScraping/src/
 const SOFA_API = 'https://www.sofascore.com/api/v1'
 
 const goalNewsService = require('../../services/goalNewsService')
+const structuredNewsExtractor = require('../../services/structuredNewsExtractor')
 const SENTIMENT_ENGINE = path.join(__dirname, '../../core/sentiment_engine.py')
 
 /**
@@ -503,11 +504,21 @@ async function getNewsForTeam(teamName, maxHours = 48, options = {}) {
     injuries
   )
   const sentiment = await callPythonSentiment(allNews.map((n) => n.title))
+  // [F1] Extraction structurée absences/retours — opt-in STRUCTURED_NEWS_ENABLED
+  let structured = null
+  if (structuredNewsExtractor.isEnabled()) {
+    structured = structuredNewsExtractor.extract({
+      teamName,
+      items: allNews,
+      injuries,
+    })
+  }
   return {
     headlines: allNews.map((n) => n.title),
     items: allNews,
     injuries,
     intelligence,
+    structured,
     sentiment: {
       score: sentiment.score + intelligence.impactScore,
       verdict: intelligence.severity,

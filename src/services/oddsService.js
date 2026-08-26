@@ -2,14 +2,18 @@
  * oddsService.js
  * ─────────────────────────────────────────────────────────────
  * Fetches real 1X2 market odds directly from Sofascore's API.
- * Routes through ScraperAPI (if available) to bypass IP blocks.
  * Caches results per match for 15 minutes to avoid rate limits.
  * ─────────────────────────────────────────────────────────────
  */
 
 // Using native global fetch (integrated in Node.js >= 18)
 const { getRandomUserAgent } = require('../../SofascoreScraping/src/apiClient')
-const scraperProxy = require('../../services/scraperProxy')
+let scraperProxy = null
+try {
+  scraperProxy = require('../../services/scraperProxy')
+} catch (e) {
+  // Optional: only used if ScraperAPI is configured
+}
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
 const SOFA_HEADERS = {
@@ -39,13 +43,31 @@ function setCache(matchId, data) {
   oddsCache.set(matchId, { data, ts: Date.now() })
 }
 
+// ── Sofascore market IDs (validés sur 3 eventIds réels, mai 2026) ─────
+// Mapping stable confirmé via probe_sofa_markets.py :
+//   mid=1  Full-time 1X2          (choices 1/X/2)
+//   mid=3  1st half 1X2            (choices 1/X/2, PAS over/under)
+//   mid=5  Both teams to score     (choices Yes/No)
+//   mid=9  Match goals (OU)        (un bloc par choiceGroup : 0.5, 1.5, 2.5, ...)
+//   mid=20 Total Cards             (un bloc par choiceGroup)
+//   mid=21 Corners 2-Way           (un bloc par choiceGroup, ex 9.5 ou 10.5)
+//   mid=6  First team to score
+//   mid=17 Asian handicap
+//   mid=2  Double chance
+//   mid=4  Draw no bet
+// HT Over/Under et HT BTTS : NON DISPONIBLES dans l'API Sofascore gratuite 2026
+// (aucun endpoint /odds/2/all, /odds/HT/all, etc. — tous 404). Le moteur garde
+// donc les valeurs par défaut documentées (1.5) avec log d'avertissement.
+const CORNERS_MARKET_ID = 21
+
 // ── Core fetch ──────────────────────────────────────────────────
 /**
  * getLiveOdds(matchId)
- * Returns: { home: 1.85, draw: 3.40, away: 4.20 } or null on failure.
+ * Returns: { home, draw, away, corner_over, corner_under, corner_line,
+ *            ht_over, ht_under, ht_over15, ht_btts } or null on failure.
  *
- * Sofascore odds endpoint: /event/{id}/odds/1/featured
- * The featured market is usually the main 1X2 market.
+ * 1X2 comes from Sofascore market 1; Corners/HT are extracted from the
+ * same free Sofascore odds API (no paid key needed).
  */
 async function getLiveOdds(matchId) {
   if (!matchId) return null
@@ -55,27 +77,16 @@ async function getLiveOdds(matchId) {
 
   try {
     const url = `${SOFA_API}/event/${matchId}/odds/1/all`
-    let data
+    const res = await fetch(url, {
+      headers: {
+        ...SOFA_HEADERS,
+        'User-Agent': getRandomUserAgent(),
+      },
+      method: 'GET',
+    })
 
-    if (scraperProxy.isAvailable()) {
-      try {
-        data = await scraperProxy.fetchJSON(url, { render: true, timeout: 25000 })
-      } catch (_) {
-        const res = await fetch(url, {
-          headers: { ...SOFA_HEADERS, 'User-Agent': getRandomUserAgent() },
-          method: 'GET',
-        })
-        if (!res.ok) return null
-        data = await res.json()
-      }
-    } else {
-      const res = await fetch(url, {
-        headers: { ...SOFA_HEADERS, 'User-Agent': getRandomUserAgent() },
-        method: 'GET',
-      })
-      if (!res.ok) return null
-      data = await res.json()
-    }
+    if (!res.ok) return null
+    const data = await res.json()
     const markets = data?.markets
     if (!markets || !Array.isArray(markets)) {
       console.error(`[OddsService] No markets found for ${matchId}`)
@@ -93,7 +104,18 @@ async function getLiveOdds(matchId) {
       return null
     }
 
-    const odds = { home: null, draw: null, away: null }
+    const odds = {
+      home: null,
+      draw: null,
+      away: null,
+      corner_over: null,
+      corner_under: null,
+      corner_line: null,
+      ht_over: null,
+      ht_under: null,
+      ht_over15: null,
+      ht_btts: null,
+    }
 
     const parseSofaOdds = (choice) => {
       if (!choice) return null
@@ -126,6 +148,30 @@ async function getLiveOdds(matchId) {
       return null
     }
 
+    // Corners (marketId=21) : un seul appel, choiceGroup = ligne principale
+    const cornerBlocks = markets.filter((m) => m.marketId === CORNERS_MARKET_ID)
+    if (cornerBlocks.length) {
+      const sorted = cornerBlocks
+        .map((b) => ({ b, cg: parseFloat(b.choiceGroup) }))
+        .filter((x) => !isNaN(x.cg))
+        .sort((a, b) => a.cg - b.cg)
+      const chosen = sorted[0]?.b || cornerBlocks[0]
+      if (chosen?.choices) {
+        let overVal = null
+        let underVal = null
+        for (const c of chosen.choices) {
+          const nm = (c.name || '').toLowerCase()
+          const v = parseSofaOdds(c)
+          if (!v || v <= 1) continue
+          if (nm.startsWith('over')) overVal = v
+          else if (nm.startsWith('under')) underVal = v
+        }
+        odds.corner_line = sorted[0]?.cg ?? null
+        odds.corner_over = overVal
+        odds.corner_under = underVal
+      }
+    }
+
     setCache(matchId, odds)
     return odds
   } catch (err) {
@@ -134,4 +180,4 @@ async function getLiveOdds(matchId) {
   }
 }
 
-module.exports = { getLiveOdds }
+module.exports = { getLiveOdds, CORNERS_MARKET_ID }

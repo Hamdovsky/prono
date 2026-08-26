@@ -567,6 +567,26 @@ class CronManager {
       }
     })
 
+    // 15b. [STATS] HT score + Corners extraction for finished matches (2x/day)
+    for (const hour of [4, 22]) {
+      cron.schedule(
+        `30 ${hour} * * *`,
+        () => {
+          logger.info(`[CRON] HT + Corners extraction ${hour}h`)
+          try {
+            const db = require('../core/database').db
+            const extractor = require('./sofascoreStatsExtractor')
+            extractor.processFinishedMatches(db, { limit: 200 }).catch((e) =>
+              logger.error(`[CRON] HT+corners extraction error: ${e.message}`)
+            )
+          } catch (e) {
+            logger.error(`[CRON] HT+corners setup error: ${e.message}`)
+          }
+        },
+        { timezone: 'Africa/Tunis' }
+      )
+    }
+
     // 16. PredixSport Sync (Every 6 hours) â€” try Account 2 worker first
     cron.schedule(
       '0 */6 * * *',

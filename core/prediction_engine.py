@@ -272,19 +272,22 @@ def process_prediction(match_obj: dict) -> dict:
     h_att_mod, h_def_mod, a_att_mod, a_def_mod = apply_squad_intelligence(xg_h, xg_a, match_obj, news_data)
 
     # KEY ABSENCES VETO: 2+ key players out in attack/defense
+    def _absence_flag(value):
+        return 1 if value else 0
+
     intel_h = news_data.get('home', {}).get('intelligence', {}).get('features', {}) if isinstance(news_data, dict) else {}
     intel_a = news_data.get('away', {}).get('intelligence', {}).get('features', {}) if isinstance(news_data, dict) else {}
     h_key_absent = sum([
-        intel_h.get('is_missing_gk', 0), intel_h.get('is_missing_scorer', 0),
-        intel_h.get('is_missing_captain', 0), intel_h.get('is_missing_star', 0),
-        match_obj.get('is_missing_gk', 0), match_obj.get('is_missing_scorer', 0),
-        match_obj.get('is_missing_captain', 0), match_obj.get('is_missing_star', 0)
+        _absence_flag(intel_h.get('is_missing_gk')), _absence_flag(intel_h.get('is_missing_scorer')),
+        _absence_flag(intel_h.get('is_missing_captain')), _absence_flag(intel_h.get('is_missing_star')),
+        _absence_flag(match_obj.get('is_missing_gk')), _absence_flag(match_obj.get('is_missing_scorer')),
+        _absence_flag(match_obj.get('is_missing_captain')), _absence_flag(match_obj.get('is_missing_star'))
     ])
     a_key_absent = sum([
-        intel_a.get('is_missing_gk', 0), intel_a.get('is_missing_scorer', 0),
-        intel_a.get('is_missing_captain', 0), intel_a.get('is_missing_star', 0),
-        match_obj.get('is_missing_gk_away', 0), match_obj.get('is_missing_scorer_away', 0),
-        match_obj.get('is_missing_captain_away', 0), match_obj.get('is_missing_star_away', 0)
+        _absence_flag(intel_a.get('is_missing_gk')), _absence_flag(intel_a.get('is_missing_scorer')),
+        _absence_flag(intel_a.get('is_missing_captain')), _absence_flag(intel_a.get('is_missing_star')),
+        _absence_flag(match_obj.get('is_missing_gk_away')), _absence_flag(match_obj.get('is_missing_scorer_away')),
+        _absence_flag(match_obj.get('is_missing_captain_away')), _absence_flag(match_obj.get('is_missing_star_away'))
     ])
     if h_key_absent >= 2 or a_key_absent >= 2:
         sys.stderr.write(f"🛑 KEY_ABSENCES_VETO: Home={h_key_absent}, Away={a_key_absent} key players out\n")

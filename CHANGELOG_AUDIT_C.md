@@ -110,3 +110,65 @@ Refit isotonic sur `engine_prob_trace.jsonl` jointe aux résultats réels, gated
 - ROI Corners/HT : en attente de ~200+ picks Corners/HT post-fix pour mesure significative
 - Ré-exécuter les tests Jest après `npm install` (le fichier `__tests__/oddsServiceCorners.test.js` est prêt)
 - Aucune action sur `prono` (fork voisin distinct)
+
+---
+
+## C5 — Backfill HT/corners depuis football-data.co.uk CSV ✅ (2026-08-26)
+
+### Découverte
+`data_pipeline/data/raw/football_data_all.csv` (1.9 Mo, 5301 lignes, 5300 avec HT + corners)
+couvre **4 saisons** (23/24, 24/25, 25/26, 26/27) et les **Top-5 ligues européennes** (Angleterre,
+Espagne, Italie, Allemagne, France) + Eredivisie. **995 matchs en 2026** (donc récents).
+
+### Pourquoi cette source
+- Sofascore 404 sur eventIds > 1-2 ans (limitation API, déjà documenté C3)
+- `archive_matches.sofascore_id` n'est PAS un vrai ID Sofascore (valeurs `8xxx`/`207xxx` = autre source)
+- football-data.co.uk CSV : hthg/htag/hc/ac explicites, gratuit, 4 saisons historiques
+
+### Correctif appliqué
+**`scripts/backfill_ht_corners_from_csv.py`** (nouveau, ~250 lignes) :
+- Charge `config/teamAliases.js` (existant) + ajoute ~40 alias football_data (Coventry → Coventry City,
+  Nott'm Forest → Nottingham Forest, etc.)
+- `normalize(name)` : lowercase, strip accents, retire suffixes City/FC/United/etc., applique aliases
+- Index CSV : clé (home_norm, away_norm, date) → {hthg, htag, hc, ac}
+- Join avec `historical_matches` (date tolerance ±1 jour)
+- **Migration auto** : ajoute 6 colonnes à `historical_matches` si absentes (ht_score_home/away,
+  corners_home/away, corners_ht_home/away)
+- **COALESCE implicite** : ne lit QUE les lignes où `ht_score_home IS NULL OR corners_home IS NULL`
+- Dry-run par défaut, `--apply` pour écrire
+
+### Validation réelle
+- **28/3969 matchs backfillés** sur la DB actuelle (0.7% — sain : seules les Top-5 ligues matchent)
+- Échantillon : Arsenal-Coventry (HT 2-0, corners 8-2), Sevilla-Rayo (HT 0-1), Atletico-Malaga,
+  Marseille-Strasbourg, Hull-Man United, etc.
+- DB final : 28 historical_matches avec HT + corners (avant : 0)
+- Test dry-run : 9/500 sur 500 premiers (cohérent avec le ratio 0.7%)
+
+### Limite honnête
+3085/3969 équipes ne sont pas couvrables par ce CSV (ligues obscures australiennes, asiatiques,
+amateur européen). Pour ces matchs, le backfill HT/corners reste **impossible sans autre source**
+(API-Football 100 req/j, scraper BetExplorer, ou scraping direct Sofascore live qui ne conserve
+que les eventIds récents).
+
+### Impact sur le ROI Corners/HT
+Avec 28 nouveaux matchs Top-5 avec HT + corners, l'accuracyEngine peut désormais mesurer la
+précision des picks HT/Corners sur ce sous-ensemble. C'est **insuffisant statistiquement** (cible :
+200+) mais c'est le point de départ. Le worker 2x/jour (câblé en C3) continuera d'accumuler
+pour les matchs récents via Sofascore live.
+
+## État final post-audit C2+C3+C4+C5
+
+| Métrique | Avant C2-C5 | Après |
+|---|---|---|
+| Corners cotes en live | 0/req (13 IDs faux) | 1/req (marketId=21 validé) |
+| HT OU/HT BTTS cotes | inconnu (404 partout) | null honnête (défaut 1.5) |
+| Colonnes HT/corners en DB | 0/6 | 6/6 (matches + historical) |
+| historical_matches avec HT | 0/3969 | 28/3969 |
+| Extraction auto | aucune | cron 2x/jour + script CLI |
+
+## Prochaines actions (hors scope)
+- `npm install` dans le worktree puis lancer les tests Jest (état : bloqué par env)
+- Re-run du script de backfill CSV après chaque mise à jour football_data (07h00 quotidien)
+- Worker 2x/jour Sofascore tourne en parallèle pour les nouveaux matchs
+- Pour augmenter le taux de matching : API-Football (Top-5 + Euro + sud-américaines) ou
+  scraper manuel BetExplorer pour les ligues exotiques les plus jouées

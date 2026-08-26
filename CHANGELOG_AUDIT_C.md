@@ -241,6 +241,49 @@ Le worker 2x/jour aurait tourné à vide indéfiniment (0 erreur loggée, juste 
 | extractor.fetchEventStats | 403 → tout null | bypass prioritaire → HT + corners réels |
 | Cron 2x/jour HT/corners | tournait à vide | fonctionnel (fail-safe si eventId purgé) |
 
+---
+
+## C8 — Backtest chronologique Corners O/U : PAS D'EDGE en ère moderne 🔴 (2026-08-26)
+
+**Outil** : `scripts/backtest_corners.py` (nouveau, réutilisable — `--min-date`, `--flat-odds`,
+`--edge`, `--warmup`). Données : `archive_football_data`, 39 677 matchs avec corners
+(2005→2026-05), prédiction = moyennes d'équipe passées uniquement (shrinkage k=8,
+avantage terrain +0.4) → NegBinom calibrée prod (`corners_calib.p_over_corner`).
+
+### Résultats clés
+
+**Ère complète (2005+, n=36 677)** — piège évité : les colonnes `odds_corner_over/under`
+sont vides sur 100 % des lignes (jamais remplies) → tout ROI « à cote supposée » est un
+artefact. Le +6.4 % global affiché venait des années 2005-2019 (+5 à +17 %/an), données
+anciennes aux marchés moins efficients.
+
+**Ère moderne (2020+ uniquement, n=11 543 évalués, 8 433 paris au seuil prod 55/45) :**
+
+| Cote | Break-even | Hit rate | ROI flat |
+|---|---|---|---|
+| 1.90 | 52.6 % | 51.1 % | **−2.96 %** |
+| 1.87 | 53.5 % | 51.1 % | **−4.49 %** |
+| 1.85 | 54.1 % | 51.1 % | −5.51 % |
+| 1.80 | 55.6 % | 51.1 % | −8.07 % |
+
+Calibration probabiliste : log-loss modèle **0.731 vs baseline base-rate 0.693** (pire),
+Brier 0.267 vs 0.250 (pire) → le prédicteur simple n'apporte AUCUNE valeur probabiliste
+sur l'ère moderne, et les picks perdent à toutes les cotes réalistes.
+
+### Interprétation honnête
+1. Ce backtest teste un prédicteur SIMPLE (moyennes d'équipe). Le pipeline prod
+   (`ml_ensemble.expected_corners` avec xG/tirs) pourrait faire mieux — mais la charge
+   de la preuve lui incombe : Q2 n'avait validé que la dispersion NegBinom à mu donné
+   (écart agrégé 1.3 pt), jamais une edge par-match.
+2. Les marchés corners se sont efficacés après ~2019 : l'edge historique a disparu.
+3. Cohérent avec la règle maison (P4 audit) : précision < break-even ⇒ masquage.
+
+### Décision recommandée (à valider utilisateur)
+- **Déprioriser/masquer les picks Corners en UI** (même pattern `VITE_DISABLE_*` que BTTS)
+  tant qu'une edge live n'est pas démontrée avec les vraies cotes désormais collectées (C6).
+- Garder le cron HT/corners (C3/C7) : il alimente la mesure qui tranchera sur n réel.
+- Re-test possible : brancher `expected_corners` du pipeline complet dans ce même harnais.
+
 ## Prochaines actions (hors scope)
 - `npm install` dans le worktree puis lancer les tests Jest (état : bloqué par env)
 - Re-run du script de backfill CSV après chaque mise à jour football_data (07h00 quotidien)

@@ -207,6 +207,40 @@ Avant C6 : mapping bon mais 403 systématique → corners jamais servis en prod.
 Coût : spawn Python ~0.8–2 s au premier call par match (cache 15 min ensuite) ;
 sur Render sans venv Python, `bypass` est null → dégradation propre en null (pas de crash).
 
+---
+
+## C7 — Extracteur HT/corners réparé lui aussi (même 403) + commande `stats` ✅ (2026-08-26)
+
+### Constat (test live)
+`sofascoreStatsExtractor.fetchEventStats('16287064')` retournait **tout null en 548 ms** :
+le cron HT/corners câblé en C3 utilisait le fetch natif Node → **même HTTP 403** que C6.
+Le worker 2x/jour aurait tourné à vide indéfiniment (0 erreur loggée, juste des null).
+
+### Correctifs appliqués
+1. **`scripts/sofascore_bypass.py`** : nouvelle commande `stats --event X` — joint
+   `/event/{id}/incidents` (score à l'incident `text=HT`) et `/event/{id}/statistics`
+   (« Corner kicks » du groupe « Match overview », périodes `ALL` + `1ST`) →
+   `{found, ht_h, ht_a, c_ft_h, c_ft_a, c_ht_h, c_ht_a}` (champs partiels possibles,
+   erreurs par endpoint dans `incidents_error/statistics_error`).
+2. **`services/scrapers/SofascoreBypass.js`** : `getEventStats(eventId)` avec cache 7 j
+   (données immuables après FT), export ajouté.
+3. **`services/sofascoreStatsExtractor.js`** : `fetchEventStats` passe par le bypass
+   EN PRIORITÉ ; chemin direct conservé en fallback (Render sans venv). Parsing local
+   `_htScoreFromIncidents/_cornersFromStatistics` inchangé pour ce fallback.
+
+### Validation LIVE
+- Python seul : `stats --event 16287064` → `{"found": true, "ht_h":1, "ht_a":0, "c_ft_h":3, "c_ft_a":9, "c_ht_h":1, "c_ht_a":4}`
+- Via Node (`fetchEventStats`) : identique, **710 ms** (bypass + caches).
+- Régression oddsService re-vérifiée après refactor C6 : **4/4** (direct OK ·
+  403→bypass OK · double échec→null OK · matchId null→null OK).
+
+### État transport final (post C6+C7)
+| Composant | Avant | Après |
+|---|---|---|
+| oddsService.getLiveOdds | 403 → null systématique | direct puis bypass → cotes réelles (corners inclus) |
+| extractor.fetchEventStats | 403 → tout null | bypass prioritaire → HT + corners réels |
+| Cron 2x/jour HT/corners | tournait à vide | fonctionnel (fail-safe si eventId purgé) |
+
 ## Prochaines actions (hors scope)
 - `npm install` dans le worktree puis lancer les tests Jest (état : bloqué par env)
 - Re-run du script de backfill CSV après chaque mise à jour football_data (07h00 quotidien)

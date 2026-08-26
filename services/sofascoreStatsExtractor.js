@@ -37,6 +37,14 @@ try {
   logger.warn('[SofascoreStatsExtractor] apiClient not available — fetches will fail with 403')
 }
 
+// Transport principal : SofascoreBypass (curl_cffi Python, contourne le 403 TLS).
+let bypass = null
+try {
+  bypass = require('./scrapers/SofascoreBypass')
+} catch (e) {
+  logger.warn('[SofascoreStatsExtractor] SofascoreBypass unavailable — direct fetch only (403 likely)')
+}
+
 function _headers() {
   return {
     ...SOFA_HEADERS,
@@ -87,9 +95,32 @@ function _cornersFromStatistics(stats, period) {
 
 /**
  * Fetch HT score + corners for a single event.
+ * Transport : SofascoreBypass (curl_cffi Python) d'abord — le fetch natif Node
+ * reçoit HTTP 403 de Sofascore (cf. audit C6) ; fallback chemin direct si le
+ * bypass est indisponible (ex Render sans venv).
  * Returns { ht_h, ht_a, c_ft_h, c_ft_a, c_ht_h, c_ht_a } — any field may be null.
  */
 async function fetchEventStats(eventId) {
+  // ── Chemin bypass (fonctionnel en prod locale) ──
+  if (bypass && typeof bypass.getEventStats === 'function') {
+    try {
+      const r = await bypass.getEventStats(String(eventId))
+      if (r) {
+        return {
+          ht_h: r.ht_h ?? null,
+          ht_a: r.ht_a ?? null,
+          c_ft_h: r.c_ft_h ?? null,
+          c_ft_a: r.c_ft_a ?? null,
+          c_ht_h: r.c_ht_h ?? null,
+          c_ht_a: r.c_ht_a ?? null,
+        }
+      }
+    } catch (e) {
+      logger.warn(`[SofascoreStatsExtractor] bypass failed for ${eventId}: ${e.message}`)
+    }
+  }
+
+  // ── Fallback direct (souvent 403, gardé pour robustesse) ──
   const [incs, stats] = await Promise.all([
     _apiGet(`/event/${eventId}/incidents`),
     _apiGet(`/event/${eventId}/statistics`),

@@ -270,6 +270,63 @@ def cmd_injuries(args):
     print(json.dumps(parse_injuries(data), ensure_ascii=False))
 
 
+def _ht_score_from_incidents(incs):
+    """Score à la mi-temps : incident period avec text == 'HT'."""
+    for it in incs or []:
+        if (it.get("incidentType") == "period"
+                and str(it.get("text") or "").strip().upper() == "HT"):
+            h, a = it.get("homeScore"), it.get("awayScore")
+            if h is not None and a is not None:
+                try:
+                    return int(h), int(a)
+                except (TypeError, ValueError):
+                    pass
+    return None, None
+
+
+def _corners_from_statistics(stats, period):
+    """'Corner kicks' du groupe 'Match overview' pour une période donnée."""
+    if not isinstance(stats, dict):
+        return None, None
+    for block in stats.get("statistics") or []:
+        if block.get("period") != period:
+            continue
+        for grp in block.get("groups") or []:
+            for it in grp.get("statisticsItems") or []:
+                if str(it.get("name") or "").strip().lower() == "corner kicks":
+                    h, a = it.get("home"), it.get("away")
+                    if h is not None and a is not None:
+                        try:
+                            return int(h), int(a)
+                        except (TypeError, ValueError):
+                            pass
+    return None, None
+
+
+def cmd_stats(args):
+    """HT score + corners FT/HT d'un événement TERMINÉ (incidents + statistics)."""
+    out = {"found": False}
+    try:
+        inc = api_get("/event/%d/incidents" % int(args.event))
+        ht_h, ht_a = _ht_score_from_incidents(inc.get("incidents"))
+        if ht_h is not None:
+            out["ht_h"], out["ht_a"] = ht_h, ht_a
+    except Exception as e:  # noqa: BLE001
+        out["incidents_error"] = str(e)
+    try:
+        stats = api_get("/event/%d/statistics" % int(args.event))
+        c_h, c_a = _corners_from_statistics(stats, "ALL")
+        if c_h is not None:
+            out["c_ft_h"], out["c_ft_a"] = c_h, c_a
+        ch_h, ch_a = _corners_from_statistics(stats, "1ST")
+        if ch_h is not None:
+            out["c_ht_h"], out["c_ht_a"] = ch_h, ch_a
+    except Exception as e:  # noqa: BLE001
+        out["statistics_error"] = str(e)
+    out["found"] = any(k in out for k in ("ht_h", "c_ft_h", "c_ht_h"))
+    print(json.dumps(out, ensure_ascii=False))
+
+
 def main():
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -283,6 +340,8 @@ def main():
     pl.add_argument("--event", required=True)
     pi = sub.add_parser("injuries")
     pi.add_argument("--event", required=True)
+    ps = sub.add_parser("stats")
+    ps.add_argument("--event", required=True)
     args = p.parse_args()
     t0 = time.time()
     try:
@@ -292,6 +351,8 @@ def main():
             cmd_lineups(args)
         elif args.cmd == "injuries":
             cmd_injuries(args)
+        elif args.cmd == "stats":
+            cmd_stats(args)
         else:
             cmd_odds(args)
     except Exception as e:  # noqa: BLE001

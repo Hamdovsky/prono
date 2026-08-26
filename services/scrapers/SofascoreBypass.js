@@ -154,6 +154,26 @@ async function getInjuries(eventId) {
   return null
 }
 
+// Stats de match terminé : HT score + corners FT/HT (cache long — immuable après FT)
+const statsCache = new Map() // eventId -> { data, expiresAt }
+const CACHE_TTL_STATS = 7 * 24 * 3600 * 1000
+
+/**
+ * HT score + corners (FT et 1ère MT) d'un événement terminé.
+ * @returns {Promise<{ht_h?,ht_a?,c_ft_h?,c_ft_a?,c_ht_h?,c_ht_a?}|null>} null si rien trouvé
+ */
+async function getEventStats(eventId) {
+  if (eventId == null) return null
+  const hit = statsCache.get(eventId)
+  if (hit && Date.now() < hit.expiresAt) return hit.data
+  const res = await callPy(['stats', '--event', String(eventId)])
+  if (res && res.found) {
+    statsCache.set(eventId, { data: res, expiresAt: Date.now() + CACHE_TTL_STATS })
+    return res
+  }
+  return null
+}
+
 // Poids par poste (impact sur xG attendu) — défense/poste bas, attaque élevé.
 const POS_WEIGHT = { G: 1.0, D: 0.5, M: 0.6, F: 0.7 }
 // Sévérité par statut d'absence.
@@ -227,6 +247,7 @@ module.exports = {
   getOdds,
   getLineups,
   getInjuries,
+  getEventStats,
   getAbsencesForMatch,
   computeAbsenceImpact,
 }

@@ -319,6 +319,51 @@ Log-loss modèle 1.011 ; base rates réels H 45.3 / D 25.8 / A 28.9 %.
 - Afficher le 1X2 pur en information complémentaire (colonne dédiée), sans remplacer
   le pick discipliné — à implémenter si confirmé.
 
+---
+
+## C10 — Top Picks : EV fabriqué sur cotes par défaut éliminé à la racine ✅ (2026-08-26)
+
+### Constat (contrôle qualité des 6 picks affichés au dashboard)
+Tous portaient `odds = 1.85 / 1.80` avec `+EV 20-39 %` uniformes. Vérification DB :
+`quant.markets.O2.5.odds = 1.85` et `BTTS = 1.8/2.05` = **défauts codés en dur du moteur**
+(`m.odds_X || défaut`), `odds_source = null`, colonnes SQLite souvent vides au moment
+du calcul. Un pick était même daté de la veille sous « Top Picks du Jour ».
+
+### Cause racine double
+1. **`topPicksEngine.getMatchOdds`** acceptait les cotes quant fallback comme si elles
+   étaient marché → EV fabriqué (exactement ce que les backtests C8/C9 réfutent).
+2. **`database.getMatchesByStatuses` ligne ~1125** : `{...r, ...parsed}` — le blob
+   fullData stale écrasait les colonnes DB fraîches pour tout champ non ré-épinglé.
+   Les 1X2 l'étaient (`odds_home/draw/away`, commentaire « DB columns are
+   authoritative ») mais **odds_over25/under25/btts_yes/btts_no avaient été oubliés**
+   → même une cote réelle backfillée (oddsBackfill) était masquée par le blob.
+
+### Correctifs appliqués
+1. **`services/topPicksEngine.js`**
+   - `hasRealOddsSource(m)` : colonnes SQLite OU `fullData.odds_source` (dataFusion :
+     'betexplorer'|'sofascore'|'footballdata' ; null + fetch_error sinon).
+   - `getMatchOdds` : fallbacks quant **interdits sans source réelle** → hasOu/hasBtts
+     false → aucun candidat EV possible sur prix inventés.
+   - Fenêtre « du jour » : `windowStart = now - 30 min` (Top Picks ET Stables) — fini
+     les matchs déjà joués dans la sélection.
+2. **`core/database.js::getMatchesByStatuses`** : épinglage des 4 colonnes manquantes
+   après `...parsed` (odds_over25/under25/btts_yes/btts_no) — la DB redevient
+   autoritative pour TOUTES les cotes, comme voulu par l'auteur initial.
+
+### Validation AVANT/APRÈS (mêmes matchs, run réel)
+| Pick | Cote avant | Cote après (réelle) | EV |
+|---|---|---|---|
+| FA 2000 O2.5 | 1.85 « +39 % » | **1.43** | +7 % (Kelly 10→4.2 %) |
+| Preston BTTS | 1.80 « +27 % » | **1.57** | +11 % |
+| Preston O2.5 | 1.85 « +35 % » | **1.64** | +20 % |
+| Vietnam O2.5 / BTTS | 1.85/1.80 | **1.89/1.84** | +33 % / +22 % |
+| Newmarket (match veille) | présent | **rejeté (fenêtre)** | — |
+
+Les probas restent celles des modèles validés Q3/Q5 (xG-logistiques) ; seules les
+cotes sont devenues vraies. L'edge résiduel (+7 à +33 pts) sur ligues à couverture
+fine est désormais MESURABLE honnêtement par accuracyEngine (byMarket.OU/BTTS,
+cotes archivées au temps T).
+
 ## Prochaines actions (hors scope)
 - `npm install` dans le worktree puis lancer les tests Jest (état : bloqué par env)
 - Re-run du script de backfill CSV après chaque mise à jour football_data (07h00 quotidien)

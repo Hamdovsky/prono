@@ -73,6 +73,32 @@ function fairProb2way(o1, o2) {
   return (i1 / (i1 + i2)) * 100
 }
 
+// Extraire les cotes RÉELLES uniquement (audit C10).
+// Les valeurs de secours codées en dur de QuantumQuantEngine (O2.5=1.85,
+// BTTS=1.8/2.05, HT=1.5…) ne sont PAS des cotes marché : les utiliser pour
+// l'EV fabrique des "+23%" illusoires (prouvé par les backtests C8/C9 face aux
+// vraies cotes archivées). Une cote n'est acceptée que si :
+//   - colonne SQLite réelle (odds_over25 / odds_btts_yes / odds_home…), OU
+//   - fullData.odds_source renseigné par dataFusion ('betexplorer'|'sofascore'|'footballdata').
+function parseFullData(m) {
+  try {
+    return typeof m.fullData === 'string' ? JSON.parse(m.fullData) : (m.fullData || {})
+  } catch {
+    return {}
+  }
+}
+
+function hasRealOddsSource(m) {
+  const num = (v) => {
+    const f = parseFloat(v)
+    return !isNaN(f) && f > 1 ? f : null
+  }
+  if (num(m.odds_over25) || num(m.odds_under25) || num(m.odds_btts_yes) || num(m.odds_home)) return true
+  const fd = parseFullData(m)
+  const src = fd.odds_source || (fd.odds && fd.odds.source) || null
+  return !!src
+}
+
 // Extraire les cotes réelles (colonnes SQLite ou quant.markets).
 function getMatchOdds(m) {
   const q = (m.quant && typeof m.quant === 'object') ? m.quant : {}
@@ -83,15 +109,18 @@ function getMatchOdds(m) {
     const f = parseFloat(v)
     return !isNaN(f) && f > 1 ? f : null
   }
+  // Garde C10 : sans source de cotes réelle, les cotes du moteur quant sont des
+  // défauts cosmétiques -> ignorées (pas d'EV calculable = pas de pick EV).
+  const real = hasRealOddsSource(m)
 
   const odds = {
-    home: num(m.odds_home) || num(mr['1'] && mr['1'].odds),
-    draw: num(m.odds_draw) || num(mr['X'] && mr['X'].odds),
-    away: num(m.odds_away) || num(mr['2'] && mr['2'].odds),
-    over25: num(m.odds_over25) || num(ou['O2.5'] && ou['O2.5'].odds),
-    under25: num(m.odds_under25) || num(ou['U2.5'] && ou['U2.5'].odds),
-    bttsYes: num(m.odds_btts_yes) || num(bt['YES'] && bt['YES'].odds),
-    bttsNo: num(m.odds_btts_no) || num(bt['NO'] && bt['NO'].odds),
+    home: num(m.odds_home) || (real ? num(mr['1'] && mr['1'].odds) : null),
+    draw: num(m.odds_draw) || (real ? num(mr['X'] && mr['X'].odds) : null),
+    away: num(m.odds_away) || (real ? num(mr['2'] && mr['2'].odds) : null),
+    over25: num(m.odds_over25) || (real ? num(ou['O2.5'] && ou['O2.5'].odds) : null),
+    under25: num(m.odds_under25) || (real ? num(ou['U2.5'] && ou['U2.5'].odds) : null),
+    bttsYes: num(m.odds_btts_yes) || (real ? num(bt['YES'] && bt['YES'].odds) : null),
+    bttsNo: num(m.odds_btts_no) || (real ? num(bt['NO'] && bt['NO'].odds) : null),
   }
   odds.has1x2 = !!(odds.home && odds.away)
   odds.hasOu = !!(odds.over25 && odds.under25)
@@ -332,7 +361,8 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
   }
 
   const now = Date.now()
-  const windowStart = now - LOOKBACK_H * 3600 * 1000
+  // C10 : matchs NON commenc�s uniquement (gr�ce 30 min kick-off)
+  const windowStart = now - 30 * 60 * 1000
   const windowEnd = now + days * 24 * 3600 * 1000
 
   const analyzed = []
@@ -445,7 +475,8 @@ async function selectStablePicks({ limit = DEFAULT_LIMIT, days = 14 } = {}) {
   }
 
   const now = Date.now()
-  const windowStart = now - LOOKBACK_H * 3600 * 1000
+  // C10 : matchs NON commenc�s uniquement (gr�ce 30 min kick-off)
+  const windowStart = now - 30 * 60 * 1000
   const windowEnd = now + days * 24 * 3600 * 1000
   const cal = getCalibrator()
 

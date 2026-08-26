@@ -1130,9 +1130,15 @@ const database = {
             insufficient_data: r.insufficient_data,
             // 💾 DB columns are authoritative — the fullData blob (often stale,
             // e.g. livescore null odds) must NOT override backfilled odds.
+            // C10 : O/U + BTTS épinglés aussi (oubli historique -> les picks
+            // Top-Picks calculaient leur EV sur les fallbacks 1.85 du moteur).
             odds_home: r.odds_home ?? parsed.odds_home,
             odds_draw: r.odds_draw ?? parsed.odds_draw,
             odds_away: r.odds_away ?? parsed.odds_away,
+            odds_over25: r.odds_over25 ?? parsed.odds_over25,
+            odds_under25: r.odds_under25 ?? parsed.odds_under25,
+            odds_btts_yes: r.odds_btts_yes ?? parsed.odds_btts_yes,
+            odds_btts_no: r.odds_btts_no ?? parsed.odds_btts_no,
             odds_source: r.odds_source ?? parsed.odds_source,
             best_odds_home: r.best_odds_home ?? parsed.best_odds_home,
             best_odds_draw: r.best_odds_draw ?? parsed.best_odds_draw,

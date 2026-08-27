@@ -205,8 +205,37 @@ def generate_pronostics(m):
             "reason": f"Probabilité de nul: {d_prob:.0f}%. Côte nul: {odds_d if odds_d else 'N/A'}. Équilibre tactique."
             + (f" EV+ si côte > {round(100/max(d_prob,1), 2)}" if d_prob > 25 else "")
         })
-    
-    return pronostics[:5]  # Maximum 5, minimum 4
+
+    # 6. Market Engine — cotes réelles multi-marchés (VALUE uniquement)
+    # real_markets_value est persisté en DB (string JSON) par mlPredictionService.
+    rmv = m.get('real_markets_value')
+    if isinstance(rmv, str):
+        try:
+            rmv = json.loads(rmv)
+        except Exception:
+            rmv = None
+    if isinstance(rmv, list) and rmv:
+        for v in rmv:
+            try:
+                edge = float(v.get('edge_pct') or 0)
+                odds = float(v.get('real_odds') or 0)
+                implied = float(v.get('implied_probability') or 0)
+                model_p = float(v.get('model_probability') or 0)
+            except Exception:
+                edge = odds = implied = model_p = 0
+            pronostics.append({
+                "market": f"💰 {v.get('market', 'Real Market')} (cote réelle)",
+                "probability": round(model_p, 1),
+                "grade": "strong",
+                "reason": (
+                    f"Market Engine : cote réelle {odds:.2f} (implicite {implied:.0f}%) vs modèle "
+                    f"{model_p:.0f}% → edge +{edge:.0f}%. Valeur détectée sur cote Sofascore."
+                ),
+                "value": f"Edge +{edge:.0f}% @ {odds:.2f}",
+                "source": "real_markets",
+            })
+
+    return pronostics[:6]  # Maximum 6 (4 de base + valeurs réelles)
 
 
 # ─── Sidebar ─────────────────────────────────────────────────────────────────

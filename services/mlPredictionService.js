@@ -115,6 +115,21 @@ class MLPredictionService {
         if (result && result.success !== false && !result.error) {
           await setCache(cacheKey, result, PREDICTION_CACHE_TTL_SEC)
           logger.debug(`💾 [ML Cache] STORED for ${matchId} (TTL: ${PREDICTION_CACHE_TTL_SEC}s)`)
+          // Persist result (incl. real_markets_value) sur le match pour UI/command_center
+          try {
+            const db = require('../core/database')
+            const persist = {
+              id: matchId,
+              real_markets_value: result.real_markets_value || null,
+              real_markets_activated: !!result.real_markets_activated,
+              last_predicted_at: Date.now(),
+            }
+            if (typeof db.updatePredictions === 'function') {
+              await db.updatePredictions(matchId, persist)
+            }
+          } catch (_e) {
+            // best-effort : ne pas casser la prediction pour une ecriture DB
+          }
         } else if (result && result.success === false) {
           logger.debug(
             `🔵 [ML Service] Prediction rejected for ${matchId}: ${result.error || 'Low Confidence'}`

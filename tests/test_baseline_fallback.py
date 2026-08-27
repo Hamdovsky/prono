@@ -112,6 +112,40 @@ def test_calibration_active_sur_serving():
             assert abs(sum(v[mk]) - 1) < 1e-3 and all(0 <= x <= 1 for x in v[mk])
 
 
+def test_xgb_btts_gate():
+    """Audit (2026-08-27) : XGB_BTTS=on bascule BTTS sur xgb_btts_tuned.pkl,
+    sans toucher à 1X2/OU25, et reste off par défaut (zéro impact prod)."""
+    import numpy as np
+
+    os.environ["BASELINE_FALLBACK"] = "on"
+    os.environ.pop("XGB_BTTS", None)  # défaut off
+    df = pd.read_csv(bf.MASTER_CSV)
+    r = df.iloc[2000]
+    m = {"league": str(r["league"]), "home_team": str(r["home_team"]),
+         "away_team": str(r["away_team"]),
+         "date": str(pd.to_datetime(r["date"]).date())}
+
+    off = bf.predict_for_match(m, markets=("1x2", "ou25", "btts"))
+    os.environ["XGB_BTTS"] = "on"
+    on = bf.predict_for_match(m, markets=("1x2", "ou25", "btts"))
+    os.environ.pop("XGB_BTTS", None)
+    os.environ["BASELINE_FALLBACK"] = "off"
+
+    # défaut off -> RF ; on -> XGB (artefact différent)
+    assert bf._btts_model_name() == "rf"
+    os.environ["XGB_BTTS"] = "on"
+    assert bf._btts_model_name() == "xgb_btts_tuned"
+    os.environ.pop("XGB_BTTS", None)
+
+    # 1X2 / OU25 inchangés entre les deux modes
+    assert off["1x2"] == on["1x2"]
+    assert off["ou25"] == on["ou25"]
+    # BTTS valide et (généralement) différent du RF
+    for v in (on["btts"],):
+        assert abs(sum(v) - 1) < 1e-3 and all(0 <= x <= 1 for x in v)
+    assert on["btts"] != off["btts"]
+
+
 def test_nested_calibration_report_honnete():
     from core import backtest_walkforward as bw
 

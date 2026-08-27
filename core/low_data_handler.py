@@ -89,6 +89,14 @@ def predict_low_data(match_obj):
         'home_win': result['home_win'],
         'draw': result['draw'],
         'away_win': result['away_win'],
+        # Alias compatibles avec le bridge V553 / colonnes accuracyEngine
+        # (sinon le merge lit home_win_probability=undefined -> 0).
+        'home_win_probability': result['home_win'],
+        'draw_probability': result['draw'],
+        'away_win_probability': result['away_win'],
+        # Marqueurs low-data explicites (lus par accuracyEngine.summary.lowData*).
+        'is_low_data_prediction': True,
+        'zero_data_rescue': True,
         'home_xg': result['home_xg'],
         'away_xg': result['away_xg'],
         'btts_yes': result['btts_yes'],

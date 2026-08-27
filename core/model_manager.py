@@ -54,6 +54,7 @@ V553_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v553_optimized.jso
 V553_PREMIUM_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v553_premium.json')
 V56_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'xgboost_v55.json')
 CORNERS_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_corners_v1.json')
+CORNERS_V2_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'xgb_corners_total.json')
 CARDS_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_cards_v1.json')
 TITANIUM_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'titanium_v2.json')
 TITANIUM_V4_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'titanium_v4.json')
@@ -71,6 +72,7 @@ _XGB_V553_BOOSTER = None
 _XGB_V553_PREMIUM_BOOSTER = None
 _XGB_V56_BOOSTER = None
 _CORNERS_MODEL = None
+_CORNERS_V2_MODEL = None
 _CARDS_MODEL = None
 _TITANIUM_BOOSTER = None
 _TITANIUM_V4_BOOSTER = None
@@ -191,6 +193,23 @@ def get_corners_model():
     if _CORNERS_MODEL is None:
         _CORNERS_MODEL = _load_booster(CORNERS_MODEL_PATH, "Corners")
     return _CORNERS_MODEL
+
+
+def get_corners_model_v2():
+    global _CORNERS_V2_MODEL
+    if _CORNERS_V2_MODEL is None:
+        _CORNERS_V2_MODEL = _load_booster(CORNERS_V2_MODEL_PATH, "CornersV2")
+    return _CORNERS_V2_MODEL
+
+
+def get_corners_v2_features():
+    feat_path = CORNERS_V2_MODEL_PATH.replace('.json', '_features.json')
+    try:
+        with open(feat_path) as f:
+            import json as _json
+            return _json.load(f).get('features', [])
+    except Exception:
+        return []
 
 
 def get_cards_model():
@@ -345,6 +364,7 @@ _MODEL_NAMES = {
     'titanium_v2': ('titanium_v2', TITANIUM_MODEL_PATH),
     'titanium_v4': ('titanium_v4', TITANIUM_V4_MODEL_PATH),
     'corners': ('corners', CORNERS_MODEL_PATH),
+    'corners_v2': ('corners_v2', CORNERS_V2_MODEL_PATH),
     'cards': ('cards', CARDS_MODEL_PATH),
 }
 

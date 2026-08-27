@@ -1,0 +1,22 @@
+{
+  "features": [
+    "xg_home",
+    "xg_away",
+    "shots_home",
+    "shots_away",
+    "sot_home",
+    "sot_away",
+    "fouls_home",
+    "fouls_away",
+    "odds_home",
+    "odds_draw",
+    "odds_away",
+    "odds_over",
+    "odds_under",
+    "closing_odds_home",
+    "closing_odds_draw",
+    "closing_odds_away"
+  ],
+  "target": "total_corners",
+  "trained_on": "archive_football_data (local, xg+tirs+cotes)"
+}

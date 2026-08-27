@@ -313,6 +313,17 @@ function recordsFromMatches(r, options) {
     htUnder: fd.odds_ht_under ?? fd.odds?.ht_under,
   }
 
+  // Audit Prio 1 (2026-08-26) : marquage low-data pour permettre la mesure
+  // séparée de la performance des picks ZERO-DATA / insufficient_data.
+  // Sources (par ordre de priorité) :
+  //   - colonne matches.insufficient_data (QuantumQuantEngine / HONESTY GATE)
+  //   - fullData.zero_data_rescue  (marking Python low_data_handler)
+  //   - fullData.is_low_data_prediction (marking Python low_data_handler)
+  const isLowDataMatch =
+    Number(r.insufficient_data) === 1 ||
+    fd.zero_data_rescue === true ||
+    fd.is_low_data_prediction === true
+
   const primary = buildRecord(
     {
       matchId: r.id,
@@ -341,6 +352,7 @@ function recordsFromMatches(r, options) {
       cornersAway: r.corners_away,
       htHome: r.score_home_ht,
       htAway: r.score_away_ht,
+      isLowData: isLowDataMatch,
     },
     options
   )
@@ -494,6 +506,15 @@ function recordsFromHistorical(r, options) {
         : null
   const probs = p1 != null || px != null || p2 != null ? { p1, px, p2 } : null
 
+  // Audit Prio 1 (2026-08-26) : même marquage low-data côté archive.
+  // fullData.archivé n'est PAS régénéré — on lit les flags tels qu'écrits à
+  // l'époque par QuantumQuantEngine / HONESTY GATE / Python low_data_handler.
+  const isLowDataHist =
+    Number(r.insufficient_data) === 1 ||
+    fd.insufficient_data === 1 ||
+    fd.zero_data_rescue === true ||
+    fd.is_low_data_prediction === true
+
   const out = []
   const primary = buildRecord(
     {
@@ -523,6 +544,7 @@ function recordsFromHistorical(r, options) {
       cornersAway: r.corners_away,
       htHome: r.score_home_ht,
       htAway: r.score_away_ht,
+      isLowData: isLowDataHist,
     },
     options
   )
@@ -743,6 +765,13 @@ function computeAccuracy(options = {}) {
   let evaluated = 0
   let correct = 0
   let pushCount = 0
+  // Audit Prio 1 (2026-08-26) : mesure séparée des picks low-data / ZERO-DATA
+  // (marqués via rec.isLowData, propagé depuis matches.insufficient_data ou
+  // fullData.zero_data_rescue / is_low_data_prediction). Lecture seule, aucun
+  // recalcul : permet de comparer accuracy générale vs accuracy low-data.
+  let lowDataCount = 0
+  let lowDataCorrect = 0
+  let lowDataPush = 0
   let logLossSum = 0
   let logLossCount = 0
   let brierSum = 0
@@ -769,6 +798,21 @@ function computeAccuracy(options = {}) {
   const leagueMap = {}
   const byMarket = {} // { 1X2 | DC | OU } → réussite + cote moyenne + ROI flat
 
+  // Audit A/B (2026-08-26) : répartition par bracket de confiance (ex: 70-80%) —
+  // permet de mesurer la sur-confiance (cf. "réel ≈ 41% (75)" issu de
+  // backtest_results.json bracketAccuracy). Clé = label de bracket.
+  const byConfidenceBracket = {}
+  const confBracket = (c) => {
+    if (c == null || Number.isNaN(Number(c))) return 'unknown'
+    const v = Number(c)
+    if (v < 50) return '0-50'
+    if (v < 60) return '50-60'
+    if (v < 70) return '60-70'
+    if (v < 80) return '70-80'
+    if (v < 90) return '80-90'
+    return '90+'
+  }
+
   for (const rec of records) {
     const ok = isCorrect(rec.pick, rec.actual, rec.scoreHome, rec.scoreAway, rec)
     if (ok === null) continue
@@ -776,6 +820,26 @@ function computeAccuracy(options = {}) {
     if (ok) correct++
     else if (isOU(rec.pick) && rec.scoreHome + rec.scoreAway === parseFloat(rec.pick.slice(1))) {
       pushCount++ // O/U exactement sur le seuil → push
+    }
+
+    // Audit Prio 1 (2026-08-26) : comptage low-data (snapshot au temps T, aucun
+    // recalcul). Un push O/U n'est ni correct ni faux — compté à part.
+    if (rec.isLowData) {
+      lowDataCount++
+      if (ok === true) lowDataCorrect++
+      else if (isOU(rec.pick) && rec.scoreHome + rec.scoreAway === parseFloat(rec.pick.slice(1))) {
+        lowDataPush++
+      }
+    }
+
+    // Audit A/B (2026-08-26) : accumulation par bracket de confiance. Même règle
+    // que l'accuracy globale — un push O/U est exclu du dénominateur.
+    const bk = confBracket(rec.confidence)
+    if (!byConfidenceBracket[bk]) byConfidenceBracket[bk] = { count: 0, correct: 0, push: 0 }
+    byConfidenceBracket[bk].count++
+    if (ok === true) byConfidenceBracket[bk].correct++
+    else if (isOU(rec.pick) && rec.scoreHome + rec.scoreAway === parseFloat(rec.pick.slice(1))) {
+      byConfidenceBracket[bk].push++
     }
 
     const ll = computeLogLoss(rec.probs?.p1, rec.probs?.px, rec.probs?.p2, rec.actual)
@@ -906,6 +970,30 @@ function computeAccuracy(options = {}) {
       finishedCount,
       noPredictionCount,
       pendingCount,
+      // Audit Prio 1 (2026-08-26) : performance isolée des picks low-data /
+      // ZERO-DATA RESCUE. lowDataAccuracy exclut les push O/U du dénominateur
+      // (même règle que l'accuracy générale). null si aucun pick low-data marqué.
+      lowDataCount,
+      lowDataCorrect,
+      lowDataPush,
+      lowDataAccuracy:
+        lowDataCount > 0
+          ? +(lowDataCorrect / Math.max(1, lowDataCount - lowDataPush)).toFixed(4)
+          : null,
+      // Audit A/B (2026-08-26) : accuracy par bracket de confiance. Chaque entrée
+      // { count, correct, push, accuracy } ; accuracy exclut les push O/U du
+      // dénominateur. Sert à comparer PROB_BOOSTS=on vs off sur le bracket 70-80%.
+      byConfidenceBracket: Object.fromEntries(
+        Object.entries(byConfidenceBracket).map(([k, v]) => [
+          k,
+          {
+            count: v.count,
+            correct: v.correct,
+            push: v.push,
+            accuracy: v.count > 0 ? +(v.correct / Math.max(1, v.count - v.push)).toFixed(4) : null,
+          },
+        ])
+      ),
       accuracy: accuracy === null ? null : correct / denominator,
       accuracyPct,
       logLoss: logLossCount > 0 ? +(logLossSum / logLossCount).toFixed(4) : null,

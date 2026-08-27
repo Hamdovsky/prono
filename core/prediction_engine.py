@@ -91,6 +91,11 @@ except Exception:
 
 ELO_DATA = get_elo_data()
 
+# Audit (2026-08-26) P2 : gate des boosts non-calibrés (PWR/GNN/DEX/draw-worldcup).
+# Défaut 'on' = comportement actuel. PROB_BOOSTS=off permet de mesurer l'impact
+# sur le bracket 70-80% (sur-confiance ~41%) sans modifier la prod par défaut.
+PROB_BOOSTS_ON = os.environ.get('PROB_BOOSTS', 'on') != 'off'
+
 
 def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
     """Phase 10 suite : A/B des baselines walk-forward (LR/RF retenus), sous
@@ -409,7 +414,7 @@ def process_prediction(match_obj: dict) -> dict:
     a_shot_eff = _safe_float(features.get('a_sot', 4.0)) / max(_safe_float(features.get('a_pos', 50.0)) / 10.0, 0.1)
     pwr_score_est = max(50, (_safe_float(xg_h) * 15 * 0.90) + (_safe_float(h_composite_attack) * 15 * 0.10) + 50)
 
-    if pwr_score_est > 95:
+    if PROB_BOOSTS_ON and pwr_score_est > 95:
         eff_advantage = h_shot_eff / max(a_shot_eff, 0.01)
         if eff_advantage > 1.15:
             p_h = min(0.93, p_h * (1.0 + (eff_advantage - 1.0) * 0.35))
@@ -502,60 +507,65 @@ def process_prediction(match_obj: dict) -> dict:
     analysis.update(cal_analysis)
 
     # Draw & World Cup
-    p_h, p_d, p_a, wc_conf_adj = apply_draw_and_world_cup(p_h, p_d, p_a, league_name_str, tourn_name_str, features, analysis)
-    confidence += wc_conf_adj
+    if PROB_BOOSTS_ON:
+        p_h, p_d, p_a, wc_conf_adj = apply_draw_and_world_cup(p_h, p_d, p_a, league_name_str, tourn_name_str, features, analysis)
+        confidence += wc_conf_adj
+    else:
+        wc_conf_adj = 0.0
 
     # --- GNN-lite: Graph-based transitive strength modifier ---
-    try:
-        from graph_engine import compute_graph_features
-        gf = compute_graph_features(
-            match_obj.get('homeTeam', ''), match_obj.get('awayTeam', ''),
-            league=league_name_str
-        )
-        strength_diff = gf.get('graph_strength_diff', 0)
-        community = gf.get('graph_community_match', 0)
-        trans_h = gf.get('graph_transitive_h', 0.5)
-        trans_a = gf.get('graph_transitive_a', 0.5)
-        
-        # Apply transitive strength as mild probability shift (max ±8%)
-        if abs(strength_diff) > 0.05:
-            graph_mod = max(-0.08, min(0.08, strength_diff * 0.5))
-            p_h = max(0.01, min(0.95, p_h + graph_mod))
-            p_a = max(0.01, min(0.95, p_a - graph_mod))
-            s_graph = p_h + p_d + p_a
-            p_h, p_d, p_a = p_h/s_graph, p_d/s_graph, p_a/s_graph
-            analysis["Graph-Transitive"] = f"Transitive strength shift: {strength_diff:+.3f} ({home_name} advantage)"
-        
-        # Community match: if same league cluster, reduce away advantage slightly
-        if community == 1:
-            p_d = max(0.01, min(0.60, p_d * 1.02))
-            s_c = p_h + p_d + p_a
-            p_h, p_d, p_a = p_h/s_c, p_d/s_c, p_a/s_c
-    except Exception:
-        pass
+    if PROB_BOOSTS_ON:
+        try:
+            from graph_engine import compute_graph_features
+            gf = compute_graph_features(
+                match_obj.get('homeTeam', ''), match_obj.get('awayTeam', ''),
+                league=league_name_str
+            )
+            strength_diff = gf.get('graph_strength_diff', 0)
+            community = gf.get('graph_community_match', 0)
+            trans_h = gf.get('graph_transitive_h', 0.5)
+            trans_a = gf.get('graph_transitive_a', 0.5)
+
+            # Apply transitive strength as mild probability shift (max ±8%)
+            if abs(strength_diff) > 0.05:
+                graph_mod = max(-0.08, min(0.08, strength_diff * 0.5))
+                p_h = max(0.01, min(0.95, p_h + graph_mod))
+                p_a = max(0.01, min(0.95, p_a - graph_mod))
+                s_graph = p_h + p_d + p_a
+                p_h, p_d, p_a = p_h/s_graph, p_d/s_graph, p_a/s_graph
+                analysis["Graph-Transitive"] = f"Transitive strength shift: {strength_diff:+.3f} ({home_name} advantage)"
+
+            # Community match: if same league cluster, reduce away advantage slightly
+            if community == 1:
+                p_d = max(0.01, min(0.60, p_d * 1.02))
+                s_c = p_h + p_d + p_a
+                p_h, p_d, p_a = p_h/s_c, p_d/s_c, p_a/s_c
+        except Exception:
+            pass
 
     # --- DEX Prediction Markets: Smart money modifier ---
-    try:
-        from dex_tracker import compute_dex_signals
-        dex = compute_dex_signals(
-            match_obj.get('homeTeam', ''), match_obj.get('awayTeam', ''),
-            odds_home=_safe_float(match_obj.get('odds_home'), 0),
-            odds_draw=_safe_float(match_obj.get('odds_draw'), 0),
-            odds_away=_safe_float(match_obj.get('odds_away'), 0),
-        )
-        smart_money = dex.get('dex_smart_money_signal', 0)
-        dex_conf = dex.get('dex_market_confidence', 0)
-        
-        if dex.get('dex_has_data', 0) > 0 and abs(smart_money) > 0.02:
-            # Apply smart money as probability shift (max ±6%)
-            dex_mod = max(-0.06, min(0.06, smart_money * 0.4 * dex_conf))
-            p_h = max(0.01, min(0.95, p_h + dex_mod))
-            p_a = max(0.01, min(0.95, p_a - dex_mod))
-            s_dex = p_h + p_d + p_a
-            p_h, p_d, p_a = p_h/s_dex, p_d/s_dex, p_a/s_dex
-            analysis["DEX-SmartMoney"] = f"Smart money flow: {smart_money:+.4f} (conf: {dex_conf:.1f})"
-    except Exception:
-        pass
+    if PROB_BOOSTS_ON:
+        try:
+            from dex_tracker import compute_dex_signals
+            dex = compute_dex_signals(
+                match_obj.get('homeTeam', ''), match_obj.get('awayTeam', ''),
+                odds_home=_safe_float(match_obj.get('odds_home'), 0),
+                odds_draw=_safe_float(match_obj.get('odds_draw'), 0),
+                odds_away=_safe_float(match_obj.get('odds_away'), 0),
+            )
+            smart_money = dex.get('dex_smart_money_signal', 0)
+            dex_conf = dex.get('dex_market_confidence', 0)
+
+            if dex.get('dex_has_data', 0) > 0 and abs(smart_money) > 0.02:
+                # Apply smart money as probability shift (max ±6%)
+                dex_mod = max(-0.06, min(0.06, smart_money * 0.4 * dex_conf))
+                p_h = max(0.01, min(0.95, p_h + dex_mod))
+                p_a = max(0.01, min(0.95, p_a - dex_mod))
+                s_dex = p_h + p_d + p_a
+                p_h, p_d, p_a = p_h/s_dex, p_d/s_dex, p_a/s_dex
+                analysis["DEX-SmartMoney"] = f"Smart money flow: {smart_money:+.4f} (conf: {dex_conf:.1f})"
+        except Exception:
+            pass
 
     # Final Selection
     outcomes = [

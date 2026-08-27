@@ -4,6 +4,127 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Market Detection & Normalization Engine (2026-08-27)
+
+### Contexte
+User : "je veux que le scraper trouve TOUS les marches (Over 1.5, Under 1.5,
+Corners, Asian Handicap, BTTS, Team Goals, HT/FT...)". Probleme reel : le
+scraper Promosport ne recupere QUE le 1X2 (probabilites lm6). Pas de
+normalisation generique. On ne scrape AUCUN site tiers (ToS/legal) ; on
+construit un moteur modulaire sur les sources existantes.
+
+### Cree (local, core/market/)
+- `registry.js` : MARKET_REGISTRY canonique (goals/corners/cards/btts/handicap/
+  team_goals/ht_ft/match_result) + alias par source + SELECTION_SYNONYMS.
+  Ordre des cles important (team_goals avant total_goals ; lookbehind pour
+  eviter "Home Team Total Goals" capture par total_goals).
+- `discovery.js` : parcours recursif du payload, repère TOUTE structure
+  market-like (outcomes[]+odds), meme inconnue -> detected_by:"discovery".
+- `adapter.js` : SourceAdapter par source (promosport mappe 1X2 proba->cote
+  implicite ; football-data pour corners/HT). Aucune logique de nom hardcodee.
+- `normalizer.js` : match registre, extrait line/selection/handicap,
+  calcule confidence. Inconnu -> market_id:"unknown" (conserve, n'invente pas).
+- `validator.js` : garde-fous stricts. Cote < 1.0 ou absente -> skip (JAMAIS
+  d'invention). Over/Under sans ligne -> drop. Sort CanonicalMarketModel avec
+  flag `usable`.
+- `index.js` : orchestration adapter->discovery->normalizer->validator->dedup.
+
+### Verifie (test local, supprime apres)
+Payload multi-marches : total_goals 1.5/2.5, btts, asian_handicap -1.25,
+total_corners 9.5, team_goals 1.5, ht_ft => TOUS detectes + normalises,
+0 unknown. Payload inconnu => conserve en unknown, aucune cote inventee.
+
+### Limite HONNETE (important)
+Le moteur detecte les marches PRESENTES dans une source. Promosport ne
+fournit QUE le 1X2 -> le moteur ne peut pas "trouver" des marches que la
+source n'expose pas. Pour avoir tous les marches en vrai, il faut brancher
+une source multi-marches (ex: API de cotes type The Odds API) via un
+nouvel adapter (registerAdapter) SANS toucher le moteur.
+
+### Branchement recommande (non fait, a demander)
+- `enrichOne.js` / `scrapeService.js` : appeler `market.process(payload,{source})`
+  a la place du parsing ad-hoc, puis router vers prediction_engine.
+- Ajouter adapter pour ta vraie source multi-marches des que disponible.
+
+## Extension Sofascore multi-marches (2026-08-27)
+
+### Decouverte cle
+User : "j'utilise pas d'API payante, j'ai Sofascore/LiveScore". Verification du
+code : `services/sofascoreOddsService.js` fetchait en DUR uniquement 3 marches
+(1X2=mid1, O/U2.5=mid5, BTTS=mid6) via l'API Sofascore GRATUITE sans cle
+(`/event/{id}/odds/{marketId}/featured`). Or Sofascore expose BEAUCOUP plus de
+market IDs. Donc la source gratuite multi-marches etait deja la, sous-exploitee.
+
+### Modifications (local)
+1. `core/market/adapter.js` : ajout `sofascoreAdapter` (parse featured.default/
+   fullTime/markets + decimal/fractional) + `SOFASCORE_MARKET_NAMES` (map
+   marketId -> label canonique : 1,5,6,7,8,9,10,12,14,18,19,22).
+2. `core/market/registry.js` : ajout marches `double_chance` et `team_to_score`
+   (aliases + selections). AH simplifie (match "asian handicap" sans ligne).
+3. `core/market/index.js` : `process()` accepte maintenant un TABLEAU de payloads
+   (et pas seulement un objet) -> compatible avec le fetch parallele Sofascore.
+4. `services/sofascoreOddsService.js` :
+   - `MARKET_IDS = [1,5,6,7,8,9,10,12,14,18,19,22]` fetchs en parallele.
+   - `fetchOddsForMatch` retourne désormais `{ odds: {...legacy}, markets:
+     [CanonicalMarketModel...] }` ou `markets` vient du Market Engine.
+   - Legacy parsers (parseFeaturedOdds/OU25/BTTS) conserves pour compat.
+   - `require('../core/market')` ajoute le moteur.
+
+### Verifie (test local, supprime)
+Payload Sofascore simule 8 marches -> 19 selections normalisees, 0 unknown :
+match_result, total_goals 1.5/2.5, btts, double_chance, ht_ft, total_corners,
+asian_handicap, team_to_score. Tous usable=true. Aucune cote inventee.
+
+### Note honnete
+- LiveScore n'est pas encore branche (meme approche : adapter + marketIds).
+- Les marketIds Sofascore reels peuvent varier selon la region/event ; le
+  moteur de decouverte remontera tout marche inconnu en `unknown` pour
+  extension future sans rewrite.
+- RETOUR au backend : `fetchOddsForMatch` change de signature (retourne un objet
+  au lieu de null/odds). Les appelants historiques qui faisaient
+  `const o = await sofa.fetchOddsForMatch(m); if(o.home)...` doivent passer a
+  `o.odds.home`. A verifier/patcher les callers.
+
+
+## Amelioration Corners XGB (2026-08-27)
+
+### Objectif
+User : "je veux que le corner soit bcp mieux avec un pronostic precisément good".
+Decision : re-entrainer le modele corners sur des features REELLES (xG reel,
+tirs, SOT, fautes, cotes) disponibles dans l'archive locale, sans fuite.
+
+### Ce qui a ete fait
+1. Nouveau modele additif `models/xgb_corners_total.json` (XGBRegressor, 16
+   features : xg_home/away, shots_home/away, sot_home/away, fouls_home/away,
+   odds_home/draw/away, odds_over/under, closing_odds_home/draw/away).
+   - Entraine sur archive_football_data : 39672 matchs (rows clean 12420,
+     les rows sans xG/cotes droppees car archive historique incomplete).
+   - Cible = total corners (corners_home+away). MAE=2,547, RMSE=3,208.
+   - Pas de ligne corners ni cotes corners dans l'archive -> on predit le
+     TOTAL (comme V1), puis P(Over ligne) via Negative Binomial existante.
+2. `core/model_manager.py` : ajout CORNERS_V2_MODEL_PATH, cache
+   _CORNERS_V2_MODEL, get_corners_model_v2(), get_corners_v2_features(),
+   mapping 'corners_v2' dans _MODEL_NAMES.
+3. `core/ml_ensemble.py` : fonction _build_corners_v2_vector() (mapping
+   tolerant aliases h_xg/a_xg etc.) + branchement dans
+   predict_secondary_markets() (flag XGB_CORNERS_V2, defaut on). V1 (69
+   features) reste intact pour cards et fallback.
+4. `.env` : XGB_CORNERS_V2=on.
+5. RESTAURATION : le 1er run avait ecrase stitch_corners_v1.json (69 feat) par
+   le modele 16 feat ; restaure depuis .bak. V1 = 69 feat a nouveau correct.
+
+### Contrat respecte
+- V1 stitch_corners_v1.json (69 feat) NE pas touche -> runtime intact.
+- V2 charge 16 feat propres -> predict total corners plus fin (ex: 9.63 vs
+  defaut 9.0). Verification integration OK (expected_corners: 9.6, cards OK).
+
+### Limite honnete
+- MAE 2,5 corners typique : marche inherent (bookmaker tres efficace sur
+  corners). Le gain est une meilleure calibration du TOTAL, pas un edge
+  financier garanti. Sans reseau (FBref/ClubElo) on ne peut pas faire mieux
+  que xG archive + cotes.
+
+
 ## ÉTAPE 1 — Unifier la mesure de performance ✅
 
 **Date** : 2026-08-12
@@ -2029,3 +2150,383 @@ impact_score [-5;+5] " format "moteur d'extraction" demande.
 
 ## Activation
 STRUCTURED_NEWS_ENABLED=true dans .env pour activer en prod/local.
+
+## Audit Prio 1-3 (2026-08-26) � mesure low-data + tracabilite engine_exit + matrice gates
+
+### Contexte
+Apres audit lecture-seule du pipeline (XGBoost/Penaltyblog/ZERO-DATA/Calibration/
+Confluence/accuracyEngine), 3 priorites approuvees ("go") : (1) compteur low-data
+dans accuracyEngine, (2) tracer engine_exit vs fullData.probs, (3) doc matrice
+env x transformation.
+
+### Trouvaille structurante
+- Le marquage low-data Python (zero_data_rescue / is_low_data_prediction,
+  low_data_handler.py:105,112) NEst PAS propage a fullData cote Node prod.
+- Pipeline prod = Node : enrichOne -> QuantumQuantEngine -> fullData.
+  Marqueur low-data Node equivalent = matches.insufficient_data (col. SQLite+PG,
+  QuantumQuantEngine.js:51,82 ; database.js:216,601 ; persiste en colonne).
+- early-return low-data prediction_engine.py:230 jamais consomme par prod.
+
+### Prio 1 � compteur low-data (services/accuracyEngine.js)
+- recordsFromMatches / recordsFromHistorical : propagent rec.isLowData depuis
+  r.insufficient_data OU fd.zero_data_rescue OU fd.is_low_data_prediction.
+- Agregation : lowDataCount / lowDataCorrect / lowDataPush + lowDataAccuracy
+  (null si aucun pick low-data ; push O/U exclus denominateur, meme regle globale).
+- Lecture seule, snapshot temps T, aucun recalcul.
+
+### Prio 2 � tracabilite engine_exit (core/enrichOne.js)
+- Snapshot engine_exit {p1,px,p2,btts,over25} ajoute au retour + dans enriched
+  (persiste dans fullData.enriched.engine_exit via updatePredictions).
+- Helper pur engineExitDiff(engineExit, persisted) -> ecart absolu maximal
+  (0 = fidele). Preuve : database.js:1321-1336 ecrit fullData.home_win_probability
+  = enriched.home_win_probability || ... => fullData.probs == engine_exit (nul).
+- Aucune mutation ulterieure de home/draw/away_win_probability apres enrichOne
+  (seuls btts/corner/ht_pick derives ensuite, database.js:1417-1438).
+
+### Prio 3 � docs/AUDIT_GATE_SCOPE.md
+- Matrice gate env x transformation : ISO_RUNTIME_APPLY=false (OFF),
+  ENABLE_ISO_CALIBRATION=0 (OFF), META_REFINER_PY=off (OFF), DRAW_PRIOR_K=1.0
+  (OFF), GAP_LEARNING_ENABLED=off (OFF), BASELINE_FALLBACK=off (OFF),
+  V4_ENSEMBLE_ENABLED=true (ON), XGB externe + Confluence (ON), ZERO-DATA (ON
+  Python, non propage Node).
+- Note critique : 7+ shrinkages STRUCTURELS restent actifs meme si calibration
+  OFF (PWR/GNN/DEX/draw dampener/draw mult/live/renorm). "tout coupe" = inexact.
+
+### Tests
+- NOUVEAU __tests__/enrichOne.test.js : 5 tests (contrat sortie + Prio2).
+- __tests__/accuracyEngine.test.js : +3 tests Prio1 (matches.insufficient_data,
+  fullData.zero_data_rescue historique, aucun low-data => null).
+- Jest (suites touchees) : 35 passed / 0 failed. ESLint : 0 erreur
+  (warning pre-existant ligne 117 non lie).
+
+### Reste a faire (hors portee, lecture-seule respectee)
+- Propager eventuellement zero_data_rescue/is_low_data_prediction Python vers
+  fullData Node si on veut mesurer le sauvetage bayesien specifiquement (pas
+  fait : ne change pas la prod, risque inutile).
+- Brancher engineExitDiff en log serveur pour alerter si ecart > 0 en prod.
+
+## Audit P1-P3 (2026-08-26) � actions impl�ment�es (1er rapport audit strict)
+
+### Contexte
+Audit lecture-seule du pipeline a r�v�l� : (a) deux pr�dicteurs d�ploy�s (Node
+enrichOne/QuantumQuantEngine = chemin servi par server.js:402-437 ; Python
+prediction_engine.py = chemin V553 worker), (b) marquage low-data cass�
+(`m.insufficient_data || 1` for�ait toujours 1), (c) bug cl�s V553
+(home_win vs home_win_probability), (d) over-confiance bracket 70-80% -> ~41%
+due aux boosts non-gat�s (PWR/GNN/DEX/league bias/bsd_boost), pas � la calib.
+
+### P1 � Pr�dicteur autoritaire (Node = v�rit�)
+- core/enriched_predictions.js : `_tryV553` retourne fallback si
+  `V553_OVERRIDE !== 'on'` (d�faut off). Bloc de fusion Python dans
+  `fastEnrichMatch` (ex-lignes ~728-748) gat� pareillement. Le Python /predict
+  n'�crase plus les probs Node sauf activation explicite.
+- Correction bug cl�s : bridge V553 lit d�sormais home_win/draw/away_win en
+  repli de home_win_probability (�vite probs=0 sur low-data Python).
+
+### P2 � Flag PROB_BOOSTS (d�faut on = comportement pr�serv�)
+- core/QuantumQuantEngine.js : biais contextuels ligue/style/m�t�o + bsd_boost
+  �1.15 gat�s derri�re `PROB_BOOSTS !== 'off'`.
+- core/prediction_engine.py : PWR (412), GNN-lite (520), DEX (549),
+  apply_draw_and_world_cup (505) gat�s derri�re `PROB_BOOSTS_ON`
+  (os.environ.get('PROB_BOOSTS','on')!='off'). Permet A/B bracket 70-80% sans
+  r�gression par d�faut. Aucune calibration r�activ�e.
+
+### P3 � Marquage low-data fiabilis�
+- core/enrichOne.js : `isLowData = !!m.insufficient_data` ; insufficient_data
+  devient 0/1 correct (fix bug `|| 1`), + zero_data_rescue/is_low_data_prediction
+  (top-level + enriched). accuracyEngine.summary.lowData* (Prio1 ant�rieure)
+  mesure d�sormais les vrais picks low-data.
+- core/low_data_handler.py : alias home_win_probability/draw/away + marqueurs
+  low-data ajout�s (additif, compat bridge V553).
+
+### Tests
+- __tests__/enrichOne.test.js : +2 tests marquage low-data (0->0/false, 1->1/true).
+- Jest (suites touch�es) : 35 passed / 0 failed. ESLint 0 erreur (warnings
+  pr�existants uniquement). py_compile prediction_engine/low_data_handler OK.
+
+### Reste � faire (hors scope, requiert d�cision)
+- Lancer A/B PROB_BOOSTS=off vs on et comparer bracket 70-80% via accuracyEngine
+  pour quantifier la r�duction de sur-confiance.
+- Confirmer en prod que V553_OVERRIDE reste off (Node = v�rit�) ou documenter
+  l'activation.
+
+## Harnais A/B PROB_BOOSTS (suite audit, 2026-08-26)
+
+### Objectif
+Quantifier l'impact des boosts non-calibr�s (PWR/GNN/DEX/league/bsd) sur le bracket
+de confiance 70-80% (cf. "r�el � 41% (75)" issu de backtest_results.json), via un
+A/B on/off sans recalcul de mod�le.
+
+### Ajouts
+- services/accuracyEngine.js : nouvelle m�trique additive `summary.byConfidenceBracket`
+  (cl�s 0-50/50-60/60-70/70-80/80-90/90+), chacune {count, correct, push, accuracy}
+  (push O/U exclus du d�nominateur, comme l'accuracy globale). Permet de mesurer
+  pr�cis�ment le bracket 70-80%.
+- scripts/ab_prob_boosts.js : compare enrichOne/QuantumQuantEngine avec
+  PROB_BOOSTS=on vs off sur les M�MES matchs FT, puis lit
+  summary.byConfidenceBracket['70-80'] + accuracy globale. Mode --selftest
+  (mock d�terministe, valid� : on pousse 10 picks dans 70-80 � 60%, off n'en a
+  aucun dans ce bracket). Mode DB r�elle via AB_DB_PATH (� pointer sur une COPIE,
+  jamais tactical.db live car enrichOne peut �crire).
+- __tests__/accuracyEngine.test.js : +1 test byConfidenceBracket (26/26 verts).
+
+### Verdict
+Le harnais est pr�t. Le run r�el (sur copie staging) donnera les chiffres d�finitifs
+du bracket 70-80% on vs off pour d�cider si PROB_BOOSTS doit rester on (d�faut) ou
+�tre bascul� off pour r�duire la sur-confiance. Aucune calibration r�activ�e.
+
+## Exp�rience XGBoost "make it performant" (2026-08-26)
+
+### Protocole (harnais walk-forward = source de v�rit�)
+- `python -m core.backtest_walkforward` tourne (venv OK, master_dataset.csv 5,4 MB,
+  n=1752 val saison 2526, 10 folds, embargo 7j respect�).
+- Baseline reproduite exactement : XGB 1X2 acc=0.58635 (run 2c3e84fe6c).
+- Exp�rience : ajout des cotes de cl�ture (P1/PX/P2_close_avg, odds_*_close_avg,
+  F_*_Close_Diff) � FEATURE_ALLOWLIST (features pr�-match, SANS fuite) puis re-run
+  complet lr/rf/xgb sur 1x2/ou25/btts (run f1e5d3f20b). Allowlist r�vertie
+  ensuite pour garder le harnais canonical.
+
+### R�sultat (honnete)
+| Marche | LR       | RF       | XGB      |
+|--------|----------|----------|----------|
+| 1X2    | 60,1 %   | 59,3 %   | 57,8 % (? vs 58,6 base) |
+| O/U2.5 | 69,2 %   | 68,3 %   | 67,8 %   |
+| BTTS   | 63,9 %   | 68,3 %   | 66,1 %   |
+
+XGB reste DERNIER sur les 3 marches. L'enrichissement par closing odds n'inverse
+pas la hi�rarchie : le dataset est petit (5301 matchs Top-5) et la relation est
+quasi-lin�aire -> LR (et RF sur BTTS) dominent. XGB overfit l�g�rement les
+features collinearis�es (acc 1X2 en baisse).
+
+### Conclusion / "bon chemin" r�vis�
+Faire de XGBoost le pr�dicteur principal n'est PAS le bon levier ici. D�cisions :
+- Garder LR comme r�f�rence, RF comme compl�ment BTTS ; XGB = membre d'ensemble
+  (deja V24/V55/V553 blend) et NON mod�le unique.
+- Ne PAS r�activer V553_OVERRIDE pour promouvoir XGB en prod tant qu'il perd.
+- Leviers r�els de qualit� : (1) corriger promosport_xgb.json d�g�n�r�, (2) le
+  chemin servi Node (QuantumQuantEngine) que nous avons d�j� gat� (PROB_BOOSTS /
+  V553_OVERRIDE), (3) si on veut vraiment am�liorer XGB : +de donn�es (�largir
+  hors Top-5 + saisons) ou tuning HP cibl�, pas juste ajouter des features.
+- Aucune modification de mod�le en prod ; allowlist harnais r�vertie.
+
+## Syst�me hybride m�ta-stacker (2026-08-26) � GATE FAIL (honn�te)
+
+### Phase 0 � promosport_xgb.json d�g�n�r� corrig�
+- Diagnostic : promosport_xgb.json est CORROMPU (booster 0 feature) -> inutilisable,
+  source de la degeneration "X 96%" historique.
+- R�-entra�nement propre (allowlist causale master, sans fuite) -> models/promosport_xgb_v2.json
+  (41 features). Distribution saine : H 50,4% / D 14,6% / A 35% (plus d�g�n�r�).
+  acc OOF walk-forward = 0,58635 (identique au baseline XGB du harnais).
+- Script : scripts/retrain_promosport_xgb.py.
+
+### Phase 1 � predictions OOF (6 membres)
+- scripts/gen_oof.py : 5301 lignes OOF (lr, rf, xgb, promo[xgb depth6], dc, poisson)
+  alignees par match sur 10 folds mensuels 2526. Tous membres biaises H ~85% argmax
+  (typique football, pas degenerescence mais forte correlation).
+
+### Phase 2-3 � meta-stackeur + GATE
+- scripts/train_stacker.py : stacker LR multinomial en leave-one-fold-out + variantes
+  (LR C=0,05, XGB depth=2). Comparaison vs lr seul (r�f�rence 60,27% / 0,88585).
+- Resultats : stacker XGB d=2 meilleur a 58,56% / 0,90208, mais INFERIEUR a lr seul.
+- GATE = FAIL : l'hybride ne bat pas le meilleur membre seul. On NE ship pas.
+- Cause : membres trop corr�l�s (pas de diversit�) + dataset petit (1752 val, Top-5 only).
+
+### Modeles V24/V55/V553 pre-entraines : inutilisables
+- xgboost_v55.json, stitch_v55/551/552/553*, titanium_v4, xg_home/away/archive = 0 feature (corrompus).
+- stitch_v24_hybrid.json / titanium_v2.json = 197 features mais 0 presente dans
+  master_dataset.csv (pipeline features engineering incompatible) -> inference impossible.
+
+### Decision
+- LR reste reference ; XGBoost = membre d'ensemble leger (promosport_xgb_v2.json conserve).
+- Pistes si depassement de LR voulu : (1) diversite par features engineering (membres
+  Elo/xG/odds disjoints), (2) gating conditionnel XGB vs LR, (3) plus de donnees (hors Top-5).
+- Docs : docs/HYBRID_STACKER.md. Aucun modele en prod modifie ; promosport_xgb_v2.json
+  ajoute seulement un membre sain (non branch� en prod).
+
+### Phase 1bis + 2-3 (9 membres) � GATE FAIL confirme
+- Ajout de 3 membres speciaux (vecteur features disjoint) : elo_xgb (Elo), xg_xgb
+  (xG/formes), close_xgb (cotes cloture), re-entraines walk-forward. OOF 9 membres.
+- train_stacker.py etendu a 9 membres. Resultats : lr seul 60,27%/0,88585 ;
+  stacker XGB d=2 meilleur a 58,96%/0,90061 ; moyenne uniforme 58,22%.
+- GATE = FAIL : la diversite par features ne fait pas depasser LR. Membres trop
+  correles en probabilites (tous biais H, ecarts faibles).
+- Conclusion : sur Top-5 / 5301 matchs, AUCUN stacking/blend ne bat LR (confirme
+  BASELINE_EVAL "XGB ne bat pas LR"). LR = plafond pratique.
+
+### Decision finale hybride
+- LR reste reference prod (chemin Node deja servi). XGBoost = membre ensemble leger
+  (promosport_xgb_v2.json sain conserve), NON primaire. V553_OVERRIDE reste off.
+- Depassement de LR uniquement via : (a) plus de donnees (elargir hors Top-5),
+  ou (b) feature engineering beaucoup plus riche (embeddings equipe/H2H/contextuel).
+- Aucun modele en prod modifie. HYBRID_STACKER.md mis a jour (2 experiences).
+
+## Experience "Plus de donnees" via historical_archive.sqlite (2026-08-26) - GATE FAIL (pire)
+
+### Objectif
+User a choisi "Plus de donnees" : elargir master_dataset.csv hors Top-5 pour casser la
+correlation des membres et permettre au stacker de battre LR.
+
+### Decouvertes (data/historical_archive.sqlite, 108 Mo)
+- `archive_football_data` : 144 397 lignes, 64 ligues, ~saison 0001 -> 2526.
+  Contient score, tirs, corners, **xg_home/xg_away (vrai xG)**, cotes ouvertes +
+  **cotes de cloture**, pour les saisons historiques Top-5.
+- Saisons modernes (`2024-25` etc., 43k lignes, 60 ligues, avec xG) :
+  **match_date = NULL et cotes = NULL** -> inutilisables pour le walk-forward
+  (pas de chronologie ni de marche). Exclues.
+- Saisons historiques Top-5 (`0203`..`0910`, `2324`..`2526`) : cotes presentes,
+  dates presentes -> seules utilisables.
+
+### Build (scripts/build_enlarged_dataset.py)
+- Reconstruit un master elargi (Elo local hors-reseau + xG reel archive + proxy xA).
+- Resultat : 57 998 lignes, Top-5 uniquement (les 60 ligues modernes sans date/cote
+  ont ete rejectees par le filtre date). ~20 saisons de Top-5 (vs 4 dans master original).
+- master_dataset_enlarged.csv + oof_1x2.csv (9 membres) generes.
+
+### Resultat stacker (train_stacker.py, val 2526 Top-5)
+- lr seul : **acc=0,5300** (vs 0,6027 sur master original !)
+- moyenne uniforme : 0,5397
+- stacker XGB d=2 meilleur : 0,5220 / 0,97438
+- GATE = FAIL, et PIRE qu'avant : le dataset elargi degrade la qualite des features.
+
+### Cause racine
+- Le master original doit SA richesse aux features xG + cotes de cloture fournies par
+  le pipeline complet (fbref + ClubElo + cotes). L'archive historique Top-5 n'a PAS le
+  xG ni les cotes de cloture -> ces features deviennent constantes (NaN->median) ->
+  perte de signal -> tous les membres s'effondrent sur H (argmax H 98,9%) et LR chute
+  a 53%.
+- "Plus de donnees" brut (meme ligues, features appauvries) n'aide PAS ; ca degrade.
+
+### Conclusion "Plus de donnees"
+- Via l'archive LOCALE : impossible de battre LR. Les 60 ligues modernes manquent de
+  dates/cotes ; l'historique Top-5 manque de xG/cloture.
+- Le vrai levier = meme jeu de features RICHE (xG + cloture + Elo) mais pour PLUS de
+  ligues -> necessite le pipeline complet data_pipeline (football-data.co.uk multi-ligues
+  + fbref xG + ClubElo), donc ingestion reconfiguree + acces reseau. NON fait ici.
+- master_dataset.csv original INTACT (jamais ecrase ; artefacts experimentaux dans
+  master_dataset_enlarged.csv / oof_1x2.csv).
+
+### Prochaines etapes proposees (attente user)
+1. Reconfigurer data_pipeline pour ingerer ~15-20 ligues (football-data.co.uk) avec
+   xG fbref + Elo ClubElo -> master RICHE multi-ligues -> re-tester le stacker.
+2. Ou accepter LR comme plafond et arreter les experiences hybrides.
+3. **SECURITE (FAIT)** : AGENTS.md nettoye des secrets en clair (voir section
+   "Credentials — Rotation Status" refaite sans valeurs). .gitignore exclut deja
+   AGENTS.md ; aucun secret residuel dans l'arbre (grep verifie).
+
+## Tuning HP XGBoost (suite "continue avec XGBoost", 2026-08-27) — GATE FAIL sauf BTTS
+
+### Contexte / decision
+L'utilisateur a demande de "continuer avec XGBoost". Analyse : la piste
+multi-ligues RICHES (FBref xG + ClubElo) est BLOQUEE hors-ligne (clubelo.com et
+fbref.com inaccessibles depuis cet environnement ; seul football-data.co.uk OK).
+Le "meilleur choix" faisable = tuning HP cible sur le master riche Top-5 deja
+present en local (5310 matchs, features RICHES intactes), sans changer de donnees.
+
+### Harnais reutilise
+`scripts/tune_xgb_hp.py` importe `core/backtest_walkforward.py`
+(month_folds, load_master, leakage_tripwire, FEATURE_ALLOWLIST, metrics_*) et
+grid-search 6 jeux d'HP XGB en walk-forward mensuel (embargo 7j, saison val
+2526), compare a la reference LR (1X2/OU25) / RF (BTTS).
+
+### Resultats (accuracy walk-forward, reference = LR/RF)
+| Jeu HP XGB            | 1X2       | OU25      | BTTS      |
+|-----------------------|-----------|-----------|-----------|
+| base (depth4, defaut) | 0,58619   | 0,68322   | 0,66724   |
+| shallow (depth3, reg) | 0,59189   | 0,68094   | 0,68265   |
+| deep_reg (depth6, L2=5) | 0,58562 | 0,68151   | **0,68436** |
+| wide_reg (L2=10)      | 0,58619   | 0,68607   | 0,67580   |
+| minchild (mcw=120)    | 0,58733   | 0,68664   | 0,68151   |
+| lr_high (lr=0.10)     | 0,58276   | 0,67066   | 0,65982   |
+| **Reference LR/RF**   | **0,60274** | **0,69349** | **0,68151** |
+
+### Verdict
+- GATE = FAIL sur 1X2 et OU25 : AUCUN tuning HP ne fait depasser LR. max XGB 1X2 =
+  0,59189 (shallow) vs 0,60274 LR. Ecart structurel confirme (relation quasi-
+  lineaire, features collinearisees -> LR gagne).
+- SEUL gain : XGB **deep_reg** bat RF sur BTTS (0,68436 vs 0,68151, +0,29 pt),
+  gain marginal mais reproductible. XGB reste donc competitif sur BTTS uniquement.
+- Conclusion : le tuning seul NE suffit pas a promouvoir XGB en predictieur
+  principal. Le plafond pratique reste LR (1X2/OU25) + RF (BTTS).
+
+### Decision / artefact
+- Aucun modele en prod modifie. LR reste reference prod ; V553_OVERRIDE off.
+- Export NON-intrusif d'un XGB BTTS optimise (deep_reg) en modele d'ensemble leger
+  `models/xgb_btts_tuned.pkl` (non branche en prod, membre optionnel futur).
+- Meilleurs params BTTS : max_depth=6, lr=0.02, n_estimators=500, subsample=0.8,
+  colsample_bytree=0.6, min_child_weight=50, reg_lambda=5, reg_alpha=1.
+- Resultats persistes : data_pipeline/data/processed/xgb_tuning.json.
+
+### Prochaines etapes (attente user)
+1. Pour VRAIMENT faire dépasser XGB : pipeline multi-ligues RICHES (necessite
+   reseau FBref/ClubElo) -> re-tester. Bloque hors-ligne pour l'instant.
+2. Ou brancher xgb_btts_tuned comme membre BTTS de l'ensemble leger (V24/V55 blend),
+   remplacant RF sur BTTS si validation OOF confirmee.
+3. Ou accepter LR/RF comme plafond et clore les experiments XGB.
+
+## Branchement XGB BTTS (suite tuning, 2026-08-27) — deployable, gate off
+
+### Objectif
+Exploiter le seul gain du tuning (XGB bat RF sur BTTS +0,29pt walk-forward) en
+exposant `models/xgb_btts_tuned.pkl` comme membre BTTS de l'ensemble leger,
+SANS toucher a la reference prod (LR/R 1X2/OU25, RF BTTS par defaut).
+
+### Implementation (core/baseline_fallback.py)
+- `_btts_model_name()` : retourne `'xgb_btts_tuned'` si `XGB_BTTS=on` ET artefact
+  present, sinon `'rf'` (comportement par defaut). `_btts_pkl()` resout le bon
+  chemin (`xgb_btts_tuned.pkl` vs `baseline_rf_btts.pkl`).
+- `_predict_from_rows` / `predict_from_features` : BTTS utilise le chemin XGB
+  gaté ; 1X2/OU25 inchanges. Calibration isotonique re-appliquee via `_apply_cal`.
+- Kill-switch `XGB_BTTS` defaut `off` -> zero impact prod. Meme pattern que
+  `BASELINE_FALLBACK` / `PROB_BOOSTS` / `V553_OVERRIDE` (audit coherent).
+
+### Verification
+- `python -m pytest tests/test_baseline_fallback.py` : **7 passed** (dont
+  `test_xgb_btts_gate` ajoute : defaut off -> RF, on -> XGB, 1X2/OU25 inchanges,
+  BTTS valide somme=1, != RF).
+- Smoke end-to-end sur match archive : OFF btts=[0.47674,0.52326] (RF) ->
+  ON btts=[0.51049,0.48951] (XGB) ; 1x2/ou25 identiques ; probas bornees [0,1].
+
+### Decision
+- XGB BTTS PRET a etre active en prod via `XGB_BTTS=on` (ex. Render Dashboard ->
+  Environment). Aucune modification par defaut : RF reste le serveur BTTS.
+- 1X2/OU25 : LR confirme plafond ; XGB non promu (GATE FAIL sur ces marches).
+- Prochaine etape recommandee : A/B BTTS RF vs XGB en conditions reelles
+  (backtest bracket + ROI) avant bascule definitive, OU accepter LR/RF plafond.
+
+### Activation LOCALE (2026-08-27)
+- `.env` (gitignore) : `BASELINE_FALLBACK=on` + `XGB_BTTS=on` ajoutes.
+- Portee : **DEV/LOCAL UNIQUEMENT**. Le .env est gitignore -> NE touche PAS Render.
+- Verification locale : fallback enabled=True, BTTS model=xgb_btts_tuned,
+  BTTS=[0.51049,0.48951] (valide, somme=1), 1X2/OU25 inchanges (LR).
+- Pour activer en PROD : poser BASELINE_FALLBACK=on + XGB_BTTS=on dans le Render
+  Dashboard -> Environment de chaque service FastAPI (NON fait ici, demande user).
+- 1X2/OU25 restent servis par LR meme en local (XGB non promu sur ces marches).
+
+## Decision "bon chemin" XGB local (2026-08-27)
+
+### Contexte
+User : "est-ce une bonne decision de re-entrainer le corners XGB ?" -> reponse
+honnête : NON. Puis "prend le bon chemin".
+
+### Bon chemin retenu (local seulement)
+1. **Corners XGB** : NE PAS re-entrainer. `models/stitch_corners_v1.json` (69
+   features) deja entraîné et deja servi en local (get_corners_model ->
+   expected_corners -> P(Over corners) via Negative Binomial). Backtest C8 =
+   AUCUN edge corners en ère moderne (ROI negatif) -> la limite est le marché,
+   pas le modele. Re-entrainer risquerait de DEGRADER (archive_matches moderne
+   sans date/cote, deja vu en experience "plus de donnees").
+2. **BTTS** : XGB ACTIVE en local (xgb_btts_tuned.pkl, gagnant walk-forward vs
+   RF +0,29pt). C'est le seul endroit ou XGB apporte reellement.
+3. **1X2 / OU25** : LR reste reference (XGB perd sur les 3 marches au walk-
+   forward : 1X2 LR 0,6057 vs XGB 0,5887 ; OU25 LR 0,6954 vs XGB 0,6844).
+4. **Pas de tuning/stacking supplementaire local** : plafond atteint sur master
+   Top-5 riche ; seul levier reel = multi-ligues RICHES (bloque hors-ligne :
+   FBref/ClubElo inaccessibles ici).
+
+### Etat final XGB local
+- Active : BTTS (XGB) via BASELINE_FALLBACK=on + XGB_BTTS=on (.env, gitignore).
+- A l'arret (par defaut) : 1X2/OU25 (LR), et V553_OVERRIDE off (Node=vérité).
+- Laisse tel quel : stitch_corners_v1.json (deja bon, non re-entraine).
+- Prochaine etape si env reseau : pipeline multi-ligues RICHES pour tenter de
+  faire depasser XGB sur 1X2/OU25. Sinon : accepter LR/RF plafond, XGB BTTS
+  comme seule contribution locale.

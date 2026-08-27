@@ -1,5 +1,6 @@
 const logger = require('../core/logger')
 const { SofaAPI, fetchWithRetry, getSofaHeaders } = require('../SofascoreScraping/src/apiClient')
+const { process: normalizeMarkets } = require('../core/market')
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
 const NOT_FOUND_TTL_MS = 2 * 60 * 60 * 1000
@@ -233,10 +234,20 @@ class SofascoreOddsService {
   }
 
   /**
+   * Market IDs Sofascore connus (gratuit, sans clé). On fetch tous ceux-ci en
+   * parallele ; le moteur de normalisation (core/market) deduit le type/line/
+   * selection automatiquement. Ajouter un ID ici = nouveau marche sans rewrite.
+   *  1=1X2 5=O/U 2.5 6=BTTS 7=Double Chance 8=HT/FT 9=Corners O/U
+   * 10=Asian Handicap 12=Team to Score 14=HT O/U 18=BTTS & Win
+   * 19=Draw No Bet 22=Both Teams To Score & Over/Under
+   */
+  static MARKET_IDS = [1, 5, 6, 7, 8, 9, 10, 12, 14, 18, 19, 22]
+
+  /**
    * Fetch real odds for a match from Sofascore (free, no key).
-   * 1X2 (market 1), Over/Under 2.5 (market 5) and BTTS (market 6) are fetched in
-   * parallel; each market is best-effort. Returns null when nothing was found.
-   * Example: { home, draw, away, over25, under25, btts_yes, btts_no }.
+   * Tous les marchés de MARKET_IDS sont récupérés en parallèle (best-effort),
+   * puis normalisés via le Market Detection & Normalization Engine.
+   * Retourne { odds: {...legacy}, markets: [CanonicalMarketModel...] }.
    */
   async fetchOddsForMatch(match) {
     if (!this.isAvailable() || !match) return null
@@ -246,35 +257,36 @@ class SofascoreOddsService {
       if (!eventId) return null
     }
 
-    const [m1, m5, m6] = await Promise.all([
-      this._fetchMarket(eventId, 1),
-      this._fetchMarket(eventId, 5),
-      this._fetchMarket(eventId, 6),
-    ])
+    const results = await Promise.all(
+      SofascoreOddsService.MARKET_IDS.map((mid) => this._fetchMarket(eventId, mid))
+    )
 
     const odds = {}
-    const r1 = m1 ? parseFeaturedOdds(m1) : null
-    if (r1) Object.assign(odds, r1)
-    const r5 = m5 ? parseOverUnder25(m5) : null
-    if (r5) Object.assign(odds, r5)
-    const r6 = m6 ? parseBtts(m6) : null
-    if (r6) Object.assign(odds, r6)
+    const rawForEngine = []
+    results.forEach((data, i) => {
+      if (!data) return
+      const mid = SofascoreOddsService.MARKET_IDS[i]
+      rawForEngine.push({ id: `${eventId}:${mid}`, marketId: mid, marketName: `sofa_mkt_${mid}`, ...data })
+      // Legacy parsers pour compatibilite descendante
+      if (mid === 1) Object.assign(odds, parseFeaturedOdds(data) || {})
+      else if (mid === 5) Object.assign(odds, parseOverUnder25(data) || {})
+      else if (mid === 6) Object.assign(odds, parseBtts(data) || {})
+    })
+
+    // Normalisation generique (decouvre aussi O/U 1.5, Corners, AH, HT/FT...)
+    const markets = normalizeMarkets(rawForEngine, { source: 'sofascore', eventId })
 
     if (
-      !odds.home &&
-      !odds.draw &&
-      !odds.away &&
-      !odds.over25 &&
-      !odds.under25 &&
-      !odds.btts_yes &&
-      !odds.btts_no
+      !odds.home && !odds.draw && !odds.away &&
+      !odds.over25 && !odds.under25 && !odds.btts_yes && !odds.btts_no &&
+      markets.length === 0
     ) {
       return null
     }
     logger.debug(
-      `[SOFASCORE-ODDS] Odds for ${match.homeTeam} vs ${match.awayTeam}: H=${odds.home} D=${odds.draw} A=${odds.away} O/U=${odds.over25}/${odds.under25} BTTS=${odds.btts_yes}/${odds.btts_no}`
+      `[SOFASCORE-ODDS] Mkts normalises pour ${match.homeTeam} v ${match.awayTeam}: ${markets.length} (1X2 H/D/A=${odds.home}/${odds.draw}/${odds.away})`
     )
-    return odds
+    return { odds, markets }
   }
 }
 

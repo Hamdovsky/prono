@@ -88,6 +88,27 @@ async function enrichOne(m, deps = {}) {
   const confidence = quantResult.confidence
   const sufficient = true
 
+  // Audit P3 (2026-08-26) : marquage low-data CORRIGÉ. L'ancien code
+  // `m.insufficient_data || 1` forçait toujours 1 (car 0 || 1 === 1) → tous les
+  // matchs étaient marqués insufficient_data. On utilise une valeur booléenne
+  // stricte pour que seuls les matchs réellement insufficient_data=1 soient
+  // marqués (permet à accuracyEngine de mesurer la perf low-data séparément).
+  const isLowData = !!m.insufficient_data
+
+  // Audit Prio 2 (2026-08-26) : snapshot « engine_exit » = probabilités FINALES
+  // du moteur AVANT toute fusion DB. Permet de tracer / mesurer l'écart entre ce
+  // point de sortie et ce qui est effectivement persisté dans fullData.probs
+  // (database.updatePredictions écrit fullData.home_win_probability =
+  // enriched.home_win_probability || …, donc en principe identique — ce helper
+  // sert à LE prouver et à détecter toute mutation ultérieure).
+  const engineExit = {
+    p1: hPct,
+    px: dPct,
+    p2: aPct,
+    btts: quantResult.probs.btts,
+    over25: quantResult.probs.over25,
+  }
+
   return {
     home_win_probability: hPct,
     draw_probability: dPct,
@@ -95,8 +116,14 @@ async function enrichOne(m, deps = {}) {
     btts_prob: quantResult.probs.btts,
     ou_25_prob: quantResult.probs.over25,
     ai_source: 'TITANIUM_QUANT_V4',
-    insufficient_data: m.insufficient_data || 1,
+    insufficient_data: isLowData ? 1 : 0,
+    zero_data_rescue: isLowData,
+    is_low_data_prediction: isLowData,
     expected_score: quantResult.expected_score,
+
+    // Audit Prio 2 : ancre traçable (persistée dans fullData.enriched.engine_exit
+    // via data.enriched || data dans database.updatePredictions).
+    engine_exit: engineExit,
 
     // ── Champs dérivés complets (le fix : jamais laisser la colonne staled) ──
     prediction,
@@ -126,6 +153,13 @@ async function enrichOne(m, deps = {}) {
       confidence,
       sufficient,
       market_scope: scope,
+      // Audit P3 : marqueurs low-data répliqués dans enriched (lus par
+      // accuracyEngine pour isoler les picks low-data / ZERO-DATA).
+      insufficient_data: isLowData ? 1 : 0,
+      zero_data_rescue: isLowData,
+      is_low_data_prediction: isLowData,
+      // Audit Prio 2 : même snapshot dans enriched pour consultation directe.
+      engine_exit: engineExit,
       // quant EMBARQUÉ : l'ancien enrichOne écrivait quant en top-level, qui était
       // ensuite fusionné dans fullData.enriched.quant par updatePredictions. Sans
       // réécrire enriched.quant ici, ce sous-champ restait stale (ex: colonne 12
@@ -143,4 +177,23 @@ async function enrichOne(m, deps = {}) {
   }
 }
 
-module.exports = { enrichOne }
+/**
+ * Audit Prio 2 (2026-08-26) : mesure l'écart absolu maximal entre les
+ * probabilités de sortie du moteur (engine_exit) et celles effectivement
+ * persistées (fullData.probs). Retourne un nombre ≥ 0 ; 0 = fidèle.
+ *
+ * @param {{p1:number,px:number,p2:number}} engineExit
+ * @param {{home_win_probability?:number,draw_probability?:number,away_win_probability?:number}} persisted
+ * @returns {number} écart absolu maximal (en points de pourcentage)
+ */
+function engineExitDiff(engineExit, persisted) {
+  if (!engineExit || !persisted) return NaN
+  const diffs = [
+    Math.abs((engineExit.p1 ?? 0) - (persisted.home_win_probability ?? 0)),
+    Math.abs((engineExit.px ?? 0) - (persisted.draw_probability ?? 0)),
+    Math.abs((engineExit.p2 ?? 0) - (persisted.away_win_probability ?? 0)),
+  ]
+  return Math.max(...diffs)
+}
+
+module.exports = { enrichOne, engineExitDiff }

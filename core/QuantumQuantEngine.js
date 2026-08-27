@@ -173,6 +173,11 @@ class QuantumQuantEngine {
 
         let smartScore = prob * 50 + edge * 150 + ev * 30
 
+        // Audit (2026-08-26) P2 : les biais contextuels sont un "boost" non calibré
+        // (source réelle de la sur-confiance bracket 70-80% → ~41%). Gaté par
+        // PROB_BOOSTS (défaut 'on' = comportement actuel). PROB_BOOSTS=off mesure
+        // l'impact avant/après via accuracyEngine sans modifier la prod par défaut.
+        if (process.env.PROB_BOOSTS !== 'off') {
         // ── CONTEXTUAL BIAS ──
         // League profile: attack leagues favor O2.5, HT goals, BTTS; defense leagues favor U2.5, BTTS No, DC
         if (profile === 'attack') {
@@ -196,6 +201,7 @@ class QuantumQuantEngine {
           if (val === 'U2.5' || val === 'NO') smartScore *= 1.2
           if (cat === 'first_half') smartScore *= 0.85
         }
+        } // end PROB_BOOSTS gate
 
         ranked.push({
           cat,
@@ -235,16 +241,18 @@ class QuantumQuantEngine {
     const isMassive = bestValue.edge > 0.12 && bestValue.prob > 0.5
     let signalStrength = Math.min(100, Math.round(bestValue.edge * 400 + bestValue.prob * 40))
     let bsd_boosted = false
-    if (m.bsd_prediction && mainPick) {
-      const bsdPicks = { 1: '1', HOME: '1', X: 'X', DRAW: 'X', 2: '2', AWAY: '2' }
-      const bsdWinner = bsdPicks[m.bsd_prediction.trim().toUpperCase()]
-      const qqWinner = mainPick.val
-      if (bsdWinner && qqWinner && bsdWinner === qqWinner) {
-        mainPick.prob = Math.min(0.99, mainPick.prob * 1.15)
-        signalStrength = Math.min(100, signalStrength + 15)
-        bsd_boosted = true
+      // Audit (2026-08-26) P2 : bsd_boost ×1.15 plafonné 0.99 est un boost non
+      // calibré. Gaté par PROB_BOOSTS (défaut 'on').
+      if (process.env.PROB_BOOSTS !== 'off' && m.bsd_prediction && mainPick) {
+        const bsdPicks = { 1: '1', HOME: '1', X: 'X', DRAW: 'X', 2: '2', AWAY: '2' }
+        const bsdWinner = bsdPicks[m.bsd_prediction.trim().toUpperCase()]
+        const qqWinner = mainPick.val
+        if (bsdWinner && qqWinner && bsdWinner === qqWinner) {
+          mainPick.prob = Math.min(0.99, mainPick.prob * 1.15)
+          signalStrength = Math.min(100, signalStrength + 15)
+          bsd_boosted = true
+        }
       }
-    }
 
     const marketStrength = signalStrength >= 80 ? 'HIGH' : signalStrength >= 50 ? 'NORMAL' : 'LOW'
 

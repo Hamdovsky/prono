@@ -24,6 +24,21 @@ MASTER_CSV = ROOT / "data_pipeline" / "data" / "processed" / "master_dataset.csv
 # Modèles RETENUS (BASELINE_EVAL) : LR pour 1X2+O/U2.5, RF pour BTTS.
 MODEL_FOR_MARKET = {"1x2": "lr", "ou25": "lr", "btts": "rf"}
 
+# Audit (2026-08-27) : XGB BTTS optimisé (deep_reg, +0,29pt vs RF sur walk-forward)
+# exposé comme membre BTTS de l'ensemble léger. Gaté derrière XGB_BTTS=on (défaut
+# off) -> reste non-branché en prod par défaut. Artefact : models/xgb_btts_tuned.pkl
+# (non généré par train_baselines, exporté séparément par scripts/export_xgb_btts_tuned.py).
+_XGB_BTTS_PKL = "xgb_btts_tuned.pkl"
+
+
+def _btts_model_name() -> str:
+    """Retourne 'xgb_btts_tuned' si gaté on ET artefact présent, sinon 'rf'."""
+    if os.environ.get("XGB_BTTS", "off").lower() == "on" and \
+       (MODELS_DIR / _XGB_BTTS_PKL).exists():
+        return "xgb_btts_tuned"
+    return "rf"
+
+
 _cal_cache: dict = {}
 
 
@@ -106,9 +121,36 @@ def predict_for_match(match: dict, ctx: dict | None = None,
     return None
 
 
+def _btts_pkl() -> Path | None:
+    """Chemin du pkl BTTS actif (XGB si gaté on, sinon RF baseline)."""
+    name = _btts_model_name()
+    if name == "xgb_btts_tuned":
+        p = MODELS_DIR / _XGB_BTTS_PKL
+    else:
+        p = MODELS_DIR / f"baseline_{name}_btts.pkl"
+    return p if p.exists() else None
+
+
 def _predict_from_rows(rows_by_market: dict, markets) -> dict | None:
     out = {}
     for m in markets:
+        if m == "btts":
+            pkl = _btts_pkl()
+            if pkl is None:
+                continue
+            row = rows_by_market.get(m)
+            if row is None:
+                continue
+            try:
+                bundle = joblib.load(pkl)
+                feats = bundle["features"]
+                x = [float(row.get(f)) if pd_notna(row.get(f)) else 0.0 for f in feats]
+                proba = bundle["model"].predict_proba([x])[0]
+                proba = np.asarray(_apply_cal(m, proba)).ravel()
+                out[m] = [round(float(p), 5) for p in proba]
+            except Exception:
+                continue
+            continue
         model = MODEL_FOR_MARKET.get(m)
         if not model:
             continue
@@ -133,6 +175,19 @@ def _predict_from_rows(rows_by_market: dict, markets) -> dict | None:
 def predict_from_features(feats: dict, markets=("1x2", "ou25", "btts")) -> dict | None:
     out = {}
     for m in markets:
+        if m == "btts":
+            pkl = _btts_pkl()
+            if pkl is None:
+                continue
+            try:
+                bundle = joblib.load(pkl)
+                x = [float(feats.get(f, 0.0)) for f in bundle["features"]]
+                proba = bundle["model"].predict_proba([x])[0]
+                proba = np.asarray(_apply_cal(m, proba)).ravel()
+                out[m] = [round(float(p), 5) for p in proba]
+            except Exception:
+                continue
+            continue
         model = MODEL_FOR_MARKET.get(m)
         if not model:
             continue

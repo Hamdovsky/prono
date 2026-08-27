@@ -112,6 +112,7 @@ from model_manager import (
     get_v55_booster, get_v551_booster, get_v552_booster,
     get_v553_booster, get_v553_premium_booster, get_v56_booster,
     get_main_booster, get_corners_model, get_cards_model,
+    get_corners_model_v2, get_corners_v2_features,
     simulate_match_mc,
 )
 from feature_engineer import extract_v4_features, FEATURE_NAMES_V4
@@ -630,6 +631,43 @@ def run_shap_explainability(active_feature_vector, active_feature_names, XGB_BOO
         return []
 
 
+def _build_corners_v2_vector(features):
+    """Construit le vecteur de features pour le modele corners XGB v2 (total).
+
+    Features (sans fuite) : xG reel, tirs, SOT, fautes, cotes 1X2 + OU.
+    Mapping tolerant : les valeurs manquantes tombent a 0.0 (le modele a ete
+    entraene avec ces colonnes; un match reel aura au moins les cotes).
+    """
+    f = features if isinstance(features, dict) else {}
+    keys = [
+        'xg_home', 'xg_away', 'shots_home', 'shots_away', 'sot_home', 'sot_away',
+        'fouls_home', 'fouls_away', 'odds_home', 'odds_draw', 'odds_away',
+        'odds_over', 'odds_under', 'closing_odds_home', 'closing_odds_draw', 'closing_odds_away',
+    ]
+    def _num(v):
+        try:
+            return float(v) if v is not None else 0.0
+        except Exception:
+            return 0.0
+    # aliases possibles (stats fournies par le pipeline)
+    alias = {
+        'xg_home': ['h_xg', 'home_xg'], 'xg_away': ['a_xg', 'away_xg'],
+        'shots_home': ['h_shots', 'home_shots', 'shots_total_home'],
+        'shots_away': ['a_shots', 'away_shots', 'shots_total_away'],
+        'sot_home': ['h_sot', 'home_sot'], 'sot_away': ['a_sot', 'away_sot'],
+        'fouls_home': ['h_fouls', 'home_fouls'], 'fouls_away': ['a_fouls', 'away_fouls'],
+    }
+    vec = []
+    for k in keys:
+        v = f.get(k)
+        if v is None:
+            for a in alias.get(k, []):
+                if f.get(a) is not None:
+                    v = f.get(a); break
+        vec.append(_num(v))
+    return np.array([vec], dtype=np.float32), keys
+
+
 def predict_secondary_markets(features, feature_vector):
     """Predict corners and cards using dedicated XGBoost models."""
     expected_corners = round(float(features.get('home_corners', 4.5) + features.get('away_corners', 4.5)), 1)
@@ -641,6 +679,21 @@ def predict_secondary_markets(features, feature_vector):
             xgb = get_xgb()
             dmat_c = xgb.DMatrix(np.array([feature_vector]), feature_names=FEATURE_NAMES)
             expected_corners = round(float(CORNERS_MODEL.predict(dmat_c)[0]), 1)
+
+        # V2 corners XGB (additif) : predict total via features reelles si dispo
+        try:
+            if os.environ.get('XGB_CORNERS_V2', 'on').lower() in ('on', '1', 'true'):
+                CORNERS_V2 = get_corners_model_v2()
+                if CORNERS_V2:
+                    vec, feat_keys = _build_corners_v2_vector(features)
+                    # recupere les noms de features du modele entraine
+                    model_feats = get_corners_v2_features()
+                    use_keys = model_feats if model_feats else feat_keys
+                    xgb = get_xgb()
+                    dmat_v2 = xgb.DMatrix(vec, feature_names=use_keys)
+                    expected_corners = round(float(CORNERS_V2.predict(dmat_v2)[0]), 1)
+        except Exception as e2:
+            sys.stderr.write(f"⚠️ [Secondary-INF] CornersV2 skip: {str(e2)}\n")
 
         CARDS_MODEL = get_cards_model()
         if CARDS_MODEL:

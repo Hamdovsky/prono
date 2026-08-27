@@ -38,7 +38,22 @@ LEAGUES = {
     "SP1": {"name": "ESP-La Liga",        "fd_file": "SP1", "div": "SP1", "country": "ESP"},
     "I1":  {"name": "ITA-Serie A",        "fd_file": "I1",  "div": "I1",  "country": "ITA"},
     "D1":  {"name": "GER-Bundesliga",     "fd_file": "D1",  "div": "D1",  "country": "GER"},
-    "F1":  {"name": "FRA-Ligue 1",        "fd_file": "F1",  "div": "F1",  "country": "FRA"},
+    "F1":  {"name": "FRA-Ligue 1",       "fd_file": "F1",  "div": "F1",  "country": "FRA"},
+    # -- Extension multi-ligues (expérience hybride "plus de données") --
+    # Noms FBref = canoniques soccerdata ; si un nom est légèrement erroné, le xG
+    # de CETTE ligue sera absent (odds+Elo restent) -> à vérifier via logs sur env réseau.
+    "E1":  {"name": "ENG-Championship",   "fd_file": "E1",  "div": "E1",  "country": "ENG"},
+    "E2":  {"name": "ENG-League One",     "fd_file": "E2",  "div": "E2",  "country": "ENG"},
+    "SC0": {"name": "SCO-Premiership",     "fd_file": "SC0", "div": "SC0", "country": "SCO"},
+    "D2":  {"name": "GER-Bundesliga 2",    "fd_file": "D2",  "div": "D2",  "country": "GER"},
+    "I2":  {"name": "ITA-Serie B",         "fd_file": "I2",  "div": "I2",  "country": "ITA"},
+    "SP2": {"name": "ESP-Segunda División","fd_file": "SP2", "div": "SP2", "country": "ESP"},
+    "F2":  {"name": "FRA-Ligue 2",         "fd_file": "F2",  "div": "F2",  "country": "FRA"},
+    "B1":  {"name": "BEL-Pro League",      "fd_file": "B1",  "div": "B1",  "country": "BEL"},
+    "P1":  {"name": "POR-Primera Liga",    "fd_file": "P1",  "div": "P1",  "country": "POR"},
+    "N1":  {"name": "NED-Eredivisie",      "fd_file": "N1",  "div": "N1",  "country": "NED"},
+    "T1":  {"name": "TUR-Super Lig",       "fd_file": "T1",  "div": "T1",  "country": "TUR"},
+    "G1":  {"name": "GRE-Super League 1",  "fd_file": "G1",  "div": "G1",  "country": "GRE"},
 }
 
 # Nombre de saisons complètes conservées en plus de la saison en cours

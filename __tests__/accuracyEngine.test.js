@@ -27,13 +27,13 @@ function makeDb(rows) {
       odds_over25 REAL, odds_under25 REAL,
       corner_pick TEXT, corner_pick_prob REAL, ht_pick TEXT, ht_pick_prob REAL,
       corners_home INTEGER, corners_away INTEGER, score_home_ht INTEGER, score_away_ht INTEGER,
-      timestamp TEXT, startTimestamp INTEGER
+      timestamp TEXT, startTimestamp INTEGER, insufficient_data INTEGER
     );
     CREATE TABLE historical_matches (
       id TEXT PRIMARY KEY,
       homeTeam TEXT, awayTeam TEXT, league TEXT,
       scoreHome INTEGER, scoreAway INTEGER,
-      fullData TEXT, timestamp TEXT, archived_at TEXT
+      fullData TEXT, timestamp TEXT, archived_at TEXT, insufficient_data INTEGER
     );
   `)
     const insM = db.prepare(
@@ -44,7 +44,7 @@ function makeDb(rows) {
       odds_over25, odds_under25,
       corner_pick, corner_pick_prob, ht_pick, ht_pick_prob,
       corners_home, corners_away, score_home_ht, score_away_ht,
-      timestamp, startTimestamp)
+      timestamp, startTimestamp, insufficient_data)
      VALUES (@id, @homeTeam, @awayTeam, @league, @scoreHome, @scoreAway, @status, @prediction, @confidence,
       @home_win_probability, @draw_probability, @away_win_probability,
       @odds_home, @odds_draw, @odds_away, @kelly_stake,
@@ -52,11 +52,11 @@ function makeDb(rows) {
       @odds_over25, @odds_under25,
       @corner_pick, @corner_pick_prob, @ht_pick, @ht_pick_prob,
       @corners_home, @corners_away, @score_home_ht, @score_away_ht,
-      @timestamp, @startTimestamp)`
+      @timestamp, @startTimestamp, @insufficient_data)`
   )
-  const insH = db.prepare(
-    `INSERT INTO historical_matches (id, homeTeam, awayTeam, league, scoreHome, scoreAway, fullData, timestamp, archived_at)
-     VALUES (@id, @homeTeam, @awayTeam, @league, @scoreHome, @scoreAway, @fullData, @timestamp, @archived_at)`
+    const insH = db.prepare(
+    `INSERT INTO historical_matches (id, homeTeam, awayTeam, league, scoreHome, scoreAway, fullData, timestamp, archived_at, insufficient_data)
+     VALUES (@id, @homeTeam, @awayTeam, @league, @scoreHome, @scoreAway, @fullData, @timestamp, @archived_at, @insufficient_data)`
   )
   for (const r of rows.matches || []) {
     insM.run({
@@ -84,6 +84,7 @@ function makeDb(rows) {
       corners_away: r.corners_away ?? null,
       score_home_ht: r.score_home_ht ?? null,
       score_away_ht: r.score_away_ht ?? null,
+      insufficient_data: r.insufficient_data ?? null,
       ...r,
     })
   }
@@ -91,6 +92,7 @@ function makeDb(rows) {
     insH.run({
       timestamp: r.timestamp ?? null,
       archived_at: r.archived_at ?? null,
+      insufficient_data: r.insufficient_data ?? null,
       ...r,
     })
   }
@@ -641,5 +643,94 @@ describe('accuracyEngine — Q1 marchés Corners / HT', () => {
     // pickProbability reçoit un label déjà normalisé (espaces supprimés)
     expect(pickProbability('CORNERSOVER9.5', { pCorner: 0.62 })).toBe(62)
     expect(pickProbability('HTUNDER0.5', { pHT: 0.4 })).toBe(40)
+  })
+
+  // ──────────────────────────────────────────────────────────────────────
+  // Audit Prio 1 (2026-08-26) : marquage & mesure isolée des picks low-data
+  // (ZERO-DATA RESCUE / insufficient_data). Lecture seule, aucun recalcul.
+  // ──────────────────────────────────────────────────────────────────────
+  test('Prio1 : summary expose lowDataCount / lowDataAccuracy à partir de matches.insufficient_data', () => {
+    const db = makeDb({
+      matches: [
+        // pick low-data correct → compté dans lowDataCount + lowDataCorrect
+        {
+          id: 'ld1', homeTeam: 'A', awayTeam: 'B', league: 'FRIENDLY',
+          scoreHome: 2, scoreAway: 0, status: 'FT', prediction: '1', confidence: 50,
+          insufficient_data: 1, timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+        // pick low-data incorrect → compté dans lowDataCount seulement
+        {
+          id: 'ld2', homeTeam: 'C', awayTeam: 'D', league: 'CUPS',
+          scoreHome: 0, scoreAway: 1, status: 'FT', prediction: '1', confidence: 50,
+          insufficient_data: 1, timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+        // pick normal (suffisant) correct → N'ESt PAS compté en low-data
+        {
+          id: 'ok1', homeTeam: 'E', awayTeam: 'F', league: 'E0',
+          scoreHome: 1, scoreAway: 0, status: 'FT', prediction: '1', confidence: 70,
+          insufficient_data: 0, timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    expect(res.summary.lowDataCount).toBe(2)
+    expect(res.summary.lowDataCorrect).toBe(1)
+    expect(res.summary.lowDataAccuracy).toBe(0.5)
+    // L'accuracy globale inclut les 3 matchs (low-data inclus dans l'évaluation)
+    expect(res.summary.evaluated).toBe(3)
+    expect(res.summary.correct).toBe(2)
+  })
+
+  test('Prio1 : flag low-data lu depuis fullData.zero_data_rescue (historical_matches)', () => {
+    const fdBad = JSON.stringify({ prediction: '1', zero_data_rescue: true, confidence: 45 })
+    const fdGood = JSON.stringify({ prediction: '2', is_low_data_prediction: true, confidence: 45 })
+    const fdNormal = JSON.stringify({ prediction: 'X', confidence: 70 })
+    const db = makeDb({
+      historical: [
+        { id: 'h1', homeTeam: 'A', awayTeam: 'B', league: 'CUP', scoreHome: 2, scoreAway: 0, fullData: fdBad, timestamp: new Date(TS.base).toISOString() },
+        { id: 'h2', homeTeam: 'C', awayTeam: 'D', league: 'CUP', scoreHome: 1, scoreAway: 0, fullData: fdGood, timestamp: new Date(TS.base).toISOString() },
+        { id: 'h3', homeTeam: 'E', awayTeam: 'F', league: 'E0', scoreHome: 1, scoreAway: 1, fullData: fdNormal, timestamp: new Date(TS.base).toISOString() },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    expect(res.summary.lowDataCount).toBe(2)
+    expect(res.summary.lowDataCorrect).toBe(1) // h1 correct (2-0, pick 1), h2 incorrect (1-0, pick 2)
+    expect(res.summary.lowDataAccuracy).toBe(0.5)
+  })
+
+  test('Prio1 : aucun pick low-data → lowDataAccuracy = null (pas de faux zéro)', () => {
+    const db = makeDb({
+      matches: [
+        {
+          id: 'm1', homeTeam: 'A', awayTeam: 'B', league: 'E0',
+          scoreHome: 2, scoreAway: 1, status: 'FT', prediction: '1', confidence: 70,
+          insufficient_data: 0, timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    expect(res.summary.lowDataCount).toBe(0)
+    expect(res.summary.lowDataCorrect).toBe(0)
+    expect(res.summary.lowDataAccuracy).toBeNull()
+  })
+
+  test('Audit A/B : summary.byConfidenceBracket calcule accuracy par bracket de confiance', () => {
+    const db = makeDb({
+      matches: [
+        { id: 'a', homeTeam: 'A', awayTeam: 'B', league: 'E0', scoreHome: 2, scoreAway: 1, status: 'FT', prediction: '1', confidence: 75, home_win_probability: 0.6, draw_probability: 0.2, away_win_probability: 0.2, insufficient_data: 0, timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base },
+        { id: 'b', homeTeam: 'C', awayTeam: 'D', league: 'E0', scoreHome: 0, scoreAway: 0, status: 'FT', prediction: 'X', confidence: 75, home_win_probability: 0.2, draw_probability: 0.6, away_win_probability: 0.2, insufficient_data: 0, timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base },
+        { id: 'c', homeTeam: 'E', awayTeam: 'F', league: 'E0', scoreHome: 0, scoreAway: 2, status: 'FT', prediction: '1', confidence: 75, home_win_probability: 0.6, draw_probability: 0.2, away_win_probability: 0.2, insufficient_data: 0, timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base },
+        { id: 'd', homeTeam: 'G', awayTeam: 'H', league: 'E0', scoreHome: 1, scoreAway: 3, status: 'FT', prediction: '2', confidence: 92, home_win_probability: 0.1, draw_probability: 0.1, away_win_probability: 0.8, insufficient_data: 0, timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base },
+        { id: 'e', homeTeam: 'I', awayTeam: 'J', league: 'E0', scoreHome: 0, scoreAway: 0, status: 'FT', prediction: 'X', confidence: 55, home_win_probability: 0.3, draw_probability: 0.5, away_win_probability: 0.2, insufficient_data: 0, timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base },
+      ],
+    })
+    const res = computeAccuracy({ db })
+    const b = res.summary.byConfidenceBracket
+    expect(b['70-80'].count).toBe(3)
+    expect(b['70-80'].correct).toBe(2)
+    expect(b['70-80'].accuracy).toBeCloseTo(2 / 3, 3)
+    expect(b['90+'].count).toBe(1)
+    expect(b['90+'].accuracy).toBe(1)
+    expect(b['50-60'].count).toBe(1)
   })
 })

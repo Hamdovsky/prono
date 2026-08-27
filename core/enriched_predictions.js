@@ -726,7 +726,9 @@ class EnrichedPredictionService {
     }
 
     // Python/FastAPI optional enrichment — skip if V553 already succeeded (avoids double HTTP call)
-    if (!result.v553) {
+    // Audit (2026-08-26) P1 : ne laisse le Python écraser les probs Node que si
+    // V553_OVERRIDE=on (sinon Node = source de vérité, voir _tryV553).
+    if (!result.v553 && process.env.V553_OVERRIDE === 'on') {
       try {
         const py = await this.pythonService.predict(match, timeoutMs || 180000)
         if (py && py.success !== false) {
@@ -758,6 +760,14 @@ class EnrichedPredictionService {
       }
 
       const pythonService = require('../core/pythonService')
+      // Audit (2026-08-26) P1 : gate V553. Par défaut OFF → le moteur Node
+      // (QuantumQuantEngine via enrichOne) reste la source de vérité pour les
+      // probabilités persistées. Activer uniquement via V553_OVERRIDE=on pour
+      // laisser le Python /predict écraser les probs Node (sinon mélange de
+      // deux moteurs dans accuracyEngine).
+      if (process.env.V553_OVERRIDE !== 'on') {
+        return { success: false, fallback: true, reason: 'V553_OVERRIDE disabled' }
+      }
       // If the FastAPI circuit is open, predict() would just return
       // 'circuit_open' for every retry — bail out immediately to avoid
       // 3 warn logs × 645 matches of pure noise.
@@ -833,9 +843,9 @@ class EnrichedPredictionService {
             'Away Win': '2',
           }
           const pyProbs = [
-            { label: '1', prob: parseFloat(py.home_win_probability || py.home_win_prob || 0) },
-            { label: 'X', prob: parseFloat(py.draw_probability || py.draw_prob || 0) },
-            { label: '2', prob: parseFloat(py.away_win_probability || py.away_win_prob || 0) },
+            { label: '1', prob: parseFloat(py.home_win_probability || py.home_win_prob || py.home_win || 0) },
+            { label: 'X', prob: parseFloat(py.draw_probability || py.draw_prob || py.draw || 0) },
+            { label: '2', prob: parseFloat(py.away_win_probability || py.away_win_prob || py.away_win || 0) },
           ]
           const bestPy = pyProbs.sort((a, b) => b.prob - a.prob)[0]
           const label = bestPy && bestPy.prob > 0 ? bestPy.label : 'X'
@@ -843,9 +853,9 @@ class EnrichedPredictionService {
           return {
             success: true,
             v553: true,
-            home_win_probability: py.home_win_probability || py.home_win_prob || 0,
-            draw_probability: py.draw_probability || py.draw_prob || 0,
-            away_win_probability: py.away_win_probability || py.away_win_prob || 0,
+            home_win_probability: py.home_win_probability || py.home_win_prob || py.home_win || 0,
+            draw_probability: py.draw_probability || py.draw_prob || py.draw || 0,
+            away_win_probability: py.away_win_probability || py.away_win_prob || py.away_win || 0,
             expected_score: py.expected_score || '0 - 0',
             prediction: label,
             verdict: py.verdict || (label === '1' ? 'Home' : label === 'X' ? 'Draw' : 'Away'),

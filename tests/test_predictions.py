@@ -56,3 +56,26 @@ def test_real_markets_flowed_into_precision_bets():
     # marche arriere : sans model_probs -> lecture seule (pas de value)
     ro = pe.extend_precision_bets_with_real_markets(real_markets, 2.1, 3.2, 3.4, {})
     assert ro[0].get('value') is False
+
+
+def test_real_markets_value_field_in_output():
+    """Le champ real_markets_value ne contient QUE les bets VALUE (edge positif)."""
+    import prediction_engine as pe
+
+    model_probs = {'btts': 70.0, 'home': 45.0, 'draw': 25.0, 'away': 30.0,
+                   'ou_25': 40.0, 'ou_35': 60.0, 'ou_15': 90.0}
+    real_markets = [
+        # VALUE: modele 70% > implicite 55.5%
+        {"source": "sofascore", "market_id": "btts", "selection": "yes", "odds": 1.8, "usable": True},
+        # PAS VALUE: modele 40% < implicite 52.6%
+        {"source": "sofascore", "market_id": "total_goals", "selection": "over", "line": 2.5, "odds": 1.9, "usable": True},
+    ]
+    bets = pe.extend_precision_bets_with_real_markets(real_markets, 2.1, 3.2, 3.4, model_probs)
+    value = [b for b in bets if b.get("value") is True]
+    assert len(value) == 1
+    assert value[0].get("market") == "BTTS - Oui"
+    # on simule la serialization du champ
+    out_value = [{"market": b.get("market"), "real_odds": b.get("real_odds"),
+                  "edge_pct": b.get("edge_pct")} for b in bets if b.get("value") is True]
+    assert len(out_value) == 1
+    assert out_value[0]["market"] == "BTTS - Oui"

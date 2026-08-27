@@ -80,6 +80,25 @@ au niveau racine étaient CASSÉS (régression : le 1X2/O/U/BTTS Sofascore n'ét
 
 ---
 
+## Market Engine — champ de sortie observable (2026-08-27, suite)
+
+### Ajout
+- `core/prediction_engine.py` (retour `process_prediction`) — deux nouveaux champs :
+  - `real_markets_value` : liste des SEULS paris `real_markets` ayant `value:true`
+    (edge positif modèle > implicite), avec `real_odds`, `implied_probability`,
+    `model_probability`, `edge_pct`, `reason`. Observable côté API/UI sans toucher
+    au verdict principal.
+  - `real_markets_activated` : booléen (True si au moins un pari réel a été routé).
+  Aucun impact sur `verdict`/`surgical_market` : la sélection principale reste le
+  chemin modèle ; les cotes réelles ne sont qu'un complément de valeur.
+
+### Vérifié
+- pytest `tests/test_predictions.py::test_real_markets_value_field_in_output` (le champ
+  ne garde que les VALUE, exclut le pari sans edge).
+- pytest test_market_engine + test_predictions = 38 passés ; py_compile OK.
+
+---
+
 ## Market Detection & Normalization Engine (2026-08-27)
 
 ### Contexte

@@ -483,6 +483,7 @@ def process_prediction(match_obj: dict) -> dict:
     # terrain. Le chemin Poisson restant ci-dessus reste le defaut quand
     # real_markets est absent/non utilisable (matchs non-Sofascore).
     real_markets = match_obj.get('real_markets')
+    real_bets = []
     if isinstance(real_markets, list) and real_markets:
         try:
             model_probs = {
@@ -840,6 +841,20 @@ def process_prediction(match_obj: dict) -> dict:
         "expected_cards": float(expected_cards),
         "ht_goal_prob": _safe_ht_goal_prob(xg_h, xg_a, expected_corners),
         "precision_bets": precision_bets,
+        "real_markets_value": [
+            {
+                "market": b.get("market"),
+                "selection_label": b.get("market"),
+                "real_odds": b.get("real_odds"),
+                "implied_probability": b.get("implied_probability"),
+                "model_probability": b.get("model_probability"),
+                "edge_pct": b.get("edge_pct"),
+                "reason": b.get("reason"),
+            }
+            for b in (real_bets or [])
+            if b.get("value") is True
+        ],
+        "real_markets_activated": bool(real_bets),
         "deep_audit_required": bool(deep_audit_required),
         "explainer_data": explainer_data,
         "top_analyst_features": ta_features,

@@ -2,15 +2,18 @@
  * mlPredictionService — forward real_markets vers /predict (Market Engine activation)
  */
 const pythonService = require('../core/pythonService')
+const mockDb = { getMatchById: jest.fn() }
 
 jest.mock('../core/pythonService', () => ({
   predict: jest.fn(),
 }))
+jest.mock('../core/database', () => mockDb)
 
 const svc = require('../services/mlPredictionService')
 
 beforeEach(() => {
   pythonService.predict.mockReset()
+  mockDb.getMatchById.mockReset()
 })
 
 test('real_markets est forwarde a /predict quand present sur le match', async () => {
@@ -38,4 +41,14 @@ test('pas de real_markets en absence de cotes reelles', async () => {
   await svc.getMLPrediction({ id: 'm3', homeTeam: 'A', awayTeam: 'B' })
   const sent = pythonService.predict.mock.calls[0][0]
   expect(sent.real_markets).toBeNull()
+})
+
+test('hydrate real_markets depuis la DB si absent du payload', async () => {
+  const rm = [{ market_id: 'btts', selection: 'yes', odds: 1.8, usable: true }]
+  mockDb.getMatchById.mockResolvedValue({ fullData: JSON.stringify({ real_markets: rm }) })
+  pythonService.predict.mockResolvedValue({ success: true })
+  await svc.getMLPrediction({ id: 'm4', homeTeam: 'A', awayTeam: 'B' })
+  expect(mockDb.getMatchById).toHaveBeenCalledWith('m4')
+  const sent = pythonService.predict.mock.calls[0][0]
+  expect(sent.real_markets).toEqual(rm)
 })

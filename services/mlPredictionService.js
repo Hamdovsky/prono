@@ -25,6 +25,23 @@ class MLPredictionService {
     // 2. De-duplication: If a request is already in-flight, wait for it
     if (this.predictionQueue.has(matchId)) return this.predictionQueue.get(matchId)
 
+    // 2b. Hydrate real_markets depuis la DB si absent du match (chemin prod :
+    // fallback_enricher stocke real_markets dans fullData, pas forcement expose
+    // au payload /api/predict).
+    if (!match.real_markets && !((match.fullData || {}).real_markets)) {
+      try {
+        const db = require('../core/database')
+        const stored = await db.getMatchById(matchId)
+        if (stored) {
+          const fd = typeof stored.fullData === 'string' ? JSON.parse(stored.fullData || '{}') : (stored.fullData || {})
+          const rm = (stored.real_markets) || (fd && fd.real_markets)
+          if (rm) match = { ...match, real_markets: rm }
+        }
+      } catch (_e) {
+        // best-effort
+      }
+    }
+
     const promise = (async () => {
       try {
         const matchData = {

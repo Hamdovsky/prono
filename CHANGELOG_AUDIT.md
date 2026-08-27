@@ -99,6 +99,23 @@ au niveau racine étaient CASSÉS (régression : le 1X2/O/U/BTTS Sofascore n'ét
 
 ---
 
+## Market Engine — routage bout-en-bout Node -> FastAPI (2026-08-27, suite)
+
+### Ajout
+- `services/mlPredictionService.js` — `getMLPrediction` ajoute désormais `real_markets`
+  dans le payload envoyé à FastAPI `/predict` (depuis `match.real_markets` ou
+  `match.fullData.real_markets`). Log debug `[MARKET-ENGINE] real_markets forwarde`.
+  Chaîne complète : `fallback_enricher._attachSofaMarkets` -> `enrichOne`
+  (`real_markets`) -> DB -> `mlPredictionService` -> `pythonService.predict` -> FastAPI
+  `/predict` -> `process_prediction` -> `real_markets_value`/`precision_bets`.
+
+### Vérifié
+- Jest `__tests__/mlPredictionService.test.js` (3 tests) : forward de `real_markets`
+  depuis match, depuis fullData, et null quand absent. 0 erreur ESLint.
+- La chaîne Node->FastAPI->prediction_engine est désormais fermée (end-to-end).
+
+---
+
 ## Market Detection & Normalization Engine (2026-08-27)
 
 ### Contexte

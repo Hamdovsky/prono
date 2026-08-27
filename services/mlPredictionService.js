@@ -46,8 +46,13 @@ class MLPredictionService {
           odds_home: match.odds_home || null,
           odds_draw: match.odds_draw || null,
           odds_away: match.odds_away || null,
+          real_markets: match.real_markets || (match.fullData && match.fullData.real_markets) || null,
           fullData: match.fullData || match,
           task: 'PREDICTION',
+        }
+
+        if (matchData.real_markets) {
+          logger.debug(`[MARKET-ENGINE] real_markets forwarde a /predict (${matchData.real_markets.length} marche(s))`)
         }
 
         const result = await pythonService.predict(matchData)

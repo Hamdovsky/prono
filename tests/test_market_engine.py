@@ -235,3 +235,52 @@ class TestRealMarketsToPrecisionBets:
         from market_engine import real_markets_to_precision_bets
         assert real_markets_to_precision_bets(None) == []
         assert real_markets_to_precision_bets([]) == []
+
+    def test_edge_gate_flags_value_when_model_beats_implied(self):
+        from market_engine import real_markets_to_precision_bets
+        rm = [
+            {"source": "sofascore", "market_id": "btts", "selection": "yes", "odds": 1.8, "usable": True},
+        ]
+        # modele P=70% >> implicite 55.5% -> VALUE
+        bets = real_markets_to_precision_bets(rm, model_probs={"btts": 70.0})
+        assert len(bets) == 1
+        assert bets[0]["value"] is True
+        assert bets[0]["edge_pct"] > 0
+        assert bets[0]["model_probability"] == 70
+
+    def test_edge_gate_no_value_when_model_below_implied(self):
+        from market_engine import real_markets_to_precision_bets
+        rm = [
+            {"source": "sofascore", "market_id": "btts", "selection": "yes", "odds": 1.8, "usable": True},
+        ]
+        # modele P=50% < implicite 55.5% -> pas VALUE (lecture seule)
+        bets = real_markets_to_precision_bets(rm, model_probs={"btts": 50.0})
+        assert bets[0]["value"] is False
+        assert "edge_pct" not in bets[0]
+
+    def test_edge_gate_no_model_probs_is_readonly(self):
+        from market_engine import real_markets_to_precision_bets
+        rm = [
+            {"source": "sofascore", "market_id": "btts", "selection": "yes", "odds": 1.8, "usable": True},
+        ]
+        bets = real_markets_to_precision_bets(rm)
+        assert bets[0]["value"] is False
+        assert bets[0]["model_probability"] is None
+
+    def test_maps_ou_line_to_nearest_model_key(self):
+        from market_engine import real_markets_to_precision_bets
+        rm = [
+            {"source": "sofascore", "market_id": "total_goals", "selection": "over", "line": 2.5, "odds": 1.9, "usable": True},
+        ]
+        bets = real_markets_to_precision_bets(rm, model_probs={"ou_25": 80.0})
+        assert bets[0]["value"] is True
+        assert bets[0]["model_probability"] == 80
+
+    def test_maps_1x2_selection(self):
+        from market_engine import real_markets_to_precision_bets
+        rm = [
+            {"source": "sofascore", "market_id": "match_result", "selection": "1", "odds": 2.0, "usable": True},
+        ]
+        bets = real_markets_to_precision_bets(rm, model_probs={"home": 75.0})
+        assert bets[0]["value"] is True
+        assert bets[0]["market"].startswith("1X2")

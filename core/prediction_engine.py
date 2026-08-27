@@ -75,7 +75,7 @@ from market_engine import (
     generate_precision_bets, generate_dnb_ah_bets,
     get_best_surgical_market, generate_pro_insights,
     calculate_poisson_scores, ensure_expected_score_in_cs,
-    build_main_four, real_markets_to_precision_bets,
+    build_main_four,     real_markets_to_precision_bets,
 )
 from confidence_engine import (
     evaluate_confluence, calibrate_confidence,
@@ -180,6 +180,19 @@ def _safe_ht_goal_prob(xg_h, xg_a, corners_total):
         return float(p) if p is not None else None
     except Exception:
         return None
+
+
+def extend_precision_bets_with_real_markets(real_markets, odds_h, odds_d, odds_a, model_probs):
+    """Helper testable : convertit real_markets en precision_bets (avec edge gate)
+    et emet le log de suivi. Retourne la liste (vide si rien)."""
+    real_bets = real_markets_to_precision_bets(real_markets, odds_h, odds_d, odds_a, model_probs)
+    if real_bets:
+        _n_value = sum(1 for b in real_bets if b.get('value'))
+        sys.stderr.write(
+            f"[MARKET-ENGINE] {len(real_bets)} pari(s) reel(s) ajoute(s) "
+            f"({_n_value} value) depuis real_markets\n"
+        )
+    return real_bets
 
 
 def process_prediction(match_obj: dict) -> dict:
@@ -472,7 +485,18 @@ def process_prediction(match_obj: dict) -> dict:
     real_markets = match_obj.get('real_markets')
     if isinstance(real_markets, list) and real_markets:
         try:
-            real_bets = real_markets_to_precision_bets(real_markets, odds_h, odds_d, odds_a)
+            model_probs = {
+                'home': p_home,
+                'draw': p_draw,
+                'away': p_away,
+                'btts': float(sim.get('btts_prob', 0.0) or 0.0) * 100,
+                'ou_25': mc_ou25,
+                'ou_35': mc_ou35,
+                'ou_15': mc_ou15,
+            }
+            real_bets = extend_precision_bets_with_real_markets(
+                real_markets, odds_h, odds_d, odds_a, model_probs
+            )
             if real_bets:
                 precision_bets.extend(real_bets)
         except Exception as _e:

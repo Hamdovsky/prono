@@ -50,6 +50,36 @@ au niveau racine étaient CASSÉS (régression : le 1X2/O/U/BTTS Sofascore n'ét
 
 ---
 
+## Market Engine — Edge Gate + intégration testée (2026-08-27, suite)
+
+### Ajout (suite activation)
+- `core/market_engine.py:real_markets_to_precision_bets` — désormais avec **EDGE GATE** :
+  une cote réelle n'est émise comme pari de valeur (`value:true`) QUE si la probabilité
+  du modèle dépasse la probabilité implicite bookmaker (`1/odds`) d'au moins `EDGE_MARGIN_PCT=3`.
+  Sinon elle reste en lecture seule (`value:false`, `model_probability` renseigné si dispo).
+  Mapping marché->clé modèle : `btts`, `total_goals` ligne N -> `ou_NN` (ex 2.5 -> ou_25),
+  `match_result` 1/X/2 -> home/draw/away. Probabilités modèle fournies par `prediction_engine`.
+- `core/prediction_engine.py` — nouveau helper `extend_precision_bets_with_real_markets(...)`
+  (testable isolément) ; construit `model_probs` depuis `p_home/p_draw/p_away`, `sim.btts_prob`,
+  `mc_ou25/35/15` et l'injecte. Log de suivi `[MARKET-ENGINE] N pari(s) réel(s) (M value)`.
+
+### Objectif atteint
+- On ne recopie PLUS bêtement la cote bookmaker : un pari `real_markets` n'apparait en
+  sélection que s'il y a un vrai edge (modèle > implicite). Les matchs sans edge gardent
+  le chemin Poisson par défaut (pas de bruit ajouté).
+
+### Vérifié
+- pytest `tests/test_market_engine.py` (edge gate: value/no-value/readonly, mapping ou_25, 1X2) OK.
+- pytest `tests/test_predictions.py::test_real_markets_flowed_into_precision_bets` (helper
+  `extend_precision_bets_with_real_markets` renvoie BTTS 1.8 en VALUE, modele 70% > 55%).
+- `tests/test_market_engine.py` + `tests/test_predictions.py` = 37 passés.
+- `py_compile` OK ; ESLint 0 erreur (warnings pré-existants).
+- Note : 2 échecs pytest pré-existants dans `tests/test_ml_ensemble.py::test_predictSecondaryMarkets`
+  (fichier `ml_ensemble.py` NON modifié ici) + 2 échecs Jest (Redis/archive env) sont hors de
+  ce changement. Non-régression confirmée.
+
+---
+
 ## Market Detection & Normalization Engine (2026-08-27)
 
 ### Contexte

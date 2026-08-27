@@ -428,17 +428,26 @@ def build_main_four(selection_label, mc_ou25, xg_h, xg_a, surgical_verdict,
     return main_four
 
 
-def real_markets_to_precision_bets(real_markets, odds_h=0.0, odds_d=0.0, odds_a=0.0):
+def real_markets_to_precision_bets(real_markets, odds_h=0.0, odds_d=0.0, odds_a=0.0, model_probs=None):
     """Convertit les cotes reelles normalisees (Market Engine, ex: Sofascore) en
     entrees de type precision_bet, calibrees sur les cotes reelles (verite terrain)
     au lieu des estimations Poisson/xG.
+
+    EDGE GATE : une cote reelle n'est emise comme pari de valeur QUE si la
+    probabilite du modele (model_probs) depasse la probabilite implicite bookmaker
+    d'un seuil (EDGE_MARGIN_PCT). Sinon on la garde en lecture seule (sans flag
+    value) pour ne pas inventer d'edge. Cela evite de simplement recopier la
+    cote bookmaker sans avantage.
 
     Ne traite QUE les entrees `usable === True` et ignore `unknown`/incompletes
     (validator.js deja exclus). Retourne [] si rien de valable -> le chemin
     Poisson restant dans process_prediction reste le comportement par defaut.
     """
+    EDGE_MARGIN_PCT = 3.0
     if not isinstance(real_markets, list) or not real_markets:
         return []
+    if not model_probs:
+        model_probs = {}
     bets = []
     for m in real_markets:
         if not isinstance(m, dict):
@@ -451,18 +460,56 @@ def real_markets_to_precision_bets(real_markets, odds_h=0.0, odds_d=0.0, odds_a=
         line = m.get('line')
         if not mid or not sel or odds <= 1.0:
             continue
-        prob = round((1.0 / odds) * 100, 1) if odds > 0 else 0.0
+        implied = round((1.0 / odds) * 100, 1) if odds > 0 else 0.0
         label = _human_market_label(mid, sel, line)
         if not label:
             continue
-        bets.append({
+        model_p = _model_prob_for_market(mid, sel, line, model_probs)
+        bet = {
             "market": label,
-            "probability": int(prob),
+            "probability": int(implied),
             "real_odds": odds,
-            "reason": f"Cote reelle {mid} {sel}{(' ' + str(line)) if line is not None else ''} = {odds:.2f} (implique P~{prob:.0f}%)",
+            "reason": f"Cote reelle {mid} {sel}{(' ' + str(line)) if line is not None else ''} = {odds:.2f} (implique P~{implied:.0f}%)",
             "source": "real_markets",
-        })
+            "implied_probability": implied,
+            "model_probability": int(round(model_p, 1)) if model_p is not None else None,
+            "value": False,
+        }
+        if model_p is not None and model_p >= implied + EDGE_MARGIN_PCT:
+            bet["value"] = True
+            bet["edge_pct"] = round(model_p - implied, 1)
+            bet["reason"] += f" — VALUE: modele P={model_p:.0f}% > implicite {implied:.0f}% (edge +{bet['edge_pct']:.0f}%)"
+        bets.append(bet)
     return bets
+
+
+def _model_prob_for_market(market_id, selection, line, model_probs):
+    """Estime la probabilite modele pour un CanonicalMarketModel donne, a partir
+    de model_probs (calcule dans prediction_engine). Retourne None si pas de
+    comparaison possible (pas de modele dispo) -> pas de gate edge (lecture seule).
+    """
+    try:
+        if market_id == 'btts':
+            key = 'btts'
+        elif market_id == 'total_goals':
+            # map ligne -> cle ou_XX (cohérent avec prediction_engine: ou_25/ou_35/ou_15)
+            if line is None:
+                key = 'ou_25'
+            else:
+                nearest = min([0.5, 1.5, 2.5, 3.5, 4.5], key=lambda x: abs(x - float(line)))
+                key = f"ou_{int(round(nearest * 10))}"
+        elif market_id == 'match_result':
+            key = {'1': 'home', '2': 'away', 'X': 'draw'}.get(str(selection))
+        else:
+            key = None
+        if not key:
+            return None
+        v = model_probs.get(key)
+        if v is None:
+            return None
+        return float(v)
+    except Exception:
+        return None
 
 
 def _human_market_label(market_id, selection, line):

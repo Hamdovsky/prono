@@ -205,3 +205,33 @@ class TestBuildMainFour:
         result = build_main_four('Home', 60, 1.8, 1.5, None, '', 'H', 'A', 'Home', 2, 1)
         goals = result[1]
         assert '+2.5' in goals['val']
+
+
+class TestRealMarketsToPrecisionBets:
+    def test_converts_usable_markets(self):
+        from market_engine import real_markets_to_precision_bets
+        rm = [
+            {"source": "sofascore", "market_id": "btts", "selection": "yes", "odds": 1.8, "usable": True},
+            {"source": "sofascore", "market_id": "total_goals", "selection": "over", "line": 2.5, "odds": 1.9, "usable": True},
+        ]
+        bets = real_markets_to_precision_bets(rm)
+        assert len(bets) == 2
+        labels = [b["market"] for b in bets]
+        assert "BTTS - Oui" in labels
+        assert "Over 2.5 Buts" in labels
+        btts = [b for b in bets if b["market"] == "BTTS - Oui"][0]
+        assert btts["real_odds"] == 1.8
+        assert btts["probability"] == 55
+
+    def test_skips_unusable_and_unknown(self):
+        from market_engine import real_markets_to_precision_bets
+        rm = [
+            {"market_id": "btts", "selection": "yes", "odds": 1.7, "usable": False},
+            {"market_id": "unknown", "selection": "x", "odds": 2.0, "usable": True},
+        ]
+        assert real_markets_to_precision_bets(rm) == []
+
+    def test_empty_returns_empty(self):
+        from market_engine import real_markets_to_precision_bets
+        assert real_markets_to_precision_bets(None) == []
+        assert real_markets_to_precision_bets([]) == []

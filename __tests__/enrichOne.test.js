@@ -99,3 +99,24 @@ test('Prio3 : marquage low-data correct — insufficient_data=1 -> 1/true', asyn
   expect(out.is_low_data_prediction).toBe(true)
   expect(out.enriched.zero_data_rescue).toBe(true)
 })
+
+test('Market Engine : enrichOne propage real_markets vers le moteur (top + enriched)', async () => {
+  setMock()
+  const markets = [
+    { source: 'sofascore', market_id: 'btts', selection: 'yes', odds: 1.8, usable: true },
+    { source: 'sofascore', market_id: 'total_goals', selection: 'over', line: 2.5, odds: 1.9, usable: true },
+  ]
+  const out = await enrichOne({ homeTeam: 'A', awayTeam: 'B', league: 'E0', real_markets: markets })
+  expect(out.real_markets).toBe(markets)
+  expect(out.enriched.real_markets).toBe(markets)
+})
+
+test('Market Engine : enrichOne lit real_markets depuis fullData si absent du match', async () => {
+  setMock()
+  const markets = [
+    { source: 'sofascore', market_id: 'btts', selection: 'no', odds: 2.1, usable: true },
+  ]
+  const out = await enrichOne({ homeTeam: 'A', awayTeam: 'B', league: 'E0', fullData: { real_markets: markets } })
+  expect(out.real_markets).toBe(markets)
+  expect(out.enriched.real_markets).toBe(markets)
+})

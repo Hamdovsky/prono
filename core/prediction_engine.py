@@ -75,7 +75,7 @@ from market_engine import (
     generate_precision_bets, generate_dnb_ah_bets,
     get_best_surgical_market, generate_pro_insights,
     calculate_poisson_scores, ensure_expected_score_in_cs,
-    build_main_four,
+    build_main_four, real_markets_to_precision_bets,
 )
 from confidence_engine import (
     evaluate_confluence, calibrate_confidence,
@@ -465,6 +465,18 @@ def process_prediction(match_obj: dict) -> dict:
         expected_corners, expected_cards, home_name, away_name,
         has_xgb, features, odds_h, odds_d, odds_a
     )
+    # Activation Market Engine : si des cotes reelles multi-marches (Sofascore)
+    # sont presentes, on les ajoute comme precision_bets calibres sur la verite
+    # terrain. Le chemin Poisson restant ci-dessus reste le defaut quand
+    # real_markets est absent/non utilisable (matchs non-Sofascore).
+    real_markets = match_obj.get('real_markets')
+    if isinstance(real_markets, list) and real_markets:
+        try:
+            real_bets = real_markets_to_precision_bets(real_markets, odds_h, odds_d, odds_a)
+            if real_bets:
+                precision_bets.extend(real_bets)
+        except Exception as _e:
+            sys.stderr.write(f"[MARKET-ENGINE] override ignore (erreur): {_e}\n")
     dnb_h, dnb_a, dc_h, dc_a, dc_12 = calculate_ah_dnb_probs(p_h, p_d, p_a)
     dnb_ah_bets, dnb_h, dnb_a, dc_h, dc_a, dc_12 = generate_dnb_ah_bets(
         p_h, p_d, p_a, selection, home_name, away_name, h_dominance, a_dominance

@@ -426,3 +426,77 @@ def build_main_four(selection_label, mc_ou25, xg_h, xg_a, surgical_verdict,
         pass
 
     return main_four
+
+
+def real_markets_to_precision_bets(real_markets, odds_h=0.0, odds_d=0.0, odds_a=0.0):
+    """Convertit les cotes reelles normalisees (Market Engine, ex: Sofascore) en
+    entrees de type precision_bet, calibrees sur les cotes reelles (verite terrain)
+    au lieu des estimations Poisson/xG.
+
+    Ne traite QUE les entrees `usable === True` et ignore `unknown`/incompletes
+    (validator.js deja exclus). Retourne [] si rien de valable -> le chemin
+    Poisson restant dans process_prediction reste le comportement par defaut.
+    """
+    if not isinstance(real_markets, list) or not real_markets:
+        return []
+    bets = []
+    for m in real_markets:
+        if not isinstance(m, dict):
+            continue
+        if m.get('usable') is False:
+            continue
+        mid = m.get('market_id')
+        sel = m.get('selection')
+        odds = _safe_float(m.get('odds'), 0.0)
+        line = m.get('line')
+        if not mid or not sel or odds <= 1.0:
+            continue
+        prob = round((1.0 / odds) * 100, 1) if odds > 0 else 0.0
+        label = _human_market_label(mid, sel, line)
+        if not label:
+            continue
+        bets.append({
+            "market": label,
+            "probability": int(prob),
+            "real_odds": odds,
+            "reason": f"Cote reelle {mid} {sel}{(' ' + str(line)) if line is not None else ''} = {odds:.2f} (implique P~{prob:.0f}%)",
+            "source": "real_markets",
+        })
+    return bets
+
+
+def _human_market_label(market_id, selection, line):
+    """Libelle lisible pour un CanonicalMarketModel (registry.js)."""
+    try:
+        sel_str = str(selection)
+    except Exception:
+        sel_str = str(selection)
+    if market_id == 'total_goals':
+        ov = 'Over' if sel_str == 'over' else 'Under'
+        return f"{ov} {line} Buts" if line is not None else f"{ov} 2.5 Buts"
+    if market_id == 'total_corners':
+        ov = 'Over' if sel_str == 'over' else 'Under'
+        return f"{ov} {line} Corners" if line is not None else f"{ov} 9.5 Corners"
+    if market_id == 'btts':
+        return 'BTTS - Oui' if sel_str == 'yes' else 'BTTS - Non'
+    if market_id == 'asian_handicap':
+        return f"AH {sel_str} ({line})" if line is not None else f"AH {sel_str}"
+    if market_id == 'double_chance':
+        return f"Double Chance {sel_str}"
+    if market_id == 'ht_ft':
+        return f"HT/FT {sel_str}"
+    if market_id == 'team_to_score':
+        return f"Team to Score - {sel_str}"
+    if market_id == 'team_goals':
+        ov = 'Over' if sel_str == 'over' else 'Under'
+        return f"Team Goals {ov} {line}" if line is not None else f"Team Goals {ov} 1.5"
+    if market_id == 'match_result':
+        return f"1X2 - {sel_str}"
+    return None
+
+
+def _safe_float(v, default=0.0):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default

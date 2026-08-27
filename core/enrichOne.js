@@ -160,6 +160,9 @@ async function enrichOne(m, deps = {}) {
       is_low_data_prediction: isLowData,
       // Audit Prio 2 : même snapshot dans enriched pour consultation directe.
       engine_exit: engineExit,
+      // Activation Market Engine : cotes réelles multi-marchés (Sofascore) propagées
+      // vers le moteur FastAPI. null si aucune source multi-marchés disponible.
+      real_markets: m.real_markets || (m.fullData && m.fullData.real_markets) || null,
       // quant EMBARQUÉ : l'ancien enrichOne écrivait quant en top-level, qui était
       // ensuite fusionné dans fullData.enriched.quant par updatePredictions. Sans
       // réécrire enriched.quant ici, ce sous-champ restait stale (ex: colonne 12
@@ -174,6 +177,10 @@ async function enrichOne(m, deps = {}) {
         expected_score: quantResult.expected_score,
       },
     },
+
+    // Activation Market Engine : cotes réelles multi-marchés au niveau racine
+    // (route vers FastAPI /predict via le payload match).
+    real_markets: m.real_markets || (m.fullData && m.fullData.real_markets) || null,
   }
 }
 

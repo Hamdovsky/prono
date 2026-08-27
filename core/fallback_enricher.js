@@ -233,6 +233,18 @@ function _attachSofaMarkets(match, sofaOdds) {
     match.odds_btts_yes = bttsYes
     match.odds_btts_no = bttsNo
   }
+  // Activation Market Engine : on stocke le tableau normalise multi-marches.
+  // `markets` peut venir de l'enveloppe { odds, markets } (nouveau) ou etre
+  // deja present au niveau racine (legacy spread). On filtre les entrees
+  // exploitables (usable) pour eviter d'inventer des cotes upstream.
+  const rawMarkets = Array.isArray(sofaOdds.markets) ? sofaOdds.markets : null
+  if (Array.isArray(rawMarkets) && rawMarkets.length) {
+    const usable = rawMarkets.filter((m) => m && m.usable !== false && m.market_id && m.selection)
+    match.real_markets = usable.length ? usable : rawMarkets
+    if (match.fullData && typeof match.fullData === 'object') {
+      match.fullData.real_markets = match.real_markets
+    }
+  }
 }
 
 async function attachRealOdds(match) {

@@ -4,6 +4,52 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Activation du Market Engine multi-marchés dans la prod (2026-08-27)
+
+### Objectif
+Le moteur `core/market/` (registry/discovery/adapter/normalizer/validator/index) était
+déjà écrit et testé, mais **jamais routé en prod** : `sofascoreOddsService.fetchOddsForMatch`
+renvoyait `{ odds, markets }` et (1) les appelants legacy lisant `sofaOdds.home/.over25/.btts_yes`
+au niveau racine étaient CASSÉS (régression : le 1X2/O/U/BTTS Sofascore n'était plus attaché),
+(2) le tableau `markets` normalisé était jeté -> il n'atteignait jamais `prediction_engine`.
+
+### Correctifs (local, no push)
+1. `services/sofascoreOddsService.js:289` — `return { ...odds, markets }` : on expose les
+   clés legacy au niveau racine (rétro-compat) + garde `markets`. Règle la régression
+   `_attachSofaMarkets`/`fallback_enricher.js:263-286,582-592` (lectures `sofaOdds.home` etc.).
+2. `core/fallback_enricher.js:222` `_attachSofaMarkets` — stocke le tableau normalisé dans
+   `match.real_markets` (filtré `usable`), miroir dans `match.fullData.real_markets` (survit DB,
+   aucune nouvelle colonne SQL). Legacy `odds_*` inchangé.
+3. `core/enrichOne.js:112/`enriched` — propage `real_markets` (depuis `m.real_markets` ou
+   `m.fullData.real_markets`) vers le payload FastAPI /predict.
+4. `core/market_engine.py` — nouvelle fonction pure `real_markets_to_precision_bets(real_markets)`
+   (+ `_human_market_label`, `_safe_float`) : convertit les entrées `usable` en precision_bets
+   calibres sur la cote réelle (P=1/odds). Ignore `unknown`/`usable:false` (aucune invention).
+5. `core/prediction_engine.py:463` — après `generate_precision_bets`, étend `precision_bets`
+   avec `real_markets_to_precision_bets(match_obj['real_markets'])` si présent ; sinon le chemin
+   Poisson reste le défaut (matchs non-Sofascore). Import ajouté ligne 74.
+
+### Sécurité (backward-safe)
+- Aucune suppression du chemin legacy 1X2 ni des marchés Poisson `quantResult.markets`.
+- Gating implicite : `Array.isArray(real_markets) && length>0`. Pas de nouveau flag env.
+- Seul Sofascore produit `markets` (therundown/oddsApiIo/oddspapi = legacy flat) -> couverture
+  limitée aux matchs Sofascore (`SOFASCORE_ODDS_ENABLED=true`).
+
+### Vérifié
+- `node --check` OK (3 fichiers .js) ; `py_compile` OK (prediction_engine, market_engine).
+- Jest `__tests__/enrichOne.test.js` 9/9 (dont 2 nouveaux : propagation real_markets top+enriched).
+- pytest `tests/test_market_engine.py` 30/30 (dont 3 nouveaux : conversion/skip/empty).
+- ESLint : 0 erreur (warnings pré-existants uniquement).
+- Smoke : enveloppe `{ ...odds, markets }` restaure `home/draw/away` + conserve `markets`.
+
+### Limite honnête
+- Activation = routage des cotes RÉELLES comme vérité terrain pour O/U, BTTS, AH, DC, HT/FT,
+  team_to_score. Le GATE de qualité (edge financier) n'est PAS mesuré ici : les cotes réelles
+  remplacent les estimations Poisson, mais ça n'invente pas d'edge. Prochaine étape si voulu :
+  A/B `precision_bets` (real vs Poisson) via accuracyEngine sur backtest réel.
+
+---
+
 ## Market Detection & Normalization Engine (2026-08-27)
 
 ### Contexte

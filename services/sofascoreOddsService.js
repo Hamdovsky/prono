@@ -286,7 +286,9 @@ class SofascoreOddsService {
     logger.debug(
       `[SOFASCORE-ODDS] Mkts normalises pour ${match.homeTeam} v ${match.awayTeam}: ${markets.length} (1X2 H/D/A=${odds.home}/${odds.draw}/${odds.away})`
     )
-    return { odds, markets }
+    // Rétro-compat : on expose aussi les clés legacy au niveau racine pour ne
+    // pas casser les appelants qui lisent sofaOdds.home/.over25/.btts_yes.
+    return { ...odds, markets }
   }
 }
 

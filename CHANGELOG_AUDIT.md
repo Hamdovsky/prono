@@ -116,6 +116,38 @@ au niveau racine étaient CASSÉS (régression : le 1X2/O/U/BTTS Sofascore n'ét
 
 ---
 
+## Market Engine — instrumentation A/B + script de backtest (2026-08-27, suite)
+
+### Objectif
+Quantifier l'edge reelle des paris `real_markets_value` vs le chemin Poisson, en
+conditions de prod. Impossible sans historique de cotes reelles : on instrumente
+donc chaque decision (append-only) pour mesurer le P&L plus tard.
+
+### Ajouts
+- `core/market_engine_trace.py` (nouveau) — `log_real_market_bets(match_obj, real_bets)`
+  ecrit en append-only `data/traces/market_engine_real_markets.jsonl` (1 ligne/decision :
+  ts, match_id, home/away, league, startTimestamp, market, real_odds, implied_p,
+  model_p, edge_pct, value, source). Best-effort (n'explose jamais une prediction).
+- `core/prediction_engine.py` — appelle `log_real_market_bets` apres avoir construit
+  `real_bets` (etend `precision_bets`). Trace peupe en prod sur matchs Sofascore.
+- `core/ab_backtest_real_markets.py` (nouveau, script) — `python -m core.ab_backtest_real_markets`
+  joint le journal au resultat reel (DB `matches.scoreHome/scoreAway`), resolve BTTS/Over-Under,
+  et calcule le P&L (mise plate 1u) des paris VALUE vs tous paris. Affiche yield + gain
+  d'edge gate. Dit clairement si le journal est vide / matchs non termines (pas d'invention).
+
+### Vérifié
+- `py_compile` OK sur les 3 fichiers.
+- `tests/test_ab_backtest_real_markets.py` (2 tests) : log/read roundtrip + resolution
+  `_bet_won` (BTTS Over/Under, ligne exacte). Passés.
+- Script lance proprement : `AUCUN JOURNAL -> rien a backtester` (cas reel au demarrage).
+
+### Limite honnête
+- Le vrai P&L necessite des matchs Sofascore TERMINS dans la DB. Le journal s'accumule
+  en prod ; relancer le script apres quelques journees. C'est l'etape A/B différée
+  (impossible a simuler sans donnees reelles de cotes multi-marches historiques).
+
+---
+
 ## Market Detection & Normalization Engine (2026-08-27)
 
 ### Contexte

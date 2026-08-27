@@ -500,6 +500,11 @@ def process_prediction(match_obj: dict) -> dict:
             )
             if real_bets:
                 precision_bets.extend(real_bets)
+                try:
+                    from market_engine_trace import log_real_market_bets
+                    log_real_market_bets(match_obj, real_bets)
+                except Exception:
+                    pass
         except Exception as _e:
             sys.stderr.write(f"[MARKET-ENGINE] override ignore (erreur): {_e}\n")
     dnb_h, dnb_a, dc_h, dc_a, dc_12 = calculate_ah_dnb_probs(p_h, p_d, p_a)

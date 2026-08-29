@@ -119,51 +119,6 @@ async function syncBSD() {
 
 async function syncFootballData() {
   // Paid API removed — system is free-only
-  return
-  try {
-    const https = require('https')
-    const today = new Date().toISOString().split('T')[0]
-    const url = `https://api.football-data.org/v4/competitions/WC/matches?dateFrom=${today}&dateTo=${today}`
-    logger.info('[BOOT] Fetching WC2026 data from Football-Data.org...')
-    const body = await new Promise((resolve, reject) => {
-      https
-        .get(url, { headers: { 'X-Auth-Token': fdKey } }, (res) => {
-          let d = ''
-          res.on('data', (c) => (d += c))
-          res.on('end', () => resolve(d))
-        })
-        .on('error', reject)
-    })
-    const data = JSON.parse(body)
-    const matches = data.matches || []
-    logger.info(`[BOOT] Football-Data: ${matches.length} WC2026 matches today`)
-    for (const m of matches) {
-      const home = m.homeTeam.name
-      const away = m.awayTeam.name
-      const score = m.score?.fullTime || {}
-      const status = m.status
-      try {
-        const existing = database.db
-          ?.prepare(
-            'SELECT id, fullData FROM matches WHERE homeTeam = ? AND awayTeam = ? AND DATE(timestamp) = ? LIMIT 1'
-          )
-          .get(home, away, today)
-        if (existing) {
-          // Merge gardé : seule la clé namespace 'footballData' est écrite,
-          // la prédiction est ré-injectée depuis les colonnes indexées.
-          database.mergeFullData(existing.id, 'footballData', {
-            score,
-            status,
-            competition: 'WC',
-            matchId: m.id,
-          })
-        }
-      } catch (_) {}
-    }
-    logger.info('[BOOT] Football-Data sync done')
-  } catch (e) {
-    logger.warn(`[BOOT] Football-Data sync failed: ${e.message}`)
-  }
 }
 
 async function runCloudSeed() {

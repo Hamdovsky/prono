@@ -18,7 +18,7 @@ const tables = [
   { name: 'historical_matches', proxy: 'archived_at', guard: null },
 ]
 
-for (const { name: t, proxy } of tables) {
+for (const { name: t, proxy, guard } of tables) {
   let cols = []
   try {
     cols = db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name)

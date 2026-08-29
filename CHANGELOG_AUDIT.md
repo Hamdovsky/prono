@@ -2897,9 +2897,35 @@ data_sufficiency (score par marché + Blue Band). Le pipeline complet du master.
     `getMarketSufficiency()` pour le filtre Blue Band (évite Python par match,
    gain ~300-500ms/match).
 
-### Code quality fixes
-- `startupBootstrap.js` : supprime code mort `syncFootballData()` (appel API
-  payante retirée, return early rendait le bloc try unreachable).
-- `scripts/backfill_settled_at.js` : corrige destructuring `({name, proxy})` ->
-  `({name, proxy, guard})` dans la boucle, élimine `undefined guard`.
-- Installation `statsbombpy` dans le venv data_pipeline (_MODULE manquant).
+  ### Code quality fixes
+ - `startupBootstrap.js` : supprime code mort `syncFootballData()` (appel API
+   payante retirée, return early rendait le bloc try unreachable).
+ - `scripts/backfill_settled_at.js` : corrige destructuring `({name, proxy})` ->
+   `({name, proxy, guard})` dans la boucle, élimine `undefined guard`.
+ - Installation `statsbombpy` dans le venv data_pipeline (_MODULE manquant).
+
+---
+
+## P1-2026-08-29 — Whitelist league pour scraping odds
+
+### Problème
+1934 matchs en base (ligues obscures : Northern Premier League, Thai University, etc.)
++ seulement 149 avec cotes 1X2 (7.7%) — le scraper essayait de couvrir des ligues
+inaccessibles aux sources gratuites (football-data.co.uk ne couvre que ~22 ligues Top-5).
+
+### Solution
+Whitelist de ligues dans `oddsSweeper.js` — seuls les matchs des ligues能被免费来源覆盖的
+sont scrapés. Les autres ligues sont ignorées (pas de scrape inutile).
+
+### Ligues ciblées (ODDS_LEAGUE_WHITELELIST)
+Top-5 européens : Premier League, Bundesliga, LaLiga, Ligue 1, Serie A
+Secondaires importants : Championship, LaLiga 2, Ligue 2, 2. Bundesliga, Serie B,
+Eredivisie, Primeira Liga, Süper Lig, Belgian Pro League, Super League
+Cups : Champions League, Europa League
+Americas : MLS, Liga MX, MLS Next Pro
+Autres : Super Lig, Premiership, Brazil Serie A, K-League 1, J1 League
+
+### Résultat mesuré
+Avant whitelist : 1934 matchs vus, 149 avec 1X2 (7.7%)
+Après whitelist : **469 matchs ciblés, 77 avec 1X2 déjà (16.4%)**, 280 à scorer
+Ratio coverage : 5.8x meilleur (7.7% -> 16.4% sur ciblés, 2.4x mieux sur total)

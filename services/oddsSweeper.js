@@ -19,6 +19,11 @@
  *      → alimente le CLV (quant_performance) déjà en place.
  *
  * Lock Redis (odds:sweep:lock) pour éviter les doubles runs.
+ *
+ * CIBLAGE PAR LIGUE : ODDS_SWEEP_LEAGUE_WHITELIST_ACTIVE (défaut true).
+ * Quand activé, seuls les matchs des ligues能被免费来源覆盖的联赛
+ * (football-data.co.uk CSV 22 ligues + Sofascore API) sont traités.
+ * Les autres ligues sont ignorées (pas de scrape inutile).
  */
 
 const logger = require('../core/logger')
@@ -35,6 +40,48 @@ const LOCK_TTL = 3600
 const LOCK_KEY = 'odds:sweep:lock'
 const STATUSES = ['scheduled', 'upcoming', 'NOT_STARTED', 'NS']
 const LOOKBACK_MS = 2 * 3600 * 1000 // matchs commencés depuis peu encore inclus
+
+// Ligues prioritaires pour le scraping —能被免费来源覆盖的联赛
+// Ces ligues sont couvertes par football-data.co.uk + Sofascore API + BetExplorer.
+// Les matchs hors de cette liste sont IGNORÉS (pas de scrape inutile).
+const ODDS_LEAGUE_WHITELIST = new Set([
+  // Top-5 européens
+  'Premier League',
+  'Bundesliga',
+  'LaLiga',
+  'Ligue 1',
+  'Serie A',
+  // Secondaires européens importants
+  'Championship',
+  'LaLiga 2',
+  'Ligue 2',
+  '2. Bundesliga',
+  'Serie B',
+  'Eredivisie',
+  'Primeira Liga',
+  'Süper Lig',
+  'Super League',
+  'Belgian Pro League',
+  // Cups internationaux
+  'Champions League',
+  'Europa League',
+  // Americas
+  'MLS',
+  'Liga MX',
+  'MLS Next Pro',
+  // South America
+  'Brazil - Serie A',
+  'Serie A',
+  'Serie B',
+  // Asia
+  'J1 League',
+  'K-League 1',
+  // Autres ligues populaires
+  'Super Lig',
+  'Premiership',
+])
+
+const ODDS_LEAGUE_WHITELIST_ACTIVE = process.env.ODDS_SWEEP_LEAGUE_WHITELIST !== 'false'
 
 let _attemptedAt = new Map()
 let _running = false
@@ -107,6 +154,11 @@ function selectQueue({ db, horizonDays = HORIZON_DAYS } = {}) {
     if (hasFullBtts(m)) out.withBtts++
     const ts = toTsMs(m)
     if (!ts || ts < windowStart || ts > horizonEnd) continue
+    if (ODDS_LEAGUE_WHITELIST_ACTIVE) {
+      const league = (m.league || m.category_name || '').toLowerCase().trim()
+      const whitelistHit = Array.from(ODDS_LEAGUE_WHITELIST).some(l => league.includes(l.toLowerCase()))
+      if (!whitelistHit) continue
+    }
     if (!needsWork(m)) continue
     queue.push({
       ...m,
@@ -348,13 +400,18 @@ function coverage({ db, horizonDays = HORIZON_DAYS } = {}) {
   if (!d) return out
   try {
     const rows = d
-      .prepare(`SELECT id, "startTimestamp", odds_home, odds_draw, odds_away, odds_over25, odds_under25, odds_btts_yes, odds_btts_no FROM matches WHERE status IN (${STATUSES.map(() => '?').join(',')})`)
+      .prepare(`SELECT id, "startTimestamp", league, category_name, odds_home, odds_draw, odds_away, odds_over25, odds_under25, odds_btts_yes, odds_btts_no FROM matches WHERE status IN (${STATUSES.map(() => '?').join(',')})`)
       .all(...STATUSES)
     const now = Date.now()
     const windowStart = now - LOOKBACK_MS
     const horizonEnd = now + horizonDays * 24 * 3600 * 1000
-    out.total = rows.length
     for (const m of rows) {
+      if (ODDS_LEAGUE_WHITELIST_ACTIVE) {
+        const league = (m.league || m.category_name || '').toLowerCase().trim()
+        const whitelistHit = Array.from(ODDS_LEAGUE_WHITELIST).some(l => league.includes(l.toLowerCase()))
+        if (!whitelistHit) continue
+      }
+      out.total++
       if (hasFull1x2(m)) out.with1x2++
       if (hasFullOu(m)) out.withOu++
       if (hasFullBtts(m)) out.withBtts++

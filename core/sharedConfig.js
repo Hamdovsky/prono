@@ -59,6 +59,12 @@ const config = {
   ai: {
     groq: process.env.GROQ_API_KEY || '',
     gemini: process.env.GEMINI_API_KEY || '',
+    openrouter: {
+      key: process.env.OPENROUTER_API_KEY || '',
+      model: process.env.OPENROUTER_MODEL || 'openai/gpt-4o',
+      siteUrl: process.env.OPENROUTER_SITE_URL || '',
+      siteTitle: process.env.OPENROUTER_SITE_TITLE || 'Titanium AI',
+    },
   },
 
   // Telegram

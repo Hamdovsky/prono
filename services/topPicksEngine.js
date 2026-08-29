@@ -361,7 +361,7 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
   }
 
   const now = Date.now()
-  // C10 : matchs NON commencés uniquement (grâce 30 min kick-off)
+  // C10 : matchs NON commencï¿½s uniquement (grï¿½ce 30 min kick-off)
   const windowStart = now - 30 * 60 * 1000
   const windowEnd = now + days * 24 * 3600 * 1000
 
@@ -475,7 +475,7 @@ async function selectStablePicks({ limit = DEFAULT_LIMIT, days = 14 } = {}) {
   }
 
   const now = Date.now()
-  // C10 : matchs NON commencés uniquement (grâce 30 min kick-off)
+  // C10 : matchs NON commencï¿½s uniquement (grï¿½ce 30 min kick-off)
   const windowStart = now - 30 * 60 * 1000
   const windowEnd = now + days * 24 * 3600 * 1000
   const cal = getCalibrator()

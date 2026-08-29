@@ -17,5 +17,6 @@
   "SMART_SCAN_ENABLED": true,
   "WEBHOOK_ENABLED": true,
   "SYNC_PRIORITY": "HIGH",
-  "DEEP_NEWS_ENABLED": true
+  "DEEP_NEWS_ENABLED": true,
+  "testKey2": "second"
 }

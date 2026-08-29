@@ -2893,6 +2893,13 @@ data_sufficiency (score par marché + Blue Band). Le pipeline complet du master.
      history, scoring local) — evite le spawn Python par match dans
      `selectTopPicksOfDay`.
    - `getMarketSufficiency()` garde le pont Python complet pour usage batch.
-3. **`topPicksEngine.js`** : utilise `getFastSufficiencyScore()` au lieu de
-   `getMarketSufficiency()` pour le filtre Blue Band (évite Python par match,
-  gain ~300-500ms/match).
+  3. **`topPicksEngine.js`** : utilise `getFastSufficiencyScore()` au lieu de
+    `getMarketSufficiency()` pour le filtre Blue Band (évite Python par match,
+   gain ~300-500ms/match).
+
+### Code quality fixes
+- `startupBootstrap.js` : supprime code mort `syncFootballData()` (appel API
+  payante retirée, return early rendait le bloc try unreachable).
+- `scripts/backfill_settled_at.js` : corrige destructuring `({name, proxy})` ->
+  `({name, proxy, guard})` dans la boucle, élimine `undefined guard`.
+- Installation `statsbombpy` dans le venv data_pipeline (_MODULE manquant).

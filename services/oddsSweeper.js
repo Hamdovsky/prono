@@ -26,8 +26,8 @@ const database = require('../core/database')
 const redisCache = require('./redisCache')
 
 const HORIZON_DAYS = parseInt(process.env.ODDS_SWEEP_HORIZON_DAYS || '3', 10)
-const BUDGET_MS = parseInt(process.env.ODDS_SWEEP_BUDGET_MS || String(10 * 60 * 1000), 10)
-const RETRY_MS = parseInt(process.env.ODDS_SWEEP_RETRY_MS || String(30 * 60 * 1000), 10)
+const BUDGET_MS = parseInt(process.env.ODDS_SWEEP_BUDGET_MS || String(30 * 60 * 1000), 10)
+const RETRY_MS = parseInt(process.env.ODDS_SWEEP_RETRY_MS || String(10 * 60 * 1000), 10)
 // Temps max par match : évite qu'un scraper lent (ex. bypass curl_cffi sans
 // timeout interne) bloque la passe et la file du cron.
 const FETCH_TIMEOUT_MS = parseInt(process.env.ODDS_SWEEP_FETCH_TIMEOUT_MS || '30000', 10)
@@ -39,6 +39,11 @@ const LOOKBACK_MS = 2 * 3600 * 1000 // matchs commencés depuis peu encore inclu
 let _attemptedAt = new Map()
 let _running = false
 let _lastSweep = null
+let _startedAt = 0
+// ── Safety: si un sweep reste bloqué plus de 10 min, on force le reset.
+// Évite qu'un crash silencieux (process Node orphelin, fetchOdds hang) bloque
+// tous les sweeps suivants pendant des heures (audit P0-2026-08-29).
+const MAX_SWEEP_MS = parseInt(process.env.ODDS_SWEEP_MAX_MS || String(10 * 60 * 1000), 10)
 
 // ── Petits utilitaires ───────────────────────────────────────────
 function getDb(db) {
@@ -258,7 +263,33 @@ let result = null
 
 // ── Orchestration ────────────────────────────────────────────────
 async function sweep(opts = {}) {
+  // 🛡️ P0-2026-08-29: auto-reset si un sweep précédent est bloqué trop longtemps.
+  if (_running && _startedAt > 0 && Date.now() - _startedAt > MAX_SWEEP_MS) {
+    logger.warn(
+      `[ODDS-SWEEP] Auto-reset stale _running flag (sweep > ${MAX_SWEEP_MS}ms, probable crash/hang)`
+    )
+    _running = false
+    _startedAt = 0
+    try {
+      await redisCache.redis?.del(LOCK_KEY).catch(() => {})
+    } catch (_) {}
+  }
   if (_running && !opts.force) return { success: false, locked: true, running: true }
+
+  // 🛡️ P0-2026-08-29: si le lock Redis est stale (>25min), on le libère pour
+  // permettre aux sweeps suivants de tourner.
+  if (!opts.skipLock) {
+    try {
+      const held = await redisCache.get(LOCK_KEY)
+      if (held) {
+        const heldTs = parseInt(String(held), 10)
+        if (Number.isFinite(heldTs) && Date.now() - heldTs > 25 * 60 * 1000) {
+          logger.warn(`[ODDS-SWEEP] Stale Redis lock detected (${held}), forcing release`)
+          await redisCache.redis?.del(LOCK_KEY).catch(() => {})
+        }
+      }
+    } catch (_) {}
+  }
 
   const { db, horizonDays, budgetMs, limit, retryMs } = opts
   let locked = false
@@ -274,6 +305,7 @@ async function sweep(opts = {}) {
   }
 
   _running = true
+  _startedAt = Date.now()
   try {
     const selected = selectQueue({ db, horizonDays })
     const fetchOdds = opts.fetchOdds || (async (m) => {
@@ -300,6 +332,7 @@ async function sweep(opts = {}) {
     return { success: false, error: e.message }
   } finally {
     _running = false
+    _startedAt = 0
     if (locked) {
       try {
         await redisCache.redis?.del(LOCK_KEY).catch(() => {})
@@ -358,6 +391,22 @@ async function getStatus() {
   }
 }
 
+// 🛡️ P0-2026-08-29: force-release the in-memory _running flag + Redis lock.
+// Use when sweep() is stuck (e.g. crash in fetchOdds that never released the lock).
+async function forceReset() {
+  const wasRunning = _running
+  const heldFor = _startedAt > 0 ? Date.now() - _startedAt : 0
+  _running = false
+  _startedAt = 0
+  try {
+    await redisCache.redis?.del(LOCK_KEY).catch(() => {})
+  } catch (_) {}
+  logger.warn(
+    `[ODDS-SWEEP] forceReset: wasRunning=${wasRunning} heldFor=${heldFor}ms, lock cleared`
+  )
+  return { wasRunning, heldForMs: heldFor, lockCleared: true }
+}
+
 module.exports = {
   sweep,
   getStatus,
@@ -365,6 +414,7 @@ module.exports = {
   selectQueue,
   recordPersistedOdds,
   recordOddsHistory,
+  forceReset,
   _internal: {
     hasFull1x2,
     hasFullOu,

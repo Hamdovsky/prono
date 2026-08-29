@@ -38,6 +38,17 @@ function getCalibrator() {
   }
   return _calibrator
 }
+let _suffSvc = null
+function getSuffSvc() {
+  if (!_suffSvc) {
+    try {
+      _suffSvc = require('./dataSufficiencyService')
+    } catch {
+      _suffSvc = null
+    }
+  }
+  return _suffSvc
+}
 
 // ── Seuils STRICTS ──────────────────────────────────────────────
 const MIN_EDGE_PCT = 5.0 // Edge >= 5 %
@@ -393,6 +404,28 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
       continue
     }
 
+    // ── Blue Band / Data Sufficiency (UNE SEULE fois par match, pas par candidat) ─
+    let suffResult = null
+    const suffSvc = getSuffSvc()
+    if (suffSvc) {
+      try {
+        suffResult = await suffSvc.getMarketSufficiency(m.homeTeam, m.awayTeam, {
+          dataSources: {
+            statsbomb_open_data: !!(m.home_xg && m.away_xg),
+            football_data: !!(m.odds_home && m.odds_away),
+            clubelo: !!(m.elo_home && m.elo_away),
+          },
+          sourcesUsed: [
+            m.odds_home ? 'football_data' : null,
+            m.home_xg ? 'statsbomb_open_data' : null,
+            m.elo_home ? 'clubelo' : null,
+          ].filter(Boolean),
+        })
+      } catch (e) {
+        logger.warn(`[TOP-PICKS] BlueBand check failed for ${m.homeTeam} vs ${m.awayTeam}: ${e.message}`)
+      }
+    }
+
     for (const candidate of candidates) {
       const { confluence, overconf } = await runSafetyGuards(m, candidate)
       if (overconf.veto) {
@@ -402,6 +435,20 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
       if (confluence && confluence.veto) {
         rejected.veto++
         continue
+      }
+      // ── Blue Band guard (réutilise suffResult computé ci-dessus) ─────────────
+      if (suffSvc && suffResult) {
+        const marketMap = { '1X2': '1X2', 'Over 2.5': 'over_under', 'BTTS': 'btts', 'Oui': 'btts' }
+        const suffMarket = marketMap[candidate.marketType] || candidate.marketType
+        const bb = suffSvc.getPickBlueBand(suffResult, suffMarket)
+        candidate.blueBand = bb.blueBand
+        candidate.dataSufficiencyScore = bb.score
+        candidate.dataSufficiencyLevel = bb.level
+        if (!bb.blueBand) {
+          candidate.rejectedReason = `data_insufficient:${suffMarket}:score=${bb.score}`
+          rejected.noOdds++
+          continue
+        }
       }
       // Filtres STRICTS (edge / EV / proba calibrée)
       if (candidate.edge < MIN_EDGE_PCT || candidate.ev < MIN_EV) {
@@ -438,6 +485,9 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
     stakeRecommendation: `${round(candidate.kelly, 1)}%`,
     reasoningSummary: buildReasoning(m, candidate, { confluence, margin }),
     qualityScore,
+    blueBand: !!(candidate.blueBand),
+    dataSufficiencyScore: candidate.dataSufficiencyScore || 0,
+    dataSufficiencyLevel: candidate.dataSufficiencyLevel || 'low',
   }))
 
   return {

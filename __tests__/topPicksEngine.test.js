@@ -38,6 +38,8 @@ describe('topPicksEngine — buildCandidates', () => {
       draw_probability: 25,
       away_win_probability: 20,
       ou_25_prob: 65,
+      odds_over25: 1.90,
+      odds_under25: 1.95,
       quant: { markets: { over_under: { 'O2.5': { odds: 1.90, prob: 0.65 }, 'U2.5': { odds: 1.95 } } } },
       insufficient_data: 0,
     }

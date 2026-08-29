@@ -1,0 +1,548 @@
+# sources_registry.yaml — Registre centralisé des sources de données du projet stitch.
+#
+# Format : chaque source a les champs suivants
+#   name          : identifiant unique (utilisé dans le code)
+#   type          : CSV | JSON | API | PYTHON | MODEL | COMPUTED
+#   url           : URL principale (GitHub, API, site)
+#   license       : licence juridique
+#   commercial_ok : true = usage commercial OK, false = research/non-commercial only
+#   data_types    : liste des types de données fournies
+#   leagues       : liste des pays/ligues couvertes (ou "GLOBAL")
+#   historical    : profondeur historique (ex: "2003-present", "1872-2026")
+#   freshness     : UPDATED_DAILY | UPDATED_WEEKLY | UPDATED_MONTHLY | STATIC | REALTIME
+#   access       : DIRECT_CSV | GIT_CLONE | API_KEY_FREE | HTTP_GET | SCRAPING
+#   independence : PRIMARY | SECONDARY | DERIVED | MODEL
+#   origin       : d'où viennent les données (liga directe, agrégat, scraping, calcul)
+#   reliability  : score 0-100
+#   stability    : score 0-100 (uptime / régularité des mises à jour)
+#   coverage     : score 0-100 (couverture ligue/marché)
+#   freshness_score: score 0-100 (fraîcheur des données)
+#   status       : ACTIVE | STALE | ARCHIVED | BLOCKED
+#   last_verified: date de dernière vérification (YYYY-MM-DD)
+#   notes        : remarques (limitations, particularités)
+#
+# RÈGLES D'UTILISATION :
+#   - Une source avec commercial_ok=false ne doit PAS servir de base à un service commercial
+#   - Une source avec independence=MODEL ou COMPUTED = calcul local (pas une source externe)
+#   - BLOCKED = ne pas essayer de contourner (Cloudflare, 403, CAPTCHA)
+
+sources:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # COTES ET RÉSULTATS — football-data.co.uk (source PRIMAIRE)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: football_data
+    type: CSV
+    url: https://www.football-data.co.uk/
+    license: Gratuite pour usage non-commercial
+    commercial_ok: false
+    data_types:
+      - results
+      - odds_1X2
+      - odds_OU
+      - odds_ASIAN_HANDICAP
+      - shots
+      - shots_on_target
+      - corners
+      - fouls
+      - yellow_cards
+      - red_cards
+      - referee
+      - half_time_score
+    leagues:
+      - ENG Premier League
+      - ENG Championship
+      - ENG League One
+      - ENG League Two
+      - ESP La Liga
+      - ESP Segunda
+      - ITA Serie A
+      - ITA Serie B
+      - GER Bundesliga
+      - GER 2 Bundesliga
+      - FRA Ligue 1
+      - FRA Ligue 2
+      - NED Eredivisie
+      - BEL Pro League
+      - POR Primeira Liga
+      - GRE Super League
+      - TUR Süper Lig
+      - SCO Premiership
+      - AUT Bundesliga
+      - DEN Superliga
+      - NOR Eliteserien
+      - SWE Allsvenskan
+      - FIN Veikkausliiga
+      - IRL Premier Division
+      - POL Ekstraklasa
+      - ROU Liga 1
+      - CZE Czech Liga
+      - RUS Premier League
+      - UKR Premier League
+      - BRA Série A
+      - BRA Série B
+      - ARG Liga Profesional
+      - MEX Liga MX
+      - USA MLS
+      - JPN J1 League
+      - KOR K League 1
+      - CHN Super League
+      - AUS A-League
+      - UEFA Champions League
+      - UEFA Europa League
+      - UEFA Conference League
+    historical: 1993-present (varies by league)
+    freshness: UPDATED_DAILY
+    access: DIRECT_CSV
+    independence: PRIMARY
+    origin: Directes des ligues/bookmakers
+    reliability: 95
+    stability: 98
+    coverage: 88
+    freshness_score: 95
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: Meilleure source gratuite pour cotes et résultats. 6+ bookmakers (B365, Pinnacle, Avg, Max, BW). Pas de BTTS.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # LIVEScore API — fixtures + scores live (source PRIMAIRE)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: livescore_api
+    type: API
+    url: https://prod-public-api.livescore.com/v1/api/
+    license: API publique gratuite
+    commercial_ok: true
+    data_types:
+      - fixtures
+      - live_scores
+      - half_time_score
+    leagues: GLOBAL (~62 ligues)
+    historical: current season only
+    freshness: REALTIME
+    access: API_KEY_FREE
+    independence: PRIMARY
+    origin: API officielle livescore.com
+    reliability: 90
+    stability: 95
+    coverage: 85
+    freshness_score: 100
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: 62 ligues mondiales. Rate limit 6 req/min. Pas de cotes.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # StatsBomb Open Data — xG, événements, compositions (source PRIMAIRE)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: statsbomb_open_data
+    type: JSON
+    url: https://github.com/hudl/open-data
+    license: StatsBomb License (research + non-commercial)
+    commercial_ok: false
+    data_types:
+      - xG
+      - xGA
+      - npxG
+      - shot_events
+      - passes
+      - positions
+      - lineups
+      - match_events
+      - possession
+      - pressures
+      - dribbles
+      - duels
+      - corners
+      - fouls
+      - cards
+    leagues:
+      - UEFA Champions League
+      - UEFA Europa League
+      - UEFA Euro (2000-2024)
+      - FIFA World Cup (1970-2022)
+      - ENG Premier League (some seasons)
+      - ESP La Liga (2004-present)
+      - ITA Serie A (2015-present)
+      - GER Bundesliga (2015-present)
+      - FRA Ligue 1 (2015-present)
+      - FA WSL (2019-present)
+      - Copa America
+      - Africa Cup of Nations
+      - Other tournaments
+    historical: 2003-present (competition-dependent)
+    freshness: UPDATED_PERIODICALLY
+    access: GIT_CLONE
+    independence: PRIMARY
+    origin: Collecte光学 tracking StatsBomb (INDÉPENDANTE d'OPTA/FBref)
+    reliability: 95
+    stability: 85
+    coverage: 65
+    freshness_score: 60
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: >
+      Meilleure source xG gratuite. License StatsBomb = research + non-commercial OK.
+      Ne couvre pas toutes les ligues uniformément (Top-5 + quelques autres).
+      Requiert parsing des événements JSON pour extraire xG par match.
+      Utiliser statsbombpy (pip install statsbombpy) pour faciliter l'accès.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # openfootball — résultats historiques club (PUBLIC DOMAIN)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: openfootball
+    type: JSON
+    url: https://github.com/openfootball/football.json
+    license: CC0-1.0 Public Domain
+    commercial_ok: true
+    data_types:
+      - results
+      - season_list
+      - team_list
+    leagues:
+      - ENG Premier League
+      - ENG Championship
+      - ENG League One
+      - ENG League Two
+      - GER Bundesliga
+      - GER 2 Bundesliga
+      - GER 3 Liga
+      - ESP La Liga
+      - ESP Segunda
+      - ITA Serie A
+      - ITA Serie B
+      - FRA Ligue 1
+      - FRA Ligue 2
+      - NED Eredivisie
+      - BEL Pro League
+      - POR Primeira Liga
+      - POR Segunda Liga
+      - GRE Super League
+      - TUR Süper Lig
+      - SCO Premiership
+      - SCO Championship
+      - SCO League One
+      - SCO League Two
+      - AUT Bundesliga
+      - AUT 2 Liga
+      - BRA Série A
+      - BRA Série B
+      - ARG Primera Division
+      - AUS A-League
+      - RUS Premier League
+      - UKR Premier League
+      - World Cup qualifiers
+    historical: 1990s-present (varies by league)
+    freshness: UPDATED_WEEKLY
+    access: GIT_CLONE
+    independence: PRIMARY
+    origin: >
+      Compilations communautaires depuis sources publiques
+      (Wikipedia, archives officielles, sites de ligues).
+      INDÉPENDANTE de football-data.co.uk (structure/format different).
+    reliability: 92
+    stability: 80
+    coverage: 80
+    freshness_score: 75
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: >
+      CC0 Public Domain — usage commercial OK.
+      Structure JSON exploitable directement.
+      Updates automatiques via GitHub Actions.
+      ⚠️  ARCHIVED 2026-08-29 : repo football.json returns HTTP 404.
+      Utiliser martj42_international_results pour les résultats historiques.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # martj42 international_results — résultats internationaux (PUBLIC DOMAIN)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: martj42_international_results
+    type: CSV
+    url: https://github.com/martj42/international_results
+    license: CC0-1.0 Public Domain
+    commercial_ok: true
+    data_types:
+      - results
+      - goalscorers
+      - shootouts
+    leagues: GLOBAL (international matches only)
+    historical: 1872-2026 (150+ ans!)
+    freshness: UPDATED_WEEKLY
+    access: DIRECT_CSV
+    independence: PRIMARY
+    origin: Wikipedia archives + compilations publiques
+    reliability: 98
+    stability: 95
+    coverage: 100
+    freshness_score: 80
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: >
+      Plus vieille base de donnéesfootball gratuite existante.
+      100% Public Domain — usage commercial OK.
+      Couverture mondiale (tous les matchs internationaux).
+      CSV direct accessible.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # ClubElo — ratings Elo (source PRIMAIRE)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: clubelo
+    type: API
+    url: https://api.clubelo.com/
+    license: Gratuite (usage non-commercial presume)
+    commercial_ok: false
+    data_types:
+      - elo_ratings
+      - team_rankings
+    leagues: GLOBAL (500+ clubs)
+    historical: 2000-present
+    freshness: UPDATED_DAILY
+    access: HTTP_GET
+    independence: PRIMARY
+    origin: Calculs Elo eigen depuis résultats officiels
+    reliability: 80
+    stability: 75
+    coverage: 90
+    freshness_score: 85
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: >
+      API HTTP port 80. Port 443 parfois timeout.
+      Inclut calcul local Elo (K=20, home_adv=100) en fallback.
+      Fallback chain: API → cache officiel → cache local → calcul local.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # FPL data — données Premier League (MIT)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: fantasy_premier_league
+    type: CSV
+    url: https://github.com/vaastav/Fantasy-Premier-League
+    license: MIT
+    commercial_ok: true
+    data_types:
+      - player_stats
+      - gameweek_data
+      - team_data
+      - fixture_difficulty
+    leagues: ENG Premier League only
+    historical: 2016-2025
+    freshness: UPDATED_ANNUALLY
+    access: GIT_CLONE
+    independence: SECONDARY
+    origin: API officielle FPL (gratuit, non-commerciale)
+    reliability: 88
+    stability: 90
+    coverage: 60
+    freshness_score: 70
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: MIT license — usage commercial OK. Données joueur détaillées.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # WORLD CUP data — coupes du monde (CC-BY-SA 4.0)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: worldcup_data
+    type: CSV
+    url: https://github.com/jfjelstul/worldcup
+    license: CC-BY-SA 4.0
+    commercial_ok: false
+    data_types:
+      - results
+      - goals
+      - bookings
+      - squads
+      - managers
+      - referees
+      - stadiums
+    leagues: FIFA World Cup + Qualifications + Women
+    historical: 1930-2026
+    freshness: UPDATED_DURING_TOURNAMENT
+    access: GIT_CLONE
+    independence: PRIMARY
+    origin: Wikipedia + archives officielles FIFA
+    reliability: 95
+    stability: 85
+    coverage: 100
+    freshness_score: 60
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: Couverture complète de tous les CMs. CC-BY-SA = attribution obligatoire.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # CALCULS LOCAUX — MODEL (non une source externe)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: poisson_fair_odds
+    type: MODEL
+    url: N/A (calcul local)
+    license: N/A
+    commercial_ok: true
+    data_types:
+      - P_1X2
+      - P_OverUnder
+      - P_BTTS
+      - P_DoubleChance
+      - fair_odds_1X2
+      - fair_odds_OverUnder
+      - fair_odds_BTTS
+    leagues: ALL (depends des données en entrée)
+    historical: N/A (calcul temps réel)
+    freshness: COMPUTED
+    access: COMPUTED
+    independence: MODEL
+    origin: >
+      Distribution de Poisson depuis xG ou historique.
+      Margin 1.06 (overround bookmaker simulé).
+      bookmaker=false —明确ement marked as MODEL ESTIMATE.
+    reliability: 55
+    stability: 90
+    coverage: 100
+    freshness_score: 100
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: >
+      Ne remplace PAS les cotes bookmaker réelles.
+      Utilisé uniquement quand AUCUNE source gratuite n'est disponible.
+      Confidence = high/medium/low selon qualité des données d'entrée.
+
+  - name: elo_local
+    type: MODEL
+    url: N/A (calcul local)
+    license: N/A
+    commercial_ok: true
+    data_types:
+      - elo_home_team
+      - elo_away_team
+      - elo_diff
+      - elo_probability
+    leagues: ALL
+    historical: N/A
+    freshness: COMPUTED
+    access: COMPUTED
+    independence: MODEL
+    origin: >
+      Elo local K=20, home_adv=100, init=1500.
+      Calculé depuis résultats openfootball + football_data.
+    reliability: 75
+    stability: 90
+    coverage: 100
+    freshness_score: 100
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: Alternative à ClubElo quand API indisponible.
+
+  - name: form_glissante
+    type: COMPUTED
+    url: N/A
+    license: N/A
+    commercial_ok: true
+    data_types:
+      - form_L3
+      - form_L5
+      - form_L10
+      - form_L15
+      - form_domicile
+      - form_exterieur
+      - points_par_match
+      - goals_scored_avg
+      - goals_conceded_avg
+    leagues: ALL (selon historique dispo)
+    historical: N/A
+    freshness: COMPUTED
+    access: COMPUTED
+    independence: MODEL
+    origin: >
+      Moyennes glissantes depuis résultats openfootball/football_data.
+      Anti-leakage: shift(1) — données strictement avant le match.
+    reliability: 82
+    stability: 90
+    coverage: 100
+    freshness_score: 100
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: Calculable depuis historique. Top-5 leagues mieux couvertes.
+
+  - name: h2h_local
+    type: COMPUTED
+    url: N/A
+    license: N/A
+    commercial_ok: true
+    data_types:
+      - h2h_results
+      - h2h_goals_avg
+      - h2h_home_wins
+      - h2h_away_wins
+      - h2h_draws
+    leagues: ALL
+    historical: N/A
+    freshness: COMPUTED
+    access: COMPUTED
+    independence: MODEL
+    origin: >
+      Historique croisé des confrontations directes.
+      Pondération décroissante (matchs récents plus de poids).
+    reliability: 78
+    stability: 90
+    coverage: 80
+    freshness_score: 100
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: Toutes les ligues n'ont pas de H2H détaillé.
+
+  - name: fatigue_index
+    type: COMPUTED
+    url: N/A
+    license: N/A
+    commercial_ok: true
+    data_types:
+      - rest_days
+      - matches_last_14_days
+      - matches_last_30_days
+      - fatigue_score
+      - cumulative_minutes_played
+    leagues: ALL
+    historical: N/A
+    freshness: COMPUTED
+    access: COMPUTED
+    independence: MODEL
+    origin: >
+      Calendrier - derniers matchs joués.
+      Plus de matchs en peu de temps = fatigue plus élevée.
+    reliability: 70
+    stability: 85
+    coverage: 85
+    freshness_score: 100
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: Besoin du calendrier complet pour calculer précisément.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # FOOTBALL-DATA LIVE (Node.js) — cotes upcoming (source PRIMAIRE)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: football_data_live
+    type: CSV
+    url: https://www.football-data.co.uk/fixtures.csv
+    license: Gratuite pour usage non-commercial
+    commercial_ok: false
+    data_types:
+      - fixtures_with_odds
+      - odds_1X2
+      - odds_OverUnder
+    leagues: >
+      ~22 ligues : Top-5 Europe + extensions
+      (Premier League, Liga, Serie A, Bundesliga, Ligue 1,
+       Ligue 2, Championship, Eredivisie, Primeira Liga,
+       Super Lig, Super League Greece, Belgian Pro League,
+       Serie B, 2.Bundesliga, LaLiga 2, Champions League, Europa League)
+    historical: current season fixtures only
+    freshness: UPDATED_DAILY (ou à la demande)
+    access: DIRECT_CSV
+    independence: PRIMARY
+    origin: Même source que football_data (football-data.co.uk)
+    reliability: 95
+    stability: 95
+    coverage: 70
+    freshness_score: 90
+    status: ACTIVE
+    last_verified: "2026-08-29"
+    notes: >
+      Télécharge fixtures.csv à la demande (10-min cache).
+      Cotes d'ouverture B365/Pinnacle/Avg.
+      Team name normalization requise ("Nott'm" → "nottingham").

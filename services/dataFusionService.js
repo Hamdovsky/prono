@@ -153,25 +153,30 @@ function _loadFootballData() {
 class DataFusionService {
   constructor() {
     this.sources = [
-      // Audit cotes (2026-08-24) : fbref RETIRÉ de la chaîne odds.
-      // _tryFbref pendait 30s (timeout) par match AVANT d'atteindre les vraies
-      // sources, et fbref ne fournit aucune cote bookmaker (stats xG uniquement,
-      // exclu de BOOKMAKER_SOURCES) → sweep 0/549, couverture 1X2 47/1239.
-      // Audit cotes (2026-08-24) : chaîne réduite aux seules sources gratuites
-      // réellement fonctionnelles. Les stubs d'APIs payantes (polymarket, bsd,
-      // therundown, apifootball, oddspapi, sportmonks, oddsapiio) brûlaient 5
-      // erreurs + cooldown chacun par match sans jamais renvoyer de cote.
-      { name: 'sofascore', priority: 2, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
+      // P0-2026-08-29 audit: footballdata (CSV local) en priorité 1.
+      // Le CSV football-data.co.uk est rafraîchi à 07h00, contient les cotes
+      // d'ouverture B365/Pinnacle pour les fixtures futures, et répond en <10ms
+      // (pas de réseau). sofascore (priority 2) pend 30s/timeout par match et
+      // finit par bloquer la passe — on le laisse en fallback derrière le CSV.
+      { name: 'footballdata', priority: 1, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
+      // P1-2026-08-29: football_data_live (Node, services/footballDataService.js)
+      // télécharge fixtures.csv à la demande, sert les cotes les plus fraîches
+      // (10 min de cache). Englobe ~22 ligues dont Top 5 + Turquie + Grèce.
+      { name: 'football_data_live', priority: 2, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
+      // P1-2026-08-29: ultimate_orchestrator — TOUTES les sources gratuites en
+      // parallèle : football_data_live, sofascore_api, sofascore_bypass,
+      // betexplorer_1x2, betexplorer_full. Compare et choisit la meilleure cote.
+      { name: 'ultimate_orchestrator', priority: 3, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
       {
         name: 'scrapeservice',
-        priority: 4,
+        priority: 5,
         quota: Infinity,
         calls: 0,
         errors: 0,
         cooldownUntil: 0,
       },
-      // CSV local football-data.co.uk (refresh 07h00) : gratuit et illimité.
-      { name: 'footballdata', priority: 7, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
+      // sofascore = fallback uniquement (cooldown 403/429 très fréquent).
+      { name: 'sofascore', priority: 9, quota: Infinity, calls: 0, errors: 0, cooldownUntil: 0 },
     ]
     this.quotaWindowMs = 60000
     this.quotaResets = {}
@@ -223,6 +228,8 @@ class DataFusionService {
     // bookmaker quotes. They must not be treated as "real odds" for value/honesty.
     const BOOKMAKER_SOURCES = new Set([
       'footballdata',
+      'football_data_live',
+      'ultimate_orchestrator',
       // Sofascore agrège des cotes réelles de bookmakers partenaires.
       'sofascore',
     ])
@@ -250,6 +257,9 @@ class DataFusionService {
           case 'sofascore':
             odds = await this._trySofascore(match)
             break
+          case 'ultimate_orchestrator':
+            odds = await this._tryUnifiedScraper(match)
+            break
           case 'scrapeservice':
             odds = await this._tryScrapeService(match)
             break
@@ -264,6 +274,9 @@ class DataFusionService {
             break
           case 'footballdata':
             odds = await this._tryFootballdata(match)
+            break
+          case 'football_data_live':
+            odds = await this._tryFootballDataLive(match)
             break
           case 'apifootball':
             odds = await this._tryApifootball(match)
@@ -582,6 +595,50 @@ class DataFusionService {
       return { _odds_no_data: true }
     } catch (e) {
       return { _odds_fetch_error: `footballdata:${e.message}` }
+    }
+  }
+
+  async _tryFootballDataLive(match) {
+    try {
+      const fd = require('./footballDataService')
+      if (!fd.isAvailable()) return null
+      const odds = await fd.fetchOddsForMatch(match)
+      if (!odds) return null
+      if (odds._odds_no_data) return { _odds_no_data: true }
+      return {
+        home: odds.home || null,
+        draw: odds.draw || null,
+        away: odds.away || null,
+        over25: odds.over25 || null,
+        under25: odds.under25 || null,
+        btts_yes: odds.btts_yes || null,
+        btts_no: odds.btts_no || null,
+        source: odds.source || 'football_data_live',
+      }
+    } catch (e) {
+      return { _odds_fetch_error: `football_data_live:${e.message}` }
+    }
+  }
+
+  async _tryUnifiedScraper(match) {
+    try {
+      const ultimate = require('./UltimateScraperOrchestrator')
+      const odds = await ultimate.fetchOddsForMatch(match)
+      if (!odds) return null
+      if (odds._odds_no_data) return { _odds_no_data: true }
+      return {
+        home: odds.home || null,
+        draw: odds.draw || null,
+        away: odds.away || null,
+        over25: odds.over25 || null,
+        under25: odds.under25 || null,
+        btts_yes: odds.btts_yes || null,
+        btts_no: odds.btts_no || null,
+        source: odds.source || 'ultimate_orchestrator',
+        bookmaker: odds.bookmaker !== false,
+      }
+    } catch (e) {
+      return { _odds_fetch_error: `ultimate_orchestrator:${e.message}` }
     }
   }
 

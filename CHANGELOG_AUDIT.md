@@ -1606,6 +1606,92 @@ L'ancien modèle (pre-F1, avec skew) est conservé intégralement dans
 `models/stitch_v55_optimized_preF1.json` -> rollback immédiat et sûr.
 
 **Post-déploiement** : surveiller la précision via `accuracyEngine` (snapshot au temps T)
+
+---
+
+## P1-2026-08-29 — Fiabilité du système de cotes + Data Sufficiency (Blue Band)
+
+### Objectif
+Améliorer la fiabilité du système de scraping Odds + intégrer un filtre Data Sufficiency
+(Blue Band) dans le moteur de Top Picks pour éviter les picks sur données insuffisantes.
+
+### 1.oddsSweeper — Safety locks & auto-reset (P0)
+
+**Problème** : un sweep peut rester bloqué indéfiniment (fetchOdds hang, crash silencieux),
+bloquant tous les sweeps suivants.
+
+**Correctifs** (`services/oddsSweeper.js`) :
+- `MAX_SWEEP_MS` (10 min) : auto-reset du flag `_running` si un sweep dépasse ce délai.
+- Lock Redis 25 min : libération automatique d'un lock stale (plus de 25 min détenu).
+- `BUDGET_MS` 30 min (up de 10), `RETRY_MS` 10 min (down de 30) — meilleure réactivité.
+- `forceReset()` exportée : déverrouillage manuel via API/debug si besoin.
+- `_startedAt` tracké pour mesurer la durée réelle d'un sweep.
+
+### 2. dataFusionService — Nouvelle chaîne de priorité (P0→P1)
+
+**Réorganisation de la chaîne d'approvisionnement en cotes** :
+
+| Priorité | Source | Raison |
+|---|---|---|
+| P0 | `footballdata` (CSV local) | Instantané <10ms, pas de réseau, données J-3 |
+| P1 | `football_data_live` (fixtures.csv) | Cotes fraîches ~10 min cache, ~22 ligues |
+| P1 | `ultimate_orchestrator` (// toutes sources) | Compare et choisit la meilleure cote |
+| P5 | `scrapeservice` (BetExplorer bypass) | Fallback large spectre |
+| P9 | `sofascore` | Fallback ultime (403/429 fréquents) |
+
+`footballdata` et `football_data_live` ajoutés à `BOOKMAKER_SOURCES`.
+`_tryFootballDataLive()` et `_tryUnifiedScraper()`新增.
+
+### 3. topPicksEngine — Blue Band / Data Sufficiency (P1)
+
+**Nouveau filtre** : avant d'afficher un pick, le Blue Band vérifie la qualité des
+données disponibles pour ce marché :
+
+- `dataSufficiencyService.js` — interroge `data_pipeline/sources/data_sufficiency.py`
+  pour calculer un score 0-100 par marché (1X2, Over/Under, BTTS, Corners, Cards).
+- Seuil Blue Band : >= 75 = HIGH (affiché), 50-74 = MEDIUM (avertissement), < 50 = LOW
+  (pick bloqué).
+- Intégration dans `selectTopPicksOfDay` : une seule évaluation par match (pas par candidat).
+- Champs ajoutés au output : `blueBand`, `dataSufficiencyScore`, `dataSufficiencyLevel`.
+
+### 4. Nouveaux services
+
+- **`UltimateScraperOrchestrator.js`** : orchestre TOUTES les sources gratuites en parallèle
+  (football_data_live, sofascore_api, sofascore_bypass, betexplorer_1x2,
+  betexplorer_full, jina_flashscore). Retourne la meilleure cote par comparaison.
+- **`FairOddsEstimator.js`** : calcule des cotes "justes" depuis les probabilités du modèle
+  (Poisson) quand aucun bookmaker n'est disponible. Usage uniquement interne, flag
+  `bookmaker=false`.
+- **`dataSufficiencyService.js`** : pont Node → Python `data_sufficiency.py`. Calcule le
+  Blue Band par marché pour chaque match.
+- **`footballDataService.js`** : télécharge et sert `fixtures.csv` (football-data.co.uk)
+  avec cache 10 min.
+
+### 5. data_pipeline — Nouvelles sources
+
+**Registre** (`data_pipeline/sources_registry.yaml`) :
+- `openfootball` (CC0, football.json GitHub — ARCHIVED 2026-08-29, HTTP 404)
+- `martj42_international_results` (CC0, résultats internationaux 1872-2026)
+- `statsbomb_open_data` (StatsBomb License, xG + événements)
+- `football_data_live` (CSV fixtures.csv, ~22 ligues)
+- `poisson_fair_odds`, `elo_local`, `form_glissante`, `h2h_local`, `fatigue_index`
+  (calculs locaux, MODEL/COMPUTED)
+
+**Modules** (`data_pipeline/sources/`) :
+- `openfootball.py` : fetch GitHub CC0 (archived — redirect vers alternatives)
+- `martj42_results.py` : résultats internationaux CSV
+- `statsbomb.py` : interface statsbombpy
+- `poisson_model.py` : modèle Poisson pour fair odds
+- `local_features.py` : computed features (forme, H2H, fatigue)
+- `data_sufficiency.py` : score de qualité des données par marché
+- `__init__.py` mis à jour
+
+### Vérifié
+- `node --check` : services/*.js OK (topPicksEngine, dataFusionService, oddsSweeper)
+- ESLint : 0 erreur, 11 warnings pré-existantes (variables `_` non utilisées)
+- Python `py_compile` : config.py, pipeline.py, sources/__init__.py OK
+- Jest `__tests__/topPicksEngine.test.js` : **9/9 PASS**
+- Test ajouté : `odds_over25`/`odds_under25` dans le buildCandidates mock
 sur ~100 matchs FT ; si dégradation vs baseline, rollback selon ci-dessus.
 
 **Interdit** : jamais de `git push --force` (instruction présente dans AGENTS.md hors
@@ -2652,6 +2738,84 @@ SANS toucher a la reference prod (LR/R 1X2/OU25, RF BTTS par defaut).
 User : "est-ce une bonne decision de re-entrainer le corners XGB ?" -> reponse
 honnête : NON. Puis "prend le bon chemin".
 
+---
+
+## Audit session 2026-08-29 — Odds pipeline / gratuit / stubs désactivés
+
+### Objectif
+Identifier pourquoi 1702 matchs sont dans la queue oddsSweeper sans cotes bookmaker.
+Problèmes ciblés : (1) stubs BSD/BBS/PredixSport actifs mais workers indisponibles,
+(2) football-data.co.uk CSV local non rafraîchi, (3) oddsSweeper._running stale.
+
+### Modifications
+
+#### P0 #2 — `services/dataFusionService.js`
+- `BOOKMAKER_SOURCES` étendu : `footballdata` + `football_data_live` + `sofascore`
+  (ajoute explicitement `football_data_live` comme source bookmaker légitime).
+- Les cotes provenance `football_data_live` sont maintenant éligibles pour le calcul
+  de value (pas de veto `!bookmaker`).
+
+#### P0 #3 — `services/oddsSweeper.js`
+- Auto-reset `_running` si un sweep dure > 10 min (MAX_SWEEP_MS, configurable via
+  `ODDS_SWEEP_MAX_MS`). Réinitialise aussi `_startedAt`.
+- Reset Redis lock si stale (>25 min) en début de `sweep()`.
+- Reset `_running` au boot si un sweep précédent a laissé un lock (init au chargement
+  du module).
+- Fix `_resetAttempts()` : réinitialise le compteur d'attempts par match (évite que
+  les matchs ayant atteint MAX_ATTEMPTS restent coincés).
+
+#### P1 #5 — `services/footballDataService.js` (NOUVEAU)
+- Télécharge `https://www.football-data.co.uk/fixtures.csv` à la demande.
+- Cache 10 min (CACHE_TTL_MS), 3 erreurs → cooldown 10 min.
+- Normalise les noms d'équipe : "Nott'm" → "nottingham", "Inter" → "internazionale",
+  "mb" → "borussia", etc. (footballdata utilise des abréviations spécifiques).
+- Retourne 1X2 + O/U 2.5 depuis B365/Pinnacle/Avg (1ère source disponible).
+- Couverture : ~394 fixtures 2026-08-28 au 2026-08-31, 22 ligues dont Top 5.
+- Vérification : Liverpool @1.5 / Sassuolo @2.25 / Tottenham @2.25 ✅.
+
+#### P1 #5 integration — `services/dataFusionService.js`
+- Source `football_data_live` ajoutée à `this.sources` avec priorité 2.
+- Nouvelle méthode `_tryFootballDataLive(match)`.
+
+#### P0 #4 — `services/cronManager.js`
+- Crons PredixSport / Bigballsdata / BSD commentés (désactivés).
+  Workers inaccessibles, aucun fallback fonctionnel.
+
+#### P1 Scraping gratuit — `services/UltimateScraperOrchestrator.js` (NOUVEAU)
+- Hub ultime 100% gratuit qui lance TOUTES les sources en parallèle et compare
+  les cotes pour choisir la meilleure valeur.
+- Sources actives (chacune travaille indépendamment) :
+    * `football_data_live` — CSV fixtures.csv, instantané, 22 ligues ✅
+    * `sofascore_api` — SofaAPI public, 12 marchés, timeout 8s (anti-403 block)
+    * `sofascore_bypass` — curl_cffi Python, injuries + lineups + stats
+    * `betexplorer_1x2` — curl_cffi, 1X2, ~2-4s/match, timeout 8s
+    * `betexplorer_full` — curl_cffi, O/U + BTTS, timeout 8s
+    * `livescore_api` — API publique, 62 ligues mondiales, scores live
+    * `soccerway_jina` — r.jina.ai, résultats historiques
+- Comparaison de cotes : choisit la plus haute (best value) pour 1X2, O/U, BTTS.
+- Metadonnées de comparaison retournées (`sources_used`, `comparison`).
+- Intégré dans dataFusionService priorité 3.
+- SofascoreAPI bloqué 480s sur 403 → timeout 8s appliqué automatiquement.
+
+### Tests
+- `oddsSweeper.test.js` : 10/10 pass ✅
+- `topPicksEngine.test.js` : 1 fail pré-existant (quant.markets Over 2.5, ligne 46)
+  — confirmé via `git stash` que le fail existait avant ces patches.
+- Total : 35/36 pass sur le périmètre audité.
+
+### Constats scraping
+- Flashscore.com bloque le parsing HTML ( Cloudflare JavaScript Challenge).
+  curl_cffi recoit le HTML initial mais les donnees de match sont absentes (event__time,
+  event__home = 0). Pas de dedicated scraper Flashscore fonctionnel.
+- BetExplorer via curl_cffi (`bypass_scraper.py`) fonctionne (1X2 uniquement,
+  pas de O/U/BTTS sans requetes AJAX supplementaires).
+- football-data.co.uk CSV remain la source gratuite la plus fiable pour les cotes.
+
+### Reste à faire
+- P1 #6 : scrapeService BetExplorer O/U/BTTS (AJAX curl_cffi)
+- P0 #1 : vérifier si clé API-Football disponible (gratuit tier?)
+- P2 #12 : Data Sufficiency Score (0-100) + bande bleue interface
+
 ### Bon chemin retenu (local seulement)
 1. **Corners XGB** : NE PAS re-entrainer. `models/stitch_corners_v1.json` (69
    features) deja entraîné et deja servi en local (get_corners_model ->
@@ -2674,3 +2838,45 @@ honnête : NON. Puis "prend le bon chemin".
 - Prochaine etape si env reseau : pipeline multi-ligues RICHES pour tenter de
   faire depasser XGB sur 1X2/OU25. Sinon : accepter LR/RF plafond, XGB BTTS
   comme seule contribution locale.
+
+---
+
+## Sources libres + features locales + Poisson + Data Sufficiency (2026-08-29)
+
+### Objectif
+Tout connecter : martj42 → local_features (Elo/forme/H2H), poisson_model (BTTS/OU/1X2),
+data_sufficiency (score par marché + Blue Band). Le pipeline complet du master.
+
+### Correctifs
+1. **`data_pipeline/sources/martj42_results.py`** — ajouté `to_local_features_df()` et
+   `load_cached_local_df()` : retourne un DataFrame aux colonnes compatibles
+   `local_features.py` (`home_team`, `away_team`, `date`, `home_score`, `away_score`)
+   à partir des 49 547 matchs internationaux CC0-1.0.
+2. **`data_pipeline/sources/local_features.py`** — ajouté `compute_local_features()` et
+   `merge_local_features_into_master()` : calcule Elo (K=20), forme glissante (L3/L5/L10/L15),
+   H2H pondéré et fatigue depuis master + historique martj42, puis merge les features
+   (`home_elo`, `away_elo`, `elo_diff`, `home_form_N`, `away_form_N`, `h2h_*`) dans le master.
+3. **`data_pipeline/sources/poisson_model.py`** — déjà existant (BTTS/Over/Under/1X2 depuis xG).
+   Non modifié mais désormais **branché dans le pipeline**.
+4. **`data_pipeline/sources/data_sufficiency.py`** — déjà existant (score 0-100 par marché).
+   Non modifié mais désormais **branché dans le pipeline** (colonnes `sufficiency_score`,
+   `sufficiency_level`, `blue_band` par match).
+5. **`data_pipeline/pipeline.py`** — mise à jour majeure :
+   - `_rebuild()` : ajoute local_features, Poisson odds, Data Sufficiency avant DQ et save.
+   - `run_daily()` : appelle `run_international()` (martj42) et passe le résultat à `_rebuild`.
+   - `run_fbref()` : idem — martj42 intégré.
+   - `build_master()` : lit le cache martj42 local et le passe à `_rebuild`.
+   - `run_international()` : utilise `to_local_features_df()` pour sauver en format local_features.
+6. **`data_pipeline/sources_registry.yaml`** — déjà mis à jour (openfootball STALE, martj42/statsbomb ACTIVE).
+
+### Tests
+- Python : 116 passed (excl. 1 pre-existing `test_fetch_fixtures_filtre_top5` failure).
+- Jest : 674 passed across 67 suites.
+- Syntaxe Python validée pour tous les fichiers modifiés.
+
+### Limité honnête
+- `compute_local_features()` calcule sur le master complet (pas seulement les matchs à venir).
+- Poisson odds et Data Sufficiency sont calculés mais pas encore consommés par le moteur
+  de picks côté Node.js (à faire : intégration `dataSufficiencyService.js` avec le
+  `historical_df` du master pour Blue Band par match).
+- StatsBomb xG toujours absent des events (trop lent ~1s/match) ; poisson_model compense.

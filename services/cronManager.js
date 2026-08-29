@@ -587,51 +587,6 @@ class CronManager {
       )
     }
 
-    // 16. PredixSport Sync (Every 6 hours) â€” try Account 2 worker first
-    cron.schedule(
-      '0 */6 * * *',
-      async () => {
-        const result = await workerBridge.callWorker('sync/predixsport')
-        if (!result?.success) {
-          try {
-            const predixSportService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
-            await predixSportService.syncUpcoming()
-          } catch (e) {
-            logger.error(`[CRON] PredixSport sync error: ${e.message}`)
-          }
-        }
-      },
-      { timezone: 'Europe/Paris' }
-    )
-
-    // 17. Big Balls Data Sync (Every 12 hours) â€” try Account 2 worker first
-    cron.schedule(
-      '0 */12 * * *',
-      async () => {
-        const result = await workerBridge.callWorker('sync/bigballsdata')
-        if (!result?.success) {
-          try {
-            const bbs = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
-            await bbs.syncUpcoming()
-          } catch (e) {
-            logger.error(`[CRON] BBS sync error: ${e.message}`)
-          }
-        }
-      },
-      { timezone: 'Europe/Paris' }
-    )
-
-    // 18. BSD Sync (Every 6 hours) â€” via Account 2 worker
-    cron.schedule(
-      '0 */6 * * *',
-      async () => {
-        const result = await workerBridge.callWorker('sync/bsd')
-        if (!result?.success) {
-          logger.info('[CRON] BSD sync skipped â€” no local fallback available')
-        }
-      },
-      { timezone: 'Europe/Paris' }
-    )
 
     // 19. Archive finished matches (Daily at 04:30) â€” via Account 2 worker
     cron.schedule(
@@ -1108,6 +1063,33 @@ class CronManager {
           } catch (e) {
             logger.error('[CRON] ' + step + ' failed: ' + e.message)
           }
+        }
+        // Free international results (martj42 CC0, 49k+ matches, cached 24h)
+        try {
+          await new Promise((res, rej) => {
+            const p = spawn(pythonCmd, ['-c', `
+import sys; sys.path.insert(0, 'data_pipeline')
+from pipeline import run_international
+df = run_international()
+print(f'international: {len(df) if df is not None else 0} rows')
+`], {
+              cwd: cronRoot,
+              shell: true,
+              stdio: ['ignore', 'pipe', 'pipe'],
+              timeout: 300000,
+              windowsHide: true,
+            })
+            let out = ''
+            p.stdout.on('data', (d) => { out += d.toString() })
+            p.on('close', (c) => {
+              if (c === 0) res()
+              else rej(new Error('run_international exited ' + c + ': ' + out.slice(-200)))
+            })
+            p.on('error', rej)
+          })
+          logger.info('[CRON] run_international OK')
+        } catch (e) {
+          logger.warn('[CRON] run_international failed: ' + e.message)
         }
         try {
           const pred = spawn(pythonCmd, ['scripts/daily_predictions.py'], {

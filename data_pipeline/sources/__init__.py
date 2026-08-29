@@ -7,13 +7,16 @@ centralisés dans ``sources/base.py``).
 """
 from __future__ import annotations
 
-from . import clubelo, fbref, football_data
+from . import clubelo, fbref, football_data, statsbomb, martj42_results, openfootball
 from .base import BaseSource, HttpClient, SourceResult, run_all
 
 SOURCES = [
     football_data.FootballDataSource(),
     clubelo.ClubEloSource(),
     fbref.FbrefSource(),
+    statsbomb.StatsBombSource(),
+    martj42_results.Martj42ResultsSource(),
+    openfootball.OpenFootballSource(),
 ]
 SOURCE_BY_NAME = {s.name: s for s in SOURCES}
 

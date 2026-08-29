@@ -2876,7 +2876,23 @@ data_sufficiency (score par marché + Blue Band). Le pipeline complet du master.
 
 ### Limité honnête
 - `compute_local_features()` calcule sur le master complet (pas seulement les matchs à venir).
-- Poisson odds et Data Sufficiency sont calculés mais pas encore consommés par le moteur
-  de picks côté Node.js (à faire : intégration `dataSufficiencyService.js` avec le
-  `historical_df` du master pour Blue Band par match).
 - StatsBomb xG toujours absent des events (trop lent ~1s/match) ; poisson_model compense.
+
+---
+
+## P1-2026-08-29 — Fix Blue Band (session suivante)
+
+### Correctifs
+1. **`data_pipeline/sources/data_sufficiency.py`** : les paramètres
+   `historical_df/h2h_df/form_df` acceptent désormais soit un DataFrame soit
+   une chaîne JSON (désérialisée via `json.loads`). Cela corrige le bug où
+   Node.js passait des JSON stringsify mais Python attendait des DataFrames.
+2. **`dataSufficiencyService.js`** :
+   - **Ajoute `getFastSufficiencyScore()`** : chemin rapide qui calcule le
+     Blue Band directement en Node (requête SQLite compte les matchs
+     history, scoring local) — evite le spawn Python par match dans
+     `selectTopPicksOfDay`.
+   - `getMarketSufficiency()` garde le pont Python complet pour usage batch.
+3. **`topPicksEngine.js`** : utilise `getFastSufficiencyScore()` au lieu de
+   `getMarketSufficiency()` pour le filtre Blue Band (évite Python par match,
+  gain ~300-500ms/match).

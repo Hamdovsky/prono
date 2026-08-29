@@ -409,7 +409,7 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
     const suffSvc = getSuffSvc()
     if (suffSvc) {
       try {
-        suffResult = await suffSvc.getMarketSufficiency(m.homeTeam, m.awayTeam, {
+        suffResult = await suffSvc.getFastSufficiencyScore(m.homeTeam, m.awayTeam, {
           dataSources: {
             statsbomb_open_data: !!(m.home_xg && m.away_xg),
             football_data: !!(m.odds_home && m.odds_away),
@@ -438,14 +438,11 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
       }
       // ── Blue Band guard (réutilise suffResult computé ci-dessus) ─────────────
       if (suffSvc && suffResult) {
-        const marketMap = { '1X2': '1X2', 'Over 2.5': 'over_under', 'BTTS': 'btts', 'Oui': 'btts' }
-        const suffMarket = marketMap[candidate.marketType] || candidate.marketType
-        const bb = suffSvc.getPickBlueBand(suffResult, suffMarket)
-        candidate.blueBand = bb.blueBand
-        candidate.dataSufficiencyScore = bb.score
-        candidate.dataSufficiencyLevel = bb.level
-        if (!bb.blueBand) {
-          candidate.rejectedReason = `data_insufficient:${suffMarket}:score=${bb.score}`
+        candidate.blueBand = !!suffResult.blueBand
+        candidate.dataSufficiencyScore = suffResult.score || 0
+        candidate.dataSufficiencyLevel = suffResult.level || 'low'
+        if (!suffResult.blueBand) {
+          candidate.rejectedReason = `data_insufficient:score=${suffResult.score}`
           rejected.noOdds++
           continue
         }

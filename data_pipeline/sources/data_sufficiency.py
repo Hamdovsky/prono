@@ -23,8 +23,10 @@ Blue Band thresholds :
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json as _json
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional, Union
 
 import pandas as pd
 
@@ -49,7 +51,7 @@ class MarketSufficiency:
     details: dict
 
 
-def _score_historical_depth(df: pd.DataFrame, home_team: str, away_team: str,
+def _score_historical_depth(df: Optional[pd.DataFrame], home_team: str, away_team: str,
                             n_days: int = 365) -> tuple[int, list[str]]:
     if df is None or df.empty:
         return 0, ["No historical data available"]
@@ -84,7 +86,7 @@ def _score_historical_depth(df: pd.DataFrame, home_team: str, away_team: str,
     return score, reasons
 
 
-def _score_h2h(df: pd.DataFrame, home_team: str, away_team: str) -> tuple[int, list[str]]:
+def _score_h2h(df: Optional[pd.DataFrame], home_team: str, away_team: str) -> tuple[int, list[str]]:
     if df is None or df.empty:
         return 0, ["No H2H data"]
     h2h = df[
@@ -116,7 +118,7 @@ def _score_xg(data_sources: dict) -> tuple[int, list[str]]:
         return 0, ["No xG data available"]
 
 
-def _score_form(form_df: pd.DataFrame, team: str, window: int = 5) -> tuple[int, bool]:
+def _score_form(form_df: Optional[pd.DataFrame], team: str, window: int = 5) -> tuple[int, bool]:
     if form_df is None or form_df.empty:
         return 0, False
     tf = form_df[form_df["team"] == team]
@@ -147,12 +149,18 @@ def compute_market_sufficiency(
     market: str,
     home_team: str,
     away_team: str,
-    historical_df: pd.DataFrame = None,
-    h2h_df: pd.DataFrame = None,
-    form_df: pd.DataFrame = None,
-    data_sources: dict = None,
-    sources_used: list[str] = None,
+    historical_df: Optional[Union[pd.DataFrame, str]] = None,
+    h2h_df: Optional[Union[pd.DataFrame, str]] = None,
+    form_df: Optional[Union[pd.DataFrame, str]] = None,
+    data_sources: Optional[dict] = None,
+    sources_used: Optional[list[str]] = None,
 ) -> MarketSufficiency:
+    if isinstance(historical_df, str):
+        historical_df = _json.loads(historical_df) if historical_df else None
+    if isinstance(h2h_df, str):
+        h2h_df = _json.loads(h2h_df) if h2h_df else None
+    if isinstance(form_df, str):
+        form_df = _json.loads(form_df) if form_df else None
     if data_sources is None:
         data_sources = {}
     if sources_used is None:
@@ -255,11 +263,11 @@ def compute_market_sufficiency(
 def get_all_market_sufficiencies(
     home_team: str,
     away_team: str,
-    historical_df: pd.DataFrame = None,
-    h2h_df: pd.DataFrame = None,
-    form_df: pd.DataFrame = None,
-    data_sources: dict = None,
-    sources_used: list[str] = None,
+    historical_df: Optional[Union[pd.DataFrame, str]] = None,
+    h2h_df: Optional[Union[pd.DataFrame, str]] = None,
+    form_df: Optional[Union[pd.DataFrame, str]] = None,
+    data_sources: Optional[dict] = None,
+    sources_used: Optional[list[str]] = None,
 ) -> dict[str, MarketSufficiency]:
     markets = ["1X2", "over_under", "btts", "corners", "cards"]
     return {

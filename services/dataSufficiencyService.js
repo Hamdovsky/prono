@@ -4,8 +4,7 @@
  * Appelle le module Python data_pipeline/sources/data_sufficiency.py
  * pour calculer un score 0-100 de qualité des données par marché.
  *
- * Intégration : topPicksEngine.js noBetOverconfident() vérifie le blue_band
- * avant d'afficher un pick.
+ * Intégration : topPicksEngine.js vérifie le blue_band avant d'afficher un pick.
  *
  * Blue Band thresholds :
  *   >= 75 : HIGH  → BLUE BAND displayed
@@ -25,12 +24,6 @@ const BLUE_BAND_THRESHOLD_MEDIUM = 50
 const MARKETS = ['1X2', 'over_under', 'btts', 'corners', 'cards']
 
 
-function pythonSafe(v) {
-  if (v == null || v === '' || v === 'None' || v === 'NaN') return null
-  return v
-}
-
-
 function parseMarketSufficiency(jsonStr) {
   try {
     const parsed = JSON.parse(jsonStr)
@@ -39,6 +32,16 @@ function parseMarketSufficiency(jsonStr) {
   } catch {
     return null
   }
+}
+
+
+function _scoreHistoricalFromCounts(homeCount, awayCount) {
+  const minCount = Math.min(homeCount, awayCount)
+  if (minCount === 0) return { score: 0, reasons: ['No historical data available'] }
+  if (minCount <= 2) return { score: 5, reasons: [`Very few recent matches (home=${homeCount}, away=${awayCount})`] }
+  if (minCount <= 5) return { score: 15, reasons: [`Few recent matches (home=${homeCount}, away=${awayCount})`] }
+  if (minCount <= 10) return { score: 25, reasons: [`Moderate match history (home=${homeCount}, away=${awayCount})`] }
+  return { score: 30, reasons: [`Good match history (home=${homeCount}, away=${awayCount})`] }
 }
 
 
@@ -133,6 +136,53 @@ async function getMarketSufficiency(homeTeam, awayTeam, options = {}) {
 }
 
 
+async function getFastSufficiencyScore(homeTeam, awayTeam, options = {}) {
+  const { dataSources = {}, sourcesUsed = [] } = options
+  const homeNorm = (homeTeam || '').toLowerCase().trim()
+  const awayNorm = (awayTeam || '').toLowerCase().trim()
+
+  let homeCount = 0, awayCount = 0
+  try {
+    const db = require('../core/database')
+    const cutoff = Date.now() - 365 * 24 * 3600 * 1000
+    const rows = db.prepare(`
+      SELECT "homeTeam", "awayTeam" FROM historical_matches
+      WHERE "startTimestamp" >= ? AND (
+        ("homeTeam" = ? AND "awayTeam" = ?) OR
+        ("homeTeam" = ? AND "awayTeam" = ?) OR
+        ("homeTeam" = ? AND "awayTeam" = ?) OR
+        ("homeTeam" = ? AND "awayTeam" = ?)
+      )
+    `).all(cutoff, homeNorm, awayNorm, awayNorm, homeNorm, homeTeam, awayTeam, awayTeam, homeTeam)
+    homeCount = rows.filter(r =>
+      r.homeTeam.toLowerCase() === homeNorm || r.awayTeam.toLowerCase() === homeNorm
+    ).length
+    awayCount = rows.filter(r =>
+      r.homeTeam.toLowerCase() === awayNorm || r.awayTeam.toLowerCase() === awayNorm
+    ).length
+  } catch (e) {
+    logger.debug(`[DataSufficiency] Fast count failed: ${e.message}`)
+  }
+
+  const hResult = _scoreHistoricalFromCounts(homeCount, awayCount)
+  const sourceDivScore = sourcesUsed.length >= 2 ? 10 : sourcesUsed.length === 1 ? 5 : 0
+  const xgScore = (dataSources.statsbomb_open_data || dataSources.modeled_xg) ? 25 :
+                   (dataSources.football_data) ? 15 : 0
+  const score = Math.min(100, hResult.score + sourceDivScore + xgScore)
+
+  let level = 'low'
+  if (score >= 75) level = 'high'
+  else if (score >= 50) level = 'medium'
+
+  return {
+    score,
+    level,
+    blueBand: score >= 50,
+    reasons: [...hResult.reasons, `Sources: ${sourcesUsed.join(',') || 'none'}`],
+  }
+}
+
+
 function isBlueBandMatch(marketSufficiency) {
   if (!marketSufficiency || typeof marketSufficiency !== 'object') return false
   const scores = Object.values(marketSufficiency).map((m) => m.score || 0)
@@ -156,6 +206,7 @@ function getPickBlueBand(marketSufficiency, marketType) {
 
 module.exports = {
   getMarketSufficiency,
+  getFastSufficiencyScore,
   isBlueBandMatch,
   getPickBlueBand,
   BLUE_BAND_THRESHOLD_HIGH,

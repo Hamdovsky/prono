@@ -52,19 +52,15 @@ function estimateFair1X2(modelProbs) {
   }
 }
 
-function estimateFairOverUnder(xgHome, xgAway, leagueAvg) {
+function estimateFairOverUnder(xgHome, xgAway) {
   const lambdaH = poissonLambda(xgHome || 1.4)
   const lambdaA = poissonLambda(xgAway || 1.1)
-  const lambdaTotal = lambdaH + lambdaA
-  const avgTotal = leagueAvg || 2.65
 
-  let probUnder05 = 0, probOver15 = 0, probOver25 = 0, probUnder25 = 0
-  let probBttsYes = 0, probBttsNo = 0
+  let probOver15 = 0, probOver25 = 0, probUnder25 = 0, probBttsYes = 0
 
   for (let h = 0; h <= 5; h++) {
     for (let a = 0; a <= 5; a++) {
       const p = poissonProb(lambdaH, h) * poissonProb(lambdaA, a)
-      if (h + a < 0.5) probUnder05 += p
       if (h + a >= 1.5) probOver15 += p
       if (h + a >= 2.5) probOver25 += p
       if (h + a < 2.5) probUnder25 += p
@@ -82,14 +78,12 @@ function estimateFairOverUnder(xgHome, xgAway, leagueAvg) {
     over15: probOver15 > eps ? +((1 / probOver15) * MARGIN).toFixed(2) : null,
     under15: +(1 / (1 - probOver15)).toFixed(2),
     btts_yes: probBttsYes > eps ? +((1 / probBttsYes) * MARGIN).toFixed(2) : null,
-    btts_no: probBttsNo > eps ? +((1 / probBttsNo) * MARGIN).toFixed(2) : null,
   }
 }
 
 function estimateFairOuFromGoals(expectedGoalsH, expectedGoalsA) {
   const lambdaH = poissonLambda(expectedGoalsH || 1.4)
   const lambdaA = poissonLambda(expectedGoalsA || 1.1)
-  const lambdaTotal = lambdaH + lambdaA
 
   const OU_LINES = [0.5, 1.5, 2.5, 3.5, 4.5]
   const result = {}

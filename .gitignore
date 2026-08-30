@@ -82,6 +82,7 @@ scratch
 
 # auto-generated data files (not seed data)
 data/accuracy_log.json
+data/sofa_not_found.json
 data/deepseek_usage.json
 data/footballdata_usage.json
 data/rapidapi_usage.json

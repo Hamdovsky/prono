@@ -1,9 +1,36 @@
 const logger = require('../core/logger')
+const path = require('path')
+const fs = require('fs')
 const { SofaAPI, fetchWithRetry, getSofaHeaders } = require('../SofascoreScraping/src/apiClient')
 const { process: normalizeMarkets } = require('../core/market')
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
-const NOT_FOUND_TTL_MS = 2 * 60 * 60 * 1000
+const NOT_FOUND_TTL_MS = parseInt(process.env.SOFA_NOT_FOUND_TTL_MS || '', 10) || 6 * 60 * 60 * 1000
+const NOT_FOUND_CACHE_FILE = path.join(__dirname, '..', 'data', 'sofa_not_found.json')
+
+function _loadNotFoundCache() {
+  try {
+    if (fs.existsSync(NOT_FOUND_CACHE_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(NOT_FOUND_CACHE_FILE, 'utf8'))
+      const now = Date.now()
+      const valid = {}
+      for (const [k, v] of Object.entries(raw)) {
+        if (now - v < NOT_FOUND_TTL_MS) valid[k] = v
+      }
+      logger.info(`[SOFASCORE-ODDS] Neg cache loaded: ${Object.keys(valid).length} entries`)
+      return valid
+    }
+  } catch (_) {}
+  return {}
+}
+
+function _saveNotFoundCache(cache) {
+  try {
+    const dir = path.dirname(NOT_FOUND_CACHE_FILE)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(NOT_FOUND_CACHE_FILE, JSON.stringify(cache), 'utf8')
+  } catch (_) {}
+}
 
 /**
  * Parse the `/event/{id}/odds/1/featured` payload and return the best 1X2
@@ -111,9 +138,7 @@ class SofascoreOddsService {
   constructor() {
     this.enabled = process.env.SOFASCORE_ODDS_ENABLED !== 'false'
     this.disabledByFlag = process.env.DISABLE_SOFASCORE === 'true'
-    // Negative cache: event ids already queried without any odds. Remembered
-    // for 2h so the hourly/20-min cron does not re-ping the same matches.
-    this._notFound = new Map()
+    this._notFound = _loadNotFoundCache()
     this._eventIdCache = new Map()
     if (this.disabledByFlag) {
       logger.warn('[SOFASCORE-ODDS] Désactivé (DISABLE_SOFASCORE=true)')
@@ -129,13 +154,18 @@ class SofascoreOddsService {
   }
 
   _isNotFound(key) {
-    const e = this._notFound.get(key)
+    const e = this._notFound[key]
     if (!e) return false
     if (Date.now() - e >= NOT_FOUND_TTL_MS) {
-      this._notFound.delete(key)
+      delete this._notFound[key]
       return false
     }
     return true
+  }
+
+  _markNotFound(key) {
+    this._notFound[key] = Date.now()
+    _saveNotFoundCache(this._notFound)
   }
 
   /**
@@ -223,12 +253,12 @@ class SofascoreOddsService {
     try {
       const data = await SofaAPI.getOddsFeatured(eventId, marketId)
       if (!data || !data.featured) {
-        this._notFound.set(key, Date.now())
+        this._markNotFound(key)
         return null
       }
       return data
     } catch (e) {
-      this._notFound.set(key, Date.now())
+      this._markNotFound(key)
       return null
     }
   }

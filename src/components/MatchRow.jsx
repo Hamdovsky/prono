@@ -1,5 +1,12 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { DISABLE_BTTS_DISPLAY } from '../utils/displayPolicy'
+
+const goldenPulse = `
+@keyframes goldenPulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(255,215,0,0.2); }
+  50% { box-shadow: 0 0 18px rgba(255,215,0,0.6), 0 0 8px rgba(255,215,0,0.1); }
+}
+`
 
 const G = (p) => ({
   display: 'flex',
@@ -77,8 +84,24 @@ const ACC_COLORS = {
 }
 const accColor = (v) => (v >= 70 ? ACC_COLORS.high : v >= 55 ? ACC_COLORS.med : ACC_COLORS.low)
 
+const SCOPE_TO_BOX = {
+  first_half: 5,
+  full_time_1x2: 1,
+  full_time_over_under: 4,
+  full_time_dc: 1,
+  btts: 3,
+}
+
+const goldenStyle = (boxIdx, goldenBox) => goldenBox === boxIdx ? {
+  boxShadow: '0 0 15px rgba(255,215,0,0.5), inset 0 0 10px rgba(255,215,0,0.08)',
+  border: '1px solid #ffd700',
+  animation: 'goldenPulse 2s ease-in-out infinite',
+} : {}
+
 const MatchRow = ({ match, isElite, onClick, style, now }) => {
   const enriched = match.enriched || {}
+  const marketScope = match.market_scope || enriched?.market_scope || null
+  const goldenBox = marketScope ? SCOPE_TO_BOX[marketScope] : null
   const hPct = parseFloat(match.home_win_probability || enriched.home_win_probability || 0)
   const aPct = parseFloat(match.away_win_probability || enriched.away_win_probability || 0)
   const dPct = parseFloat(match.draw_probability || enriched.draw_probability || 0)
@@ -282,6 +305,18 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     actualScoreDisplay = `${match.scoreHome} - ${match.scoreAway}`
   }
 
+  useEffect(() => {
+    if (goldenBox) {
+      const styleEl = document.getElementById('matchrow-golden-pulse')
+      if (!styleEl) {
+        const el = document.createElement('style')
+        el.id = 'matchrow-golden-pulse'
+        el.textContent = goldenPulse
+        document.head.appendChild(el)
+      }
+    }
+  }, [goldenBox])
+
   return (
     <div
       style={{
@@ -411,11 +446,11 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
         {/* BOX 1: BASE 1X2 + Confidence */}
         <div
-          style={G({
+          style={{ ...G({
             bg: 'rgba(0,255,170,0.05)',
             border: '1px solid rgba(0,255,170,0.12)',
             gap: '2px',
-          })}
+          }), ...goldenStyle(1) }}
         >
           <L c="#00ffaa" s="7px" w="900">
             BASE 1X2
@@ -473,10 +508,10 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
         {/* BOX 2: AI SCORE */}
         <div
-          style={G({
+          style={{ ...G({
             bg: match.insufficient_data === 1 ? 'rgba(245,158,11,0.06)' : 'rgba(0,255,170,0.04)',
             border: `1px solid ${match.insufficient_data === 1 ? 'rgba(245,158,11,0.15)' : 'rgba(0,255,170,0.1)'}`,
-          })}
+          }), ...goldenStyle(2) }}
         >
           <L c={match.insufficient_data === 1 ? '#f59e0b' : '#00ffaa'} s="7px" w="900">
             SCORE IA
@@ -489,10 +524,10 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
         {/* BOX 3: BTTS — masqué si VITE_DISABLE_BTTS_DISPLAY (audit BT3 :
             signal 50-53% ~ hasard, voir CHANGELOG_AUDIT.md « Marché BTTS ») */}
         <div
-          style={G({
+          style={{ ...G({
             bg: 'rgba(239,68,68,0.04)',
             border: `1px solid ${DISABLE_BTTS_DISPLAY ? 'rgba(100,116,139,0.15)' : scoreBtts ? 'rgba(0,255,170,0.12)' : 'rgba(239,68,68,0.15)'}`,
-          })}
+          }), ...goldenStyle(3) }}
         >
           <L c={DISABLE_BTTS_DISPLAY ? '#64748b' : scoreBtts ? '#00ffaa' : '#f87171'} s="7px" w="900">
             BTTS
@@ -509,10 +544,10 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
         {/* BOX 4: O/U 2.5 */}
         <div
-          style={G({
+          style={{ ...G({
             bg: over25Pct > 50 ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)',
             border: `1px solid ${over25Pct > 50 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`,
-          })}
+          }), ...goldenStyle(4) }}
         >
           <L c={over25Pct > 50 ? '#10b981' : '#ef4444'} s="7px" w="900">
             O/U 2.5
@@ -530,10 +565,10 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
         {/* BOX 5: HT +0.5 */}
         <div
-          style={G({
+          style={{ ...G({
             bg: 'rgba(251,191,36,0.04)',
             border: `1px solid ${htGoalPct >= 65 ? 'rgba(0,255,170,0.12)' : htGoalPct >= 50 ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.12)'}`,
-          })}
+          }), ...goldenStyle(5) }}
         >
           <L
             c={htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171'}
@@ -549,7 +584,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
 
         {/* BOX 6: RISK / EV / FORCE */}
         <div
-          style={G({ bg: 'rgba(148,163,184,0.04)', border: `1px solid ${msColor}33`, gap: '2px' })}
+          style={{ ...G({ bg: 'rgba(148,163,184,0.04)', border: `1px solid ${msColor}33`, gap: '2px' }), ...goldenStyle(6) }}
         >
           <L c="#64748b" s="7px" w="900">
             RISK / EV / FORCE

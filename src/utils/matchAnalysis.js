@@ -384,8 +384,12 @@ export function analyzeMatch(m) {
   const makeEntry = (chip, prob, odds, label) => {
     if (!prob || prob <= 0) return null
     if (odds) {
-      const ev = (prob / 100) * odds * honestyFactor
-      return { chip, prob, odds, label, score: ev }
+      const fairProb = odds > 0 ? (1 / odds) * 100 : prob
+      const fairEV = (fairProb / 100) * odds * honestyFactor
+      const edge = prob - fairProb
+      const edgeBonus = edge > 5 ? (edge - 5) * 0.02 * odds : 0
+      const score = fairEV + edgeBonus
+      return { chip, prob, odds, label, score, fairEV, edge }
     }
     const ev = (prob / 100) * honestyFactor
     return { chip, prob, odds: null, label, score: ev }

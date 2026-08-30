@@ -1,5 +1,5 @@
 ﻿const cron = require('node-cron')
-const { spawn, execSync } = require('child_process')
+const { spawn } = require('child_process')
 const path = require('path')
 const logger = require('../core/logger')
 const database = require('../core/database')
@@ -15,6 +15,42 @@ const autoBacktestService = require('./autoBacktestService')
 const enrichedPredictions = require('../core/enriched_predictions')
 const { runAutoRetrain, runV56Retrain } = require('../scripts/auto_retrain_worker')
 const { invalidateCache } = require('../core/speedCache')
+
+/**
+ * Exécute un script node en asynchrone (non bloquant) via spawn.
+ * @param {string} scriptPath chemin relatif vers le script
+ * @param {string[]} args arguments
+ * @param {number} timeoutMs
+ * @returns {Promise<string>}
+ */
+function runNodeScriptAsync(scriptPath, args = [], timeoutMs = 120000) {
+  return new Promise((resolve, reject) => {
+    const nodeCmd = process.platform === 'win32' ? 'node.exe' : 'node'
+    const proc = spawn(nodeCmd, [scriptPath, ...args], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      proc.kill('SIGKILL')
+    }, timeoutMs)
+    proc.stdout.on('data', (d) => (stdout += d.toString()))
+    proc.stderr.on('data', (d) => (stderr += d.toString()))
+    proc.on('error', (e) => {
+      clearTimeout(timer)
+      reject(e)
+    })
+    proc.on('close', (code) => {
+      clearTimeout(timer)
+      if (timedOut) return reject(new Error(`timeout after ${timeoutMs}ms`))
+      if (code !== 0) return reject(new Error(stderr || `exit code ${code}`))
+      resolve(stdout)
+    })
+  })
+}
 
 class CronManager {
   constructor() {
@@ -106,7 +142,13 @@ class CronManager {
     )
 
     // 4. Daily Auto-Archiver (04:00)
-    cron.schedule('0 4 * * *', () => autoArchiver.runArchiver(2), { timezone: 'Europe/Paris' })
+    cron.schedule('0 4 * * *', () => {
+      try {
+        autoArchiver.runArchiver(2)
+      } catch (e) {
+        logger.error(`❌ [CRON] Daily archiver error: ${e.message}`)
+      }
+    }, { timezone: 'Europe/Paris' })
 
     // 4b. Daily Auto-Backtest (03:00) — refreshes data/backtest_results.json so the
     // isotonic confidence calibration stays on recent settled observations (P3 audit).
@@ -137,6 +179,7 @@ class CronManager {
         proc.on('close', (code) =>
           logger.info(`✅ [CRON] Online Learning finished (code ${code})`)
         )
+        proc.on('error', (e) => logger.error(`❌ [CRON] Online Learning spawn error: ${e.message}`))
       },
       { timezone: 'Africa/Tunis' }
     )
@@ -150,6 +193,7 @@ class CronManager {
           windowsHide: true,
         })
         proc.on('close', (code) => logger.info(`✅ [CRON] H2H Success (code ${code})`))
+        proc.on('error', (e) => logger.error(`❌ [CRON] H2H spawn error: ${e.message}`))
       },
       { timezone: 'Europe/Paris' }
     )
@@ -158,9 +202,13 @@ class CronManager {
     cron.schedule(
       '0 */3 * * *',
       async () => {
-        const result = await workerBridge.callWorker('sync/retro')
-        if (!result?.success) {
-          await retroSync.syncPastMatches()
+        try {
+          const result = await workerBridge.callWorker('sync/retro')
+          if (!result?.success) {
+            await retroSync.syncPastMatches()
+          }
+        } catch (e) {
+          logger.error(`❌ [CRON] Retro-sync error: ${e.message}`)
         }
       },
       { timezone: 'Europe/Paris' }
@@ -280,6 +328,7 @@ class CronManager {
           windowsHide: true,
         })
         proc.on('close', (code) => logger.info(`✅ [CRON] Tunisian Crowd finished (code ${code})`))
+        proc.on('error', (e) => logger.error(`❌ [CRON] Crowd Collector spawn error: ${e.message}`))
       },
       { timezone: 'Africa/Tunis' }
     )
@@ -353,11 +402,12 @@ class CronManager {
         proc.on('close', (code) =>
           logger.info(`✅ [CRON] Universal Predictor finished (code ${code})`)
         )
+        proc.on('error', (e) => logger.error(`❌ [CRON] Universal Predictor spawn error: ${e.message}`))
       },
       { timezone: 'Europe/Paris' }
     )
 
-    // 10.2 Daily Surgical Elite 50 â€” Main dispatch 10:00 AM (after 06:00 scraper)
+    // 10.2 Daily Surgical Elite 50 â€"- Main dispatch 10:00 AM (after 06:00 scraper)
     cron.schedule(
       '0 10 * * *',
       () => {
@@ -370,6 +420,7 @@ class CronManager {
         proc.on('close', (code) =>
           logger.info(`✅ [CRON] Surgical Elite 50 finished (code ${code})`)
         )
+        proc.on('error', (e) => logger.error(`❌ [CRON] Surgical Elite 50 spawn error: ${e.message}`))
       },
       { timezone: 'Europe/Paris' }
     )
@@ -387,6 +438,7 @@ class CronManager {
         proc.on('close', (code) =>
           logger.info(`✅ [CRON] Elite 50 Afternoon finished (code ${code})`)
         )
+        proc.on('error', (e) => logger.error(`❓ [CRON] Elite 50 Afternoon spawn error: ${e.message}`))
       },
       { timezone: 'Europe/Paris' }
     )
@@ -406,9 +458,13 @@ class CronManager {
     cron.schedule(
       '0 3 * * *',
       async () => {
-        const result = await workerBridge.callWorker('db/maintenance')
-        if (!result?.success) {
-          await database.maintenance()
+        try {
+          const result = await workerBridge.callWorker('db/maintenance')
+          if (!result?.success) {
+            await database.maintenance()
+          }
+        } catch (e) {
+          logger.error(`❓ [CRON] DB maintenance error: ${e.message}`)
         }
       },
       { timezone: 'Europe/Paris' }
@@ -515,6 +571,7 @@ class CronManager {
         proc.on('close', (code) =>
           logger.info(`✅ [CRON] Surgical Dispatch finished (code ${code})`)
         )
+        proc.on('error', (e) => logger.error(`❓ [CRON] Surgical Dispatch spawn error: ${e.message}`))
       },
       { timezone: 'Africa/Tunis' }
     )
@@ -530,6 +587,7 @@ class CronManager {
           { stdio: 'inherit', windowsHide: true }
         )
         proc.on('close', (code) => logger.info(`✅ [CRON] Results Report finished (code ${code})`))
+        proc.on('error', (e) => logger.error(`❓ [CRON] Results Report spawn error: ${e.message}`))
       },
       { timezone: 'Africa/Tunis' }
     )
@@ -640,7 +698,11 @@ class CronManager {
     cron.schedule(
       '0 5 * * *',
       async () => {
-        await workerBridge.callWorker('sync/openligadb')
+        try {
+          await workerBridge.callWorker('sync/openligadb')
+        } catch (e) {
+          logger.error(`❓ [CRON] OpenLigaDB sync error: ${e.message}`)
+        }
       },
       { timezone: 'Europe/Paris' }
     )
@@ -652,6 +714,7 @@ class CronManager {
         const scriptPath = path.join(__dirname, '..', 'scripts', 'live_value_alerts.js')
         if (require('fs').existsSync(scriptPath)) {
           const proc = spawn('node', [scriptPath, '--once'], { stdio: 'ignore', windowsHide: true })
+          proc.on('error', (e) => logger.error(`❓ [CRON] Live Value Alerts spawn error: ${e.message}`))
           proc.unref()
         }
       },
@@ -695,8 +758,8 @@ class CronManager {
       '0 3 * * 0',
       async () => {
         logger.info('[CRON] Launching weekly Platt calibration...')
-        const httpMod = fastApiUrl.startsWith('https') ? require('https') : require('http')
         const fastApiUrl = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
+        const httpMod = fastApiUrl.startsWith('https') ? require('https') : require('http')
         const apiKey = process.env.API_SECRET_KEY || ''
         const postJson = (path, body) =>
           new Promise((resolve) => {
@@ -832,10 +895,10 @@ class CronManager {
 
           // Backfill predictions
           try {
-            const nodeCmd = process.platform === 'win32' ? 'node.exe' : 'node'
-            execSync(
-              `${nodeCmd} "${path.join(scriptsDir, 'backfill_promosport_predictions.js')}"`,
-              { timeout: 120000, encoding: 'utf8', windowsHide: true }
+            await runNodeScriptAsync(
+              path.join(scriptsDir, 'backfill_promosport_predictions.js'),
+              [],
+              120000
             )
           } catch (_) {}
 
@@ -895,14 +958,12 @@ class CronManager {
       async () => {
         logger.info('[CRON] Starting Promosport Tunisie crowd scrape...')
         try {
-          const { execSync } = require('child_process')
           const scriptsDir = path.join(__dirname, '..', 'scripts')
-          const nodeCmd = process.platform === 'win32' ? 'node.exe' : 'node'
-          execSync(`${nodeCmd} "${path.join(scriptsDir, 'crowd_collector.js')}" collect-latest`, {
-            timeout: 60000,
-            encoding: 'utf8',
-            windowsHide: true,
-          })
+          await runNodeScriptAsync(
+            path.join(scriptsDir, 'crowd_collector.js'),
+            ['collect-latest'],
+            60000
+          )
           logger.info('[CRON] Tunisie crowd scrape done')
         } catch (e) {
           logger.error(`[CRON] Tunisie crowd scrape error: ${e.message}`)

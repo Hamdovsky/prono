@@ -5,35 +5,44 @@ import { DISABLE_BTTS_DISPLAY, DISABLE_CORNERS_DISPLAY } from '../utils/displayP
 const SCOPE_TO_CHIP = {
   first_half: 'ht',
   full_time_1x2: 'win',
-  full_time_over_under: 'ou',
-  full_time_dc: 'dc',
+  full_time_ou: ['win', 'ou'],  // WIN chip + O/U chip dorés
+  full_time_dc: ['win', 'dc'],  // WIN chip + DC chip dorés
   btts: 'btts',
   corners: 'corners',
+  first_half: ['win', 'ht'],   // WIN chip + HT chip dorés
 }
 
-const goldenChip = (chipKey, scope) => {
-  if (!scope) return {}
+const isGolden = (chipKey, scope) => {
+  if (!scope) return false
   const active = SCOPE_TO_CHIP[scope]
+  if (Array.isArray(active)) return active.includes(chipKey)
   return active === chipKey
-    ? {
-        animation: 'goldenPulse 2s ease-in-out infinite',
-        border: '1px solid #ffd700',
-        boxShadow: '0 0 10px rgba(255,215,0,0.4)',
-      }
-    : {}
 }
 
-const goldenCell = (cellKey, scope) => {
-  if (!scope) return {}
-  const active = SCOPE_TO_CHIP[scope]
-  return active === cellKey
-    ? {
-        animation: 'goldenPulse 2s ease-in-out infinite',
-        border: '1px solid #ffd700',
-        boxShadow: '0 0 10px rgba(255,215,0,0.3)',
-      }
-    : {}
-}
+const goldenChip = (chipKey, scope) => isGolden(chipKey, scope)
+  ? {
+      animation: 'goldenPulse 2s ease-in-out infinite',
+      border: '1px solid #ffd700',
+      boxShadow: '0 0 10px rgba(255,215,0,0.4)',
+    }
+  : {}
+
+const goldenCell = (cellKey, scope) => isGolden(cellKey, scope)
+  ? {
+      animation: 'goldenPulse 2s ease-in-out infinite',
+      border: '1px solid #ffd700',
+      boxShadow: '0 0 10px rgba(255,215,0,0.3)',
+    }
+  : {}
+
+const solidGoldenStyle = (isSolid) => isSolid
+  ? {
+      animation: 'goldenPulse 2s ease-in-out infinite',
+      background: 'linear-gradient(135deg, rgba(255,215,0,0.12) 0%, rgba(10,15,30,0.9) 100%)',
+      border: '1px solid #ffd700',
+      boxShadow: 'inset 0 0 20px rgba(255,215,0,0.08)',
+    }
+  : {}
 // produites par computeRawLines (matchAnalysis.js), incluant winnerDc[10],
 // ouLines[11] (O/U multi-lignes) et cornersExact[12] — absents de la
 // version 159 lignes qui cassait les colonnes O/U LIGNES / BUT 1ER MT /
@@ -161,7 +170,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, m
 
   if (compact) {
     return (
-      <div className={`match-card mc-compact${solidClass}`} style={style} onClick={onClick}>
+      <div className={`match-card mc-compact${solidClass}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
         <div className="mcc-top">
           <div className="mcc-league">
             <span className="mcc-league-name">{d.league}</span>
@@ -196,7 +205,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, m
   }
 
   return (
-    <div className={`match-card${solidClass}`} style={style} onClick={onClick}>
+    <div className={`match-card${solidClass}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
       <div className="mc-match-info">
         <div className="mc-league">
           <span className="mc-league-name">{d.league}</span>

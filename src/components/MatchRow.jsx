@@ -87,7 +87,7 @@ const accColor = (v) => (v >= 70 ? ACC_COLORS.high : v >= 55 ? ACC_COLORS.med : 
 const SCOPE_TO_BOX = {
   first_half: 5,
   full_time_1x2: 1,
-  full_time_over_under: 4,
+  full_time_ou: 4,
   full_time_dc: 1,
   btts: 3,
 }

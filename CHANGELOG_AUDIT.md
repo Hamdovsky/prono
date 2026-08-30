@@ -2929,3 +2929,49 @@ Autres : Super Lig, Premiership, Brazil Serie A, K-League 1, J1 League
 Avant whitelist : 1934 matchs vus, 149 avec 1X2 (7.7%)
 Après whitelist : **469 matchs ciblés, 77 avec 1X2 déjà (16.4%)**, 280 à scorer
 Ratio coverage : 5.8x meilleur (7.7% -> 16.4% sur ciblés, 2.4x mieux sur total)
+
+### Correctif post-session (2026-08-30)
+Les tests `oddsSweeper.test.js` échouaient après l'introduction du whitelist : les fixtures
+de test utilisaient `league: 'Ligue'` qui ne matchait aucune entrée (`'Ligue 1'`/`'Ligue 2'`
+uniquement). Correctif : ajout de `'Ligue'` au whitelist comme alias générique.
+Tests : 10/10 `oddsSweeper`, 9/9 `topPicksEngine`+`footballDataService`, 0 erreur lint.
+
+---
+
+## Highlight doré du marché actif — UI (2026-08-30)
+
+### Objectif
+Quand un pronostic porte sur un marché spécifique (ex: "but 1ère MT"), seule la box/chip
+correspondante dans MatchRow/MatchCard doit être mise en valeur dorée avec animation pulse,
+pour que l'utilisateur voie immédiatement quel est le bon pronostic.
+
+### Implémentation
+
+**Fichiers modifiés :**
+- `src/components/MatchRow.jsx` — lecture `market_scope` + helper `goldenStyle(N)` +
+  injection `@keyframes goldenPulse` via `useEffect` (une seule fois au render)
+- `src/components/MatchCard.jsx` — props `marketScope` + helpers `goldenChip(key)` /
+  `goldenCell(key)` appliqués sur chips (compact) et cellules (table)
+- `src/components/MatchCard.css` — `@keyframes goldenPulse` ajouté
+- `src/components/Dashboard.jsx` — passe `marketScope={m.market_scope}` à MatchCard
+
+**Mappage market_scope → élément doré :**
+
+| market_scope | MatchRow (box) | MatchCard chip/cell |
+|---|---|---|
+| `first_half` | Box 5 (HT +0.5) | HT chip / column |
+| `full_time_1x2` | Box 1 (BASE 1X2) | WIN chip / column |
+| `full_time_over_under` | Box 4 (O/U 2.5) | OU chip / column |
+| `full_time_dc` | Box 1 (BASE 1X2) | DC chip / column |
+| `btts` | Box 3 (BTTS) | BTTS chip / column |
+| `corners` | — | CORNERS chip / column |
+
+**Style doré :** `border: 1px solid #ffd700` + `box-shadow` + `animation: goldenPulse 2s ease-in-out infinite`
+(keyframe pulse de `GridGenerator.css` répliqué dans MatchRow/MatchCard.css).
+
+**Valeur par défaut :** si `market_scope` est null, aucun highlight (comportement inchangé).
+
+### Vérifié
+- ESLint : 0 erreur sur MatchRow.jsx / MatchCard.jsx / Dashboard.jsx
+- Jest : 674 passed / 67 suites
+- Commit `c808c54` (MatchRow) + `66dbd12` (MatchCard/Dashboard)

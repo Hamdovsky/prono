@@ -111,6 +111,27 @@ class FootballDataService {
     return `${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`
   }
 
+  async _downloadWithRetry(attempt = 1, maxAttempts = 3) {
+    const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000)
+    if (attempt > 1) {
+      await new Promise(r => setTimeout(r, backoffMs))
+    }
+    try {
+      const resp = await axios.get(FIXTURES_URL, {
+        timeout: REQUEST_TIMEOUT_MS,
+        responseType: 'text',
+        headers: { 'User-Agent': 'Mozilla/5.0 (Stitch-Odds)' },
+      })
+      if (!resp.data || typeof resp.data !== 'string') {
+        throw new Error('empty response')
+      }
+      return resp.data
+    } catch (e) {
+      if (attempt >= maxAttempts) throw e
+      return this._downloadWithRetry(attempt + 1, maxAttempts)
+    }
+  }
+
   async _ensureCache() {
     if (this._cache && Date.now() - this._fetchedAt < CACHE_TTL_MS) return this._cache
     if (this._fetching) return this._fetching
@@ -118,15 +139,8 @@ class FootballDataService {
     this._fetching = (async () => {
       try {
         logger.info(`[FOOTBALLDATA] Downloading ${FIXTURES_URL} ...`)
-        const resp = await axios.get(FIXTURES_URL, {
-          timeout: REQUEST_TIMEOUT_MS,
-          responseType: 'text',
-          headers: { 'User-Agent': 'Mozilla/5.0 (Stitch-Odds)' },
-        })
-        if (!resp.data || typeof resp.data !== 'string') {
-          throw new Error('empty response')
-        }
-        const idx = this._buildIndex(resp.data)
+        const text = await this._downloadWithRetry()
+        const idx = this._buildIndex(text)
         this._cache = idx
         this._fetchedAt = Date.now()
         this._errors = 0

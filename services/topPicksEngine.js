@@ -436,18 +436,11 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
         rejected.veto++
         continue
       }
-      // ── Blue Band guard (réutilise suffResult computé ci-dessus) ─────────────
-      if (suffSvc && suffResult) {
-        candidate.blueBand = !!suffResult.blueBand
-        candidate.dataSufficiencyScore = suffResult.score || 0
-        candidate.dataSufficiencyLevel = suffResult.level || 'low'
-        if (!suffResult.blueBand) {
-          candidate.rejectedReason = `data_insufficient:score=${suffResult.score}`
-          rejected.noOdds++
-          continue
-        }
+      if (suffSvc && suffResult && !suffResult.blueBand) {
+        candidate.rejectedReason = `data_insufficient:score=${suffResult.score}`
+        rejected.noOdds++
+        continue
       }
-      // Filtres STRICTS (edge / EV / proba calibrée)
       if (candidate.edge < MIN_EDGE_PCT || candidate.ev < MIN_EV) {
         rejected.filters++
         continue
@@ -466,7 +459,6 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
     (a, b) => b.qualityScore - a.qualityScore || b.candidate.edge - a.candidate.edge || b.candidate.ev - a.candidate.ev
   )
   const top = analyzed.slice(0, cappedLimit)
-
   const picks = top.map(({ m, candidate, confluence, qualityScore, margin }) => ({
     matchId: m.id,
     homeTeam: m.homeTeam,

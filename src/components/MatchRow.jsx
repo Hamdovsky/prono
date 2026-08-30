@@ -84,12 +84,15 @@ const ACC_COLORS = {
 }
 const accColor = (v) => (v >= 70 ? ACC_COLORS.high : v >= 55 ? ACC_COLORS.med : ACC_COLORS.low)
 
-const SCOPE_TO_BOX = {
-  first_half: 5,
-  full_time_1x2: 1,
-  full_time_ou: 4,
-  full_time_dc: 1,
-  btts: 3,
+const dominantBoxOf = (hPct, dPct, aPct, ou25Pct, bttsPct, htGoalPct) => {
+  const probs = [
+    { box: 1, pct: Math.max(hPct, dPct, aPct) },
+    { box: 3, pct: bttsPct },
+    { box: 4, pct: ou25Pct },
+    { box: 5, pct: htGoalPct },
+  ]
+  const best = probs.reduce((a, b) => b.pct > a.pct ? b : a, probs[0])
+  return best.pct > 0 ? best.box : null
 }
 
 const goldenStyle = (boxIdx, goldenBox) => goldenBox === boxIdx ? {
@@ -100,8 +103,6 @@ const goldenStyle = (boxIdx, goldenBox) => goldenBox === boxIdx ? {
 
 const MatchRow = ({ match, isElite, onClick, style, now }) => {
   const enriched = match.enriched || {}
-  const marketScope = match.market_scope || enriched?.market_scope || null
-  const goldenBox = marketScope ? SCOPE_TO_BOX[marketScope] : null
   const hPct = parseFloat(match.home_win_probability || enriched.home_win_probability || 0)
   const aPct = parseFloat(match.away_win_probability || enriched.away_win_probability || 0)
   const dPct = parseFloat(match.draw_probability || enriched.draw_probability || 0)
@@ -113,6 +114,8 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
   const dcOdds = marketAnalysis.doubleChance || null
   const bttsPct = Math.round(normalizePct(quantObj?.probs?.btts || pBTTS))
   const over25Pct = Math.round(normalizePct(quantObj?.probs?.over25 || pOU25))
+  const htGoalPct = Math.min(89, Math.round((over25Pct + bttsPct) / 2 + 5))
+  const goldenBox = dominantBoxOf(hPct, dPct, aPct, over25Pct, bttsPct, htGoalPct)
 
   const getCS = () => {
     const qs = match.quant?.expected_score || enriched?.quant?.expected_score
@@ -218,7 +221,6 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
   const valueScore = ((evNum * acc) / 100).toFixed(1)
 
   const altHunter = match.alt_market_hunter || enriched?.alt_market_hunter || null
-  const htGoalPct = Math.min(89, Math.round((over25Pct + bttsPct) / 2 + 5))
   const domProb = Math.max(hPct, aPct)
   const hasOdds = !!(displayOddsH && displayOddsA)
   const hasForm = !!(match.home_form_pts || match.away_form_pts)

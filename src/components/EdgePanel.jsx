@@ -80,7 +80,7 @@ const EdgePanel = () => {
             <p style={{ color: '#64748b' }}>Aucun value bet détecté aujourd'hui</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {data.valueBets.map((vb, i) => {
+              {data.valueBets.map((vb) => {
                 const tier = getValueTier(vb.valuePercent)
                 const c = VALUE_COLORS[tier]
                 return (

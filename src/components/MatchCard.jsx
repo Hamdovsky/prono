@@ -2,13 +2,44 @@ import React from 'react'
 import './MatchCard.css'
 import { DISABLE_BTTS_DISPLAY, DISABLE_CORNERS_DISPLAY } from '../utils/displayPolicy'
 
-// Reconstruit (audit BT3-fix, 2026-08-24) : mapping complet des 13 cases
+const SCOPE_TO_CHIP = {
+  first_half: 'ht',
+  full_time_1x2: 'win',
+  full_time_over_under: 'ou',
+  full_time_dc: 'dc',
+  btts: 'btts',
+  corners: 'corners',
+}
+
+const goldenChip = (chipKey, scope) => {
+  if (!scope) return {}
+  const active = SCOPE_TO_CHIP[scope]
+  return active === chipKey
+    ? {
+        animation: 'goldenPulse 2s ease-in-out infinite',
+        border: '1px solid #ffd700',
+        boxShadow: '0 0 10px rgba(255,215,0,0.4)',
+      }
+    : {}
+}
+
+const goldenCell = (cellKey, scope) => {
+  if (!scope) return {}
+  const active = SCOPE_TO_CHIP[scope]
+  return active === cellKey
+    ? {
+        animation: 'goldenPulse 2s ease-in-out infinite',
+        border: '1px solid #ffd700',
+        boxShadow: '0 0 10px rgba(255,215,0,0.3)',
+      }
+    : {}
+}
 // produites par computeRawLines (matchAnalysis.js), incluant winnerDc[10],
 // ouLines[11] (O/U multi-lignes) et cornersExact[12] — absents de la
 // version 159 lignes qui cassait les colonnes O/U LIGNES / BUT 1ER MT /
 // CORNERS du Dashboard. Masquage BTTS conservé (VITE_DISABLE_BTTS_DISPLAY).
 
-const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, marketScope }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
     return {
@@ -145,20 +176,20 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
           <span className="mcc-team">{shortTeam(d.away)}</span>
         </div>
         <div className="mcc-chips">
-          <span className={`mcc-chip mcc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`}>
+          <span className={`mcc-chip mcc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenChip('btts', marketScope)}>
             BTTS {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
           </span>
-          <span className={`mcc-chip mcc-ou ${ouDir}`}>
+          <span className={`mcc-chip mcc-ou ${ouDir}`} style={goldenChip('ou', marketScope)}>
             {bestOu
               ? `${bestOu.dir === 'over' ? 'O' : 'U'}${bestOu.line.toFixed(1)} ${bestOu.pct}%`
               : hasOuCell
                 ? `O/U ${ouDir.toUpperCase()} ${ouPrec}%`
                 : 'O/U --'}
           </span>
-          <span className={`mcc-chip mcc-win ${pickClass}`}>{d.winner}</span>
-          {hasDc && <span className="mcc-chip mcc-dc">DC {d.winnerDc}</span>}
-          <span className={`mcc-chip mcc-ht ${yesNo(d.htGoal)}`}>1er MT {d.htGoal}</span>
-          <span className="mcc-chip mcc-corners">{cornersLabel}</span>
+          <span className={`mcc-chip mcc-win ${pickClass}`} style={goldenChip('win', marketScope)}>{d.winner}</span>
+          {hasDc && <span className="mcc-chip mcc-dc" style={goldenChip('dc', marketScope)}>DC {d.winnerDc}</span>}
+          <span className={`mcc-chip mcc-ht ${yesNo(d.htGoal)}`} style={goldenChip('ht', marketScope)}>1er MT {d.htGoal}</span>
+          <span className="mcc-chip mcc-corners" style={goldenChip('corners', marketScope)}>{cornersLabel}</span>
         </div>
       </div>
     )
@@ -180,11 +211,11 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
         {timeLabel && <div className="mc-time">{timeLabel}</div>}
       </div>
 
-      <div className={`mc-cell mc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`}>
+      <div className={`mc-cell mc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenCell('btts', marketScope)}>
         {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
       </div>
 
-      <div className="mc-cell mc-ou-cell">
+      <div className="mc-cell mc-ou-cell" style={goldenCell('ou', marketScope)}>
         {ouLines.length > 0 ? (
           <div className="mc-ou-lines">
             {ouLines.map((l) => (
@@ -207,11 +238,11 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
         )}
       </div>
 
-      <div className={`mc-cell mc-winner ${pickClass}`}>{d.winner}</div>
+      <div className={`mc-cell mc-winner ${pickClass}`} style={goldenCell('win', marketScope)}>{d.winner}</div>
 
-      <div className={`mc-cell mc-ht ${yesNo(d.htGoal)}`}>{d.htGoal}</div>
+      <div className={`mc-cell mc-ht ${yesNo(d.htGoal)}`} style={goldenCell('ht', marketScope)}>{d.htGoal}</div>
 
-      <div className="mc-cell mc-corners">{cornersLabel}</div>
+      <div className="mc-cell mc-corners" style={goldenCell('corners', marketScope)}>{cornersLabel}</div>
     </div>
   )
 }

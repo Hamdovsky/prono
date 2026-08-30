@@ -56,11 +56,24 @@ COLS = [
     ("ht_line", "REAL"),
 ]
 
+RESULTS_COLS = [
+    ("hthg", "INTEGER"),
+    ("htag", "INTEGER"),
+    ("hc", "INTEGER"),
+    ("ac", "INTEGER"),
+    ("hs", "INTEGER"),
+    ("as", "INTEGER"),
+    ("hy", "INTEGER"),
+    ("ay", "INTEGER"),
+    ("hr", "INTEGER"),
+    ("ar", "INTEGER"),
+]
+
 
 def ensure_schema(con):
     cur = con.execute("PRAGMA table_info(archive_football_data)")
     existing = {r[1] for r in cur.fetchall()}
-    for name, typ in COLS:
+    for name, typ in COLS + RESULTS_COLS:
         if name not in existing:
             con.execute(f"ALTER TABLE archive_football_data ADD COLUMN {name} {typ}")
     con.commit()
@@ -139,6 +152,31 @@ def extract_odds(row):
     return out or None
 
 
+def extract_results(row):
+    """Extrait les scores HT et stats réelle (corners, shots, cartes) depuis le CSV."""
+    out = {}
+    for csv_key, col_name in [
+        ("HTHG", "hthg"), ("HTAG", "htag"),
+        ("HC", "hc"), ("AC", "ac"),
+        ("HS", "hs"), ("AS", "as"),
+        ("HY", "hy"), ("AY", "ay"),
+        ("HR", "hr"), ("AR", "ar"),
+    ]:
+        val = _to_int(row.get(csv_key))
+        if val is not None:
+            out[col_name] = val
+    return out if out else None
+
+
+def _to_int(v):
+    try:
+        if v is None or v == "":
+            return None
+        return int(float(v))
+    except (TypeError, ValueError):
+        return None
+
+
 def _to_float(v):
     try:
         if v is None or v == "":
@@ -150,7 +188,7 @@ def _to_float(v):
 
 def upsert(con, rows):
     updated = 0
-    for date_iso, home, away, odds in rows:
+    for date_iso, home, away, odds, results in rows:
         if not (date_iso and home and away):
             continue
         cand = con.execute(
@@ -159,25 +197,21 @@ def upsert(con, rows):
         ).fetchall()
         for rid, db_home, db_away in cand:
             if normalize_team(db_home) == home and normalize_team(db_away) == away:
-                con.execute(
-                    "UPDATE archive_football_data SET "
-                    "odds_corner_over=COALESCE(?, odds_corner_over), "
-                    "odds_corner_under=COALESCE(?, odds_corner_under), "
-                    "corner_line=COALESCE(?, corner_line), "
-                    "odds_ht_over=COALESCE(?, odds_ht_over), "
-                    "odds_ht_under=COALESCE(?, odds_ht_under), "
-                    "ht_line=COALESCE(?, ht_line) "
-                    "WHERE id=?",
-                    (
-                        odds.get("odds_corner_over"),
-                        odds.get("odds_corner_under"),
-                        odds.get("corner_line"),
-                        odds.get("odds_ht_over"),
-                        odds.get("odds_ht_under"),
-                        odds.get("ht_line"),
-                        rid,
-                    ),
-                )
+                sets = []
+                vals = []
+                for col in ["odds_corner_over","odds_corner_under","corner_line",
+                             "odds_ht_over","odds_ht_under","ht_line"]:
+                    if odds.get(col) is not None:
+                        sets.append(f"{col}=COALESCE(?,{col})")
+                        vals.append(odds.get(col))
+                for col in ["hthg","htag","hc","ac","hs","as","hy","ay","hr","ar"]:
+                    if results and results.get(col) is not None:
+                        sets.append(f"{col}=COALESCE(?,{col})")
+                        vals.append(results.get(col))
+                if not sets:
+                    continue
+                vals.append(rid)
+                con.execute(f"UPDATE archive_football_data SET {','.join(sets)} WHERE id=?", vals)
                 updated += 1
     con.commit()
     return updated
@@ -192,8 +226,9 @@ def process_csv(text, con):
         home = normalize_team(row.get("HomeTeam") or row.get("home_team") or row.get("Home"))
         away = normalize_team(row.get("AwayTeam") or row.get("away_team") or row.get("Away"))
         odds = extract_odds(row)
-        if odds:
-            rows.append((date_iso, home, away, odds))
+        results = extract_results(row)
+        if odds or results:
+            rows.append((date_iso, home, away, odds or {}, results or {}))
     updated = upsert(con, rows)
     return len(rows), updated
 

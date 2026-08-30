@@ -41,7 +41,7 @@ const LOCK_KEY = 'odds:sweep:lock'
 const STATUSES = ['scheduled', 'upcoming', 'NOT_STARTED', 'NS']
 const LOOKBACK_MS = 2 * 3600 * 1000 // matchs commencés depuis peu encore inclus
 
-// Ligues prioritaires pour le scraping —能被免费来源覆盖的联赛
+// Ligues prioritaires pour le scraping
 // Ces ligues sont couvertes par football-data.co.uk + Sofascore API + BetExplorer.
 // Les matchs hors de cette liste sont IGNORÉS (pas de scrape inutile).
 const ODDS_LEAGUE_WHITELIST = new Set([
@@ -65,6 +65,7 @@ const ODDS_LEAGUE_WHITELIST = new Set([
   // Cups internationaux
   'Champions League',
   'Europa League',
+  'Conference League',
   // Americas
   'MLS',
   'Liga MX',
@@ -79,12 +80,94 @@ const ODDS_LEAGUE_WHITELIST = new Set([
   // Autres ligues populaires
   'Super Lig',
   'Premiership',
+  'Scottish Premiership',
+  'League One',
+  'League Two',
+  'National League',
+  'Irish Premier Division',
+  'Polish Ekstraklasa',
+  // Fallback générique
+  'Ligue',
+  // MENA — ligues affichées en sidebar
+  'Botola',
+  'Egyptian Premier',
+  'Saudi Pro',
+  'Saudi Professional League',
+  'UAE Pro League',
+  'Qatar Stars League',
+  'Kuwait League',
+  'Tunisian Ligue',
+  'Iraq Stars League',
+  'Jordan Pro League',
+  'Oman Professional League',
+  'Libyan Premier',
+  'Lebanese Premier',
+  'Syrian Premier',
+  'Bahraini Premier',
+  'Sudan Premier',
+  'Yemen League',
 ])
 
 const ODDS_LEAGUE_WHITELIST_ACTIVE = process.env.ODDS_SWEEP_LEAGUE_WHITELIST !== 'false'
 
 let _attemptedAt = new Map()
 let _running = false
+
+// ── _attemptedAt Redis persistence ─────────────────────────────────────
+// TTL = retryMs × 2 (auto-expire les entrées stale après 2× retry window)
+const ATTEMPT_KEY_PREFIX = 'odds:sweep:attempt:'
+async function _loadAttemptFromRedis(matchId) {
+  try {
+    const val = await redisCache.get(ATTEMPT_KEY_PREFIX + String(matchId))
+    return val ? parseInt(String(val), 10) : null
+  } catch (_) {
+    return null
+  }
+}
+
+async function _saveAttemptToRedis(matchId, ts) {
+  try {
+    await redisCache.set(
+      ATTEMPT_KEY_PREFIX + String(matchId),
+      String(ts),
+      Math.floor(RETRY_MS * 2 / 1000)
+    )
+  } catch (_) {}
+}
+
+async function _loadAllAttemptsFromRedis(queue) {
+  if (!redisCache.redis) return
+  const pipeline = redisCache.redis.pipeline()
+  for (const m of queue) pipeline.get(ATTEMPT_KEY_PREFIX + String(m.id))
+  try {
+    const results = await pipeline.exec()
+    for (let i = 0; i < queue.length; i++) {
+      const [err, val] = results[i]
+      if (!err && val != null) {
+        const ts = parseInt(String(val), 10)
+        if (Number.isFinite(ts)) _attemptedAt.set(String(queue[i].id), ts)
+      }
+    }
+  } catch (_) {}
+}
+
+async function _saveAllAttemptsToRedis(queue) {
+  if (!redisCache.redis) return
+  const pipeline = redisCache.redis.pipeline()
+  for (const m of queue) {
+    const ts = _attemptedAt.get(String(m.id))
+    if (ts != null) {
+      pipeline.setex(
+        ATTEMPT_KEY_PREFIX + String(m.id),
+        Math.floor(RETRY_MS * 2 / 1000),
+        String(ts)
+      )
+    }
+  }
+  try {
+    await pipeline.exec()
+  } catch (_) {}
+}
 let _lastSweep = null
 let _startedAt = 0
 // ── Safety: si un sweep reste bloqué plus de 10 min, on force le reset.
@@ -360,11 +443,13 @@ async function sweep(opts = {}) {
   _startedAt = Date.now()
   try {
     const selected = selectQueue({ db, horizonDays })
+    await _loadAllAttemptsFromRedis(selected.queue)
     const fetchOdds = opts.fetchOdds || (async (m) => {
       const dataFusionService = require('./dataFusionService')
       return dataFusionService.fetchOdds(m)
     })
     const stats = await runSweep({ queue: selected.queue, fetchOdds, db, budgetMs, limit, retryMs })
+    await _saveAllAttemptsToRedis(selected.queue)
     _lastSweep = {
       at: new Date().toISOString(),
       scanned: stats.scanned,

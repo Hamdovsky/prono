@@ -108,6 +108,23 @@ describe('selectQueue', () => {
     expect(out.scanned).toBe(4)
     expect(out.with1x2).toBe(2) // m-full + m-ou-manquant
   })
+
+  test('les ligues MENA ne sont plus filtrées (Botola, Saudi Pro, Egyptian, etc.)', () => {
+    const now = Date.now()
+    const db = makeDb([
+      { id: 'm-saudi', homeTeam: 'Al-Hilal', awayTeam: 'Al-Ittihad', league: 'Saudi Pro', status: 'scheduled', startTimestamp: sec(now + HOUR) },
+      { id: 'm-botola', homeTeam: 'Wydad', awayTeam: 'Raja', league: 'Botola', status: 'scheduled', startTimestamp: sec(now + 2 * HOUR) },
+      { id: 'm-egypt', homeTeam: 'Al Ahly', awayTeam: 'Zamalek', league: 'Egyptian Premier', status: 'scheduled', startTimestamp: sec(now + 3 * HOUR) },
+      { id: 'm-uae', homeTeam: 'Al Jazira', awayTeam: 'Al Wasl', league: 'UAE Pro League', status: 'scheduled', startTimestamp: sec(now + 4 * HOUR) },
+    ])
+    const out = selectQueue({ db, horizonDays: 7 })
+    const ids = out.queue.map((m) => m.id)
+    expect(ids).toContain('m-saudi')
+    expect(ids).toContain('m-botola')
+    expect(ids).toContain('m-egypt')
+    expect(ids).toContain('m-uae')
+    expect(out.scanned).toBe(4)
+  })
 })
 
 describe('recordOddsHistory', () => {

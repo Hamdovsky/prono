@@ -33,13 +33,42 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 OUT_PATH = os.path.join(DATA_DIR, "today_matches.json")
 
-# Ligues couvertes (noms soccerdata valides). Tunisie ajoutée pour le marché local.
+# Ligues couvertes (noms soccerdata valides). MENA + secondaires européens ajoutés.
 LEAGUES = [
+    # Top-5 européens
     "ENG-Premier League",
     "ESP-La Liga",
     "GER-Bundesliga",
     "ITA-Serie A",
     "FRA-Ligue 1",
+    # Secondaires européens
+    "ENG- Championship",
+    "ESP- Segunda División",
+    "FRA- Ligue 2",
+    "GER- 2. Bundesliga",
+    "ITA- Serie B",
+    "NED- Eredivisie",
+    "POR- Primeira Liga",
+    "BEL- Belgian Pro League",
+    "TUR- Süper Lig",
+    "SUI- Swiss Super League",
+    "AUT- Austrian Bundesliga",
+    "DEN- Superliga",
+    "SWE- Allsvenskan",
+    "NOR- Eliteserien",
+    "SCO- Scottish Premiership",
+    # Americas
+    "USA- MLS",
+    "MEX- Liga MX",
+    "BRA- Série A",
+    "ARG- Liga Profesional",
+    # Asia
+    "JPN- J1 League",
+    "KOR- K League 1",
+    # MENA (soccerdata peut avoir des données)
+    "EGY- Egyptian Premier League",
+    "SAU- Saudi Pro League",
+    "MAR- Botola",
 ]
 
 WINDOW_DAYS = 7

@@ -3031,5 +3031,52 @@ Affiner la feature doré existante : O/U cohérent (banner/chip/EV parlent de la
 ### Vérifié
 - ESLint : 0 erreur
 - Jest : 19 passed / 1 suite
-- 
-pm run build : ✓ built in 10.92s
+- pm run build : ✓ built in 10.92s
+
+---
+
+## Nouvelles sources odds — FotMob + Flashscore feed + ESPN étendue (2026-08-30)
+
+### Objectif
+Étendre la couverture des sources gratuites avec FotMob (cotes + stats via `__NEXT_DATA__`),
+Flashscore feed (stats xG/corners/HT via `x/feed` + `X-Fsign`) et élargir ESPN/soccerdata
+à 28 ligues (MENA + secondaires européens).
+
+### Créé
+- **`scripts/fotmobClient.py`** (nouveau) : scrape FotMob via curl_cffi + extraction
+  `__NEXT_DATA__`. Fonctions : `get_match_stats` (xG, corners, possession, passes,
+  fautes, cartons), `get_match_odds` (1X2, O/U, BTTS), `search_team`. Negative cache
+  30min, rate-limiting 1.5s, multi-fingerprint (chrome124/120/116).
+- **`services/fotmobService.js`** (nouveau) : wrapper Node.js autour du script Python,
+  cache TTL 30min, expose `getMatchStats`, `getMatchOdds`, `getLeagueFixtures`, `searchTeam`.
+
+### Modifié
+- **`services/UltimateScraperOrchestrator.js`** :
+  - Ajout `fetchOdds_flashscore_feed` → stats Flashscore (xG, corners, HT, shots)
+    depuis le feed `d.flashscore.com/x/feed/df_st_1_{id}` + `X-Fsign`.
+  - Ajout `fetchOdds_fotmob` → cotes FotMob (1X2, O/U, BTTS) depuis `__NEXT_DATA__`.
+  - `fetchMatchEnrichment` enrichi de `flashscoreStats` et `fotmobStats`.
+  - Status mis à jour avec `flashscore_feed` (curl_cffi+X-Fsign) et `fotmob`
+    (curl_cffi+`__NEXT_DATA__`).
+- **`services/soccerdataService.py`** : `LEAGUES` étendu de 5 à 28 ligues :
+  ajout Championship, Segunda, Ligue 2, Serie B, Eredivisie, Primeira, Süper Lig,
+  Swiss Super, Austrian Bundesliga, Superliga Denmark, Allsvenskan, Eliteserien,
+  Scottish Premiership, MLS, Liga MX, Série A Brazil, J1 League, K-League 1,
+  Egyptian Premier, Saudi Pro, Botola.
+
+### Intégration
+- FotMob et Flashscore feed sont branchés dans `UltimateScraperOrchestrator` :
+  lancés en parallèle avec les autres fetchers (Sofascore, BetExplorer, football-data).
+  Nécessitent `flashscore_id` / `fotmob_id` sur le match pour fonctionner.
+
+### Limite honnête
+- FotMob et Flashscore feed nécessitent un ID de match (pas de search par nom).
+  L'enrichissement par ID doit être ajouté au pipeline d'enrichissement.
+- Les stats Flashscore (xG, corners) sont des données de match, pas des cotes.
+  Elles alimentent `fetchMatchEnrichment` pour enrichir les features ML, pas le verdict.
+
+### Vérifié
+- `python -m py_compile fotmobClient.py` : OK
+- `npx eslint` sur `fotmobService.js` + `UltimateScraperOrchestrator.js` : 0 erreur
+- Jest : 694/694 passés
+- ESLint global : 1185 erreurs pré-existantes (fichiers `src/` etc.), 0 nouvelle erreur

@@ -43,6 +43,8 @@ let _betexplorer = null
 let _jina = null
 let _liveScore = null
 let _soccerwayJina = null
+let _flashscore = null
+let _fotmob = null
 
 function getFootballDataLive() {
   if (_fdLive === null) { try { _fdLive = require('./footballDataService') } catch { _fdLive = null } }
@@ -83,6 +85,16 @@ function getLiveScore() {
 function getSoccerwayJina() {
   if (_soccerwayJina === null) { try { _soccerwayJina = require('./scrapers/JinaScraper') } catch { _soccerwayJina = null } }
   return _soccerwayJina
+}
+
+function getFlashscore() {
+  if (_flashscore === null) { try { _flashscore = require('./flashscoreService') } catch { _flashscore = null } }
+  return _flashscore
+}
+
+function getFotmob() {
+  if (_fotmob === null) { try { _fotmob = require('./fotmobService') } catch { _fotmob = null } }
+  return _fotmob
 }
 
 // ── Shared cache ──────────────────────────────────────────────────────────────
@@ -254,6 +266,55 @@ async function fetchOdds_jina_flashscore(match) {
     if (!odds) return null
     cacheSet(key, odds)
     return odds
+  } catch (e) {
+    return null
+  }
+}
+
+async function fetchOdds_flashscore_feed(match) {
+  const fs = getFlashscore()
+  if (!fs) return null
+  const flashscoreId = match.flashscore_id || match.id
+  if (!flashscoreId) return null
+  try {
+    const stats = await withTimeout(Promise.resolve(fs.getMatchStats(flashscoreId)), FETCH_TIMEOUT_MS)
+    if (!stats) return null
+    return {
+      home: null, draw: null, away: null,
+      over25: null, under25: null,
+      btts_yes: null, btts_no: null,
+      source: 'flashscore_feed',
+      bookmaker: false,
+      stats: {
+        xg_home: stats.xg_home,
+        xg_away: stats.xg_away,
+        corners_home: stats.corners_home,
+        corners_away: stats.corners_away,
+        halftime_score_home: stats.halftime_score_home,
+        halftime_score_away: stats.halftime_score_away,
+        shots_home: stats.shots_home,
+        shots_away: stats.shots_away,
+      },
+    }
+  } catch (e) {
+    return null
+  }
+}
+
+async function fetchOdds_fotmob(match) {
+  const fm = getFotmob()
+  if (!fm) return null
+  const fotmobId = match.fotmob_id
+  if (!fotmobId) return null
+  try {
+    const odds = await withTimeout(Promise.resolve(fm.getMatchOdds(fotmobId)), FETCH_TIMEOUT_MS)
+    if (!odds) return null
+    return {
+      home: odds.home, draw: odds.draw, away: odds.away,
+      over25: odds.over25, under25: odds.under25,
+      btts_yes: odds.btts_yes, btts_no: odds.btts_no,
+      source: 'fotmob', bookmaker: true,
+    }
   } catch (e) {
     return null
   }
@@ -436,6 +497,8 @@ async function fetchOddsForMatch(match) {
     withTimeout(fetchOdds_sofascore_bypass(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
     withTimeout(fetchOdds_betexplorer_1x2(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
     withTimeout(fetchOdds_betexplorer_full(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
+    withTimeout(fetchOdds_flashscore_feed(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
+    withTimeout(fetchOdds_fotmob(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
   ]
 
   const results = await Promise.allSettled(promises)
@@ -528,16 +591,48 @@ async function fetchResults(league) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function fetchMatchEnrichment(match) {
-  const [injuries, stats, xg] = await Promise.allSettled([
+  const flashscoreId = match.flashscore_id || match.id
+  const fotmobId = match.fotmob_id
+  const [injuries, stats, xg, flashscoreStats, fotmobStats] = await Promise.allSettled([
     fetchInjuries_sofascore(match).catch(() => null),
     fetchStats_sofascore(match).catch(() => null),
     fetchXg_sofascore(match.sofascore_id || match._sofaMatchId || match.id).catch(() => null),
+    flashscoreId ? fetchFlashscoreStats(match).catch(() => null) : Promise.resolve(null),
+    fotmobId ? fetchFotmobStats(match).catch(() => null) : Promise.resolve(null),
   ])
 
   return {
     injuries: injuries.status === 'fulfilled' ? injuries.value : null,
     stats: stats.status === 'fulfilled' ? stats.value : null,
     xg: xg.status === 'fulfilled' ? xg.value : null,
+    flashscoreStats: flashscoreStats.status === 'fulfilled' ? flashscoreStats.value : null,
+    fotmobStats: fotmobStats.status === 'fulfilled' ? fotmobStats.value : null,
+  }
+}
+
+async function fetchFlashscoreStats(match) {
+  const fs = getFlashscore()
+  if (!fs) return null
+  const flashscoreId = match.flashscore_id || match.id
+  if (!flashscoreId) return null
+  try {
+    const stats = await withTimeout(Promise.resolve(fs.getMatchStats(flashscoreId)), FETCH_TIMEOUT_MS)
+    return stats
+  } catch (e) {
+    return null
+  }
+}
+
+async function fetchFotmobStats(match) {
+  const fm = getFotmob()
+  if (!fm) return null
+  const fotmobId = match.fotmob_id
+  if (!fotmobId) return null
+  try {
+    const stats = await withTimeout(Promise.resolve(fm.getMatchStats(fotmobId)), FETCH_TIMEOUT_MS)
+    return stats
+  } catch (e) {
+    return null
   }
 }
 
@@ -557,6 +652,8 @@ function getStatus() {
       sofascore_bypass: getSofascoreBypass() ? { available: true, type: 'curl_cffi' } : null,
       betexplorer_1x2: getBetExplorer() ? { available: true, type: 'curl_cffi' } : null,
       betexplorer_full: getBetExplorer() ? { available: true, type: 'curl_cffi' } : null,
+      flashscore_feed: getFlashscore() ? { available: true, type: 'curl_cffi+X-Fsign', markets: 'xG,Corners,HT,Shots' } : null,
+      fotmob: getFotmob() ? { available: true, type: 'curl_cffi+__NEXT_DATA__', markets: '1X2,O/U,BTTS,xG,Corners' } : null,
       livescore_api: getLiveScore() ? { available: true, leagues: '~62 worldwide' } : null,
       soccerway_jina: getSoccerwayJina() ? { available: true, type: 'r.jina.ai' } : null,
     },

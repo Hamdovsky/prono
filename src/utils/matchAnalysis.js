@@ -291,7 +291,7 @@ export function analyzeMatch(m) {
       ? { label: `OUI ${htGoalPct}%`, pct: htGoalPct, verdict: 'OUI' }
       : { label: `NON ${100 - htGoalPct}%`, pct: 100 - htGoalPct, verdict: 'NON' }
 
-  // ── HONESTY GATE ──
+  // ── Best market dominant (score = prob × value ratio) — déplacé après HONESTY GATE pour avoir le mode ──
   const rawHPct = normalizePct(m.home_win_probability || enriched?.home_win_probability || 0)
   const rawAPct = normalizePct(m.away_win_probability || enriched?.away_win_probability || 0)
   const rawDPct = normalizePct(m.draw_probability || enriched?.draw_probability || 0)
@@ -369,6 +369,38 @@ export function analyzeMatch(m) {
       ? { pick: pickDc, prob: pickDcProb, label: `${pickDc} ${Math.round(pickDcProb)}%` }
       : null
 
+  // ── Best market dominant — APRÈS HONESTY GATE pour avoir le mode ──
+  const honestyFactor = out.honesty.mode === 'normal' ? 1.0 : 0.9
+  const bestOddsForWinner = winner === '1' ? parseFloat(m.odds_home) || null
+    : winner === '2' ? parseFloat(m.odds_away) || null
+    : parseFloat(m.odds_draw) || null
+  const bestOddsForBtts = parseFloat(m.odds_btts_yes) || null
+  const bestOddsForOu = parseFloat(m.odds_over25) || null
+  const ouLine25 = out.ou.lines?.find((l) => l.line === 2.5)
+  const ouProbForEv = ouLine25
+    ? (ouLine25.dir === 'OVER' ? ouLine25.overPct : 100 - ouLine25.overPct)
+    : out.ou.pct
+
+  const winnerLabel = out.winner.label || (winnerProb > 0 ? `${winner} ${Math.round(winnerProb)}%` : null)
+  const makeEntry = (chip, prob, odds, label) => {
+    if (!prob || prob <= 0) return null
+    const ev = odds ? (prob / 100) * odds * honestyFactor : 0
+    return { chip, prob, odds, label, score: ev }
+  }
+
+  out.dominant = {
+    winner: winnerProb > 0 && bestOddsForWinner ? makeEntry('win', winnerProb, bestOddsForWinner, winnerLabel) : null,
+    btts: out.btts.pct > 0 && bestOddsForBtts ? makeEntry('btts', out.btts.pct, bestOddsForBtts, out.btts.label) : null,
+    ou: ouProbForEv > 0 && bestOddsForOu ? makeEntry('ou', ouProbForEv, bestOddsForOu, out.ou.label) : null,
+    ht: out.htGoal?.pct > 0 ? makeEntry('ht', out.htGoal.pct, null, out.htGoal.label) : null,
+    corners: out.corners?.pct > 0 ? makeEntry('corners', out.corners.pct, null, out.corners.label) : null,
+  }
+
+  const allMarkets = Object.values(out.dominant).filter(Boolean)
+  out.dominantBest = allMarkets.length > 0
+    ? allMarkets.reduce((a, b) => b.score > a.score ? b : a)
+    : null
+
   return out
 }
 
@@ -377,6 +409,13 @@ export function analyzeMatch(m) {
 export function computeRawLines(m) {
   if (!m) return []
   const a = analyzeMatch(m)
+  const dominantBest = a.dominantBest
+  const domChip = dominantBest ? dominantBest.chip : null
+  const domLabel = dominantBest ? dominantBest.label : '--'
+  const domPct = dominantBest ? dominantBest.prob : '--'
+  const domOdds = dominantBest && dominantBest.odds ? dominantBest.odds.toFixed(2) : '--'
+  const domScore = dominantBest && dominantBest.score != null ? dominantBest.score.toFixed(0) : '--'
+  const domPayload = `${domLabel}|${domPct}|${domOdds}|${domScore}`
   if (a.finished) {
     return [
       a.league,
@@ -392,14 +431,16 @@ export function computeRawLines(m) {
       '--',
       '--',
       '--',
+      domChip || '--',
+      domPayload,
     ]
   }
   const mode = a.honesty.mode
   const leagueLabel =
     mode === 'modelOnly'
-? `${a.league} 🔮 est. modèle`
-        : mode === 'modelSignal'
-          ? `${a.league} 🔮 signal modèle`
+      ? `${a.league} 🔮 est. modèle`
+      : mode === 'modelSignal'
+        ? `${a.league} 🔮 signal modèle`
         : mode === 'insufficient'
           ? `${a.league} 🔮 est. modèle`
           : a.league
@@ -435,5 +476,7 @@ export function computeRawLines(m) {
     winnerDcCell,
     ouLinesCell,
     cornersExactCell,
+    domChip || '--',
+    domPayload,
   ]
 }

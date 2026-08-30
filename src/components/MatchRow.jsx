@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react'
-import { DISABLE_BTTS_DISPLAY } from '../utils/displayPolicy'
 
 const goldenPulse = `
 @keyframes goldenPulse {
@@ -49,57 +48,53 @@ const V = ({ c, s, w }) => (
     {c}
   </span>
 )
-const Pct = ({ v, c }) => (
-  <span
-    style={{
-      fontSize: '11px',
-      fontWeight: '800',
-      color: c || '#94a3b8',
-      fontFamily: "'JetBrains Mono', monospace",
-    }}
-  >
-    {v}%
-  </span>
-)
-
 const normalizePct = (v) => {
   const n = Number(v || 0)
   if (!Number.isFinite(n) || n <= 0) return 0
   return n > 1 ? n : n * 100
 }
 
-const toScore = (s) => {
-  if (!s || !String(s).includes('-')) return null
-  const [h, a] = String(s)
-    .split('-')
-    .map((v) => parseInt(v.trim()))
-  if (!Number.isFinite(h) || !Number.isFinite(a)) return null
-  return { home: h, away: a, total: h + a }
+const marketScoreOf = (pct, odds) => {
+  if (!pct || pct <= 0) return 0
+  const prob = pct / 100
+  const implied = odds ? 1 / odds : prob
+  const valueRatio = odds ? prob / implied : 1
+  return prob * 100 * valueRatio
 }
 
-const ACC_COLORS = {
-  high: '#00ffaa',
-  med: '#fbbf24',
-  low: '#f87171',
-}
-const accColor = (v) => (v >= 70 ? ACC_COLORS.high : v >= 55 ? ACC_COLORS.med : ACC_COLORS.low)
-
-const dominantBoxOf = (hPct, dPct, aPct, ou25Pct, bttsPct, htGoalPct) => {
-  const probs = [
-    { box: 1, pct: Math.max(hPct, dPct, aPct) },
-    { box: 3, pct: bttsPct },
-    { box: 4, pct: ou25Pct },
-    { box: 5, pct: htGoalPct },
+const dominantBoxOf = (hPct, dPct, aPct, ou25Pct, bttsPct, htGoalPct, oddsHome, oddsAway, oddsDraw, oddsOver25, oddsBtts) => {
+  const markets = [
+    {
+      box: 1,
+      pct: Math.max(hPct, dPct, aPct),
+      odds: (hPct >= dPct && hPct >= aPct) ? oddsHome : (aPct >= hPct && aPct >= dPct) ? oddsAway : oddsDraw,
+      label: '1X2',
+    },
+    {
+      box: 3,
+      pct: bttsPct,
+      odds: oddsBtts,
+      label: 'BTTS',
+    },
+    {
+      box: 4,
+      pct: ou25Pct,
+      odds: oddsOver25,
+      label: 'O/U 2.5',
+    },
+    {
+      box: 5,
+      pct: htGoalPct,
+      odds: null,
+      label: 'HT +0.5',
+    },
   ]
-  const best = probs.reduce((a, b) => b.pct > a.pct ? b : a, probs[0])
-  return best.pct > 0 ? best.box : null
-}
+    .map(m => ({ ...m, score: marketScoreOf(m.pct, m.odds) }))
+    .filter(m => m.score > 0)
 
-const goldenStyle = (boxIdx, goldenBox) => goldenBox === boxIdx ? {
-  boxShadow: '0 0 15px rgba(255,215,0,0.5), inset 0 0 10px rgba(255,215,0,0.08)',
-  border: '1px solid #ffd700',
-  animation: 'goldenPulse 2s ease-in-out infinite',
-} : {}
+  if (markets.length === 0) return null
+  return markets.reduce((a, b) => b.score > a.score ? b : a, markets[0])
+}
 
 const MatchRow = ({ match, isElite, onClick, style, now }) => {
   const enriched = match.enriched || {}
@@ -110,12 +105,16 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
   const pBTTS = Number(match.btts_prob || enriched?.btts_prob || 0)
   const quantObj = match.quant || enriched?.quant
   const mainPick = (quantObj?.main_pick || '').toString().trim().toUpperCase()
-  const marketAnalysis = match.marketAnalysis || {}
-  const dcOdds = marketAnalysis.doubleChance || null
   const bttsPct = Math.round(normalizePct(quantObj?.probs?.btts || pBTTS))
   const over25Pct = Math.round(normalizePct(quantObj?.probs?.over25 || pOU25))
   const htGoalPct = Math.min(89, Math.round(normalizePct(quantObj?.probs?.ht_goal ?? enriched?.ht_goal_prob ?? match.ht_goal_prob ?? 0)))
-  const goldenBox = dominantBoxOf(hPct, dPct, aPct, over25Pct, bttsPct, htGoalPct)
+  const oddsHome = parseFloat(match.odds_home || enriched?.odds_home) || null
+  const oddsAway = parseFloat(match.odds_away || enriched?.odds_away) || null
+  const oddsDraw = parseFloat(match.odds_draw || enriched?.odds_draw) || null
+  const oddsOver25 = parseFloat(match.odds_over25 || enriched?.odds_over25) || null
+  const oddsBtts = parseFloat(match.odds_btts_yes || enriched?.odds_btts_yes) || null
+  const dominant = dominantBoxOf(hPct, dPct, aPct, over25Pct, bttsPct, htGoalPct, oddsHome, oddsAway, oddsDraw, oddsOver25, oddsBtts)
+  const goldenBox = dominant ? dominant.box : null
 
   const getCS = () => {
     const qs = match.quant?.expected_score || enriched?.quant?.expected_score
@@ -165,24 +164,6 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
     return s
   }
   const cs = alignCS(rawCS, mainPick)
-  const parsedCS = toScore(cs)
-  const scoreTotal = parsedCS ? parsedCS.total : 0
-  const scoreBtts = parsedCS ? parsedCS.home > 0 && parsedCS.away > 0 : false
-
-  const displayOddsH = match.display_odds_home || match.best_odds_home || match.odds_home
-  const displayOddsA = match.display_odds_away || match.best_odds_away || match.odds_away
-  const getOdds = (pick) => {
-    const p = (pick || '').trim().toUpperCase()
-    if (p === '1' || p === 'HOME') return displayOddsH
-    if (p === '2' || p === 'AWAY') return displayOddsA
-    if (p === 'X' || p === 'N' || p === 'DRAW') return match.odds_draw
-    if (dcOdds && dcOdds[p]) return parseFloat(dcOdds[p])
-    return null
-  }
-  const mainOdds = getOdds(quantObj?.main_pick)
-  const mainPickClean = (quantObj?.main_pick || '')
-    .replace(/🛡️|⚽|⚡|🔥|🏠|✈️|AH_|EH_|COMBOS: |SMART VALUE: /g, '')
-    .trim()
 
   const rawAcc = match.v22_success_rate || match.enriched?.v22_success_rate || match.confidence
   const pOU25_pct = pOU25 > 1 ? pOU25 : pOU25 * 100
@@ -204,25 +185,12 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
   }
   acc = Math.max(1, Math.min(99, acc))
 
-  const mainPickProb = (() => {
-    const p = (quantObj?.main_pick || '').toString().trim().toUpperCase()
-    if (p === '1' || p === 'HOME') return hPct / 100
-    if (p === '2' || p === 'AWAY') return aPct / 100
-    if (p === 'X' || p === 'N' || p === 'DRAW') return dPct / 100
-    if (p === '12') return (hPct + aPct) / 100
-    if (p === '1X') return (hPct + dPct) / 100
-    if (p === 'X2') return (aPct + dPct) / 100
-    return acc / 100
-  })()
-  const mainPickEdge = mainOdds ? mainPickProb - 1 / mainOdds : 0
-  const mainPickEdgePct = (mainPickEdge * 100).toFixed(1)
-
   const evNum = parseFloat(quantObj?.ev_score) || 0
   const valueScore = ((evNum * acc) / 100).toFixed(1)
 
   const altHunter = match.alt_market_hunter || enriched?.alt_market_hunter || null
   const domProb = Math.max(hPct, aPct)
-  const hasOdds = !!(displayOddsH && displayOddsA)
+  const hasOdds = !!(match.odds_home && match.odds_away)
   const hasForm = !!(match.home_form_pts || match.away_form_pts)
   const hasStats = !!(match.ou_25_prob || match.btts_prob)
   const dataBonus = (hasOdds ? 2 : 0) + (hasForm ? 2 : 0) + (hasStats ? 2 : 0)
@@ -289,10 +257,6 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
       else countdownStr = `${s}s`
     } else if (diff > -7200000) countdownStr = '🔴 EN COURS'
   }
-
-  const bttsBadgeColor = scoreBtts ? '#00ffaa' : '#f87171'
-  const ouColor = over25Pct >= 60 ? '#10b981' : '#94a3b8'
-  const htColor = htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171'
 
   const hForm = match.home_form_rating || match.enriched?.home_form_rating || 0
   const aForm = match.away_form_rating || match.enriched?.away_form_rating || 0
@@ -444,76 +408,44 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
         )}
       </div>
 
-      {/* GRID: 6 independent boxes (3 cols desktop, 2 cols mobile) */}
+      {/* GRID: 1 marché dominant doré + Score IA + RISK */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-        {/* BOX 1: BASE 1X2 + Confidence */}
-        <div
-          style={{ ...G({
-            bg: 'rgba(0,255,170,0.05)',
-            border: '1px solid rgba(0,255,170,0.12)',
-            gap: '2px',
-          }), ...goldenStyle(1) }}
-        >
-          <L c="#00ffaa" s="7px" w="900">
-            BASE 1X2{goldenBox === 1 ? ' ⭐' : ''}
-          </L>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-            <V c="#f8fafc" s="18px">
-              {mainPickClean}
-            </V>
-            <V c={accColor(acc)} s="14px">
-              {acc}%
-            </V>
-          </div>
+
+        {/* MARCHÉ DOMINANT — LE SEUL PRONOSTIC */}
+        {dominant && (
           <div
             style={{
-              width: '100%',
-              height: '2px',
-              background: 'rgba(148,163,184,0.1)',
-              borderRadius: '2px',
-              overflow: 'hidden',
+              ...G({
+                bg: 'rgba(255,215,0,0.08)',
+                border: '1px solid #ffd700',
+                gap: '4px',
+              }),
+              animation: 'goldenPulse 2s ease-in-out infinite',
+              boxShadow: '0 0 20px rgba(255,215,0,0.3), inset 0 0 15px rgba(255,215,0,0.06)',
+              gridColumn: 'span 3',
+              padding: '10px 8px',
             }}
           >
-            <div
-              style={{
-                width: `${Math.max(5, acc)}%`,
-                height: '100%',
-                background: accColor(acc),
-                borderRadius: '2px',
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {mainOdds && (
-              <span
-                style={{
-                  fontSize: '9px',
-                  color: '#fbbf24',
-                  fontWeight: '700',
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                @{mainOdds.toFixed(2)}
+            <L c="#ffd700" s="8px" w="900">MEILLEUR PRONOSTIC ⭐</L>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <V c="#ffd700" s="20px">{dominant?.label || '--'}</V>
+              <V c="#ffd700" s="14px">{dominant?.pct ? `${dominant.pct}%` : '--'}</V>
+              {dominant?.odds && (
+                <V c="#fbbf24" s="14px">@{dominant.odds.toFixed(2)}</V>
+              )}
+              <span style={{ fontSize: '9px', color: '#94a3b8', fontWeight: '700' }}>
+                {dominant?.score != null ? `Score ${dominant.score.toFixed(0)}` : ''}
               </span>
-            )}
-            <span
-              style={{
-                fontSize: '8px',
-                color: mainPickEdge > 0 ? '#fbbf24' : '#f87171',
-                fontWeight: '800',
-              }}
-            >
-              {mainPickEdge > 0 ? `🎯+${mainPickEdgePct}%` : `⚠️${mainPickEdgePct}%`}
-            </span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* BOX 2: AI SCORE */}
         <div
           style={{ ...G({
             bg: match.insufficient_data === 1 ? 'rgba(245,158,11,0.06)' : 'rgba(0,255,170,0.04)',
             border: `1px solid ${match.insufficient_data === 1 ? 'rgba(245,158,11,0.15)' : 'rgba(0,255,170,0.1)'}`,
-          }), ...goldenStyle(2) }}
+          }) }}
         >
           <L c={match.insufficient_data === 1 ? '#f59e0b' : '#00ffaa'} s="7px" w="900">
             SCORE IA
@@ -523,73 +455,12 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
           </V>
         </div>
 
-        {/* BOX 3: BTTS — masqué si VITE_DISABLE_BTTS_DISPLAY (audit BT3 :
-            signal 50-53% ~ hasard, voir CHANGELOG_AUDIT.md « Marché BTTS ») */}
+        {/* BOX 3: RISK / EV / FORCE */}
         <div
-          style={{ ...G({
-            bg: 'rgba(239,68,68,0.04)',
-            border: `1px solid ${DISABLE_BTTS_DISPLAY ? 'rgba(100,116,139,0.15)' : scoreBtts ? 'rgba(0,255,170,0.12)' : 'rgba(239,68,68,0.15)'}`,
-          }), ...goldenStyle(3) }}
-        >
-          <L c={DISABLE_BTTS_DISPLAY ? '#64748b' : scoreBtts ? '#00ffaa' : '#f87171'} s="7px" w="900">
-            BTTS{goldenBox === 3 ? ' ⭐' : ''}
-          </L>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-            <V c={DISABLE_BTTS_DISPLAY ? '#64748b' : scoreBtts ? '#00ffaa' : '#f87171'} s="18px">
-              {DISABLE_BTTS_DISPLAY ? '--' : scoreBtts ? 'OUI' : 'NON'}
-            </V>
-            {!DISABLE_BTTS_DISPLAY && (
-              <Pct v={scoreBtts ? bttsPct : 100 - bttsPct} c={scoreBtts ? '#00ffaa' : '#f87171'} />
-            )}
-          </div>
-        </div>
-
-        {/* BOX 4: O/U 2.5 */}
-        <div
-          style={{ ...G({
-            bg: over25Pct > 50 ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)',
-            border: `1px solid ${over25Pct > 50 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`,
-          }), ...goldenStyle(4) }}
-        >
-          <L c={over25Pct > 50 ? '#10b981' : '#ef4444'} s="7px" w="900">
-            O/U 2.5{goldenBox === 4 ? ' ⭐' : ''}
-          </L>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-            <V c={over25Pct > 50 ? '#10b981' : '#ef4444'} s="18px">
-              {over25Pct > 50 ? 'OVER' : 'UNDER'}
-            </V>
-            <Pct
-              v={over25Pct > 50 ? over25Pct : 100 - over25Pct}
-              c={over25Pct > 50 ? '#10b981' : '#ef4444'}
-            />
-          </div>
-        </div>
-
-        {/* BOX 5: HT +0.5 */}
-        <div
-          style={{ ...G({
-            bg: 'rgba(251,191,36,0.04)',
-            border: `1px solid ${htGoalPct >= 65 ? 'rgba(0,255,170,0.12)' : htGoalPct >= 50 ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.12)'}`,
-          }), ...goldenStyle(5) }}
-        >
-          <L
-            c={htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171'}
-            s="7px"
-            w="900"
-          >
-            HT +0.5{goldenBox === 5 ? ' ⭐' : ''}
-          </L>
-          <V c={htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171'} s="18px">
-            {htGoalPct}%
-          </V>
-        </div>
-
-        {/* BOX 6: RISK / EV / FORCE */}
-        <div
-          style={{ ...G({ bg: 'rgba(148,163,184,0.04)', border: `1px solid ${msColor}33`, gap: '2px' }), ...goldenStyle(6) }}
+          style={{ ...G({ bg: 'rgba(148,163,184,0.04)', border: `1px solid ${msColor}33`, gap: '2px' }) }}
         >
           <L c="#64748b" s="7px" w="900">
-            RISK / EV / FORCE
+            RISK / EV
           </L>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span

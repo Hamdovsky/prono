@@ -2,7 +2,7 @@ import React from 'react'
 import './MatchCard.css'
 import { DISABLE_BTTS_DISPLAY, DISABLE_CORNERS_DISPLAY } from '../utils/displayPolicy'
 
-const isGolden = (chipKey, dominant) => dominant === chipKey
+const isGolden = (chipKey, dominant) => dominant && dominant.chip === chipKey
 
 const goldenChip = (chipKey, dominant) => isGolden(chipKey, dominant)
   ? {
@@ -10,7 +10,7 @@ const goldenChip = (chipKey, dominant) => isGolden(chipKey, dominant)
       border: '1px solid #ffd700',
       boxShadow: '0 0 10px rgba(255,215,0,0.4)',
     }
-  : {}
+  : { opacity: 0.35 }
 
 const goldenCell = (cellKey, dominant) => isGolden(cellKey, dominant)
   ? {
@@ -18,7 +18,7 @@ const goldenCell = (cellKey, dominant) => isGolden(cellKey, dominant)
       border: '1px solid #ffd700',
       boxShadow: '0 0 10px rgba(255,215,0,0.3)',
     }
-  : {}
+  : { opacity: 0.35 }
 
 const solidGoldenStyle = (isSolid) => isSolid
   ? {
@@ -28,27 +28,22 @@ const solidGoldenStyle = (isSolid) => isSolid
       boxShadow: 'inset 0 0 20px rgba(255,215,0,0.08)',
     }
   : {}
-// Dominant market basé sur la plus haute probabilité affichée (pas market_scope)
-const dominantChipOf = (d) => {
-  const parsePct = (s) => {
-    if (!s || s === '--') return 0
-    const m = String(s).match(/(\d+)/)
-    return m ? parseInt(m[1], 10) : 0
-  }
-  const probs = [
-    { chip: 'btts', pct: parsePct(d.btts) },
-    { chip: 'ou', pct: parsePct(d.ou) },
-    { chip: 'win', pct: parsePct(d.winner) },
-    { chip: 'dc', pct: parsePct(d.winnerDc) },
-    { chip: 'ht', pct: parsePct(d.htGoal) },
-    { chip: 'corners', pct: parsePct(d.corners) },
-  ]
-  return probs.reduce((best, c) => c.pct > best.pct ? c : best, { chip: 'win', pct: 0 }).chip
-}
 
 const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
+    const domChip = lines[13] || null
+    const domPayloadRaw = lines[14] || ''
+    let domLabel = '--', domPct = '--', domOdds = '--', domScore = '--'
+    if (domPayloadRaw && domPayloadRaw !== '--') {
+      const parts = domPayloadRaw.split('|')
+      if (parts.length >= 4) {
+        domLabel = parts[0]
+        domPct = parts[1]
+        domOdds = parts[2]
+        domScore = parts[3]
+      }
+    }
     return {
       league: lines[0],
       home: lines[1],
@@ -63,12 +58,17 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
       winnerDc: lines[10],
       ouLines: lines[11],
       cornersExact: lines[12],
+      domChip,
+      domLabel,
+      domPct,
+      domOdds,
+      domScore,
     }
   }
 
   const d = parseRow(rawData)
   if (!d) return null
-  const dominant = dominantChipOf(d)
+  const dominant = d.domChip ? { chip: d.domChip } : null
 
   const shortTeam = (name) => {
     if (!name) return ''
@@ -115,11 +115,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
     if (s.startsWith('NON')) return 'no'
     return ''
   }
-  const bttsDisplay = DISABLE_BTTS_DISPLAY ? '--' : d.btts
   const bttsVerdict = DISABLE_BTTS_DISPLAY ? '' : yesNo(d.btts)
-  // Corners masqués si VITE_DISABLE_CORNERS_DISPLAY (audit C8 : pas d'edge moderne)
-  const cornersDisplay = DISABLE_CORNERS_DISPLAY ? '--' : d.corners
-  const cornersVerdict = DISABLE_CORNERS_DISPLAY ? '' : yesNo(d.corners)
   const cornersExactLabel = DISABLE_CORNERS_DISPLAY ? null : d.cornersExact
 
   // Gagnant : extraire le pick (1/X/2 ou 1X/12/X2) avant la proba
@@ -203,8 +199,30 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
     )
   }
 
+  const relFactor = reliability && reliability.pct ? reliability.pct / 100 : 1
+  const dominantLabel = d.domLabel && d.domLabel !== '--' ? d.domLabel : null
+  const dominantPct = d.domPct && d.domPct !== '--' ? d.domPct : null
+  const dominantOdds = d.domOdds && d.domOdds !== '--' ? d.domOdds : null
+  const dominantScore = d.domScore && d.domScore !== '--' ? d.domScore : null
+  const displayScore = dominantScore != null && dominantScore !== '--' ? (parseFloat(dominantScore) * relFactor).toFixed(0) : null
+
   return (
     <div className={`match-card${solidClass}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
+      {dominantLabel && (
+        <div className="mc-dominant-banner">
+          <span className="mc-dominant-label">MEILLEUR PRONOSTIC ⭐</span>
+          <span className="mc-dominant-pick">{dominantLabel}</span>
+          {dominantPct && dominantPct !== '--' && (
+            <span className="mc-dominant-pct">{dominantPct}%</span>
+          )}
+          {dominantOdds && dominantOdds !== '--' && (
+            <span className="mc-dominant-odds">@{dominantOdds}</span>
+          )}
+          {displayScore != null && (
+            <span className="mc-dominant-score">Score {displayScore}</span>
+          )}
+        </div>
+      )}
       <div className="mc-match-info">
         <div className="mc-league">
           <span className="mc-league-name">{d.league}</span>

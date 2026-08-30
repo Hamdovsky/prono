@@ -2975,3 +2975,41 @@ pour que l'utilisateur voie immédiatement quel est le bon pronostic.
 - ESLint : 0 erreur sur MatchRow.jsx / MatchCard.jsx / Dashboard.jsx
 - Jest : 674 passed / 67 suites
 - Commit `c808c54` (MatchRow) + `66dbd12` (MatchCard/Dashboard)
+
+---
+
+## Marché dominant doré unifié — score EV (2026-08-30)
+
+### Objectif
+Un seul pronostic mis en évidence en doré par match, avec un score qui combine probabilité × valeur (EV approximatif), au lieu des 6 boxes précédentes.
+
+### Correctifs
+
+**`src/utils/matchAnalysis.js`**
+- Bloc `out.dominant` déplacé APRÈS le HONESTY GATE (ligne 372) : `out.htGoal` et `out.corners` sont maintenant toujours définis avant l'accès `.pct`.
+- `dominantBest` enrichi : `{ chip, label, prob, odds, score }` avec label décodé (« OVER 2.5 62% », « BTTS OUI 63% », « 1 52% », « HT OUI 55% », « CORNERS O 58% »).
+- Factor d'honnêteté : `honestFactor = mode === 'normal' ? 1.0 : 0.9` appliqué au score EV.
+- Cohérence O/U : quand `odds_over25` existe, `dominant.ou.prob` utilise la ligne 2.5 (depuis `out.ou.lines`) pour aligner prob et cote.
+- `computeRawLines` : index 13 = `domChip`, **index 14 = `label|pct|odds|score`** (payload sérialisé, 15 éléments total).
+
+**`src/components/MatchCard.jsx`**
+- `dominantChipOf` supprimé (calcul prob brute独立) → le dominant vient d'`analyzeMatch` (1 source de vérité).
+- `parseRow` lit `lines[13]` (domChip) et `lines[14]` (payload) → extraction de `domLabel/domPct/domOdds/domScore`.
+- Chips non-dominants : `opacity: 0.35` (atténués, diagnostic préservé).
+- Bandeau doré `mc-dominant-banner` en desktop : label + prob + cote + score (× fiabilité si bracket dispo).
+- CSS `.mc-dominant-banner` ajouté.
+
+**`src/components/MatchRow.jsx`**
+- `goldenStyle(2)` et `goldenStyle(6)` supprimés (jamais atteints : `goldenBox ∈ {1,3,4,5}`).
+- Fonction `goldenStyle` supprimée (inutile après refonte MatchCard).
+
+**`__tests__/matchAnalysis.test.js`** — 19 tests ajoutés
+- Structure 15 éléments (indices 0-14).
+- `dominantBest` défini, score ≥ 0, label non vide.
+- Robustesse : sans `cornersVerdict`, sans odds, match `finished`.
+- Cohérence O/U : domChip = 'ou' possible sans ligne 2.5 dans markets.
+
+### Vérifié
+- ESLint : 0 erreur sur `matchAnalysis.js` / `MatchCard.jsx` / `MatchRow.jsx`
+- Jest : 19 passed / 1 suite (`--testPathPatterns=matchAnalysis`)
+- `npm run build` : ✓ built in 3.04s

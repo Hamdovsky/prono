@@ -116,6 +116,7 @@ const Dashboard = () => {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
   const [selectedMatch, setSelectedMatch] = useState(null)
   const [bracketMap, setBracketMap] = useState({})
+  const [dominantFilter, setDominantFilter] = useState('ALL')
 
   const activeView = PATH_TO_VIEW[location.pathname] || 'all-matches'
 
@@ -224,6 +225,19 @@ const Dashboard = () => {
             .replace(/[\u0300-\u036f]/g, '')
           if (!home.includes(q) && !away.includes(q) && !league.includes(q)) return false
         }
+        if (dominantFilter !== 'ALL') {
+          const domChip = (() => {
+            try {
+              const r = computeRawLines(m)
+              return r && r[13] ? r[13] : null
+            } catch {
+              return null
+            }
+          })()
+          if (!domChip || domChip === '--') return false
+          const map = { OU: 'ou', '1X2': 'win', DC: 'win', HT: 'ht', BTTS: 'btts', CORNERS: 'corners' }
+          if (domChip !== (map[dominantFilter] || dominantFilter.toLowerCase())) return false
+        }
         return true
       })
       .sort((a, b) => {
@@ -266,7 +280,7 @@ const Dashboard = () => {
           : 0
         return aFin ? bTime - aTime : aTime - bTime
       })
-  }, [matches, activeDate, searchQuery])
+  }, [matches, activeDate, searchQuery, dominantFilter])
 
   // 🧠 [PERF] Props stables pour la liste virtuelle : le React.memo des rangées
   // ne re-rend que si la liste (contenu) ou le handler changent réellement.
@@ -282,9 +296,50 @@ const Dashboard = () => {
     const listHeight = Math.min(list.length * ROW_H, 800)
     const virtualHeight = listHeight - HEADER_H
 
+    const chipCount = {}
+    list.forEach((m) => {
+      try {
+        const r = computeRawLines(m)
+        if (r && r[13] && r[13] !== '--') chipCount[r[13]] = (chipCount[r[13]] || 0) + 1
+      } catch {}
+    })
+
+    const filters = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners']
+    const filterLabels = { ALL: 'Tous', ou: 'Over/Under', win: '1X2', btts: 'BTTS', ht: '1er MT', corners: 'Corners' }
+    const filterColors = { ALL: '#94a3b8', ou: '#10b981', win: '#00ffaa', btts: '#f87171', ht: '#fbbf24', corners: '#60a5fa' }
+
     return (
       <div className="onyx-list-section">
         <div className="onyx-section-title global">📊 TOUS LES MATCHS ({list.length})</div>
+        {!isMobile && (
+          <div style={{ display: 'flex', gap: '6px', padding: '6px 8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {filters.map((f) => {
+              const count = f === 'ALL' ? list.length : (chipCount[f] || 0)
+              const active = dominantFilter === f
+              return (
+                <button
+                  key={f}
+                  onClick={() => setDominantFilter(f)}
+                  style={{
+                    fontSize: '9px',
+                    fontWeight: '800',
+                    padding: '3px 8px',
+                    borderRadius: '12px',
+                    border: `1px solid ${active ? filterColors[f] : 'rgba(255,255,255,0.1)'}`,
+                    background: active ? `${filterColors[f]}18` : 'rgba(255,255,255,0.03)',
+                    color: active ? filterColors[f] : '#64748b',
+                    cursor: 'pointer',
+                    letterSpacing: '0.4px',
+                    textTransform: 'uppercase',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {filterLabels[f]} {count > 0 && `(${count})`}
+                </button>
+              )
+            })}
+          </div>
+        )}
         <div style={{ width: '100%' }}>
           {!isMobile && (
             <div

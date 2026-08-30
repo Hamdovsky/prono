@@ -3013,3 +3013,23 @@ Un seul pronostic mis en évidence en doré par match, avec un score qui combine
 - ESLint : 0 erreur sur `matchAnalysis.js` / `MatchCard.jsx` / `MatchRow.jsx`
 - Jest : 19 passed / 1 suite (`--testPathPatterns=matchAnalysis`)
 - `npm run build` : ✓ built in 3.04s
+
+---
+
+## Cohérence ⭐ + Mobile UX + Perf dashboard (2026-08-30)
+
+### Objectif
+Affiner la feature doré existante : O/U cohérent (banner/chip/EV parlent de la même ligne), HT/Corners peuvent devenir dominants, banner mobile, filtre mobile, empty state, perf réduite (1 analyzeMatch/match au lieu de 3).
+
+### Correctifs (local, no push)
+1. src/utils/matchAnalysis.js : out.ou réference désormais la ligne 2.5 si disponible (odds uniquement sur 2.5), sinon estOu. makeEntry : score = odds ? EV : prob/100 — HT/Corners sans odds peuvent devenir dominants. Plus de mismatch label/EV.
+2. src/components/MatchCard.jsx : chip O/U compact affiche domLabel (même ligne que bannière) quand dominant = 'ou'. Bannière mobile .mcc-dominant-banner ajoutée. Cellule desktop O/U highlighte la ligne dominante (.mc-ou-line.dominant) au lieu d'illuminer toute la cellule.
+3. src/components/MatchCard.css : .mcc-dominant-banner et .mc-ou-line.dominant.
+4. src/components/Dashboard.jsx : filtre dominant → 	oRawLines (cache WeakMap) au lieu de computeRawLines direct. chipCount en useMemo. ROW_H mobile 104→124. Filtre chips visible mobile (scroll horizontal). Empty state avec message adapté.
+5. Tests : 19/19 passent.
+
+### Vérifié
+- ESLint : 0 erreur
+- Jest : 19 passed / 1 suite
+- 
+pm run build : ✓ built in 10.92s

@@ -4,6 +4,21 @@ import { DISABLE_BTTS_DISPLAY, DISABLE_CORNERS_DISPLAY } from '../utils/displayP
 
 const isGolden = (chipKey, dominant) => dominant && dominant.chip === chipKey
 
+  const domLabelToChip = (label) => {
+  if (!label || label === '--') return null
+  const m = label.match(/^(OVER|UNDER)\s+([\d.]+)\s+(\d+)%$/)
+  if (!m) return null
+  const dir = m[1] === 'OVER' ? 'O' : 'U'
+  return `${dir}${m[2]} ${m[3]}%`
+}
+
+const domLineFromLabel = (label) => {
+  if (!label || label === '--') return null
+  const m = label.match(/^(OVER|UNDER)\s+([\d.]+)\s+(\d+)%$/)
+  if (!m) return null
+  return { dir: m[1].toLowerCase(), line: parseFloat(m[2]) }
+}
+
 const goldenChip = (chipKey, dominant) => isGolden(chipKey, dominant)
   ? {
       animation: 'goldenPulse 2s ease-in-out infinite',
@@ -179,16 +194,23 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
           <span className={`mcc-vs${d.score ? ' has-score' : ''}`}>{d.score ? d.score : 'vs'}</span>
           <span className="mcc-team">{shortTeam(d.away)}</span>
         </div>
+        {d.domLabel && d.domLabel !== '--' && (
+          <div className="mcc-dominant-banner">
+            ⭐ {d.domLabel}{d.domOdds && d.domOdds !== '--' ? ` @${d.domOdds}` : ''}
+          </div>
+        )}
         <div className="mcc-chips">
           <span className={`mcc-chip mcc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenChip('btts', dominant)}>
             BTTS {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
           </span>
           <span className={`mcc-chip mcc-ou ${ouDir}`} style={goldenChip('ou', dominant)}>
-            {bestOu
-              ? `${bestOu.dir === 'over' ? 'O' : 'U'}${bestOu.line.toFixed(1)} ${bestOu.pct}%`
-              : hasOuCell
-                ? `O/U ${ouDir.toUpperCase()} ${ouPrec}%`
-                : 'O/U --'}
+            {dominant && dominant.chip === 'ou' && domLabelToChip(d.domLabel)
+              ? domLabelToChip(d.domLabel)
+              : bestOu
+                ? `${bestOu.dir === 'over' ? 'O' : 'U'}${bestOu.line.toFixed(1)} ${bestOu.pct}%`
+                : hasOuCell
+                  ? `O/U ${ouDir.toUpperCase()} ${ouPrec}%`
+                  : 'O/U --'}
           </span>
           <span className={`mcc-chip mcc-win ${pickClass}`} style={goldenChip('win', dominant)}>{d.winner}</span>
           {hasDc && <span className="mcc-chip mcc-dc" style={goldenChip('dc', dominant)}>DC {d.winnerDc}</span>}
@@ -244,12 +266,16 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
       <div className="mc-cell mc-ou-cell" style={goldenCell('ou', dominant)}>
         {ouLines.length > 0 ? (
           <div className="mc-ou-lines">
-            {ouLines.map((l) => (
-              <span key={l.line} className={`mc-ou-line ${l.dir}`}>
-                {l.dir === 'over' ? 'O' : 'U'}
-                {l.line.toFixed(1)} {l.pct}%
-              </span>
-            ))}
+            {ouLines.map((l) => {
+              const dominantLine = dominant && dominant.chip === 'ou' ? domLineFromLabel(d.domLabel) : null
+              const isDom = dominantLine && dominantLine.dir === l.dir && dominantLine.line === l.line
+              return (
+                <span key={l.line} className={`mc-ou-line ${l.dir}${isDom ? ' dominant' : ''}`}>
+                  {l.dir === 'over' ? 'O' : 'U'}
+                  {l.line.toFixed(1)} {l.pct}%
+                </span>
+              )
+            })}
           </div>
         ) : hasOuCell ? (
           <>

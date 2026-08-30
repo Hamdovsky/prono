@@ -153,6 +153,12 @@
   color: #f87171;
   background: rgba(248, 113, 113, 0.05);
 }
+.mc-ou-line.dominant {
+  animation: goldenPulse 2s ease-in-out infinite;
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  border-radius: 3px;
+  box-shadow: 0 0 6px rgba(255, 215, 0, 0.3);
+}
 .mc-ou-line-key {
   letter-spacing: 0.3px;
   opacity: 0.9;
@@ -363,7 +369,19 @@
   color: #00ffaa;
   font-weight: 800;
 }
-
+.mcc-dominant-banner {
+  font-size: 9px;
+  font-weight: 800;
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 4px;
+  padding: 2px 8px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .mcc-chips {
   display: flex;
   flex-wrap: wrap;

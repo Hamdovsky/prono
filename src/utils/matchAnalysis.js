@@ -156,16 +156,18 @@ export function analyzeMatch(m) {
     return { line, overPct, dir: overPct > 50 ? 'OVER' : 'UNDER', pct: overPct > 50 ? overPct : 100 - overPct }
   }
   const ouLines = [1.5, 2.5, 3.5, 4.5].map(buildOuLine).filter((l) => l.overPct > 0)
-  // Ligne la plus fiable (la plus éloignée du 50/50) pour le chip compact.
   const bestOu =
     ouLines.length > 0
       ? ouLines.reduce((a, b) => (Math.abs(b.overPct - 50) > Math.abs(a.overPct - 50) ? b : a))
       : { line: 2.5, overPct: fallbackOu25, dir: fallbackOu25 > 50 ? 'OVER' : 'UNDER', pct: fallbackOu25 > 50 ? fallbackOu25 : 100 - fallbackOu25 }
+  const ouLine25 = ouLines.find((l) => l.line === 2.5)
+  const ouRef = ouLine25 || bestOu
   out.ou = {
-    label: bestOu.overPct > 0 ? `${bestOu.dir} ${bestOu.line.toFixed(1)} ${bestOu.pct}%` : '--',
-    pct: bestOu.pct,
-    direction: bestOu.dir,
+    label: ouRef.overPct > 0 ? `${ouRef.dir} ${ouRef.line.toFixed(1)} ${ouRef.pct}%` : '--',
+    pct: ouRef.pct,
+    direction: ouRef.dir,
     lines: ouLines,
+    refLine: ouRef.line,
   }
 
   // ── Probabilités 1/X/2 ──
@@ -376,16 +378,17 @@ export function analyzeMatch(m) {
     : parseFloat(m.odds_draw) || null
   const bestOddsForBtts = parseFloat(m.odds_btts_yes) || null
   const bestOddsForOu = parseFloat(m.odds_over25) || null
-  const ouLine25 = out.ou.lines?.find((l) => l.line === 2.5)
-  const ouProbForEv = ouLine25
-    ? (ouLine25.dir === 'OVER' ? ouLine25.overPct : 100 - ouLine25.overPct)
-    : out.ou.pct
+  const ouProbForEv = out.ou.pct
 
   const winnerLabel = out.winner.label || (winnerProb > 0 ? `${winner} ${Math.round(winnerProb)}%` : null)
   const makeEntry = (chip, prob, odds, label) => {
     if (!prob || prob <= 0) return null
-    const ev = odds ? (prob / 100) * odds * honestyFactor : 0
-    return { chip, prob, odds, label, score: ev }
+    if (odds) {
+      const ev = (prob / 100) * odds * honestyFactor
+      return { chip, prob, odds, label, score: ev }
+    }
+    const ev = (prob / 100) * honestyFactor
+    return { chip, prob, odds: null, label, score: ev }
   }
 
   out.dominant = {

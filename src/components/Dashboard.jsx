@@ -228,7 +228,7 @@ const Dashboard = () => {
         if (dominantFilter !== 'ALL') {
           const domChip = (() => {
             try {
-              const r = computeRawLines(m)
+              const r = toRawLines(m)
               return r && r[13] ? r[13] : null
             } catch {
               return null
@@ -289,20 +289,22 @@ const Dashboard = () => {
     [allMatchesList, handleSelectMatch, isMobile, bracketMap]
   )
 
+  const chipCount = useMemo(() => {
+    const counts = {}
+    allMatchesList.forEach((m) => {
+      try {
+        const r = toRawLines(m)
+        if (r && r[13] && r[13] !== '--') counts[r[13]] = (counts[r[13]] || 0) + 1
+      } catch {}
+    })
+    return counts
+  }, [allMatchesList])
+
   const renderMatchList = (list) => {
-    if (list.length === 0) return null
-    const ROW_H = isMobile ? 104 : 56
+    const ROW_H = isMobile ? 124 : 56
     const HEADER_H = isMobile ? 0 : 42
     const listHeight = Math.min(list.length * ROW_H, 800)
     const virtualHeight = listHeight - HEADER_H
-
-    const chipCount = {}
-    list.forEach((m) => {
-      try {
-        const r = computeRawLines(m)
-        if (r && r[13] && r[13] !== '--') chipCount[r[13]] = (chipCount[r[13]] || 0) + 1
-      } catch {}
-    })
 
     const filters = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners']
     const filterLabels = { ALL: 'Tous', ou: 'Over/Under', win: '1X2', btts: 'BTTS', ht: '1er MT', corners: 'Corners' }
@@ -311,33 +313,41 @@ const Dashboard = () => {
     return (
       <div className="onyx-list-section">
         <div className="onyx-section-title global">📊 TOUS LES MATCHS ({list.length})</div>
-        {!isMobile && (
-          <div style={{ display: 'flex', gap: '6px', padding: '6px 8px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {filters.map((f) => {
-              const count = f === 'ALL' ? list.length : (chipCount[f] || 0)
-              const active = dominantFilter === f
-              return (
-                <button
-                  key={f}
-                  onClick={() => setDominantFilter(f)}
-                  style={{
-                    fontSize: '9px',
-                    fontWeight: '800',
-                    padding: '3px 8px',
-                    borderRadius: '12px',
-                    border: `1px solid ${active ? filterColors[f] : 'rgba(255,255,255,0.1)'}`,
-                    background: active ? `${filterColors[f]}18` : 'rgba(255,255,255,0.03)',
-                    color: active ? filterColors[f] : '#64748b',
-                    cursor: 'pointer',
-                    letterSpacing: '0.4px',
-                    textTransform: 'uppercase',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {filterLabels[f]} {count > 0 && `(${count})`}
-                </button>
-              )
-            })}
+        <div style={{ display: 'flex', gap: '6px', padding: '6px 8px', flexWrap: 'wrap', alignItems: 'center', overflowX: isMobile ? 'auto' : 'visible', whiteSpace: 'nowrap' }}>
+          {filters.map((f) => {
+            const count = f === 'ALL' ? list.length : (chipCount[f] || 0)
+            const active = dominantFilter === f
+            return (
+              <button
+                key={f}
+                onClick={() => setDominantFilter(f)}
+                style={{
+                  fontSize: '9px',
+                  fontWeight: '800',
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  border: `1px solid ${active ? filterColors[f] : 'rgba(255,255,255,0.1)'}`,
+                  background: active ? `${filterColors[f]}18` : 'rgba(255,255,255,0.03)',
+                  color: active ? filterColors[f] : '#64748b',
+                  cursor: 'pointer',
+                  letterSpacing: '0.4px',
+                  textTransform: 'uppercase',
+                  transition: 'all 0.15s',
+                  flexShrink: 0,
+                }}
+              >
+                {filterLabels[f]} {count > 0 && `(${count})`}
+              </button>
+            )
+          })}
+        </div>
+        {list.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b', fontSize: '12px' }}>
+            {dominantFilter !== 'ALL'
+              ? `Aucun match pour le marché "${filterLabels[dominantFilter]}"`
+              : searchQuery
+                ? `Aucun résultat pour "${searchQuery}"`
+                : 'Aucun match à afficher sur cette fenêtre'}
           </div>
         )}
         <div style={{ width: '100%' }}>

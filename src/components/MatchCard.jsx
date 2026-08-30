@@ -2,24 +2,9 @@ import React from 'react'
 import './MatchCard.css'
 import { DISABLE_BTTS_DISPLAY, DISABLE_CORNERS_DISPLAY } from '../utils/displayPolicy'
 
-const SCOPE_TO_CHIP = {
-  first_half: 'ht',
-  full_time_1x2: 'win',
-  full_time_ou: ['win', 'ou'],  // WIN chip + O/U chip dorés
-  full_time_dc: ['win', 'dc'],  // WIN chip + DC chip dorés
-  btts: 'btts',
-  corners: 'corners',
-  first_half: ['win', 'ht'],   // WIN chip + HT chip dorés
-}
+const isGolden = (chipKey, dominant) => dominant === chipKey
 
-const isGolden = (chipKey, scope) => {
-  if (!scope) return false
-  const active = SCOPE_TO_CHIP[scope]
-  if (Array.isArray(active)) return active.includes(chipKey)
-  return active === chipKey
-}
-
-const goldenChip = (chipKey, scope) => isGolden(chipKey, scope)
+const goldenChip = (chipKey, dominant) => isGolden(chipKey, dominant)
   ? {
       animation: 'goldenPulse 2s ease-in-out infinite',
       border: '1px solid #ffd700',
@@ -27,7 +12,7 @@ const goldenChip = (chipKey, scope) => isGolden(chipKey, scope)
     }
   : {}
 
-const goldenCell = (cellKey, scope) => isGolden(cellKey, scope)
+const goldenCell = (cellKey, dominant) => isGolden(cellKey, dominant)
   ? {
       animation: 'goldenPulse 2s ease-in-out infinite',
       border: '1px solid #ffd700',
@@ -43,12 +28,25 @@ const solidGoldenStyle = (isSolid) => isSolid
       boxShadow: 'inset 0 0 20px rgba(255,215,0,0.08)',
     }
   : {}
-// produites par computeRawLines (matchAnalysis.js), incluant winnerDc[10],
-// ouLines[11] (O/U multi-lignes) et cornersExact[12] — absents de la
-// version 159 lignes qui cassait les colonnes O/U LIGNES / BUT 1ER MT /
-// CORNERS du Dashboard. Masquage BTTS conservé (VITE_DISABLE_BTTS_DISPLAY).
+// Dominant market basé sur la plus haute probabilité affichée (pas market_scope)
+const dominantChipOf = (d) => {
+  const parsePct = (s) => {
+    if (!s || s === '--') return 0
+    const m = String(s).match(/(\d+)/)
+    return m ? parseInt(m[1], 10) : 0
+  }
+  const probs = [
+    { chip: 'btts', pct: parsePct(d.btts) },
+    { chip: 'ou', pct: parsePct(d.ou) },
+    { chip: 'win', pct: parsePct(d.winner) },
+    { chip: 'dc', pct: parsePct(d.winnerDc) },
+    { chip: 'ht', pct: parsePct(d.htGoal) },
+    { chip: 'corners', pct: parsePct(d.corners) },
+  ]
+  return probs.reduce((best, c) => c.pct > best.pct ? c : best, { chip: 'win', pct: 0 }).chip
+}
 
-const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, marketScope }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
     return {
@@ -70,6 +68,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, m
 
   const d = parseRow(rawData)
   if (!d) return null
+  const dominant = dominantChipOf(d)
 
   const shortTeam = (name) => {
     if (!name) return ''
@@ -185,20 +184,20 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, m
           <span className="mcc-team">{shortTeam(d.away)}</span>
         </div>
         <div className="mcc-chips">
-          <span className={`mcc-chip mcc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenChip('btts', marketScope)}>
+          <span className={`mcc-chip mcc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenChip('btts', dominant)}>
             BTTS {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
           </span>
-          <span className={`mcc-chip mcc-ou ${ouDir}`} style={goldenChip('ou', marketScope)}>
+          <span className={`mcc-chip mcc-ou ${ouDir}`} style={goldenChip('ou', dominant)}>
             {bestOu
               ? `${bestOu.dir === 'over' ? 'O' : 'U'}${bestOu.line.toFixed(1)} ${bestOu.pct}%`
               : hasOuCell
                 ? `O/U ${ouDir.toUpperCase()} ${ouPrec}%`
                 : 'O/U --'}
           </span>
-          <span className={`mcc-chip mcc-win ${pickClass}`} style={goldenChip('win', marketScope)}>{d.winner}</span>
-          {hasDc && <span className="mcc-chip mcc-dc" style={goldenChip('dc', marketScope)}>DC {d.winnerDc}</span>}
-          <span className={`mcc-chip mcc-ht ${yesNo(d.htGoal)}`} style={goldenChip('ht', marketScope)}>1er MT {d.htGoal}</span>
-          <span className="mcc-chip mcc-corners" style={goldenChip('corners', marketScope)}>{cornersLabel}</span>
+          <span className={`mcc-chip mcc-win ${pickClass}`} style={goldenChip('win', dominant)}>{d.winner}</span>
+          {hasDc && <span className="mcc-chip mcc-dc" style={goldenChip('dc', dominant)}>DC {d.winnerDc}</span>}
+          <span className={`mcc-chip mcc-ht ${yesNo(d.htGoal)}`} style={goldenChip('ht', dominant)}>1er MT {d.htGoal}</span>
+          <span className="mcc-chip mcc-corners" style={goldenChip('corners', dominant)}>{cornersLabel}</span>
         </div>
       </div>
     )
@@ -220,11 +219,11 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, m
         {timeLabel && <div className="mc-time">{timeLabel}</div>}
       </div>
 
-      <div className={`mc-cell mc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenCell('btts', marketScope)}>
+      <div className={`mc-cell mc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenCell('btts', dominant)}>
         {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
       </div>
 
-      <div className="mc-cell mc-ou-cell" style={goldenCell('ou', marketScope)}>
+      <div className="mc-cell mc-ou-cell" style={goldenCell('ou', dominant)}>
         {ouLines.length > 0 ? (
           <div className="mc-ou-lines">
             {ouLines.map((l) => (
@@ -247,11 +246,11 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, m
         )}
       </div>
 
-      <div className={`mc-cell mc-winner ${pickClass}`} style={goldenCell('win', marketScope)}>{d.winner}</div>
+      <div className={`mc-cell mc-winner ${pickClass}`} style={goldenCell('win', dominant)}>{d.winner}</div>
 
-      <div className={`mc-cell mc-ht ${yesNo(d.htGoal)}`} style={goldenCell('ht', marketScope)}>{d.htGoal}</div>
+      <div className={`mc-cell mc-ht ${yesNo(d.htGoal)}`} style={goldenCell('ht', dominant)}>{d.htGoal}</div>
 
-      <div className="mc-cell mc-corners" style={goldenCell('corners', marketScope)}>{cornersLabel}</div>
+      <div className="mc-cell mc-corners" style={goldenCell('corners', dominant)}>{cornersLabel}</div>
     </div>
   )
 }

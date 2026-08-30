@@ -114,7 +114,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
   const dcOdds = marketAnalysis.doubleChance || null
   const bttsPct = Math.round(normalizePct(quantObj?.probs?.btts || pBTTS))
   const over25Pct = Math.round(normalizePct(quantObj?.probs?.over25 || pOU25))
-  const htGoalPct = Math.min(89, Math.round((over25Pct + bttsPct) / 2 + 5))
+  const htGoalPct = Math.min(89, Math.round(normalizePct(quantObj?.probs?.ht_goal ?? enriched?.ht_goal_prob ?? match.ht_goal_prob ?? 0)))
   const goldenBox = dominantBoxOf(hPct, dPct, aPct, over25Pct, bttsPct, htGoalPct)
 
   const getCS = () => {
@@ -455,7 +455,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
           }), ...goldenStyle(1) }}
         >
           <L c="#00ffaa" s="7px" w="900">
-            BASE 1X2
+            BASE 1X2{goldenBox === 1 ? ' ⭐' : ''}
           </L>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
             <V c="#f8fafc" s="18px">
@@ -532,7 +532,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
           }), ...goldenStyle(3) }}
         >
           <L c={DISABLE_BTTS_DISPLAY ? '#64748b' : scoreBtts ? '#00ffaa' : '#f87171'} s="7px" w="900">
-            BTTS
+            BTTS{goldenBox === 3 ? ' ⭐' : ''}
           </L>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
             <V c={DISABLE_BTTS_DISPLAY ? '#64748b' : scoreBtts ? '#00ffaa' : '#f87171'} s="18px">
@@ -552,7 +552,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
           }), ...goldenStyle(4) }}
         >
           <L c={over25Pct > 50 ? '#10b981' : '#ef4444'} s="7px" w="900">
-            O/U 2.5
+            O/U 2.5{goldenBox === 4 ? ' ⭐' : ''}
           </L>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
             <V c={over25Pct > 50 ? '#10b981' : '#ef4444'} s="18px">
@@ -577,7 +577,7 @@ const MatchRow = ({ match, isElite, onClick, style, now }) => {
             s="7px"
             w="900"
           >
-            HT +0.5
+            HT +0.5{goldenBox === 5 ? ' ⭐' : ''}
           </L>
           <V c={htGoalPct >= 65 ? '#00ffaa' : htGoalPct >= 50 ? '#fbbf24' : '#f87171'} s="18px">
             {htGoalPct}%

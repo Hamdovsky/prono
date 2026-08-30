@@ -98,7 +98,6 @@ const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracket
       timeLabel={timeLabel}
       compact={compact}
       reliability={reliability}
-      marketScope={m.market_scope}
     />
   )
 })

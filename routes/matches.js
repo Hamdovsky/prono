@@ -149,14 +149,38 @@ router.get('/top-picks/daily', async (req, res) => {
 
 /**
  * GET /api/live
- * Live matches with goal prediction analysis
+ * Live matches with goal prediction analysis + live stats
  */
 router.get('/live', async (req, res) => {
   try {
     const matches = liveMatchService.getActiveMatches()
     const enriched = matches.map((m) => {
       const prediction = liveGoalPredictor.analyzeLiveMatch(m)
-      return { ...m, goalPrediction: prediction }
+      const possessionH = m.possession_home || m.liveData?.possession?.home || 50
+      const possessionA = m.possession_away || m.liveData?.possession?.away || 50
+      const liveStats = {
+        possession: `${possessionH}% - ${possessionA}%`,
+        possessionHome: possessionH,
+        possessionAway: possessionA,
+        corners: `${m.corners_home || m.liveData?.corners?.home || 0} - ${m.corners_away || m.liveData?.corners?.away || 0}`,
+        cornersHome: m.corners_home || m.liveData?.corners?.home || 0,
+        cornersAway: m.corners_away || m.liveData?.corners?.away || 0,
+        shotsOnTarget: `${m.shots_on_target_home || 0} - ${m.shots_on_target_away || 0}`,
+        shotsHome: m.shots_on_target_home || 0,
+        shotsAway: m.shots_on_target_away || 0,
+        attacksHome: m.dangerous_attacks_home || m.liveData?.attacks?.home || 0,
+        attacksAway: m.dangerous_attacks_away || m.liveData?.attacks?.away || 0,
+        xg: m.xg
+          ? `${m.xg.home?.toFixed(2) || '0.00'} - ${m.xg.away?.toFixed(2) || '0.00'}`
+          : null,
+        xgHome: m.xg?.home || 0,
+        xgAway: m.xg?.away || 0,
+      }
+      return {
+        ...m,
+        goalPrediction: prediction,
+        liveStats,
+      }
     })
     res.json(enriched)
   } catch (err) {

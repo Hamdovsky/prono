@@ -40,13 +40,14 @@ class DataService {
     this.healthSubscribers = []
     this.upcomingSubscribers = []
     this.statusSubscribers = [] // V33 Status Observer
+    this.liveSubscribers = []
     this.scraperStatusCache = null // Cache for scraper progress
     this.healthCache = null // Cache for health data
     this._idCounter = 0
 
     this.matches = []
     this.combos = []
-    this.upcomingPredictions = null
+    this.liveMatches = []
     this.currentStatus = 'idle' // 'idle' | 'loading' | 'error' | 'success'
 
     this.intervalId = null
@@ -113,6 +114,13 @@ class DataService {
 
       this.socket.on('match_patch_update', (data) => {
         this._handleMatchPatchUpdate(data)
+      })
+
+      this.socket.on('live:update', (matches) => {
+        if (Array.isArray(matches)) {
+          this.liveMatches = matches
+          this.liveSubscribers.forEach((cb) => cb(matches))
+        }
       })
 
       this.socket.on('system_status', (data) => {
@@ -532,6 +540,25 @@ class DataService {
       clearInterval(retryTimer)
       this.upcomingSubscribers = this.upcomingSubscribers.filter((sub) => sub !== callback)
     }
+  }
+
+  subscribeLive(callback) {
+    this.liveSubscribers.push(callback)
+    if (this.liveMatches && this.liveMatches.length) callback(this.liveMatches)
+    this.fetchLive()
+    return () => (this.liveSubscribers = this.liveSubscribers.filter((sub) => sub !== callback))
+  }
+
+  async fetchLive() {
+    try {
+      const res = await fetch(getApiUrl('/api/live'))
+      if (!res.ok) return
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        this.liveMatches = data
+        this.liveSubscribers.forEach((cb) => cb(data))
+      }
+    } catch {}
   }
 
   subscribeHealth(callback) {
@@ -1037,6 +1064,7 @@ class DataService {
       }
 
       this.refreshAllData()
+      this.fetchLive()
 
       // 🎯 Adaptive: 10s for live action, 60s for idle/scheduled
       const nextInterval = this._hasLiveMatches ? 10000 : 60000

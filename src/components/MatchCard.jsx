@@ -44,7 +44,7 @@ const solidGoldenStyle = (isSolid) => isSolid
     }
   : {}
 
-const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
     const domChip = lines[13] || null
@@ -58,6 +58,12 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
         domOdds = parts[2]
         domScore = parts[3]
       }
+    }
+    const parseInfoCell = (raw) => {
+      if (!raw || raw === '--') return null
+      const parts = String(raw).split('|')
+      if (parts.length < 3) return null
+      return { label: parts[0] || '--', pct: parts[1] || '--', odds: parts[2] || '--' }
     }
     return {
       league: lines[0],
@@ -78,6 +84,12 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
       domPct,
       domOdds,
       domScore,
+      htft: parseInfoCell(lines[15]),
+      ah: parseInfoCell(lines[16]),
+      teamToScore: parseInfoCell(lines[17]),
+      htFirstHalf: parseInfoCell(lines[18]),
+      bttsAndWin: parseInfoCell(lines[19]),
+      bttsAndOu: parseInfoCell(lines[20]),
     }
   }
 
@@ -135,6 +147,9 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
 
   // Gagnant : extraire le pick (1/X/2 ou 1X/12/X2) avant la proba
   const winPick = (d.winner || '').split(' ')[0].trim().toUpperCase()
+  const winProb = (d.winner || '').split(' ').slice(1).join(' ').trim()
+  const winnerTeamName = winPick === '1' ? d.home : winPick === '2' ? d.away : winPick === 'X' ? 'Match nul' : null
+  const winnerDisplay = winnerTeamName && winProb ? `${winnerTeamName} ${winProb}` : d.winner
   const pickClass =
     winPick === '1'
       ? 'mc-pick-home'
@@ -212,10 +227,16 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
                   ? `O/U ${ouDir.toUpperCase()} ${ouPrec}%`
                   : 'O/U --'}
           </span>
-          <span className={`mcc-chip mcc-win ${pickClass}`} style={goldenChip('win', dominant)}>{d.winner}</span>
+          <span className={`mcc-chip mcc-win ${pickClass}`} style={goldenChip('win', dominant)}>{winnerDisplay}</span>
           {hasDc && <span className="mcc-chip mcc-dc" style={goldenChip('dc', dominant)}>DC {d.winnerDc}</span>}
           <span className={`mcc-chip mcc-ht ${yesNo(d.htGoal)}`} style={goldenChip('ht', dominant)}>1er MT {d.htGoal}</span>
           <span className="mcc-chip mcc-corners" style={goldenChip('corners', dominant)}>{cornersLabel}</span>
+          {d.htft && <span className="mcc-chip mcc-info" style={{opacity:0.45}}>HT/FT {d.htft.label}</span>}
+          {d.ah && <span className="mcc-chip mcc-info" style={{opacity:0.45}}>AH {d.ah.label}</span>}
+          {d.teamToScore && <span className="mcc-chip mcc-info" style={{opacity:0.45}}>QM {d.teamToScore.label}</span>}
+          {d.htFirstHalf && <span className="mcc-chip mcc-info" style={{opacity:0.45}}>HT O/U {d.htFirstHalf.label}</span>}
+          {d.bttsAndWin && <span className="mcc-chip mcc-info" style={{opacity:0.45}}>BTTS+WIN {d.bttsAndWin.label}</span>}
+          {d.bttsAndOu && <span className="mcc-chip mcc-info" style={{opacity:0.45}}>BTTS+O/U {d.bttsAndOu.label}</span>}
         </div>
       </div>
     )
@@ -245,6 +266,41 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
           )}
         </div>
       )}
+      {isLive && (
+        <div className="mc-live-banner">
+          <span className="mc-live-minute">🔴 {liveMinute}'</span>
+          {liveStats?.possession && (
+            <>
+              <span className="mc-live-sep">|</span>
+              <span className="mc-live-stat">POS <span className="mc-live-stat-val">{liveStats.possession}</span></span>
+            </>
+          )}
+          {liveStats?.corners && (
+            <>
+              <span className="mc-live-sep">|</span>
+              <span className="mc-live-stat">CK <span className="mc-live-stat-val">{liveStats.corners}</span></span>
+            </>
+          )}
+          {liveStats?.shotsOnTarget && (
+            <>
+              <span className="mc-live-sep">|</span>
+              <span className="mc-live-stat">S/T <span className="mc-live-stat-val">{liveStats.shotsOnTarget}</span></span>
+            </>
+          )}
+          {liveStats?.xg && (
+            <>
+              <span className="mc-live-sep">|</span>
+              <span className="mc-live-stat">xG <span className="mc-live-stat-val">{liveStats.xg}</span></span>
+            </>
+          )}
+          {goalPrediction?.next5min > 0 && (
+            <>
+              <span className="mc-live-sep">|</span>
+              <span className="mc-live-stat">PROCH <span className="mc-live-stat-val">{goalPrediction.next5min}'</span></span>
+            </>
+          )}
+        </div>
+      )}
       <div className="mc-match-info">
         <div className="mc-league">
           <span className="mc-league-name">{d.league}</span>
@@ -253,10 +309,16 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
         </div>
         <div className="mc-teams">
           <span>{shortTeam(d.home)}</span>
-          <span className="mc-vs">{d.score ? d.score : 'vs'}</span>
+          <span className={`mc-vs${isLive ? ' mc-live-score' : ''}`}>
+            {liveScore ? liveScore : d.score ? d.score : 'vs'}
+          </span>
           <span>{shortTeam(d.away)}</span>
         </div>
-        {timeLabel && <div className="mc-time">{timeLabel}</div>}
+        {isLive && liveMinute ? (
+          <div className="mc-time" style={{ color: '#ef4444', fontWeight: 900 }}>🔴 {liveMinute}'</div>
+        ) : timeLabel ? (
+          <div className="mc-time">{timeLabel}</div>
+        ) : null}
       </div>
 
       <div className={`mc-cell mc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenCell('btts', dominant)}>
@@ -290,11 +352,23 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability })
         )}
       </div>
 
-      <div className={`mc-cell mc-winner ${pickClass}`} style={goldenCell('win', dominant)}>{d.winner}</div>
+      <div className={`mc-cell mc-winner ${pickClass}`} style={goldenCell('win', dominant)}>{winnerDisplay}</div>
 
       <div className={`mc-cell mc-ht ${yesNo(d.htGoal)}`} style={goldenCell('ht', dominant)}>{d.htGoal}</div>
 
       <div className="mc-cell mc-corners" style={goldenCell('corners', dominant)}>{cornersLabel}</div>
+
+      <div className="mc-cell mc-info-cell mc-info-htft" style={{opacity:0.45}}>
+        {d.htft ? `${d.htft.label} ${d.htft.pct}%` : '--'}
+      </div>
+
+      <div className="mc-cell mc-info-cell mc-info-ah" style={{opacity:0.45}}>
+        {d.ah ? `${d.ah.label}${d.ah.odds !== '--' ? ` @${d.ah.odds}` : ''}` : '--'}
+      </div>
+
+      <div className="mc-cell mc-info-cell mc-info-tts" style={{opacity:0.45}}>
+        {d.teamToScore ? `${d.teamToScore.label} ${d.teamToScore.pct}%` : '--'}
+      </div>
     </div>
   )
 }

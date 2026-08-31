@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense, lazy } from 'react'
 import { useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import MatchCard from './MatchCard'
@@ -79,6 +79,10 @@ const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracket
   const m = list[index]
   if (!m) return null
   const ts = m.startTimestamp
+  const statusUpper = (m.status || '').toUpperCase()
+  const isLive = statusUpper === 'LIVE' || (m.minute && m.minute !== '0' && statusUpper !== 'FINISHED' && statusUpper !== 'FT')
+  const liveMinute = isLive ? m.minute : null
+  const liveScore = isLive && m.scoreHome != null && m.scoreAway != null ? `${m.scoreHome}-${m.scoreAway}` : null
   const timeLabel = ts
     ? new Date(ts > 1e11 ? ts : ts * 1000).toLocaleString(undefined, {
         day: '2-digit',
@@ -90,14 +94,21 @@ const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracket
   const raw = toRawLines(m)
   const band = m?.confidence ? bandOf(m.confidence) : null
   const reliability = bracketMap && band ? bracketMap[band] : undefined
+  const liveStats = m.liveStats || null
+  const goalPrediction = m.goalPrediction || null
   return (
     <MatchCard
       rawData={raw}
       onClick={onClick}
       style={style}
-      timeLabel={timeLabel}
+      timeLabel={isLive ? null : timeLabel}
       compact={compact}
       reliability={reliability}
+      isLive={isLive}
+      liveMinute={liveMinute}
+      liveScore={liveScore}
+      liveStats={liveStats}
+      goalPrediction={goalPrediction}
     />
   )
 })
@@ -117,6 +128,19 @@ const Dashboard = () => {
   const [selectedMatch, setSelectedMatch] = useState(null)
   const [bracketMap, setBracketMap] = useState({})
   const [dominantFilter, setDominantFilter] = useState('ALL')
+  const [liveMatches, setLiveMatches] = useState([])
+  const [containerWidth, setContainerWidth] = useState(0)
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const el = containerRef.current
+    const measure = () => setContainerWidth(el.clientWidth)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const activeView = PATH_TO_VIEW[location.pathname] || 'all-matches'
 
@@ -153,6 +177,18 @@ const Dashboard = () => {
       unsubStatus()
     }
   }, [])
+
+  // Subscribe to live matches when activeView is 'live'
+  useEffect(() => {
+    if (activeView !== 'live') {
+      setLiveMatches([])
+      return
+    }
+    const unsub = dataService.subscribeLive((data) => {
+      if (Array.isArray(data)) setLiveMatches(data)
+    })
+    return unsub
+  }, [activeView])
 
   // Précision réelle par bracket de confiance (backtest /api/accuracy/report).
   // Honnête : un match à 72% de confiance affiche la précision RÉELLE du
@@ -350,11 +386,12 @@ const Dashboard = () => {
                 : 'Aucun match à afficher sur cette fenêtre'}
           </div>
         )}
-        <div style={{ width: '100%' }}>
-          {!isMobile && (
+        <div style={{ width: '100%' }} ref={containerRef}>
+          {!isMobile && containerWidth > 0 && (
             <div
               style={{
                 display: 'flex',
+                width: containerWidth,
                 borderBottom: '2px solid #1e293b',
                 padding: '8px 0',
                 fontSize: '11px',
@@ -363,23 +400,34 @@ const Dashboard = () => {
                 fontWeight: '800',
                 letterSpacing: '0.8px',
                 background: 'rgba(0,0,0,0.3)',
+                flexShrink: 0,
+                boxSizing: 'border-box',
               }}
             >
-              <div style={{ width: '18%', minWidth: '140px', padding: '0 8px' }}>MATCH / FORME</div>
-              <div style={{ width: '14%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>
+              <div style={{ width: '18%', minWidth: '140px', padding: '0 8px', boxSizing: 'border-box' }}>MATCH / FORME</div>
+              <div style={{ width: '10%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
                 BTTS
               </div>
-              <div style={{ width: '14%', minWidth: '80px', padding: '0 8px', textAlign: 'center' }}>
+              <div style={{ width: '10%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
                 O/U LIGNES
               </div>
-              <div style={{ width: '18%', minWidth: '100px', padding: '0 8px', textAlign: 'center' }}>
+              <div style={{ width: '14%', minWidth: '90px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
                 GAGNANT 1X2
               </div>
-              <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>
+              <div style={{ width: '12%', minWidth: '80px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
                 BUT 1ER MT
               </div>
-              <div style={{ width: '18%', minWidth: '90px', padding: '0 8px', textAlign: 'center' }}>
+              <div style={{ width: '10%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
                 CORNERS
+              </div>
+              <div style={{ width: '9%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
+                HT/FT
+              </div>
+              <div style={{ width: '9%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
+                AH
+              </div>
+              <div style={{ width: '8%', minWidth: '60px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
+                QUI MARQUE
               </div>
             </div>
           )}
@@ -389,9 +437,9 @@ const Dashboard = () => {
               rowCount={list.length}
               rowHeight={ROW_H}
               rowProps={matchRowProps}
-              width="100%"
+              width={containerWidth > 0 ? containerWidth : '100%'}
               className="titanium-virtual-list"
-              style={{ overflowX: 'hidden' }}
+              style={{ overflowX: 'auto' }}
               rowComponent={MatchRowMemo}
             />
           </div>
@@ -474,8 +522,31 @@ const Dashboard = () => {
           onToggleSidebar={() => setSidebarOpen((s) => !s)}
         />
 
-        <div className="titanium-scroll">
-          {activeView === 'promosport' ? (
+          <div className="titanium-scroll">
+            {activeView === 'live' && liveMatches.length > 0 && (
+              <div className="onyx-grid-container" style={{ padding: '16px 18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', background: 'rgba(239,68,68,0.08)', borderRadius: '8px', marginBottom: '8px', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '900', color: '#ef4444', letterSpacing: '0.5px' }}>
+                    🔴 {liveMatches.length} MATCH{liveMatches.length > 1 ? 'S' : ''} EN DIRECT
+                  </span>
+                  <span style={{ fontSize: '9px', color: '#64748b' }}>rafraîchissement toutes les 10s</span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '6px 0', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: '700' }}>
+                    ⚽ LIVE STATS
+                  </span>
+                </div>
+                {renderMatchList(liveMatches)}
+              </div>
+            )}
+            {activeView === 'live' && liveMatches.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>⚽</div>
+                <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>Aucun match en direct</div>
+                <div style={{ fontSize: '11px' }}>Les matchs live apparaîtront automatiquement ici</div>
+              </div>
+            )}
+            {activeView === 'promosport' ? (
             <Suspense fallback={<LoadingSkeleton type="table" label="Promosport IA..." />}>
               <Promosport />
             </Suspense>

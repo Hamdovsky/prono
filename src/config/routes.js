@@ -8,6 +8,8 @@ export const ROUTES = {
   training: '/training',
   accuracy: '/accuracy',
   edge: '/edge',
+  'flash-odds': '/flash-odds',
+  live: '/live',
 }
 
 export const PATH_TO_VIEW = Object.fromEntries(Object.entries(ROUTES).map(([k, v]) => [v, k]))
@@ -23,6 +25,8 @@ export const NAV_ITEMS = [
       { view: 'bets', label: 'SUIVI DES PARIS', icon: '📈', color: '#f59e0b' },
       { view: 'training', label: 'ENTRAÎNEMENT', icon: '🧠', color: '#8b5cf6' },
       { view: 'accuracy', label: 'FIABILITÉ', icon: '🎛️', color: '#f43f5e' },
+      { view: 'flash-odds', label: 'FLASH ODDS / LIVE ODDS', icon: '⚡', color: '#6366f1' },
+      { view: 'live', label: 'LIVE NOW', icon: '🔴', color: '#ef4444' },
     ],
   },
 ]

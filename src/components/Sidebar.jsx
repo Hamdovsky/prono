@@ -224,6 +224,26 @@ const Sidebar = ({
       </div>
 
       <div className="flash-nav-section">
+        {/* ── LIVE NOW ─────────────────────────── */}
+        <button
+          className={`flash-nav-item ${activeView === 'live' ? 'active' : ''}`}
+          onClick={() => handleNav('live')}
+          style={{
+            marginBottom: '8px',
+            background:
+              activeView === 'live'
+                ? 'linear-gradient(90deg, rgba(239,68,68,0.15) 0%, transparent 100%)'
+                : 'transparent',
+            borderLeft: activeView === 'live' ? '2px solid #ef4444' : 'none',
+            color: '#ef4444',
+          }}
+        >
+          <span className="flash-icon">🔴</span>
+          <span className="flash-label" style={{ fontWeight: 'bold' }}>
+            LIVE NOW
+          </span>
+        </button>
+
         {/* ── ALL MATCHES SCANNER ────────────────────── */}
         <button
           className={`flash-nav-item ${activeView === 'all-matches' ? 'active' : ''}`}
@@ -372,6 +392,26 @@ const Sidebar = ({
           <span className="flash-icon">🎛️</span>
           <span className="flash-label" style={{ fontWeight: 'bold' }}>
             FIABILITÉ
+          </span>
+        </button>
+
+        {/* ── FLASH ODDS / LIVE ODDS ─────────────────── */}
+        <button
+          className={`flash-nav-item ${activeView === 'flash-odds' ? 'active' : ''}`}
+          onClick={() => handleNav('flash-odds')}
+          style={{
+            marginTop: '4px',
+            background:
+              activeView === 'flash-odds'
+                ? 'linear-gradient(90deg, rgba(99,102,241,0.15) 0%, transparent 100%)'
+                : 'transparent',
+            borderLeft: activeView === 'flash-odds' ? '2px solid #6366f1' : 'none',
+            color: '#6366f1',
+          }}
+        >
+          <span className="flash-icon">⚡</span>
+          <span className="flash-label" style={{ fontWeight: 'bold' }}>
+            FLASH ODDS / LIVE ODDS
           </span>
         </button>
       </div>

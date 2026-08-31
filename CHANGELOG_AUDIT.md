@@ -3080,3 +3080,222 @@ Flashscore feed (stats xG/corners/HT via `x/feed` + `X-Fsign`) et élargir ESPN/
 - `npx eslint` sur `fotmobService.js` + `UltimateScraperOrchestrator.js` : 0 erreur
 - Jest : 694/694 passés
 - ESLint global : 1185 erreurs pré-existantes (fichiers `src/` etc.), 0 nouvelle erreur
+
+---
+
+## Affichage HT/FT, Asian Handicap et "équipe qui marque" dans le dashboard React (2026-08-31)
+
+### Objectif
+Les marchés `ht_ft`, `asian_handicap` et `team_to_score` existaient dans `real_markets`
+(Sofascore, normalisés via `core/market/*`) mais n'étaient **jamais consommés** par le
+frontend. Affichage info uniquement (cote réelle + probabilité implicite = 1/cote),
+**jamais comme pick dominant** (respect de la règle d'honnêteté du projet).
+
+### Fichiers modifiés
+- **`src/utils/matchAnalysis.js`** : `analyzeMatch` — ajout des champs `htft`,
+  `asianHandicap`, `teamToScore` dans `out` (info only). Lecture de `m.real_markets`
+  (avec fallback `m.fullData?.real_markets`). `safeImpliedPct(odds)` → proba implicite.
+  `dominantBest` reste inchangé (les 3 marchés ne sont PAS ajoutés à `out.dominant`).
+- **`src/utils/matchAnalysis.js`** : `computeRawLines` — indices 15-17 = `htftCell`,
+  `ahCell`, `ttsCell` (format `label|pct|odds` ou `'--'`). Indices 0-14 préservés
+  (compatibilité tests existants).
+- **`src/components/MatchCard.jsx`** : `parseRow` — lecture `lines[15..17]`. Compact :
+  3 chips `mcc-info` (HT/FT, AH, QM) avec opacity 0.45. Desktop : 3 cellules
+  `mc-info-cell` (opacity 0.45).
+- **`src/components/Dashboard.jsx`** : 3 en-têtes de colonnes desktop supplémentaires
+  (après CORNERS) : HT/FT, AH, QUI MARQUE.
+- **`__tests__/matchAnalysis.test.js`** : assertions `r.length` 15 → 18 mises à jour.
+  Ajout d'un nouveau bloc de tests `real_markets info` (8 cas : htft, ah, tts,
+  fullData fallback, empty array guard).
+
+### Format des cellules
+- `htftCell` : `HOME/HOME|29|3.44` — label = `selection` en uppercase avec `/` au lieu de `_`
+- `ahCell` : `HOME -1.0|51|1.95` — label + line optionnel + cote
+- `ttsCell` : `HOME|47|2.13` — label uppercase
+
+### Limites
+- Probas = implicites depuis cotes bookmaker (Sofascore). Aucune edge modèle démontrée.
+- Si une edge est prouvée plus tard : migrer vers `displayPolicy` + `out.dominant`
+  comme BTTS/Corners.
+- La modale `UltimateMatchCenter` bénéficie automatiquement des nouveaux champs
+  (elle utilise `analyzeMatch`).
+
+### Vérifié
+- ESLint `matchAnalysis.js`, `MatchCard.jsx`, `Dashboard.jsx` : 0 erreur
+- Jest `matchAnalysis.test.js` : 26/26 (incl. 8 nouveaux)
+- Jest full suite : 701/701 passés
+- `npm run build` : OK
+
+---
+
+## Correction alignement colonnes dashboard (2026-08-31)
+
+### Problème
+Les largeurs CSS des cellules MatchCard (`.mc-btts` 14%, `.mc-ou-cell` 14%, `.mc-winner` 18%, `.mc-htgoal` 18%, `.mc-corners` 18%) ne correspondaient pas aux en-têtes inline de `Dashboard.jsx` (respectivement 10%, 10%, 14%, 12%, 10%). Les 3 nouvelles colonnes (HT/FT, AH, QUI MARQUE) utilisant `.mc-info-cell` n'avaient aucune largeur CSS définie → désalignement total du tableau desktop.
+
+### Correctifs (`src/components/MatchCard.css`)
+1. **Alignement des largeurs existantes** sur les en-têtes :
+   - `.mc-btts` : 14% → **10%** (min 70px)
+   - `.mc-ou-cell` : 14% → **10%** (min 70px)
+   - `.mc-winner` : 18% → **14%** (min 90px)
+   - `.mc-htgoal` → renommé en **`.mc-ht`** (JSX utilise `mc-ht`, pas `mc-htgoal`) + width 18% → **12%** (min 80px)
+   - `.mc-corners` : 18% → **10%** (min 70px)
+2. **Ajout des 3 colonnes info** via classes dédiées (`.mc-info-htft`, `.mc-info-ah`, `.mc-info-tts`) :
+   - HT/FT : 10%, min 70px, color #94a3b8
+   - AH : 10%, min 70px, color #94a3b8
+   - QUI MARQUE : 8%, min 60px, color #94a3b8
+   - **Note** : `nth-child` était irréalisable car le banner dominant est un enfant conditionnel
+     (1er enfant si présent), décalant les positions de 1 sur les matchs non-golden.
+     Les classes dédiées résolvent ce problème.
+3. **Responsive mobile** : `mc-htgoal` → `mc-ht` dans le `@media (max-width: 768px)` qui masque BTTS/HT/CORNERS
+
+### Correctif (`src/components/Dashboard.jsx`)
+- En-têtes : HT/FT 10% → **9%**, AH 10% → **9%**, QUI MARQUE 6% → **8%** (pour total 100% avec min 60px sur la dernière, label tronqué en 8%)
+
+### Vérifié
+- ESLint : 0 erreur
+- `npm run build` : OK
+
+---
+
+## Alignement définitif colonnes dashboard + pronostics lisibles (2026-08-31)
+
+### Cause racine
+Padding horizontal du `.match-card` (`6px 10px` = 20px total) vs en-tête (`8px 0` = 0px).
+En `content-box` (desktop), la largeur de contenu du corps était 20px plus étroite que
+l'en-tête → colonnes décalées, le pronostic n'apparaissait plus sous son en-tête.
+
+### Correctifs
+**`src/components/MatchCard.css`** :
+- `.match-card` : `padding: 6px 10px` → **`padding: 6px 0`** (élimine le décalage de 20px)
+
+**`src/utils/matchAnalysis.js`** — labels lisibles avec noms d'équipes :
+- HT/FT : `HOME/HOME` → `Toluca/Toluca` (via `out.homeTeam`/`out.awayTeam`)
+- Asian Handicap : `HOME` → `Toluca`, `AWAY` → `Juarez`
+- Team To Score : `HOME`/`AWAY` → noms équipes, `BOTH` → `Les deux`, `NONE` → `Aucun`
+
+**`src/components/MatchCard.jsx`** :
+- GAGNANT : `1 73%` → `Toluca 73%`, `2 65%` → `Juarez 65%`, `X 22%` → `Match nul 22%`
+  (compact chip + desktop cell mis à jour)
+
+### Vérifié
+- ESLint : 0 erreur
+- `npm run build` : OK
+- Tests `matchAnalysis.test.js` : 26/26 (ajusté pour le nouveau label `Aachen/Aachen`)
+
+---
+
+## Ajout bouton "⚡ FLASH ODDS / LIVE ODDS" dans la Sidebar (2026-08-31)
+
+### Objectif
+Ajouter un bouton de navigation dans la sidebar (Titanium Live Radar) pour donner accès rapide aux cotes en direct / flash odds, avec le même comportement que les boutons MARCHÉS et VALUE EDGE (catch-all route).
+
+### Fichiers modifiés
+- **`src/config/routes.js`** : ajout de `'flash-odds': '/flash-odds'` dans `ROUTES`. `PATH_TO_VIEW` est dérivé automatiquement → l'active state fonctionne sans autre modification.
+- **`src/components/Sidebar.jsx`** : ajout du bouton `flash-nav-item` après FIABILITÉ, dans le premier `flash-nav-section`.
+  - Label : `⚡ FLASH ODDS / LIVE ODDS`
+  - Icône : `⚡`
+  - `onClick={() => handleNav('flash-odds')}`
+  - Active state : `linear-gradient` rgba(99,102,241,0.15) + border-left 2px #6366f1, couleur #6366f1
+  - Cohérent avec le pattern existant (MARCHÉS, VALUE EDGE, etc.)
+
+### Comportement
+- Clic → navigate vers `/flash-odds`
+- Route captée par `<Route path="*" element={<Dashboard />} />` dans App.jsx (inchangé)
+- `Dashboard` calcule `activeView = PATH_TO_VIEW[location.pathname]` → `'flash-odds'` → bouton actif (indigo)
+- Même comportement que MARCHÉS (/markets) et VALUE EDGE (/edge)
+
+### Vérifié
+- ESLint : 0 erreur (4 warnings pré-existants, non liés)
+- `npm run build` : OK
+
+---
+
+## Correction alignement définitif colonnes dashboard — react-window pixel-perfect (2026-08-31)
+
+### Problème persistant
+Malgré les corrections CSS précédentes (`.match-card` padding 0, classes dédiées `.mc-info-*`), les colonnes
+demeuraient décalées. Cause racine : `react-window` résout `width="100%"` différemment du conteneur
+flex de l'en-tête → les largeurs en `%` du corps et de l'en-tête ne correspondent jamais pixel pour pixel.
+
+### Correctif
+**`src/components/Dashboard.jsx`** :
+- Ajout d'un `ResizeObserver` + `useRef` pour mesurer la largeur exacte du conteneur en pixels.
+- `containerWidth` state → passe en `width` en pixels aux deux rangées.
+- En-tête : `width: containerWidth` (pixels, via ResizeObserver) au lieu de `width: 100%`.
+- `List` react-window : `width={containerWidth > 0 ? containerWidth : '100%'}` (pixels garantis identiques).
+- `overflowX: 'auto'` sur la List (au lieu de `hidden`) — le contenu défile plutôt que d'être clipé.
+- `boxSizing: 'border-box'` sur chaque cellule de l'en-tête pour que les `%` soient calculés de façon prévisible.
+- `flexShrink: 0` sur l'en-tête pour qu'il ne se compresse pas.
+
+**`src/components/MatchCard.css`** :
+- `.match-card` : ajout `box-sizing: border-box` (desktop).
+- `.mc-info-htft / .mc-info-ah / .mc-info-tts` : `width: 9% / 9% / 8%`, ajout `flex-shrink: 0`.
+
+### Vérifié
+- ESLint : 0 erreur
+- `npm run build` : OK
+- Tests `matchAnalysis.test.js` : 26/26
+
+---
+
+## Section LIVE NOW — matchs en direct avec stats temps réel (2026-08-31)
+
+### Objectif
+Ajouter une vue "LIVE NOW" dans le dashboard Titanium avec pronostics live, score, minute et stats temps réel.
+
+### Infrastructure existante utilisée
+- `liveMatchService.syncLive()` polling 30s (SportScore gratuit)
+- `GET /api/live` → retourne matchs actifs + `liveGoalPredictor.analyzeLiveMatch()`
+- Socket.IO `live:update` broadcast toutes les 30s
+
+### Nouveaux fichiers / modifications
+- **`src/services/dataService.js`** : ajout `subscribeLive()` + `fetchLive()` + socket listener `live:update` + polling dans `startAutoUpdate()`
+- **`src/config/routes.js`** : ajout route `'live': '/live'`
+- **`routes/matches.js`** : `/api/live` enrichi avec `liveStats` (possession, corners, shots, xG)
+- **`src/components/Sidebar.jsx`** : bouton `LIVE NOW` (🔴 rouge, avant "TOUS LES MATCHS")
+- **`src/components/Dashboard.jsx`** : état `liveMatches` + condition `activeView === 'live'` + passage `isLive/liveMinute/liveScore/liveStats/goalPrediction` à MatchCard
+- **`src/components/MatchCard.jsx`** : banner `mc-live-banner` avec stats live + minute/score animés
+- **`src/components/MatchCard.css`** : `.mc-live-banner`, `.mc-live-minute`, `.mc-live-stat`, `.mc-live-sep`, `@keyframes liveScorePulse`
+
+### Stats affichées par carte live
+```
+🔴 67' | Liga MX
+Toluca [2-1] Juarez
+━━━━━━━━━ STATS LIVE ━━━━━━━
+POS 58% - 42% | CK 5-3 | S/T 8/4 | xG 1.24-0.87 | PROCH 15'
+```
+
+### Vérifié
+- ESLint : 0 erreur (warnings pré-existants)
+- `npm run build` : OK
+- Tests : 26/26
+
+---
+
+## Ajout de 3 marchés Sofascore en chips compact (2026-08-31)
+
+### Objectif
+Afficher les 3 marchés combo Sofascore ID 14/18/22 en chips compact, en mode info (cote + proba implicite), sans intégration au pick dominant.
+
+### Marchés ajoutés
+| ID | Nom Sofascore | Label chip |
+|---|---|---|
+| 14 | Over/Under 0.5 Goals (HT) | `HT O/U O0.5` |
+| 18 | BTTS & Win | `BTTS+WIN BTTS OUI + Juventus` |
+| 22 | BTTS & Over/Under | `BTTS+O/U BTTS OUI + O2.5` |
+
+### Note d'architecture
+- ID 14 se normalise en `total_goals` (même market_id que O/U classique) → distinction par `raw_market_id === 14`
+- ID 18/22 se normalisent en `btts` → distinction par `raw_market_id === 18/22`
+- Labels composites : parsing du nom brut (ex. "Yes & Home") pour extraire la partie équipe gagnante/niveau O/U
+
+### Fichiers modifiés
+- **`src/utils/matchAnalysis.js`** : ajout `htFirstHalf`, `bttsAndWin`, `bttsAndOu` dans `analyzeMatch` + 3 nouvelles cellules dans `computeRawLines` (indices 18/19/20)
+- **`src/components/MatchCard.jsx`** : parseRow lit lines[18/19/20] + 3 chips compact `mcc-info`
+- **`__tests__/matchAnalysis.test.js`** : longueur 18 → 21
+
+### Vérifié
+- ESLint : 0 erreur
+- `npm run build` : OK
+- Tests `matchAnalysis.test.js` : 26/26

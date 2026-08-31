@@ -95,6 +95,12 @@ export function analyzeMatch(m) {
     honesty: { mode: 'normal', insufficient: false, modelOnly: false, realModelSignal: false },
     odds: { home: 0, draw: 0, away: 0 },
     hasRealOdds: false,
+    htft: { label: '--', pct: 0, odds: 0 },
+    asianHandicap: { label: '--', pct: 0, odds: 0, line: null },
+    teamToScore: { label: '--', pct: 0, odds: 0 },
+    htFirstHalf: { label: '--', pct: 0, odds: 0 },
+    bttsAndWin: { label: '--', pct: 0, odds: 0 },
+    bttsAndOu: { label: '--', pct: 0, odds: 0 },
   }
   if (!m) return out
 
@@ -293,6 +299,124 @@ export function analyzeMatch(m) {
       ? { label: `OUI ${htGoalPct}%`, pct: htGoalPct, verdict: 'OUI' }
       : { label: `NON ${100 - htGoalPct}%`, pct: 100 - htGoalPct, verdict: 'NON' }
 
+  // ── real_markets : cotes reelles Sofascore (HT/FT, Asian Handicap, Team to Score)
+  // Affichees en INFO SEULEMENT (cote + proba implicite), jamais en pick dominant.
+  // Structure d'une entree real_markets : { market_id, selection, odds, line, usable }
+  const realMarkets = Array.isArray(m.real_markets)
+    ? m.real_markets
+    : Array.isArray(m.fullData?.real_markets) ? m.fullData.real_markets : []
+
+  const safeImpliedPct = (odds) => {
+    const o = parseFloat(odds)
+    return o > 1 ? Math.round((1 / o) * 100) : 0
+  }
+
+  // HT/FT : best (highest implied prob) among usable entries
+  const htftEntries = realMarkets.filter((rm) => rm.market_id === 'ht_ft' && rm.usable !== false && parseFloat(rm.odds) > 1)
+  if (htftEntries.length > 0) {
+    const best = htftEntries.reduce((a, b) => safeImpliedPct(a.odds) > safeImpliedPct(b.odds) ? a : b)
+    if (best.selection) {
+      const [ht, ft] = String(best.selection).split('_')
+      const toLabel = (s) => s === 'home' ? out.homeTeam : s === 'away' ? out.awayTeam : 'Match nul'
+      out.htft = {
+        label: `${toLabel(ht)}/${toLabel(ft)}`,
+        pct: safeImpliedPct(best.odds),
+        odds: parseFloat(best.odds),
+      }
+    } else {
+      out.htft = { label: '--', pct: 0, odds: 0 }
+    }
+  }
+
+  // Asian Handicap : best implied prob for the model's favorite side
+  // rawHPct/rawAPct are defined in the "Best market dominant" block below,
+  // so we recompute the model's favorite inline here to avoid TDZ.
+  const rawH = normalizePct(m.home_win_probability || enriched?.home_win_probability || 0)
+  const rawA = normalizePct(m.away_win_probability || enriched?.away_win_probability || 0)
+  const modelFavSide = rawH > rawA ? 'home' : rawA > rawH ? 'away' : null
+  const ahEntries = realMarkets.filter((rm) => rm.market_id === 'asian_handicap' && rm.usable !== false && parseFloat(rm.odds) > 1)
+  if (ahEntries.length > 0) {
+    const favSel = modelFavSide
+    let best = null
+    if (favSel) {
+      const favEntries = ahEntries.filter((e) => e.selection === favSel)
+      best = favEntries.reduce ? favEntries.reduce((a, b) => safeImpliedPct(a.odds) > safeImpliedPct(b.odds) ? a : b) : favEntries[0]
+    }
+    if (!best) best = ahEntries.reduce((a, b) => safeImpliedPct(a.odds) > safeImpliedPct(b.odds) ? a : b)
+    out.asianHandicap = {
+      label: best.selection === 'home' ? out.homeTeam : best.selection === 'away' ? out.awayTeam : out.homeTeam,
+      pct: safeImpliedPct(best.odds),
+      odds: parseFloat(best.odds),
+      line: best.line != null ? String(best.line) : null,
+    }
+  }
+
+  // Team to Score : best (highest implied prob)
+  const ttsEntries = realMarkets.filter((rm) => rm.market_id === 'team_to_score' && rm.usable !== false && parseFloat(rm.odds) > 1)
+  if (ttsEntries.length > 0) {
+    const best = ttsEntries.reduce((a, b) => safeImpliedPct(a.odds) > safeImpliedPct(b.odds) ? a : b)
+    const sel = String(best.selection).toLowerCase()
+    const ttsLabels = {
+      home: out.homeTeam,
+      away: out.awayTeam,
+      both: 'Les deux',
+      none: 'Aucun',
+    }
+    out.teamToScore = {
+      label: best.selection ? (ttsLabels[sel] || String(best.selection).toUpperCase()) : '--',
+      pct: safeImpliedPct(best.odds),
+      odds: parseFloat(best.odds),
+    }
+  }
+
+  // ── HT O/U 1ère mi-temps (ID 14) : total goals 1ère mi-temps ──
+  const htouEntries = realMarkets.filter(
+    (rm) => rm.raw_market_id === 14 && rm.usable !== false && parseFloat(rm.odds) > 1
+  )
+  if (htouEntries.length > 0) {
+    const best = htouEntries.reduce((a, b) => safeImpliedPct(a.odds) > safeImpliedPct(b.odds) ? a : b)
+    const isOver = best.selection === 'over'
+    const dirLabel = isOver ? 'O' : 'U'
+    out.htFirstHalf = {
+      label: `${dirLabel}${String(best.line || 0.5)}`,
+      pct: safeImpliedPct(best.odds),
+      odds: parseFloat(best.odds),
+    }
+  }
+
+  // ── BTTS & Win (ID 18) : BTTS OUI + équipe gagnante ──
+  const btwEntries = realMarkets.filter(
+    (rm) => rm.raw_market_id === 18 && rm.usable !== false && parseFloat(rm.odds) > 1
+  )
+  if (btwEntries.length > 0) {
+    const best = btwEntries.reduce((a, b) => safeImpliedPct(a.odds) > safeImpliedPct(b.odds) ? a : b)
+    const rawName = best.raw_market_name || ''
+    const winPart = rawName.replace(/^yes\s*&\s*/i, '').trim()
+    const winLabel = winPart === 'home' ? out.homeTeam : winPart === 'away' ? out.awayTeam : winPart === 'draw' ? 'Match nul' : winPart
+    out.bttsAndWin = {
+      label: `BTTS OUI + ${winLabel}`,
+      pct: safeImpliedPct(best.odds),
+      odds: parseFloat(best.odds),
+    }
+  }
+
+  // ── BTTS & O/U (ID 22) : BTTS + total goals ──
+  const btoEntries = realMarkets.filter(
+    (rm) => rm.raw_market_id === 22 && rm.usable !== false && parseFloat(rm.odds) > 1
+  )
+  if (btoEntries.length > 0) {
+    const best = btoEntries.reduce((a, b) => safeImpliedPct(a.odds) > safeImpliedPct(b.odds) ? a : b)
+    const rawName = best.raw_market_name || ''
+    const bttsLabel = best.selection === 'yes' ? 'BTTS OUI' : best.selection === 'no' ? 'BTTS NON' : 'BTTS'
+    const ouPart = rawName.replace(/^yes\s*&\s*|^no\s*&\s*/i, '').trim()
+    const ouLabel = ouPart.startsWith('over') || ouPart.startsWith('o') ? ouPart.replace(/over/i, 'O').toUpperCase() : ouPart.replace(/under/i, 'U').toUpperCase()
+    out.bttsAndOu = {
+      label: `${bttsLabel} + ${ouLabel}`,
+      pct: safeImpliedPct(best.odds),
+      odds: parseFloat(best.odds),
+    }
+  }
+
   // ── Best market dominant (score = prob × value ratio) — déplacé après HONESTY GATE pour avoir le mode ──
   const rawHPct = normalizePct(m.home_win_probability || enriched?.home_win_probability || 0)
   const rawAPct = normalizePct(m.away_win_probability || enriched?.away_win_probability || 0)
@@ -440,6 +564,12 @@ export function computeRawLines(m) {
       '--',
       domChip || '--',
       domPayload,
+      '--',
+      '--',
+      '--',
+      '--',
+      '--',
+      '--',
     ]
   }
   const mode = a.honesty.mode
@@ -469,6 +599,24 @@ export function computeRawLines(m) {
   const cornersCell =
     mode === 'insufficient' ? (a.corners.pct > 0 ? a.corners.label : '--') : a.corners.label
   const cornersExactCell = a.corners.exact ? String(a.corners.exact) : '--'
+  const htftCell = a.htft.pct > 0
+    ? `${a.htft.label}|${a.htft.pct}|${a.htft.odds.toFixed(2)}`
+    : '--'
+  const ahCell = a.asianHandicap.pct > 0
+    ? `${a.asianHandicap.label}${a.asianHandicap.line ? ` ${a.asianHandicap.line}` : ''}|${a.asianHandicap.pct}|${a.asianHandicap.odds.toFixed(2)}`
+    : '--'
+  const ttsCell = a.teamToScore.pct > 0
+    ? `${a.teamToScore.label}|${a.teamToScore.pct}|${a.teamToScore.odds.toFixed(2)}`
+    : '--'
+  const htahCell = a.htFirstHalf.pct > 0
+    ? `${a.htFirstHalf.label}|${a.htFirstHalf.pct}|${a.htFirstHalf.odds.toFixed(2)}`
+    : '--'
+  const btwCell = a.bttsAndWin.pct > 0
+    ? `${a.bttsAndWin.label}|${a.bttsAndWin.pct}|${a.bttsAndWin.odds.toFixed(2)}`
+    : '--'
+  const btoCell = a.bttsAndOu.pct > 0
+    ? `${a.bttsAndOu.label}|${a.bttsAndOu.pct}|${a.bttsAndOu.odds.toFixed(2)}`
+    : '--'
   return [
     leagueLabel,
     a.homeTeam,
@@ -485,5 +633,11 @@ export function computeRawLines(m) {
     cornersExactCell,
     domChip || '--',
     domPayload,
+    htftCell,
+    ahCell,
+    ttsCell,
+    htahCell,
+    btwCell,
+    btoCell,
   ]
 }

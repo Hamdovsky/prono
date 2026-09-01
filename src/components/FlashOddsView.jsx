@@ -160,11 +160,16 @@ function CalibrationPanel() {
   )
 }
 
+const MIN_ODDS_LIVE = 1.3
+
 function ComboPicks({ events }) {
   const over = [], under = [], watch = [], value = []
   events.forEach((e) => {
     const p = e.pred || {}
     if (!p.ou_pick) return
+    const odds = e.odds || {}
+    const ouOdds = p.ou_pick === 'OVER 2.5' ? odds.over25 : odds.under25
+    if (ouOdds != null && ouOdds < MIN_ODDS_LIVE) return
     const score = `${e.homeScore ?? 0}-${e.awayScore ?? 0}`
     const label = `${e.homeTeam} vs ${e.awayTeam} · ${score} · ${Math.round(e.liveMinute)}'`
     const item = { label, prob: p.over25 >= 0.5 ? p.over25 : p.under25, xg: p.total_xg_live, score: p.pred_score, ou: p.ou_pick, homeXg: p.home_xg_live, awayXg: p.away_xg_live, scorer: p.score_team ? p.score_team[2] : null, homeTeam: e.homeTeam, awayTeam: e.awayTeam }
@@ -424,26 +429,55 @@ function LiveCard({ event, prevOdds }) {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
               <span style={{ color: '#fbbf24', fontWeight: '800', letterSpacing: '0.3px' }}>
-                TOTAL ÉQUIPE — QUI VA MARQUER
+                ⚽ PROCHAIN BUTEUR — QUI VA MARQUER
               </span>
               <span style={{ color: '#f59e0b', fontWeight: '800' }}>
                 Score prédit {pred.pred_score}
               </span>
             </div>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <span style={{ color: '#fde68a', fontWeight: '700' }}>
-                {event.homeTeam} xG {pred.home_xg_live}
-              </span>
-              <span style={{ color: '#fde68a', fontWeight: '700' }}>
-                {event.awayTeam} xG {pred.away_xg_live}
-              </span>
-              <span style={{
-                color: '#0ea5e9', fontWeight: '800', marginLeft: 'auto',
-                background: 'rgba(14,165,233,0.12)', padding: '1px 6px', borderRadius: '4px',
-              }}>
-                Marqueur: {pred.score_team[2] === 'HOME' ? event.homeTeam : event.awayTeam}
-              </span>
-            </div>
+            {pred.next_scorer ? (
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <span style={{
+                    padding: '2px 8px', borderRadius: '5px', fontWeight: '800', fontSize: '10px',
+                    background: pred.next_scorer.team === 'HOME' ? 'rgba(34,197,94,0.2)' : 'rgba(59,130,246,0.2)',
+                    color: pred.next_scorer.team === 'HOME' ? '#4ade80' : '#60a5fa',
+                  }}>
+                    {pred.next_scorer.team === 'HOME' ? event.homeTeam : event.awayTeam}
+                  </span>
+                  <span style={{ color: '#fbbf24', fontWeight: '800' }}>
+                    {pred.next_scorer.confidence}%
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <span style={{ color: '#4ade80', fontWeight: '700' }}>
+                    H {Math.round(pred.next_scorer.prob_home * 100)}%
+                  </span>
+                  <span style={{ color: '#64748b' }}>|</span>
+                  <span style={{ color: '#60a5fa', fontWeight: '700' }}>
+                    A {Math.round(pred.next_scorer.prob_away * 100)}%
+                  </span>
+                </div>
+                <span style={{ color: '#94a3b8', fontSize: '8px', marginLeft: 'auto' }}>
+                  {pred.next_scorer.description}
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <span style={{ color: '#fde68a', fontWeight: '700' }}>
+                  {event.homeTeam} xG {pred.home_xg_live}
+                </span>
+                <span style={{ color: '#fde68a', fontWeight: '700' }}>
+                  {event.awayTeam} xG {pred.away_xg_live}
+                </span>
+                <span style={{
+                  color: '#0ea5e9', fontWeight: '800', marginLeft: 'auto',
+                  background: 'rgba(14,165,233,0.12)', padding: '1px 6px', borderRadius: '4px',
+                }}>
+                  Marqueur: {pred.score_team[2] === 'HOME' ? event.homeTeam : event.awayTeam}
+                </span>
+              </div>
+            )}
           </div>
         )}
         {odds.over25 != null && (

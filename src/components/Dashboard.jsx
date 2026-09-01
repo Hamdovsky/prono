@@ -16,6 +16,7 @@ const Promosport = lazy(() => import('./Promosport'))
 const TopPicksWidget = lazy(() => import('./TopPicksWidget'))
 const ProPlanWidget = lazy(() => import('./ProPlanWidget'))
 const UltimateMatchCenter = lazy(() => import('./UltimateMatchCenter/UltimateMatchCenter'))
+const FlashOddsView = lazy(() => import('./FlashOddsView'))
 
 // 🧠 [PERF] Header extrait en sous-composant mémoïsé : il ne se re-rend que si
 // son nombre de matches (compteur) ou l'état du toggle change réellement.
@@ -554,6 +555,10 @@ const Dashboard = () => {
             <Suspense fallback={<LoadingSkeleton type="table" label="Top Picks du Jour..." />}>
               <TopPicksWidget />
               <ProPlanWidget />
+            </Suspense>
+          ) : activeView === 'flash-odds' ? (
+            <Suspense fallback={<LoadingSkeleton type="table" label="Flash Odds..." />}>
+              <FlashOddsView />
             </Suspense>
           ) : (
             <div className="onyx-grid-container" style={{ padding: '16px 18px' }}>

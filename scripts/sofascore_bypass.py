@@ -261,6 +261,29 @@ def _calibrated_lambda(score_key, minute):
     return lam * remain_frac
 
 
+def _scorer_description(winner, confidence, prob_h, prob_a, minute):
+    team_label = "MENEUR" if winner == "HOME" else "VISITEUR"
+    if confidence >= 75:
+        strength = "TRÈS FORTE"
+    elif confidence >= 55:
+        strength = "FORTE"
+    elif confidence >= 40:
+        strength = "MODÉRÉE"
+    else:
+        strength = "FAIBLE"
+    gap = abs(prob_h - prob_a)
+    if gap >= 0.30:
+        balance = "écart important"
+    elif gap >= 0.15:
+        balance = "légèrement favori"
+    else:
+        balance = "équilibré"
+    return (
+        f"{team_label} avec probabilité {strength} ({confidence}%) — "
+        f"contexte {balance} · {minute}' joués"
+    )
+
+
 def _live_predictions(odds, hs, asc, minute, stats=None):
     """Prédiction live O/U + buts d'équipe dérivée des cotes live (puisque Sofascore
     ne diffuse PAS O/U 2.5 et total équipe en direct). Modèle Poisson simplifié :
@@ -346,11 +369,86 @@ def _live_predictions(odds, hs, asc, minute, stats=None):
     p["home_xg_live"] = round(hs + lambdaH, 1)
     p["away_xg_live"] = round(asc + lambdaA, 1)
     p["total_xg_live"] = round(curTotal + lambdaAdd, 1)
-    # « Qui va marquer » : priorité au scoreur le plus probable en continu
-    if lambdaH >= lambdaA:
-        p["score_team"] = (hs, asc, "HOME")
-    else:
-        p["score_team"] = (hs, asc, "AWAY")
+
+    # ── PROCHAIN BUTEUR : système multi-facteurs ─────────────────────────────────
+    # Facteurs : xG_share(40%) + momentum_stats(30%) + tempo_temps(20%) + forme(10%)
+    # On ne prédit PAS de joueur précis (données non dispo en live) mais l'ÉQUIPE
+    # la plus susceptible de marquer le prochain but + confiance 0-100.
+    xg_share = share_h  # derived from 1X2 odds or real xG
+
+    mom_h, mom_a = 0.5, 0.5
+    if stats:
+        s_h = int(stats.get("shotsOnTargetHome") or 0)
+        s_a = int(stats.get("shotsOnTargetAway") or 0)
+        c_h = int(stats.get("cornersHome") or 0)
+        c_a = int(stats.get("cornersAway") or 0)
+        a_h = int(stats.get("attacksHome") or stats.get("dangerousAttacksHome") or 0)
+        a_a = int(stats.get("attacksAway") or stats.get("dangerousAttacksAway") or 0)
+        tot_s = s_h + s_a + 1
+        tot_c = c_h + c_a + 1
+        tot_a = a_h + a_a + 1
+        mom_h = 0.5 + 0.25 * (s_h / tot_s - 0.5) + 0.25 * (c_h / tot_c - 0.5) + 0.50 * (a_h / tot_a - 0.5)
+        mom_a = 1.0 - mom_h
+    mom_h = max(0.05, min(0.95, mom_h))
+    mom_a = max(0.05, min(0.95, mom_a))
+
+    # Pression temps : plus on approche de la fin, plus les équipes desesperées attack
+    tempo_h = tempo_a = 0.5
+    if minute >= 80:
+        if hs < asc:  # HOME mené → urgent
+            tempo_h = min(0.95, 0.5 + 0.08 * (minute - 80) / 10)
+            tempo_a = max(0.05, 0.5 - 0.03 * (minute - 80) / 10)
+        elif asc < hs:  # AWAY mené → urgent
+            tempo_a = min(0.95, 0.5 + 0.08 * (minute - 80) / 10)
+            tempo_h = max(0.05, 0.5 - 0.03 * (minute - 80) / 10)
+        else:  # draw
+            tempo_h = tempo_a = 0.5 + 0.05 * (minute - 80) / 10
+    elif minute >= 65:
+        if hs < asc:
+            tempo_h = min(0.90, 0.5 + 0.04 * (minute - 65) / 15)
+            tempo_a = max(0.10, 0.5 - 0.02 * (minute - 65) / 15)
+        elif asc < hs:
+            tempo_a = min(0.90, 0.5 + 0.04 * (minute - 65) / 15)
+            tempo_h = max(0.10, 0.5 - 0.02 * (minute - 65) / 15)
+
+    # Forme : taux de conversion historique par équipe (si stats dispo)
+    form_h = form_a = 0.5
+    if stats:
+        xgH_real = float(stats.get("expectedGoalsHome") or 0)
+        xgA_real = float(stats.get("expectedGoalsAway") or 0)
+        if xgH_real > 0:
+            form_h = min(0.95, hs / xgH_real) if xgH_real >= 0.3 else 0.5
+        if xgA_real > 0:
+            form_a = min(0.95, asc / xgA_real) if xgA_real >= 0.3 else 0.5
+        if xgH_real <= 0 and xgA_real <= 0:
+            form_h = form_a = 0.5
+
+    # Score composite par équipe (0.0 – 1.0)
+    score_h = xg_share * 0.40 + mom_h * 0.30 + tempo_h * 0.20 + form_h * 0.10
+    score_a = (1 - xg_share) * 0.40 + mom_a * 0.30 + tempo_a * 0.20 + form_a * 0.10
+    total_score = score_h + score_a
+    prob_h = round(score_h / total_score, 3) if total_score > 0 else 0.5
+    prob_a = round(score_a / total_score, 3) if total_score > 0 else 0.5
+
+    winner_team = "HOME" if score_h >= score_a else "AWAY"
+    confidence = int(abs(score_h - score_a) * 200)  # 0-100 scale
+    confidence = max(20, min(98, confidence + 30))  # floor 30 (no zero-confidence picks)
+
+    p["score_team"] = (hs, asc, winner_team)
+    p["next_scorer"] = {
+        "team": winner_team,
+        "confidence": confidence,
+        "prob_home": prob_h,
+        "prob_away": prob_a,
+        "factors": {
+            "xg_share_pct": round(xg_share * 100, 1),
+            "momentum_pct": round(mom_h * 100, 1),
+            "tempo_pct": round(tempo_h * 100, 1),
+            "form_pct": round(form_h * 100, 1),
+        },
+        "description": _scorer_description(winner_team, confidence, prob_h, prob_a, minute),
+    }
+
     # prono score final (arrondi Poisson)
     import math
     fin_h = hs + round(lambdaH)

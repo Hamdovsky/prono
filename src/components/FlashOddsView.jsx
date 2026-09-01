@@ -480,6 +480,43 @@ function LiveCard({ event, prevOdds }) {
             )}
           </div>
         )}
+        {pred.home_xg_live != null && pred.away_xg_live != null && (
+          <div style={{
+            flex: '1 1 100%', fontSize: '9px',
+            background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)',
+            padding: '6px 8px', borderRadius: '6px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+              <span style={{ color: '#34d399', fontWeight: '800', letterSpacing: '0.3px' }}>
+                TOTAL BUTS PAR EQUIPE
+              </span>
+              <span style={{ color: '#10b981', fontWeight: '700' }}>
+                Total predit: {pred.total_xg_live}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ color: '#4ade80', fontWeight: '900', fontSize: '14px' }}>
+                  {pred.home_xg_live}
+                </div>
+                <div style={{ color: '#94a3b8', fontSize: '8px' }}>{event.homeTeam}</div>
+              </div>
+              <span style={{ color: '#475569', fontSize: '11px', fontWeight: '700' }}>-</span>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ color: '#60a5fa', fontWeight: '900', fontSize: '14px' }}>
+                  {pred.away_xg_live}
+                </div>
+                <div style={{ color: '#94a3b8', fontSize: '8px' }}>{event.awayTeam}</div>
+              </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ color: '#fbbf24', fontWeight: '800', fontSize: '11px' }}>
+                  {pred.pred_score}
+                </div>
+                <div style={{ color: '#475569', fontSize: '7px' }}>Score MT</div>
+              </div>
+            </div>
+          </div>
+        )}
         {odds.over25 != null && (
           <span style={{
             fontSize: '9px', color: '#818cf8', background: 'rgba(99,102,241,0.08)',

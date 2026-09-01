@@ -67,6 +67,31 @@ class CronManager {
       } catch (_) {}
     })
 
+    // 0. Calibrage live autonome (toutes les 5 min).
+    // Rend le journal de prédictions O/U live + la résolution auto des scores finaux
+    // indépendants de l'ouverture du navigateur : le flux live est rafraîchi (les
+    // prédictions sont journalisées) et les matchs terminés sont résolus, même sans
+    // que personne ne consulte la page FLASH ODDS.
+    cron.schedule(
+      '*/5 * * * *',
+      async () => {
+        try {
+          const Bypass = require('./scrapers/SofascoreBypass')
+          const Resolver = require('./scrapers/LiveResultResolver')
+          // Rafraîchit le flux live (journalise les nouvelles prédictions).
+          await Bypass.getLiveEvents().catch(() => {})
+          // Force la résolution des matchs terminés.
+          const stats = await Resolver.autoResolve({ force: true }).catch(() => null)
+          if (stats && stats.resolved > 0) {
+            logger.info(`✅ [CRON] Live calibrage: ${stats.resolved}/${stats.scanned} scores finaux résolus auto`)
+          }
+        } catch (e) {
+          logger.warn(`⚠️ [CRON] Live calibrage error: ${e.message}`)
+        }
+      },
+      { timezone: 'Africa/Tunis' }
+    )
+
     // 1. Nightly accuracy analysis (23:00)
     cron.schedule(
       '0 23 * * *',

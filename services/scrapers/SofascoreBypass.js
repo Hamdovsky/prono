@@ -98,6 +98,38 @@ async function getOdds(eventId) {
   return null
 }
 
+const LIVE_TTL = 15 * 1000 // 15s — cotes live évoluent en direct
+let liveCache = { ts: 0, events: [] }
+
+/**
+ * Matchs en direct + cotes 1X2 temps réel via le bypass Python (curl_cffi).
+ * Cache court (15s) car ces cotes changent en direct. Jamais d'exception.
+ * @returns {Promise<Array>} events avec {id, homeTeam, awayTeam, tournament, homeScore, awayScore, minute, statusType, odds}
+ */
+async function getLiveEvents() {
+  if (Date.now() - liveCache.ts < LIVE_TTL) return liveCache.events
+  const res = await callPy(['live'], 30000)
+  if (res && res.found && Array.isArray(res.events)) {
+    liveCache = { ts: Date.now(), events: res.events }
+    // Journal de calibrage (point 3) : non bloquant, ne perturbe jamais la réponse.
+    try {
+      const Journal = require('./LivePredictionJournal')
+      Journal.recordEvents(res.events)
+    } catch (_) {
+      /* journal jamais bloquant */
+    }
+    // Résolution auto des scores finaux (point 3) : en fond, throttlé.
+    try {
+      const Resolver = require('./LiveResultResolver')
+      Resolver.autoResolve().catch(() => {})
+    } catch (_) {
+      /* résolveur jamais bloquant */
+    }
+    return res.events
+  }
+  return liveCache.events
+}
+
 /**
  * @param {{homeTeam:string, awayTeam:string, startTimestamp?:number, sofascore_id?:number|string}} match
  * @returns {Promise<Object|null>} cotes décimales réelles ou null (jamais d'exception)
@@ -174,6 +206,22 @@ async function getEventStats(eventId) {
   return null
 }
 
+// Statut/score d'un événement (pour le résolveur automatique de scores finaux).
+const statusCache = new Map() // eventId -> { data, expiresAt }
+const CACHE_TTL_STATUS = 45 * 1000
+
+async function getEventStatus(eventId) {
+  if (eventId == null) return null
+  const hit = statusCache.get(eventId)
+  if (hit && Date.now() < hit.expiresAt) return hit.data
+  const res = await callPy(['event', '--event', String(eventId)])
+  if (res && res.found) {
+    statusCache.set(eventId, { data: res, expiresAt: Date.now() + CACHE_TTL_STATUS })
+    return res
+  }
+  return null
+}
+
 // Poids par poste (impact sur xG attendu) — défense/poste bas, attaque élevé.
 const POS_WEIGHT = { G: 1.0, D: 0.5, M: 0.6, F: 0.7 }
 // Sévérité par statut d'absence.
@@ -245,9 +293,11 @@ module.exports = {
   getOddsForMatch,
   resolveEvent,
   getOdds,
+  getLiveEvents,
   getLineups,
   getInjuries,
   getEventStats,
+  getEventStatus,
   getAbsencesForMatch,
   computeAbsenceImpact,
 }

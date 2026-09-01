@@ -145,6 +145,370 @@ def cmd_resolve(args):
     print(json.dumps({"found": False, "reason": "event_not_found", "checked": len(events)}))
 
 
+def _mid_odds(market):
+    """Extrait {name-> (dec, change)} à partir d'un marché Safascore."""
+    out = {}
+    for ch in market.get("choices") or []:
+        dec = frac_to_dec(ch.get("decimalValue") if ch.get("decimalValue") is not None else ch.get("fractionalValue"))
+        nm = str(ch.get("name") or "").strip().lower()
+        if dec and nm:
+            out[nm] = (dec, ch.get("change"))
+    return out
+
+
+def _apply_market(odds, market):
+    """Importe 1X2 / Double chance / 1st half / BTTS depuis un marché."""
+    by = _mid_odds(market)
+    code = str(market.get("marketCode") or "")
+    mkt = str(market.get("marketName") or "").strip().lower()
+    # 1X2 (avec mouvement ▲▼)
+    if ("1" in by and "x" in by and "2" in by) or code == "1":
+        for k, key, ckey in (("1", "home", "home_change"), ("x", "draw", "draw_change"), ("2", "away", "away_change")):
+            if k in by:
+                odds.setdefault(key, by[k][0])
+                odds.setdefault(ckey, by[k][1])
+    # Double chance / 1st half : on garde mais sans écraser 1X2
+    if "1x" in by and "x2" in by and "12" in by:
+        odds.setdefault("dc_1x", by["1x"][0])
+        odds.setdefault("dc_x2", by["x2"][0])
+        odds.setdefault("dc_12", by["12"][0])
+    # 1st half 1X2
+    if mkt == "1st half" and "1" in by:
+        odds.setdefault("h1_home", by["1"][0])
+        odds.setdefault("h1_draw", by["x"][0] if "x" in by else None)
+        odds.setdefault("h1_away", by["2"][0] if "2" in by else None)
+    # BTTS
+    if ("yes" in by or "no" in by) and len(by) <= 4:
+        blob = (mkt + " " + code).lower()
+        if "both" in blob or "btts" in blob:
+            odds.setdefault("btts_yes", by.get("yes") and by["yes"][0])
+            odds.setdefault("btts_no", by.get("no") and by["no"][0])
+    # Match goals (Over/Under) ligne 2.5
+    if mkt == "match goals":
+        line = str(market.get("choiceGroup") or "").replace(",", ".")
+        if line == "2.5":
+            odds.setdefault("over25", by.get("over") and by["over"][0])
+            odds.setdefault("under25", by.get("under") and by["under"][0])
+
+
+def _fetch_event_odds(eid):
+    """Cotes d'un event. Le groupe 5 (1 call) contient déjà 1X2 + Double chance +
+    1st half + BTTS. Retourne dict odds (vide si l'event n'a pas de marché 5)."""
+    odds = {}
+    try:
+        data5 = api_get("/event/%d/odds/5/all" % int(eid))
+        for market in data5.get("markets") or []:
+            _apply_market(odds, market)
+    except Exception:  # noqa: BLE001
+        pass
+    return odds
+
+
+def _live_minute(ev):
+    """Minute estimée (0-90) à partir des timestamps de période (Sofascore n'expose
+    pas de minute brute sur /events/live). Sert au modèle O/U + buts d'équipe."""
+    t = ev.get("time") or {}
+    start = t.get("currentPeriodStartTimestamp")
+    end = t.get("lastPeriodEndTimestamp")
+    code = ((ev.get("status") or {}).get("code") or 0)
+    try:
+        if code in (1, 2, 4):  # 1st half / HT
+            base_sec = 0
+        elif code == 3:  # halftime
+            return 45
+        else:  # 2nd half / extra
+            base_sec = t.get("initial", 2700)
+        sec = 0
+        if start and end:
+            sec = int(start) - int(end)
+        minutes = (base_sec + max(0, sec)) / 60.0
+        return max(0.0, min(90.0, minutes))
+    except Exception:  # noqa: BLE001
+        return 45.0
+
+
+def _calibrated_lambda(score_key, minute):
+    """xG complémentaire « scientifique » dérivé de la matrice calibrée de
+    LiveGoalPredictor (services/LiveGoalPredictor.js) — proba historique qu'au moins
+    1 but soit marqué selon le score + la minute. Convertie en lambda via
+    lambda = -ln(1 - P). Corrige le biais 0-0 (mon modèle sous-estimait les 2e MT)."""
+    # scorePatterns de LiveGoalPredictor : firstHalf/secondHalf/after60
+    matrix = {
+        "0-0": {"fh": 72, "sh": 88, "a60": 94},
+        "1-0": {"fh": 65, "sh": 78, "a60": 85},
+        "0-1": {"fh": 63, "sh": 76, "a60": 83},
+        "1-1": {"fh": 78, "sh": 89, "a60": 96},
+        "2-0": {"fh": 52, "sh": 68, "a60": 75},
+        "0-2": {"fh": 50, "sh": 66, "a60": 73},
+        "2-1": {"fh": 82, "sh": 91, "a60": 97},
+        "1-2": {"fh": 80, "sh": 90, "a60": 96},
+        "2-2": {"fh": 88, "sh": 95, "a60": 98},
+        "3-0": {"fh": 42, "sh": 58, "a60": 65},
+        "3-1": {"fh": 74, "sh": 85, "a60": 92},
+        "3-2": {"fh": 92, "sh": 97, "a60": 99},
+    }
+    row = matrix.get(score_key, matrix["0-0"])
+    if minute < 45:
+        p = row["fh"]
+    elif minute < 60:
+        p = row["sh"]
+    else:
+        p = row["a60"]
+    import math
+    lam = -math.log(max(0.01, 1.0 - p / 100.0))
+    # quartile de temps restant : on garde une part proportionnelle (reste ≤ 90')
+    remain_frac = max(0.05, min(1.0, (90.0 - minute) / 90.0))
+    return lam * remain_frac
+
+
+def _live_predictions(odds, hs, asc, minute, stats=None):
+    """Prédiction live O/U + buts d'équipe dérivée des cotes live (puisque Sofascore
+    ne diffuse PAS O/U 2.5 et total équipe en direct). Modèle Poisson simplifié :
+    rythme actuel (score/minute) + force relative issue des cotes 1X2/BTTS.
+
+    Si `stats` (dict xG home/away réel issus de /event/{id}/statistics) est fourni,
+    la proba OVER se base sur le **xG réel** plutôt que sur le seul score/minute.
+
+    Point 4 : `_calibrated_lambda()` (matrice LiveGoalPredictor) sert de plancher
+    « scientifique » quand le score-pace sous-estime (ex. 0-0 tardif)."""
+    hs, asc = int(hs or 0), int(asc or 0)
+    p = {}
+    home = odds.get("home")
+    away = odds.get("away")
+    btts_yes = odds.get("btts_yes")
+    if not (home and away) or minute is None:
+        return p
+    T = max(0.05, min(0.95, minute / 90.0))
+    remain = 1.0 - T
+    curTotal = hs + asc
+    calib_lam = _calibrated_lambda("%d-%d" % (hs, asc), minute)
+
+    # xG réel si dispo : pacing = xG actuel / fraction écoutée
+    if stats:
+        xgH = float(stats.get("expectedGoalsHome") or 0)
+        xgA = float(stats.get("expectedGoalsAway") or 0)
+        xgTotalSoFar = xgH + xgA
+        if T > 0.05 and xgTotalSoFar > 0:
+            rate90 = (xgTotalSoFar / T) * 1.12  # ~12% de plus attendu (création)
+            lambdaAdd = max(0.0, rate90 * remain)
+        else:
+            lambdaAdd = 1.4 * remain
+        share_h = xgH / xgTotalSoFar if xgTotalSoFar > 0 else 0.5
+    else:
+        # Fallback score/minute (sans xG live)
+        MIN_RATE = 1.4
+        if curTotal >= 3:
+            raw = (curTotal / T) if T > 0.05 else MIN_RATE
+            paceObs = max(MIN_RATE, min(raw, 8.0))
+        elif curTotal == 0 and T >= 0.45:
+            paceObs = MIN_RATE
+        elif curTotal == 0:
+            paceObs = MIN_RATE
+        else:
+            raw = (curTotal / T) if T > 0.05 else MIN_RATE
+            paceObs = max(MIN_RATE, min(raw, 8.0))
+        base90 = 2.6
+        open_boost = 1.3 if (btts_yes and btts_yes <= 1.8) else 1.0
+        rate90 = (0.4 * paceObs + 0.6 * base90) * open_boost
+        lambdaAdd = max(0.0, rate90 * remain)
+        imp_h, imp_a = 1.0 / home, 1.0 / away
+        if imp_h + imp_a > 0:
+            share_h = imp_h / (imp_h + imp_a)
+        else:
+            share_h = 0.5
+
+    # Point 4 : plancher « scientifique » (matrice calibrée LiveGoalPredictor).
+    # On garde le MAX du lambda modélisé et du lambda calibré par score/minute
+    # pour ne jamais sous-estimer les buts restants (ex. 0-0 tardif = 94% ≥1 but).
+    if calib_lam > lambdaAdd:
+        lambdaAdd = calib_lam
+        p["calib_floor"] = True
+    lambdaH = lambdaAdd * share_h
+    lambdaA = lambdaAdd * (1 - share_h)
+
+    # Proba Over 2.5 : P(curTotal + Pois(lambdaAdd) > 2.5)
+    def pois_pmf(L, k):
+        import math
+        return math.exp(-L) * (L ** k) / math.factorial(k) if L > 0 else (1.0 if k == 0 else 0.0)
+    p_under = 0.0
+    for k in range(0, 12):
+        tot = curTotal + k
+        if tot <= 2.5:
+            p_under += pois_pmf(lambdaAdd, k)
+    p_over = max(0.0, 1.0 - p_under)
+    p["over25"] = round(p_over, 3)
+    p["under25"] = round(1 - p_over, 3)
+    p["ou_pick"] = "OVER 2.5" if p_over >= 0.55 else ("UNDER 2.5" if p_over <= 0.45 else "PUSH/ÉQUILIBRE")
+    p["ou_fair_odds_over"] = round(1.0 / p_over, 2) if p_over > 0 else None
+    p["ou_fair_odds_under"] = round(1.0 / (1 - p_over), 2) if p_over < 1 else None
+
+    # Buts attendus par équipe + prono final
+    p["home_xg_live"] = round(hs + lambdaH, 1)
+    p["away_xg_live"] = round(asc + lambdaA, 1)
+    p["total_xg_live"] = round(curTotal + lambdaAdd, 1)
+    # « Qui va marquer » : priorité au scoreur le plus probable en continu
+    if lambdaH >= lambdaA:
+        p["score_team"] = (hs, asc, "HOME")
+    else:
+        p["score_team"] = (hs, asc, "AWAY")
+    # prono score final (arrondi Poisson)
+    import math
+    fin_h = hs + round(lambdaH)
+    fin_a = asc + round(lambdaA)
+    p["pred_score"] = "%d-%d" % (fin_h, fin_a)
+    # Stats live réelles (xG Sofascore) si dispo
+    if stats:
+        p["xg_home_actual"] = round(float(stats.get("expectedGoalsHome") or 0), 2)
+        p["xg_away_actual"] = round(float(stats.get("expectedGoalsAway") or 0), 2)
+        p["possession_home"] = stats.get("possessionHome")
+        p["shots_home"] = stats.get("shotsHome")
+        p["shots_away"] = stats.get("shotsAway")
+        p["shots_ontarget_home"] = stats.get("shotsOnTargetHome")
+        p["shots_ontarget_away"] = stats.get("shotsOnTargetAway")
+        p["corners_home"] = stats.get("cornersHome")
+        p["corners_away"] = stats.get("cornersAway")
+        p["xgsrc"] = "live"
+    else:
+        p["xgsrc"] = "score_pace"
+
+    # ── VALEUR : comparer le xG modélisé à l'espoir de buts implicite du MARCHÉ ──
+    # Le marché (BTTS + 1X2 en direct) trahit combien de buts il attend réellement.
+    # mapping BTTS Yes impliqué (%) → total de buts attendu par le marché.
+    # NOTE : on ne signale une valeur qu'à partir de ~30' jouées (T>=0.30) car
+    # avant, `mkt_total_live = mkt_total*T` s'effondre (T≈0) → faux OVER-value.
+    p_value = None
+    if btts_yes and T >= 0.30:
+        btts_yes_imp = 1.0 / btts_yes
+        # Heuristique calibrée sur marchés foot classiques (conservateur)
+        mkt_total_from_btts = 0.9 + 3.8 * btts_yes_imp
+        # Le draw court (1X2) => équipes équilibrées => + de buts attendus
+        mkt_total = mkt_total_from_btts
+        if odds.get("draw") and 3.0 <= odds["draw"] <= 3.8:
+            mkt_total += 0.3
+        # xG marché total (normalisé au temps restant) vs notre xG modélisé
+        mkt_total_live = max(0.0, mkt_total * T)
+        model_total = curTotal + lambdaAdd
+        diff = model_total - mkt_total_live
+        # Seuil de signal (en buts) — évite le bruit
+        if diff >= 0.45:
+            p_value = {"type": "OVER_VALUE", "side": "OVER 2.5",
+                       "edge": round(diff, 2), "strength": min(100, int(40 + diff * 35)),
+                       "market_total_live": round(mkt_total_live, 2),
+                       "model_total": round(model_total, 2)}
+        elif diff <= -0.45:
+            p_value = {"type": "UNDER_VALUE", "side": "UNDER 2.5",
+                       "edge": round(-diff, 2), "strength": min(100, int(40 + (-diff) * 35)),
+                       "market_total_live": round(mkt_total_live, 2),
+                       "model_total": round(model_total, 2)}
+        if p_value:
+            p["value"] = p_value
+    return p
+
+
+def _parse_live_stats(raw):
+    """Extrait xG + stats utiles depuis la réponse /event/{id}/statistics."""
+    if not isinstance(raw, dict):
+        return None
+    stats_list = raw.get("statistics")
+    if not isinstance(stats_list, list) or not stats_list:
+        return None
+    s = stats_list[0]
+    groups = s.get("groups") or []
+    out = {}
+    for g in groups:
+        for item in g.get("statisticsItems") or []:
+            key = item.get("key")
+            try:
+                h = float(item.get("homeValue"))
+                a = float(item.get("awayValue"))
+            except (TypeError, ValueError):
+                continue
+            if key == "expectedGoals":
+                out["expectedGoalsHome"] = h
+                out["expectedGoalsAway"] = a
+            elif key == "ballPossession":
+                out["possessionHome"] = h
+            elif key == "totalShotsOnGoal":
+                out["shotsHome"] = h
+                out["shotsAway"] = a
+            elif key == "shotsOnGoal":
+                out["shotsOnTargetHome"] = h
+                out["shotsOnTargetAway"] = a
+            elif key == "cornerKicks":
+                out["cornersHome"] = h
+                out["cornersAway"] = a
+    if "expectedGoalsHome" not in out:
+        return None
+    return out
+
+
+def _fetch_event_stats(eid):
+    """Statistiques live (dont xG) d'un event via /statistics. Retourne dict ou None."""
+    try:
+        raw = api_get("/event/%d/statistics" % int(eid))
+        return _parse_live_stats(raw)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def cmd_live(args):
+    """Matchs en direct via /sport/football/events/live (1X2 + BTTS + DC + 1st half)."""
+    try:
+        data = api_get("/sport/football/events/live")
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"found": False, "error": str(e)}))
+        return
+    events = data.get("events") or []
+    ids = [int(ev.get("id")) for ev in events if ev.get("id") is not None]
+    # Plafond : on ne récupère les cotes que des N premiers matchs en direct pour
+    # rester sous le timeout Node (30s) et ne pas asphyxier l'API Sofascore.
+    MAX_ODDS_FETCH = 50
+    if len(ids) > MAX_ODDS_FETCH:
+        ids = ids[:MAX_ODDS_FETCH]
+    # IDs des events exposant du xG live (Sofascore fournit /statistics)
+    xg_ids = [int(ev.get("id")) for ev in events if ev.get("hasXg") and ev.get("id") is not None]
+    odds_map = {}
+    stats_map = {}
+    if ids:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            for eid, odds in zip(ids, ex.map(_fetch_event_odds, ids)):
+                odds_map[eid] = odds
+            for eid, stats in zip(xg_ids, ex.map(_fetch_event_stats, xg_ids)):
+                if stats:
+                    stats_map[eid] = stats
+    out = []
+    for ev in events:
+        eid = ev.get("id")
+        iid = int(eid) if eid is not None else None
+        odds = odds_map.get(iid, {}) if iid is not None else {}
+        stats = stats_map.get(iid) if iid is not None else None
+        ht = ev.get("homeTeam") or {}
+        at = ev.get("awayTeam") or {}
+        hs = ev.get("homeScore") or {}
+        asc = ev.get("awayScore") or {}
+        status = ev.get("status") or {}
+        minute = _live_minute(ev)
+        homeScore = hs.get("display") if hs.get("display") is not None else hs.get("current")
+        awayScore = asc.get("display") if asc.get("display") is not None else asc.get("current")
+        predictions = _live_predictions(odds, homeScore, awayScore, minute, stats)
+        out.append({
+            "id": eid,
+            "homeTeam": ht.get("name"),
+            "awayTeam": at.get("name"),
+            "tournament": ((ev.get("tournament") or {}).get("name") or ""),
+            "category": ((ev.get("category") or {}).get("name") or ""),
+            "homeScore": homeScore,
+            "awayScore": awayScore,
+            "minute": status.get("description"),
+            "liveMinute": round(minute, 1),
+            "statusType": status.get("type"),
+            "odds": odds,
+            "pred": predictions,
+        })
+    print(json.dumps({"found": bool(out), "events": out}, ensure_ascii=False))
+
+
 def cmd_odds(args):
     data = api_get("/event/%d/odds/1/all" % int(args.event))
     out = {}
@@ -327,9 +691,42 @@ def cmd_stats(args):
     print(json.dumps(out, ensure_ascii=False))
 
 
+def cmd_event(args):
+    """Statut + score courant/final d'un événement (pour auto-résolution FT).
+    /event/{id} -> {event:{status, homeTeam, awayTeam, homeScore, awayScore}}."""
+    out = {"found": False}
+    try:
+        data = api_get("/event/%d" % int(args.event))
+        ev = (data or {}).get("event") or {}
+        st = ev.get("status") or {}
+        status = (st.get("type") or "").lower()
+        hs = (ev.get("homeScore") or {}).get("current")
+        as_ = (ev.get("awayScore") or {}).get("current")
+        hname = ((ev.get("homeTeam") or {}).get("name") or "")
+        aname = ((ev.get("awayTeam") or {}).get("name") or "")
+        out.update({
+            "found": True,
+            "eventId": args.event,
+            "status": status,
+            "finished": status in ("finished", "awarded", "cancelled", "postponed", "interrupted", "abandoned", "walkover"),
+            "home": hs,
+            "away": as_,
+            "homeTeam": hname,
+            "awayTeam": aname,
+            "minute": st.get("displayed"),
+        })
+    except RuntimeError as e:
+        out["error"] = "api:" + str(e)
+    except Exception as e:  # noqa: BLE001
+        out["error"] = str(e)
+    print(json.dumps(out, ensure_ascii=False))
+
+
 def main():
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
+    pev = sub.add_parser("event")
+    pev.add_argument("--event", required=True)
     pr = sub.add_parser("resolve")
     pr.add_argument("--home", required=True)
     pr.add_argument("--away", required=True)
@@ -342,6 +739,7 @@ def main():
     pi.add_argument("--event", required=True)
     ps = sub.add_parser("stats")
     ps.add_argument("--event", required=True)
+    plv = sub.add_parser("live")
     args = p.parse_args()
     t0 = time.time()
     try:
@@ -353,6 +751,10 @@ def main():
             cmd_injuries(args)
         elif args.cmd == "stats":
             cmd_stats(args)
+        elif args.cmd == "event":
+            cmd_event(args)
+        elif args.cmd == "live":
+            cmd_live(args)
         else:
             cmd_odds(args)
     except Exception as e:  # noqa: BLE001

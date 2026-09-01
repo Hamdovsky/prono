@@ -4,6 +4,169 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Activation marchés BTTS / Double chance / 1re mi-temps en LIVE (2026-08-31)
+
+### Objectif
+L'utilisateur souhaite activer les marchés **O/U 2.5, BTTS, Corners, HT/FT** sur la vue
+**⚡ FLASH ODDS / LIVE ODDS** (matchs en direct). À l'origine seul le **1X2** était remonté.
+
+### Constat (sondage API Sofascore)
+Sur un event live, le endpoint `/event/{id}/odds/{G}/all` ne diffuse QUE certains marchés :
+- **Groupe 1** → marché `1` (1X2) uniquement
+- **Groupe 5** → marchés `1` (1X2), `2` (Double chance), `3` (1X2 1re mi-temps), `5` (BTTS)
+
+**O/U 2.5 ("Match goals") et Corners ne sont PAS diffusés en live par Sofascore** (pré-match
+seulement) → non activables dans le flux temps réel. HT/FT idem (non diffusé en live).
+
+### Modifications
+- **`scripts/sofascore_bypass.py`**
+  - `cmd_live` interroge désormais **le groupe 5** (1 call = 1X2 + DC + 1re MT + BTTS) au lieu
+    du seul groupe 1 ; fallback groupe 1 si le 5 est vide.
+  - Nouveau helper `_apply_market()` : importe 1X2 (avec mouvement ▲▼ `*_change`), Double chance
+    (`dc_1x/x2/12`), 1re mi-temps (`h1_home/draw/away`), BTTS (`btts_yes/no`), Match goals O/U 2.5.
+  - Nouveau helper `_fetch_event_odds()` : récupère les cotes d'un event (groupe 5 puis 1).
+  - Récupération **en parallèle** (ThreadPoolExecutor) + **plafond** `MAX_ODDS_FETCH=50` pour
+    rester sous le timeout Node (30 s).
+  - `api_get` : **2 passes × 3 impersonates avec backoff** (1 s) pour absorber le 403 « challenge »
+    transitoire de Sofascore.
+- **`src/components/FlashOddsView.jsx`** : carte live enrichie — bloc **BTTS** (OUI/NON +
+  valeur recommandée) + chips O/U 2.5 et Double chance quand disponibles.
+
+### Vérification
+- **Pytest manuel Python** : `python scripts/sofascore_bypass.py live` → **7 matchs avec BTTS**
+  (Thailand U20, Maldives U20, Airbus UK, Ammanford, Briton Ferry, Cambrian United, Haverfordwest)
+  ex. `BTTS OUI 2.4 / NON 1.47`, en parallèle d'un 1X2 toujours présent. ~5 à 6 s pour ~50 events.
+- `npm run build` : OK (FlashOddsView reconstruit).
+
+### ✅ Résolution du bloc 403 + optimisation (2026-08-31, suite)
+Le bloc 403 « challenge » de Sofascore était **temporaire (au niveau IP)** et s'est levé de lui-même.
+Améliorations apportées pour une chaîne fiable + rapide :
+- **`scripts/sofascore_bypass.py`** :
+  - `api_get` recentré sur un **1 seul passage** (3 impersonates, sans backoff lourd) → évite le
+    cumul de latence sur les events sans marché. ~**7 s** pour ~45 events (au lieu de 36-50 s).
+  - `_fetch_event_odds` : **groupe 5 uniquement** (1 call = 1X2 + Double chance + 1re MT + BTTS),
+    suppression du fallback groupe 1 (doublait les requêtes et allongeait le temps).
+  - `MAX_ODDS_FETCH=50`, `ThreadPoolExecutor(max_workers=3)` → sous le timeout Node 30 s.
+- Pivot anti-bloc : `www.sofascore.com` sert de repli équivalent à `api.sofascore.com` (même API).
+
+### Vérification finale (chaîne complète ✅)
+- `python scripts/sofascore_bypass.py live` → **45-48 events, ~20 avec BTTS + DC** en ~7 s.
+- `SofascoreBypass.getLiveEvents()` (Node) → 45 events, BTTS ok.
+- `GET http://127.0.0.1:10000/api/flash-odds` → **200, success:true, 44 events, 19 avec BTTS +
+  Double chance + 1X2**. Ex. `Aston Villa vs Arsenal 0-0 → 1X2 17/4.8/1.25 | BTTS 3.05/1.33 | DC12 1.19`.
+- Visuel : http://localhost:5173 → **FLASH ODDS** (auto-refresh 15 s) : cartes live avec
+  1X2 (▲▼) + **bloc BTTS (OUI/NON + valeur)** + chips O/U 2.5 / Double chance.
+
+### ✅ Nouveau : O/U 2.5 + TOTAL ÉQUIPE prédits en direct
+Sofascore ne diffuse **PAS** O/U 2.5 ni « total équipe » en live (pré-match uniquement).
+→ **`_live_predictions()`** dans `scripts/sofascore_bypass.py` **dérive** ces marchés à
+partir des cotes live (1X2 + BTTS) + du score/minute :
+- **O/U 2.5** : modèle Poisson simplifié (rythme actuel 40% + moyenne 2.6 60%, boost si
+  BTTS ouvert) → proba over/under + proba implicite, pick OVER/UNDER.
+- **xG live par équipe** : force relative issue des cotes 1X2 partagée sur les buts restants.
+- **Qui va marquer** : priorité au scoreur le plus probable (xG restant le plus haut).
+- **Score prédit** (final) : arrondi des xG cumulés.
+- Exposé via `liveMinute` + `pred` dans `/api/flash-odds`.
+- **`FlashOddsView.jsx`** : 2 nouveaux blocs par carte — « TOTAL BUTS 2.5 (LIVE) » (OVER/UNDER
+  + xG total) et « TOTAL ÉQUIPE — QUI VA MARQUER » (xG home/away + marqueur + score prédit).
+- Vérifié : `GET /api/flash-odds` → 35 events, **14 avec pred O/U+équipe** (ex. Aston Villa 0-1
+  Arsenal [61'] → UNDER 2.5 (15%) | xG total 1.7 | score 0-2 | marqueur AWAY ; Barcelona 2-1
+  Rayo [63'] → OVER 2.5 (100%) | xG 4 | score 3-1 | HOME).
+
+### ✅ Amélioration 1 — vrais xG live (Sofascore) pour O/U
+Faiblesse des points identifiée : le modèle dérivait O/U du **seul score/minute**, ignorant la
+qualité des occasions. Corrigé :
+- Nouveau `_fetch_event_stats()` + `_parse_live_stats()` → appelle `/event/{id}/statistics` et
+  extrait **Expected goals (xG) réel**, possession, tirs, tirs cadrés, corners.
+- Fetch **uniquement pour les events `hasXg:true`** (peu, ex. 5/35) dans le même
+  ThreadPool → temps toujours ~6s (sous timeout 30s).
+- `_live_predictions(..., stats)` : quand le xG réel est dispo (`xgsrc='live'`), `lambdaAdd`
+  est dérivé du **xG réel** (plus ~12% de création attendue) au lieu du score/minute ;
+  le split home/away reflète la répartition réelle du xG, plus la possession.
+- Fallback `xgsrc='score'` conservé quand pas de xG.
+- **FlashOddsView.jsx** : badge **« xG LIVE » vs « MODÈLE »** + affichage xG réel home/away,
+  possession et tirs sur chaque carte.
+- Vérifié end-to-end : `GET /api/flash-odds` → 35 events, **5 avec xG-live** (ex. Fortaleza 1-1
+  Operário → xG réel 0.46-0.65, poss 57% → OVER 2.5 @74% ; Estudiantes 0-0 [62'] → xG 1.43-0.97,
+  poss 61% → UNDER 2.5 12%).
+
+### ✅ Amélioration 2 — Détection de VALEUR (modèle vs marché BTTS/1X2)
+Faiblesse : le modèle sortait une proba brute sans comparer à la cote marché → pas d'edge
+détectable. Choix utilisateur : **valeur partielle via les cotes BTTS + 1X2 dispo en direct**
+(pas de source gratuite pour la cote O/U 2.5 live — Sofascore ne diffuse pas ce marché).
+- Ajout d'un **`p.value`** dans `_live_predictions` :
+  - L'espoir de buts implicite du marché ≈ mapping BTTS Yes (1/cote) → total attendu,
+    ajusté par un draw court (1X2 ≈ 2.6-3.6 → +0.3 but).
+  - Comparé au xG modélisé (réel Sofascore quand dispo) → **OVER_VALUE / UNDER_VALUE**
+    si écart ≥ 0.45 but, avec `edge` (buts), `strength` (0-100) et totals comparés.
+  - **Garde anti-artefact** : signal seulement si `T >= 0.30` (30+ min) — évite le faux
+    OVER-value quand le marché total s'effondre à la minute 0.
+- **FlashOddsView.jsx** : bloc **💎 VALEUR (modèle vs marché)** dans ComboPicks, avec side
+  (OVER/UNDER), edge en buts et force %.
+- Vérifié : `GET /api/flash-odds` → 3 signaux value (ex. Fortaleza 1-1 Operário → OVER_VALUE
+  edge +1.83 force 100% ; Defensa 0-0 Platense → UNDER_VALUE edge +0.84 force 69%).
+
+### ✅ Amélioration 4 — Plancher calibré (matrice LiveGoalPredictor) pour neutraliser le biais 0-0
+Faiblesse : le modèle dérivait le xG complémentaire du seul score/minute → sous-estimait les
+2e MT des matchs 0-0 tardifs (ex. 0-0 à 62' → UNDER 2.5 ~91%, alors que l'historique dit 94%
+de chance d'au moins 1 but de plus).
+- `_calibrated_lambda(score, minute)` : portage de la **matrice `scorePatterns` de
+  `services/LiveGoalPredictor.js`** (firstHalf/secondHalf/after60) convertie en lambda de
+  buts attendus via `-ln(1 - P/100)`, pondéré par le temps restant.
+- Appliqué en **plancher scientifique** : `lambdaAdd = max(lambdaAdd, calib_lam)` quand la
+  matrice donne un total plus haut que le modèle → jamais de sous-estimation des buts restants.
+- Vérifié : `GET /api/flash-odds` → **3 events avec plancher** (ex. 0-0 à 62' → xG total passe
+  de 0.2 → 0.9, OVER proba 6% ; Honnête : 0-0 tardif n'atteint rarement 3 buts). Temps ~6s.
+
+### ✅ Amélioration 3 — Journal de calibrage O/U live (taux de réussite réel)
+Pour mesurer « quel % de mes 91% UNDER passent réellement » et recalibrer les seuils :
+- **`services/scrapers/LivePredictionJournal.js`** : journal append-only (JSONL, aucune dépendance
+  DB) — enregistre chaque prédiction O/U 2.5 live + son contexte (minute, score, xG, xgsrc, value,
+  calibFloor), dédupliquée par eventId par fenêtre de 20 min (évite le bruit des polls 15s).
+  Résout ensuite l'issue avec le score final (`pickCorrect`, `finalOver`) et calcule le taux de
+  réussite **par tranche de confiance** et **par type de pari**.
+- **Branché non-bloquant** dans `SofascoreBypass.getLiveEvents()` (ne perturbe jamais la réponse).
+- **Nouvelles routes** (`routes/matches.js`) : `GET /api/flash-odds/calibration` (stats), 
+  `POST /api/flash-odds/resolve` ({eventId, finalHome, finalAway}), `GET /api/flash-odds/results` (audit).
+- **CLI** : `node scripts/live-calibration.js {list|resolve|stats|dump}` pour consulter les prédictions
+  et saisir les scores finaux au fil de la journée.
+- **Panneau UI** : `src/components/FlashOddsView.jsx` → composant `CalibrationPanel` (📊 CALIBRAGE LIVE)
+  affiché sous le footer de FLASH ODDS : réussite réelle par tranche de confiance (barres vert/orange/rouge),
+  par type de pari, et la liste des prédictions en attente avec leur eventId. Auto-refresh 45s. Build OK.
+- Vérifié : backend relancé (PID 27328, port 10000) ; `/flash-odds/calibration` 200 ; le journal a
+  enregistré 10 prédictions réelles (ex. Boston Legacy 1-3 Angel City → OVER 100% edge 5.12 💎 VALEUR) ;
+  `resolve` valide (400 champs manquants, id inconnu → 0 sans pollution) ; tests `jest matches` 15/15 OK.
+- **🤖 Résolution automatique des scores finaux** : plus besoin de saisie manuelle.
+  - `sofascore_bypass.py` : nouvelle commande `event` → `/event/{id}` (statut + score, `finished` booléen).
+  - `services/scrapers/LiveResultResolver.js` : scanne les prédictions non résolues, ignore celles encore
+    dans le flux live, et pour celles terminées récupère le score final depuis Sofascore puis appelle
+    `Journal.resolve(eventId, home, away)`. Throttlé (≥90s) + `running` flag, jamais bloquant.
+  - Branché en fond dans `getLiveEvents()` (auto pendant les polls UI) + route `POST /api/flash-odds/auto-resolve`
+    (`{force?:bool}`) pour déclenchement manuel/CRON.
+  - Vérifié en conditions réelles : match terminé auto-résolu (id 16912006, score final **3-0** = 3 buts,
+    prédiction OVER 2.5 59% → **✅ correct**) ; nouveau scan route auto-resolve → 2 résolus. Calibrage actif :
+    3 résolus / 3 réussites (100%), répartis sur 3 tranches de confiance. Tests `jest matches` 15/15 OK.
+  - **🤖 Autonomie totale** : job CRON (`services/cronManager.js`, toutes les 5 min) qui rafraîchit le flux
+    live (journalise les prédictions) ET force la résolution auto des matchs terminés — **indépendante de
+    l'ouverture du navigateur** (plus besoin de la page FLASH ODDS ouverte ni de saisie manuelle).
+    Vérifié : `[CRON] Scheduler active` au démarrage, routes `calibration`/`flash-odds` 200, backend PID 20400.
+- ⚙️ **Point 3 (calibrage) — désormais 100 % automatique** : plus besoin de saisir les scores finaux,
+  le CRON toutes les 5 min les récupère tout seul. La saisie manuelle reste disponible en secours
+  (`node scripts/live-calibration.js resolve <eventId> <butsH> <butsA>`). Après quelques semaines de
+  données réelles, la stat « réussite par tranche de confiance » donnera les vrais seuils de
+  déclenchement OVER/UNDER à ajuster.
+
+### ⏭️ Points suivants (priorité)
+- Aucun point bloquant : les 4 améliorations (1..4) sont traitées. Prochain chantier d'ampleur :
+  **automatiser la saisie des scores finaux** (résolution auto dès qu'un match prédit sort du flux,
+  via une source de résultats free type API-Football/FlashScore) pour accélérer le calibrage.
+
+### Note
+- O/U 2.5 / Corners / HT-FT restent **pré-match uniquement** : pour les voir il faudrait les
+  lire depuis la DB Titanium (matchs upcoming), pas depuis le flux live Sofascore.
+
+---
+
 ## Activation du Market Engine multi-marchés dans la prod (2026-08-27)
 
 ### Objectif

@@ -859,6 +859,80 @@ router.get('/odds/steam/:matchId', async (req, res) => {
 })
 
 /**
+ * GET /api/flash-odds — Matchs en direct + cotes 1X2 temps réel (Sofascore bypass).
+ * Cache court (15s) côté service. Retourne events + odds directement.
+ */
+router.get('/flash-odds', async (req, res) => {
+  try {
+    const SofascoreBypass = require('../services/scrapers/SofascoreBypass')
+    const events = await SofascoreBypass.getLiveEvents()
+    res.json({ success: true, events })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message, events: [] })
+  }
+})
+
+/**
+ * GET /api/flash-odds/calibration — stats de calibrage O/U 2.5 (point 3).
+ * Journal de prédictions live + issues enregistrées => taux de réussite par
+ * tranche de confiance et par type de pari.
+ */
+router.get('/flash-odds/calibration', async (req, res) => {
+  try {
+    const Journal = require('../services/scrapers/LivePredictionJournal')
+    res.json({ success: true, ...Journal.stats() })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
+ * POST /api/flash-odds/resolve — enregistre le score final d'un match live
+ * pour résoudre la/les prédiction(s) O/U 2.5 enregistrées (calibrage).
+ * body: { eventId: string|number, finalHome: number, finalAway: number }
+ */
+router.post('/flash-odds/resolve', async (req, res) => {
+  try {
+    const { eventId, finalHome, finalAway } = req.body || {}
+    if (eventId == null || finalHome == null || finalAway == null) {
+      return res.status(400).json({ success: false, error: 'eventId, finalHome, finalAway requis' })
+    }
+    const Journal = require('../services/scrapers/LivePredictionJournal')
+    const resolved = Journal.resolve(eventId, Number(finalHome), Number(finalAway))
+    res.json({ success: true, resolved, count: resolved.length })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
+ * POST /api/flash-odds/auto-resolve — lance la résolution automatique des scores
+ * finaux (matchs terminés) via Sofascore. body: { force?: boolean }
+ */
+router.post('/flash-odds/auto-resolve', async (req, res) => {
+  try {
+    const Resolver = require('../services/scrapers/LiveResultResolver')
+    const force = !!(req.body && req.body.force)
+    const stats = await Resolver.autoResolve({ force })
+    res.json({ success: true, ...stats })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
+ * GET /api/flash-odds/results — dump brut du journal/registre (audit).
+ */
+router.get('/flash-odds/results', async (req, res) => {
+  try {
+    const Journal = require('../services/scrapers/LivePredictionJournal')
+    res.json({ success: true, journal: Journal.getJournal(), results: Journal.getResults() })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
  * GET /api/market/edge - Filter for upcoming only
  */
 router.get('/market/edge', async (req, res) => {

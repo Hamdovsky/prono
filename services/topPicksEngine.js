@@ -49,6 +49,17 @@ function getSuffSvc() {
   }
   return _suffSvc
 }
+let _underPattern = null
+function getUnderPattern() {
+  if (!_underPattern) {
+    try {
+      _underPattern = require('./UnderPatternEngine')
+    } catch {
+      _underPattern = null
+    }
+  }
+  return _underPattern
+}
 
 // ── Seuils STRICTS ──────────────────────────────────────────────
 const MIN_EDGE_PCT = 5.0 // Edge >= 5 %
@@ -223,27 +234,70 @@ function buildCandidates(m, markets = null) {
     }
   }
 
-  // ── Over 2.5 ───────────────────────────────────────────────
-  if (odds.hasOu && allow('Over 2.5')) {
-    const pOver = parseFloat(m.ou_25_prob)
-    if (pOver > 0) {
+  // ── Over/Under 2.5 ──────────────────────────────────────────
+  if (odds.hasOu) {
+    const rawPOver = parseFloat(m.ou_25_prob) || 0
+    if (rawPOver > 0) {
+      // Sous-factoriel : ajuster la proba O/U via UnderPatternEngine
+      const up = getUnderPattern()
+      let pOver = rawPOver
+      let pUnder = 100 - rawPOver
+      let underPatterns = null
+      if (up) {
+        try {
+          const res = up.detectPatterns(m, { ou25Prob: rawPOver })
+          if (res.adjustment !== 0) {
+            pOver = res.adjustedProb
+            pUnder = 100 - res.adjustedProb
+            underPatterns = res
+          }
+        } catch (e) {
+          logger.warn(`[TOP-PICKS] UnderPattern failed: ${e.message}`)
+        }
+      }
       const fair = fairProb2way(odds.over25, odds.under25)
-      const edge = fair != null ? pOver - fair : null
-      const ev = ValueBetEngine.calculateEV(pOver, odds.over25)
-      const kelly = ValueBetEngine.kellyStake(pOver, odds.over25)
-      if (ev != null && edge != null) {
-        candidates.push({
-          marketType: 'Over 2.5',
-          recommendedPick: 'Over 2.5',
-          pickKey: 'over25',
-          odds: odds.over25,
-          modelProb: pOver,
-          fairProb: fair,
-          edge,
-          ev,
-          kelly,
-          match: m,
-        })
+      // Over 2.5
+      if (allow('Over 2.5')) {
+        const edge = fair != null ? pOver - fair : null
+        const ev = ValueBetEngine.calculateEV(pOver, odds.over25)
+        const kelly = ValueBetEngine.kellyStake(pOver, odds.over25)
+        if (ev != null && edge != null) {
+          candidates.push({
+            marketType: 'Over 2.5',
+            recommendedPick: 'Over 2.5',
+            pickKey: 'over25',
+            odds: odds.over25,
+            modelProb: pOver,
+            fairProb: fair,
+            edge,
+            ev,
+            kelly,
+            match: m,
+            underPatterns: underPatterns?.signal || null,
+          })
+        }
+      }
+      // Under 2.5 (nouveau : activé quand le pattern sous-factoriel est détecté)
+      if (allow('Under 2.5') && underPatterns && underPatterns.adjustment < 0) {
+        const fairUnder = fair != null ? 100 - fair : null
+        const edgeUnder = fairUnder != null ? pUnder - fairUnder : null
+        const evUnder = ValueBetEngine.calculateEV(pUnder, odds.under25)
+        const kellyUnder = ValueBetEngine.kellyStake(pUnder, odds.under25)
+        if (evUnder != null && edgeUnder != null) {
+          candidates.push({
+            marketType: 'Under 2.5',
+            recommendedPick: 'Under 2.5',
+            pickKey: 'under25',
+            odds: odds.under25,
+            modelProb: pUnder,
+            fairProb: fairUnder,
+            edge: edgeUnder,
+            ev: evUnder,
+            kelly: kellyUnder,
+            match: m,
+            underPatterns: underPatterns.signal,
+          })
+        }
       }
     }
   }
@@ -340,6 +394,7 @@ function buildReasoning(m, candidate, extras) {
   if (c && c.adjustments && c.adjustments.length > 0) parts.push(`Confluence ${c.adjustments.length} ajust.`)
   else parts.push('Confluence ✓')
   if (extras.margin >= 8) parts.push('Signal stable')
+  if (candidate.underPatterns) parts.push(`Sous-factoriel: ${candidate.underPatterns}`)
   return parts.join(' • ')
 }
 
@@ -477,6 +532,7 @@ async function selectTopPicksOfDay({ limit = DEFAULT_LIMIT, days = 14, markets =
     blueBand: !!(candidate.blueBand),
     dataSufficiencyScore: candidate.dataSufficiencyScore || 0,
     dataSufficiencyLevel: candidate.dataSufficiencyLevel || 'low',
+    underPatterns: candidate.underPatterns || null,
   }))
 
   return {

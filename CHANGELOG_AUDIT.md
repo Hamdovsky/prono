@@ -4,6 +4,59 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Moteur de patterns SOUS-FACTORIELS (UnderPatternEngine) — 2026-09-02
+
+### Objectif
+Détecter les matchs où le terrain, l'arbitrage, le contexte ou le style de jeu
+favorisent le UNDER (peu de buts), conformément à l'intuition de l'utilisateur
+(« le terrain quand il n'est pas bon n'aide pas à marquer » + « l'arbitrage
+siffle et ne laisse pas l'avantage » → under).
+
+### Constat (audit O/U)
+- Réussite O/U catastrophique : **24.5 %** — prédictions modèle **INVERSÉES**
+  (Over correct 0/376, UNDER correct 122/0). Le modèle ne prédit jamais UNDER
+  et surestime massivement les buts.
+- Données arbitre/terrain/météo **absentes** dans la DB → on s'appuie sur des
+  signaux proxy : taux de under par ligue, profils défensifs d'équipes,
+  xG faible, signal cotes marché.
+
+### Modifications
+- **`services/UnderPatternEngine.js`** (NOUVEAU) : détecte 5 patterns sous-factoriels
+  - `league_under` : ligues à taux de under historique > 55 % (ex. Persian Gulf 77 %,
+    Primera B 78 %, Ligue 3 74 %), force 0–1 par taux/20
+  - `team_defensive` : équipes avec moy. buts/équipe < 2.2, force 0–1
+  - `derby` : derby / match de rivalité (regex), poids 15
+  - `low_xg` : xG combiné < 2.2, force 0–1
+  - `odds_signal` : cote Under < cote Over = le marché dit under
+  - Score pondéré (poids total 100), ajustement **max -20 pts** (ne jamais
+    inverser complètement), proba finale bornée 10–90 %. Caches ligue (TTL 6 h)
+    et équipe (TTL 12 h) en mémoire pour éviter les requêtes répétées.
+- **`services/topPicksEngine.js`**
+  - `buildCandidates` : la proba O/U (`ou_25_prob`) est maintenant ajustée par
+    `detectPatterns` AVANT calcul d'edge/EV/Kelly.
+  - Nouveau marché **`Under 2.5`** candidate : émis uniquement quand un pattern
+    sous-factoriel est détecté (ajustement < 0), avec son propre EV/edge/Kelly.
+  - Expose `underPatterns` (signal) dans le payload et le reasoningSummary.
+
+### Résultats (tests manuels DB réelle)
+- Persian Gulf (77 % under) : 65 % → **45 %** (adj -20) — Over candidat rejeté
+- Primera B (78 % under) : 60 % → **40 %** (adj -20)
+- Ligue 3 (74 % under) : 58 % → **39 %** (adj -19)
+- Premier League (aucun pattern) : aucun ajustement
+- Serie B + xG faible : détection combinée `league_under+low_xg`
+
+### Vérification
+- **701/701 tests Jest passent** (68 suites) — non-régression totale
+- `topPicksEngine.test.js` : 9/9 OK
+- ESLint : 0 erreur
+
+### Reste à faire
+- Commit local (non pushé)
+- Intégrer éventuellement l'ajustement dans la chaîne Python/prematch si les
+  prédictions O/U y transitent (traitement en aval des probas).
+
+---
+
 ## Activation marchés BTTS / Double chance / 1re mi-temps en LIVE (2026-08-31)
 
 ### Objectif

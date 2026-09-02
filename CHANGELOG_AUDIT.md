@@ -3402,6 +3402,80 @@ flex de l'en-tête → les largeurs en `%` du corps et de l'en-tête ne correspo
 
 ---
 
+## Amélioration précision pronostics pre-match (2026-09-02)
+
+### Objectif
+Améliorer la fiabilité des pronostics pour les matchs à venir (pre-match), après
+le constat que les picks DDC "Stables" affichaient des EV/edge aberrants
+(EV ≥ +200 %) et que les picks 1X2 étaient systématiquement éliminés.
+
+### Problèmes racines identifiés (données réelles)
+1. **Courbe 1X2 dégénérée** : la calibration marché 1X2 ne contient que 3
+   échantillons propres post-gel (vs 1825 pour la DC). `calibrate1x2(60/20/20)`
+   écrasait tout à `33.33/33.33/33.33` → probas < `PROB_MIN=55` → **tous les
+   picks 1X2 pre-match supprimés**.
+2. **Aucune garde d'écart modèle↔marché** dans `selectStablePicks` : un pick
+   DDC "X2" à cote combinée 5.09 annoncé à 66.4 % passait avec un EV de +238 %
+   (signal presque toujours une erreur de modèle ou une cote obsolète).
+3. **Bug DB de suffisance de données** : `dataSufficiencyService` interrogeait
+   `historical_matches.startTimestamp` (colonne inexistante) → erreur
+   "no such column" à chaque appel, spam de logs et `homeCount/awayCount`
+   figés à 0 (garde Blue Band faussée).
+
+### Modifications
+- **`services/calibrator.js`** : `calibrate1x2` ne retient désormais la
+  calibration que si la courbe 1X2 a ≥ `MIN_MARKET_SAMPLES` (40) échantillons.
+  Sans courbe → identité pure ; courbe avec échantillon trop faible → identité
+  douce (mix 85/15 vers équiprobable) qui préserve la hiérarchie du modèle au
+  lieu de l'écraser à 33 %.
+- **`services/topPicksEngine.js`** : ajout dans `selectStablePicks` de la garde
+  `MAX_MODEL_MARKET_GAP` (25 pts) entre proba calibrée et proba de-vigée du
+  marché — alignée sur `noBetOverconfident` de `selectTopPicksOfDay`.
+- **`services/dataSufficiencyService.js`** : correction de la requête
+  `historical_matches` (colonne `timestamp` ISO au lieu de `startTimestamp`
+  inexistante) — le cache de suffisance fonctionne enfin.
+
+### Résultat (mesuré)
+- Picks DDC "Stables" réalistes : cotes 1.85-2.01, EV +22 à +33 %
+  (avant : EV +238 % illusoires). 16 analysés / 5 sélectionnés.
+- Plus d'erreur "no such column" dans les logs.
+- `calibrate1x2(60/20/20)` → `56/22/22` (hiérarchie préservée, somme 100).
+
+### Vérifié
+- Tests Jest : **701/701 passés** (68 suites), dont `topPicksEngine.test.js`
+  et `calibrator.test.js` (le test `modelProb=60` en environnement sans courbe
+  conserve l'identité pure).
+- Lançage réel du moteur : sélection DDC Stables cohérente avec le marché.
+
+---
+
+## 2026-09-01 — Diagnostic lint : les 1185 « erreurs » étaient du bruit de worktree
+
+### Contexte
+`npx eslint . --fix` ne corrigeait rien (2559 problèmes dont 1185 erreurs `prefer-const`/`no-var`) alors que `--fix` fonctionnait sur fichier isolé.
+
+### Cause racine
+Les erreurs provenaient à **100 %** de `\\.kilo\\worktrees\\*` (artefacts/copies de travail git) qui **échappent aux `ignores`** de la flat config ESLint 9 (les globs relatifs ne couvrent pas le dossier `.kilo`). Ces fichiers ne sont pas du code source réel.
+
+### Vérifications
+- `eslint .kilo --no-fix` → **1185 erreurs** (exactement le total initial) + 526 warnings
+- `eslint services core routes src scripts app.js server.js` → **0 erreur**, 760 warnings
+- `eslint --fix` sur mini-fichier isolé → `var`→`const`, `let` conservé si réassigné (**le fix fonctionne**)
+
+### Correctif
+- **`eslint.config.js`** : ajout de `.kilo/` et `.git/` au bloc `ignores`
+
+### Résultats après correctif
+- `eslint . --no-fix` → **0 erreur, 848 warnings** (775 `no-unused-vars`, 4 `react-hooks/exhaustive-deps`, reste divers)
+
+### Conclusion
+Le code source réel est **exempt d'erreurs de lint** — les `prefer-const`/`no-var` étaient du bruit d'worktree, pas du vrai code. Les 848 warnings restants (`no-unused-vars` surtout) ne sont **pas auto-corrigeables** (requièrent suppression/sous-lignage manuel). Aucune correction auto-fixable réelle à appliquer sur le code source.
+
+### Non-régression
+Jest : 68 suites / 701 tests — ✅ tous verts
+
+---
+
 ## Section LIVE NOW — matchs en direct avec stats temps réel (2026-08-31)
 
 ### Objectif

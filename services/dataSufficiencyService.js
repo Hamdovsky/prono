@@ -144,10 +144,15 @@ async function getFastSufficiencyScore(homeTeam, awayTeam, options = {}) {
   let homeCount = 0, awayCount = 0
   try {
     const db = require('../core/database')
-    const cutoff = Date.now() - 365 * 24 * 3600 * 1000
+    const cutoff = new Date(Date.now() - 365 * 24 * 3600 * 1000).toISOString()
+    // Audit précision pre-match (2026-09-02) : historical_matches ne possède
+    // PAS de colonne startTimestamp — seule `timestamp` (ISO string). La requête
+    // précédente interrogeait startTimestamp -> erreur "no such column" à chaque
+    // appel, le cache n'existait jamais et homeCount/awayCount restaient à 0
+    // (sous-estimation de la suffisance de données, garde Blue Band faussée).
     const rows = db.prepare(`
       SELECT "homeTeam", "awayTeam" FROM historical_matches
-      WHERE "startTimestamp" >= ? AND (
+      WHERE "timestamp" >= ? AND (
         ("homeTeam" = ? AND "awayTeam" = ?) OR
         ("homeTeam" = ? AND "awayTeam" = ?) OR
         ("homeTeam" = ? AND "awayTeam" = ?) OR

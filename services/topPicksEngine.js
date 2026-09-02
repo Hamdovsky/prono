@@ -571,6 +571,15 @@ async function selectStablePicks({ limit = DEFAULT_LIMIT, days = 14 } = {}) {
         rejected.filters++
         continue
       }
+      // Garde de cohérence modèle↔marché (audit précision 2026-09-02) :
+      // un écart > MAX_MODEL_MARKET_GAP entre la proba calibrée et la proba
+      // de-vigée du marché signale presque toujours une erreur de modèle ou
+      // une cote obsolète (ex. DC X2 @ 5.09 annoncé à 66 %), pas un vrai edge.
+      // Sans cette garde, ces divergences produisent des EV/edge illusoires.
+      if (combo.fairProb != null && calProb - combo.fairProb > MAX_MODEL_MARKET_GAP) {
+        rejected.filters++
+        continue
+      }
       const ev = (calProb / 100) * combinedOdds - 1
       if (ev < STABLES_MIN_EV) {
         rejected.filters++

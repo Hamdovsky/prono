@@ -20,7 +20,7 @@ const CACHE_TTL = 10 * 60 * 1000
 const MAX_RETRIES = 2
 const RETRY_BASE_DELAY = 2000
 const PROCESS_TIMEOUT = 30000
-const CIRCUIT_BREAKER_THRESHOLD = 15
+const CIRCUIT_BREAKER_THRESHOLD = 100
 const CIRCUIT_BREAKER_TIMEOUT = 30000
 
 const BASE_DIR = path.resolve(__dirname, '..', '..')

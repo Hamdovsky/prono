@@ -189,13 +189,46 @@ function calibrateProb(prob, market) {
   return Math.min(Math.max(band.rate, 1), MAX_CALIBRATED)
 }
 
+// Échantillon minimal fiable pour OSR un marché (sinon identité douce) :
+// avec l'échantillon dégénéré (3 cas 1X2), l'écrasement à 33 % détruit
+// TOUS les picks 1X2 (proba < PROB_MIN=55). On préfère préserver les probas
+// du modèle plutôt qu'appliquer une base sans données.
+const MIN_MARKET_SAMPLES = 40
+
 /**
  * Calibre un triplet 1X2 complet (chacune des trois issues puis renormalisation).
+ *
+ * Garde "échantillon faible" (audit précision pre-match 2026-09-02) : si la
+ * courbe 1X2 a < MIN_MARKET_SAMPLES échantillons (actuellement 3), on ne
+ * l'applique PAS — on retourne une identité mixte qui préserve la hiérarchie
+ * du modèle tout en ramenant légèrement vers le marché. Sans cette garde, tout
+ * pick 50-70 % est écrasé à ~33 % et rejeté par le filtre PROB_MIN.
  */
 function calibrate1x2({ p1, px, p2 }) {
-  const c1 = calibrateProb(p1, '1X2')
-  const cx = calibrateProb(px, '1X2')
-  const c2 = calibrateProb(p2, '1X2')
+  const a = Number(p1) || 0
+  const b = Number(px) || 0
+  const c = Number(p2) || 0
+  if (a + b + c <= 0) return { p1: 33.3, px: 33.3, p2: 33.3 }
+  const curve = getCurve()['1X2']
+  // Pas de courbe 1X2 du tout (environnement sans données réelles) → identité
+  // pure : on préserve exactement les probas du modèle.
+  if (!curve) return { p1: +(a).toFixed(2), px: +(b).toFixed(2), p2: +(c).toFixed(2) }
+  // Courbe présente mais échantillon insuffisant → identité douce : on garde la
+  // répartition du modèle, mix relaxé 85/15 vers l'équiprobable (évite d'écraser
+  // TOUT pick 50-70 % à ~33 %, source de l'élimination massive des 1X2 pre-match).
+  if (curve.n < MIN_MARKET_SAMPLES) {
+    const mix = (v) => v * 0.85 + 33.333 * 0.15
+    const m1 = mix(a)
+    const mb = mix(b)
+    const m2 = mix(c)
+    const ms = m1 + mb + m2
+    if (ms <= 0) return { p1: 33.3, px: 33.3, p2: 33.3 }
+    const f = 100 / ms
+    return { p1: +(m1 * f).toFixed(2), px: +(mb * f).toFixed(2), p2: +(m2 * f).toFixed(2) }
+  }
+  const c1 = calibrateProb(a, '1X2')
+  const cx = calibrateProb(b, '1X2')
+  const c2 = calibrateProb(c, '1X2')
   const sum = c1 + cx + c2
   if (sum <= 0) return { p1: 33.3, px: 33.3, p2: 33.3 }
   const f = 100 / sum
@@ -207,5 +240,5 @@ module.exports = {
   getCurve,
   calibrateProb,
   calibrate1x2,
-  _internal: { PICK_MARKET, MIN_BAND_SAMPLES, MAX_CALIBRATED, pavaIsotonic },
+  _internal: { PICK_MARKET, MIN_BAND_SAMPLES, MAX_CALIBRATED, MIN_MARKET_SAMPLES, pavaIsotonic },
 }

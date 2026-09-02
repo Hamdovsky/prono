@@ -5,6 +5,8 @@
  * Role: Scores live + minute + équipes
  * Ne fournit PAS de cotes (utiliser BetExplorer/Flashscore pour ça)
  *
+ * Stability: retry exponential backoff, cache borné, timeout, error handling complet
+ *
  * Usage:
  *   const ls = require('./LiveScoreScraper')
  *   const matches = await ls.getLiveMatches()
@@ -13,6 +15,11 @@ const axios = require('axios')
 
 const LIVESCORE_BASE = 'https://prod-public-api.livescore.com/v1/api/app'
 const CACHE_TTL = 30000
+const MAX_CACHE = 500
+const MAX_RETRIES = 3
+const RETRY_BASE_DELAY = 1000
+const REQUEST_TIMEOUT = 10000
+
 let cache = { ts: 0, data: [] }
 
 const HEADERS = {
@@ -65,38 +72,97 @@ function mapEvent(event, stage) {
   }
 }
 
-async function fetchDate(dateStr) {
+async function fetchDate(dateStr, retries = MAX_RETRIES) {
   const ymd = dateStr.replace(/-/g, '')
   const url = `${LIVESCORE_BASE}/date/soccer/${ymd}/0?MD=1&countryCode=US&locale=en`
-  const { data } = await axios.get(url, { headers: HEADERS, timeout: 15000 })
-  const out = []
-  for (const stage of data?.Stages || []) {
-    for (const event of stage?.Events || []) {
-      const mapped = mapEvent(event, stage)
-      if (mapped) out.push(mapped)
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const { data } = await axios.get(url, {
+        headers: HEADERS,
+        timeout: REQUEST_TIMEOUT,
+      })
+
+      const out = []
+      for (const stage of data?.Stages || []) {
+        for (const event of stage?.Events || []) {
+          try {
+            const mapped = mapEvent(event, stage)
+            if (mapped) out.push(mapped)
+          } catch (mapErr) {
+            // Skip malformed events
+          }
+        }
+      }
+      return out
+
+    } catch (err) {
+      const isLastAttempt = attempt >= retries
+      const isNetworkError = err.code === 'ECONNABORTED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT'
+      const isServerError = err.response?.status >= 500
+
+      if (isLastAttempt || (!isNetworkError && !isServerError)) {
+        console.error(`[LiveScoreScraper] Failed after ${attempt + 1} attempts: ${err.message}`)
+        return []
+      }
+
+      const delay = RETRY_BASE_DELAY * Math.pow(2, attempt)
+      console.warn(`[LiveScoreScraper] Retry ${attempt + 1}/${retries} in ${delay}ms: ${err.message}`)
+      await new Promise((r) => setTimeout(r, delay))
     }
   }
-  return out
+
+  return []
+}
+
+function trimCache() {
+  if (cache.data.length > MAX_CACHE) {
+    cache.data = cache.data.slice(-MAX_CACHE)
+  }
 }
 
 async function getLiveMatches(dateStr) {
   const now = Date.now()
+
   if (cache.data.length > 0 && now - cache.ts < CACHE_TTL) {
     return cache.data
   }
+
   const date = dateStr || new Date().toISOString().slice(0, 10)
+
   let matches = await fetchDate(date)
+
   if (matches.length === 0) {
     const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
     matches = await fetchDate(tomorrow)
   }
+
   cache = { ts: now, data: matches }
+  trimCache()
+
   return matches
 }
 
 async function getLiveOnly() {
-  const all = await getLiveMatches()
-  return all.filter((m) => m.isLive && m.status !== 'finished')
+  try {
+    const all = await getLiveMatches()
+    return all.filter((m) => m.isLive && m.status !== 'finished')
+  } catch (err) {
+    console.error('[LiveScoreScraper] getLiveOnly error:', err.message)
+    return []
+  }
 }
 
-module.exports = { getLiveMatches, getLiveOnly, fetchDate }
+function clearCache() {
+  cache = { ts: 0, data: [] }
+}
+
+function getCacheStats() {
+  return {
+    size: cache.data.length,
+    age: Date.now() - cache.ts,
+    ttl: CACHE_TTL,
+  }
+}
+
+module.exports = { getLiveMatches, getLiveOnly, clearCache, getCacheStats }

@@ -1,25 +1,17 @@
 /**
  * FootballDataScraper — Scrapes CSV odds from football-data.co.uk
  *
- * 100% gratuit, pas de scraping, juste des fichiers CSV publics.
- * Couverture: ~25 ligues (Angleterre, Europe, Monde)
+ * Optimisé pour 8GB RAM + réseau non surchargé:
+ * - Lazy scraping: skip HTTP si cache valide
+ * - Prune auto: supprime données > 7 jours
+ * - Cache compression gzip
  *
- * Stability features:
- * - Retry exponential backoff (3 attempts)
- * - Cache borné (20 leagues, LRU eviction)
- * - Timeout per request (10s)
- * - Error handling complet
- * - Disk cache persistence
- *
- * Usage:
- *   const fd = require('./FootballDataScraper')
- *   const odds = await fd.getOddsForLeague('E0')  // Premier League
- *   const match = await fd.getOddsForMatch('Arsenal', 'Liverpool', 'E0')
+ * Stability: retry exponential backoff, cache borné, timeout
  */
-
 const https = require('https')
 const fs = require('fs')
 const path = require('path')
+const zlib = require('zlib')
 
 const BASE_DIR = path.resolve(__dirname, '..', '..')
 const CACHE_DIR = path.join(BASE_DIR, 'data', 'football_data')
@@ -28,38 +20,19 @@ const MAX_CACHE = 30
 const MAX_RETRIES = 3
 const RETRY_BASE_DELAY = 1000
 const REQUEST_TIMEOUT = 10000
+const PRUNE_DAYS = 7
 
 const LEAGUE_CODES = {
   E0: 'england/premier-league',
   E1: 'england/championship',
   E2: 'england/league-one',
-  E3: 'england/league-two',
-  EC: 'england/national-league',
   D1: 'germany/bundesliga',
-  D2: 'germany/2-bundesliga',
   I1: 'italy/serie-a',
-  I2: 'italy/serie-b',
   SP1: 'spain/la-liga',
-  SP2: 'spain/segunda-division',
   F1: 'france/ligue-1',
-  F2: 'france/ligue-2',
   N1: 'netherlands/eredivisie',
   P1: 'portugal/primeira-liga',
-  T1: 'turkey/super-lig',
-  G1: 'greece/super-league',
-  R1: 'russia/premier-liga',
-  BEL1: 'belgium/jupiler-pro-league',
-  SCO0: 'scotland/premiership',
-  SCO1: 'scotland/championship',
-  A1: 'austria/bundesliga',
-  CH1: 'switzerland/super-league',
-  UKR1: 'ukraine/premier-liga',
-  CZE1: 'czech-republic/1-liga',
-  RO1: 'romania/liga-i',
   B1: 'brazil/serie-a',
-  B2: 'brazil/serie-b',
-  ARA: 'argentina/primera-division',
-  MLS: 'usa/us-major-league-soccer',
 }
 
 const CSV_URLS = {
@@ -75,7 +48,7 @@ const CSV_URLS = {
   B1: 'https://www.football-data.co.uk/mmz4281/2627/B1.csv',
 }
 
-// ─── Cache with LRU ───────────────────────────────────────────────────────────
+// ─── Compressed Cache ───────────────────────────────────────────────────────────
 const cache = new Map()
 
 function cacheGet(key) {
@@ -87,7 +60,13 @@ function cacheGet(key) {
   }
   cache.delete(key)
   cache.set(key, entry)
-  return entry.data
+  try {
+    const decompressed = zlib.gunzipSync(entry.data)
+    return JSON.parse(decompressed.toString('utf8'))
+  } catch (e) {
+    cache.delete(key)
+    return null
+  }
 }
 
 function cacheSet(key, data) {
@@ -95,7 +74,12 @@ function cacheSet(key, data) {
     const firstKey = cache.keys().next().value
     if (firstKey !== undefined) cache.delete(firstKey)
   }
-  cache.set(key, { data, ts: Date.now() })
+  try {
+    const compressed = zlib.gzipSync(JSON.stringify(data))
+    cache.set(key, { data: compressed, ts: Date.now() })
+  } catch (e) {
+    console.warn(`[FootballData] Cache compress error: ${e.message}`)
+  }
 }
 
 function ensureCacheDir() {
@@ -106,14 +90,6 @@ function ensureCacheDir() {
   } catch (err) {
     console.error(`[FootballData] Cannot create cache dir: ${err.message}`)
   }
-}
-
-function parseDate(dateStr) {
-  const parts = dateStr.split('/')
-  if (parts.length !== 3) return null
-  const [day, mon, year] = parts
-  const fullYear = year.length === 2 ? '20' + year : year
-  return new Date(`${fullYear}-${mon}-${day}`)
 }
 
 function parseCsv(text) {
@@ -135,19 +111,24 @@ function parseCsv(text) {
 
 function fetchCsvWithRetry(url, leagueCode) {
   return new Promise((resolve, reject) => {
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let attempt = 0
+
+    const tryFetch = () => {
       const req = https.get(
         url,
         { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: REQUEST_TIMEOUT },
         (res) => {
           if (res.statusCode !== 200) {
-            if (attempt >= MAX_RETRIES) {
-              return reject(new Error(`HTTP ${res.statusCode} after ${attempt + 1} attempts`))
+            attempt++
+            if (attempt <= MAX_RETRIES) {
+              const delay = RETRY_BASE_DELAY * Math.pow(2, attempt)
+              console.warn(`[FootballData] Retry ${attempt}/${MAX_RETRIES} for ${leagueCode} in ${delay}ms`)
+              setTimeout(() => req.destroy(), 100)
+              setTimeout(tryFetch, delay)
+            } else {
+              reject(new Error(`HTTP ${res.statusCode} after ${MAX_RETRIES} attempts`))
             }
-            const delay = RETRY_BASE_DELAY * Math.pow(2, attempt)
-            console.warn(`[FootballData] Retry ${attempt + 1}/${MAX_RETRIES} for ${leagueCode} in ${delay}ms`)
-            setTimeout(() => req.destroy(), 100)
-            continue
+            return
           }
 
           let data = ''
@@ -168,35 +149,45 @@ function fetchCsvWithRetry(url, leagueCode) {
       )
 
       req.on('error', (err) => {
-        if (attempt >= MAX_RETRIES) {
-          reject(err)
-        } else {
+        attempt++
+        if (attempt <= MAX_RETRIES) {
           const delay = RETRY_BASE_DELAY * Math.pow(2, attempt)
-          console.warn(`[FootballData] Retry ${attempt + 1}/${MAX_RETRIES} for ${leagueCode} in ${delay}ms: ${err.message}`)
-          setTimeout(() => req.destroy(), 100)
+          console.warn(`[FootballData] Retry ${attempt}/${MAX_RETRIES} for ${leagueCode} in ${delay}ms`)
+          setTimeout(tryFetch, delay)
+        } else {
+          reject(err)
         }
       })
 
       req.on('timeout', () => {
         req.destroy()
-        if (attempt >= MAX_RETRIES) {
+        attempt++
+        if (attempt <= MAX_RETRIES) {
+          setTimeout(tryFetch, RETRY_BASE_DELAY * Math.pow(2, attempt))
+        } else {
           reject(new Error('Timeout'))
         }
       })
-
-      break
     }
+
+    tryFetch()
   })
 }
 
-async function getOddsForLeague(leagueCode) {
+async function getOddsForLeague(leagueCode, forceRefresh = false) {
   const url = CSV_URLS[leagueCode]
   if (!url) return []
 
-  const cached = cacheGet(leagueCode)
-  if (cached) return cached
+  if (!forceRefresh) {
+    const cached = cacheGet(leagueCode)
+    if (cached) {
+      console.log(`[FootballData] Cache HIT for ${leagueCode} (${cached.length} rows)`)
+      return cached
+    }
+  }
 
   try {
+    console.log(`[FootballData] Cache MISS — fetching ${leagueCode} from network`)
     return await fetchCsvWithRetry(url, leagueCode)
   } catch (e) {
     console.error(`[FootballData] Failed to fetch ${leagueCode}: ${e.message}`)
@@ -216,37 +207,20 @@ async function getOddsForMatch(homeTeam, awayTeam, leagueCode) {
       const rHome = (r.HomeTeam || '').toLowerCase()
       const rAway = (r.AwayTeam || '').toLowerCase()
       return (
-        rHome.includes(homeL) ||
-        homeL.includes(rHome)
+        rHome.includes(homeL) || homeL.includes(rHome)
       ) && (
-        rAway.includes(awayL) ||
-        awayL.includes(rAway)
+        rAway.includes(awayL) || awayL.includes(rAway)
       )
     })
 
     if (!match) return null
 
-    const avgH = parseFloat(match.AvgH) || null
-    const avgD = parseFloat(match.AvgD) || null
-    const avgA = parseFloat(match.AvgA) || null
-    const avgOver = parseFloat(match['Avg>2.5']) || null
-    const avgUnder = parseFloat(match['Avg<2.5']) || null
-    const b365H = parseFloat(match.B365H) || null
-    const b365A = parseFloat(match.B365A) || null
-
     return {
-      home: avgH,
-      draw: avgD,
-      away: avgA,
-      over25: avgOver,
-      under25: avgUnder,
-      bookmaker: 'Avg (multiple)',
-      b365_home: b365H,
-      b365_away: b365A,
-      date: match.Date,
-      homeTeam: match.HomeTeam,
-      awayTeam: match.AwayTeam,
-      ftScore: `${match.FTHG}-${match.FTAG}`,
+      home: parseFloat(match.AvgH) || null,
+      draw: parseFloat(match.AvgD) || null,
+      away: parseFloat(match.AvgA) || null,
+      over25: parseFloat(match['Avg>2.5']) || null,
+      under25: parseFloat(match['Avg<2.5']) || null,
       source: 'football-data.co.uk',
     }
   } catch (e) {
@@ -255,20 +229,29 @@ async function getOddsForMatch(homeTeam, awayTeam, leagueCode) {
   }
 }
 
-async function getAllLeaguesOdds() {
-  const results = {}
-  for (const code of Object.keys(CSV_URLS)) {
-    try {
-      const data = await getOddsForLeague(code)
-      if (data && data.length > 0) {
-        results[code] = data
-        console.log(`[FootballData] ${code}: ${data.length} matches`)
+function pruneOldCacheFiles() {
+  const cutoff = Date.now() - PRUNE_DAYS * 24 * 60 * 60 * 1000
+  let pruned = 0
+
+  try {
+    if (!fs.existsSync(CACHE_DIR)) return 0
+    const files = fs.readdirSync(CACHE_DIR)
+
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue
+      const filePath = path.join(CACHE_DIR, file)
+      const stat = fs.statSync(filePath)
+      if (stat.mtimeMs < cutoff) {
+        fs.unlinkSync(filePath)
+        pruned++
+        console.log(`[FootballData] Pruned old file: ${file}`)
       }
-    } catch (e) {
-      console.warn(`[FootballData] ${code} failed: ${e.message}`)
     }
+  } catch (err) {
+    console.warn(`[FootballData] Prune error: ${err.message}`)
   }
-  return results
+
+  return pruned
 }
 
 function getLeagueName(code) {
@@ -295,6 +278,17 @@ function getCacheStats() {
   }
 }
 
+function logHealth() {
+  const mem = process.memoryUsage()
+  const stats = getCacheStats()
+  console.log(`[HEALTH] FootballData | RSS: ${Math.round(mem.rss / 1024 / 1024)}MB | Cache: ${stats.size}/${stats.max}`)
+  return {
+    rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+    heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
+    cache: stats,
+  }
+}
+
 function clearCache() {
   cache.clear()
 }
@@ -302,9 +296,10 @@ function clearCache() {
 module.exports = {
   getOddsForLeague,
   getOddsForMatch,
-  getAllLeaguesOdds,
   getLeagueName,
   getCacheStats,
+  logHealth,
+  pruneOldCacheFiles,
   clearCache,
   LEAGUE_CODES,
   CSV_URLS,

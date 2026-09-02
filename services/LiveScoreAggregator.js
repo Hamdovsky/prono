@@ -1,17 +1,11 @@
 /**
  * LiveScoreAggregator — Orchestrateur multi-source pour matchs live.
  *
- * Role: Combine scores live (Livescore) + cotes (BetExplorer/Flashscore)
- * Strategy:
- *   1. Livescore → matchs live
- *   2. BetExplorer → cotes (priorité 1)
- *   3. FootballData → cotes (fallback, match historique)
- *
- * Stability:
+ * Optimisé pour 8GB RAM + réseau non surchargé:
  * - Promise.allSettled pour résultats partiels
- * - Circuit breaker awareness
- * - Cache 30s
- * - Logging structuré
+ * - Batch concurrency limité (3)
+ * - Delay 3s entre batches
+ * - Health check avec logging RAM
  *
  * Usage:
  *   const agg = require('./LiveScoreAggregator')
@@ -23,8 +17,8 @@ const FootballDataScraper = require('./scrapers/FootballDataScraper')
 
 const CACHE_TTL = 30000
 const MAX_LIVE_MATCHES = 20
-const MAX_ODDS_CONCURRENT = 5
-const ODDS_DELAY = 300
+const MAX_ODDS_CONCURRENT = 3
+const ODDS_DELAY = 3000
 
 let cache = { ts: 0, matches: [] }
 
@@ -39,7 +33,7 @@ async function getMatchOdds(homeTeam, awayTeam, league) {
     console.warn(`[Aggregator] BetExplorer failed for ${homeTeam} vs ${awayTeam}: ${err.message}`)
   }
 
-  // Priority 2: FootballData (match historique)
+  // Priority 2: FootballData
   try {
     const leagueCode = findLeagueCode(league)
     if (leagueCode) {
@@ -60,14 +54,16 @@ function findLeagueCode(leagueName) {
   const lower = leagueName.toLowerCase()
 
   const map = {
-    premier: 'E0', championship: 'E1', league one: 'E2', league two: 'E3',
-    bundesliga: 'D1', '2. bundesliga': 'D2',
-    serie: 'I1', 'serie b': 'I2',
-    'la liga': 'SP1', 'segunda': 'SP2',
-    'ligue 1': 'F1', 'ligue 2': 'F2',
+    premier: 'E0',
+    championship: 'E1',
+    bundesliga: 'D1',
+    'serie a': 'I1',
+    'la liga': 'SP1',
+    'ligue 1': 'F1',
     eredivisie: 'N1',
     primeira: 'P1',
-    'serie a': 'B1', 'brasileirao': 'B1',
+    'serie a': 'B1',
+    brasileirao: 'B1',
   }
 
   for (const [key, code] of Object.entries(map)) {
@@ -97,7 +93,7 @@ async function enrichWithOdds(matches) {
         results.push(result.value)
       } else {
         const m = batch[i]
-        console.warn(`[Aggregator] Match ${m.homeTeam} vs ${m.awayTeam} failed: ${result.reason?.message}`)
+        console.warn(`[Aggregator] ${m.homeTeam} vs ${m.awayTeam} failed: ${result.reason?.message}`)
         results.push({ ...m, odds: null, oddsSource: null })
       }
     })
@@ -130,7 +126,7 @@ async function getLiveMatchesWithOdds() {
     return enriched
 
   } catch (err) {
-    console.error('[LiveScoreAggregator] getLiveMatchesWithOdds error:', err.message)
+    console.error('[LiveScoreAggregator] Error:', err.message)
     return []
   }
 }
@@ -156,16 +152,32 @@ async function getAllMatchesWithOdds() {
     return enriched
 
   } catch (err) {
-    console.error('[LiveScoreAggregator] getAllMatchesWithOdds error:', err.message)
+    console.error('[LiveScoreAggregator] Error:', err.message)
     return []
   }
 }
 
-function getHealthStatus() {
+function logHealth() {
+  const mem = process.memoryUsage()
+  console.log(`[HEALTH] LiveScoreAggregator | RSS: ${Math.round(mem.rss / 1024 / 1024)}MB | Heap: ${Math.round(mem.heapUsed / 1024 / 1024)}MB | Cache: ${cache.matches.length}`)
   return {
+    rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+    heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
+    cacheSize: cache.matches.length,
+  }
+}
+
+function getHealthStatus() {
+  const mem = process.memoryUsage()
+  return {
+    memory: {
+      rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
+    },
     cache: {
       size: cache.matches.length,
-      age: Date.now() - cache.ts,
+      age: cache.ts ? Date.now() - cache.ts : 0,
       ttl: CACHE_TTL,
     },
     sources: {
@@ -173,7 +185,6 @@ function getHealthStatus() {
       betexplorer: BetExplorerScraper.getCacheStats ? BetExplorerScraper.getCacheStats() : null,
       footballdata: FootballDataScraper.getCacheStats ? FootballDataScraper.getCacheStats() : null,
     },
-    circuitBreaker: BetExplorerScraper.getCacheStats ? BetExplorerScraper.getCacheStats().circuitState : 'unknown',
   }
 }
 
@@ -185,5 +196,6 @@ module.exports = {
   getLiveMatchesWithOdds,
   getAllMatchesWithOdds,
   getHealthStatus,
+  logHealth,
   clearCache,
 }

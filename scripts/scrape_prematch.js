@@ -1,15 +1,15 @@
 /**
- * scrape_prematch.js — Scraping des matchs pre-match + cotes BetExplorer.
+ * scrape_prematch.js — Scraping des matchs pre-match + cotes.
  *
- * Stability:
- * - Delay 2s entre lots (évite rate limit)
- * - Retry 2x par match
- * - Partial save (sauvegarde après chaque lot)
- * - Graceful error handling
+ * Optimisé pour 8GB RAM + réseau non surchargé:
+ * - Batch restart: process.exit() entre ligues (cron relancera)
+ * - Prune auto: supprime données > 7 jours
+ * - Progress + ETA en minutes
+ * - Delay 3s entre lots (économe CPU)
+ * - Partial save après chaque lot
  *
  * Usage:
  *   node scripts/scrape_prematch.js --days 3 --limit 30
- *   node scripts/scrape_prematch.js --resume  (reprend où ça s'est arrêté)
  */
 
 const fs = require('fs')
@@ -21,12 +21,40 @@ const BetExplorerScraper = require('../services/scrapers/ScrapingBypassScraper')
 const BASE_DIR = path.resolve(__dirname, '..', '..')
 const OUTPUT_FILE = path.join(BASE_DIR, 'data', 'today_matches.json')
 const HISTORY_FILE = path.join(BASE_DIR, 'data', 'odds_history.jsonl')
+const PRUNE_DAYS = 7
 
-const MAX_BATCH_SIZE = 5
-const BATCH_DELAY = 2000
+const MAX_BATCH_SIZE = 3
+const BATCH_DELAY = 3000
 const MAX_RETRIES = 2
 const RETRY_DELAY = 1500
+const MAX_DURATION = 30 * 60 * 1000
 
+let startTime = Date.now()
+
+// ─── Progress + ETA ─────────────────────────────────────────────────
+function getProgress(current, total) {
+  const elapsed = Date.now() - startTime
+  const rate = current / elapsed
+  const remaining = total - current
+  const etaMs = remaining / rate
+  const etaMin = Math.round(etaMs / 60000)
+  const percent = Math.round((current / total) * 100)
+  const barLen = 20
+  const filled = Math.floor((percent / 100) * barLen)
+  const bar = '█'.repeat(filled) + '░'.repeat(barLen - filled)
+  return { current, total, percent, etaMin, bar }
+}
+
+function logProgress(p, msg = '') {
+  const etaStr = p.etaMin > 0 ? `ETA: ~${p.etaMin} min` : 'DONE'
+  console.log(`[scrape] ${p.bar} ${p.current}/${p.total} (${p.percent}%) | ${etaStr} | ${msg}`)
+}
+
+function shouldContinue() {
+  return Date.now() - startTime < MAX_DURATION
+}
+
+// ─── Odds Fetch with Retry ───────────────────────────────────────────
 async function fetchOddsWithRetry(homeTeam, awayTeam, league, retries = MAX_RETRIES) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -56,11 +84,17 @@ async function fetchOddsWithRetry(homeTeam, awayTeam, league, retries = MAX_RETR
   return null
 }
 
+// ─── Process Batch ──────────────────────────────────────────────────
 async function processBatch(matches, startIdx) {
   const batch = matches.slice(startIdx, startIdx + MAX_BATCH_SIZE)
   const results = []
 
   for (const m of batch) {
+    if (!shouldContinue()) {
+      console.log('[scrape] MAX_DURATION reached — stopping')
+      return { results, timedOut: true }
+    }
+
     const odds = await fetchOddsWithRetry(m.homeTeam, m.awayTeam, m.league)
     if (odds) {
       m.odds = odds
@@ -71,12 +105,61 @@ async function processBatch(matches, startIdx) {
       console.log(`  - ${m.homeTeam} vs ${m.awayTeam}: no odds`)
     }
     results.push(m)
+
     await new Promise((r) => setTimeout(r, BATCH_DELAY))
   }
 
-  return results
+  return { results, timedOut: false }
 }
 
+// ─── Prune old data ────────────────────────────────────────────────
+function pruneOldData() {
+  const cutoff = Date.now() - PRUNE_DAYS * 24 * 60 * 60 * 1000
+  let pruned = 0
+
+  try {
+    if (fs.existsSync(OUTPUT_FILE)) {
+      const data = JSON.parse(fs.readFileSync(OUTPUT_FILE, 'utf8'))
+      const filtered = data.filter((m) => {
+        const date = m.scrapeDate || m.date
+        if (!date) return true
+        return new Date(date).getTime() > cutoff
+      })
+      pruned = data.length - filtered.length
+      if (pruned > 0) {
+        fs.writeFileSync(OUTPUT_FILE, JSON.stringify(filtered, null, 2), 'utf8')
+        console.log(`[scrape] Pruned ${pruned} old entries from today_matches.json`)
+      }
+    }
+  } catch (err) {
+    console.warn(`[scrape] Prune error: ${err.message}`)
+  }
+
+  try {
+    if (fs.existsSync(HISTORY_FILE)) {
+      const lines = fs.readFileSync(HISTORY_FILE, 'utf8').split('\n').filter(Boolean)
+      const filtered = []
+      for (const line of lines) {
+        try {
+          const record = JSON.parse(line)
+          const ts = new Date(record.timestamp).getTime()
+          if (ts > cutoff) filtered.push(line)
+        } catch (_) {}
+      }
+      pruned += lines.length - filtered.length
+      if (lines.length - filtered.length > 0) {
+        fs.writeFileSync(HISTORY_FILE, filtered.join('\n') + '\n', 'utf8')
+        console.log(`[scrape] Pruned ${lines.length - filtered.length} old entries from odds_history.jsonl`)
+      }
+    }
+  } catch (err) {
+    console.warn(`[scrape] History prune error: ${err.message}`)
+  }
+
+  return pruned
+}
+
+// ─── Load / Save ─────────────────────────────────────────────────
 function loadExisting() {
   try {
     if (fs.existsSync(OUTPUT_FILE)) {
@@ -84,7 +167,7 @@ function loadExisting() {
       if (Array.isArray(data)) return data
     }
   } catch (err) {
-    console.warn(`[scrape] Could not load existing file: ${err.message}`)
+    console.warn(`[scrape] Could not load existing: ${err.message}`)
   }
   return []
 }
@@ -98,8 +181,7 @@ function saveMatches(matches) {
 }
 
 function appendHistory(matches) {
-  if (!matches || matches.length === 0) return
-  const withOdds = matches.filter((m) => m.odds)
+  const withOdds = (matches || []).filter((m) => m.odds)
   if (withOdds.length === 0) return
 
   const lines = withOdds.map((m) =>
@@ -116,14 +198,20 @@ function appendHistory(matches) {
 
   try {
     fs.appendFileSync(HISTORY_FILE, lines, 'utf8')
-    console.log(`[scrape] Appended ${withOdds.length} records to history`)
   } catch (err) {
     console.error(`[scrape] History append failed: ${err.message}`)
   }
 }
 
+// ─── Main ────────────────────────────────────────────────────────
 async function scrapePreMatch({ numDays = 1, limit = 30, resume = false } = {}) {
-  console.log(`[scrape_prematch] J+${numDays}, limit=${limit}, resume=${resume}`)
+  startTime = Date.now()
+  console.log(`[scrape] Starting — J+${numDays}, limit=${limit}, resume=${resume}`)
+  console.log(`[scrape] MAX_DURATION: ${MAX_DURATION / 60000} min`)
+
+  // Prune old data first
+  console.log('[scrape] Running prune...')
+  pruneOldData()
 
   const existing = resume ? loadExisting() : []
   const existingIds = new Set(existing.map((m) => m.id))
@@ -132,6 +220,8 @@ async function scrapePreMatch({ numDays = 1, limit = 30, resume = false } = {}) 
   const allMatches = []
 
   for (let d = 0; d < numDays; d++) {
+    if (!shouldContinue()) break
+
     const date = new Date(today)
     date.setDate(date.getDate() + d)
     const dateStr = date.toISOString().slice(0, 10)
@@ -155,31 +245,37 @@ async function scrapePreMatch({ numDays = 1, limit = 30, resume = false } = {}) 
   let processed = 0
 
   for (let b = 0; b < totalBatches; b++) {
-    const start = b * MAX_BATCH_SIZE
+    if (!shouldContinue()) {
+      console.log('[scrape] MAX_DURATION reached — saving partial and exiting')
+      saveMatches(toProcess.slice(0, processed))
+      appendHistory(toProcess.slice(0, processed))
+      process.exit(0)
+    }
+
     console.log(`\n[scrape] Batch ${b + 1}/${totalBatches}`)
 
-    try {
-      const batchResults = await processBatch(toProcess, start)
+    const { results, timedOut } = await processBatch(toProcess, b * MAX_BATCH_SIZE)
 
-      // Partial save after each batch
-      saveMatches(toProcess.slice(0, start + batchResults.length))
-
-      const withOdds = batchResults.filter((m) => m.odds).length
-      console.log(`  Progress: ${start + batchResults.length}/${toProcess.length} | with odds: ${withOdds}`)
-
-    } catch (err) {
-      console.error(`[scrape] Batch ${b + 1} failed: ${err.message}`)
+    if (timedOut) {
+      saveMatches(toProcess.slice(0, processed + results.length))
+      appendHistory(toProcess.slice(0, processed + results.length))
+      process.exit(0)
     }
+
+    processed += results.length
+    saveMatches(toProcess.slice(0, processed))
+
+    const p = getProgress(processed, toProcess.length)
+    logProgress(p, `Batch ${b + 1}/${totalBatches} done`)
   }
 
-  const withOdds = toProcess.filter((m) => m.odds).length
-  console.log(`\n[scrape] Done: ${toProcess.length} matches, ${withOdds} with odds`)
-
+  console.log(`\n[scrape] Done: ${processed} matches processed`)
   appendHistory(toProcess)
 
   return toProcess
 }
 
+// ─── CLI ────────────────────────────────────────────────────────
 const args = process.argv.slice(2)
 let numDays = 1
 let limit = 30
@@ -201,9 +297,12 @@ scrapePreMatch({ numDays, limit, resume })
       console.log(`${m.homeTeam} vs ${m.awayTeam} [${m.league}]`)
       console.log(`  1=${o.home} (${probHome}%) | X=${o.draw || '--'} | 2=${o.away || '--'}`)
     })
+
+    const elapsed = Math.round((Date.now() - startTime) / 60000)
+    console.log(`\n[scrape] Total time: ${elapsed} min`)
     process.exit(0)
   })
   .catch((err) => {
-    console.error('[scrape_prematch] Fatal error:', err.message)
+    console.error('[scrape] Fatal error:', err.message)
     process.exit(1)
   })

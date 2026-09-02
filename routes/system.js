@@ -270,6 +270,15 @@ router.get('/health', async (req, res) => {
       }
     }
 
+    // Add scraper health stats
+    try {
+      const LiveScoreAggregator = require('../services/LiveScoreAggregator')
+      health.scrapers = LiveScoreAggregator.getHealthStatus ? LiveScoreAggregator.getHealthStatus() : {}
+      if (LiveScoreAggregator.logHealth) LiveScoreAggregator.logHealth()
+    } catch (scraperErr) {
+      health.scrapers = { error: scraperErr.message }
+    }
+
     res.json(health)
   } catch (fatalErr) {
     logger.error('CRITICAL ERROR in /api/health route', fatalErr)

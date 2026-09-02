@@ -859,13 +859,14 @@ router.get('/odds/steam/:matchId', async (req, res) => {
 })
 
 /**
- * GET /api/flash-odds — Matchs en direct + cotes 1X2 temps réel (Sofascore bypass).
- * Cache court (15s) côté service. Retourne events + odds directement.
+ * GET /api/flash-odds — Matchs en direct + cotes via multi-source.
+ * Sources: Livescore (scores) + BetExplorer (cotes)
+ * Cache court (20s). Retourne events + odds.
  */
 router.get('/flash-odds', async (req, res) => {
   try {
-    const SofascoreBypass = require('../services/scrapers/SofascoreBypass')
-    const events = await SofascoreBypass.getLiveEvents()
+    const agg = require('../services/LiveScoreAggregator')
+    const events = await agg.getAllMatchesWithOdds()
     res.json({ success: true, events })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message, events: [] })

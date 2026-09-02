@@ -165,20 +165,26 @@ const MIN_ODDS_LIVE = 1.3
 function ComboPicks({ events }) {
   const over = [], under = [], watch = [], value = []
   events.forEach((e) => {
-    const p = e.pred || {}
-    if (!p.ou_pick) return
     const odds = e.odds || {}
-    const ouOdds = p.ou_pick === 'OVER 2.5' ? odds.over25 : odds.under25
+    const homeOdds = odds.home_win || odds.home
+    const awayOdds = odds.away_win || odds.away
+    const drawOdds = odds.draw
+    const over25 = odds.over_25 || odds.over25
+    const under25 = odds.under_25 || odds.under25
+    if (!over25 && !under25) return
+    const ouOdds = over25 ? over25 : under25
     if (ouOdds != null && ouOdds < MIN_ODDS_LIVE) return
-    const score = `${e.homeScore ?? 0}-${e.awayScore ?? 0}`
-    const label = `${e.homeTeam} vs ${e.awayTeam} · ${score} · ${Math.round(e.liveMinute)}'`
-    const item = { label, prob: p.over25 >= 0.5 ? p.over25 : p.under25, xg: p.total_xg_live, score: p.pred_score, ou: p.ou_pick, homeXg: p.home_xg_live, awayXg: p.away_xg_live, scorer: p.score_team ? p.score_team[2] : null, homeTeam: e.homeTeam, awayTeam: e.awayTeam }
-    if (p.value) value.push({ ...item, edge: p.value.edge, strength: p.value.strength, vtype: p.value.type, ou: p.value.side })
-    if (p.over25 >= 0.55) { over.push({ ...item, conf: 'SUREST', prob: p.over25 }) }
-    else if (p.over25 >= 0.40) { over.push({ ...item, conf: 'LEAN', prob: p.over25 }) }
-    else if (p.under25 >= 0.55) { under.push({ ...item, conf: 'SUREST', prob: p.under25 }) }
-    else if (p.under25 >= 0.40) { under.push({ ...item, conf: 'LEAN', prob: p.under25 }) }
-    else if (e.liveMinute >= 55 && p.over25 >= 0.30) { watch.push({ ...item, conf: 'À SURVEILLER', prob: p.over25 }) }
+    const prob = over25 ? (1 / over25) : (1 / under25)
+    const ouPick = over25 && over25 < 2.0 ? 'OVER 2.5' : 'UNDER 2.5'
+    const score = `${e.scoreHome ?? e.homeScore ?? 0}-${e.scoreAway ?? e.awayScore ?? 0}`
+    const minute = e.minute || e.liveMinute || 0
+    const label = `${e.homeTeam} vs ${e.awayTeam} · ${score} · ${Math.round(minute)}'`
+    const item = { label, prob, xg: null, score: null, ou: ouPick, homeXg: null, awayXg: null, scorer: null, homeTeam: e.homeTeam, awayTeam: e.awayTeam }
+    if (ouPick === 'OVER 2.5' && prob >= 0.50) { over.push({ ...item, conf: 'SUREST', prob }) }
+    else if (ouPick === 'OVER 2.5' && prob >= 0.40) { over.push({ ...item, conf: 'LEAN', prob }) }
+    else if (ouPick === 'UNDER 2.5' && prob >= 0.50) { under.push({ ...item, conf: 'SUREST', prob }) }
+    else if (ouPick === 'UNDER 2.5' && prob >= 0.40) { under.push({ ...item, conf: 'LEAN', prob }) }
+    else if (minute >= 55 && ouPick === 'OVER 2.5' && prob >= 0.30) { watch.push({ ...item, conf: 'À SURVEILLER', prob }) }
   })
   over.sort((a, b) => b.prob - a.prob)
   under.sort((a, b) => b.prob - a.prob)
@@ -252,12 +258,12 @@ function ComboPicks({ events }) {
 }
 
 function LiveCard({ event, prevOdds }) {
-  const isLive = event.statusType === 'inprogress' || event.statusType === 'pause'
-  const minute = event.minute || null
+  const isLive = event.status === 'live' || event.statusType === 'inprogress' || event.statusType === 'pause'
+  const minute = event.minute || event.liveMinute || null
   const odds = event.odds || {}
   const pred = event.pred || {}
-  const homeScore = event.homeScore ?? 0
-  const awayScore = event.awayScore ?? 0
+  const homeScore = event.scoreHome ?? event.homeScore ?? 0
+  const awayScore = event.scoreAway ?? event.awayScore ?? 0
 
   const movement = prevOdds
     ? {
@@ -283,12 +289,19 @@ function LiveCard({ event, prevOdds }) {
           letterSpacing: '-0.3px',
         }}>
           {hasOdds ? val.toFixed(2) : '--'}
-          {hasOdds && <Arrow delta={movement?.[label === '1' ? 'home' : label === 'X' ? 'draw' : 'away']} />}
         </div>
         <div style={{ fontSize: '9px', color: '#475569' }}>{label}</div>
       </div>
     )
   }
+
+  const homeOdds = odds.home_win || odds.home
+  const drawOdds = odds.draw
+  const awayOdds = odds.away_win || odds.away
+  const over25 = odds.over_25 || odds.over25
+  const under25 = odds.under_25 || odds.under25
+  const bttsYes = odds.btts_yes
+  const bttsNo = odds.btts_no
 
   return (
     <div style={{
@@ -339,15 +352,15 @@ function LiveCard({ event, prevOdds }) {
         gap: '6px', padding: '10px 8px',
         background: 'rgba(0,0,0,0.2)', borderRadius: '8px',
       }}>
-        {oddsCell(odds.home, '1')}
-        {oddsCell(odds.draw, 'X')}
-        {oddsCell(odds.away, '2')}
+        {oddsCell(homeOdds, '1')}
+        {oddsCell(drawOdds, 'X')}
+        {oddsCell(awayOdds, '2')}
       </div>
 
       <div style={{
         display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap',
       }}>
-        {odds.btts_yes != null && (
+        {bttsYes != null && (
           <div style={{
             flex: '1 1 100%', fontSize: '9px',
             background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)',
@@ -358,16 +371,19 @@ function LiveCard({ event, prevOdds }) {
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <span style={{ color: '#10b981', fontWeight: '700' }}>
-                OUI {odds.btts_yes.toFixed(2)}
+                OUI {bttsYes.toFixed(2)}
               </span>
-              <span style={{ color: '#64748b' }}>NON {odds.btts_no.toFixed(2)}</span>
-              <span style={{ color: '#475569', marginLeft: 'auto' }}>
-                Value: <span style={{ color: '#34d399', fontWeight: '700' }}>
-                  {(odds.btts_yes <= odds.btts_no ? 'OUI' : 'NON')} @ {(odds.btts_yes <= odds.btts_no ? odds.btts_yes : odds.btts_no).toFixed(2)}
-                </span>
-              </span>
+              <span style={{ color: '#64748b' }}>NON {bttsNo != null ? bttsNo.toFixed(2) : '--'}</span>
             </div>
           </div>
+        )}
+        {(over25 != null || under25 != null) && (
+          <span style={{
+            fontSize: '9px', color: '#818cf8', background: 'rgba(99,102,241,0.08)',
+            padding: '2px 6px', borderRadius: '4px',
+          }}>
+            O/U 2.5: {over25 != null ? over25.toFixed(2) : '--'} / {under25 != null ? under25.toFixed(2) : '--'}
+          </span>
         )}
         {pred.ou_pick && (
           <div style={{

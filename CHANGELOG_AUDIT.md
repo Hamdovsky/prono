@@ -3447,6 +3447,51 @@ le constat que les picks DDC "Stables" affichaient des EV/edge aberrants
   conserve l'identité pure).
 - Lançage réel du moteur : sélection DDC Stables cohérente avec le marché.
 
+### Profondeur du calibrage (suite — même session 2026-09-02)
+
+**Nouveau problème identifié** : la courbe de calibration DC existante
+(pas de 10, PAVA isotonique + retrait bayésien = 20) **aplatissait**
+toutes les bandes 70-90 % à ~70 %, masquant la surconfiance réelle
+80-90 % (taux brut : 64 %).
+
+**Données brutes réelles (DC, n=1829)**
+| Bande | Taux brut réel |
+|-------|----------------|
+| 70-75 % | 73.3 % (643) |
+| 75-80 % | 71.7 % (520) |
+| **80-85 %** | **64.3 %** (403) |
+| **85-90 %** | **63.3 %** (207) |
+| 90-95 % | 81.0 % (42) |
+
+**Cause racine** : le PAVA impose la non-décroissance. Comme le taux
+décroît après 75 %, il fusionne toutes les bandes 70-90 en une
+plaine ~70 %, éliminant toute la subtilité. De plus, le retrait
+bayésien (MIN_BAND_SAMPLES=20) tirait les bandes à faible échantillon
+vers la base globale (70 %).
+
+**Modifications (suite)**
+- **`services/calibrator.js`** :
+  - Bandes de calibration par pas de **5 pts** (au lieu de 10) :
+    `BAND_WIDTH = 5`, `NUM_BANDS = 20`.
+  - **PAVA isotonique supprimé** : la non-monotonie est une caractéristique
+    du vrai signal (DC 70-75 = 73 %, 80-85 = 64 %), pas une anomalie.
+  - **Retrait bayésien réduit** : `MIN_BAND_SAMPLES = 4` (au lieu de 20),
+    avec fallback vers la bande fiable adjacente si `n < 50`.
+  - Courbe résultante non-monotone qui colle aux taux bruts.
+
+**Résultat mesuré (suite)**
+| Proba | Ancien calibré | Nouveau calibré | Réel |
+|-------|---------------|-----------------|------|
+| 72 % | 70.7 % | **73.2 %** | 73.3 % |
+| 77 % | 70.7 % | **71.7 %** | 71.7 % |
+| 82 % | 70.7 % | **64.3 %** | 64.3 % |
+| 87 % | 70.7 % | **63.4 %** | 63.3 % |
+
+**Impact sur les pronostics DDC Stables**
+- Probabilité calibrée corrigée (70.8 → 70-73 % pour les bandes fiables).
+- Picks 80 %+ correctement abaissés → moins de faux EV élevés.
+- 701/701 tests Jest, ESLint 0 erreur.
+
 ---
 
 ## 2026-09-01 — Diagnostic lint : les 1185 « erreurs » étaient du bruit de worktree

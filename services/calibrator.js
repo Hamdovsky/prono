@@ -23,7 +23,12 @@
 const logger = require('../core/logger')
 
 // ── Constantes ───────────────────────────────────────────────────
-const MIN_BAND_SAMPLES = 20 // retrait bayésien : poids de la moyenne du marché
+// Audit précision (2026-09-02) : bandes de calibration fines (pas de 5 pts au
+// lieu de 10) + retrait bayésien réduit, pour ne pas aplatir les vraies
+// différences de taux entre bandes voisines (ex. DC 70-75=73 % vs 80-85=64 %).
+const BAND_WIDTH = 5
+const NUM_BANDS = Math.ceil(100 / BAND_WIDTH) // 20
+const MIN_BAND_SAMPLES = 4 // retrait bayésien : poids de la moyenne du marché
 const TTL_MS = 6 * 3600 * 1000 // refonte de la courbe toutes les 6 h
 const MAX_CALIBRATED = 90 // plafond de la proba calibrée
 const PICK_MARKET = { '1': '1X2', '2': '1X2', X: '1X2', '1X': 'DC', X2: 'DC', '12': 'DC' }
@@ -50,26 +55,10 @@ function pickProb(pick, mr) {
   return null
 }
 
-// Régression isotonique (PAVA relaxé) : rend la séquence non décroissante.
-function pavaIsotonic(items) {
-  const out = items.map((it) => ({ ...it }))
-  let changed = true
-  while (changed) {
-    changed = false
-    for (let i = 0; i < out.length - 1; i++) {
-      if (out[i].rate > out[i + 1].rate) {
-        const w = out[i].n + out[i + 1].n
-        const wRate = (out[i].rate * out[i].n + out[i + 1].rate * out[i + 1].n) / Math.max(w, 1)
-        out[i].rate = wRate
-        out[i].n = w
-        out[i + 1].rate = wRate
-        out[i + 1].n = w
-        changed = true
-      }
-    }
-  }
-  return out
-}
+// pavaIsotonic (ancien lisseur isotonique) retiré (audit précision 2026-09-02) :
+// le PAVA imposait la non-décroissance, ce qui aplatissait la vraie décroissance
+// 80-90 % (73 % → 64 %) en une plaine uniforme à ~70 %. La courbe non-monotone
+// actuelle préserve les taux bruts et corrige la surconfiance.
 
 function buildCurve(db, minIsoTs) {
   const byMarket = {}
@@ -105,7 +94,10 @@ function buildCurve(db, minIsoTs) {
     const acc = byMarket[market] || (byMarket[market] = { bands: new Map(), n: 0, w: 0 })
     acc.n++
     if (r.result === 'won') acc.w++
-    const idx = Math.min(9, Math.floor(prob / 10))
+    // Audit précision (2026-09-02) : bandes FINES par pas de 5 pts au lieu de 10.
+    // Les bandes de 10 fusionnaient 70-75 (73 % réel) avec 80-85 (64 % réel) et le
+    // PAVA les aplatissait toutes à ~70 %, gommant la vraie surconfiance 80-90 %.
+    const idx = Math.min(NUM_BANDS - 1, Math.floor(prob / BAND_WIDTH))
     const b = acc.bands.get(idx) || { n: 0, w: 0 }
     b.n++
     if (r.result === 'won') b.w++
@@ -116,18 +108,35 @@ function buildCurve(db, minIsoTs) {
   for (const [market, acc] of Object.entries(byMarket)) {
     const base = acc.n > 0 ? (acc.w / acc.n) * 100 : 33
     const items = []
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < NUM_BANDS; i++) {
       const b = acc.bands.get(i)
       const n = b ? b.n : 0
       const w = b ? b.w : 0
       const rawRate = n > 0 ? (w / n) * 100 : base
-      const rate = (rawRate * n + base * MIN_BAND_SAMPLES) / (n + MIN_BAND_SAMPLES)
-      items.push({ min: i * 10, max: i * 10 + 10, n, w, rate })
+      // Audit précision (2026-09-02) : on NE force PLUS la non-décroissance
+      // (PAVA). La réussite réelle N'EST PAS monotone en proba (ex. DC 70-75 =
+      // 73 %, mais 80-85 = 64 %) — imposer la monotonie aplatissait tout à la
+      // base et masquait la surconfiance 80-90 %. On garde le taux brut par
+      // bande avec un retrait bayésien léger, et une plongée vers la bande
+      // fiable voisine pour les bandes à très faible échantillon.
+      let rate = (rawRate * n + base * MIN_BAND_SAMPLES) / (n + MIN_BAND_SAMPLES)
+      if (n < MIN_CALIB_BAND_N) {
+        // Bande fiable voisine (celle d'avant si elle est suffisamment
+        // échantillonnée, sinon base globale).
+        const prev = items[i - 1]
+        if (prev && prev.n >= MIN_CALIB_BAND_N) rate = prev.rate
+        else rate = base
+      }
+      items.push({ min: i * BAND_WIDTH, max: i * BAND_WIDTH + BAND_WIDTH, n, w, rate })
     }
-    markets[market] = { bands: pavaIsotonic(items), base, n: acc.n, builtAt: Date.now() }
+    markets[market] = { bands: items, base, n: acc.n, builtAt: Date.now() }
   }
   return markets
 }
+
+// Échantillon minimal par bande pour faire confiance au taux brut. En-deçà,
+// on recombe sur la bande fiable adjacente (ou la base globale).
+const MIN_CALIB_BAND_N = 50
 
 // Audit gel cascade (2026-08-24) : la calibration marchés est GELÉE (identité)
 // tant que les échantillons propres post-gel sont insuffisants — la courbe
@@ -183,7 +192,7 @@ function calibrateProb(prob, market) {
   if (p <= 0 || p >= 100) return p
   const m = getCurve()[market]
   if (!m || !m.bands || m.bands.length === 0) return Math.min(Math.max(p, 0), 100)
-  const idx = Math.min(9, Math.floor(p / 10))
+  const idx = Math.min(NUM_BANDS - 1, Math.floor(p / BAND_WIDTH))
   const band = m.bands[idx]
   if (!band) return Math.min(Math.max(p, 0), 100)
   return Math.min(Math.max(band.rate, 1), MAX_CALIBRATED)
@@ -240,5 +249,5 @@ module.exports = {
   getCurve,
   calibrateProb,
   calibrate1x2,
-  _internal: { PICK_MARKET, MIN_BAND_SAMPLES, MAX_CALIBRATED, MIN_MARKET_SAMPLES, pavaIsotonic },
+  _internal: { PICK_MARKET, MIN_BAND_SAMPLES, MAX_CALIBRATED, MIN_MARKET_SAMPLES, MIN_CALIB_BAND_N, BAND_WIDTH, NUM_BANDS },
 }

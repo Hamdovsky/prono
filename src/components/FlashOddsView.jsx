@@ -29,6 +29,27 @@ async function fetchCalibrationStats() {
   return data
 }
 
+async function fetchLiveToggleState() {
+  try {
+    const res = await fetch(getApiUrl('/api/flash-odds/toggle'))
+    if (!res.ok) return true
+    const data = await res.json()
+    return data.enabled !== false
+  } catch {
+    return true
+  }
+}
+
+async function postLiveToggle(enabled) {
+  const res = await fetch(getApiUrl('/api/flash-odds/toggle'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
 function CalibrationPanel() {
   const [stats, setStats] = useState(null)
   const [pending, setPending] = useState([])
@@ -560,7 +581,36 @@ export default function FlashOddsView() {
   const [error, setError] = useState(null)
   const [lastFetch, setLastFetch] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [liveEnabled, setLiveEnabledState] = useState(true)
+  const [toggling, setToggling] = useState(false)
   const prevOddsRef = useRef({})
+
+  // Charger l'état persistant du toggle live au montage
+  useEffect(() => {
+    let cancelled = false
+    fetchLiveToggleState().then((enabled) => {
+      if (!cancelled) setLiveEnabledState(enabled)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleToggleLive = async () => {
+    const next = !liveEnabled
+    setToggling(true)
+    try {
+      const res = await postLiveToggle(next)
+      if (res.success) {
+        setLiveEnabledState(res.enabled)
+        if (res.enabled) loadEvents()
+      }
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setToggling(false)
+    }
+  }
 
   const loadEvents = useCallback(async () => {
     setRefreshing(true)
@@ -584,12 +634,12 @@ export default function FlashOddsView() {
       setRefreshing(false)
     }
   }, [])
-
   useEffect(() => {
+    if (!liveEnabled) return
     loadEvents()
     const interval = setInterval(loadEvents, 15000)
     return () => clearInterval(interval)
-  }, [loadEvents])
+  }, [loadEvents, liveEnabled])
 
   if (loading) {
     return (
@@ -661,6 +711,29 @@ export default function FlashOddsView() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={handleToggleLive}
+            disabled={toggling}
+            title={liveEnabled ? 'Désactiver le scraping live' : 'Activer le scraping live'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '4px 10px',
+              background: liveEnabled ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
+              border: `1px solid ${liveEnabled ? 'rgba(34,197,94,0.35)' : 'rgba(100,116,139,0.3)'}`,
+              borderRadius: '999px',
+              color: liveEnabled ? '#22c55e' : '#94a3b8',
+              fontSize: '10px', fontWeight: '800', cursor: 'pointer',
+              letterSpacing: '0.4px', textTransform: 'uppercase',
+              transition: 'all 0.2s',
+            }}
+          >
+            <span style={{
+              width: '8px', height: '8px', borderRadius: '50%',
+              background: liveEnabled ? '#22c55e' : '#64748b',
+              boxShadow: liveEnabled ? '0 0 6px rgba(34,197,94,0.8)' : 'none',
+            }} />
+            {toggling ? '...' : liveEnabled ? 'LIVE ON' : 'LIVE OFF'}
+          </button>
           {lastFetch && (
             <span style={{ fontSize: '9px', color: '#475569' }}>
               {lastFetch.toLocaleTimeString()}
@@ -669,18 +742,43 @@ export default function FlashOddsView() {
           <span style={{ fontSize: '9px', color: '#475569' }}>Auto 15s</span>
           <button
             onClick={loadEvents}
+            disabled={!liveEnabled}
             style={{
               padding: '4px 10px',
               background: refreshing ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.1)',
               border: '1px solid rgba(99,102,241,0.3)',
-              borderRadius: '6px', color: '#818cf8',
-              fontSize: '10px', fontWeight: '700', cursor: 'pointer',
+              borderRadius: '6px', color: liveEnabled ? '#818cf8' : '#475569',
+              fontSize: '10px', fontWeight: '700', cursor: liveEnabled ? 'pointer' : 'not-allowed',
             }}
           >
             {refreshing ? '⏳...' : '🔄 Refresh'}
           </button>
         </div>
       </div>
+
+      {!liveEnabled && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          padding: '8px 14px', marginBottom: '12px',
+          background: 'rgba(100,116,139,0.08)',
+          border: '1px solid rgba(100,116,139,0.25)',
+          borderRadius: '8px',
+        }}>
+          <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>💤</span>
+          <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>
+            SCRAPING LIVE DÉSACTIVÉ — les données affichées proviennent du cache (aucun appel réseau).
+          </span>
+          <span
+            onClick={handleToggleLive}
+            style={{
+              marginLeft: 'auto', fontSize: '10px', fontWeight: '800', color: '#22c55e',
+              cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.4px',
+            }}
+          >
+            Activer
+          </span>
+        </div>
+      )}
 
       {events.length === 0 ? (
         <div style={{

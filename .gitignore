@@ -101,6 +101,7 @@ data/raw/
 data/accuracy_history.json
 data/training_weights.json
 data/last_promosport_concours.txt
+data/live_toggle.json
 scripts/sync_to_render.js
 
 # Python cache

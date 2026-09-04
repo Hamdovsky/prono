@@ -22,6 +22,51 @@ const ODDS_DELAY = 3000
 
 let cache = { ts: 0, matches: [] }
 
+// ── Toggle Live ON/OFF ────────────────────────────────────────────
+// Quand liveEnabled est false, le scraping réseau est désactivé : on renvoie
+// le cache existant (sans appel réseau) pour économiser bande passante/RAM
+// (8GB). Rétabli par setLiveEnabled(true) ou via l'API.
+let liveEnabled = true
+let _liveStateFile = null
+
+function stateFile() {
+  if (_liveStateFile) return _liveStateFile
+  _liveStateFile = require('path').join(__dirname, '..', 'data', 'live_toggle.json')
+  return _liveStateFile
+}
+
+function loadLiveState() {
+  try {
+    const fs = require('fs')
+    const raw = fs.readFileSync(stateFile(), 'utf8')
+    const parsed = JSON.parse(raw)
+    if (typeof parsed.enabled === 'boolean') liveEnabled = parsed.enabled
+  } catch {
+    /* fichier absent/invalide → défaut true */
+  }
+}
+
+function saveLiveState() {
+  try {
+    const fs = require('fs')
+    fs.writeFileSync(stateFile(), JSON.stringify({ enabled: liveEnabled, updatedAt: new Date().toISOString() }))
+  } catch {
+    /* non bloquant */
+  }
+}
+
+function setLiveEnabled(enabled) {
+  liveEnabled = !!enabled
+  saveLiveState()
+  return liveEnabled
+}
+
+function getLiveEnabled() {
+  return liveEnabled
+}
+
+loadLiveState()
+
 async function getMatchOdds(homeTeam, awayTeam, league) {
   // Priority 1: BetExplorer
   try {
@@ -109,6 +154,11 @@ async function enrichWithOdds(matches) {
 async function getLiveMatchesWithOdds() {
   const now = Date.now()
 
+  // Live désactivé → renvoyer le cache existant SANS appeler le réseau.
+  if (!liveEnabled) {
+    return cache.matches
+  }
+
   if (cache.matches.length > 0 && now - cache.ts < CACHE_TTL) {
     return cache.matches
   }
@@ -133,6 +183,11 @@ async function getLiveMatchesWithOdds() {
 
 async function getAllMatchesWithOdds() {
   const now = Date.now()
+
+  // Live désactivé → renvoyer le cache existant SANS appeler le réseau.
+  if (!liveEnabled) {
+    return cache.matches
+  }
 
   if (cache.matches.length > 0 && now - cache.ts < CACHE_TTL) {
     return cache.matches
@@ -198,4 +253,6 @@ module.exports = {
   getHealthStatus,
   logHealth,
   clearCache,
+  setLiveEnabled,
+  getLiveEnabled,
 }

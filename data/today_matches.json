@@ -1,344 +1,1712 @@
 [
   {
-    "id": "marseille-strasbourg-2026-08-21",
-    "home": "Marseille",
-    "away": "Strasbourg",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-08-21",
-    "kickoff_time": "19:45"
+    "id": "ls_1711645",
+    "homeTeam": "Charleston Battery",
+    "awayTeam": "Hartford Athletic",
+    "league": "USL Championship",
+    "date": "2026-09-02",
+    "timestamp": 20260902230000,
+    "status": "scheduled"
   },
   {
-    "id": "arsenal-coventry-2026-08-21",
-    "home": "Arsenal",
-    "away": "Coventry",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-21",
-    "kickoff_time": "20:00"
+    "id": "ls_1785762",
+    "homeTeam": "VfL Osnabrück",
+    "awayTeam": "Bayern Munich",
+    "league": "DFB Cup: Round 1",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "betis-sociedad-2026-08-21",
-    "home": "Betis",
-    "away": "Sociedad",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-08-21",
-    "kickoff_time": "20:00"
+    "id": "ls_1802375",
+    "homeTeam": "Millwall",
+    "awayTeam": "Wrexham",
+    "league": "Championship",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "hull-man-united-2026-08-22",
-    "home": "Hull",
-    "away": "Man United",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-22",
-    "kickoff_time": "12:30"
+    "id": "ls_1802374",
+    "homeTeam": "QPR",
+    "awayTeam": "Cardiff City",
+    "league": "Championship",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "everton-crystal-palace-2026-08-22",
-    "home": "Everton",
-    "away": "Crystal Palace",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-22",
-    "kickoff_time": "15:00"
+    "id": "ls_1802390",
+    "homeTeam": "West Bromwich Albion",
+    "awayTeam": "Charlton Athletic",
+    "league": "Championship",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "ipswich-sunderland-2026-08-22",
-    "home": "Ipswich",
-    "away": "Sunderland",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-22",
-    "kickoff_time": "15:00"
+    "id": "ls_1802373",
+    "homeTeam": "Burnley",
+    "awayTeam": "Middlesbrough",
+    "league": "Championship",
+    "date": "2026-09-02",
+    "timestamp": 20260902190000,
+    "status": "scheduled"
   },
   {
-    "id": "nottm-forest-leeds-2026-08-22",
-    "home": "Nott'm Forest",
-    "away": "Leeds",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-22",
-    "kickoff_time": "15:00"
+    "id": "ls_1802911",
+    "homeTeam": "Barnsley",
+    "awayTeam": "Blackpool",
+    "league": "League 1",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "ath-bilbao-sevilla-2026-08-22",
-    "home": "Ath Bilbao",
-    "away": "Sevilla",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-08-22",
-    "kickoff_time": "16:00"
+    "id": "ls_1802916",
+    "homeTeam": "Burton Albion",
+    "awayTeam": "AFC Wimbledon",
+    "league": "League 1",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "lens-auxerre-2026-08-22",
-    "home": "Lens",
-    "away": "Auxerre",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-08-22",
-    "kickoff_time": "16:15"
+    "id": "ls_1802910",
+    "homeTeam": "Luton Town",
+    "awayTeam": "Stockport County",
+    "league": "League 1",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "brentford-tottenham-2026-08-22",
-    "home": "Brentford",
-    "away": "Tottenham",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-22",
-    "kickoff_time": "17:30"
+    "id": "ls_1802913",
+    "homeTeam": "Wigan Athletic",
+    "awayTeam": "MK Dons",
+    "league": "League 1",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "inter-monza-2026-08-22",
-    "home": "Inter",
-    "away": "Monza",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-22",
-    "kickoff_time": "17:30"
+    "id": "ls_1802914",
+    "homeTeam": "Reading",
+    "awayTeam": "Mansfield Town",
+    "league": "League 1",
+    "date": "2026-09-02",
+    "timestamp": 20260902190000,
+    "status": "scheduled"
   },
   {
-    "id": "udinese-como-2026-08-22",
-    "home": "Udinese",
-    "away": "Como",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-22",
-    "kickoff_time": "17:30"
+    "id": "ls_1798099",
+    "homeTeam": "St.Truiden",
+    "awayTeam": "Union St.Gilloise",
+    "league": "Belgian Pro League",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
   },
   {
-    "id": "valencia-celta-2026-08-22",
-    "home": "Valencia",
-    "away": "Celta",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-08-22",
-    "kickoff_time": "18:30"
+    "id": "ls_1792787",
+    "homeTeam": "Celtic",
+    "awayTeam": "Aberdeen",
+    "league": "Premiership",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "le-mans-brest-2026-08-22",
-    "home": "Le Mans",
-    "away": "Brest",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-08-22",
-    "kickoff_time": "19:45"
+    "id": "ls_1792788",
+    "homeTeam": "Dundee FC",
+    "awayTeam": "St. Johnstone",
+    "league": "Premiership",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "nice-lorient-2026-08-22",
-    "home": "Nice",
-    "away": "Lorient",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-08-22",
-    "kickoff_time": "19:45"
+    "id": "ls_1792791",
+    "homeTeam": "Kilmarnock",
+    "awayTeam": "St. Mirren",
+    "league": "Premiership",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "toulouse-lyon-2026-08-22",
-    "home": "Toulouse",
-    "away": "Lyon",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-08-22",
-    "kickoff_time": "19:45"
+    "id": "ls_1792793",
+    "homeTeam": "Motherwell",
+    "awayTeam": "Dundee United",
+    "league": "Premiership",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
   },
   {
-    "id": "troyes-paris-fc-2026-08-22",
-    "home": "Troyes",
-    "away": "Paris FC",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-08-22",
-    "kickoff_time": "19:45"
+    "id": "ls_1792789",
+    "homeTeam": "Falkirk",
+    "awayTeam": "Rangers",
+    "league": "Premiership",
+    "date": "2026-09-02",
+    "timestamp": 20260902190000,
+    "status": "scheduled"
   },
   {
-    "id": "genoa-napoli-2026-08-22",
-    "home": "Genoa",
-    "away": "Napoli",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-22",
-    "kickoff_time": "19:45"
+    "id": "ls_1863932",
+    "homeTeam": "Inter W",
+    "awayTeam": "Wolfsburg W",
+    "league": "Qualification: 3rd Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902163000,
+    "status": "scheduled"
   },
   {
-    "id": "parma-cagliari-2026-08-22",
-    "home": "Parma",
-    "away": "Cagliari",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-22",
-    "kickoff_time": "19:45"
+    "id": "ls_1863929",
+    "homeTeam": "Paris Saint-Germain W",
+    "awayTeam": "Eintracht Frankfurt W",
+    "league": "Qualification: 3rd Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902163000,
+    "status": "scheduled"
   },
   {
-    "id": "espanol-real-madrid-2026-08-22",
-    "home": "Espanol",
-    "away": "Real Madrid",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-08-22",
-    "kickoff_time": "20:30"
+    "id": "ls_1863928",
+    "homeTeam": "Servette W",
+    "awayTeam": "Sparta Prague W",
+    "league": "Qualification: 3rd Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902164500,
+    "status": "scheduled"
   },
   {
-    "id": "brighton-aston-villa-2026-08-23",
-    "home": "Brighton",
-    "away": "Aston Villa",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-23",
-    "kickoff_time": "14:00"
+    "id": "ls_1863935",
+    "homeTeam": "HB Koege W",
+    "awayTeam": "PSV W",
+    "league": "Qualification: 3rd Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
   },
   {
-    "id": "man-city-bournemouth-2026-08-23",
-    "home": "Man City",
-    "away": "Bournemouth",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-23",
-    "kickoff_time": "14:00"
+    "id": "ls_1863931",
+    "homeTeam": "Real Sociedad W",
+    "awayTeam": "Chelsea W",
+    "league": "Qualification: 3rd Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
   },
   {
-    "id": "angers-lille-2026-08-23",
-    "home": "Angers",
-    "away": "Lille",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-08-23",
-    "kickoff_time": "14:00"
+    "id": "ls_1863924",
+    "homeTeam": "Oud-Heverlee Leuven",
+    "awayTeam": "Czarni Sosnowiec W",
+    "league": "Qualification: 3rd Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902180000,
+    "status": "scheduled"
   },
   {
-    "id": "ath-madrid-villarreal-2026-08-23",
-    "home": "Ath Madrid",
-    "away": "Villarreal",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-08-23",
-    "kickoff_time": "16:00"
+    "id": "ls_1863934",
+    "homeTeam": "Real Madrid W",
+    "awayTeam": "Ajax W",
+    "league": "Qualification: 3rd Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902180000,
+    "status": "scheduled"
   },
   {
-    "id": "le-havre-monaco-2026-08-23",
-    "home": "Le Havre",
-    "away": "Monaco",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-08-23",
-    "kickoff_time": "16:15"
+    "id": "ls_1863930",
+    "homeTeam": "Juventus W",
+    "awayTeam": "SKN St. Poelten W",
+    "league": "Qualification: 3rd Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
   },
   {
-    "id": "newcastle-liverpool-2026-08-23",
-    "home": "Newcastle",
-    "away": "Liverpool",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-23",
-    "kickoff_time": "16:30"
+    "id": "ls_1862516",
+    "homeTeam": "Sassuolo",
+    "awayTeam": "Frosinone",
+    "league": "Coppa Italia: Preliminary Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902130000,
+    "status": "scheduled"
   },
   {
-    "id": "frosinone-juventus-2026-08-23",
-    "home": "Frosinone",
-    "away": "Juventus",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-23",
-    "kickoff_time": "17:30"
+    "id": "ls_1862517",
+    "homeTeam": "Udinese",
+    "awayTeam": "Venezia",
+    "league": "Coppa Italia: Preliminary Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
   },
   {
-    "id": "venezia-lecce-2026-08-23",
-    "home": "Venezia",
-    "away": "Lecce",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-23",
-    "kickoff_time": "17:30"
+    "id": "ls_1708438",
+    "homeTeam": "Flamengo",
+    "awayTeam": "Mirassol",
+    "league": "Serie A",
+    "date": "2026-09-02",
+    "timestamp": 20260902223000,
+    "status": "scheduled"
   },
   {
-    "id": "getafe-santander-2026-08-23",
-    "home": "Getafe",
-    "away": "Santander",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-08-23",
-    "kickoff_time": "18:30"
+    "id": "ls_1795595",
+    "homeTeam": "Grasshopper",
+    "awayTeam": "St. Gallen",
+    "league": "Super League",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
   },
   {
-    "id": "paris-sg-rennes-2026-08-23",
-    "home": "Paris SG",
-    "away": "Rennes",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-08-23",
-    "kickoff_time": "19:45"
+    "id": "ls_1795587",
+    "homeTeam": "Luzern",
+    "awayTeam": "FC Vaduz",
+    "league": "Super League",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
   },
   {
-    "id": "atalanta-sassuolo-2026-08-23",
-    "home": "Atalanta",
-    "away": "Sassuolo",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-23",
-    "kickoff_time": "19:45"
+    "id": "ls_1795590",
+    "homeTeam": "Thun",
+    "awayTeam": "Lausanne",
+    "league": "Super League",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
   },
   {
-    "id": "torino-milan-2026-08-23",
-    "home": "Torino",
-    "away": "Milan",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-23",
-    "kickoff_time": "19:45"
+    "id": "ls_1857499",
+    "homeTeam": "El Gounah",
+    "awayTeam": "Al Mokawloon Al Arab",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902140000,
+    "status": "scheduled"
   },
   {
-    "id": "elche-barcelona-2026-08-23",
-    "home": "Elche",
-    "away": "Barcelona",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-08-23",
-    "kickoff_time": "20:30"
+    "id": "ls_1857486",
+    "homeTeam": "Abo Qir Semad",
+    "awayTeam": "Al-Ittihad Alexandria",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
   },
   {
-    "id": "bologna-lazio-2026-08-24",
-    "home": "Bologna",
-    "away": "Lazio",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-24",
-    "kickoff_time": "17:30"
+    "id": "ls_1857487",
+    "homeTeam": "Ceramica Cleopatra",
+    "awayTeam": "Modern Sport FC",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
   },
   {
-    "id": "osasuna-levante-2026-08-24",
-    "home": "Osasuna",
-    "away": "Levante",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-08-24",
-    "kickoff_time": "18:30"
+    "id": "ls_1784460",
+    "homeTeam": "AGF",
+    "awayTeam": "FC Midtjylland",
+    "league": "Superliga",
+    "date": "2026-09-02",
+    "timestamp": 20260902180000,
+    "status": "scheduled"
   },
   {
-    "id": "roma-fiorentina-2026-08-24",
-    "home": "Roma",
-    "away": "Fiorentina",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-08-24",
-    "kickoff_time": "19:45"
+    "id": "ls_1800386",
+    "homeTeam": "FC Zbrojovka Brno",
+    "awayTeam": "Hradec Kralove",
+    "league": "1st League",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
   },
   {
-    "id": "fulham-chelsea-2026-08-24",
-    "home": "Fulham",
-    "away": "Chelsea",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-08-24",
-    "kickoff_time": "20:00"
+    "id": "ls_1800387",
+    "homeTeam": "Bohemians 1905",
+    "awayTeam": "Jablonec",
+    "league": "1st League",
+    "date": "2026-09-02",
+    "timestamp": 20260902180000,
+    "status": "scheduled"
   },
   {
-    "id": "malaga-la-coruna-2026-08-24",
-    "home": "Malaga",
-    "away": "La Coruna",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-08-24",
-    "kickoff_time": "20:30"
+    "id": "ls_1805843",
+    "homeTeam": "Austria Wien",
+    "awayTeam": "WSG Tirol",
+    "league": "Bundesliga",
+    "date": "2026-09-02",
+    "timestamp": 20260902163000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1805855",
+    "homeTeam": "FC Salzburg",
+    "awayTeam": "Rapid Wien",
+    "league": "Bundesliga",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795720",
+    "homeTeam": "Avispa Fukuoka",
+    "awayTeam": "Urawa Red Diamonds",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795722",
+    "homeTeam": "Cerezo Osaka",
+    "awayTeam": "Kashiwa Reysol",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795723",
+    "homeTeam": "JEF United Chiba",
+    "awayTeam": "Fagiano Okayama FC",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795725",
+    "homeTeam": "Machida Zelvia",
+    "awayTeam": "Kawasaki Frontale",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795721",
+    "homeTeam": "Mito Hollyhock",
+    "awayTeam": "Kashima Antlers",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795732",
+    "homeTeam": "Sanfrecce Hiroshima",
+    "awayTeam": "Nagoya Grampus Eight",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795726",
+    "homeTeam": "Shimizu S-Pulse",
+    "awayTeam": "FC Tokyo",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795728",
+    "homeTeam": "Tokyo Verdy",
+    "awayTeam": "Vissel Kobe",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795724",
+    "homeTeam": "V-Varen Nagasaki",
+    "awayTeam": "Gamba Osaka",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1795729",
+    "homeTeam": "Yokohama F.Marinos",
+    "awayTeam": "Kyoto Sanga FC",
+    "league": "J1 League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1786331",
+    "homeTeam": "Slavia Sofia",
+    "awayTeam": "Levski Sofia",
+    "league": "Parva Liga",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1839975",
+    "homeTeam": "Mamelodi Sundowns FC",
+    "awayTeam": "Milford FC",
+    "league": "Premiership",
+    "date": "2026-09-02",
+    "timestamp": 20260902173000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1713049",
+    "homeTeam": "Colegiales",
+    "awayTeam": "CA Ferrocarril Midland",
+    "league": "Primera Nacional",
+    "date": "2026-09-02",
+    "timestamp": 20260902230000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1885176",
+    "homeTeam": "Marconi Stallions",
+    "awayTeam": "Spirit FC",
+    "league": "NPL New South Wales: Playoffs",
+    "date": "2026-09-02",
+    "timestamp": 20260902093000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1885175",
+    "homeTeam": "Sutherland Sharks",
+    "awayTeam": "Manly United",
+    "league": "NPL New South Wales: Playoffs",
+    "date": "2026-09-02",
+    "timestamp": 20260902093000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1869533",
+    "homeTeam": "East Riffa",
+    "awayTeam": "Sitra",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1869538",
+    "homeTeam": "Malkia",
+    "awayTeam": "Al-Najma",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1748905",
+    "homeTeam": "Maxline Vitebsk",
+    "awayTeam": "Belshina Bobruisk",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902153000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1748915",
+    "homeTeam": "Dinamo Minsk",
+    "awayTeam": "Naftan Novopolotsk",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902173000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1843118",
+    "homeTeam": "Flenu",
+    "awayTeam": "CS Onhaye",
+    "league": "National Division 1 ACFF",
+    "date": "2026-09-02",
+    "timestamp": 20260902180000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1832942",
+    "homeTeam": "FK Velez Mostar",
+    "awayTeam": "Radnik Bijeljina",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1832939",
+    "homeTeam": "Borac Banja Luka",
+    "awayTeam": "Zeljeznicar",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1832940",
+    "homeTeam": "Siroki Brijeg",
+    "awayTeam": "FK Sarajevo",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1870067",
+    "homeTeam": "FK Leotar",
+    "awayTeam": "Rudar Prijedor",
+    "league": "1st League: RS",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1870061",
+    "homeTeam": "Famos",
+    "awayTeam": "FK Laktasi",
+    "league": "1st League: RS",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1870060",
+    "homeTeam": "Majevica",
+    "awayTeam": "Kozara",
+    "league": "1st League: RS",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1870062",
+    "homeTeam": "Potkozarje",
+    "awayTeam": "FK Zvijezda 09",
+    "league": "1st League: RS",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1870065",
+    "homeTeam": "Romanija",
+    "awayTeam": "Omarska",
+    "league": "1st League: RS",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1870066",
+    "homeTeam": "Slavija Sarajevo",
+    "awayTeam": "Sutjeska Foca",
+    "league": "1st League: RS",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1870063",
+    "homeTeam": "Velez Nevesinje",
+    "awayTeam": "Drina Zvornik",
+    "league": "1st League: RS",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1878477",
+    "homeTeam": "Tafic",
+    "awayTeam": "Gaborone United",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1811799",
+    "homeTeam": "Marek Dupnitsa",
+    "awayTeam": "Nesebar",
+    "league": "Vtora Liga",
+    "date": "2026-09-02",
+    "timestamp": 20260902140000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1811803",
+    "homeTeam": "PFC Chernomorets Burgas",
+    "awayTeam": "Ludogorets Razgrad II",
+    "league": "Vtora Liga",
+    "date": "2026-09-02",
+    "timestamp": 20260902140000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1811797",
+    "homeTeam": "PFC Rilski Sportist Samokov",
+    "awayTeam": "Sportist Svoge",
+    "league": "Vtora Liga",
+    "date": "2026-09-02",
+    "timestamp": 20260902140000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1811804",
+    "homeTeam": "Yantra",
+    "awayTeam": "Pirin Blagoevgrad",
+    "league": "Vtora Liga",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1724075",
+    "homeTeam": "Coquimbo Unido",
+    "awayTeam": "Universidad de Concepcion",
+    "league": "Primera División",
+    "date": "2026-09-02",
+    "timestamp": 20260902220000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1842247",
+    "homeTeam": "Yunnan Yukun",
+    "awayTeam": "Chongqing Tonglianglong FC",
+    "league": "FA Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902120000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1854860",
+    "homeTeam": "Deportes Quindio",
+    "awayTeam": "Llaneros FC",
+    "league": "Copa Colombia",
+    "date": "2026-09-02",
+    "timestamp": 20260902223000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1854859",
+    "homeTeam": "Atletico Nacional",
+    "awayTeam": "Deportivo Cali",
+    "league": "Copa Colombia",
+    "date": "2026-09-02",
+    "timestamp": 20260902231500,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1853159",
+    "homeTeam": "SV Broki",
+    "awayTeam": "Delfines del Este FC",
+    "league": "Caribbean Club Championship: Group A",
+    "date": "2026-09-02",
+    "timestamp": 20260902220000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1838114",
+    "homeTeam": "Vukovar 91",
+    "awayTeam": "Dinamo Zagreb B",
+    "league": "Prva NL",
+    "date": "2026-09-02",
+    "timestamp": 20260902133000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1837998",
+    "homeTeam": "Mladost Zdralovi",
+    "awayTeam": "NK Sesvete",
+    "league": "Prva NL",
+    "date": "2026-09-02",
+    "timestamp": 20260902150000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1837991",
+    "homeTeam": "NK Croatia Zmijavci",
+    "awayTeam": "Bijelo Brdo",
+    "league": "Prva NL",
+    "date": "2026-09-02",
+    "timestamp": 20260902150000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1837993",
+    "homeTeam": "NK Dugopolje",
+    "awayTeam": "NK Karlovac 1919",
+    "league": "Prva NL",
+    "date": "2026-09-02",
+    "timestamp": 20260902150000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1837990",
+    "homeTeam": "NK Jadran LP",
+    "awayTeam": "Dubrava Zagreb",
+    "league": "Prva NL",
+    "date": "2026-09-02",
+    "timestamp": 20260902150000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1837992",
+    "homeTeam": "Segesta",
+    "awayTeam": "NK Kustosija",
+    "league": "Prva NL",
+    "date": "2026-09-02",
+    "timestamp": 20260902150000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1837989",
+    "homeTeam": "Opatija",
+    "awayTeam": "Hrvace",
+    "league": "Prva NL",
+    "date": "2026-09-02",
+    "timestamp": 20260902153000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1837988",
+    "homeTeam": "Cibalia",
+    "awayTeam": "HNK Orijent 1919",
+    "league": "Prva NL",
+    "date": "2026-09-02",
+    "timestamp": 20260902173000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1810263",
+    "homeTeam": "Goerslev IF",
+    "awayTeam": "Nerashte Ballerup",
+    "league": "Danmarksserien: Group 2",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1736398",
+    "homeTeam": "CSD Macara",
+    "awayTeam": "Manta",
+    "league": "Serie A",
+    "date": "2026-09-02",
+    "timestamp": 20260902190000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1736394",
+    "homeTeam": "Deportivo Cuenca",
+    "awayTeam": "Guayaquil City",
+    "league": "Serie A",
+    "date": "2026-09-02",
+    "timestamp": 20260902213000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1885404",
+    "homeTeam": "Winslow United",
+    "awayTeam": "Milton Keynes Irish",
+    "league": "FA Trophy: Qualification",
+    "date": "2026-09-02",
+    "timestamp": 20260902184500,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1732989",
+    "homeTeam": "Flora Tallinn",
+    "awayTeam": "Tammeka",
+    "league": "Meistriliiga",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1827001",
+    "homeTeam": "HSC Hannover",
+    "awayTeam": "1. FC Phonix Lubeck",
+    "league": "Regionalliga Nord",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1826402",
+    "homeTeam": "Carl Zeiss Jena",
+    "awayTeam": "VSG Altglienicke",
+    "league": "Regionalliga Nordost",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1826400",
+    "homeTeam": "Hallescher FC",
+    "awayTeam": "Tasmania Berlin",
+    "league": "Regionalliga Nordost",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1826691",
+    "homeTeam": "Wattenscheid",
+    "awayTeam": "SV Roedinghausen",
+    "league": "Regionalliga West",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1826693",
+    "homeTeam": "SC Wiedenbrueck",
+    "awayTeam": "Borussia M'gladbach II",
+    "league": "Regionalliga West",
+    "date": "2026-09-02",
+    "timestamp": 20260902173000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1826688",
+    "homeTeam": "Sportfreunde Lotte",
+    "awayTeam": "Bergisch Gladbach",
+    "league": "Regionalliga West",
+    "date": "2026-09-02",
+    "timestamp": 20260902173000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1826689",
+    "homeTeam": "Sportfreunde Siegen",
+    "awayTeam": "SC Paderborn 07 II",
+    "league": "Regionalliga West",
+    "date": "2026-09-02",
+    "timestamp": 20260902173000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882214",
+    "homeTeam": "Nestos Chrysoupoli FC",
+    "awayTeam": "AEK Athens",
+    "league": "Greece Cup: Group Stage",
+    "date": "2026-09-02",
+    "timestamp": 20260902140000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882223",
+    "homeTeam": "Marko",
+    "awayTeam": "Kifisia FC",
+    "league": "Greece Cup: Group Stage",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882225",
+    "homeTeam": "AE Larissa",
+    "awayTeam": "Olympiacos",
+    "league": "Greece Cup: Group Stage",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882216",
+    "homeTeam": "Panserraikos FC",
+    "awayTeam": "Atromitos",
+    "league": "Greece Cup: Group Stage",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882217",
+    "homeTeam": "PAOK FC",
+    "awayTeam": "OFI Crete",
+    "league": "Greece Cup: Group Stage",
+    "date": "2026-09-02",
+    "timestamp": 20260902191500,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1875878",
+    "homeTeam": "Malavan",
+    "awayTeam": "Nassaji Mazandaran FC",
+    "league": "Persian Gulf Pro League",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1875870",
+    "homeTeam": "Zob Ahan",
+    "awayTeam": "Paykan",
+    "league": "Persian Gulf Pro League",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1875867",
+    "homeTeam": "Kheybar Khorramabad",
+    "awayTeam": "Foolad Khuzestan",
+    "league": "Persian Gulf Pro League",
+    "date": "2026-09-02",
+    "timestamp": 20260902150000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1875884",
+    "homeTeam": "Esteghlal",
+    "awayTeam": "Persepolis",
+    "league": "Persian Gulf Pro League",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1875881",
+    "homeTeam": "Sanat Naft Abadan",
+    "awayTeam": "Sepahan",
+    "league": "Persian Gulf Pro League",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1800622",
+    "homeTeam": "Hapoel Beer Sheva",
+    "awayTeam": "Hapoel Haifa",
+    "league": "Premier League",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866723",
+    "homeTeam": "SC Sagamihara",
+    "awayTeam": "Jubilo Iwata",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902093000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866710",
+    "homeTeam": "Vanraure Hachinohe",
+    "awayTeam": "Tochigi City FC",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902093000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866711",
+    "homeTeam": "Ehime FC",
+    "awayTeam": "Blaublitz Akita",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866709",
+    "homeTeam": "FC Gifu",
+    "awayTeam": "Tokushima Vortis",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866713",
+    "homeTeam": "FC Osaka",
+    "awayTeam": "Ventforet Kofu",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866726",
+    "homeTeam": "FC Ryukyu",
+    "awayTeam": "Yokohama FC",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866725",
+    "homeTeam": "Gainare Tottori",
+    "awayTeam": "Omiya Ardija",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866724",
+    "homeTeam": "Giravanz Kitakyushu",
+    "awayTeam": "Iwaki FC",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866714",
+    "homeTeam": "Kagoshima United",
+    "awayTeam": "Consadole Sapporo",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866717",
+    "homeTeam": "Nara Club",
+    "awayTeam": "Sagan Tosu",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866718",
+    "homeTeam": "Renofa Yamaguchi",
+    "awayTeam": "Fujieda MYFC",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866716",
+    "homeTeam": "Roasso Kumamoto",
+    "awayTeam": "Oita Trinita",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866727",
+    "homeTeam": "Tegevajaro Miyazaki",
+    "awayTeam": "Kataller Toyama",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866712",
+    "homeTeam": "Thespakusatsu Gunma",
+    "awayTeam": "Albirex Niigata",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1866715",
+    "homeTeam": "Zweigen Kanazawa",
+    "awayTeam": "FC Imabari",
+    "league": "J.League Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1814233",
+    "homeTeam": "INAC Kobe Leonessa W",
+    "awayTeam": "AC Nagano Parceiro W",
+    "league": "Women's WE League",
+    "date": "2026-09-02",
+    "timestamp": 20260902100000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1817808",
+    "homeTeam": "Floriana",
+    "awayTeam": "Gzira United",
+    "league": "Malta Premier: Opening Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902180000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1817814",
+    "homeTeam": "Hibernians",
+    "awayTeam": "Valletta",
+    "league": "Malta Premier: Opening Round",
+    "date": "2026-09-02",
+    "timestamp": 20260902180000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1801358",
+    "homeTeam": "Aurskog Finstadbru",
+    "awayTeam": "Lillestroem",
+    "league": "NM Cup: Round 1",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1801368",
+    "homeTeam": "Brodd",
+    "awayTeam": "Viking",
+    "league": "NM Cup: Round 1",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1885170",
+    "homeTeam": "Medkila W",
+    "awayTeam": "Melbo",
+    "league": "Women's Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1885171",
+    "homeTeam": "Sogndal W",
+    "awayTeam": "Foerde",
+    "league": "Women's Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1876560",
+    "homeTeam": "Nacional Asuncion",
+    "awayTeam": "Libertad",
+    "league": "Division Profesional: Clausura",
+    "date": "2026-09-02",
+    "timestamp": 20260902190000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1876545",
+    "homeTeam": "Sportivo Ameliano",
+    "awayTeam": "Sportivo Trinidense",
+    "league": "Division Profesional: Clausura",
+    "date": "2026-09-02",
+    "timestamp": 20260902190000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1876546",
+    "homeTeam": "Olimpia",
+    "awayTeam": "Guarani",
+    "league": "Division Profesional: Clausura",
+    "date": "2026-09-02",
+    "timestamp": 20260902213000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860571",
+    "homeTeam": "Kts-K Luzino",
+    "awayTeam": "Wisla Plock",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902123000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860581",
+    "homeTeam": "Beskid Andrychow",
+    "awayTeam": "Slask Wroclaw ll",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902140000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860567",
+    "homeTeam": "Gornik Zabrze II",
+    "awayTeam": "Olimpia Grudziadz",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902140000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860580",
+    "homeTeam": "Polkowice",
+    "awayTeam": "Polonia Warsaw",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902140000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860573",
+    "homeTeam": "Gornik Leczna",
+    "awayTeam": "Stal Mielec",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902150000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860575",
+    "homeTeam": "Znicz Pruszkow",
+    "awayTeam": "Cracovia",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902153000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860579",
+    "homeTeam": "Lechia Zielona Gora",
+    "awayTeam": "Ruch Chorzow",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860586",
+    "homeTeam": "Miedz Legnica",
+    "awayTeam": "Chrobry Glogow",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860576",
+    "homeTeam": "Sokol Ostroda",
+    "awayTeam": "Sokol Kleczew",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860589",
+    "homeTeam": "Resovia",
+    "awayTeam": "Arka Gdynia",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902170500,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1860591",
+    "homeTeam": "Widzew Lodz",
+    "awayTeam": "Korona Kielce",
+    "league": "Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1880501",
+    "homeTeam": "Minerul Lupeni",
+    "awayTeam": "UTA Arad",
+    "league": "Romanian Cup: Group A",
+    "date": "2026-09-02",
+    "timestamp": 20260902130000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1880503",
+    "homeTeam": "Botosani",
+    "awayTeam": "Corvinul Hunedoara",
+    "league": "Romanian Cup: Group A",
+    "date": "2026-09-02",
+    "timestamp": 20260902134500,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1880520",
+    "homeTeam": "CS Gloria Bistrita",
+    "awayTeam": "Miercurea Ciuc",
+    "league": "Romanian Cup: Group C",
+    "date": "2026-09-02",
+    "timestamp": 20260902150000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1880519",
+    "homeTeam": "ACS Champions FC Arges",
+    "awayTeam": "FCSB",
+    "league": "Romanian Cup: Group C",
+    "date": "2026-09-02",
+    "timestamp": 20260902183000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1880529",
+    "homeTeam": "Sporting Liesti",
+    "awayTeam": "Dinamo Bucuresti",
+    "league": "Romanian Cup: Group D",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882644",
+    "homeTeam": "AFC Nove Mesto Nad Vahom",
+    "awayTeam": "FK Cadca",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882633",
+    "homeTeam": "FC Banik Prievidza",
+    "awayTeam": "OFK Banik Lehota Pod Vtacnikom",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882631",
+    "homeTeam": "FK 05 Levoca",
+    "awayTeam": "Liptovsky Mikulas",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882654",
+    "homeTeam": "FK Brezno",
+    "awayTeam": "Lokomotiva Zvolen",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882638",
+    "homeTeam": "FK Nove Zamky",
+    "awayTeam": "FC Petrzalka 1898",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882639",
+    "homeTeam": "FTC Filakovo",
+    "awayTeam": "Dukla Banska Bystrica",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882652",
+    "homeTeam": "Harichovce",
+    "awayTeam": "FC Kosice",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882640",
+    "homeTeam": "Lok. Kosice",
+    "awayTeam": "Slavia Tu Kosice",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882641",
+    "homeTeam": "MFK Nova Bana",
+    "awayTeam": "Zlate Moravce",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882649",
+    "homeTeam": "MFK Spartak Medzev",
+    "awayTeam": "Zemplin Michalovce",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882650",
+    "homeTeam": "MSK Fomat Martin",
+    "awayTeam": "Skalica",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882635",
+    "homeTeam": "MSK Tesla Stropkov",
+    "awayTeam": "Humenne",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882653",
+    "homeTeam": "Namestovo",
+    "awayTeam": "MFK Bytca",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882632",
+    "homeTeam": "PFK Piestany",
+    "awayTeam": "TJ Kovo Belusa",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882628",
+    "homeTeam": "Partizan Bardejov",
+    "awayTeam": "MFK Vranov Nad Toplou",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882646",
+    "homeTeam": "Puchov",
+    "awayTeam": "Spartak Trnava",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882647",
+    "homeTeam": "SK Novohrad Lucenec",
+    "awayTeam": "Komarno",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882642",
+    "homeTeam": "Spisska Nova Ves",
+    "awayTeam": "Zeleziarne Podbrezova",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882637",
+    "homeTeam": "Svaty Jur",
+    "awayTeam": "OFK Dunajska Luzna",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882648",
+    "homeTeam": "TJ Kostolne Kracany",
+    "awayTeam": "FK Slovan Duslo Sala",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882655",
+    "homeTeam": "TJ Slavoj Boleraz",
+    "awayTeam": "Soporna",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882643",
+    "homeTeam": "Tatran Krasno Nad Kysucou",
+    "awayTeam": "Trencin",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882636",
+    "homeTeam": "Tatran Oravske Vesele",
+    "awayTeam": "Povazska Bystrica",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902143000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882651",
+    "homeTeam": "FK Poprad",
+    "awayTeam": "Ruzomberok",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1882645",
+    "homeTeam": "Slovan Kendice",
+    "awayTeam": "Tatran Presov",
+    "league": "Slovak Cup",
+    "date": "2026-09-02",
+    "timestamp": 20260902160000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1800805",
+    "homeTeam": "Aluminij",
+    "awayTeam": "NK Celje",
+    "league": "Prva Liga",
+    "date": "2026-09-02",
+    "timestamp": 20260902180000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1797961",
+    "homeTeam": "BK Olympic",
+    "awayTeam": "IFK Gothenburg",
+    "league": "Svenska Cupen: Qualification",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1825225",
+    "homeTeam": "Van Spor Kulubu",
+    "awayTeam": "Batman Petrolspor",
+    "league": "1st Lig",
+    "date": "2026-09-02",
+    "timestamp": 20260902140000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1825216",
+    "homeTeam": "Fatih Karagumruk",
+    "awayTeam": "Kayserispor",
+    "league": "1st Lig",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1825219",
+    "homeTeam": "Sivasspor",
+    "awayTeam": "Mardin Buyuksehir Basakspor",
+    "league": "1st Lig",
+    "date": "2026-09-02",
+    "timestamp": 20260902170000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1711408",
+    "homeTeam": "Westchester SC",
+    "awayTeam": "Chattanooga Red Wolves SC",
+    "league": "USL League One",
+    "date": "2026-09-02",
+    "timestamp": 20260902230000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1711407",
+    "homeTeam": "Charlotte Independence",
+    "awayTeam": "Portland Hearts of Pine",
+    "league": "USL League One",
+    "date": "2026-09-02",
+    "timestamp": 20260902233000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1711383",
+    "homeTeam": "Fort Wayne FC",
+    "awayTeam": "Richmond Kickers",
+    "league": "USL League One",
+    "date": "2026-09-02",
+    "timestamp": 20260902233000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1711388",
+    "homeTeam": "New York Cosmos",
+    "awayTeam": "Sarasota Paradise",
+    "league": "USL League One",
+    "date": "2026-09-02",
+    "timestamp": 20260902233000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1885064",
+    "homeTeam": "Atletico El Vigia",
+    "awayTeam": "Atletico Barinas",
+    "league": "Segunda División: Occidental",
+    "date": "2026-09-02",
+    "timestamp": 20260902193000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1885066",
+    "homeTeam": "Real Frontera",
+    "awayTeam": "Zamora FC B",
+    "league": "Segunda División: Occidental",
+    "date": "2026-09-02",
+    "timestamp": 20260902193000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1885068",
+    "homeTeam": "Yaracuyanos FC",
+    "awayTeam": "Urena SC",
+    "league": "Segunda División: Occidental",
+    "date": "2026-09-02",
+    "timestamp": 20260902200000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1885065",
+    "homeTeam": "Deportivo Lara",
+    "awayTeam": "Academia Rey",
+    "league": "Segunda División: Occidental",
+    "date": "2026-09-02",
+    "timestamp": 20260902230000,
+    "status": "scheduled"
+  },
+  {
+    "id": "ls_1883462",
+    "homeTeam": "Goiatuba SC",
+    "awayTeam": "EC Sao Jose",
+    "league": "Serie D: Promotion Play-off",
+    "date": "2026-09-02",
+    "timestamp": 20260902220000,
+    "status": "scheduled"
   }
 ]

@@ -1,9 +1,9 @@
 {
-  "fitted_at": "2026-08-31T06:35:13",
-  "n_samples": 190,
+  "fitted_at": "2026-09-04T10:26:07",
+  "n_samples": 188,
   "min_conf": 34.5,
   "max_conf": 81.6,
-  "brier_before": 0.237012,
-  "brier_after": 0.19419,
+  "brier_before": 0.237048,
+  "brier_after": 0.1953,
   "status": "fitted"
 }

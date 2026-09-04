@@ -75,7 +75,7 @@ def ensure_schema(con):
     existing = {r[1] for r in cur.fetchall()}
     for name, typ in COLS + RESULTS_COLS:
         if name not in existing:
-            con.execute(f"ALTER TABLE archive_football_data ADD COLUMN {name} {typ}")
+            con.execute(f"ALTER TABLE archive_football_data ADD COLUMN \"{name}\" {typ}")
     con.commit()
 
 

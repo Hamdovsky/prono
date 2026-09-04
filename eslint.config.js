@@ -100,6 +100,8 @@ module.exports = [
   {
     ignores: [
       'node_modules/',
+      '.kilo/',
+      '.git/',
       'tools/',
       '.agents/',
       '.venv/',

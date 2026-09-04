@@ -867,9 +867,37 @@ router.get('/flash-odds', async (req, res) => {
   try {
     const agg = require('../services/LiveScoreAggregator')
     const events = await agg.getAllMatchesWithOdds()
-    res.json({ success: true, events })
+    res.json({ success: true, events, liveEnabled: agg.getLiveEnabled() })
   } catch (e) {
     res.status(500).json({ success: false, error: e.message, events: [] })
+  }
+})
+
+/**
+ * GET /api/flash-odds/toggle — état actuel du toggle live ON/OFF.
+ */
+router.get('/flash-odds/toggle', (req, res) => {
+  try {
+    const agg = require('../services/LiveScoreAggregator')
+    res.json({ success: true, enabled: agg.getLiveEnabled() })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
+ * POST /api/flash-odds/toggle — active/désactive le scraping live.
+ * body: { enabled: boolean }
+ */
+router.post('/flash-odds/toggle', (req, res) => {
+  try {
+    const agg = require('../services/LiveScoreAggregator')
+    const enabled = !!(req.body && req.body.enabled)
+    const result = agg.setLiveEnabled(enabled)
+    if (enabled) agg.clearCache()
+    res.json({ success: true, enabled: result })
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message })
   }
 })
 

@@ -69,7 +69,7 @@ class DataService {
     // 🧠 [THROTTLING] Prevent request spamming (Point 4)
     this._lastFetch = new Map() // Store last fetch times for each endpoint
     this._pendingRequests = new Map() // Store active Promises for deduplication
-    this._fetchCooldown = 10000 // 10s cooldown
+    this._fetchCooldown = 5000 // 5s cooldown
 
     // 🔌 WebSocket Integration (ENABLED V3.0)
     this.socket = null
@@ -207,8 +207,6 @@ class DataService {
     const lastFetchTime = this._lastFetch.get(url) || 0
 
     if (now - lastFetchTime < this._fetchCooldown) {
-      // console.log(`🛡️ [THROTTLER] Suppressing redundant fetch for: ${url} (Cooldown active)`);
-      // Attempt to return currently held data based on URL
       if (url.includes('/api/upcoming')) return this.upcomingPredictions || []
       if (url.includes('/api/combos')) return this.combos
       if (url.includes('/api/live')) return this.matches
@@ -915,6 +913,25 @@ class DataService {
     } catch (error) {
       logger.error('BSD predictions failed:', error)
       return { success: false, count: 0, predictions: [] }
+    }
+  }
+
+  // ── Toggle Live ON/OFF (scraping en direct) ──
+  async fetchLiveToggle() {
+    try {
+      return await this._get(getApiUrl('/api/flash-odds/toggle'))
+    } catch (error) {
+      logger.error('Live toggle status failed:', error)
+      return { success: false, enabled: true }
+    }
+  }
+
+  async toggleLive(enabled) {
+    try {
+      return await this._post(getApiUrl('/api/flash-odds/toggle'), { enabled })
+    } catch (error) {
+      logger.error('Live toggle failed:', error)
+      throw error
     }
   }
 

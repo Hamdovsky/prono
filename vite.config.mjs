@@ -34,6 +34,7 @@ export default defineConfig({
         target: 'http://127.0.0.1:3001',
         changeOrigin: true,
         secure: false,
+        host: '127.0.0.1',
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') {
@@ -47,6 +48,7 @@ export default defineConfig({
         target: 'http://127.0.0.1:3001',
         ws: true,
         changeOrigin: true,
+        host: '127.0.0.1',
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') return;

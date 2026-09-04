@@ -15,7 +15,9 @@ const isLocalhost =
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 const API_BASE_URL = isNative
   ? import.meta.env.VITE_API_URL || PRODUCTION_API_URL
-  : import.meta.env.VITE_API_URL || ''
+  : isLocalhost
+    ? 'http://127.0.0.1:3001'
+    : import.meta.env.VITE_API_URL || ''
 
 export const getApiUrl = (endpoint) => {
   return `${API_BASE_URL}${endpoint}`

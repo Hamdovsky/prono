@@ -84,6 +84,14 @@ setTimeout(async () => {
     const retroSync = require('./services/retroSyncService')
     const _redisClient = require('./core/redisClient')
 
+    // ── Script action registry (découplage botService > scripts — sens architectural correct) ──
+    botService.registerScriptAction('dailyMega', (b) => require('./scripts/daily_mega_pronostic').runDailyMegaPronostic(b))
+    botService.registerScriptAction('autoRetrain', () => require('./scripts/auto_retrain_worker').runAutoRetrain())
+    botService.registerScriptAction('dailyDraws', () => require('./scripts/daily_draws').getDailyDraws())
+
+    // ── Adaptive engine injection (découplage core/enriched > services/adaptive) ──
+    require('./core/enriched_predictions').setAdaptiveEngine(require('./services/adaptiveLearningEngine'))
+
     const redisCache = {
       get: _redisClient.getCache,
       set: (key, value, ttl) => _redisClient.setCache(key, value, ttl),
@@ -263,9 +271,12 @@ setTimeout(async () => {
           }
         }, 15000)
 
-        // ── AutoHeal patrol ──
+        // ── AutoHeal patrol (startup + toutes les 15 min — inclut stale xG detection & fix) ──
         setTimeout(() => {
           autoHealAgent.patrol().catch((e) => logger.warn(`[AUTOHEAL] Patrol error: ${e.message}`))
+          setInterval(() => {
+            autoHealAgent.patrol().catch((e) => logger.warn(`[AUTOHEAL] Patrol error: ${e.message}`))
+          }, 15 * 60 * 1000).unref()
         }, 30000)
 
         // ── Startup auto-backtest (30s after boot, then daily cron handles it) ──

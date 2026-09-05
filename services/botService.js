@@ -6,9 +6,6 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') })
 const expertEngine = require('./expertEngine')
 const smartComboEngine = require('./SmartComboEngine')
 const logger = require('../core/logger')
-const { runDailyMegaPronostic } = require('../scripts/daily_mega_pronostic')
-const { runAutoRetrain } = require('../scripts/auto_retrain_worker')
-const { getDailyDraws } = require('../scripts/daily_draws')
 const liveGoalPredictor = require('./LiveGoalPredictor')
 const bankrollService = require('./bankrollService')
 function getBankrollData() {
@@ -31,6 +28,18 @@ class BotService {
     }
     this.alertedMatchIds = new Set()
     this.alertedComboIds = new Set()
+    this.scriptActions = {}
+  }
+
+  // --- SCRIPT ACTION REGISTRY (wired by server.js — évite le cycle services > scripts) ---
+  registerScriptAction(name, fn) {
+    this.scriptActions[name] = fn
+  }
+
+  _requireScriptAction(name) {
+    const fn = this.scriptActions[name]
+    if (!fn) throw new Error(`Action script non enregistrée: ${name}`)
+    return fn
   }
 
   // --- SYSTEM ALERTS (called by notificationService) ---
@@ -414,7 +423,7 @@ class BotService {
       chatId
     )
     try {
-      const result = await runDailyMegaPronostic(false) // false = Don't auto-broadcast, we'll send it locally to this chatId
+      const result = await this._requireScriptAction('dailyMega')(false) // false = Don't auto-broadcast, we'll send it locally to this chatId
       if (result && result.reportMsg) {
         this._executeSend(result.reportMsg, chatId)
       } else {
@@ -435,7 +444,7 @@ class BotService {
       chatId
     )
     try {
-      const result = await runAutoRetrain()
+      const result = await this._requireScriptAction('autoRetrain')()
       this._executeSend(`🔥 <b>TITANIUM AUTO-RETRAIN</b> 🔥\n\n${result.message}`, chatId)
     } catch (e) {
       this._executeSend('❌ The Engine failed to retrain: ' + e, chatId)
@@ -445,7 +454,7 @@ class BotService {
   async _handleLeagues(chatId) {
     this._executeSend('⏳ <b>Fetching Leagues Intelligence...</b>', chatId)
     try {
-      const result = await runDailyMegaPronostic(false)
+      const result = await this._requireScriptAction('dailyMega')(false)
       const leagues = Object.keys(result.allByLeague)
       if (leagues.length === 0) {
         this._executeSend('📭 No matches scheduled for today.', chatId)
@@ -468,7 +477,7 @@ class BotService {
   async _handleSpecificLeague(chatId, requestedLeagueKeyword) {
     this._executeSend(`⏳ <b>Analyzing matches for requested league...</b>`, chatId)
     try {
-      const result = await runDailyMegaPronostic(false)
+      const result = await this._requireScriptAction('dailyMega')(false)
 
       // Find the closest matching league name
       const allLgs = Object.keys(result.allByLeague)
@@ -1239,7 +1248,7 @@ class BotService {
       chatId
     )
     try {
-      const draws = getDailyDraws()
+      const draws = this._requireScriptAction('dailyDraws')()
       if (!draws || draws.length === 0) {
         this._executeSend(
           '📭 <b>Oracle MR. X</b>\nAucun match nul à haute probabilité détecté pour le moment. Lancez le scraper.',
@@ -1398,8 +1407,7 @@ class BotService {
       chatId
     )
     try {
-      const { runAutoRetrain } = require('../scripts/auto_retrain_worker')
-      const result = await runAutoRetrain()
+      const result = await this._requireScriptAction('autoRetrain')()
       this._executeSend(
         `🧠 <b>LEARNING COMPLETE</b>\n\n${result.message}\n\n<i>Titanium AI is now smarter.</i>`,
         chatId

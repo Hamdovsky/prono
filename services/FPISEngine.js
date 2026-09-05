@@ -20,7 +20,6 @@
 
 const fs = require('fs')
 const path = require('path')
-const adaptiveLearning = require('./adaptiveLearningEngine')
 const marketCorrelation = require('./MarketCorrelationEngine')
 const logger = require('../core/logger')
 const lineup = require('./LineupService')

@@ -264,6 +264,14 @@ async function runAudit() {
     const liveEvents = liveData?.events || []
     log(`ℹ️ Detected ${liveEvents.length} live matches currently playing in the world.`)
 
+    // Résolution auto des scores finaux (hook autrefois porté par SofascoreBypass)
+    try {
+      const Resolver = require('../services/scrapers/LiveResultResolver')
+      Resolver.autoResolve().catch(() => {})
+    } catch (_) {
+      /* résolveur jamais bloquant */
+    }
+
     // ─── PART C: ROLLING LIVE TICKET UPDATE ───
     const dbRW = new Database(dbPath)
     try {

@@ -13,7 +13,6 @@
  *  - Throttlé + « running » flag pour ne pas superposer les scans ni marteler l'API.
  */
 const Journal = require('./LivePredictionJournal')
-const Bypass = require('./SofascoreBypass')
 
 const MIN_SCAN_INTERVAL = 90 * 1000 // au plus 1 scan / 90 s
 const SCORE_PLAUSIBLE_MAX = 15 // garde-fou anti-score aberrant
@@ -54,6 +53,7 @@ async function autoResolve({ force = false } = {}) {
     // Ids encore en direct (on ne résout pas un match en cours)
     const liveIds = new Set()
     try {
+      const Bypass = require('./SofascoreBypass')
       const live = await Bypass.getLiveEvents()
       live.forEach((e) => liveIds.add(String(e.id)))
     } catch (_) {
@@ -91,6 +91,7 @@ async function process(record, liveIds, stats) {
   try {
     // Encore en direct => on ne résout pas maintenant.
     if (liveIds.has(id)) return { eventId: id, skipped: true }
+    const Bypass = require('./SofascoreBypass')
     const st = await Bypass.getEventStatus(id)
     if (!st || !st.finished) return { eventId: id, skipped: true }
     if (!plausibleScore(st.home, st.away)) return { eventId: id, skipped: true }

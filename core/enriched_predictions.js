@@ -28,7 +28,6 @@ const bankrollService = require('../services/bankrollService') // V90
 const NewsAnalysisService = require('./services/NewsAnalysisService')
 const MarketIntelligenceService = require('./services/MarketIntelligenceService')
 const StatisticalEngine = require('./services/StatisticalEngine')
-const adaptiveLearningEngine = require('../services/adaptiveLearningEngine')
 const patternService = require('../services/patternService')
 const SmartOddsAnalyzer = require('../services/SmartOddsAnalyzer')
 const DiagnosticTrace = require('./utils/DiagnosticTrace')
@@ -185,6 +184,11 @@ const ROLE_KWS = {
 class EnrichedPredictionService {
   constructor() {
     this.pythonService = pythonService
+    this._adaptiveEngine = null
+  }
+
+  setAdaptiveEngine(engine) {
+    this._adaptiveEngine = engine
   }
 
   calculateNewsScore(headlines, confirmedInjuries = [], teamAvgRating = null) {
@@ -693,8 +697,10 @@ class EnrichedPredictionService {
   async getAnalyticalPrediction(match, timeoutMs = null) {
     try {
       const league = match.league || match.tournament || 'Unknown'
-      match.adaptive_weights = await adaptiveLearningEngine.getWeights(league)
-      match.adaptive_confidence_adj = await adaptiveLearningEngine.getConfidenceAdjustment(league)
+      if (this._adaptiveEngine) {
+        match.adaptive_weights = await this._adaptiveEngine.getWeights(league)
+        match.adaptive_confidence_adj = await this._adaptiveEngine.getConfidenceAdjustment(league)
+      }
     } catch (e) {
       /* ignore adaptive errors */
     }

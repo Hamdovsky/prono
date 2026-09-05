@@ -120,13 +120,8 @@ async function getLiveEvents() {
     } catch (_) {
       /* journal jamais bloquant */
     }
-    // Résolution auto des scores finaux (point 3) : en fond, throttlé.
-    try {
-      const Resolver = require('./LiveResultResolver')
-      Resolver.autoResolve().catch(() => {})
-    } catch (_) {
-      /* résolveur jamais bloquant */
-    }
+    // Résolution auto des scores finaux : déclenchée par les appelants (cronManager)
+    // pour éviter le cycle SofascoreBypass > LiveResultResolver > SofascoreBypass.
     return res.events
   }
   return liveCache.events

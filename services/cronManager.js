@@ -640,15 +640,7 @@ class CronManager {
       { timezone: 'Africa/Tunis' }
     )
 
-    // 15. [AUTOHEAL] Autopilot system patrol (Every 15 minutes) â€” includes stale xG detection & fix
-    cron.schedule('*/15 * * * *', () => {
-      try {
-        const autoHealAgent = require('./autoHealAgent')
-        autoHealAgent.patrol()
-      } catch (e) {
-        logger.error(`❌ [CRON] AutoHeal patrol error: ${e.message}`)
-      }
-    })
+    // 15. [AUTOHEAL] Patrol planifiée dans server.js (évite le cycle cronManager > autoHealAgent)
 
     // 15b. [STATS] HT score + Corners extraction for finished matches (2x/day)
     for (const hour of [4, 22]) {

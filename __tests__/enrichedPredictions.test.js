@@ -89,7 +89,7 @@ jest.mock('../src/services/newsService', () => {
   }
 })
 
-jest.mock('../src/services/oddsService', () => ({
+jest.mock('../services/oddsService', () => ({
   getLiveOdds: jest.fn().mockResolvedValue(null),
 }))
 

@@ -42,7 +42,7 @@ jest.mock('../scripts/daily_draws', () => ({
   getDailyDraws: jest.fn().mockReturnValue([]),
 }))
 
-jest.mock('../src/services/oddsService', () => ({
+jest.mock('../services/oddsService', () => ({
   getSafeTicket: jest.fn().mockReturnValue([]),
 }))
 

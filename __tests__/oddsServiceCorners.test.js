@@ -1,6 +1,6 @@
 // __tests__/oddsServiceCorners.test.js
 //
-// Test the Corners extraction logic of src/services/oddsService.js.
+// Test the Corners extraction logic of services/oddsService.js.
 // Mocks global.fetch to return a payload mirroring Sofascore 2026 real structure.
 
 const path = require('path')
@@ -45,7 +45,7 @@ describe('oddsService Corners extraction', () => {
 
   test('1X2 extracted correctly', async () => {
     global.fetch = async () => ({ ok: true, json: async () => sofaPayload([]) })
-    const { getLiveOdds } = require(path.join('..', 'src', 'services', 'oddsService'))
+    const { getLiveOdds } = require(path.join('..', 'services', 'oddsService'))
     const o = await getLiveOdds('1')
     expect(o.home).toBeCloseTo(2.75, 2) // 7/4 + 1
     expect(o.draw).toBeCloseTo(3.5, 2)  // 5/2 + 1
@@ -60,7 +60,7 @@ describe('oddsService Corners extraction', () => {
         { line: 9.5,  over: '5/6', under: '5/6' },
       ]),
     })
-    const { getLiveOdds } = require(path.join('..', 'src', 'services', 'oddsService'))
+    const { getLiveOdds } = require(path.join('..', 'services', 'oddsService'))
     const o = await getLiveOdds('1')
     expect(o.corner_line).toBe(9.5)
     expect(o.corner_over).toBeCloseTo(1.833, 2)
@@ -69,7 +69,7 @@ describe('oddsService Corners extraction', () => {
 
   test('Corners missing -> all corner fields null', async () => {
     global.fetch = async () => ({ ok: true, json: async () => sofaPayload([]) })
-    const { getLiveOdds } = require(path.join('..', 'src', 'services', 'oddsService'))
+    const { getLiveOdds } = require(path.join('..', 'services', 'oddsService'))
     const o = await getLiveOdds('1')
     expect(o.corner_line).toBeNull()
     expect(o.corner_over).toBeNull()
@@ -78,7 +78,7 @@ describe('oddsService Corners extraction', () => {
 
   test('HT fields are always null (Sofascore 2026 does not expose HT OU/BTTS)', async () => {
     global.fetch = async () => ({ ok: true, json: async () => sofaPayload([{ line: 9.5, over: '5/6', under: '5/6' }]) })
-    const { getLiveOdds } = require(path.join('..', 'src', 'services', 'oddsService'))
+    const { getLiveOdds } = require(path.join('..', 'services', 'oddsService'))
     const o = await getLiveOdds('1')
     expect(o.ht_over).toBeNull()
     expect(o.ht_under).toBeNull()
@@ -87,13 +87,13 @@ describe('oddsService Corners extraction', () => {
   })
 
   test('null matchId -> null result, no fetch', async () => {
-    const { getLiveOdds } = require(path.join('..', 'src', 'services', 'oddsService'))
+    const { getLiveOdds } = require(path.join('..', 'services', 'oddsService'))
     const o = await getLiveOdds(null)
     expect(o).toBeNull()
   })
 
   test('CORNERS_MARKET_ID exported = 21', () => {
-    const { CORNERS_MARKET_ID } = require(path.join('..', 'src', 'services', 'oddsService'))
+    const { CORNERS_MARKET_ID } = require(path.join('..', 'services', 'oddsService'))
     expect(CORNERS_MARKET_ID).toBe(21)
   })
 })

@@ -7,10 +7,10 @@
  */
 
 // Using native global fetch (integrated in Node.js >= 18)
-const { getRandomUserAgent } = require('../../SofascoreScraping/src/apiClient')
+const { getRandomUserAgent } = require('../SofascoreScraping/src/apiClient')
 let scraperProxy = null
 try {
-  scraperProxy = require('../../services/scraperProxy')
+  scraperProxy = require('./scraperProxy')
 } catch (e) {
   // Optional: only used if ScraperAPI is configured
 }
@@ -66,7 +66,7 @@ const CORNERS_MARKET_ID = 21
 // corner_line, corner_over, corner_under}. Utilisé si le chemin direct échoue.
 let bypass = null
 try {
-  bypass = require('../../services/scrapers/SofascoreBypass')
+    bypass = require('./scrapers/SofascoreBypass')
 } catch (e) {
   // Optionnel : prod Render sans venv Python -> chemin direct seul
 }

@@ -115,6 +115,9 @@ backups/
 .opencode/
 opencode.json
 
+# Kilo Code worktrees (branches editor, pas du code source)
+.kilo/
+
 # Credentials â€” DO NOT COMMIT
 AGENTS.md
 

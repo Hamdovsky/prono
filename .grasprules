@@ -1,0 +1,11 @@
+{
+  "rules": [
+    { "from": "core",     "to": "routes",   "type": "FORBIDDEN", "reason": "Fondation partagée : ne doit jamais dépendre de la couche API" },
+    { "from": "core",     "to": "scripts",  "type": "FORBIDDEN", "reason": "Fondation partagée : ne doit jamais dépendre des points d'entrée opérationnels" },
+    { "from": "services", "to": "routes",   "type": "FORBIDDEN", "reason": "Logique métier : ne doit pas dépendre de la couche API" },
+    { "from": "routes",   "to": "scripts",  "type": "FORBIDDEN", "reason": "Les routes ne doivent pas dépendre des scripts opérationnels" },
+    { "from": "core",     "to": "ui",       "type": "FORBIDDEN", "reason": "Backend : ne doit pas importer le frontend src/ (logique partagée à déplacer en dehors de src/)" },
+    { "from": "services", "to": "ui",       "type": "FORBIDDEN", "reason": "Backend : ne doit pas importer le frontend src/ (logique partagée à déplacer en dehors de src/)" },
+    { "from": "routes",   "to": "ui",       "type": "FORBIDDEN", "reason": "Backend : ne doit pas importer le frontend src/ (logique partagée à déplacer en dehors de src/)" }
+  ]
+}

@@ -405,7 +405,7 @@ router.get('/safe-ticket', async (req, res) => {
       .slice(0, 40)
 
     // 2. LIVE SOFASCORE SYNC (Just-In-Time) with DB Fallback
-    const oddsService = require('../src/services/oddsService')
+    const oddsService = require('../services/oddsService')
     const enrichedPool = await Promise.all(
       candidates.map(async (m) => {
         let live = await oddsService.getLiveOdds(m.id)

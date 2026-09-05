@@ -20,7 +20,7 @@ const MIN_ODDS_VALUE = 1.1
 const MAX_KELLY_PCT = 10.0
 const MIN_EV_THRESHOLD = 0.1
 
-const QuantService = require('../../services/quantService')
+const QuantService = require('./quantService')
 
 // ── Helpers ─────────────────────────────────────────────────────
 

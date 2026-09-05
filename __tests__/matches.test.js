@@ -32,7 +32,7 @@ jest.mock('../services/oddsMovementService', () => ({
   detectBookmakerTrap: jest.fn(),
 }))
 
-jest.mock('../src/services/ValueBetEngine', () => ({
+jest.mock('../services/ValueBetEngine', () => ({
   analyzeValue: jest.fn(),
 }))
 
@@ -83,7 +83,7 @@ const StatisticalEngine = require('../core/services/StatisticalEngine')
 
 const { invalidateCache } = require('../core/speedCache')
 const { getSteamForMatch } = require('../services/oddsMovementService')
-const ValueBetEngine = require('../src/services/ValueBetEngine')
+const ValueBetEngine = require('../services/ValueBetEngine')
 const IntegrityService = require('../services/integrity_service')
 
 let app

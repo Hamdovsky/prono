@@ -25,7 +25,7 @@
  *   reasoningSummary.
  */
 
-const ValueBetEngine = require('../src/services/ValueBetEngine')
+const ValueBetEngine = require('./ValueBetEngine')
 const logger = require('../core/logger')
 let _calibrator = null
 function getCalibrator() {

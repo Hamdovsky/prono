@@ -1,4 +1,4 @@
-const ValueBetEngine = require('../src/services/ValueBetEngine')
+const ValueBetEngine = require('../services/ValueBetEngine')
 
 describe('ValueBetEngine', () => {
   describe('analyzeValue()', () => {

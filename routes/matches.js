@@ -9,7 +9,7 @@ const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => f
 const liveGoalPredictor = require('../services/LiveGoalPredictor')
 const liveMatchService = require('../services/liveMatchService')
 const { getSteamForMatch } = require('../services/oddsMovementService')
-const ValueBetEngine = require('../src/services/ValueBetEngine')
+const ValueBetEngine = require('../services/ValueBetEngine')
 const IntegrityService = require('../services/integrity_service')
 const newsService = require('../src/services/newsService')
 

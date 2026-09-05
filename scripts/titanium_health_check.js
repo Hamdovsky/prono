@@ -142,7 +142,7 @@ const coreServices = [
   ['MarketCorrelation', './services/MarketCorrelationEngine'],
   ['SharpIntelligence', './services/SharpIntelligenceService'],
   ['IntegrityService', './services/integrity_service'],
-  ['ValueBetEngine', './src/services/ValueBetEngine'],
+  ['ValueBetEngine', './services/ValueBetEngine'],
   ['PlayerPropsService', './services/playerPropsService'],
 ]
 

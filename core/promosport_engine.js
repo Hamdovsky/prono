@@ -561,6 +561,8 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
     }))
     .sort((a, b) => b.uncertainty - a.uncertainty)
 
+  const enrichedById = new Map(enrichedMatches.map((m) => [m.id, m]))
+
   // Top 3 most uncertain → doubled by ALL 4 grids (core)
   const coreDoubles = rankedByUncertainty.slice(0, 3).map((m) => m.id)
 
@@ -568,7 +570,7 @@ function generateGridsWithStrategicCoverage(enrichedMatches, customDoubles) {
   const MIN_CONFIDENCE_SINGLE = 75
   const candidateSingles = rankedByUncertainty
     .slice(3, 13)
-    .map((r) => ({ id: r.id, match: enrichedMatches.find((m) => m.id === r.id) }))
+    .map((r) => ({ id: r.id, match: enrichedById.get(r.id) }))
   candidateSingles.sort((a, b) => (b.match.confidence || 0) - (a.match.confidence || 0))
 
   const singlesList = candidateSingles

@@ -820,6 +820,35 @@ def cmd_event(args):
     print(json.dumps(out, ensure_ascii=False))
 
 
+def cmd_scheduled(args):
+    """Fixtures pour une date (timestamp Unix 00:00 UTC).
+    Utilisé pour remplacer LiveScore.com API cassée."""
+    ts = int(args.timestamp) if args.timestamp else int(time.time())
+    try:
+        data = api_get(f"/sport/football/scheduled-events/{ts}")
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"found": False, "error": str(e)}))
+        return
+    events = data.get("events") or []
+    out = []
+    for ev in events:
+        ht = ev.get("homeTeam") or {}
+        at = ev.get("awayTeam") or {}
+        st = ev.get("status") or {}
+        out.append({
+            "id": ev.get("id"),
+            "homeTeam": ht.get("name"),
+            "awayTeam": at.get("name"),
+            "tournament": ((ev.get("tournament") or {}).get("name") or ""),
+            "category": ((ev.get("category") or {}).get("name") or ""),
+            "startTimestamp": ev.get("startTimestamp"),
+            "status": st.get("type") or "scheduled",
+            "homeScore": (ev.get("homeScore") or {}).get("current"),
+            "awayScore": (ev.get("awayScore") or {}).get("current"),
+        })
+    print(json.dumps({"found": bool(out), "events": out}, ensure_ascii=False))
+
+
 def main():
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -838,6 +867,8 @@ def main():
     ps = sub.add_parser("stats")
     ps.add_argument("--event", required=True)
     plv = sub.add_parser("live")
+    psch = sub.add_parser("scheduled")
+    psch.add_argument("--timestamp", default=None)
     args = p.parse_args()
     t0 = time.time()
     try:
@@ -853,6 +884,8 @@ def main():
             cmd_event(args)
         elif args.cmd == "live":
             cmd_live(args)
+        elif args.cmd == "scheduled":
+            cmd_scheduled(args)
         else:
             cmd_odds(args)
     except Exception as e:  # noqa: BLE001

@@ -1232,7 +1232,9 @@ app.get('/api/upcoming', async (req, res) => {
           cards: mkts.cards,
           playerProps: mkts.playerProps.slice(0, 3),
         }
-      } catch (_) {}
+      } catch (e) {
+        logger.debug(`[API] market analysis failed for match ${m.id}: ${e.message}`)
+      }
       return m
     })
 

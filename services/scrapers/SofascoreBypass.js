@@ -24,6 +24,8 @@ function pickPython() {
     path.join(__dirname, '..', '..', '.venv', 'Scripts', 'python.exe'),
     path.join(__dirname, '..', '..', '.venv', 'bin', 'python'),
     path.join(__dirname, '..', '..', 'data_pipeline', '.venv', 'Scripts', 'python.exe'),
+    '/opt/venv/bin/python3', // Dockerfile.production
+    'python3',
   ]
   for (const p of candidates) {
     if (fs.existsSync(p)) {

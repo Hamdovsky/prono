@@ -247,6 +247,148 @@ function _attachSofaMarkets(match, sofaOdds) {
   }
 }
 
+/**
+ * Convertit les marchés Flashscore (getMatchMarkets) en entrées `real_markets`
+ * normalisées au même contrat canonique que Sofascore
+ * ({source, market_id, selection, odds, line, usable}).
+ * Marché réservé : SCORE EXACT n'a pas de market_id dans le registre → ignoré.
+ */
+function _flashscoreToRealMarkets(fs) {
+  const out = []
+  const oneTwo = fs['HOME_DRAW_AWAY']
+  if (oneTwo) {
+    const selMap = { home: '1', draw: 'X', away: '2' }
+    for (const [k, sel] of Object.entries(selMap)) {
+      const v = parseFloat(oneTwo[k])
+      if (v > 1) {
+        out.push({ source: 'flashscore', raw_market_id: '1', market_id: 'match_result', selection: sel, odds: v, line: null, usable: true })
+      }
+    }
+  }
+  for (const ln of Array.isArray(fs['OVER_UNDER']) ? fs['OVER_UNDER'] : []) {
+    const line = typeof ln.line === 'number' && ln.line > 0 ? ln.line : null
+    if (parseFloat(ln.over) > 1 && line) {
+      out.push({ source: 'flashscore', raw_market_id: 'over_under', market_id: 'total_goals', selection: 'over', odds: parseFloat(ln.over), line, usable: true })
+    }
+    if (parseFloat(ln.under) > 1 && line) {
+      out.push({ source: 'flashscore', raw_market_id: 'over_under', market_id: 'total_goals', selection: 'under', odds: parseFloat(ln.under), line, usable: true })
+    }
+  }
+  const btts = fs['BOTH_TEAMS_TO_SCORE']
+  if (btts) {
+    if (parseFloat(btts.yes) > 1) {
+      out.push({ source: 'flashscore', raw_market_id: 'btts', market_id: 'btts', selection: 'yes', odds: parseFloat(btts.yes), line: null, usable: true })
+    }
+    if (parseFloat(btts.no) > 1) {
+      out.push({ source: 'flashscore', raw_market_id: 'btts', market_id: 'btts', selection: 'no', odds: parseFloat(btts.no), line: null, usable: true })
+    }
+  }
+  const dc = fs['DOUBLE_CHANCE']
+  if (dc) {
+    const dcMap = { homeOrDraw: '1X', awayOrDraw: 'X2', noDraw: '12' }
+    for (const [k, sel] of Object.entries(dcMap)) {
+      const v = parseFloat(dc[k])
+      if (v > 1) {
+        out.push({ source: 'flashscore', raw_market_id: 'dc', market_id: 'double_chance', selection: sel, odds: v, line: null, usable: true })
+      }
+    }
+  }
+  for (const ln of Array.isArray(fs['ASIAN_HANDICAP']) ? fs['ASIAN_HANDICAP'] : []) {
+    const line = typeof ln.line === 'number' ? ln.line : null
+    if (line !== null) {
+      if (parseFloat(ln.home) > 1) {
+        out.push({ source: 'flashscore', raw_market_id: 'ah', market_id: 'asian_handicap', selection: 'home', odds: parseFloat(ln.home), line, usable: true })
+      }
+      if (parseFloat(ln.away) > 1) {
+        out.push({ source: 'flashscore', raw_market_id: 'ah', market_id: 'asian_handicap', selection: 'away', odds: parseFloat(ln.away), line, usable: true })
+      }
+    }
+  }
+  return out
+}
+
+/** Fusionne les marchés Flashscore avec les real_markets existants (dédupe par
+ *  market_id:selection:line, Priorité aux entrées déjà présentes — Sofascore. */
+function _mergeRealMarkets(match, entries) {
+  const existing = Array.isArray(match.real_markets)
+    ? match.real_markets.filter((m) => m && m.market_id)
+    : []
+  const keyed = new Map()
+  for (const e of existing) keyed.set(`${e.market_id}:${e.selection}:${e.line ?? ''}`, e)
+  for (const e of entries) {
+    const k = `${e.market_id}:${e.selection}:${e.line ?? ''}`
+    if (!keyed.has(k)) keyed.set(k, e)
+  }
+  match.real_markets = [...keyed.values()]
+  if (match.fullData && typeof match.fullData === 'object') {
+    match.fullData.real_markets = match.real_markets
+  }
+}
+
+/**
+ * Applique les marchés Flashscore sur un match : remplit les colonnes 1X2,
+ * O/U 2.5, BTTS et construit/étend `real_markets` (canonique, même contrat
+ * que Sofascore) pour activer le Market Engine (DC, AH, lignes O/U...).
+ * @returns {boolean} true si au moins une cote/marché a été attachée
+ */
+function _attachFlashscoreMarkets(match, fs, opts = {}) {
+  if (!match || !fs) return false
+  const fill1x2 = opts.fill1x2 !== false
+  const fillMarkets = opts.fillMarkets !== false
+  let touchedOdds = false
+  let touchedMarkets = false
+
+  if (fill1x2) {
+    const fh = parseFloat(fs['HOME_DRAW_AWAY'] && fs['HOME_DRAW_AWAY'].home)
+    const fd = parseFloat(fs['HOME_DRAW_AWAY'] && fs['HOME_DRAW_AWAY'].draw)
+    const fa = parseFloat(fs['HOME_DRAW_AWAY'] && fs['HOME_DRAW_AWAY'].away)
+    if (fh > 1 && fd > 1 && fa > 1) {
+      match.odds_home = fh
+      match.odds_draw = fd
+      match.odds_away = fa
+      touchedOdds = true
+    }
+  }
+
+  if (fillMarkets) {
+    // O/U 2.5 → colonnes odds_over25/odds_under25 (ligne la plus proche de 2.5)
+    const ouLines = Array.isArray(fs['OVER_UNDER']) ? fs['OVER_UNDER'] : []
+    if (ouLines.length && !(parseFloat(match.odds_over25) > 0 && parseFloat(match.odds_under25) > 0)) {
+      let best = null
+      for (const ln of ouLines) {
+        if (!(parseFloat(ln.over) > 1) || !(parseFloat(ln.under) > 1)) continue
+        if (!best) { best = ln; continue }
+        if (Math.abs(ln.line - 2.5) < Math.abs(best.line - 2.5)) best = ln
+      }
+      if (best) {
+        match.odds_over25 = parseFloat(best.over)
+        match.odds_under25 = parseFloat(best.under)
+        touchedMarkets = true
+      }
+    }
+    const btts = fs['BOTH_TEAMS_TO_SCORE']
+    if (btts && !(parseFloat(match.odds_btts_yes) > 0 && parseFloat(match.odds_btts_no) > 0)) {
+      if (parseFloat(btts.yes) > 0 && parseFloat(btts.no) > 0) {
+        match.odds_btts_yes = parseFloat(btts.yes)
+        match.odds_btts_no = parseFloat(btts.no)
+        touchedMarkets = true
+      }
+    }
+    const entries = _flashscoreToRealMarkets(fs)
+    if (entries.length) {
+      _mergeRealMarkets(match, entries)
+      touchedMarkets = true
+    }
+  }
+
+  if (touchedOdds || touchedMarkets) {
+    if (touchedOdds) match.odds_source = 'flashscore'
+    else match.odds_source = match.odds_source || 'flashscore'
+    match._oddsWereFetched = true
+  }
+  return touchedOdds || touchedMarkets
+}
+
 async function attachRealOdds(match) {
   if (!match) return
   const has1x2 = parseFloat(match.odds_home) > 0 && parseFloat(match.odds_draw) > 0 && parseFloat(match.odds_away) > 0
@@ -270,6 +412,12 @@ async function attachRealOdds(match) {
     // for matches that already carry 1X2 odds.
     const sofascoreOdds = require('../services/sofascoreOddsService')
     if (sofascoreOdds.isAvailable()) {
+      const apiClient = require('../SofascoreScraping/src/apiClient')
+      const inSofaCooldown =
+        apiClient && typeof apiClient.sofaCooldownActive === 'function'
+          ? apiClient.sofaCooldownActive()
+          : false
+      if (!inSofaCooldown) {
       const sofaOdds = await sofascoreOdds.fetchOddsForMatch(match)
       if (sofaOdds) {
         if (!has1x2 && parseFloat(sofaOdds.home) > 0 && parseFloat(sofaOdds.away) > 0) {
@@ -298,6 +446,43 @@ async function attachRealOdds(match) {
           )
           return
         }
+      }
+      }
+    }
+    // Flashscore — source gratuite headless (persisted GraphQL `ope2`, le
+    // betType est une VARIABLE de la même query). Remplit 1X2 + O/U + BTTS +
+    // marchés réels (Double Chance, Asian Handicap, toutes lignes O/U) selon ce
+    // qui manque, quand Sofascore n'a rien donné (cooldown/bloqué). Cache 1h.
+    const wantAny =
+      !has1x2 ||
+      !(parseFloat(match.odds_over25) > 0 && parseFloat(match.odds_under25) > 0) ||
+      !(parseFloat(match.odds_btts_yes) > 0 && parseFloat(match.odds_btts_no) > 0)
+    if (wantAny) {
+      try {
+        const flashscoreService = require('../services/flashscoreService')
+        const fsId = await flashscoreService.findMatchId(match.homeTeam, match.awayTeam, match.league, match.startTimestamp)
+        if (fsId) {
+          // Marchés utiles uniquement : O/U + BTTS (colonnes) et DC/AH (real_markets).
+          // 1X2 en plus seulement s'il manque ; CORRECT_SCORE jamais (non consommé).
+          const fsBetTypes = ['OVER_UNDER', 'BOTH_TEAMS_TO_SCORE', 'DOUBLE_CHANCE', 'ASIAN_HANDICAP']
+          if (!has1x2) fsBetTypes.unshift('HOME_DRAW_AWAY')
+          const fsMarkets = await flashscoreService.getMatchMarkets(fsId, fsBetTypes)
+          if (fsMarkets) {
+            const attached = _attachFlashscoreMarkets(match, fsMarkets, { fill1x2: !has1x2 })
+            if (attached) {
+              logger.info(
+                `[FBREF/FALLBACK] Attached Flashscore markets for ${match.homeTeam} vs ${match.awayTeam} (${match.league}) ` +
+                  `H=${match.odds_home || '—'} D=${match.odds_draw || '—'} A=${match.odds_away || '—'}` +
+                  (match.odds_over25 ? ` +O/U=${match.odds_over25}/${match.odds_under25}` : '') +
+                  (match.odds_btts_yes ? ` +BTTS=${match.odds_btts_yes}/${match.odds_btts_no}` : '') +
+                  (Array.isArray(match.real_markets) && match.real_markets.length ? ` +${match.real_markets.length}mkt` : '')
+              )
+              return
+            }
+          }
+        }
+      } catch (fsErr) {
+        logger.warn(`[FBREF/FALLBACK] Flashscore odds fetch failed for ${match.id}: ${fsErr.message}`)
       }
     }
     const oddsApiIo = require('../services/oddsApiIoService')
@@ -579,7 +764,14 @@ async function enrichMatchesBatch(opts = {}) {
     try {
       const sofascoreOdds = require('../services/sofascoreOddsService')
       if (sofascoreOdds.isAvailable()) {
-        const needSofa = matches.filter((m) => {
+        const apiClient = require('../SofascoreScraping/src/apiClient')
+        const inSofaCooldown =
+          apiClient && typeof apiClient.sofaCooldownActive === 'function'
+            ? apiClient.sofaCooldownActive()
+            : false
+        const needSofa = inSofaCooldown
+          ? []
+          : matches.filter((m) => {
           const has1 = _hasOdds(m)
           const hasOu =
             parseFloat(m.odds_over25) > 0 || parseFloat(m.odds_under25) > 0
@@ -611,6 +803,8 @@ async function enrichMatchesBatch(opts = {}) {
           logger.info(
             `[FALLBACK_ENRICHER] Sofascore odds: ${sofaFetched}/${needSofa.length} got 1X2 + ${marketOnly} got O/U/BTTS markets`
           )
+        } else if (inSofaCooldown) {
+          logger.info('[FALLBACK_ENRICHER] Sofascore odds skipped (global cooldown) — fallback sources actifs')
         }
       }
     } catch (e) {
@@ -736,6 +930,7 @@ async function enrichMatchesBatch(opts = {}) {
             odds_source:
               r.odds_source ||
               (m._oddsWereFetched && !m._oddsAreSynthetic ? m.odds_source || 'oddsapiio' : null),
+            real_markets: m.real_markets || null,
           })
           enriched++
         } catch (e) {
@@ -775,7 +970,20 @@ async function backfillMarkets(opts = {}) {
       if (pa !== pb) return pa - pb
       return _startTs(a) - _startTs(b)
     })
-    const batch = rows.slice(0, limit)
+    // Fenêtre utile uniquement : les matchs déjà joués/périmés ne sont plus dans
+    // le feed Flashscore du jour → inutile de les scanner (perte de temps).
+    const nowTs = Date.now()
+    const WINDOW_MIN = nowTs - 36 * 3600 * 1000
+    const live = rows.filter((m) => {
+      const t = _startTs(m)
+      if (!t) return true
+      return t >= WINDOW_MIN
+    })
+    const batch = live.slice(0, limit)
+    if (batch.length === 0) {
+      logger.info('[FALLBACK_ENRICHER] No in-window matches missing O/U + BTTS markets.')
+      return { scanned: 0, updated: 0 }
+    }
     let updated = 0
     for (const m of batch) {
       try {
@@ -791,10 +999,14 @@ async function backfillMarkets(opts = {}) {
           parseFloat(m.odds_btts_yes) > 0 || parseFloat(m.odds_btts_no) > 0
         if (ouNow || bttsNow) {
           await database.updatePredictions(m.id, {
+            odds_home: parseFloat(m.odds_home) > 0 ? m.odds_home : null,
+            odds_draw: parseFloat(m.odds_draw) > 0 ? m.odds_draw : null,
+            odds_away: parseFloat(m.odds_away) > 0 ? m.odds_away : null,
             odds_over25: parseFloat(m.odds_over25) > 0 ? m.odds_over25 : null,
             odds_under25: parseFloat(m.odds_under25) > 0 ? m.odds_under25 : null,
             odds_btts_yes: parseFloat(m.odds_btts_yes) > 0 ? m.odds_btts_yes : null,
             odds_btts_no: parseFloat(m.odds_btts_no) > 0 ? m.odds_btts_no : null,
+            real_markets: m.real_markets || null,
             odds_source: m.odds_source || 'sofascore',
           })
           updated++

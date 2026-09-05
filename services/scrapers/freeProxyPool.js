@@ -375,7 +375,9 @@ async function fetchText(url, opts = {}) {
   if (!isAllowedUrl(url)) return null
   const timeout = opts.timeout || REQUEST_TIMEOUT_MS
   const maxAttempts = opts.maxAttempts || MAX_ATTEMPTS
-  await refreshPool()
+  if (Date.now() - state.lastRefresh > REFRESH_MS) {
+    await refreshPool()
+  }
   if (state.pool.length === 0) return null
 
   let proxy = _acquire()

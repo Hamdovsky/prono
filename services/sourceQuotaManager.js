@@ -5,16 +5,19 @@ const logger = require('../core/logger')
 const DEFAULT_LIMITS = {
   footballdata: 20,
   rapidapi: 20,
+  apifootball: 100,
 }
 
 const ENV_LIMITS = {
   footballdata: 'FOOTBALLDATA_DAILY_LIMIT',
   rapidapi: 'RAPIDAPI_DAILY_LIMIT',
+  apifootball: 'API_FOOTBALL_DAILY_LIMIT',
 }
 
 const ENV_ENABLED = {
   footballdata: 'FOOTBALLDATA_ENABLED',
   rapidapi: 'RAPIDAPI_ENABLED',
+  apifootball: 'API_FOOTBALL_ENABLED',
 }
 
 function usageFileFor(source) {

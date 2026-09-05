@@ -119,7 +119,7 @@ module.exports = {
   name: 'livescore',
   priority: 1,
   type: 'fixtures',
-  enabled: process.env.LIVESCORE_ENABLED !== 'false',
+  enabled: false, // DÉSACTIVÉ - API retourne "error" depuis août 2026
   // Avoid hammering the public API across the 3 scan dates.
   rate: { max: 6, perMs: 60000, minTime: 1500 },
   fetch,

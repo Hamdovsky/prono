@@ -28,9 +28,7 @@ def get_pg_connection():
         conn.autocommit = True
         _DB_CONN = conn
         return conn
-    except Exception as e:
-        import sys
-        sys.stderr.write(f"[PG] Connection error: {e}\n")
+    except Exception:
         return None
 
 def close_pg():
@@ -54,9 +52,25 @@ def query(sql, params=None):
                 rows = cur.fetchall()
                 return [dict(zip(cols, row)) for row in rows]
             return []
-    except Exception as e:
-        import sys
-        sys.stderr.write(f"[PG] Query error: {e}\n")
+    except Exception:
+        return None
+
+
+@functools.lru_cache(maxsize=1024)
+def _cached_query(sql, params_hash):
+    """Cached query for read-only calls (league params, static data)."""
+    conn = get_pg_connection()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            if cur.description:
+                cols = [desc[0] for desc in cur.description]
+                rows = cur.fetchall()
+                return [dict(zip(cols, row)) for row in rows]
+            return []
+    except Exception:
         return None
 
 @functools.lru_cache(maxsize=64)

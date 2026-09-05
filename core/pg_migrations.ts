@@ -323,6 +323,8 @@ async function runMigrations() {
       'CREATE INDEX IF NOT EXISTS idx_matches_status_timestamp ON matches(status, timestamp)',
       'CREATE INDEX IF NOT EXISTS idx_matches_home_team ON matches("homeTeam")',
       'CREATE INDEX IF NOT EXISTS idx_matches_away_team ON matches("awayTeam")',
+      'CREATE INDEX IF NOT EXISTS idx_matches_status_startts ON matches(status, "startTimestamp")',
+      'CREATE INDEX IF NOT EXISTS idx_matches_source ON matches(source)',
       'CREATE INDEX IF NOT EXISTS idx_team_registry_name ON team_registry(name)',
     ]
     for (const idxSql of createIndexes) {

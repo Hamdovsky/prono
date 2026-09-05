@@ -10,10 +10,27 @@ import oddspapiService from '../services/oddspapiService'
 import sportmonksService from '../services/sportmonksService'
 const apifootballService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 import openligadbService from '../services/openligadbService'
+const fsmod = require('fs')
+const pathmod = require('path')
 
 const fdQuotaManager = createQuotaManager('footballdata')
 
 const TIER1_TOURNAMENT_IDS = new Set([17, 8, 23, 35, 7, 37, 679, 329, 34, 44, 238, 45, 203, 574])
+
+// Binaire Python résilient : .venv local dev, /opt/venv Render/Docker, sinon PATH.
+function pickPythonBin(baseDir) {
+  const isWin = process.platform === 'win32'
+  const candidates = [
+    pathmod.join(baseDir, '.venv', isWin ? 'Scripts/python.exe' : 'bin/python3'),
+    pathmod.join(baseDir, '.venv', 'bin', 'python'),
+    '/opt/venv/bin/python3', // Dockerfile.production
+    isWin ? 'python' : 'python3',
+  ]
+  for (const p of candidates) {
+    if (fsmod.existsSync(p)) return p
+  }
+  return isWin ? 'python' : 'python3'
+}
 
 function getDateStr(offset) {
   const d = new Date()
@@ -434,7 +451,9 @@ async function runCloudSeed() {
         logger.info(`[CLOUD-SEED] DB already has ${count.cnt} real matches — skipping seed`)
         return
       }
-    } catch (_) {}
+    } catch (e) {
+      logger.warn(`[CLOUD-SEED] check existing matches failed: ${e.message}`)
+    }
   }
 
   if (localDataUrl) {
@@ -474,36 +493,78 @@ async function runCloudSeed() {
   let liveScoreInserted = 0
 
   {
-    logger.info('[CLOUD-SEED/LIVESCORE] Seeding from LiveScore.com public API...')
+    // DÉSACTIVÉ - API LiveScore retourne "error" depuis août 2026
+    // Sofascore ne fournit pas d'endpoint pour les fixtures futures (seulement /events/live)
+    // Les fixtures sont gérées par FootballData + chain de fallback
+    logger.info('[CLOUD-SEED/LIVESCORE] DÉSACTIVÉ - API LiveScore cassée depuis août 2026')
+    logger.info('[CLOUD-SEED] Utiliser FootballData + fallback sources pour les fixtures')
+  }
+
+  // Sofascore Live - capture les matchs en cours (via sofascore_bypass.py)
+  {
+    const { spawn } = require('child_process')
+    const BASE_DIR = pathmod.resolve(__dirname, '..')
+    const PYTHON = pickPythonBin(BASE_DIR)
+    const SCRIPT = pathmod.join(BASE_DIR, 'scripts', 'sofascore_bypass.py')
+
     try {
-      const datesToFetch = [today, getDateStr(1), getDateStr(2)]
-      for (const dateStr of datesToFetch) {
-        await randomDelay()
-        try {
-          const stages = await fetchLiveScoreEvents(dateStr)
-          if (!stages.length) continue
-          let matchCount = 0
-          for (const stage of stages) {
-            const events = stage?.Events || []
-            for (const event of events) {
-              const eps = (event.Eps || '').toUpperCase()
-              if (eps !== 'NS' && eps !== '') continue
-              const match = mapLiveScoreEventToMatch(event, stage)
-              if (!match) continue
-              if (await upsertMatch(match)) {
-                liveScoreInserted++
-                matchCount++
-              }
-            }
+      logger.info('[CLOUD-SEED/SOFASCORE] Checking for live matches via Sofascore...')
+      const proc = spawn(PYTHON, [SCRIPT, 'live'], {
+        cwd: BASE_DIR,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+      })
+      let stdout = ''
+      let stderr = ''
+      proc.stdout.on('data', c => { stdout += c })
+      proc.stderr.on('data', c => { stderr += c })
+      const liveData = await new Promise((resolve) => {
+        proc.on('close', code => {
+          try {
+            const data = JSON.parse(stdout)
+            resolve(data)
+          } catch {
+            resolve({ found: false, events: [] })
           }
-          if (matchCount > 0) logger.info(`[LIVESCORE] ${dateStr}: ${matchCount} matches insérés`)
-        } catch (e) {
-          logger.warn(`[CLOUD-SEED/LIVESCORE] ${dateStr} failed: ${e.message}`)
+        })
+        proc.on('error', () => resolve({ found: false, events: [] }))
+      })
+      if (liveData?.found && liveData.events?.length > 0) {
+        let sofaInserted = 0
+        for (const ev of liveData.events) {
+          const ts = ev.startTimestamp || Math.floor(Date.now() / 1000)
+          const match = {
+            id: `sofascore_${ev.id}`,
+            homeTeam: ev.homeTeam,
+            awayTeam: ev.awayTeam,
+            league: ev.tournament || 'Unknown',
+            category_name: ev.category || '',
+            tournament_name: ev.tournament || '',
+            tournament_id: null,
+            home_team_id: null,
+            away_team_id: null,
+            startTimestamp: ts,
+            timestamp: new Date(ts * 1000).toISOString(),
+            status: ev.statusType === 'inprogress' ? 'live' : 'scheduled',
+            confidence: 50,
+            prediction: null,
+            verdict: 'PENDING',
+            odds_home: null,
+            odds_draw: null,
+            odds_away: null,
+            last_updated: Date.now(),
+            insufficient_data: 1,
+            source: 'sofascore',
+            fullData: JSON.stringify(ev),
+          }
+          if (await upsertMatch(match)) {
+            sofaInserted++
+          }
         }
+        logger.info(`[CLOUD-SEED/SOFASCORE] ${liveData.events.length} live matches found, ${sofaInserted} inserted`)
       }
-      logger.info(`[CLOUD-SEED/LIVESCORE] Inserted ${liveScoreInserted} matches total.`)
     } catch (e) {
-      logger.warn(`[CLOUD-SEED/LIVESCORE] Error: ${e.message}`)
+      logger.warn(`[CLOUD-SEED/SOFASCORE] Live fetch failed: ${e.message}`)
     }
   }
 
@@ -525,6 +586,33 @@ async function runCloudSeed() {
       }
     }
     logger.info(`[CLOUD-SEED/FD] Inserted ${fdInserted} primary matches.`)
+  }
+
+  // API-Football fixtures - ligues avec stats (~3 req/jour grace au cache)
+  {
+    const { fetchFixtures } = require('../services/apiFootballService')
+    const apiFbQuota = createQuotaManager('apifootball')
+
+    try {
+      logger.info('[CLOUD-SEED/APIFB] Seeding fixtures from API-Football...')
+      const datesToFetch = [today, getDateStr(1), getDateStr(2)]
+
+      let apiFbInserted = 0
+      const matches = await fetchFixtures(datesToFetch)
+
+      for (const match of matches) {
+        if (match.status !== 'scheduled') continue
+        if (!apiFbQuota.canProcessMatch(match.id)) continue
+        if (await upsertMatch(match)) {
+          apiFbQuota.registerMatch(match.id)
+          apiFbInserted++
+        }
+      }
+
+      logger.info(`[CLOUD-SEED/APIFB] ${matches.length} matches fetched, ${apiFbInserted} inserted`)
+    } catch (e) {
+      logger.warn(`[CLOUD-SEED/APIFB] Error: ${e.message}`)
+    }
   }
 
   try {
@@ -635,14 +723,18 @@ async function runCloudSeed() {
   try {
     import { calibrate } from '../services/leagueCalibrator'
     calibrate().catch((e) => logger.warn(`[CALIBRATE] Auto-calibration error: ${e.message}`))
-  } catch (e) {}
+  } catch (e) {
+    logger.warn(`[CALIBRATE] Auto-calibration initializer failed: ${e.message}`)
+  }
 
   // Backfill des cotes sur les matchs LiveScore (opt-in, non-bloquant)
   if (process.env.ODDS_BACKFILL_ENABLED === 'true') {
     try {
       import { backfillOdds } from './oddsBackfill'
       backfillOdds().catch((e) => logger.warn(`[ODDS-BACKFILL] Erreur: ${e.message}`))
-    } catch (e) {}
+    } catch (e) {
+      logger.warn(`[ODDS-BACKFILL] initializer failed: ${e.message}`)
+    }
   }
 }
 

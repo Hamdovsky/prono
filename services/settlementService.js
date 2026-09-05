@@ -112,7 +112,9 @@ function extractMainPick(row) {
     const q = fd.quant || fd.enriched?.quant || {}
     const pick = (q.main_pick || fd.main_pick || '').toString().trim().toUpperCase()
     if (pick && pick !== 'PENDING' && pick !== 'UNDER ANALYSIS') return pick
-  } catch (_) {}
+  } catch (e) {
+    logger.debug(`[SETTLEMENT] extractMainPick parse failed for ${row && row.id}: ${e.message}`)
+  }
   const colPick = (row.prediction || '').toString().trim().toUpperCase()
   if (colPick && colPick !== 'PENDING' && colPick !== 'UNDER ANALYSIS') return colPick
   return null
@@ -188,13 +190,17 @@ async function settleFinishedMatches(force = false) {
           // No real prediction (no pick, no probs) → purge any stale accuracy entry
           try {
             accuracyStore.removeResult(row.id)
-          } catch (_) {}
+          } catch (e) {
+            logger.warn(`[SETTLEMENT] removeResult failed for ${row.id}: ${e.message}`)
+          }
           // Reset any phantom settlement (from legacy forced-'1' logic)
           try {
             db.prepare('UPDATE matches SET "result" = NULL, "settled_at" = NULL WHERE id = ?').run(
               row.id
             )
-          } catch (_) {}
+          } catch (e) {
+            logger.warn(`[SETTLEMENT] phantom reset failed for ${row.id}: ${e.message}`)
+          }
           results.skipped++
           continue
         }
@@ -209,7 +215,9 @@ async function settleFinishedMatches(force = false) {
         // 📈 Suivi des Paris: mirror the settled outcome into the bets table
         try {
           syncBetToTracker(row, evalPick, result, scoreHome, scoreAway)
-        } catch (_) {}
+        } catch (e) {
+          logger.warn(`[SETTLEMENT] syncBetToTracker failed for ${row.id}: ${e.message}`)
+        }
 
         // Update prediction_history
         const histResult = result === 'WON' ? 'won' : 'lost'
@@ -229,12 +237,16 @@ async function settleFinishedMatches(force = false) {
             ? 'DC'
             : classifyMarket(mainPick || row.prediction || '')
           confidenceScorer.recordSettlement(row.league || 'Unknown', marketType, result === 'WON')
-        } catch (_) {}
+        } catch (e) {
+          logger.warn(`[SETTLEMENT] recordSettlement failed for ${row.id}: ${e.message}`)
+        }
 
         // Write accuracy_log.json for Python training scripts feedback loop
         try {
           _appendToAccuracyLog(row, evalPick, result, scoreHome, scoreAway)
-        } catch (_) {}
+        } catch (e) {
+          logger.warn(`[SETTLEMENT] _appendToAccuracyLog failed for ${row.id}: ${e.message}`)
+        }
 
         logger.info(
           `[SETTLEMENT] ${row.homeTeam} ${scoreHome}-${scoreAway} ${row.awayTeam} → ${result} (prediction: ${evalPick})`
@@ -461,7 +473,9 @@ function getPerformance() {
         breakdownAcc.historyBonus += bd.historyBonus
         breakdownAcc.count++
       }
-    } catch (_) {}
+    } catch (e) {
+      logger.debug(`[SETTLEMENT] breakdown parse skipped for ${r.id}: ${e.message}`)
+    }
   }
   const c = breakdownAcc.count
   const confidenceBreakdown =

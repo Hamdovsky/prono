@@ -58,6 +58,14 @@ async function _enforceCooldown() {
   }
 }
 
+// Exposé pour que les chemins de fallback (ex. Flashscore dans attachRealOdds)
+// puissent sauter l'étape Sofascore quand le client est en cooldown, au lieu de
+// subir le sleep de SOFASCORE_COOLDOWN_MS à chaque match sans cotes.
+function sofaCooldownActive() {
+  if (sofaDisabled()) return false
+  return Date.now() < cooldownUntil
+}
+
 const getRandomUserAgent = () => USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
 
 // Derive a coherent sec-ch-ua Client Hints trio from the chosen User-Agent so
@@ -663,6 +671,7 @@ function getSofaHeaders(referer = 'https://www.sofascore.com/') {
 module.exports = {
   fetchWithRetry,
   sofaDisabled,
+  sofaCooldownActive,
   getRandomUserAgent,
   getSecChUa,
   getSecChUaPlatform,

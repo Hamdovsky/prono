@@ -452,6 +452,8 @@ function initSchema() {
             CREATE INDEX IF NOT EXISTS idx_matches_status_timestamp ON matches(status, timestamp);
             CREATE INDEX IF NOT EXISTS idx_matches_home_team ON matches(homeTeam);
             CREATE INDEX IF NOT EXISTS idx_matches_away_team ON matches(awayTeam);
+            CREATE INDEX IF NOT EXISTS idx_matches_status_startts ON matches(status, "startTimestamp");
+            CREATE INDEX IF NOT EXISTS idx_matches_source ON matches(source);
             CREATE INDEX IF NOT EXISTS idx_history_match_id ON prediction_history(match_id);
             CREATE INDEX IF NOT EXISTS idx_patterns_league ON winning_patterns(league);
 

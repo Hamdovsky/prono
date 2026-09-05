@@ -4,6 +4,275 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Audit projet + correctifs prioritaires (2026-09-04, suite intégration API-Football)
+
+### Objectif
+Répondre à la demande « teste mon projet et dit moi ce qui manque / peut s'améliorer » : audit complet
+(4 subagents : qualité code, pipeline ML, data sources, frontend) puis correctifs rapides à fort impact.
+
+### Constat (synthèse audit)
+- **2 erreurs ESLint** : `path` non défini dans `core/cloudSeed.js` lignes 429/431 (bloc Sofascore, `pathmod` oublié lors de la régénération babel).
+- **60+ blocs `catch {}` silencieux** ; les plus critiques masquent des pertes d'intégrité dans le règlement des pronostics.
+- **Filtres SQL par `league`/`tournament_id`/`country_iso`** : rares (scripts de maintenance) → non critiques. En revanche requête hot path du seeding filtre `status='scheduled' AND "startTimestamp"` (entier, non indexé).
+- **N+1** : `.find()` dans un `.map()` dans `core/promosport_engine.js` (ligne 571) → O(n×m).
+
+### Modifications
+- **`core/cloudSeed.ts` + `cloudSeed.js`** : `path.resolve`/`path.join` → `pathmod...` dans le bloc Sofascore (0 erreur lint). 3 `catch {}` → `logger.warn` (check matches seed, auto-calibration, odds backfill).
+- **`core/database.ts` + `database.js` + `core/pg_migrations.ts` + `pg_migrations.js`** : indexes `idx_matches_status_startts ON matches(status,"startTimestamp")` et `idx_matches_source ON matches(source)`.
+- **`services/settlementService.js`** : 8 `catch {}` → `logger.warn`/`logger.debug` (extractMainPick, removeResult, phantom reset, syncBetToTracker, recordSettlement, _appendToAccuracyLog, breakdown agrégation) — visibilité des pertes tracker/calibration ML.
+- **`app.js`** : échec `marketAnalysis` par match → `logger.debug`.
+- **`core/promosport_engine.js`** : Map `enrichedById` pour remplacer le `.find()` O(n×m) de la distribution des doubles.
+
+### Vérifié
+- ESLint sur tous les fichiers modifiés : **0 erreur**.
+- Jest complet : **70 suites / 708 tests passent**.
+- `node --check` sur tous les fichiers modifiés : OK.
+- Base SQLite : indexes `idx_matches_status_startts` + `idx_matches_source` créés (schema validated with INDICES).
+
+### Points de contrôle restants
+- Flashscore odds betting : toujours BLOQUÉ (geo) — à re-tester depuis Render.
+- Test end-to-end du seeding réel `apifootball` → DB sur Render.
+- Suite de l'audit (priorités moyennes) : i18n, Flashscore depuis Render.
+
+---
+
+## Flashscore débloqué + cotes 1X2 headless + flakiness Jest réglée (2026-09-04, local)
+
+### Objectif (demande user « teste odds flashscore localement et termine les autres »)
+- Tester/rétablir les cotes Flashscore depuis le poste local (l'audit prétendait « géo-bloqué »).
+- Terminer le reste : flakiness Jest, dette Meta-Refiner double.
+
+### Constat — le « géo-blocage » était FAUX
+- `d.flashscore.com/x/feed/df_*` → `0` : ce n'était PAS un blocage IP, c'était une **URL incorrecte**.
+  Les feeds nécessitent le **préfixe projectId `/46/`**, ex. `www.flashscore.com/46/x/feed/df_st_1_{id}`
+  (en français/anglais !) ou `local-ruua.flashscore.ninja/46/x/feed/...` (russe). `d.flashscore.com` sans
+  `/46/` répond `0` = feed introuvable, pas géo-block.
+- Cotes : l'ancien feed `df_odd_1_` est **mort**. Le site moderne utilise des **persisted GraphQL** :
+  - `global.ds.lsapp.eu/odds/pq_graphql?_hash=pobtm&eventId={id}&projectId=2` → liste bookmakers (bet365=16, 1xBet=417…)
+  - `global.ds.lsapp.eu/odds/pq_graphql?_hash=ope2&eventId={id}&bookmakerId={b}&betType=HOME_DRAW_AWAY&betScope=FULL_TIME`
+    → `{home,draw,away : {value, opening, change}}` — GET pur, **utilisable headless** (hash `ope2` découvert en
+    interceptant les requêtes du site via chromium).
+- Fixtures du jour : `www.flashscore.com/46/x/feed/f_1_-1_3_{x}` renvoie le **feed GLOBAL du jour**
+  (512 matchs, noms anglais, ligue dans `ZA÷Country: League`, id dans `AA÷`, home/away `AE`/`AF`). IDs stables.
+- **Flakiness Jest** : cause racine = `freeProxyPool.fetchText()` appelait `refreshPool()` (vrai réseau :
+  2 listes GitHub + health-checks) **inconditionnellement**, même pool vide/récent → timeout 30 s en parallèle
+  ou contention réseau qui faisait échouer aléatoirement d'autres suites (system intel, database).
+
+### Modifications
+- **`scripts/flashscoreClient.py`** :
+  - `FEED_BASES = [www.flashscore.com/46/x/feed (EN), local-ruua.flashscore.ninja/46/x/feed, d.flashscore.ru.com/46/x/feed]`
+    avec fallback multi-domaines dans `_fetch_feed` ; chemins corrigés (`/df_st_1_...`, `/df_sui_1_...` sans `/x/feed`).
+  - `KEY_MAP` enrichie des libellés anglais du feed (`Total shots`, `Corner kicks`, `Shots on target`, `Ball possession`, …).
+  - Nouvelles fonctions : `get_today_fixtures()` (id + home + away + league + start), `get_bookmakers(match_id)`,
+    `get_match_odds(match_id, bookmaker_ids=None)` (1X2 best bookmaker, avec openings + drift), helper `_headless_get_json`.
+- **`services/flashscoreService.js`** : wrappers `getTodayFixtures()`, `getBookmakers(matchId)`, `getMatchOdds(matchId, bookmakerIds?)`.
+- **`services/scrapers/freeProxyPool.js`** : `fetchText` ne rafraîchit le pool QUE s'il est stale
+  (`Date.now() - lastRefresh > REFRESH_MS`), cohérent avec `getProxy()` → plus aucun appel réseau
+  quand le pool est vide/recent ; early-return `null`.
+
+### Vérifié (local, tout headless)
+- **E2E complet PASS** : fixtures du jour (512) → bookmakers → **cotes 1X2** (El Biar vs Akbou : 1.97/3.73/3.42 + openings 1.89/4.0/3.4 + drift UP/DOWN) → stats fallback (corners 5/3, shots 6/7, on-target 2/5, possession 47/53) → incidents.
+- ESLint : 0 erreur sur les 2 fichiers JS ; `py_compile` + import OK.
+- Jest : **3 runs complets consécutifs 708/708** (avant : 1 échec aléatoire/run). `freeProxyPool` seul : 0,8 s (avant 12 s→timeout).
+- Sofascore odds (source principale câblée) confirmée OK côté local (200/events/odds).
+
+### Points de contrôle restants
+- `META_REFINER_PY=on` reste à propager aussi sur Render Dashboard si déploiement un jour (Dockerfile déjà ENV).
+- Double Meta-Refiner JS dormant (`services/NeuralMetaRefiner.js`, appelé seulement par le workflow Puppeteer
+  `SofascoreScraping/src/Workflow.js`) : conservé sur décision de ne pas supprimer du code sans besoin ;
+  zéro risque runtime (Puppeteer interdit en prod Docker). Le refiner actif reste le Python (`META_REFINER_PY=on`).
+
+---
+
+## Cotes 1X2 Flashscore branchées dans le pipe cotes + contournement cooldown Sofascore (2026-09-04, suite)
+
+### Problème utilisateur (« pourquoi il n'y a aucun match / cotes -- »)
+- Un match Serie B (Criciuma vs Cuiaba) affichait `-- -- --` (cotes 1X2 vides) côté dashboard.
+- Diagnostic DB : `odds_home/draw/away = NULL` sur 2303 matchs sauf 40 → la chaîne de cotes réelles
+  ne fournit rien pour les matchs courants.
+- Cause A (coverage) : Flashscore existe bien pour ce match (id `UwKpPA0J`) mais le feed `f_1_-1_3`
+  (« today ») l'omet — il est dans le créneau suffixe `2` (matchs tard de nuit ~21h30 UTC).
+- Cause B (blocage silencieux) : `attachRealOdds` appelle d'abord Sofascore ; Sofascore répond 403
+  (IP en cooldown) → `apiClient._enforceCooldown()` dort **480 s par match** → le fallback Flashscore
+  (ajouté juste avant) n'était jamais atteint, et l'étape Sofascore gelait tout le cycle d'enrichissement.
+
+### Modifications
+- **`scripts/flashscoreClient.py`** : `get_today_fixtures()` fusionne désormais les créneaux du feed
+  `f_1_-1_{2,3,0,1,4}` (dédupe par id) pour couvrir aussi les matchs programmés tard ; refactor
+  `_parse_fixtures_feed()` réutilisé par créneau.
+- **`services/flashscoreService.js`** : ajout de `findMatchId(home, away, league, startTimestamp)` +
+  `normalizeTeam()` (accents/suffixes/stopwords) ; fenêtre kickoff ±6 h en secondes OU ms (la DB
+  stocke en secondes). Export étendu.
+- **`SofascoreScraping/src/apiClient.js`** : nouvel accesseur `sofaCooldownActive()` (true si le
+  client global est en cooldown 403/429). Exporté.
+- **`core/fallback_enricher.js`** (`attachRealOdds`) :
+  - Nouvelle source `flashscore` entre Sofascore et oddsApiIo : si 1X2 absent → `findMatchId` →
+    `getMatchOdds` → persiste `odds_source='flashscore'` (best-effort, cache 1h, rate-limit 2s).
+  - Skip de l'étape Sofascore quand `sofaCooldownActive()` → le fallback Flashscore (et la suite)
+    s'exécute immédiatement au lieu de dormir `SOFASCORE_COOLDOWN_MS` par match.
+
+### Vérifié (local)
+- E2E `attachRealOdds` sur `livescore_1741330` : findMatchId → `UwKpPA0J`, cotes bet365
+  **1.71 / 3.20 / 5.25** (opening 1.76/3.2/5, drift home DOWN), persistées en base `odds_source='flashscore'`
+  en ~12 s (avant : blocage Sofascore > 480 s). UI : le match affiche maintenant les cotes.
+- py_compile + ESLint 0 erreur (warnings `_` pré-existants) ; **Jest 708/708** (70 suites).
+
+### Points de contrôle
+- Backfill optionnel des autres matchs programmés sans 1X2 : soit attendre le prochain cycle
+  d'enrichissement (chemin désormais non bloqué), soit lancer un re-enrich ciblé si souhaité.
+- Pour les matchs `livescore_*`, Sofascore ne fournit pas d'id événement (search 403) → Flashscore
+  est désormais la source réelle 1X2 de secours principale.
+- Le cooldown Sofascore reste appliqué si un premier 403 survient (une fois/cooldown, pas par match).
+
+---
+
+## Tous les marchés opérationnels : Flashscore multi-marchés + persistance real_markets (2026-09-05)
+
+### Problème utilisateur (« je veux que tous les marchés soient opérationnels »)
+- Seule la cote 1X2 était remplie par Flashscore ; O/U, BTTS, Double Chance, Asian Handicap
+  restaient en `--` (colonnes) et le Market Engine (command center `💰`) n'était activé ni par
+  Sofascore (403/cooldown) ni par Flashscore hors 1X2.
+
+### Découverte clé (persisted-query GraphQL)
+- La query `ope2` (`findPrematchOddsForBookmaker`) est **variabilisée** : `betType` est un paramètre,
+  PAS un hash distinct. Même `_hash=ope2`, on obtient tous les marchés pré-match Bet365/1xBet :
+  - `HOME_DRAW_AWAY` → home/draw/away
+  - `DOUBLE_CHANCE` → homeOrDraw/awayOrDraw/noDraw
+  - `BOTH_TEAMS_TO_SCORE` → yes/no
+  - `OVER_UNDER` → opportunities[] {handicap.line, over, under} — TOUTES lignes
+  - `ASIAN_HANDICAP` → opportunities[] {handicap.line, home, away} — TOUTES lignes
+  - `CORRECT_SCORE` → items[] {score, odds}
+- Les autres (corners, 1ère MT, HT/FT, DNB, totals équipe) → **HTTP 400** : non exposés pré-match
+  par ce GraphQL (confirmé par le menu `pobtm` : 4+2 types seulement).
+
+### Modifications
+- **`scripts/flashscoreClient.py`** : `get_match_markets(match_id, bet_types=None, bookmaker_ids=None)`
+  (agrégation inter-bookmakers marché par marché) + `_parse_market_entry()` (1X2/DC/BTTS/O-U/AH/CS).
+  `MARKET_BET_TYPES` ; dispatch CLI étendu.
+- **`services/flashscoreService.js`** : `getMatchMarkets(matchId, betTypes, bookmakerIds)` (cache 1h).
+- **`core/fallback_enricher.js`** :
+  - `_flashscoreToRealMarkets()` → entrées canoniques `{source:'flashscore', raw_market_id,
+    market_id, selection, odds, line, usable}` au **même contrat que Sofascore**
+    (match_result, total_goals toutes lignes, btts, double_chance, asian_handicap ; CS ignoré —
+    pas de market_id dans le registre).
+  - `_mergeRealMarkets()` → fusion avec les real_markets existants, dédupe
+    `market_id:selection:line`, **priorité aux entrées déjà présentes** (Sofascore).
+  - `_attachFlashscoreMarkets()` → remplit colonnes 1X2 + O/U 2.5 (ligne la + proche) + BTTS,
+    étend `real_markets`, pose `odds_source='flashscore'`.
+  - Bloc Flashscore dans `attachRealOdds` : déclenché si 1X2 **OU** O/U **OU** BTTS manque
+    (avant : uniquement si 1X2 absent).
+  - Garde cooldown Sofascore ajoutée à la phase batch (un 403 ne dort plus 480 s dans
+    `enrichMatchesBatch`).
+  - Persistance `real_markets` ajoutée à `updatePredictions` du batch (comblait aussi le trou
+    pré-existant pour la source Sofascore en batch).
+
+### Vérifié (local)
+- E2E complet Criciuma vs Cuiaba : 1X2 **1.71/3.2/5.25**, O/U 2.5 **2.6/1.48**, BTTS **2.25/1.57**,
+  **67 marchés `real_markets` persistés** dans `fullData` (33 total_goals, 26 asian_handicap,
+  3 double_chance, 3 match_result, 2 btts) — lus par le dashboard via la propagation fullData.
+- `node -c` + py_compile + ESLint 0 erreur ; **Jest 708/708** (70 suites).
+
+### Limite connue
+- Corners, 1ère MT, HT/FT : Flashscore ne fournit pas de cotes pré-match via ce GraphQL → ces
+  marchés restent des **prédictions modèle** (ml_ensemble/prediction_engine), pas d'odds
+  bookmaker dans `real_markets` (Sofascore non plus d'ailleurs, 403 côté local).
+
+### Points de contrôle
+- Backfill multi-marchés des matchs programmés sans O/U/BTTS/marchés : `backfillMarkets`
+  (via `attachRealOdds`) maintenant alimenté Flashscore — dispo si on veut re-remplir en masse.
+- Score exact disponible si un market_id `correct_score` est ajouté au registre (optionnel).
+
+### Backfill masse O/U + BTTS (2026-09-05, session suivante)
+- **Scan intégral** de l'ensemble des matchs programmés sans O/U/BTTS (2303 au total) via
+  `attachRealOdds` → **résultat DB : 97 matchs avec O/U, 96 avec BTTS** (avant : 28 / 6).
+  Le plafond est la **couverture réelle des bookmakers dans le feed Flashscore** : les autres
+  matchs (U18/U19/féminin/leagues sans bookmaker, kickoff éloignés) n'ont simplement
+  **aucune cote O/U/BTTS pré-match** exposée (testé : Kenya Premier, Serie B Relegation,
+  Liga Premier Clausura, Women's Liga MX, Hong Kong, NorZone → id trouvé mais marchés nuls).
+- Ajustements apportés au passage :
+  - `backfillMarkets` : **fenêtre kickoff ≥ now−36 h** (`_startTs`) pour ne plus scanner les
+    matchs périmés (hors feed) — les trier perdait du temps.
+  - Env hooks python `FLASHSCORE_BOOKMAKER_IDS` / `FLASHSCORE_MARKET_TYPES` (testés) —
+    mais le filtre O/U+BTTS restreint trop la couverture (les cotes viennent rarement de
+    16/417 seuls) → le backfill en mode **full** (menu bookmakers + 6 bettypes) reste le
+    plus efficace (~27/300 dans le 1er essai, 42/2270 au scan full de 16 min).
+- Vérifié : py_compile + `node -c` OK ; suite Jest 708/708 avant scan (runs ultérieurs no-op).
+
+---
+
+## Activation Meta-Refiner Python + audit caches + e2e seeding APIFB (2026-09-04)
+
+### Objectif
+Traiter les points « Meta-Refiner doublon » et « Maps sans TTL » de l'audit, et lever le point de contrôle
+« test end-to-end seeding apifootball → DB ».
+
+### Constat (corrige l'audit)
+- **Maps sans TTL : FAUX POSITIFS.** Vérification systématique : `HIST_CACHE` (clés `league::marketType`, espace borné),
+  `_enrichedAtCache` (prune >5000 avec TTL), `_inFlight` (supprimé en `.finally()`), `MEMORY_FALLBACK` (prune >300),
+  `statementCache` (≤100), `botService` Sets (reset journalier), `_weightCache` (clés par league), `oddsMemoryCache`
+  (persisté sur disque). Aucune correction nécessaire — évite de l'inutile.
+- **Meta-Refiner : AUCUN actif en prod.** Le refiner Python (`meta_refiner.py`) est coupé volontairement
+  (`META_REFINER_PY` non défini, `ml_ensemble.py:352`), et le refiner JS (`services/NeuralMetaRefiner.js`) n'est appelé
+  QUE par `SofascoreScraping/src/Workflow.js` — workflow Puppeteer interdit dans le Docker prod. Donc contrairement à
+  l'intention documentée (« une seule correction »), **zéro** correction bayésienne ne s'applique en production.
+- `.env` local quasi vide : les clés API-Football avaient disparu (feature inactive en local).
+
+### Modifications
+- **`.env`** : restauration `API_FOOTBALL_KEY/HOST/ENABLED/DAILY_LIMIT` + `META_REFINER_PY=on` (fichier git-ignoré).
+- **`Dockerfile.production`** : `ENV META_REFINER_PY=on` (garantit l'activation sur Render malgré le `.env` non déployé).
+- Aucune modification de code ML : le refiner Python est safe (DB de biais absente/vide → facteur 1.0 = no-op).
+
+### Vérifié
+- `META_REFINER_PY=on` → `meta_refiner_python_enabled()` = True.
+- `pytest tests/test_engine_hardening.py` : **5 passed** (gate on/off + application).
+- **E2E seeding apifootball → DB** (SQLite isolée temp) : `isAvailable=true`, fetch live J/J+1/J+2 = **232 matchs**,
+  **209 insérés** `scheduled` avec `source='apifootball'` (échantillon vérifié : Newcastle vs Bournemouth / Premier League).
+  **PASS** — le chemin complet (API → map → upsert → query) fonctionne.
+- Jest : **708/708** en run sérial (`--maxWorkers=1`). En parallèle : **1 test flaky aléatoire** par run
+  (`freeProxyPool.test.js` timeout 30 s, `system.test.js` graceful-DB, `getMatchById`) — **pré-existants**,
+  fichiers jamais modifiés, liés aux timeouts réseau/timers et aux writes concurrents vers `data/live_prediction_*.jsonl`.
+
+### Points de contrôle restants
+- Flashscore odds betting : BLOQUÉ (geo) au moment de cette session — **RÉSOLU le 2026-09-04** (URL `/46/` + GraphQL `ope2`/`pobtm` headless, voir section « Flashscore débloqué »).
+- Cause racine de la flakiness Jest (timeouts réseau + journaux data partagés entre workers) — **RÉSOLUE le 2026-09-04** (guard staleness `freeProxyPool.fetchText`, 3 runs complets 708/708).
+- Étape optionnelle : retirer le double Meta-Refiner JS dormant (dette, pas de risque runtime) — conservé sur décision (pas de suppression de code sans besoin).
+
+---
+
+## Intégration API-Football + Sofascore prod sans Puppeteer (2026-09-04)
+
+### Objectif
+Remplacer LiveScore (API cassée depuis août 2026) comme source de fixtures, et garantir que
+les scrapers curl_cffi (Sofascore/Flashscore) fonctionnent en production Render (Docker) sans
+Puppeteer ni Chromium — en activant aussi le réseau de fallback de fixtures par date.
+
+### Constat
+- Binaire Python dans cloudSeed/services pointait uniquement vers `.venv` local (absent sur Render) → bloc Sofascore live silencieux en prod.
+- `services/sourceQuotaManager.js` (compilé stale) sans la source `apifootball` ; `core/cloudSeed.js` (compilé stale) sans blocs Sofascore/API-Football — la prod chargeait le `.js`, pas le `.ts`.
+- `mapStatus` d'API-Football classait les périodes live (1H, 2H, ET, BT) en `scheduled`.
+
+### Modifications
+- **`services/apiFootballService.js`** (NOUVEAU, voir logs précédents) + fix `mapStatus` : périodes `1H/2H/ET/BT/P*` → `inprogress`, ajout `CANC/ABD/WO/POSTP/SUSP/TBD`. Exporte `mapStatus`/`mapEventToMatch` (tests).
+- **`services/sourceQuotaManager.ts` + `.js` (sync)** : ajout source `apifootball`, limit 100/jour (env `API_FOOTBALL_DAILY_LIMIT`), enabled `API_FOOTBALL_ENABLED`.
+- **`core/cloudSeed.ts` → `cloudSeed.js` (régénéré via babel)** : ajout bloc API-Football fixtures (J→J+2, cache 1 h, quota), bloc Sofascore live avec `pickPythonBin()`, LiveScore désactivé. Helper `pickPythonBin()` (venv dev → `/opt/venv/bin/python3` → PATH).
+- **`Dockerfile.production`** : ajout `python3-pip python3-venv` + créaation `/opt/venv` avec `requirements.txt` (curl_cffi, etc.) + `ENV PATH`. Le service Node/Express peut désormais exécuter les bypass Python.
+- **`services/scrapers/SofascoreBypass.js`** : `pickPython()` inclut `/opt/venv/bin/python3` et `python3`.
+- **`services/flashscoreService.js`** : nouveau `pyBinary()` (fallback multi-paths) remplace `PYTHON` statique.
+- **`src/services/newsService.js`** : `TM_TEAM_MAP` étendu ~30 → **79 clubs** (MENA Maghreb/Golfe/Égypte + ligues européennes majeures).
+- **`__tests__/apiFootballService.test.js`** (NOUVEAU, 5 tests : mapStatus, mapEventToMatch, sortByPriority) et **`__tests__/sourceQuotaApifootball.test.js`** (NOUVEAU, 2 tests : limit 100 + enregistrement).
+
+### Vérifié
+- `node -e require('./core/cloudSeed')` : OK (DB SQLite + services chargés).
+- `fetchFixtures(['2026-09-04','2026-09-05'])` : 232 matchs (cache disque 1 h).
+- Sofascore `getLiveEvents()` : 226 événements live avec cotes + xG + prédictions (via `api.sofascore.com/api/v1/sport/football/events/live`).
+- Tests Jest : `apiFootballService` 5/5, `sourceQuotaApifootball` 2/2, suite source 12/12.
+
+### Points de contrôle restants
+- **Flashscore odds betting** : BLOQUÉ (feed `df_odd_1_`/`df_st_1_` renvoient `0` — geo/DNS restreint depuis l'IP locale ; aucun match en DB). À re-tester depuis Render.
+- Test end-to-end du seeding réel insérant des matchs `apifootball` en DB sur Render.
+
+---
+
 ## Moteur de patterns SOUS-FACTORIELS (UnderPatternEngine) — 2026-09-02
 
 ### Objectif

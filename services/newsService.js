@@ -3,15 +3,15 @@ const axios = require('axios')
 const path = require('path')
 const retry = require('async-retry')
 const newsCache = require('./newsCache')
-const { pooledConfig } = require('../../core/networkConfig')
+const { pooledConfig } = require('../core/networkConfig')
 
 const { spawn } = require('child_process')
-const { getSofaHeaders, fetchWithRetry } = require('../../SofascoreScraping/src/apiClient')
+const { getSofaHeaders, fetchWithRetry } = require('../SofascoreScraping/src/apiClient')
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
 
-const goalNewsService = require('../../services/goalNewsService')
-const structuredNewsExtractor = require('../../services/structuredNewsExtractor')
+const goalNewsService = require('./goalNewsService')
+const structuredNewsExtractor = require('./structuredNewsExtractor')
 const SENTIMENT_ENGINE = path.join(__dirname, '../../core/sentiment_engine.py')
 
 /**

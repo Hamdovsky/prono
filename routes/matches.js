@@ -11,7 +11,7 @@ const liveMatchService = require('../services/liveMatchService')
 const { getSteamForMatch } = require('../services/oddsMovementService')
 const ValueBetEngine = require('../services/ValueBetEngine')
 const IntegrityService = require('../services/integrity_service')
-const newsService = require('../src/services/newsService')
+const newsService = require('../services/newsService')
 
 // Module-level per-city weather cache (in-memory, survives across requests).
 // Borné à 200 entrées pour éviter une croissance mémoire illimitée.

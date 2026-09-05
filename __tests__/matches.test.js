@@ -40,7 +40,7 @@ jest.mock('../services/integrity_service', () => ({
   analyzeMatch: jest.fn(),
 }))
 
-jest.mock('../src/services/newsService', () => {
+jest.mock('../services/newsService', () => {
   function MockCache() {
     this.get = jest.fn()
     this.set = jest.fn()

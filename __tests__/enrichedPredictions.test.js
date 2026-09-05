@@ -75,7 +75,7 @@ jest.mock('../core/QuantumQuantEngine', () => ({
   }),
 }))
 
-jest.mock('../src/services/newsService', () => {
+jest.mock('../services/newsService', () => {
   function MockCache() {
     this.get = jest.fn()
     this.set = jest.fn()

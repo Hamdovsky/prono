@@ -1,6 +1,6 @@
 const Database = require('better-sqlite3')
 const path = require('path')
-const database = require('../../core/database')
+const database = require('../core/database')
 
 // Internal memory caching (O(1) lookup) to avoid re-calcs for the same matchId
 const processedMatches = new Set()
@@ -154,7 +154,7 @@ async function injectHistoricalData(matchId) {
 
     // MARK: V52 LINE MOVEMENT INTELLIGENCE
     try {
-      const { get24hMovement } = require('../../services/oddsMovementService')
+      const { get24hMovement } = require('./oddsMovementService')
       const movement = get24hMovement(matchId)
       if (movement) {
         match.odds_movement_24h = movement

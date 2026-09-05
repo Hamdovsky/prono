@@ -1,6 +1,6 @@
 const Extractor = require('./src/Extractor')
 const persistence = require('./src/Persistence')
-const { injectHistoricalData } = require('../src/services/HistoricalInjector')
+const { injectHistoricalData } = require('../services/HistoricalInjector')
 const TacticalService = require('../services/tactical_service')
 const { LEAGUE_MAP } = require('../config/leagueRegistry')
 const AliasResolver = require('./src/AliasResolver')

@@ -9,7 +9,7 @@ const MatchAuditor = require('../services/MatchAuditor')
 
 const { spawn } = require('child_process')
 const path = require('path')
-const newsService = require('../src/services/newsService')
+const newsService = require('../services/newsService')
 const axiosModule = require('axios')
 const dataFusionService = require('../services/dataFusionService')
 const { detectBookmakerTrap } = require('../services/oddsMovementService')

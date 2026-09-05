@@ -350,7 +350,7 @@ const Dashboard = () => {
     return (
       <div className="onyx-list-section">
         <div className="onyx-section-title global">📊 TOUS LES MATCHS ({list.length})</div>
-        <div style={{ display: 'flex', gap: '6px', padding: '6px 8px', flexWrap: 'wrap', alignItems: 'center', overflowX: isMobile ? 'auto' : 'visible', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', gap: '6px', padding: '6px 8px', flexWrap: 'wrap', alignItems: 'center', overflowX: 'visible', whiteSpace: 'nowrap' }}>
           {filters.map((f) => {
             const count = f === 'ALL' ? list.length : (chipCount[f] || 0)
             const active = dominantFilter === f
@@ -440,7 +440,7 @@ const Dashboard = () => {
               rowProps={matchRowProps}
               width={containerWidth > 0 ? containerWidth : '100%'}
               className="titanium-virtual-list"
-              style={{ overflowX: 'auto' }}
+              style={{ overflowX: 'hidden' }}
               rowComponent={MatchRowMemo}
             />
           </div>

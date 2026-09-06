@@ -1,4 +1,4 @@
-const eps = require('../core/enriched_predictions')
+const eps = require('../services/enriched_predictions')
 
 async function testV55() {
   console.log('🔍 [V55-DIAGNOSTIC] Auditing Environmental Intelligence...\n')

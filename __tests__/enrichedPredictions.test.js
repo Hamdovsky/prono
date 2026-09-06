@@ -1,6 +1,6 @@
 /**
  * Enriched Predictions Unit Tests
- * Tests for core/enriched_predictions.js - Match enrichment logic
+ * Tests for services/enriched_predictions.js - Match enrichment logic
  */
 
 jest.mock('axios', () => ({
@@ -93,7 +93,7 @@ jest.mock('../services/oddsService', () => ({
   getLiveOdds: jest.fn().mockResolvedValue(null),
 }))
 
-const enrichedPredictions = require('../core/enriched_predictions')
+const enrichedPredictions = require('../services/enriched_predictions')
 
 // Stub getAnalyticalPrediction to return a clean mock — avoids all Python/network
 const MOCK_ANALYTICAL = {

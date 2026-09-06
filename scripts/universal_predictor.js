@@ -6,7 +6,7 @@
  */
 
 const database = require('../core/database')
-const enrichedPredictions = require('../core/enriched_predictions')
+const enrichedPredictions = require('../services/enriched_predictions')
 const logger = require('../core/logger')
 
 async function runUniversalPrediction() {

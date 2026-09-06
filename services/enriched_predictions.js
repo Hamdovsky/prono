@@ -1,6 +1,6 @@
 const http = require('http')
-const logger = require('./logger')
-const MatchAuditor = require('../services/MatchAuditor')
+const logger = require('../core/logger')
+const MatchAuditor = require('./MatchAuditor')
 
 /**
  * Enriched Predictions Service
@@ -9,34 +9,34 @@ const MatchAuditor = require('../services/MatchAuditor')
 
 const { spawn } = require('child_process')
 const path = require('path')
-const newsService = require('../services/newsService')
+const newsService = require('./newsService')
 const axiosModule = require('axios')
-const dataFusionService = require('../services/dataFusionService')
-const { detectBookmakerTrap } = require('../services/oddsMovementService')
-const { analyzeValue } = require('../services/ValueBetEngine')
-const DeepFormService = require('../services/DeepFormService')
-const PlayerPropsService = require('../services/playerPropsService')
-const pythonService = require('./pythonService')
+const dataFusionService = require('./dataFusionService')
+const { detectBookmakerTrap } = require('./oddsMovementService')
+const { analyzeValue } = require('./ValueBetEngine')
+const DeepFormService = require('./DeepFormService')
+const PlayerPropsService = require('./playerPropsService')
+const pythonService = require('../core/pythonService')
 
-const goalNewsService = require('../services/goalNewsService')
-const sharpService = require('../services/SharpIntelligenceService')
-const correlationEngine = require('../services/MarketCorrelationEngine')
-const fpisEngine = require('../services/FPISEngine')
-const motivationService = require('../services/MotivationEnrichService')
-const EnvironmentalIntelligence = require('../services/EnvironmentalIntelligence')
-const bankrollService = require('../services/bankrollService') // V90
-const NewsAnalysisService = require('./services/NewsAnalysisService')
-const MarketIntelligenceService = require('./services/MarketIntelligenceService')
-const StatisticalEngine = require('./services/StatisticalEngine')
-const patternService = require('../services/patternService')
-const SmartOddsAnalyzer = require('../services/SmartOddsAnalyzer')
-const DiagnosticTrace = require('./utils/DiagnosticTrace')
-const Schemas = require('./utils/Schemas')
-const QuantumQuantEngine = require('./QuantumQuantEngine')
-const confidenceScorer = require('./confidenceScorer')
-const { marketScopeOf } = require('./marketScope')
-const { applyHonestyGate } = require('./honestyGate')
-const featureEngineer = require('./services/FeatureEngineer')
+const goalNewsService = require('./goalNewsService')
+const sharpService = require('./SharpIntelligenceService')
+const correlationEngine = require('./MarketCorrelationEngine')
+const fpisEngine = require('./FPISEngine')
+const motivationService = require('./MotivationEnrichService')
+const EnvironmentalIntelligence = require('./EnvironmentalIntelligence')
+const bankrollService = require('./bankrollService') // V90
+const NewsAnalysisService = require('../core/services/NewsAnalysisService')
+const MarketIntelligenceService = require('../core/services/MarketIntelligenceService')
+const StatisticalEngine = require('../core/services/StatisticalEngine')
+const patternService = require('./patternService')
+const SmartOddsAnalyzer = require('./SmartOddsAnalyzer')
+const DiagnosticTrace = require('../core/utils/DiagnosticTrace')
+const Schemas = require('../core/utils/Schemas')
+const QuantumQuantEngine = require('../core/QuantumQuantEngine')
+const confidenceScorer = require('../core/confidenceScorer')
+const { marketScopeOf } = require('../core/marketScope')
+const { applyHonestyGate } = require('../core/honestyGate')
+const featureEngineer = require('../core/services/FeatureEngineer')
 
 // ── Enrichment dedup / cooldown (process-wide, memory only)
 // Empêche les boucles redondantes (boot, cron, uptime-robot) de relancer
@@ -479,8 +479,8 @@ class EnrichedPredictionService {
           const iso = (match.country_iso || '').toUpperCase()
           const city = countryMap[iso] || match.category_name || ''
           if (city) {
-            const weatherService = require('../services/weatherService')
-            const openMeteo = require('../services/openMeteoService')
+            const weatherService = require('./weatherService')
+            const openMeteo = require('./openMeteoService')
             const applyInfo = (info) => {
               if (!info) return
               match.weather_temp = info.temp
@@ -506,7 +506,7 @@ class EnrichedPredictionService {
       // 1. Parallel Task Execution (News, Odds, Environmental)
       trace.step('Parallel enrichment start')
 
-      const configEngine = require('./configEngine')
+      const configEngine = require('../core/configEngine')
       const newsEnabled = configEngine.get('DEEP_NEWS_ENABLED', true)
 
       const [liveOdds, newsIntel] = await Promise.all([
@@ -542,7 +542,7 @@ class EnrichedPredictionService {
 
         // 📊 [QUANT] Record Market Snapshot
         try {
-          const QuantRiskService = require('../services/quantRiskService')
+          const QuantRiskService = require('./quantRiskService')
           QuantRiskService.recordMarketSnapshot(
             match.id,
             liveOdds,
@@ -678,7 +678,7 @@ class EnrichedPredictionService {
 
       // ── [QUANT ENGINE] Apply Institutional EV+ & Kelly Math ──
       try {
-        const QuantService = require('../services/quantService')
+        const QuantService = require('./quantService')
         Object.assign(enrichedMatch, QuantService.injectFinancials(enrichedMatch))
       } catch (e) {
         console.error(`❌ [QUANT] Failed to calculate EV for ${match.id}: ${e.message}`)
@@ -1194,7 +1194,7 @@ class EnrichedPredictionService {
       // ── FETCH ODDS (critical for odds-implied xG differentiation) ──
       if (!m.odds_home || !m.odds_draw || !m.odds_away) {
         try {
-          const dataFusionService = require('../services/dataFusionService')
+          const dataFusionService = require('./dataFusionService')
           const liveOdds = await dataFusionService.fetchOdds(m)
           if (liveOdds) {
             m.odds_home = liveOdds.home
@@ -1313,7 +1313,7 @@ class EnrichedPredictionService {
         // 1. Sofascore xG (High accuracy, free)
         if (m.sofascore_id) {
           try {
-            const sofaXgSvc = require('../services/sofascoreXgService')
+            const sofaXgSvc = require('./sofascoreXgService')
             const sofaData = await sofaXgSvc.fetchMatchXg(m.sofascore_id)
             if (sofaData) {
               m.home_xg = sofaData.home_xg || m.home_xg

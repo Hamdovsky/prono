@@ -2,7 +2,7 @@ const fs = require('fs').promises
 const path = require('path')
 const logger = require('../core/logger')
 const database = require('../core/database')
-const enrichedPredictions = require('../core/enriched_predictions')
+const enrichedPredictions = require('../services/enriched_predictions')
 const ComboGenerator = require('./combo_generator')
 
 const comboGenerator = new ComboGenerator()

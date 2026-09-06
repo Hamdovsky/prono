@@ -8,7 +8,7 @@ jest.mock('../core/pythonService', () => ({
   predict: jest.fn(),
 }))
 
-const enrichedPredictions = require('../core/enriched_predictions')
+const enrichedPredictions = require('../services/enriched_predictions')
 const pythonService = require('../core/pythonService')
 
 beforeEach(() => {

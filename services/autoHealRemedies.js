@@ -503,7 +503,7 @@ class AutoHealRemedies {
         fix: async () => {
           try {
             const database = require('../core/database')
-            const enrichedPredictions = require('../core/enriched_predictions')
+            const enrichedPredictions = require('../services/enriched_predictions')
             const stale = database.db
               .prepare(
                 "SELECT * FROM matches WHERE status IN ('scheduled','NS') AND home_xg IS NOT NULL AND home_xg > 0.1 AND home_xg < 0.5"

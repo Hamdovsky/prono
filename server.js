@@ -90,7 +90,7 @@ setTimeout(async () => {
     botService.registerScriptAction('dailyDraws', () => require('./scripts/daily_draws').getDailyDraws())
 
     // ── Adaptive engine injection (découplage core/enriched > services/adaptive) ──
-    require('./core/enriched_predictions').setAdaptiveEngine(require('./services/adaptiveLearningEngine'))
+    require('./services/enriched_predictions').setAdaptiveEngine(require('./services/adaptiveLearningEngine'))
 
     const redisCache = {
       get: _redisClient.getCache,
@@ -205,7 +205,7 @@ setTimeout(async () => {
         const ENRICH_DELAY = parseInt(process.env.ENRICH_BATCH_DELAY_MS || '10000', 10) // 10s
 
         async function enrichBatch(batchSize) {
-          const enrichedPredictions = require('./core/enriched_predictions')
+          const enrichedPredictions = require('./services/enriched_predictions')
           const matches = await database.getMatchesByStatuses(
             ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
             { limit: 500 }

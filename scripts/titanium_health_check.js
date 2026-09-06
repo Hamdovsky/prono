@@ -49,7 +49,7 @@ const criticalFiles = [
   'vite.config.js',
   'start.bat',
   'core/database.js',
-  'core/enriched_predictions.js',
+  'services/enriched_predictions.js',
   'core/prediction_engine.py',
   'core/python_worker.py',
   'core/redisClient.js',
@@ -247,7 +247,7 @@ section('7 · FAST ENRICH SMOKE TEST')
 
 async function runEnrichTest() {
   try {
-    const ep = require('../stitch/core/enriched_predictions')
+    const ep = require('../stitch/services/enriched_predictions')
     const mockMatch = {
       id: 'TEST-001',
       homeTeam: 'Manchester City',

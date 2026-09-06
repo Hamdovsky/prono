@@ -537,7 +537,7 @@ app.get('/api/audit/performance', async (req, res) => {
 app.post('/api/predict', predictLimiter, async (req, res) => {
   try {
     const match = req.body
-    const enrichedPredictions = require('./core/enriched_predictions')
+    const enrichedPredictions = require('./services/enriched_predictions')
     const result = await enrichedPredictions.enrichMatch(match)
     res.json(result)
   } catch (err) {

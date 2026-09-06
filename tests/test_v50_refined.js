@@ -1,4 +1,4 @@
-const service = require('../core/enriched_predictions')
+const service = require('../services/enriched_predictions')
 
 process.on('unhandledRejection', (reason, promise) => {
   require('fs').writeFileSync(

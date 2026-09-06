@@ -190,7 +190,7 @@ app.post('/scrape', requireAuth, async (req, res) => {
       // 4. Auto-trigger enrichment (fire-and-forget, don't block response)
       setImmediate(async () => {
         try {
-          const enrichedPredictions = require('../core/enriched_predictions')
+          const enrichedPredictions = require('../services/enriched_predictions')
           const now = Date.now()
           const twoDaysEnd = now + 2 * 24 * 60 * 60 * 1000
           const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
@@ -318,7 +318,7 @@ app.post('/enrich', requireAuth, async (req, res) => {
     'enrich',
     async () => {
       const database = require('../core/database')
-      const enrichedPredictions = require('../core/enriched_predictions')
+      const enrichedPredictions = require('../services/enriched_predictions')
       const now = Date.now()
       const twoDaysEnd = now + 2 * 24 * 60 * 60 * 1000
       const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
@@ -586,7 +586,7 @@ app.get('/db-test', requireAuth, async (req, res) => {
 app.post('/test-update', requireAuth, async (req, res) => {
   try {
     const database = require('../core/database')
-    const enrichedPredictions = require('../core/enriched_predictions')
+    const enrichedPredictions = require('../services/enriched_predictions')
     const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
     const testMatch = matches[0]
     if (!testMatch) return res.json({ error: 'No matches' })

@@ -11,7 +11,7 @@ jest.mock('../core/speedCache', () => {
   return { speedCache: mockSpeedCache, invalidateCache: mockInvalidate }
 })
 
-jest.mock('../core/enriched_predictions', () => ({
+jest.mock('../services/enriched_predictions', () => ({
   enrichMatch: jest.fn((match) => Promise.resolve(match)),
   fastEnrichMatch: jest.fn((match) =>
     Promise.resolve({

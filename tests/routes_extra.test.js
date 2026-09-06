@@ -20,7 +20,7 @@ jest.mock('../core/database', () => {
   }
 })
 
-jest.mock('../core/enriched_predictions', () => ({
+jest.mock('../services/enriched_predictions', () => ({
   getEnrichedPrediction: jest.fn().mockReturnValue(null),
   saveEnrichedPrediction: jest.fn(),
 }))

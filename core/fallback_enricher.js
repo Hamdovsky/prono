@@ -736,7 +736,7 @@ async function enrichMatchesBatch(opts = {}) {
     const batchSize = 5
 
     // Pre-fetch SofaScore team data for matches with team IDs
-    const enrichedPredictionService = require('../core/enriched_predictions')
+    const enrichedPredictionService = require('../services/enriched_predictions')
     let sofaFetchCount = 0
     for (const m of matches) {
       if (m._sofaTeamDataFetched) continue

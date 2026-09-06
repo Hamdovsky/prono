@@ -1,5 +1,5 @@
 const database = require('../core/database')
-const enrichedPredictions = require('../core/enriched_predictions')
+const enrichedPredictions = require('../services/enriched_predictions')
 const oddsMovementService = require('./oddsMovementService')
 
 class MarketSensorService {

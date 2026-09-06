@@ -1156,7 +1156,7 @@ class BotService {
     )
     try {
       const database = require('../core/database')
-      const enrichedPredictions = require('../core/enriched_predictions')
+      const enrichedPredictions = require('../services/enriched_predictions')
 
       const matches = await database.getMatchesByStatuses(['scheduled', 'NOT_STARTED', 'NS'])
       const now = Date.now()

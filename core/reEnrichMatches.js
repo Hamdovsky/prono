@@ -1,6 +1,6 @@
 require('dotenv').config()
 const database = require('./database')
-const EnrichedPredictionService = require('./enriched_predictions')
+const EnrichedPredictionService = require('../services/enriched_predictions')
 const logger = require('./logger')
 
 const BATCH_LIMIT = parseInt(process.argv[2] || '50')

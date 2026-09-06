@@ -4,7 +4,7 @@ const logger = require('../core/logger')
 const { loadAccuracyLog, runAnalysis } = require('../scripts/today_analysis')
 const accuracyStore = require('../core/accuracyStore')
 const database = require('../core/database')
-const enrichedPredictions = require('../core/enriched_predictions')
+const enrichedPredictions = require('../services/enriched_predictions')
 const { LEAGUE_MAP } = require('../config/leagueRegistry')
 
 /**

@@ -3,7 +3,7 @@ const router = express.Router()
 const logger = require('../core/logger')
 const database = require('../core/database')
 const { speedCache, invalidateCache } = require('../core/speedCache')
-const enrichedPredictions = require('../core/enriched_predictions')
+const enrichedPredictions = require('../services/enriched_predictions')
 const { sanitizeMatches } = require('../core/matchSanitizer')
 const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
 const liveGoalPredictor = require('../services/LiveGoalPredictor')

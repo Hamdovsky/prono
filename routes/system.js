@@ -847,7 +847,7 @@ router.post(
   async (req, res) => {
     try {
       const database = require('../core/database')
-      const enrichedPredictions = require('../core/enriched_predictions')
+      const enrichedPredictions = require('../services/enriched_predictions')
       const { scanAll } = require('../services/valueScanner')
       const { globalOptimizer } = require('../services/stakingOptimizer')
 

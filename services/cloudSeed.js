@@ -644,7 +644,7 @@ async function runCloudSeed() {
     try {
       const {
         backfillOdds
-      } = require('../core/oddsBackfill');
+      } = require('../services/oddsBackfill');
       backfillOdds().catch(e => _logger.default.warn(`[ODDS-BACKFILL] Erreur: ${e.message}`));
     } catch (e) {
       _logger.default.warn(`[ODDS-BACKFILL] initializer failed: ${e.message}`);

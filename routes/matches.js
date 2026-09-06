@@ -1121,7 +1121,7 @@ router.post('/backfill-odds', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' })
   }
   try {
-    const { backfillOdds } = require('../core/oddsBackfill')
+    const { backfillOdds } = require('../services/oddsBackfill')
     const result = await backfillOdds()
     try {
       invalidateCache('upcoming')

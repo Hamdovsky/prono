@@ -281,7 +281,7 @@ class OddsApiIoService {
     return best
   }
 
-  // Contest groupé pour le backfill (core/oddsBackfill).
+  // Contest groupé pour le backfill (services/oddsBackfill).
   async fetchEventsWithOdds(_dateStr) {
     if (!this.isAvailable()) return []
     const popular = [

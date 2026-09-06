@@ -3,15 +3,15 @@
 // Source-agnostique : réutilise les mapEventToMatch existants.
 // Désactivé automatiquement si aucune clé API n'est configurée (isAvailable()).
 
-const database = require('./database')
-const logger = require('./logger')
+const database = require('../core/database')
+const logger = require('../core/logger')
 
-const therundownService = require('../services/therundownService')
-const oddspapiService = require('../services/oddspapiService')
-const sportmonksService = require('../services/sportmonksService')
+const therundownService = require('./therundownService')
+const oddspapiService = require('./oddspapiService')
+const sportmonksService = require('./sportmonksService')
 const bsdService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
-const oddsApiIoService = require('../services/oddsApiIoService')
-const bypassScraper = require('../services/scrapers/ScrapingBypassScraper')
+const oddsApiIoService = require('./oddsApiIoService')
+const bypassScraper = require('./scrapers/ScrapingBypassScraper')
 
 const BETEXPLORER_CAP = Number(process.env.BETEXPLORER_BACKFILL_CAP || 30)
 

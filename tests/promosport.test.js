@@ -12,6 +12,13 @@ jest.mock('../core/promosport_scraper', () => ({
 jest.mock('../services/promosport_engine', () => ({
   generatePromosportGrids: jest.fn(),
   generateGoldCoupon: jest.fn(),
+  generateAntiCorrelatedGrids: jest.fn().mockImplementation((matches) =>
+    Array.from({ length: 8 }, (_, gi) => ({
+      name: `ANTI-CORR ${gi + 1}`,
+      stats: { totalDoubles: 0, totalSingles: (matches || []).length, avgConfidence: '0.5' },
+      matches: (matches || []).map((m) => ({ ...m, choices: ['1'], inUncertain: true })),
+    }))
+  ),
 }))
 
 jest.mock('../core/promosport_tunisie_scraper', () => ({

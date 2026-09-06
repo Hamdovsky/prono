@@ -7,7 +7,8 @@ const logger = require('../core/logger')
 const securityEngine = require('../core/securityEngine')
 const { speedCache } = require('../core/speedCache')
 const { scrapePromosport } = require('../core/promosport_scraper')
-const { generatePromosportGrids, generateGoldCoupon } = require('../services/promosport_engine')
+const { generatePromosportGrids, generateGoldCoupon, generateAntiCorrelatedGrids } =
+  require('../services/promosport_engine')
 const promosportIntelligence = require('../services/promosportIntelligence')
 const doubleOptimizer = require('../services/doubleOptimizerService')
 const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper')
@@ -78,6 +79,22 @@ function normalizeMatchNames(matches) {
 
 // ─── Archive Helper ──────────────────────────────────────────────────────────
 const ARCHIVE_PATH = require('path').join(__dirname, '..', 'data', 'historical_archive.sqlite')
+
+// The `promosport_grids` table was referenced by archiveScrapedMatches & /tunisie/:grid
+// but never created — ensure it exists.
+try {
+  const db = new Database(ARCHIVE_PATH)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS promosport_grids (
+      concours TEXT NOT NULL,
+      date TEXT,
+      grid_data TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (concours)
+    )
+  `)
+  db.close()
+} catch (_) {}
 function archiveScrapedMatches(concours, date, matches) {
   try {
     const db = new Database(ARCHIVE_PATH)
@@ -405,6 +422,20 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
     console.log(
       `✅ [PROMOSPORT] Sending ${unifiedMatches.length} matches to frontend for Concours ${finalConcours}`
     )
+    const antiCorrGrids = generateAntiCorrelatedGrids(grids[0].matches || [], 8)
+    const antiCorrPayload =
+      antiCorrGrids.length > 0
+        ? {
+            grids: antiCorrGrids.map((g) => ({
+              name: g.name,
+              picks: g.matches.map((m) => m.choices.join('')),
+              inUncertain: g.matches.map((m) => m.inUncertain || false),
+              stats: g.stats,
+            })),
+            count: antiCorrGrids.length,
+            budgetTnd: Number((antiCorrGrids.length * 0.2).toFixed(2)),
+          }
+        : null
     res.json({
       concours: finalConcours,
       date: finalDate,
@@ -414,6 +445,7 @@ router.get('/', speedCache('promosport', 300000, 1800000), async (req, res) => {
         doubles: g.stats.totalDoubles,
         avgConfidence: parseFloat(g.stats.avgConfidence),
       })),
+      antiCorr: antiCorrPayload,
     })
   } catch (err) {
     logger.error('❌ [PROMOSPORT] Final Error:', err.message)
@@ -860,9 +892,9 @@ router.get('/tunisie/:grid', speedCache('promosport_tn', 120000, 600000), async 
     try {
       const db = new Database(ARCHIVE_PATH)
       const insertMatch = db.prepare(`
-        INSERT OR IGNORE INTO promosport_archive 
-          (concours, grid_no, date, homeTeam, awayTeam, match_idx, result, vote_home, vote_draw, vote_away, score_home, score_away, is_finished, archived_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+        INSERT OR REPLACE INTO promosport_archive 
+          (concours, date, homeTeam, awayTeam, match_idx, result, vote_home, vote_draw, vote_away, score_home, score_away, is_finished, archived_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
       `)
       const insertGrid = db.prepare(`
         INSERT OR REPLACE INTO promosport_grids (concours, date, grid_data, updated_at)
@@ -870,22 +902,22 @@ router.get('/tunisie/:grid', speedCache('promosport_tn', 120000, 600000), async 
       `)
       const tx = db.transaction(() => {
         grid.matches.forEach((m) => {
+          if (!m.result || m.result === 'N') return
           insertMatch.run(
-            grid.no,
-            grid.no,
-            null,
-            m.home,
-            m.away,
+            String(grid.no),
+            new Date().toISOString().slice(0, 10),
+            m.home.toUpperCase(),
+            m.away.toUpperCase(),
             m.idx,
-            m.result || null,
-            m.publicVote?.p1 || null,
+            m.result
+            , m.publicVote?.p1 || null,
             m.publicVote?.px || null,
             m.publicVote?.p2 || null,
-            m.scoreHome,
-            m.scoreAway
+            m.scoreHome || null,
+            m.scoreAway || null
           )
         })
-        insertGrid.run(grid.no, null, JSON.stringify(grid.matches))
+        insertGrid.run(String(grid.no), null, JSON.stringify(grid.matches))
       })
       tx()
       db.close()
@@ -1314,7 +1346,11 @@ router.get('/gold-coupon', async (req, res) => {
   try {
     const speedCache = require('../core/speedCache')
     const { scrapePromosport } = require('../core/promosport_scraper')
-    const { generatePromosportGrids, generateGoldCoupon } = require('../services/promosport_engine')
+const {
+  generatePromosportGrids,
+  generateGoldCoupon,
+  generateAntiCorrelatedGrids,
+} = require('../services/promosport_engine')
 
     let scrapedMatches = speedCache.get('promosport_matches')
     if (!scrapedMatches) {

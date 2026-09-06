@@ -189,6 +189,17 @@ jest.mock('../services/promosport_engine', () => ({
     }))
   ),
   generateGoldCoupon: jest.fn().mockReturnValue({ picks: [], description: 'Test' }),
+  generateAntiCorrelatedGrids: jest.fn().mockImplementation((matches) =>
+    Array.from({ length: 8 }, (_, gi) => ({
+      name: `ANTI-CORR ${gi + 1}`,
+      stats: { totalDoubles: 0, totalSingles: (matches || []).length, avgConfidence: '0.5' },
+      matches: (matches || []).map((m) => ({
+        ...m,
+        choices: ['1'],
+        inUncertain: true,
+      })),
+    }))
+  ),
 }))
 
 jest.mock('../services/promosportIntelligence', () => ({
@@ -287,6 +298,17 @@ describe('Additional API Routes', () => {
         expect(response.body.matches[0]).toHaveProperty('home')
         expect(response.body.matches[0]).toHaveProperty('away')
         expect(response.body.matches[0]).toHaveProperty('cols')
+      }
+    })
+
+    it('should include anti-correlated grids in response', async () => {
+      const response = await request(app).get('/api/promosport')
+
+      expect(response.status).toBe(200)
+      expect(response.body).toHaveProperty('antiCorr')
+      if (response.body.antiCorr) {
+        expect(response.body.antiCorr.grids.length).toBe(8)
+        expect(response.body.antiCorr).toHaveProperty('budgetTnd')
       }
     })
 

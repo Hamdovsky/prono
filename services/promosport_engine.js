@@ -1020,4 +1020,154 @@ function analyseObstacles(enrichedMatches) {
   })
 }
 
-module.exports = { generatePromosportGrids, generateGoldCoupon }
+/**
+ * Generate N ANTI-CORRELATED single grids (1 pick/match) — the diversification
+ * lever validated by the MC study (scratch/build_decorrelated_grids.py + arbitrage).
+ *
+ * LOCK on easy matches (gap top1-top2 >= 0.15 or already finished), greedy
+ * max-Hamming rotation on uncertain matches so the grids don't fall together.
+ * Returns grids in the same shape as the engine's 4 strategic grids.
+ */
+function generateAntiCorrelatedGrids(gridMatches, N = 8) {
+  if (!Array.isArray(gridMatches) || gridMatches.length === 0) return []
+  const n = gridMatches.length
+  const LBL = ['1', 'X', '2']
+  const UNCERTAIN_THR = 0.15
+
+  // normalise probs + lock detection (finished matches = actualResult or choices[0])
+  const info = gridMatches.map((m) => {
+    const p = [m.p1, m.px, m.p2].map((v) =>
+      typeof v === 'number' && !Number.isNaN(v) && isFinite(v) ? v : 0
+    )
+    const t = p[0] + p[1] + p[2]
+    const norm = t > 0 ? p.map((v) => v / t) : [1 / 3, 1 / 3, 1 / 3]
+    const order = [0, 1, 2].sort((a, b) => norm[b] - norm[a])
+    const gap = norm[order[0]] - norm[order[1]]
+    const lockedPick =
+      m.actualResult && ['1', 'X', '2'].includes(String(m.actualResult))
+        ? String(m.actualResult)
+        : Array.isArray(m.choices) && m.choices.length === 1 &&
+            ['1', 'X', '2'].includes(String(m.choices[0]))
+          ? String(m.choices[0])
+          : null
+    return { m, norm, order, gap, locked: m.isFinished && !!lockedPick, lockedPick }
+  })
+
+  // candidates per match: top-2 (+top-3 if close); locked matches -> single forced
+  const candidates = (inf) => {
+    if (inf.locked) return [inf.lockedPick]
+    const c = [inf.order[0], inf.order[1]]
+    if (inf.norm[inf.order[2]] >= inf.norm[inf.order[1]] - 0.05) c.push(inf.order[2])
+    return c
+  }
+
+  // uncertain = small top1-top2 gap (good diversification spots)
+  const uncertain = info
+    .map((inf, i) => ({ i, gap: inf.gap }))
+    .filter((x) => x.gap < UNCERTAIN_THR)
+    .sort((a, b) => a.gap - b.gap)
+  const uncertainIdx = uncertain.map((u) => u.i)
+
+  // rotation candidates: cap the combinatorial space so the route stays fast
+  let rotationIdx = uncertainIdx
+  let candLists = rotationIdx.map((i) => candidates(info[i]))
+  const MAX_SPACE = 8192
+  let spaceSize = candLists.reduce((acc, l) => acc * l.length, 1)
+  if (spaceSize > MAX_SPACE) {
+    candLists = candLists.map((l) => (l.length > 2 ? l.slice(0, 2) : l))
+    spaceSize = candLists.reduce((acc, l) => acc * l.length, 1)
+  }
+  if (spaceSize > MAX_SPACE) {
+    rotationIdx = rotationIdx.slice(0, 12)
+    candLists = rotationIdx.map((i) => candidates(info[i]))
+    candLists = candLists.map((l) => (l.length > 2 ? l.slice(0, 2) : l))
+    spaceSize = candLists.reduce((acc, l) => acc * l.length, 1)
+  }
+  const candSpace = []
+
+  // grid 0 = argmax everywhere (locked matches forced)
+  const base = info.map((inf) => (inf.locked ? inf.lockedPick : LBL[inf.order[0]]))
+
+  const seen = new Set([base.join('')])
+  const rec = (pos, acc) => {
+    if (pos === rotationIdx.length) {
+      const g = base.slice()
+      for (let k = 0; k < rotationIdx.length; k++) g[rotationIdx[k]] = acc[k]
+      const key = g.join('')
+      if (!seen.has(key)) {
+        seen.add(key)
+        candSpace.push(g)
+      }
+      return
+    }
+    for (const v of candLists[pos]) {
+      acc.push(LBL[v])
+      rec(pos + 1, acc)
+      acc.pop()
+    }
+  }
+  rec(0, [])
+
+  const minHamming = (g, chosen) => {
+    if (!chosen.length) return 1e9
+    let best = Infinity
+    for (const c of chosen) {
+      let d = 0
+      for (const i of rotationIdx) if (g[i] !== c[i]) d++
+      if (d < best) best = d
+    }
+    return best
+  }
+
+  const grids = [base]
+  while (grids.length < N && candSpace.length) {
+    let bestC = candSpace[0]
+    let bestScore = -1
+    for (const g of candSpace) {
+      const s = minHamming(g, grids)
+      if (s > bestScore) {
+        bestScore = s
+        bestC = g
+      }
+    }
+    grids.push(bestC)
+    candSpace.splice(candSpace.indexOf(bestC), 1)
+  }
+
+  const names = Array.from({ length: N }, (_, i) => `ANTI-CORR ${i + 1}`)
+  return grids.slice(0, N).map((g, gi) => ({
+    gridNumber: gi + 1,
+    name: names[gi],
+    matches: gridMatches.map((m, i) => ({
+      id: m.id,
+      home: m.homeTeam || m.home,
+      away: m.awayTeam || m.away,
+      p1: m.p1,
+      px: m.px,
+      p2: m.p2,
+      entropy: m.entropy,
+      confidence: m.confidence,
+      isCrowdTrap: m.isCrowdTrap || false,
+      isFinished: m.isFinished || false,
+      inUncertain: uncertainIdx.includes(i),
+      gap: info[i].gap,
+      choices: [g[i]],
+      intel: m.intel,
+      brief: m.brief || m.tacticalBrief,
+      source: m.source || 'stat',
+      xgbBlended: m.xgbBlended || false,
+      coverage: m.coverage || null,
+      odds: m.odds || null,
+    })),
+    stats: {
+      totalDoubles: 0,
+      totalSingles: n,
+      coverageIndex: '0%',
+      avgConfidence: (
+        gridMatches.reduce((acc, m) => acc + (m.confidence || 0), 0) / n
+      ).toFixed(1),
+    },
+  }))
+}
+
+module.exports = { generatePromosportGrids, generateGoldCoupon, generateAntiCorrelatedGrids }

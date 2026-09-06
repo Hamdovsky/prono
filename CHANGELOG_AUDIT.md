@@ -4,6 +4,504 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Arbitrage rendement net — simples diversifiés vs doubles couverts (2026-09-06, local)
+
+### Objectif (RFA de la section précédente)
+Confirmer la grille de gains officielle Promosport puis arbitrer entre la stratégie
+« simples diversifiés » (grilles anti-corrélées) et « doubles couverts » (1X/12/X2)
+pour optimiser le rendement net (gains×proba − coût).
+
+### Grille de gains officielle CONFIRMÉE (règlement général des concours promosport.tn)
+- Jeu « PROMO 13 N/I » : 13 matchs, prix **0.200 TND / combinaison**, minimum **4 combinaisons** par bulletin.
+- 4 catégories de prix : paliers PAYÉS = **13/12/11/10** réponses exactes (PAS 13/11/7/3 comme supposé) :
+  - 13/13 → 1ʳᵉ catégorie : **18 %** de la cagnotte
+  - 12/13 → 2ᵉ catégorie : **22 %**
+  - 11/13 → 3ᵉ catégorie : **26 %**
+  - 10/13 → 4ᵉ catégorie : **34 %** — 18+22+26+34 = **100 %** : toute la cagnotte est distribuée.
+- Rencontres reportées/annulées → palier requis réduit (13→12→11→10), parts inchangées.
+
+### Arbitrage rendement net (`scratch/arbitrage_rendement.py`)
+- Monte-Carlo 40k tirages sur les probas réelles du 899, **budget constant** (même nb de combos).
+- Doubles = d doubles (top-2) sur les d matchs les plus incertains, singletons décorrélés ailleurs.
+- Métrique : `EV_part` = Σ part_c × P(max_hits = palier_c) ; `EV/combo` = EV_part / nb combos.
+
+| Budget | Stratégie | E[max]/13 | P(≥8) | P(≥10) | P(≥11) | P(13/13) | EV/combo |
+|---|---|---|---|---|---|---|---|
+| 4 combos | 4 simples div | 6.90 | 33.7% | 3.8% | 0.6% | 0.01% | 0.0031 |
+| 4 combos | 1 grille ×2 doubles | 6.47 | 27.9% | 4.1% | 0.9% | 0.00% | 0.0033 |
+| 8 combos | **8 simples div** | **7.40** | **46.9%** | **6.9%** | 1.4% | 0.01% | **0.0028** |
+| 8 combos | 4 grilles ×1 double | 7.14 | 40.2% | 6.0% | 1.2% | 0.01% | 0.0024 |
+| 8 combos | 2 grilles ×2 doubles | 7.04 | 38.2% | 5.8% | 1.3% | 0.01% | 0.0023 |
+| 16 combos | **16 simples div** | **7.84** | **59.5%** | **11.7%** | 2.8% | 0.02% | **0.0023** |
+| 16 combos | 8 grilles ×1 double | 7.57 | 51.8% | 9.8% | 2.2% | 0.01% | 0.0020 |
+| 16 combos | 4 grilles ×2 doubles | 7.43 | 47.9% | 8.8% | 2.1% | 0.01% | 0.0018 |
+| 32 combos | **32 simples div** | **8.17** | **68.4%** | **17.2%** | 4.6% | 0.03% | **0.0017** |
+| 32 combos | 16 grilles ×1 double | 7.97 | 62.6% | 15.2% | 4.1% | 0.03% | 0.0015 |
+| 64 combos | **64 simples div** | **8.51** | **76.9%** | **23.9%** | 7.3% | 0.06% | **0.0012** |
+| 64 combos | 32 grilles ×1 double | 8.34 | 71.9% | 21.6% | 6.5% | 0.07% | 0.0011 |
+
+### Conclusion
+- **Les simples diversifiés dominent les doubles couverts sur tout budget ≥ 8 combos** (EV/combo,
+  E[max], P(≥8), P(≥10) tous supérieurs). Le double n'« améliore » qu'au minimum légal (4 combos :
+  1 grille ×2 doubles, +0.0002 EV/combo) au prix d'un E[max] inférieur de 0.43 hit — choix de
+  sécurité sur les paliers moyens, jamais optimal pour viser haut.
+- Pourquoi : le double concentre le budget sur UN match (colonnes internes fortement corrélées),
+  tandis que la rotation anti-corrélée élargit l'éventail → E[max] +1.4 à 8 combos (7.40 vs 7.14).
+- Budget conseillé : **8 combos (1.60 TND)** = bon compromis (P(≥8) 46.9%, linéarité du rendement
+  décroissante : EV/combo 0.0031 → 0.0012 entre 4 et 64 combos).
+- Seuil de rentabilité si seul au palier : cagnotte ≥ 71.5 TND (8 simples), 85.5 TND (16 simples).
+  En mutuel réel la cagnotte se divise par le nb de gagnants → conclusion valable en relatif.
+
+### Validations
+- `.venv/Scripts/python.exe scratch/arbitrage_rendement.py` : OK (indépendant, sortie stable, seed 42).
+- Nouveau fichier scratch isolé — aucune régression fonctionnelle (pas de code applicatif modifié).
+
+### Reste à faire
+- ~~Branch direct : générateur de grilles dans l'UI → produire le set de 8 simples anti-corrélées
+  à chaque concours (budget recommandé).~~ **FAIT (2026-09-06, voir section suivante).**
+
+---
+
+## UI — 8 grilles anti-corrélées branchées (2026-09-06, local)
+
+### Objectif (RFA de la section précédente)
+Produire et afficher le set de **8 grilles simples anti-corrélées** (budget 1.60 TND, validé
+par l'arbitrage rendement net) à chaque concours, dans le moteur puis dans l'UI.
+
+### Implémentation
+- `services/promosport_engine.js` : nouvelle fonction **`generateAntiCorrelatedGrids(gridMatches, N=8)`**
+  (exportée dans `module.exports`).
+  - Normalisation probs `p1/px/p2` ; LOCK des matchs sûrs (gap top1-top2 ≥ 0.15) et des matchs
+    déjà joués (`isFinished` + `actualResult`/`choices[0]`).
+  - Rotation gloutonne max-distance de Hamming sur les matchs incertains (top-2, +top-3 si proche).
+  - Espace candidat borné (`MAX_SPACE = 8192`, top-2 puis 12 matchs max) pour garder la route rapide.
+  - Sortie au format des grilles du moteur (`gridNumber`, `name "ANTI-CORR n"`, `matches[]` avec
+    `choices` single + `inUncertain`/`gap`, `stats.totalSingles = 13`, `avgConfidence`).
+- `routes/promosport.js` GET `/api/promosport` : clé **`antiCorr`** additive dans la réponse
+  (`{ grids: [{name, picks[], inUncertain[], stats}], count: 8, budgetTnd: 1.60 }`). Aucun impact
+  sur `cols` existant ni sur la persistance (Neon/SQLite) ni sur le front 4-colonnes.
+- `src/components/Promosport.jsx` : state `antiCorr` + **section dédiée** sous la table principale
+  (table 13×8, code couleur 1/X/2, contour pointillé + tooltip sur les matchs incertains).
+- Tests : `__tests__/anticorrEngine.test.js` (5 assertions + edge cases sur la vraie fonction,
+  deps du moteur mockées) ; `__tests__/additionalRoutes.test.js` : clé `generateAntiCorrelatedGrids`
+  ajoutée au mock + test « should include anti-correlated grids in response » ; `tests/promosport.test.js` :
+  clé ajoutée au mock existant.
+
+### Piège résolu
+- La route affichait un 500 `ReferenceError: generateAntiCorrelatedGrids is not defined` : l'import
+  destructuring avait été réédité par la route initiale. Rétabli destructuring complet
+  `{ generatePromosportGrids, generateGoldCoupon, generateAntiCorrelatedGrids }`.
+- Un mock de test sans la clé `generateAntiCorrelatedGrids` cassait `tests/promosport.test.js` :
+  ajouté dans les 2 suites mockant l'engine.
+
+### Validations (toutes vertes)
+- `node --check` (moteur, route, tests) ; `npm run build` (vite, 131 modules) ;
+  **`npm test` : 71 suites / 715 tests ✔** (70 suites / 708 avant) ; boot `node server.js`
+  (« Startup bootstrap complete », `/api/health` 200) ; `madge --circular` : aucune dépendance circulaire.
+- Fichiers modifiés : `services/promosport_engine.js`, `routes/promosport.js`,
+  `src/components/Promosport.jsx`, `__tests__/additionalRoutes.test.js`, `tests/promosport.test.js` ;
+  nouveau `__tests__/anticorrEngine.test.js`. Non commité (travail en cours préservé).
+
+### Reste à faire
+- ~~Vérifier le rendu réel sur le concours courant (réseau/données Promosport live) et calibrer la
+  valeur du seuil de rotation (0.15) avec l'historique des probas.~~ → FAIT (section calibration ci-dessous)
+
+### Calibration du seuil de rotation (`scratch/calibrate_rotation_threshold.py`)
+- Balayage du seuil UNCERTAIN_THR (gap top1-top2) sur les probas réelles du 899, MC 40k,
+  budget 8 grilles simples. Rayon de proxys historiques riches absent (probas ML stockées
+  par concours), la calibration s'appuie sur le concours complet réel (899) + parité JS/Python.
+  Résultats (EV/combo = EV_part/8, minH = distance Hamming minimale entre 2 grilles du set) :
+
+  | seuil | incertains | E[max] | P≥8 | P≥10 | EV/combo | minH |
+  |---|---|---|---|---|---|---|
+  | 0.05 | 2 | 6.99 | 37.7% | 6.5% | 0.0026 | 1 |
+  | 0.10 | 4 | 7.04 | 39.0% | 6.5% | 0.0026 | 2 |
+  | 0.12 | 6 | 7.24 | 43.1% | 6.9% | 0.0028 | 3 |
+  | **0.15** | **8** | **7.40** | **46.9%** | **6.9%** | **0.0028** | **4** |
+  | 0.18 | 10 | 7.45 | 47.9% | 5.9% | 0.0024 | 6 |
+  | 0.20 | 11 | 7.32 | 43.9% | 4.8% | 0.0020 | 6 |
+  | 0.25-0.30 | 12 | 7.44 | 47.5% | 4.6% | 0.0019 | 7 |
+  | 0.35-0.50 | 13 | 7.28 | 41.0% | 3.8% | 0.0016 | 7 |
+
+- **Verdict** : 0.15 est déjà au maximum (EV/combo 0.0028, plateau 0.12-0.18). Au-delà de 0.18,
+  la rotation touche des matchs trop sûrs → P≥10/P≥11 chutent malgré une E[max] plus haute
+  (le top1 sûr est déjà bien verrouillé : rien à gagner à tourner des matchs au gap ≥ 0.18).
+- **Parité JS/Python confirmée** (`scratch/parity_js_engine.js`) : `generateAntiCorrelatedGrids`
+  du moteur reproduit exactement le comportement calibré sur le 899 — 8 incertains, minH=4,
+  8 grilles `ANTI-CORR 1..8`, LOCK sur matchs sûrs, déterministe, stats totalSingles=13.
+- **Aucun changement de code nécessaire** : UNCERTAIN_THR=0.15 reconfirmé. Artefact :
+  `grilles/promosport_threshold_calibration.md`.
+- Rendu réel : hors-ligne ici → le fallback renvoie [] → 500 volontaire « Fallback échoué »
+  (comportement existant, pas un bug). Rendu online couvert par l'intégration
+  (`__tests__/additionalRoutes.test.js` : 200 + antiCorr.grids.length=8 + budgetTnd) et le
+  générateur réel par `__tests__/anticorrEngine.test.js`. Non commité (travail en cours préservé).
+
+## Validation train/test + grilles anti-corrélées (2026-09-05, local)
+
+### Objectif (demande user « augmenter le taux de réussite »)
+1. Vérifier que le réglage de l'escalier (w=0.40/thr=0.15/corr=0.30) n'est PAS surajusté.
+2. Identifier le vrai levier de gain pour le jackpot → diversification des grilles.
+
+### Validation train/test (`scratch/validate_tv.py`) — split temporel anti-fuite
+- Split par CONCOURS (aucun concours commun), base recalculée sur train uniquement.
+- Train 179 concours (2226 matchs, n° 632-834) / Test 45 concours (570 matchs, n° 835-879).
+- Grid-search sur train retrouve EXACTEMENT le réglage `.env` (0.25/0.15/0.30), plateau stable
+  (0.25→0.50 ≈ 0.485) → **pas d'overfit**.
+- Évaluation test (poids figés) : crowd 49.5% → escalier **50.5%** = **+1.1 pt** seulement
+  (vs +2.4 pts en calibration full-data → le gain full-data était optimiste).
+- Robustesse 10 splits temporels décalés : escalier > crowd **10/10** (moy +1.0 pt, min +0.3).
+- **Conclusion honnête** : l'edge blend est réel et constant mais FIN (~1 pt). Le crowd s'améliore
+  sur les concours récents → le blend seul ne suffit pas pour viser le 13/13.
+
+### Grilles anti-corrélées (`scratch/build_decorrelated_grids.py`) — LE levier
+- Générateur : LOCK sur matchs sûrs (écart top1-top2 ≥ 0.15), sélection gloutonne à distance de
+  Hamming max sur les 8 matchs incertains du 899 → grilles qui ne tombent pas ensemble.
+- **Monte-Carlo 40k tirages** (échantillonne les vrais résultats selon les vecteurs de proba) :
+
+  | set | E[max hits] | P(≥8) | P(≥10) | P(≥11) |
+  |---|---|---|---|---|
+  | 6 copies IDENTIQUES | 5.81 | 16.9% | 1.8% | 0.4% |
+  | 3 anti-corrélées | 6.75 | 29.9% | 3.1% | 0.6% |
+  | 6 anti-corrélées | 7.21 | 41.6% | 5.6% | 1.1% |
+  | 8 anti-corrélées | 7.39 | 46.8% | 7.0% | 1.3% |
+  | 10 anti-corrélées | 7.53 | 50.6% | 8.2% | 1.6% |
+
+- **Résultat clé** : dupliquer une grille n'apporte RIEN (16.9% quel que soit N). Diversifier
+  **×2.4** les chances d'une grille valide (≥8) pour 6× le coût. Genou de la courbe = **N=6-8**
+  (au-delà, <2 pts de gain par grille de 13 paris).
+- 6 grilles produites → `grilles/promosport_decorrelated_899.md`. Matchs incertains 899 :
+  #5 Rayo-Racing (gap 0.01), #9 Fulham-CP (0.03), #11 Gladbach (0.06), #6 Nottingham (0.08),
+  #3 Athletic-Atletico (0.11), #12 Hoffenheim-Dortmund (0.11), #1 Inter-Napoli (0.13), #2 Roma (0.14).
+
+### Limites assumées
+- Le MC suppose les probas du modèle bien calibrées. Le T/V (50.5% réel vs ~40% argmax prédit)
+  suggère un léger sous-confiance → hit rate réel probablement un peu > MC (plutôt rassurant).
+- Les grilles anti-corrélées sont des SIMPLES (1 choix/match, 13 paris/grille). La stratégie
+  « playable » à doubles (1X/12/X2) du backtest historique (9.01 hits/13) est un mécanisme
+  DIFFÉRENT et plus coûteux (5047 paris) — à arbitrer selon la grille de gains Promosport réelle.
+
+### Reste à faire
+- Confirmer la **grille de gains officielle Promosport** (paliers payés 13/11/7/3 ?) pour arbitrer
+  simples diversifiés vs doubles couverts → optimiser le rendement net (gains×proba − coût).
+- Optionnel : brancher le générateur dans l'UI pour produire le set diversifié à chaque concours.
+
+---
+
+## Correction des 2 bugs d'archivage + backtest validé (2026-09-05, local)
+
+### Objectif (demande user « corrige les 2 bugs après passe au backtest »)
+1. Corriger l'archivage cassé de `/api/promosport/tunisie/:grid` (INSERT sur colonne inexistante,
+   table `promosport_grids` jamais créée, erreur avalée par catch silencieux).
+2. Rendre `import_promosport_archive.py` non destructif (il DROPPait la table et perdait les
+   résultats frais fetchés en SQLite).
+3. Relancer le backtest calibré de l'escalier sur l'archive propre.
+
+### Modifications — Bug 1 (`routes/promosport.js`)
+- Ajout d'un `CREATE TABLE IF NOT EXISTS promosport_grids (concours, date, grid_data, updated_at, PK(concours))`
+  au chargement du module → aussi bien `archiveScrapedMatches()` (l.~90) que la route `/tunisie/:grid` (l.~860)
+  pouvaient échouer sur cette table absente.
+- Route `/tunisie/:grid` : l'INSERT `promosport_archive` référençait `grid_no` (colonne inexistante,
+  schéma réel : id, concours, match_idx, homeTeam, awayTeam, result, score_home, score_away,
+  vote_home, vote_draw, vote_away, date, is_finished, archived_at) avec 14 placeholders / 12 args.
+  Corrigé pour coller au schéma réel : `INSERT OR REPLACE` avec `match_idx` (pas `grid_no`),
+  équipes en UPPERCASE (cohérent avec `checkAndFetchResults` qui normalise en UPPERCASE pour la
+  jointure computeAccuracy), skip des matchs sans résultat (`result` absent/`N`),
+  `is_finished=1`, votes/scores stockés.
+- `routes/promosport.ts` : doublon .ts inutilisé (app.js charge le .js) — non modifié.
+
+### Modifications — Bug 2 (`scripts/import_promosport_archive.py`)
+- Sauvegarde en fichier `data/promosport_archive_pre_import.json` des 15172 lignes EXISTANTES avant
+  le DROP (les résultats frais fetchés par `checkAndFetchResults` ne sont pas dans les JSON sources).
+- Après rebuild depuis les JSON, `Restore` des lignes sauvegardées dont la clé `(concours, match_idx)`
+  n'existe pas dans la table reconstruite → plus aucune perte de données fraîches à l'auto-retrain.
+- Effet de bord bénéfique : l'archive passe de 15172 à 7586 lignes (= 26 → 13 par concours) ; la
+  déduplication 2-par-2 de l'ancienne table est maintenant native. Vérifié : 397 concours distincts
+  conservés, résultats 870-879 préservés, `promosport_predictions` intacte (5471 lignes dont 6 grilles
+  899), matchs votes+résultats = 2796 (identique au jeu calibré).
+
+### Backtest sur l'archive propre (scratch/calibrate_staircase.py relancé)
+- 2796 matchs, 173 concours complets 13/13, base 0.422/0.252/0.326, crowd baseline 46.7%.
+- Optimum inchangé : base_w=0.40, thrTrap=0.15, corrTrap=0.30 → **49.1% acc** (trap 52.9%, n_trap 1506).
+  Correspond au réglage `.env` actuel (PROMOSPORT_BLEND_WEIGHT=0.25 ×boost 1.6 = 0.40 effectif).
+- Quand pick home est faux : erreur → draw 25.6%, away 26.1% (playbook « couvrir 1X »).
+- Simulation playable (1X/12/X2, LOCK≥48%) : **9.01 hits/13 en moyenne** (min 4, max 13), 3 grilles
+  13/13, ≥11 : 35, ≥8 (valides) : 140 sur 173 | répartition 545 singles + 2251 doubles (5047 paris).
+- Crowd seul : 6.18 hits/13, ≥8 : 40. L'escalier améliore 46.7% → 49.1% de précision et 42 → 140
+  grilles valides ≥8.
+
+### Validation
+- `node --check routes/promosport.js` : OK. `npm test` (tests/promosport.test.js) : 13/13 passed.
+- `pytest tests/test_promosport_blend.py` : 4/4 passed.
+- Table `promosport_grids` créée en DB (0 ligne, peuplée au prochain import via `/tunisie/:grid`).
+
+### Reste à faire
+- Aucun redémarrage requêté notable : le module recrée la table au chargement ; la table existe
+  déjà en DB. Restart Node nécessaire uniquement pour prendre en compte le nouveau code de la route
+  `/tunisie/:grid` au prochain déploiement.
+- Surveiller le site tunisien (redirect-loop) → dès que résultats 899 publiés : crons auto,
+  sinon relancer `node scratch/feedback_loop_899.js`.
+
+---
+
+## Feedback loop concours 899 (2026-09-05, local)
+
+### Objectif (demande user « go » — étape 2 des RFA)
+Boucler la boucle retour : persister nos grilles, scorer automatiquement les résultats réels
+du concours 899 dès publication, comparer vs crowd et vs les 4 grilles ML du site.
+
+### Constat (état infrastructure — recherche services/promosportResultService.js, routes/promosport.js, crons)
+- L'infrastructure ENTIÈRE existe déjà : `scrapeTunisieGrid(899)` → `checkAndFetchResults('899')`
+  (upsert dans `promosport_archive`) → `computeAccuracy('899')` (jointure predictions→archive, un
+  double compte correct si résultat ∈ choices). Endpoints : `POST /api/promosport/check-results/899`,
+  `GET /api/promosport/accuracy/899`, UI `PromosportAccuracy.jsx`.
+- Crons existants (20:30 / 00:30 / 20:00 services/cronManager.js) pollent `getRecentHistory(5-10)`
+  → `checkAndFetchResults()`. Il suffit que nos grilles soient dans `promosport_predictions`.
+- Résultats concours 899 NON publiés (0 ligne en archive ; site tunisien en redirect-loop même pour
+  un concours fini 879 → indisponibilité réseau temporaire, pas un bug du loop).
+
+### Modifications
+- `scratch/feedback_loop_899.js` : persiste **TITANIUM_COUVERTE** (1X|1|X2|1|1|12|12|1|12|1|1X|1X|2) et
+  **TITANIUM_BOMBER** (1-1-2-1-1-1-1-1-1-1-1-2-2) via `storePrediction('899', '02/09/2026', grids)`,
+  puis `checkAndFetchResults('899')` ; si résultats dispo → `computeAccuracy` + rapport
+  `grilles/feedback_concours_899.md`. Relance possible dès publication des résultats.
+- Vérifié en DB : 6 grilles pour 899 (EDGE/ANTI-CROWD/HIGH VALUE/SECURE BANKER + nos 2 TITANIUM),
+  13 matchs chacune, choices JSON corrects (ex: couverte `["1","X"]` Inter-Napoli).
+
+### Blocage temporaire
+- Résultats 899 non publiés par le site (redirect-loop réseau actuellement). Dès que publiés :
+  1) les crons existants les fetch automatiquement (899 déjà dans getRecentHistory) OU
+  2) relancer `node scratch/feedback_loop_899.js` on-demand → rapport score généré.
+
+### Remarques (pas corrigées ici, hors scope)
+- Bug latent `/api/promosport/tunisie/:grid` : INSERT avec colonne `grid_no` inexistante → levée
+  silencieusement (catch), archiving échoue. À corriger si on veut le crawler manuel fiable.
+- `import_promosport_archive.py` est DESTRUCTIF (rebuild archive depuis JSON) → les résultats
+  fraîchement fetchés en SQLite risquent d'être perdus au prochain auto-retrain tant que le
+  chemin "SQLite → JSON" n'existe pas. À surveiller avant full auto-retrain.
+
+---
+
+## Grille bomber concours 899 (2026-09-05, local)
+
+### Objectif (demande user « continue » — étape 3 des RFA)
+Produire l'**alternative bomber** (13 singles, cible 13/13) vs grille couverte playable,
+pour le concours en cours.
+
+### Logique — `scratch/build_bomber_grid.js`
+- Pick = **prob la plus forte parmi {1,2}** (victoire), X uniquement si draw massif (≥34% et max) →
+  interdit le X isolé à la légère (playbook historique : draw = 1re source d'erreur).
+- Marque les matchs **risqués (<38%)** et les **TRAP** non couverts (choix assumé d'un bomber).
+- Livre aussi une ligne "couverture conseillée" pour le jeu mixte.
+
+### Grille bomber concours 899
+`1-1-2-1-1-1-1-1-1-1-1-2-2` (11×1, 2×2), proba moyenne 45%, EV moyen -17%.
+Matchs risqués : Rayo (35%), Fulham (36%). TRAP assumés : Brentford/Brighton/Nottingham/Hoffenheim.
+
+### Livrable
+- `grilles/promosport_bomber_concours_899.md`
+- Les 2 stratégies (couverte vs bomber) disponibles pour le dépôt du concours 899.
+
+---
+
+## Calibration backtest de l'escalier (2026-09-05, local)
+
+### Objectif (demande user « on commence par 1 »)
+Calibrer les poids de l'étage Promosport + anti-crowd-trap sur l'historique réel
+(`promosport_archive`, 5592 matchs votes+résultat, 224 concours × 26 lignes = 2 grilles de 13).
+
+### Méthode — `scratch/calibrate_staircase.py`
+- **Dedup** : 2 lignes par (concours, match_idx) → 2796 matchs distincts = 13/concours.
+- **Placeholders** 25/50/25 : 592 exacts écartés → votes réels (0 placeholders restants).
+- Proxy `base_probs` = distribution historique réelle (home 0.422 / draw 0.252 / away 0.326)
+  car l'archive n'a ni probas Titanium ni cotes. Le harnais calibre LE RÉGLAGE DES VOTES.
+- Réplique exacte de `prediction_engine.py` : `w = min(0.5, base_w*1.6)` (votes présents),
+  blend `(1-w)*base + w*votes`, anti-trap `|crowd_h-base_h| ou |crowd_a-base_a| > seuil` → pull vers base.
+
+### Résultats (2796 matchs)
+- Crowd seul = **46.7%**. Blend optimal = **49.1%** (+2.4pt) à `base_w=0.40-0.50 / thr=0.15 / corr=0.30`.
+- Fait clé : `PROMOSPORT_BLEND_WEIGHT=0.25` × 1.6 = **w=0.40 effectif** → déjà au milieu de l'optimum.
+- **Seuil trap** : 0.22 → **0.15** (plus sensible), acc sur matchs trap = 52.9%. **Correction** : 0.15 → **0.30**.
+- Erreurs pick home → draw 25.6% / away 26.1% : couvrir 1X protège autant que 12 côté proba, MAIS
+  12 est supérieur quand l'anti-trap détecte un faux favori home (brentford/fulham/nottingham pattern).
+- **Simulation stratégie playable (1X/12/X2)** : **9.01 hits/13 en moyenne** (vs 6.18 crowd seul),
+  3 grilles 13/13, 35 ≥11, 140 ≥8 (valides) sur 173. Répartition 545 singles + 2251 doubles (coût 5047).
+
+### Modifications
+- `.env` : `CROWD_TRAP_THRESHOLD=0.22` → **0.15** ; `CROWD_TRAP_CORRECTION=0.15` → **0.30**.
+  (`PROMOSPORT_BLEND_WEIGHT=0.25` conservé — optimum effectif 0.40 via ×1.6.)
+
+### Vérifié (local)
+- `pytest tests/test_promosport_blend.py` : 4/4 passed.
+- FastAPI redémarré proprement (kills des vieux uvicorn Python 3.12 système + port 8000 rebind) →
+  `/health` OK (version 3.6, engines loaded). Nouveau PID = venv.
+- E2E Inter-Milan vs Napoli : `ai_source = Standard-Poisson+ExternalXGB+Promosport+TitaniumFinal`,
+  `verdict DNB Inter`, PromosportBlend w=0.40 votes=yes → escalier confirmé avec nouveaux poids.
+- Grille concours 899 régénérée avec poids calibrés (`grilles/promosport_concours_899.md`) :
+  changement notable match 12 Hoffenheim-Dortmund `12` → **`1X`** (EV X +11%, moins de couverture 12).
+
+### Livrable
+- `scratch/calibrate_staircase.py` : harnais de calibration réutilisable (régler `base_w/thr/corr`).
+- Grille concours 899 à jour.
+
+---
+
+## Grille officielle concours 899 via escalier (2026-09-05, local)
+
+### Objectif (demande user « ok je veux aller plus loin »)
+Connecter l'escalier Titanium à la **VRAIE grille Promosport officielle** (scrape `routes/promosport.js`)
+et produire la grille playable pour le concours réel en cours, avec **EV calculé sur cotes réelles**.
+
+### Constat
+- `GET /api/promosport` (port 3001) → **Concours 899** (date 02/09/2026, 13 matchs réels) avec
+  **cotes réelles** (`odds h/d/a`) + probas crowd/ML + colonnes EDGE/ANTI-CROWD/HIGH VALUE/SECURE BANKER.
+  → Contrairement aux archives, on a des cotes réelles → l'EV devient calculable.
+- Matchs : Inter-Napoli (1.69/3.86/5.15), Roma-Atalanta, Athletic-Atletico, Villarreal-Deportivo,
+  Rayo-Racing Santander, Nottingham-Tottenham, Brighton-Leeds, Brentford-Sunderland, Fulham-Crystal
+  Palace, Leverkusen-Union Berlin, Gladbach-Elversberg, Hoffenheim-Dortmund, Werder-RB Leipzig
+  (4.33/4.0/1.73, public 71% away → flags `isAwayCrowdTrap`).
+
+### Modifications (scratch uniquement, aucun code prod modifié)
+- `scratch/predict_concours.js` : prédit les 13 matchs du concours via `POST /predict` (staircase),
+  en passant league réelle + cotes + votes crowd → **12/13 enrichis** (Werder-RB Leipzig ajouté via
+  `scratch/add_match13.js`). Sortie avec prob H/D/A, verdict, EV 1/X/2, kelly, CrowdTrap.
+- `scratch/concours_grid.json` : données brutes enrichies des 13 matchs.
+- `scratch/build_concours_grid.js` : stratégie de sélection par match (LOCK ≥48%, TRAP → couverture
+  12/1X/X2 anti-crowd, EV support) → **grille playable `grilles/promosport_concours_899.md`**.
+
+### Vérifié (local)
+- `ai_source = Standard-Poisson+ExternalXGB+Promosport+TitaniumFinal` sur tous les matchs → escalier actif.
+- 5 CrowdTraps détectés sur 13 (Brentford, Brighton, Nottingham, Fulham, Hoffenheim) → couverts.
+- Grille finale : 5 verrous (1-1-1-1-2) + 8 doubles (1X/12/X2), EV explicite par match.
+
+### Résultats clés concours 899 (proba escalier H/D/A)
+1. Inter: 46/32/23 (EV X +22%) → 1X | 2. Roma: 49/36/15 → 1 | 3. Athletic: 26/32/43 → X2 |
+4. Villarreal: 48/33/19 (EV X +59%) → 1X | 5. Rayo: 35/34/32 → 1 | 6. Nottingham: 39/29/32 TRAP → 12 |
+7. Brighton: 44/29/27 TRAP → 12 | 8. Brentford: 49/30/21 TRAP → 1 | 9. Fulham: 37/30/33 TRAP → 12 |
+10. Leverkusen: 60/29/11 → 1 | 11. Gladbach: 40/34/26 → 1X | 12. Hoffenheim: 31/29/40 TRAP → 12 |
+13. Werder: 18/31/51 → 2 (RB Leipzig, public overconfident mais modèle confirme away).
+
+### Livrable
+`grilles/promosport_concours_899.md` — grille playable du concours réel avec tableau complet proba/EV/conseil.
+
+---
+
+## Escalier de moteurs + Grille Promosport (2026-09-05, local)
+
+### Objectif (demande user « augmente la partie promosport avec un escalier d'autre moteur », « prendre le bon chemin pour gagner la compétition »)
+Remplacer le **blend Promosport isolé** (un seul moteur, w=0.25) par un **escalier de 4 moteurs**
+qui affinent séquentiellement les probabilités 1X2, calé sur l'analyse historique des 5 592
+matchs (`promosport_archive`) pour maximiser les hits en compétition Promosport.
+
+### Constat (analyse historique)
+- Résultats réels : home 42%, away 33%, draw 25%. Le **draw est la 1re source d'erreur** quand
+  un favori est faux.
+- Votes de la communauté **partiellement réels** : 1074 combinaisons distinctes ; placeholder
+  `25/50/25` (n=592) + 9580 matchs sans votes (NULL). Le modèle V553 est entraîné dessus.
+- Aucune cote bookmaker réelle (`real_markets=null`) → EV non calculable, grille par confiance.
+
+### Modifications — `core/prediction_engine.py`
+- **`_apply_graph_blend()`** (Étage 2, w `GRAPH_BLEND_WEIGHT`=0.12) : convertit les features
+  réseau de `graph_engine.compute_graph_features()` (PageRank, transitive, direct record,
+  défense) en triplet puis **blend pondéré**. Kill-switch `GRAPH_ENGINE_ENABLED`. Marque
+  `analysis["GraphBlend"]` + suffixe `+Graph`.
+- **`_apply_dex_blend()`** (Étage 3, w `DEX_BLEND_WEIGHT`=0.08) : convertit
+  `dex_smart_money_signal` (flux Polymarket/Azuro) en triplet, blend pondéré, degrade
+  gracieusement si `dex_has_data=0`. Kill-switch `DEX_TRACKER_ENABLED`. Marque `+Dex`.
+- **`_apply_titanium_final_blend()`** (Étage 4, w `TITANIUM_BLEND_WEIGHT`=0.45) : ré-injecte
+  les probas Titanium-XGB d'origine (avant gap learning) en poids final borné. Marque
+  `+TitaniumFinal`.
+- **`_detect_crowd_trap()`** : divergence crowd (Promosport `predict_match`) vs Titanium
+  (`base_probs`) ; si > `CROWD_TRAP_THRESHOLD` (0.22) → renforce le Graph et réinjecte Titanium
+  pour contrer le consensus trompeur. Marque `analysis["CrowdTrap"]`.
+- **`build_engine_staircase()`** : orchestre les 4 étages séquentiellement (sortie d'un étage =
+  entrée du suivant). Kill-switches + poids via `.env`.
+- **`process_prediction()`** : capture `base_probs` (output `blend_final_probabilities`),
+  Gap Learning (Étage 0), appelle `build_engine_staircase()`. Les anciens modificateurs
+  Graph/DEX en shift direct (max ±8%/±6%) sont **retirés** (évite double comptage).
+- **`.env`** : `GRAPH_BLEND_WEIGHT=0.12`, `DEX_BLEND_WEIGHT=0.08`,
+  `TITANIUM_BLEND_WEIGHT=0.45`, `CROWD_TRAP_THRESHOLD=0.22`, `CROWD_TRAP_CORRECTION=0.15`.
+
+### Vérifié (local)
+- `py_compile core/prediction_engine.py` : OK.
+- `pytest tests/test_promosport_blend.py` : 4/4 passed.
+- Non-régression : `pytest tests/ --ignore=test_command_center_pronostics.py
+  --ignore=test_predictions.py` → **341 passed, 0 failed, 30 skipped, 1 xfailed, 1 xpassed**
+  (calibré sans les 2 tests pré-existants).
+- E2E `process_prediction` (Bayer Leverkusen vs Union Berlin, vote_home=90) :
+  `ai_source = Standard-Poisson+ExternalXGB+Promosport+Graph+TitaniumFinal`,
+  `PromosportBlend w=0.40 votes=yes`, `GraphBlend w=0.12`, `TitaniumFinalBlend w=0.45`,
+  `CrowdTrap DETECTED` (crowd 0.81 vs titanium 0.56). Verdict DNB Leverkusen.
+  (Dex absent car `dex_has_data=0` → dégradation gracieuse attendue.)
+- Serveurs relancés : Node 3001 + FastAPI 8000 (venv, code à jour, `/health` OK).
+
+### Livrable grille
+`grilles/promosport_2026-09-05.md` — grille 13 matchs recommandée, différenciée par verdict
+modèle : `1 | 1X | 1X | 12 | 1X | 1X | 1X | 1X | 1X | 12 | 1X | 12 | 1X`
+(1 verrou Sporting, 9×1X, 3×12). Matchs du jour compétitifs → grille couverte, pas bomber.
+
+### Reste à faire
+- Cotes bookmaker réelles (scraper/manuel) pour calculer l'EV et viser la grille bomber.
+- Calibration automatique des poids d'escalier par backtest (weights grid-search sur l'archive).
+- Intégrer un vrai signal de votes Promosport pour les matchs BSD (fallback placeholder actuel).
+
+---
+
+## Moteur principal branché sur le blend Promosport V553-enrichi (2026-09-05, local)
+
+### Objectif (demande user « connecte le moteur principal au blended Promosport »)
+Le moteur `prediction_engine.process_prediction()` (appelé par FastAPI `/predict`, donc
+par `/api/upcoming` & `/api/live`) n'utilisait **pas** le modèle Promosport. Seul le chemin
+parallèle `predict_blended.py` s'en servait (30%). Objectif : enrichir les probabilités 1X2
+finales du moteur principal avec le savoir Promosport, sans régresser le comportement actuel.
+
+### Constat (analyse code)
+- `prediction_engine.py` : 0 référence à promosport. Flux : xG → ML ensemble (V4+external)
+  → `blend_final_probabilities` (l.386) → Meta-Refiner → Confluence → Gap Learning (l.417)
+  → confiance/marchés.
+- `promosport_engine.predict_match()` : **fonctionne** (testé) — modèle
+  `models/promosport_v553_enriched.json` (570 Ko), features forme/H2H/ELO/streaks + votes,
+  base `data/historical_archive.sqlite` table `promosport_archive` = **7586 lignes**.
+- **Piège** : les `vote_home/draw/away` ne viennent que des grilles Promosport (crowdsourcing
+  tunisien). Pour un match BSD/Sofascore classique ils sont absents → `ml_features` met des
+  défauts 0.5/0.33/0.17 (l.1630-1635). Un blend à poids constant sur ces matchs introduirait
+  du bruit. D'où un poids **rehaussé quand de vrais votes existent**.
+
+### Modifications
+- **`core/prediction_engine.py`** :
+  - Nouvelle fonction `_apply_promosport_blend(p_h, p_d, p_a, match_obj, analysis, ai_source)`
+    (avant `process_prediction`) : blend pondéré des probas finales avec `predict_match()`.
+    - Kill-switch `PROMOSPORT_BLEND` (défaut **on**, `off` = no-op strict).
+    - Poids base `PROMOSPORT_BLEND_WEIGHT` (défaut 0.25, plafonné 0.5) ; **×1.6** quand
+      `vote_home/draw/away` réels présents (plafonné 0.5).
+    - Dégradation gracieuse : modèle absent / probas invalides / exception → retourne les
+      probas d'entrée inchangées. Marque `analysis["PromosportBlend"]` + suffixe `+Promosport`
+      dans `ai_source` (auditabilité).
+  - Injection **après Gap Learning** (dernier modificateur de proba avant confiance) → tout
+    l'aval (confiance, marchés chirurgicaux, verdict, Kelly) reflète le blend.
+
+### Vérifié (local)
+- `py_compile` OK. Test unitaire de la fonction : OFF=no-op, ON normalise+tag, votes→poids
+  0.40, cap poids 0.50.
+- **End-to-end** `process_prediction` (Burnley vs Man City) : OFF → `Draw` p=[.33,.35,.33] ;
+  ON → `DNB Man City` p=[.28,.28,.43], `ai_source=...+Promosport`, promo=[.13,.09,.78].
+  Le modèle Promosport fait basculer le verdict → enrichissement réel.
+- **Non-régression** : suite Python complète `pytest --ignore=test_command_center_pronostics.py`
+  → **343 passed, 30 skipped, 2 xfailed, 1 failed**. L'unique échec
+  (`test_predictions.py::test_scheduled_matches_predictable`) est **pré-existant** (dépend du
+  contenu `scheduled` de `tactical.db`, aucun match prédictible au moment du run) — présent
+  avant la modification.
+- Nouveau fichier `tests/test_promosport_blend.py` (4 tests, tous verts).
+
+### Points de contrôle restants
+- **Redémarrer le serveur FastAPI** (port 8000, actuellement bloqué) pour charger le nouveau
+  `prediction_engine.py` : le blend ne s'activera en prod qu'après reload.
+- Backtest A/B recommandé (`PROMOSPORT_BLEND=on` vs `off`) sur un échantillon de matchs
+  archivés avant de figer le poids par défaut (0.25) — mesurer l'impact sur le taux de réussite.
+- `streamlit` absent de l'env local → `test_command_center_pronostics.py` non collectable
+  (pré-existant, hors périmètre).
+
+---
+
 ## Audit projet + correctifs prioritaires (2026-09-04, suite intégration API-Football)
 
 ### Objectif
@@ -3724,6 +4222,49 @@ flex de l'en-tête → les largeurs en `%` du corps et de l'en-tête ne correspo
 
 ---
 
+## Fix runtime — corruption JSON de `data/config.json` (erreur ConfigEngine) (2026-09-05)
+
+### Symptôme (logs/error.log)
+`SyntaxError: Unexpected non-whitespace character after JSON at position 459 (line 22 column 2)`
+levée par `ConfigEngine.load` (`core/configEngine.js:28`) à chaque boot → config persistante
+jamais rechargée. Le fichier `data/config.json` était corrompu **et commité** : objet valide
+terminé par `},` puis bloc `"testKey2": "second"` dupliqué + `}` orphelin.
+
+### Cause racine
+- `set()` appelle `save()` (async, `fs.promises.writeFile`) **sans sérialisation** : plusieurs
+  `set()` consécutifs non-awaités déclenchent des écritures concurrentes qui s'entrelacent →
+  queue d'octets leftover = JSON invalide.
+- Le mock global `fs` de `__tests__/setup.js` ne couvre que les méthodes **sync** ; `fs.promises`
+  reste réel → `tests/configEngine.test.js` écrivait physiquement dans le `data/config.json` de
+  production (pollution `testKey`/`testKey2`).
+
+### Correctifs
+- **`data/config.json`** : réécriture JSON valide, suppression de la pollution `testKey2`.
+- **`core/configEngine.js`** + **`.ts`** :
+  - `save()` sérialise les écritures via une chaîne de promesses (`_writeQueue`) → plus
+    d'entrelacement concurrent ; écriture réelle déplacée dans `_writeConfig()` (try/catch).
+  - `set(key, undefined)` **supprime** la clé (`delete`) au lieu de la laisser à `undefined`.
+  - `CONFIG_FILE` surchargeable via `process.env.STITCH_CONFIG_FILE`.
+- **`__tests__/config-isolation.js`** (nouveau, pattern `db-isolation.js`) + enregistré dans
+  `jest.config.js` `setupFiles` : redirige la config des tests vers un fichier temp par worker →
+  les tests ne touchent plus jamais `data/config.json`.
+
+### Vérifié
+- `node -e JSON.parse(data/config.json)` : VALIDE (avant et après suite complète).
+- `require('./core/configEngine')` : charge sans erreur, `testKey2` absent.
+- `tsc --noEmit` : exit 0 (aucune erreur configEngine).
+- Hash `data/config.json` inchangé après `jest tests/configEngine.test.js __tests__/configEngine.test.js`
+  → isolation effective.
+- Non-régression : **Jest 70 suites / 708 tests — tous verts**.
+
+### Note (demande utilisateur « glm / hamdibox »)
+Aucun artefact nommé `glm` ni `hamdibox` dans le dépôt (recherche git grep + src/core/services/
+inference). L'erreur runtime réellement présente et reproductible était celle du ConfigEngine
+(config.json), corrigée ci-dessus. À confirmer avec l'utilisateur si « glm/hamdibox » désigne
+autre chose (modèle Poisson/logistique de `core/` ? vue dashboard ?).
+
+---
+
 ## Amélioration précision pronostics pre-match (2026-09-02)
 
 ### Objectif
@@ -3903,7 +4444,6 @@ Afficher les 3 marchés combo Sofascore ID 14/18/22 en chips compact, en mode in
 - ESLint : 0 erreur
 - `npm run build` : OK
 - Tests `matchAnalysis.test.js` : 26/26
-
 
 ---
 

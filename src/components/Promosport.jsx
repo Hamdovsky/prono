@@ -68,6 +68,8 @@ const Promosport = () => {
     gridStats: null,
   })
 
+  const [antiCorr, setAntiCorr] = useState(null)
+
   const [matches, setMatches] = useState([])
   const [doubleCounts, setDoubleCounts] = useState([6, 6, 6, 6])
   const [showCoverage, setShowCoverage] = useState(false)
@@ -102,6 +104,7 @@ const Promosport = () => {
             date: data.date || new Date().toLocaleDateString(),
             gridStats: data.gridStats || prev.gridStats,
           }))
+          setAntiCorr(data.antiCorr || null)
           console.log('✅ [PROMOSPORT] Data loaded successfully:', data.matches.length, 'matches')
         }
         if (accData && accData.success && accData.stats) {
@@ -2406,6 +2409,127 @@ const Promosport = () => {
               </table>
             </div>
           </div>
+
+          {antiCorr && antiCorr.grids && antiCorr.grids.length > 0 && (
+            <div
+              style={{
+                marginTop: '40px',
+                padding: '25px',
+                background: 'rgba(15, 23, 42, 0.8)',
+                borderRadius: '20px',
+                border: '1px solid rgba(251, 191, 36, 0.2)',
+              }}
+            >
+              <h3
+                style={{
+                  color: '#fbbf24',
+                  fontSize: '1.4rem',
+                  marginBottom: '4px',
+                  fontWeight: '900',
+                }}
+              >
+                🎯 {antiCorr.count} GRILLES ANTI-CORRÉLÉES
+              </h3>
+              <p
+                style={{
+                  color: '#94a3b8',
+                  fontSize: '0.9rem',
+                  marginBottom: '16px',
+                }}
+              >
+                13 simples par grille — budget {antiCorr.budgetTnd} TND · diversification
+                gloutonne sur les matchs incertains (gap top1-top2 &lt; 0.15)
+              </p>
+              <div style={{ overflowX: 'auto' }}>
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    fontSize: '0.85rem',
+                    minWidth: '900px',
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th
+                        style={{
+                          padding: '8px 6px',
+                          textAlign: 'left',
+                          minWidth: '220px',
+                          color: '#fbbf24',
+                        }}
+                      >
+                        Match
+                      </th>
+                      {antiCorr.grids.map((g, gi) => (
+                        <th key={gi} style={{ padding: '8px 6px', textAlign: 'center' }}>
+                          {g.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matches.slice(0, antiCorr.grids[0].picks.length).map((m, mi) => (
+                      <tr key={m.id || mi}>
+                        <td
+                          style={{
+                            padding: '8px 6px',
+                            whiteSpace: 'nowrap',
+                            color: '#e2e8f0',
+                          }}
+                        >
+                          {m.id}. {m.home} — {m.away}
+                        </td>
+                        {antiCorr.grids.map((g, gi) => {
+                          const pick = g.picks[mi] || '?'
+                          const isUncertain = g.inUncertain && g.inUncertain[mi]
+                          const pickStyle = {
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '3px',
+                            fontWeight: 'bold',
+                            fontSize: '0.8rem',
+                            background:
+                              pick === '1'
+                                ? 'rgba(59, 130, 246, 0.3)'
+                                : pick === 'X'
+                                  ? 'rgba(251, 191, 36, 0.3)'
+                                  : pick === '2'
+                                    ? 'rgba(239, 68, 68, 0.3)'
+                                    : 'rgba(100, 116, 139, 0.15)',
+                            color:
+                              pick === '1'
+                                ? '#60a5fa'
+                                : pick === 'X'
+                                  ? '#fbbf24'
+                                  : pick === '2'
+                                    ? '#f87171'
+                                    : '#64748b',
+                            border: isUncertain
+                              ? '1px dashed rgba(251, 191, 36, 0.5)'
+                              : '1px solid rgba(255,255,255,0.1)',
+                            opacity: isUncertain ? 1 : 0.85,
+                          }
+                          return (
+                            <td
+                              key={gi}
+                              style={{ padding: '8px 6px', textAlign: 'center' }}
+                              title={isUncertain ? 'Match incertain (rotation active)' : ''}
+                            >
+                              <span style={{ ...pickStyle }}>{pick}</span>
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div
             className="promosport-analysis"

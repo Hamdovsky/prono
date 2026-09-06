@@ -1,8 +1,8 @@
-const botService = require('../services/botService')
-const logger = require('./logger')
-const database = require('./database')
-const enrichedPredictions = require('../services/enriched_predictions')
-const { invalidateCache } = require('./speedCache')
+const botService = require('./botService')
+const logger = require('../core/logger')
+const database = require('../core/database')
+const enrichedPredictions = require('./enriched_predictions')
+const { invalidateCache } = require('../core/speedCache')
 
 const SITE_URL = 'https://pronostico.onrender.com'
 

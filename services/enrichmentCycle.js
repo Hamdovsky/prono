@@ -1,6 +1,6 @@
-const logger = require('./logger')
-const database = require('./database')
-const memoryManager = require('./memoryManager')
+const logger = require('../core/logger')
+const database = require('../core/database')
+const memoryManager = require('../core/memoryManager')
 
 let isEnricherRunning = false
 
@@ -14,8 +14,8 @@ async function runEnrichmentCycle(services) {
   logger.info('[ENRICHER] Starting enrichment cycle...')
 
   try {
-    const fallbackEnricher = require('../services/fallback_enricher')
-    const discordService = require('../services/discordService')
+    const fallbackEnricher = require('./fallback_enricher')
+    const discordService = require('./discordService')
 
     const result = await fallbackEnricher.enrichMatchesBatch({ limit: 30 })
     if (result.enriched > 0) {

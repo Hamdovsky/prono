@@ -275,7 +275,7 @@ class CronManager {
     )
 
     // 10b. Ultra-Frequent Enrichment (every 20 min) — keeps elite cache fresh + Telegram broadcast + auto-optimize + fallback
-    const telegramBot = require('../core/telegramBot')
+    const telegramBot = require('../services/telegramBot')
     const autoOptimizer = require('../core/autoOptimizer')
     cron.schedule('*/20 * * * *', async () => {
       logger.info('🌀 [CRON] Starting Autonomous Cycle...')

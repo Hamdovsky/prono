@@ -1,4 +1,4 @@
-const logger = require('./logger')
+const logger = require('../core/logger')
 
 function scheduleDailyReport() {
   const now = new Date()
@@ -107,7 +107,7 @@ function scheduleDailyAutoBacktest() {
   const delay = target.getTime() - now.getTime()
   setTimeout(async () => {
     try {
-      const { runAutoBacktest } = require('../services/autoBacktestService')
+      const { runAutoBacktest } = require('./autoBacktestService')
       const result = await runAutoBacktest()
       logger.info(
         '[AUTO-BACKTEST] Daily result:\n' +

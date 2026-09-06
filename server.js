@@ -69,7 +69,7 @@ setTimeout(async () => {
     const apiSourceRegistry = require('./core/apiSourceRegistry')
     const enrichmentCycle = require('./services/enrichmentCycle')
     const settlementCycle = require('./services/settlementCycle')
-    const cronSchedules = require('./core/cronSchedules')
+    const cronSchedules = require('./services/cronSchedules')
     const diagnostics = require('./core/diagnostics')
 
     const database = require('./core/database')

@@ -1,7 +1,7 @@
 require('dotenv').config()
-const database = require('./database')
-const EnrichedPredictionService = require('../services/enriched_predictions')
-const logger = require('./logger')
+const database = require('../core/database')
+const EnrichedPredictionService = require('./enriched_predictions')
+const logger = require('../core/logger')
 
 const BATCH_LIMIT = parseInt(process.argv[2] || '50')
 const TIMEOUT_MS = 30000

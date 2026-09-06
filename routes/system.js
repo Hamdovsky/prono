@@ -458,7 +458,7 @@ router.post('/scraper/run', localOrAuth, async (req, res) => {
  */
 router.post('/seed', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
-    const { runCloudSeed } = require('../core/cloudSeed')
+    const { runCloudSeed } = require('../services/cloudSeed')
     res.json({
       success: true,
       message: 'Seed started in background. Check /api/db-stats in ~2 min.',
@@ -527,7 +527,7 @@ router.post('/calibrate', securityEngine.authenticate.bind(securityEngine), asyn
  */
 router.post('/seed/purge', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
-    const { purgeFakeMatches } = require('../core/cloudSeed')
+    const { purgeFakeMatches } = require('../services/cloudSeed')
     const removed = await purgeFakeMatches()
     res.json({ success: true, removed })
   } catch (e) {

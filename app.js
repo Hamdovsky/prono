@@ -431,7 +431,7 @@ app.post(
   securityEngine.authenticate.bind(securityEngine),
   async (req, res) => {
     try {
-      const { purgeFakeMatches } = require('./core/cloudSeed')
+      const { purgeFakeMatches } = require('./services/cloudSeed')
       const removed = await purgeFakeMatches()
       res.json({ success: true, removed })
     } catch (e) {

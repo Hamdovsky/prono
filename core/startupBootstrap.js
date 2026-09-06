@@ -123,7 +123,7 @@ async function syncFootballData() {
 
 async function runCloudSeed() {
   try {
-    const { runCloudSeed: seedFn } = require('../core/cloudSeed')
+    const { runCloudSeed: seedFn } = require('../services/cloudSeed')
     await seedFn()
     database.cleanupPlaceholderTeams()
     logger.info('[BOOT] Cloud seed OK')

@@ -1,14 +1,14 @@
 "use strict";
 
 const _axios = _interopRequireDefault(require("axios"));
-const _database = _interopRequireDefault(require("./database"));
-const _logger = _interopRequireDefault(require("./logger"));
-const _sourceQuotaManager = require("../services/sourceQuotaManager");
-const _rapidApiQuotaManager = _interopRequireDefault(require("../services/rapidApiQuotaManager"));
-const _therundownService = _interopRequireDefault(require("../services/therundownService"));
-const _oddspapiService = _interopRequireDefault(require("../services/oddspapiService"));
-const _sportmonksService = _interopRequireDefault(require("../services/sportmonksService"));
-const _openligadbService = _interopRequireDefault(require("../services/openligadbService"));
+const _database = _interopRequireDefault(require("../core/database"));
+const _logger = _interopRequireDefault(require("../core/logger"));
+const _sourceQuotaManager = require("./sourceQuotaManager");
+const _rapidApiQuotaManager = _interopRequireDefault(require("./rapidApiQuotaManager"));
+const _therundownService = _interopRequireDefault(require("./therundownService"));
+const _oddspapiService = _interopRequireDefault(require("./oddspapiService"));
+const _sportmonksService = _interopRequireDefault(require("./sportmonksService"));
+const _openligadbService = _interopRequireDefault(require("./openligadbService"));
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 // @ts-nocheck
 
@@ -337,7 +337,7 @@ async function countMatchesForPeriod(dayOffsetStart, dayOffsetEnd, opts = {}) {
     if (isPG) {
       const {
         query: pgQuery
-      } = require('./pg_connector');
+      } = require('../core/pg_connector');
       const result = await pgQuery(`SELECT COUNT(*) as cnt FROM matches WHERE COALESCE("startTimestamp", SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) >= $1 AND COALESCE("startTimestamp", SUBSTRING("fullData" FROM '"startTimestamp":([0-9]+)')::bigint) <= $2 AND status = 'scheduled'${excludeSeed ? ` AND source NOT IN ('seed', 'emergency')` : ''}`, [startTs, endTs]);
       return parseInt(result.rows?.[0]?.cnt || '0');
     }
@@ -525,7 +525,7 @@ async function runCloudSeed() {
   {
     const {
       fetchFixtures
-    } = require('../services/apiFootballService');
+    } = require('./apiFootballService');
     const apiFbQuota = (0, _sourceQuotaManager.createQuotaManager)('apifootball');
     try {
       _logger.default.info('[CLOUD-SEED/APIFB] Seeding fixtures from API-Football...');
@@ -633,7 +633,7 @@ async function runCloudSeed() {
   try {
     const {
       calibrate
-    } = require('../services/leagueCalibrator');
+    } = require('./leagueCalibrator');
     calibrate().catch(e => _logger.default.warn(`[CALIBRATE] Auto-calibration error: ${e.message}`));
   } catch (e) {
     _logger.default.warn(`[CALIBRATE] Auto-calibration initializer failed: ${e.message}`);
@@ -644,7 +644,7 @@ async function runCloudSeed() {
     try {
       const {
         backfillOdds
-      } = require('./oddsBackfill');
+      } = require('../core/oddsBackfill');
       backfillOdds().catch(e => _logger.default.warn(`[ODDS-BACKFILL] Erreur: ${e.message}`));
     } catch (e) {
       _logger.default.warn(`[ODDS-BACKFILL] initializer failed: ${e.message}`);

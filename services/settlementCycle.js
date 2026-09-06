@@ -1,8 +1,8 @@
-const logger = require('./logger')
-const memoryManager = require('./memoryManager')
+const logger = require('../core/logger')
+const memoryManager = require('../core/memoryManager')
 
 function startSettlementCycle(intervalMs = 15 * 60 * 1000) {
-  const settlementService = require('../services/settlementService')
+  const settlementService = require('./settlementService')
 
   setInterval(async () => {
     logger.info('[SETTLEMENT] Cycle start...')
@@ -13,7 +13,7 @@ function startSettlementCycle(intervalMs = 15 * 60 * 1000) {
       }
       // Link pending top-picks to finished matches and settle them
       try {
-        const topPicks = require('../services/topPicksService')
+        const topPicks = require('./topPicksService')
         const link = topPicks.linkPicksToMatches()
         const settle = topPicks.settlePendingPicks()
         if (link.linked > 0 || settle.settled > 0) {
@@ -38,7 +38,7 @@ function startSettlementCycle(intervalMs = 15 * 60 * 1000) {
       const settleResult = await settlementService.settleFinishedMatches()
       logger.info(`[SETTLEMENT] Initial: ${settleResult.settled}/${settleResult.total} settled`)
       try {
-        const topPicks = require('../services/topPicksService')
+        const topPicks = require('./topPicksService')
         const sync = topPicks.syncDailyPicks()
         const link = topPicks.linkPicksToMatches()
         const settle = topPicks.settlePendingPicks()

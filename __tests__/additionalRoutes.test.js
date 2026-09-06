@@ -167,7 +167,7 @@ jest.mock('../core/promosport_scraper', () => ({
   ]),
 }))
 
-jest.mock('../core/promosport_engine', () => ({
+jest.mock('../services/promosport_engine', () => ({
   generatePromosportGrids: jest.fn().mockResolvedValue(
     Array.from({ length: 4 }, (_, gi) => ({
       name: `Grille ${gi + 1}`,

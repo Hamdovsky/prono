@@ -7,7 +7,7 @@ const logger = require('../core/logger')
 const securityEngine = require('../core/securityEngine')
 const { speedCache } = require('../core/speedCache')
 const { scrapePromosport } = require('../core/promosport_scraper')
-const { generatePromosportGrids, generateGoldCoupon } = require('../core/promosport_engine')
+const { generatePromosportGrids, generateGoldCoupon } = require('../services/promosport_engine')
 const promosportIntelligence = require('../services/promosportIntelligence')
 const doubleOptimizer = require('../services/doubleOptimizerService')
 const { scrapeTunisieGrid } = require('../core/promosport_tunisie_scraper')
@@ -1314,7 +1314,7 @@ router.get('/gold-coupon', async (req, res) => {
   try {
     const speedCache = require('../core/speedCache')
     const { scrapePromosport } = require('../core/promosport_scraper')
-    const { generatePromosportGrids, generateGoldCoupon } = require('../core/promosport_engine')
+    const { generatePromosportGrids, generateGoldCoupon } = require('../services/promosport_engine')
 
     let scrapedMatches = speedCache.get('promosport_matches')
     if (!scrapedMatches) {

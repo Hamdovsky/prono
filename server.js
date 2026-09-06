@@ -68,7 +68,7 @@ setTimeout(async () => {
     const apiKeysValidator = require('./core/apiKeysValidator')
     const apiSourceRegistry = require('./core/apiSourceRegistry')
     const enrichmentCycle = require('./core/enrichmentCycle')
-    const settlementCycle = require('./core/settlementCycle')
+    const settlementCycle = require('./services/settlementCycle')
     const cronSchedules = require('./core/cronSchedules')
     const diagnostics = require('./core/diagnostics')
 

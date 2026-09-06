@@ -74,7 +74,7 @@ async function generateGridsForConcours(concoursNumber) {
     }
 
     // Generate grids using the engine
-    const { generatePromosportGrids } = require('../core/promosport_engine')
+    const { generatePromosportGrids } = require('../services/promosport_engine')
     const grids = await generatePromosportGrids(matches)
     if (!grids || grids.length === 0) {
       logger.warn('[DETECT] Grid generation failed')

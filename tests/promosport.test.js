@@ -9,7 +9,7 @@ jest.mock('../core/promosport_scraper', () => ({
   scrapePromosport: jest.fn(),
 }))
 
-jest.mock('../core/promosport_engine', () => ({
+jest.mock('../services/promosport_engine', () => ({
   generatePromosportGrids: jest.fn(),
   generateGoldCoupon: jest.fn(),
 }))
@@ -74,7 +74,7 @@ jest.mock('../core/logger', () => ({
 }))
 
 const { scrapePromosport } = require('../core/promosport_scraper')
-const { generatePromosportGrids, generateGoldCoupon } = require('../core/promosport_engine')
+const { generatePromosportGrids, generateGoldCoupon } = require('../services/promosport_engine')
 const secretWeaponsTracker = require('../services/secretWeaponsTracker')
 const promosportResultService = require('../services/promosportResultService')
 

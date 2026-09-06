@@ -1,7 +1,7 @@
 const path = require('path')
 const fs = require('fs')
-const logger = require('./logger')
-const database = require('./database')
+const logger = require('../core/logger')
+const database = require('../core/database')
 
 const DATA_DIR = path.join(__dirname, '..', 'data')
 
@@ -90,14 +90,14 @@ function importPromosport() {
 
 async function warmThetaOptimizer() {
   try {
-    const thetaOptimizer = require('../services/thetaOptimizer')
+    const thetaOptimizer = require('./thetaOptimizer')
     await thetaOptimizer.optimize()
     logger.info('[BOOT] Theta optimizer calibrated')
   } catch (e) {
     logger.warn(`[BOOT] Theta init: ${e.message}`)
   }
   try {
-    const { calibrate } = require('../services/leagueCalibrator')
+    const { calibrate } = require('./leagueCalibrator')
     calibrate().catch(() => {})
   } catch (e) {
     logger.warn(`[BOOT] Calibrator init: ${e.message}`)
@@ -123,7 +123,7 @@ async function syncFootballData() {
 
 async function runCloudSeed() {
   try {
-    const { runCloudSeed: seedFn } = require('../services/cloudSeed')
+    const { runCloudSeed: seedFn } = require('./cloudSeed')
     await seedFn()
     database.cleanupPlaceholderTeams()
     logger.info('[BOOT] Cloud seed OK')
@@ -198,7 +198,7 @@ async function runAll({ port, onStartServices }) {
         }
 
         try {
-          const { redis } = require('./redisClient')
+          const { redis } = require('../core/redisClient')
           if (redis) {
             redis
               .ping()
@@ -215,7 +215,7 @@ async function runAll({ port, onStartServices }) {
 
         // ── C11 : continuité scraper au redémarrage ──────────────────
         try {
-          const { resetStaleScraperProgress } = require('./utils')
+          const { resetStaleScraperProgress } = require('../core/utils')
           await resetStaleScraperProgress()
         } catch (_) {}
 
@@ -223,7 +223,7 @@ async function runAll({ port, onStartServices }) {
         // à l'arrêt (compteurs DB) — le scraping reprend là où il s'était
         // arrêté (Workflow fast-forward les matchs déjà analysés).
         try {
-          const db = require('./database')
+          const db = require('../core/database')
           const cnt = async (sql) => {
             try {
               const res = await db.query(sql)

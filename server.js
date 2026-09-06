@@ -15,7 +15,7 @@ if (isRenderProduction && !process.env.JWT_SECRET) {
 const http = require('http')
 const logger = require('./core/logger')
 const PORT = process.env.PORT || 10000
-const startupBootstrap = require('./core/startupBootstrap')
+const startupBootstrap = require('./services/startupBootstrap')
 
 // ── Immediate health-check HTTP server (responds BEFORE Express loads) ──
 const server = http.createServer((req, res) => {

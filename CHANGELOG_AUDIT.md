@@ -3903,3 +3903,48 @@ Afficher les 3 marchés combo Sofascore ID 14/18/22 en chips compact, en mode in
 - ESLint : 0 erreur
 - `npm run build` : OK
 - Tests `matchAnalysis.test.js` : 26/26
+
+
+---
+
+## Purge violations core→services (71 → 0) — 2026-09-06
+
+### Objectif
+Éliminer la couche arrière d'architecture : des orchestrateurs mal placés dans `core/` (qui importaient `services/`) violaient la dépendance envers `core/` (fondation). Tous ont été déplacés vers `services/`.
+
+### Méthode (appliquée par fichier)
+1. `git mv core/<nom>.js services/<nom>.js` (la rename est préservée par l'index, détection de similarité 85-98%).
+2. Réécriture des imports internes via **I/O .NET** (`ReadAllText`/`WriteAllText` avec `UTF8Encoding(false)`) — préserve accents/emoji/CRLF, sans BOM. Règles : `../services/*` → `./*` (siblings services), `./X` (fondations) → `../core/X`, `./services/*` → `../core/services/*`, `./utils/*` → `../core/utils/*`.
+3. Remplacement global `core/<nom>` → `services/<nom>` chez les importateurs (core, services, routes, scripts, serverless, src, config, tests, __tests__, app.js, server.js).
+4. Vérification systématique : `node --check` sur les fichiers modifiés, `git diff --numstat` (petits diffs symétriques = pas de corruption), `npm run build`, `npm test` (**70 suites / 708 tests toujours verts**), boot serveur (« Startup bootstrap complete », aucun MODULE_NOT_FOUND), madge (`No circular dependency found`), résidu `core/<nom>` = 0.
+5. **Contrainte : ne JAMAIS utiliser `Get-Content -Raw` PowerShell 5.1** (codepage ANSI → mojibake, déja arrivé en début de session puis restauré via l'index git).
+
+### Déplacements (commits)
+| Commit | Fichier | Imports services | Réduction |
+|---|---|---|---|
+| 71fa677 | enriched_predictions | 26 | 71 → 48 |
+| 5c6edd9 | fallback_enricher | 9 | 48 → 40 |
+| 2ce84be | cloudSeed | 8 | 40 → 33 |
+| c1673ba | oddsBackfill | 5 | 33 → 21 (comptage précis vrai `../services/`) |
+| 3e5105f | promosport_engine + settlementCycle | 4 + 3 | 21 → 9 |
+| a35a49c | telegramBot + enrichmentCycle | 2 + 2 | 9 → 5 |
+| ae9120f | cronSchedules + reEnrichMatches | 1 + 1 | 5 → 3 |
+| a3c0477 | startupBootstrap | 3 | 3 → **0** |
+
+### Points d'architecture
+- **`server.js` = seule composition root** (importe tout : app, services, startupBootstrap, cronSchedules, settlementCycle, enrichmentCycle). `startupBootstrap` n'est qu'un orchestrateur de boot → il a rejoint `services/` (l'argument « composition root » s'applique à server.js, pas à lui).
+- `core/` ne contient plus que la **fondation** : `database`, `logger`, `redisClient`, `utils`, moteurs internes (`core/services/StatisticalEngine`, `core/services/MomentumEngine`), etc. Fausses violations écartées : `database.js`/`QuantumQuantEngine.js` utilisaient `./services/*` = références internes à `core/services/`, pas le dossier `services/`.
+- `config/sources/livescore.js` : commentaire « must NOT import core/cloudSeed » laissé tel quel (intention conservée, pas un require).
+
+### Préservation du travail en cours
+- `routes/promosport.js` : diff préexistant (29/13, tâche en cours) **préservé hors commit** — un seul hunk de 2 lignes (paths promosport_engine) a été stagé via le tampon HEAD+replacement, puis l'état réel restauré.
+- Aucune autre modification de fichiers préexistants non commités.
+
+### Vérifié
+- Jest : 70 suites / 708 tests — tous verts après chaque commit.
+- Construit (`npm run build`) OK, boot serveur OK, madge 0 cycle.
+- UTF-8 intact sur tous les fichiers modifiés (diffs petits et symétriques 1/1, 2/2, etc.).
+
+### Prochaines étapes possibles
+- Aucune violation `core→services` restante. Si besoin d'aller plus loin en architecture : auditer les dépendances `services→services` cycliques longues (madge OK aujourd'hui), `routes→core/services`, ou la frontière `services→core/services` (fondations internes).
+- Travail en cours préexistant (non commité, indépendant de cette session) : ConfigEngine/data (config.json), routes/promosport (29/13), Python XGB/prediction (V553), etc. — à reprendre selon CHANGELOG_AUDIT.

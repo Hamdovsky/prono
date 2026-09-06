@@ -1,10 +1,10 @@
-const logger = require('./logger')
-const database = require('./database')
-const StatisticalEngine = require('./services/StatisticalEngine')
-const fbrefService = require('../services/fbrefService')
-const statsbombService = require('../services/statsbombService')
+const logger = require('../core/logger')
+const database = require('../core/database')
+const StatisticalEngine = require('../core/services/StatisticalEngine')
+const fbrefService = require('./fbrefService')
+const statsbombService = require('./statsbombService')
 const axios = require('axios')
-const oddsApiIoService = require('../services/oddsApiIoService')
+const oddsApiIoService = require('./oddsApiIoService')
 const { pickBest: pickOddsBest } = (function () {
   // pickBest lives in oddsApiIoService but is not exported — inline a tiny copy
   function pickBest(bookmakers) {
@@ -410,7 +410,7 @@ async function attachRealOdds(match) {
     // the deployment IP is blocked, it returns null and we fall through.
     // Fetches 1X2 + O/U 2.5 + BTTS in one call, so it also fills the markets
     // for matches that already carry 1X2 odds.
-    const sofascoreOdds = require('../services/sofascoreOddsService')
+    const sofascoreOdds = require('./sofascoreOddsService')
     if (sofascoreOdds.isAvailable()) {
       const apiClient = require('../SofascoreScraping/src/apiClient')
       const inSofaCooldown =
@@ -459,7 +459,7 @@ async function attachRealOdds(match) {
       !(parseFloat(match.odds_btts_yes) > 0 && parseFloat(match.odds_btts_no) > 0)
     if (wantAny) {
       try {
-        const flashscoreService = require('../services/flashscoreService')
+        const flashscoreService = require('./flashscoreService')
         const fsId = await flashscoreService.findMatchId(match.homeTeam, match.awayTeam, match.league, match.startTimestamp)
         if (fsId) {
           // Marchés utiles uniquement : O/U + BTTS (colonnes) et DC/AH (real_markets).
@@ -485,7 +485,7 @@ async function attachRealOdds(match) {
         logger.warn(`[FBREF/FALLBACK] Flashscore odds fetch failed for ${match.id}: ${fsErr.message}`)
       }
     }
-    const oddsApiIo = require('../services/oddsApiIoService')
+    const oddsApiIo = require('./oddsApiIoService')
     if (oddsApiIo.isAvailable() && !has1x2) {
       const realOdds = await oddsApiIo.fetchOddsForMatch(match)
       if (realOdds && parseFloat(realOdds.home) > 0 && parseFloat(realOdds.away) > 0) {
@@ -736,7 +736,7 @@ async function enrichMatchesBatch(opts = {}) {
     const batchSize = 5
 
     // Pre-fetch SofaScore team data for matches with team IDs
-    const enrichedPredictionService = require('../services/enriched_predictions')
+    const enrichedPredictionService = require('./enriched_predictions')
     let sofaFetchCount = 0
     for (const m of matches) {
       if (m._sofaTeamDataFetched) continue
@@ -762,7 +762,7 @@ async function enrichMatchesBatch(opts = {}) {
     //    missing them. This is what turns small-league matches from
     //    "insufficient" into real Gagnants while staying honest.
     try {
-      const sofascoreOdds = require('../services/sofascoreOddsService')
+      const sofascoreOdds = require('./sofascoreOddsService')
       if (sofascoreOdds.isAvailable()) {
         const apiClient = require('../SofascoreScraping/src/apiClient')
         const inSofaCooldown =

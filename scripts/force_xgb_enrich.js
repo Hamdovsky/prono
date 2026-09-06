@@ -1,4 +1,4 @@
-const fallbackEnricher = require('../core/fallback_enricher')
+const fallbackEnricher = require('../services/fallback_enricher')
 
 ;(async () => {
   console.log('[FORCE_XGB] Starting XGBoost-first enrichment...')

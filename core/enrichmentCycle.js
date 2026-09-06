@@ -14,7 +14,7 @@ async function runEnrichmentCycle(services) {
   logger.info('[ENRICHER] Starting enrichment cycle...')
 
   try {
-    const fallbackEnricher = require('../core/fallback_enricher')
+    const fallbackEnricher = require('../services/fallback_enricher')
     const discordService = require('../services/discordService')
 
     const result = await fallbackEnricher.enrichMatchesBatch({ limit: 30 })

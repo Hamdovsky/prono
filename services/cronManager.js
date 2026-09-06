@@ -288,7 +288,7 @@ class CronManager {
 
       // 10c. Free Fallback — enrich matches with insufficient_data or stale predictions
       try {
-        const fallbackEnricher = require('../core/fallback_enricher')
+        const fallbackEnricher = require('../services/fallback_enricher')
         logger.info(`🌀 [CRON] Free Fallback enriching stale matches (local JS engine)...`)
         const result = await fallbackEnricher.enrichMatchesBatch()
         if (result.total > 0) {

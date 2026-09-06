@@ -777,7 +777,7 @@ app.post(
 )
 
 // ─── Fallback Enricher (pure JS — no Python dependency) ──
-const fallbackEnricher = require('./core/fallback_enricher')
+const fallbackEnricher = require('./services/fallback_enricher')
 const settlementService = require('./services/settlementService')
 
 app.post(

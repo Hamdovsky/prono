@@ -4488,3 +4488,56 @@ Afficher les 3 marchés combo Sofascore ID 14/18/22 en chips compact, en mode in
 ### Prochaines étapes possibles
 - Aucune violation `core→services` restante. Si besoin d'aller plus loin en architecture : auditer les dépendances `services→services` cycliques longues (madge OK aujourd'hui), `routes→core/services`, ou la frontière `services→core/services` (fondations internes).
 - Travail en cours préexistant (non commité, indépendant de cette session) : ConfigEngine/data (config.json), routes/promosport (29/13), Python XGB/prediction (V553), etc. — à reprendre selon CHANGELOG_AUDIT.
+
+---
+
+## Purge doublons .ts morts + réduction bruit ESLint (2026-09-06)
+
+### Objectif
+Répondre à la dette identifiée au bilan (couplage .js/.ts) : le runtime est 100 % `.js`
+(CommonJS, `start: node server.js`), mais 215 fichiers `.ts` (jumeaux morts, sans type
+réel exploité) doublonnaient 215 `.js` actifs.
+
+### Preuves avant suppression
+- **0** `require('.ts')`, **0** import `.ts`, aucune référence dans tools/scripts/.github/config/src.
+- Chacun des 215 `.ts` a un jumeau `.js` (même dossier ou `services/`) — script de
+  vérification : « SANS jumeau .js : 0 ».
+- Les 15 `.ts` orphelins de `core/` (cloudSeed, cronSchedules, enriched_predictions,
+  enrichmentCycle, fallback_enricher, oddsBackfill, promosport_engine, reEnrichMatches,
+  settlementCycle, startupBootstrap, telegramBot, …) = reliquats de la purge
+  `git mv core→services` (le `.js` jumeau est dans `services/`).
+- `core/configEngine.ts` portait un diff non commité (STITCH_CONFIG_FILE, _writeQueue,
+  delete on undefined) — vérifié : `core/configEngine.js` actif contient **déjà** ces
+  features → supprimé sans perte (`git rm --force`).
+
+### Modifications
+- **215 `.ts` supprimés** via `git rm` (index + disque). **4 `.d.ts` préservés** :
+  `services/sourceQuotaManager.d.ts`, `types/core.d.ts`, `types/global.d.ts`, `types/index.d.ts`.
+- `types/global.d.ts` importe `../core/database|logger|configEngine` → jumeaux `.js`
+  présents dans `core/` → `tsc --noEmit` résout toujours (verify ci-dessous).
+- **`eslint.config.js`** :
+  1. `no-unused-vars` : ajout `caughtErrors: 'none'` (les bindings `catch (e)`/`(error)`
+     inutilisés — 598 cas — sont un pattern massif inoffensif, pas auto-corrigeable).
+  2. Ajout `scratch/` aux `ignores` (gitignoré, expérimentations jetables = 1 erreur
+     `prefer-const` + 12 warnings).
+
+### Résultats mesure (avant → après)
+- `eslint .` : **874 problèmes (1 erreur, 873 warnings) → 0 erreur, 342 warnings**
+  (reste : variables `assigned-but-never-used` ~257 + args sans `_` + divers).
+- `tsc --noEmit` : exit 0 (aucun impact CI typecheck, permet `server:ts`).
+- Jest : **71 suites / 715 tests — tous verts**.
+- `madge --circular services routes core scripts src` : `No circular dependency found`.
+- Boot serveur : `GET /api/health` → **200 {"status":"ok"}** (port 10000), Redis connecté,
+  archive promosport importée, cron actif.
+
+### Limite honnête
+- Les 342 warnings restants ne sont **pas auto-corrigeables sans churn** (suppression/
+  sous-lignage manuel de variables inutilisées). Ne pas les « résoudre » en masse :
+  risque de casser du code volontairement gardé (effets de bord, injonctions futures).
+  Le projet est exempt d'erreurs ESLint.
+
+### Prochaines étapes possibles
+- (Optionnel) dépouiller les ~257 variables `assigned-but-never-used` fichier par fichier
+  si souhaité, en vérifiant chaque cas. À décider avec l'utilisateur.
+- Travail en cours préexistant non commité, préservé tel quel (ConfigEngine/data,
+  routes/promosport, Python XGB/prediction, __tests__/config-isolation.js + jest.config.js).

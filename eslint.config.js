@@ -6,7 +6,7 @@ module.exports = [
     files: ['**/*.js', '**/*.jsx'],
     plugins: { react, 'react-hooks': reactHooks },
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
       'no-undef': 'error',
       'no-console': 'off',
       'no-var': 'error',
@@ -114,6 +114,7 @@ module.exports = [
       'coverage/',
       'tmp/',
       'bin/',
+      'scratch/',
       '*.db',
       '*.sqlite',
     ],

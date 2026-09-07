@@ -5342,3 +5342,69 @@ manquants sont traitÃ©s. Le journal [CONTINUITE] au boot le prouve chiffre Ã  l'
 - Worker 2x/jour Sofascore tourne en parallÃ¨le pour les nouveaux matchs
 - Pour augmenter le taux de matching : API-Football (Top-5 + Euro + sud-amÃ©ricaines) ou
   scraper manuel BetExplorer pour les ligues exotiques les plus jouÃ©es
+
+---
+
+## ?? Audit hygiène & structure — exécution du plan P0?P7 (session 2026-09-07)
+
+Demande : rapport faiblesses/doublons puis exécution locale du plan de résolution.
+
+### P0 — Sauvegarde sans remote
+- `git bundle` complet de main -> `backups/stitch-main-2026-09-07_0338.bundle` (vérifié,
+  historique entier). Travail 100 % local, aucun push.
+
+### P1 — Travail préexistant commité (validé par les suites avant commit)
+- `feat(ml)` 7e45e8d : escalier d'engine 4 étages (Promosport -> Graph -> DEX ->
+  Titanium XGB) + anti-crowd-trap + artefacts ré-entraînés + corpus journaux ML.
+- `chore(test)` c42b891 : isolation ConfigEngine Jest (STITCH_CONFIG_FILE par worker).
+- `feat(promosport)` c0dd453 : sauvegarde pré-import archive + tests du blend.
+
+### P2 — Données runtime désuivies (616499a)
+- `git rm --cached` (conservés sur disque) : promosport_odds_cache, scraper_history,
+  config.json, accuracy_trend/report, backtest_results/external (-23 053 lignes de l'index).
+- `.gitignore` : caches data/*, /logs/ entier, /grilles/ (sorties datées), .pytest_cache.
+- CHOIX assumé : les journaux ML non régénérables (engine_prob_trace,
+  live_prediction_journal/results, combo_history, fpis_learning_log,
+  tunisian_vote_history) RESTENT suivis (historique = seule sauvegarde, local-only).
+
+### P3 — Doublons & morts (4a40c51)
+- Supprimés : `config/leagues_ids.json` (identique racine, 0 lecteur), `serverless/`
+  (0 référence réelle), `downloaded_files/` (lock Selenium).
+- `CHANGELOG_AUDIT_C.md` fusionné en annexe ci-dessus puis supprimé.
+- Renommage anti-piège : `scripts/backtest_feedback.py` -> `backtest_feedback_weights.py`
+  (le `core/backtest_feedback.py` homonyme fait la CALIBRATION — deux rôles, un nom) ;
+  refs `auto_retrain_worker.js` + `deploy_render.sh` mises à jour.
+- `scripts_init/` -> `scripts/` ; logs racine (12) -> `logs/` ; test_*.js +
+  _probe_www.py -> `scratch/`.
+- Constats gardés : `data_pipeline/` (845 Mo) EST utilisé (scraper, baseline, walk-forward)
+  — projet imbriqué documenté, pas supprimé ; `backups/` = copie data_pipeline du 06/09
+  (récente) -> gardée ; `.streamlit` utilisé (command_center.py, ultra_dashboard.py) -> gardé.
+
+### P4 — Unification des tests (01cf4f6)
+- `tests/` = pytest uniquement ; tout Jest réuni dans `__tests__/` (8 fichiers déplacés).
+- Paires divergentes renommées sans fusion de contenu (elles testaient des aspects
+  DIFFÉRENTS sous le même nom) : `configEngine.coverage.test.js`,
+  `mlPredictionService.status.test.js`.
+
+### P5 — Portabilité (bf52c22)
+- 0 chemin absolu `C:\Users\HAMDI` restant dans le code suivi : DeepSeekService,
+  openRouterService (USAGE_FILE relatifs), optimize_db.js, check_market_gates.js
+  (+ override `PRONOS_SERVER_BAT`), pythonResolver (os.homedir).
+- fb2f5fc : utilitaires d'exploration (live_picks, search_match/teams, test_live,
+  u20_picks) mis à l'abri du bundle.
+
+### P6 — Documentation (docs env)
+- `.env.example` : +15 variables PixelRAG/vision documentées (URLs, budgets, seuils,
+  flags) — incl. `VISION_SIGNAL_MIN_CONFIDENCE` (couperet injection) et
+  `USE_V55_VISUAL` (activation booster visuel post-retrain).
+
+### P7 — Vérifications finales (vertes)
+- Jest 74 suites / 744 tests ; pytest 347 passed / 0 failed ; `vite build` OK ;
+  `node --check` sur tous les fichiers touchés ; bundle de sauvegarde régénéré.
+
+### Différé (volontairement hors périmètre)
+- Découpage des god files (database.js 2 625 l., ml_features.py 2 529 l.,
+  Promosport.jsx 2 623 l., enriched_predictions.js 2 013 l.) — à traiter une autre
+  session, par tranches avec tests dédiés.
+- Restructuration `data_pipeline/` (projet Python imbriqué avec son propre .venv) —
+  fonctionnel, documenté ; scinder en sous-module git si un jour besoin.

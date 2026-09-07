@@ -5408,3 +5408,47 @@ Demande : rapport faiblesses/doublons puis exécution locale du plan de résolutio
   session, par tranches avec tests dédiés.
 - Restructuration `data_pipeline/` (projet Python imbriqué avec son propre .venv) —
   fonctionnel, documenté ; scinder en sous-module git si un jour besoin.
+
+---
+
+## ?? Découpage des god files — Phases 1-3 (session 2026-09-07, plan approuvé)
+
+Suite du plan « améliorer le rôle de PixelRAG » -> audit hygiène -> découpage des gros
+fichiers. Périmètre validé : phases 1-3 (enriched_predictions.js laissée, classe cohérente).
+
+### Phase 1 — `core/ml_features.py` (2 529 l.) -> 4 modules + façade `f685f27`
+- `ml_feature_names.py` (443 l.) : listes FEATURE_NAMES_* + VISUAL + FEATURE_VOLATILITY.
+- `ml_history.py` (1 027 l.) : connexions DB, historique (PG/master/archive), helpers
+  analytiques (style, h2h, blessures, motivation, fatigue, travel).
+- `ml_tunisian.py` (157 l.) : votes Tunisie (autonome).
+- `ml_extract.py` (929 l.) : extract_ml_features + extract_v56_features.
+- `ml_features.py` : façade ré-export (~80 l.) — les 28 importeurs ne bougent pas.
+- Découpe par SCRIPT de slicing (contenu byte-identique) ; _f dupliqué supprimé.
+- ? pytest 347/347 ; imports ml_ensemble/prediction_engine/train_v55 OK.
+
+### Phase 2 — `core/database.js` (2 625 l.) -> 5 modules + façade `bfde439`
+- `core/db/schema.js` : initSchema/runMigrations/seedLeaguesConfig (db en paramètre).
+- `core/db/query.js` : statementCache + getPreparedStatement + exec/prepare/get/transaction/query.
+- `core/db/matches.js` (21 méthodes) / `predictions.js` (11) / `misc.js` (16, dont visual_context).
+- `database.js` : façade 5,7 Ko — toggle PG en tête INTACT, composition {...daos},
+  binding db.query conservé. 103 importeurs inchangés.
+- Découpe scriptée (propriétés de l'objet) ; query async MORT supprimé (écrasé par le
+  sync dans le même littéral — comportement final identique). '__dirname' corrigé pour
+  misc ('../../data').
+- ? Jest 744/744 ; smoke getVisualContext/getMatchesByStatuses OK ; prettier passé.
+
+### Phase 3 — `src/components/Promosport.jsx` (2 623 l.) -> hook + 6 vues `1b4174f`
+- `promosport/usePromosportData.js` : 19 useState + fetchs + handlers + exportAsImage.
+- `promosport/{PromoHeader,TunisieView,AlgoView,ColonnesView,GoldView,GridView}.jsx`.
+- `promosport/promoHelpers.js` : computeGagnant/SOURCE_LABELS/coverageSummary.
+- Promosport.jsx : 2623 -> 91 lignes (switch viewMode en composition).
+- Code mort éliminé : renderBox, applyAlgo, totalDoubles, import selectBestDoubles.
+- ?? Le JSX a été relu ligne à ligne contre l'original (une section Tunisie d'abord
+  écrite de mémoire a été corrigée par le texte verbatim — leçon : jamais re-taper).
+- ? eslint 0 erreur (3 warnings = morts préexistants) ; vite build OK ; Jest 744/744.
+- RESTE À FAIRE : vérification VISUELLE par l'utilisateur (npm run dev -> page Promosport :
+  grille par défaut, sélecteur doubles, export JPEG, boutons Terminal/Colonnes ML/Gold/
+  Précision, vue Tunisie).
+
+### Bundle de sauvegarde
+- Régénéré en fin de session (backups/stitch-main-*.bundle), historique complet.

@@ -195,6 +195,317 @@ def extend_precision_bets_with_real_markets(real_markets, odds_h, odds_d, odds_a
     return real_bets
 
 
+def _apply_promosport_blend(p_h, p_d, p_a, match_obj, analysis, ai_source):
+    """Enrichit les probabilites 1X2 finales avec le modele Promosport V553-enrichi
+    (core/promosport_engine.py -> models/promosport_v553_enriched.json).
+
+    Le modele est entraine sur l'archive des grilles Promosport (7500+ matchs) et
+    utilise forme / H2H / ELO / streaks + pourcentages de vote de la communaute.
+
+    - Kill-switch : PROMOSPORT_BLEND=off (defaut 'on').
+    - Poids de base : PROMOSPORT_BLEND_WEIGHT (defaut 0.25, plafonne a 0.5).
+      Rehausse (x1.6) quand de vrais votes de foule sont presents (specialite du
+      modele), plafonne a 0.5.
+    - Degradation gracieuse : si le modele/probas sont absents ou non valides,
+      retourne les probabilites d'entree inchangees.
+
+    Retourne (p_h, p_d, p_a, ai_source).
+    """
+    if os.environ.get("PROMOSPORT_BLEND", "on").lower() == "off":
+        return p_h, p_d, p_a, ai_source
+    try:
+        from promosport_engine import predict_match
+        promo = predict_match(match_obj)
+        if not promo or len(promo) != 3:
+            return p_h, p_d, p_a, ai_source
+        ph, pd, pa = (float(promo[0]), float(promo[1]), float(promo[2]))
+        s = ph + pd + pa
+        if s <= 0:
+            return p_h, p_d, p_a, ai_source
+        ph, pd, pa = ph / s, pd / s, pa / s
+
+        try:
+            base_w = float(os.environ.get("PROMOSPORT_BLEND_WEIGHT", "0.25"))
+        except Exception:
+            base_w = 0.25
+        base_w = max(0.0, min(0.5, base_w))
+
+        def _has_vote(v):
+            try:
+                return v is not None and float(v) >= 0
+            except Exception:
+                return False
+        has_votes = all(_has_vote(match_obj.get(k)) for k in ("vote_home", "vote_draw", "vote_away"))
+        w = min(0.5, base_w * (1.6 if has_votes else 1.0))
+
+        bh = (1 - w) * p_h + w * ph
+        bd = (1 - w) * p_d + w * pd
+        ba = (1 - w) * p_a + w * pa
+        sb = bh + bd + ba
+        if sb <= 0:
+            return p_h, p_d, p_a, ai_source
+        bh, bd, ba = bh / sb, bd / sb, ba / sb
+
+        if isinstance(analysis, dict):
+            analysis["PromosportBlend"] = (
+                f"Applied w={w:.2f} votes={'yes' if has_votes else 'no'} "
+                f"promo=[{ph:.2f},{pd:.2f},{pa:.2f}]"
+            )
+        ai_source = (ai_source or "") + "+Promosport"
+        return bh, bd, ba, ai_source
+    except Exception as e:
+        sys.stderr.write(f"[PromosportBlend] skipped: {e}\n")
+        return p_h, p_d, p_a, ai_source
+
+
+def _norm3(a, b, c):
+    """Normalise un triplet de probabilites pour qu'il somme a 1."""
+    s = a + b + c
+    if s <= 0:
+        return 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0
+    return a / s, b / s, c / s
+
+
+def _blend_triplet(p_h, p_d, p_a, m_h, m_d, m_a, weight):
+    """Blend pondere : (1-w)*p + w*m, normalise."""
+    w = max(0.0, min(0.6, weight))
+    bh = (1.0 - w) * p_h + w * m_h
+    bd = (1.0 - w) * p_d + w * m_d
+    ba = (1.0 - w) * p_a + w * m_a
+    return _norm3(bh, bd, ba)
+
+
+def _apply_graph_blend(p_h, p_d, p_a, match_obj, analysis, ai_source, weight=None, forced_home=None):
+    """Escalier etage 2 — Graph Engine (PageRank + force transitive).
+
+    Transformer les features reseau en un triplet de probabilites puis les
+    mezclar avec les probabilites courantes via un blend pondere.
+    Degradation gracieuse si le reseau n'a pas assez de donnees.
+    """
+    if os.environ.get("GRAPH_ENGINE_ENABLED", "on").lower() == "off":
+        return p_h, p_d, p_a, ai_source
+    try:
+        if weight is None:
+            weight = float(os.environ.get("GRAPH_BLEND_WEIGHT", "0.12"))
+        weight = max(0.0, min(0.6, weight))
+
+        home = match_obj.get('homeTeam', '')
+        away = match_obj.get('awayTeam', '')
+        league = str(match_obj.get('league', '')).lower()
+
+        from graph_engine import compute_graph_features
+        gf = compute_graph_features(home, away, league=league)
+
+        pr_h = float(gf.get('graph_pagerank_h', 0.5))
+        pr_a = float(gf.get('graph_pagerank_a', 0.5))
+        trans_h = float(gf.get('graph_transitive_h', 0.5))
+        trans_a = float(gf.get('graph_transitive_a', 0.5))
+        direct_h = float(gf.get('graph_direct_record_h', 0.5))
+        direct_a = float(gf.get('graph_direct_record_a', 0.5))
+        def_strength_h = float(gf.get('graph_defense_strength_h', 1.0))
+        def_strength_a = float(gf.get('graph_defense_strength_a', 1.0))
+
+        g_h = max(0.01, (pr_h + trans_h + direct_h) + (def_strength_a * 0.05))
+        g_a = max(0.01, (pr_a + trans_a + direct_a) + (def_strength_h * 0.05))
+        g_d = 1.0
+        if forced_home is not None:
+            g_h *= (1.0 + forced_home)
+            g_a = max(0.01, g_a * (1.0 - forced_home * 0.5))
+        gh, gd, ga = _norm3(g_h, g_d, g_a)
+
+        if abs(gh - ga) < 0.01:
+            return p_h, p_d, p_a, ai_source
+
+        bh, bd, ba = _blend_triplet(p_h, p_d, p_a, gh, gd, ga, weight)
+        if isinstance(analysis, dict):
+            analysis["GraphBlend"] = (
+                f"Applied w={weight:.2f} pr_h={pr_h:.3f} pr_a={pr_a:.3f} "
+                f"strength_diff={gf.get('graph_strength_diff', 0):+.4f}"
+            )
+        ai_source = (ai_source or "") + "+Graph"
+        return bh, bd, ba, ai_source
+    except Exception as e:
+        sys.stderr.write(f"[GraphBlend] skipped: {e}\n")
+        return p_h, p_d, p_a, ai_source
+
+
+def _apply_dex_blend(p_h, p_d, p_a, match_obj, analysis, ai_source, weight=None):
+    """Escalier etage 3 — DEX Smart Money (Polymarket/Azuro).
+
+    Le signal dex_smart_money_signal (>0 = argent sur home, <0 = argent sur
+    away) est converti en triplet avant un blend pondere.
+    Degradation gracieuse si aucun flux DEX n'est disponible.
+    """
+    if os.environ.get("DEX_TRACKER_ENABLED", "on").lower() == "off":
+        return p_h, p_d, p_a, ai_source
+    try:
+        if weight is None:
+            weight = float(os.environ.get("DEX_BLEND_WEIGHT", "0.08"))
+        weight = max(0.0, min(0.6, weight))
+
+        home = match_obj.get('homeTeam', '')
+        away = match_obj.get('awayTeam', '')
+        from dex_tracker import compute_dex_signals
+        dex = compute_dex_signals(
+            home, away,
+            odds_home=_safe_float(match_obj.get('odds_home'), 0),
+            odds_draw=_safe_float(match_obj.get('odds_draw'), 0),
+            odds_away=_safe_float(match_obj.get('odds_away'), 0),
+        )
+        if dex.get('dex_has_data', 0) <= 0:
+            return p_h, p_d, p_a, ai_source
+
+        smart = float(dex.get('dex_smart_money_signal', 0))
+        conf = float(dex.get('dex_market_confidence', 0))
+        if abs(smart) < 0.02:
+            return p_h, p_d, p_a, ai_source
+
+        m_h = max(0.0, smart) * conf
+        m_a = max(0.0, -smart) * conf
+        m_d = 1.0 - m_h - m_a
+        mh, md, ma = _norm3(m_h, m_d, m_a if m_d > 0 else m_a)
+
+        bh, bd, ba = _blend_triplet(p_h, p_d, p_a, mh, md, ma, weight)
+        if isinstance(analysis, dict):
+            analysis["DexBlend"] = f"Applied w={weight:.2f} smart_money={smart:+.4f} conf={conf:.2f}"
+        ai_source = (ai_source or "") + "+Dex"
+        return bh, bd, ba, ai_source
+    except Exception as e:
+        sys.stderr.write(f"[DexBlend] skipped: {e}\n")
+        return p_h, p_d, p_a, ai_source
+
+
+def _apply_titanium_final_blend(p_h, p_d, p_a, match_obj, base_probs, analysis, ai_source, weight=None):
+    """Escalier etage 4 — Titanium XGBoost (confiance finale).
+
+    Re-injecte les probabilites Titanium-XGB originales (avant Promosport/Graph/Dex)
+    comme poids final, gardant la qualite du modele ML tout en conservant les
+    corrections des etages precedent. La difference |titanium - courante| est
+    bornee pour eviter un basculement trop brutal.
+    """
+    try:
+        if weight is None:
+            weight = float(os.environ.get("TITANIUM_BLEND_WEIGHT", "0.45"))
+        weight = max(0.0, min(0.7, weight))
+
+        if not base_probs or len(base_probs) != 3:
+            return p_h, p_d, p_a, ai_source
+        th, td, ta = float(base_probs[0]), float(base_probs[1]), float(base_probs[2])
+        th, td, ta = _norm3(th, td, ta)
+
+        # Bascule CAPPEE : on mele Titanium avec la proba courante, jamais 0/100
+        bh, bd, ba = _blend_triplet(p_h, p_d, p_a, th, td, ta, weight)
+        if isinstance(analysis, dict):
+            analysis["TitaniumFinalBlend"] = (
+                f"Applied w={weight:.2f} titanium=[{th:.2f},{td:.2f},{ta:.2f}]"
+            )
+        ai_source = (ai_source or "") + "+TitaniumFinal"
+        return bh, bd, ba, ai_source
+    except Exception as e:
+        sys.stderr.write(f"[TitaniumFinalBlend] skipped: {e}\n")
+        return p_h, p_d, p_a, ai_source
+
+
+def _detect_crowd_trap(crowd_probs, titanium_probs, threshold=None):
+    """Detection anti-crowd-trap : divergence crowd vs Titanium.
+
+    Retourne (is_trap, direction, correction_factor) ou direction est 'home'
+    ou 'away' selon le sens de la divergence la plus forte.
+    """
+    if threshold is None:
+        threshold = float(os.environ.get("CROWD_TRAP_THRESHOLD", "0.22"))
+    correction = float(os.environ.get("CROWD_TRAP_CORRECTION", "0.15"))
+
+    if not crowd_probs or not titanium_probs or len(crowd_probs) != 3 or len(titanium_probs) != 3:
+        return False, None, 0.0
+
+    ch, cd, ca = crowd_probs
+    th, td, ta = titanium_probs
+    # Seule la divergence sur home/away compte (les nuls crowd sont pièges)
+    diff_h = abs(ch - th)
+    diff_a = abs(ca - ta)
+    max_diff = max(diff_h, diff_a)
+
+    if max_diff <= threshold:
+        return False, None, 0.0
+
+    direction = 'home' if diff_h >= diff_a else 'away'
+    return True, direction, correction
+
+
+def build_engine_staircase(p_h, p_d, p_a, match_obj, analysis, ai_source, base_probs=None):
+    """Escalier de 4 moteurs qui affinent sequentiellement les probabilites.
+
+    Flot :
+      Étage 0 (entree)  : Gap Learning output (p_h,p_d,p_a)
+      Étage 1 (w 0.25)  : Promosport V553 (crowd-vote enrichi) + Anti-Crowd-Trap
+      Étage 2 (w 0.12)  : Graph Engine (PageRank + force transitive)
+      Étage 3 (w 0.08)  : DEX Smart Money (Polymarket/Azuro)
+      Étage 4 (w 0.45)  : Titanium XGBoost (confiance finale)
+
+    L'anti-crowd-trap renforce Graph/Dex quand le crowd et le modele Titanium
+    divergent fortement, pour laisser le reseau/smart-money trancher.
+
+    Retourne (p_h, p_d, p_a, ai_source).
+    """
+    # --- Étage 1 : Promosport ---
+    p_h, p_d, p_a, ai_source = _apply_promosport_blend(p_h, p_d, p_a, match_obj, analysis, ai_source)
+
+    # --- Anti-Crowd-Trap : compare le promosport (crowd) au base Titanium ---
+    trap_home_boost = None
+    if base_probs and len(base_probs) == 3:
+        try:
+            from promosport_engine import predict_match
+            promos = predict_match(match_obj)
+            dropped = (not promos or len(promos) != 3)
+        except Exception:
+            promos = None
+            dropped = True
+
+        crowd = None
+        if not dropped and promos:
+            cs = promos[0] + promos[1] + promos[2]
+            if cs > 0:
+                crowd = (promos[0] / cs, promos[1] / cs, promos[2] / cs)
+
+        if crowd:
+            is_trap, direction, corr = _detect_crowd_trap(crowd, base_probs)
+            if is_trap:
+                if isinstance(analysis, dict):
+                    analysis["CrowdTrap"] = (
+                        f"DETECTED dir={direction} correction={corr:.2f} "
+                        f"crowd=[{crowd[0]:.2f},{crowd[1]:.2f},{crowd[2]:.2f}] "
+                        f"titanium=[{base_probs[0]:.2f},{base_probs[1]:.2f},{base_probs[2]:.2f}]"
+                    )
+                # Boost l'etage Graph pour trancher contre le crowd piege
+                trap_home_boost = corr if direction == 'home' else -corr
+
+    # --- Étage 2 : Graph Engine (avec boost anti-crowd-trap eventuel) ---
+    if trap_home_boost is not None:
+        p_h, p_d, p_a, ai_source = _apply_graph_blend(
+            p_h, p_d, p_a, match_obj, analysis, ai_source, forced_home=trap_home_boost
+        )
+        # Re-injecte le boost du modele Titanium pour contrer le crowd
+        if base_probs and len(base_probs) == 3:
+            boost_w = max(0.0, min(0.5, float(os.environ.get("CROWD_TRAP_CORRECTION", "0.15"))))
+            bh = (1 - boost_w) * p_h + boost_w * base_probs[0]
+            bd = (1 - boost_w) * p_d + boost_w * base_probs[1]
+            ba = (1 - boost_w) * p_a + boost_w * base_probs[2]
+            p_h, p_d, p_a = _norm3(bh, bd, ba)
+    else:
+        p_h, p_d, p_a, ai_source = _apply_graph_blend(p_h, p_d, p_a, match_obj, analysis, ai_source)
+
+    # --- Étage 3 : DEX Smart Money ---
+    p_h, p_d, p_a, ai_source = _apply_dex_blend(p_h, p_d, p_a, match_obj, analysis, ai_source)
+
+    # --- Étage 4 : Titanium XGBoost final ---
+    p_h, p_d, p_a, ai_source = _apply_titanium_final_blend(
+        p_h, p_d, p_a, match_obj, base_probs, analysis, ai_source
+    )
+
+    return p_h, p_d, p_a, ai_source
+
+
 def process_prediction(match_obj: dict) -> dict:
     home_name = match_obj.get('homeTeam', 'Home')
     away_name = match_obj.get('awayTeam', 'Away')
@@ -413,9 +724,19 @@ def process_prediction(match_obj: dict) -> dict:
     )
     analysis["Confluence"] = confluence_reason
 
-    # Gap Learning
+    # Grab the Titanium-XGB / AI-Poisson output BEFORE Gap Learning as the
+    # reference "base" probabilites (strongest signal) for the anti-crowd-trap
+    # detection and the final Titanium blend stage of the staircase.
+    base_probs = (p_h, p_d, p_a)
+
+    # Gap Learning (Étage 0)
     final_probs, gap_correction = apply_gap_learning_weight({"home": p_h, "draw": p_d, "away": p_a}, match_obj.get('league', 'Unknown'))
     p_h, p_d, p_a = final_probs['home'], final_probs['draw'], final_probs['away']
+
+    # Escalier de moteurs (Étages 1-4): Promosport + Graph + Dex + Titanium final.
+    # Chaque moteur produit un triplet qui devient l'entree du suivant, avec
+    # detection anti-crowd-trap. Kill-switches via env (voir .env).
+    p_h, p_d, p_a, ai_source = build_engine_staircase(p_h, p_d, p_a, match_obj, analysis, ai_source, base_probs=base_probs)
 
     # Composite Confidence
     lineups_active = bool(match_obj.get('lineups_confirmed') or match_obj.get('lineups'))
@@ -549,65 +870,15 @@ def process_prediction(match_obj: dict) -> dict:
     analysis.update(cal_analysis)
 
     # Draw & World Cup
+    # NOTE: The Graph (GNN-lite) and DEX (smart money) probability modifiers are
+    # now handled by build_engine_staircase() as proper weighted blends (Étages 2-3)
+    # earlier in the pipeline. They are intentionally NOT re-applied here to avoid
+    # double-counting. The PROB_BOOSTS_ON gate below only controls draw/world-cup adjust.
     if PROB_BOOSTS_ON:
         p_h, p_d, p_a, wc_conf_adj = apply_draw_and_world_cup(p_h, p_d, p_a, league_name_str, tourn_name_str, features, analysis)
         confidence += wc_conf_adj
     else:
         wc_conf_adj = 0.0
-
-    # --- GNN-lite: Graph-based transitive strength modifier ---
-    if PROB_BOOSTS_ON:
-        try:
-            from graph_engine import compute_graph_features
-            gf = compute_graph_features(
-                match_obj.get('homeTeam', ''), match_obj.get('awayTeam', ''),
-                league=league_name_str
-            )
-            strength_diff = gf.get('graph_strength_diff', 0)
-            community = gf.get('graph_community_match', 0)
-            trans_h = gf.get('graph_transitive_h', 0.5)
-            trans_a = gf.get('graph_transitive_a', 0.5)
-
-            # Apply transitive strength as mild probability shift (max ±8%)
-            if abs(strength_diff) > 0.05:
-                graph_mod = max(-0.08, min(0.08, strength_diff * 0.5))
-                p_h = max(0.01, min(0.95, p_h + graph_mod))
-                p_a = max(0.01, min(0.95, p_a - graph_mod))
-                s_graph = p_h + p_d + p_a
-                p_h, p_d, p_a = p_h/s_graph, p_d/s_graph, p_a/s_graph
-                analysis["Graph-Transitive"] = f"Transitive strength shift: {strength_diff:+.3f} ({home_name} advantage)"
-
-            # Community match: if same league cluster, reduce away advantage slightly
-            if community == 1:
-                p_d = max(0.01, min(0.60, p_d * 1.02))
-                s_c = p_h + p_d + p_a
-                p_h, p_d, p_a = p_h/s_c, p_d/s_c, p_a/s_c
-        except Exception:
-            pass
-
-    # --- DEX Prediction Markets: Smart money modifier ---
-    if PROB_BOOSTS_ON:
-        try:
-            from dex_tracker import compute_dex_signals
-            dex = compute_dex_signals(
-                match_obj.get('homeTeam', ''), match_obj.get('awayTeam', ''),
-                odds_home=_safe_float(match_obj.get('odds_home'), 0),
-                odds_draw=_safe_float(match_obj.get('odds_draw'), 0),
-                odds_away=_safe_float(match_obj.get('odds_away'), 0),
-            )
-            smart_money = dex.get('dex_smart_money_signal', 0)
-            dex_conf = dex.get('dex_market_confidence', 0)
-
-            if dex.get('dex_has_data', 0) > 0 and abs(smart_money) > 0.02:
-                # Apply smart money as probability shift (max ±6%)
-                dex_mod = max(-0.06, min(0.06, smart_money * 0.4 * dex_conf))
-                p_h = max(0.01, min(0.95, p_h + dex_mod))
-                p_a = max(0.01, min(0.95, p_a - dex_mod))
-                s_dex = p_h + p_d + p_a
-                p_h, p_d, p_a = p_h/s_dex, p_d/s_dex, p_a/s_dex
-                analysis["DEX-SmartMoney"] = f"Smart money flow: {smart_money:+.4f} (conf: {dex_conf:.1f})"
-        except Exception:
-            pass
 
     # Final Selection
     outcomes = [

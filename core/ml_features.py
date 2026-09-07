@@ -1756,6 +1756,12 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
         features['draw_deadlock'] = 0.0
         features['draw_defensive_eq'] = 0.0
 
+    # --- PixelRAG-lite: propager les colonnes visual_* du payload vers features ---
+    # (extract_visual_features les a injectées dans row en amont ; sans cette boucle
+    # elles n'atteindraient jamais le vecteur, ni l'entraînement ni l'inférence.)
+    for _vk in VISUAL_FEATURE_NAMES:
+        features[_vk] = _f(row.get(_vk), 0.0)
+
     # --- V52 STABILITY GUARD: Final NaN/None Cleanup ---
     for k, v in list(features.items()):
         if v is None or (isinstance(v, float) and math.isnan(v)):
@@ -1939,6 +1945,21 @@ FEATURE_NAMES_V55 = FEATURE_NAMES_V54 + [
     'has_actual_xg', 'has_actual_odds', 'has_match_stats',
     'is_modern_football_era', 'data_completeness_score'
 ]
+
+# PixelRAG-lite: colonnes visuelles produites en amont par
+# core/visual_features.py (injectées dans le payload par fastapi_server).
+# Set NOUVEAU et séparé : on ne touche PAS à FEATURE_NAMES_V55/V553 car les
+# boosters stitch_v55*/v553* sont liés à leur compte de features à l'entraînement.
+# Un booster visuel (stitch_v55_visual.json) est le seul à consommer ces colonnes.
+VISUAL_FEATURE_NAMES = [
+    'visual_confidence', 'visual_tiles_n', 'visual_max_score', 'visual_mean_score',
+    'visual_covers', 'visual_has_lineup', 'visual_has_form', 'visual_has_xg',
+    'visual_wiki_confidence', 'visual_wiki_hits',
+    'visual_wiki_has_squad', 'visual_wiki_has_history',
+]
+
+# V55 + contexte visuel : base d'un réentraînement dédié (voir train_v55 --visual).
+FEATURE_NAMES_V55_VISUAL = FEATURE_NAMES_V55 + VISUAL_FEATURE_NAMES
 
 # Features derivees des closing odds (odds_movement_24h) : presentes a l'entrainement
 # (historique football-data), mais ~toujours absentes a l'inference live (closing odds
@@ -2375,6 +2396,14 @@ FEATURE_VOLATILITY = {
     "day_sin": 0.05, "day_cos": 0.05, "month_sin": 0.05, "month_cos": 0.05,
     "has_actual_xg": 0.01, "has_actual_odds": 0.01, "has_match_stats": 0.01,
     "is_modern_football_era": 0.01, "data_completeness_score": 0.02,
+
+    # PixelRAG-lite visual context (medium: capture depends on scrape freshness)
+    "visual_confidence": 0.10, "visual_tiles_n": 0.10,
+    "visual_max_score": 0.10, "visual_mean_score": 0.10,
+    "visual_covers": 0.05, "visual_has_lineup": 0.15,
+    "visual_has_form": 0.15, "visual_has_xg": 0.15,
+    "visual_wiki_confidence": 0.10, "visual_wiki_hits": 0.10,
+    "visual_wiki_has_squad": 0.15, "visual_wiki_has_history": 0.15,
 
     # Legacy Derived Diffs (low volatility — noise cancels out)
     "elo_diff": 0.02, "tactical_synergy": 0.04,

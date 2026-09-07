@@ -420,6 +420,18 @@ function initSchema() {
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS visual_context_cache (
+                match_id TEXT PRIMARY KEY,
+                screenshot_paths TEXT,
+                article_ids TEXT,
+                visual_confidence REAL DEFAULT 0,
+                tiles TEXT,
+                scores TEXT,
+                query_text TEXT,
+                enriched_at INTEGER,
+                briefing TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS team_registry (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 name       TEXT UNIQUE NOT NULL,
@@ -690,6 +702,7 @@ function runMigrations() {
     ['historical_matches', 'expected_score', 'TEXT'],
     ['historical_matches', 'result', 'TEXT'],
     ['historical_matches', 'settled_at', 'INTEGER'],
+    ['visual_context_cache', 'briefing', 'TEXT'],
   ]
 
   let added = 0
@@ -2556,6 +2569,51 @@ const database = {
     } catch (e) {
       logger.warn(`[DB] getPlayerAbsences failed for ${eventId}: ${e.message}`)
       return []
+    }
+  },
+
+  getVisualContext(matchId) {
+    try {
+      return db
+        .prepare('SELECT * FROM visual_context_cache WHERE match_id = ?')
+        .get(String(matchId)) || null
+    } catch (e) {
+      logger.warn(`[DB] getVisualContext failed for ${matchId}: ${e.message}`)
+      return null
+    }
+  },
+
+  setVisualContext(rec) {
+    try {
+      const now = rec.enriched_at || Date.now()
+      db.prepare(
+        `INSERT INTO visual_context_cache
+           (match_id, screenshot_paths, article_ids, visual_confidence, tiles, scores, query_text, enriched_at, briefing)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(match_id) DO UPDATE SET
+           screenshot_paths=excluded.screenshot_paths,
+           article_ids=excluded.article_ids,
+           visual_confidence=excluded.visual_confidence,
+           tiles=excluded.tiles,
+           scores=excluded.scores,
+           query_text=excluded.query_text,
+           enriched_at=excluded.enriched_at,
+           briefing=COALESCE(excluded.briefing, visual_context_cache.briefing)`
+      ).run(
+        String(rec.match_id),
+        JSON.stringify(rec.screenshot_paths || []),
+        JSON.stringify(rec.article_ids || []),
+        Number(rec.visual_confidence || 0),
+        JSON.stringify(rec.tiles || []),
+        JSON.stringify(rec.scores || []),
+        String(rec.query_text || ''),
+        now,
+        rec.briefing != null ? String(rec.briefing) : null
+      )
+      return { changes: 1 }
+    } catch (e) {
+      logger.warn(`[DB] setVisualContext failed for ${rec.match_id}: ${e.message}`)
+      return { changes: 0 }
     }
   },
 }

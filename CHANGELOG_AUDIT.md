@@ -4541,3 +4541,304 @@ réel exploité) doublonnaient 215 `.js` actifs.
   si souhaité, en vérifiant chaque cas. À décider avec l'utilisateur.
 - Travail en cours préexistant non commité, préservé tel quel (ConfigEngine/data,
   routes/promosport, Python XGB/prediction, __tests__/config-isolation.js + jest.config.js).
+
+---
+
+## 🖼️ Intégration PixelRAG-lite (contexte visuel dans les prédictions) — session en cours
+
+### Objectif
+Enrichir les pronostics avec du **contexte visuel** (captures Sofascore : forme, compos,
+stats) façon PixelRAG (https://github.com/StarTrail-org/PixelRAG), adapté à la machine
+cible (i5 8th gen, 8 Go RAM, **pas de GPU**, Windows, ~17 Go disque).
+
+### Contrainte matérielle → adaptation honnête
+PixelRAG réel (Qwen3-VL-Embedding-2B, `pyproject` `[tool.uv] environments = linux/darwin`)
+**ne tourne pas** sur ce poste. On implémente donc un **PixelRAG-lite** : serveur vision
+local **CLIP** (`openai/clip-vit-base-patch32`, torch **déjà présent** dans `.venv`,
+`transformers` installé) exposant le **même contrat d'API** (`/search`, `/ingest`,
+`/embed`, `/visual/enrich`, `/health`) sur le port **30002**. Si un vrai PixelRAG est
+déployé plus tard (GPU/Linux), il suffit de pointer `PIXELRAG_URL` dessus — zéro changement
+côté stitch.
+
+### Fichiers créés
+- `core/visual_server.py` — serveur vision FastAPI :30002. CLIP si dispo, sinon **fallback
+  PIL** (moments couleur + histogramme + grille). Index persisté `data/visual/visual_index.jsonl`.
+- `core/visual_features.py` — `extract_visual_features(match_data)` : ajoute les colonnes
+  `visual_confidence`, `visual_tiles_n`, `visual_max_score`, `visual_mean_score`,
+  `visual_covers`, `visual_has_lineup`, `visual_has_form`, `visual_has_xg`. Dégradation silencieuse.
+- `services/pixelragService.js` — client HTTP :30002 (`PIXELRAG_URL` env), timeouts,
+  dégradation douce (retourne null si down).
+- `services/visualEnrichmentService.js` — `getVisualContext(match)` : cache DB
+  (`visual_context_cache`, TTL 12 h) → recherche PixelRAG → construction du contexte.
+- `scripts/scrapeVisualBatch.js` — batch local **Puppeteer** (stealth, réutilise le pattern
+  de `SofascoreScraping/src/apiClient.js`) : résout les IDs équipes via `api/v1/search/all`,
+  capture les pages équipe domicile/extérieur → `data/visual/<matchId>/{home,away}.jpg`,
+  ingère dans le serveur vision, écrit `visual_context_cache`. Rate-limit 3 s, 100 matchs/batch.
+  Désactivé si `DISABLE_SOFASCORE=true` ou Chrome absent (Render/Docker).
+
+### Fichiers modifiés
+- `core/fastapi_server.py` — `_run_prediction_payload` appelle `extract_visual_features`
+  (best-effort, try/except) après `clean_data`.
+- `services/mlPredictionService.js` — injection `matchData.visual_context` via
+  `visualEnrichmentService.getVisualContext` avant `pythonService.predict` (best-effort).
+- `core/database.js` — table `visual_context_cache` + méthodes `getVisualContext` /
+  `setVisualContext` (upsert).
+- `services/cronManager.js` — job **#33** `0 8,20 * * *` (Africa/Tunis) → `scrapeVisualBatch.main()`.
+- `.gitignore` — `data/visual/` ignoré (captures + index embeddings).
+
+### Vérifications (vertes)
+- `node --check` : 6 JS OK. `py_compile` : 3 py OK.
+- Serveur vision : `/health` → CLIP chargé dim 512 ; `/ingest` + `/search` OK (cosine).
+- Chaîne Node : health → contexte visuel → écriture DB → relecture cache (OUI).
+- `visual_features` : features injectées + zéros sans contexte.
+- FastAPI `/predict` avec `visual_context` → `success=True`, **aucune** erreur d'injection.
+- **Non-régression : `npm test` 71 suites / 715 tests passés.**
+
+### Limites / à faire
+- Les features `visual_*` n'influencent le score XGBoost qu'**après réentraînement**
+  (le booster actuel ignore les clés inconnues). Prochaine étape : les ajouter à
+  `FEATURE_NAMES_V55` / `ml_features.py` + retrain.
+- `scrapeVisualBatch` n'a **pas** été exécuté en conditions réelles (Sofascore anti-bot) ;
+  à valider sur un petit batch (`--limit 3 --dry-run`) avant de faire confiance au cron.
+- Migration Postgres (`pg_migrations.js`) de `visual_context_cache` non faite (batch = local).
+- Serveurs de test arrêtés, artefacts de test supprimés.
+
+### ⬆️ Mise à jour — protocole PixelRAG RÉEL (session suivante)
+Vérification du dépôt `C:\Users\HAMDI\Desktop\PixelRAG` (`serve/src/pixelrag_serve/api.py`) :
+- **API réelle** : `POST /search` → `{results:[{hits:[{score, article_id, tile_index,
+  chunk_index, y_offset, tile_height, path, url}]}]}` ; `GET /status` (modèle, dimension,
+  nb vecteurs) ; `GET /health` → `{status:"ok"}`. **Pas d'`/ingest`** : l'index FAISS est
+  construit hors-ligne (`pixelrag embed` + `pixelrag index build`).
+- **Verdict matériel (README officiel)** : cible Linux/CUDA + macOS/MPS ; modèle
+  `Qwen3-VL-Embedding-2B` ≈ 8 Go float32 → **OOM sur ce poste (8 Go, Windows, sans GPU)**.
+  Exécution du vrai moteur impossible localement.
+
+**Intégration rendue conforme au vrai PixelRAG :**
+- `services/pixelragService.js` réécrit pour parler l'API **exacte** : parsing
+  `results[].hits[]`, `normalizeSearchResponse()` (tolère aussi l'ancien format lite),
+  `search()`/`searchByImage()` (query image base64 native), `getStatus()` (`/status`),
+  `getHealth()`. `ingest`/`embed` conservés = extensions du serveur lite uniquement.
+- `core/visual_server.py` (lite) renvoie désormais le **même format** que le vrai
+  PixelRAG (`/search` → `results[].hits[]`, + `/status`) → **le code stitch est identique
+  contre le lite (CPU) ou un vrai PixelRAG (GPU/Mac)** : il suffit de changer `PIXELRAG_URL`.
+- `services/visualEnrichmentService.js` : `visual_confidence` = meilleur score cosinus
+  (borné [0,1]), `screenshot_paths`/`article_ids` extraits des hits.
+- `scripts/scrapeVisualBatch.js` : captures **fullPage** (chunkables en tiles) + génération
+  de `data/visual/articles.json` au format natif PixelRAG (`{article_id:{url,title,department}}`)
+  → corpus **prêt pour un vrai `pixelrag index build`** sur hôte GPU.
+
+**Passer au vrai PixelRAG (quand un hôte GPU/Mac est dispo)** :
+1. Sur l'hôte : `uv sync --extra serve` (Linux/Mac), puis `pixelrag embed` +
+   `pixelrag index build` sur `data/visual/` (tiles + articles.json produits par le scraper).
+2. `pixelrag serve --index-dir ./index --tiles-dir ./tiles --articles-json ./articles.json
+   --device cuda --port 30001`.
+3. Côté stitch : `PIXELRAG_URL=http://<hote>:30001`. Aucune modif de code.
+
+**Tests (verts)** : `py_compile` + `node --check` OK ; lite `/search` renvoie le format
+réel ; chaîne Node `getStatus`→`search`(normalisé)→`getVisualContext`→cache DB OK.
+`npm test` inchangé (aucun test ne dépend du serveur vision).
+
+---
+
+## 🖼️ Suite PixelRAG-lite — validation scraper + câblage features visuelles (session 2026-09-07)
+
+Reprise des 3 « à faire » laissés ouverts en fin de session précédente.
+
+### 1) scrapeVisualBatch validé en conditions RÉELLES (anti-bot contourné)
+- Dry-run `--limit 3` initial : **3/3 échecs** `net::ERR_ABORTED` sur
+  `www.sofascore.com/api/v1/search/all` (Cloudflare bloque le `page.goto` JSON).
+- **Fix** : réutiliser le bypass **déjà présent** dans le projet (curl_cffi → `api.sofascore.com`)
+  au lieu de réinventer :
+  - `scripts/sofascore_bypass.py` : nouvelle sous-commande `team --name "<équipe>"`
+    (expose la fonction `search_team()` existante, format natif `results[].entity`).
+  - `services/scrapers/SofascoreBypass.js` : `searchTeam(name)` (cache `teamCache`, TTL
+    `CACHE_TTL_EVENT`) + export.
+  - `scripts/scrapeVisualBatch.js` : `resolveTeamId()` appelle d'abord
+    `SofascoreBypass.searchTeam()` ; le `page.goto` n'est plus qu'un **fallback**.
+- Résultat dry-run : **3/3 ok**. Puis run réel `--limit 1` : **2 captures** fullPage
+  (home 529 KB / away 487 KB) → `data/visual/livescore_1798985/`, `articles.json` au format
+  natif PixelRAG, index vision = 3 vecteurs, `visual_context_cache` écrit (conf=1, 2 tuiles).
+- Serveur vision : CLIP `openai/clip-vit-base-patch32` chargé en **lazy** (1er ingest) →
+  `/health` indique PIL-fallback avant, CLIP après — comportement attendu, pas un bug.
+
+### 2) Features `visual_*` réellement câblées vers le ML (point bloquant trouvé)
+Constat : `extract_visual_features()` injecte bien les colonnes dans `match_data`, MAIS
+`extract_ml_features()` ne les **propageait pas** dans le dict `features` → jamais dans le
+vecteur, ni en inférence ni en entraînement. Correction :
+- `core/ml_features.py` :
+  - `VISUAL_FEATURE_NAMES` (8 colonnes) + `FEATURE_NAMES_V55_VISUAL = V55 + visual`
+    (**nouveau set séparé** — on ne touche PAS V55/V551/V552/V553 : boosters liés à leur
+    compte de features, sinon `_candidate_ok` ferait sauter le modèle de prod).
+  - Boucle de propagation `row → features` avant le NaN-cleanup.
+  - Entrées `FEATURE_VOLATILITY` pour les 8 colonnes.
+- `core/model_manager.py` : `V55_VISUAL_MODEL_PATH` + `get_v55_visual_booster()` (→ None si
+  absent = dormant).
+- `core/ml_ensemble.py` : créneau candidat `V55-VISUAL` en tête de chaîne, **opt-in via
+  `USE_V55_VISUAL=1`** et seulement si l'artefact existe. Par défaut : zéro changement prod
+  (vérifié : V552-CHRONO reste sélectionné, avec et sans la variable).
+- `core/train_v55.py` : flag `--visual` → entraîne `FEATURE_NAMES_V55_VISUAL` en régime
+  chronologique (comme V552) vers `models/stitch_v55_visual.json`.
+
+### 3) Décision honnête sur le RETRAIN — différé (pas de données)
+Le réentraînement **n'a pas été lancé** : le jeu d'entraînement historique
+(`historical_archive.sqlite`) ne contient **aucune** colonne visuelle → retrain maintenant
+= 8 colonnes constantes à 0 = booster identique à V55 + 8 features mortes (coût, zéro gain).
+**Backfill rétroactif écarté** : capturer les pages Sofascore « aujourd'hui » pour des matchs
+passés = **fuite temporelle** (le contexte visuel ne reflète pas le jour du match).
+→ Les `visual_*` ne peuvent s'apprendre que sur données **forward-looking**.
+**Déclencheur de retrain** : quand `visual_context_cache` aura accumulé un volume suffisant
+de matchs **réglés** avec contexte (ordre de grandeur ~200+), joindre le cache au dataset et
+lancer `python core/train_v55.py --visual`, backtester contre V552, puis activer
+`USE_V55_VISUAL=1`. Le pipeline de capture (cron #33) alimente le cache dès maintenant.
+
+### 4) Migration Postgres `visual_context_cache` (à faire n°3)
+Le mode prod (`DATABASE_URL`) exporte `pg_database.js`, pas l'objet SQLite → il fallait :
+- `core/pg_migrations.js` : table `visual_context_cache` dans `SCHEMA_SQL` (miroir SQLite,
+  `enriched_at BIGINT`).
+- `core/pg_database.js` : `getVisualContext` / `setVisualContext` **async**, même forme
+  (colonnes JSON en TEXT) que le chemin SQLite.
+- `services/visualEnrichmentService.js` : `await` sur les 3 appels DB (get/set/getScreenshots).
+  Rétro-compatible : `await` sur une valeur sync SQLite la renvoie telle quelle.
+
+### 5) Bug préexistant corrigé au passage (hors scope, 1 ligne de garde)
+`tests/test_ml_ensemble.py::TestPredictSecondaryMarkets` échouait **déjà sur HEAD** (vérifié
+par `git stash`) : `predict_secondary_markets({}, [])` renvoyait **corners = -2.7** (booster
+de régression sur `feature_vector` vide). Fix : si sortie modèle ≤ 0 → retour au **baseline
+heuristique** (> 0). Ne change rien aux prédictions réelles (toujours positives).
+
+### Vérifications (vertes)
+- `node --check` : 5 JS OK. `py_compile` : 4 py OK. Imports runtime OK (V55_VISUAL=231).
+- Propagation testée : `extract_ml_features` → les 8 `visual_*` ressortent du dict.
+- Sélection modèle inchangée par défaut (V552-CHRONO, vec 202) avec/sans `USE_V55_VISUAL`.
+- Cache relu via le service : `{cached:true, conf:1, tiles:2, shots:2}`.
+- **Non-régression : pytest 347 passed / 0 failed (2 échecs corrigés) ; Jest 71 suites / 715 tests.**
+- Serveurs de test arrêtés. Captures réelles conservées (données utiles, `data/visual/` gitignoré).
+
+### Prochain point de contrôle
+- Laisser tourner le cron #33 quelques jours → surveiller la croissance de
+  `visual_context_cache`. Quand volume de matchs réglés suffisant : retrain `--visual` +
+  backtest + arbitrage activation `USE_V55_VISUAL`.
+- Travail non commité toujours présent (ConfigEngine/data, routes/promosport, Python
+  XGB/prediction, __tests__/config-isolation.js) — préservé, non commité (pas de demande).
+
+---
+
+## 🖼️ PixelRAG RÉEL hébergé — intégration api.pixelrag.ai (session 2026-09-07, plan 1→5)
+
+### Découverte (vérifiée en live)
+Le dépôt https://github.com/StarTrail-org/PixelRAG expose une **API hébergée gratuite,
+sans clé** : `https://api.pixelrag.ai` = le VRAI moteur (Qwen3-VL-Embedding-2B + LoRA,
+26.3M vecteurs Wikipédia, dim 2048). Schéma `/search` **identique** à notre client
+(`{queries:[{text}], n_docs}` → `results[].hits[]`) → test réel « Cruz Azul » renvoie les
+tuiles « 2011–12 Cruz Azul season » (score 0.64). Nouvel endpoint `GET /tile/{article_id}/
+{tile}/{chunk}` → **PNG** de la tuile (testé : 398 Ko, octets magiques OK).
+Auto-hébergement local du moteur toujours impossible (OOM 8 Go / pas de GPU) → l'hébergé
+est la seule voie gratuite vers le vrai modèle. L'index Wikipédia (construit 2026-05) est
+du contexte **historique**, pas live — le live reste Sofascore via le lite local.
+
+### Phase 1 — `services/pixelragService.js` : client DOUBLE + tuiles
+- Factory `_makeClient(baseUrl)` ; deux instances exportées : `local` (`PIXELRAG_URL`,
+  :30002, notre corpus) et `wiki` (`PIXELRAG_WIKI_URL`, défaut api.pixelrag.ai).
+- `getTile(articleId, tile, chunk)` → Buffer PNG (wiki only, timeout 10 s).
+- `normalizeSearchResponse` : construit `wiki_url` (titre Wikipédia → URL encodée).
+- Rétro-compat totale : exports premier niveau (`search`, `ingest`, `embed`, `getStatus`,
+  `getHealth`, `searchByImage`) = client local ; `VISION_URL` conservé.
+
+### Phase 2 — `services/visualEnrichmentService.js` : enrichissement DUAL
+- `getVisualContext` lance en parallèle : recherche locale (corpus Sofascore) + recherche
+  wiki (2 requêtes : `"<domicile> football club season squad"`, `"<extérieur> …"`).
+- Tuiles fusionnées taggées `source:'sofascore'|'wikipedia'` ; `visual_confidence` = max
+  toutes sources ; `screenshot_paths` = chemins locaux uniquement.
+- Testé : serveur local DOWN → chemin wiki-only (conf 0.655, 6 tuiles), cache relu OK.
+
+### Phase 4 — `core/visual_features.py` + `core/ml_features.py` : 4 colonnes wiki
+- `visual_wiki_confidence`, `visual_wiki_hits`, `visual_wiki_has_squad`,
+  `visual_wiki_has_history` (détectés via `source=='wikipedia'` + mots-clés de titres).
+- `VISUAL_FEATURE_NAMES` 8→12 → `FEATURE_NAMES_V55_VISUAL` 223→**235 dims** (set séparé,
+  boosters de prod intacts). Entrées `FEATURE_VOLATILITY`.
+- Test bout-en-bout réel : cache `16629481` → features `{wiki_conf:0.62, hits:4, history:1}`.
+
+### Phase 5 — `scripts/scrapeVisualBatch.js` : pré-remplissage wiki + mode wiki-only
+- `fetchWikiTiles()` : recherche wiki (2 requêtes, n_docs 2) + **téléchargement des tuiles
+  PNG** dans `data/visual/<matchId>/wiki_*.png` → fusionnées dans `visual_context_cache`.
+- Si serveur vision local DOWN : plus de sortie anticipée — **mode wiki-only** (pas de
+  navigateur, pas de capture Sofascore, cache pré-rempli quand même). `resolveTeamId`
+  fallback `page.goto` gardé uniquement si navigateur dispo.
+- Test réel `--limit 3` (lite down) : 3/3 ok, 4 tuiles wiki + 4 PNG/match, conf ~0.62.
+
+### Phase 3 — `services/visualBriefingService.js` : lecteur RAG (Groq vision)
+- Envoie top 3 tuiles (PNG local ou fetch `getTile` à la volée si recherche live) à
+  `meta-llama/llama-4-scout-17b-16e-instruct` via Groq (libre, sans GPU) → briefing FR
+  3 puces. **Garde-fou budget** : `data/visual_briefing_usage.json`, plafond mensuel
+  `VISUAL_BRIEFING_MAX_MONTHLY` (défaut 500). Flags : `VISUAL_BRIEFING=off` ou clé
+  absente → null (dégradation totale, prédiction intacte).
+- `briefing TEXT` ajouté à `visual_context_cache` : CREATE + migration `ensureColumn`
+  (SQLite), CREATE + `ALTER ... IF NOT EXISTS` (PG), upsert `COALESCE` (les deux).
+- Fils : `visualEnrichmentService` (cache-hit → `visual_briefing` ; fresh → génère +
+  persiste) ; `mlPredictionService` (`result.visual_briefing` sur prédictions réussies).
+- **Clé GROQ absente de l'environnement local** → briefing dormant tant que l'utilisateur
+  n'ajoute pas `GROQ_API_KEY` (à son `.env`). Toute la chaîne reste testée sans réseau.
+- `__tests__/visualBriefingService.test.js` : 8 tests (axios mocké, fs mocké du setup.js
+  respecté — chemins 'data', budget piloté par mockImplementation). Piège relevé :
+  `jest.mock('fs')` global de setup.js rend `existsSync` faux hors chemins 'data'.
+
+### Vérifications (vertes)
+- `node --check` : 8 JS OK ; `py_compile` : 2 py OK.
+- Live : wiki search normalisé + getTile PNG ; batch wiki-only 3/3 ; cache→features Python.
+- **Non-régression : Jest 72 suites / 723 tests (+8) ; pytest 347 passed / 0 failed.**
+
+### À faire / points de contrôle
+- Ajouter `GROQ_API_KEY` au `.env` local pour activer les briefings (sinon dormant, sans
+  danger). Vérifier alors 1 génération réelle + persistance `briefing` en cache.
+- Laisser cron #33 accumuler tuiles wiki + captures ; retrain `--visual` (235 dims) au
+  déclencheur (~200 matchs réglés avec contexte), backtest contre V552, puis `USE_V55_VISUAL=1`.
+- Rien commité (non demandé).
+
+---
+
+## 👁️ Lecteur vision ACTIVÉ — OpenRouter gratuit (session 2026-09-07, suite)
+
+### Contexte : les clés locales
+Demande : « a-t-on déjà une clé qui marche pour lire les PNG ? » Audit du store opencode
+(`~/.local/share/opencode/auth.json`, 8 fournisseurs) — **sans jamais afficher une valeur** :
+- **Groq** : clé valide mais **aucun modèle vision** sur le compte (14 modèles, texte/audio).
+- **Anthropic / OpenAI / Moonshot** : 401 en direct (clés liées à un proxy opencode).
+- Entrée `openrouter` = clé `sk-Bt…` (51 car.) **non conforme** au format OpenRouter
+  (c'est un proxy ; `/models` est public, donc ne prouvait rien).
+- Vraie clé OpenRouter (`sk-or-v…`, 73 car.) trouvée sous l'entrée **`opencode-go`**.
+
+### Preuve de lecture PNG (test réel sur tuile en cache)
+- `google/gemma-4-31b-it:free` : auth OK mais **429** (pool gratuit saturé).
+- **`minimax/minimax-m3:free` : LIT CORRECTEMENT** la tuile Wikipédia Al-Ahli (stats
+  Al-Rashidi 110M/7buts/13pd, effectif Mahrez/Kessié/Firmino). → retenu comme primaire.
+
+### `services/visualBriefingService.js` — provider-agnostic
+- Env : `VISION_LLM_BASE_URL` (défaut `https://openrouter.ai/api/v1`), `VISION_LLM_MODEL`
+  (défaut `minimax/minimax-m3:free`), `VISION_LLM_FALLBACK_MODEL` (défaut
+  `google/gemma-4-31b-it:free`), `VISION_LLM_API_KEY` (fallback `OPENROUTER_API_KEY` →
+  `GROQ_API_KEY`). `_apiKey()` centralise la résolution.
+- **Retry auto sur le fallback en cas de 429** (les autres erreurs -> null, sans retry).
+- Timeout 60 s (OpenRouter gratuit lent). Budget mensuel inchangé (500).
+
+### `.env` stitch
+- `OPENROUTER_API_KEY=<clé opencode-go>` ajoutée (valeur jamais échoît/commit ; `.env`
+  confirmé gitignoré via `git check-ignore`).
+
+### Vérifications (vertes)
+- `node --check` OK. **Jest 725/725** (+2 tests : retry 429→fallback, erreur non-429→null).
+- **E2E RÉEL** `getVisualContext(Al-Hilal vs Neom, force)` : 6 tuiles wiki (conf 0.619) →
+  briefing 601 car. généré via minimax → **persisté** colonne `briefing` → relecture
+  `cached:true` avec briefing. Le lecteur a identifié l'effectif Al-Hilal 2025-26 (Neymar,
+  Mitrović, Bounou, Inzaghi) ET signalé honnêtement 2 tuiles hors-sujet.
+
+### Limite relevée (à optimiser plus tard)
+- La requête wiki `"<équipe> football club season squad"` ramène parfois des tuiles hors-sujet
+  (joueur d'une autre équipe). Le lecteur les détecte ; piste d'amélioration : requête plus
+  stricte (`"<équipe> <année> squad"`) ou filtre sur le titre du hit. Non bloquant.
+
+### Rôle de PixelRAG — état actuel (résumé honnête)
+- **Retrieval** : local (Sofascore live) + hébergé (Wikipédia historique) → cache. ✅ actif.
+- **Reader (G de RAG)** : briefing vision FR via OpenRouter gratuit. ✅ ACTIF (clé en place).
+- **Features ML** : 12 colonnes `visual_*` prêtes ; effet sur XGBoost seulement après retrain
+  `--visual` (déclencheur ~200 matchs réglés). ⏳ en accumulation.
+- Rien commité (non demandé).

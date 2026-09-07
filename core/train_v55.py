@@ -16,7 +16,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from ml_features import extract_ml_features, FEATURE_NAMES_V55, FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553, FEATURE_VOLATILITY, get_wc2026_team_data, CLOSING_DERIVED_FEATURES
+from ml_features import extract_ml_features, FEATURE_NAMES_V55, FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553, FEATURE_NAMES_V55_VISUAL, FEATURE_VOLATILITY, get_wc2026_team_data, CLOSING_DERIVED_FEATURES
 from top_analyst_engine import process_match_for_top_analyst
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -26,6 +26,7 @@ MODEL_PATH_V551 = os.path.join(BASE_DIR, 'models', 'stitch_v551_optimized.json')
 MODEL_PATH_V552 = os.path.join(BASE_DIR, 'models', 'stitch_v552_optimized.json')
 MODEL_PATH_V553 = os.path.join(BASE_DIR, 'models', 'stitch_v553_optimized.json')
 MODEL_PATH_V553_PREMIUM = os.path.join(BASE_DIR, 'models', 'stitch_v553_premium.json')
+MODEL_PATH_V55_VISUAL = os.path.join(BASE_DIR, 'models', 'stitch_v55_visual.json')
 PREMIUM_CSV_PATH = os.path.join(BASE_DIR, 'data', 'v553_wc2026_premium.csv')
 
 LEAGUE_CODE_MAP = {
@@ -983,6 +984,7 @@ if __name__ == "__main__":
     parser.add_argument('--modern', action='store_true', help='V552: 2022-2026 + chronological split')
     parser.add_argument('--wc2026', action='store_true', help='V553: WC2026 features + WC2026 match data')
     parser.add_argument('--premium', action='store_true', help='V553_PREMIUM: use enriched international data (odds, xG, squad features)')
+    parser.add_argument('--visual', action='store_true', help='V55-VISUAL: V55 features + PixelRAG visual context -> stitch_v55_visual.json (actif via USE_V55_VISUAL=1)')
     args = parser.parse_args()
 
     use_op = args.optuna or args.optuna_cv
@@ -990,6 +992,12 @@ if __name__ == "__main__":
 
     if args.premium:
         train_v55(premium=True, use_optuna=use_op, use_optuna_cv=use_op_cv)
+    elif args.visual:
+        # V55 + colonnes visuelles, régime chronologique validé (2022-2026).
+        # Le booster n'est CONSOMMÉ qu'avec USE_V55_VISUAL=1 (voir ml_ensemble).
+        train_v55(modern=True, feature_names=FEATURE_NAMES_V55_VISUAL,
+                  out_model_path=MODEL_PATH_V55_VISUAL,
+                  use_optuna=use_op, use_optuna_cv=use_op_cv)
     elif args.wc2026:
         train_v55(modern=True, use_v551=False, post2010=False, use_optuna=use_op, use_optuna_cv=use_op_cv)
     elif args.v551:

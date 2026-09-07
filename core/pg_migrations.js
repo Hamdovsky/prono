@@ -354,6 +354,18 @@ CREATE TABLE IF NOT EXISTS live_prediction_logs (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     checked_at TIMESTAMPTZ
 );
+
+CREATE TABLE IF NOT EXISTS visual_context_cache (
+    match_id TEXT PRIMARY KEY,
+    screenshot_paths TEXT,
+    article_ids TEXT,
+    visual_confidence REAL DEFAULT 0,
+    tiles TEXT,
+    scores TEXT,
+    query_text TEXT,
+    enriched_at BIGINT,
+    briefing TEXT
+);
 `
 
 async function runMigrations() {
@@ -764,6 +776,11 @@ async function runMigrations() {
     // Phase 9 : ajout best-effort de la colonne absence_impact_pondéré (idempotent).
     try {
       await query('ALTER TABLE matches ADD COLUMN IF NOT EXISTS "absence_impact_pondéré" REAL DEFAULT 0')
+    } catch (_) {}
+
+    // PixelRAG : briefing visuel (lecteur Groq) sur le cache visuel (idempotent).
+    try {
+      await query('ALTER TABLE visual_context_cache ADD COLUMN IF NOT EXISTS briefing TEXT')
     } catch (_) {}
 
     // Track migration version

@@ -70,6 +70,21 @@ function normKey(s) {
 
 const eventCache = new Map() // "home|away" -> { eventId, startTimestamp, expiresAt }
 const oddsCache = new Map() // eventId -> { odds, expiresAt }
+const teamCache = new Map() // normKey(name) -> { id, name, expiresAt }
+
+async function searchTeam(name) {
+  const key = normKey(name)
+  if (!key) return null
+  const hit = teamCache.get(key)
+  if (hit && Date.now() < hit.expiresAt) return hit.team
+  const res = await callPy(['team', '--name', String(name || '')])
+  if (res && res.found && res.id) {
+    const team = { id: res.id, name: res.name }
+    teamCache.set(key, { team, expiresAt: Date.now() + CACHE_TTL_EVENT })
+    return team
+  }
+  return null
+}
 
 async function resolveEvent(homeTeam, awayTeam, startTimestamp) {
   const key = `${normKey(homeTeam)}|${normKey(awayTeam)}`
@@ -289,6 +304,7 @@ async function getAbsencesForMatch(match) {
 module.exports = {
   getOddsForMatch,
   resolveEvent,
+  searchTeam,
   getOdds,
   getLiveEvents,
   getLineups,

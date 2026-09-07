@@ -103,6 +103,7 @@ def _get_league_weights(league_name):
 from ml_features import (
     FEATURE_NAMES_V53, FEATURE_NAMES_V54, FEATURE_NAMES_V55,
     FEATURE_NAMES_V551, FEATURE_NAMES_V552, FEATURE_NAMES_V553,
+    FEATURE_NAMES_V55_VISUAL,
     FEATURE_NAMES_V56, FEATURE_NAMES_TITANIUM, FEATURE_NAMES,
     extract_v56_features,
 )
@@ -110,6 +111,7 @@ from meta_refiner import refine_prediction
 from model_manager import (
     get_xgb, get_titanium_booster, get_titanium_v4_booster,
     get_v55_booster, get_v551_booster, get_v552_booster,
+    get_v55_visual_booster,
     get_v553_booster, get_v553_premium_booster, get_v56_booster,
     get_main_booster, get_corners_model, get_cards_model,
     get_corners_model_v2, get_corners_v2_features,
@@ -217,6 +219,15 @@ def select_model_booster(features, league_tier, match_obj=None):
     is_wc2026_match = (V553_PREMIUM_BOOSTER is not None or V553_BOOSTER is not None) and features.get('fifa_rank_h', 999) < 999 and features.get('fifa_rank_a', 999) < 999
 
     candidates = []
+    # V55-VISUAL (PixelRAG-lite): opt-in via USE_V55_VISUAL=1 et présent uniquement
+    # après `python core/train_v55.py --visual`. Par défaut -> dormant, zéro changement
+    # de comportement en production. Quand activé, il est testé en tête de chaîne.
+    if os.environ.get('USE_V55_VISUAL') == '1':
+        V55V_BOOSTER = get_v55_visual_booster()
+        if V55V_BOOSTER is not None:
+            candidates.append((FEATURE_NAMES_V55_VISUAL,
+                               [float(features.get(f, 0)) for f in FEATURE_NAMES_V55_VISUAL],
+                               V55V_BOOSTER, "V55-VISUAL"))
     if is_wc2026_match:
         v553_names = [f for f in FEATURE_NAMES_V553 if f not in EXCLUDED_FEATURES]
         if V553_PREMIUM_BOOSTER is not None:
@@ -670,8 +681,10 @@ def _build_corners_v2_vector(features):
 
 def predict_secondary_markets(features, feature_vector):
     """Predict corners and cards using dedicated XGBoost models."""
-    expected_corners = round(float(features.get('home_corners', 4.5) + features.get('away_corners', 4.5)), 1)
-    expected_cards = round(float(features.get('home_cards', 2.0) + features.get('away_cards', 2.0)), 1)
+    baseline_corners = round(float(features.get('home_corners', 4.5) + features.get('away_corners', 4.5)), 1)
+    baseline_cards = round(float(features.get('home_cards', 2.0) + features.get('away_cards', 2.0)), 1)
+    expected_corners = baseline_corners
+    expected_cards = baseline_cards
 
     try:
         CORNERS_MODEL = get_corners_model()
@@ -702,6 +715,14 @@ def predict_secondary_markets(features, feature_vector):
             expected_cards = round(float(CARDS_MODEL.predict(dmat_ca)[0]), 1)
     except Exception as e:
         sys.stderr.write(f"⚠️ [Secondary-INF] Error: {str(e)}\n")
+
+    # Garde-fou: un total de corners/cartons ne peut pas etre <= 0. Un booster de
+    # regression sur entree degeneree (feature_vector vide/incoherent) peut sortir
+    # une valeur negative -> on retombe sur le baseline heuristique (toujours > 0).
+    if expected_corners <= 0:
+        expected_corners = baseline_corners
+    if expected_cards <= 0:
+        expected_cards = baseline_cards
 
     return expected_corners, expected_cards
 

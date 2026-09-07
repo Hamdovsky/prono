@@ -72,7 +72,22 @@ class MLPredictionService {
           logger.debug(`[MARKET-ENGINE] real_markets forwarde a /predict (${matchData.real_markets.length} marche(s))`)
         }
 
+        // Contexte visuel (PixelRAG-lite) — best-effort, ne bloque jamais la prédiction.
+        let vc = null
+        try {
+          const visualService = require('./visualEnrichmentService')
+          vc = await visualService.getVisualContext(match)
+          if (vc) matchData.visual_context = vc
+        } catch (ve) {
+          logger.debug(`[ML] Context visuel indisponible: ${ve.message}`)
+        }
+
         const result = await pythonService.predict(matchData)
+
+        // Briefing visuel (lecteur RAG Groq) porté dans la réponse, côté Node.
+        if (result && result.success && vc && vc.visual_briefing) {
+          result.visual_briefing = vc.visual_briefing
+        }
 
         // Apply Confluence Guard V2 (adaptive veto shield)
         if (result && result.success) {

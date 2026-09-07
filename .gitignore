@@ -158,3 +158,6 @@ Desktop.ini
 
 # Build output
 dist/
+
+# Visual context (PixelRAG-lite) — screenshots locaux + index embeddings
+data/visual/

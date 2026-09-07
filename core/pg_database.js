@@ -1450,6 +1450,56 @@ return {
       return 0
     }
   },
+
+  // ── PixelRAG-lite : cache de contexte visuel (miroir des méthodes SQLite) ──
+  // Renvoie la MÊME forme que core/database.js (colonnes JSON en TEXT) pour que
+  // services/visualEnrichmentService.js (qui JSON.parse) fonctionne à l'identique.
+  async getVisualContext(matchId) {
+    try {
+      const result = await query('SELECT * FROM visual_context_cache WHERE match_id = $1', [
+        String(matchId),
+      ])
+      return result.rows?.[0] || null
+    } catch (e) {
+      logger.warn(`[PG DB] getVisualContext failed for ${matchId}: ${e.message}`)
+      return null
+    }
+  },
+
+  async setVisualContext(rec) {
+    try {
+      const now = rec.enriched_at || Date.now()
+      await query(
+        `INSERT INTO visual_context_cache
+           (match_id, screenshot_paths, article_ids, visual_confidence, tiles, scores, query_text, enriched_at, briefing)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT(match_id) DO UPDATE SET
+           screenshot_paths=EXCLUDED.screenshot_paths,
+           article_ids=EXCLUDED.article_ids,
+           visual_confidence=EXCLUDED.visual_confidence,
+           tiles=EXCLUDED.tiles,
+           scores=EXCLUDED.scores,
+           query_text=EXCLUDED.query_text,
+           enriched_at=EXCLUDED.enriched_at,
+           briefing=COALESCE(EXCLUDED.briefing, visual_context_cache.briefing)`,
+        [
+          String(rec.match_id),
+          JSON.stringify(rec.screenshot_paths || []),
+          JSON.stringify(rec.article_ids || []),
+          Number(rec.visual_confidence || 0),
+          JSON.stringify(rec.tiles || []),
+          JSON.stringify(rec.scores || []),
+          String(rec.query_text || ''),
+          now,
+          rec.briefing != null ? String(rec.briefing) : null,
+        ]
+      )
+      return { changes: 1 }
+    } catch (e) {
+      logger.warn(`[PG DB] setVisualContext failed for ${rec.match_id}: ${e.message}`)
+      return { changes: 0 }
+    }
+  },
 }
 
 // Backward compatibility: code that uses `database.db.prepare(...)` or `database.db.query(...)`

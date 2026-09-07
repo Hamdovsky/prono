@@ -48,6 +48,7 @@ PROJECT_DIR = os.path.dirname(CORE_DIR)
 
 XGB_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v24_hybrid.json')
 V55_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v55_optimized.json')
+V55_VISUAL_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v55_visual.json')
 V551_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v551_optimized.json')
 V552_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v552_optimized.json')
 V553_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'stitch_v553_optimized.json')
@@ -66,6 +67,7 @@ TITANIUM_V4_MODEL_PATH = os.path.join(PROJECT_DIR, 'models', 'titanium_v4.json')
 
 _XGB_BOOSTER = None
 _XGB_V55_BOOSTER = None
+_XGB_V55_VISUAL_BOOSTER = None
 _XGB_V551_BOOSTER = None
 _XGB_V552_BOOSTER = None
 _XGB_V553_BOOSTER = None
@@ -119,6 +121,15 @@ def get_v55_booster():
     if _XGB_V55_BOOSTER is None:
         _XGB_V55_BOOSTER = _load_booster(V55_MODEL_PATH, "V55")
     return _XGB_V55_BOOSTER
+
+
+def get_v55_visual_booster():
+    """Booster V55 + colonnes visuelles (stitch_v55_visual.json). Retourne None
+    tant que `python core/train_v55.py --visual` n'a pas été lancé -> dormant."""
+    global _XGB_V55_VISUAL_BOOSTER
+    if _XGB_V55_VISUAL_BOOSTER is None:
+        _XGB_V55_VISUAL_BOOSTER = _load_booster(V55_VISUAL_MODEL_PATH, "V55-VISUAL")
+    return _XGB_V55_VISUAL_BOOSTER
 
 
 def get_v551_booster():

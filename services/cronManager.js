@@ -1204,6 +1204,28 @@ print(f'international: {len(df) if df is not None else 0} rows')
       { timezone: 'Africa/Tunis' }
     )
 
+    // 33. Visual context batch (08:00 & 20:00 Africa/Tunis) — PixelRAG-lite.
+    // Screenshots locaux Puppeteer + ingestion serveur vision (port 30002).
+    // Strictement local : désactivé automatiquement si Chrome absent / DISABLE_SOFASCORE.
+    cron.schedule(
+      '0 8,20 * * *',
+      async () => {
+        logger.info('[CRON] Launching visual context batch (PixelRAG-lite)...')
+        try {
+          const { main } = require(path.join(__dirname, '..', 'scripts', 'scrapeVisualBatch.js'))
+          if (typeof main !== 'function') {
+            logger.warn('[CRON] Visual batch script non-exporté — skip')
+            return
+          }
+          const r = await main()
+          logger.info(`[CRON] Visual batch: ${JSON.stringify(r)}`)
+        } catch (e) {
+          logger.error(`[CRON] Visual batch failed: ${e.message}`)
+        }
+      },
+      { timezone: 'Africa/Tunis' }
+    )
+
     logger.info('✅ [CRON] Scheduler active')
 
     // 🚀 [RESUME] Trigger scraper 30s after boot to repopulate DB on Render wake-up

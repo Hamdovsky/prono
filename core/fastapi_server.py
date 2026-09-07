@@ -137,6 +137,15 @@ _PREDICTION_TIMEOUT_S = float(os.environ.get('FASTAPI_PREDICT_TIMEOUT_S', '120')
 
 def _run_prediction_payload(payload):
     match_data = clean_data(payload)
+    # ── Visual context (PixelRAG-lite) ──
+    # Injecte les colonnes visual_* si services/visualEnrichmentService.js a
+    # fourni un visual_context. Best-effort : ne casse jamais la prédiction.
+    try:
+        from visual_features import extract_visual_features
+        extract_visual_features(match_data)
+    except Exception as ve:
+        import sys
+        sys.stderr.write(f"[visual_features] skipped: {ve}\n")
     task = match_data.get('task', 'PREDICTION')
     if task == 'PLAYER_PROPS':
         engine = get_engine('props')

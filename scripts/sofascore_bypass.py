@@ -103,6 +103,11 @@ def search_team(name):
     return fallback_id, fallback_name
 
 
+def cmd_team(args):
+    tid, tname = search_team(args.name)
+    print(json.dumps({"found": tid is not None, "id": tid, "name": tname}, ensure_ascii=False))
+
+
 def cmd_resolve(args):
     home_id, home_name = search_team(args.home)
     if home_id is None:
@@ -867,6 +872,8 @@ def main():
     ps = sub.add_parser("stats")
     ps.add_argument("--event", required=True)
     plv = sub.add_parser("live")
+    ptm = sub.add_parser("team")
+    ptm.add_argument("--name", required=True)
     psch = sub.add_parser("scheduled")
     psch.add_argument("--timestamp", default=None)
     args = p.parse_args()
@@ -884,6 +891,8 @@ def main():
             cmd_event(args)
         elif args.cmd == "live":
             cmd_live(args)
+        elif args.cmd == "team":
+            cmd_team(args)
         elif args.cmd == "scheduled":
             cmd_scheduled(args)
         else:

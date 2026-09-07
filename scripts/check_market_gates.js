@@ -150,7 +150,8 @@ function restartStack() {
     { timeout: 60000 },
     () => {
       setTimeout(() => {
-        const child = spawn('cmd.exe', ['/c', 'C:\\Users\\HAMDI\\Desktop\\HamdiProno\\pronos-server.bat'], {
+        const bat = process.env.PRONOS_SERVER_BAT || path.join(root, '..', 'pronos-server.bat')
+        const child = spawn('cmd.exe', ['/c', bat], {
           detached: true,
           stdio: 'ignore',
           windowsHide: true,

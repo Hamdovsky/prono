@@ -1,7 +1,7 @@
 const Database = require('better-sqlite3')
 const path = require('path')
 
-const dbPath = 'c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/historical_archive.sqlite'
+const dbPath = path.join(__dirname, '..', 'data', 'historical_archive.sqlite')
 const db = new Database(dbPath)
 
 console.log("🚀 Ajout d'index pour booster les performances stratégiques...")

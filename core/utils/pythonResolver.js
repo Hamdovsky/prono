@@ -1,5 +1,6 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
+const os = require('os')
 const path = require('path')
 
 let _cache = null
@@ -33,8 +34,8 @@ function resolvePython() {
       }
     } catch (_) {}
     const candidates = [
-      'C:\\Users\\HAMDI\\AppData\\Local\\Programs\\Python\\Python312\\python.exe',
-      'C:\\Users\\HAMDI\\AppData\\Local\\Programs\\Python\\Python313\\python.exe',
+      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python312', 'python.exe'),
+      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Python', 'Python313', 'python.exe'),
       'C:\\Python312\\python.exe',
       'C:\\Python313\\python.exe',
     ]

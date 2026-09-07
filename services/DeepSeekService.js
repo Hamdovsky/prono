@@ -14,7 +14,7 @@ const logger = require('../core/logger')
 // Load environment variables if not loaded
 dotenv.config()
 
-const USAGE_FILE = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/deepseek_usage.json')
+const USAGE_FILE = path.resolve(__dirname, '..', 'data', 'deepseek_usage.json')
 const MAX_MONTHLY_LIMIT = parseInt(process.env.DEEPSEEK_MAX_MONTHLY_CALLS || '220')
 
 class DeepSeekService {

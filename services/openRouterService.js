@@ -14,7 +14,7 @@ const logger = require('../core/logger')
 
 dotenv.config()
 
-const USAGE_FILE = path.resolve('c:/Users/HAMDI/Desktop/HamdiProno/stitch/data/openrouter_usage.json')
+const USAGE_FILE = path.resolve(__dirname, '..', 'data', 'openrouter_usage.json')
 const MAX_MONTHLY_LIMIT = parseInt(process.env.OPENROUTER_MAX_MONTHLY_CALLS || '200')
 const SITE_URL = process.env.OPENROUTER_SITE_URL || ''
 const SITE_TITLE = process.env.OPENROUTER_SITE_TITLE || 'Titanium AI'

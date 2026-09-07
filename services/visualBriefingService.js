@@ -22,6 +22,8 @@ function _usageFile() {
     : path.resolve(__dirname, '../data/visual_briefing_usage.json')
 }
 const MAX_MONTHLY = parseInt(process.env.VISUAL_BRIEFING_MAX_MONTHLY || '500', 10)
+// Cap quotidien : OpenRouter free ≈ 50 req/j par modèle -> marge sous la limite.
+const MAX_DAILY = parseInt(process.env.VISUAL_BRIEFING_MAX_DAILY || '40', 10)
 const VISION_BASE_URL = (process.env.VISION_LLM_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '')
 const VISION_MODEL = process.env.VISION_LLM_MODEL || 'minimax/minimax-m3:free'
 const VISION_FALLBACK_MODEL = process.env.VISION_LLM_FALLBACK_MODEL || 'google/gemma-4-31b-it:free'
@@ -39,13 +41,18 @@ function _month() {
   return new Date().toISOString().substring(0, 7)
 }
 
+function _day() {
+  return new Date().toISOString().substring(0, 10)
+}
+
 function _readUsage() {
-  const def = { current_month: _month(), count: 0 }
+  const def = { current_month: _month(), count: 0, current_day: _day(), day_count: 0 }
   try {
     const file = _usageFile()
     if (!fs.existsSync(file)) return def
-    const data = JSON.parse(fs.readFileSync(file, 'utf8'))
-    if (data.current_month !== _month()) return def
+    let data = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (data.current_month !== _month()) data = { ...data, current_month: _month(), count: 0 }
+    if (data.current_day !== _day()) data = { ...data, current_day: _day(), day_count: 0 }
     return data
   } catch (e) {
     return def
@@ -55,11 +62,14 @@ function _readUsage() {
 function _budgetOkAndIncrement() {
   try {
     const usage = _readUsage()
-    if (usage.count >= MAX_MONTHLY) {
-      logger.debug(`[VISUAL-BRIEF] Quota mensuel atteint (${usage.count}/${MAX_MONTHLY}) — briefing ignoré`)
+    if (usage.count >= MAX_MONTHLY || usage.day_count >= MAX_DAILY) {
+      logger.debug(
+        `[VISUAL-BRIEF] Quota atteint (mois ${usage.count}/${MAX_MONTHLY}, jour ${usage.day_count}/${MAX_DAILY}) — briefing ignoré`
+      )
       return false
     }
     usage.count++
+    usage.day_count++
     try {
       const file = _usageFile()
       fs.mkdirSync(path.dirname(file), { recursive: true })
@@ -79,10 +89,21 @@ function _buildPrompt(match, nTiles) {
   const league = match.league || match.tournament_name || ''
   return (
     `Tu es analyste football. Voici ${nTiles} capture(s) d'écran (pages Wikipédia / Sofascore) ` +
-    `concernant le match ${home} vs ${away}${league ? ` (${league})` : ''}. ` +
-    `En 3 puces courtes en français, retiens UNIQUEMENT ce que les visuels apportent pour le ` +
-    `pronostic : forme récente, effectif/blessures notables, historique. ` +
-    `Si une capture est illisible ou hors-sujet, dis-le en une puce. Pas de verbiage.`
+    `du match ${home} vs ${away}${league ? ` (${league})` : ''}. ` +
+    `Réponds UNIQUEMENT par un objet JSON valide, sans texte autour, schéma exact :\n` +
+    `{\n` +
+    `  "briefing": "3 puces FR très courtes séparées par \\n sur ce que les VISUELS apportent : forme, effectif, absences, historique",\n` +
+    `  "missing_star_home": ${home} a-t-il un joueur STAR absent ou incertain, visible sur les captures ? 0 ou 1,\n` +
+    `  "missing_star_away": idem pour ${away}, 0 ou 1,\n` +
+    `  "missing_gk_home": gardien titulaire de ${home} absent, visible ? 0 ou 1,\n` +
+    `  "missing_gk_away": idem ${away}, 0 ou 1,\n` +
+    `  "form_home": "ex W-W-D-L (5 derniers visibles)" ou "",\n` +
+    `  "form_away": "ex ..." ou "",\n` +
+    `  "h2h_note": "une phrase courte sur confrontations directes visibles" ou "",\n` +
+    `  "confidence": 0.0 à 1.0 — fiabilité de ta lecture des captures\n` +
+    `}\n` +
+    `RÈGLES : si une capture est illisible ou hors-sujet (autre club), ne déduis RIEN ` +
+    `(flags à 0, confidence basse). Ne jamais inventer. JSON uniquement.`
   )
 }
 
@@ -110,7 +131,7 @@ async function _postVision(content, model) {
 /**
  * @param {object} match  { homeTeam, awayTeam, league }
  * @param {object} context visual_context (tiles avec .path local)
- * @returns {Promise<string|null>} briefing FR ou null
+ * @returns {Promise<{text:string, signals:object|null}|null>} briefing FR + signaux structurés (null si illisibles)
  */
 async function generateBriefing(match, context) {
   if (!enabled() || !match || !context) return null
@@ -147,15 +168,15 @@ async function generateBriefing(match, context) {
   }
   if (!content || content.length < 2) return null
 
-  let briefing = null
+  let raw = null
   try {
-    briefing = await _postVision(content, VISION_MODEL)
+    raw = await _postVision(content, VISION_MODEL)
   } catch (e) {
     const status = e.response && e.response.status
     if (status === 429 && VISION_FALLBACK_MODEL && VISION_FALLBACK_MODEL !== VISION_MODEL) {
       logger.debug(`[VISUAL-BRIEF] ${VISION_MODEL} saturé (429) -> fallback ${VISION_FALLBACK_MODEL}`)
       try {
-        briefing = await _postVision(content, VISION_FALLBACK_MODEL)
+        raw = await _postVision(content, VISION_FALLBACK_MODEL)
       } catch (e2) {
         logger.warn(`⚠️ [VISUAL-BRIEF] fallback vision indisponible: ${e2.message}`)
       }
@@ -163,8 +184,14 @@ async function generateBriefing(match, context) {
       logger.warn(`⚠️ [VISUAL-BRIEF] lecteur vision indisponible: ${e.message}`)
     }
   }
-  if (briefing) logger.info(`[VISUAL-BRIEF] briefing généré (${tiles.length} tuile(s), ${briefing.length} car.)`)
-  return briefing
+  if (!raw) return null
+  const { parseSignals } = require('./visualSignals')
+  const signals = parseSignals(raw)
+  const text = signals && signals.briefing ? signals.briefing : String(raw).trim()
+  logger.info(
+    `[VISUAL-BRIEF] briefing généré (${tiles.length} tuile(s), ${text.length} car., ${signals ? 'signaux OK' : 'JSON non parseable'})`
+  )
+  return { text, signals }
 }
 
 module.exports = { generateBriefing, enabled }

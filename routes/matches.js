@@ -771,6 +771,38 @@ try {
  * High-confidence predictions (>=75% confidence) from pre-enriched DB records.
  * Uses ONLY the sync query layer — zero JIT network calls.
  */
+// ── PixelRAG : contexte visuel d'un match (briefing du lecteur + signaux structurés) ──
+router.get('/:id/visual', async (req, res) => {
+  try {
+    const db = require('../core/database')
+    if (typeof db.getVisualContext !== 'function') {
+      return res.json({ found: false, reason: 'no_visual_layer' })
+    }
+    const row = await db.getVisualContext(req.params.id)
+    if (!row || !row.briefing) return res.json({ found: false })
+    let briefing = String(row.briefing)
+    let signals = null
+    if (briefing.trim().startsWith('{')) {
+      try {
+        signals = JSON.parse(briefing)
+        briefing = signals.briefing || ''
+      } catch (e) {
+        /* texte brut (ancien format) */
+      }
+    }
+    res.json({
+      found: true,
+      briefing,
+      signals,
+      visual_confidence: row.visual_confidence,
+      enriched_at: row.enriched_at,
+    })
+  } catch (e) {
+    logger.error(`[VISUAL] route /:id/visual: ${e.message}`)
+    res.status(500).json({ error: 'visual context failed' })
+  }
+})
+
 router.get('/predictions', async (req, res) => {
   try {
     const db = require('../core/database')

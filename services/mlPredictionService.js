@@ -82,7 +82,40 @@ class MLPredictionService {
           logger.debug(`[ML] Context visuel indisponible: ${ve.message}`)
         }
 
+        // Signaux visuels structurés (lecteur PixelRAG) — injection COMBLANTE :
+        // ne renseigne is_missing_* que là où les news sont muettes, avec seuil
+        // de confiance. Ces champs alimentent les boosters déjà en prod
+        // (xg_engine, KEY_ABSENCES_VETO de prediction_engine).
+        let visualFilled = null
+        try {
+          if (vc && vc.visual_signals) {
+            const { applyGapFill } = require('./visualSignals')
+            visualFilled = applyGapFill(matchData, match, vc.visual_signals)
+          }
+        } catch (se) {
+          logger.debug(`[ML] Signaux visuels indisponibles: ${se.message}`)
+        }
+
         const result = await pythonService.predict(matchData)
+
+        // Boucle d'évaluation : journalise signaux + verdict (écrit même sans champ
+        // posé = baseline). Corrélation mesurée par scripts/visual_signal_stats.py.
+        try {
+          if (vc && vc.visual_signals && result && result.success !== false && !result.error) {
+            const { auditSignal } = require('./visualSignals')
+            auditSignal(match.id || `${match.homeTeam}_${match.awayTeam}`, vc.visual_signals, visualFilled || [], {
+              verdict: result.verdict || null,
+              confidence: result.xgboost_confidence ?? null,
+              probs: {
+                home: result.home_win_probability ?? null,
+                draw: result.draw_probability ?? null,
+                away: result.away_win_probability ?? null,
+              },
+            })
+          }
+        } catch (ae) {
+          logger.debug(`[ML] audit visuel indisponible: ${ae.message}`)
+        }
 
         // Briefing visuel (lecteur RAG Groq) porté dans la réponse, côté Node.
         if (result && result.success && vc && vc.visual_briefing) {

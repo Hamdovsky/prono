@@ -454,6 +454,31 @@ class PromosportIntelligence {
       }
     })
 
+    // PixelRAG : enrichit chaque match du briefing visuel (absences/forme lues
+    // sur les captures Wikipédia-Sofascore) quand le cache visual_context existe.
+    try {
+      const db = require('../core/database')
+      for (const md of matchData) {
+        const src = matches[md.id - 1]
+        const matchId = src && (src.id || src.match_id)
+        if (!matchId || typeof db.getVisualContext !== 'function') continue
+        const row = await db.getVisualContext(matchId)
+        if (!row || !row.briefing) continue
+        let text = String(row.briefing)
+        if (text.trim().startsWith('{')) {
+          try {
+            text = JSON.parse(text).briefing || ''
+          } catch (pe) {
+            /* texte brut */
+          }
+        }
+        text = text.replace(/\s+/g, ' ').trim()
+        if (text) md.visual = text.slice(0, 220)
+      }
+    } catch (e) {
+      logger.debug(`[PROMOSPORT LLM] contexte visuel indisponible: ${e.message}`)
+    }
+
     const crowdProfile = crowdHackerService.promosportBiasProfile || {}
     const contrarianHitRate = crowdProfile.contrarianHitRate || 0
     const crowdAccuracy = crowdProfile.promosportOverallAccuracy || 0
@@ -487,6 +512,8 @@ RÈGLES STRICTES:
 - Facteur DIFFÉRENT pour chaque match (ne te répète pas)
 - Explique POURQUOI ce facteur est décisif
 - Utilise les données fournies (B-Team, historique, etc.)
+- Le champ "visual" = ce que les CAPTURES d'écran (PixelRAG) montrent (absences, forme, effectif).
+  Si présent et pertinent, intègre-le en priorité — c'est une information visuelle rare.
 - En français uniquement
 - EXEMPLE: "Milan sans 3 titulaires en défense, Leao incertain → avantage Inter"
 - EXEMPLE: "Foule à 68% sur 1 mais l'équipe a déjà validé son billet → B-team probable"

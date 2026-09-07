@@ -192,9 +192,11 @@ function currentSeasonLabel() {
 
 function wikiQueriesForMatch(home, away) {
   const season = currentSeasonLabel()
-  return [home, away]
-    .filter(Boolean)
-    .map((t) => `${t} ${season} season football`)
+  const qs = []
+  if (home) qs.push(`${home} ${season} season football`)
+  if (away) qs.push(`${away} ${season} season football`)
+  if (home && away) qs.push(`${home} vs ${away} football head-to-head history`)
+  return qs
 }
 
 function filterTilesByTeams(tiles, teamNames) {

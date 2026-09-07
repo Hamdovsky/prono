@@ -4,16 +4,17 @@
 const pixelrag = require('../services/pixelragService')
 
 describe('wikiQueriesForMatch', () => {
-  test('une requête par équipe avec la saison courante', () => {
+  test('deux requêtes saison + une requête H2H', () => {
     const season = pixelrag.currentSeasonLabel()
     expect(season).toMatch(/^\d{4}-\d{2}$/)
     const qs = pixelrag.wikiQueriesForMatch('Al-Hilal', 'Neom SC')
-    expect(qs).toHaveLength(2)
+    expect(qs).toHaveLength(3)
     expect(qs[0]).toBe(`Al-Hilal ${season} season football`)
     expect(qs[1]).toBe(`Neom SC ${season} season football`)
+    expect(qs[2]).toBe('Al-Hilal vs Neom SC football head-to-head history')
   })
 
-  test('ignore les équipes vides', () => {
+  test('ignore les équipes vides (pas de H2H sans les deux)', () => {
     expect(pixelrag.wikiQueriesForMatch('', 'Neom SC')).toHaveLength(1)
     expect(pixelrag.wikiQueriesForMatch('', '')).toHaveLength(0)
   })

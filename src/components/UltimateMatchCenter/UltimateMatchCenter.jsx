@@ -3,6 +3,7 @@ import './UltimateMatchCenter.css'
 import { calculateEV, analyzeValue } from '../../services/InsightEngine'
 import PlayerProps from '../PlayerProps/PlayerProps'
 import { analyzeMatch } from '../../utils/matchAnalysis'
+import dataService from '../../services/dataService'
 
 const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
   // Escape key to close
@@ -15,6 +16,24 @@ const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
   }, [onClose])
 
   const analysis = useMemo(() => analyzeMatch(match), [match])
+
+  // Contexte visuel PixelRAG (briefing lecteur + signaux) — fetch à l'ouverture.
+  const [visual, setVisual] = useState(null)
+  useEffect(() => {
+    let alive = true
+    setVisual(null)
+    if (match?.id) {
+      dataService
+        .fetchVisualContext(match.id)
+        .then((v) => {
+          if (alive) setVisual(v)
+        })
+        .catch(() => {})
+    }
+    return () => {
+      alive = false
+    }
+  }, [match?.id])
 
   const valueAnalysis = useMemo(() => {
     if (!analysis?.hasRealOdds) return null
@@ -156,6 +175,76 @@ const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
         <div
           className="umc-body"
         >
+          {/* CONTEXTE VISUEL PIXELRAG — lecture des captures par le modèle vision */}
+          {visual && visual.briefing && (
+            <div
+              className="col-span-12 umc-panel"
+              style={{
+                background: 'rgba(8, 47, 73, 0.5)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                padding: '16px 20px',
+                borderRadius: 16,
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    background: '#0ea5e9',
+                    color: '#fff',
+                    fontSize: '0.65rem',
+                    fontWeight: 900,
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                  }}
+                >
+                  PIXELRAG
+                </span>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#e0f2fe' }}>
+                  👁 Lecture visuelle (Wikipédia / Sofascore)
+                </h4>
+                {visual.visual_confidence != null && (
+                  <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#7dd3fc' }}>
+                    fiabilité {Math.round((visual.visual_confidence || 0) * 100)}%
+                  </span>
+                )}
+              </div>
+              <div style={{ whiteSpace: 'pre-line', fontSize: '0.85rem', lineHeight: 1.5, color: '#bae6fd' }}>
+                {visual.briefing}
+              </div>
+              {visual.signals &&
+                (visual.signals.missing_star_home ||
+                  visual.signals.missing_star_away ||
+                  visual.signals.missing_gk_home ||
+                  visual.signals.missing_gk_away) && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                    {[
+                      visual.signals.missing_star_home && '★ star absente (dom.)',
+                      visual.signals.missing_star_away && '★ star absente (ext.)',
+                      visual.signals.missing_gk_home && '🧤 GK absent (dom.)',
+                      visual.signals.missing_gk_away && '🧤 GK absent (ext.)',
+                    ]
+                      .filter(Boolean)
+                      .map((chip) => (
+                        <span
+                          key={chip}
+                          style={{
+                            background: 'rgba(251, 113, 133, 0.15)',
+                            color: '#fda4af',
+                            border: '1px solid rgba(251, 113, 133, 0.4)',
+                            borderRadius: 8,
+                            padding: '2px 8px',
+                            fontSize: '0.72rem',
+                          }}
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                  </div>
+                )}
+            </div>
+          )}
+
           {/* INFORMATIONS CLÉS DU MATCH (remplace l'ancien simulateur Monte Carlo) */}
           <div
             className="col-span-12 umc-panel"

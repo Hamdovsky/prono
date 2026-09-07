@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const logger = require('./logger')
 
-const CONFIG_FILE = path.join(__dirname, '..', 'data', 'config.json')
+const CONFIG_FILE = process.env.STITCH_CONFIG_FILE || path.join(__dirname, '..', 'data', 'config.json')
 const ENV_FILE = path.join(__dirname, '..', '.env')
 
 class ConfigEngine {
@@ -35,6 +35,12 @@ class ConfigEngine {
   }
 
   async save() {
+    // Serialize writes: concurrent set() calls must not interleave and corrupt config.json
+    this._writeQueue = (this._writeQueue || Promise.resolve()).then(() => this._writeConfig())
+    return this._writeQueue
+  }
+
+  async _writeConfig() {
     try {
       await fs.promises.writeFile(CONFIG_FILE, JSON.stringify(this.config, null, 2))
       logger.info('💾 [CONFIG] Configuration saved to disk')
@@ -48,8 +54,22 @@ class ConfigEngine {
   async updateEnv(key, value) {
     try {
       let envContent = ''
-      if (fs.existsSync(ENV_FILE)) {
+      let fileSeen = false
+      try {
+        // Lecture directe : ne JAMAIS supposer un fichier absent sur la foi d'un
+        // seul existsSync (les deux indicateurs peuvent diverger -> risque de
+        // réécrire .env avec une seule clé et d'effacer les autres, ex: fs mocké
+        // en test ou race disque).
         envContent = await fs.promises.readFile(ENV_FILE, 'utf8')
+        fileSeen = true
+      } catch (readErr) {
+        if (readErr && readErr.code === 'ENOENT') {
+          fileSeen = false // fichier réellement absent -> création propre
+        } else {
+          // Erreur ambiguë (perm, share, mock) : on refuse d'écraser le fichier.
+          logger.error(`❌ [CONFIG] Lecture .env incertaine, écriture annulée: ${readErr.message}`)
+          return false
+        }
       }
 
       const lines = envContent.split('\n')
@@ -95,7 +115,11 @@ class ConfigEngine {
   }
 
   set(key, value) {
-    this.config[key] = value
+    if (value === undefined) {
+      delete this.config[key]
+    } else {
+      this.config[key] = value
+    }
     return this.save()
   }
 }

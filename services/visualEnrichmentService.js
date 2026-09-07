@@ -30,6 +30,18 @@ async function getVisualContext(match, opts = {}) {
         const row = await db.getVisualContext(matchId)
         if (row && row.enriched_at && Date.now() - row.enriched_at < VISUAL_TTL_MS) {
           try {
+            // briefing en base = JSON {briefing, missing_*, form_*, confidence} (nouveau)
+            // ou texte libre (anciennes lignes) -> décodage tolérant.
+            let vb = row.briefing || ''
+            let vs = null
+            if (vb && vb.trim().startsWith('{')) {
+              try {
+                vs = JSON.parse(vb)
+                vb = vs.briefing || ''
+              } catch (pe) {
+                /* texte brut */
+              }
+            }
             return {
               visual_confidence: row.visual_confidence ?? 1.0,
               tiles: JSON.parse(row.tiles || '[]'),
@@ -37,7 +49,8 @@ async function getVisualContext(match, opts = {}) {
               screenshot_paths: JSON.parse(row.screenshot_paths || '[]'),
               article_ids: JSON.parse(row.article_ids || '[]'),
               query_text: row.query_text || '',
-              visual_briefing: row.briefing || '',
+              visual_briefing: vb,
+              visual_signals: vs,
               enriched_at: row.enriched_at,
               cached: true,
             }
@@ -108,14 +121,15 @@ async function getVisualContext(match, opts = {}) {
     logger.debug(`[VISUAL] cache write failed: ${e.message}`)
   }
 
-  // 4. Briefing visuel (lecteur RAG Groq vision) — best-effort, budget mensuel,
-  // persisté dans le cache pour ne jamais rappeler Groq à chaque prédiction.
+  // 4. Briefing visuel (lecteur RAG vision) — best-effort, budgets mensuel+quotidien,
+  // persisté en JSON dans le cache pour ne jamais rappeler le LLM à chaque prédiction.
   try {
     const briefingService = require('./visualBriefingService')
     if (briefingService.enabled()) {
-      const briefing = await briefingService.generateBriefing(match, context)
-      if (briefing) {
-        context.visual_briefing = briefing
+      const out = await briefingService.generateBriefing(match, context)
+      if (out && out.text) {
+        context.visual_briefing = out.text
+        context.visual_signals = out.signals || null
         const db = require('../core/database')
         if (typeof db.setVisualContext === 'function') {
           await db.setVisualContext({
@@ -127,7 +141,7 @@ async function getVisualContext(match, opts = {}) {
             scores: context.scores,
             query_text: context.query_text,
             enriched_at: context.enriched_at,
-            briefing,
+            briefing: out.signals ? JSON.stringify(out.signals) : out.text,
           })
         }
       }

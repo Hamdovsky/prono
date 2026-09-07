@@ -88,20 +88,40 @@ describe('visualBriefingService', () => {
     expect(axios.post).not.toHaveBeenCalled()
   })
 
-  test('generateBriefing appelle OpenRouter (text+image_url) et retourne le texte', async () => {
+  test('generateBriefing appelle OpenRouter (text+image_url) et retourne {text, signals}', async () => {
     process.env.VISION_LLM_API_KEY = 'sk-vision'
-    axios.post.mockResolvedValueOnce({
-      data: { choices: [{ message: { content: '• Forme solide\n• Effectif au complet\n• Historique favorable' } }] },
+    const payload = JSON.stringify({
+      briefing: '• Forme solide\n• Effectif au complet\n• Historique favorable',
+      missing_star_home: 0,
+      missing_star_away: 1,
+      missing_gk_home: 0,
+      missing_gk_away: 0,
+      form_home: 'W-W-D',
+      form_away: 'L-L-D',
+      h2h_note: '',
+      confidence: 0.8,
     })
+    axios.post.mockResolvedValueOnce({ data: { choices: [{ message: { content: payload } }] } })
     const ctx = { tiles: [{ path: fakeTilePath('t2.png'), source: 'wikipedia' }] }
     const res = await briefing.generateBriefing({ homeTeam: 'A', awayTeam: 'B' }, ctx)
-    expect(res).toContain('Forme solide')
+    expect(res.text).toContain('Forme solide')
+    expect(res.signals.missing_star_away).toBe(1)
+    expect(res.signals.confidence).toBe(0.8)
     expect(axios.post).toHaveBeenCalledTimes(1)
     const [url, body] = axios.post.mock.calls[0]
     expect(url).toContain('openrouter.ai')
     expect(body.model).toContain('minimax')
     expect(body.messages[0].content[0].type).toBe('text')
     expect(body.messages[0].content[1].type).toBe('image_url')
+  })
+
+  test('réponse non-JSON -> {text brut, signals null} (tolérance)', async () => {
+    process.env.VISION_LLM_API_KEY = 'sk-vision'
+    axios.post.mockResolvedValueOnce({ data: { choices: [{ message: { content: '- puce1\n- puce2' } }] } })
+    const ctx = { tiles: [{ path: fakeTilePath('t7.png'), source: 'wikipedia' }] }
+    const res = await briefing.generateBriefing({ homeTeam: 'A', awayTeam: 'B' }, ctx)
+    expect(res.text).toContain('puce1')
+    expect(res.signals).toBeNull()
   })
 
   test('429 primaire -> retry automatique sur le modèle fallback', async () => {
@@ -111,7 +131,7 @@ describe('visualBriefingService', () => {
       .mockResolvedValueOnce({ data: { choices: [{ message: { content: 'briefing fallback' } }] } })
     const ctx = { tiles: [{ path: fakeTilePath('t5.png'), source: 'wikipedia' }] }
     const res = await briefing.generateBriefing({ homeTeam: 'A', awayTeam: 'B' }, ctx)
-    expect(res).toBe('briefing fallback')
+    expect(res.text).toBe('briefing fallback')
     expect(axios.post).toHaveBeenCalledTimes(2)
     expect(axios.post.mock.calls[1][1].model).toContain('gemma')
   })
@@ -140,9 +160,24 @@ describe('visualBriefingService', () => {
     })
     const ctx = { tiles: [{ path: fakeTilePath('t3.png'), source: 'wikipedia' }] }
     const m = { homeTeam: 'A', awayTeam: 'B' }
-    expect(await briefing.generateBriefing(m, ctx)).toBe('ok')
-    expect(await briefing.generateBriefing(m, ctx)).toBe('ok')
+    expect((await briefing.generateBriefing(m, ctx)).text).toBe('ok')
+    expect((await briefing.generateBriefing(m, ctx)).text).toBe('ok')
     expect(await briefing.generateBriefing(m, ctx)).toBeNull()
     expect(axios.post).toHaveBeenCalledTimes(2)
+  })
+
+  test('budget QUOTIDIEN atteint -> null sans HTTP', async () => {
+    process.env.VISION_LLM_API_KEY = 'sk-vision'
+    const today = new Date().toISOString().substring(0, 10)
+    fsMock.readFileSync.mockImplementation((p) => {
+      if (String(p).includes('vb_usage')) {
+        return JSON.stringify({ current_month: month(), count: 5, current_day: today, day_count: 40 })
+      }
+      return '{}'
+    })
+    const ctx = { tiles: [{ path: fakeTilePath('t8.png'), source: 'wikipedia' }] }
+    const res = await briefing.generateBriefing({ homeTeam: 'A', awayTeam: 'B' }, ctx)
+    expect(res).toBeNull()
+    expect(axios.post).not.toHaveBeenCalled()
   })
 })

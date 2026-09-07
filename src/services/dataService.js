@@ -559,6 +559,19 @@ class DataService {
     } catch {}
   }
 
+  // Contexte visuel PixelRAG d'un match (briefing lecteur + signaux structurés).
+  async fetchVisualContext(matchId) {
+    if (!matchId) return null
+    try {
+      const res = await fetch(getApiUrl(`/api/matches/${encodeURIComponent(matchId)}/visual`))
+      if (!res.ok) return null
+      const data = await res.json()
+      return data && data.found ? data : null
+    } catch {
+      return null
+    }
+  }
+
   subscribeHealth(callback) {
     this.healthSubscribers.push(callback)
     if (this.healthCache) callback(this.healthCache)

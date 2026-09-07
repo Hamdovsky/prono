@@ -4858,3 +4858,73 @@ Demande : « a-t-on déjà une clé qui marche pour lire les PNG ? » Audit du s
 - **Features ML** : 12 colonnes `visual_*` prêtes ; effet sur XGBoost seulement après retrain
   `--visual` (déclencheur ~200 matchs réglés). ⏳ en accumulation.
 - Rien commité (non demandé).
+
+---
+
+## 👁 PixelRAG — signaux structurés ENTRANTS dans l'engine (session 2026-09-07, plan 4 chemins)
+
+Demande : « améliorer le rôle de PixelRAG » -> passer d'un briefing décoratif à un
+apport RÉEL sur les verdicts, sans retrain (les boosters de prod consomment déjà les
+champs d'absence). Validé par l'utilisateur : signaux entrants OUI + périmètre complet.
+
+### A — Lecteur JSON + injection comblante
+- `services/visualSignals.js` (nouveau, fonctions pures testables) :
+  - `parseSignals(raw)` : extraction tolérante du 1er objet JSON (les LLM enveloppent
+    en markdown), clamp flags 0/1 + confidence [0,1], null si pas de JSON.
+  - `applyGapFill(matchData, match, signals)` : ne pose `is_missing_star(_away)` /
+    `is_missing_gk(_away)` que si **news muettes** (null/0 côté match) ET
+    `confidence ≥ VISUAL_SIGNAL_MIN_CONFIDENCE` (0.55). JAMAIS d'écrasement news.
+  - `auditSignal(...)` : JSONL `data/visual_signal_audit.jsonl` (signaux + champs posés
+    + verdict/conf/probs) — traçabilité complète des impacts.
+- `services/visualBriefingService.js` : prompt -> **schéma JSON strict** (briefing +
+  4 flags absence + formes + h2h_note + confidence) ; retourne `{text, signals}` ;
+  réponse non-JSON tolérée (text brut, signals null) ; **cap quotidien**
+  `VISUAL_BRIEFING_MAX_DAILY=40` (OpenRouter free ≈50 req/j) en plus du mensuel.
+- `services/visualEnrichmentService.js` : la colonne `briefing` stocke le JSON ;
+  décodage tolérant à la relecture (legacy texte brut OK) ; expose `visual_signals`.
+- `services/mlPredictionService.js` : gap-fill sur `matchData` AVANT `/predict`
+  (ces champs alimentent `xg_engine.apply_squad_intelligence` + le
+  KEY_ABSENCES_VETO de `prediction_engine` -> effet immédiat sur verdicts/probs) ;
+  audit APRÈS predict avec le verdict.
+
+### B — Le briefing devient visible (c'était un cul-de-sac)
+- `routes/matches.js` : nouveau `GET /api/matches/:id/visual` (briefing + signals +
+  confiance depuis le cache).
+- `src/services/dataService.js` : `fetchVisualContext(matchId)`.
+- `src/components/UltimateMatchCenter/UltimateMatchCenter.jsx` : bloc « PIXELRAG 👁
+  Lecture visuelle » dans le modal détail (briefing multi-puces + chips d'absence
+  + fiabilité %), fetch à l'ouverture, silencieux si rien.
+- `services/promosportIntelligence.js` : chaque match de la grille reçoit son
+  `visual` (briefing tronqué 220 car.) dans le payload de l'analyste LLM + règle
+  « intègre le champ visual en priorité » -> les secretWeapons exploitent PixelRAG.
+
+### C — Retrieval H2H
+- `wikiQueriesForMatch` : 3e requête `"<X> vs <Y> football head-to-head history"`.
+
+### D — Boucle d'évaluation
+- `scripts/visual_signal_stats.py` : joint l'audit JSONL aux résultats réglés
+  (SQLite matches/historical_matches), compare réussite argmax(probs) quand un flag
+  visuel a été posé vs baseline, détail par champ. À lancer dans quelques semaines.
+
+### 🐛 Bug critique trouvé et corrigé au passage (`core/configEngine.js`)
+`updateEnv()` faisait `existsSync` (mocké en test -> false hors chemins 'data') puis
+lisait '' et **réécrivait `.env` avec la seule clé du coup** -> `npm test` a EFFACÉ
+`OPENROUTER_API_KEY` du `.env` réel (découvert pendant l'E2E). Fix : lecture directe
+via `fs.promises.readFile`, `ENOENT` seul = fichier vraiment absent ; toute autre
+erreur = **écriture annulée** (ne jamais écraser à l'aveugle). Clé restaurée, et
+pruvée : `.env` intact après `npm test` complet.
+
+### Vérifications (vertes)
+- `node --check` : 7 JS backend OK ; **build Vite OK** (front) ; `py_compile` stats OK.
+- **Jest 744/744** (+12 : visualSignals purs, parse tolérant, cap quotidien, H2H).
+- **E2E réel** (Al-Hilal vs Neom, force) : lecteur -> JSON « signaux OK », confidence
+  0.45 (le modèle déclare honnêtement « aucun visuel ne montre absences/forme/H2H ») ->
+  gap-fill **ne pose rien** (sous le seuil 0.55) = le design anti-hallucination
+  fonctionne ; cache-hit décode signals + briefing (439 car.).
+- Script stats : s'exécute, message d'accueil tant que l'audit est vide.
+
+### Points de contrôle
+- L'audit JSONL se remplira dès que les prédictions tourneront (serveur local).
+- Rejouer `python scripts/visual_signal_stats.py` dans ~2 semaines : si le groupe
+  « signaux posés » n'apporte rien, remonter le seuil à 0.65 ou désactiver le gap-fill
+  (`VISUAL_SIGNAL_MIN_CONFIDENCE=1.1`).

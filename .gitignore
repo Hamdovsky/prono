@@ -23,8 +23,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # logs
-/logs/*.log
-/logs/*.json
+/logs/
 
 # databases
 *.db
@@ -103,6 +102,24 @@ data/training_weights.json
 data/last_promosport_concours.txt
 data/live_toggle.json
 scripts/sync_to_render.js
+# caches & état runtime (régénérables — audit 2026-09-07)
+data/promosport_odds_cache.json
+data/scraper_history.json
+data/config.json
+data/accuracy_trend.json
+data/accuracy_report.json
+data/backtest_results.json
+data/backtest_external.json
+data/api_football_cache.json
+data/apifootball_usage.json
+data/news_cache.json
+data/visual_briefing_usage.json
+data/visual_signal_audit.jsonl
+data/promosport_archive_pre_import.json
+# sorties de grilles générées (datées)
+/grilles/
+# caches outils
+/.pytest_cache/
 
 # Python cache
 __pycache__/

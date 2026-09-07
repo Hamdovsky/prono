@@ -178,3 +178,4 @@ dist/
 
 # Visual context (PixelRAG-lite) — screenshots locaux + index embeddings
 data/visual/
+data/engine_prob_trace.jsonl

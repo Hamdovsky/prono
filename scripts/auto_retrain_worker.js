@@ -9,7 +9,7 @@ const TRAIN_SCRIPT = path.join(__dirname, '..', 'core', 'train_v24_top_analyst.p
 const LIVE_MODEL_PATH = path.join(__dirname, '..', 'models', 'live_goal_xgb.json')
 const LIVE_TRAIN_SCRIPT = path.join(__dirname, '..', 'core', 'train_live_model.py')
 
-const FEEDBACK_SCRIPT = path.join(__dirname, '..', 'scripts', 'backtest_feedback.py')
+const FEEDBACK_SCRIPT = path.join(__dirname, '..', 'scripts', 'backtest_feedback_weights.py')
 const CALIBRATION_SCRIPT = path.join(__dirname, '..', 'core', 'backtest_feedback.py')
 
 function _findPython() {
@@ -22,7 +22,7 @@ function _findPython() {
 }
 
 /**
- * Run backtest_feedback.py to generate per-league training weights.
+ * Run scripts/backtest_feedback_weights.py to generate per-league training weights.
  * This bridges JS settlement data → Python XGBoost retraining.
  */
 function runBacktestFeedback() {

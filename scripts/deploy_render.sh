@@ -23,7 +23,7 @@ node -e "require('dotenv').config(); const { Pool } = require('pg'); const pool 
 
 # 4️⃣ Import historique
 echo "📥 Import historique..."
-node scripts_init/import_promosport_history.js 2>/dev/null || echo "✅ Déjà importé"
+node scripts/import_promosport_history.js 2>/dev/null || echo "✅ Déjà importé"
 
 # 5️⃣ Test API
 echo "🧪 Test API..."

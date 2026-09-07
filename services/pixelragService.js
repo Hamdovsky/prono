@@ -168,12 +168,54 @@ function _makeClient(baseUrl) {
 const local = _makeClient(LOCAL_URL)
 const wiki = _makeClient(WIKI_URL)
 
+// ── Hygiène de requête Wikipédia (index hébergé générique) ──
+// "X football club season squad" ramenait des tuiles hors-sujet (joueurs d'autres
+// clubs). On cible la SAISON COURANTE et on ne garde que les tuiles dont le titre
+// Wikipédia mentionne une des équipes — si rien ne passe, on garde tout (le
+// lecteur vision signale l'off-topic, mieux vaut que de ne rien récupérer).
+function normName(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function currentSeasonLabel() {
+  const y = new Date().getFullYear()
+  const m = new Date().getMonth() + 1
+  const start = m >= 7 ? y : y - 1 // saisons européennes ~juillet→juin
+  return `${start}-${String(start + 1).slice(2)}` // ex "2026-27"
+}
+
+function wikiQueriesForMatch(home, away) {
+  const season = currentSeasonLabel()
+  return [home, away]
+    .filter(Boolean)
+    .map((t) => `${t} ${season} season football`)
+}
+
+function filterTilesByTeams(tiles, teamNames) {
+  const keys = teamNames.map(normName).filter((k) => k.length >= 4)
+  if (!keys.length) return tiles
+  const kept = tiles.filter((t) => {
+    const title = normName(t.url || t.title || '')
+    return keys.some((k) => title.includes(k))
+  })
+  return kept.length ? kept : tiles
+}
+
 module.exports = {
   VISION_URL: LOCAL_URL,
   WIKI_URL,
   local,
   wiki,
   normalizeSearchResponse,
+  wikiQueriesForMatch,
+  filterTilesByTeams,
+  currentSeasonLabel,
   // ── Rétro-compatibilité : exports de premier niveau = client LOCAL ──
   search: local.search,
   searchByImage: local.searchByImage,

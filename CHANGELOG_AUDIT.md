@@ -4835,6 +4835,22 @@ Demande : « a-t-on déjà une clé qui marche pour lire les PNG ? » Audit du s
 - La requête wiki `"<équipe> football club season squad"` ramène parfois des tuiles hors-sujet
   (joueur d'une autre équipe). Le lecteur les détecte ; piste d'amélioration : requête plus
   stricte (`"<équipe> <année> squad"`) ou filtre sur le titre du hit. Non bloquant.
+  → **RÉSOLU juste en dessous (même session).**
+
+### Pertinence wiki — requête saison + filtre par titre (fix session)
+- `services/pixelragService.js` : nouveaux helpers exportés —
+  `currentSeasonLabel()` (`"2026-27"`), `wikiQueriesForMatch(home, away)` →
+  `"<équipe> <saison> season football"`, `filterTilesByTeams(tiles, noms)` → ne garde
+  les tuiles dont le TITRE Wikipédia contient une équipe (normalisation accents/tirets,
+  noms < 4 car. ignorés, repli sur la liste brute si rien ne matche).
+- Consommateurs alignés : `visualEnrichmentService` (chemin live) +
+  `scrapeVisualBatch.fetchWikiTiles` (pré-remplissage, n_docs 2→3).
+- **Preuve live** (Al-Hilal vs Neom) : brut 6 tuiles dont Al-Hazem et Al-Ahli (hors-sujet)
+  -> filtré 4 tuiles, uniquement Al-Hilal/Neom. L'index hébergé datant de 2026-05, la
+  saison retombée est « 2025–26 » (dernière connue) — la requête sert d'indice, le filtre
+  garantit la pertinence.
+- `__tests__/pixelragService.test.js` : 7 tests purs (sans réseau).
+- **Jest 732/732** (+7). Commit `feat(pixelrag)` suite de `e93ad6e`.
 
 ### Rôle de PixelRAG — état actuel (résumé honnête)
 - **Retrieval** : local (Sofascore live) + hébergé (Wikipédia historique) → cache. ✅ actif.

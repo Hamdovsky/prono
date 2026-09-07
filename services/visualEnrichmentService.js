@@ -58,17 +58,15 @@ async function getVisualContext(match, opts = {}) {
   const query = queryForMatch(match)
   const home = match.homeTeam || match.home || ''
   const away = match.awayTeam || match.away || ''
-  const wikiQueries = [
-    home && `${home} football club season squad`,
-    away && `${away} football club season squad`,
-  ].filter(Boolean)
+  const wikiQueries = pixelrag.wikiQueriesForMatch(home, away)
   const [localRes, wikiRes] = await Promise.all([
     pixelrag.search(query, { n_docs: 6 }),
     wikiQueries.length ? pixelrag.wiki.search(wikiQueries, { n_docs: 3 }) : null,
   ])
 
   const localTiles = ((localRes && localRes.tiles) || []).map((t) => ({ ...t, source: 'sofascore' }))
-  const wikiTiles = ((wikiRes && wikiRes.tiles) || []).map((t) => ({ ...t, source: 'wikipedia' }))
+  const rawWikiTiles = ((wikiRes && wikiRes.tiles) || []).map((t) => ({ ...t, source: 'wikipedia' }))
+  const wikiTiles = pixelrag.filterTilesByTeams(rawWikiTiles, [home, away])
   const tiles = [...localTiles, ...wikiTiles]
   if (!tiles.length && !force) {
     logger.debug(`[VISUAL] pas de contexte visuel pour ${matchId} (serveurs vision down ou index vides)`)

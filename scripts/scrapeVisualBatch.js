@@ -148,15 +148,13 @@ const ARTICLES_JSON = path.join(VISUAL_DIR, 'articles.json')
 // en local et les fusionne dans visual_context_cache -> la prédiction lit tout depuis
 // le cache, sans jamais dépendre de l'API en temps réel.
 async function fetchWikiTiles(pixelrag, homeT, awayT, dir, dryRun) {
-  const queries = [
-    homeT && `${homeT.name} football club season squad`,
-    awayT && `${awayT.name} football club season squad`,
-  ].filter(Boolean)
+  const queries = pixelrag.wikiQueriesForMatch(homeT && homeT.name, awayT && awayT.name)
   if (!queries.length) return []
-  const res = await pixelrag.wiki.search(queries, { n_docs: 2 })
+  const res = await pixelrag.wiki.search(queries, { n_docs: 3 })
   if (!res || !res.success) return []
+  const kept = pixelrag.filterTilesByTeams(res.tiles, [homeT && homeT.name, awayT && awayT.name])
   const out = []
-  for (const t of res.tiles) {
+  for (const t of kept) {
     const tile = { ...t, source: 'wikipedia' }
     if (!dryRun && t.article_id != null) {
       const png = await pixelrag.getTile(t.article_id, t.tile_index, t.chunk_index || 0)

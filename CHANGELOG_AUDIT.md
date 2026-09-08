@@ -4,6 +4,49 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif Ã  la fois, valid
 
 ---
 
+## Route /api/matches/upcoming â€” fallback intelligent sur fenÃªtre rÃ©duite (2026-09-08, local)
+
+### Objectif (RFA de la session prÃ©cÃ©dente)
+Le fallback Â« 7 derniers jours Â» de `/api/matches/upcoming` se dÃ©clenchait dÃ¨s que
+`rawMatches.length === 0`. Effet de bord : quand la fenÃªtre `?days=N` Ã©tait
+lÃ©gitimement Ã©troite (ex. `?days=1` un jour creux, ou crÃ©neau BST tardif sans
+match sur les 3 jours par dÃ©faut), le fallback ramenait des matchs **des 7
+jours passÃ©s** et l'UI mÃ©langeait passÃ© + futur sans signal clair. Il fallait
+un seuil + un opt-out explicite.
+
+### Modifications â€” `routes/matches.js:353,388,413`
+- Capture `_requestedDays = req.query.days ? daysParam : null` (opt-in explicite).
+- Garde de fallback : `rawMatches.length === 0 || (rawMatches.length < 10 && _requestedDays === null)`.
+  â†’ **Seuil < 10** : on ne bascule PAS en fallback si la fenÃªtre est honnÃªte mais peu garnie.
+  â†’ **Opt-out `?days=N`** : on ne bascule PAS en fallback si l'utilisateur a explicitement
+    demandÃ© une fenÃªtre (ex. `?days=1`, `?days=14`) â€” il veut CETTE fenÃªtre, point.
+- Log informatif : `[UPCOMING] Fallback to recent matches â€” showing N (was M upcoming, threshold <10)`.
+
+### Tests â€” `__tests__/matches.test.js:224-265`
+- Test Â« should apply date window filter Â» Ã©tendu : mock de **12 matchs valides**
+  (fenÃªtre 3 jours) + 1 vieux + 1 trop loin. Attendus :
+  - au moins un `valid-*` prÃ©sent (filtre OK),
+  - `old`/`future` absents (fenÃªtre 3j respectÃ©e),
+  - **fallback NON dÃ©clenchÃ©** (â‰¥ 10 â†’ seuil non franchi â†’ pas de pollution 7j).
+- Ancien test (1 match valide) supprimÃ© : avec un seul match, le seuil < 10
+  basculait en fallback et le test devenait ambigu (test du filtre OU du fallback ?).
+
+### Validations
+- `node --check routes/matches.js` : OK.
+- `npm test` : **744/744** (74 suites, +29 vs 715/71 dernier run) â€” non-rÃ©gression.
+- `pytest tests/` (hors `test_command_center_pronostics.py`) : **344 passed, 30 skipped, 2 xfailed** â€” 0 failed.
+- ESLint `routes/matches.js` : 0 erreur (warning prÃ©-existant `dWP` ligne 819 non touchÃ©).
+- Non commitÃ© (travail en cours prÃ©servÃ©).
+
+### Reste Ã  faire
+- Aucun (correctif ciblÃ©, test ciblÃ©, log informatif). Possibles Ã©volutions non demandÃ©es :
+  Ã©tendre le test avec un cas `?days=1` (1 match valide) pour vÃ©rifier l'opt-out explicite.
+- Fichiers non trackÃ©s `karkadan.ico/jpg` (logo, 27/08), `pronos-server.bat` (27/08),
+  `pronos-test.bat` (11/08), `promosport_reference.md` (24/06) : Ã  trier (logo = OK Ã 
+  committer dans `public/`, .bat = outils perso, .md = ancien) â€” pas dans le scope.
+
+---
+
 ## Arbitrage rendement net â€” simples diversifiÃ©s vs doubles couverts (2026-09-06, local)
 
 ### Objectif (RFA de la section prÃ©cÃ©dente)
@@ -4931,7 +4974,7 @@ pruvÃ©e : `.env` intact aprÃ¨s `npm test` complet.
 
 ---
 
-## ?? ANNEXE — CHANGELOG AUDIT C (corners/HT, fusionné 2026-09-07 depuis CHANGELOG_AUDIT_C.md supprimé)
+## ?? ANNEXE ï¿½ CHANGELOG AUDIT C (corners/HT, fusionnï¿½ 2026-09-07 depuis CHANGELOG_AUDIT_C.md supprimï¿½)
 
 # CHANGELOG AUDIT C â€” fine-relish (Corners/HT/corners storage)
 
@@ -5345,110 +5388,110 @@ manquants sont traitÃ©s. Le journal [CONTINUITE] au boot le prouve chiffre Ã  l'
 
 ---
 
-## ?? Audit hygiène & structure — exécution du plan P0?P7 (session 2026-09-07)
+## ?? Audit hygiï¿½ne & structure ï¿½ exï¿½cution du plan P0?P7 (session 2026-09-07)
 
-Demande : rapport faiblesses/doublons puis exécution locale du plan de résolution.
+Demande : rapport faiblesses/doublons puis exï¿½cution locale du plan de rï¿½solution.
 
-### P0 — Sauvegarde sans remote
-- `git bundle` complet de main -> `backups/stitch-main-2026-09-07_0338.bundle` (vérifié,
+### P0 ï¿½ Sauvegarde sans remote
+- `git bundle` complet de main -> `backups/stitch-main-2026-09-07_0338.bundle` (vï¿½rifiï¿½,
   historique entier). Travail 100 % local, aucun push.
 
-### P1 — Travail préexistant commité (validé par les suites avant commit)
-- `feat(ml)` 7e45e8d : escalier d'engine 4 étages (Promosport -> Graph -> DEX ->
-  Titanium XGB) + anti-crowd-trap + artefacts ré-entraînés + corpus journaux ML.
+### P1 ï¿½ Travail prï¿½existant commitï¿½ (validï¿½ par les suites avant commit)
+- `feat(ml)` 7e45e8d : escalier d'engine 4 ï¿½tages (Promosport -> Graph -> DEX ->
+  Titanium XGB) + anti-crowd-trap + artefacts rï¿½-entraï¿½nï¿½s + corpus journaux ML.
 - `chore(test)` c42b891 : isolation ConfigEngine Jest (STITCH_CONFIG_FILE par worker).
-- `feat(promosport)` c0dd453 : sauvegarde pré-import archive + tests du blend.
+- `feat(promosport)` c0dd453 : sauvegarde prï¿½-import archive + tests du blend.
 
-### P2 — Données runtime désuivies (616499a)
-- `git rm --cached` (conservés sur disque) : promosport_odds_cache, scraper_history,
+### P2 ï¿½ Donnï¿½es runtime dï¿½suivies (616499a)
+- `git rm --cached` (conservï¿½s sur disque) : promosport_odds_cache, scraper_history,
   config.json, accuracy_trend/report, backtest_results/external (-23 053 lignes de l'index).
-- `.gitignore` : caches data/*, /logs/ entier, /grilles/ (sorties datées), .pytest_cache.
-- CHOIX assumé : les journaux ML non régénérables (engine_prob_trace,
+- `.gitignore` : caches data/*, /logs/ entier, /grilles/ (sorties datï¿½es), .pytest_cache.
+- CHOIX assumï¿½ : les journaux ML non rï¿½gï¿½nï¿½rables (engine_prob_trace,
   live_prediction_journal/results, combo_history, fpis_learning_log,
   tunisian_vote_history) RESTENT suivis (historique = seule sauvegarde, local-only).
 
-### P3 — Doublons & morts (4a40c51)
-- Supprimés : `config/leagues_ids.json` (identique racine, 0 lecteur), `serverless/`
-  (0 référence réelle), `downloaded_files/` (lock Selenium).
-- `CHANGELOG_AUDIT_C.md` fusionné en annexe ci-dessus puis supprimé.
-- Renommage anti-piège : `scripts/backtest_feedback.py` -> `backtest_feedback_weights.py`
-  (le `core/backtest_feedback.py` homonyme fait la CALIBRATION — deux rôles, un nom) ;
-  refs `auto_retrain_worker.js` + `deploy_render.sh` mises à jour.
+### P3 ï¿½ Doublons & morts (4a40c51)
+- Supprimï¿½s : `config/leagues_ids.json` (identique racine, 0 lecteur), `serverless/`
+  (0 rï¿½fï¿½rence rï¿½elle), `downloaded_files/` (lock Selenium).
+- `CHANGELOG_AUDIT_C.md` fusionnï¿½ en annexe ci-dessus puis supprimï¿½.
+- Renommage anti-piï¿½ge : `scripts/backtest_feedback.py` -> `backtest_feedback_weights.py`
+  (le `core/backtest_feedback.py` homonyme fait la CALIBRATION ï¿½ deux rï¿½les, un nom) ;
+  refs `auto_retrain_worker.js` + `deploy_render.sh` mises ï¿½ jour.
 - `scripts_init/` -> `scripts/` ; logs racine (12) -> `logs/` ; test_*.js +
   _probe_www.py -> `scratch/`.
-- Constats gardés : `data_pipeline/` (845 Mo) EST utilisé (scraper, baseline, walk-forward)
-  — projet imbriqué documenté, pas supprimé ; `backups/` = copie data_pipeline du 06/09
-  (récente) -> gardée ; `.streamlit` utilisé (command_center.py, ultra_dashboard.py) -> gardé.
+- Constats gardï¿½s : `data_pipeline/` (845 Mo) EST utilisï¿½ (scraper, baseline, walk-forward)
+  ï¿½ projet imbriquï¿½ documentï¿½, pas supprimï¿½ ; `backups/` = copie data_pipeline du 06/09
+  (rï¿½cente) -> gardï¿½e ; `.streamlit` utilisï¿½ (command_center.py, ultra_dashboard.py) -> gardï¿½.
 
-### P4 — Unification des tests (01cf4f6)
-- `tests/` = pytest uniquement ; tout Jest réuni dans `__tests__/` (8 fichiers déplacés).
-- Paires divergentes renommées sans fusion de contenu (elles testaient des aspects
-  DIFFÉRENTS sous le même nom) : `configEngine.coverage.test.js`,
+### P4 ï¿½ Unification des tests (01cf4f6)
+- `tests/` = pytest uniquement ; tout Jest rï¿½uni dans `__tests__/` (8 fichiers dï¿½placï¿½s).
+- Paires divergentes renommï¿½es sans fusion de contenu (elles testaient des aspects
+  DIFFï¿½RENTS sous le mï¿½me nom) : `configEngine.coverage.test.js`,
   `mlPredictionService.status.test.js`.
 
-### P5 — Portabilité (bf52c22)
+### P5 ï¿½ Portabilitï¿½ (bf52c22)
 - 0 chemin absolu `C:\Users\HAMDI` restant dans le code suivi : DeepSeekService,
   openRouterService (USAGE_FILE relatifs), optimize_db.js, check_market_gates.js
   (+ override `PRONOS_SERVER_BAT`), pythonResolver (os.homedir).
 - fb2f5fc : utilitaires d'exploration (live_picks, search_match/teams, test_live,
-  u20_picks) mis à l'abri du bundle.
+  u20_picks) mis ï¿½ l'abri du bundle.
 
-### P6 — Documentation (docs env)
-- `.env.example` : +15 variables PixelRAG/vision documentées (URLs, budgets, seuils,
-  flags) — incl. `VISION_SIGNAL_MIN_CONFIDENCE` (couperet injection) et
+### P6 ï¿½ Documentation (docs env)
+- `.env.example` : +15 variables PixelRAG/vision documentï¿½es (URLs, budgets, seuils,
+  flags) ï¿½ incl. `VISION_SIGNAL_MIN_CONFIDENCE` (couperet injection) et
   `USE_V55_VISUAL` (activation booster visuel post-retrain).
 
-### P7 — Vérifications finales (vertes)
+### P7 ï¿½ Vï¿½rifications finales (vertes)
 - Jest 74 suites / 744 tests ; pytest 347 passed / 0 failed ; `vite build` OK ;
-  `node --check` sur tous les fichiers touchés ; bundle de sauvegarde régénéré.
+  `node --check` sur tous les fichiers touchï¿½s ; bundle de sauvegarde rï¿½gï¿½nï¿½rï¿½.
 
-### Différé (volontairement hors périmètre)
-- Découpage des god files (database.js 2 625 l., ml_features.py 2 529 l.,
-  Promosport.jsx 2 623 l., enriched_predictions.js 2 013 l.) — à traiter une autre
-  session, par tranches avec tests dédiés.
-- Restructuration `data_pipeline/` (projet Python imbriqué avec son propre .venv) —
-  fonctionnel, documenté ; scinder en sous-module git si un jour besoin.
+### Diffï¿½rï¿½ (volontairement hors pï¿½rimï¿½tre)
+- Dï¿½coupage des god files (database.js 2 625 l., ml_features.py 2 529 l.,
+  Promosport.jsx 2 623 l., enriched_predictions.js 2 013 l.) ï¿½ ï¿½ traiter une autre
+  session, par tranches avec tests dï¿½diï¿½s.
+- Restructuration `data_pipeline/` (projet Python imbriquï¿½ avec son propre .venv) ï¿½
+  fonctionnel, documentï¿½ ; scinder en sous-module git si un jour besoin.
 
 ---
 
-## ?? Découpage des god files — Phases 1-3 (session 2026-09-07, plan approuvé)
+## ?? Dï¿½coupage des god files ï¿½ Phases 1-3 (session 2026-09-07, plan approuvï¿½)
 
-Suite du plan « améliorer le rôle de PixelRAG » -> audit hygiène -> découpage des gros
-fichiers. Périmètre validé : phases 1-3 (enriched_predictions.js laissée, classe cohérente).
+Suite du plan ï¿½ amï¿½liorer le rï¿½le de PixelRAG ï¿½ -> audit hygiï¿½ne -> dï¿½coupage des gros
+fichiers. Pï¿½rimï¿½tre validï¿½ : phases 1-3 (enriched_predictions.js laissï¿½e, classe cohï¿½rente).
 
-### Phase 1 — `core/ml_features.py` (2 529 l.) -> 4 modules + façade `f685f27`
+### Phase 1 ï¿½ `core/ml_features.py` (2 529 l.) -> 4 modules + faï¿½ade `f685f27`
 - `ml_feature_names.py` (443 l.) : listes FEATURE_NAMES_* + VISUAL + FEATURE_VOLATILITY.
 - `ml_history.py` (1 027 l.) : connexions DB, historique (PG/master/archive), helpers
   analytiques (style, h2h, blessures, motivation, fatigue, travel).
 - `ml_tunisian.py` (157 l.) : votes Tunisie (autonome).
 - `ml_extract.py` (929 l.) : extract_ml_features + extract_v56_features.
-- `ml_features.py` : façade ré-export (~80 l.) — les 28 importeurs ne bougent pas.
-- Découpe par SCRIPT de slicing (contenu byte-identique) ; _f dupliqué supprimé.
+- `ml_features.py` : faï¿½ade rï¿½-export (~80 l.) ï¿½ les 28 importeurs ne bougent pas.
+- Dï¿½coupe par SCRIPT de slicing (contenu byte-identique) ; _f dupliquï¿½ supprimï¿½.
 - ? pytest 347/347 ; imports ml_ensemble/prediction_engine/train_v55 OK.
 
-### Phase 2 — `core/database.js` (2 625 l.) -> 5 modules + façade `bfde439`
-- `core/db/schema.js` : initSchema/runMigrations/seedLeaguesConfig (db en paramètre).
+### Phase 2 ï¿½ `core/database.js` (2 625 l.) -> 5 modules + faï¿½ade `bfde439`
+- `core/db/schema.js` : initSchema/runMigrations/seedLeaguesConfig (db en paramï¿½tre).
 - `core/db/query.js` : statementCache + getPreparedStatement + exec/prepare/get/transaction/query.
-- `core/db/matches.js` (21 méthodes) / `predictions.js` (11) / `misc.js` (16, dont visual_context).
-- `database.js` : façade 5,7 Ko — toggle PG en tête INTACT, composition {...daos},
-  binding db.query conservé. 103 importeurs inchangés.
-- Découpe scriptée (propriétés de l'objet) ; query async MORT supprimé (écrasé par le
-  sync dans le même littéral — comportement final identique). '__dirname' corrigé pour
+- `core/db/matches.js` (21 mï¿½thodes) / `predictions.js` (11) / `misc.js` (16, dont visual_context).
+- `database.js` : faï¿½ade 5,7 Ko ï¿½ toggle PG en tï¿½te INTACT, composition {...daos},
+  binding db.query conservï¿½. 103 importeurs inchangï¿½s.
+- Dï¿½coupe scriptï¿½e (propriï¿½tï¿½s de l'objet) ; query async MORT supprimï¿½ (ï¿½crasï¿½ par le
+  sync dans le mï¿½me littï¿½ral ï¿½ comportement final identique). '__dirname' corrigï¿½ pour
   misc ('../../data').
-- ? Jest 744/744 ; smoke getVisualContext/getMatchesByStatuses OK ; prettier passé.
+- ? Jest 744/744 ; smoke getVisualContext/getMatchesByStatuses OK ; prettier passï¿½.
 
-### Phase 3 — `src/components/Promosport.jsx` (2 623 l.) -> hook + 6 vues `1b4174f`
+### Phase 3 ï¿½ `src/components/Promosport.jsx` (2 623 l.) -> hook + 6 vues `1b4174f`
 - `promosport/usePromosportData.js` : 19 useState + fetchs + handlers + exportAsImage.
 - `promosport/{PromoHeader,TunisieView,AlgoView,ColonnesView,GoldView,GridView}.jsx`.
 - `promosport/promoHelpers.js` : computeGagnant/SOURCE_LABELS/coverageSummary.
 - Promosport.jsx : 2623 -> 91 lignes (switch viewMode en composition).
-- Code mort éliminé : renderBox, applyAlgo, totalDoubles, import selectBestDoubles.
-- ?? Le JSX a été relu ligne à ligne contre l'original (une section Tunisie d'abord
-  écrite de mémoire a été corrigée par le texte verbatim — leçon : jamais re-taper).
-- ? eslint 0 erreur (3 warnings = morts préexistants) ; vite build OK ; Jest 744/744.
-- RESTE À FAIRE : vérification VISUELLE par l'utilisateur (npm run dev -> page Promosport :
-  grille par défaut, sélecteur doubles, export JPEG, boutons Terminal/Colonnes ML/Gold/
-  Précision, vue Tunisie).
+- Code mort ï¿½liminï¿½ : renderBox, applyAlgo, totalDoubles, import selectBestDoubles.
+- ?? Le JSX a ï¿½tï¿½ relu ligne ï¿½ ligne contre l'original (une section Tunisie d'abord
+  ï¿½crite de mï¿½moire a ï¿½tï¿½ corrigï¿½e par le texte verbatim ï¿½ leï¿½on : jamais re-taper).
+- ? eslint 0 erreur (3 warnings = morts prï¿½existants) ; vite build OK ; Jest 744/744.
+- RESTE ï¿½ FAIRE : vï¿½rification VISUELLE par l'utilisateur (npm run dev -> page Promosport :
+  grille par dï¿½faut, sï¿½lecteur doubles, export JPEG, boutons Terminal/Colonnes ML/Gold/
+  Prï¿½cision, vue Tunisie).
 
 ### Bundle de sauvegarde
-- Régénéré en fin de session (backups/stitch-main-*.bundle), historique complet.
+- Rï¿½gï¿½nï¿½rï¿½ en fin de session (backups/stitch-main-*.bundle), historique complet.

@@ -223,6 +223,15 @@ describe('Matches API Routes', () => {
 
     it('should apply date window filter', async () => {
       const nowSec = Math.floor(Date.now() / 1000)
+      const validMatches = Array.from({ length: 12 }, (_, i) => ({
+        id: `valid-${i}`,
+        startTimestamp: nowSec + 3600 + i * 600,
+        homeTeam: 'Current',
+        awayTeam: 'Match',
+        league: 'Test',
+        odds_home: 2.0,
+        odds_away: 3.0,
+      }))
       jest.spyOn(database, 'getMatchesByStatuses').mockResolvedValue([
         {
           id: 'old',
@@ -242,21 +251,14 @@ describe('Matches API Routes', () => {
           odds_home: 2.0,
           odds_away: 3.0,
         },
-        {
-          id: 'valid',
-          startTimestamp: nowSec + 3600,
-          homeTeam: 'Current',
-          awayTeam: 'Match',
-          league: 'Test',
-          odds_home: 2.0,
-          odds_away: 3.0,
-        },
+        ...validMatches,
       ])
 
       const response = await request(app).get('/api/matches/upcoming')
       expect(response.status).toBe(200)
       const all = allUpcoming(response.body)
-      expect(all.some((m) => m.id === 'valid')).toBe(true)
+      expect(all.some((m) => m.id === 'valid-0')).toBe(true)
+      // With >= 10 valid matches, fallback is NOT triggered → 'old' and 'future' stay out
       expect(all.some((m) => m.id === 'old' || m.id === 'future')).toBe(false)
 
       jest.restoreAllMocks()

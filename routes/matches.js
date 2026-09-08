@@ -350,6 +350,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
 
     const daysParam = parseInt(req.query.days) || 3
     const maxDays = Math.min(Math.max(daysParam, 1), 14)
+    const _requestedDays = req.query.days ? daysParam : null
     // Use a 12h lookback to handle timezone differences (UTC server vs local user)
     const now = Date.now()
     const lookback = now - 12 * 60 * 60 * 1000
@@ -384,7 +385,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     })
 
     // If no upcoming matches, fallback to recent matches (last 7 days)
-    if (rawMatches.length === 0) {
+    if (rawMatches.length === 0 || (rawMatches.length < 10 && _requestedDays === null)) {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime()
       const allMatches = await database.getMatchesByStatuses(
         ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
@@ -409,7 +410,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
       })
       if (rawMatches.length > 0) {
         logger.info(
-          `[UPCOMING] No upcoming matches — showing ${rawMatches.length} recent matches as fallback`
+          `[UPCOMING] Fallback to recent matches — showing ${rawMatches.length} (was ${allMatches.length} upcoming, threshold <10)`
         )
       }
     }

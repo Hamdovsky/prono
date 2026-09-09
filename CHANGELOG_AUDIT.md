@@ -4,6 +4,42 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Arbitrage rendu — Workflow Puppeteer standalone archivé du service résident (2026-09-09, suite)
+
+### Question posée (reste à faire PixelRAG)
+« Le Workflow Puppeteer standalone (`npm run scraper`) tourne en parallèle du
+cron — arbitrer le garder ou l'archiver dans start.bat. »
+
+### Preuves rassemblées (sondées, pas supposées)
+- **Plus aucun consommateur côté serveur** : cron/boot = `runResilientScan`
+  direct depuis `scraperBridge` (session 2) ; le Workflow n'est référencé que
+  par des commentaires.
+- **Aucune donnée unique mesurable** : colonnes profondes écrites par son
+  `Persistence.insertMatch` (`home_xg`, `player_ratings_*`) = 0 ligne non nulle
+  dans `matches` ; 0 id `sofascore_*` ; fixtures 6 derniers jours :
+  livescore 1818 / sportscore 12 / unknown 5 / openligadb 1.
+  L'enrichissement réel (`visual_context_cache`, 406 lignes, alimenté le 09/09)
+  vient de PixelRAG `/enrich` + `warmVisualCache()`, pas de Chromium.
+- **Nuisance active** : il verrouille `scraper:lock` (TTL 1 h, cycle 5 min) et
+  le cron interprète un lock frais <25 min comme « scraper externe actif ->
+  skip » (`cronManager.js:1279`) : le redondant peut donc **bloquer** le
+  chemin officiel tout en coûtant un Chromium résident (avec
+  `--restart-tries 10` dans start.bat).
+
+### Décision appliquée (réversible)
+- `start.bat` : le slot SCRAPER devient un bouchon inerte
+  (`scripts/noop_service.js scraper`) — le compte `--names`/`--prefix-colors`
+  reste aligné (un service qui sort ferait tomber toute la pile via
+  `--kill-others`). **Réactivation** : `set SCRAPER_STANDALONE=1` avant
+  start.bat, ou `npm run scraper` à la main. Code du Workflow conservé (aucune
+  suppression — ligues exotiques via navigateur restent un recours).
+- Test du gate dans les deux sens (cmd réel) + `node --check` + run du bouchon.
+
+### Fichiers modifiés
+`start.bat`, `scripts/noop_service.js` (nouveau), `CHANGELOG_AUDIT.md`.
+
+---
+
 ## Guérison hang socket proxy muet — freeProxyPool (2026-09-09, suite)
 
 ### Contexte (reste à faire de l'entrée PixelRAG)

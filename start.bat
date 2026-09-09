@@ -38,7 +38,15 @@ echo.
 
 cd /d %~dp0
 set PORT=3001
-call npx concurrently "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\ensure_redis.ps1" "npm run scraper" "streamlit run core/command_center.py" "node --max-old-space-size=512 server.js" "npm run learn" "npx vite" "node scripts/live_value_alerts.js" ".venv\Scripts\python.exe -m uvicorn core.fastapi_server:app --host 127.0.0.1 --port 8000 --workers 1" ".venv\Scripts\python.exe core\visual_server.py" --names "REDIS,SCRAPER,COMMAND,API_CORE,LEARN,UI_DASH,LIVE_ALERTS,ML_CORE,PIXELRAG" --prefix-colors "blue.bold,yellow.bold,red.bold,green.bold,magenta.bold,cyan.bold,yellow.dim,white.bold,blue.dim" --kill-others --restart-tries 10 --restart-after 10000
+REM Scraper Puppeteer standalone : ARCHIVÉ par défaut (remplacé par le scan
+REM résilient du cron + watchdog + PixelRAG ; cf. CHANGELOG 2026-09-09).
+REM Réactiver : set SCRAPER_STANDALONE=1 avant ce script (ou npm run scraper).
+if "%SCRAPER_STANDALONE%"=="1" (
+    set "SCRAPER_SERVICE=npm run scraper"
+) else (
+    set "SCRAPER_SERVICE=node scripts\noop_service.js scraper"
+)
+call npx concurrently "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\ensure_redis.ps1" "%SCRAPER_SERVICE%" "streamlit run core/command_center.py" "node --max-old-space-size=512 server.js" "npm run learn" "npx vite" "node scripts/live_value_alerts.js" ".venv\Scripts\python.exe -m uvicorn core.fastapi_server:app --host 127.0.0.1 --port 8000 --workers 1" ".venv\Scripts\python.exe core\visual_server.py" --names "REDIS,SCRAPER,COMMAND,API_CORE,LEARN,UI_DASH,LIVE_ALERTS,ML_CORE,PIXELRAG" --prefix-colors "blue.bold,yellow.bold,red.bold,green.bold,magenta.bold,cyan.bold,yellow.dim,white.bold,blue.dim" --kill-others --restart-tries 10 --restart-after 10000
 
 echo.
 echo [%time%] Titanium Services have been gracefully shut down.

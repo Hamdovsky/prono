@@ -1,0 +1,87 @@
+#!/bin/sh
+# ============================================================================
+# stitch — pre-commit hook : garde de fumée avant chaque commit
+#
+# 1. Syntaxe Python  : ast/compile sur les .py stage (core/, scripts/, tests/)
+# 2. Syntaxe JS      : node --check sur les .js stage (core/, services/,
+#                      routes/, scripts/, src/)
+# 3. Tests fumée     : pytest -m smoke (4 tests, skip gracieux si services down)
+#
+# Désactivation ponctuelle :
+#   git commit --no-verify
+#   STITCH_SKIP_PRECOMMIT=1 git commit ...
+#
+# Activation sur un autre poste (hook versionné) :
+#   git config core.hooksPath .githooks
+# (sinon, copier .githooks/pre-commit vers .git/hooks/pre-commit)
+# ============================================================================
+
+[ -n "$STITCH_SKIP_PRECOMMIT" ] && { echo "[pre-commit] STITCH_SKIP_PRECOMMIT set — skip"; exit 0; }
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# ── Choix de l'interpréteur Python (venv d'abord) ────────────────────────────
+PY=""
+for c in ".venv/Scripts/python.exe" ".venv/bin/python" "python3" "python"; do
+  if command -v "$c" >/dev/null 2>&1; then PY="$c"; break; fi
+done
+
+# ── Fichiers stage (Ajoutés/Copiyés/Modifiés seulement) ─────────────────────
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+
+FAIL=0
+
+# ── 1. Garde syntaxe Python ──────────────────────────────────────────────────
+if [ -n "$PY" ] && [ -n "$STAGED" ]; then
+  PYFILES=$(echo "$STAGED" | grep -E '\.py$' || true)
+  for f in $PYFILES; do
+    [ -f "$f" ] || continue
+    if ! "$PY" -c "import sys; compile(open(sys.argv[1],'rb').read(), sys.argv[1], 'exec')" "$f" 2>/dev/null; then
+      echo "[pre-commit] ✗ syntaxe Python invalide : $f" >&2
+      "$PY" -c "import sys; compile(open(sys.argv[1],'rb').read(), sys.argv[1], 'exec')" "$f" 2>&1 | sed 's/^/    /' >&2
+      FAIL=1
+    fi
+  done
+fi
+
+# ── 2. Garde syntaxe JS ──────────────────────────────────────────────────────
+if command -v node >/dev/null 2>&1 && [ -n "$STAGED" ]; then
+  JSFILES=$(echo "$STAGED" | grep -E '\.js$' | grep -E '^(core|services|routes|scripts|src|app\.js|server\.js|backup_service\.js)' || true)
+  for f in $JSFILES; do
+    [ -f "$f" ] || continue
+    # skip JSX (non parsable par node --check)
+    case "$f" in src/*) continue ;; esac
+    if ! node --check "$f" >/dev/null 2>&1; then
+      echo "[pre-commit] ✗ syntaxe JS invalide : $f" >&2
+      node --check "$f" 2>&1 | sed 's/^/    /' >&2
+      FAIL=1
+    fi
+  done
+fi
+
+# ── 3. Tests fumée (pytest -m smoke) ─────────────────────────────────────────
+if [ -n "$PY" ] && [ -f "tests/test_general_integration.py" ]; then
+  echo "[pre-commit] pytest -m smoke ..."
+  if ! "$PY" -m pytest tests/test_general_integration.py -m smoke -q -x --no-header >/tmp/stitch_smoke.$$ 2>&1; then
+    echo "[pre-commit] ✗ échec des tests de fumée :" >&2
+    tail -25 /tmp/stitch_smoke.$$ >&2
+    rm -f /tmp/stitch_smoke.$$
+    FAIL=1
+  else
+    tail -1 /tmp/stitch_smoke.$$
+    rm -f /tmp/stitch_smoke.$$
+  fi
+fi
+
+# ── Verdict ──────────────────────────────────────────────────────────────────
+if [ "$FAIL" -ne 0 ]; then
+  cat >&2 <<'MSG'
+
+[pre-commit] ✗ COMMIT BLOQUÉ — corrige les erreurs ci-dessus.
+[pre-commit] Contournement exceptionnel : git commit --no-verify
+MSG
+  exit 1
+fi
+
+echo "[pre-commit] ✓ garde de fumée OK"
+exit 0

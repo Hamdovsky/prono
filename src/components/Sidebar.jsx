@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES, NAV_ITEMS } from '../config/routes'
 import { useTheme } from '../contexts/ThemeContext'
 import { useI18n } from '../contexts/I18nContext'
 import { selectEligibleMatches } from '../utils/timeFilter'
+import dataService from '../services/dataService'
 import './Sidebar.css'
 
 const PINNED_LEAGUES = [
@@ -115,6 +116,19 @@ const Sidebar = ({
 
   const handleNav = (view) => {
     navigate(ROUTES[view] || '/')
+  }
+
+  const [scanBusy, setScanBusy] = useState(false)
+  const handleForceScan = async () => {
+    if (scanBusy) return
+    setScanBusy(true)
+    try {
+      await dataService.triggerScanToday()
+      setTimeout(() => dataService.refreshAllData(), 30000)
+    } catch {
+      /* le polling 60s rattrape le refresh */
+    }
+    setTimeout(() => setScanBusy(false), 70000)
   }
 
   // 🧠 [PERF] Calculs mémoïsés : ne se recalculent que si les matches ou la
@@ -568,6 +582,25 @@ const Sidebar = ({
               }}
             >
               Aucune ligue active pour cette date.
+              <div style={{ marginTop: 10 }}>
+                <button
+                  onClick={handleForceScan}
+                  disabled={scanBusy}
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #10b981',
+                    background: 'rgba(16,185,129,0.12)',
+                    color: '#10b981',
+                    cursor: scanBusy ? 'wait' : 'pointer',
+                    letterSpacing: '0.4px',
+                  }}
+                >
+                  {scanBusy ? '⏳ Scan…' : '⚡ Forcer le scan'}
+                </button>
+              </div>
             </div>
           )}
       </div>

@@ -4,6 +4,178 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Checkpoint de reprise — re-validation avant commit (2026-09-09, session suivante)
+
+Les deux entrées ci-dessous (Dashboard « 0 match » + PixelRAG fixtures) étaient
+terminées et validées mais restées NON COMMITÉES. Re-contrôle de non-régression :
+
+- Jest `__tests__/sofascorePySource.test.js` : **10/10** (le hang initial du
+  runner = handles redis ouvertes, préexistant ; `--forceExit` conclut vert).
+- pytest pixelrag (serveur vision démarré pour l'occasion, arrêté après) :
+  **8 passed / 1 skipped** (skip = WAF Sofascore, voulu). Échec transitoire
+  `/search` au 1ᵉʳ run = cold start (0,2 s une fois chaud) — re-run isolé vert.
+- pytest `-m required` : **1 passed** (invariant index non vide, index=104).
+- **Probe WAF Sofascore** (`scheduled-events/2026-09-10`, curl_cffi
+  chrome124) : toujours **404** → l'opt-in `PIXELRAG_FIXTURES_ENABLED` reste
+  le bon réglage ; primary fixtures = livescore. Prochaine relance du probe :
+  mensuelle (déjà consignée dans « Reste à faire » ci-dessus).
+
+Fichiers non suivis laisés hors commit (arbitrage reporté) : `karkadan.ico`,
+`karkadan.jpg`, `promosport_reference.md`, `pronos-server.bat`,
+`pronos-test.bat`, `data/traces/`.
+
+---
+
+## Dashboard « 0 match » — 3 correctifs chaîne (2026-09-09, local)
+
+### Symptôme
+« TOUS LES MATCHS (0) » + « Aucune ligue active pour cette date » au lancement
+du serveur. `/api/upcoming` ne renvoyait que 5 matchs des 07–08/09 (passés) ;
+`selectEligibleMatches` (timeFilter.js) les exclut à juste titre → écran vide.
+
+### Diagnostic (chaîne de causes)
+1. **`config/sources/livescore.js` désactivé** (`enabled: false`, commit
+   `aff39ed` du 05/09, diagnostic « API cassée depuis août » PÉRIMÉ — probe du
+   jour : HTTP 200, 65 stages, 173 évènements). Seul `openligadb` restait
+   (0 fixture en semaine internationale) → plus AUCUN fournisseur de fixtures
+   dans l'orchestrateur depuis le 05/09 → DB sans match futur (max
+   startTimestamp = 08/09, 2314 lignes « scheduled » périmées).
+2. **`POST /api/scan-today` cassé** : `exec('node update_today.js')` — fichier
+   absent du repo → échec silencieux du sous-processus (visible dans error.log).
+3. **`startup-resume` du cronManager** passait par le Workflow Puppeteer local
+   (lourd, peut rester bloqué sans jamais atteindre `runResilientScan`).
+
+### Correctifs
+- **`config/sources/livescore.js`** : réactivé, drapeau env `LIVESCORE_ENABLED`
+  (`!=='false'`) pour désactivable sans toucher au code.
+- **`routes/scraper.js`** : `/api/scan-today` réécrit → `runResilientScan()`
+  in-process (résultats J-3..J-1 + fixtures J..J+2), flag in-flight, **deadline
+  dure 5 min** (Promise.race), `invalidateCache('upcoming')` en finally, import
+  `invalidateCache` ajouté (absent de ce module).
+- **`services/cronManager.js`** : `startup-resume` (Workflow) remplacé par
+  `startupCatchUp()` — compte les matchs futurs en DB ; si 0 → scan résilient
+  direct (check verrou Redis fresh <25 min, deadline 4 min), retry unique à
+  +5 min, logs explicites dans tous les cas.
+- **UX** : bouton « ⚡ Forcer le scan » dans l'état vide du Dashboard
+  (`Dashboard.jsx`, distingue « matchs passés » vs « aucune donnée ») et du
+  Sidebar (`Sidebar.jsx`, sous « Aucune ligue active ») → `triggerScanToday()`
+  + refresh à 30 s/70 s.
+
+### Effet mesuré
+Scan de rattrapage : **541 fixtures futurs** insérés (09-09→09-11) + **744
+résultats réglés** + 200 paris settlement. `/api/upcoming` : 0 → **433+ matchs
+futurs** (elite 162, fallback 271). Second `scan-today` via la nouvelle route :
+terminé en **26 s** (« ✅ [SCAN-TODAY] Scan complete — 0 fixtures, 744 results
+settled », 0 nouveau = dédup OK) ; le hang du 1ᵉʳ run (ancien code, race avec
+le safety-net de boot) n'a pas reproduit — la deadline couvre le risque
+résiduel de socket axios sans timeout (proxy mort, non creusé plus avant).
+
+### Validations
+- `node --check` cronManager/scraper OK ; eslint Dashboard/Sidebar : 0 erreur
+  (warnings préexistants) ; `npx vite build` : OK 3.9 s.
+- `npm test` : 743/744 (1 échec `system.test.js` flaky connu — re-run isolé :
+  11/11). `pytest -m "not slow"` : 13 passed.
+- Logs boot : `Startup catch-up (boot): 543 future matches present — no forced
+  scan.` (×2 restarts) ; `Scheduler active` normal.
+
+### Fichiers modifiés
+- `config/sources/livescore.js`, `routes/scraper.js`, `services/cronManager.js`,
+  `src/components/Dashboard.jsx`, `src/components/Sidebar.jsx`,
+  `CHANGELOG_AUDIT.md`. (+ journaux `data/*.jsonl` régénérés par les runs.)
+
+### Reste à faire
+- Éventuellement : percer le hang socket-level des requêtes proxyées (deadline
+  = contournement, pas guérison) ; le chemin cron « full Workflow Puppeteer »
+  local (slots 06:00..) n'a pas été modifié — arbitrer s'il doit rester.
+
+---
+
+## PixelRAG fixtures + robustesse chaîne scraping (2026-09-09, local)
+
+### Objectif (validation user de la session)
+Rendre Sofascore-via-PixelRAG source de fixtures principale (le client JS
+était banni 403 ; PixelRAG passe par curl_cffi fingerprints), réduire le
+scraper Node à un rôle de secours, plus P0 : purge des fantômes, vrai statut
+scraper, watchdog d'alerte, tests des correctifs du jour.
+
+### Réalité terrain (sondé avant de conclure)
+- **Sofascore a bloqué ses endpoints par date** : `scheduled-events/{date}`,
+  `calendar`, `category/{id}/events/last`, `tournament/.../events` → tous 404
+  WAF (vérifié curl_cffi chrome124, 3 dates) ; seuls `events/live` et
+  `event/{id}` répondent encore → **la découverte par date via Sofascore est
+  impossible aujourd'hui**. `event/{id}` (donc /enrich) reste pleinement
+  fonctionnel — le rôle d'enrichissement de PixelRAG n'est pas affecté.
+- Conséquence appliquée sans truquer : plugin `sofascore-py` en **opt-in**
+  (`PIXELRAG_FIXTURES_ENABLED=true`, priorité 2 derrière livescore) et
+  endpoint `/fixtures` de PixelRAG prêt à servir dès la réouverture de l'API.
+
+### Modifications
+- **`core/visual_server.py`** : `GET /fixtures/{date}` (scheduled-events
+  normalisé : eid, équipes, ligue/pays, startTimestamp s, status 0/1-5/6+ →
+  scheduled/inprogress/finished + scores FT), cache mémoire TTL 15 min.
+- **`config/sources/sofascore-py.js`** (nouveau) : plugin orchestrateur
+  opt-in priority 2, `fetch`+`fetchResults` via :30002, timeout 30 s, rate
+  6/min — format canonique id `sofascore_{eid}`, match_key compatible
+  cross-source (test dédié).
+- **`services/sourceRegistry.js`** : **BUG corrigé** `priority || 99` traitait
+  0 comme falsy (une source « priority 0 » passait en fin de file) → `?? 99`
+  (toProvider + normalizePlugins) + test de régression.
+- **`services/scraperBridge.js`** : `runLocalScraper()` ne charge plus le
+  **Workflow Puppeteer** (chemin cron/boot) → `runResilientScan()` direct
+  (le Workflow reste dispo via `npm run scraper` en process standalone).
+  + `warmVisualCache()` [cache chaud] : après le pass fixtures, pré-enrichit
+  jusqu'à 15 events `sofascore_*` J..J+2 via `/enrich` (détaché,
+  `VISUAL_WARM_ENABLED=false` off).
+- **`services/cronManager.js`** : `fixturesWatchdog()` cron `15 */2 * * *` →
+  si 0 match futur : catch-up (scan+deadline 4 min) puis **alerte Telegram**
+  throttlée 3 h (`_alertFixturesDown`) — la panne silencieuse 05→09/09 ne
+  peut plus se reproduire sans notification. Log tag générique « Catch-up ».
+- **`services/settlementService.js`** : `purgeStaleScheduled(2)` — tout
+  « scheduled » kickoff > 2 j (scores placeholder 0-0, jamais réglés) →
+  `canceled` (seul DEAD_STATUSES que le front connaît) ; câblé dans le slot
+  04:00 avant l'archiver. **Exécutée en direct : 1373 lignes nettoyées, 0
+  futur touché.**
+- **`routes/scraper.js`** : `/api/scraper/status` fusionne l'état RÉEL du
+  cronManager (running/lastRun) avec le progress standalone ; `times` corrigé
+  (06,09,12,15,18,21 — l'ancien ['06','12','18'] était faux) ; diagnostic
+  `pixelragFixtures` ajouté.
+- **Tests** : `__tests__/sofascorePySource.test.js` (10 : mapping fetch/
+  fetchResults, match_key cross-source, opt-in, erreurs → cooldown, ordre
+  normalizePlugins, régression priority 0, warm skip, purge exportée) ;
+  pytest `test_pixelrag_fixtures_endpoint_lists_matches` (skip toléré si
+  Sofascore WAF), `..._rejects_bad_date`, `test_pixelrag_index_required_nonempty`
+  (**premier test `@pytest.mark.required`** du projet — invariant index non
+  vide, pas de skip).
+- **Docs** : `.env.example` — `LIVESCORE_ENABLED`, `PIXELRAG_FIXTURES_ENABLED`
+  (opt-in, motif WAF documenté), `VISUAL_WARM_ENABLED`, `SOFASCORE_ENABLED`.
+
+### Validations
+- `npm test` : **754/754** (744 + 10, suite flaky `system.test.js` verte).
+- `pytest tests/` : **376 passed, 31 skipped, 0 failed**.
+- `buildProviders()` : `livescore:1, openligadb:3` (+ `sofascore-py:2` dès
+  opt-in). Purge : 1373 → canceled ; restants stale 0 ; futurs 541.
+- Status : `pixelragFixtures available:false` (opt-in), running vrai (process
+  standalone scraper), nextRun 06:00 local. Logs boot : catch-up 541 ✓ (×2).
+- `/fixtures/2026-09-09` → `success:false` propre (Sofascore WAF) — comportement
+  d'attente documenté, pas un crash.
+
+### Fichiers modifiés
+`core/visual_server.py`, `config/sources/sofascore-py.js` (nouveau),
+`services/sourceRegistry.js`, `services/scraperBridge.js`,
+`services/cronManager.js`, `services/settlementService.js`,
+`routes/scraper.js`, `__tests__/sofascorePySource.test.js` (nouveau),
+`tests/test_general_integration.py`, `.env.example`, `CHANGELOG_AUDIT.md`.
+
+### Reste à faire
+- Ré-évaluer mensuellement la réouverture de `scheduled-events` (relancer le
+  probe 404) → si OK : `PIXELRAG_FIXTURES_ENABLED=true` et basculer la
+  découverte en primary (le code est prêt des deux côtés).
+- Le « primary » fixtures reste **livescore** (réparé hier) ; le Workflow
+  Puppeteer standalone (`npm run scraper`) tourne en parallèle du cron —
+  arbitrer le garder ou l'archiver dans start.bat.
+
+---
+
 ## Hook pre-commit — garde de fumée automatique (2026-09-09, local)
 
 ### Objectif (RFA de la session précédente)

@@ -166,14 +166,26 @@ class CronManager {
       { timezone: 'Europe/Paris' }
     )
 
-    // 4. Daily Auto-Archiver (04:00)
+    // 4. Daily Auto-Archiver (04:00) — précédé de la purge des « scheduled »
+    // fantômes (kickoff > 2 jours, jamais réglés) → status 'canceled'.
     cron.schedule('0 4 * * *', () => {
+      try {
+        require('./settlementService').purgeStaleScheduled(2)
+      } catch (e) {
+        logger.error(`❌ [CRON] Stale-scheduled purge error: ${e.message}`)
+      }
       try {
         autoArchiver.runArchiver(2)
       } catch (e) {
         logger.error(`❌ [CRON] Daily archiver error: ${e.message}`)
       }
     }, { timezone: 'Europe/Paris' })
+
+    // 4a2. Watchdog fixtures (toutes les 2h :xx5) — si la DB retombe à 0 match
+    // futur malgré tout (sources mortes, plugins désactivés…), on relance un
+    // catch-up puis on ALERTE Telegram si le scan ne restaure rien. Pannes de
+    // ce type restées silencieuses du 05/09 au 09/09 (livescore désactivé).
+    cron.schedule('15 */2 * * *', () => this.fixturesWatchdog(), { timezone: 'Europe/Paris' })
 
     // 4b. Daily Auto-Backtest (03:00) — refreshes data/backtest_results.json so the
     // isotonic confidence calibration stays on recent settled observations (P3 audit).
@@ -1228,11 +1240,100 @@ print(f'international: {len(df) if df is not None else 0} rows')
 
     logger.info('✅ [CRON] Scheduler active')
 
-    // 🚀 [RESUME] Trigger scraper 30s after boot to repopulate DB on Render wake-up
-    setTimeout(() => {
-      logger.info('🔄 [CRON] Resuming scraper on server startup...')
-      this.launchScraper('startup-resume')
-    }, 30000)
+    // 🚀 [CATCH-UP] 30 s après le boot : si la base ne contient AUCUN match
+    // futur (cron interrompu par un arrêt serveur, source désactivée, réveil
+    // Render), on lance directement le scan résilient HTTP (rapide, sans
+    // Puppeteer) — l'ancien « startup-resume » passait par le Workflow local
+    // qui pouvait rester bloqué sans jamais peupler les fixtures. Retry unique
+    // à +5 min si le scan ne peuple rien.
+    setTimeout(() => this.startupCatchUp('boot'), 30000)
+  }
+
+  async _futureMatchCount() {
+    try {
+      const nowSec = Math.floor(Date.now() / 1000)
+      const row = database.db
+        .prepare(
+          "SELECT COUNT(*) AS c FROM matches WHERE status IN ('scheduled','upcoming','NOT_STARTED','NS') AND startTimestamp > ?"
+        )
+        .get(nowSec)
+      return row ? row.c : 0
+    } catch (e) {
+      logger.warn(`⚠️ [CRON] _futureMatchCount failed: ${e.message}`)
+      return -1
+    }
+  }
+
+  async startupCatchUp(attempt) {
+    try {
+      const future = await this._futureMatchCount()
+      if (future > 0) {
+        logger.info(
+          `✅ [CRON] Startup catch-up (${attempt}): ${future} future matches present — no forced scan.`
+        )
+        return
+      }
+      // 🔒 Respecte le verrou Redis du scraper externe (fresh < 25 min).
+      try {
+        const lockVal = await redisCache.get('scraper:lock')
+        if (lockVal && Number.isFinite(parseInt(lockVal, 10)) && Date.now() - parseInt(lockVal, 10) < 25 * 60 * 1000) {
+          logger.info(`⏭️ [CRON] Startup catch-up (${attempt}): external scraper holds the lock — skipping.`)
+          return
+        }
+      } catch (_) {}
+
+      logger.warn(
+        `⚠️ [CRON] Startup catch-up (${attempt}): 0 future match in DB — launching resilient HTTP scan...`
+      )
+      const { runResilientScan } = require('./scraperBridge')
+      await Promise.race([
+        runResilientScan(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('resilient scan deadline 4min')), 4 * 60 * 1000)
+        ),
+      ])
+      try {
+        invalidateCache('upcoming')
+      } catch (_) {}
+      const after = await this._futureMatchCount()
+      if (after > 0) {
+        logger.info(`✅ [CRON] Catch-up (${attempt}): ${after} future matches repopulated.`)
+        return
+      }
+      if (attempt === 'boot') {
+        logger.warn('⚠️ [CRON] Startup catch-up scan left DB empty — retry in 5 min.')
+        setTimeout(() => this.startupCatchUp('retry'), 5 * 60 * 1000)
+      } else {
+        logger.error(`❌ [CRON] Catch-up (${attempt}) still empty — check source plugins (config/sources/).`)
+        this._alertFixturesDown(after)
+      }
+    } catch (e) {
+      logger.error(`❌ [CRON] Catch-up (${attempt}) error: ${e.message}`)
+      if (attempt === 'boot') setTimeout(() => this.startupCatchUp('retry'), 5 * 60 * 1000)
+    }
+  }
+
+  async fixturesWatchdog() {
+    const future = await this._futureMatchCount()
+    if (future > 0) return
+    logger.warn(`⚠️ [CRON] Fixtures watchdog: 0 future match — catch-up...`)
+    await this.startupCatchUp('watchdog')
+  }
+
+  async _alertFixturesDown(count) {
+    if (!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID)) return
+    if (Date.now() - (this._lastFixturesAlertAt || 0) < 3 * 3600 * 1000) return
+    this._lastFixturesAlertAt = Date.now()
+    try {
+      const telegram = require('./botService')
+      if (telegram && typeof telegram.sendAlert === 'function') {
+        await telegram.sendAlert(
+          `[SCRAPER-ALERT] 0 match futur en DB (${count}) après scan de rattrapage. Vérifier config/sources/ (PixelRAG :30002, LIVESCORE_ENABLED).`
+        )
+      }
+    } catch (e) {
+      logger.warn(`⚠️ [CRON] Alertes fixtures indisponibles: ${e.message}`)
+    }
   }
 
   async launchScraper(label) {

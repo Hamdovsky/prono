@@ -775,6 +775,33 @@ async function backfillBets({ dryRun = false, limit = 1000 } = {}) {
   return summary
 }
 
+// 🧹 Balayage nocturne des « scheduled » fantômes : matchs jamais réglés par
+// le pass résultats (fenêtre J-3..J-1 dépassée, ligue non couverte, source
+// morte). On ne supprime RIEN — le statut passe à 'canceled' (seul
+// DEAD_STATUSES reconnu côté frontend) et last_updated est touché, tout
+// reste restaurable via startTimestamp/scoreHome intacts. (2026-09-09 : 1373
+// lignes scheduled > 2 jours traînaient avec des scores placeholder 0-0.)
+function purgeStaleScheduled(maxAgeDays = 2) {
+  const cutoff = Math.floor(Date.now() / 1000) - maxAgeDays * 86400
+  try {
+    const info = db
+      .prepare(
+        `UPDATE matches
+         SET status = 'canceled', last_updated = ?
+         WHERE status IN ('scheduled','upcoming','NOT_STARTED','NS')
+           AND ? > startTimestamp
+           AND startTimestamp > 0`
+      )
+      .run(Date.now(), cutoff)
+    const n = info.changes || 0
+    if (n > 0) logger.info(`[SETTLEMENT] Purge stale scheduled: ${n} rows → 'canceled' (kickoff > ${maxAgeDays}j, sans score).`)
+    return { canceled: n }
+  } catch (e) {
+    logger.error(`[SETTLEMENT] purgeStaleScheduled failed: ${e.message}`)
+    return { canceled: 0, error: e.message }
+  }
+}
+
 module.exports = {
   settleFinishedMatches,
   fetchMissingScores,
@@ -783,4 +810,5 @@ module.exports = {
   buildBetRecord,
   syncBetToTracker,
   backfillBets,
+  purgeStaleScheduled,
 }

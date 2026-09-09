@@ -26,6 +26,7 @@ Ne FAIL jamais sur absence de service (sauf si explicitement @pytest.mark.requir
 2026-09-09 — créé lors de la session "PixelRAG prend la place du scraper".
 """
 from __future__ import annotations
+import datetime
 import json
 import os
 import sqlite3
@@ -158,6 +159,48 @@ def test_pixelrag_sofascore_cache_stats(pixelrag_url):
     assert "index_size" in body
     assert "model" in body
     assert body["cache_ttl_s"] > 0
+
+
+@pytest.mark.slow
+def test_pixelrag_fixtures_endpoint_lists_matches(pixelrag_url):
+    """GET /fixtures/{date} — endpoint de decouverte consomme par le plugin
+    Node sofascore-py (priority 0). Sofascore injoignable est une reponse
+    VALIDE (success=False) : le health tracker basculera sur livescore."""
+    date_str = datetime.date.today().isoformat()
+    status, body, err = _http_get(f"{pixelrag_url}/fixtures/{date_str}", timeout=30.0)
+    if err is not None or status != 200:
+        pytest.skip(f"PixelRAG /fixtures indisponible: {err or status}")
+    assert "success" in body
+    if body["success"] is not True:
+        pytest.skip(f"Sofascore injoignable (fallback livescore attendu): {body.get('error')}")
+    assert body.get("date") == date_str
+    assert isinstance(body.get("events"), list)
+    assert body.get("count") == len(body["events"])
+    if body["events"]:
+        e = body["events"][0]
+        for k in ("eid", "homeTeam", "awayTeam", "startTimestamp", "status"):
+            assert k in e, f"champ manque {k} dans {e}"
+        assert e["status"] in ("scheduled", "inprogress", "finished")
+        assert isinstance(e["eid"], int)
+
+
+@pytest.mark.slow
+def test_pixelrag_fixtures_rejects_bad_date(pixelrag_url):
+    status, body, err = _http_get(f"{pixelrag_url}/fixtures/pas-une-date", timeout=10.0)
+    if err is not None or status != 200:
+        pytest.skip(f"PixelRAG /fixtures indisponible: {err or status}")
+    assert body.get("success") is False, f"date invalide acceptee: {body}"
+
+
+@pytest.mark.required
+def test_pixelrag_index_required_nonempty(pixelrag_url):
+    """Invariant critique (marker 'required', pas de skip conditionnel) :
+    l'index PixelRAG doit etre peuple — le pont /predict en depend.
+    Si ce test FAIL, lancer scripts/bootstrap_pixelrag_text.js."""
+    status, body, err = _http_get(f"{pixelrag_url}/status", timeout=8.0)
+    assert status == 200, f"PixelRAG DOWN ({err}) — invariant 'required' non satisfait"
+    assert isinstance(body.get("total_vectors"), int), f"/status invalide: {body}"
+    assert body["total_vectors"] > 4, f"index quasi-vide: {body['total_vectors']} vecteurs"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

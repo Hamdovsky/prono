@@ -30,76 +30,13 @@ async function triggerScrape() {
 }
 
 async function runLocalScraper() {
-  // 🛡️ Skip Puppeteer-based Workflow on Render (node:22-slim has no Chromium)
-  // Detected via RENDER env var OR DISABLE_SOFASCORE flag
-  const onRender = !!process.env.RENDER || process.env.DISABLE_SOFASCORE === 'true'
-  const hour = new Date().getHours()
-  const fullScan = hour >= 4 && hour < 10
-
-  if (onRender) {
-    logger.info(
-      `[SCRAPER BRIDGE] Render env detected — using HTTP scrapers only${fullScan ? ' (FULL)' : ''}`
-    )
-    try {
-      const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
-      const fallbackCount = await httpScraperService.processFallback({ fullScan })
-      await runResilientScan().catch((e) =>
-        logger.warn(`[SCRAPER BRIDGE] Resilient scan skipped: ${e.message}`)
-      )
-      return { success: true, fallback: true, fallbackCount }
-    } catch (fbErr) {
-      try {
-        const scrapeService = require('./scrapeService')
-        return { success: true, source: 'scrapeService' }
-      } catch (sErr) {
-        return {
-          success: false,
-          error: 'All local scrapers failed',
-          fallbackError: fbErr.message,
-          scrapeError: sErr.message,
-        }
-      }
-    }
-  }
-
-  try {
-    const Workflow = require('../SofascoreScraping/src/Workflow')
-    const fs = require('fs')
-    const path = require('path')
-
-    const leaguesJson = JSON.parse(
-      fs.readFileSync(path.join(__dirname, '../leagues_ids.json'), 'utf8')
-    )
-    const leagues = leaguesJson.map((l) => ({
-      country: l.category_name.toLowerCase().replace(/\s+/g, '-'),
-      league: l.tournament_name.toLowerCase().replace(/\s+/g, '-'),
-    }))
-
-    const workflow = new Workflow(leagues)
-    const result = await workflow.start()
-    logger.info('[SCRAPER BRIDGE] Local scraper completed')
-    // 🔑 Always refresh upcoming fixtures (J..J+2) via the resilient
-    // multi-source scan so the dashboard never ends up with 0 future
-    // matches (the dev Workflow path alone was leaving the DB empty of
-    // upcoming fixtures). Dedup by match_key makes overlap harmless.
-    try {
-      await runResilientScan()
-    } catch (e) {
-      logger.warn(`[SCRAPER BRIDGE] Resilient scan skipped after workflow: ${e.message}`)
-    }
-    return { success: true, result }
-  } catch (err) {
-    logger.error(
-      `[SCRAPER BRIDGE] Local scraper failed: ${err.message} — falling back to HTTP scraper`
-    )
-    try {
-      const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
-      const fallbackCount = await httpScraperService.processFallback({ fullScan })
-      return { success: true, fallback: true, fallbackCount }
-    } catch (fbErr) {
-      return { success: false, error: err.message, fallbackError: fbErr.message }
-    }
-  }
+  // Le chemin « Workflow Puppeteer » (SofascoreScraping) est SORTI du pipeline
+  // cron/boot (2026-09-09) : ses sockets pouvaient hang sans timeout (le
+  // startup-resume restait bloqué avant runResilientScan → DB jamais peuplée).
+  // Le pipeline utilise désormais le scan résilient HTTP multi-sources :
+  // sofascore-py (PixelRAG/curl_cffi) → livescore → openligadb.
+  // Le Workflow reste utilisable à la main via « npm run scraper ».
+  return runResilientScan()
 }
 
 function dateStrOffset(offset) {
@@ -155,6 +92,14 @@ async function runResilientScan() {
       `[SCRAPER BRIDGE] Resilient scan done: ${summary.coverage.totalUnique} unique, ${summary.coverage.new} new, ${summary.coverage.mena} MENA`
     )
 
+    // 🔥 Détaché : le pré-chauffage visuel ne doit jamais retarder le scan.
+    warmVisualCache()
+      .then((w) => {
+        if (w && w.warmed > 0)
+          logger.info(`[SCRAPER BRIDGE] Visual cache warm: ${w.warmed}/${w.total} events pre-enriched`)
+      })
+      .catch(() => {})
+
     // 3) Settle any newly finished matches (best-effort).
     if (results.updated > 0) {
       try {
@@ -172,6 +117,41 @@ async function runResilientScan() {
   } catch (e) {
     logger.error(`[SCRAPER BRIDGE] Resilient scan failed: ${e.message}`)
     return { success: false, error: e.message }
+  }
+}
+
+// 🔥 [CACHE CHAUD] Après un scan fixtures, on pré-chauffe le cache visuel :
+// PixelRAG agrège lineups/injuries/stats/H2H pour les prochains matchs
+// 'sofascore_*' (J..J+2) afin que /api/predict trouve l'enrichissement déjà
+// prêt (sinon 1ᵉʳ clic = 3-5 s d'attente Sofascore). Détaché (jamais await),
+// best-effort, VISUAL_WARM_ENABLED=false pour désactiver.
+async function warmVisualCache({ limit = 15 } = {}) {
+  if (process.env.VISUAL_WARM_ENABLED === 'false') return { warmed: 0, skipped: true }
+  const base = process.env.PIXELRAG_URL || 'http://127.0.0.1:30002'
+  try {
+    const db = require('../core/database')
+    const nowSec = Math.floor(Date.now() / 1000)
+    const rows = db
+      .prepare(
+        "SELECT id FROM matches WHERE id LIKE 'sofascore_%' AND startTimestamp > ? AND startTimestamp < ? ORDER BY startTimestamp ASC LIMIT ?"
+      )
+      .all(nowSec, nowSec + 48 * 3600, limit)
+    let warmed = 0
+    for (const r of rows) {
+      const eid = String(r.id).replace('sofascore_', '')
+      if (!/^\d+$/.test(eid)) continue
+      try {
+        const res = await fetch(`${base}/enrich/${eid}`, { signal: AbortSignal.timeout(9000) })
+        const j = await res.json()
+        if (j && j.success === true) warmed++
+      } catch (_) {
+        /* PixelRAG down ou event sans données — on s'arrête au 1ᵉʳ refus */
+        if (!warmed && rows.indexOf(r) > 2) break
+      }
+    }
+    return { warmed, total: rows.length }
+  } catch (e) {
+    return { warmed: 0, error: e.message }
   }
 }
 
@@ -241,4 +221,4 @@ async function runResultsOnlyScan({ dates } = {}) {
   }
 }
 
-module.exports = { triggerScrape, runLocalScraper, runResilientScan, runResultsOnlyScan }
+module.exports = { triggerScrape, runLocalScraper, runResilientScan, runResultsOnlyScan, warmVisualCache }

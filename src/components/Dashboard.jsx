@@ -221,6 +221,21 @@ const Dashboard = () => {
   }, [])
 
   const handleRefresh = useCallback(() => dataService.refreshAllData(), [])
+  const [scanBusy, setScanBusy] = useState(false)
+  const handleForceScan = useCallback(async () => {
+    if (scanBusy) return
+    setScanBusy(true)
+    try {
+      await dataService.triggerScanToday()
+      setTimeout(() => dataService.refreshAllData(), 30000)
+      setTimeout(() => {
+        dataService.refreshAllData()
+        setScanBusy(false)
+      }, 70000)
+    } catch {
+      setScanBusy(false)
+    }
+  }, [scanBusy])
   const handleSelectMatch = useCallback((m) => setSelectedMatch(m), [])
 
   const handleLeagueChange = useCallback(
@@ -384,7 +399,30 @@ const Dashboard = () => {
               ? `Aucun match pour le marché "${filterLabels[dominantFilter]}"`
               : searchQuery
                 ? `Aucun résultat pour "${searchQuery}"`
-                : 'Aucun match à afficher sur cette fenêtre'}
+                : matches.length > 0
+                  ? 'Les matchs reçus sont déjà joués — aucun match à venir en base. Lancez un scan pour rafraîchir.'
+                  : 'Aucune donnée de match reçue du serveur.'}
+            {dominantFilter === 'ALL' && !searchQuery && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  onClick={handleForceScan}
+                  disabled={scanBusy}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #10b981',
+                    background: 'rgba(16,185,129,0.12)',
+                    color: '#10b981',
+                    cursor: scanBusy ? 'wait' : 'pointer',
+                    letterSpacing: '0.4px',
+                  }}
+                >
+                  {scanBusy ? '⏳ Scan en cours…' : '⚡ Forcer le scan'}
+                </button>
+              </div>
+            )}
           </div>
         )}
         <div style={{ width: '100%' }} ref={containerRef}>

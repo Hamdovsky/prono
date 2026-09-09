@@ -642,6 +642,92 @@ if _HAS_FASTAPI:
             'model': _model_name or 'PIL-fallback',
         }
 
+    # ─── /fixtures/{date} — découverte de fixtures Sofascore pour l'orchestrateur
+    # Node (config/sources/sofascore-py.js). Le client JS SofaAPI.getEvents est
+    # banni 403 sans curl_cffi ; ici on réutilise le même transport fingerprints.
+    _FIXTURES_CACHE = {}  # date_str -> (ts, events)
+    _FIXTURES_CACHE_TTL = 900  # 15 min — fenêtre J..J+2, la liste bouge lentement
+
+    def _score_val(s):
+        if isinstance(s, dict):
+            for k in ('current', 'normaltime', 'display'):
+                v = s.get(k)
+                if v is not None:
+                    try:
+                        return int(v)
+                    except (TypeError, ValueError):
+                        continue
+            return None
+        try:
+            return int(s)
+        except (TypeError, ValueError):
+            return None
+
+    def _sofascore_fixtures(date_str):
+        """Évènements Sofascore d'une date (scheduled-events), normalisés.
+        Retourne None si Sofascore injoignable/payload invalide, [] si aucun évènement."""
+        now = time.time()
+        cached = _FIXTURES_CACHE.get(date_str)
+        if cached and (now - cached[0]) < _FIXTURES_CACHE_TTL:
+            return cached[1]
+        root = _sofascore_get_json(f'/sport/football/scheduled-events/{date_str}', timeout=20)
+        if not isinstance(root, dict) or not isinstance(root.get('events'), list):
+            return None
+        out = []
+        for e in root.get('events') or []:
+            if not isinstance(e, dict) or e.get('id') is None:
+                continue
+            status_block = e.get('status') if isinstance(e.get('status'), dict) else {}
+            stype = status_block.get('type')
+            if stype is None:
+                continue
+            if stype == 0:
+                status = 'scheduled'
+            elif stype in (1, 2, 3, 4, 5):
+                status = 'inprogress'
+            else:
+                status = 'finished'
+            home = e.get('homeTeam') if isinstance(e.get('homeTeam'), dict) else {}
+            away = e.get('awayTeam') if isinstance(e.get('awayTeam'), dict) else {}
+            tourn = e.get('tournament') if isinstance(e.get('tournament'), dict) else {}
+            cat = tourn.get('category') if isinstance(tourn.get('category'), dict) else {}
+            home_name = home.get('name')
+            away_name = away.get('name')
+            if not home_name or not away_name:
+                continue
+            item = {
+                'eid': e.get('id'),
+                'homeTeam': home_name,
+                'awayTeam': away_name,
+                'homeTeamId': home.get('id'),
+                'awayTeamId': away.get('id'),
+                'league': tourn.get('primaryName') or tourn.get('name') or 'Unknown',
+                'category_name': cat.get('name') or '',
+                'startTimestamp': e.get('startTimestamp'),
+                'status': status,
+                'statusType': stype,
+            }
+            if status == 'finished':
+                hs = _score_val(e.get('homeScore'))
+                as_ = _score_val(e.get('awayScore'))
+                if hs is not None and as_ is not None:
+                    item['scoreHome'] = hs
+                    item['scoreAway'] = as_
+            out.append(item)
+        _FIXTURES_CACHE[date_str] = (now, out)
+        return out
+
+    @app.get('/fixtures/{date_str}')
+    async def fixtures_endpoint(date_str: str):
+        """Fixtures Sofascore d'une date YYYY-MM-DD (scheduled + FT), cache 15 min."""
+        import re as _re
+        if not _re.fullmatch(r'\d{4}-\d{2}-\d{2}', date_str):
+            return {'success': False, 'error': 'format de date attendu: YYYY-MM-DD'}
+        events = _sofascore_fixtures(date_str)
+        if events is None:
+            return {'success': False, 'error': 'Sofascore injoignable ou payload inattendu', 'date': date_str}
+        return {'success': True, 'date': date_str, 'count': len(events), 'events': events}
+
 else:
     app = None
 

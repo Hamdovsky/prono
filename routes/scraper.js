@@ -6,6 +6,7 @@ const securityEngine = require('../core/securityEngine')
 const { readScraperProgress } = require('../core/utils')
 const enrichNewsProcessor = require('../core/_enrich_news')
 const logger = require('../core/logger')
+const { invalidateCache } = require('../core/speedCache')
 
 const localOrAuth = (req, res, next) => {
   const ip = req.socket?.remoteAddress || ''
@@ -116,8 +117,13 @@ async function getBrowser() {
   return globalBrowser
 }
 
+// NOTE: ces slots reflètent le cron réel du cronManager
+// ('0 6,9,12,15,18,21 * * *', Europe/Paris). lastRun/running sont écrasés par
+// l'état VRAI du cronManager (singleton) dans /scraper/status — auparavant,
+// cet objet local ne se mettait jamais à jour et le status affichait un
+// lastRun:null permanent (faux signal « interrupted » observé le 2026-09-09).
 const scraperSchedule = {
-  times: ['06:00', '12:00', '18:00'],
+  times: ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00'],
   lastRun: null,
   nextRun: null,
   running: false,
@@ -188,7 +194,14 @@ function freeSourcesDiagnostic() {
     }
   }
 
+  const pyState = (state && state.sources && state.sources['sofascore-py']) || {}
   return {
+    pixelragFixtures: {
+      available: process.env.PIXELRAG_FIXTURES_ENABLED === 'true',
+      disabled: process.env.PIXELRAG_FIXTURES_ENABLED !== 'true',
+      error: pyState.error || null,
+      detail: `PixelRAG ${process.env.PIXELRAG_URL || 'http://127.0.0.1:30002'} — fixtures dernier scan: ${pyState.fetched != null ? pyState.fetched : '?'}`,
+    },
     sofascore: {
       available: true,
       disabled: sofastate.disabled === true || process.env.DISABLE_SOFASCORE === 'true',
@@ -236,13 +249,26 @@ function freeSourcesDiagnostic() {
 
 /**
  * GET /api/scraper/status
+ * lastRun/running proviennent du cronManager (singleton qui exécute VRAIMENT
+ * les scans). L'état local n'est qu'un gabarit (times/nextRun).
  */
 router.get('/scraper/status', async (req, res) => {
   scraperSchedule.nextRun = calcNextScraperRun()
   const progress = await readScraperProgress()
+  let cronState = {}
+  try {
+    const cm = require('../services/cronManager')
+    if (cm && cm.scraperSchedule) {
+      cronState = { running: !!cm.scraperSchedule.running, lastRun: cm.scraperSchedule.lastRun || null }
+    }
+  } catch (_) {
+    /* cronManager pas encore chargé au démarrage — fallback sur progress */
+  }
   res.json({
     ...scraperSchedule,
     ...progress,
+    running: cronState.running || Boolean(progress.running || progress.isRunning),
+    lastRun: cronState.lastRun || progress.lastRun || null,
     freeSourcesDiagnostic: freeSourcesDiagnostic(),
   })
 })
@@ -358,25 +384,41 @@ router.post('/news-watch/refresh', async (req, res) => {
 
 /**
  * POST /api/scan-today
- * Triggers a manual SofaScore scan for today's matches.
+ * Déclenche un scan résilient multi-sources (résultats J-3..J-1 + fixtures
+ * J..J+2) dans le processus serveur. L'ancienne version exécutait
+ * « node update_today.js » — fichier supprimé du repo, le scan échouait en
+ * silence (le sous-processus ne trouvait pas le script).
  */
+let _scanTodayInFlight = false
 router.post('/scan-today', async (req, res) => {
   try {
-    const { exec } = require('child_process')
-    const scriptPath = path.join(__dirname, '..', 'update_today.js')
-
-    logger.info('⚡ [API] Triggering manual SofaScore scan...')
-
-    // Execute in background to avoid timeout
-    exec(`node "${scriptPath}"`, (error, stdout, stderr) => {
-      if (error) {
-        logger.error('❌ [SCAN-TODAY] Error:', error.message)
-        return
-      }
-      logger.info('✅ [SCAN-TODAY] Scan complete.')
-    })
-
+    if (_scanTodayInFlight) {
+      return res.json({ success: true, message: 'Scan already in progress', skipped: true })
+    }
+    logger.info('⚡ [API] Triggering manual resilient scan (scan-today)...')
     res.json({ success: true, message: 'Scan started in background' })
+
+    _scanTodayInFlight = true
+    const { runResilientScan } = require('../services/scraperBridge')
+    // ⏱️ Deadline dure : un provider qui hang ne doit jamais laisser le flag
+    // in-flight bloqué (l'ancien scan externe ne pouvait pas geler le serveur).
+    const deadline = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('scan deadline 5min exceeded')), 5 * 60 * 1000)
+    )
+    Promise.race([runResilientScan(), deadline])
+      .then((r) => {
+        const cov = r && r.summary && r.summary.coverage
+        logger.info(
+          `✅ [SCAN-TODAY] Scan complete — ${cov ? cov.totalUnique : 0} fixtures, ${r && r.results ? r.results.updated : 0} results settled.`
+        )
+      })
+      .catch((e) => logger.error(`❌ [SCAN-TODAY] Error: ${e.message}`))
+      .finally(() => {
+        try {
+          invalidateCache('upcoming')
+        } catch (_) {}
+        _scanTodayInFlight = false
+      })
   } catch (e) {
     logger.error('[SCAN-TODAY ERROR]', e.message)
     res.status(500).json({ error: e.message })

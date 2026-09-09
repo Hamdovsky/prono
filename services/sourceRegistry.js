@@ -42,7 +42,9 @@ function toProvider(plugin) {
   const enabled = plugin.enabled !== undefined ? plugin.enabled : true
   return {
     name: plugin.name,
-    priority: plugin.priority || 99,
+    // ?? et pas || : priority 0 (source principale) est falsy — '||' la
+    // ferait remonter en fin de file (bug découvert 2026-09-09).
+    priority: plugin.priority ?? 99,
     type: plugin.type || 'fixtures',
     enabled,
     rate: plugin.rate || null,
@@ -64,7 +66,7 @@ function toProvider(plugin) {
 function normalizePlugins(plugins) {
   return plugins
     .filter((p) => p.enabled !== false)
-    .sort((a, b) => (a.priority || 99) - (b.priority || 99))
+    .sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
     .map(toProvider)
 }
 

@@ -119,7 +119,10 @@ module.exports = {
   name: 'livescore',
   priority: 1,
   type: 'fixtures',
-  enabled: false, // DÉSACTIVÉ - API retourne "error" depuis août 2026
+  // Réactivé le 2026-09-09 : la désactivation du 2026-09-04 (« API retourne
+  // error ») était un diagnostic périmé — probe du jour : HTTP 200, 65 stages,
+  // 173 évènements. Désactivable sans toucher au code via LIVESCORE_ENABLED=false.
+  enabled: process.env.LIVESCORE_ENABLED !== 'false',
   // Avoid hammering the public API across the 3 scan dates.
   rate: { max: 6, perMs: 60000, minTime: 1500 },
   fetch,

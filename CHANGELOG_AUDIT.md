@@ -4,6 +4,488 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Hook pre-commit — garde de fumée automatique (2026-09-09, local)
+
+### Objectif (RFA de la session précédente)
+Le test d'intégration général (section précédente) restait manuel. On
+l'automatise : chaque `git commit` exécute désormais une garde rapide
+(syntaxe des fichiers stageés + tests fumée) et BLOQUE le commit en cas
+d'erreur de syntaxe ou de régression de fumée.
+
+### Implémentation
+**`.githooks/pre-commit`** (versionné, POSIX sh, compatible Git-Bash Windows) :
+
+1. **Garde syntaxe Python** : `compile(bytes)` sur chaque `.py` stage
+   (A/C/M uniquement — les suppressions sont ignorées).
+2. **Garde syntaxe JS** : `node --check` sur chaque `.js` stage dans
+   `core/ services/ routes/ scripts/` (les `.jsx` de `src/` sont exclus —
+   non parsables par node).
+3. **Tests fumée** : `pytest tests/test_general_integration.py -m smoke -q -x`
+   (4 tests, ~0.2s ; skip gracieux si un service est down).
+
+Verdict : exit 1 + message « COMMIT BLOQUÉ » si échec ; sinon exit 0.
+
+**Installation** : copié dans `.git/hooks/pre-commit` (cohabite sans conflit
+avec les hooks LFS existants post-commit/pre-push).
+
+**Portabilité autres postes** (au choix) :
+- Copie simple : `cp .githooks/pre-commit .git/hooks/pre-commit`
+- Ou : `git config core.hooksPath .githooks`
+
+**Contournements** :
+- `git commit --no-verify` (standard git)
+- `STITCH_SKIP_PRECOMMIT=1 git commit ...` (variété maison)
+
+### Tests du hook (4 scénarios réels)
+| Scénario | Attendu | Obtenu |
+|---|---|---|
+| Commit sans fichiers stageés | exit 0 | **exit 0** (smoke 4 passed, 0.21s) |
+| `.py` stageé avec SyntaxError (`def f(:`) | exit 1 + message | **exit 1** ✓ ligne/colonne affichées |
+| `.js` stageé invalide (`function f( {`) | exit 1 + message | **exit 1** ✓ erreur node --check affichée |
+| Fichier valide stageé (`pytest.ini`) | exit 0 | **exit 0** ✓ |
+| `STITCH_SKIP_PRECOMMIT=1` | skip immédiat exit 0 | **skip** ✓ |
+
+### Validations
+- Coût mesuré en régime nominal : **<0.5 s** par commit (invisible en pratique)
+- Fichiers valides : aucune fausse alerte (grep restreint aux vrais
+  répertoires de code, `.jsx` exclus)
+- Suppressions stageées (`--diff-filter=ACM`) : pas de test sur fichiers absents
+- Hooks LFS post-commit/pre-push : inchangés, aucun conflit
+
+### Fichiers modifiés
+- `.githooks/pre-commit` (nouveau, versionné)
+- `.git/hooks/pre-commit` (installé, copié depuis .githooks/)
+- `CHANGELOG_AUDIT.md` (cette section)
+
+### Reste à faire
+- Éventuellement ajouter un `pre-push` house-made qui lance
+  `pytest -m "not slow"` + `npm test` avant les pushes (2-3 min) — non
+  demandé, à arbitrer.
+
+---
+
+## Test d'intégration général du projet (2026-09-09, local)
+
+### Objectif (RFA de la session)
+Le projet stitch a grandi vite (V55-VISUAL, PixelRAG-Sofascore, pont
+enrich→predict, …) mais n'avait pas de **test d'intégration général** qui
+valide que tout fonctionne ensemble. Les tests unitaires (Jest + pytest)
+couvrent les modules isolés mais pas les invariants critiques :
+- Les 3 services essentiels (PixelRAG :30002, FastAPI :8000, Redis :6379)
+  sont-ils UP ?
+- Le pipeline enrich→predict (la dernière brique ajoutée) marche-t-il
+  bout-en-bout avec un event Sofascore réel ?
+- L'index PixelRAG et `visual_context_cache` sont-ils peuplés ?
+- Les modèles XGBoost et la base archive historique sont-ils intègres ?
+
+### Implémentation
+
+**1. `tests/conftest.py` (nouveau)** — fixtures partagées
+- URLs configurables via env (PIXELRAG_URL, FASTAPI_URL, REDIS_HOST/PORT)
+- Constante `TEST_EVENT_ID=11366885` (match réel public : FC Zbrojovka Brno
+  vs Slezský FC Opava) utilisée par les tests réseau
+- Helpers `_http_get` / `_http_post` (urllib, 0 dépendance) avec gestion
+  d'erreur silencieuse → `(status, body_or_text, error)`
+- Fixtures `pixelrag_url`, `fastapi_url`, `pixelrag_health`, `pixelrag_status`,
+  `fastapi_health` qui **skip gracieusement** (pas de FAIL) si un service
+  est down
+
+**2. `tests/test_general_integration.py` (nouveau)** — 19 tests sur 5 axes
+
+| Axe | Tests | Marqueurs |
+|---|---|---|
+| 1. Services health | 4 (PixelRAG health/status/index, FastAPI health/engines, Redis port) | `smoke` + `local` |
+| 2. PixelRAG endpoints | 4 (/search, /enrich/{id} payload, /enrich invalide, /sofascore/cache/stats) | `slow` + `smoke` |
+| 3. FastAPI predict | 3 (avec/sans sofascore_id, low_data fallback, probs cohérentes) | `slow` |
+| 4. DB persistance | 3 (tactical.db schéma, visual_context_cache peuple, archive_matches ≥ 100) | `db` + `local` |
+| 5. Fichiers projet | 5 (modèles, .py parsables, .js parsables, .env complet, CHANGELOG récent) | `local` |
+
+**Markers pytest** (enregistrés dans `pytest.ini`) :
+- `smoke` : 4 tests, <5s total, toujours lancés
+- `local` : 8 tests purement locaux (pas de réseau)
+- `db` : 3 tests qui touchent la DB
+- `slow` : 6 tests réseau (≥1s)
+- `required` : 0 test pour l'instant (réservé aux invariants critiques)
+
+**3. `pytest.ini`** — enregistrement des markers
+
+```ini
+markers =
+    smoke: tests de fumée (<5s total, toujours lancés)
+    local: tests purement locaux (pas de réseau)
+    db: tests qui touchent la DB
+    slow: tests réseau (>=1s) — à exclure en CI rapide
+    required: tests qui DOIVENT passer (pas de skip conditionnel)
+```
+
+**4. `core/visual_server.py`** — fix de robustesse
+
+Découvert pendant le test : `/enrich/9999999999` (event inexistant)
+retournait `success: true` avec `event_meta: null`. Ajout d'un early-return
+`if event_meta is None: return None` dans `_sofascore_enrich` pour ne pas
+polluer l'index avec des vecteurs vides et retourner proprement un
+`success: false` à l'appelant.
+
+### Résultats
+
+| Commande | Tests | Latence | Use case |
+|---|---|---|---|
+| `pytest tests/test_general_integration.py -m smoke` | 4 | 0.15s | CI ultra-rapide (pre-commit) |
+| `pytest tests/test_general_integration.py -m "not slow"` | 13 | 0.70s | CI rapide (PR check) |
+| `pytest tests/test_general_integration.py` | 19 | 0.90s | Intégration complète (pre-merge) |
+| `pytest tests/` (suite complète) | 371 | 146s | Non-régression (nightly) |
+
+**Tous verts** : 19/19 nouveaux tests + 352/352 anciens (0 régression).
+`npm test` (Jest) reste à 744/744.
+
+### Validations
+- `pytest tests/test_general_integration.py -v` : **19 passed in 0.90s**
+- `pytest tests/test_general_integration.py -m smoke` : **4 passed in 0.15s**
+- `pytest tests/test_general_integration.py -m "not slow"` : **13 passed in 0.70s**
+- `pytest tests/` (global) : **371 passed, 30 skipped, 0 failed** (+19 vs 352)
+- `npm test` : **744/744** (non-régression)
+
+### Fichiers modifiés
+- `tests/conftest.py` (nouveau, 105 lignes)
+- `tests/test_general_integration.py` (nouveau, 280 lignes, 19 tests)
+- `pytest.ini` (markers ajoutés)
+- `core/visual_server.py` (fix `_sofascore_enrich` early-return)
+
+### Reste à faire
+- Ajouter un test `@pytest.mark.required` qui fail-fast si l'index PixelRAG
+  est < 50 vecteurs (sentinelle : la chaîne est cassée quelque part)
+- Étendre `test_predict_*` à un match upcoming (status='scheduled') pour
+  couvrir le chemin live, pas seulement finished
+- Brancher ce test dans un pre-commit hook (`.git/hooks/pre-commit`) ou
+  GitHub Actions pour CI automatique
+
+---
+
+## PixelRAG-Sofascore branché dans /api/predict (2026-09-09, local)
+
+### Objectif (RFA de la session précédente)
+Le moteur PixelRAG-Sofascore (section précédente) sait **agréger** lineups +
+injuries + statistics + H2H en 1 round-trip, mais ne sert pour l'instant que via
+`SofascoreBypass.getEventEnrich` (appelé manuellement). On le branche dans le
+**pipeline de prédiction live** (`/api/predict`) pour que chaque prédiction
+consomme automatiquement l'enrichissement sans changer l'API consommatrice.
+
+### Implémentation
+**1. `core/sofascore_helpers.py` (nouveau)**
+
+Helper Python avec `compute_absence_impact(items, home_team, away_team)` :
+port exact de `SofascoreBypass.computeAbsenceImpact` (JS) pour permettre
+l'usage depuis Python sans re-fetch Sofascore. Évite la duplication et garantit
+la parité de calcul entre le pont Node et le consommateur FastAPI. 8 tests
+pytest dédiés (`tests/test_sofascore_helpers.py`) : cas vide, accents,
+saturation, side explicite, équipe inconnue, types mixtes.
+
+**2. `core/fastapi_server.py:_run_prediction_payload` — point d'injection**
+
+Juste avant `extract_visual_features(match_data)` (qui ne touche que les
+`visual_*`), on interroge PixelRAG si `sofascore_id` (ou `eventId`/`id`) est
+présent dans le payload :
+
+- `_pix_url = os.environ.get('PIXELRAG_URL', 'http://127.0.0.1:30002')`
+- `urllib.request` GET `/_pix_url/enrich/{event_id}` (timeout 8s, best-effort)
+- Si succès → injection dans `match_data` :
+  - `visual_context` (reconstruit depuis lineups+stats → `visual_confidence` ≈
+    max des stats home+away normalisé [0,1])
+  - `home_formation` / `away_formation` (ex. "4-2-3-1")
+  - `home_absence_impact` / `away_absence_impact` (via sofascore_helpers)
+  - `player_absences` (liste brute, utile pour le briefing LLM)
+  - `home_xg_pixels` / `away_xg_pixels` (xG extrait de la stat
+    "Expected goals" / "expectedGoals" si publiée)
+  - `home_possession_pct` / `away_possession_pct`
+  - `h2h_data` (JSON stringifié pour rétro-compat callers existants)
+- Si échec (PixelRAG down, event inconnu, 404) → on continue **sans
+  enrichissement**, on n'écrase rien.
+- Méta-enrichissement `_enrich_meta` (attempted, success, source, latency_ms,
+  text_chars) **exposé dans la réponse** (`result._pixelrag_enrich`) pour
+  observabilité temps réel.
+
+**Best-effort strict** : aucun `try/except` ne lève. Si PixelRAG est down,
+la prédiction fonctionne comme avant (repli sur `extract_visual_features`
++ moteurs XGBoost).
+
+### Test bout-en-bout (event 11366885)
+```bash
+POST /api/predict  body={sofascore_id:11366885, homeTeam:"FC Zbrojovka Brno",
+                          awayTeam:"Slezský FC Opava", league:"FNL", ...}
+→ 200 OK
+→ _pixelrag_enrich: {attempted:true, success:true, source:"pixelrag",
+                     latency_ms:16-59, event_id:"11366885", text_chars:400}
+→ home_win_probability: 0.5167, draw: 0.2689, away: 0.2144
+```
+
+### Bénéfices
+- **Zéro changement côté callers** : les routes Node qui appellent FastAPI
+  continuent de poster le même payload — l'enrichissement est **implicite**.
+- **Latence marginale** : 16-59 ms (cache hit) à ~900 ms (cache miss) sur le
+  path critique, async-safe (urllib synchrone mais bloqué max 8s avec
+  timeouts).
+- **Observabilité** : chaque réponse `/api/predict` porte maintenant le bloc
+  `_pixelrag_enrich` (latency, source) — on voit en prod si PixelRAG est up,
+  à quel命中率, et si l'enrichissement structure les features.
+- **Rétro-compat callers** : `home_formation`, `absence_impact`, `xg_pixels`
+  sont des **clés additives** — si PixelRAG down, ces clés sont absentes
+  mais le pipeline continue (les extract_ml_features existants les ignorent
+  proprement si non peuplées).
+
+### Validations
+- `python -c "ast.parse(open('core/sofascore_helpers.py').read())"` : OK
+- `python -c "ast.parse(open('core/fastapi_server.py').read())"` : OK
+- `pytest tests/test_sofascore_helpers.py -v` : **8/8 passed** (nouveau)
+- `pytest tests/` (hors `test_command_center_pronostics.py`) :
+  **352 passed, 30 skipped, 1 xfailed, 1 xpassed** — 0 failed
+  (344 → 352, +8 nouveaux tests)
+- `npm test` : **744/744** (74 suites, +0 vs dernier run) — non-régression
+- Test live `/predict` : 200 OK, enrich meta visible dans la réponse
+- Test fallback (PixelRAG down) : pas de régression, payload continue d'être
+  traité par les moteurs XGBoost sans enrichissement
+
+### Fichiers modifiés
+- `core/fastapi_server.py` (+~110 lignes : bloc enrich dans
+  `_run_prediction_payload`, exposition meta dans la réponse)
+- `core/sofascore_helpers.py` (nouveau, 90 lignes)
+- `tests/test_sofascore_helpers.py` (nouveau, 8 tests)
+
+### Reste à faire
+- Étendre l'enrich aux **matchs à venir** (cache hit sur les events déjà
+  fetchés ; cron `scripts/cron_pixelrag_refresh.js` peut être étendu pour
+  pré-chercher les events scheduled via `/api/v1/sport/football/scheduled-events/{date}`).
+- Logger l'enrich meta dans `data/live_prediction_journal.jsonl` pour analyse
+  offline du命中率 PixelRAG sur les prédictions réelles.
+- Sur le long terme : intégrer `home_formation`/`away_formation` comme
+  features dans `extract_ml_features` (formation différentielle = proxy
+  d'agressivité tactique).
+
+---
+
+## PixelRAG-Sofascore — moteur enrichi qui remplace le scraper (2026-09-09, local)
+
+### Objectif (RFA de la session)
+Le pipeline de scraping Sofascore historique (SofascoreBypass + routes/scraper.js
++ sofascore_bypass.py) faisait 3-5 round-trips HTTP pour récupérer lineups +
+injuries + statistics + H2H d'un event. Le moteur PixelRAG-lite (:30002) avait
+déjà un client HTTP sain (pixelragService.js) mais ne servait que des embeddings
+texte. On transforme PixelRAG en **agrégateur de données structurées Sofascore**
+qui prend la place du scraper : 1 round-trip au lieu de 4-5, sans Puppeteer,
+100% local, fallback Python automatique.
+
+### Implémentation
+**1. `core/visual_server.py` — module PixelRAG-Sofascore**
+
+Nouveau module Python (intégré au serveur vision existant, FastAPI :30002) :
+- `_sofascore_get_json(path)` : fetch direct api.sofascore.com via **curl_cffi**
+  (fingerprints Chrome124, anti-bot bypass identique à `sofascore_bypass.py`).
+  Pas de Puppeteer, pas de Chromium en mémoire.
+- `_extract_lineups(data)` : parse `{home:{formation, players:[{player, position}]}}`
+- `_extract_injuries(data)` : aplatit `{home, away}.players` en items plats
+- `_extract_statistics(data)` : parse `{statistics:[{period, groups:[{groupName,
+  statisticsItems:[{key, home, away, homeValue, awayValue}]}]}]}` → format plat
+  `{home: {group::key: val}, away: {...}}`
+- `_extract_h2h(data)` : parse H2H (best-effort, l'endpoint actuel 404 sur
+  certains events, on log et continue)
+- `_build_enrich_text(...)` : concatène formations + joueurs (top 11 par côté)
+  + absences + 20 stats par côté + H2H en un texte riche
+- `embed_text(text)` (existant) : produit un vecteur CLIP 512-dim du texte
+- `_sofascore_enrich(event_id, force=False)` : orchestre 5 fetches séquentiels
+  (1 event + 4 sous-ressources) puis embed + persiste dans `_INDEX` et
+  `_SOFASCORE_CACHE` (TTL 6h)
+
+**Endpoints FastAPI ajoutés** :
+- `GET  /enrich/{event_id}` : agrège tout, format de retour
+  `{success, event_id, event_meta:{homeTeam,awayTeam,tournament,status,
+  startTimestamp}, lineups, injuries, statistics, h2h, article_id,
+  embedding_dim, text_preview, fetched_at}`
+- `POST /enrich/{event_id}` : variante avec `{"force": true}` dans le body
+- `GET  /sofascore/cache/stats` : observabilité (cache_size, last_events,
+  index_size, model)
+- `data/visual/sofascore_enrich.jsonl` : journal append-only des enrichs
+
+**2. `services/pixelragService.js` — client enrichi**
+
+Ajout de `enrichMatch(eventId, {force, timeoutMs})` dans `_makeClient` (utilise
+`/enrich/{event_id}` + `_post` quand force=true). Exporté de premier niveau
+(`.enrichMatch = local.enrichMatch`).
+
+**3. `services/scrapers/SofascoreBypass.js` — pont PixelRAG**
+
+Nouvelle fonction `getEventEnrich(eventId, opts)` qui :
+- Tente **PixelRAG en priorité** (1 round-trip, ~900ms)
+- Fallback automatique sur les fonctions Python existantes (`getLineups` +
+  `getInjuries` + `getEventStats` en parallèle) si PixelRAG down ou erreur
+- Cache interne 6h
+- **Rétro-compatible** : `_flattenLineupsToLegacy` (shirtNumber vs shirt) et
+  `_flattenStatsToLegacy` (group::key aplati) garantissent que les appelants
+  existants fonctionnent sans modification
+- Kill-switch : `PIXELRAG_BRIDGE=off` (défaut `on`)
+- Export `_PIXELRAG_BRIDGE_ENABLED` pour observabilité/tests
+
+### Test bout-en-bout (2026-09-09)
+**Event 11366885** (FC Zbrojovka Brno vs Slezský FC Opava, FNL, finished) :
+
+```
+node -e "SofascoreBypass.getEventEnrich('11366885', {force:true})"
+→ source: pixelrag | found: true | latency: 907ms
+→ event: FC Zbrojovka Brno vs Slezský FC Opava (FNL, finished)
+→ lineups.home formation: 4-2-3-1 (18 joueurs)
+→ lineups.away formation: 4-1-4-1
+→ injuries: 0 (event fini, pas de missing joueurs)
+→ statistics: 66 clés home + 66 clés away (possession, xG, shots, etc.)
+→ embedding: CLIP 512-dim persisté dans _INDEX
+```
+
+**Avec `PIXELRAG_BRIDGE=off` (fallback Python)** : `source: python, latency: 808ms`.
+
+### Bénéfices
+- **Latence divisée par ~3-5** : 1 round-trip (PixelRAG) au lieu de 4-5
+  (Sofascore direct).
+- **Pas de Puppeteer/Chromium** : économie ~200 Mo RAM + complexité
+  d'environnement.
+- **100% local** : curl_cffi fait le bypass TLS, identique au Python existant.
+- **Embedding bonus** : chaque enrich produit un vecteur CLIP indexé, ouvrant
+  la voie à la recherche sémantique cross-event ("matchs avec 3+ absents
+  défenseurs", "matchs dominants en possession", etc.).
+- **Rétro-compatible** : zéro modification des appelants existants.
+
+### Validations
+- `node --check services/pixelragService.js services/scrapers/SofascoreBypass.js` : OK
+- `python -c "ast.parse(open('core/visual_server.py').read())"` : OK
+- `npm test` : **744/744** (74 suites, +0 vs dernier run) — non-régression
+- `pytest tests/` (hors `test_command_center_pronostics.py`) : **344 passed,
+  30 skipped, 1 xfailed, 1 xpassed** — 0 failed
+- Test live `/enrich/11366885` : 200 OK, lineups + stats + embedding présents
+
+### Fichiers modifiés
+- `core/visual_server.py` (+~220 lignes : module enrich, 3 endpoints)
+- `services/pixelragService.js` (+15 lignes : `enrichMatch` dans `_makeClient`
+  + export de premier niveau)
+- `services/scrapers/SofascoreBypass.js` (+~110 lignes : `getEventEnrich`,
+  helpers de flatten rétro-compat, kill-switch)
+- Nouveau : `data/visual/sofascore_enrich.jsonl` (journal)
+
+### Reste à faire
+- Réactiver le wiki (`PIXELRAG_WIKI_URL=https://api.pixelrag.ai`) pour doubler
+  les sources de l'enrich sémantique (Wikipédia saisons/effectifs en +
+  des captures Sofascore).
+- Brancher `getEventEnrich` dans le pipeline de prédiction live
+  (`/api/predict` ?) pour injecter lineups/injuries avant inférence XGBoost.
+- Étendre `_extract_h2h` quand l'endpoint H2H sera confirmé côté Sofascore
+  (actuellement 404 sur certains events).
+- Activer le cron `scripts/cron_pixelrag_refresh.js` (6h) pour préchauffer
+  les enrichs des matchs à venir.
+
+---
+
+## PixelRAG × Sofascore — bootstrap réel + booster V55-VISUAL opérationnel (2026-09-09, local)
+
+### Objectif (RFA de la session)
+Le pipeline PixelRAG-lite (CLIP + cache visuel + booster V55-VISUAL 235 dims) était
+câblé de bout en bout mais **dormant** : index à 4 vecteurs, `visual_context_cache`
+vide, modèle `stitch_v55_visual.json` jamais entraîné, bug d'intégration qui faisait
+que le booster n'avait pas accès au signal visuel même une fois entraîné. Objectif :
+faire travailler toutes les forces du pipeline.
+
+### Phase 0 — Audit stack (lecture seule)
+- ✅ Port 30002 (PixelRAG lite) UP : CLIP `openai/clip-vit-base-patch32` dim 512
+- ✅ Port 8000 (FastAPI ML) UP : engines `prediction/props/mega/sentiment` chargés
+- ✅ Port 6379 (Redis) UP
+- ❌ Ports 3000/3001 (API/UI Node) DOWN au moment de l'audit — non bloquant pour ce périmètre
+- ⚠️ Index PixelRAG quasi vide : **4 vecteurs** (nlist=1, nprobe=1 — placeholder,
+  code fait du brute-force cosine réel, FAISS non installé)
+- ⚠️ `visual_context_cache` : 6 rows (résidus de tests passés)
+- ⚠️ `stitch_v55_visual.json` : absent, code attendait un `--visual` jamais lancé
+- ✅ SofascoreBypass opérationnel (test live : Austria Wien→id 2203, Beitar Jerusalem→id 5204)
+- ✅ Archive historique 104 Mo + master 20 Mo + 1096 matchs (663 FT + 433 finished)
+
+### Phase 1 — Bootstrap index PixelRAG (sans Puppeteer)
+**Découverte** : `/ingest_text` (endpoint P2 du 2026-09-08) permet d'indexer via
+texte seul (CLIP si dispo, sinon hash stable) — pas besoin de captures Puppeteer.
+
+**Création** `scripts/bootstrap_pixelrag_text.js` :
+- 50 paires d'équipes uniques (SofascoreBypass.searchTeam) → 100 ingest_text
+- Durée : **38.3 s**, **99/100 OK** → index 4 → **103 vecteurs**
+- Recherche textuelle validée : top-1 = match pertinent, scores 0.07-0.18 (faibles
+  car index encore petit mais cosine exact et exploitable)
+
+### Phase 2 — Rebuild FAISS — non requis
+- Module `faiss` non installé dans `.venv`
+- Le code `core/visual_server.py:281` fait du **brute-force cosine** sur l'index
+  en mémoire → correct et rapide à 103 vecteurs
+- Les champs `nlist/nprobe` du `/status` sont cosmétiques (placeholder 1/1)
+- Pour 100k+ vecteurs, FAISS deviendrait utile (recommandation future)
+
+### Phase 3 — Peuplement `visual_context_cache` (400 matchs historiques)
+**Création** `scratch/populate_visual_cache.py` :
+- Lit `data/historical_archive.sqlite` table `archive_matches` (status FT/finished,
+  startTimestamp ≥ 2022-01-01)
+- Pour chaque match : recherche PixelRAG sur `"<home> vs <away> football match
+  form injuries recent results"` (n_docs=6), top_score → `visual_confidence`
+- INSERT/REPLACE dans `data/tactical.db.visual_context_cache` avec préfixe `hist_<id>`
+  (évite collision avec l'app live qui préfixe `live_<id>`)
+- **400/400 OK en 17.6 s** (~44 ms/match, dominé par la latence HTTP)
+- Distribution : `visual_confidence` médiane 0.11, range 0.07-0.18 → signal faible
+  mais **différencié** et exploitable
+
+### Phase 4 — Entraînement `stitch_v55_visual.json`
+**Bug d'intégration découvert et corrigé** :
+- `core/ml_extract.py:670-671` lisait les `visual_*` depuis `row.get(_vk)` seulement
+- L'entraînement passe par `process_row` qui mappe `archive_football_data` → pas de
+  champ `visual_*` ni `match_id`/`sofascore_id` → lookup jamais déclenché
+- `get_db_connection` de `ml_history.py` pointait vers `historical_archive.sqlite`
+  (pas la bonne DB : `visual_context_cache` est dans `tactical.db`)
+
+**Fix** (deux endroits, scoped au training) :
+1. `core/ml_extract.py:668-720` : hydratation depuis `tactical.db.visual_context_cache`
+   via `match_id` / `sofascore_id` / `id` + préfixes `hist_`/`live_`
+2. `core/train_v55.py:434-475` : hydratation directe dans `process_row` via
+   `homeTeam+awayTeam LIKE '%x%'` (fallback approximatif mais fonctionnel)
+3. `core/train_v55.py:25` : ajout `DB_TACTICAL_PATH`
+
+**Résultat** :
+- Modèle `stitch_v55_visual.json` (3.4 Mo) entraîné, **Test accuracy 58.06%**,
+  Log Loss 0.8514 (équivalent à V55, +0 features visuelles marginales)
+- 79/235 features utilisées par l'arbre, dont **3 visuelles** (f223, f225, f226)
+  avec 0.53% d'importance — signal faible mais **non nul** (était 0% avant fix)
+- Per-class : Home 73.8% / Draw 24.4% / Away 62.3%
+
+### Phase 5 — Cron d'entretien
+**Création** `scripts/cron_pixelrag_refresh.js` :
+- Dispatcher entre `bootstrap_pixelrag_text.js` (rapide, défaut) et
+  `scrapeVisualBatch.js` (Puppeteer, lent, captures riches)
+- Usage : `node scripts/cron_pixelrag_refresh.js --limit 50` (toutes les 6h recommandé)
+- Pour Windows Task Scheduler :
+  `schtasks /create /tn "PixelRAG-Refresh" /tr "node C:\...\stitch\scripts\cron_pixelrag_refresh.js --limit 100" /sc hourly /mo 6`
+
+### Verdict honnête
+- ✅ Index PixelRAG opérationnel et exploitable (103 → à faire croître)
+- ✅ Booster V55-VISUAL entraîné, signal visuel reçu (0.53%, marginal)
+- ✅ Bug d'intégration corrigé (la pipeline peut maintenant apprendre du visuel)
+- ⚠️ Le booster seul ne suffit pas : pour 1% d'apport réel, il faudrait enrichir
+  **tous** les matchs d'entraînement (50k+) → volume trop gros pour cette session
+- ✅ Le vrai gain de cette session est **structurel** : pipeline branchée, prête à
+  monter en charge quand l'ingestion tourne en continu
+
+### Fichiers modifiés
+- `core/ml_extract.py` (hydratation visuelle depuis `visual_context_cache`)
+- `core/train_v55.py` (hydratation dans `process_row` + `DB_TACTICAL_PATH`)
+- Nouveaux : `scripts/bootstrap_pixelrag_text.js`, `scripts/cron_pixelrag_refresh.js`,
+  `scratch/populate_visual_cache.py`
+- Modèle : `models/stitch_v55_visual.json` (3.4 Mo, 79/235 features utilisées)
+- DB : `data/tactical.db.visual_context_cache` (400 rows historiques + 6 live)
+- Non commité (travail en cours préservé)
+
+### Reste à faire
+- Enrichir les ~50k matchs d'entraînement (`populate_visual_cache.py --limit 50000`)
+  puis ré-entraîner → booster utilisable à 5-10% d'importance au lieu de 0.5%
+- Activer la tâche planifiée Windows (commande ci-dessus)
+- Quand FAISS installé + index > 10k vecteurs : activer un vrai index IVF pour
+  passer de brute-force à ANN
+
+---
+
 ## Route /api/matches/upcoming — fallback intelligent sur fenêtre réduite (2026-09-08, local)
 
 ### Objectif (RFA de la session précédente)

@@ -137,6 +137,130 @@ _PREDICTION_TIMEOUT_S = float(os.environ.get('FASTAPI_PREDICT_TIMEOUT_S', '120')
 
 def _run_prediction_payload(payload):
     match_data = clean_data(payload)
+    # ── PixelRAG-Sofascore (2026-09-09) : enrichissement live ──
+    # Si le payload porte un sofascore_id (ou eventId / id), on interroge
+    # PixelRAG-lite (:30002/enrich/{event_id}) pour récupérer en 1 round-trip :
+    #   lineups (formation + 11 joueurs par côté)
+    #   injuries (absences, type, détail)
+    #   statistics (66 métriques : possession, xG, shots, etc.)
+    #   h2h (top 8 confrontations)
+    #   embedding CLIP 512-dim (pour la recherche sémantique cross-event)
+    # Ces features sont injectées dans match_data AVANT extract_ml_features
+    # (qui ne touche que les visual_*) et AVANT process_prediction (XGBoost).
+    # Best-effort : si PixelRAG down, on continue sans enrichissement.
+    import time as _t
+    _enrich_t0 = _t.time()
+    _enrich_meta = {'attempted': False, 'success': False, 'source': None, 'latency_ms': 0}
+    try:
+        _sofascore_id = (
+            match_data.get('sofascore_id')
+            or match_data.get('eventId')
+            or match_data.get('id')
+        )
+        if _sofascore_id is not None:
+            _enrich_meta['attempted'] = True
+            _enrich_meta['event_id'] = str(_sofascore_id)
+            import urllib.request as _ur
+            import urllib.error as _ue
+            _pix_url = os.environ.get('PIXELRAG_URL', 'http://127.0.0.1:30002').rstrip('/')
+            try:
+                _req = _ur.Request(
+                    f"{_pix_url}/enrich/{int(_sofascore_id)}",
+                    headers={'Accept': 'application/json'},
+                )
+                with _ur.urlopen(_req, timeout=8) as _r:
+                    _enrich = json.loads(_r.read().decode('utf-8'))
+                if _enrich and _enrich.get('success'):
+                    _enrich_meta['success'] = True
+                    _enrich_meta['source'] = 'pixelrag'
+                    _enrich_meta['text_chars'] = len(_enrich.get('text_preview') or '')
+                    # 1) Visual context (pour extract_visual_features juste en dessous)
+                    #    On reconstruit un visual_context à partir de l'enrich
+                    _stats = _enrich.get('statistics') or {}
+                    _tiles_count = sum(len(v) for v in _stats.values())
+                    _max_score = 0.0
+                    for _side_stats in _stats.values():
+                        for _v in _side_stats.values():
+                            try:
+                                _f = float(str(_v).rstrip('%').replace(',', '.'))
+                                if _f > _max_score:
+                                    _max_score = _f
+                            except Exception:
+                                pass
+                    _max_score = min(1.0, _max_score / 100.0) if _max_score > 1.0 else _max_score
+                    match_data['visual_context'] = {
+                        'visual_confidence': _max_score or 0.5,
+                        'tiles': _enrich.get('lineups') or {},
+                        'scores': [_max_score] * _tiles_count,
+                        'screenshot_paths': [],
+                        'article_ids': [_enrich.get('article_id')] if _enrich.get('article_id') else [],
+                        'enrich_source': 'pixelrag',
+                        'event_meta': _enrich.get('event_meta') or {},
+                    }
+                    # 2) Formations (utiles pour les heuristiques Meta-Refiner / Tactical)
+                    _lineups = _enrich.get('lineups') or {}
+                    if isinstance(_lineups.get('home'), dict):
+                        match_data['home_formation'] = _lineups['home'].get('formation')
+                    if isinstance(_lineups.get('away'), dict):
+                        match_data['away_formation'] = _lineups['away'].get('formation')
+                    # 3) Injuries — impact pondéré home/away (utilise SofascoreBypass.computeAbsenceImpact)
+                    _inj = _enrich.get('injuries') or []
+                    if _inj:
+                        try:
+                            from sofascore_helpers import compute_absence_impact
+                            _imp = compute_absence_impact(
+                                _inj, match_data.get('homeTeam', ''), match_data.get('awayTeam', '')
+                            )
+                            match_data['home_absence_impact'] = _imp.get('home', 0.0)
+                            match_data['away_absence_impact'] = _imp.get('away', 0.0)
+                        except ImportError:
+                            # Fallback : impact simple = nb d'absences / 3 (saturation à 1.0)
+                            _h = sum(1 for i in _inj if i.get('side') == 'home')
+                            _a = sum(1 for i in _inj if i.get('side') == 'away')
+                            match_data['home_absence_impact'] = min(1.0, _h / 3.0)
+                            match_data['away_absence_impact'] = min(1.0, _a / 3.0)
+                        # Stocker la liste brute aussi (utile pour le briefing LLM)
+                        match_data['player_absences'] = _inj
+                    # 4) Statistics clés : xG (si dispo), possession, etc.
+                    #    On extrait les valeurs home/away pour les features qui en ont.
+                    _h_stats = _stats.get('home') or {}
+                    _a_stats = _stats.get('away') or {}
+                    def _stat(d, key_substr):
+                        """Cherche la 1ère stat dont la clé contient key_substr (case-insensitive)."""
+                        kl = key_substr.lower()
+                        for k, v in d.items():
+                            if kl in k.lower():
+                                try:
+                                    return float(str(v).rstrip('%').replace(',', '.'))
+                                except Exception:
+                                    return None
+                        return None
+                    # xG : si Sofascore publie (souvent "Expected goals" ou "expectedGoals")
+                    _h_xg = _stat(_h_stats, 'expectedGoals') or _stat(_h_stats, 'xg')
+                    _a_xg = _stat(_a_stats, 'expectedGoals') or _stat(_a_stats, 'xg')
+                    if _h_xg is not None:
+                        match_data['home_xg_pixels'] = _h_xg
+                    if _a_xg is not None:
+                        match_data['away_xg_pixels'] = _a_xg
+                    # Possession (utilisée par dominanceScore)
+                    _h_pos = _stat(_h_stats, 'ballPossession')
+                    _a_pos = _stat(_a_stats, 'ballPossession')
+                    if _h_pos is not None and _a_pos is not None:
+                        match_data['home_possession_pct'] = _h_pos
+                        match_data['away_possession_pct'] = _a_pos
+                    # 5) H2H : stocké pour briefing / Meta-Refiner
+                    _h2h = _enrich.get('h2h')
+                    if _h2h and isinstance(_h2h, dict):
+                        match_data['h2h_data'] = json.dumps(_h2h)
+            except (_ue.URLError, _ue.HTTPError, TimeoutError, ValueError, json.JSONDecodeError) as _ee:
+                _enrich_meta['error'] = str(_ee)[:120]
+            except Exception as _ee:
+                _enrich_meta['error'] = f'unexpected: {str(_ee)[:80]}'
+    except Exception as _outer:
+        import sys
+        sys.stderr.write(f"[pixelrag_enrich] outer skipped: {_outer}\n")
+    _enrich_meta['latency_ms'] = int((_t.time() - _enrich_t0) * 1000)
+    match_data['_pixelrag_enrich_meta'] = _enrich_meta
     # ── Visual context (PixelRAG-lite) ──
     # Injecte les colonnes visual_* si services/visualEnrichmentService.js a
     # fourni un visual_context. Best-effort : ne casse jamais la prédiction.
@@ -174,7 +298,12 @@ def _run_prediction_payload(payload):
             return {"success": True, "score": round(avg_score, 3), "label": final_label, "subjectivity": round(avg_subj, 3), "lang": results[0].get('lang', 'En'), "details": results}
         return {"success": False, "error": "No text to analyze"}
     engine = get_engine('prediction')
-    return engine(match_data)
+    result = engine(match_data)
+    # 2026-09-09 : expose la méta-enrichissement PixelRAG dans la réponse
+    # (utile pour le debug et l'observabilité temps réel du pipeline).
+    if isinstance(result, dict):
+        result.setdefault('_pixelrag_enrich', _enrich_meta)
+    return result
 
 
 @app.post("/predict")

@@ -6,7 +6,11 @@
  * resolve : /search/all -> team id -> /team/{id}/events/{next,last}/0 -> event id
  * odds    : /event/{id}/odds/1/all (fractionnel -> decimal)
  *
- * Kill-switch : DISABLE_SOFASCORE=true (respecté côté dataFusionService).
+ * 2026-09-09 — Pont PixelRAG (services/pixelragService.enrichMatch) :
+ *   si PIXELRAG_BRIDGE=on (défaut), SofascoreBypass délègue l'agrégation
+ *   lineups+injuries+stats+H2H+embedding à PixelRAG-lite (1 round-trip HTTP
+ *   vers :30002 au lieu de 4-5 vers api.sofascore.com). Fallback Python
+ *   conservé si PixelRAG down. Kill-switch : DISABLE_SOFASCORE=true.
  */
 const { execFile } = require('child_process')
 const path = require('path')
@@ -218,6 +222,123 @@ async function getEventStats(eventId) {
   return null
 }
 
+// ── Pont PixelRAG (2026-09-09) ────────────────────────────────────────────────
+// Agrège en 1 round-trip : lineups + injuries + statistics + H2H + embedding
+// via le serveur PixelRAG-lite (:30002/enrich/{event_id}). Remplace 3-4 appels
+// distincts au Python bypass. Best-effort : si PixelRAG down ou erreur, fallback
+// vers les fonctions Python individuelles. Désactivable via PIXELRAG_BRIDGE=off.
+const PIXELRAG_BRIDGE =
+  String(process.env.PIXELRAG_BRIDGE || 'on').toLowerCase() !== 'off'
+const enrichCache = new Map() // eventId -> { payload, expiresAt }
+const CACHE_TTL_ENRICH = 6 * 3600 * 1000
+
+function _flattenStatsToLegacy(stats) {
+  // Adapte le format PixelRAG {home:{group::key:val}, away:{...}} vers
+  // l'ancien format plat que les appelants attendent.
+  if (!stats || typeof stats !== 'object') return null
+  const out = { home: {}, away: {} }
+  for (const side of ['home', 'away']) {
+    for (const [k, v] of Object.entries(stats[side] || {})) {
+      // k = "Group::metric" ou "metric" — on garde les 2 pour rétro-compat
+      const short = k.split('::').pop()
+      out[side][short] = v
+      out[side][k] = v
+    }
+  }
+  return out
+}
+
+function _flattenLineupsToLegacy(lineups) {
+  if (!lineups || typeof lineups !== 'object') return null
+  // Ancienne API attendait players: [{name, position, shirtNumber}]
+  // Nouvelle API renvoie {formation, players: [{name, position, shirt}]}
+  const out = {}
+  for (const side of ['home', 'away']) {
+    const src = lineups[side]
+    if (!src) continue
+    out[side] = {
+      formation: src.formation,
+      players: (src.players || []).map((p) => ({
+        name: p.name,
+        position: p.position,
+        shirtNumber: p.shirt,
+        jerseyNumber: p.shirt,
+      })),
+    }
+  }
+  return out
+}
+
+/**
+ * Agrège lineups+injuries+stats+H2H d'un event Sofascore. Pont PixelRAG.
+ * Format de retour aligné sur les anciens getLineups/getInjuries/getEventStats
+ * fusionnés : {found, lineups, injuries, statistics, h2h, article_id, source}
+ * @param {string|number} eventId
+ * @param {{force?: boolean}} [opts]
+ */
+async function getEventEnrich(eventId, opts = {}) {
+  if (eventId == null) return { found: false }
+  const eid = String(eventId)
+  const hit = enrichCache.get(eid)
+  if (hit && Date.now() < hit.expiresAt && !opts.force) return hit.payload
+
+  // 1. Tenter PixelRAG d'abord (1 round-trip)
+  if (PIXELRAG_BRIDGE) {
+    try {
+      const pixelrag = require('../pixelragService') // resolves to services/pixelragService.js
+      const r = await pixelrag.enrichMatch(eventId, { timeoutMs: 20000, force: !!opts.force })
+      if (r && r.success) {
+        const payload = {
+          found: true,
+          event_id: r.event_id,
+          event_meta: r.event_meta,
+          lineups: _flattenLineupsToLegacy(r.lineups),
+          injuries: (r.injuries || []).map((i) => ({
+            team: i.side,
+            player: i.player,
+            position: i.position,
+            status: i.status,
+            detail: i.detail,
+            reason: i.detail,
+          })),
+          statistics: _flattenStatsToLegacy(r.statistics),
+          h2h: r.h2h,
+          article_id: r.article_id,
+          source: 'pixelrag',
+          fetched_at: r.fetched_at,
+        }
+        enrichCache.set(eid, { payload, expiresAt: Date.now() + CACHE_TTL_ENRICH })
+        return payload
+      }
+    } catch (_) {
+      // PixelRAG down → fallback Python ci-dessous
+    }
+  }
+
+  // 2. Fallback Python (legacy) — 3-4 round-trips
+  try {
+    const [lineups, injuries, stats] = await Promise.all([
+      getLineups(eventId).catch(() => null),
+      getInjuries(eventId).catch(() => null),
+      getEventStats(eventId).catch(() => null),
+    ])
+    const payload = {
+      found: Boolean(lineups || injuries || stats),
+      event_id: eid,
+      lineups: lineups && lineups.found ? lineups : null,
+      injuries: injuries && injuries.found ? injuries.injuries || [] : null,
+      statistics: stats && stats.found ? stats : null,
+      h2h: null,
+      source: 'python',
+      fetched_at: Date.now(),
+    }
+    enrichCache.set(eid, { payload, expiresAt: Date.now() + CACHE_TTL_ENRICH })
+    return payload
+  } catch (_) {
+    return { found: false }
+  }
+}
+
 // Statut/score d'un événement (pour le résolveur automatique de scores finaux).
 const statusCache = new Map() // eventId -> { data, expiresAt }
 const CACHE_TTL_STATUS = 45 * 1000
@@ -313,4 +434,8 @@ module.exports = {
   getEventStatus,
   getAbsencesForMatch,
   computeAbsenceImpact,
+  // Pont PixelRAG (2026-09-09) — remplace le scraper pour l'agrégation multi-sources
+  getEventEnrich,
+  // Config pont (utile pour tests / kill-switch)
+  _PIXELRAG_BRIDGE_ENABLED: PIXELRAG_BRIDGE,
 }

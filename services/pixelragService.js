@@ -16,7 +16,11 @@ const logger = require('../core/logger')
 // Dégradation douce : null / success:false si down, ne casse jamais la prédiction.
 
 const LOCAL_URL = (process.env.PIXELRAG_URL || 'http://127.0.0.1:30002').replace(/\/$/, '')
-const WIKI_URL = (process.env.PIXELRAG_WIKI_URL || 'https://api.pixelrag.ai').replace(/\/$/, '')
+// Wiki désactivé par défaut (plan 2026-09-08 : PixelRAG = local + Sofascore uniquement).
+// Pour réactiver le wiki (index hébergé Wikipédia), définir PIXELRAG_WIKI_URL=https://api.pixelrag.ai.
+const WIKI_URL_RAW = process.env.PIXELRAG_WIKI_URL
+const WIKI_ENABLED = Boolean(WIKI_URL_RAW && WIKI_URL_RAW.trim() && WIKI_URL_RAW.trim().toLowerCase() !== 'disabled')
+const WIKI_URL = WIKI_ENABLED ? WIKI_URL_RAW.replace(/\/$/, '') : ''
 const HEALTH_TIMEOUT = 3000
 const SEARCH_TIMEOUT = 15000
 const TILE_TIMEOUT = 10000
@@ -152,6 +156,23 @@ function _makeClient(baseUrl) {
     return _getBinary(`/tile/${articleId}/${tileIndex}/${chunkIndex || 0}`, TILE_TIMEOUT)
   }
 
+  /**
+   * Agrège lineups + injuries + statistics + H2H d'un event Sofascore en 1 round-trip
+   * (remplace 3-4 appels séparés du scraper historique). Embedding CLIP stocké
+   * pour recherche sémantique.
+   * @param {string|number} eventId — id Sofascore (entier)
+   * @param {{force?: boolean, timeoutMs?: number}} [opts]
+   */
+  async function enrichMatch(eventId, opts = {}) {
+    if (eventId == null) return null
+    const path = `/enrich/${encodeURIComponent(String(eventId))}`
+    const timeoutMs = opts.timeoutMs || 20000
+    if (opts.force) {
+      return _post(path, { force: true }, timeoutMs)
+    }
+    return _get(path, timeoutMs)
+  }
+
   // ── Endpoints spécifiques au serveur "lite" local (inexistants dans le vrai
   // PixelRAG, qui indexe hors-ligne). Utilisés uniquement par scrapeVisualBatch. ──
   async function ingest(imagePath, articleId, timeout = 20000) {
@@ -162,11 +183,13 @@ function _makeClient(baseUrl) {
     return _post('/embed', { image_path: imagePath }, timeout)
   }
 
-  return { baseUrl, search, searchByImage, getStatus, getHealth, getTile, ingest, embed }
+  return { baseUrl, search, searchByImage, getStatus, getHealth, getTile, ingest, embed, enrichMatch }
 }
 
 const local = _makeClient(LOCAL_URL)
-const wiki = _makeClient(WIKI_URL)
+// Wiki client optionnel (désactivé par défaut depuis 2026-09-08). `null` quand désactivé
+// pour court-circuiter toutes les requêtes externes vers api.pixelrag.ai.
+const wiki = WIKI_ENABLED ? _makeClient(WIKI_URL) : null
 
 // ── Hygiène de requête Wikipédia (index hébergé générique) ──
 // "X football club season squad" ramenait des tuiles hors-sujet (joueurs d'autres
@@ -225,6 +248,8 @@ module.exports = {
   getHealth: local.getHealth,
   ingest: local.ingest,
   embed: local.embed,
-  // /tile n'existe que sur le vrai PixelRAG hébergé.
-  getTile: wiki.getTile,
+  enrichMatch: local.enrichMatch,
+  // /tile n'existe que sur le vrai PixelRAG hébergé. Wiki désactivé par défaut :
+  // retourne null si PIXELRAG_WIKI_URL est vide (plan 2026-09-08 : 100% Sofascore local).
+  getTile: wiki ? wiki.getTile : (async () => null),
 }

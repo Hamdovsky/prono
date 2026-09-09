@@ -64,22 +64,24 @@ async function getVisualContext(match, opts = {}) {
     }
   }
 
-  // 2. Recherche PixelRAG — DEUX backends (protocole identique, normalisé) :
-  //    a) local : notre corpus Sofascore (capturaux live, serveur lite CLIP :30002)
-  //    b) wiki  : VRAI PixelRAG hébergé (api.pixelrag.ai — Wikipédia, contexte
-  //               historique/effectif/saisons). Gratuit, sans clé.
+  // 2. Recherche PixelRAG — UN seul backend actif par défaut (plan 2026-09-08) :
+  //    a) local : notre corpus Sofascore (captures live, serveur lite CLIP :30002)
+  //    b) wiki  : VRAI PixelRAG hébergé (api.pixelrag.ai — Wikipédia) — DÉSACTIVÉ
+  //               par défaut. Pour le réactiver : PIXELRAG_WIKI_URL dans .env.
   const query = queryForMatch(match)
   const home = match.homeTeam || match.home || ''
   const away = match.awayTeam || match.away || ''
-  const wikiQueries = pixelrag.wikiQueriesForMatch(home, away)
+  const wikiQueries = pixelrag.wiki ? pixelrag.wikiQueriesForMatch(home, away) : []
   const [localRes, wikiRes] = await Promise.all([
     pixelrag.search(query, { n_docs: 6 }),
-    wikiQueries.length ? pixelrag.wiki.search(wikiQueries, { n_docs: 3 }) : null,
+    pixelrag.wiki && wikiQueries.length ? pixelrag.wiki.search(wikiQueries, { n_docs: 3 }) : null,
   ])
 
   const localTiles = ((localRes && localRes.tiles) || []).map((t) => ({ ...t, source: 'sofascore' }))
   const rawWikiTiles = ((wikiRes && wikiRes.tiles) || []).map((t) => ({ ...t, source: 'wikipedia' }))
-  const wikiTiles = pixelrag.filterTilesByTeams(rawWikiTiles, [home, away])
+  const wikiTiles = pixelrag.wiki
+    ? pixelrag.filterTilesByTeams(rawWikiTiles, [home, away])
+    : []
   const tiles = [...localTiles, ...wikiTiles]
   if (!tiles.length && !force) {
     logger.debug(`[VISUAL] pas de contexte visuel pour ${matchId} (serveurs vision down ou index vides)`)

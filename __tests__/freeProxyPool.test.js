@@ -4,6 +4,13 @@
  * via les hooks _internal (pool injecté, état contrôlé).
  */
 
+const { EventEmitter } = require('events')
+
+jest.mock('net', () => ({ connect: jest.fn() }))
+jest.mock('tls', () => ({ connect: jest.fn() }))
+
+const net = require('net')
+const tls = require('tls')
 const pool = require('../services/scrapers/freeProxyPool')
 
 const internal = pool._internal
@@ -117,5 +124,55 @@ describe('fetchText (sans réseau)', () => {
     resetState(['1.2.3.4:8080'])
     expect(await pool.fetchText('https://evil.example.com/x')).toBe(null)
     expect(await pool.fetchText('http://www.betexplorer.com/x')).toBe(null)
+  })
+})
+
+function makeFakeSocks() {
+  const netSock = new EventEmitter()
+  netSock.write = jest.fn()
+  netSock.destroy = jest.fn()
+  const tlsSock = new EventEmitter()
+  tlsSock.write = jest.fn()
+  tlsSock.destroy = jest.fn()
+  tlsSock.setTimeout = jest.fn()
+  net.connect = jest.fn(() => netSock)
+  tls.connect = jest.fn(() => tlsSock)
+  return { netSock, tlsSock }
+}
+
+describe('fetchTextThroughProxy — watchdog réponse (proxy muet)', () => {
+  const flush = () => new Promise((r) => setImmediate(r))
+
+  test('un proxy bavard au CONNECT mais muet en réponse rejette au lieu de hang', async () => {
+    const { netSock, tlsSock } = makeFakeSocks()
+    const p = pool.fetchTextThroughProxy('https://www.betexplorer.com/x', '1.2.3.4:8080', 5000)
+    netSock.emit('connect')
+    netSock.emit('data', Buffer.from('HTTP/1.1 200 Connection Established\r\n\r\n'))
+    await flush()
+    tlsSock.emit('secureConnect')
+    expect(tlsSock.setTimeout).toHaveBeenCalledWith(5000)
+    tlsSock.emit('timeout')
+    await expect(p).rejects.toThrow('proxy_response_timeout')
+    expect(tlsSock.destroy).toHaveBeenCalled()
+  })
+
+  test('répond 200 + close -> resolve normal (pas de faux positif du watchdog)', async () => {
+    const { netSock, tlsSock } = makeFakeSocks()
+    const p = pool.fetchTextThroughProxy('https://www.betexplorer.com/x', '1.2.3.4:8080', 5000)
+    netSock.emit('connect')
+    netSock.emit('data', Buffer.from('HTTP/1.1 200 Connection Established\r\n\r\n'))
+    await flush()
+    tlsSock.emit('secureConnect')
+    tlsSock.emit('data', Buffer.from('HTTP/1.1 200 OK\r\n\r\n{"ok":1}'))
+    tlsSock.emit('close')
+    await expect(p).resolves.toMatchObject({ status: 200, body: '{"ok":1}' })
+  })
+
+  test('timeout au CONNECT (proxy mort) rejette toujours proxy_connect_timeout', async () => {
+    const { netSock } = makeFakeSocks()
+    const p = pool.fetchTextThroughProxy('https://www.betexplorer.com/x', '1.2.3.4:8080', 5000)
+    netSock.emit('connect')
+    netSock.emit('error', new Error('ECONNREFUSED'))
+    await expect(p).rejects.toThrow('ECONNREFUSED')
   })
 })

@@ -270,6 +270,16 @@ function fetchTextThroughProxy(url, proxy, timeoutMs = REQUEST_TIMEOUT_MS) {
         let settled = false
         tlsSock.once('secureConnect', () => {
           clearTimeout(timer)
+          // Watchdog d'inactivité : la poignée de main TLS ne garantit PAS la
+          // réponse. Un proxy qui accepte CONNECT puis reste muet doit rejeter
+          // (-> markBad + rotation par l'appelant), jamais suspendre le Promise.
+          tlsSock.setTimeout(timeoutMs)
+          tlsSock.once('timeout', () => {
+            if (settled) return
+            settled = true
+            tlsSock.destroy()
+            reject(new Error('proxy_response_timeout'))
+          })
           const path = u.pathname + u.search
           const reqHead =
             `GET ${path} HTTP/1.1\r\n` +
@@ -298,12 +308,15 @@ function fetchTextThroughProxy(url, proxy, timeoutMs = REQUEST_TIMEOUT_MS) {
             clearTimeout(timer)
             if (settled) return
             if (!headersDone) return reject(new Error('closed_before_headers'))
+            settled = true
             const idx = res.indexOf('\r\n\r\n')
             const status = parseInt((res.split('\r\n')[0].split(' ')[1] || '0'), 10)
             resolve({ status, body: idx >= 0 ? res.slice(idx + 4) : '', proxy })
           })
           tlsSock.on('error', (e) => {
             clearTimeout(timer)
+            if (settled) return
+            settled = true
             reject(e)
           })
           tlsSock.write(reqHead)

@@ -4,6 +4,42 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Guérison hang socket proxy muet — freeProxyPool (2026-09-09, suite)
+
+### Contexte (reste à faire de l'entrée PixelRAG)
+Le hang « socket-level des requêtes proxyées » signalé comme contourné par la
+deadline 5 min de `scan-today` a été percé. Les chemins axios sont TOUS couverts
+(livescore 20 s, apiClient 15 s, agents pooled 30 s) — le vrai trou était
+`services/scrapers/freeProxyPool.js` : socket Node brut, hors périmètre axios.
+
+### Cause racine
+`fetchTextThroughProxy` : le timer TLS était **clearTimeout au `secureConnect`**
+et AUCUN watchdog ne couvrait la phase réponse. Un proxy qui accepte le CONNECT,
+complète le handshake TLS puis reste muet → Promise jamais réglé → `fetchText`
+(ne rejetant jamais) bloquait la rotation markBad et suspendait le scan.
+
+### Correctif
+- Après `secureConnect` : `tlsSock.setTimeout(timeoutMs)` + handler `timeout`
+  -> destroy + reject `proxy_response_timeout`. Sémantique **inactivité**
+  (reset à chaque chunk) : les gros corps lents ne sont pas coupés, seuls les
+  silences > timeout tuent la connexion.
+- Verrou `settled` posé sur les chemins resolve/reject (close, error, timeout)
+  pour l'anti-double-règlement.
+- Le rejet déclenche enfin la rotation existante : markBad(proxy) -> proxy
+  suivant -> null après MAX_ATTEMPTS (plus jamais de hang indéfini).
+
+### Validation
+- Régression offline `__tests__/freeProxyPool.test.js` (+3, mocks net/tls) :
+  proxy muet -> reject ; réponse normale -> resolve sans faux positif ;
+  mort au CONNECT -> `proxy_connect_timeout` inchangé. Suite 18/18.
+- `npx jest --forceExit` complet : **75/75 suites, 757/757** (754 + 3).
+- La deadline 5 min de scan-today reste en place (défense en profondeur).
+
+### Fichiers modifiés
+`services/scrapers/freeProxyPool.js`, `__tests__/freeProxyPool.test.js`.
+
+---
+
 ## Checkpoint de reprise — re-validation avant commit (2026-09-09, session suivante)
 
 Les deux entrées ci-dessous (Dashboard « 0 match » + PixelRAG fixtures) étaient

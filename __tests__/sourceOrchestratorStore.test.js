@@ -42,6 +42,20 @@ describe('createDefaultStore', () => {
     const map = await store.getExistingKeys()
     expect(map.has('real madrid|barcelona|20260813')).toBe(true)
   })
+
+  it('hasOpenMatchesOnDate: true scheduled, false finished/canceled/unknown', async () => {
+    await store.persist(
+      { id: 'livescore_2', homeTeam: 'A Team', awayTeam: 'B Team', league: 'Liga Test', source: 'livescore', startTimestamp: TS, status: 'scheduled' },
+      'a team|b team|20260813'
+    )
+    const day = new Date(TS * 1000).toISOString().slice(0, 10)
+    expect(await store.hasOpenMatchesOnDate(day)).toBe(true)
+    db.prepare("UPDATE matches SET status='finished' WHERE id='livescore_2'").run()
+    expect(await store.hasOpenMatchesOnDate(day)).toBe(false)
+    db.prepare("UPDATE matches SET status='canceled' WHERE id='livescore_2'").run()
+    expect(await store.hasOpenMatchesOnDate(day)).toBe(false)
+    expect(await store.hasOpenMatchesOnDate('1999-01-01')).toBe(false)
+  })
 })
 
 describe('backfillMatchKeys', () => {

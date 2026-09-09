@@ -15,6 +15,29 @@ const LIVESCORE_HEADERS = {
   Referer: 'https://www.livescore.com/',
 }
 
+// Retry / robustesse (alignée sur openligadb qui backoffe déjà 429/5xx).
+// La source primaire est unique pour les fixtures ET les résultats : une erreur
+// réseau transitoire fait perdre toute une date jusqu'au prochain scan (~3 h),
+// et un 200 « blocage souple » (payload sans Stages) était compté comme succès
+// 0 match = panne silencieuse. On retente les deux, puis on laisse remonter.
+const RETRY_ATTEMPTS = Math.max(0, Number(process.env.LIVESCORE_RETRIES ?? 2))
+const RETRY_BASE_MS = 800
+
+function _sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+// Erreurs réseau éphémères / 5xx / throttling dignes d'une nouvelle tentative.
+function _isRetryable(err) {
+  const status = err?.response?.status
+  if (status === 408 || status === 425 || status === 429) return true
+  if (status >= 500 && status <= 599) return true
+  const code = err?.code || ''
+  return /ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|EPIPE|ERR_NETWORK|ECONNABORTED|network/i.test(
+    `${code} ${err?.message || ''}`
+  )
+}
+
 function parseEsd(esd) {
   const s = String(esd)
   if (s.length < 14) return Math.floor(Date.now() / 1000)
@@ -79,14 +102,31 @@ function mapResult(event, stage) {
   }
 }
 
-async function _getDateEvents(dateStr) {
+async function _getDateEvents(dateStr, attempt = 0) {
   const ymd = dateStr.replace(/-/g, '')
   const url = `${LIVESCORE_BASE}/${ymd}/0?MD=1&countryCode=US&locale=en`
-  const { data } = await axios.get(url, {
-    headers: LIVESCORE_HEADERS,
-    timeout: 20000,
-  })
-  return data?.Stages || []
+  try {
+    const { data } = await axios.get(url, {
+      headers: LIVESCORE_HEADERS,
+      timeout: 20000,
+    })
+    // Une réponse SANS tableau Stages n'est JAMAIS un « jour vide » valide
+    // (un jour vide renvoie Stages: [] — vérifié). C'est un blocage souple /
+    // payload HTML / corps tronqué : on le traite comme une erreur.
+    if (!Array.isArray(data?.Stages)) {
+      const err = new Error(`livescore ${dateStr}: payload invalide (Stages absent)`)
+      err.malformed = true
+      throw err
+    }
+    return data.Stages
+  } catch (err) {
+    if ((err.malformed || _isRetryable(err)) && attempt < RETRY_ATTEMPTS) {
+      const backoff = RETRY_BASE_MS * (attempt + 1) + Math.floor(Math.random() * 250)
+      await _sleep(backoff)
+      return _getDateEvents(dateStr, attempt + 1)
+    }
+    throw err
+  }
 }
 
 async function fetch(dateStr) {
@@ -129,4 +169,6 @@ module.exports = {
   fetchResults,
   mapEvent,
   mapResult,
+  // Test hook (pas de depends du pipeline) : _getDateEvents + classificateur.
+  _internals: { _getDateEvents, _isRetryable },
 }

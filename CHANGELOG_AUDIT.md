@@ -4,6 +4,54 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Amélioration scraper — retry primaire + passe résultats sans frappe à vide (2026-09-09, suite)
+
+### Faiblesses mesurées d'abord (pas supposées)
+- Scan complet réel : **1065 lignes de résultats fetchées pour 0 mise à jour**
+  (dates J-3..J-1 déjà réglées re-téléchargées à CHAQUE scan — 50 % du trafic).
+- `livescore` (primaire exclusif fixtures+résultats) : **un seul essai réseau** ;
+  ECONNRESET/5xx/429 = date perdue jusqu'au prochain scan (~3 h). `openligadb`
+  avait déjà son backoff, pas lui.
+- Probe live de la forme API : un jour vide légitime renvoie TOUJOURS
+  `Stages: []` ; date invalide → HTTP 410. Donc un 200 SANS tableau `Stages`
+  = blocage souple/payload corrompu — l'ancien code le comptait SUCCÈS 0 match
+  (classe exacte de la panne silencieuse 05→09/09 du journal).
+
+### Correctifs
+- **`config/sources/livescore.js`** : `_getDateEvents` avec retry borné
+  (défaut 2 tentatives, backoff linéaire 0,8 s/1,6 s + jitter, env
+  `LIVESCORE_RETRIES`, =0 off) sur erreurs réseau transitoires + 5xx/429/408
+  + payload invalide ; les 4xx client (403/410) ne sont PAS retryés et
+  remontent immédiatement. Le payload invalide fini par LEVER -> orchestrateur
+  enregistre l'échec (cooldown/alerte) au lieu d'un faux succès. Contrat
+  fetch/fetchResults inchangé.
+- **`services/sourceOrchestrator.js`** : nouveau `store.hasOpenMatchesOnDate`
+  (SQLite, terminal = finished/canceled) et garde de skip dans
+  `runResultsScan` : date sans match ouvert en DB = zéro fetch (la passe ne
+  fait que de l'UPDATE par match_key, jamais d'insertion -> sauter est sans
+  perte). **Fails open** : erreur de garde ou store sans méthode -> comportement
+  d'avant, intact. Observable via `results.settledDatesSkipped`.
+
+### Effet mesuré (re-scan live après correctifs)
+- Passe résultats : **1065 -> 314 lignes fetchées (-70 %)**, 2 dates skipées,
+  la date encore ouverte (09-08) traitée normalement -> correction préservée.
+- Scan total : 14 s -> 11,1 s ; fixtures inchangées (0 nouveau = dédup OK).
+
+### Validations
+- `__tests__/livescoreSource.test.js` (nouveau, 12 : classification retryable,
+  backoff absorbant ECONNRESET, 200-sans-Stages retry puis levée, 410 sans
+  retry, contrat fetch/fetchResults) ; +3 cas garde skip et 1 cas store réel
+  dans les suites orchestrator.
+- `npx jest --forceExit` : **76 suites / 773/773** (757 + 16).
+- `.env.example` : `LIVESCORE_RETRIES` documenté.
+
+### Fichiers modifiés
+`config/sources/livescore.js`, `services/sourceOrchestrator.js`,
+`__tests__/livescoreSource.test.js` (nouveau), `__tests__/sourceOrchestrator.test.js`,
+`__tests__/sourceOrchestratorStore.test.js`, `.env.example`, `CHANGELOG_AUDIT.md`.
+
+---
+
 ## Arbitrage rendu — Workflow Puppeteer standalone archivé du service résident (2026-09-09, suite)
 
 ### Question posée (reste à faire PixelRAG)

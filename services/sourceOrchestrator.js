@@ -220,8 +220,23 @@ class SourceOrchestrator {
   // are fixtures-only concerns).
   async runResultsScan({ dates = [] } = {}) {
     const providers = this._orderedProviders()
-    const results = { fetched: 0, updated: 0, bySource: {}, dates }
+    const results = { fetched: 0, updated: 0, bySource: {}, dates, settledDatesSkipped: [] }
     for (const dateStr of dates) {
+      // Skip fully-settled dates: nothing to update in the DB, so the fetch is
+      // pure API hammering. Fails open — any error/absent method keeps the
+      // old behavior (still fetch and settle).
+      if (this.store && typeof this.store.hasOpenMatchesOnDate === 'function') {
+        let open = true
+        try {
+          open = await this.store.hasOpenMatchesOnDate(dateStr)
+        } catch (e) {
+          logger.warn(`[ORCHESTRATOR] hasOpenMatchesOnDate failed (${dateStr}): ${e.message}`)
+        }
+        if (open === false) {
+          results.settledDatesSkipped.push(dateStr)
+          continue
+        }
+      }
       for (const provider of providers) {
         if (typeof provider.fetchResults !== 'function') continue
         if (!this.health.isUsable(provider.name)) continue
@@ -422,6 +437,18 @@ function createDefaultStore() {
       db.prepare(
         'UPDATE matches SET match_key = ? WHERE id = ? AND (match_key IS NULL OR match_key = ?)'
       ).run(key, id, '')
+    },
+    // A date with no non-terminal ('scheduled'/live) rows in the DB has nothing
+    // for the results pass to settle (it never inserts). Lets runResultsScan
+    // skip the network fetch entirely — the big steady-state win.
+    async hasOpenMatchesOnDate(dateStr) {
+      const db = require('../core/database')
+      const row = db
+        .prepare(
+          "SELECT 1 AS x FROM matches WHERE date(startTimestamp,'unixepoch') = ? AND status NOT IN ('finished','canceled') LIMIT 1"
+        )
+        .get(dateStr)
+      return !!row
     },
   }
 }

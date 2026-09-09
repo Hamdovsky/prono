@@ -282,4 +282,41 @@ describe('SourceOrchestrator', () => {
     expect(res.updated).toBe(0)
     expect(res.bySource.broken.error).toMatch(/500/)
   })
+
+  it('runResultsScan skips a date fully settled in DB (no network fetch)', async () => {
+    const fetchResults = jest.fn(async () => [])
+    const p1 = { name: 'livescore', priority: 1, fetch: async () => [], fetchResults }
+    const store = {
+      updateResult: async () => 1,
+      hasOpenMatchesOnDate: async (d) => d !== '2026-08-12',
+    }
+    const s = orchestrator([p1], { store })
+    const res = await s.runResultsScan({ dates: ['2026-08-11', '2026-08-12'] })
+    expect(res.settledDatesSkipped).toEqual(['2026-08-12'])
+    expect(fetchResults).toHaveBeenCalledTimes(1) // only the open date
+    expect(fetchResults).toHaveBeenCalledWith('2026-08-11')
+  })
+
+  it('skip guard fails open when hasOpenMatchesOnDate throws', async () => {
+    const fetchResults = jest.fn(async () => [])
+    const p1 = { name: 'livescore', priority: 1, fetch: async () => [], fetchResults }
+    const store = {
+      updateResult: async () => 1,
+      hasOpenMatchesOnDate: async () => {
+        throw new Error('db down')
+      },
+    }
+    const s = orchestrator([p1], { store })
+    const res = await s.runResultsScan({ dates: ['2026-08-12'] })
+    expect(fetchResults).toHaveBeenCalledTimes(1)
+    expect(res.settledDatesSkipped).toEqual([])
+  })
+
+  it('old stores without hasOpenMatchesOnDate keep the original behavior', async () => {
+    const fetchResults = jest.fn(async () => [])
+    const p1 = { name: 'livescore', priority: 1, fetch: async () => [], fetchResults }
+    const s = orchestrator([p1], { store: { updateResult: async () => 1 } })
+    await s.runResultsScan({ dates: ['2026-08-12'] })
+    expect(fetchResults).toHaveBeenCalledTimes(1)
+  })
 })

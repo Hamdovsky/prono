@@ -21,6 +21,7 @@ from top_analyst_engine import process_match_for_top_analyst
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'data', 'historical_archive.sqlite')
+DB_TACTICAL_PATH = os.path.join(BASE_DIR, 'data', 'tactical.db')
 MODEL_PATH = os.path.join(BASE_DIR, 'models', 'stitch_v55_optimized.json')
 MODEL_PATH_V551 = os.path.join(BASE_DIR, 'models', 'stitch_v551_optimized.json')
 MODEL_PATH_V552 = os.path.join(BASE_DIR, 'models', 'stitch_v552_optimized.json')
@@ -435,6 +436,75 @@ def process_row(row_dict, feature_names):
     try:
         ts = row_dict.get('startTimestamp', 0)
         if ts: ts = ts if ts > 1e11 else ts * 1000
+        # AJOUT 2026-09-09 : hydratation PixelRAG (visual_context_cache) pour V55-VISUAL.
+        # On essaie plusieurs clés (sofascore_id, id, match_id) et la version prefixée hist_/live_.
+        # Le lookup ne s'exécute que si les features visuelles sont dans la liste ET si la
+        # table contient des données (sinon best-effort no-op).
+        if 'visual_confidence' in (feature_names or []) and not row_dict.get('visual_context'):
+            try:
+                import sqlite3 as _sql
+                _conn = _sql.connect(DB_TACTICAL_PATH, timeout=3)
+                try:
+                    _cur = _conn.cursor()
+                    _home = row_dict.get('homeTeam', '')
+                    _away = row_dict.get('awayTeam', '')
+                    _ts = row_dict.get('startTimestamp', 0)
+                    _candidates = []
+                    for k in ('sofascore_id', 'id', 'match_id'):
+                        v = row_dict.get(k)
+                        if v is not None:
+                            _candidates.append(str(v))
+                            _candidates.append(f'hist_{v}')
+                            _candidates.append(f'live_{v}')
+                    # Si pas d'ID disponible, fallback par home+away (match le plus récent)
+                    _sql_q = ' AND '.join(['match_id = ?'] * 1)
+                    _vc_row = None
+                    for _c in _candidates:
+                        _cur.execute(
+                            'SELECT visual_confidence, tiles, scores, article_ids '
+                            'FROM visual_context_cache WHERE match_id = ? LIMIT 1',
+                            (_c,),
+                        )
+                        _vc_row = _cur.fetchone()
+                        if _vc_row:
+                            break
+                    if not _vc_row and _home and _away:
+                        # Match par nom d'équipe (approximatif — dernier match connu)
+                        _cur.execute(
+                            'SELECT visual_confidence, tiles, scores, article_ids '
+                            'FROM visual_context_cache WHERE query_text LIKE ? AND query_text LIKE ? '
+                            'ORDER BY enriched_at DESC LIMIT 1',
+                            (f'%{_home}%', f'%{_away}%'),
+                        )
+                        _vc_row = _cur.fetchone()
+                    if _vc_row:
+                        import json as _json
+                        try:
+                            _tiles = _json.loads(_vc_row[1] or '[]')
+                        except Exception:
+                            _tiles = []
+                        try:
+                            _scores = _json.loads(_vc_row[2] or '[]')
+                        except Exception:
+                            _scores = []
+                        try:
+                            _arts = _json.loads(_vc_row[3] or '[]')
+                        except Exception:
+                            _arts = []
+                        row_dict['visual_context'] = {
+                            'visual_confidence': float(_vc_row[0] or 0.0),
+                            'tiles': _tiles,
+                            'scores': _scores,
+                            'screenshot_paths': [],
+                            'article_ids': _arts,
+                        }
+                finally:
+                    try:
+                        _conn.close()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
         base_feats = extract_ml_features(row_dict, fetch_history=True, current_match_ts=ts)
         match_payload = {
             'homeTeam': row_dict.get('homeTeam', 'Unknown'),

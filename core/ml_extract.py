@@ -667,6 +667,56 @@ def extract_ml_features(row, fetch_history=True, current_match_ts=None):
     # --- PixelRAG-lite: propager les colonnes visual_* du payload vers features ---
     # (extract_visual_features les a injectées dans row en amont ; sans cette boucle
     # elles n'atteindraient jamais le vecteur, ni l'entraînement ni l'inférence.)
+    # AJOUT 2026-09-09 : hydratation depuis visual_context_cache (tactical.db) pour
+    # l'entraînement — l'extract est aussi appelé sur des rows DB archive (match_id
+    # connu) sans champ visual_*. Sans ce fallback, les colonnes sont à 0 et le
+    # booster V55-VISUAL ne reçoit aucun signal -> inutilisable.
+    if not any(row.get(_vk) is not None for _vk in VISUAL_FEATURE_NAMES):
+        try:
+            from visual_features import extract_visual_features
+            _vis_match_id = row.get('match_id') or row.get('sofascore_id') or row.get('id')
+            if _vis_match_id is not None and 'visual_context' not in row:
+                import sqlite3 as _sql
+                _conn = _sql.connect(DB_TACTICAL_PATH, timeout=5)
+                try:
+                    _cur = _conn.cursor()
+                    for _candidate in (str(_vis_match_id), f'hist_{_vis_match_id}', f'live_{_vis_match_id}'):
+                        _cur.execute(
+                            'SELECT visual_confidence, tiles, scores, screenshot_paths, article_ids '
+                            'FROM visual_context_cache WHERE match_id = ?',
+                            (_candidate,),
+                        )
+                        _vc_row = _cur.fetchone()
+                        if _vc_row:
+                            try:
+                                _tiles = json.loads(_vc_row[1] or '[]') if not isinstance(_vc_row[1], list) else _vc_row[1]
+                            except Exception:
+                                _tiles = []
+                            try:
+                                _scores = json.loads(_vc_row[2] or '[]') if not isinstance(_vc_row[2], list) else _vc_row[2]
+                            except Exception:
+                                _scores = []
+                            try:
+                                _arts = json.loads(_vc_row[4] or '[]') if not isinstance(_vc_row[4], list) else _vc_row[4]
+                            except Exception:
+                                _arts = []
+                            row['visual_context'] = {
+                                'visual_confidence': float(_vc_row[0] or 0.0),
+                                'tiles': _tiles,
+                                'scores': _scores,
+                                'screenshot_paths': [],
+                                'article_ids': _arts,
+                            }
+                            break
+                finally:
+                    try:
+                        _conn.close()
+                    except Exception:
+                        pass
+            # extract_visual_features mute row en place : pose les visual_*
+            extract_visual_features(row)
+        except Exception:
+            pass
     for _vk in VISUAL_FEATURE_NAMES:
         features[_vk] = _f(row.get(_vk), 0.0)
 

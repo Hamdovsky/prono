@@ -179,3 +179,11 @@ dist/
 # Visual context (PixelRAG-lite) — screenshots locaux + index embeddings
 data/visual/
 data/engine_prob_trace.jsonl
+
+# Traces runtime (regenerees a chaque run - bruit git, cf precedent engine_prob_trace)
+data/traces/
+
+# Artifacts media bruts (logo 13 Mo + .ico corrompu 6 o) - non consommes par le build
+# (l'app utilise public/icon.svg + icon-192.png) ; gardes sur disque, hors versioning.
+/karkadan.jpg
+/karkadan.ico

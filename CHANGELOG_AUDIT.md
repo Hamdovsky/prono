@@ -4,6 +4,24 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Arbitrage des fichiers non suivis — final (2026-09-09, fin de session)
+
+Cinq files étaient consignés « arbitrage reporté » dans le checkpoint du jour :
+
+| Fichier | Décision | Preuve / raison |
+|---|---|---|
+| `pronos-server.bat` | **Commité, portabilisé** | Lanceur tout-en-un (call start.bat) ; `cd /d C:\Users\HAMDI\...` -> `cd /d "%~dp0"` (règle P5 : 0 chemin absolu dans le code suivi). |
+| `pronos-test.bat` | **Commité, portabilisé** | Menu data_pipeline ; chemin absolu -> `%~dp0data_pipeline`. Contenu interne déjà relatif. |
+| `promosport_reference.md` | **Commité sous `docs/`** | Référentiel métier (règles grille 13 matchs, budget/colonnes, cagnote) — zéro référence de code, déplacé de la racine vers docs/. |
+| `karkadan.jpg` (13 Mo) | **Non suivi** (gitignore) | Source brute du logo 27/08 ; l'app sert `public/icon.svg` + `icon-192/512.png` (dérivés déjà suivis) — 13 Mo de binaire n'ont rien à faire dans le dépôt ni les bundles locaux. |
+| `karkadan.ico` | **Non suivi** (gitignore) | Corrompu : 6 octets. |
+| `data/traces/` | **Non suivi** (gitignore) | Trace de debug `market_engine_real_markets.jsonl` (core/market_engine_trace.py) régénérée aux runs — précédent exact : `engine_prob_trace.jsonl` désuivie (`dedde8c`). |
+
+Note : chaque commit déclenche le hook smoke qui fait dériver journaux/calibration —
+checkpoint data séparé juste après, comme les sessions précédentes.
+
+---
+
 ## Amélioration scraper — retry primaire + passe résultats sans frappe à vide (2026-09-09, suite)
 
 ### Faiblesses mesurées d'abord (pas supposées)

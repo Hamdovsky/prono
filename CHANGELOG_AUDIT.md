@@ -43,6 +43,20 @@ Constat terrain : tout le trafic web arrive avec socket 127.0.0.1 + header
 
 ---
 
+## É14 — verrou de contrat sur /api/predict (2026-09-10, local)
+
+Constat : DEUX handlers `POST /api/predict` coexistent — `app.js:546`
+(enrichMatch, celui qui VIT en prod, monté avant) et `routes/system.js:300`
+(mlPredictionService, inatteignable derrière le premier). Aucun code ne sera
+déplacé (risque prod nul nécessaire) — mais la precedence est désormais un
+contrat TESTÉ : `__tests__/predictRouteContract.test.js` (5) verrouille
+401 proxy-sans-token / 403 mauvais token / 200 interne sans XFF / 400 body
+invalide / **200 issu d'enrichMatch et pas de la route shadowée** (marqueurs
+de handler distincts). Un refactor qui réordonnerait les mounts casserait le
+test au lieu de casser tactical_service/bot en silence. Jest 83 suites / 816/816.
+
+---
+
 ## É13 — AutoHeal python_service_down : faux positifs cold-start + spawn OOM-risk (2026-09-10)
 
 ### Constat (logs Render)

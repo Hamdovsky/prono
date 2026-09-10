@@ -4,6 +4,45 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Déploiement Render — causes racine build + 3 trous « proxy local » (2026-09-10, É12)
+
+### Build cassé depuis le 07/09 (service en échec, 45+ déploiements)
+- Log Render : `npm ci` EUSAGE « Missing @emnapi/core@1.11.3 / runtime@1.11.3 /
+  wasi-threads@1.2.3 from lock file » — emnapi (chaîne dev-only
+  `@unrs/resolver-binding-wasm32-wasi`, range flottante `^1.7.1 || ^2.0.0-alpha.4`)
+  publié en 1.11.3 le 07/09 ; le lock pinning 1.10.0 est jugé « out of sync »
+  par npm 10 ET 11 sur Linux (re-resolution des optionnels).
+- Fix : `overrides` exactes emnapi dans package.json + lock régénéré → build
+  **live** (`ce37894`). (Tentatives écartées au passage : lock npm10,
+  `--omit=optional`, node:24 seul — aucun ne suffisait.)
+
+### Trous découverts en PROD réelle (Render place un proxy LOCAL devant le conteneur)
+Constat terrain : tout le trafic web arrive avec socket 127.0.0.1 + header
+`X-Forwarded-For` posé par la plateforme.
+1. `core/securityEngine.js` : skip rate-limiter = localhost SANS XFF
+   (sinon: throttling 100 % désactivé sur Render — régression de ma règle É6).
+2. `core/authGuards.js` + `routes/system.js localOnlyOrAuth` : idem
+   (sinon: bets/scraper/bot-debug/predict ouverts au monde via le proxy).
+3. `app.js /api/predict` (enrichMatch) était **100 % public** : shadowing du
+   route gardée de routes/system.js par le handler monté plus tôt + absence de
+   validation. Ajout localOrAuth + validation équipes. `routes/system.js` reste
+   pour la cohérence (doublon documenté, à dédupliquer une prochaine session).
+
+### Config services (via API Render, clés de session tenues hors dépôt)
+- `JWT_SECRET` généré aléatoirement et posé (le boot refusait sans lui).
+- `INFERENCE_URL=https://prono-fastapi-ibps.onrender.com` posé (il manquait ;
+  pythonService retombait sur 127.0.0.1:8000 → ECONNREFUSED).
+- Vérifié en direct : sans token 401 ✓ · avec token 200, `degraded:true`,
+  `ai_source:QUANTUM_JS_FALLBACK` ✓ (le Python répond 503 : **prono-fastapi =
+  SUSPENDED par son owner** — à réactiver depuis son compte, alors ML XGBoost
+  pleine puissance ; l'UI ne verra plus de v20_plus en erreur).
+
+### Validation finale en prod
+- 5 déploiements successifs `build_failed` → **live** sur
+  `ce37894..446ec3f` ; garde et fallback observés par requêtes publiques.
+
+---
+
 ## Audit architecture/fiabilité/sécurité — 6 corrections par petites étapes (2026-09-10, local)
 
 Rapport top-5 issus de 3 audits croisés (startup/runtime, sécurité, pipeline ML) ;

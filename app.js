@@ -537,17 +537,37 @@ app.get('/api/audit/performance', async (req, res) => {
   }
 })
 
-app.post('/api/predict', predictLimiter, async (req, res) => {
-  try {
-    const match = req.body
-    const enrichedPredictions = require('./services/enriched_predictions')
-    const result = await enrichedPredictions.enrichMatch(match)
-    res.json(result)
-  } catch (err) {
-    logger.error('❌ [API-PREDICT] Error:', err.message)
-    res.status(500).json({ success: false, error: err.message })
+// NOTE dupliqué : routes/system.js:300 monte auss POST /api/predict (service
+// mlPredictionService) mais app.js est monté AVANT -> c'est CE handler
+// (enrichMatch) qui sert la prod. Gardé identique + authentification É12 :
+// sans XFF = interne conteneur (bot/predicts locales), sinon Bearer admin
+// (l'appelant web sans token recevait un 200 public — audit sécurité).
+app.post(
+  '/api/predict',
+  predictLimiter,
+  require('./core/authGuards').localOrAuth,
+  async (req, res) => {
+    try {
+      const match = req.body
+      if (
+        typeof match.homeTeam !== 'string' ||
+        !match.homeTeam.trim() ||
+        typeof match.awayTeam !== 'string' ||
+        !match.awayTeam.trim()
+      ) {
+        return res
+          .status(400)
+          .json({ success: false, error: 'homeTeam and awayTeam (strings) are required' })
+      }
+      const enrichedPredictions = require('./services/enriched_predictions')
+      const result = await enrichedPredictions.enrichMatch(match)
+      res.json(result)
+    } catch (err) {
+      logger.error('❌ [API-PREDICT] Error:', err.message)
+      res.status(500).json({ success: false, error: err.message })
+    }
   }
-})
+)
 
 // (deleted — shadowed by matches.js /re-enrich which is more robust)
 

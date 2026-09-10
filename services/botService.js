@@ -69,7 +69,15 @@ class BotService {
           .get(url, (res) => {
             let data = ''
             res.on('data', (chunk) => (data += chunk))
-            res.on('end', () => resolve(JSON.parse(data)))
+            res.on('end', () => {
+              // 502/HTML du tunnel Telegram -> parse hors try = uncaughtException
+              // -> mort du process entier (audit 2026-09-10)
+              try {
+                resolve(JSON.parse(data))
+              } catch (_) {
+                resolve({ ok: false })
+              }
+            })
           })
           .on('error', () => resolve({ ok: false }))
       })
@@ -216,7 +224,13 @@ class BotService {
           .get(`http://127.0.0.1:${apiPort}/api/upcoming`, (res) => {
             let data = ''
             res.on('data', (chunk) => (data += chunk))
-            res.on('end', () => resolve(JSON.parse(data)))
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(data))
+              } catch (e) {
+                reject(e)
+              }
+            })
           })
           .on('error', reject)
       })
@@ -596,7 +610,13 @@ class BotService {
             (res) => {
               let data = ''
               res.on('data', (chunk) => (data += chunk))
-              res.on('end', () => resolve(JSON.parse(data)))
+              res.on('end', () => {
+                try {
+                  resolve(JSON.parse(data))
+                } catch (e) {
+                  reject(e)
+                }
+              })
             }
           )
           .on('error', reject)

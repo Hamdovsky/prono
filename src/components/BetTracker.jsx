@@ -3,6 +3,13 @@ import './BetTracker.css'
 
 const API = '/api/bets'
 
+// /api/bets exige le Bearer admin hors localhost (audit sécurité 2026-09-10) ;
+// même convention admin_token que dataService/ScraperDashboard.
+const authHeaders = () => {
+  const t = localStorage.getItem('admin_token')
+  return t && t !== 'null' ? { Authorization: `Bearer ${t}` } : {}
+}
+
 export default function BetTracker() {
   const [bets, setBets] = useState([])
   const [stats, setStats] = useState(null)
@@ -26,7 +33,7 @@ export default function BetTracker() {
 
   const fetchBets = useCallback(async () => {
     try {
-      const r = await fetch(API)
+      const r = await fetch(API, { headers: authHeaders() })
       const json = await r.json()
       if (json.success) {
         setBets(json.bets)
@@ -67,7 +74,7 @@ export default function BetTracker() {
       const method = editing ? 'PUT' : 'POST'
       const r = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify(body),
       })
       const json = await r.json()
@@ -98,7 +105,10 @@ export default function BetTracker() {
   const handleDelete = async (id) => {
     if (!window.confirm('Supprimer ce bet ?')) return
     try {
-      const r = await fetch(`${API}/${id}`, { method: 'DELETE' })
+      const r = await fetch(`${API}/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
       const json = await r.json()
       if (json.success) fetchBets()
       else setError(json.error)
@@ -110,7 +120,10 @@ export default function BetTracker() {
   const handleImport = async () => {
     if (!window.confirm('Importer les matchs historiques comme bets ?')) return
     try {
-      const r = await fetch(`${API}/import`, { method: 'POST' })
+      const r = await fetch(`${API}/import`, {
+        method: 'POST',
+        headers: authHeaders(),
+      })
       const json = await r.json()
       if (json.success) {
         fetchBets()

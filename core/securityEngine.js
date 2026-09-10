@@ -2,13 +2,20 @@ const logger = require('./logger')
 
 const rateLimit = require('express-rate-limit')
 
+// req.ip est piloté par X-Forwarded-For (trust proxy=1) donc spoofable en accès
+// direct ; seule la vraie adresse de socket fait foi pour le skip localhost.
+const isLocalSocket = (req) => {
+  const ip = req.socket?.remoteAddress || ''
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+}
+
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too Many Requests' },
-  skip: (req) => req.ip && (req.ip.includes('127.0.0.1') || req.ip === '::ffff:127.0.0.1'),
+  skip: isLocalSocket,
 })
 
 // Stricter limiter for expensive compute endpoints (predict, re-enrich)
@@ -18,7 +25,7 @@ const predictLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Prediction rate limit exceeded (15/min)' },
-  skip: (req) => req.ip && (req.ip.includes('127.0.0.1') || req.ip === '::ffff:127.0.0.1'),
+  skip: isLocalSocket,
 })
 
 // Limiter for write/seed endpoints (very restrictive)
@@ -28,7 +35,7 @@ const writeLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Write rate limit exceeded (10/5min)' },
-  skip: (req) => req.ip && (req.ip.includes('127.0.0.1') || req.ip === '::ffff:127.0.0.1'),
+  skip: isLocalSocket,
 })
 
 class SecurityEngine {

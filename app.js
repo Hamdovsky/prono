@@ -266,7 +266,7 @@ app.get('/health', (req, res) => {
   })
 })
 
-app.get('/api/debug/state', async (req, res) => {
+app.get('/api/debug/state', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const bsd = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
     const fs = require('fs')
@@ -383,12 +383,13 @@ app.get('/api/diag', securityEngine.authenticate.bind(securityEngine), async (re
   })
 })
 
-app.get('/api/debug/oddsapi', async (req, res) => {
+app.get('/api/debug/oddsapi', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const oddsApiIo = require('./services/oddsApiIoService')
     res.json({
       keyPresent: !!process.env.ODDSAPI_IO_KEY,
-      keyPrefix: process.env.ODDSAPI_IO_KEY ? process.env.ODDSAPI_IO_KEY.slice(0, 8) : null,
+      // keyPrefix supprimé (audit 2026-09-10) : une fuite partielle de secret
+      // reste une fuite ; le booléen suffit pour le diagnostic.
       enabled: process.env.ODDSAPI_IO_ENABLED !== 'false',
       available: oddsApiIo.isAvailable(),
       quotaExhaustedUntil: oddsApiIo._quotaExhaustedUntil || 0,
@@ -591,7 +592,7 @@ app.get('/api/bsd/status', async (req, res) => {
 /**
  * POST /api/bsd/toggle — Active/Désactive BSD (persistant via configEngine)
  */
-app.post('/api/bsd/toggle', async (req, res) => {
+app.post('/api/bsd/toggle', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const enabled = req.body?.enabled === true
     await configEngine.set('BSD_ENABLED', enabled)
@@ -992,6 +993,10 @@ app.post(
           headers: {
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(body),
+            // /goalmodel/fit est require_auth côté FastAPI (fail-closed)
+            ...(process.env.API_SECRET_KEY
+              ? { Authorization: `Bearer ${process.env.API_SECRET_KEY}` }
+              : {}),
           },
           timeout: 300000,
         }
@@ -1185,6 +1190,9 @@ app.get('/api/upcoming', async (req, res) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body,
+            // boucle par match dans /api/upcoming : sans timeout, un FastAPI
+            // pendant bloque la réponse pendant des minutes (audit 2026-09-10)
+            signal: AbortSignal.timeout(4000),
           })
           if (resp.ok) {
             const bayes = await resp.json()
@@ -1418,7 +1426,7 @@ app.post(
   }
 )
 
-app.get('/api/local/all', async (req, res) => {
+app.get('/api/local/all', securityEngine.authenticate.bind(securityEngine), async (req, res) => {
   try {
     const db = require('./core/database')
     const all = await db.getAllMatches()

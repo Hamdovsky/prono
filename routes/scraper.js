@@ -390,7 +390,7 @@ router.post('/news-watch/refresh', async (req, res) => {
  * silence (le sous-processus ne trouvait pas le script).
  */
 let _scanTodayInFlight = false
-router.post('/scan-today', async (req, res) => {
+router.post('/scan-today', localOrAuth, async (req, res) => {
   try {
     if (_scanTodayInFlight) {
       return res.json({ success: true, message: 'Scan already in progress', skipped: true })
@@ -429,7 +429,7 @@ router.post('/scan-today', async (req, res) => {
  * POST /api/http-scan
  * Triggers HTTP-only API scan (no Puppeteer needed).
  */
-router.post('/http-scan', async (req, res) => {
+router.post('/http-scan', localOrAuth, async (req, res) => {
   try {
     logger.info('⚡ [API] Triggering HTTP-only API scan...')
     const httpScraperService = new Proxy({}, { get: (t, p) => (p === 'isAvailable' ? () => false : (p === 'then' ? undefined : (async () => null))) });
@@ -959,7 +959,7 @@ router.get('/bibeet/today', (req, res) => {
  * POST /api/bibeet/scrape
  * Triggers the script to scrape Bibeet coupons
  */
-router.post('/bibeet/scrape', (req, res) => {
+router.post('/bibeet/scrape', localOrAuth, (req, res) => {
   try {
     const { exec } = require('child_process')
     const scriptPath = path.join(__dirname, '..', 'scripts', 'scrape_bibeet_tomorrow.js')

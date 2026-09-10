@@ -60,8 +60,16 @@ export default function ModelTraining() {
   }, [trainStatus.log])
 
   const handleRetrain = async (type) => {
+    const token = getAdminToken()
+    if (!token) {
+      setAskToken(true)
+      return
+    }
     try {
-      const r = await fetch(`${TRAIN_API}/retrain/${type}`, { method: 'POST' })
+      const r = await fetch(`${TRAIN_API}/retrain/${type}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
       const j = await r.json()
       if (!j.success) setError(j.error || 'Erreur')
     } catch (e) {

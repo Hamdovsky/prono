@@ -28,22 +28,44 @@ describe('Global rate-limit on /api routes', () => {
     expect(res.status).not.toBe(429)
   })
 
-  it('should rate-limit external IP after 60 requests in 1min', async () => {
-    const ip = '203.0.113.99'
+  // Audit 2026-09-10 : le skip se base sur la vraie socket (req.ip/XFF étant
+  // spoofables). Via supertest la socket EST localhost -> bypass par design.
+  // Le throttlage externe est validé sur un mini-app à socket factice.
+  function makeLimitedApp(remoteAddr) {
+    const express = require('express')
+    const securityEngine = require('../core/securityEngine')
+    const a = express()
+    a.set('trust proxy', true)
+    a.use((req, res, next) => {
+      req.socket = { remoteAddress: remoteAddr }
+      next()
+    })
+    a.use(securityEngine.middleware.bind(securityEngine))
+    a.get('/api/ping', (req, res) => res.json({ ok: true }))
+    return a
+  }
+
+  it('should rate-limit external socket after 60 requests in 1min', async () => {
+    let limitedApp
+    jest.isolateModules(() => {
+      limitedApp = makeLimitedApp('203.0.113.99')
+    })
     for (let i = 0; i < 60; i++) {
-      const res = await request(app).get('/api/ping').set('X-Forwarded-For', ip)
-      if (res.status === 429) break
+      await request(limitedApp).get('/api/ping')
     }
-    const res = await request(app).get('/api/ping').set('X-Forwarded-For', ip)
+    const res = await request(limitedApp).get('/api/ping')
     expect(res.status).toBe(429)
   })
 
   it('should return 429 with JSON error body', async () => {
-    const ip = '198.51.100.50'
+    let limitedApp
+    jest.isolateModules(() => {
+      limitedApp = makeLimitedApp('198.51.100.50')
+    })
     for (let i = 0; i < 60; i++) {
-      await request(app).get('/api/ping').set('X-Forwarded-For', ip)
+      await request(limitedApp).get('/api/ping')
     }
-    const res = await request(app).get('/api/ping').set('X-Forwarded-For', ip)
+    const res = await request(limitedApp).get('/api/ping')
     expect(res.status).toBe(429)
     expect(res.body).toHaveProperty('error')
   })

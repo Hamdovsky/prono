@@ -135,7 +135,12 @@ router.get('/status', (req, res) => {
   })
 })
 
-router.post('/retrain/:type', async (req, res) => {
+// /retrain spawn des scripts Python (600 s) : réservé admin (Bearer) + writeLimiter
+// (audit 2026-09-10 : route publique = DoS compute gratuit).
+router.post(
+  '/retrain/:type',
+  require('../core/securityEngine').authenticate.bind(require('../core/securityEngine')),
+  async (req, res) => {
   const { type } = req.params
   if (trainState.running)
     return res.status(409).json({ success: false, error: `Déjà en cours: ${trainState.type}` })

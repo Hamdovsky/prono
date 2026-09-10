@@ -121,6 +121,53 @@ describe('scraperBridge.warmVisualCache (cache visuel chaud)', () => {
     const { warmVisualCache } = require('../services/scraperBridge')
     await expect(warmVisualCache()).resolves.toEqual({ warmed: 0, skipped: true })
   })
+
+  it('seeds the cache /predict actually reads: key match.id, briefing:false, MENA first', async () => {
+    process.env.VISUAL_WARM_ENABLED = 'true'
+    jest.resetModules()
+    const calls = []
+    jest.doMock('../services/visualEnrichmentService', () => ({
+      getVisualContext: jest.fn(async (m, opts) => {
+        calls.push({ id: m.id, league: m.league, opts })
+        return { visual_confidence: 0.42 }
+      }),
+    }))
+    const db = require('../core/database')
+    const nowSec = Math.floor(Date.now() / 1000)
+    // Fenetre 48h purgee d'abord : la DB temp est partagee par les suites du
+    // meme worker ; des scheduled residuels fausseraient le tri MENA/limite.
+    db.prepare(
+      "DELETE FROM matches WHERE status='scheduled' AND startTimestamp > ? AND startTimestamp < ?"
+    ).run(nowSec, nowSec + 48 * 3600)
+    const seed = [
+      { id: 'livescore_w_mena1', homeTeam: 'USM Alger', awayTeam: 'JS El Biar', league: 'Algeria - Ligue 1', ts: nowSec + 7200 },
+      { id: 'livescore_w_other1', homeTeam: 'Alpha', awayTeam: 'Beta', league: 'Conference League', ts: nowSec + 3600 },
+      { id: 'livescore_w_mena2', homeTeam: 'Club Africain', awayTeam: 'ES Tunis', league: 'Tunisia - Ligue 1', ts: nowSec + 10800 },
+      { id: 'livescore_w_other2', homeTeam: 'Gamma', awayTeam: 'Delta', league: 'National League', ts: nowSec + 1800 },
+    ]
+    for (const s of seed) {
+      db.prepare(
+        "INSERT INTO matches (id, homeTeam, awayTeam, league, startTimestamp, status) VALUES (?,?,?,?,?,'scheduled')"
+      ).run(s.id, s.homeTeam, s.awayTeam, s.league, s.ts)
+    }
+    try {
+      const { warmVisualCache } = require('../services/scraperBridge')
+      const out = await warmVisualCache({ limit: 4 })
+      expect(out).toEqual({ warmed: 4, total: 4 })
+      // briefing:false partout — jamais de LLM speculative
+      expect(calls.every((c) => c.opts && c.opts.briefing === false)).toBe(true)
+      // Les 2 MENA passent AVANT les 2 autres, malgre des kickoffs plus tardifs
+      expect(calls.slice(0, 2).map((c) => c.league).sort()).toEqual(
+        ['Algeria - Ligue 1', 'Tunisia - Ligue 1'].sort()
+      )
+      // MENA trie par kickoff croissant entre eux
+      expect(calls[0].id).toBe('livescore_w_mena1')
+      expect(calls[1].id).toBe('livescore_w_mena2')
+    } finally {
+      for (const s of seed) db.prepare('DELETE FROM matches WHERE id=?').run(s.id)
+      jest.dontMock('../services/visualEnrichmentService')
+    }
+  })
 })
 
 describe('settlementService.purgeStaleScheduled', () => {

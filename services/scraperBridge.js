@@ -120,33 +120,46 @@ async function runResilientScan() {
   }
 }
 
-// 🔥 [CACHE CHAUD] Après un scan fixtures, on pré-chauffe le cache visuel :
-// PixelRAG agrège lineups/injuries/stats/H2H pour les prochains matchs
-// 'sofascore_*' (J..J+2) afin que /api/predict trouve l'enrichissement déjà
-// prêt (sinon 1ᵉʳ clic = 3-5 s d'attente Sofascore). Détaché (jamais await),
-// best-effort, VISUAL_WARM_ENABLED=false pour désactiver.
+// 🔥 [CACHE CHAUD] Après un scan fixtures, on pré-chauffe le cache visuel CONSUMÉ
+// par /predict : visualEnrichmentService.getVisualContext(match), clé = match.id
+// réel (livescore_xxx) — exactement ce que mlPredictionService relira au 1ᵉʳ clic
+// (TTL 12 h). (Correction 2026-09-09 : l'ancien warm visait id LIKE 'sofascore_%'
+// — 0 ligne en DB — et l'endpoint /enrich (corpus ML), un autre sous-système :
+// il ne réchauffait jamais rien d'exploitable par la prédiction.)
+// Briefing LLM volontairement désactivé ici (briefing:false) : le budget journalier
+// (40 max) reste réservé aux vrais clics ; le warm ne fait que la recherche RAG.
+// Détaché (jamais await), best-effort, VISUAL_WARM_ENABLED=false pour désactiver.
 async function warmVisualCache({ limit = 15 } = {}) {
   if (process.env.VISUAL_WARM_ENABLED === 'false') return { warmed: 0, skipped: true }
-  const base = process.env.PIXELRAG_URL || 'http://127.0.0.1:30002'
   try {
     const db = require('../core/database')
+    const { isMena } = require('./sourceOrchestrator')
     const nowSec = Math.floor(Date.now() / 1000)
-    const rows = db
+    // Sélection large bornée, tri en JS : MENA d'abord (les ligues où le visuel
+    // comble le plus de vides — cœur métier Promosport), puis heure de kickoff.
+    // (tri SQL écarté : les noms de ligue livescore ne correspondent pas à
+    // leagues_config.name -> join de tier non fiable.)
+    const candidates = db
       .prepare(
-        "SELECT id FROM matches WHERE id LIKE 'sofascore_%' AND startTimestamp > ? AND startTimestamp < ? ORDER BY startTimestamp ASC LIMIT ?"
+        `SELECT id, homeTeam, awayTeam, league, startTimestamp
+         FROM matches
+         WHERE status = 'scheduled' AND startTimestamp > ? AND startTimestamp < ?
+         ORDER BY startTimestamp ASC
+         LIMIT 80`
       )
-      .all(nowSec, nowSec + 48 * 3600, limit)
+      .all(nowSec, nowSec + 48 * 3600)
+    const rank = (m) => (isMena(m) ? 0 : 1)
+    candidates.sort((a, b) => rank(a) - rank(b) || a.startTimestamp - b.startTimestamp)
+    const rows = candidates.slice(0, limit)
+    const visual = require('./visualEnrichmentService')
     let warmed = 0
-    for (const r of rows) {
-      const eid = String(r.id).replace('sofascore_', '')
-      if (!/^\d+$/.test(eid)) continue
+    for (const row of rows) {
       try {
-        const res = await fetch(`${base}/enrich/${eid}`, { signal: AbortSignal.timeout(9000) })
-        const j = await res.json()
-        if (j && j.success === true) warmed++
+        const ctx = await visual.getVisualContext(row, { briefing: false })
+        if (ctx && Number(ctx.visual_confidence) > 0) warmed++
       } catch (_) {
-        /* PixelRAG down ou event sans données — on s'arrête au 1ᵉʳ refus */
-        if (!warmed && rows.indexOf(r) > 2) break
+        /* serveur vision down — on s'arrête vite si rien n'a marché */
+        if (!warmed && rows.indexOf(row) > 2) break
       }
     }
     return { warmed, total: rows.length }

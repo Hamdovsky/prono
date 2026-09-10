@@ -4,6 +4,42 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Cache chaud visuel réparé — warmVisualCache cible enfin le cache consommé par /predict (2026-09-10, local)
+
+### Faille (constat code)
+Le warm post-scan sélectionnait `id LIKE 'sofascore_%'` — **0 ligne en DB** (les
+matchs livescore sont `livescore_xxx`) — et appelait PixelRAG `/enrich/{eid}`,
+le corpus ML (autre sous-système). Le préchauffage ne réchauffait donc **jamais**
+ce que `/api/predict` relit : `visualEnrichmentService.getVisualContext(match)`
+(clé = `match.id`, TTL 12 h). 1ᵉʳ clic = 3-5 s d'attente, malgré un « warm » vert.
+
+### Correctif
+- `services/scraperBridge.js` : `warmVisualCache()` sélectionne `status='scheduled'`
+  fenêtre 48 h (80 candidats), **tri en JS : MENA d'abord** (`isMena`, les ligues où
+  le visuel comble le plus de vides) puis kickoff croissant — tri SQL écarté (noms
+  de ligue livescore ≠ `leagues_config.name`, join de tier non fiable) ; puis appelle
+  directement `visual.getVisualContext(row, { briefing: false })`. Bascule/flag
+  `VISUAL_WARM_ENABLED` inchangés.
+- `services/visualEnrichmentService.js` : option `briefing` (défaut `true`) sur
+  `getVisualContext` — le chemin de préchauffage ne fait **que** la recherche RAG ;
+  le LLM (budget 40/jour) reste réservé aux vrais clics de prédiction.
+- Comportement au 1ᵉʳ refus identique conservé (stop si 0 warmé après 3 essais).
+
+### Validations
+- +1 test (`sofascorePySource.test.js`) : warm seeds 4 matchs réels DB temporaire
+  (2 MENA + 2 autres), vérifie warmed=4, `briefing:false` partout, les 2 MENA en
+  premier malgré kickoffs plus tardifs, ordre MENA par kickoff croissant.
+- `npx jest --forceExit` : **76 suites / 778/778**.
+- Dérive data incluse : recalibration isotonic (201→échantillons des runs) +
+  `draw_bias` 65.499… → 65.649… + journaux ML (runs de tests, hook pre-commit).
+
+### Fichiers modifiés
+`services/scraperBridge.js`, `services/visualEnrichmentService.js`,
+`__tests__/sofascorePySource.test.js`, `config/model_weights.json`,
+`models/isotonic_params.json`, `data/live_prediction_{journal,results}.jsonl`.
+
+---
+
 ## Rafraîchissement kickoff des fixtures connues — dérive d'horaire corrigée en live (2026-09-09, suite)
 
 ### Faille (constat code + terrain)

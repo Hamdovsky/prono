@@ -19,7 +19,7 @@ function queryForMatch(match) {
 
 async function getVisualContext(match, opts = {}) {
   if (!match) return null
-  const { force = false } = opts
+  const { force = false, briefing = true } = opts
   const matchId = match.id || match.event_id || `${match.homeTeam}_${match.awayTeam}`
 
   // 1. Cache DB (fresh dans la TTL)
@@ -125,31 +125,35 @@ async function getVisualContext(match, opts = {}) {
 
   // 4. Briefing visuel (lecteur RAG vision) — best-effort, budgets mensuel+quotidien,
   // persisté en JSON dans le cache pour ne jamais rappeler le LLM à chaque prédiction.
-  try {
-    const briefingService = require('./visualBriefingService')
-    if (briefingService.enabled()) {
-      const out = await briefingService.generateBriefing(match, context)
-      if (out && out.text) {
-        context.visual_briefing = out.text
-        context.visual_signals = out.signals || null
-        const db = require('../core/database')
-        if (typeof db.setVisualContext === 'function') {
-          await db.setVisualContext({
-            match_id: matchId,
-            screenshot_paths: context.screenshot_paths,
-            article_ids: context.article_ids,
-            visual_confidence: context.visual_confidence,
-            tiles: context.tiles,
-            scores: context.scores,
-            query_text: context.query_text,
-            enriched_at: context.enriched_at,
-            briefing: out.signals ? JSON.stringify(out.signals) : out.text,
-          })
+  // briefing:false (chemin de préchauffage) = cache RAG uniquement, le LLM reste
+  // réservé aux vrais clics de prédiction (budget journalier 40 appels max).
+  if (briefing) {
+    try {
+      const briefingService = require('./visualBriefingService')
+      if (briefingService.enabled()) {
+        const out = await briefingService.generateBriefing(match, context)
+        if (out && out.text) {
+          context.visual_briefing = out.text
+          context.visual_signals = out.signals || null
+          const db = require('../core/database')
+          if (typeof db.setVisualContext === 'function') {
+            await db.setVisualContext({
+              match_id: matchId,
+              screenshot_paths: context.screenshot_paths,
+              article_ids: context.article_ids,
+              visual_confidence: context.visual_confidence,
+              tiles: context.tiles,
+              scores: context.scores,
+              query_text: context.query_text,
+              enriched_at: context.enriched_at,
+              briefing: out.signals ? JSON.stringify(out.signals) : out.text,
+            })
+          }
         }
       }
+    } catch (be) {
+      logger.debug(`[VISUAL] briefing indisponible: ${be.message}`)
     }
-  } catch (be) {
-    logger.debug(`[VISUAL] briefing indisponible: ${be.message}`)
   }
 
   return context

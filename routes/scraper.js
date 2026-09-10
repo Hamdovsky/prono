@@ -8,12 +8,7 @@ const enrichNewsProcessor = require('../core/_enrich_news')
 const logger = require('../core/logger')
 const { invalidateCache } = require('../core/speedCache')
 
-const localOrAuth = (req, res, next) => {
-  const ip = req.socket?.remoteAddress || ''
-  const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1'
-  if (isLocalhost || process.env.NODE_ENV !== 'production') return next()
-  return securityEngine.authenticate(req, res, next)
-}
+const localOrAuth = require('../core/authGuards').localOrAuth
 
 /**
  * GET /api/odds/status — couverture des cotes réelles sur les matchs

@@ -77,12 +77,45 @@ describe('gardes statiques — training & scraper', () => {
   })
 })
 
+describe('authGuards.localOrAuth — bypass = flag explicite, plus NODE_ENV (É7)', () => {
+  let systemRoutes
+
+  beforeAll(() => {
+    systemRoutes = require('../routes/system')
+  })
+
+  it('socket externe + NODE_ENV=development SANS flag => 401 (ancien trou)', async () => {
+    const savedEnv = process.env.NODE_ENV
+    delete process.env.AUTH_DEV_BYPASS
+    process.env.NODE_ENV = 'development'
+    try {
+      const app = makeApp('203.0.113.50', systemRoutes)
+      const res = await request(app).get('/api/bot-debug')
+      expect(res.status).toBe(401)
+    } finally {
+      process.env.NODE_ENV = savedEnv
+    }
+  })
+
+  it('socket externe + AUTH_DEV_BYPASS=1 => bypass assumé (local dev)', async () => {
+    process.env.AUTH_DEV_BYPASS = '1'
+    try {
+      const app = makeApp('203.0.113.51', systemRoutes)
+      const res = await request(app).get('/api/bot-debug')
+      expect(res.status).not.toBe(401)
+      expect(res.status).not.toBe(403)
+    } finally {
+      delete process.env.AUTH_DEV_BYPASS
+    }
+  })
+})
+
 describe('rate limiter — le skip ne fait plus confiance à req.ip (XFF spoofable)', () => {
   it('externe spoofant X-Forwarded-For: 127.0.0.1 finit throttlé (429)', async () => {
     jest.resetModules()
     const securityEngine = require('../core/securityEngine')
     const app = express()
-    app.set('trust proxy', true)
+    app.set('trust proxy', 1)
     app.use((req, res, next) => {
       req.socket = { remoteAddress: '203.0.113.8' }
       next()

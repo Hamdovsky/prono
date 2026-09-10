@@ -129,7 +129,9 @@ const corsOptions = {
       origin.startsWith('http://localhost:') ||
       origin.startsWith('https://localhost:') ||
       origin.startsWith('http://127.0.0.1:') ||
-      process.env.NODE_ENV !== 'production'
+      // bypass origines-toutes : flag explicite AUTH_DEV_BYPASS=1 (start.bat),
+      // plus NODE_ENV accidentel absent d'un déploiement (audit 2026-09-10 É7)
+      process.env.AUTH_DEV_BYPASS === '1'
 
     if (isAllowed) {
       callback(null, true)

@@ -40,6 +40,8 @@ cd /d %~dp0
 set PORT=3001
 rem FastAPI fail-closed sans API_SECRET_KEY (audit 2026-09-10) : explicite en local
 set FASTAPI_ALLOW_UNAUTH=1
+rem Bypass dev des gardes localOrAuth/CORS — explicite, plus lié à NODE_ENV (É7)
+set AUTH_DEV_BYPASS=1
 REM Scraper Puppeteer standalone : ARCHIVÉ par défaut (remplacé par le scan
 REM résilient du cron + watchdog + PixelRAG ; cf. CHANGELOG 2026-09-09).
 REM Réactiver : set SCRAPER_STANDALONE=1 avant ce script (ou npm run scraper).

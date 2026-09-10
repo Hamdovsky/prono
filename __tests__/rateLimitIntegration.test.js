@@ -35,7 +35,7 @@ describe('Global rate-limit on /api routes', () => {
     const express = require('express')
     const securityEngine = require('../core/securityEngine')
     const a = express()
-    a.set('trust proxy', true)
+    a.set('trust proxy', 1)
     a.use((req, res, next) => {
       req.socket = { remoteAddress: remoteAddr }
       next()

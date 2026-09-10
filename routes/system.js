@@ -31,12 +31,7 @@ router.get('/ping', (req, res) => res.send('API_PONG'))
 /**
  * GET /api/bot-debug - Debug bot env variables in production safely
  */
-const localOrAuth = (req, res, next) => {
-  const ip = req.socket?.remoteAddress || ''
-  const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1'
-  if (isLocalhost || process.env.NODE_ENV !== 'production') return next()
-  return securityEngine.authenticate(req, res, next)
-}
+const localOrAuth = require('../core/authGuards').localOrAuth
 
 router.get('/bot-debug', localOrAuth, (req, res) => {
   res.json({

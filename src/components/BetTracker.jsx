@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import './BetTracker.css'
+import AuthModal from './AuthModal'
+import { getUserToken } from '../utils/userAuth'
 
 const API = '/api/bets'
 
-// /api/bets exige le Bearer admin hors localhost (audit sécurité 2026-09-10) ;
-// même convention admin_token que dataService/ScraperDashboard.
+// /api/bets hors localhost : JWT utilisateur (priorité, via AuthModal) ou
+// secret admin 'admin_token' (convention dataService/ScraperDashboard).
 const authHeaders = () => {
+  const jwt = getUserToken()
+  if (jwt) return { Authorization: `Bearer ${jwt}` }
   const t = localStorage.getItem('admin_token')
   return t && t !== 'null' ? { Authorization: `Bearer ${t}` } : {}
 }
@@ -15,6 +19,7 @@ export default function BetTracker() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showAuth, setShowAuth] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({
@@ -35,7 +40,8 @@ export default function BetTracker() {
     try {
       const r = await fetch(API, { headers: authHeaders() })
       if (r.status === 401) {
-        setError('Authentification requise : connexion utilisateur (JWT) ou admin_token.')
+        setError('Authentification requise pour ce journal de paris.')
+        setShowAuth(true)
         setLoading(false)
         return
       }
@@ -169,6 +175,16 @@ export default function BetTracker() {
 
   return (
     <div className="bt-container">
+      {showAuth && (
+        <AuthModal
+          onSuccess={() => {
+            setShowAuth(false)
+            setError(null)
+            fetchBets()
+          }}
+          onClose={() => setShowAuth(false)}
+        />
+      )}
       <div className="bt-header">
         <h1 className="bt-title">📈 Suivi des Paris</h1>
         <div className="bt-header-actions">

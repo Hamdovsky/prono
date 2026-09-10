@@ -102,8 +102,21 @@ application É1→É6, chaque étape validée par test ciblé + non-régression.
   avec écritures SQLite en vol) ; force-exit à 5 s avec **code 0**.
 - Tests : +3 routeGuards (JWT valide OK / JWT invalide 401 / Swagger gardé).
 
+### É10 — verrouiller register + JWT réservé admin + modale login
+- `routes/auth.js` `/register` : le 1ᵉʳ compte (table vide) est accepté et
+  reçoit le rôle **admin** (bootstrap propriétaire) ; tout compte suivant exige
+  le Bearer `API_SECRET_KEY` (sinon 401) — sinon n'importe qui crée un compte.
+- `core/authGuards.js` `localOrJwtOrAdmin` : JWT accepté uniquement si
+  `role === 'admin'` — la bankroll reste monopro priétaire même avec des
+  comptes invités 'user' ailleurs dans l'app.
+- Front : `src/utils/userAuth.js` (JWT dans localStorage `jwt_token`, séparé du
+  `admin_token`), `src/components/AuthModal.jsx` (login -> `/api/auth/login`),
+  `BetTracker.jsx` ouvre la modale sur 401 et priorise JWT > admin_token.
+- Tests : +3 `auth.test.js` (bootstrap admin, 2e compte sans token 401, avec
+  token rôle user), +1 `routeGuards` (JWT rôle user refusé sur bets).
+
 ### Validations globales
-- Jest : **81 suites / 801/801**. pytest : 381 passed (+9 auth). `vite build` OK.
+- Jest : **81 suites / 804/804**. pytest : 381 passed (+9 auth). `vite build` OK.
 - `node --check` sur tous les fichiers JS touchés.
 
 ### Risques résiduels / suite possible

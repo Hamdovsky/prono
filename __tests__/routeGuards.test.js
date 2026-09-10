@@ -16,7 +16,9 @@ jest.mock('../core/logger', () => ({
 }))
 
 jest.mock('../services/authService', () => ({
-  verifyToken: jest.fn((t) => (t === 'jwt-valid' ? { sub: 1 } : null)),
+  verifyToken: jest.fn((t) =>
+    t === 'jwt-valid' ? { sub: 1, role: 'admin' } : t === 'jwt-user' ? { sub: 2, role: 'user' } : null
+  ),
 }))
 
 const origEnv = process.env.NODE_ENV
@@ -76,6 +78,15 @@ describe('routes/bets — protégées hors localhost', () => {
     const res = await request(app)
       .get('/api/bets')
       .set('Authorization', 'Bearer not-a-jwt')
+    expect(res.status).toBe(401)
+  })
+
+  it('É10: JWT rôle user => refusé sur la bankroll (401)', async () => {
+    const betsRoutes = require('../routes/bets')
+    const app = makeApp('203.0.113.10', betsRoutes)
+    const res = await request(app)
+      .get('/api/bets')
+      .set('Authorization', 'Bearer jwt-user')
     expect(res.status).toBe(401)
   })
 })

@@ -35,7 +35,10 @@ const localOrJwtOrAdmin = (req, res, next) => {
   if (token) {
     try {
       const authService = require('../services/authService')
-      if (authService.verifyToken(token)) return next()
+      // É10 : bankroll = données du propriétaire ; seul un JWT de rôle admin
+      // (1ᵉʳ compte bootstrap ou invité par l'admin) y a droit.
+      const decoded = authService.verifyToken(token)
+      if (decoded && decoded.role === 'admin') return next()
     } catch (_) {
       /* authService indisponible -> 401 ci-dessous */
     }

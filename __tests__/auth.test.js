@@ -8,6 +8,10 @@ jest.mock('../services/authService', () => ({
     req.user = { username: 'testuser', role: 'user' }
     next()
   }),
+  // userCount() de routes/auth : compteur piloté par global.__USERS_N__
+  getDb: jest.fn(() => ({
+    prepare: () => ({ get: async () => ({ n: global.__USERS_N__ ?? 1 }) }),
+  })),
 }))
 
 jest.mock('../core/logger', () => ({
@@ -28,11 +32,13 @@ beforeAll(() => {
 
 afterEach(() => {
   jest.restoreAllMocks()
+  delete global.__USERS_N__
 })
 
 describe('Auth Routes', () => {
   describe('POST /api/auth/register', () => {
-    it('registers with valid credentials', async () => {
+    it('registers with valid credentials (bootstrap : 1er compte = admin)', async () => {
+      global.__USERS_N__ = 0
       jest
         .spyOn(authService, 'register')
         .mockResolvedValue({ token: 'abc123', user: { username: 'newuser' } })
@@ -44,6 +50,35 @@ describe('Auth Routes', () => {
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
       expect(res.body).toHaveProperty('token')
+      // le bootstrap impose le rôle admin au 1er compte
+      expect(authService.register).toHaveBeenCalledWith(
+        'newuser',
+        undefined,
+        'password123',
+        'admin'
+      )
+    })
+
+    it('É10: 2e compte SANS token admin => 401', async () => {
+      global.__USERS_N__ = 5
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({ username: 'intru', password: 'password123' })
+      expect(res.status).toBe(401)
+      expect(res.body.error).toMatch(/admin token/)
+    })
+
+    it('É10: 2e compte AVEC token admin => accepté, rôle user', async () => {
+      global.__USERS_N__ = 5
+      process.env.API_SECRET_KEY = 'root-secret'
+      jest.spyOn(authService, 'register').mockResolvedValue({ token: 't2' })
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({ username: 'guest', password: 'password123' })
+        .set('Authorization', 'Bearer root-secret')
+      expect(res.status).toBe(200)
+      expect(authService.register).toHaveBeenCalledWith('guest', undefined, 'password123', 'user')
+      delete process.env.API_SECRET_KEY
     })
 
     it('rejects missing username', async () => {
@@ -70,6 +105,7 @@ describe('Auth Routes', () => {
     })
 
     it('returns 400 on duplicate username', async () => {
+      global.__USERS_N__ = 0
       jest.spyOn(authService, 'register').mockRejectedValue(new Error('Username already exists'))
 
       const res = await request(app)

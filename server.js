@@ -14,7 +14,9 @@ if (isRenderProduction && !process.env.JWT_SECRET) {
 
 const http = require('http')
 const logger = require('./core/logger')
-const PORT = process.env.PORT || 10000
+// Défaut unique 3001 = proxy Vite (vite.config.mjs) + src/config/apiConfig.js.
+// Render injecte PORT de toute façon ; start.bat fait set PORT=3001.
+const PORT = process.env.PORT || 3001
 const startupBootstrap = require('./services/startupBootstrap')
 
 // ── Immediate health-check HTTP server (responds BEFORE Express loads) ──
@@ -36,14 +38,33 @@ const server = http.createServer((req, res) => {
   res.end(JSON.stringify({ error: 'Titanium AI initializing', retryAfter: 5 }))
 })
 
-server.listen(PORT, '0.0.0.0', () => {
-  if (!process.env.LOG_DISABLED) {
-    logger.info(`🚀 Health check listener ready on port ${PORT}`)
-    logger.info(
-      `[BOOT] PID=${process.pid}, HEAP_LIMIT=${process.env.NODE_OPTIONS || 'default'}, MEM_LIMIT=${require('v8').getHeapStatistics().heap_size_limit}`
-    )
-  }
-})
+server
+  .listen(PORT, '0.0.0.0', () => {
+    if (!process.env.LOG_DISABLED) {
+      logger.info(`🚀 Health check listener ready on port ${PORT}`)
+      logger.info(
+        `[BOOT] PID=${process.pid}, HEAP_LIMIT=${process.env.NODE_OPTIONS || 'default'}, MEM_LIMIT=${require('v8').getHeapStatistics().heap_size_limit}`
+      )
+    }
+  })
+  // sans ce handler, EADDRINUSE au boot = uncaughtException -> exit(1), la
+  // logique de retry de startServer n'était jamais atteinte (audit 2026-09-10)
+  .on('error', async (err) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.warn(`⚠️  [BOOT] Port ${PORT} occupé — libération puis reprise via startServer`)
+      try {
+        await startupBootstrap.killProcessOnPort(PORT)
+      } catch (_e) {
+        /* best-effort */
+      }
+      setTimeout(() => {
+        if (!server.listening) startServer()
+      }, 2000)
+    } else {
+      logger.error(`💥 [FATAL] Health listener error: ${err.message}`)
+      process.exit(1)
+    }
+  })
 
 // ── Safety timeout: force startServer() after 3 min no matter what ──
 const SAFETY_TIMEOUT_MS = 180000

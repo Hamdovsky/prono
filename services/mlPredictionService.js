@@ -1,6 +1,28 @@
 const pythonService = require('../core/pythonService')
 const logger = require('../core/logger')
 const { getCache, setCache } = require('../core/redisClient')
+const crypto = require('crypto')
+
+// Signature des params d'entrée dans la clé de cache (audit 2026-09-10 É8) :
+// sans ça, un HIT 180 s pouvait servir une prédiction calculée sur d'autres
+// cotes/marchés/minute. Seules les entrées qui changent le résultat y entrent.
+function cacheSignature(match) {
+  const fd = (match && match.fullData) || {}
+  const rm = (match && (match.real_markets || fd.real_markets)) || null
+  return crypto
+    .createHash('sha1')
+    .update(
+      [
+        (match && match.odds_home) ?? '',
+        (match && match.odds_draw) ?? '',
+        (match && match.odds_away) ?? '',
+        (match && match.minute) ?? 0,
+        rm ? JSON.stringify(rm) : '',
+      ].join('|')
+    )
+    .digest('hex')
+    .slice(0, 10)
+}
 
 // TTL in seconds for Redis (3 minutes)
 const PREDICTION_CACHE_TTL_SEC = 3 * 60
@@ -13,7 +35,7 @@ class MLPredictionService {
 
   async getMLPrediction(match) {
     const matchId = match.id || `${match.homeTeam}_${match.awayTeam}`
-    const cacheKey = `ml_prediction:${matchId}`
+    const cacheKey = `ml_prediction:${matchId}:${cacheSignature(match)}`
 
     // 1. Check Redis cache first (persists across restarts)
     const cached = await getCache(cacheKey)
@@ -22,28 +44,33 @@ class MLPredictionService {
       return cached
     }
 
-    // 2. De-duplication: If a request is already in-flight, wait for it
+    // 2. De-duplication: If a request is already in-flight, wait for it.
+    // AUCUN await entre ce check et predictionQueue.set (plus bas) — la
+    // fenêtre de course qui doublonnait /predict (2 appels simultanes du meme
+    // match passaient avant le .set) est fermee (audit 2026-09-10 É8 :
+    // l'hydratation real_markets, Await, vivait ici avant ; elle est desormais
+    // dans l'IIFE, donc sous l'ombrelle de la promise partagee).
     if (this.predictionQueue.has(matchId)) return this.predictionQueue.get(matchId)
-
-    // 2b. Hydrate real_markets depuis la DB si absent du match (chemin prod :
-    // fallback_enricher stocke real_markets dans fullData, pas forcement expose
-    // au payload /api/predict).
-    if (!match.real_markets && !((match.fullData || {}).real_markets)) {
-      try {
-        const db = require('../core/database')
-        const stored = await db.getMatchById(matchId)
-        if (stored) {
-          const fd = typeof stored.fullData === 'string' ? JSON.parse(stored.fullData || '{}') : (stored.fullData || {})
-          const rm = (stored.real_markets) || (fd && fd.real_markets)
-          if (rm) match = { ...match, real_markets: rm }
-        }
-      } catch (_e) {
-        // best-effort
-      }
-    }
 
     const promise = (async () => {
       try {
+        // 2b. Hydrate real_markets depuis la DB si absent du match (chemin prod :
+        // fallback_enricher stocke real_markets dans fullData, pas forcement expose
+        // au payload /api/predict).
+        if (!match.real_markets && !((match.fullData || {}).real_markets)) {
+          try {
+            const db = require('../core/database')
+            const stored = await db.getMatchById(matchId)
+            if (stored) {
+              const fd = typeof stored.fullData === 'string' ? JSON.parse(stored.fullData || '{}') : (stored.fullData || {})
+              const rm = (stored.real_markets) || (fd && fd.real_markets)
+              if (rm) match = { ...match, real_markets: rm }
+            }
+          } catch (_e) {
+            // best-effort
+          }
+        }
+
         const matchData = {
           minute: parseInt(match.minute) || 0,
           score_home: match.scoreHome || match.score?.home || 0,

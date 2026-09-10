@@ -70,8 +70,26 @@ application É1→É6, chaque étape validée par test ciblé + non-régression.
   `rateLimitIntegration.test.js` réaligné (l'ancien verrouillait la sémantique
   req.ip = la faille elle-même).
 
+### É7 — bypass dev explicite (suite immédiate, même session)
+- `core/authGuards.js` : `localOrAuth` mutualisé — localhost socket OU
+  `AUTH_DEV_BYPASS=1` (posé par start.bat), sinon Bearer. `NODE_ENV` accidentel
+  absent d'un déploiement ne désactive plus l'auth (trou rendu visible par
+  l'É6). CORS `app.js` : même logique (plus de toutes-origines via NODE_ENV).
+- `routes/system.js` + `routes/scraper.js` : gardes locales remplacées par le
+  module partagé. `.env.example` documente les 2 flags de dev.
+
+### É8 — course in-flight + clé de cache paramétrée
+- `services/mlPredictionService.js` : hydratation `real_markets` (await) déplacée
+  DANS l'IIFE → plus de `await` entre `queue.has` et `queue.set` (2 appels
+  simultanés du même match ne doublonnent plus /predict Python).
+- Clé cache `ml_prediction:<id>:<sig>` avec `sig = sha1(odds 1X2, minute,
+  real_markets)` en tête : un HIT 180 s ne peut plus servir une prédiction
+  calculée sur d'autres cotes/marchés/minute.
+- Test : `__tests__/mlPredictionService.dedup.test.js` (4 : 1 seul /predict sur
+  2 appels simultanés, HIT mêmes params, MISS cotes différentes, MISS minute).
+
 ### Validations globales
-- Jest : **80 suites / 792/792**. pytest : 381 passed (+9 auth). `vite build` OK.
+- Jest : **81 suites / 798/798**. pytest : 381 passed (+9 auth). `vite build` OK.
 - `node --check` sur tous les fichiers JS touchés.
 
 ### Risques résiduels / suite possible

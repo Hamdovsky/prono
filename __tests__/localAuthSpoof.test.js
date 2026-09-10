@@ -99,8 +99,15 @@ describe('localOnlyOrAuth — external spoof must not bypass (system.js)', () =>
       .post('/api/predict')
       .set('X-Forwarded-For', '127.0.0.1')
       .set('Authorization', 'Bearer test-secret-key')
+      .send({ homeTeam: 'A', awayTeam: 'B' })
     // getMLPrediction mocké renvoie un vrai objet (undefined -> 502 anti fantôme)
     expect([200, 500]).toContain(res.status)
+  })
+
+  it('É11: body sans équipes => 400 (validation minimale)', async () => {
+    const app = makeApp('::ffff:127.0.0.1')
+    const res = await request(app).post('/api/predict').send({ foo: 'bar' })
+    expect(res.status).toBe(400)
   })
 
   it('real localhost peer => bypass on /predict', async () => {

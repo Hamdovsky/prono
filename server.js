@@ -402,8 +402,8 @@ process.on('uncaughtException', (err) => {
     console.error('[CRASH]', err.stack || err.message)
   } catch (_) {}
   try {
-    require('fs').appendFileSync(
-      '/tmp/crash.log',
+      require('fs').appendFileSync(
+        require('path').join(__dirname, 'logs', 'crash.log'),
       JSON.stringify({
         time: Date.now(),
         type: 'uncaughtException',
@@ -426,8 +426,8 @@ process.on('unhandledRejection', (reason) => {
     console.error('[REJECTION]', reason instanceof Error ? reason.stack : String(reason))
   } catch (_) {}
   try {
-    require('fs').appendFileSync(
-      '/tmp/crash.log',
+      require('fs').appendFileSync(
+        require('path').join(__dirname, 'logs', 'crash.log'),
       JSON.stringify({
         time: Date.now(),
         type: 'unhandledRejection',
@@ -506,7 +506,7 @@ setTimeout(() => {
           await database.updatePredictions(m.id, { ...m, ...enriched })
           saved++
         } catch (e) {
-          // skip individual failure
+          logger.debug(`[INDEPENDENT-ENRICH] save failed for ${m.id}: ${e.message}`)
         }
       }
       logger.info(

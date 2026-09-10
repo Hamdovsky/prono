@@ -115,8 +115,19 @@ application É1→É6, chaque étape validée par test ciblé + non-régression.
 - Tests : +3 `auth.test.js` (bootstrap admin, 2e compte sans token 401, avec
   token rôle user), +1 `routeGuards` (JWT rôle user refusé sur bets).
 
+### É11 — durcissement final (session post-push)
+- `server.js` : crash log `/tmp/crash.log` -> `logs/crash.log` (le /tmp
+  Windows faisait échouer l'écriture en silence, post-mortem impossible) +
+  2 catches silencieux d'enrichissement -> `logger.debug`.
+- `core/redisClient.js` : `redis.on('error', () => {})` muet -> warn throttlé
+  30 s (pannes Redis désormais visibles dans les logs).
+- `routes/system.js` `/api/predict` : validation minimale — `homeTeam`/`awayTeam`
+  (strings non vides) exigés, sinon 400 (empêche les orphelins `TeamA_TeamB`
+  et le gaspillage quota FastAPI/vision).
+- Tests : +2 (400 predict x2 suites), body corrigé dans `system.test.js`.
+
 ### Validations globales
-- Jest : **81 suites / 804/804**. pytest : 381 passed (+9 auth). `vite build` OK.
+- Jest : **81 suites / 806/806**. pytest : 381 passed (+9 auth). `vite build` OK.
 - `node --check` sur tous les fichiers JS touchés.
 
 ### Risques résiduels / suite possible

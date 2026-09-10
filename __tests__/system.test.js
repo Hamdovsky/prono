@@ -122,7 +122,7 @@ describe('System API Routes', () => {
       const response = await request(app)
         .post('/api/predict')
         .set('Authorization', validToken)
-        .send({ matchId: 'test-match' })
+        .send({ matchId: 'test-match', homeTeam: 'A', awayTeam: 'B' })
 
       expect(response.status).toBe(200)
       expect(response.body.success).toBe(true)
@@ -130,7 +130,9 @@ describe('System API Routes', () => {
     })
 
     it('should handle request without auth in non-production', async () => {
-      const response = await request(app).post('/api/predict').send({ matchId: 'test' })
+      const response = await request(app)
+        .post('/api/predict')
+        .send({ matchId: 'test', homeTeam: 'A', awayTeam: 'B' })
 
       // localOnlyOrAuth middleware skips auth when NODE_ENV !== 'production'
       expect([200, 401, 403]).toContain(response.status)
@@ -140,7 +142,7 @@ describe('System API Routes', () => {
       const response = await request(app)
         .post('/api/predict')
         .set('Authorization', 'Bearer wrong-token')
-        .send({ matchId: 'test' })
+        .send({ matchId: 'test', homeTeam: 'A', awayTeam: 'B' })
 
       expect([200, 401, 403]).toContain(response.status)
     })
@@ -151,11 +153,20 @@ describe('System API Routes', () => {
       const response = await request(app)
         .post('/api/predict')
         .set('Authorization', 'Bearer Matrix22!')
-        .send({ matchId: 'test' })
+        .send({ matchId: 'test', homeTeam: 'A', awayTeam: 'B' })
 
       expect(response.status).toBe(500)
       expect(response.body.success).toBe(false)
       expect(response.body.error).toContain('Model error')
+    })
+
+    it('É11: rejects body without teams (400)', async () => {
+      const response = await request(app)
+        .post('/api/predict')
+        .set('Authorization', 'Bearer Matrix22!')
+        .send({ matchId: 'test' })
+      expect(response.status).toBe(400)
+      expect(response.body.success).toBe(false)
     })
   })
 

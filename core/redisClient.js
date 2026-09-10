@@ -32,7 +32,15 @@ try {
   redis = redisUrl ? new Redis(redisUrl, opts) : new Redis(opts)
   logger.info('[REDIS] Client created')
 
-  redis.on('error', () => {})
+  // pannes Redis auparavant 100 % muettes -> warn throttle 30 s (audit É11)
+  let lastRedisErrLog = 0
+  redis.on('error', (err) => {
+    const now = Date.now()
+    if (now - lastRedisErrLog > 30000) {
+      lastRedisErrLog = now
+      logger.warn(`[REDIS] error (throttle 30s): ${err.message}`)
+    }
+  })
 } catch (e) {
   logger.warn(`[REDIS] Init failed: ${e.message}`)
   redis = null

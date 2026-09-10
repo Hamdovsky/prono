@@ -294,6 +294,19 @@ const localOnlyOrAuth = (req, res, next) => {
 
 router.post('/predict', localOnlyOrAuth, async (req, res) => {
   try {
+    const b = req.body || {}
+    // validation minimale (audit É11) : sans équipes, le moteur invente un
+    // identifiant TeamA_TeamB et consomme quota FastAPI/vision pour rien.
+    if (
+      typeof b.homeTeam !== 'string' ||
+      !b.homeTeam.trim() ||
+      typeof b.awayTeam !== 'string' ||
+      !b.awayTeam.trim()
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'homeTeam and awayTeam (strings) are required' })
+    }
     const result = await mlPredictionService.getMLPrediction(req.body)
     if (!result) {
       // garde anti succès fantôme ({success:true} nu) si le service ne renvoie rien

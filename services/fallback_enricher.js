@@ -173,7 +173,10 @@ async function tryXgbEnrichOne(match) {
     }
     const response = await axios.post(`${FASTAPI_URL}/predict`, payload, {
       timeout: XGB_TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.API_SECRET_KEY ? { Authorization: `Bearer ${process.env.API_SECRET_KEY}` } : {}),
+      },
     })
     const py = response.data
     if (!py || !py.success) return null

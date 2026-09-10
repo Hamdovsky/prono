@@ -19,6 +19,7 @@ services:
       - SERVER_PORT=3001
       - PYTHON_SERVICE_URL=http://neural-x:8000
       - REDIS_URL=redis://data-vault:6379
+      - API_SECRET_KEY=${API_SECRET_KEY:-}
     depends_on:
       - data-vault
       - neural-x
@@ -31,12 +32,15 @@ services:
       dockerfile: Dockerfile.neural
     container_name: neural-x
     ports:
-      - "8000:8000"
+      # loopback seulement : neural-x joint par titanium via le réseau interne
+      # (PYTHON_SERVICE_URL) — 8000 exposé publiquement + fail-open = /retrain libre.
+      - "127.0.0.1:8000:8000"
     volumes:
       - .:/app
       - titanium-data:/app/data
     environment:
       - PORT=8000
+      - API_SECRET_KEY=${API_SECRET_KEY:-}
     restart: always
 
   # --- DS-LAB (Data Science Laboratory) ---

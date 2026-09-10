@@ -18,9 +18,25 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Titanium Quant Inference API", lifespan=lifespan)
 
 # ── Auth dependency ──
+# Fail-closed (audit 2026-09-10) : sans API_SECRET_KEY, les endpoints
+# require_auth renvoyaient 200 -> /retrain, /calibrate, /train/v56 exposés.
+# Un environnement de DEV local (start.bat) pose FASTAPI_ALLOW_UNAUTH=1.
+def _auth_secret():
+    return os.environ.get('API_SECRET_KEY', '')
+
+
+def _auth_unavailable():
+    if _auth_secret():
+        return None
+    if os.environ.get('FASTAPI_ALLOW_UNAUTH', '') == '1':
+        return None
+    raise HTTPException(503, "Server misconfigured: API_SECRET_KEY not set")
+
+
 async def require_auth(authorization: str = Header(None)):
-    secret = os.environ.get('API_SECRET_KEY', '')
-    if not secret:
+    secret = _auth_secret()
+    if secret == '':
+        _auth_unavailable()
         return
     if not authorization or not authorization.startswith('Bearer '):
         raise HTTPException(401, "Unauthorized: Missing or malformed token")
@@ -29,7 +45,10 @@ async def require_auth(authorization: str = Header(None)):
 
 async def optional_auth(authorization: str = Header(None)):
     secret = os.environ.get('API_SECRET_KEY', '')
-    if not secret or not authorization:
+    if not secret:
+        _auth_unavailable()
+        return
+    if not authorization:
         return
     if authorization.startswith('Bearer ') and authorization.split(' ')[1] != secret:
         raise HTTPException(401, "Unauthorized: Invalid token")
@@ -475,7 +494,7 @@ def _post_results_callback(url, result):
     try:
         import urllib.request
         payload = json.dumps({'league': result['league'], 'mu': result.get('mu', 0.13), 'hfa': result.get('hfa', 0.25), 'rho': result.get('rho', -0.12), 'gamma': result.get('gamma', 0.0), 'model': result.get('model', 'poisson'), 'distribution_type': result.get('distribution_type', 'poisson'), 'num_matches': result.get('num_matches', 0), 'teams': result.get('teams', []), 'updated_at': result.get('updated_at'), 'attack_ratings': result.get('attack', {}), 'defense_ratings': result.get('defense', {}), 'source': 'fastapi_goalmodel'}).encode()
-        req = urllib.request.Request(url, data=payload, method='POST', headers={'Content-Type': 'application/json'})
+        req = urllib.request.Request(url, data=payload, method='POST', headers={'Content-Type': 'application/json', **({'Authorization': f"Bearer {_auth_secret()}"} if _auth_secret() else {})})
         resp = urllib.request.urlopen(req, timeout=10)
         print(f"[GOALMODEL] Callback {url} -> {resp.status}")
     except Exception as e:

@@ -71,6 +71,11 @@ class PythonService {
         timeout: resolvedTimeout,
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
+        // FastAPI est fail-closed sans secret (audit 2026-09-10) : on envoie
+        // le Bearer dès qu'API_SECRET_KEY existe côté Node.
+        headers: process.env.API_SECRET_KEY
+          ? { Authorization: `Bearer ${process.env.API_SECRET_KEY}` }
+          : {},
       })
       this._failCount = 0
       this._circuitOpen = false

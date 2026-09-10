@@ -4,9 +4,13 @@ const rateLimit = require('express-rate-limit')
 
 // req.ip est piloté par X-Forwarded-For (trust proxy=1) donc spoofable en accès
 // direct ; seule la vraie adresse de socket fait foi pour le skip localhost.
+// SURT SUR RENDER : tout le trafic web arrive par le proxy local (socket
+// 127.0.0.1 + header XFF posé par la plateforme) -> skip UNIQUEMENT pour les
+// appels internes réels (scraper/bot en local, sans XFF).
 const isLocalSocket = (req) => {
   const ip = req.socket?.remoteAddress || ''
-  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+  const local = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+  return local && !req.headers['x-forwarded-for']
 }
 
 const apiLimiter = rateLimit({

@@ -9,9 +9,14 @@ function devBypassAllowed() {
   return process.env.AUTH_DEV_BYPASS === '1'
 }
 
+// Render place un proxy local devant le conteneur : le trafic WEB externe
+// arrive avec socket 127.0.0.1 + X-Forwarded-For. On ne fait donc confiance
+// à la socket localhost QUE sans XFF (appels internes réels : worker local,
+// bot, cron dans le même conteneur).
 function isLocalSocket(req) {
   const ip = req.socket?.remoteAddress || ''
-  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+  const local = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+  return local && !req.headers['x-forwarded-for']
 }
 
 const localOrAuth = (req, res, next) => {

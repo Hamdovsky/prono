@@ -286,10 +286,10 @@ router.get('/health', async (req, res) => {
  * 🛡️ Localhost (scraper process) is always trusted — no token required for 127.0.0.1 / ::1
  */
 const localOnlyOrAuth = (req, res, next) => {
-  const ip = req.socket?.remoteAddress || ''
-  const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip === '::ffff:127.0.0.1'
-  if (isLocalhost) return next() // Internal scraper — trusted
-  return securityEngine.authenticate(req, res, next) // External — require token
+  // même règle qu'authGuards : socket localhost SANS XFF = interne réel
+  // (sur Render, tout le web externe porte un XFF posé par la plateforme)
+  if (require('../core/authGuards').isLocalSocket(req)) return next()
+  return securityEngine.authenticate(req, res, next)
 }
 
 router.post('/predict', localOnlyOrAuth, async (req, res) => {

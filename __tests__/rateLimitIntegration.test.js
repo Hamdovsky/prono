@@ -71,29 +71,26 @@ describe('Global rate-limit on /api routes', () => {
   })
 })
 
-describe('localOrAuth pattern (localhost bypasses auth)', () => {
+describe('localOrAuth pattern (vrai localhost SANS XFF bypasse ; proxy Render protégé)', () => {
   const origEnv = process.env.NODE_ENV
 
   afterEach(() => {
     process.env.NODE_ENV = origEnv
   })
 
-  it('should allow localhost to access protected routes without token', async () => {
+  it('socket localhost sans XFF (interne réel) => accès sans token', async () => {
     process.env.NODE_ENV = 'production'
-    const res = await request(app).get('/api/bot-debug').set('X-Forwarded-For', '127.0.0.1')
+    const res = await request(app).get('/api/bot-debug')
     expect(res.status).not.toBe(401)
     expect(res.status).not.toBe(403)
   })
 
-  it('should ignore spoofed X-Forwarded-For (localhost decision uses real socket only)', async () => {
+  it('socket localhost AVEC XFF (trafic web Render) => auth exigée (401)', async () => {
+    // Sur Render TOUT le trafic externe arrive de la socket proxy locale avec
+    // X-Forwarded-For ; sans cette règle, bets/scraper/debug seraient ouverts.
     process.env.NODE_ENV = 'production'
-    // The real socket here is localhost, so it bypasses regardless of a
-    // client-supplied external X-Forwarded-For header. The header must NOT
-    // influence the localhost/auth decision (req.ip is ignored).
-    const ip = '203.0.113.77'
-    const res = await request(app).get('/api/bot-debug').set('X-Forwarded-For', ip)
-    expect(res.status).not.toBe(401)
-    expect(res.status).not.toBe(403)
+    const res = await request(app).get('/api/bot-debug').set('X-Forwarded-For', '203.0.113.77')
+    expect(res.status).toBe(401)
   })
 
   it('should accept valid token from external IP', async () => {

@@ -2,15 +2,10 @@ const express = require('express')
 const router = express.Router()
 const database = require('../core/database')
 const logger = require('../core/logger')
-const securityEngine = require('../core/securityEngine')
 
-// Journal de bankroll = données financières personnelles (audit 2026-09-10) :
-// localhost (UI locale/scraper) de confiance, extérieur exige le Bearer admin.
-const localOnlyOrAuth = (req, res, next) => {
-  const ip = req.socket?.remoteAddress || ''
-  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return next()
-  return securityEngine.authenticate(req, res, next)
-}
+// Journal de bankroll = données financières personnelles (audit 2026-09-10,
+// É9) : localhost de confiance, sinon token admin OU JWT utilisateur valide.
+const localOnlyOrAuth = require('../core/authGuards').localOrJwtOrAdmin
 router.use(localOnlyOrAuth)
 
 function pickWon(pick, sh, sa) {

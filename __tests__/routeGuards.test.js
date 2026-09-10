@@ -15,6 +15,10 @@ jest.mock('../core/logger', () => ({
   debug: jest.fn(),
 }))
 
+jest.mock('../services/authService', () => ({
+  verifyToken: jest.fn((t) => (t === 'jwt-valid' ? { sub: 1 } : null)),
+}))
+
 const origEnv = process.env.NODE_ENV
 
 beforeAll(() => {
@@ -56,6 +60,24 @@ describe('routes/bets — protégées hors localhost', () => {
     expect(res.status).not.toBe(401)
     expect(res.status).not.toBe(403)
   })
+
+  it('É9: GET /api/bets externe avec JWT utilisateur valide => pas 401', async () => {
+    const betsRoutes = require('../routes/bets')
+    const app = makeApp('203.0.113.8', betsRoutes)
+    const res = await request(app)
+      .get('/api/bets')
+      .set('Authorization', 'Bearer jwt-valid')
+    expect(res.status).not.toBe(401)
+  })
+
+  it('É9: GET /api/bets externe avec JWT invalide => 401', async () => {
+    const betsRoutes = require('../routes/bets')
+    const app = makeApp('203.0.113.9', betsRoutes)
+    const res = await request(app)
+      .get('/api/bets')
+      .set('Authorization', 'Bearer not-a-jwt')
+    expect(res.status).toBe(401)
+  })
 })
 
 describe('gardes statiques — training & scraper', () => {
@@ -74,6 +96,11 @@ describe('gardes statiques — training & scraper', () => {
   it('plus aucune exposition de keyPrefix dans app.js', () => {
     const src = actualFs.readFileSync(path.join(__dirname, '../app.js'), 'utf8')
     expect(src).not.toMatch(/keyPrefix\s*:/)
+  })
+
+  it("É9: /api-docs (Swagger) derrière localOrAuth", () => {
+    const src = actualFs.readFileSync(path.join(__dirname, '../app.js'), 'utf8')
+    expect(src).toMatch(/'\/api-docs',[\s\S]{0,160}authGuards'\)\.localOrAuth/)
   })
 })
 

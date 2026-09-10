@@ -14,6 +14,15 @@ if (isRenderProduction && !process.env.JWT_SECRET) {
 
 const http = require('http')
 const logger = require('./core/logger')
+
+// Timers de fond suivis pour l'arrêt propre (SIGTERM/SIGINT) : les chaînes
+// récurrentes d'enrichissement/auto-heal continuaient d'écrire en DB pendant
+// la fermeture. trackTimer sur les points longs, clearTracked dans shutDown.
+const shutdownTimers = new Set()
+const trackTimer = (t) => {
+  shutdownTimers.add(t)
+  return t
+}
 // Défaut unique 3001 = proxy Vite (vite.config.mjs) + src/config/apiConfig.js.
 // Render injecte PORT de toute façon ; start.bat fait set PORT=3001.
 const PORT = process.env.PORT || 3001
@@ -274,34 +283,41 @@ setTimeout(async () => {
           return updated
         }
 
-        setTimeout(async function runEnrichBatches() {
-          try {
-            const remaining = await database.getMatchesByStatuses(
-              ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
-              { limit: 500 }
-            )
-            if (remaining.length === 0) {
-              logger.info(`[AUTO-ENRICH] All matches enriched, stopping.`)
-              return
+        trackTimer(
+          setTimeout(async function runEnrichBatches() {
+            try {
+              const remaining = await database.getMatchesByStatuses(
+                ['scheduled', 'upcoming', 'NOT_STARTED', 'NS'],
+                { limit: 500 }
+              )
+              if (remaining.length === 0) {
+                logger.info(`[AUTO-ENRICH] All matches enriched, stopping.`)
+                return
+              }
+              await enrichBatch(ENRICH_BATCH)
+              trackTimer(setTimeout(runEnrichBatches, ENRICH_DELAY))
+            } catch (e) {
+              logger.warn(`[AUTO-ENRICH] Error: ${e.message}`)
+              trackTimer(setTimeout(runEnrichBatches, ENRICH_DELAY))
             }
-            await enrichBatch(ENRICH_BATCH)
-            setTimeout(runEnrichBatches, ENRICH_DELAY)
-          } catch (e) {
-            logger.warn(`[AUTO-ENRICH] Error: ${e.message}`)
-            setTimeout(runEnrichBatches, ENRICH_DELAY)
-          }
-        }, 15000)
+          }, 15000)
+        )
 
         // ── AutoHeal patrol (startup + toutes les 15 min — inclut stale xG detection & fix) ──
-        setTimeout(() => {
-          autoHealAgent.patrol().catch((e) => logger.warn(`[AUTOHEAL] Patrol error: ${e.message}`))
-          setInterval(() => {
+        trackTimer(
+          setTimeout(() => {
             autoHealAgent.patrol().catch((e) => logger.warn(`[AUTOHEAL] Patrol error: ${e.message}`))
-          }, 15 * 60 * 1000).unref()
-        }, 30000)
+            const t = setInterval(() => {
+              autoHealAgent.patrol().catch((e) => logger.warn(`[AUTOHEAL] Patrol error: ${e.message}`))
+            }, 15 * 60 * 1000)
+            t.unref()
+            trackTimer(t)
+          }, 30000)
+        )
 
         // ── Startup auto-backtest (30s after boot, then daily cron handles it) ──
-        setTimeout(async () => {
+        trackTimer(
+          setTimeout(async () => {
           try {
             const { runAutoBacktest } = require('./services/autoBacktestService')
             const result = await runAutoBacktest()
@@ -314,6 +330,7 @@ setTimeout(async () => {
             logger.warn(`[AUTO-BACKTEST] Startup: ${e.message}`)
           }
         }, 30000)
+        )
 
         // ── Diagnostic ──
         diagnostics.scheduleDailyDiagnose(10000)
@@ -423,8 +440,27 @@ process.on('unhandledRejection', (reason) => {
 
 const shutDown = () => {
   logger.info('🛑 Shutting down gracefully')
+  for (const t of shutdownTimers) {
+    clearInterval(t)
+    clearTimeout(t)
+  }
+  shutdownTimers.clear()
+  // socket.io garde les connexions ouvertes -> server.close() ne rappelait
+  // jamais et SIGTERM mourait en exit(1) au bout de 10 s (code d'erreur +
+  // écritures SQLite coupées en plein cycle). io.close ferme l'httpServer.
+  try {
+    const socketService = require('./services/socketService')
+    if (socketService.io) {
+      socketService.io.close(() => process.exit(0))
+      setTimeout(() => process.exit(0), 5000)
+      return
+    }
+  } catch (_) {
+    /* fallback : close simple ci-dessous */
+  }
   server.close(() => process.exit(0))
-  setTimeout(() => process.exit(1), 10000)
+  // arrêt propre = code 0 même si des keep-alive traînent (audit 2026-09-10)
+  setTimeout(() => process.exit(0), 5000)
 }
 
 process.on('SIGTERM', shutDown)
@@ -459,7 +495,7 @@ setTimeout(() => {
         return !hw || hw <= 0 || isNaN(hw)
       })
       if (unenriched.length === 0) {
-        setTimeout(runLoop, 60000) // check again in 1 min
+        trackTimer(setTimeout(runLoop, 60000)) // check again in 1 min
         return
       }
       const batch = unenriched.slice(0, 35)
@@ -476,14 +512,14 @@ setTimeout(() => {
       logger.info(
         `[INDEPENDENT-ENRICH] Saved ${saved}/${batch.length} (remaining: ${unenriched.length - batch.length})`
       )
-      setTimeout(runLoop, 5000) // next batch in 5s
+      trackTimer(setTimeout(runLoop, 5000)) // next batch in 5s
     } catch (e) {
       logger.warn(`[INDEPENDENT-ENRICH] Error: ${e.message}`)
-      setTimeout(runLoop, 10000)
+      trackTimer(setTimeout(runLoop, 10000))
     }
   }
 
-  setTimeout(runLoop, 30000) // start 30s after server boot
+  trackTimer(setTimeout(runLoop, 30000)) // start 30s after server boot
   logger.info('[INDEPENDENT-ENRICH] Loop scheduled (30s delay)')
 
   // ── PERIODIC FIXTURE SYNC FROM OPENLIGADB (free, no API key) ──

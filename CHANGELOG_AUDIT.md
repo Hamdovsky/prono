@@ -88,8 +88,22 @@ application É1→É6, chaque étape validée par test ciblé + non-régression.
 - Test : `__tests__/mlPredictionService.dedup.test.js` (4 : 1 seul /predict sur
   2 appels simultanés, HIT mêmes params, MISS cotes différentes, MISS minute).
 
+### É9 — JWT utilisateur pour bets + Swagger gardé + arrêt propre
+- `core/authGuards.js` : `localOrJwtOrAdmin` — localhost OU secret admin OU JWT
+  valide (`services/authService.verifyToken`, login `/api/auth/login` existant).
+  La bankroll ne nécessite plus le partage du secret global avec le navigateur.
+- `routes/bets.js` : garde switchée sur `localOrJwtOrAdmin` ; `BetTracker.jsx`
+  affiche un message explicite sur 401 (au lieu du `json()` muet).
+- `app.js` : `/api-docs` (Swagger = plan complet des routes admin) derrière
+  `localOrAuth`.
+- `server.js` : arrêt propre — `shutdownTimers` (chaînes enrich 15 s,
+  INDEPENDENT-ENRICH, autoHeal, backtest boot) cleared au SIGTERM ; `io.close()`
+  (les connexions socket.io empêchaient `server.close` -> exit(1) forcé à 10 s
+  avec écritures SQLite en vol) ; force-exit à 5 s avec **code 0**.
+- Tests : +3 routeGuards (JWT valide OK / JWT invalide 401 / Swagger gardé).
+
 ### Validations globales
-- Jest : **81 suites / 798/798**. pytest : 381 passed (+9 auth). `vite build` OK.
+- Jest : **81 suites / 801/801**. pytest : 381 passed (+9 auth). `vite build` OK.
 - `node --check` sur tous les fichiers JS touchés.
 
 ### Risques résiduels / suite possible

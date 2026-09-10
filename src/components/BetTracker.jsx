@@ -34,6 +34,11 @@ export default function BetTracker() {
   const fetchBets = useCallback(async () => {
     try {
       const r = await fetch(API, { headers: authHeaders() })
+      if (r.status === 401) {
+        setError('Authentification requise : connexion utilisateur (JWT) ou admin_token.')
+        setLoading(false)
+        return
+      }
       const json = await r.json()
       if (json.success) {
         setBets(json.bets)

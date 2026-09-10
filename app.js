@@ -664,6 +664,8 @@ app.use('/api/titanium', require('./routes/titanium'))
 if (swaggerUi && swaggerSpecs) {
   app.use(
     '/api-docs',
+    // énumère toutes les routes y compris admin : reconnaissance gratuite sinon
+    require('./core/authGuards').localOrAuth,
     swaggerUi.serve,
     swaggerUi.setup(swaggerSpecs, {
       customCss: '.swagger-ui .topbar { display: none }',

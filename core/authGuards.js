@@ -19,4 +19,28 @@ const localOrAuth = (req, res, next) => {
   return securityEngine.authenticate(req, res, next)
 }
 
-module.exports = { localOrAuth, isLocalSocket, devBypassAllowed }
+const bearerToken = (req) => {
+  const h = req.headers.authorization || ''
+  return h.startsWith('Bearer ') ? h.slice(7) : null
+}
+
+// Données personnelles de l'utilisateur (bankroll bets) : localhost, token
+// admin OU JWT valide (services/authService, /api/auth/login). Le JWT évite
+// de partager le secret global d'API avec le navigateur (audit É9).
+const localOrJwtOrAdmin = (req, res, next) => {
+  if (isLocalSocket(req) || devBypassAllowed()) return next()
+  const token = bearerToken(req)
+  const secret = process.env.API_SECRET_KEY
+  if (secret && token && token === secret) return next()
+  if (token) {
+    try {
+      const authService = require('../services/authService')
+      if (authService.verifyToken(token)) return next()
+    } catch (_) {
+      /* authService indisponible -> 401 ci-dessous */
+    }
+  }
+  return res.status(401).json({ error: 'Unauthorized: admin token or login required' })
+}
+
+module.exports = { localOrAuth, localOrJwtOrAdmin, isLocalSocket, devBypassAllowed }

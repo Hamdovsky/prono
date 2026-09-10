@@ -112,7 +112,7 @@ Système de prédiction football de nouvelle génération combinant XGBoost, Mon
 | Technologie      | Version | Utilisation |
 | ---------------- | ------- | ----------- |
 | React            | 19      | UI          |
-| Vite             | 7       | Build       |
+| Vite             | 6       | Build       |
 | Tailwind CSS     | 3       | Styles      |
 | Socket.IO Client | -       | Temps réel  |
 
@@ -260,7 +260,7 @@ Verdict + Confiance + Score attendu
 
 ### Python (FastAPI)
 
-Le moteur FastAPI (`core/fastapi_server.py`) tourne **dans le même conteneur** que le serveur Node (voir `Dockerfile`), pas sur un service externe.
+Le moteur FastAPI (`core/fastapi_server.py`) tourne dans son **propre service** (`prono-fastapi`, cf. `render.yaml` / `Dockerfile` : « FastAPI inference only »). Node le joint via `INFERENCE_URL` (jamais `FASTAPI_URL`, non lu par le code) ; défaut local `http://127.0.0.1:8000`.
 
 ---
 
@@ -314,7 +314,7 @@ TELEGRAM_BOT_TOKEN=xxx  # sinon bot Telegram désactivé
 TELEGRAM_CHAT_ID=xxx
 
 # Configuration
-FASTAPI_URL=http://127.0.0.1:8000   # FastAPI embarqué dans le même conteneur
+INFERENCE_URL=http://127.0.0.1:8000   # service FastAPI (Render: https://prono-fastapi-...)
 FRONTEND_URL=https://pronostico.onrender.com
 ```
 
@@ -337,8 +337,8 @@ FRONTEND_URL=https://pronostico.onrender.com
 ### Manuelle
 
 ```bash
-# Ré-entraînement XGBoost
-npm run retrain
+# Ré-entraînement XGBoost (worker — il n'y a pas de script npm « retrain »)
+node scripts/auto_retrain_worker.js
 
 # Ré-entraînement modèle live
 python core/train_live_model.py

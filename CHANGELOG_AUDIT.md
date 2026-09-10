@@ -4,6 +4,88 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Audit architecture/fiabilité/sécurité — 6 corrections par petites étapes (2026-09-10, local)
+
+Rapport top-5 issus de 3 audits croisés (startup/runtime, sécurité, pipeline ML) ;
+application É1→É6, chaque étape validée par test ciblé + non-régression.
+
+### É1 — draw_bias saturé (prédictions fausses)
+- `config/model_weights.json` : 65.65 -> 1.0 (valeur séquestrée par 4 mois de
+  `+= 0.15` sans plafond ; confidenceScorer plafonnait déjà à -10/+5 pts mais
+  l'auto-optimisation restait mono-directionnelle).
+- `core/autoOptimizer.js` : clamp [1.0, 1.6] + décrément -0.05 quand <=2 draws
+  manqués + `_sanitizeWeights()` (clamp & repersiste toute valeur héritée).
+- Tests : `__tests__/autoOptimizer.test.js` (3 : borne haute 20 cycles, borne
+  basse 20 cycles, assainissement 65.65).
+
+### É2 — succès fantômes
+- `services/mlPredictionService.js` : crash interne -> `{success:false,
+  degraded:true, source:'worker_error'}` (au lieu de `null`).
+- `routes/system.js` `/api/predict` : garde `!result` -> 502 explicite.
+- `services/enriched_predictions.js` : fallback JS QuantumQuant étiqueté
+  `ai_source:'QUANTUM_JS_FALLBACK'` + `degraded:true`, propagé dans enrichOne
+  (fin du TITANIUM_ELITE_V3 déguisé).
+- `__tests__/localAuthSpoof.test.js` : le mock renvoyait `undefined` -> 200
+  (le fantôme était verrouillé par le test) -> mock réaliste.
+
+### É3 — ports
+- Défaut unique `PORT=3001` (server.js, .env.example) aligné sur proxy Vite /
+  apiConfig / start.bat. Premier listen : handler EADDRINUSE (killProcessOnPort
+  + reprise via startServer) — la logique de retry était du code mort.
+
+### É4 — event loop gelé par les crons
+- `services/cronSchedules.js` : 3 `execSync` (report 30 s, backup 60 s, retrain
+  300 s dans le process serveur) -> `runScriptAsync` spawn + timeout kill ;
+  timers de re-planification `.unref()` (x4, arrêt propre amélioré).
+- Test : `__tests__/cronSchedules.test.js` (source sans execSync + spawn-only).
+
+### É5 — FastAPI fail-open
+- `core/fastapi_server.py` : `require_auth`/`optional_auth` -> 503 si secret
+  absent SANS `FASTAPI_ALLOW_UNAUTH=1` (dévol/local explicite ; start.bat le
+  pose) ; callback goalmodel envoie désormais le Bearer (corrige le 401 interne).
+- Node -> Python : Bearer ajouté sur `pythonService.predict`,
+  `fallback_enricher`, `app.js /goalmodel/fit` (dès que API_SECRET_KEY existe).
+- `docker-compose.yml` : `API_SECRET_KEY` propagé aux 2 services, port 8000
+  neural-x lié à 127.0.0.1 (plus d'expo publique).
+- Tests : `tests/test_fastapi_auth.py` (9 pytest) + `__tests__/fastapiBearer.test.js` (3).
+
+### É6 — routes nues, fuite partielle de secret, XFF spoof
+- `core/securityEngine.js` : skip des 3 limiteurs basé sur la socket réelle
+  (req.ip via X-Forwarded-For était spoofable -> bypass total du rate limit).
+- `routes/bets.js` : `router.use(localOnlyOrAuth)` — bankroll non plus en CRUD libre.
+- `routes/training.js` : POST `/retrain/:type` derrière authenticate.
+- `routes/scraper.js` : `/scan-today`, `/http-scan`, `/bibeet/scrape` derrière `localOrAuth`.
+- `app.js` : `/api/debug/oddsapi` (suppression `keyPrefix` = 8 chars de clé),
+  `/api/debug/state`, `/api/local/all`, `/api/bsd/toggle` derrière authenticate.
+- UI alignée : `BetTracker.jsx` + `ModelTraining.jsx` envoient le Bearer admin
+  (même convention admin_token que ScraperDashboard/dataService).
+- `services/botService.js` : 3 `JSON.parse` dans les callbacks `end` try/catch
+  (502 HTML de Telegram -> uncaughtException -> mort du process).
+- `app.js` `/api/upcoming` : `AbortSignal.timeout(4000)` sur le fetch bayésien
+  séquentiel par match (FastAPI pendant = requête gelée des minutes).
+- README : `npm run retrain` (inexistant) -> worker réel ; `FASTAPI_URL` ->
+  `INFERENCE_URL` (seule variable lue par le code) ; service FastAPI séparé ; Vite 6.
+- Tests : `__tests__/routeGuards.test.js` (6 : 401 externe bets, gardes
+  statiques, keyPrefix absent, 429 avec socket spoofée) ;
+  `rateLimitIntegration.test.js` réaligné (l'ancien verrouillait la sémantique
+  req.ip = la faille elle-même).
+
+### Validations globales
+- Jest : **80 suites / 792/792**. pytest : 381 passed (+9 auth). `vite build` OK.
+- `node --check` sur tous les fichiers JS touchés.
+
+### Risques résiduels / suite possible
+- `localOrAuth` (scraper/training/system) bypass si `NODE_ENV != production` :
+  déployer sans NODE_ENV=production = non protégé — à auditer côté Render.
+- Swagger `/api-docs` et `/dashboard` encore publics (recon) ; Socket.io toutes
+  origines en dev ; `/api/predict` reste public (localhost-or-auth, DoS 15/min).
+- Race in-flight mlPredictionService (queue.set après await) et clé de cache
+  sans les cotes (TTL 180 s) non touchés (volontairement hors top-6).
+- Front BetTracker/ModelTraining : nécessite admin_token en localStorage/
+  prompt pour un usage hors localhost.
+
+---
+
 ## Cache chaud visuel réparé — warmVisualCache cible enfin le cache consommé par /predict (2026-09-10, local)
 
 ### Faille (constat code)

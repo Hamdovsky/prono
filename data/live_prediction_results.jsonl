@@ -878,3 +878,4 @@
 {"recordId":"16446843-1788968400000","eventId":"16446843","ts":1788990616221,"finalHome":2,"finalAway":4,"finalTotal":6,"finalOver":1,"predictedOver":0.327,"pick":"UNDER 2.5","pickCorrect":false,"overBetWon":null,"underBetWon":false}
 {"recordId":"16446843-1788969600000","eventId":"16446843","ts":1788990616222,"finalHome":2,"finalAway":4,"finalTotal":6,"finalOver":1,"predictedOver":0.327,"pick":"UNDER 2.5","pickCorrect":false,"overBetWon":null,"underBetWon":false}
 {"recordId":"16629486-1788969600000","eventId":"16629486","ts":1788990616659,"finalHome":2,"finalAway":1,"finalTotal":3,"finalOver":1,"predictedOver":0.486,"pick":"PUSH/ÉQUILIBRE","pickCorrect":null,"overBetWon":null,"underBetWon":null}
+{"recordId":"16988431-1788990000000","eventId":"16988431","ts":1788990906890,"finalHome":2,"finalAway":1,"finalTotal":3,"finalOver":1,"predictedOver":1,"pick":"OVER 2.5","pickCorrect":true,"overBetWon":true,"underBetWon":null}

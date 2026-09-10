@@ -17,16 +17,44 @@ class AutoHealRemedies {
         severity: 'critical',
         description: 'FastAPI inference engine inaccessible',
         check: async () => {
-          const url = (process.env.INFERENCE_URL || 'http://127.0.0.1:8000') + '/health'
-          try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(3000) })
-            if (!res.ok) return { detected: true, detail: `HTTP ${res.status}` }
-            return { detected: false }
-          } catch (e) {
-            return { detected: true, detail: e.message }
+          const base = process.env.INFERENCE_URL || 'http://127.0.0.1:8000'
+          const probe = async (ms) => {
+            try {
+              const res = await fetch(base + '/health', { signal: AbortSignal.timeout(ms) })
+              return res.ok ? { ok: true } : { ok: false, detail: `HTTP ${res.status}` }
+            } catch (e) {
+              return { ok: false, detail: e.message }
+            }
           }
+          // 8 s au lieu de 3 : un health à distance (plan gratuit, TLS, cross-region)
+          // dépasse 3 s sans être mort.
+          const first = await probe(8000)
+          if (first.ok) return { detected: false }
+          // Render free: le service freeze après 15 min d'inactivité -> le premier
+          // échec est en général un cold start. On attend qu'il démarre avant de
+          // déclarer une panne (AUTOHEAL_PROBE_RETRY_MS=0 en tests).
+          const retryMs = parseInt(process.env.AUTOHEAL_PROBE_RETRY_MS || '25000')
+          if (retryMs > 0) await new Promise((r) => setTimeout(r, retryMs))
+          const second = await probe(25000)
+          if (second.ok) return { detected: false }
+          return { detected: true, detail: second.detail }
         },
         fix: async () => {
+          const base = process.env.INFERENCE_URL || ''
+          const remote = base && !/(127\.0\.0\.1|localhost)/.test(base)
+          if (remote) {
+            // Le moteur tourne sur un AUTRE service managé : ne JAMAIS spawn
+            // uvicorn ici (~300 Mo de modèles XGBoost dans un conteneur 512 Mo
+            // = OOM garanti). Un simple wake-up avec timeout long suffit.
+            try {
+              const res = await fetch(base + '/health', { signal: AbortSignal.timeout(60000) })
+              return res.ok
+                ? { success: true, detail: 'Remote inference engine woken up' }
+                : { success: false, detail: `Remote inference HTTP ${res.status}` }
+            } catch (e) {
+              return { success: false, detail: `Remote inference unreachable: ${e.message}` }
+            }
+          }
           const { execSync } = require('child_process')
           const pythonScript = path.join(__dirname, '..', 'core', 'fastapi_server.py')
           if (!fs.existsSync(pythonScript))

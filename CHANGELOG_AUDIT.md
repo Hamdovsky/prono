@@ -43,6 +43,34 @@ Constat terrain : tout le trafic web arrive avec socket 127.0.0.1 + header
 
 ---
 
+## É13 — AutoHeal python_service_down : faux positifs cold-start + spawn OOM-risk (2026-09-10)
+
+### Constat (logs Render)
+« python_service_down detected 10x » sur pronostico : le check pingait
+`INFERENCE_URL/health` avec 3 s de timeout — un plan gratuit Render gèle après
+15 min d'inactivité -> cold start > 3 s = « panne ». Pire : le fix, lui,
+testait `fs.existsSync(core/fastapi_server.py)` — VRAI dans l'image Docker ->
+spawn d'un uvicorn LOCAL (~300 Mo de modèles XGBoost) dans le conteneur web
+limité à 512 Mo = OOM programmé à chaque patrol.
+
+### Correctif (`services/autoHealRemedies.js`)
+- check : timeout 8 s, puis retry après 25 s (`AUTOHEAL_PROBE_RETRY_MS`,
+  0 en tests) avant de déclarer la panne.
+- fix : si `INFERENCE_URL` distant (hors localhost) -> wake-up par un simple
+  /health 60 s, **aucun spawn** ; le spawn local reste réservé au dev.
+- Tests : `__tests__/autoHealRemedies.test.js` (5 : cold start toléré, panne
+  réelle détectée, wake-up distant sans spawn, échec distant sans fallback,
+  chemin local inchangé). Jest 82 suites / 811/811.
+
+### Ops simultanés (API Render)
+- `prono-k6gc` + `prono-scraper` : autoDeploy=off (anciens builds en échec à
+  chaque push).
+- Persistance : disque Render = carte bleue exigée ; Neon cluster : quota
+  transfer gratuit dépassé (erreurs insertMatch en log) -> pronostico reste
+  SQLite éphémère, re-rempli au boot (432 élite vérifié live).
+
+---
+
 ## Audit architecture/fiabilité/sécurité — 6 corrections par petites étapes (2026-09-10, local)
 
 Rapport top-5 issus de 3 audits croisés (startup/runtime, sécurité, pipeline ML) ;

@@ -186,7 +186,14 @@ class MLPredictionService {
         return result
       } catch (err) {
         logger.error(`❌ [ML Service] Python Worker Error for match ${matchId}: ${err.message}`)
-        return null
+        // Succès fantôme évité (audit 2026-09-10) : null -> {success:false,...}
+        // pour que la route et les consommateurs distinguent le crash interne.
+        return {
+          success: false,
+          degraded: true,
+          source: 'worker_error',
+          error: `prediction worker failed: ${err.message}`,
+        }
       } finally {
         this.predictionQueue.delete(matchId)
       }

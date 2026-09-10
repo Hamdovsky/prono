@@ -30,6 +30,9 @@ describe('getAnalyticalPrediction JS Fallback', () => {
 
     const result = await enrichedPredictions.getAnalyticalPrediction(match)
     expect(result.success).toBe(true)
+    // audit 2026-09-10 : le fallback JS doit être étiqueté, jamais un TITANIUM_ELITE_V3 déguisé
+    expect(result.ai_source).toBe('QUANTUM_JS_FALLBACK')
+    expect(result.degraded).toBe(true)
     expect(result).toHaveProperty('home_win_probability')
     expect(result).toHaveProperty('draw_probability')
     expect(result).toHaveProperty('away_win_probability')

@@ -300,6 +300,15 @@ const localOnlyOrAuth = (req, res, next) => {
 router.post('/predict', localOnlyOrAuth, async (req, res) => {
   try {
     const result = await mlPredictionService.getMLPrediction(req.body)
+    if (!result) {
+      // garde anti succès fantôme ({success:true} nu) si le service ne renvoie rien
+      return res.status(502).json({
+        success: false,
+        degraded: true,
+        source: 'worker_error',
+        error: 'prediction worker failed',
+      })
+    }
     res.json({ success: true, ...result })
   } catch (err) {
     logger.error(`[AI Gateway] Prediction Error: ${err.message}`)

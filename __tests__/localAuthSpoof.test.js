@@ -24,7 +24,7 @@ jest.mock('../services/botService', () => ({
 }))
 
 jest.mock('../services/mlPredictionService', () => ({
-  getMLPrediction: jest.fn(),
+  getMLPrediction: jest.fn(async () => ({ success: true, verdict: 'HOME', confidence: 60 })),
 }))
 
 // Use the REAL securityEngine (do NOT mock it) so 401/403 are produced honestly.
@@ -99,7 +99,7 @@ describe('localOnlyOrAuth — external spoof must not bypass (system.js)', () =>
       .post('/api/predict')
       .set('X-Forwarded-For', '127.0.0.1')
       .set('Authorization', 'Bearer test-secret-key')
-    // mlPredictionService.getMLPrediction is mocked -> returns undefined -> success
+    // getMLPrediction mocké renvoie un vrai objet (undefined -> 502 anti fantôme)
     expect([200, 500]).toContain(res.status)
   })
 

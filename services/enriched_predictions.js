@@ -637,6 +637,7 @@ class EnrichedPredictionService {
         ...match,
         trace: trace.getSummary(),
         ai_source: pythonResult?.ai_source || match.ai_source || 'TITANIUM_ELITE_V3',
+        degraded: pythonResult?.degraded === true,
         home_win_probability: pythonResult?.home_win_probability || match.home_win_probability || 0,
         draw_probability: pythonResult?.draw_probability || match.draw_probability || 0,
         away_win_probability: pythonResult?.away_win_probability || match.away_win_probability || 0,
@@ -718,6 +719,10 @@ class EnrichedPredictionService {
       const quantResult = QuantumQuantEngine.analyze(match, xgH, xgA)
       result = {
         success: true,
+        // Heuristique JS, pas un XGBoost : étiqueté pour qu'aucun consommateur
+        // ne le prenne pour une prédiction ML réelle (audit 2026-09-10).
+        ai_source: 'QUANTUM_JS_FALLBACK',
+        degraded: true,
         home_win_probability: quantResult.markets.match_result['1'].prob * 100,
         draw_probability: quantResult.markets.match_result['X'].prob * 100,
         away_win_probability: quantResult.markets.match_result['2'].prob * 100,

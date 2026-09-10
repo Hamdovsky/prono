@@ -43,6 +43,40 @@ Constat terrain : tout le trafic web arrive avec socket 127.0.0.1 + header
 
 ---
 
+## É15 — cutover persistance : Neon saturé -> Supabase (Ohio), migrations corrigées (2026-09-10, soir)
+
+### Contexte
+- Disque Render = CB exigée ; Neon gratuit = quota transfer dépassé (erreurs
+  insertMatch en bougie sur l'ancien cluster). Choix utilisateur : Supabase
+  (gratuit sans CB, `pg_connector` le gérait déjà nativement).
+- Création du projet via **Management API** (2 projets parasites vides supprimés,
+  `titanium` recréé en **us-east-2 Ohio**, mot de passe généré, jamais affiché
+  en log : `scratch/sb_dbpass.txt`, à sauvegarder puis effacer).
+- `DATABASE_URL` (session pooler, sans sslmode — chaîne self-signée, le
+  connector met déjà `rejectUnauthorized:false`) posé sur pronostico via API.
+
+### Bugs de schéma PG trouvés par le boot réel (et corrigés `a95d486`)
+1. 8 colonnes vécues absentes du `CREATE TABLE` PG : `ht_score_home/away`,
+   `corners_ht_*`, `odds_over25/under25`, `odds_btts_yes/no` — le bloc
+   `addCol()` qui devait les mettre est CONDITIONNÉ à l'absence de
+   `bsd_match_id` (déjà présente sur base peuplée => jamais exécuté).
+   Dorénavant `ALTER ... IF NOT EXISTS` inconditionnel post-bloc.
+2. `soccer_leagues` / `soccer_fixtures` (tables legacy lues par thetaOptimizer,
+   calibrate, backtestEngine) inexistantes en cloud => « relation does not
+   exist » à chaque cron. Créées vides + colonnes conformes au SQL des
+   consommateurs (vérifié contre la vraie instance via `scratch/sb_migrate_live.js`).
+3. Validation migrations exécutée LOCALEMENT contre l'instance Supabase avant
+   deploy (13 s, idempotent) — pas en prod à l'aveugle.
+
+### Preuve de fin
+Redeploy complet `a95d486` -> live en 2,5 min (boot 16 min était l'ancien
+cycle SQLite+seed) et `PERSISTANCE: {"scheduled":1290}` immédiatement —
+données survivent au redéploiement. Erreurs count(*) disparues des logs.
+Note boot : la pooler ajoute ~120 ms/req (Ohio↔Oregon) ; les 1290 inserts de
+re-scan restent dans le budget des crons.
+
+---
+
 ## É14 — verrou de contrat sur /api/predict (2026-09-10, local)
 
 Constat : DEUX handlers `POST /api/predict` coexistent — `app.js:546`

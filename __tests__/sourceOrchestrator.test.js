@@ -283,6 +283,60 @@ describe('SourceOrchestrator', () => {
     expect(res.bySource.broken.error).toMatch(/500/)
   })
 
+  it('runScan refreshes kickoff of an existing scheduled row when drifted >5min', async () => {
+    const existing = new Map()
+    existing.set('real madrid|barcelona|20260813', {
+      id: 'livescore_1',
+      homeTeam: 'Real Madrid',
+      awayTeam: 'Barcelona',
+      startTimestamp: TS,
+      status: 'scheduled',
+    })
+    const refresh = jest.fn(async () => 1)
+    const persist = jest.fn(async () => {})
+    const p1 = {
+      name: 'livescore',
+      priority: 1,
+      fetch: async () => [{ ...makeMatch('Real Madrid', 'Barcelona', 'LaLiga'), startTimestamp: TS + 3600 }],
+    }
+    const s = orchestrator([p1], { store: { getExistingKeys: async () => existing, persist, refreshFixtureKickoff: refresh } })
+    const res = await s.runScan({ dates: ['2026-08-13'] })
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(refresh.mock.calls[0][1]).toBe(TS + 3600)
+    expect(res.coverage.kickoffRefreshed).toBe(1)
+    expect(persist).not.toHaveBeenCalled() // pas un nouveau -> jamais inséré
+  })
+
+  it('kickoff drift below 5 min or non-scheduled status leaves the row untouched', async () => {
+    const mk = (status) => {
+      const existing = new Map()
+      existing.set('real madrid|barcelona|20260813', { id: 'x', startTimestamp: TS, status })
+      return existing
+    }
+    const refresh = jest.fn(async () => 1)
+    const store = { getExistingKeys: async () => mk('scheduled'), persist: async () => {}, refreshFixtureKickoff: refresh }
+    const s = orchestrator([{ name: 'l', priority: 1, fetch: async () => [makeMatch('Real Madrid', 'Barcelona', 'LaLiga')] }], { store })
+    await s.runScan({ dates: ['2026-08-13'] }) // même ts -> drift 0
+    expect(refresh).not.toHaveBeenCalled()
+
+    const refresh2 = jest.fn(async () => 1)
+    const store2 = { getExistingKeys: async () => mk('finished'), persist: async () => {}, refreshFixtureKickoff: refresh2 }
+    const s2 = orchestrator([{ name: 'l', priority: 1, fetch: async () => [{ ...makeMatch('Real Madrid', 'Barcelona', 'LaLiga'), startTimestamp: TS + 7200 }] }], { store: store2 })
+    await s2.runScan({ dates: ['2026-08-13'] })
+    expect(refresh2).not.toHaveBeenCalled() // jamais une ligne finished
+  })
+
+  it('old stores without refreshFixtureKickoff keep the exact prior behavior', async () => {
+    const existing = new Map()
+    existing.set('real madrid|barcelona|20260813', { id: 'x', startTimestamp: TS, status: 'scheduled' })
+    const persist = jest.fn(async () => {})
+    const s = orchestrator([{ name: 'l', priority: 1, fetch: async () => [{ ...makeMatch('Real Madrid', 'Barcelona', 'LaLiga'), startTimestamp: TS + 3600 }] }], { store: { getExistingKeys: async () => existing, persist } })
+    const res = await s.runScan({ dates: ['2026-08-13'] })
+    expect(persist).not.toHaveBeenCalled()
+    expect(res.coverage.totalUnique).toBe(0)
+    expect(res.coverage.kickoffRefreshed).toBeUndefined()
+  })
+
   it('runResultsScan skips a date fully settled in DB (no network fetch)', async () => {
     const fetchResults = jest.fn(async () => [])
     const p1 = { name: 'livescore', priority: 1, fetch: async () => [], fetchResults }

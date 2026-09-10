@@ -56,6 +56,22 @@ describe('createDefaultStore', () => {
     expect(await store.hasOpenMatchesOnDate(day)).toBe(false)
     expect(await store.hasOpenMatchesOnDate('1999-01-01')).toBe(false)
   })
+
+  it('refreshFixtureKickoff: updates scheduled rows only, keeps timestamp ISO in sync', async () => {
+    await store.persist(
+      { id: 'livescore_1', homeTeam: 'Real Madrid', awayTeam: 'Barcelona', league: 'LaLiga', source: 'livescore', startTimestamp: TS, status: 'scheduled' },
+      'real madrid|barcelona|20260813'
+    )
+    const newTs = TS + 7200
+    expect(await store.refreshFixtureKickoff('real madrid|barcelona|20260813', newTs)).toBe(1)
+    const row = db.prepare("SELECT startTimestamp, timestamp, status FROM matches WHERE id='livescore_1'").get()
+    expect(row.startTimestamp).toBe(newTs)
+    expect(row.timestamp).toBe(new Date(newTs * 1000).toISOString())
+    db.prepare("UPDATE matches SET status='finished' WHERE id='livescore_1'").run()
+    expect(await store.refreshFixtureKickoff('real madrid|barcelona|20260813', TS)).toBe(0)
+    expect(await store.refreshFixtureKickoff('no|such|key', newTs)).toBe(0)
+    expect(await store.refreshFixtureKickoff('real madrid|barcelona|20260813', NaN)).toBe(0)
+  })
 })
 
 describe('backfillMatchKeys', () => {

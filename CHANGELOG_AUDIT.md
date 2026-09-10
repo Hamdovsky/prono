@@ -4,6 +4,40 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## Rafraîchissement kickoff des fixtures connues — dérive d'horaire corrigée en live (2026-09-09, suite)
+
+### Faille (constat code + terrain)
+`runScan` déduppliait par `existingKeys.has(key) -> continue` : une fixture déjà
+en DB n'était JAMAIS mise à jour. Or les reports d'horaire sont fréquents ; le
+front (filtre J..J+2) et le live predictor consomment un `startTimestamp` périmé
+jusqu'à la purge (2 j).
+
+### Correctif
+- `services/sourceOrchestrator.js` : sur clé existante, `_refreshKickoffIfDrifted`
+  — si |Δts| > 5 min et ligne `scheduled`, `store.refreshFixtureKickoff(key, ts)`
+  (UPDATE startTimestamp + timestamp ISO + last_updated ; WHERE status='scheduled'
+  uniquement, jamais live/finished). 1 essai/clé/scan, fails soft, old-stores sans
+  méthode = comportement antérieur intact. `getExistingKeys` expose `status`.
+  Observable : `summary.coverage.kickoffRefreshed` + log par correction.
+- Limite assumée : un report qui CHANGE de jour produit un autre `match_key`
+  (la date y est encodée) -> insert nouvelle ligne ; l'ancienne est couverte par
+  `purgeStaleScheduled` (2 j) — pas de doublon durable.
+
+### Effet mesuré (premier scan live après déploiement)
+4 vraies dérives corrigées : Panathinaikos|Kifisia +15 min ; Ben Aknoun|BSK et
+USM Alger|JS El Biar ±60 min (Algérie) ; Radnički|Crvena Zvezda −60 min (Serbie).
+
+### Validations
+- +4 tests (drift >5 min corrigé ; <5 min et `finished` intouchés ; old-store
+  inchangé ; DB réelle : scheduled mise à jour, finished refusée, clé inconnue 0).
+- `npx jest --forceExit` : **76 suites / 777/777**.
+
+### Fichiers modifiés
+`services/sourceOrchestrator.js`, `__tests__/sourceOrchestrator.test.js`,
+`__tests__/sourceOrchestratorStore.test.js`, `CHANGELOG_AUDIT.md`.
+
+---
+
 ## Arbitrage des fichiers non suivis — final (2026-09-09, fin de session)
 
 Cinq files étaient consignés « arbitrage reporté » dans le checkpoint du jour :

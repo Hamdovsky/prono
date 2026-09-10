@@ -146,7 +146,16 @@ class SourceOrchestrator {
           for (const match of matches) {
             const key = getOrComputeMatchKey(match)
             if (!key) continue
-            if (seen.has(key) || existingKeys.has(key)) continue
+            if (seen.has(key)) continue
+            if (existingKeys.has(key)) {
+              // Kickoff drift (report/horaire déplacé) : sans ceci la ligne
+              // existante reste figée à son startTimestamp périmé jusqu'à la
+              // purge — et le filtre temporel J..J+2 du front exclut la date
+              // erronée. Un seul essai par clé et par scan (seen).
+              seen.add(key)
+              await this._refreshKickoffIfDrifted(match, key, existingKeys.get(key), srcStat, summary)
+              continue
+            }
             seen.add(key)
             summary.coverage.totalUnique++
             srcStat.new++
@@ -301,6 +310,30 @@ class SourceOrchestrator {
     }
   }
 
+  // Refresh a stored fixture's kickoff when the source now reports a start
+  // time >5 min away from the stored one. Guarded: only 'scheduled' rows, only
+  // finite timestamps; no-ops when the store lacks the method (old stores).
+  async _refreshKickoffIfDrifted(match, key, stored, srcStat, summary) {
+    if (!this.store || typeof this.store.refreshFixtureKickoff !== 'function') return
+    const providerTs = Number(match.startTimestamp)
+    const storedTs = Number(stored && stored.startTimestamp)
+    if (!Number.isFinite(providerTs) || !Number.isFinite(storedTs)) return
+    if (stored && stored.status !== undefined && stored.status !== 'scheduled') return
+    if (Math.abs(providerTs - storedTs) <= 300) return
+    try {
+      const n = await this.store.refreshFixtureKickoff(key, providerTs)
+      if (n > 0) {
+        srcStat.refreshed = (srcStat.refreshed || 0) + n
+        summary.coverage.kickoffRefreshed = (summary.coverage.kickoffRefreshed || 0) + n
+        logger.info(
+          `[ORCHESTRATOR] kickoff refresh ${key}: ${storedTs} -> ${providerTs} (+${Math.round((providerTs - storedTs) / 60)}min)`
+        )
+      }
+    } catch (e) {
+      logger.warn(`[ORCHESTRATOR] kickoff refresh failed: ${e.message}`)
+    }
+  }
+
   isMena(match) {
     const haystack = [
       match.league,
@@ -392,7 +425,7 @@ function createDefaultStore() {
     async getExistingKeys() {
       const db = require('../core/database')
       const rows = db.prepare(
-        'SELECT id, homeTeam, awayTeam, startTimestamp, match_key FROM matches'
+        'SELECT id, homeTeam, awayTeam, startTimestamp, match_key, status FROM matches'
       ).all()
       const map = new Map()
       for (const r of rows) {
@@ -400,6 +433,27 @@ function createDefaultStore() {
         if (k) map.set(k, r)
       }
       return map
+    },
+    // Correct a stored fixture's kickoff (report/horaire déplacé). Only touches
+    // 'scheduled' rows (never a live/finished one) and matches by match_key.
+    async refreshFixtureKickoff(matchKey, startTimestamp) {
+      if (!matchKey || !Number.isFinite(Number(startTimestamp))) return 0
+      const db = require('../core/database')
+      try {
+        const r = db
+          .prepare(
+            "UPDATE matches SET startTimestamp=?, timestamp=?, last_updated=? WHERE match_key=? AND status='scheduled'"
+          )
+          .run(
+            Number(startTimestamp),
+            new Date(Number(startTimestamp) * 1000).toISOString(),
+            Date.now(),
+            matchKey
+          )
+        return r.changes || 0
+      } catch (e) {
+        return 0
+      }
     },
     async persist(match, key) {
       const db = require('../core/database')

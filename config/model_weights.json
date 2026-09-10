@@ -1,5 +1,5 @@
 {
   "poisson_xg_weight": 1,
   "bsm_threshold": 20,
-  "draw_bias": 65.64999999999964
+  "draw_bias": 1
 }

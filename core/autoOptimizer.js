@@ -3,10 +3,37 @@ const path = require('path')
 const db = require('./database')
 const logger = require('./logger')
 
+// draw_bias = multiplicateur de tendance nulle : 1.0 = neutre. confidenceScorer
+// sature dès ~1.6 (plafonds -10/+5 pts) ; au-delà, += 0.15 sans plafond (bug
+// historique : 65.65 en production) ne change rien sauf à rendre toute
+// auto-optimisation mono-directionnelle. Bornes + retour neutre imposés ici.
+const DRAW_BIAS_MIN = 1.0
+const DRAW_BIAS_MAX = 1.6
+
 class AutoOptimizationEngine {
   constructor() {
     this.configPath = path.join(__dirname, '../config/model_weights.json')
     this.weights = this._loadWeights()
+    this._sanitizeWeights()
+  }
+
+  _clampDrawBias(value = this.weights.draw_bias) {
+    const raw = Number(value)
+    const safe = Number.isFinite(raw) ? raw : DRAW_BIAS_MIN
+    return Math.min(DRAW_BIAS_MAX, Math.max(DRAW_BIAS_MIN, safe))
+  }
+
+  // Valeurs héritées hors plage (ex. draw_bias 65.65) corrigées et repersistées
+  // au chargement — sinon confidenceScorer resterait saturé malgré le clamp.
+  _sanitizeWeights() {
+    const clamped = this._clampDrawBias()
+    if (clamped !== this.weights.draw_bias) {
+      logger.warn(
+        `🧹 [AUTO-OPT] draw_bias=${this.weights.draw_bias} hors plage [${DRAW_BIAS_MIN}, ${DRAW_BIAS_MAX}] -> clampé à ${clamped}.`
+      )
+      this.weights.draw_bias = clamped
+      fs.writeFileSync(this.configPath, JSON.stringify(this.weights, null, 2))
+    }
   }
 
   _loadWeights() {
@@ -90,13 +117,24 @@ class AutoOptimizationEngine {
       updated = true
     }
 
+    const prevBias = this.weights.draw_bias
     if (missedDraws > 5) {
-      this.weights.draw_bias += 0.15
+      this.weights.draw_bias = this._clampDrawBias(
+        Math.min(DRAW_BIAS_MAX, prevBias + 0.15)
+      )
       logger.warn(
-        `💣 [AUTO-OPT] Too many missed draws detected (${missedDraws}). Increasing Draw Bias to ${this.weights.draw_bias.toFixed(2)}.`
+        `💣 [AUTO-OPT] Too many missed draws detected (${missedDraws}). Increasing Draw Bias to ${this.weights.draw_bias.toFixed(2)} (max ${DRAW_BIAS_MAX}).`
+      )
+      updated = true
+    } else if (missedDraws <= 2 && prevBias > DRAW_BIAS_MIN) {
+      // décrément symétrique : retour progressif vers la neutralité (1.0)
+      this.weights.draw_bias = Math.max(DRAW_BIAS_MIN, Number((prevBias - 0.05).toFixed(2)))
+      logger.info(
+        `🧊 [AUTO-OPT] Few missed draws (${missedDraws}). Cooling Draw Bias down to ${this.weights.draw_bias.toFixed(2)}.`
       )
       updated = true
     }
+    if (this.weights.draw_bias > DRAW_BIAS_MAX) this.weights.draw_bias = DRAW_BIAS_MAX
 
     if (solidSuccessRate > 85 && this.weights.bsm_threshold > 20) {
       this.weights.bsm_threshold -= 2

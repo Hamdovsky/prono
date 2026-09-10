@@ -468,10 +468,45 @@ async function runMigrations() {
         await addCol('bsd_confidence', 'REAL DEFAULT 0')
         await addCol('result', 'TEXT')
         await addCol('settled_at', 'BIGINT')
+        // colonnes vécues manquantes côté PG vs core/db/schema.js (SQLite) —
+        // sinon count(*)/sélection du dashboard et settlement HT/cotes crament
+        // à chaque requête (SUPABASE cutover 2026-09-10)
+        await addCol('ht_score_home', 'INTEGER')
+        await addCol('ht_score_away', 'INTEGER')
+        await addCol('corners_ht_home', 'INTEGER')
+        await addCol('corners_ht_away', 'INTEGER')
+        await addCol('odds_over25', 'REAL')
+        await addCol('odds_under25', 'REAL')
+        await addCol('odds_btts_yes', 'REAL')
+        await addCol('odds_btts_no', 'REAL')
         logger.info('[PG MIGRATIONS] Missing columns added successfully')
       }
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] Column check skipped: ${e.message}`)
+    }
+
+    // Colonnes vécues manquantes (SUPABASE cutover 2026-09-10) — ICI sans
+    // condition car le bloc addCol() ci-dessus n'est exécuté que si
+    // bsd_match_id manque ; sur une base déjà peuplée il était sauté et ces
+    // colonnes restaient absentes (erreurs count(*) à chaque cron).
+    try {
+      const ensureCol = async (name, type) => {
+        try {
+          await query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS "${name}" ${type}`)
+        } catch (e) {
+          logger.warn(`[PG MIGRATIONS] ensure matches.${name} failed: ${e.message}`)
+        }
+      }
+      await ensureCol('ht_score_home', 'INTEGER')
+      await ensureCol('ht_score_away', 'INTEGER')
+      await ensureCol('corners_ht_home', 'INTEGER')
+      await ensureCol('corners_ht_away', 'INTEGER')
+      await ensureCol('odds_over25', 'REAL')
+      await ensureCol('odds_under25', 'REAL')
+      await ensureCol('odds_btts_yes', 'REAL')
+      await ensureCol('odds_btts_no', 'REAL')
+    } catch (e) {
+      logger.warn(`[PG MIGRATIONS] ensure vécues skipped: ${e.message}`)
     }
 
     // ─── historical_matches: ensure prediction columns exist ─────────────
@@ -497,6 +532,51 @@ async function runMigrations() {
       if (!histNames.includes('settled_at')) await addHistCol('settled_at', 'BIGINT')
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] historical_matches column check skipped: ${e.message}`)
+    }
+
+    // legacy tables lues par thetaOptimizer/calibrate/backtestEngine (créées
+    // jadis par data_pipeline en local). En mode cloud elles n'existaient pas:
+    // « relation does not exist » à chaque cron. Tables vides mais conformes =
+    // requêtes à 0 lignes, plus d'erreurs.
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS soccer_leagues (
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          country TEXT,
+          code TEXT
+        )
+      `)
+      await query(`
+        CREATE TABLE IF NOT EXISTS soccer_fixtures (
+          id TEXT PRIMARY KEY,
+          league_id TEXT,
+          season TEXT,
+          date BIGINT,
+          status TEXT,
+          match_week TEXT,
+          home_team TEXT,
+          away_team TEXT,
+          home_team_id TEXT,
+          away_team_id TEXT,
+          league_name TEXT,
+          group_stage TEXT,
+          venue TEXT,
+          city TEXT,
+          country TEXT,
+          timezone TEXT,
+          venue_id TEXT,
+          score TEXT,
+          elapsed TEXT,
+          goals_home INTEGER,
+          goals_away INTEGER,
+          odds_home REAL,
+          odds_draw REAL,
+          odds_away REAL
+        )
+      `)
+    } catch (e) {
+      logger.warn(`[PG MIGRATIONS] legacy soccer_* tables skipped: ${e.message}`)
     }
 
     // ─── leagues_config: ensure frontend columns exist, then seed ───────

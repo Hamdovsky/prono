@@ -69,9 +69,14 @@ Constat terrain : tout le trafic web arrive avec socket 127.0.0.1 + header
    deploy (13 s, idempotent) — pas en prod à l'aveugle.
 
 ### Preuve de fin
-Redeploy complet `a95d486` -> live en 2,5 min (boot 16 min était l'ancien
-cycle SQLite+seed) et `PERSISTANCE: {"scheduled":1290}` immédiatement —
-données survivent au redéploiement. Erreurs count(*) disparues des logs.
+Live en 5 min ✓ (migrations déjà jouées), `DB OK: 1290 matches` lu depuis
+Supabase. 2e passe: découverte systématique des AUTRES relations legacy lues
+en cloud (`soccer_teams`, `soccer_match_stats`, `soccer_odds`,
+`league_model_parameters`) — colonnes relevées chez les consommateurs
+(auto_retrain.py, leagueCalibrator, data_fusion, pg_database) puis créées
+`IF NOT EXISTS` (`7e66e49`). Inventaire final Supabase = 31 tables. Validation
+des migrations rejouée EN LOCAL contre l'instance avant chaque push
+(`scratch/sb_migrate_live.js`, idempotent, 14 s).
 Note boot : la pooler ajoute ~120 ms/req (Ohio↔Oregon) ; les 1290 inserts de
 re-scan restent dans le budget des crons.
 

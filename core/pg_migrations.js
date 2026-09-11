@@ -534,10 +534,10 @@ async function runMigrations() {
       logger.warn(`[PG MIGRATIONS] historical_matches column check skipped: ${e.message}`)
     }
 
-    // legacy tables lues par thetaOptimizer/calibrate/backtestEngine (créées
-    // jadis par data_pipeline en local). En mode cloud elles n'existaient pas:
-    // « relation does not exist » à chaque cron. Tables vides mais conformes =
-    // requêtes à 0 lignes, plus d'erreurs.
+    // legacy tables lues par thetaOptimizer/calibrate/backtestEngine/auto_retrain
+    // (créées jadis par data_pipeline en local). En mode cloud elles n'existaient
+    // pas: « relation does not exist » à chaque cron. Tables vides mais conformes
+    // au SQL des consommateurs = requêtes à 0 lignes, plus d'erreurs.
     try {
       await query(`
         CREATE TABLE IF NOT EXISTS soccer_leagues (
@@ -548,9 +548,18 @@ async function runMigrations() {
         )
       `)
       await query(`
+        CREATE TABLE IF NOT EXISTS soccer_teams (
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          league_id TEXT,
+          country TEXT
+        )
+      `)
+      await query(`
         CREATE TABLE IF NOT EXISTS soccer_fixtures (
           id TEXT PRIMARY KEY,
           league_id TEXT,
+          league_name TEXT,
           season TEXT,
           date BIGINT,
           status TEXT,
@@ -559,7 +568,6 @@ async function runMigrations() {
           away_team TEXT,
           home_team_id TEXT,
           away_team_id TEXT,
-          league_name TEXT,
           group_stage TEXT,
           venue TEXT,
           city TEXT,
@@ -573,6 +581,55 @@ async function runMigrations() {
           odds_home REAL,
           odds_draw REAL,
           odds_away REAL
+        )
+      `)
+      await query(`
+        CREATE TABLE IF NOT EXISTS soccer_match_stats (
+          fixture_id TEXT PRIMARY KEY,
+          home_shots_total INTEGER,
+          away_shots_total INTEGER,
+          home_shots_on_goal INTEGER,
+          away_shots_on_goal INTEGER,
+          home_shots_inside_box INTEGER,
+          away_shots_inside_box INTEGER,
+          home_corners INTEGER,
+          away_corners INTEGER,
+          home_fouls INTEGER,
+          away_fouls INTEGER,
+          home_yellow_cards INTEGER,
+          away_yellow_cards INTEGER,
+          home_red_cards INTEGER,
+          away_red_cards INTEGER,
+          home_possession REAL,
+          away_possession REAL,
+          home_xg REAL,
+          away_xg REAL
+        )
+      `)
+      await query(`
+        CREATE TABLE IF NOT EXISTS soccer_odds (
+          id SERIAL PRIMARY KEY,
+          fixture_id TEXT,
+          bookmaker TEXT,
+          home_win REAL,
+          draw REAL,
+          away_win REAL
+        )
+      `)
+      await query(`
+        CREATE TABLE IF NOT EXISTS league_model_parameters (
+          id SERIAL PRIMARY KEY,
+          tournament_name TEXT NOT NULL,
+          team_name TEXT,
+          attack_rating REAL DEFAULT 0.0,
+          defense_rating REAL DEFAULT 0.0,
+          hfa REAL DEFAULT 0.25,
+          rho REAL DEFAULT -0.12,
+          mu REAL DEFAULT 0.13,
+          distribution_type TEXT DEFAULT 'poisson',
+          num_matches INTEGER DEFAULT 0,
+          updated_at TIMESTAMPTZ DEFAULT NOW(),
+          UNIQUE(tournament_name, team_name)
         )
       `)
     } catch (e) {

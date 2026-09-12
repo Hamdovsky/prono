@@ -264,25 +264,38 @@ def get_league_volatility_penalty(league_name):
 
 
 def get_league_home_advantage(league_name):
-    """Calculate real Home Advantage ratio for a specific league from archive data."""
+    """Calculate real Home Advantage ratio for a specific league from archive data.
+
+    E17 : le ratio n'est crédible qu'avec un échantillon suffisant — les
+    tournois asiatiques de l'archive comptent 3-8 matchs (ratio 0.57-0.88 =
+    bruit pur). home_advantage_from_stats impose un minimum et un repli par
+    famille (ASIE 1.08, sinon 1.15).
+    """
     try:
         if league_name in _LEAGUE_HA_CACHE:
             return _LEAGUE_HA_CACHE[league_name]
 
         conn = get_db_connection()
         if not conn:
-            return 1.15
+            from market_guard import home_advantage_from_stats, is_asian_league
+            return home_advantage_from_stats(0, None, None, is_asian_league(league_name))
 
         query = """
-            SELECT AVG(scoreHome) as avg_h, AVG(scoreAway) as avg_a
+            SELECT AVG(scoreHome) as avg_h, AVG(scoreAway) as avg_a, COUNT(*) as n
             FROM archive_matches
             WHERE tournament_name = ? AND scoreHome IS NOT NULL
             ORDER BY id DESC LIMIT 200
         """
         res = conn.execute(query, (league_name,)).fetchone()
-        if res and res['avg_h'] and res['avg_a']:
-            _LEAGUE_HA_CACHE[league_name] = float(res['avg_h'] / res['avg_a'])
-            return _LEAGUE_HA_CACHE[league_name]
+        from market_guard import home_advantage_from_stats, is_asian_league
+        ratio = home_advantage_from_stats(
+            res['n'] if res else 0,
+            res['avg_h'] if res else None,
+            res['avg_a'] if res else None,
+            is_asian_league(league_name),
+        )
+        _LEAGUE_HA_CACHE[league_name] = ratio
+        return ratio
     except Exception:
         pass
     return 1.15

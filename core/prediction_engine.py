@@ -57,6 +57,7 @@ from predictor import (
 )
 from post_processor import generate_strategic_brief, get_tube_pct
 from contextual import apply_contextual_cac
+from market_guard import apply_asian_home_damp, check_market_divergence
 
 # --- New module imports ---
 from xg_engine import (
@@ -762,6 +763,11 @@ def process_prediction(match_obj: dict) -> dict:
     # Flag CONTEXTUAL_CAC_ENABLED=on, défaut OFF (backtest journal avant activation).
     p_h, p_d, p_a, contextual_block = apply_contextual_cac(match_obj, p_h, p_d, p_a)
 
+    # Biais domicile ASIE/J-League (E17) : +16.8pp moyen vs books déviggués
+    # (archives 3-8 matchs -> HA data-driven = bruit). p_home amorti + renorm.
+    # ASIAN_HA_FIX=off pour non-régression stricte.
+    p_h, p_d, p_a = apply_asian_home_damp(p_h, p_d, p_a, match_obj)
+
     # Live Adjustment
     p_h, p_d, p_a, live_alerts = apply_live_event_adjustment(match_obj, p_h, p_d, p_a)
     p_sum_final = p_h + p_d + p_a
@@ -993,6 +999,21 @@ def process_prediction(match_obj: dict) -> dict:
         analysis["Shield"] = f"🛡️ {overconf_reason}"
         status_code = "NO_BET_OVERCONFIDENT"
 
+    # GARDE-DINGE DIVERGENCE MARCHÉ (E17) : |modèle - book dévigguée| > 12 pp
+    # sur un des 3 signes 1X2 avec cotes réelles -> NO BET. Attrape à la fois
+    # le biais J1 (modèle sur-note home) et les cotes périmées (Chelsea -47).
+    market_divergence = check_market_divergence(p_h, p_d, p_a, odds_h, odds_d, odds_a)
+    divergence_veto = bool(market_divergence and market_divergence['flagged'])
+    if divergence_veto:
+        _md = market_divergence
+        sys.stderr.write(
+            f"🛡️ [DIVERGENCE-GUARD] {home_name} vs {away_name}: "
+            f"{_md['side']} modèle {_md['model_pct']}% vs book {_md['book_pct']}% "
+            f"(écart {_md['edge_pp']}pp > {_md['max_pp']}pp) -> NO BET\n"
+        )
+        no_bet = True
+        analysis["Shield"] = f"🛡️ DIVERGENCE MARCHÉ: {_md['side']} {_md['model_pct']}% vs {_md['book_pct']}% ({_md['edge_pp']}pp)"
+
     # Friendly/Tier1 thresholds
     tournament_tag = str(match_obj.get('league', '')).lower()
     is_friendly_match = any(x in tournament_tag for x in ['friendly', 'amical', 'friendlies'])
@@ -1006,7 +1027,9 @@ def process_prediction(match_obj: dict) -> dict:
         analysis["Shield"] = f"🛡️ VETO ALPHA: Confiance < 50%."
 
     if no_bet:
-        if 'overconf_veto' in locals() and overconf_veto:
+        if divergence_veto:
+            verdict = "NO BET (DIVERGENCE MARCHE)"
+        elif 'overconf_veto' in locals() and overconf_veto:
             verdict = "NO BET (OVERCONFIDENT)"
         else:
             verdict = "NO BET (SHIELDED)" if zero_failure_veto else "NO BET"
@@ -1111,7 +1134,7 @@ def process_prediction(match_obj: dict) -> dict:
         "ou_25_prob": float(sim['ou_25_prob']),
         "btts_prob": float(sim['btts_prob']),
         "verdict": str("NO BET" if no_bet else selection_label),
-        "status": str("NO_BET_OVERCONFIDENT" if no_bet and 'overconf_veto' in locals() and overconf_veto else ("NO BET" if no_bet else status_code)),
+        "status": str("NO_BET_DIVERGENCE" if no_bet and divergence_veto else ("NO_BET_OVERCONFIDENT" if no_bet and 'overconf_veto' in locals() and overconf_veto else ("NO BET" if no_bet else status_code))),
         "power_score": float(power_score),
         "chaos_level": float(0.0),
         "main_predictions": main_four,
@@ -1157,6 +1180,7 @@ def process_prediction(match_obj: dict) -> dict:
         "backup_confidence": float(backup_conf),
         "motivation_signature": str(motivation_signature),
         "contextual": contextual_block or {"enabled": False},
+        "market_divergence": market_divergence,
         "twin_match_dna": twin_dna,
         "twin_match_verdict": twin_verdict,
         "baseline_fallback": _attach_baseline_fallback(match_obj, xg_h, xg_a),

@@ -137,6 +137,7 @@ const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracket
       goalPrediction={goalPrediction}
       activeMarket={activeMarket}
       contextualInfo={m.contextual}
+      divergenceInfo={m.market_divergence}
     />
   )
 })

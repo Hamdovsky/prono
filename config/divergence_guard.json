@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "max_divergence_pp": 12.0,
+  "asian_home_damp": 0.15,
+  "asian_ha_default": 1.08,
+  "neutral_ha_default": 1.15,
+  "ha_min_rows": 30,
+  "asian_leagues": [
+    "j1 league", "j2 league", "j3 league", "j-league", "japan",
+    "k league", "k-league", "korea",
+    "thai league", "v-league", "vietnam",
+    "china super", "chinese super", "indonesia", "malaysia", "singapore",
+    "hong kong", "philippines", "myanmar", "iraq", "azerbaijan"
+  ]
+}

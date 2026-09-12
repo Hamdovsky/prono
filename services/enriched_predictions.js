@@ -664,6 +664,7 @@ class EnrichedPredictionService {
         btts_prob: pythonResult?.btts_prob || match.btts_prob || null,
         ou_25_prob: pythonResult?.ou_25_prob || match.ou_25_prob || null,
         contextual: pythonResult?.contextual || match.contextual || null,
+        market_divergence: pythonResult?.market_divergence || null,
         power_score: pythonResult?.power_score || 70,
         verdict: pythonResult?.verdict || 'STRONG BET',
         enriched: {

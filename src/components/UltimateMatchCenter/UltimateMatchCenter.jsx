@@ -20,6 +20,8 @@ const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
   // Contexte CAC (calcul Python, affichage ici) — null tant que flag OFF.
   const ctxBlock = match?.contextual?.enabled ? match.contextual : null
   const ctxTeams = match?.context?.teams || null
+  // Garde-fou divergence marché (E17) — veto NO BET posé par le moteur.
+  const divergence = match?.market_divergence?.flagged ? match.market_divergence : null
 
   // Contexte visuel PixelRAG (briefing lecteur + signaux) — fetch à l'ouverture.
   const [visual, setVisual] = useState(null)
@@ -179,6 +181,24 @@ const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
         <div
           className="umc-body"
         >
+          {divergence && (
+            <div
+              className="col-span-12"
+              style={{
+                background: 'rgba(127, 29, 29, 0.45)',
+                border: '1px solid rgba(248, 113, 113, 0.5)',
+                borderRadius: 12,
+                padding: '10px 16px',
+                marginBottom: 12,
+                color: '#fecaca',
+                fontSize: '0.8rem',
+                lineHeight: 1.5,
+              }}
+            >
+              ⚠️ <b>DIVERGENCE MARCHÉ</b> — {divergence.side === 'home' ? 'domicile' : divergence.side === 'away' ? 'extérieur' : 'nul'} : modèle {divergence.model_pct} % vs book déviggué {divergence.book_pct} % (écart {divergence.edge_pp} pp &gt; {divergence.max_pp} pp). Pronostic dégradé en <b>NO BET</b> (garde-fou E17) : cotes périmées ou biais de données probable.
+            </div>
+          )}
+
           {/* AJUSTEMENT CONTEXTUEL (CAC) — blessures, Europe J+3, repos, enjeu */}
           {ctxBlock && (
             <div

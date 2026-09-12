@@ -1,4 +1,4 @@
-# CHANGELOG AUDIT — Titanium AI (stitch)
+﻿# CHANGELOG AUDIT — Titanium AI (stitch)
 
 Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, validé avant de passer au suivant.
 
@@ -6809,3 +6809,50 @@ React affiche. ZERO migration SQL (veine fullData).
 - PROCHAINE ETAPE (2) : laisser tourner en shadow qques jours, lire
   byCac sur /api/flash-odds/calibration, puis CONTEXTUAL_CAC_ENABLED=on sur
   Render (Dashboard -> Environment) si les tranches convergent.
+
+## E17 Garde-fou divergence marche + correctif biais domicile Asie (2026-09-12)
+
+Doubles signaux de l'audit quantitatif du jour sur le feed reel (440 matchs,
+63 a cotes reelles) :
+- FAMILLE ASIE : edge modele-book devigge MOYEN = +16.8 pp domicile (n=6)
+  contre -1.2 pp AUTRES (n=57) -> biais systematique confirme (Gamba 69% vs
+  book 27%, Shimizu +27, V-Varen +32).
+- Cause racine n°1 : get_league_home_advantage calculait avg_h/avg_a sur
+  l'archive par nom EXACT -> J1 League n=3 matchs (ratio 0.57 = bruit pur),
+  J2 n=8, K1 n=30 ; l'xG porteur applique ha ET 1/ha (data_loader.py:578-579)
+  = swing 1.32x maison quand l'archive est vide (repli 1.15 europeen).
+- Cause n°2 (transverse) : 31/63 matchs a |ecart|>12pp, dont Chelsea -47 et
+  Dortmund -25 = cotes perimees -> un garde-fou dur sert bien au-dela du J1.
+
+### Implementation
+- NOUVEAU `core/market_guard.py` (pur, zero DB) + `config/divergence_guard.json` :
+  * `check_market_divergence` : implicites DEVIGGEES proportionnellement a
+    l'overround ; |pire ecart| > 12 pp (config) -> flagged. GARDÉ ACTIF PAR
+    DEFAUT (pur veto + info, ne touche pas les probs).
+  * `apply_asian_home_damp` : ligues famille ASIE (liste config) ->
+    p_home x(1-0.15) renormalise, apres CAC avant live adjustment ;
+    ASIAN_HA_FIX=off pour non-regression stricte. Defaut ON (demande explicite).
+  * `home_advantage_from_stats` : ratio archive credible seulement si
+    n >= 30 matchs (clamp 0.90-1.45), sinon repli par famille ASIE 1.08 / 1.15.
+- `core/data_loader.py` : get_league_home_advantage -> COUNT(*) +
+  home_advantage_from_stats (le 3-matchs-J1 ne pilote plus l'xG).
+- `core/prediction_engine.py` : damp apres CAC ; VETO apres overconf_veto :
+  verdict 'NO BET (DIVERGENCE MARCHE)', status NO_BET_DIVERGENCE, log stderr
+  explicite, analysis['Shield'], serialisation champ `market_divergence`
+  (null sans 3 cotes reelles).
+- Node `services/enriched_predictions.js` : mapping market_divergence.
+- Frontend : puce rouge `⚠️ DIV 40pp` (MatchCard compact+desktop, tooltip
+  complet) + bannière modale UltimateMatchCenter. Dashboard prop divergenceInfo.
+- Tests : tests/test_market_guard.py 14 cas (devig, seuils config, veto J1,
+  replis n<30, clamps, flags) ; UI = eslint/build (pas de suite composants).
+
+### Simulation bout-en-bout (donnees reelles du feed)
+Gamba 69->65% puis veto +39.7pp ; Shimizu +24.8 veto ; V-Varen +30 veto ;
+Cherkasy -27.5 veto. EFFET BORD ATTENDU : Bochum +15.1 et Bolton +12.8
+(« VALIDES » de l'audit) passent egalement en NO BET — conformement au cahier
+des charges : a cette liquidite, >12pp = cote perimee ou data suspecte avant
+d'etre du cadeau. Seuil reglable dans config/divergence_guard.json.
+
+### Verifications
+pytest venv 416/416 ; jest 85 suites/837 ; eslint 0 ; vite build OK ;
+node --check OK. .env.example += ASIAN_HA_FIX.

@@ -53,7 +53,7 @@ const solidGoldenStyle = (isSolid) => isSolid
     }
   : {}
 
-const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction, activeMarket, contextualInfo }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction, activeMarket, contextualInfo, divergenceInfo }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
     const domChip = lines[13] || null
@@ -210,6 +210,17 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
     </span>
   ) : null
 
+  const div = divergenceInfo && divergenceInfo.flagged ? divergenceInfo : null
+  const divChip = div ? (
+    <span
+      className="mc-rel"
+      style={{ color: '#f87171', border: '1px solid rgba(248,113,113,0.5)', marginLeft: '6px' }}
+      title={`Divergence marché : ${div.side} modèle ${div.model_pct}% vs book déviggué ${div.book_pct}% (écart ${div.edge_pp}pp > ${div.max_pp}pp) -> NO BET (E17)`}
+    >
+      ⚠️ DIV {Math.abs(div.edge_pp).toFixed(0)}pp
+    </span>
+  ) : null
+
   const hasDc = d.winnerDc && d.winnerDc !== '--'
   const cornersLabel = DISABLE_CORNERS_DISPLAY
     ? '--'
@@ -226,6 +237,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
             {solidBadge}
             {relBadge}
             {cacChip}
+            {divChip}
           </div>
           {timeLabel && <div className="mcc-time">{timeLabel}</div>}
         </div>
@@ -350,6 +362,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           {solidBadge}
           {relBadge}
           {cacChip}
+          {divChip}
         </div>
         <div className="mc-teams">
           <span>{shortTeam(d.home)}</span>

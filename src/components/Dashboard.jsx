@@ -5,7 +5,14 @@ import MatchCard from './MatchCard'
 import dataService from '../services/dataService'
 import { PATH_TO_VIEW } from '../config/routes'
 import { selectEligibleMatches } from '../utils/timeFilter'
-import { computeRawLines, marketBannerFromLines, isFinishedMatch } from '../utils/matchAnalysis'
+import { isFinishedMatch } from '../utils/matchAnalysis'
+import {
+  toRawLines,
+  marketPct,
+  computeChipCounts,
+  applyBaseFilters,
+  applyMarketFilter,
+} from '../utils/dashboardFilters'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
 
@@ -63,43 +70,10 @@ const bandOf = (conf) => {
   return '90+'
 }
 
-// 🧠 [PERF] Cache par objet match : une même référence de match produit toujours
-// la même liste "raw", évitant de recomputer la normalisation à chaque render
-// (et permettant au React.memo de MatchCard de sauter les re-renders).
-const rawLinesCache = new WeakMap()
-const toRawLines = (m) => {
-  if (!m) return []
-  const cached = rawLinesCache.get(m)
-  if (cached) return cached
-  const lines = computeRawLines(m)
-  rawLinesCache.set(m, lines)
-  return lines
-}
-
-// Onglet "marché" = matchs où le pick de ce marché est JOUABLE (confiance ≥
-// MARKET_MIN_PCT) ; l'onglet Corners reste sur la simple disponibilité (pas de
-// % dans les cellules brutes). Le tri de la liste suit la confiance du marché
-// actif — cliquer un onglet doit visibly changer la liste.
-// (Historique : avant, filtre = marché DOMINANT unique → onglets 1X2/O-U vides
-// sans cotes réelles ; puis simple disponibilité → tous identiques à "Tous".)
-// Seuil par marché : calé sur le taux « coin-flip » naturel de chaque marché
-// (1X2 ~33-50 %, O/U 2.5 ~50 %, BTTS ~50 %, 1er MT over ~65-75 %).
-const MARKET_MIN_PCT = { win: 55, ou: 55, btts: 55, ht: 70 }
-const MARKET_CELLS = {
-  ou: [4, 11],
-  win: [5, 10],
-  btts: [3],
-  ht: [6],
-  corners: [7, 12],
-}
-// Sémantique unique (helper partagé avec la bannière MatchCard) :
-// win = vainqueur PUR, ou = ligne 2.5 meilleur côté, ht/btts = % de la cellule.
-const marketPct = (r, market) => marketBannerFromLines(r, market)?.pct || 0
-const hasMarketPrediction = (r, market) => {
-  if (!r) return false
-  if (market === 'corners') return (MARKET_CELLS.corners || []).some((i) => r[i] && r[i] !== '--')
-  return marketPct(r, market) >= (MARKET_MIN_PCT[market] ?? 55)
-}
+// Logique de filtrage (recherche/ligue/marché + compteurs + cache rawLines)
+// extraite dans utils/dashboardFilters.js — corrigée session E18 : le filtre
+// ligue (activeLeague) était réglé par la Sidebar mais jamais appliqué, et les
+// compteurs d'onglets variaient avec l'onglet actif.
 
 const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracketMap, activeMarket }) => {
   const m = list[index]
@@ -282,40 +256,20 @@ const Dashboard = () => {
     []
   )
 
-  const allMatchesList = useMemo(() => {
+  const baseList = useMemo(() => {
     // Filtre temporel (AUJOURD'HUI/DEMAIN/3 J/7 J) — jours calendaires locaux.
     // selectEligibleMatches retombe sur les prochains matchs (7 jours) quand la
     // fenêtre active est vide (ex. fin de soirée) afin de ne jamais être vide.
+    // Masque reportés/annulés et matchs déjà joués — logique partagée avec
+    // Sidebar (timeFilter.js). Puis recherche + LIGUE (corrigé E18 : avant,
+    // activeLeague n'était jamais appliqué).
     const nowMs = Date.now()
     const dateFiltered = selectEligibleMatches(matches, activeDate, nowMs)
-    return dateFiltered
-      .filter((m) => {
-        // 🕐 Masque reportés/annulés et matchs déjà joués (heure de début
-        // passée ou terminés) — logique partagée avec Sidebar (timeFilter.js).
-        if (searchQuery) {
-          const q = searchQuery
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-          const home = (m.homeTeam || '').toLowerCase()
-          const away = (m.awayTeam || '').toLowerCase()
-          const league = (m.league || m.tournament_name || '')
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-          if (!home.includes(q) && !away.includes(q) && !league.includes(q)) return false
-        }
-        if (dominantFilter !== 'ALL') {
-          let r = null
-          try {
-            r = toRawLines(m)
-          } catch {
-            r = null
-          }
-          if (!hasMarketPrediction(r, dominantFilter)) return false
-        }
-        return true
-      })
+    return applyBaseFilters(dateFiltered, { searchQuery, activeLeague })
+  }, [matches, activeDate, searchQuery, activeLeague])
+
+  const allMatchesList = useMemo(() => {
+    return applyMarketFilter(baseList, dominantFilter)
       .sort((a, b) => {
         // Onglet marché actif : la confiance du marché domine le tri (meilleurs
         // picks d'abord), les critères généraux servent de tie-break.
@@ -363,7 +317,19 @@ const Dashboard = () => {
           : 0
         return aFin ? bTime - aTime : aTime - bTime
       })
-  }, [matches, activeDate, searchQuery, dominantFilter])
+  }, [baseList, dominantFilter])
+
+  // Vue LIVE : mêmes filtres que la liste principale (corrigé E18 : avant,
+  // recherche/ligue/onglet marché étaient ignorés sur les matchs en direct).
+  const liveBaseList = useMemo(
+    () => applyBaseFilters(liveMatches, { searchQuery, activeLeague }),
+    [liveMatches, searchQuery, activeLeague]
+  )
+  const liveFilteredList = useMemo(
+    () => applyMarketFilter(liveBaseList, dominantFilter),
+    [liveBaseList, dominantFilter]
+  )
+  const liveChipCounts = useMemo(() => computeChipCounts(liveBaseList), [liveBaseList])
 
   // 🧠 [PERF] Props stables pour la liste virtuelle : le React.memo des rangées
   // ne re-rend que si la liste (contenu) ou le handler changent réellement.
@@ -378,23 +344,18 @@ const Dashboard = () => {
     [allMatchesList, handleSelectMatch, isMobile, bracketMap, dominantFilter]
   )
 
-  const chipCount = useMemo(() => {
-    const counts = {}
-    allMatchesList.forEach((m) => {
-      let r = null
-      try {
-        r = toRawLines(m)
-      } catch {
-        r = null
-      }
-      for (const f of ['ou', 'win', 'btts', 'ht', 'corners']) {
-        if (hasMarketPrediction(r, f)) counts[f] = (counts[f] || 0) + 1
-      }
-    })
-    return counts
-  }, [allMatchesList])
+  // Compteurs d'onglets TOUJOURS calculés sur la liste de base (sans filtre
+  // marché) — sinon ils variaient à chaque clic d'onglet (corrigé E18).
+  const chipCount = useMemo(() => computeChipCounts(baseList), [baseList])
 
-  const renderMatchList = (list) => {
+  const resetAllFilters = useCallback(() => {
+    setSearchQuery('')
+    setActiveLeague('ALL')
+    setDominantFilter('ALL')
+  }, [])
+  const anyFilterActive = activeLeague !== 'ALL' || !!searchQuery || dominantFilter !== 'ALL'
+
+  const renderMatchList = (list, counts = chipCount) => {
     const ROW_H = isMobile ? 124 : 56
     const HEADER_H = isMobile ? 0 : 42
     const listHeight = Math.min(list.length * ROW_H, 800)
@@ -409,7 +370,7 @@ const Dashboard = () => {
         <div className="onyx-section-title global">📊 TOUS LES MATCHS ({list.length})</div>
         <div style={{ display: 'flex', gap: '6px', padding: '6px 8px', flexWrap: 'wrap', alignItems: 'center', overflowX: 'visible', whiteSpace: 'nowrap' }}>
           {filters.map((f) => {
-            const count = f === 'ALL' ? list.length : (chipCount[f] || 0)
+            const count = f === 'ALL' ? list.length : (counts[f] || 0)
             const active = dominantFilter === f
             return (
               <button
@@ -435,16 +396,114 @@ const Dashboard = () => {
             )
           })}
         </div>
+        {anyFilterActive && (
+          <div style={{ display: 'flex', gap: '6px', padding: '0 8px 6px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '9px', color: '#475569', fontWeight: 800, letterSpacing: '0.4px' }}>
+              FILTRES ACTIFS :
+            </span>
+            {activeLeague !== 'ALL' && (
+              <button
+                onClick={() => setActiveLeague('ALL')}
+                title="Retirer le filtre ligue"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  border: '1px solid #f59e0b',
+                  background: 'rgba(245,158,11,0.12)',
+                  color: '#f59e0b',
+                  cursor: 'pointer',
+                }}
+              >
+                🏆 {activeLeague} ✕
+              </button>
+            )}
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                title="Effacer la recherche"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  border: '1px solid #38bdf8',
+                  background: 'rgba(56,189,248,0.12)',
+                  color: '#38bdf8',
+                  cursor: 'pointer',
+                }}
+              >
+                🔍 {searchQuery} ✕
+              </button>
+            )}
+            {dominantFilter !== 'ALL' && (
+              <button
+                onClick={() => setDominantFilter('ALL')}
+                title="Retirer le filtre marché"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  border: `1px solid ${filterColors[dominantFilter]}`,
+                  background: `${filterColors[dominantFilter]}18`,
+                  color: filterColors[dominantFilter],
+                  cursor: 'pointer',
+                }}
+              >
+                {filterLabels[dominantFilter]} ✕
+              </button>
+            )}
+            <button
+              onClick={resetAllFilters}
+              style={{
+                fontSize: '9px',
+                fontWeight: 700,
+                padding: '2px 6px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.15)',
+                background: 'transparent',
+                color: '#64748b',
+                cursor: 'pointer',
+              }}
+            >
+              ↺ tout
+            </button>
+          </div>
+        )}
         {list.length === 0 && (
           <div style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b', fontSize: '12px' }}>
-            {dominantFilter !== 'ALL'
-              ? `Aucun match pour le marché "${filterLabels[dominantFilter]}"`
-              : searchQuery
-                ? `Aucun résultat pour "${searchQuery}"`
-                : matches.length > 0
-                  ? 'Les matchs reçus sont déjà joués — aucun match à venir en base. Lancez un scan pour rafraîchir.'
-                  : 'Aucune donnée de match reçue du serveur.'}
-            {dominantFilter === 'ALL' && !searchQuery && (
+            {activeLeague !== 'ALL'
+              ? `Aucun match pour la ligue « ${activeLeague} » dans cette période.`
+              : dominantFilter !== 'ALL'
+                ? `Aucun match pour le marché "${filterLabels[dominantFilter]}"`
+                : searchQuery
+                  ? `Aucun résultat pour "${searchQuery}"`
+                  : matches.length > 0
+                    ? 'Les matchs reçus sont déjà joués — aucun match à venir en base. Lancez un scan pour rafraîchir.'
+                    : 'Aucune donnée de match reçue du serveur.'}
+            {anyFilterActive && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  onClick={resetAllFilters}
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #38bdf8',
+                    background: 'rgba(56,189,248,0.12)',
+                    color: '#38bdf8',
+                    cursor: 'pointer',
+                    letterSpacing: '0.4px',
+                  }}
+                >
+                  ↺ Réinitialiser les filtres
+                </button>
+              </div>
+            )}
+            {!anyFilterActive && (
               <div style={{ marginTop: 12 }}>
                 <button
                   onClick={handleForceScan}
@@ -617,7 +676,7 @@ const Dashboard = () => {
                     ⚽ LIVE STATS
                   </span>
                 </div>
-                {renderMatchList(liveMatches)}
+                {renderMatchList(liveFilteredList, liveChipCounts)}
               </div>
             )}
             {activeView === 'live' && liveMatches.length === 0 && (

@@ -6856,3 +6856,40 @@ d'etre du cadeau. Seuil reglable dans config/divergence_guard.json.
 ### Verifications
 pytest venv 416/416 ; jest 85 suites/837 ; eslint 0 ; vite build OK ;
 node --check OK. .env.example += ASIAN_HA_FIX.
+
+## E18 Dashboard : 4 faiblesses corrigees (2026-09-12, audit UX/logique)
+
+Faiblesses auditees puis corrigees (Dashboard.jsx + Sidebar.jsx) :
+1. REDY| FILTRE LIGUE MORT : activeLeague regle par la Sidebar (keywords[0]
+   des ligues epinglees/MENA ou nom brut des dynamiques) n'etait JAMAIS
+   applique a allMatchesList -> clic ligue = zero effet. Corrige : helper
+   pur leagueMatches() (resolution par TOUTES les keywords de la ligue
+   epinglee, sinon includes du nom brut, normalization accents/casse) applique
+   dans la liste de base. Source de verite ligues : NOUVEAU
+   `src/data/leagues.js` (PINNED+MENA deplaces verbatim de Sidebar, importe
+   par les deux — zero duplication, compte Sidebar = filtre liste).
+2. REDY| COMPTEURS D'ONGLETS QUI VARIENT A CHAQUE CLIC : chipCount calculait
+   sur allMatchesList DEJA filtree par le marche actif. Desormais
+   computeChipCounts(baseList) (date+recherche+ligue, sans marche) ->
+   compteurs stables ; 'Tous (n)' = baseList, onglet actif = sous-ensemble.
+3. ORANGE| VUE LIVE IGNORAIT LES FILTRES : renderMatchList(liveMatches) brut.
+   Now liveBaseList (recherche+ligue) -> liveFilteredList (marche) +
+   liveChipCounts, memes seuils/onglets que la liste principale.
+4. ORANGE| AUCUN INDICATEUR DE FILTRES ACTIFS (lock-in silencieux date+ligue+
+   marche+recherche). Ajoute : rangee 'FILTRES ACTIFS' (pill ligue orange,
+   recherche bleue, marche couleur de l'onglet, x par pill + 'tout') et
+   empty-state enrichi ('Aucun match pour la ligue ...' + bouton
+   'Reinitialiser les filtres' qui remplace 'Forcer le scan' quand des
+   filtres bloquent la vue).
+
+Refactor : logique pure (toRawLines+cache, marketPct/hasMarketPrediction,
+applyBaseFilters/applyMarketFilter, searchMatches accents-insensible des DEUX
+cotes — avant seule la requete etait de-accentuee) extraite dans
+`src/utils/dashboardFilters.js`, testee sans React.
+
+Decouverte doctee en test : avec cotes reelles, la cellule vainqueur suit la
+proba MARCHE devigguee (odds 2.10 -> 45% affiche, pas le 60% brut du modele).
+
+? jest 86 suites / 850 passed (13 nouveaux dashboardFilters) ; eslint 0 (les
+4 warnings Sidebar sont preexistants, morts) ; vite build 6.9 s OK ; module
+serve par le dev-server verifie (grep dashboardFilters).

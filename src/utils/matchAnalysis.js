@@ -545,7 +545,7 @@ export function computeRawLines(m) {
   const domLabel = dominantBest ? dominantBest.label : '--'
   const domPct = dominantBest ? dominantBest.prob : '--'
   const domOdds = dominantBest && dominantBest.odds ? dominantBest.odds.toFixed(2) : '--'
-  const domScore = dominantBest && dominantBest.score != null ? dominantBest.score.toFixed(0) : '--'
+  const domScore = dominantBest && dominantBest.score != null ? dominantBest.score.toFixed(2) : '--'
   const domPayload = `${domLabel}|${domPct}|${domOdds}|${domScore}`
   if (a.finished) {
     return [
@@ -640,4 +640,72 @@ export function computeRawLines(m) {
     btwCell,
     btoCell,
   ]
+}
+
+// Bannière "marché actif" : construit label/pct/odds/score pour UN marché
+// précis depuis les lignes brutes — indépendant du marché dominant.
+// odds/score ne sont exposés que quand le marché demandé EST le dominant
+// (seul son payload porte ces valeurs).
+export function marketBannerFromLines(r, market) {
+  if (!r || !r.length || !market || market === 'ALL') return null
+  const cellPct = (v) => {
+    const m = /(\d+(?:\.\d+)?)\s*%/.exec(v || '')
+    return m ? parseFloat(m[1]) : 0
+  }
+  const domChip = r[13] && r[13] !== '--' ? r[13] : null
+  const dom = (() => {
+    if (!domChip) return null
+    const parts = String(r[14] || '').split('|')
+    if (parts.length < 4) return null
+    return { label: parts[0], pct: parseFloat(parts[1]) || 0, odds: parts[2], score: parts[3] }
+  })()
+  const cell = (i) => (r[i] && r[i] !== '--' ? r[i] : null)
+
+  let label = null
+  let pct = 0
+  switch (market) {
+    case 'win':
+      label = cell(5)
+      pct = label ? cellPct(label) : 0
+      break
+    case 'btts':
+      label = cell(3)
+      pct = label ? cellPct(label) : 0
+      break
+    case 'ht':
+      label = cell(6)
+      pct = label ? cellPct(label) : 0
+      break
+    case 'ou': {
+      for (const chunk of String(r[11] || '').split('|')) {
+        const m = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(chunk)
+        if (m && parseFloat(m[1]) === 2.5) {
+          const over = parseFloat(m[2])
+          const side = over >= 50 ? 'OVER' : 'UNDER'
+          label = `${side} 2.5 ${Math.round(Math.max(over, 100 - over))}%`
+          pct = Math.max(over, 100 - over)
+        }
+      }
+      if (!label) {
+        label = cell(4)
+        pct = label ? cellPct(label) : 0
+      }
+      break
+    }
+    case 'corners':
+      label = cell(7) || (cell(12) ? `✚ ${cell(12)}` : null)
+      pct = label && domChip === 'corners' && dom ? dom.pct : 0
+      break
+    default:
+      return null
+  }
+  if (!label) return null
+  const dominant = domChip === market
+  return {
+    label,
+    pct,
+    odds: dominant && dom && dom.odds && dom.odds !== '--' ? dom.odds : null,
+    score: dominant && dom && dom.score && dom.score !== '--' ? dom.score : null,
+    dominant,
+  }
 }

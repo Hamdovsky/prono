@@ -5,7 +5,7 @@ import MatchCard from './MatchCard'
 import dataService from '../services/dataService'
 import { PATH_TO_VIEW } from '../config/routes'
 import { selectEligibleMatches } from '../utils/timeFilter'
-import { computeRawLines, isFinishedMatch } from '../utils/matchAnalysis'
+import { computeRawLines, marketBannerFromLines, isFinishedMatch } from '../utils/matchAnalysis'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
 
@@ -76,7 +76,32 @@ const toRawLines = (m) => {
   return lines
 }
 
-const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracketMap }) => {
+// Onglet "marché" = matchs où le pick de ce marché est JOUABLE (confiance ≥
+// MARKET_MIN_PCT) ; l'onglet Corners reste sur la simple disponibilité (pas de
+// % dans les cellules brutes). Le tri de la liste suit la confiance du marché
+// actif — cliquer un onglet doit visibly changer la liste.
+// (Historique : avant, filtre = marché DOMINANT unique → onglets 1X2/O-U vides
+// sans cotes réelles ; puis simple disponibilité → tous identiques à "Tous".)
+// Seuil par marché : calé sur le taux « coin-flip » naturel de chaque marché
+// (1X2 ~33-50 %, O/U 2.5 ~50 %, BTTS ~50 %, 1er MT over ~65-75 %).
+const MARKET_MIN_PCT = { win: 55, ou: 55, btts: 55, ht: 70 }
+const MARKET_CELLS = {
+  ou: [4, 11],
+  win: [5, 10],
+  btts: [3],
+  ht: [6],
+  corners: [7, 12],
+}
+// Sémantique unique (helper partagé avec la bannière MatchCard) :
+// win = vainqueur PUR, ou = ligne 2.5 meilleur côté, ht/btts = % de la cellule.
+const marketPct = (r, market) => marketBannerFromLines(r, market)?.pct || 0
+const hasMarketPrediction = (r, market) => {
+  if (!r) return false
+  if (market === 'corners') return (MARKET_CELLS.corners || []).some((i) => r[i] && r[i] !== '--')
+  return marketPct(r, market) >= (MARKET_MIN_PCT[market] ?? 55)
+}
+
+const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracketMap, activeMarket }) => {
   const m = list[index]
   if (!m) return null
   const ts = m.startTimestamp
@@ -110,6 +135,8 @@ const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracket
       liveScore={liveScore}
       liveStats={liveStats}
       goalPrediction={goalPrediction}
+      activeMarket={activeMarket}
+      contextualInfo={m.contextual}
     />
   )
 })
@@ -278,21 +305,24 @@ const Dashboard = () => {
           if (!home.includes(q) && !away.includes(q) && !league.includes(q)) return false
         }
         if (dominantFilter !== 'ALL') {
-          const domChip = (() => {
-            try {
-              const r = toRawLines(m)
-              return r && r[13] ? r[13] : null
-            } catch {
-              return null
-            }
-          })()
-          if (!domChip || domChip === '--') return false
-          const map = { OU: 'ou', '1X2': 'win', DC: 'win', HT: 'ht', BTTS: 'btts', CORNERS: 'corners' }
-          if (domChip !== (map[dominantFilter] || dominantFilter.toLowerCase())) return false
+          let r = null
+          try {
+            r = toRawLines(m)
+          } catch {
+            r = null
+          }
+          if (!hasMarketPrediction(r, dominantFilter)) return false
         }
         return true
       })
       .sort((a, b) => {
+        // Onglet marché actif : la confiance du marché domine le tri (meilleurs
+        // picks d'abord), les critères généraux servent de tie-break.
+        if (dominantFilter !== 'ALL' && dominantFilter !== 'corners') {
+          const pa = marketPct(toRawLines(a), dominantFilter)
+          const pb = marketPct(toRawLines(b), dominantFilter)
+          if (pa !== pb) return pb - pa
+        }
         // (b) Prioriser en tête les matchs avec vraies probabilités + ligues
         // majeures, afin d'afficher des "vrais pronostics" au lieu des amicaux
         // insuffisants. Le tri par heure reste le tie-break.
@@ -337,17 +367,28 @@ const Dashboard = () => {
   // 🧠 [PERF] Props stables pour la liste virtuelle : le React.memo des rangées
   // ne re-rend que si la liste (contenu) ou le handler changent réellement.
   const matchRowProps = useMemo(
-    () => ({ list: allMatchesList, onClick: handleSelectMatch, compact: isMobile, bracketMap }),
-    [allMatchesList, handleSelectMatch, isMobile, bracketMap]
+    () => ({
+      list: allMatchesList,
+      onClick: handleSelectMatch,
+      compact: isMobile,
+      bracketMap,
+      activeMarket: dominantFilter === 'ALL' ? null : dominantFilter,
+    }),
+    [allMatchesList, handleSelectMatch, isMobile, bracketMap, dominantFilter]
   )
 
   const chipCount = useMemo(() => {
     const counts = {}
     allMatchesList.forEach((m) => {
+      let r = null
       try {
-        const r = toRawLines(m)
-        if (r && r[13] && r[13] !== '--') counts[r[13]] = (counts[r[13]] || 0) + 1
-      } catch {}
+        r = toRawLines(m)
+      } catch {
+        r = null
+      }
+      for (const f of ['ou', 'win', 'btts', 'ht', 'corners']) {
+        if (hasMarketPrediction(r, f)) counts[f] = (counts[f] || 0) + 1
+      }
     })
     return counts
   }, [allMatchesList])

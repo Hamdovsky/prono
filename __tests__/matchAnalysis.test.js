@@ -4,7 +4,7 @@
  * robustness sans cornersVerdict, sans odds, match finished.
  */
 
-const { computeRawLines, analyzeMatch } = require('../src/utils/matchAnalysis.js')
+const { computeRawLines, analyzeMatch, marketBannerFromLines } = require('../src/utils/matchAnalysis.js')
 
 const baseMatch = () => ({
   id: 'm1',
@@ -276,5 +276,82 @@ describe('computeRawLines / analyzeMatch — real_markets info (HT/FT, AH, Team 
     expect(() => analyzeMatch(m)).not.toThrow()
     const r = computeRawLines(m)
     expect(r.length).toBe(21)
+  })
+})
+
+describe('marketBannerFromLines - banniere par marche actif', () => {
+  const baseLines = (overrides = {}) => {
+    const r = [
+      'League', 'Home', 'Away',
+      'OUI 62%',
+      'OVER 2.5 56%',
+      'Home 58%',
+      'OUI 74%',
+      String.fromCharCode(0x271A) + ' 12',
+      null,
+      '0',
+      '1X 70%',
+      '1.5:80|2.5:60|3.5:40|4.5:25',
+      '12',
+      'ht',
+      'OUI 74%|74|--|67',
+      '--', '--', '--', '--', '--', '--',
+    ]
+    Object.entries(overrides).forEach(([i, v]) => { r[Number(i)] = v })
+    return r
+  }
+
+  it('win = vainqueur PUR avec son pct', () => {
+    const b = marketBannerFromLines(baseLines(), 'win')
+    expect(b.label).toBe('Home 58%')
+    expect(b.pct).toBe(58)
+    expect(b.dominant).toBe(false)
+    expect(b.odds).toBeNull()
+    expect(b.score).toBeNull()
+  })
+
+  it('btts et ht lisent leurs cellules', () => {
+    expect(marketBannerFromLines(baseLines(), 'btts').pct).toBe(62)
+    const ht = marketBannerFromLines(baseLines(), 'ht')
+    expect(ht.label).toBe('OUI 74%')
+    expect(ht.dominant).toBe(true)
+  })
+
+  it('ou = ligne 2.5, cote la plus forte (OVER ici)', () => {
+    const b = marketBannerFromLines(baseLines(), 'ou')
+    expect(b.label).toBe('OVER 2.5 60%')
+    expect(b.pct).toBe(60)
+  })
+
+  it('ou = UNDER quand over < 50', () => {
+    const b = marketBannerFromLines(baseLines({ 11: '1.5:70|2.5:38' }), 'ou')
+    expect(b.label).toBe('UNDER 2.5 62%')
+    expect(b.pct).toBe(62)
+  })
+
+  it('ou sans ligne 2.5 -> repli sur la cellule 4', () => {
+    const b = marketBannerFromLines(baseLines({ 11: '--' }), 'ou')
+    expect(b.label).toBe('OVER 2.5 56%')
+    expect(b.pct).toBe(56)
+  })
+
+  it('corners: label sans pct sauf si dominant', () => {
+    const b = marketBannerFromLines(baseLines(), 'corners')
+    expect(b.label).toBe(String.fromCharCode(0x271A) + ' 12')
+    expect(b.pct).toBe(0)
+    const dom = marketBannerFromLines(
+      baseLines({ 13: 'corners', 14: String.fromCharCode(0x271A) + ' 12|98|1.9|93' }),
+      'corners'
+    )
+    expect(dom.pct).toBe(98)
+    expect(dom.odds).toBe('1.9')
+    expect(dom.score).toBe('93')
+  })
+
+  it('marche absent ou input invalide -> null', () => {
+    expect(marketBannerFromLines(baseLines({ 5: '--' }), 'win')).toBeNull()
+    expect(marketBannerFromLines(null, 'win')).toBeNull()
+    expect(marketBannerFromLines(baseLines(), 'ALL')).toBeNull()
+    expect(marketBannerFromLines(baseLines(), 'unknown')).toBeNull()
   })
 })

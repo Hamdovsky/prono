@@ -17,6 +17,10 @@ const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
 
   const analysis = useMemo(() => analyzeMatch(match), [match])
 
+  // Contexte CAC (calcul Python, affichage ici) — null tant que flag OFF.
+  const ctxBlock = match?.contextual?.enabled ? match.contextual : null
+  const ctxTeams = match?.context?.teams || null
+
   // Contexte visuel PixelRAG (briefing lecteur + signaux) — fetch à l'ouverture.
   const [visual, setVisual] = useState(null)
   useEffect(() => {
@@ -175,6 +179,94 @@ const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
         <div
           className="umc-body"
         >
+          {/* AJUSTEMENT CONTEXTUEL (CAC) — blessures, Europe J+3, repos, enjeu */}
+          {ctxBlock && (
+            <div
+              className="col-span-12 umc-panel"
+              style={{
+                background: 'rgba(6, 78, 59, 0.5)',
+                border: '1px solid rgba(52, 211, 153, 0.35)',
+                padding: '16px 20px',
+                borderRadius: 16,
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    background: '#10b981',
+                    color: '#052e16',
+                    fontSize: '0.65rem',
+                    fontWeight: 900,
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                  }}
+                >
+                  CAC
+                </span>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#d1fae5' }}>
+                  🧠 Ajustement contextuel
+                </h4>
+                <span style={{ marginLeft: 'auto', fontSize: '0.78rem', color: '#6ee7b7' }}>
+                  dom. ×{ctxBlock.cac_home?.toFixed(2)} · ext. ×{ctxBlock.cac_away?.toFixed(2)}
+                </span>
+              </div>
+              {ctxBlock.prob_shift_pp && (
+                <div style={{ fontSize: '0.78rem', color: '#a7f3d0', marginBottom: 8 }}>
+                  Impact 1X2 : {ctxBlock.prob_shift_pp.home > 0 ? '+' : ''}
+                  {ctxBlock.prob_shift_pp.home} pp (dom.) · {ctxBlock.prob_shift_pp.draw > 0 ? '+' : ''}
+                  {ctxBlock.prob_shift_pp.draw} pp (nul) · {ctxBlock.prob_shift_pp.away > 0 ? '+' : ''}
+                  {ctxBlock.prob_shift_pp.away} pp (ext.)
+                </div>
+              )}
+              {(ctxBlock.alerts?.home?.length || ctxBlock.alerts?.away?.length) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                  {[
+                    ...(ctxBlock.alerts?.home || []).map((a) => `Dom. — ${a}`),
+                    ...(ctxBlock.alerts?.away || []).map((a) => `Ext. — ${a}`),
+                  ].map((line) => (
+                    <div key={line} style={{ fontSize: '0.78rem', color: '#fde68a' }}>
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {ctxBlock.factors?.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {ctxBlock.factors.map((f, i) => (
+                    <span
+                      key={`${f.side}-${f.type}-${i}`}
+                      style={{
+                        background: f.delta < 0 ? 'rgba(251, 113, 133, 0.15)' : 'rgba(52, 211, 153, 0.15)',
+                        color: f.delta < 0 ? '#fda4af' : '#6ee7b7',
+                        border: `1px solid ${f.delta < 0 ? 'rgba(251, 113, 133, 0.4)' : 'rgba(52, 211, 153, 0.4)'}`,
+                        borderRadius: 8,
+                        padding: '2px 8px',
+                        fontSize: '0.72rem',
+                      }}
+                    >
+                      {f.side === 'home' ? 'dom.' : 'ext.'} {f.type}{' '}
+                      {f.delta > 0 ? '+' : ''}
+                      {(f.delta * 100).toFixed(0)}% {f.detail ? `(${f.detail})` : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {ctxTeams && (ctxTeams.home?.absences?.length > 0 || ctxTeams.away?.absences?.length > 0) && (
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 8 }}>
+                  Absences — dom.{' '}
+                  {ctxTeams.home?.absences?.length
+                    ? ctxTeams.home.absences.map((a) => a.player).join(', ')
+                    : 'aucune'}
+                  {' · ext. '}
+                  {ctxTeams.away?.absences?.length
+                    ? ctxTeams.away.absences.map((a) => a.player).join(', ')
+                    : 'aucune'}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* CONTEXTE VISUEL PIXELRAG — lecture des captures par le modèle vision */}
           {visual && visual.briefing && (
             <div

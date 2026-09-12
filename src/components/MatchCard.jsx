@@ -1,6 +1,15 @@
 import React from 'react'
 import './MatchCard.css'
 import { DISABLE_BTTS_DISPLAY, DISABLE_CORNERS_DISPLAY } from '../utils/displayPolicy'
+import { marketBannerFromLines } from '../utils/matchAnalysis'
+
+const MARKET_TITLES = {
+  ou: '🎯 OVER/UNDER',
+  win: '🎯 GAGNANT 1X2',
+  btts: '🎯 BTTS',
+  ht: '🎯 1ER MT',
+  corners: '🎯 CORNERS',
+}
 
 const isGolden = (chipKey, dominant) => dominant && dominant.chip === chipKey
 
@@ -44,7 +53,7 @@ const solidGoldenStyle = (isSolid) => isSolid
     }
   : {}
 
-const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction, activeMarket, contextualInfo }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
     const domChip = lines[13] || null
@@ -95,7 +104,11 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
 
   const d = parseRow(rawData)
   if (!d) return null
-  const dominant = d.domChip ? { chip: d.domChip } : null
+  // Onglet marché actif : la bannière et la surbrillance suivent CE marché,
+  // pas le dominant global (sinon "Over/Under" affiche un pick BTTS/HT).
+  const activeBanner =
+    activeMarket && activeMarket !== 'ALL' ? marketBannerFromLines(rawData, activeMarket) : null
+  const dominant = activeBanner ? { chip: activeMarket } : d.domChip ? { chip: d.domChip } : null
 
   const shortTeam = (name) => {
     if (!name) return ''
@@ -186,6 +199,17 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
     )
   })()
 
+  const cac = contextualInfo && contextualInfo.enabled ? contextualInfo : null
+  const cacChip = cac ? (
+    <span
+      className="mc-rel"
+      style={{ color: '#34d399', border: '1px solid rgba(52,211,153,0.4)', marginLeft: '6px' }}
+      title={`CAC contextuel (Python) — dom. ×${cac.cac_home} · ext. ×${cac.cac_away}`}
+    >
+      ⚖️ {cac.cac_home}·{cac.cac_away}
+    </span>
+  ) : null
+
   const hasDc = d.winnerDc && d.winnerDc !== '--'
   const cornersLabel = DISABLE_CORNERS_DISPLAY
     ? '--'
@@ -201,6 +225,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
             <span className="mcc-league-name">{d.league}</span>
             {solidBadge}
             {relBadge}
+            {cacChip}
           </div>
           {timeLabel && <div className="mcc-time">{timeLabel}</div>}
         </div>
@@ -209,11 +234,16 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           <span className={`mcc-vs${d.score ? ' has-score' : ''}`}>{d.score ? d.score : 'vs'}</span>
           <span className="mcc-team">{shortTeam(d.away)}</span>
         </div>
-        {d.domLabel && d.domLabel !== '--' && (
+        {activeBanner ? (
+          <div className="mcc-dominant-banner">
+            {MARKET_TITLES[activeMarket] || '⭐'} {activeBanner.label}
+            {activeBanner.odds ? ` @${activeBanner.odds}` : ''}
+          </div>
+        ) : d.domLabel && d.domLabel !== '--' ? (
           <div className="mcc-dominant-banner">
             ⭐ {d.domLabel}{d.domOdds && d.domOdds !== '--' ? ` @${d.domOdds}` : ''}
           </div>
-        )}
+        ) : null}
         <div className="mcc-chips">
           <span className={`mcc-chip mcc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenChip('btts', dominant)}>
             BTTS {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
@@ -247,19 +277,32 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
   const dominantPct = d.domPct && d.domPct !== '--' ? d.domPct : null
   const dominantOdds = d.domOdds && d.domOdds !== '--' ? d.domOdds : null
   const dominantScore = d.domScore && d.domScore !== '--' ? d.domScore : null
-  const displayScore = dominantScore != null && dominantScore !== '--' ? (parseFloat(dominantScore) * relFactor).toFixed(0) : null
+  const banner =
+    activeBanner ||
+    (dominantLabel
+      ? {
+          label: dominantLabel,
+          pct: dominantPct && dominantPct !== '--' ? parseFloat(dominantPct) : null,
+          odds: dominantOdds,
+          score: dominantScore,
+          dominant: true,
+        }
+      : null)
+  const displayScore = banner && banner.score != null && banner.score !== '--' ? String(Math.round(parseFloat(banner.score) * relFactor * 100)) : null
 
   return (
     <div className={`match-card${solidClass}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
-      {dominantLabel && (
+      {banner && (
         <div className="mc-dominant-banner">
-          <span className="mc-dominant-label">MEILLEUR PRONOSTIC ⭐</span>
-          <span className="mc-dominant-pick">{dominantLabel}</span>
-          {dominantPct && dominantPct !== '--' && (
-            <span className="mc-dominant-pct">{dominantPct}%</span>
+          <span className="mc-dominant-label">
+            {activeBanner ? MARKET_TITLES[activeMarket] || 'MEILLEUR PRONOSTIC ⭐' : 'MEILLEUR PRONOSTIC ⭐'}
+          </span>
+          <span className="mc-dominant-pick">{banner.label}</span>
+          {banner.pct != null && banner.pct > 0 && (
+            <span className="mc-dominant-pct">{Math.round(banner.pct)}%</span>
           )}
-          {dominantOdds && dominantOdds !== '--' && (
-            <span className="mc-dominant-odds">@{dominantOdds}</span>
+          {banner.odds && banner.odds !== '--' && (
+            <span className="mc-dominant-odds">@{banner.odds}</span>
           )}
           {displayScore != null && (
             <span className="mc-dominant-score">Score {displayScore}</span>
@@ -306,6 +349,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           <span className="mc-league-name">{d.league}</span>
           {solidBadge}
           {relBadge}
+          {cacChip}
         </div>
         <div className="mc-teams">
           <span>{shortTeam(d.home)}</span>
@@ -329,7 +373,10 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
         {ouLines.length > 0 ? (
           <div className="mc-ou-lines">
             {ouLines.map((l) => {
-              const dominantLine = dominant && dominant.chip === 'ou' ? domLineFromLabel(d.domLabel) : null
+              const dominantLine =
+                dominant && dominant.chip === 'ou'
+                  ? domLineFromLabel(activeBanner ? activeBanner.label : d.domLabel)
+                  : null
               const isDom = dominantLine && dominantLine.dir === l.dir && dominantLine.line === l.line
               return (
                 <span key={l.line} className={`mc-ou-line ${l.dir}${isDom ? ' dominant' : ''}`}>

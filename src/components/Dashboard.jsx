@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense, lazy } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import MatchCard from './MatchCard'
 import dataService from '../services/dataService'
@@ -12,6 +12,9 @@ import {
   computeChipCounts,
   applyBaseFilters,
   applyMarketFilter,
+  parseFilterSearch,
+  buildFilterSearch,
+  leagueDisplayLabel,
 } from '../utils/dashboardFilters'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
@@ -118,22 +121,53 @@ const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracket
 
 const Dashboard = () => {
   const location = useLocation()
+  const navigate = useNavigate()
+
+  // État initial des filtres lu depuis l'URL (E19) — un lien
+  // « /?ligue=...&date=...&marche=...&q=... » reproduit exactement la vue.
+  const initialFilters =
+    typeof window !== 'undefined' ? parseFilterSearch(window.location.search) : null
 
   const [matches, setMatches] = useState([])
   const [status, setStatus] = useState('idle')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [activeLeague, setActiveLeague] = useState('ALL')
-  const [activeDate, setActiveDate] = useState('Today')
+  const [searchQuery, setSearchQuery] = useState(initialFilters?.searchQuery ?? '')
+  const [activeLeague, setActiveLeague] = useState(initialFilters?.activeLeague ?? 'ALL')
+  const [activeDate, setActiveDate] = useState(initialFilters?.activeDate ?? 'Today')
   const [sidebarOpen, setSidebarOpen] = useState(
     typeof window !== 'undefined' ? window.innerWidth > 1024 : true
   )
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
   const [selectedMatch, setSelectedMatch] = useState(null)
   const [bracketMap, setBracketMap] = useState({})
-  const [dominantFilter, setDominantFilter] = useState('ALL')
+  const [dominantFilter, setDominantFilter] = useState(initialFilters?.dominantFilter ?? 'ALL')
   const [liveMatches, setLiveMatches] = useState([])
   const [containerWidth, setContainerWidth] = useState(0)
   const containerRef = useRef(null)
+  const searchRef = useRef(null)
+
+  // Sync filtres -> URL (replace, pas d'historique spam) — E19.
+  useEffect(() => {
+    const qs = buildFilterSearch({ activeLeague, activeDate, dominantFilter, searchQuery })
+    if (window.location.search !== qs) {
+      navigate({ search: qs }, { replace: true })
+    }
+  }, [activeLeague, activeDate, dominantFilter, searchQuery, navigate])
+
+  // Raccourci clavier : '/' focus recherche, Échap vide + désactive (E19).
+  useEffect(() => {
+    const onKey = (e) => {
+      const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
+      if (e.key === '/' && !typing) {
+        e.preventDefault()
+        searchRef.current?.focus()
+      } else if (e.key === 'Escape' && document.activeElement === searchRef.current) {
+        setSearchQuery('')
+        searchRef.current?.blur()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -355,7 +389,7 @@ const Dashboard = () => {
   }, [])
   const anyFilterActive = activeLeague !== 'ALL' || !!searchQuery || dominantFilter !== 'ALL'
 
-  const renderMatchList = (list, counts = chipCount) => {
+  const renderMatchList = (list, counts = chipCount, title = '📊 TOUS LES MATCHS') => {
     const ROW_H = isMobile ? 124 : 56
     const HEADER_H = isMobile ? 0 : 42
     const listHeight = Math.min(list.length * ROW_H, 800)
@@ -367,7 +401,7 @@ const Dashboard = () => {
 
     return (
       <div className="onyx-list-section">
-        <div className="onyx-section-title global">📊 TOUS LES MATCHS ({list.length})</div>
+        <div className="onyx-section-title global">{title} ({list.length})</div>
         <div style={{ display: 'flex', gap: '6px', padding: '6px 8px', flexWrap: 'wrap', alignItems: 'center', overflowX: 'visible', whiteSpace: 'nowrap' }}>
           {filters.map((f) => {
             const count = f === 'ALL' ? list.length : (counts[f] || 0)
@@ -416,7 +450,7 @@ const Dashboard = () => {
                   cursor: 'pointer',
                 }}
               >
-                🏆 {activeLeague} ✕
+                🏆 {leagueDisplayLabel(activeLeague)} ✕
               </button>
             )}
             {searchQuery && (
@@ -475,7 +509,7 @@ const Dashboard = () => {
         {list.length === 0 && (
           <div style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b', fontSize: '12px' }}>
             {activeLeague !== 'ALL'
-              ? `Aucun match pour la ligue « ${activeLeague} » dans cette période.`
+              ? `Aucun match pour la ligue « ${leagueDisplayLabel(activeLeague)} » dans cette période.`
               : dominantFilter !== 'ALL'
                 ? `Aucun match pour le marché "${filterLabels[dominantFilter]}"`
                 : searchQuery
@@ -676,7 +710,7 @@ const Dashboard = () => {
                     ⚽ LIVE STATS
                   </span>
                 </div>
-                {renderMatchList(liveFilteredList, liveChipCounts)}
+                {renderMatchList(liveFilteredList, liveChipCounts, '🔴 MATCHS EN DIRECT')}
               </div>
             )}
             {activeView === 'live' && liveMatches.length === 0 && (
@@ -714,8 +748,9 @@ const Dashboard = () => {
               >
                 <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '100px' }}>
                   <input
+                    ref={searchRef}
                     type="text"
-                    placeholder="🔍 Rechercher une équipe..."
+                    placeholder="🔍 Rechercher une équipe… (touche /)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{

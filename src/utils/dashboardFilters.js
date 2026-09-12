@@ -112,3 +112,44 @@ export const applyMarketFilter = (list, dominantFilter) => {
     return hasMarketPrediction(r, dominantFilter)
   })
 }
+
+// ── État des filtres <-> URL (E19 : partageables et résistants au refresh) ──
+export const VALID_DATES = ['Today', 'Tomorrow', 'Next 3 Days', 'Next 7 Days']
+export const VALID_MARKETS = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners']
+
+export function parseFilterSearch(search) {
+  const p = new URLSearchParams(search || '')
+  const date = p.get('date')
+  const marche = p.get('marche')
+  return {
+    activeLeague: p.get('ligue') || 'ALL',
+    activeDate: VALID_DATES.includes(date) ? date : 'Today',
+    dominantFilter: VALID_MARKETS.includes(marche) ? marche : 'ALL',
+    searchQuery: p.get('q') || '',
+  }
+}
+
+/** Sérialise les filtres non-par-défaut en querystring ('' si aucun). */
+export function buildFilterSearch({
+  activeLeague = 'ALL',
+  activeDate = 'Today',
+  dominantFilter = 'ALL',
+  searchQuery = '',
+} = {}) {
+  const p = new URLSearchParams()
+  if (activeLeague && activeLeague !== 'ALL') p.set('ligue', activeLeague)
+  if (activeDate && activeDate !== 'Today') p.set('date', activeDate)
+  if (dominantFilter && dominantFilter !== 'ALL') p.set('marche', dominantFilter)
+  if (searchQuery) p.set('q', searchQuery)
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
+
+/** Nom joli d'une sélection de ligue (keywords[0] épinglée/MENA -> name). */
+export function leagueDisplayLabel(selection) {
+  const s = norm(selection)
+  for (const def of ALL_LEAGUE_DEFS) {
+    if (def.keywords.length && norm(def.keywords[0]) === s) return def.name
+  }
+  return selection
+}

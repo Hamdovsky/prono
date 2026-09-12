@@ -13,6 +13,9 @@ const {
   computeChipCounts,
   applyBaseFilters,
   applyMarketFilter,
+  parseFilterSearch,
+  buildFilterSearch,
+  leagueDisplayLabel,
 } = require('../src/utils/dashboardFilters')
 
 const mkMatch = (over = {}) => ({
@@ -138,5 +141,47 @@ describe('compteurs d’onglets + filtres marché', () => {
     expect(none.length).toBe(0)
     const ligue = applyBaseFilters(list, { searchQuery: '', activeLeague: 'premier league' })
     expect(ligue.length).toBe(0)
+  })
+})
+
+describe('filtres <-> URL (E19)', () => {
+  it('aller-retour complet avec tous les filtres', () => {
+    const state = {
+      activeLeague: 'premier league',
+      activeDate: 'Next 3 Days',
+      dominantFilter: 'ou',
+      searchQuery: 'arsenal',
+    }
+    const qs = buildFilterSearch(state)
+    expect(qs.startsWith('?')).toBe(true)
+    expect(parseFilterSearch(qs)).toEqual(state)
+  })
+
+  it('aucun filtre actif -> querystring vide -> parse aux valeurs par défaut', () => {
+    expect(buildFilterSearch({})).toBe('')
+    expect(parseFilterSearch('')).toEqual({
+      activeLeague: 'ALL',
+      activeDate: 'Today',
+      dominantFilter: 'ALL',
+      searchQuery: '',
+    })
+  })
+
+  it('valeurs invalides rejetées silencieusement (URL manuellement éditée)', () => {
+    const p = parseFilterSearch('?date=Blah&marche=hack&ligue=%20x')
+    expect(p.activeDate).toBe('Today')
+    expect(p.dominantFilter).toBe('ALL')
+    expect(p.activeLeague).toBe(' x') // ligues = chaîne libre, trim via norm
+  })
+
+  it('recherche avec accents/espaces survit à lencodage', () => {
+    const qs = buildFilterSearch({ searchQuery: 'Atlético Madrid' })
+    expect(parseFilterSearch(qs).searchQuery).toBe('Atlético Madrid')
+  })
+
+  it('leagueDisplayLabel nomme joliment les selections epinglees', () => {
+    expect(leagueDisplayLabel('premier league')).toBe('Angleterre : Premier League')
+    expect(leagueDisplayLabel('botola')).toBe('Maroc : Botola Pro')
+    expect(leagueDisplayLabel('Esiliiga')).toBe('Esiliiga') // ligue dynamique inchangee
   })
 })

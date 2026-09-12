@@ -6893,3 +6893,31 @@ proba MARCHE devigguee (odds 2.10 -> 45% affiche, pas le 60% brut du modele).
 ? jest 86 suites / 850 passed (13 nouveaux dashboardFilters) ; eslint 0 (les
 4 warnings Sidebar sont preexistants, morts) ; vite build 6.9 s OK ; module
 serve par le dev-server verifie (grep dashboardFilters).
+
+## E19 Dashboard : filtres persistes dans l'URL + confort (2026-09-12)
+
+Prolongement E18 (ameliorements dashboard) :
+1. ETAT DES FILTRES Dans L'URL (replaceState via navigate replace) :
+   ?ligue=&date=&marche=&q= — etat initial lu au mount (parseFilterSearch,
+   valeurs invalide->defauts silencieux), sync automatique a chaque changement.
+   Un lien partage un etat exact ; F5 ne perd plus ligue/date/onglet/recherche.
+2. Raccourcis clavier : '/' focus la recherche (sauf si deja dans un champ),
+   Echap vide + blur. Placeholder mis a jour.
+3. Pill ligue desormas NOM JOLI (leagueDisplayLabel : 'premier league' ->
+   'Angleterre : Premier League', ligues dynamiques inchangees) — pills ET
+   empty-state.
+4. Titre de section adapte en vue LIVE ('MATCHS EN DIRECT' au lieu de
+   'TOUS LES MATCHS'), renderMatchList(list, counts, title).
+
+Helpers purs ajoutes a utils/dashboardFilters.js : parseFilterSearch,
+buildFilterSearch, leagueDisplayLabel, VALID_DATES/VALID_MARKETS.
+Tests : +5 cas URL/label (18/18 dashboardFilters).
+
+Note flakiness CONFIRMEE (pas une regression) : system.test.js et
+mlPredictionService.status.test.js passent 22/22 en 5 s mais LEAKENT des
+handles async (retry timers PythonService) -> jest full sans --forceExit peut
+forcer la sortie worker apres timeout et rapporter des faux echecs. Lancer
+'jest --forceExit' (ou isoler) pour un signal fiable.
+
+? jest --forceExit 86 suites / 855 passed ; eslint 0 ; vite build 8.8 s OK ;
+module servi verifie (parseFilterSearch present sur le dev-server).

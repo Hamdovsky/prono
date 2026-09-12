@@ -6615,3 +6615,197 @@ fichiers. P�rim�tre valid� : phases 1-3 (enriched_predictions.js laiss�e
 
 ### Bundle de sauvegarde
 - R�g�n�r� en fin de session (backups/stitch-main-*.bundle), historique complet.
+
+---
+
+## Fix Affichage `Score 0'' constant - MatchCard (session 2026-09-12)
+
+Cause racine (double perte de precision) :
+- `src/utils/matchAnalysis.js` : domScore = dominantBest.score.toFixed(0) -> un score EV
+  (0.5 a 1.2) etait tronque a 0 ou 1 dans le payload domPayload (ligne 14).
+- `src/components/MatchCard.jsx` : displayScore = (score * relFactor).toFixed(0) ->
+  deuxieme troncature ->toujours `0''.
+
+Correctif :
+- payload domScore en toFixed(2) (precision EV conservee).
+- Affichage index 0-100+ : Math.round(score * relFactor * 100). Semantique :
+  ~100 = cote equitable (EV neutre), <100 = valeur attendue diminuee par la fiabilite
+  reelle du bracket. `Score 0'' n'est plus jamais possible pour un pick reel.
+
+Non touche (volontairement, by design) :
+- Colonnes `--'' (HT/FT, AH, QM, cotes) = pas de marche reel Sofascore sur les petites
+  ligues -> mode `est. modele'' (honesty gate).
+- Badge `reel ~=45% (64)'' / `ech. insuffisant'' = precision mesuree du backtest,
+  systeme d'honnetete intentional (ne pas masquer).
+
+? Jest 83 suites / 816 tests verts ; matchAnalysis.test.js 26/26 (contrat payload 4
+parts intact). HMR localhost:5173 -> verifier visuellement les bannières
+MEILLEUR PRONOSTIC.
+
+## Fix Onglets marche vides (`Aucun match pour le marche 1X2 / Over/Under'') (session 2026-09-12)
+
+Cause racine (src/components/Dashboard.jsx) : le filtre d'onglet testait le marché
+DOMINANT unique du match (r[13] = max EV parmi win/btts/ou/ht/corners). En mode
+`est. modele'' (aucune cote reelle, cas de toutes les petites ligues du jour),
+winner/btts/ou exigent des cotes reelles dans matchAnalysis (makeEntry gate) ->
+jamais dominants ; HT/Corners (ev sans cotes) raflent tout -> onglets 1X2/O-U vides.
+
+Correctif : filtre par DISPONIBILITE de prediction du marche (cellules brutes non
+'--') via helper MARKET_CELLS + hasMarketPrediction ; chipCount idem (comptage par
+marche, plus par domChip). Map uppercase {OU,1X2,DC,...} supprimee (code mort :
+dominantFilter ne prend que les cles minuscules des boutons).
+
+? eslint 0 erreur ; vite build OK ; jest matchAnalysis 26/26 (inchanges).
+A verifier visuellement : onglets 1X2 / Over/Under affichent des compteurs > 0.
+
+## Suite Onglets marche : filtres non discriminants -> seuils de confiance par marche (2026-09-12)
+
+Retour utilisateur : apres le filtre `cellule disponible'', les 6 onglets affichaient
+tous (441) et la meme liste -> boutons `ne marchent pas''.
+
+Nouvelle semantique (src/components/Dashboard.jsx, helpers MARKET_MIN_PCT/marketPct) :
+- Onglet marche = pick JOUABLE dans ce marche : confiance >= seuil calibrez par marche
+  (1X2/O-U/BTTS : 55 ; 1er MT : 70 car taux naturel over ~65-75 ; Corners : dispo).
+- 1X2 = proba vainqueur PUR (la double chance r[10] ne sauve plus le seuil).
+- O/U = ligne 2.5 uniquement, meilleur cote (O1.5 decoratif et lignes hautes
+  under-force exclus).
+- Tri quand un onglet marche est actif : confiance du marche en tete, criteres
+  generaux (probs/ligue/cotes) en tie-break -> clic = liste visiblement changee.
+
+Preuve sur donnees reelles /api/upcoming (441 matchs du jour, via harnais jest
+temporaire supprime depuis) : win 118 / ou 184 / btts 359 / ht 269 / corners 441.
+
+Note session : l'ancien serveur vite (PID 13212) etait reste vivant mais n'appliquait
+plus HMR (sockets CloseWait) -> redemarre a 06:18. Ne pas conclure `code absent'' sans
+verifier le MODULE servi (curl /src/components/Dashboard.jsx).
+
+? eslint 0 erreur ; vite build OK ; jest matchAnalysis inchange (26/26).
+
+## Banniere carte = marche de l'onglet actif (marketBannerFromLines) (2026-09-12)
+
+Retour utilisateur : onglet Over/Under affiche des bannieres « MEILLEUR PRONOSTIC
+OUI 72% » (libelle BTTS/HT) -> la banniere restait calee sur le dominant global.
+
+- `src/utils/matchAnalysis.js` : NOUVEAU export `marketBannerFromLines(r, market)`
+  -> {label, pct, odds, score, dominant} construit depuis les cellules brutes :
+  win = vainqueur PUR (r[5]), btts = r[3], ht = r[6], ou = ligne 2.5 de r[11]
+  (cote la plus forte, repli r[4]), corners = r[7]/r[12] (pct seulement si dominant).
+  odds/score uniquement quand market === r[13].
+- `src/components/Dashboard.jsx` : marketPct local supprime, derive du helper
+  (semantique identique, plus de duplication); matchRowProps += activeMarket
+  (dominantFilter sauf 'ALL'), dep ajoutee; MatchRowMemo transmet a MatchCard.
+- `src/components/MatchCard.jsx` : prop `activeMarket`; banniere titre = nom du
+  marche actif (MARKET_TITLES: OVER/UNDER, GAGNANT 1X2, BTTS, 1ER MT, CORNERS) +
+  pick de CE marche; surbrillance doree (desktop/compact) deplacee sur la cellule
+  active; ligne dominante O/U suivie aussi. Vue « Tous » inchangee (payload dominant).
+  Badge fiabilite conserve tel quel (bracket = honnetete globale du match).
+- Tests : 7 cas marketBannerFromLines (pur/UNDER/repli/corners dominant/null)
+  -> matchAnalysis 33/33; suite complete 823/823; eslint OK; vite build OK.
+
+---
+
+## CAC - Contextual Adjustment Coefficient (E16, 2026-09-12, flag OFF par defaut)
+
+Integre les facteurs QUALITATIFS (absences, echeance europeenne, repos, enjeu)
+en coefficient multiplicateur PAR EQUIPE borne [0.85, 1.15], applique sur le
+triplet 1X2 final. Architecture validee : Python calcule, Node agrege/transporte,
+React affiche. ZERO migration SQL (veine fullData).
+
+### E16.1 Cerveau Python (E16 + tests)
+- `core/contextual.py` : load_weights (lru_cache, fusion config par-dessus
+  defauts embarques), contextual_enabled (CONTEXTUAL_CAC_ENABLED, style flags
+  du repo), compute_cac(team_ctx) -> {cac, factors, alerts, clamped},
+  build_team_ctx (ctx_v1 PRIORITAIRE, repli legacy: news_data ->
+  calculate_injury_impact, absence_impact*10, days_since_*), apply_contextual_cac
+  (p_h*cac_h, p_a*cac_a, renormalisation, bloc ctx_v1 complet avec prob_shift_pp).
+- `config/contextual_weights.json` : injury_per_point 0.02, europe knockout 0.05 /
+  group 0.03 (fenetre J+0.5..4.5), rest lt72 0.03 / lt48 0.06, stake TITLE +0.04 /
+  RELEGATION +0.03 / EUROPE_RACE +0.02 / DEAD_RUBBER -0.05 / FRIENDLY -0.03.
+- `tests/test_contextual.py` : 16 cas (bornes clamp, chaque facteur, fenetre
+  Europe, tiers de repos, labels stake, ctx_v1 vs legacy, flag off, renorm).
+
+### E16.2 DAO prochains matchs + repos (trou fonctionnel bouche)
+- `core/db/matches.js` : getUpcomingFixturesByTeam (fenetre J+0.5..4.5, statuts
+  scheduled/P/TIM..., normalisation s/ms en JS, LIMIT 50) et getHoursRest
+  (matches finished UNION historical_matches via strftime('%s', timestamp ISO),
+  365 j max, plafond 60 j). Smoke reel : Daegu FC fixture 12/09 OK, repos OK.
+  NB: getTeamMatchHistory(605) reste un stub (non touche, aucun consommateur).
+
+### E16.3 Agregation Node (contextService)
+- `services/contextService.js` (NOUVEAU) : buildMatchContext -> bloc ctx_v1
+  {absences (newsService, normalisees, plafonnees 12), injury_impact: NULL
+  (calcule reserve au Python), european_next (regex UEFA + stage knockout/group),
+  rest_hours, motivation (zones DMF home/away_zone -> labels stake)}.
+  Guard PG: methodes absentes de la facade -> skip silencieux.
+- `services/enriched_predictions.js` : assemblage AVANT l'appel Python (le
+  payload part avec match.context) ; mapping contextual dans l'assemblage final
+  (sans ca, champ drop avant le frontend).
+- `core/titaniumAnalyst.js` : calendrier_charge (hardcode false depuis
+  l'origine) cable sur context.teams.*.european_next.
+- Tests : `__tests__/contextService.test.js` 10 cas (UCL/UEL, knockout, hors
+  fenetre, ligue nationale, facade PG vide, absences, timestamps ms, labels).
+
+### E16.4 Injection engine
+- `core/prediction_engine.py` : import contextual ; application APRES le boost
+  PWR et AVANT apply_live_event_adjustment (l'ajustement live garde le dernier
+  mot ; la renormalisation existante absorbe) ; serialization
+  `"contextual": block or {"enabled": False}` a cote de motivation_signature.
+- `.env.example` : CONTEXTUAL_CAC_ENABLED=documente (defaut off).
+
+### E16.5 Frontend
+- `UltimateMatchCenter` : panneau CAC (vert) au-dessus de PIXELRAG : cac_home/
+  cac_away, impact prob_shift_pp, alertes FR par cote, chips facteurs colores
+  (delta +/-), liste absences (ctx_v1). Affiche seulement si enabled.
+- `MatchCard` : puce `⚖️ cac·cac` a cote du badge fiabilite (compact+desktop),
+  tooltip details. `Dashboard` : contextualInfo={m.contextual} via MatchRowMemo.
+- Pas de changement matchAnalysis.js (le modal lit m.context/m.contextual directs).
+
+### Verifications
+- pytest venv complet : 397 passed / 35 skipped / 0 failed (le systeme python
+  global n'a pas fastapi/streamlit -> TOUJOURS lancer .venv\Scripts\python).
+- jest : 84 suites / 833 passed (les 4 echecs d'un run parallele a pytest
+  400 s = flaky CPU/DB, reverifie verts seuls).
+- eslint 0 erreur (3 warnings preexistants matches.js) ; vite build OK ;
+  node --check OK.
+- RESTE A FAIRE : backtest A/B sur live_prediction_journal.jsonl (journal ne
+  porte PAS encore le bloc contextual -> a câbler dans LivePredictionJournal si
+  on veut l'A/B), puis decider CONTEXTUAL_CAC_ENABLED=on en prod Render.
+
+## E16.(1) CAC dans LivePredictionJournal — tracking A/B (2026-09-12)
+
+### Shadow mode Python (condition sine qua non de l'A/B)
+- `core/contextual.py::apply_contextual_cac` : le bloc est desormais TOUJOURS
+  calcule (contre-factuel cac_home/cac_away, facteurs, alertes, prob_shift_pp=0
+  en shadow), multiplie les probs UNIQUEMENT si CONTEXTUAL_CAC_ENABLED=on.
+  block['enabled'] = applique ; block['shadow'] = observe. block n'est plus
+  jamais None (garde l'appelant inchantee).
+- UI non impactee : panneau modale + puce MatchCard exiges sur enabled=true.
+- pytest : test_disabled_by_default remplace par 2 cas (shadow block +
+  contre-factuel 0.85/1.04 sans toucher aux probs) -> test_contextual 17/17.
+
+### Journal JSONL (schema additif, consommateurs par cles nommees)
+- `services/scrapers/LivePredictionJournal.js` :
+  - `summarizeContextual(ev)` : compacte ev.contextual (bloc Python) +
+    ev.context (ctx_v1) -> {applied, shadow, cac_home/away, factors
+    ['side:type(delta)'], alerts: nb, teams {euro 'UCL J+3', rest_h, motivation,
+    absences}} ; null si rien (lignes anciennes).
+  - recordEvents : champ additionnel `contextual` par ligne.
+  - resolve : propage `cac:{applied,shadow,cac_home,cac_away,alerts}` dans
+    les lignes results (pas de re-join necessaire).
+  - stats : nouvelle tranche `byCac:[{mode: applied|shadow|none, n, hit,
+    hitRate}]` exposee par GET /api/flash-odds/calibration.
+  - `LPJ_DIR` env override (tests) sur data/.
+- `services/scrapers/SofascoreBypass.js` : `hydrateContext(events)` avant
+  recordEvents — relit getMatchById(id) puis repli 'livescore_'+id (fullData
+  etale) pour attacher context/contextual persistes au pre-match ; cache 60 s ;
+  jamais bloquant. Node ne calcule RIEN (transport seul, cerveau unique Python).
+- Tests : `__tests__/livePredictionJournal.test.js` 4 cas (compaction
+  shadow+ctx_v1, null sans source, applied propague, tranches stats) —
+  necessite `jest.mock('fs', requireActual)` (setup.js mocke fs globalement).
+
+### Verifications
+- jest 85 suites / 837 passed ; pytest venv 402 passed / 0 failed ; eslint 0 ;
+  node --check OK. (Jest+pytest jamais paralleles : run combine = flaky.)
+- PROCHAINE ETAPE (2) : laisser tourner en shadow qques jours, lire
+  byCac sur /api/flash-odds/calibration, puis CONTEXTUAL_CAC_ENABLED=on sur
+  Render (Dashboard -> Environment) si les tranches convergent.

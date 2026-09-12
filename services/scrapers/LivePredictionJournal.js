@@ -17,7 +17,10 @@
 const path = require('path')
 const fs = require('fs')
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data')
+// LPJ_DIR (tests uniquement) : redirige les JSONL hors du dépôt.
+const DATA_DIR = process.env.LPJ_DIR
+  ? path.resolve(process.env.LPJ_DIR)
+  : path.join(__dirname, '..', '..', 'data')
 const JOURNAL = path.join(DATA_DIR, 'live_prediction_journal.jsonl')
 const RESULTS = path.join(DATA_DIR, 'live_prediction_results.jsonl')
 
@@ -77,6 +80,44 @@ function extractPrediction(ev) {
 }
 
 /**
+ * Résumé contextuel A/B (CAC) pour le journal.
+ * Sources : ev.contextual = bloc Python (shadow TOUJOURS calculé, core/
+ * contextual.py) et ev.context = ctx_v1 persisté (fullData), hydratés par
+ * SofascoreBypass avant recordEvents. Aucune valeur de calcul ici — le
+ * journal ne fait que compacter ce que Python a produit (règle : un seul
+ * cerveau).
+ */
+function summarizeContextual(ev) {
+  const blk = ev && ev.contextual ? ev.contextual : null
+  const ctx = ev && ev.context && ev.context.teams ? ev.context : null
+  if (!blk && !ctx) return null
+  const out = {}
+  if (blk) {
+    out.applied = !!blk.enabled
+    out.shadow = !!blk.shadow
+    out.cac_home = blk.cac_home != null ? blk.cac_home : null
+    out.cac_away = blk.cac_away != null ? blk.cac_away : null
+    out.factors = (Array.isArray(blk.factors) ? blk.factors : [])
+      .map((f) => `${f.side}:${f.type}${f.delta != null ? `(${f.delta})` : ''}`)
+      .slice(0, 8)
+    out.alerts = (blk.alerts?.home || []).length + (blk.alerts?.away || []).length
+  }
+  if (ctx) {
+    out.teams = {}
+    for (const side of ['home', 'away']) {
+      const t = ctx.teams[side] || {}
+      out.teams[side] = {
+        euro: t.european_next ? `${t.european_next.comp || 'EURO'} J+${t.european_next.gap_days ?? '?'}` : null,
+        rest_h: t.rest_hours != null ? t.rest_hours : null,
+        motivation: t.motivation || 'STANDARD',
+        absences: (t.absences || []).length,
+      }
+    }
+  }
+  return out
+}
+
+/**
  * Enregistre les snapshots de prédiction pour les events live.
  * Non bloquant (n'empêche jamais la réponse d'arriver).
  * @param {Array} events
@@ -106,6 +147,7 @@ function recordEvents(events) {
         awayScore: ev.awayScore,
         statusType: ev.statusType || null,
         ...pred,
+        contextual: summarizeContextual(ev),
         resolved: false,
       })
     }
@@ -145,6 +187,17 @@ function resolve(eventId, finalHome, finalAway) {
       pickCorrect: r.pick.includes('OVER') ? finalOver === 1 : r.pick.includes('UNDER') ? finalOver === 0 : null,
       overBetWon: r.over25 >= 0.55 ? finalOver === 1 : null,
       underBetWon: r.under25 >= 0.55 ? finalOver === 0 : null,
+      // Tranche A/B CAC : propager le résumé (applied/shadow/none) pour que
+      // stats() groupe sans re-joindre le journal (lignes anciennes -> null).
+      cac: r.contextual
+        ? {
+            applied: !!r.contextual.applied,
+            shadow: r.contextual.shadow === true && r.contextual.applied === false,
+            cac_home: r.contextual.cac_home != null ? r.contextual.cac_home : null,
+            cac_away: r.contextual.cac_away != null ? r.contextual.cac_away : null,
+            alerts: r.contextual.alerts || 0,
+          }
+        : null,
     }
     done.add(r.recordId)
     appendLine(RESULTS, outcome)
@@ -179,6 +232,7 @@ function stats() {
   const results = readLines(RESULTS)
   const byBucket = {}
   const byPick = { 'OVER 2.5': { n: 0, hit: 0 }, 'UNDER 2.5': { n: 0, hit: 0 } }
+  const byCac = { applied: { n: 0, hit: 0 }, shadow: { n: 0, hit: 0 }, none: { n: 0, hit: 0 } }
   for (const r of results) {
     const prob = r.pick.includes('OVER') ? r.predictedOver : r.under25 != null ? 1 - r.predictedOver : r.predictedOver
     const b = bucket(prob)
@@ -190,6 +244,10 @@ function stats() {
       byPick[key].n++
       if (r.pickCorrect === true) byPick[key].hit++
     }
+    // Tranche A/B CAC (shadow = calculé mais NON appliqué).
+    const cacKey = !r.cac ? 'none' : r.cac.applied ? 'applied' : r.cac.shadow ? 'shadow' : 'none'
+    byCac[cacKey].n++
+    if (r.pickCorrect === true) byCac[cacKey].hit++
   }
   const totalN = results.length
   const totalHit = results.filter((r) => r.pickCorrect === true).length
@@ -208,6 +266,12 @@ function stats() {
     byPick: Object.keys(byPick).map((k) => {
       const { n, hit } = byPick[k]
       return { pick: k, n, hit, hitRate: n ? Math.round((hit / n) * 100) : null }
+    }),
+    // A/B CAC : applied (flag ON) vs shadow (calculé, non appliqué) vs none
+    // (pré-E16 ou hydratation indisponible). Affiché par /api/flash-odds/calibration.
+    byCac: Object.keys(byCac).map((k) => {
+      const { n, hit } = byCac[k]
+      return { mode: k, n, hit, hitRate: n ? Math.round((hit / n) * 100) : null }
     }),
     journalSnapshot: new Date().toISOString(),
   }

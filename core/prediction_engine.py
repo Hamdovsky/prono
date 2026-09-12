@@ -56,6 +56,7 @@ from predictor import (
     apply_live_event_adjustment, calculate_ah_dnb_probs,
 )
 from post_processor import generate_strategic_brief, get_tube_pct
+from contextual import apply_contextual_cac
 
 # --- New module imports ---
 from xg_engine import (
@@ -756,6 +757,11 @@ def process_prediction(match_obj: dict) -> dict:
             p_sum_pwr = p_h + p_d + p_a
             p_h, p_d, p_a = p_h/p_sum_pwr, p_d/p_sum_pwr, p_a/p_sum_pwr
 
+    # CAC contextuel (0.85-1.15 PAR EQUIPE sur p_home/p_away) — agrège absences,
+    # échéance européenne J+3/4, repos <72h et enjeu (ctx_v1 / core/contextual.py).
+    # Flag CONTEXTUAL_CAC_ENABLED=on, défaut OFF (backtest journal avant activation).
+    p_h, p_d, p_a, contextual_block = apply_contextual_cac(match_obj, p_h, p_d, p_a)
+
     # Live Adjustment
     p_h, p_d, p_a, live_alerts = apply_live_event_adjustment(match_obj, p_h, p_d, p_a)
     p_sum_final = p_h + p_d + p_a
@@ -1150,6 +1156,7 @@ def process_prediction(match_obj: dict) -> dict:
         "backup_market": str(backup_label),
         "backup_confidence": float(backup_conf),
         "motivation_signature": str(motivation_signature),
+        "contextual": contextual_block or {"enabled": False},
         "twin_match_dna": twin_dna,
         "twin_match_verdict": twin_verdict,
         "baseline_fallback": _attach_baseline_fallback(match_obj, xg_h, xg_a),

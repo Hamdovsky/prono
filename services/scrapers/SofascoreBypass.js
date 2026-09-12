@@ -122,6 +122,41 @@ async function getOdds(eventId) {
 const LIVE_TTL = 15 * 1000 // 15s — cotes live évoluent en direct
 let liveCache = { ts: 0, events: [] }
 
+// Hydratation contexte CAC pour le journal A/B (E16.①) : ev.context (ctx_v1
+// assemblé au pré-match) et ev.contextual (bloc shadow Python) relus depuis
+// la DB locale (fullData éparpillé par getMatchById). Cache 60 s + repli
+// 'livescore_' ; JAMAIS bloquant — le journal accepte un contexte absent.
+const ctxCache = new Map()
+async function hydrateContext(events) {
+  const database = require('../core/database')
+  for (const ev of events || []) {
+    if (!ev || ev.id == null || ev.context || ev.contextual) continue
+    const key = String(ev.id)
+    const hit = ctxCache.get(key)
+    if (hit && Date.now() < hit.expiresAt) {
+      if (hit.context) ev.context = hit.context
+      if (hit.contextual) ev.contextual = hit.contextual
+      continue
+    }
+    try {
+      let row = await database.getMatchById(ev.id)
+      if (!row || (!row.context && !row.contextual)) {
+        row = (await database.getMatchById(`livescore_${ev.id}`)) || row
+      }
+      const entry = {
+        context: row?.context || null,
+        contextual: row?.contextual || null,
+        expiresAt: Date.now() + 60000,
+      }
+      ctxCache.set(key, entry)
+      if (entry.context) ev.context = entry.context
+      if (entry.contextual) ev.contextual = entry.contextual
+    } catch (_) {
+      /* contexte optionnel : jamais bloquant pour le flux live */
+    }
+  }
+}
+
 /**
  * Matchs en direct + cotes 1X2 temps réel via le bypass Python (curl_cffi).
  * Cache court (15s) car ces cotes changent en direct. Jamais d'exception.
@@ -135,6 +170,7 @@ async function getLiveEvents() {
     // Journal de calibrage (point 3) : non bloquant, ne perturbe jamais la réponse.
     try {
       const Journal = require('./LivePredictionJournal')
+      await hydrateContext(res.events)
       Journal.recordEvents(res.events)
     } catch (_) {
       /* journal jamais bloquant */

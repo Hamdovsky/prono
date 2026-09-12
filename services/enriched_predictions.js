@@ -551,6 +551,17 @@ class EnrichedPredictionService {
         } catch (e) {}
       }
 
+      // 1.5 Contexte ctx_v1 (carburant du CAC) — assemblé AVANT l'appel Python
+      // pour que core/contextual.py lise match.context (ctx_v1 prioritaire).
+      try {
+        const { buildMatchContext } = require('./contextService')
+        const database = require('../core/database')
+        match.context = await buildMatchContext(match, newsIntel, database)
+        if (match.context) trace.step('Context ctx_v1')
+      } catch (e) {
+        trace.error('Context', e.message)
+      }
+
       // 2. Market Intelligence and Python Prediction
       const pythonResult = await this.getAnalyticalPrediction(match, timeoutMs)
       trace.step('Python Prediction', { success: pythonResult?.success })
@@ -652,6 +663,7 @@ class EnrichedPredictionService {
         backup_market: pythonResult?.backup_market || match.backup_market || null,
         btts_prob: pythonResult?.btts_prob || match.btts_prob || null,
         ou_25_prob: pythonResult?.ou_25_prob || match.ou_25_prob || null,
+        contextual: pythonResult?.contextual || match.contextual || null,
         power_score: pythonResult?.power_score || 70,
         verdict: pythonResult?.verdict || 'STRONG BET',
         enriched: {

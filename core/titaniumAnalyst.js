@@ -175,7 +175,9 @@ function buildInputForMatch(match) {
       ]
         .filter(Boolean)
         .join('; '),
-      calendrier_charge: false,
+      calendrier_charge: Boolean(
+        match.context?.teams?.home?.european_next || match.context?.teams?.away?.european_next
+      ),
       meteo: match.weather_desc
         ? `${match.weather_desc || ''} (${match.weather_temp ?? ''}°C)`
         : '',

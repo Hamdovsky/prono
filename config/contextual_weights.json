@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "bounds": { "min": 0.85, "max": 1.15 },
+  "injury_per_point": 0.02,
+  "europe_next": { "knockout": 0.05, "group": 0.03, "min_gap_days": 0.5, "max_gap_days": 4.5 },
+  "rest_hours": { "lt48": 0.06, "lt72": 0.03 },
+  "stake": {
+    "TITLE": 0.04,
+    "RELEGATION": 0.03,
+    "EUROPE_RACE": 0.02,
+    "STANDARD": 0.0,
+    "DEAD_RUBBER": -0.05,
+    "FRIENDLY": -0.03
+  }
+}

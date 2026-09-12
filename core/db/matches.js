@@ -629,6 +629,68 @@ function createMatchesDao(db) {
         return null
       }
     },
+
+    // ── Contexte CAC (2026-09-12) : prochaine rencontre + heures de repos ──
+    // Timestamps stockés en s OU ms (selon ingest) -> normalisation JS après
+    // une fenêtre SQL large (avant - 1 an / après + 7 j) pour éviter tout
+    // Comparateur SQL fragile.
+    getUpcomingFixturesByTeam: async (teamName, fromTs, toTs) => {
+      try {
+        const name = teamName?.toLowerCase()?.trim()
+        if (!name) return []
+        const sec = (t) => (t > 1e11 ? t / 1000 : t)
+        const from = sec(fromTs)
+        const to = sec(toTs)
+        const rows = db
+          .prepare(
+            `
+                  SELECT id, league, tournament_name, homeTeam, awayTeam, startTimestamp
+                  FROM matches
+                  WHERE (LOWER(homeTeam) = ? OR LOWER(awayTeam) = ?)
+                    AND startTimestamp > 0
+                    AND LOWER(COALESCE(status, 'scheduled')) IN ('scheduled', 'p', 'notstarted', 'tim', 'upcoming')
+                  ORDER BY startTimestamp ASC
+                  LIMIT 50
+              `
+          )
+          .all(name, name)
+        return rows
+          .map((r) => ({ ...r, ts: sec(r.startTimestamp) }))
+          .filter((r) => r.ts >= from && r.ts <= to)
+      } catch (e) {
+        return []
+      }
+    },
+    getHoursRest: async (teamName, matchTs) => {
+      try {
+        const name = teamName?.toLowerCase()?.trim()
+        if (!name || !matchTs) return null
+        const sec = (t) => (t > 1e11 ? t / 1000 : t)
+        const target = sec(matchTs)
+        const rows = db
+          .prepare(
+            `
+                  SELECT startTimestamp AS ts FROM matches
+                   WHERE (LOWER(homeTeam) = ? OR LOWER(awayTeam) = ?)
+                     AND LOWER(COALESCE(status, '')) IN ('ft', 'finished', 'ended', 'settled', 'aet')
+                  UNION ALL
+                  SELECT CAST(strftime('%s', timestamp) AS INTEGER) AS ts FROM historical_matches
+                   WHERE (LOWER(homeTeam) = ? OR LOWER(awayTeam) = ?)
+              `
+          )
+          .all(name, name, name, name)
+        let last = 0
+        for (const r of rows) {
+          const t = sec(r.ts)
+          if (t > 0 && t < target && t > target - 365 * 86400 && t > last) last = t
+        }
+        if (!last) return null
+        const hours = (target - last) / 3600
+        return hours > 0 && hours < 24 * 60 ? Math.round(hours * 10) / 10 : null
+      } catch (e) {
+        return null
+      }
+    },
     archiveFinishedMatches: async () => {
       try {
         const finished = db

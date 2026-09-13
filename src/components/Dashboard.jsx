@@ -16,7 +16,11 @@ import {
   buildFilterSearch,
   leagueDisplayLabel,
   applyQualityFilters,
+  computeQualitySummary,
+  buildCsv,
+  norm,
 } from '../utils/dashboardFilters'
+import { loadFavorites, saveFavorites, matchHasFavorite } from '../utils/favorites'
 import { TABLE_COLUMNS, mcColumnsCss, MC_COLS_FALLBACK } from '../utils/tableColumns'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
@@ -101,7 +105,7 @@ const bandOf = (conf) => {
 // ligue (activeLeague) était réglé par la Sidebar mais jamais appliqué, et les
 // compteurs d'onglets variaient avec l'onglet actif.
 
-const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracketMap, activeMarket }) => {
+const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracketMap, activeMarket, activeIndex, favorites, onToggleFavorite }) => {
   const m = list[index]
   if (!m) return null
   const ts = m.startTimestamp
@@ -138,6 +142,9 @@ const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracket
       activeMarket={activeMarket}
       contextualInfo={m.contextual}
       divergenceInfo={m.market_divergence}
+      favoriteOn={matchHasFavorite(m, favorites)}
+      onToggleFavorite={onToggleFavorite}
+      active={index === activeIndex}
     />
   )
 })
@@ -165,12 +172,49 @@ const Dashboard = () => {
   const [dominantFilter, setDominantFilter] = useState(initialFilters?.dominantFilter ?? 'ALL')
   const [onlyRealOdds, setOnlyRealOdds] = useState(initialFilters?.onlyRealOdds ?? false)
   const [hideNoBet, setHideNoBet] = useState(initialFilters?.hideNoBet ?? false)
+  const [onlyFavorites, setOnlyFavorites] = useState(initialFilters?.onlyFavorites ?? false)
+  const [favorites, setFavorites] = useState(() => loadFavorites())
+  const [activeIndex, setActiveIndex] = useState(-1)
   const [liveMatches, setLiveMatches] = useState([])
   const [containerWidth, setContainerWidth] = useState(0)
+  const listRef = useRef(null)
   const containerRef = useRef(null)
   const searchRef = useRef(null)
 
-  // Sync filtres -> URL (replace, pas d'historique spam) — E19/E20.
+  // Étoile « Mes équipes » (E21-B) : suit les DEUX équipes du match (ajoute
+  // ou retire les deux ensemble) — persistée en localStorage.
+  const handleToggleFavorite = useCallback((home, away) => {
+    setFavorites((prev) => {
+      const teams = [home, away].filter(Boolean)
+      const keys = teams.map(norm)
+      const isFav = keys.length > 0 && keys.every((k) => prev.some((t) => norm(t) === k))
+      const next = isFav
+        ? prev.filter((t) => !keys.includes(norm(t)))
+        : [...prev, ...teams.filter((team) => !prev.some((t) => norm(t) === norm(team)))]
+      saveFavorites(next)
+      return next
+    })
+  }, [])
+
+  // Export CSV de la vue courante (E21-D) — BOM UTF-8 pour Excel FR.
+  const exportCsv = useCallback((list) => {
+    try {
+      const csv = String.fromCharCode(0xfeff) + buildCsv(list)
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `hamdi-pronos-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 2000)
+    } catch (e) {
+      console.warn('[CSV] export impossible:', e?.message || e)
+    }
+  }, [])
+
+  // Sync filtres -> URL (replace, pas d'historique spam) — E19/E20/E21.
   // Le match ouvert (modale) fait partie de l'état partageable (E20-C).
   useEffect(() => {
     const qs = buildFilterSearch({
@@ -180,12 +224,23 @@ const Dashboard = () => {
       searchQuery,
       onlyRealOdds,
       hideNoBet,
+      onlyFavorites,
       matchId: selectedMatch?.id ?? null,
     })
     if (window.location.search !== qs) {
       navigate({ search: qs }, { replace: true })
     }
-  }, [activeLeague, activeDate, dominantFilter, searchQuery, onlyRealOdds, hideNoBet, selectedMatch, navigate])
+  }, [
+    activeLeague,
+    activeDate,
+    dominantFilter,
+    searchQuery,
+    onlyRealOdds,
+    hideNoBet,
+    onlyFavorites,
+    selectedMatch,
+    navigate,
+  ])
 
   // Deep link ?match=<id> (E20-C) : ouvre la modale dès que la liste est là.
   const [pendingMatchId] = useState(initialFilters?.matchId ?? null)
@@ -339,11 +394,20 @@ const Dashboard = () => {
     // activeLeague n'était jamais appliqué).
     const nowMs = Date.now()
     const dateFiltered = selectEligibleMatches(matches, activeDate, nowMs)
-    return applyQualityFilters(applyBaseFilters(dateFiltered, { searchQuery, activeLeague }), {
-      onlyRealOdds,
-      hideNoBet,
-    })
-  }, [matches, activeDate, searchQuery, activeLeague, onlyRealOdds, hideNoBet])
+    return applyQualityFilters(
+      applyBaseFilters(dateFiltered, { searchQuery, activeLeague, onlyFavorites, favorites }),
+      { onlyRealOdds, hideNoBet }
+    )
+  }, [
+    matches,
+    activeDate,
+    searchQuery,
+    activeLeague,
+    onlyRealOdds,
+    hideNoBet,
+    onlyFavorites,
+    favorites,
+  ])
 
   const allMatchesList = useMemo(() => {
     return applyMarketFilter(baseList, dominantFilter)
@@ -400,11 +464,14 @@ const Dashboard = () => {
   // recherche/ligue/onglet marché étaient ignorés sur les matchs en direct).
   const liveBaseList = useMemo(
     () =>
-      applyQualityFilters(applyBaseFilters(liveMatches, { searchQuery, activeLeague }), {
-        onlyRealOdds,
-        hideNoBet,
-      }),
-    [liveMatches, searchQuery, activeLeague, onlyRealOdds, hideNoBet]
+      applyQualityFilters(
+        applyBaseFilters(liveMatches, { searchQuery, activeLeague, onlyFavorites, favorites }),
+        {
+          onlyRealOdds,
+          hideNoBet,
+        }
+      ),
+    [liveMatches, searchQuery, activeLeague, onlyRealOdds, hideNoBet, onlyFavorites, favorites]
   )
   const liveFilteredList = useMemo(
     () => applyMarketFilter(liveBaseList, dominantFilter),
@@ -421,9 +488,53 @@ const Dashboard = () => {
       compact: isMobile,
       bracketMap,
       activeMarket: dominantFilter === 'ALL' ? null : dominantFilter,
+      activeIndex,
+      favorites,
+      onToggleFavorite: handleToggleFavorite,
     }),
-    [allMatchesList, handleSelectMatch, isMobile, bracketMap, dominantFilter]
+    [
+      allMatchesList,
+      handleSelectMatch,
+      isMobile,
+      bracketMap,
+      dominantFilter,
+      activeIndex,
+      favorites,
+      handleToggleFavorite,
+    ]
   )
+
+  // Navigation clavier de la liste (E21-A) : ↑/↓ déplacent la surbrillance,
+  // Entrée ouvre la modale. Désactivée modale ouverte (elle a ses ←/→) et
+  // dans les champs de saisie.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (selectedMatch) return
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return
+      const len = allMatchesList.length
+      if (!len) return
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        const n = Math.min(activeIndex + 1, len - 1)
+        setActiveIndex(n)
+        listRef.current?.scrollToRow?.({ index: n, align: 'auto' })
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const n = Math.max(activeIndex - 1, 0)
+        setActiveIndex(n)
+        listRef.current?.scrollToRow?.({ index: n, align: 'auto' })
+      } else if (e.key === 'Enter' && activeIndex >= 0 && allMatchesList[activeIndex]) {
+        setSelectedMatch(allMatchesList[activeIndex])
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [allMatchesList, activeIndex, selectedMatch])
+
+  // Changement de vue : la sélection clavier repart à zéro.
+  useEffect(() => {
+    setActiveIndex(-1)
+  }, [activeDate, activeLeague, dominantFilter, searchQuery, onlyFavorites, onlyRealOdds, hideNoBet])
 
   // Compteurs d'onglets TOUJOURS calculés sur la liste de base (sans filtre
   // marché) — sinon ils variaient à chaque clic d'onglet (corrigé E18).
@@ -435,13 +546,15 @@ const Dashboard = () => {
     setDominantFilter('ALL')
     setOnlyRealOdds(false)
     setHideNoBet(false)
+    setOnlyFavorites(false)
   }, [])
   const anyFilterActive =
     activeLeague !== 'ALL' ||
     !!searchQuery ||
     dominantFilter !== 'ALL' ||
     onlyRealOdds ||
-    hideNoBet
+    hideNoBet ||
+    onlyFavorites
 
   const renderMatchList = (list, counts = chipCount, title = '📊 TOUS LES MATCHS') => {
     const ROW_H = isMobile ? 124 : 56
@@ -466,9 +579,42 @@ const Dashboard = () => {
       flexShrink: 0,
     })
 
+    const stats = computeQualitySummary(list)
+
     return (
       <div className="onyx-list-section">
-        <div className="onyx-section-title global">{title} ({list.length})</div>
+        <div
+          className="onyx-section-title global"
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}
+        >
+          <span>{title} ({list.length})</span>
+          <span
+            style={{ fontSize: '9px', color: '#64748b', fontWeight: 700, letterSpacing: '0.3px', textTransform: 'none' }}
+            title="Santé de la vue : matchs avec les 3 cotes 1X2 réelles / sous veto du moteur (E17) / CAC appliqué (E16)"
+          >
+            · {stats.realOdds} cotes réelles · {stats.vetoed} vetés
+            {stats.cacApplied > 0 ? ` · ${stats.cacApplied} CAC` : ''}
+          </span>
+          <button
+            onClick={() => exportCsv(list)}
+            disabled={list.length === 0}
+            title="Exporter la vue courante (CSV, séparateur ';' Excel, BOM UTF-8)"
+            style={{
+              marginLeft: 'auto',
+              fontSize: '9px',
+              fontWeight: 800,
+              padding: '2px 8px',
+              borderRadius: '8px',
+              border: '1px solid rgba(56,189,248,0.35)',
+              background: 'rgba(56,189,248,0.08)',
+              color: '#38bdf8',
+              cursor: list.length === 0 ? 'not-allowed' : 'pointer',
+              opacity: list.length === 0 ? 0.4 : 1,
+            }}
+          >
+            ⬇ CSV
+          </button>
+        </div>
         <div style={{ display: 'flex', gap: '6px', padding: '6px 8px', flexWrap: 'wrap', alignItems: 'center', overflowX: 'visible', whiteSpace: 'nowrap' }}>
           {filters.map((f) => {
             const count = f === 'ALL' ? list.length : (counts[f] || 0)
@@ -511,6 +657,15 @@ const Dashboard = () => {
             >
               ✅ Sans veto
             </button>
+            {favorites.length > 0 && (
+              <button
+                onClick={() => setOnlyFavorites((v) => !v)}
+                style={qualityPillStyle(onlyFavorites, '#fbbf24')}
+                title={`Mes équipes (${favorites.length} suivies) — ${favorites.slice(0, 12).join(', ')}${favorites.length > 12 ? '…' : ''}`}
+              >
+                ⭐ Mes équipes{onlyFavorites ? '' : ` (${favorites.length})`}
+              </button>
+            )}
           </span>
         </div>
         {anyFilterActive && (
@@ -552,6 +707,24 @@ const Dashboard = () => {
                 }}
               >
                 🔍 {searchQuery} ✕
+              </button>
+            )}
+            {onlyFavorites && (
+              <button
+                onClick={() => setOnlyFavorites(false)}
+                title="Retirer le filtre favoris"
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  border: '1px solid #fbbf24',
+                  background: 'rgba(251,191,36,0.12)',
+                  color: '#fbbf24',
+                  cursor: 'pointer',
+                }}
+              >
+                ⭐ Mes équipes ✕
               </button>
             )}
             {dominantFilter !== 'ALL' && (
@@ -671,6 +844,7 @@ const Dashboard = () => {
           )}
           <div style={{ height: virtualHeight }}>
             <List
+              ref={listRef}
               height={virtualHeight}
               rowCount={list.length}
               rowHeight={ROW_H}
@@ -697,6 +871,8 @@ const Dashboard = () => {
           onLeagueChange={handleLeagueChange}
           activeDate={activeDate}
           onDateChange={handleDateChange}
+          favorites={favorites}
+          onToggleFavorite={handleToggleFavorite}
         />
         <main className="titanium-main">
           <LoadingSkeleton type="page" label="SYNCING GLOBAL DATA SENSORS..." />
@@ -715,6 +891,8 @@ const Dashboard = () => {
           onLeagueChange={handleLeagueChange}
           activeDate={activeDate}
           onDateChange={handleDateChange}
+          favorites={favorites}
+          onToggleFavorite={handleToggleFavorite}
         />
         <main className="titanium-main">
           <div className="onyx-error-container">
@@ -738,6 +916,8 @@ const Dashboard = () => {
         onLeagueChange={handleLeagueChange}
         activeDate={activeDate}
         onDateChange={handleDateChange}
+        favorites={favorites}
+        onToggleFavorite={handleToggleFavorite}
       />
       {isMobile && sidebarOpen && (
         <div
@@ -875,6 +1055,10 @@ const Dashboard = () => {
         <Suspense fallback={null}>
           <UltimateMatchCenter
             match={selectedMatch}
+            navList={allMatchesList}
+            onNavigate={handleSelectMatch}
+            favorites={favorites}
+            onToggleFavorite={handleToggleFavorite}
             onClose={() => setSelectedMatch(null)}
             reliability={
               selectedMatch?.confidence && bracketMap[bandOf(selectedMatch.confidence)]

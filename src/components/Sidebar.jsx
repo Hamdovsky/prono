@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useI18n } from '../contexts/I18nContext'
 import { selectEligibleMatches } from '../utils/timeFilter'
 import { PINNED_LEAGUES, MENA_LEAGUES } from '../data/leagues'
+import { norm } from '../utils/dashboardFilters'
 import dataService from '../services/dataService'
 import './Sidebar.css'
 
@@ -18,6 +19,8 @@ const Sidebar = ({
   activeDate,
   onDateChange,
   isOpen = true,
+  favorites = [],
+  onToggleFavorite,
 }) => {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
@@ -127,6 +130,12 @@ const Sidebar = ({
 
       return { activeCounts: counts, pinnedWithCounts, menaWithCounts, otherLeagues, totalFilteredMatches }
     }, [matches, activeDate])
+
+  // Fenetre temporelle courante, reusee pour compter les matchs des equipes favorites.
+  const favEligible = useMemo(
+    () => (favorites.length ? selectEligibleMatches(matches || [], activeDate, Date.now()) : []),
+    [favorites, matches, activeDate]
+  )
 
   return (
     <aside className={`flash-sidebar ${isOpen ? '' : 'collapsed'}`}>
@@ -513,6 +522,53 @@ const Sidebar = ({
             </div>
           )}
       </div>
+
+      {favorites.length > 0 && (
+        <div className="flash-nav-section">
+          <h3
+            className="flash-section-title"
+            style={{ color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            ⭐ MES ÉQUIPES
+          </h3>
+          {favorites.map((team) => {
+            const k = norm(team)
+            const n = (favEligible || []).filter(
+              (m) => norm(m.homeTeam) === k || norm(m.awayTeam) === k
+            ).length
+            return (
+              <div
+                key={team}
+                className="flash-nav-item"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default' }}
+              >
+                <span className="flash-label" title={team} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {team}
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span className="flash-count">{n}</span>
+                  {onToggleFavorite && (
+                    <button
+                      onClick={() => onToggleFavorite(team, '')}
+                      title={`Ne plus suivre ${team}`}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#64748b',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        padding: 0,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       <div
         className="flash-nav-section"

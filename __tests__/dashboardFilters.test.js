@@ -153,12 +153,12 @@ describe('filtres <-> URL (E19)', () => {
       searchQuery: 'arsenal',
       onlyRealOdds: true,
       hideNoBet: true,
+      onlyFavorites: true,
       matchId: '15353112',
     }
     const qs = buildFilterSearch(state)
     expect(qs.startsWith('?')).toBe(true)
-    const back = parseFilterSearch(qs)
-    expect(back).toEqual({ ...state, matchId: '15353112' })
+    expect(parseFilterSearch(qs)).toEqual(state)
   })
 
   it('aucun filtre actif -> querystring vide -> parse aux valeurs par défaut', () => {
@@ -170,6 +170,7 @@ describe('filtres <-> URL (E19)', () => {
       searchQuery: '',
       onlyRealOdds: false,
       hideNoBet: false,
+      onlyFavorites: false,
       matchId: null,
     })
   })
@@ -222,5 +223,48 @@ describe('filtres qualite (E20-B)', () => {
     expect(
       mk.applyQualityFilters(list, { onlyRealOdds: true, hideNoBet: true }).map((m) => m.id)
     ).toEqual([withOdds.id, clean.id])
+  })
+})
+
+describe('stats de la vue + CSV + favoris (E21)', () => {
+  const { computeQualitySummary, buildCsv, CSV_HEADER } = require('../src/utils/dashboardFilters')
+
+  const withOdds = mkMatch({ odds_home: '1.9', odds_draw: '3.5', odds_away: '3.9' })
+  const noOdds = mkMatch({ odds_home: null, odds_draw: null, odds_away: null })
+  const vetoed = mkMatch({ market_divergence: { flagged: true } })
+  const cac = mkMatch({ contextual: { enabled: true, cac_home: 0.91, cac_away: 1.04 } })
+
+  it('computeQualitySummary compte chaque dimension', () => {
+    expect(computeQualitySummary([withOdds, noOdds, vetoed, cac])).toEqual({
+      total: 4,
+      realOdds: 3,
+      vetoed: 1,
+      cacApplied: 1,
+    })
+    expect(computeQualitySummary([])).toEqual({ total: 0, realOdds: 0, vetoed: 0, cacApplied: 0 })
+    expect(computeQualitySummary(null).total).toBe(0)
+  })
+
+  it('buildCsv: en-tete, une ligne par match, echappement', () => {
+    const lines = buildCsv([withOdds]).split('\r\n')
+    expect(lines[0]).toBe(CSV_HEADER.join(';'))
+    expect(lines.length).toBe(2)
+    expect(lines[1]).toContain('3. Liga')
+    expect(lines[1]).toContain('1.9')
+    const tricky = buildCsv([mkMatch({ league: 'Liga; "Spa"' })]).split('\r\n')[1]
+    expect(tricky.startsWith('"Liga; ""Spa"""')).toBe(true)
+  })
+
+  it('buildCsv survit a un element null', () => {
+    expect(buildCsv([withOdds, null]).split('\r\n').length).toBe(3)
+  })
+
+  it('applyBaseFilters avec favoris (E21-B)', () => {
+    const a = mkMatch({ homeTeam: 'Paris FC', awayTeam: 'Lyon' })
+    const b = mkMatch({ homeTeam: 'Nice', awayTeam: 'Marseille' })
+    const base = { searchQuery: '', activeLeague: 'ALL' }
+    expect(applyBaseFilters([a, b], base).length).toBe(2)
+    expect(applyBaseFilters([a, b], { ...base, onlyFavorites: true, favorites: ['LYON'] })).toEqual([a])
+    expect(applyBaseFilters([a, b], { ...base, onlyFavorites: true, favorites: [] }).length).toBe(0)
   })
 })

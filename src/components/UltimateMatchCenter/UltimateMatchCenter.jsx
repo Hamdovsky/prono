@@ -4,16 +4,36 @@ import { calculateEV, analyzeValue } from '../../services/InsightEngine'
 import PlayerProps from '../PlayerProps/PlayerProps'
 import { analyzeMatch } from '../../utils/matchAnalysis'
 import dataService from '../../services/dataService'
+import { matchHasFavorite } from '../../utils/favorites'
 
-const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
-  // Escape key to close
+const UltimateMatchCenter = ({
+  match,
+  onClose,
+  reliability: relData,
+  navList = [],
+  onNavigate,
+  favorites = [],
+  onToggleFavorite,
+}) => {
+  // Escape to close ; ←/→ navigation entre matchs de la vue courante (E21-A).
+  const idx = navList.findIndex((m) => m?.id === match?.id)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose()
+      if (!onNavigate || navList.length < 2 || idx < 0) return
+      if (e.key === 'ArrowLeft' && idx > 0) {
+        e.preventDefault()
+        onNavigate(navList[idx - 1])
+      } else if (e.key === 'ArrowRight' && idx < navList.length - 1) {
+        e.preventDefault()
+        onNavigate(navList[idx + 1])
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [onClose, onNavigate, navList, idx])
+
+  const isFavorite = matchHasFavorite(match, favorites)
 
   const analysis = useMemo(() => analyzeMatch(match), [match])
 
@@ -143,6 +163,82 @@ const UltimateMatchCenter = ({ match, onClose, reliability: relData }) => {
         <button className="umc-close-btn" onClick={onClose}>
           ×
         </button>
+
+        {/* E21 : étoile favoris + navigation ‹ › dans la vue (←/→ clavier) */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            zIndex: 5,
+          }}
+        >
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={() => onToggleFavorite(match.homeTeam, match.awayTeam)}
+              title={isFavorite ? 'Ne plus suivre ces équipes' : 'Suivre ces équipes'}
+              style={{
+                background: 'rgba(15,23,42,0.6)',
+                border: '1px solid rgba(251,191,36,0.4)',
+                borderRadius: 8,
+                color: isFavorite ? '#fbbf24' : '#64748b',
+                fontSize: 15,
+                lineHeight: 1,
+                padding: '4px 8px',
+                cursor: 'pointer',
+              }}
+            >
+              {isFavorite ? '★' : '☆'}
+            </button>
+          )}
+          {onNavigate && idx >= 0 && (
+            <>
+              <button
+                type="button"
+                disabled={idx === 0}
+                onClick={() => idx > 0 && onNavigate(navList[idx - 1])}
+                aria-label="Match précédent"
+                title="Match précédent (←)"
+                style={{
+                  background: 'rgba(15,23,42,0.6)',
+                  border: '1px solid rgba(148,163,184,0.3)',
+                  borderRadius: 8,
+                  color: idx === 0 ? '#334155' : '#94a3b8',
+                  fontSize: 13,
+                  padding: '3px 9px',
+                  cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                disabled={idx >= navList.length - 1}
+                onClick={() => idx < navList.length - 1 && onNavigate(navList[idx + 1])}
+                aria-label="Match suivant"
+                title="Match suivant (→)"
+                style={{
+                  background: 'rgba(15,23,42,0.6)',
+                  border: '1px solid rgba(148,163,184,0.3)',
+                  borderRadius: 8,
+                  color: idx >= navList.length - 1 ? '#334155' : '#94a3b8',
+                  fontSize: 13,
+                  padding: '3px 9px',
+                  cursor: idx >= navList.length - 1 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                ›
+              </button>
+              <span style={{ fontSize: 9, color: '#64748b' }}>
+                {idx + 1}/{navList.length}
+              </span>
+            </>
+          )}
+        </div>
 
         {/* ── HEADER ── */}
         <div className="umc-header">

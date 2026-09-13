@@ -53,7 +53,7 @@ const solidGoldenStyle = (isSolid) => isSolid
     }
   : {}
 
-const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction, activeMarket, contextualInfo, divergenceInfo }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction, activeMarket, contextualInfo, divergenceInfo, active = false, favoriteOn = false, onToggleFavorite }) => {
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
     const domChip = lines[13] || null
@@ -230,9 +230,20 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
 
   if (compact) {
     return (
-      <div className={`match-card mc-compact${solidClass}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
+      <div className={`match-card mc-compact${solidClass}${active ? ' mc-active' : ''}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
         <div className="mcc-top">
           <div className="mcc-league">
+            <button
+              type="button"
+              className={`mc-fav${favoriteOn ? ' on' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (onToggleFavorite) onToggleFavorite(d.home, d.away)
+              }}
+              aria-label="Suivre ces équipes"
+            >
+              {favoriteOn ? '★' : '☆'}
+            </button>
             <span className="mcc-league-name">{d.league}</span>
             {solidBadge}
             {relBadge}
@@ -303,7 +314,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
   const displayScore = banner && banner.score != null && banner.score !== '--' ? String(Math.round(parseFloat(banner.score) * relFactor * 100)) : null
 
   return (
-    <div className={`match-card mc-grid${solidClass}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
+    <div className={`match-card mc-grid${solidClass}${active ? ' mc-active' : ''}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
       <div className="mc-col-info">
         {isLive && (
           <div className="mc-live-banner">
@@ -366,6 +377,18 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
       {/* Colonne TOP ⭐ (E20) : largeur fixe, ellipsis — le détail (score,
           marché actif, cote) passe en tooltip pour ne plus casser l'alignement. */}
       <div className="mc-cell mc-top">
+        <button
+          type="button"
+          className={`mc-fav${favoriteOn ? ' on' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (onToggleFavorite) onToggleFavorite(d.home, d.away)
+          }}
+          title={favoriteOn ? 'Ne plus suivre ces équipes' : 'Suivre ces équipes (Mes équipes)'}
+          aria-label="Suivre ces équipes"
+        >
+          {favoriteOn ? '★' : '☆'}
+        </button>
         {banner ? (
           <div
             className="mc-top-in"

@@ -10,6 +10,7 @@
  */
 import { computeRawLines, marketBannerFromLines } from '../utils/matchAnalysis'
 import { ALL_LEAGUE_DEFS } from '../data/leagues'
+import { matchHasFavorite } from './favorites'
 
 export const norm = (s) =>
   String(s || '')
@@ -95,9 +96,20 @@ export function computeChipCounts(list) {
   return counts
 }
 
-/** Liste de base : recherche + ligue (le filtre temporel reste au Dashboard). */
-export const applyBaseFilters = (list, { searchQuery, activeLeague }) =>
-  (list || []).filter((m) => searchMatches(m, searchQuery) && leagueMatches(m, activeLeague))
+/**
+ * Liste de base : recherche + ligue + favoris (le filtre temporel reste au
+ * Dashboard).
+ */
+export const applyBaseFilters = (
+  list,
+  { searchQuery, activeLeague, onlyFavorites = false, favorites = [] } = {}
+) =>
+  (list || []).filter(
+    (m) =>
+      searchMatches(m, searchQuery) &&
+      leagueMatches(m, activeLeague) &&
+      (!onlyFavorites || matchHasFavorite(m, favorites))
+  )
 
 /** Filtre marché (onglet actif). */
 export const applyMarketFilter = (list, dominantFilter) => {
@@ -140,6 +152,7 @@ export function parseFilterSearch(search) {
     searchQuery: p.get('q') || '',
     onlyRealOdds: p.get('odds') === '1',
     hideNoBet: p.get('clean') === '1',
+    onlyFavorites: p.get('fav') === '1',
     matchId: p.get('match') || null,
   }
 }
@@ -152,6 +165,7 @@ export function buildFilterSearch({
   searchQuery = '',
   onlyRealOdds = false,
   hideNoBet = false,
+  onlyFavorites = false,
   matchId = null,
 } = {}) {
   const p = new URLSearchParams()
@@ -161,6 +175,7 @@ export function buildFilterSearch({
   if (searchQuery) p.set('q', searchQuery)
   if (onlyRealOdds) p.set('odds', '1')
   if (hideNoBet) p.set('clean', '1')
+  if (onlyFavorites) p.set('fav', '1')
   if (matchId) p.set('match', String(matchId))
   const s = p.toString()
   return s ? `?${s}` : ''
@@ -173,4 +188,67 @@ export function leagueDisplayLabel(selection) {
     if (def.keywords.length && norm(def.keywords[0]) === s) return def.name
   }
   return selection
+}
+
+// ── Bandeau de stats de la vue courante (E21-C) ──
+export function computeQualitySummary(list) {
+  const out = { total: 0, realOdds: 0, vetoed: 0, cacApplied: 0 }
+  for (const m of list || []) {
+    out.total++
+    if (hasRealOdds(m)) out.realOdds++
+    if (hasVeto(m)) out.vetoed++
+    if (m?.contextual?.enabled === true) out.cacApplied++
+  }
+  return out
+}
+
+// ── Export CSV de la vue (E21-D) — separateur ';' (Excel FR), echappement RFC ──
+const csvCell = (v) => {
+  const s = v == null ? '' : String(v)
+  return /[;",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+}
+
+export const CSV_HEADER = [
+  'Ligue', 'Date', 'Domicile', 'Exterieur', 'TOP',
+  'BTTS', 'O/U', '1X2', '1er MT', 'Corners',
+  'Cote 1', 'Cote X', 'Cote 2', 'Veto', 'CAC dom', 'CAC ext',
+]
+
+export function buildCsv(list) {
+  const lines = [CSV_HEADER.join(';')]
+  for (const m of list || []) {
+    let r = []
+    try {
+      r = toRawLines(m)
+    } catch {
+      r = []
+    }
+    const rawTs = Number(m?.startTimestamp) || 0
+    const ts = rawTs > 1e11 ? rawTs : rawTs * 1000
+    const when = rawTs ? new Date(ts).toLocaleString('fr-FR') : ''
+    const top = r[14] ? String(r[14]).split('|').slice(0, 2).join(' ') : ''
+    lines.push(
+      [
+        m?.league || m?.tournament_name || '',
+        when,
+        m?.homeTeam || '',
+        m?.awayTeam || '',
+        top,
+        r[3] || '',
+        r[4] || '',
+        r[5] || '',
+        r[6] || '',
+        r[7] || '',
+        m?.odds_home || '',
+        m?.odds_draw || '',
+        m?.odds_away || '',
+        hasVeto(m) ? 'OUI' : '',
+        m?.contextual?.enabled ? m.contextual.cac_home : '',
+        m?.contextual?.enabled ? m.contextual.cac_away : '',
+      ]
+        .map(csvCell)
+        .join(';')
+    )
+  }
+  return lines.join('\r\n')
 }

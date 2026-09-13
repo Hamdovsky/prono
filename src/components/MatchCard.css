@@ -616,3 +616,31 @@
   font-size: 9px;
   flex-shrink: 0;
 }
+
+/* ── E21 : étoile « Mes équipes » + surbrillance navigation clavier ── */
+.mc-fav {
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  color: #475569;
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.1s;
+}
+.mc-fav:hover {
+  color: #fbbf24;
+  transform: scale(1.15);
+}
+.mc-fav.on {
+  color: #fbbf24;
+}
+.mcc-league .mc-fav {
+  font-size: 11px;
+}
+.match-card.mc-active {
+  outline: 1px solid #0ea5e9;
+  outline-offset: -1px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(10, 15, 30, 0.85) 100%);
+}

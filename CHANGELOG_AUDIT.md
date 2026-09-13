@@ -6968,3 +6968,51 @@ Tests : dashboardFilters 21/21 (+3 qualite, URL etendue). Flakiness CONFIRMEE
 encore une fois : system + mlPredictionService.status dependent de l'etat du
 service python 8000 local (charge du cron d'enrichissement) -> run complet
 repete = 86/86 suites, 858/858 ; vite build 7.3 s ; eslint 0.
+
+## E21 Dashboard : favoris, navigation clavier, stats de vue, export CSV (2026-09-13)
+
+A. NAVIGATION CLAVIER
+- Liste (Dashboard) : ↑/↓ déplacent la surbrillance (classe mc-active,
+  scroll auto via listRef.current.scrollToRow — API imperative react-window
+  v2), Entrée ouvre la modale ; neutralisé dans les champs de saisie et
+  pendant la modale ; reset a -1 a chaque changement de vue.
+- Modale (UltimateMatchCenter) : props navList/onNavigate — ←/→ changent de
+  match dans la vue courante + boutons ‹ › et compteur 'i/n' (toolbar
+  absolue top-left, .umc-modal est relative) ; Escape reste fermer.
+
+B. MES ÉQUIPES (favoris par équipe, localStorage 'hp_favorites')
+- `src/utils/favorites.js` (NOUVEAU, pur, store injectable) : load/save/
+  toggleFavorite/matchHasFavorite — norm LOCAL (pas d'import dashboardFilters :
+  evite le cycle dashboardFilters <-> favorites, dashboardFilters important
+  matchHasFavorite pour le filtre).
+- Étoile ☆/★ : colonne TOP des cartes desktop + rangée league compact ;
+  toggle = les DEUX equipes du match ensemble (stopPropagation) ; idem bouton
+  dans la modale.
+- Pill '⭐ Mes équipes' (n) dans la barre d'onglets (visible si favoris>0),
+  chip dans filtres actifs, reset inclus, URL 'fav=1' (parse/build).
+- Sidebar : section 'MES ÉQUIPES' (chips équipe + nb matchs de la fenetre
+  temporelle active + ✕ retrait). Props favorites/onToggleFavorite sur les
+  3 sites Sidebar du Dashboard.
+
+C. BANDEAU STATS DE VUE (ligne de titre)
+- computeQualitySummary(list) pur : total · cotes réelles · vetés · CAC
+  appliqué ; tooltip explicatif.
+
+D. EXPORT CSV
+- buildCsv(list) pur (dashboardFilters) : 16 colonnes (ligue, date fr,
+  équipes, TOP 'label|pct', BTTS/O-U/1X2/1er MT/Corners, cotes 1X2, veto,
+  CAC), separateur ';' (Excel FR), echappement RFC (;, ", saut de ligne),
+  CRLF ; exportCsv cote UI = Blob + BOM UTF-8 (String.fromCharCode(0xfeff))
+  + lien telechargeable daté. Bouton '⬇ CSV' désactivé si vue vide.
+
+Incident de session (documente, aucun degat) : un python -c inline PS a
+ouvert Dashboard.jsx en 'w' avec newline invalide -> ValueError APRES
+troncature (fichier 0 o). Recuperation propre via git checkout (E20 intact,
+~12 edits E21 refaits) ; les autres fichiers n'avaient pas ete touches.
+REGLE retenue : jamais de ouverture 'w' en inline shell — toujours lire +
+valider le contenu AVANT d'ecrire, via fichiers scripts. eslint += globals
+Blob/URL/File (defaut no-undef sur env browser non configure pour src).
+
+? eslint 0 erreur (4 warnings preexistants) ; jest --forceExit 87 suites /
+869 passed (+7 favorites, +4 filtres/CSV) ; vite build 4.2 s ; module
+favorites servi par le dev-server verifie.

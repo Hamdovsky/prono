@@ -6921,3 +6921,22 @@ forcer la sortie worker apres timeout et rapporter des faux echecs. Lancer
 
 ? jest --forceExit 86 suites / 855 passed ; eslint 0 ; vite build 8.8 s OK ;
 module servi verifie (parseFilterSearch present sur le dev-server).
+
+### E16-E19 post-deploiement local (2026-09-13, operations)
+- Constat : le stack local (start.bat/concurrently) etait MORT depuis ~21:50 du
+  12/09 (port 3001 sans ecoute; vite 5173 survivait seul, relance 06:18).
+  D'ou : 1092 lignes de journal posterieures a E16 sans contextual = ancien code
+  en memoire, PAS un bug E16.
+- Redemarrage complet via start.bat (kill cible + 9 services). Ports verifies :
+  3001 (API), 5173 (UI stack = E19 servi, verifie par grep du module),
+  8000 (ML, /health 200), 8501 (Command Center), 30002 (PixelRAG).
+- Round-trip E2E /api/predict (Arsenal-Chelsea synthetique) : bloc
+  `context ctx_v1` ATTACHE par enrichMatch avec vrai repos DB (42.8 h) ->
+  cote Node prouve. Cote Python : premier infer = 138 s (cold), puis 0.5-3 s
+  (tiède) ; le timeout Node 60 s fait basculer les fixtures inconnues en
+  QUANTUM_JS_FALLBACK (contextual null attendu dans ce cas, pas un defaut
+  E16 : la serialization est derriere le pipeline complet).
+- Les lignes `contextual` du journal live apparaitront des la prochaine
+  fenetre de matchs EN DIRECT (0 live a 14:50 dim.) ; les lignes 'none' de
+  byCac (1985) sont l'historique pre-E16. A relire demain soir : n shadow > 0
+  et presence eventuelle de 'applied' si CONTEXTUAL_CAC_ENABLED est active.

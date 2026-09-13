@@ -7016,3 +7016,31 @@ Blob/URL/File (defaut no-undef sur env browser non configure pour src).
 ? eslint 0 erreur (4 warnings preexistants) ; jest --forceExit 87 suites /
 869 passed (+7 favorites, +4 filtres/CSV) ; vite build 4.2 s ; module
 favorites servi par le dev-server verifie.
+
+## E21b Local : redemarrage stack + backfill context (2026-09-13, session 'je travaille localement')
+
+Constats a l'arrivee : UI 5173 OK (servait E21) mais API 3001 ASPHYXIEE
+(event loop bloque : pile CloseWait, health 6 s sans reponse, logs SHIELD
+'2/23 proxies' = meme cause) et DEUX uvicorn (venv + Python312 global) se
+battaient sur 8000. Nettoyage par scripts/stop_local_services.ps1 (12
+processus) puis start.bat : API 11 ms, ML up 15 s (uvicorn unique).
+
+Gap reel trouve par la preuve DB : /api/scan-today OK mais AUTO-ENRICH
+fastMode '35 deja enrichis, 0 a traiter' -> 0 ligne avec ctx_v1 sur 848
+scheduled -> hydration du journal impossible -> shadow E16 jamais alimente
+pour les lignes existantes (les NOUVELLES lignes, elles, recevront context
++ contextual via enrichMatch normal).
+
+Fix : NOUVEAU `scripts/backfill_context.js` — 100 % local (zero reseau),
+buildMatchContext (european_next via DAO fixtures, rest_hours via DAO,
+motivation label, absences vides, injury_impact null = cerveau Python) puis
+mergeFullData(id,'context'). Dry first, puis 848/848 ecrits.
+
+Preuve finale : feed /api/upcoming = 382 lignes, 382 avec ctx_v1, rest_hours
+reels sur 369, european_next 0 (fenetre J+0.5..4.5 sans CL/EL pour ces
+ligues mineures — legitime ce soir). Des les prochains live (windows Amerique
+du Sud/Asie), les lignes du journal porteront contextual(applied=false,
+shadow avec teams+euro) -> les tranches byCac se rempliront.
+
+? eslint du script inclus dans la passe ; backfill idempotent (saute deja
+en ctx_v1) ; a relancer occasionnellement apres purge de la DB.

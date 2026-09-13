@@ -303,26 +303,10 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
   const displayScore = banner && banner.score != null && banner.score !== '--' ? String(Math.round(parseFloat(banner.score) * relFactor * 100)) : null
 
   return (
-    <div className={`match-card${solidClass}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
-      {banner && (
-        <div className="mc-dominant-banner">
-          <span className="mc-dominant-label">
-            {activeBanner ? MARKET_TITLES[activeMarket] || 'MEILLEUR PRONOSTIC ⭐' : 'MEILLEUR PRONOSTIC ⭐'}
-          </span>
-          <span className="mc-dominant-pick">{banner.label}</span>
-          {banner.pct != null && banner.pct > 0 && (
-            <span className="mc-dominant-pct">{Math.round(banner.pct)}%</span>
-          )}
-          {banner.odds && banner.odds !== '--' && (
-            <span className="mc-dominant-odds">@{banner.odds}</span>
-          )}
-          {displayScore != null && (
-            <span className="mc-dominant-score">Score {displayScore}</span>
-          )}
-        </div>
-      )}
-      {isLive && (
-        <div className="mc-live-banner">
+    <div className={`match-card mc-grid${solidClass}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
+      <div className="mc-col-info">
+        {isLive && (
+          <div className="mc-live-banner">
           <span className="mc-live-minute">🔴 {liveMinute}'</span>
           {liveStats?.possession && (
             <>
@@ -375,6 +359,27 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           <div className="mc-time" style={{ color: '#ef4444', fontWeight: 900 }}>🔴 {liveMinute}'</div>
         ) : timeLabel ? (
           <div className="mc-time">{timeLabel}</div>
+        ) : null}
+        </div>
+      </div>
+
+      {/* Colonne TOP ⭐ (E20) : largeur fixe, ellipsis — le détail (score,
+          marché actif, cote) passe en tooltip pour ne plus casser l'alignement. */}
+      <div className="mc-cell mc-top">
+        {banner ? (
+          <div
+            className="mc-top-in"
+            title={`${activeBanner ? MARKET_TITLES[activeMarket] || 'PICK DU MARCHÉ' : 'MEILLEUR PRONOSTIC'} — ${banner.label}${banner.odds && banner.odds !== '--' ? ` @${banner.odds}` : ''}${displayScore != null ? ` · Score ${displayScore}` : ''}`}
+          >
+            <span className="mc-top-star">⭐</span>
+            <span className="mc-dominant-pick">{banner.label}</span>
+            {banner.pct != null && banner.pct > 0 && (
+              <span className="mc-dominant-pct">{Math.round(banner.pct)}%</span>
+            )}
+            {banner.odds && banner.odds !== '--' && (
+              <span className="mc-dominant-odds">@{banner.odds}</span>
+            )}
+          </div>
         ) : null}
       </div>
 

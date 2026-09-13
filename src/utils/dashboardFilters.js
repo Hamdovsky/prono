@@ -113,6 +113,18 @@ export const applyMarketFilter = (list, dominantFilter) => {
   })
 }
 
+// ── Filtres qualité (E20-B) : cotes réelles et veto du moteur ──
+export const hasRealOdds = (m) =>
+  parseFloat(m?.odds_home) > 1 && parseFloat(m?.odds_draw) > 1 && parseFloat(m?.odds_away) > 1
+export const hasVeto = (m) =>
+  !!m?.market_divergence?.flagged ||
+  /no.?bet/i.test(String(m?.verdict || '')) ||
+  /no_bet|no bet/i.test(String(m?.status || ''))
+export const applyQualityFilters = (list, { onlyRealOdds = false, hideNoBet = false } = {}) =>
+  (list || []).filter(
+    (m) => (!onlyRealOdds || hasRealOdds(m)) && (!hideNoBet || !hasVeto(m))
+  )
+
 // ── État des filtres <-> URL (E19 : partageables et résistants au refresh) ──
 export const VALID_DATES = ['Today', 'Tomorrow', 'Next 3 Days', 'Next 7 Days']
 export const VALID_MARKETS = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners']
@@ -126,6 +138,9 @@ export function parseFilterSearch(search) {
     activeDate: VALID_DATES.includes(date) ? date : 'Today',
     dominantFilter: VALID_MARKETS.includes(marche) ? marche : 'ALL',
     searchQuery: p.get('q') || '',
+    onlyRealOdds: p.get('odds') === '1',
+    hideNoBet: p.get('clean') === '1',
+    matchId: p.get('match') || null,
   }
 }
 
@@ -135,12 +150,18 @@ export function buildFilterSearch({
   activeDate = 'Today',
   dominantFilter = 'ALL',
   searchQuery = '',
+  onlyRealOdds = false,
+  hideNoBet = false,
+  matchId = null,
 } = {}) {
   const p = new URLSearchParams()
   if (activeLeague && activeLeague !== 'ALL') p.set('ligue', activeLeague)
   if (activeDate && activeDate !== 'Today') p.set('date', activeDate)
   if (dominantFilter && dominantFilter !== 'ALL') p.set('marche', dominantFilter)
   if (searchQuery) p.set('q', searchQuery)
+  if (onlyRealOdds) p.set('odds', '1')
+  if (hideNoBet) p.set('clean', '1')
+  if (matchId) p.set('match', String(matchId))
   const s = p.toString()
   return s ? `?${s}` : ''
 }

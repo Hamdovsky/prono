@@ -151,10 +151,14 @@ describe('filtres <-> URL (E19)', () => {
       activeDate: 'Next 3 Days',
       dominantFilter: 'ou',
       searchQuery: 'arsenal',
+      onlyRealOdds: true,
+      hideNoBet: true,
+      matchId: '15353112',
     }
     const qs = buildFilterSearch(state)
     expect(qs.startsWith('?')).toBe(true)
-    expect(parseFilterSearch(qs)).toEqual(state)
+    const back = parseFilterSearch(qs)
+    expect(back).toEqual({ ...state, matchId: '15353112' })
   })
 
   it('aucun filtre actif -> querystring vide -> parse aux valeurs par défaut', () => {
@@ -164,6 +168,9 @@ describe('filtres <-> URL (E19)', () => {
       activeDate: 'Today',
       dominantFilter: 'ALL',
       searchQuery: '',
+      onlyRealOdds: false,
+      hideNoBet: false,
+      matchId: null,
     })
   })
 
@@ -183,5 +190,37 @@ describe('filtres <-> URL (E19)', () => {
     expect(leagueDisplayLabel('premier league')).toBe('Angleterre : Premier League')
     expect(leagueDisplayLabel('botola')).toBe('Maroc : Botola Pro')
     expect(leagueDisplayLabel('Esiliiga')).toBe('Esiliiga') // ligue dynamique inchangee
+  })
+})
+
+describe('filtres qualite (E20-B)', () => {
+  const mk = require('../src/utils/dashboardFilters')
+  const withOdds = mkMatch({ odds_home: '1.9', odds_draw: '3.5', odds_away: '3.9' })
+  const noOdds = mkMatch({ odds_home: null, odds_draw: null, odds_away: null })
+  const vetoed = mkMatch({ market_divergence: { flagged: true, edge_pp: 15 } })
+  const noBetVerdict = mkMatch({ verdict: 'NO BET (DIVERGENCE MARCHE)' })
+  const clean = mkMatch({ verdict: 'SAFE', market_divergence: { flagged: false } })
+
+  it('hasRealOdds exige les 3 cotes > 1', () => {
+    expect(mk.hasRealOdds(withOdds)).toBe(true)
+    expect(mk.hasRealOdds(noOdds)).toBe(false)
+    expect(mk.hasRealOdds(mkMatch({ odds_draw: '1.0' }))).toBe(false)
+  })
+
+  it('hasVeto detecte divergence signalee, verdict et status NO BET', () => {
+    expect(mk.hasVeto(vetoed)).toBe(true)
+    expect(mk.hasVeto(noBetVerdict)).toBe(true)
+    expect(mk.hasVeto(mkMatch({ status: 'NO_BET_OVERCONFIDENT' }))).toBe(true)
+    expect(mk.hasVeto(clean)).toBe(false)
+  })
+
+  it('applyQualityFilters combine les deux toggles', () => {
+    const list = [withOdds, noOdds, vetoed, clean]
+    expect(mk.applyQualityFilters(list, {}).length).toBe(4)
+    expect(mk.applyQualityFilters(list, { onlyRealOdds: true }).length).toBe(3)
+    expect(mk.applyQualityFilters(list, { hideNoBet: true }).length).toBe(3) // vetoed seul exclu
+    expect(
+      mk.applyQualityFilters(list, { onlyRealOdds: true, hideNoBet: true }).map((m) => m.id)
+    ).toEqual([withOdds.id, clean.id])
   })
 })

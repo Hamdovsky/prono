@@ -6940,3 +6940,31 @@ module servi verifie (parseFilterSearch present sur le dev-server).
   fenetre de matchs EN DIRECT (0 live a 14:50 dim.) ; les lignes 'none' de
   byCac (1985) sont l'historique pre-E16. A relire demain soir : n shadow > 0
   et presence eventuelle de 'applied' si CONTEXTUAL_CAC_ENABLED est active.
+
+## E20 Dashboard : grille alignee + filtres qualite + deep link + badge live (2026-09-13)
+
+A. LAYOUT (cause racine du desalignement) : la banniere MEILLEUR PRONOSTIC
+   etait un enfant flex SANS LARGEUR -> chaque carte avec banniere decalait
+   toutes ses colonnes vs l'en-tete ; largeurs dupliquees (CSS .mc-* vs
+   literals Dashboard). Fix : `src/utils/tableColumns.js` SOURCE UNIQUE
+   (10 colonnes fr, TOP | 13fr inclus) ; .match-card.mc-grid = display:grid
+   grid-template-columns: var(--mc-cols, fallback) ; banniere = colonne TOP
+   (label + pct + cote, ellipsis, score/marche complet en tooltip) ; bloc
+   match+live = mc-col-info (1re colonne). Compact mobile NON touche (pas de
+   classe mc-grid) ; fallback CSS garanti si variable absente.
+B. PILLS QUALITE (barre d'onglets, droite) : 'Cotes reelles' (3 cotes 1X2 > 1,
+   ecarte le mode est. modele) et 'Sans veto' (masque market_divergence.flagged,
+   verdict/status NO BET — suite directe d'E17). Logique pure hasRealOdds/
+   hasVeto/applyQualityFilters dans dashboardFilters.js ; appliquees a la base
+   (upcoming ET live) ; incluses dans pills actifs + reset.
+C. DEEP LINK : ?match=<id> partage la modale ouverte (sync avec selectedMatch,
+   ouverture a l'arrivee des donnees via pendingMatchId). parse/build URL etendus
+   (odds=1&clean=1&match=...) — lien complet : ?ligue=&date=&marche=&q=&odds=&clean=&match=
+D. BADGE LIVE : subscribeLive desormais PERMANENTE (etait gatee sur /live) ->
+   bouton ' 🔴 n LIVE' (pulse, aria-label) dans StatusHeader sur toutes les vues,
+   cache si 0, navigation /live.
+
+Tests : dashboardFilters 21/21 (+3 qualite, URL etendue). Flakiness CONFIRMEE
+encore une fois : system + mlPredictionService.status dependent de l'etat du
+service python 8000 local (charge du cron d'enrichissement) -> run complet
+repete = 86/86 suites, 858/858 ; vite build 7.3 s ; eslint 0.

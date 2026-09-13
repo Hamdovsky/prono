@@ -556,3 +556,63 @@
   color: rgba(148,163,184,0.3);
   margin: 0 2px;
 }
+
+/* ── E20 : liste desktop en grille, colonnes partagees avec l'en-tete ──
+   --mc-cols injecte par Dashboard (utils/tableColumns.js, source unique).
+   La bannière MEILLEUR PRONOSTIC devient une colonne TOP fixed ; le
+   detail (score, marche actif) passe en tooltip. Compact/MOBILE non touche
+   (.mc-compact n'a pas .mc-grid). */
+.mc-grid {
+  display: grid;
+  grid-template-columns: var(--mc-cols, 17fr 13fr 8fr 10fr 13fr 10fr 8fr 7fr 7fr 7fr);
+  align-items: center;
+  gap: 0;
+}
+.mc-grid > .mc-cell,
+.mc-grid .mc-match-info {
+  width: auto;
+  min-width: 0;
+}
+.mc-grid .mc-match-info { padding: 0 8px; }
+.mc-col-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+}
+.mc-grid .mc-live-banner {
+  border-bottom: 0;
+  background: none;
+  padding: 0 8px 1px;
+  font-size: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.mc-top {
+  text-align: left;
+  padding: 0 8px;
+}
+.mc-top-in {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: #ffd700;
+}
+.mc-top-star {
+  font-size: 9px;
+  flex-shrink: 0;
+}
+.mc-top .mc-dominant-pick {
+  font-size: 11px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mc-top .mc-dominant-pct,
+.mc-top .mc-dominant-odds {
+  font-size: 9px;
+  flex-shrink: 0;
+}

@@ -15,7 +15,9 @@ import {
   parseFilterSearch,
   buildFilterSearch,
   leagueDisplayLabel,
+  applyQualityFilters,
 } from '../utils/dashboardFilters'
+import { TABLE_COLUMNS, mcColumnsCss, MC_COLS_FALLBACK } from '../utils/tableColumns'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
 
@@ -30,7 +32,7 @@ const FlashOddsView = lazy(() => import('./FlashOddsView'))
 
 // 🧠 [PERF] Header extrait en sous-composant mémoïsé : il ne se re-rend que si
 // son nombre de matches (compteur) ou l'état du toggle change réellement.
-const StatusHeader = React.memo(({ count, sidebarOpen, onToggleSidebar }) => (
+const StatusHeader = React.memo(({ count, liveCount = 0, onGoLive, sidebarOpen, onToggleSidebar }) => (
   <header className="sh-bar">
     <div className="sh-left">
       <button className="sh-toggle" onClick={onToggleSidebar} aria-label="Menu">
@@ -48,6 +50,27 @@ const StatusHeader = React.memo(({ count, sidebarOpen, onToggleSidebar }) => (
     </div>
 
     <div className="sh-right">
+      {liveCount > 0 && onGoLive && (
+        <button
+          onClick={onGoLive}
+          aria-label={`${liveCount} match en direct`}
+          style={{
+            marginRight: '10px',
+            fontSize: '9px',
+            fontWeight: 900,
+            padding: '3px 9px',
+            borderRadius: '10px',
+            border: '1px solid #ef4444',
+            background: 'rgba(239,68,68,0.14)',
+            color: '#ef4444',
+            cursor: 'pointer',
+            letterSpacing: '0.5px',
+            animation: 'goldenPulse 2s ease-in-out infinite',
+          }}
+        >
+          🔴 {liveCount} LIVE
+        </button>
+      )}
       <span className="sh-cap-label">Capteurs Actifs</span>
       <span className="sh-cap-count">{count}</span>
     </div>
@@ -140,18 +163,37 @@ const Dashboard = () => {
   const [selectedMatch, setSelectedMatch] = useState(null)
   const [bracketMap, setBracketMap] = useState({})
   const [dominantFilter, setDominantFilter] = useState(initialFilters?.dominantFilter ?? 'ALL')
+  const [onlyRealOdds, setOnlyRealOdds] = useState(initialFilters?.onlyRealOdds ?? false)
+  const [hideNoBet, setHideNoBet] = useState(initialFilters?.hideNoBet ?? false)
   const [liveMatches, setLiveMatches] = useState([])
   const [containerWidth, setContainerWidth] = useState(0)
   const containerRef = useRef(null)
   const searchRef = useRef(null)
 
-  // Sync filtres -> URL (replace, pas d'historique spam) — E19.
+  // Sync filtres -> URL (replace, pas d'historique spam) — E19/E20.
+  // Le match ouvert (modale) fait partie de l'état partageable (E20-C).
   useEffect(() => {
-    const qs = buildFilterSearch({ activeLeague, activeDate, dominantFilter, searchQuery })
+    const qs = buildFilterSearch({
+      activeLeague,
+      activeDate,
+      dominantFilter,
+      searchQuery,
+      onlyRealOdds,
+      hideNoBet,
+      matchId: selectedMatch?.id ?? null,
+    })
     if (window.location.search !== qs) {
       navigate({ search: qs }, { replace: true })
     }
-  }, [activeLeague, activeDate, dominantFilter, searchQuery, navigate])
+  }, [activeLeague, activeDate, dominantFilter, searchQuery, onlyRealOdds, hideNoBet, selectedMatch, navigate])
+
+  // Deep link ?match=<id> (E20-C) : ouvre la modale dès que la liste est là.
+  const [pendingMatchId] = useState(initialFilters?.matchId ?? null)
+  useEffect(() => {
+    if (!pendingMatchId || selectedMatch) return
+    const m = matches.find((x) => String(x.id) === String(pendingMatchId))
+    if (m) setSelectedMatch(m)
+  }, [pendingMatchId, matches, selectedMatch])
 
   // Raccourci clavier : '/' focus recherche, Échap vide + désactive (E19).
   useEffect(() => {
@@ -215,17 +257,15 @@ const Dashboard = () => {
     }
   }, [])
 
-  // Subscribe to live matches when activeView is 'live'
+  // Subscription live PERMANENTE (E20-D) : alimente la vue /live mais aussi
+  // le badge 🔴 du header (visible de toutes les vues). dataService met déjà
+  // à jour les matchs terminés → la liste se vide d'elle-même.
   useEffect(() => {
-    if (activeView !== 'live') {
-      setLiveMatches([])
-      return
-    }
     const unsub = dataService.subscribeLive((data) => {
-      if (Array.isArray(data)) setLiveMatches(data)
+      setLiveMatches(Array.isArray(data) ? data : [])
     })
     return unsub
-  }, [activeView])
+  }, [])
 
   // Précision réelle par bracket de confiance (backtest /api/accuracy/report).
   // Honnête : un match à 72% de confiance affiche la précision RÉELLE du
@@ -299,8 +339,11 @@ const Dashboard = () => {
     // activeLeague n'était jamais appliqué).
     const nowMs = Date.now()
     const dateFiltered = selectEligibleMatches(matches, activeDate, nowMs)
-    return applyBaseFilters(dateFiltered, { searchQuery, activeLeague })
-  }, [matches, activeDate, searchQuery, activeLeague])
+    return applyQualityFilters(applyBaseFilters(dateFiltered, { searchQuery, activeLeague }), {
+      onlyRealOdds,
+      hideNoBet,
+    })
+  }, [matches, activeDate, searchQuery, activeLeague, onlyRealOdds, hideNoBet])
 
   const allMatchesList = useMemo(() => {
     return applyMarketFilter(baseList, dominantFilter)
@@ -356,8 +399,12 @@ const Dashboard = () => {
   // Vue LIVE : mêmes filtres que la liste principale (corrigé E18 : avant,
   // recherche/ligue/onglet marché étaient ignorés sur les matchs en direct).
   const liveBaseList = useMemo(
-    () => applyBaseFilters(liveMatches, { searchQuery, activeLeague }),
-    [liveMatches, searchQuery, activeLeague]
+    () =>
+      applyQualityFilters(applyBaseFilters(liveMatches, { searchQuery, activeLeague }), {
+        onlyRealOdds,
+        hideNoBet,
+      }),
+    [liveMatches, searchQuery, activeLeague, onlyRealOdds, hideNoBet]
   )
   const liveFilteredList = useMemo(
     () => applyMarketFilter(liveBaseList, dominantFilter),
@@ -386,8 +433,15 @@ const Dashboard = () => {
     setSearchQuery('')
     setActiveLeague('ALL')
     setDominantFilter('ALL')
+    setOnlyRealOdds(false)
+    setHideNoBet(false)
   }, [])
-  const anyFilterActive = activeLeague !== 'ALL' || !!searchQuery || dominantFilter !== 'ALL'
+  const anyFilterActive =
+    activeLeague !== 'ALL' ||
+    !!searchQuery ||
+    dominantFilter !== 'ALL' ||
+    onlyRealOdds ||
+    hideNoBet
 
   const renderMatchList = (list, counts = chipCount, title = '📊 TOUS LES MATCHS') => {
     const ROW_H = isMobile ? 124 : 56
@@ -398,6 +452,19 @@ const Dashboard = () => {
     const filters = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners']
     const filterLabels = { ALL: 'Tous', ou: 'Over/Under', win: '1X2', btts: 'BTTS', ht: '1er MT', corners: 'Corners' }
     const filterColors = { ALL: '#94a3b8', ou: '#10b981', win: '#00ffaa', btts: '#f87171', ht: '#fbbf24', corners: '#60a5fa' }
+    const qualityPillStyle = (active, color) => ({
+      fontSize: '9px',
+      fontWeight: 800,
+      padding: '3px 8px',
+      borderRadius: '12px',
+      border: `1px solid ${active ? color : 'rgba(255,255,255,0.1)'}`,
+      background: active ? `${color}18` : 'rgba(255,255,255,0.03)',
+      color: active ? color : '#64748b',
+      cursor: 'pointer',
+      letterSpacing: '0.4px',
+      textTransform: 'uppercase',
+      flexShrink: 0,
+    })
 
     return (
       <div className="onyx-list-section">
@@ -429,6 +496,22 @@ const Dashboard = () => {
               </button>
             )
           })}
+          <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '6px', flexShrink: 0 }}>
+            <button
+              onClick={() => setOnlyRealOdds((v) => !v)}
+              style={qualityPillStyle(onlyRealOdds, '#a78bfa')}
+              title="Ne garder que les matchs avec cotes 1X2 réelles (écarte le mode « est. modèle »)"
+            >
+              🎯 Cotes réelles
+            </button>
+            <button
+              onClick={() => setHideNoBet((v) => !v)}
+              style={qualityPillStyle(hideNoBet, '#34d399')}
+              title="Masquer les matchs sous veto du moteur (divergence marché E17 / NO BET)"
+            >
+              ✅ Sans veto
+            </button>
+          </span>
         </div>
         {anyFilterActive && (
           <div style={{ display: 'flex', gap: '6px', padding: '0 8px 6px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -560,11 +643,12 @@ const Dashboard = () => {
             )}
           </div>
         )}
-        <div style={{ width: '100%' }} ref={containerRef}>
+        <div style={{ width: '100%', '--mc-cols': mcColumnsCss() }} ref={containerRef}>
           {!isMobile && containerWidth > 0 && (
             <div
               style={{
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: `var(--mc-cols, ${MC_COLS_FALLBACK})`,
                 width: containerWidth,
                 borderBottom: '2px solid #1e293b',
                 padding: '8px 0',
@@ -578,31 +662,11 @@ const Dashboard = () => {
                 boxSizing: 'border-box',
               }}
             >
-              <div style={{ width: '18%', minWidth: '140px', padding: '0 8px', boxSizing: 'border-box' }}>MATCH / FORME</div>
-              <div style={{ width: '10%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
-                BTTS
-              </div>
-              <div style={{ width: '10%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
-                O/U LIGNES
-              </div>
-              <div style={{ width: '14%', minWidth: '90px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
-                GAGNANT 1X2
-              </div>
-              <div style={{ width: '12%', minWidth: '80px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
-                BUT 1ER MT
-              </div>
-              <div style={{ width: '10%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
-                CORNERS
-              </div>
-              <div style={{ width: '9%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
-                HT/FT
-              </div>
-              <div style={{ width: '9%', minWidth: '70px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
-                AH
-              </div>
-              <div style={{ width: '8%', minWidth: '60px', padding: '0 8px', textAlign: 'center', boxSizing: 'border-box' }}>
-                QUI MARQUE
-              </div>
+              {TABLE_COLUMNS.map((c) => (
+                <div key={c.key} style={{ minWidth: c.min, padding: '0 8px', boxSizing: 'border-box' }}>
+                  {c.label}
+                </div>
+              ))}
             </div>
           )}
           <div style={{ height: virtualHeight }}>
@@ -692,6 +756,8 @@ const Dashboard = () => {
       <main className="titanium-main">
         <StatusHeader
           count={allMatchesList.length}
+          liveCount={liveMatches.length}
+          onGoLive={() => navigate('/live')}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((s) => !s)}
         />

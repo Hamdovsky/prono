@@ -143,6 +143,10 @@ function createPredictionsDao(db) {
           ht_goal_prob:
             data.ht_goal_prob ?? enriched?.ht_goal_prob ?? fullData.ht_goal_prob ?? null,
           league: fullData.league ?? enriched?.league ?? data.league ?? null,
+          expected_score:
+            data.expected_score ?? enriched?.expected_score ?? fullData.expected_score ?? null,
+          expected_total_goals:
+            data.expected_total_goals ?? enriched?.expected_total_goals ?? fullData.expected_total_goals ?? null,
         })
         if (htDeriv.htPick) {
           data.ht_pick = htDeriv.htPick

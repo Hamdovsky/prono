@@ -114,10 +114,38 @@ function deriveCornerPick(src) {
 }
 
 /**
+ * Buts totaux attendus d'un match, dérivés d'un signal déjà présent
+ * (expected_total_goals / btts / ou_25_prob) ou du score attendu "h-a".
+ * Retourne null si aucun signal exploitable.
+ */
+function _expectedTotalGoals(src) {
+  const direct = src?.expected_total_goals ?? src?.expected_goals ?? src?.total_expected_goals
+  if (direct != null && Number.isFinite(Number(direct)) && Number(direct) > 0) return Number(direct)
+  const es = src?.expected_score
+  if (typeof es === 'string') {
+    const m = es.match(/(\d+(?:\.\d+)?)\s*[-:x]\s*(\d+(?:\.\d+)?)/i)
+    if (m) return parseFloat(m[1]) + parseFloat(m[2])
+  }
+  return null
+}
+
+// Flag HT_MODEL lu À L'APPEL (pas au require) -> activable runtime + testable sans
+// re-require. Defaut off : comportement strictement identique (repli prior).
+function isHtModelOn() {
+  return String(process.env.HT_MODEL || '').trim().toLowerCase() === 'on'
+}
+
+// Part des buts marquee en 1re mi-temps (constante empirique ~0.45).
+const HT_GOAL_SHARE = Number(process.env.HT_GOAL_SHARE || 0.45)
+
+/**
  * Audit « marchés supplémentaires » (2026-08-25) — dérivation du pick HT
  * (O/U 0.5 but en 1re mi-temps) au temps T. Source prioritaire :
  * quant.markets.ht.goal_yes (prob Over 0.5), sinon ht_goal_prob. Seuil 50 %.
- * Null si aucune donnée exploitable.
+ * Si HT_MODEL=on et aucune prob directe : estimation par match via les buts
+ * attendus (Poisson : P(>=1 but MT) = 1 - exp(-share * E[total])). Sinon repli
+ * prior par ligue (comportement historique, garde-fou contre l'invention).
+ * Null si aucune donnee exploitable.
  */
 function deriveHTPick(src) {
   let p = null
@@ -130,6 +158,10 @@ function deriveHTPick(src) {
   if (p == null && src?.ht_goal_prob != null) {
     const v = Number(src.ht_goal_prob)
     if (Number.isFinite(v) && v > 0) p = v <= 1 ? v * 100 : v
+  }
+  if (p == null && isHtModelOn()) {
+    const et = _expectedTotalGoals(src)
+    if (et != null && et >= 0) p = (1 - Math.exp(-HT_GOAL_SHARE * et)) * 100
   }
   if (p == null) {
     const prior = _htPrior(src?.league)
@@ -146,4 +178,6 @@ module.exports = {
   deriveBttsPick,
   deriveCornerPick,
   deriveHTPick,
+  isHtModelOn,
+  _expectedTotalGoals,
 }

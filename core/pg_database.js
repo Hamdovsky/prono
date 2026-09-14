@@ -216,6 +216,8 @@ const pgDb = {
         quant: m.fullData?.quant,
         ht_goal_prob: m.ht_goal_prob ?? m.fullData?.ht_goal_prob,
         league: m.league ?? m.fullData?.league,
+        expected_score: m.expected_score ?? m.fullData?.expected_score,
+        expected_total_goals: m.expected_total_goals ?? m.fullData?.expected_total_goals,
       })
       if (__ht.htPick) {
         m.ht_pick = __ht.htPick

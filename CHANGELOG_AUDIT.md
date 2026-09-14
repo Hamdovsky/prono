@@ -7220,3 +7220,35 @@ alimente le FUTUR et l'archive non-europeenne) ; Phase 4 brancher deriveHTPick s
 ht_model.py (vraie prob) + emettre Under/O-U2.5 reels ; Phase 3 reparer l'extracteur
 Sofascore (bloque 403 ici). jest --forceExit inchange 89/879 (script hors suite).
 Non commit (script + ticket + changelog en attente).
+(Phase 1 depuis commitée : e04d7ad chore + 31e5ab2 docs + dca7835 ticket.)
+
+## E25 Phase 4a : HT_MODEL — pick 1re mi-temps par modele (2026-09-14)
+
+Suivi docs/chantier_ht_under.md Phase 4a. Diagnostic : les picks HT etaient un
+PRIOR constant (704/751 = 69 % = HT_RATIOS.global) car deriveHTPick recoit
+ht_goal_prob NULL a la persistance (le Poisson HT existe mais n'est pas recharge).
+Complétion MINIMALE, flaggee, reversible :
+- core/marketPolicy.js : deriveHTPick ajoute une branche, UNIQUEMENT si
+  isHtModelOn() (lit process.env.HT_MODEL a l'appel, pas au require) et AUCUNE prob
+  directe (quant/ht_goal_prob gardent priorite) : p = (1 - exp(-HT_GOAL_SHARE *
+  E[total]))*100, E[total] via _expectedTotalGoals(expected_total_goals |
+  expected_score 'h-a'). HT_GOAL_SHARE defaut 0.45. Sinon repli prior (inchangé).
+- 3 sites de persistance alimentes en expected_score/expected_total_goals :
+  core/db/matches.js:64, core/pg_database.js:215, core/db/predictions.js:141.
+- .env.example : HT_MODEL=off (defaut) + HT_GOAL_SHARE documentes.
+- exports += isHtModelOn, _expectedTotalGoals.
+
+Non-regression : HT_MODEL=off par defaut -> comportement STRICTEMENT identique
+(prior). Le defaut OFF laisse la prod inchangee. Activer = decision utilisateur + backtest.
+Avec le flag ON, des 'HT UNDER 0.5' deviennent emettables (buts attendus faibles)
+et la calibration HT devient mesurable (accuracyEngine lit grace a E23 + donnees E24).
+
+Tests : __tests__/marketPolicy.test.js +4 (flag off inchange 69.4 ; flag ON over
+et=4 ~83% distinct prior, under et=0 ; quant/ht_goal_prob gardent priorite).
+jest --forceExit 89 suites / 883 passed ; eslint 0 erreur (warnings preexistants) ;
+node --check 4 fichiers OK. data/tactical.db non touche par ce change (emit seulement
+quand flag on + prediction persistee).
+
+Reste : Phase 2 (capturer HT a l'ingestion, source livescore/openligadb/theRundown
+gratuites) = prochaine vraie valeur ; Phase 3 (Sofascore 403) ; activer HT_MODEL
+apres backtest ROI. Non commit (en attente).

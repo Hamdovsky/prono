@@ -7432,3 +7432,37 @@ VERDICT chiffre (n=359, taux reel Over2.5 58,2%, Brier constante ~0,243) :
 
 Verif : node --check OK ; eslint 0 ; jest --forceExit 92/900 (+1 fdJoin).
 data/tactical.db (gitignore) enrichi (226 cotes O/U). Non commit.
+(E31 commit/pousse : fe03920.)
+
+## E32 Edge par mouvement de ligne O/U — RESULTAT NEGATIF (efficiency) (2026-09-14)
+
+Question : le mouvement de cote ouverture->cloture O/U 2.5 donne-t-il un edge ?
+Analyseur scripts/ou_line_movement.js (FD fournit 'Avg>2.5' OUVERTURE + 'AvgC>2.5'
+CLOTURE + score reel ; n~22 000 matchs 4 saisons x 16 divisions ; lecture seule,
+aucune ecriture). Comparaison puissance predictive (de-vig proportionnel, P(over)) :
+- taux reel Over2.5 = 50,9% (ligues EU). Brier : constante 0,2499 | OUVERTURE 0,2404
+  | CLOTURE 0,2391. La cloture n'est que MARGINALEMENT meilleure que l'ouverture
+  (0,2404->0,2391) = signe d'efficience.
+- Taux "parier le sens du drift" : 55,3% (>=1pp) a 58,6% (>=5pp) -> informatif.
+- MAIS **TEST DECISIF** : parier le mouvement en obtenant la COTE DE CLOTURE (prix
+  reel apres leplacement) -> **ROI NEGATIF** a tous seuils (-3,1% / -1,7% / -3,1%).
+  Plus le drift est fort, meilleure la reussite ET pire le ROI (cote raccourcie).
+
+CONCLUSION (robuste, honnete) : le mouvement de ligne est INFORMATIF mais NON
+EXPLOITABLE gratuitement -> il est deja dans le prix. Pas d'alpha "bet the move".
+Combine a E30 (modele maison sur buts = negatif) et E31 (marche devigue bat la base,
+modele ou_25_prob pire que constante) : le MOTEUR O/U optimal = utiliser la PROBA
+IMPLICITE du MARCHE (de-viggee, deja bien calibree, Brier ~0,24) ; un edge exigerait
+d'informer AVANT le marche (team news/xG non publics) et d'executer a une meilleure
+cote que la cloture (CLV) -> pas de raccourci modele/line-movement ici.
+
+Prochaines briques VRAIMENT utiles (a valider, dependantes) :
+- exposer une 'ou_prob_market' (implicite de-viggee) a la place du ou_25_prob pour le
+  marche O/U (NE PAS changer l'emission sans accord), + calibration marche (Etape A);
+- gate valeur: NE PARIER l'O/U que si un signal INDEPENDANT (xG/news) s'ecarte de la
+  cote de > marge ;
+- mais le pre-requis demeure la COUVERTURE des vraies cotes O/U sur les matchs a venir
+  (sweep, ~6% aujourd'hui = Etape 1-bis 'live').
+
+Verif : node --check OK ; script standalone hors suite Jest ; pre-commit smoke OK.
+Non commit.

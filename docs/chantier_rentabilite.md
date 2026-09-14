@@ -81,3 +81,15 @@ préserve déjà `odds_over25/under25` (futur). **Verdict chiffré** (n=359, bas
 dé-viggée + calibration**, proba interne à jeter. Prochain : calibrer le marché
 (Étape A sur le marché OU), edge/EV vs cote (Étape C), et couvrir plus de vraies
 cotes O/U au sweep (seulement ~6 % des matchs à venir sont cotés aujourd'hui).
+
+## Étape test — Mouvement de ligne O/U (E32) : EDGE NEGATIF (efficience)
+`scripts/ou_line_movement.js` (n≈22 000, FD ouverture `Avg>2.5` vs clôture `AvgC>2.5`
++ score réel) : Brier ouverture 0,2404 → clôture 0,2391 (la clôture à peine
+meilleure = efficient). « Bet the drift » réussit 55-58 % **mais ROI négatif à la cote
+de clôture (−1,7 % à −3,1 %)** : le mouvement est informatif, déjà dans le prix,
+non exploitable gratuitement. 
+→ **Synthèse O/U (E30+E31+E32) : le moteur O/U optimal = proba implicite du MARCHÉ
+(dé-viggée) ; ni modèle maison, ni line-movement n'ajoutent d'edge.** Un edge O/U
+exigerait d'informer avant le marché (xG/news non publics) + exécution à meilleure cote
+que la clôture (CLV). Le pré-requis concret reste la **couverture des vraies cotes
+O/U au sweep** (~6 % aujourd'hui).

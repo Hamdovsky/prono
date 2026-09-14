@@ -15,7 +15,7 @@ const path = require('path')
 const REPO = path.join(__dirname, '..')
 const Database = require('better-sqlite3')
 const axios = require('axios')
-const { normDate, joinKey, ftCoherent, pickClosingOdds } = require(REPO + '/core/fdJoin')
+const { normDate, joinKey, ftCoherent, pickClosingOdds, pickClosingOU } = require(REPO + '/core/fdJoin')
 
 const WRITE = process.argv.includes('--write')
 const seasonsArg = (process.argv.find((a) => a.startsWith('--seasons=')) || '').split('=')[1]
@@ -49,8 +49,13 @@ async function buildOddsMap() {
         const o = {}
         hdr.forEach((h, j) => { o[h] = c[j] })
         const odds = pickClosingOdds(o)
-        if (!odds) continue
-        map.set(joinKey(date, c[iH], c[iA]), { fh: c[iFH], fa: c[iFA], ...odds })
+        const ou = pickClosingOU(o)
+        if (!odds && !ou) continue // ligne sans aucune cote exploitable
+        map.set(joinKey(date, c[iH], c[iA]), {
+          fh: c[iFH], fa: c[iFA],
+          o1: odds, // {home,draw,away,source} | null
+          ou, //     {over,under,source}      | null
+        })
       }
       await new Promise((r) => setTimeout(r, 80))
     }
@@ -61,46 +66,53 @@ async function buildOddsMap() {
 ;(async () => {
   const db = new Database(REPO + '/data/tactical.db', WRITE ? {} : { readonly: true })
   const map = await buildOddsMap()
-  console.log(`[FD] carte cotes 1X2 cloture : ${map.size} resultats charges (${SEASONS.length} saisons x ${DIVS.length} divisions)`)
+  console.log(`[FD] carte cotes cloture (1X2 + O/U) : ${map.size} resultats charges (${SEASONS.length} saisons x ${DIVS.length} divisions)`)
 
-  let cand = 0, matched = 0, noOdds = 0, wrote = 0
-  const updM = db.prepare(`UPDATE matches SET odds_home=?, odds_draw=?, odds_away=?, odds_source=? WHERE id=?`)
-  const selH = db.prepare(`SELECT id, fullData FROM historical_matches WHERE id=?`)
+  let cand = 0, matched = 0, conflict = 0, wrote1x2 = 0, wroteOU = 0
+  const updM1 = db.prepare(`UPDATE matches SET odds_home=?, odds_draw=?, odds_away=?, odds_source=? WHERE id=?`)
+  const updM2 = db.prepare(`UPDATE matches SET odds_over25=?, odds_under25=? WHERE id=?`)
+  const selH = db.prepare(`SELECT fullData FROM historical_matches WHERE id=?`)
   const updH = db.prepare(`UPDATE historical_matches SET fullData=? WHERE id=?`)
-  const pending = []
+  const pending = [] // {table,id,o1,ou}
 
-  function consider(table, id, dateISO, home, away, sh, sa, curOddsHome) {
-    if (curOddsHome != null) return // deja une cote
+  function consider(table, id, dateISO, home, away, sh, sa, cur1x2, curOU) {
+    if (cur1x2 != null && curOU != null) return // deja complet
     sh = Number(sh); sa = Number(sa)
     if (!Number.isFinite(sh) || !Number.isFinite(sa)) return
-    const k = dateISO ? joinKey(dateISO, home, away) : null
     cand++
+    const k = dateISO ? joinKey(dateISO, home, away) : null
     const hit = k && map.get(k); if (!hit) return
+    if (!ftCoherent(hit.fh, hit.fa, sh, sa)) { conflict++; return } // FT divergent -> SKIP (garde)
     matched++
-    if (!ftCoherent(hit.fh, hit.fa, sh, sa)) { noOdds++; return } // FT divergent -> SKIP (garde)
-    pending.push({ table, id, home: hit.home, draw: hit.draw, away: hit.away, source: hit.source })
+    const want1 = cur1x2 == null && hit.o1
+    const wantOU = curOU == null && hit.ou
+    if (want1 || wantOU) pending.push({ table, id, o1: want1 ? hit.o1 : null, ou: wantOU ? hit.ou : null })
   }
 
-  for (const r of db.prepare(`SELECT id, timestamp, homeTeam, awayTeam, scoreHome, scoreAway, odds_home FROM matches WHERE status IN ('FT','finished','Finished','Ended')`).all())
-    consider('matches', r.id, normDate(r.timestamp), r.homeTeam, r.awayTeam, r.scoreHome, r.scoreAway, r.odds_home)
+  for (const r of db.prepare(`SELECT id, timestamp, homeTeam, awayTeam, scoreHome, scoreAway, odds_home, odds_over25 FROM matches WHERE status IN ('FT','finished','Finished','Ended')`).all())
+    consider('matches', r.id, normDate(r.timestamp), r.homeTeam, r.awayTeam, r.scoreHome, r.scoreAway, r.odds_home, r.odds_over25)
 
   for (const r of db.prepare(`SELECT id, timestamp, homeTeam, awayTeam, scoreHome, scoreAway, fullData FROM historical_matches WHERE scoreHome IS NOT NULL`).all()) {
     let fd = {}; try { fd = JSON.parse(r.fullData || '{}') } catch {}
-    consider('historical', r.id, normDate(r.timestamp), r.homeTeam, r.awayTeam, r.scoreHome, r.scoreAway, fd.odds_home)
+    consider('historical', r.id, normDate(r.timestamp), r.homeTeam, r.awayTeam, r.scoreHome, r.scoreAway, fd.odds_home, fd.odds_over25)
   }
 
   if (WRITE && pending.length) {
     const apply = db.transaction((rs) => {
       for (const p of rs) {
-        if (p.table === 'matches') { updM.run(p.home, p.draw, p.away, p.source, p.id); wrote++; continue }
+        if (p.table === 'matches') {
+          if (p.o1) { updM1.run(p.o1.home, p.o1.draw, p.o1.away, p.o1.source, p.id); wrote1x2++ }
+          if (p.ou) { updM2.run(p.ou.over, p.ou.under, p.id); wroteOU++ }
+          continue
+        }
         const row = selH.get(p.id); let fd = {}; try { fd = JSON.parse(row.fullData || '{}') } catch {}
-        if (fd.odds_home != null) continue
-        fd.odds_home = p.home; fd.odds_draw = p.draw; fd.odds_away = p.away; fd.odds_source = p.source
-        updH.run(JSON.stringify(fd), p.id); wrote++
+        if (p.o1 && fd.odds_home == null) { fd.odds_home = p.o1.home; fd.odds_draw = p.o1.draw; fd.odds_away = p.o1.away; fd.odds_source = p.o1.source; wrote1x2++ }
+        if (p.ou && fd.odds_over25 == null) { fd.odds_over25 = p.ou.over; fd.odds_under25 = p.ou.under; fd.odds_ou_source = p.ou.source; wroteOU++ }
+        updH.run(JSON.stringify(fd), p.id)
       }
     })
     apply(pending)
   }
-  console.log(`\n[RESULT] ${WRITE ? 'WRITE' : 'DRY-RUN'} : candidats=${cand}  joins=${matched}  FT-incoherents(skip)=${noOdds}  ecrivables=${pending.length}  ${WRITE ? 'ECRITS=' + wrote : '(dry-run, rien ecrit)'}`)
+  console.log(`\n[RESULT] ${WRITE ? 'WRITE' : 'DRY-RUN'} : candidats=${cand}  joints=${matched}  FT-incoherents(skip)=${conflict}  a ecrire=${pending.length}  ${WRITE ? '1X2=' + wrote1x2 + ' OU=' + wroteOU : '(dry-run, rien ecrit)'}`)
   db.close()
 })().catch((e) => { console.error('ERR', e); process.exit(1) })

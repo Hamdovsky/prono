@@ -71,3 +71,13 @@ sur buts n'a PAS d'edge généralisable ici.
 **Reco O/U** : se fier au **marché dé-viggé** (cotes réelles, Étape 1-bis) + calibration
 (Étape A) ; un modèle maison ne se justifie QUE sur ligues avec xG + clubs récurrents.
 ou_model.py = diagnostic reproductible conservé.
+
+## Étape 1-bis — Cotes O/U réelles (E31) : FAITE
+`pickClosingOU` (fdJoin) + backfill FD étendu (1X2 **et** O/U) → +226 vraies cotes
+O/U écrites (0 conflit FT). Population O/U mesurable 145 → **359** ; archiveMerge
+préserve déjà `odds_over25/under25` (futur). **Verdict chiffré** (n=359, base Over
+58,2 %, Brier base ~0,243) : **marché dé-viggé Brier 0,233 (bat la base)** vs
+**modèle `ou_25_prob` 0,251 (pire que la base)**. → Moteur O/U = **cote de marché
+dé-viggée + calibration**, proba interne à jeter. Prochain : calibrer le marché
+(Étape A sur le marché OU), edge/EV vs cote (Étape C), et couvrir plus de vraies
+cotes O/U au sweep (seulement ~6 % des matchs à venir sont cotés aujourd'hui).

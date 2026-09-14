@@ -1,7 +1,7 @@
 /**
  * fdJoin (E29 1.3) — jointure + garde + extraction cotes 1X2 cloture. Pur.
  */
-const { normTeam, normDate, joinKey, ftCoherent, pickClosingOdds } = require('../core/fdJoin')
+const { normTeam, normDate, joinKey, ftCoherent, pickClosingOdds, pickClosingOU } = require('../core/fdJoin')
 
 test('normTeam: accents, ponctuation, tokens, aliases (config/teamAliases)', () => {
   expect(normTeam('Manchester Utd')).toBe('manchester united')
@@ -36,4 +36,12 @@ test('pickClosingOdds: priorite B365 -> Avg -> PS, et null si absent', () => {
   expect(pickClosingOdds({})).toBeNull()
   expect(pickClosingOdds({ B365H: '1.9' })).toBeNull() // triplete incomplete
   expect(pickClosingOdds({ B365H: '0', B365D: '0', B365A: '0' })).toBeNull() // <=1 -> invalide
+})
+
+test('pickClosingOU : B365 -> Avg -> Pinnacle sur >2.5/<2.5', () => {
+  expect(pickClosingOU({ 'B365>2.5': '1.9', 'B365<2.5': '1.9', 'Avg>2.5': '1.85', 'Avg<2.5': '1.95' })).toMatchObject({ over: 1.9, under: 1.9, source: 'footballdata_b365' })
+  expect(pickClosingOU({ 'Avg>2.5': '1.85', 'Avg<2.5': '1.95' })).toMatchObject({ over: 1.85, source: 'footballdata_avg' })
+  expect(pickClosingOU({ 'P>2.5': '1.9', 'P<2.5': '1.9' })).toMatchObject({ over: 1.9, source: 'footballdata_psn' })
+  expect(pickClosingOU({})).toBeNull()
+  expect(pickClosingOU({ 'B365>2.5': '1.9' })).toBeNull() // paire incomplete
 })

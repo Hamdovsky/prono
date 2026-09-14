@@ -66,4 +66,21 @@ function pickClosingOdds(row) {
   return null
 }
 
-module.exports = { normTeam, normDate, joinKey, ftCoherent, pickClosingOdds }
+// Cotes Over/Under 2.5 de cloture : priorite B365 -> Avg -> Pinnacle.
+// Colonnes football-data : 'B365>2.5'/'B365<2.5', 'Avg>2.5'/'Avg<2.5',
+// 'P>2.5'/'P<2.5'. Retourne {over,under,source} ou null (sinon triplete valide >1).
+function pickClosingOU(row) {
+  const g = (k) => { const v = Number(row[k]); return Number.isFinite(v) && v > 1 ? v : null }
+  const chains = [
+    { s: 'footballdata_b365', keys: ['B365>2.5', 'B365<2.5'] },
+    { s: 'footballdata_avg', keys: ['Avg>2.5', 'Avg<2.5'] },
+    { s: 'footballdata_psn', keys: ['P>2.5', 'P<2.5'] },
+  ]
+  for (const c of chains) {
+    const [o, u] = c.keys.map(g)
+    if (o && u) return { over: o, under: u, source: c.s }
+  }
+  return null
+}
+
+module.exports = { normTeam, normDate, joinKey, ftCoherent, pickClosingOdds, pickClosingOU }

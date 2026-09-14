@@ -7403,3 +7403,32 @@ calibration (Etape A) ; (c) modele maison seulement sur ligues AVEC xG + equipes
 recurrentes (top-5), pas le flux livescore.
 
 Verif : diagnostic python hors suite Jest ; pre-commit pytest smoke OK. Non commit.
+
+## E31 Etape 1-bis : capture des vraies cotes Over/Under 2.5 + verdict O/U (2026-09-14)
+
+Suite logique d'E30 (moteur O/U maison = negatif). Pour rendre le O/U MESURABLE puis
+JOUABLE, il faut des cotes O/U reelles. Voie non-bloquee = football-data (colonnes
+'B365>2.5'/'<2.5', 'Avg', 'P') -> pas de Sofascore 403, sans cle.
+
+- core/fdJoin.js : + `pickClosingOU(row)` (chaine B365>Avg>PS sur >2.5/<2.5, triplete
+  >1, null sinon), exporte. +1 test (fdJoin 6).
+- scripts/backfill_odds_footballdata.js : etendu pour capter 1X2 ET O/U (carte stocke
+  {o1, ou}), ecrit les DEUX familles separement (un match ayant deja le 1X2 reco
+  quand meme l'O/U ; ex: les 225 de l'E29). Garde ftCoherent intacte. Colonne matches
+  odds_over25/under25 existante ; pour historical -> fullData.odds_over25/under25 +
+  odds_ou_source. archiveMerge.js (E29) liste deja odds_over25/under25 => preserve
+  desormais a l'archivage (futur).
+- Applique --write : 226 cotes O/U ecrites (1X2=0 deja fait), **0 conflit FT**.
+  Population O/U mesurable (historical proba+VRAIE cote) **145 -> 359**.
+
+VERDICT chiffre (n=359, taux reel Over2.5 58,2%, Brier constante ~0,243) :
+  MARCHE devigue  Brier 0,2331  logloss 0,6586   <-- bat la base (vrai signal)
+  MODELE ou_25    Brier 0,2511  logloss 0,7011   <-- PIRE que la constante
+=> Le moteur O/U doit s'appuyer sur la COTE de MARCHE DEVIGGEE (+ calibration), PAS
+   sur le proba interne (confirmE, now quantifie). Prochaine brique : (A) brancher
+   calibrator.js sur le marche OU ; (C) edge/EV = p_implicite vs cote avec marge de
+   securite ; et pour les FUTURS matchs : augmenter la couverture cotes O/U au sweep
+   (oddsSweeper ne couvre que ~6 %).
+
+Verif : node --check OK ; eslint 0 ; jest --forceExit 92/900 (+1 fdJoin).
+data/tactical.db (gitignore) enrichi (226 cotes O/U). Non commit.

@@ -73,6 +73,36 @@ base `data/tactical.db` (lecture seule). Ne RIEN écrire sans la garde FT décri
 - Nécessite un arbitrage risque/rendement (ROI sous, pas seulement précision).
   Coût : ~1-1,5 j + backtest ROI.
 
+### Phase 4a — DIAGNOSTIC posé (read-only, 2026-09-14) : le HT est un PRIOR, pas un modèle
+Mesure sur `data/tactical.db` : **751** picks HT en base, **99,9 % OVER / 0 UNDER**,
+et **704/751 = proba ≈ 69 %** (exactement `HT_RATIOS.global=0.6939`). Cause :
+`core/db/matches.js:64` et `pg_database.js:215` appellent `deriveHTPick({ht_goal_prob:
+m.ht_goal_prob ?? m.fullData?.ht_goal_prob})` — cette proba est **NULL au moment de la
+persistance** pour la quasi-totalité → repli prior → pick constant. Le VRAI calcul
+Poisson HT existe (`StatisticalEngine` `goal_yes`, `ht_model.py`) et est produit par
+la voie enrichie (`enriched_predictions.js:1600 ht_goal_prob: quantResult.probs.ht_goal`),
+mais n'est pas rechargé sur l'objet persisté (seed livescore brute, et passes sans
+enrichissement quant → ht_goal_prob absent). Donc « pas de HT skill » = **câblage
+interrompu entre le calcul et la persistance**, pas une absence de modèle.
+
+Implémentation PROPOSÉE (flaggée, réversible, NE PAS appliquer sans GO) :
+- Assurer que `fullData.ht_goal_prob` (ou `data.ht_goal_prob`) soit écrit pour les
+  matchs effectivement passés par le quant (StatisticalEngine/ht_model) AVANT que
+  matches.js/pg_database ne dérivent ht_pick. Point de jonction = là où
+  enriched_predictions construit le résultat persisté (ligne ~1600/1735).
+- Gate `HT_MODEL=on|off` (défaut off) ; quand off → comportement actuel (prior).
+- Mesurer ensuite calibration P(HT over 0.5) modèle vs réel (accuracyEngine, qui
+  saura LIRE grâce à E23 + données E24) et backtest ROI avant d'activer en prod.
+- Risque : touche le chemin de persistance des prédictions LIVE → exige validation
+  explicite + suite verte + non-régression BTTS/DC/1X2 inchangés.
+
+### Statut d'exécution
+- Phase 1 : **FAITE** (E24) — 223 ht_score_home écrits, HT now mesurable (147 eval).
+- Phase 2 : non faite (ingestion) — la seule voie qui alimente les matchs FUTURS.
+- Phase 3 : bloque reseau (Sofascore 403) — non testable local.
+- Phase 4/4a : diagnostic fait ; implement = decision produit + chemin live, GO requis.
+
+
 ## 4. Estimation globale
 
 Phase 1 (sûr, immédiat) ≈ 0,5 j. Phase 2 (vraie valeur) ≈ 1 j. Phases 3-4

@@ -306,7 +306,7 @@ function recordOddsHistory(matchId, odds, { db } = {}) {
     if (h && dr && a) {
       d.prepare(
         `INSERT INTO odds_history (match_id, odds_home, odds_draw, odds_away, type, timestamp)
-         VALUES (?, ?, ?, ?, 'LIVE', ?)`
+         VALUES (?, ?, ?, ?, 'SWEEP', ?)`
       ).run(String(matchId), h, dr, a, Date.now())
     }
   } catch (e) {

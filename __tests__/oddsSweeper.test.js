@@ -128,14 +128,14 @@ describe('selectQueue', () => {
 })
 
 describe('recordOddsHistory', () => {
-  test('insère la ligne LIVE quand les 3 cotes 1X2 sont présentes', () => {
+  test('insère la ligne SWEEP (snapshot pré-match) quand les 3 cotes 1X2 sont présentes', () => {
     const db = makeDb()
     recordOddsHistory('m1', { home: 2.0, draw: 3.2, away: 3.5 }, { db })
     const rows = db.prepare('SELECT * FROM odds_history').all()
     expect(rows).toHaveLength(1)
     expect(rows[0].match_id).toBe('m1')
     expect(rows[0].odds_home).toBe(2.0)
-    expect(rows[0].type).toBe('LIVE')
+    expect(rows[0].type).toBe('SWEEP')
   })
 
   test("n'insère rien si le marché 1X2 est incomplet (ex. O/U seul)", () => {

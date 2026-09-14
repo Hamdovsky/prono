@@ -153,18 +153,28 @@ function recommendStake(probPct, odds, bankroll = null) {
  */
 function closingOddsFor(db, matchId, pick) {
   if (!matchId || !pick) return null
-  let row = null
+  // E35 : la cloture = DERNIERE cote connue AVANT le kickoff (pas une cote LIVE
+  // en-jeu). Les snapshots du sweep sont type 'SWEEP' (pre-match) ; le resolveur
+  // pur core/clv ignore tout snapshot posterieur au coup d'envoi.
+  const { pickClosingSnapshot } = require('../core/clv')
+  let rows = null
+  let startTs = 0
   try {
-    row = db
+    rows = db
       .prepare(
-        `SELECT odds_home, odds_draw, odds_away FROM odds_history
+        `SELECT odds_home, odds_draw, odds_away, timestamp FROM odds_history
          WHERE match_id = ? AND odds_home > 0
-         ORDER BY id DESC LIMIT 1`
+         ORDER BY id DESC LIMIT 50`
       )
-      .get(String(matchId))
+      .all(String(matchId))
+    const m = db.prepare('SELECT startTimestamp FROM matches WHERE id = ?').get(String(matchId))
+    let st = m && Number(m.startTimestamp) > 0 ? Number(m.startTimestamp) : 0
+    if (st > 0 && st < 1e12) st *= 1000 // secondes -> ms
+    startTs = st
   } catch {
-    row = null
+    rows = null
   }
+  const row = pickClosingSnapshot(rows || [], startTs)
   if (!row) return null
   const h = Number(row.odds_home) || 0
   const d = Number(row.odds_draw) || 0

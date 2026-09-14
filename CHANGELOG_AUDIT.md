@@ -7522,3 +7522,34 @@ le numerique pour un synthe.
 
 Verif : node --check OK ; jest --forceExit 93/904 (non-regression ; pas de test sur la
 boucle fetchOdds reseau). Non commit.
+(E34 commit/pousse : 949425c.)
+
+## E35 Groundwork CLV : snapshots 'SWEEP' pre-kickoff + resolveur de cloture (2026-09-14)
+
+Constat (chantier rentabilite, etape 2 = gate CLV) : `logTradePerformance` (quantRiskService,
+CODE MORT, aucun appelant) cherchait type='CLOSING' JAMAIS ecrit ; le vrai chemin est
+proPlanBankroll.closingOddsFor -> quant_performance, qui prenait `ORDER BY id DESC LIMIT 1`
+toutes types confondus -> pouvait choisir une cote LIVE POST-kickoff comme "cloture" (fausse,
+le CLV devient du bruit). Et le sweep etiquetait ses snapshots 'LIVE' (indistingables du
+vrai live en-jeu).
+
+FAIT (groundwork sur, testable, non-regression) :
+- services/oddsSweeper.recordOddsHistory : le snapshot pre-match passe de type 'LIVE' ->
+  'SWEEP' (les vrais snapshots en-jeu de quantRiskService.recordMarketSnapshot restent
+  'LIVE'). Le sweep (cron */15) alimente donc une VRAIE histoire de cotes pre-match ->
+    la derniere avant kickoff = closing line exploitable.
+- core/clv.js (NEUF, PUR) `pickClosingSnapshot(rows, startTs)` : rend la derniere ligne
+  avec timestamp <= kickoff ; rows deja tries DESC ; kickoff inconnu (0) -> dernier
+  (preserve l'ancien comportement) ; toutes lignes post-kickoff -> null (JAMAIS de fausse
+  cloture). Test __tests__/clv.test.js (6).
+- services/proPlanBankroll.closingOddsFor : charge <=50 snapshots + startTimestamp du
+  match (s -> ms) et passe par pickClosingSnapshot -> CLV calculer sur la vraie cloture
+  pre-kickoff. Compat : sans kickoff connu ou snapshot unique anterieur, inchang.
+
+Effet : des que le sweep aura des snapshots SWEEP (reseau ok + serveur relance),
+quant_performance.clv deviendra SIGNIFIE -> condition du gate CLV (etape 2) et de la
+validation d'edge reel vs marche. Aucun changt de production sans reseau/relance.
+
+Verif : node --check OK ; eslint 0 erreur (2 warnings oddsSweeper PREEXISTANTS _load/
+_saveAttemptFromRedis) ; jest --forceExit 94/910 (+1 suite clv +6 ; assertion recordOdds-
+History mise a 'SWEEP'). Non commit.

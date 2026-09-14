@@ -108,5 +108,16 @@ d'honnêteté** (`fair_odds_model` accepté comme réel dans `topPicksEngine`).
   `dataFusion` ; (b) whitelist configurable/étendue + corriger la collision `'Ligue'` ;
   (c) ne pas persister `fair_odds_model` dans les colonnes numériques de `dataFusion`.
 - **Ensuite (Étape 2)** : dégel calibration 1X2/DC (≥150 échantillons propres), puis
-  gate **CLV** (`quant_performance`/`clv_value` existent mais vides ; il faut alimenter
+  gate **CLV**   (`quant_performance`/`clv_value` existent mais vides ; il faut alimenter
   `odds_history` type≠LIVE au sweep pour avoir une vraie ligne de clôture).
+
+## Étape CLV — Groundwork (E35) : FAITE
+- `oddsSweeper.recordOddsHistory` : snapshot pré-match marqué **`'SWEEP'`** (avant :
+  `'LIVE'`, confondu avec l'en-jeu). Le sweep (cron */15) alimente enfin une histoire de
+  cotes pré-kickoff → la dernière avant kickoff = vraie closing line.
+- `core/clv.js` `pickClosingSnapshot` (pur, testé ×6) : rend la dernière ligne
+  `timestamp <= kickoff`, kickoff inconnu → dernière (compat), que du post-kickoff → null.
+- `proPlanBankroll.closingOddsFor` branché dessus → **CLV calculé sur la vraie clôture**.
+  (`quantRiskService.logTradePerformance` = code mort, non utilisé.)
+Effet : dès que le sweep tourne avec réseau + serveur relancé, `quant_performance.clv`
+devient significatif → condition du **gate CLV** (edge réel vs marché) de l'Étape 2.

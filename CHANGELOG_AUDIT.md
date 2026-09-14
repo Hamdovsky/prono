@@ -7044,3 +7044,57 @@ shadow avec teams+euro) -> les tranches byCac se rempliront.
 
 ? eslint du script inclus dans la passe ; backfill idempotent (saute deja
 en ctx_v1) ; a relancer occasionnellement apres purge de la DB.
+
+## E21c Re-controle de continuite (2026-09-14, session 'je travaille localement')
+
+Objectif : point de controle consigne en fin de E21b — verifier que le backfill
+ctx_v1 alimente bien `contextual` dans le journal live (« n shadow > 0, a relire
+demain soir »). AUCUNE modification de code : tout est en place, rien a reparer.
+
+Constats verifies :
+- Stack 5/5 vivant (API 3001, vite 5173, ML 8000 uvicorn UNIQUE, 8501, 30002) ;
+  API UP + health rapide ; uptime 35127 s a 04:11Z -> process demarre ~18:26Z le
+  13/09 = le redemarrage E21b lui-meme, encore sain ~10 h apres. Incident E21b
+  « double uvicorn » resolu (un seul processus sur 8000).
+- Backfill E21b PERSISTE et servi : /api/upcoming = 340 lignes (vs 382 au 13/09 ;
+  ecart = matchs bascules finished/expires depuis), 340/340 avec context.teams.
+  Echantillon livescore_1834737 -> context.teams.home.rest_hours=362 / away=194,
+  motivation STANDARD, absences [] = shape exactement lue par summarizeContextual.
+- Chaine complete verifiee (statique + unitaire) : hydrateContext
+  (SofascoreBypass.js:130) resout ev.id -> repli 'livescore_<id>' -> row.context ;
+  recordEvents (LivePredictionJournal.js:150) serialise contextual ; contrat
+  testee 4/4 (livePredictionJournal.test.js).
+- VRAIE raison des 0 nouvelle ligne : max_ts journal = 2026-09-12 21:50 = heure de
+  mort du stack (E21b) -> AUCUNE ligne live emise depuis. Et le gate
+  extractPrediction (LivePredictionJournal.js:66, `ev.pred.over25 == null -> skip`) :
+  les seuls live actuels (bypass python renvoie 2 events : San Jose E II, Insaniyat)
+  ont pred={} et odds={} -> ecartes AVANT contextual. Ligues mineures sans marche
+  O/U = data quality, pas un bug.
+
+Reste a faire (checkpoints ouverts) :
+1. Le « shadow > 0 » se remplira des une fenetre LIVE d'une ligue couverte AVEC
+   cotes O/U reelles (pred non vide) -> ligne contextual.teams. A relire ce soir /
+   apres un in-play de ligue majeure.
+2. Nuance tranche byCac 'shadow' : summarizeContextual ne pose applied/shadow QUE
+   si ev.contextual (bloc Python) present. Le backfill n'a ecrit que 'context'
+   (teams). Le bloc shadow exige que la prediction live passe par le moteur (E16
+   injection contextuelle) ; le cron '*/5 Calibrage live' (getLiveEvents) ne fait
+   que sofascore+odds -> pred derive, sans bloc Python. Donc 'applied/shadow'
+   attend un run /api/predict complet sur un live, pas seulement le cron.
+3. CRON '*/5 Calibrage live' CONFIRME VIVANT dans le process courant : logs [CRON]
+   courants (Autonomous Cycle, Hourly Results, Odds sweep, Scraper) + dernier log
+   info.log a 3 s ; sockets API pid = Established 3 / Listen 1 / CloseWait 0 (pas
+   d'asphyxie E21b) ; CPU ~3.6 %. Le silence du journal vient donc UNIQUEMENT de
+   l'absence d'evenement live qualifiant, pas d'un cron mort.
+
+Checkpoint formalise (une commande) : GET /api/flash-odds/calibration -> stats.byCac.
+  Etat de reference 14/09 04:11Z = applied n=0 · shadow n=0 · none n=1985 (hit 1305
+  = 65.7 % sur l'historique pre-contextuel). Fermer le point E21b = voir n shadow > 0
+  ici apres une fenetre live qualifiante (ligue couverte AVEC cotes O/U reelles).
+
+Bilan : E21b confirme correct ; travail anterieur integralement preserve ; code
+sain. Preuve d'execution du contextual deja couverte par le test unitaire
+(livePredictionJournal.test.js, shape ctx_v1 identique aux lignes backfilles) ->
+aucune preuve synthetique ajoutee (eviter le doublon). Prochaine action utile =
+relancer /api/flash-odds/calibration ce soir / apres un in-play de ligue majeure
+et verifier n shadow (puis applied si CONTEXTUAL_CAC_ENABLED active).

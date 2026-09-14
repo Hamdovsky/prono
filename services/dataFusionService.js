@@ -223,6 +223,12 @@ class DataFusionService {
 
     const sorted = [...this.sources].sort((a, b) => a.priority - b.priority)
     let oddsError = null
+    // E36 (Chantier rentabilite, A) : quand une source ne fournit qu'une cote
+    // SYNTHE (fair_odds_model/...), ne PAS s'en contenter -> on continue vers une
+    // vraie cote bookmaker, et l'estimation n'est utilisee qu'en dernier recours.
+    // Defaut OFF = comportement strictement preserve (non-regression).
+    const rejectSynth = String(process.env.ODDS_REJECT_SYNTHETIC || '').trim().toLowerCase() === 'on'
+    let synthFallback = null
 
     // Souces probabilistically-derived odds (xG / prediction-margin) are NOT real
     // bookmaker quotes. They must not be treated as "real odds" for value/honesty.
@@ -316,6 +322,13 @@ class DataFusionService {
               require('../core/oddsSource').isRealBookmakerSource(odds.source))
           const withFlag = { ...odds, bookmaker: isBookmaker }
           this.recordSuccess(source.name)
+          // E36 : cote synthetique + garde ON -> ne pas short-circuiter ; memoriser
+          // comme dernier recours et laisser les sources suivantes chercher du reel.
+          if (rejectSynth && !isBookmaker) {
+            if (!synthFallback) synthFallback = withFlag
+            oddsError = oddsError || 'probability_only'
+            continue
+          }
           const logLine = has1x2
             ? `${odds.home} / ${odds.draw} / ${odds.away}`
             : `${odds.over25 ?? '—'} / ${odds.under25 ?? '—'} / BTTS ${odds.btts_yes ?? '—'}`
@@ -337,6 +350,16 @@ class DataFusionService {
       }
     }
 
+    // E36 : aucune cote bookmaker reelle obtenue -> on retombe sur l'estimation
+    // synthetique (persistee honnetement, odds_source=fair_odds_model ; les
+    // consommateurs l'excluent deja grace a core/oddsSource), ou null.
+    if (synthFallback) {
+      await this._persistOddsOutcome(match, synthFallback)
+      logger.info(
+        `[DATAFUSION] No real odds for ${match.id}; kept probability-derived fallback (source=${synthFallback.source})`
+      )
+      return synthFallback
+    }
     await this._persistOddsOutcome(match, null, oddsError)
     logger.warn(
       `[DATAFUSION] No odds source available for ${match.id} (${match.homeTeam} vs ${match.awayTeam})`

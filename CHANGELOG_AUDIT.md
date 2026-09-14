@@ -7553,3 +7553,31 @@ validation d'edge reel vs marche. Aucun changt de production sans reseau/relance
 Verif : node --check OK ; eslint 0 erreur (2 warnings oddsSweeper PREEXISTANTS _load/
 _saveAttemptFromRedis) ; jest --forceExit 94/910 (+1 suite clv +6 ; assertion recordOdds-
 History mise a 'SWEEP'). Non commit.
+(E35 commit/pousse : 82f5b5b.)
+
+## E36 dataFusion : ne pas s'arreter a une cote synthetique (levier de couverture, A) (2026-09-14)
+
+Dans fetchOdds, une source qui renvoie une cote SYNTHE (fair_odds_model via
+UltimateScraperOrchestrator/FairOddsEstimator) court-circuitait la chaine : `return`
+immediat -> les sources suivantes (sofascore/betexplorer) n'avaient jamais leur chance,
+et la ligne restait bloquee a une fausse cote -> sous-comptee en 'couverture reelle' ET
+pouvant vicier un futur EV/CLV.
+
+Fix GATE (services/dataFusionService.js) : garde `ODDS_REJECT_SYNTHETIC` (env, defaut
+OFF = non-regression stricte). Quand ON : un resultat dont la source propre est
+synthetique (isRealBookmakerSource=false) ne fait PAS return -> memorise comme
+`synthFallback` + `oddsError='probability_only'` + `continue` vers une vraie cote ; si
+AUUNE reel trouvee sur toute la chaine, l'estimateur est rendu en dernier recours
+(persist honnetement, odds_source=fair_odds_model, deja exclu par E33). Cache/`return`
+inchanges pour le cas reel.
+
+Test integration __tests__/dataFusionSynthetic.test.js (3, singleton mute + ids uniques) :
+ON -> la vraie cote aval gagne ; ON seule-synthe -> rendue en dernier recours (bookmaker
+false) ; OFF -> court-circuit historique preserve.
+
+Effet attendu (a mesurer la ou le scraping marche, via scripts/odds_coverage.js) : plus de
+vraies cotes sur les matchs ou ultimate echoue mais ou sofascore/betexplleur reussit ->
+couverture reelle > 5,1%. Activer = poser ODDS_REJECT_SYNTHETIC=on dans .env + relancer.
+
+Verif : node --check OK ; eslint 0 ; jest --forceExit 95 suites / 913 passed (+1 suite
+dataFusionSynthetic +3 ; modules isoles par fichier, pas de fuite du singleton). Non commit.

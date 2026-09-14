@@ -121,3 +121,14 @@ d'honnêteté** (`fair_odds_model` accepté comme réel dans `topPicksEngine`).
   (`quantRiskService.logTradePerformance` = code mort, non utilisé.)
 Effet : dès que le sweep tourne avec réseau + serveur relancé, `quant_performance.clv`
 devient significatif → condition du **gate CLV** (edge réel vs marché) de l'Étape 2.
+
+## Levier A (E36) : ne pas s'arrêter à une cote synthétique — FAIT (gated)
+`dataFusion.fetchOdds` : un résultat `fair_odds_model` court-circuitait la chaîne (return
+immédiat → sofascore/betexplorer jamais essayés). Ajout garde `ODDS_REJECT_SYNTHETIC`
+(env, défaut **off** = non-régression stricte) : quand ON, une cote synthétique ne fait
+plus `return` → `continue` vers une vraie cote, l'estimateur n'étant rendu qu'en **dernier
+recours** si aucune réelle trouvée. Test intégration `dataFusionSynthetic.test.js` (×3).
+**Activer** = `.env` `ODDS_REJECT_SYNTHETIC=on` + relancer, puis `node
+scripts/odds_coverage.js` pour mesurer la hausse (> 5,1 % attendu là où ultimate échoue
+mais sofascore/betexplorer réussissent). Reste (b) : whitelist étendue/configurable + CSV
+football-data par saison (univers).

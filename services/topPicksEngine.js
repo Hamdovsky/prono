@@ -115,10 +115,16 @@ function hasRealOddsSource(m) {
     const f = parseFloat(v)
     return !isNaN(f) && f > 1 ? f : null
   }
-  if (num(m.odds_over25) || num(m.odds_under25) || num(m.odds_btts_yes) || num(m.odds_home)) return true
-  const fd = parseFullData(m)
-  const src = fd.odds_source || (fd.odds && fd.odds.source) || null
-  return !!src
+  // E33 : une source SYNTHETIQUE (fair_odds_model/default/model_league/…) disqualifie
+  // la cote MEME si les colonnes numeriques sont remplies (EV circulaire modele-vs-lui-
+  // meme). On exige une vraie source bookmaker ; a defaut (ligne ancienne sans tag),
+  // on retombe sur la presence numerique (comportement historique preserve).
+  const src = require('../core/oddsSource').oddsSourceOf(m, parseFullData(m))
+  const SYNTH = require('../core/oddsSource').SYNTHETIC_SOURCES
+  if (src && String(src).trim() !== '' && SYNTH.has(String(src).trim().toLowerCase())) return false
+  const hasNumeric =
+    !!(num(m.odds_over25) || num(m.odds_under25) || num(m.odds_btts_yes) || num(m.odds_home))
+  return hasNumeric || require('../core/oddsSource').isRealBookmakerSource(src)
 }
 
 // Extraire les cotes réelles (colonnes SQLite ou quant.markets).

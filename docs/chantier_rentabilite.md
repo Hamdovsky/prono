@@ -93,3 +93,20 @@ non exploitable gratuitement.
 exigerait d'informer avant le marché (xG/news non publics) + exécution à meilleure cote
 que la clôture (CLV). Le pré-requis concret reste la **couverture des vraies cotes
 O/U au sweep** (~6 % aujourd'hui).
+
+## Étape 3 — Couverture des vraies cotes (EN COURS, E33) : fondations
+Diagnostic (agent explore) des 4 tueurs : whitelist `oddsSweeper.js:47` (~69 % sautés),
+univers football-data local trop étroit, scraping réseau en échec local, et **trou
+d'honnêteté** (`fair_odds_model` accepté comme réel dans `topPicksEngine`).
+- **Fait (E33)** : `core/oddsSource.js` `isRealBookmakerSource` (pur, testé ×4) branché
+  dans `topPicksEngine.hasRealOddsSource` (rejette source synthétique même si numérique)
+  → ferme l'EV circulaire qui corromprait calibration + CLV. `scripts/odds_coverage.js`
+  (lecture seule) = **baseline** : vraie cote 1X2 **5,1 %**, O/U 4,2 %, BTTS 3,3 %,
+  94,7 % sans cote. Ligues sautées = celles hors whitelist (NM Cup, non-league, Serie C).
+- **À faire (couverture)** : (a) brancher les CSV **football-data par saison**
+  (`FootballDataScraper`, déjà écrit, sans réseau, avec ouverture+clôture) dans
+  `dataFusion` ; (b) whitelist configurable/étendue + corriger la collision `'Ligue'` ;
+  (c) ne pas persister `fair_odds_model` dans les colonnes numériques de `dataFusion`.
+- **Ensuite (Étape 2)** : dégel calibration 1X2/DC (≥150 échantillons propres), puis
+  gate **CLV** (`quant_performance`/`clv_value` existent mais vides ; il faut alimenter
+  `odds_history` type≠LIVE au sweep pour avoir une vraie ligne de clôture).

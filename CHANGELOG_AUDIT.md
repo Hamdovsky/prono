@@ -7466,3 +7466,41 @@ Prochaines briques VRAIMENT utiles (a valider, dependantes) :
 
 Verif : node --check OK ; script standalone hors suite Jest ; pre-commit smoke OK.
 Non commit.
+(E32 commit/pousse : 6607c68.)
+
+## E33 Chantier rentabilite, Etape 3 (couverture) — fondations : mesure + garde-fau honnetete (2026-09-14)
+
+Cartographie (agent explore) des tueurs de couverture des VRAIES cotes sur les matchs a
+jouer : (1) WHITELIST de ligue dans oddsSweeper.js:47-111 (active par defaut) saute
+~69% des scheduled (Serie C/D, non-league anglaise, coupes, MENA) ; (2) source n°1
+football-data CSV local = univers trop etroit (joint 0,8% du scheduled) ; (3) scraping
+reseau betexplorer/sofascore majoritairement en echec local (census erreurs
+'non_bookmaker:default' x101) ; (4) TROU d'honnetete : topPicksEngine.hasRealOddsSource
+acceptait une cote NUMERIQUE meme si odds_source='fair_odds_model' (synthetique) -> EV
+circulaire. (5) 'ultimate_orchestrator' est dans BOOKMAKER_SOURCES de dataFusion donc
+son fallback FairOddsEstimator (fair_odds_model) pollue les colonnes de cotes.
+
+FAIT cette etape (sur, testable, non-regression) :
+- core/oddsSource.js (NEUF, PUR) : isRealBookmakerSource(src) (rejette fair_odds_model/
+  default/synthetic/model_league/historical/non_bookmaker*/fair_*/model_* + vide/null),
+  oddsSourceOf(m,fd) (colonne d'abord puis fullData). Test __tests__/oddsSource.test.js (4).
+- services/topPicksEngine.js hasRealOddsSource : une source SYNTHETIQUE disqualifie la
+  cote MEME si colonnes numeriques remplies ; a defaut (ligne ancienne sans tag) on garde
+  la presence numerique (comportement historique preserve) -> ferme le trou d'EV circulaire
+  qui corromprait la calibration et le futur gate CLV.
+- scripts/odds_coverage.js (NEUF, LECTURE SEULE) : baseline reutilisable de la couverture
+  (reutilise le predicat officiel). BASELINE capturee (horizon 7j, 545 scheduled) :
+  VRAIE cote 1X2 = 28 (5,1%) | O/U = 23 (4,2%) | BTTS = 18 (3,3%) | sans-cote = 516 (94,7%) ;
+  1 ligne fair_odds_model exclue ; ligues sautees = NM Cup/Cup/non-league/Serie C (whitelist).
+
+Reste Etape 3 (a mesurer a chaque changement) : elargir la couverture — (a) FD per-season
+(FootballDataScraper, deja ecrit mais non branche dans dataFusion ; sans reseau, couvre
+E0..P1 avec cotes ouverture+cloture) ; (b) whitelist configurable/etendue + corriger la
+collision du terme generique 'Ligue' ; (c) retirer ultimate du chemin 'bookmaker' ou
+ne pas persister fair_odds_model dans les colonnes numeriques. Puis Etape 2 : de-gel
+calibration 1X2/DC (>=150 echantillons propres) + gate CLV (quant_performance/clv_value
+deja en schema mais VIDES).
+
+Verif : node --check 4 fichiers ; eslint 0 erreur ; jest --forceExit 93 suites / 904 passed
+(+1 suite oddsSource +4 ; non-regression topPicks intacte). data/tactical.db non touche par
+cette etape. Non commit.

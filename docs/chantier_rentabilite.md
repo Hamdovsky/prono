@@ -59,3 +59,15 @@ HT/OU : les `odds_ht_*`/over-under en fullData (1.1) les rendront mesurables ; `
   Étape 2. DECISION OUVERTE : accepter de travailler sur ~460 paris (conclusions
   prudentes, IC larges) OU d'abord augmenter la capture de cotes sur les matchs À
   VENIR (sweep) avant de conclure.
+
+## Étape B1 — Entraînement O/U (Poisson buts) : TENTÉ puis REJETÉ (E30)
+`core/ou_model.py` (IPF forces équipe + HFA + shrinkage, P(Over2.5) par Poisson),
+walk-forward temporel sur 9313 matchs terminés :
+- TRAIN bat le plancher (−8,5 %) mais **TEST out-of-sample PIRE que la constante**
+  (+5,2 %) ; subset « équipes récurrentes » (n=737) encore +2,3 % > plancher.
+- Cause : longue traîne (~4700 clubs de ligues mineures peu récurrents) + xG absent.
+**Verdict : pas de déploiement** (--train non lancé, 0 écriture). Le moteur O/U maison
+sur buts n'a PAS d'edge généralisable ici.
+**Reco O/U** : se fier au **marché dé-viggé** (cotes réelles, Étape 1-bis) + calibration
+(Étape A) ; un modèle maison ne se justifie QUE sur ligues avec xG + clubs récurrents.
+ou_model.py = diagnostic reproductible conservé.

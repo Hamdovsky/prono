@@ -7371,4 +7371,35 @@ dans le HARNAIS Etape 0 (prochaine etape), pas par heuristique fragile ici.
 Verif : node --check OK ; eslint 0 erreur 0 warning sur les fichiers touches ;
 jest --forceExit 92 suites / 899 passed (+2 suites archiveMerge+fdJoin, +11 tests).
 data/tactical.db (gitignore) enrichi (225 cotes). Rien change en emission/prod.
-Non commit (en attente).
+Non commit (en attente). [E29 depuis commit/pousse : 18a28c3 + 928e2ff]
+
+## E30 Tentative d'entrainement du moteur O/U (Poisson buts) — RESULTAT NEGATIF (2026-09-14)
+
+Demande « entraine le moteur over/under ». Diagnostic prealable (lecture seule, 9313
+matchs termines) : le ou_25_prob ACTUEL est non discriminant (toutes bandes -> reel
+~57-59%) ET pire qu'une constante (Brier 0.251 vs 0.244 du toujours-base). calibrator.js
+ne calibre que 1X2/DC (PICK_MARKET) -> O/U jamais calibre ; UnderPatternEngine = heuristique
+a poids manuels, n'affecte pas la proba persistee.
+
+B1 tente : core/ou_model.py (stdlib pur) forces attaque/defense equipe + HFA, IPF +
+SHRINKAGE bayesien, P(Over2.5) par Poisson, eval walk-forward split TEMPOREL
+(train 7315 / test 2439) vs plancher constante.
+
+RESULTAT (robuste, sweep shrink 12/25/40) :
+- TRAIN bat la base (-8,5%) mais TEST out-of-sample PIRE que la constante (+5,2 a +5,6%).
+- TEST "2 equipes vues>=4x train" (n=737, ou le signal devrait exister) : +2,3% au-dessus
+  du plancher -> le signal equipe ne GENERALISE PAS.
+- Plancher par-ligue ~ global : la ligue seule ne suffit pas.
+- Cause : longue traine ~4700 equipes mineures peu recurrentes + xG absent (2657/9313).
+
+DECISION : NE PAS deployer (--train non lance, aucun data/ou_model.json ecrit, aucun
+wiring prediction) : un modele pire que la constante hors-echantillon est dangereux.
+ou_model.py CONSERVE comme diagnostic reproductible (prouve le negative).
+
+Recommandation honnete : sur NOS donnees le seul signal O/U fiable = le MARCHE (cotes
+bookmaker deviggees), pas un modele maison sur buts. -> (a) Etape 1-bis capturer les
+VRAIES cotes O/U au sweep (pre-requis) ; (b) proba implicite deviggee comme p O/U +
+calibration (Etape A) ; (c) modele maison seulement sur ligues AVEC xG + equipes
+recurrentes (top-5), pas le flux livescore.
+
+Verif : diagnostic python hors suite Jest ; pre-commit pytest smoke OK. Non commit.

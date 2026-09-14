@@ -7252,3 +7252,27 @@ quand flag on + prediction persistee).
 Reste : Phase 2 (capturer HT a l'ingestion, source livescore/openligadb/theRundown
 gratuites) = prochaine vraie valeur ; Phase 3 (Sofascore 403) ; activer HT_MODEL
 apres backtest ROI. Non commit (en attente).
+
+## E26 Backtest HT_MODEL (hors-ligne, lecture seule) — proxy insuffisant (2026-09-14)
+
+Avant toute activation, backtest de l'estimation E25 sur les matchs ou le VRAI score
+MT est connu (251 = historique + les 223 backfills E24), en reutilisant
+marketPolicy.deriveHTPick({expected_score}, HT_MODEL=on) :
+- taux reel P(>=1 but MT) = 184/251 = **73,3 %** (le prior « toujours OVER » = base-rate).
+- (a) PRIOR  : **73,3 %** (184/251)  [classe majoritaire].
+- (b) ESTIMATION proxy : **65,3 %** (156/239), 47 picks UNDER -> **PIRE** que le prior.
+- (c) calibration : proba annoncee moy 58,7 % vs reel 74,1 % -> **ecart -15,4 pp** (le
+  proxy sous-estime, share 0.45 trop bas ; et meme bien calibre il ne ferait que
+  REJOINDRE le prior).
+
+Conclusion (solide) : sans vrai signal par match, predire OVER est l'optimum ; un proxy
+lineaire global (expected_goals * share) ne PEUT pas battre le base-rate, il ajoute du
+bruit. DONC HT_MODEL doit rester **off** ; le rendre utile exige le VRAI modele Poisson
+1re MT (StatisticalEngine.calculateFirstHalfProbs goal_yes via lambda MT, ht_model.py),
+alimente par des donnees HT (Phase 2). Decision : NE PAS activer ; avertissement pose
+dans marketPolicy.isHtModelOn + ticket. Aucun changt de comportement (flag off, code
+E25 inerte). Aucune ecriture DB.
+
+Prochaine vraie valeur = Phase 2 (capturer ht_score a l'ingestion depuis une source
+gratuite non-bloquee : openligadb halfTimeResult / theRundown / livescore detail), puis
+evaluer le VRAI modele HT (pas le proxy) sur un echantillon elargi.

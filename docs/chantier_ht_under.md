@@ -100,11 +100,13 @@ Implémentation PROPOSÉE (flaggée, réversible, NE PAS appliquer sans GO) :
 - Phase 1 : **FAITE** (E24) — 223 ht_score_home écrits, HT now mesurable (147 eval).
 - Phase 2 : non faite (ingestion) — la seule voie qui alimente les matchs FUTURS.
 - Phase 3 : bloque reseau (Sofascore 403) — non testable local.
-- Phase 4a : **FAITE (E25)** — `HT_MODEL` (defaut **off** = non-regression totale) +
-  `HT_GOAL_SHARE` : quand pas de prob HT directe, estimation `1-exp(-share*E[total])`
-  depuis les buts attendus, aux 3 sites de persistance. Picks HT UNDER possibles +
-  calibration mesurable une fois le flag active. Activer en prod = decision utilisateur
-  (backtest d'abord), .env.example documente. Tests marketPolicy +4 (883 verts).
+- Phase 4a : **FAITE (E25) mais NON ACTIVEE** — `HT_MODEL` (defaut **off**) :
+  estimation par buts attendus câblée aux 3 sites + tests. **Backtest E26** : ce
+  proxy (expected_goals×share) est INFÉRIEUR au prior (65,3% vs base-rate 73,3%,
+  calib -15,4pp). Sans vrai signal par match, predire OVER (classe majoritaire) est
+  l'optimum -> ne PAS activer ce proxy. Rendre HT discriminant = brancher le VRAI
+  Poisson 1re MT (calculateFirstHalfProbs / ht_model.py), lui-meme tributaire de la
+  Phase 2 (donnees HT) pour etre calibre.
 
 
 ## 4. Estimation globale

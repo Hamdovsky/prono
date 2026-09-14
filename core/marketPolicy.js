@@ -131,6 +131,11 @@ function _expectedTotalGoals(src) {
 
 // Flag HT_MODEL lu À L'APPEL (pas au require) -> activable runtime + testable sans
 // re-require. Defaut off : comportement strictement identique (repli prior).
+// ⚠️ Backtest E26 : ce proxy (expected_goals * share) est MOINS BON que le prior
+// constant (65,3% vs base-rate 73,3%, calib -15pp). SANS vrai signal par match,
+// predire la classe majoritaire (OVER) est l'optimum -> NE PAS activer HT_MODEL
+// avec ce proxy. Le rendre utile exige le VRAI modele Poisson 1re MT
+// (StatisticalEngine.calculateFirstHalfProbs / ht_model.py) en entree.
 function isHtModelOn() {
   return String(process.env.HT_MODEL || '').trim().toLowerCase() === 'on'
 }

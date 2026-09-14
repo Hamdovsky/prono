@@ -9,6 +9,7 @@ const {
   deriveHTPick,
 } = require('../marketPolicy')
 const { applyLeaguePolicy } = require('../leaguePolicy')
+const { mergeOddsIntoFullData } = require('../archiveMerge')
 
 function createMatchesDao(db) {
   return {
@@ -750,7 +751,7 @@ function createMatchesDao(db) {
               sh,
               sa,
               r.league,
-              JSON.stringify(fd),
+              JSON.stringify(mergeOddsIntoFullData(fd, r)),
               r.timestamp || new Date().toISOString(),
               r.prediction ?? null,
               r.confidence ?? null,

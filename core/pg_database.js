@@ -4,6 +4,7 @@ const { usingPostgres, query } = require('./pg_connector')
 const logger = require('./logger')
 const { applyMarketPolicy, deriveBttsPick, deriveCornerPick, deriveHTPick } = require('./marketPolicy')
 const { applyLeaguePolicy } = require('./leaguePolicy')
+const { mergeOddsIntoFullData } = require('./archiveMerge')
 
 function sqliteToPg(sql) {
   return sql
@@ -1163,9 +1164,9 @@ return {
             r.awayTeam,
             sh,
             sa,
-            r.league,
-            JSON.stringify(fd),
-            r.timestamp || new Date().toISOString(),
+          r.league,
+          JSON.stringify(mergeOddsIntoFullData(fd, r)),
+          r.timestamp || new Date().toISOString(),
             r.prediction ?? null,
             r.confidence ?? null,
             r.home_win_probability ?? r.homewinprobability ?? null,

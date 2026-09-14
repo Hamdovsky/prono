@@ -7187,3 +7187,36 @@ seule dans %TEMP% (db ouverte readonly, db injectee -> core/database jamais impo
 
 Non commit. Reste : si on veut de vrais classements Under/HT, ouvrir un chantier
 « emission Under + capture score mi-temps + modele HT » (3 prequis, hors fix).
+
+## E24 Chantier HT/Under Phase 1 : backfill score mi-temps via football-data (2026-09-14)
+
+Suivi docs/chantier_ht_under.md. Le HT etait inclassable (evaluated=0) pour 3
+verrous : (V1) la seed livescore ne lit que Tr1/Tr2 (FT) -> score MT jamais
+capture ; (V2) Sofascore /incidents & /statistics = HTTP 403 en local (verifie sur
+vrai id 15421225) et de plus nos ids sont livescore_<Eid> != id event Sofascore
+(home_team_id col = NULL ; = id equipe) -> sofascoreStatsExtractor ne selectionne
+jamais rien (BUG latent) ; (V3) football-data = source gratuite NON bloquee avec
+HTHG/HTAG mais ne couvre que les ligues europeennes.
+
+LIVRE (Phase 1, sur & reversible) : scripts/backfill_ht_footballdata.js.
+- Jointure date(ISO) + equipes normalisees (de-accent, tokens FC/AC/... retires,
+  alias Man Utd/Notts/Wolves/Inter...) + GARDE FT STRICTE : n'ecrit que si
+  FTHG/FTAG(CSV)==scoreHome/scoreAway(base) -> 0 faux HT. Idempotent (ht NULL).
+- DRY-RUN par defaut ; --write = transaction (corrige un 'connection busy' en
+  collectant puis db.transaction). 6 saisons x 23 divisions (~32k resultats).
+- Applique : 9722 candidats -> 223 joints -> **223 FT-coherents -> 0 conflit**
+  (precision parfaite, recall 2,3 % car archive surtout non-europeenne).
+- 223 ht_score_home/away ecrits dans data/tactical.db (gitignore, = enrichissement
+  que le cron aurait du faire). data/tactical.db NON versionne.
+
+RESULTAT : avec le fix lecture E23, le HT passe de evaluated=0 a **147 (76,2 %)** ;
+classement HT dispo (Süper Lig 100/n8, Championship 93/n15, Ligue1 83/n12, SerieA
+71/n14, ...). Caveat honnete : ces picks HT sont tous 'HT OVER 0.5' (prior constant
+HT_RATIOS.global 0.6939, pas de modele HT branche) -> la mesure reflete le base rate
+de >=1 but en MT par ligue (prior utile), PAS du skill. Voir Phase 4.
+
+Reste (ticket) : Phase 2 capturer HT a l'ingestion livescore detail (seule voie qui
+alimente le FUTUR et l'archive non-europeenne) ; Phase 4 brancher deriveHTPick sur
+ht_model.py (vraie prob) + emettre Under/O-U2.5 reels ; Phase 3 reparer l'extracteur
+Sofascore (bloque 403 ici). jest --forceExit inchange 89/879 (script hors suite).
+Non commit (script + ticket + changelog en attente).

@@ -98,7 +98,15 @@ Implémentation PROPOSÉE (flaggée, réversible, NE PAS appliquer sans GO) :
 
 ### Statut d'exécution
 - Phase 1 : **FAITE** (E24) — 223 ht_score_home écrits, HT now mesurable (147 eval).
-- Phase 2 : non faite (ingestion) — la seule voie qui alimente les matchs FUTURS.
+- Phase 2 : **FAITE (E27)** — decouverte : le flux livescore PUBLIC (sans cle, non
+  bloque, = source de nos ids `livescore_<Eid>`) contient **`Trh1`/`Trh2` = score de
+  1re MT**. `scripts/backfill_ht_livescore.js` joint sur Eid + GARDE `scoreHome/scoreAway
+  == Tr1/Tr2` (99,9 % coherents) -> **8487 ht_score_home ecrits** (historical). HT
+  `evaluated` passe 0 -> 147 (E24) -> **5229 (73,7%)**. Vrais taux de base MT par ligue
+  disponibles (FA Trophy Qual 97,8, MLS 84,3, Championship 73,8, Super League 74,1,
+  Serie B 64,7). data/tactical.db (gitignore) = enrichissement local durable.
+  NOTE : le reglement live passe par un worker distant (Sofascore) -> pour le FUTUR,
+  cabler Trh1/Trh2 dans le mapper livescore (mapEvent/cloudSeed) reste a faire (GO).
 - Phase 3 : bloque reseau (Sofascore 403) — non testable local.
 - Phase 4a : **FAITE (E25) mais NON ACTIVEE** — `HT_MODEL` (defaut **off**) :
   estimation par buts attendus câblée aux 3 sites + tests. **Backtest E26** : ce

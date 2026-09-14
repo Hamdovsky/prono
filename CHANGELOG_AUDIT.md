@@ -7276,3 +7276,32 @@ E25 inerte). Aucune ecriture DB.
 Prochaine vraie valeur = Phase 2 (capturer ht_score a l'ingestion depuis une source
 gratuite non-bloquee : openligadb halfTimeResult / theRundown / livescore detail), puis
 evaluer le VRAI modele HT (pas le proxy) sur un echantillon elargi.
+
+## E27 Phase 2 : capture du score de 1re MT via livescore public (2026-09-14)
+
+Decouverte decisive (testee en reseau, SANS cle, non-bloquee) : l'evenement du flux
+journalier livescore (`prod-public-api.livescore.com/v1/api/app/date/soccer/...`)
+contient **`Trh1`/`Trh2` = score de mi-temps** (outre Tr1/Tr2 FT). C'est LA source
+ideale : nos ids sont `livescore_<Eid>` -> jointure directe par Eid, pas de Sofascore
+(403), pas de cle. Validation : 1365/1377 events sur 3 jours avec Trh coherent (HT<=FT).
+
+LIVRE : scripts/backfill_ht_livescore.js (dry-run defaut, --write, transaction,
+idempotent ht NULL). Join par Eid + GARDE `scoreHome/scoreAway == Tr1/Tr2` (meme match
+presque sur) -> ecrivables=8487, FT-coherents 8557/8563 (99,9%), sans-Trh=69.
+Applique (--write --days=70) : **8487 ht_score_home/away ecrits** dans historical_matches
+(28 -> 8738). data/tactical.db = gitignore (enrichissement local, non versionne).
+
+EFFET (via accuracyEngine E23 qui lit ht_score_home + repli fullData) : le marche
+HT passe de evaluated=0 (E22/E23) -> 147 (E24 FD) -> **5229 (73,7%)**. Les taux de
+base P(>=1 but MT) par ligue deviennent fiables : FA Trophy Qual 97,8 / MLS 84,3 /
+Super League 74,1 / Championship 73,8 / Serie B 64,7. C'est la matiere premiere d'un
+VRAI prior HT par ligue (remplacerait HT_RATIOS.global 0.6939) et d'un modele HT.
+
+IMPORTANT (environnement) : pendant la seance le serveur LIVE a archivé les matchs
+`finished` de `matches` (compte -> 0) -> le backfill balaye aussi historical_matches.
+Le reglement des FUTURS matchs passe par un worker distant (Sofascore) : cabler
+Trh1/Trh2 dans le mapper livescore local (mapEvent/cloudSeed.mapLiveScore) pour
+peupler ht_score a l'ingestion = prochaine etape (touche l'ingestion, GO requis).
+
+Verif : node --check OK ; script hors suite jest (aucun code shared modifie, suite
+89/883 inchangée). HT_MODEL reste off (E26). Non commit.

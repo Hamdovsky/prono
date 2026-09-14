@@ -7329,3 +7329,46 @@ Phase 2 FAITE (retrofill E27 + ingestion E28). Reste : VRAI modele HT (remplacer
 prior par les taux de base mesures) ; activation HT_MODEL seulement avec ce modele ;
 remarque : HT_RATIOS.by_league (cles codes E0..) ne matche jamais les NOMS passes ->
 prior toujours global (a corriger si on branchera un prior HT par ligue mesure).
+
+## E29 Rentabilite & Calibration — Etape 1 (persistance des cotes) (2026-09-14)
+
+Contexte (mesure honnete, pas supposee) : le ROI global du MODELE BRUT est NEGATIF
+(1u -6,9% ; DC -4,9% ; 1X2 -14,3% ; EV-filtre -12,5%), et 'top_picks' (filtre EV+
+curate) n'a que 4 regles FAUTES (cotes synthetiques) -> on ne peut PAS conclure.
+Cause : seules ~251 archives ont (proba + cote REELLE + resultat). Sans echantillon
+cote, toute decision de calibration/edge est hors-sol. BUT Etape 1 = elargir la
+mesure, sans toucher a l'emission.
+
+1.1 NE PLUS PERDRE LES COTES A L'ARCHIVAGE (fuite reelle : archiveFinishedMatches
+lisait SELECT * mais n'injectait pas odds_* dans le fullData archive -> historical
+odds_home ~251/9750). NOUVEAU helper PUR core/archiveMerge.js `mergeOddsIntoFullData
+(fd,row)` (n'ecrase une cote deja presente ; n'invente rien ; ne mute pas fd),
+accroche aux DEUX chemins : core/db/matches.js (SQLite, apres le bloc anti-
+ecrasement) et core/pg_database.js (PG). Test archiveMerge.test.js (6).
+
+1.3 BACKFILL COTES 1X2 CLOTURE via football-data (gratuit, sans cle, non-bloque).
+NOUVEAU helper PUR core/fdJoin.js : normTeam (applique config/teamAliases PUIS
+de-accent/ponctuation/tokens -> Man Utd==Manchester United, Inter==Internazionale),
+normDate, joinKey, ftCoherent (garde ANTI-faux : score CSV vide != 0 ; CSV FTHG/FTAG
+doit == scoreHome/scoreAway), pickClosingOdds (B365 -> Avg -> Pinnacle, triplete >1).
+scripts/backfill_odds_footballdata.js : clone du motif backfill_ht (dry-run defaut,
+db.transaction, idempotent odds_home NULL, ecrit fullData.odds_* pour historical et
+colonnes odds_* pour matches, odds_source='footballdata_*'). Test fdJoin.test.js (5).
+Applique --write : candidats=9500 joins=225 FT-incoherents=0 ecrivables=225 ECRITS=225.
+
+CONSTAT CHIFFRE honnete : population mesurable (proba+cote+resultat) 251 -> ~463
+historical (+100 matches). NE ATTEINT PAS des milliers : plafond = FD ne couvre que
+l'Europe et NOTRE archive est majoritairement non-europeenne SANS cote capturee a
+l'epoque. Le vrai levier d'echantillon est DONC le 1.1 qui mûrit AVEC LE TEMPS
+(cotes capturees des maintenant au sweep + preservees a l'archive) -> pas un
+retro-backfill. A declarer clairement : on ne peut pas conclure un ROI fiable sur
+~460 paris ; il faut accumuler (ou une source de cotes couvrant nos ligues).
+
+1.2 (exclusion stricte des cotes synthetiques de la MESURE) : balise `odds_source`
+desormais posee (footballdata_close/*). Le FILTRE `requireRealOdds` sera applique
+dans le HARNAIS Etape 0 (prochaine etape), pas par heuristique fragile ici.
+
+Verif : node --check OK ; eslint 0 erreur 0 warning sur les fichiers touches ;
+jest --forceExit 92 suites / 899 passed (+2 suites archiveMerge+fdJoin, +11 tests).
+data/tactical.db (gitignore) enrichi (225 cotes). Rien change en emission/prod.
+Non commit (en attente).

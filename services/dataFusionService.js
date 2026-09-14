@@ -304,8 +304,16 @@ class DataFusionService {
         const hasOu = odds && (odds.over25 != null || odds.under25 != null)
         const hasBtts = odds && (odds.btts_yes != null || odds.btts_no != null)
         if (has1x2 || hasOu || hasBtts) {
+          // E33 : une cote dont la SOURCE PROPRE est synthetique (fair_odds_model,
+          // default, model_league, ...) n'est JAMAIS un bookmaker, meme si le nom de
+          // source (ultimate_orchestrator) figure dans BOOKMAKER_SOURCES. Ferme la
+          // promotion du fallback FairOddsEstimator en "vraie cote" (EV circulaire).
+          const resultIsSynthetic = odds.source ? !require('../core/oddsSource').isRealBookmakerSource(odds.source) : false
           const isBookmaker =
-            BOOKMAKER_SOURCES.has(source.name) || REAL_SCRAPE_SOURCES.has(odds.source)
+            !resultIsSynthetic &&
+            (BOOKMAKER_SOURCES.has(source.name) ||
+              REAL_SCRAPE_SOURCES.has(odds.source) ||
+              require('../core/oddsSource').isRealBookmakerSource(odds.source))
           const withFlag = { ...odds, bookmaker: isBookmaker }
           this.recordSuccess(source.name)
           const logLine = has1x2

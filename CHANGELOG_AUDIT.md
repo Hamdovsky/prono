@@ -7504,3 +7504,21 @@ deja en schema mais VIDES).
 Verif : node --check 4 fichiers ; eslint 0 erreur ; jest --forceExit 93 suites / 904 passed
 (+1 suite oddsSource +4 ; non-regression topPicks intacte). data/tactical.db non touche par
 cette etape. Non commit.
+(E33 commit/pousse : ccbd89a.)
+
+## E34 dataFusion : une cote SYNTHE n'est jamais bookmaker (Etape 3 honnetete, suite)
+
+dataFusionService.fetchOdds decidaient isBookmaker par source.name ('ultimate_orchestrator'
+figure dans BOOKMAKER_SOURCES) SANS controler odds.source -> le fallback FairOddsEstimator
+(odds.source='fair_odds_model', livre avec bookmaker:false par l'orchestrateur) etait
+RE-PROMU bookmaker:true. Fix (services/dataFusionService.js, bloc 306) : isBookmaker exige
+que la SOURCE PROPRE du resultat ne soit pas synthetique (core/oddsSource.isRealBookmakerSource)
+; fair_odds_model/default/model_league/... => bookmaker:false. SEULEMENT classification :
+persistance + court-circuit de la chaine LAISSES tels quels (ne pas muter le flux live
+d'ingestion sans pouvoir valider le reseau ici ; consommateur deja protege par E33
+topPicks + le predicat). Prochaine etape couverture (mesurable, reseau requis) : ne pas
+short-circuiter un resultat synthe -> continuer vers une vraie cote ; et ne pas persister
+le numerique pour un synthe.
+
+Verif : node --check OK ; jest --forceExit 93/904 (non-regression ; pas de test sur la
+boucle fetchOdds reseau). Non commit.

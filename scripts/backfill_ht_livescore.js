@@ -10,7 +10,7 @@
  */
 const REPO = require('path').join(__dirname, '..')
 const Database = require('better-sqlite3')
-const axios = require('better-sqlite3') && require(REPO + '/node_modules/axios')
+const axios = require('axios')
 const WRITE = process.argv.includes('--write')
 const DAYS = Number((process.argv.find((a) => a.startsWith('--days=')) || '--days=25').split('=')[1])
 
@@ -43,10 +43,9 @@ const H = { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json', 
       cand++
       if (Number(e.Tr1) !== Number(r.scoreHome) || Number(e.Tr2) !== Number(r.scoreAway)) continue // FT divergent -> SKIP
       matched++
-      const h1 = e.Trh1, h2 = e.Trh2
-      if (h1 == null || h2 == null || h1 === '' || h2 === '') { noHt++; continue }
-      if (Number(h1) > Number(e.Tr1) || Number(h2) > Number(e.Tr2)) continue // incoherent
-      pending.push({ table: r.table, id: r.id, h1: Number(h1), h2: Number(h2) })
+      const ht = require(REPO + '/core/livescoreHt').deriveHtFromLivescore(e)
+      if (ht.home == null || ht.away == null) { noHt++; continue }
+      pending.push({ table: r.table, id: r.id, h1: ht.home, h2: ht.away })
     }
     await new Promise((r) => setTimeout(r, 150))
   }

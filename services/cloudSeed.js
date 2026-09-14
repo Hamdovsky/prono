@@ -98,6 +98,15 @@ function mapLiveScoreEventToMatch(event, stage) {
   const status = mapLiveScoreEps(event.Eps);
   const league = stage?.Snm || 'Unknown';
   const country = stage?.Cnm || '';
+  // E27 : score de 1re MT depuis Trh1/Trh2 (flux livescore public, sans cle).
+  // Stocke en fullData -> accuracyEngine (E23) le relit via repli fd.ht_score_home.
+  let htHome = null;
+  let htAway = null;
+  if (status === 'finished') {
+    const ht = require('../core/livescoreHt').deriveHtFromLivescore(event);
+    htHome = ht.home;
+    htAway = ht.away;
+  }
   return {
     id: `livescore_${event.Eid}`,
     homeTeam: homeName,
@@ -120,6 +129,8 @@ function mapLiveScoreEventToMatch(event, stage) {
     last_updated: Date.now(),
     insufficient_data: 1,
     source: 'livescore',
+    ht_score_home: htHome,
+    ht_score_away: htAway,
     fullData: JSON.stringify({
       id: event.Eid,
       homeTeam: homeName,
@@ -135,7 +146,9 @@ function mapLiveScoreEventToMatch(event, stage) {
       compId: stage?.CompId,
       compName: stage?.CompN,
       homeScore: event.Tr1,
-      awayScore: event.Tr2
+      awayScore: event.Tr2,
+      ht_score_home: htHome,
+      ht_score_away: htAway
     })
   };
 }

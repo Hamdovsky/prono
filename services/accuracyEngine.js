@@ -350,8 +350,8 @@ function recordsFromMatches(r, options) {
       ts: r.startTimestamp || parseDateTs(r.timestamp),
       cornersHome: r.corners_home,
       cornersAway: r.corners_away,
-      htHome: r.score_home_ht,
-      htAway: r.score_away_ht,
+      htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+      htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
       isLowData: isLowDataMatch,
     },
     options
@@ -388,8 +388,8 @@ function recordsFromMatches(r, options) {
         ts: r.startTimestamp || parseDateTs(r.timestamp),
         cornersHome: r.corners_home,
         cornersAway: r.corners_away,
-        htHome: r.score_home_ht,
-        htAway: r.score_away_ht,
+        htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+        htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
       },
       options
     )
@@ -421,8 +421,8 @@ function recordsFromMatches(r, options) {
         ts: r.startTimestamp || parseDateTs(r.timestamp),
         cornersHome: r.corners_home,
         cornersAway: r.corners_away,
-        htHome: r.score_home_ht,
-        htAway: r.score_away_ht,
+        htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+        htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
       },
       options
     )
@@ -453,8 +453,8 @@ function recordsFromMatches(r, options) {
         ts: r.startTimestamp || parseDateTs(r.timestamp),
         cornersHome: r.corners_home,
         cornersAway: r.corners_away,
-        htHome: r.score_home_ht,
-        htAway: r.score_away_ht,
+        htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+        htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
       },
       options
     )
@@ -542,8 +542,8 @@ function recordsFromHistorical(r, options) {
       ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
       cornersHome: r.corners_home,
       cornersAway: r.corners_away,
-      htHome: r.score_home_ht,
-      htAway: r.score_away_ht,
+      htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+      htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
       isLowData: isLowDataHist,
     },
     options
@@ -583,8 +583,8 @@ function recordsFromHistorical(r, options) {
         ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
         cornersHome: r.corners_home,
         cornersAway: r.corners_away,
-        htHome: r.score_home_ht,
-        htAway: r.score_away_ht,
+        htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+        htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
       },
       options
     )
@@ -617,8 +617,8 @@ function recordsFromHistorical(r, options) {
         ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
         cornersHome: r.corners_home,
         cornersAway: r.corners_away,
-        htHome: r.score_home_ht,
-        htAway: r.score_away_ht,
+        htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+        htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
       },
       options
     )
@@ -651,8 +651,8 @@ function recordsFromHistorical(r, options) {
         ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
         cornersHome: r.corners_home,
         cornersAway: r.corners_away,
-        htHome: r.score_home_ht,
-        htAway: r.score_away_ht,
+        htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+        htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
       },
       options
     )

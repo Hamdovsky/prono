@@ -7305,3 +7305,27 @@ peupler ht_score a l'ingestion = prochaine etape (touche l'ingestion, GO requis)
 
 Verif : node --check OK ; script hors suite jest (aucun code shared modifie, suite
 89/883 inchangée). HT_MODEL reste off (E26). Non commit.
+(E27 commit/pousse : 33bb711.)
+
+## E28 Capture HT a l'ingestion livescore (2026-09-14)
+
+Completude Phase 2 : le HT ne depend plus que d'un run manuel de script.
+- `core/livescoreHt.js` (NEUF, pur, sans dep) : `deriveHtFromLivescore(event)` extrait
+  Trh1/Trh2 avec garde forte : chaine vide/null/ABSENT -> null (NE JAMAIS inventer un
+  HT 0-0 — ce cas etait justement le 1er bug attrape par le test), et HT>FT -> null.
+  Partage par ingestion + backfill (garde unique, DRY). Test `livescoreHt.test.js` (5).
+- `services/cloudSeed.js` `mapLiveScoreEventToMatch` : si status='finished' + Trh
+  valides -> `ht_score_home/ht_score_away` ecrits en top-level ET dans fullData.
+  accuracyEngine (E23) relit `fd.ht_score_home` -> les FUTURS matchs livescore re-mapes
+  portent leur score MT automatiquement (pas de re-execution). Additif, ne touche
+  prediction/emission ; cloudSeed n'est importe qu'au runtime du seed (pas load test).
+- `scripts/backfill_ht_livescore.js` : refactor pour reutiliser le helper + require
+  axios propre ; idempotence re-verifiee (re-dry-run = 0 ecrivables).
+
+Verif : node --check OK ; eslint 0 erreur (5 warnings cloudSeed PREEXISTANTS) ;
+jest --forceExit **90 suites / 888 passed** (+1 suite livescoreHt +5). Non commit.
+
+Phase 2 FAITE (retrofill E27 + ingestion E28). Reste : VRAI modele HT (remplacer le
+prior par les taux de base mesures) ; activation HT_MODEL seulement avec ce modele ;
+remarque : HT_RATIOS.by_league (cles codes E0..) ne matche jamais les NOMS passes ->
+prior toujours global (a corriger si on branchera un prior HT par ligue mesure).

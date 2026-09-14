@@ -107,6 +107,19 @@ Implémentation PROPOSÉE (flaggée, réversible, NE PAS appliquer sans GO) :
   Serie B 64,7). data/tactical.db (gitignore) = enrichissement local durable.
   NOTE : le reglement live passe par un worker distant (Sofascore) -> pour le FUTUR,
   cabler Trh1/Trh2 dans le mapper livescore (mapEvent/cloudSeed) reste a faire (GO).
+
+## E28 (2026-09-14) — capture HT a l'INGESTION livescore (completude Phase 2)
+- `core/livescoreHt.js` (NEUF, pur) : `deriveHtFromLivescore(event)` -> {home,away}
+  depuis Trh1/Trh2, garde (absent/'' -> null JAMAIS invente ; HT>FT -> null). Partage
+  par l'ingestion ET le backfill (DRY, garde unique). Teste (5 cas).
+- `services/cloudSeed.js` `mapLiveScoreEventToMatch` : quand status finished et Trh
+  valides, ecrit `ht_score_home/away` (top-level + fullData). Comme accuracyEngine E23
+  relit `fd.ht_score_home`, les FUTURS matchs livescore repasses par le seed/refresh
+  portent leur score MT sans re-execution de script.
+- `scripts/backfill_ht_livescore.js` refactor : reutilise le helper ; idempotent
+  (re-dry-run = 0 ecrivables, les 8487 deja ecrits ne sont plus nulls).
+- Non-regression : cloudSeed n'est importe qu'au runtime du seed (pas au load des
+  tests) ; suite 90/883 ; eslint 0 erreur ; node --check OK. Aucun HT invente.
 - Phase 3 : bloque reseau (Sofascore 403) — non testable local.
 - Phase 4a : **FAITE (E25) mais NON ACTIVEE** — `HT_MODEL` (defaut **off**) :
   estimation par buts attendus câblée aux 3 sites + tests. **Backtest E26** : ce

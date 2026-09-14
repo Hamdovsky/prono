@@ -126,6 +126,8 @@ function computeCalibrationMetrics(match) {
     pDraw,
     pAway,
     actualOutcome: scoreH > scoreA ? '1' : scoreH < scoreA ? '2' : 'X',
+    matchId: match.id,
+    league: match.league || match.tournament_name || 'Unknown',
   }
 }
 function evaluatePrediction(match) {
@@ -357,24 +359,16 @@ async function runAutoBacktest() {
 }
 
 /**
- * Compute per-league Brier Score + LogLoss (1X2/OU/BTTS) and persist them to
- * calibration_metrics.json, which backtest_feedback.py turns into blend weights.
+ * Regroupe les metriques de calibration par ligue. Chaque metrique porte sa
+ * propre ligue (computeCalibrationMetrics) : plus de jointure fragile par
+ * egalite flottante de probabilites qui recrachait un bucket 'Unknown' pour
+ * tout match dont le ratio ne tombait pas pile. Pur (aucune ecriture disque)
+ * -> testable sans toucher data/calibration_metrics.json.
  */
-function saveCalibrationMetrics(matches, results) {
-  const calibrationResults = matches.map(computeCalibrationMetrics).filter(Boolean)
-  if (calibrationResults.length === 0) {
-    logger.info('[BACKTEST] No calibration data available (missing probs/scores).')
-    return null
-  }
-
-  // Aggregate per-league
+function _aggregateCalibrationByLeague(calibrationResults) {
   const calByLeague = {}
-  for (const cm of calibrationResults) {
-    // Find league from the original results array
-    const origResult = results.find(
-      (r) => r.pHome === cm.pHome * 100 && r.pAway === cm.pAway * 100
-    )
-    const lg = origResult ? origResult.league : 'Unknown'
+  for (const cm of calibrationResults || []) {
+    const lg = cm.league || 'Unknown'
     if (!calByLeague[lg])
       calByLeague[lg] = {
         brier1x2: [],
@@ -391,6 +385,21 @@ function saveCalibrationMetrics(matches, results) {
     calByLeague[lg].brierBTTS.push(cm.brierBTTS)
     calByLeague[lg].loglossBTTS.push(cm.loglossBTTS)
   }
+  return calByLeague
+}
+
+/**
+ * Compute per-league Brier Score + LogLoss (1X2/OU/BTTS) and persist them to
+ * calibration_metrics.json, which backtest_feedback.py turns into blend weights.
+ */
+function saveCalibrationMetrics(matches, _results) {
+  const calibrationResults = matches.map(computeCalibrationMetrics).filter(Boolean)
+  if (calibrationResults.length === 0) {
+    logger.info('[BACKTEST] No calibration data available (missing probs/scores).')
+    return null
+  }
+
+  const calByLeague = _aggregateCalibrationByLeague(calibrationResults)
 
   const calibrationMetrics = {}
   for (const [lg, vals] of Object.entries(calByLeague)) {
@@ -618,6 +627,8 @@ function _computeDynamicWeights(leagueStats) {
 module.exports = {
   runAutoBacktest,
   evaluatePrediction,
+  computeCalibrationMetrics,
+  _aggregateCalibrationByLeague,
   buildBacktestReport,
   _aggregateLeagueStats,
   _finalizeLeagueStats,

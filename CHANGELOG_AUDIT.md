@@ -7098,3 +7098,92 @@ sain. Preuve d'execution du contextual deja couverte par le test unitaire
 aucune preuve synthetique ajoutee (eviter le doublon). Prochaine action utile =
 relancer /api/flash-odds/calibration ce soir / apres un in-play de ligue majeure
 et verifier n shadow (puis applied si CONTEXTUAL_CAC_ENABLED active).
+
+## E22 Calibration par ligue : suppression du bucket 'Unknown' fantome (2026-09-14)
+
+Demande user : « chaque ligue a son empreinte » -> « prend le bon chemin ». Carto-
+graphie : l'empreinte existe deja sur 3 couches (Python prediction_engine.py via
+leagues_master.classify_league + goals/draw multipliers + LEAGUE_WEIGHT_MATRIX ;
+Node StatisticalEngine._getLeagueBaseXG ; artefacts league_model_parameters /
+league_dynamic_weights / calibration_metrics / thetaOptimizer). Rien recree.
+Mais mesure de calibration_metrics.json : 42 buckets / ~100 matchs dont Unknown
+n=26, 23 ligues a n<=1, 0 a n>=10 -> empreinte faussee a la SOURCE.
+
+Cause racine : saveCalibrationMetrics ne portait PAS la ligue dans
+computeCalibrationMetrics -> re-joinait chaque metrique a 'results' par EGALITE
+FLOTTANTE (r.pHome===cm.pHome*100 && r.pAway===cm.pAway*100, lignes 374-375). Comme
+'results' vient d'un .map(...).filter(Boolean) il n'est plus aligne par index ->
+tout ratio qui ne tombe pas pile = 'Unknown', et deux ligues aux memes probs
+pouvaient collider. Le 'Unknown' n'etait PAS une ligue absente : un bug de jointure.
+
+Fix minimal (cause racine seule, autoBacktestService.js) :
+- computeCalibrationMetrics retourne matchId + league (match.league || tournament_name || 'Unknown', MEME convention qu'evaluatePrediction:173).
+- NOUVEAU helper PUR _aggregateCalibrationByLeague(calibrationResults) : groupe par cm.league, zero ecriture disque (donc testable sans ecraser data/calibration_metrics.json).
+- saveCalibrationMetrics : join supprime (22 lignes -> 1 appel), param results devenu inutile -> _results (argsIgnorePattern ^_).
+- exports += computeCalibrationMetrics, _aggregateCalibrationByLeague.
+
+NON fait volontairement : normalisation canonique de la chaine ligue (accents,
+'PL' vs 'Premier League', variantes source). 2e facteur de fragmentation, mais il
+traverse Node ET Python (backtest_feedback.py consomme les memes cles) -> refonte
+a part a chiffrer, pas melees a ce correctif (regle : ne pas changer l'archi sans
+necessite, preserver l'existant).
+
+Note effet de bord (preexistant, non touche) : tout import de core/database (y c.
+les tests jest) applique les migrations SQLite IDEMPOTENTES sur data/tactical.db
+(gitignore). Colonnes additionnelles = non-breaking pour le serveur live.
+
+? jest --forceExit 88 suites / 876 passed (+1 suite autoBacktestCalibration, +7 :
+porte sa ligue / repli tournament_name+Unknown / DEUX ligues a probs identiques
+desormais separees (regression du join) / cumul / Unknown legitime / vide) ;
+eslint 0 ; node --check OK. Prochaine execution du cron backtest : Unknown doit
+retomber aux seuls vrais matchs sans ligue ; calibration_metrics.json (suivi git)
+se regenerera de lui-meme. Non commit (en attente validation user).
+
+## E23 Precision par marche/ligue : pourquoi Under & 1er MT sont inclassables (2026-09-14)
+
+Question user : « classement over/under, base solide, btts, premier mi-temps ».
+Source = accuracyEngine (metrique unifiee). etat global par marche : DC 70,8 %
+(n=4891, la vraie force) ; BTTS 53,9 % (n=5430, a peine > pile-ou-face) ; 1X2 sec
+42,9 % (n=2325) ; OU 94,3 % mais TRIVIAL (voir). BASE SOLIDE (n tous marches) :
+Super League 225@66,7 ; Championship 181 ; FA Trophy Qual 178@69,1 ; Premier
+League 156@55,1 ; Serie B 153 ; MLS 141@63,1 ; National League 124@68,5.
+
+Investigation des 2 marches absents -> causes DISTINCTES :
+1. UNDER : JAMAIS emis. Labels prediction en FT = 1X / 12 / O0.5 / X2 ; le seul
+   marche buts persiste est O0.5 (ligne sure -> ~94 % par construction, pas du
+   skill). Aucun 'U…' nulle part. = choix du picker (topPicks/marketPolicy
+   DISABLE_PURE_1X2 oriente vers DC), PAS un bug de mesure. Classement Under
+   impossible tant que le picker n'emet pas d'Unders.
+2. 1ER MI-TEMPS (HT) : double cause.
+   (a) BUG mesure corrige ici — accuracyEngine lisait r.score_home_ht /
+       r.score_away_ht, or les vraies COLONNES prod sont ht_score_home /
+       ht_score_away (nom inverse) ; et le score MT est souvent dans fullData,
+       pas en colonne. Resultat : les 5106 picks ht_pick archives (historical)
+       etaient tous juges htHome=null -> isCorrect HT null -> evalues=0. Le test
+       unitaire existant (accuracyEngine.test.js) utilisait son PROPRE schema
+       score_home_ht -> Faux-positif (validait le nom errone). FIX (services/
+       accuracyEngine.js, 8 sites htHome + 8 htAway, primaire + 2ndaires matches
+       & historical) : `r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home
+       ?? fd.ht_home ?? null` (+ away). Repli retro-compatible -> test existant
+       toujours vert.
+   (b) DONNEE NON CAPTUREE (limite reelle, non corrigee) : ht_score_home non-null
+       sur seulement 28/9557 historical, 0/944 matches FT ; fullData.ht_score_*
+       = 0 ; corners_ht_home = 0. Et les 5106 ht_pick archivés sont TOUS
+       'HT OVER 0.5' (deriveHTPick faute de modele HT retombe sur le prior constant
+       HT_RATIOS.global=0.6939 -> jamais UNDER). Donc meme apres le fix, HT reste
+       inclassable : il faut (i) capturer les buts de 1re MT dans le service de
+       resultats (peupler ht_score_home) et (ii) un vrai modele HT pour emettre des
+       Under. Le fix rend la mesure correcte QUAND la donnee arrivera ; il ne
+       l'invente pas.
+3. Corners : corner_pick non emis historiquement (deriveCornerPick exige
+   expected_corners/quant.corners absent de l'archive) -> 0 aussi (hors perimetre).
+
+Verif : NOUVEAU test __tests__/accuracyEngineHtProdColumns.test.js (3 cas, schéma
+PROD ht_score_home colonne + fullData + cas « pick sans score -> jamais devine »).
+jest --forceExit 89 suites / 879 passed (+1 suite +3 ; non-regression, le HT test
+historique reste vert via le repli) ; eslint accuracyEngine 0 erreur (1 warning
+'over' ligne 117 PREEXISTANT, hors perimetre) ; node --check OK. Probes lecture
+seule dans %TEMP% (db ouverte readonly, db injectee -> core/database jamais importe).
+
+Non commit. Reste : si on veut de vrais classements Under/HT, ouvrir un chantier
+« emission Under + capture score mi-temps + modele HT » (3 prequis, hors fix).

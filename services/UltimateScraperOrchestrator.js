@@ -302,22 +302,10 @@ async function fetchOdds_flashscore_feed(match) {
 }
 
 async function fetchOdds_fotmob(match) {
-  const fm = getFotmob()
-  if (!fm) return null
-  const fotmobId = match.fotmob_id
-  if (!fotmobId) return null
-  try {
-    const odds = await withTimeout(Promise.resolve(fm.getMatchOdds(fotmobId)), FETCH_TIMEOUT_MS)
-    if (!odds) return null
-    return {
-      home: odds.home, draw: odds.draw, away: odds.away,
-      over25: odds.over25, under25: odds.under25,
-      btts_yes: odds.btts_yes, btts_no: odds.btts_no,
-      source: 'fotmob', bookmaker: true,
-    }
-  } catch (e) {
-    return null
-  }
+  // FotMob n'expose PAS de cotes 1X2/O/U exploitables ici (matchDetails = stats
+  // d'equipe). Cette lane d'odds reste volontairement inactive ; le role de FotMob
+  // est couvert par fetchFotmobStats (xG/corners/shots), pas par les cotes.
+  return null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

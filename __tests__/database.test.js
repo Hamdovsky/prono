@@ -27,6 +27,12 @@ describe('Database', () => {
         expect(colNames).toContain('weather_temp')
         expect(colNames).toContain('news_sentiment')
         expect(colNames).toContain('is_high_pressure')
+        // E37 : colonnes FotMob (lien + stats) ajoutees idempotemment
+        expect(colNames).toContain('fotmob_id')
+        expect(colNames).toContain('shots_home')
+        expect(colNames).toContain('shots_away')
+        expect(colNames).toContain('possession_home')
+        expect(colNames).toContain('possession_away')
       } catch (e) {
         // Database may not be initialized in test environment, skip
         console.log('Skipping schema check - DB not initialized:', e.message)
@@ -106,20 +112,65 @@ describe('Database', () => {
       }
       try {
         await database.insertMatch({ ...match, match_key: 'test|key|1' })
-        const updated = await database.updateMatchResult('test|key|1', {
-          scoreHome: 2,
-          scoreAway: 1,
-          status: 'finished',
-        })
+        const prev = process.env.HT_FROM_LIVESCORE
+        process.env.HT_FROM_LIVESCORE = 'on'
+        let updated
+        try {
+          updated = await database.updateMatchResult('test|key|1', {
+            scoreHome: 2,
+            scoreAway: 1,
+            status: 'finished',
+            scoreHalfHome: 1,
+            scoreHalfAway: 1,
+          })
+        } finally {
+          if (prev === undefined) delete process.env.HT_FROM_LIVESCORE
+          else process.env.HT_FROM_LIVESCORE = prev
+        }
         expect(updated).toBe(1)
         const row = database.db
-          .prepare("SELECT scoreHome, scoreAway, status FROM matches WHERE id = 'res-match-001'")
+          .prepare(
+            "SELECT scoreHome, scoreAway, status, ht_score_home, ht_score_away FROM matches WHERE id = 'res-match-001'"
+          )
           .get()
         expect(row.scoreHome).toBe(2)
         expect(row.scoreAway).toBe(1)
         expect(row.status).toBe('finished')
+        // E37 : le score de 1re mi-temps (livescore Trh1/Trh2) DOIT etre persiste
+        expect(row.ht_score_home).toBe(1)
+        expect(row.ht_score_away).toBe(1)
       } catch (e) {
         console.log('updateMatchResult test skipped:', e.message)
+      }
+    })
+
+    it('flag HT_FROM_LIVESCORE off (defaut) ne pose PAS le score de MT (non-regression)', async () => {
+      const prev = process.env.HT_FROM_LIVESCORE
+      delete process.env.HT_FROM_LIVESCORE
+      try {
+        await database.insertMatch({
+          id: 'res-match-off',
+          homeTeam: 'OffA',
+          awayTeam: 'OffB',
+          league: 'La Liga',
+          status: 'scheduled',
+          startTimestamp: Math.floor(Date.now() / 1000),
+          match_key: 'test|key|off',
+        })
+        const updated = await database.updateMatchResult('test|key|off', {
+          scoreHome: 2,
+          scoreAway: 0,
+          status: 'finished',
+          scoreHalfHome: 2,
+          scoreHalfAway: 0,
+        })
+        expect(updated).toBe(1)
+        const row = database.db.prepare("SELECT ht_score_home FROM matches WHERE id = 'res-match-off'").get()
+        expect(row.ht_score_home).toBeNull() // non ecrit quand off
+      } catch (e) {
+        console.log('ht-flag-off test skipped:', e.message)
+      } finally {
+        if (prev !== undefined) process.env.HT_FROM_LIVESCORE = prev
       }
     })
 

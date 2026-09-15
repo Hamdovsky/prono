@@ -7581,3 +7581,63 @@ couverture reelle > 5,1%. Activer = poser ODDS_REJECT_SYNTHETIC=on dans .env + r
 
 Verif : node --check OK ; eslint 0 ; jest --forceExit 95 suites / 913 passed (+1 suite
 dataFusionSynthetic +3 ; modules isoles par fichier, pas de fuite du singleton). Non commit.
+(E36 commit/pousse : 6607c68.)
+
+## E37 FotMob pour xG / corners / tirs / possession (+ HT via livescore) (2026-09-14)
+
+Contexte : Sofascore = 403 (IP-banni, proxies morts) ; FotMob, lui, REPOND sans cle
+ni proxy (verifie en direct). Objectif (chantier rentabilite) : donner aux modeles
+O/U et corners une VRAIE matiere (xG/corners/shots/possession par match), et le HT
+par livescore. Implementation dans l'ordre, gatee + testee a chaque etape :
+
+1. Client Python scripts/fotmobClient.py : routes reelles /api/data/matches et
+   /api/data/matchDetails (les /api/matches & /api/matchDetails -> 404), en-tetes
+   app x-mocks/x-platform (sinon 404), get_match_details parse les stats D'EQUIPE
+   dans content.stats.Periods.{All,FirstHalf} (xG/corners/shots/possession + xG et
+   corners de 1re MT). HT score volontairement None (vient de livescore).
+   Test tests/test_fotmob_client.py (smoke, 5, monkeypatch _http_get).
+
+2. Node services/fotmobService.js : + getMatchStats (alias getMatchDetails).
+   FIX BUG CRITIQUE (encodage) : le CLI printait du JSON UTF-8 sur une console
+   Windows cp1252 -> UnicodeEncodeError exit 1 sur tout nom accentue (Besiktas,
+   Atletico) -> getMatchesByDate echouait silencieusement, mapped 0. Corrige :
+   sys.stdout.buffer.write(...encode('utf-8')) + spawn env PYTHONIOENCODING=utf-8
+   + proc.stdout.setEncoding('utf8'). Orchestrateur : fetchOdds_fotmob neutralise
+   (FotMob = stats, pas cotes ; la lane odds etait un appel getMatchOdds fantome).
+
+3. Persistance HT : core/db/matches.js + core/pg_database.js updateMatchResult
+   ecrivent ht_score_home/away via COALESCE depuis patch.scoreHalf* (livescore
+   mapResult, deja remonte par sourceOrchestrator). GATE HT_FROM_LIVESCORE (defaut
+   OFF = COALESCE(null) => non-regression stricte). Test database.test.js (on + off).
+
+4. Colonnes : schema.js + pg_migrations addCol/ensureCol 'fotmob_id','shots_home/
+   away','possession_home/away' (idempotent). Test database.test.js (schema check).
+
+5. services/fotmobStatsExtractor.js (NEUF) : miroir sofascoreStatsExtractor. Pour
+   matches finished sans home_xg/corners : liste du jour /api/data/matches ->
+   lien par (dateISO + normTeam(home/away) via core/fdJoin+teamAliases) -> fotmob_id,
+   getMatchStats -> UPDATE matches (COALESCE, ne recouvre jamais). idempotent,
+   throttle, dry-run defaut. Test __tests__/fotmobStatsExtractor.test.js (3, db
+   memoire + mock). Cron #15b (cronManager) route vers fotmob si
+   FOTMOB_STATS_ENABLED=on, sinon sofascore (defaut, inchange).
+
+6. core/archiveMerge.js : STATS_FIELDS (fotmob_id,ht_score_*,corners_*,home_xg,
+   away_xg,xg_ht_*,shots_*,possession_*) -> preserve a l'archive (historical
+   fullData) sinon perdu pour le ML. Test archiveMerge (E37).
+
+7. scripts/backfill_fotmob_stats.js (NEUF) : dry-run par defaut, --write, cibles
+   matches (extracteur) + historical_matches (merge fullData). APPLIQUE (write,
+   limit 20) : 7 lignes historical enrichies avec fd.fotmob_id + home_xg +
+   xg_ht_home (1re MT) -> bout-en-bout valide (matched>0, non-ASCII OK).
+
+Flags .env.example : FOTMOB_STATS_ENABLED=off (defaut), HT_FROM_LIVESCORE=off
+(defaut). La production ne change PAS tant que ces flags sont off.
+
+Verif : node --check + py_compile OK ; eslint 0 erreur ; tests ciblés (fotmobClient
+5, fotmobStatsExtractor 3, archiveMerge, database 29) ; jest --forceExit **96 suites /
+918 passed** (non-regression). data/tactical.db (gitignore) enrichi (fotmob_id/shots/
+possession + 7 lignes historical stats).
+
+Reste (validable quand flags ON + serveur relance) : mesurer home_xg/corners sur le
+volume ; puis relancer train_corners/train_ht/O-U walk-forward -> ROI. Retrait du
+live = AUTRE ticket.

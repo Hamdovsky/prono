@@ -503,10 +503,16 @@ async function runMigrations() {
       await ensureCol('corners_ht_away', 'INTEGER')
       await ensureCol('odds_over25', 'REAL')
       await ensureCol('odds_under25', 'REAL')
-      await ensureCol('odds_btts_yes', 'REAL')
-      await ensureCol('odds_btts_no', 'REAL')
-    } catch (e) {
-      logger.warn(`[PG MIGRATIONS] ensure vécues skipped: ${e.message}`)
+        await ensureCol('odds_btts_yes', 'REAL')
+        await ensureCol('odds_btts_no', 'REAL')
+        // E37 : lien FotMob + stats (modèles O/U & corners)
+        await ensureCol('fotmob_id', 'TEXT')
+        await ensureCol('shots_home', 'INTEGER')
+        await ensureCol('shots_away', 'INTEGER')
+        await ensureCol('possession_home', 'REAL')
+        await ensureCol('possession_away', 'REAL')
+      } catch (e) {
+        logger.warn(`[PG MIGRATIONS] ensure vécues skipped: ${e.message}`)
     }
 
     // ─── historical_matches: ensure prediction columns exist ─────────────

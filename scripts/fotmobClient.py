@@ -1,17 +1,16 @@
 """
-fotmobClient.py — FotMob API via curl_cffi + __NEXT_DATA__ fallback.
+fotmobClient.py — FotMob API (via curl_cffi + en-tetes app /api/data).
 
-Sources :
-  https://github.com/pseudo-r/Public-FotMob-API  (community audit 2026-03)
-  https://github.com/0xjuanma/golazo                   (golazo Go — page __NEXT_DATA__ approach)
-
-Endpoints verifies :
-  GET /api/matches?date=YYYYMMDD           → all matches (fixtures + scores)
-  GET /api/data/match-score?matchId={id}    → lightweight live score (verified 2026-03)
-  GET /match/{matchId}                      → page HTML with __NEXT_DATA__ (fallback)
+Endpoints reels (2025+, verifies en session) :
+  GET /api/data/matches?date=YYYYMMDD        -> toutes les rencontres du jour
+  GET /api/data/matchDetails?matchId={id}    -> stats D'EQUIPE (content.stats.Periods)
+  GET /api/data/match-score?matchId={id}     -> score leger
+NOTE : les anciens /api/matches et /api/matchDetails -> 404 (routes retirees par
+FotMob). Sans les en-tetes x-mocks/x-platform sur /api/data/*, FotMob renvoie 404.
+Le SCORE de 1re mi-temps vient de livescore (Trh1/Trh2), pas de FotMob.
 
 Anti-ban :
-  - curl_cffi TLS chrome impersonation
+  - curl_cffi TLS chrome impersonation + en-tetes app
   - Rate limiting : 1 req / 2s minimum
   - Negative cache on unknown/404 matchIds (1h)
 """
@@ -46,6 +45,14 @@ DEFAULT_HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
     "Referer": "https://www.fotmob.com/",
+    "Origin": "https://www.fotmob.com",
+    # FotMob (2025+) exige ces en-tetes APP sur /api/data/* ; sans eux -> 404.
+    "x-mocks": "true",
+    "x-platform": "web",
+    "x-timezone": "0",
+    "x-device": "desktop",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
 }
 
 FEED_BASE = "https://www.fotmob.com"
@@ -141,26 +148,28 @@ def get_matches_by_date(date_str):
     Fetch all matches for a date.
     date_str: YYYYMMDD
     Returns list of match objects with id, homeTeam, awayTeam, league, status, score.
+    Endpoint (2025+): /api/data/matches?date= (les anciens /api/matches -> 404).
     """
-    url = f"{FEED_BASE}/api/matches?date={date_str}"
+    url = f"{FEED_BASE}/api/data/matches?date={date_str}"
     data = _http_get(url)
     if not data:
         return []
 
     matches = []
     for league in (data.get("leagues") or []):
-        league_name = league.get("leagueName", "") or ""
+        league_name = league.get("name") or league.get("leagueName") or ""
         for match in (league.get("matches") or []):
             home_obj = match.get("home") or {}
             away_obj = match.get("away") or {}
+            status_obj = match.get("status") or {}
             matches.append({
                 "id": str(match.get("id", "")),
-                "home": home_obj.get("name", ""),
-                "away": away_obj.get("name", ""),
+                "home": home_obj.get("name", "") if isinstance(home_obj, dict) else "",
+                "away": away_obj.get("name", "") if isinstance(away_obj, dict) else "",
                 "league": league_name,
-                "status": match.get("status", ""),
-                "home_score": (match.get("homeScore") or {}).get("full"),
-                "away_score": (match.get("awayScore") or {}).get("full"),
+                "status": (status_obj.get("finished") and "FT") or status_obj.get("reason", {}).get("short", "") or status_obj.get("statusType", "") if isinstance(status_obj, dict) else str(status_obj),
+                "home_score": home_obj.get("score") if isinstance(home_obj, dict) else None,
+                "away_score": away_obj.get("score") if isinstance(away_obj, dict) else None,
             })
     logger.info(f"[FOTMOB] get_matches_by_date({date_str}): {len(matches)} matches")
     return matches
@@ -236,43 +245,86 @@ def _parse_next_data_page(match_id):
         return None
 
 
+def _period_items(periods, which="All"):
+    """content.stats.Periods[which].stats -> items plats [{key,title,stats:[h,a]}]."""
+    blk = (periods or {}).get(which) or {}
+    items = []
+    for section in blk.get("stats", []) or []:
+        for it in section.get("stats", []) or []:
+            if isinstance(it, dict) and isinstance(it.get("stats"), (list, tuple)) and len(it["stats"]) >= 2:
+                items.append(it)
+    return items
+
+
+def _pick_item(items, *needles):
+    """1er item dont key OU title contient une des needles (minuscule)."""
+    for it in items:
+        k = str(it.get("key", "")).lower()
+        t = str(it.get("title", "")).lower()
+        for nd in needles:
+            n = nd.lower()
+            if n in k or n in t:
+                return it
+    return None
+
+
+def _ha(it):
+    """(home, away) floats depuis item['stats'] = [home, away]."""
+    if not it:
+        return None, None
+    v = it.get("stats")
+    try:
+        h = float(str(v[0]).replace(",", ".")) if v[0] not in (None, "") else None
+        a = float(str(v[1]).replace(",", ".")) if v[1] not in (None, "") else None
+    except (ValueError, TypeError, IndexError):
+        return None, None
+    return h, a
+
+
 def get_match_details(match_id):
     """
-    Full match details: xG, HT score, corners, shots, lineups.
-    Strategy:
-      1. Try /api/matchDetails?matchId= (may 404)
-      2. Fallback: parse __NEXT_DATA__ from HTML page
-    Returns dict with xg_home, xg_away, ht_score_home, ht_score_away,
-    corners_home, corners_away, shots_home, shots_away, etc.
+    Stats D'EQUIPE par match via /api/data/matchDetails (les stats joueur sont
+    ailleurs; ici on lit content.stats.Periods.{All,FirstHalf}).
+    Retourne xg/corners/shots/possession (All) + xg/corners de 1re MT (FirstHalf)
+    pour alimenter les modeles O/U, corners et HT. Le SCORE de MT vient de
+    livescore (Trh1/Trh2), pas de FotMob -> ht_score_* laisses a None.
     """
-    # Strategy 1: try API
-    url = f"{FEED_BASE}/api/matchDetails?matchId={match_id}"
+    url = f"{FEED_BASE}/api/data/matchDetails?matchId={match_id}"
     data = _http_get(url, match_id=match_id)
-
-    # Strategy 2: parse page __NEXT_DATA__ if API failed
-    if not data:
-        nd = _parse_next_data_page(match_id)
-        if nd:
-            data = _extract_from_next_data(nd)
-
     if not data:
         return None
+    try:
+        periods = ((data.get("content") or {}).get("stats") or {}).get("Periods") or {}
+    except AttributeError:
+        return None
+    if not periods:
+        return None
+
+    all_items = _period_items(periods, "All")
+    fh_items = _period_items(periods, "FirstHalf")
+
+    xg_h, xg_a = _ha(_pick_item(all_items, "expected_goals", "expected goals", "xg"))
+    cor_h, cor_a = _ha(_pick_item(all_items, "corner"))
+    shots_h, shots_a = _ha(_pick_item(all_items, "total_shots", "total shots"))
+    poss_h, poss_a = _ha(_pick_item(all_items, "possession"))
+    sot_h, sot_a = _ha(_pick_item(all_items, "shots_on_target", "shots on target"))
+    fh_xg_h, fh_xg_a = _ha(_pick_item(fh_items, "expected_goals", "expected goals", "xg"))
+    fh_cor_h, fh_cor_a = _ha(_pick_item(fh_items, "corner"))
 
     return {
-        "xg_home": data.get("xg_home"),
-        "xg_away": data.get("xg_away"),
-        "ht_score_home": data.get("ht_score_home"),
-        "ht_score_away": data.get("ht_score_away"),
-        "corners_home": data.get("corners_home"),
-        "corners_away": data.get("corners_away"),
-        "shots_home": data.get("shots_home"),
-        "shots_away": data.get("shots_away"),
-        "possession_home": data.get("possession_home"),
-        "possession_away": data.get("possession_away"),
-        "yellow_cards_home": data.get("yellow_cards_home"),
-        "yellow_cards_away": data.get("yellow_cards_away"),
-        "lineup_home": data.get("lineup_home"),
-        "lineup_away": data.get("lineup_away"),
+        "xg_home": xg_h, "xg_away": xg_a,
+        "corners_home": None if cor_h is None else int(cor_h),
+        "corners_away": None if cor_a is None else int(cor_a),
+        "shots_home": None if shots_h is None else int(shots_h),
+        "shots_away": None if shots_a is None else int(shots_a),
+        "shots_on_target_home": None if sot_h is None else int(sot_h),
+        "shots_on_target_away": None if sot_a is None else int(sot_a),
+        "possession_home": poss_h, "possession_away": poss_a,
+        "xg_ht_home": fh_xg_h, "xg_ht_away": fh_xg_a,
+        "corners_ht_home": None if fh_cor_h is None else int(fh_cor_h),
+        "corners_ht_away": None if fh_cor_a is None else int(fh_cor_a),
+        "ht_score_home": None, "ht_score_away": None,  # via livescore, pas FotMob
+        "lineup_home": None, "lineup_away": None,
     }
 
 
@@ -359,7 +411,7 @@ def _safe_int(v):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 3:
-        print(json.dumps({"error": "Usage: fotmobClient.py <fn> <json-args>"}))
+        sys.stdout.buffer.write(json.dumps({"error": "Usage: fotmobClient.py <fn> <json-args>"}).encode("utf-8") + b"\n")
         sys.exit(1)
     fn = sys.argv[1]
     args = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
@@ -375,4 +427,7 @@ if __name__ == '__main__':
             result = {"error": f"Unknown function: {fn}"}
     except Exception as e:
         result = {"error": str(e)}
-    print(json.dumps(result, ensure_ascii=False))
+    # Windows console cp1252 casse sur les noms non-ASCII (Beşiktas, Atletico...) ;
+    # ecrire les octets UTF-8 directement evite UnicodeEncodeError (le node parse
+    # un JSON valide). Cf. E37.
+    sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False).encode("utf-8") + b"\n")

@@ -3,7 +3,7 @@
  * l'archivage. Pur : aucune DB. Verrouille "ne jamais ecraser une cote deja en
  * fullData" et "ne jamais inventer une cote absente".
  */
-const { mergeOddsIntoFullData, ODD_FIELDS } = require('../core/archiveMerge')
+const { mergeOddsIntoFullData, ODD_FIELDS, STATS_FIELDS } = require('../core/archiveMerge')
 
 test('injecte les cotes de la ligne dans un fullData sans cotes', () => {
   const row = { odds_home: 1.9, odds_draw: 3.4, odds_away: 4.1, odds_source: 'betexplorer' }
@@ -40,4 +40,18 @@ test('ne mute pas l objet fd d origine', () => {
 
 test('couvre bien over/under + btts (champs HT/corner ajoutes plus tard)', () => {
   expect(ODD_FIELDS).toEqual(expect.arrayContaining(['odds_over25', 'odds_under25', 'odds_btts_yes', 'odds_btts_no']))
+})
+
+test("E37 - preserve aussi les STATS FotMob (fotmob_id/xg/corners/ht/shots/poss)", () => {
+  expect(STATS_FIELDS).toEqual(expect.arrayContaining(['fotmob_id','home_xg','away_xg','corners_home','ht_score_home','possession_home','corners_ht_home']))
+  const row = { fotmob_id: '5795448', home_xg: 1.33, corners_home: 5, ht_score_home: 1, possession_home: 30 }
+  const fd = mergeOddsIntoFullData({ prediction: '1' }, row)
+  expect(fd.fotmob_id).toBe('5795448')
+  expect(fd.home_xg).toBe(1.33)
+  expect(fd.ht_score_home).toBe(1)
+  expect(fd.prediction).toBe('1')
+  // ne pas ecraser une valeur deja presente (fd)
+  const fd2 = mergeOddsIntoFullData({ fotmob_id: 'AAA', corners_home: 99 }, { fotmob_id: '5795448', corners_home: 5 })
+  expect(fd2.fotmob_id).toBe('AAA')
+  expect(fd2.corners_home).toBe(99)
 })

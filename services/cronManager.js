@@ -655,16 +655,24 @@ class CronManager {
     // 15. [AUTOHEAL] Patrol planifiée dans server.js (évite le cycle cronManager > autoHealAgent)
 
     // 15b. [STATS] HT score + Corners extraction for finished matches (2x/day)
+    // E37 : par defaut -> comportement historique (sofascoreStatsExtractor ; de
+    // toute facon 403 Sofascore ici donc 0 ecrit). Si FOTMOB_STATS_ENABLED=on ->
+    // route vers fotmobStatsExtractor (source vivant, xG/corners/stats d'equipe).
+    const FOTMOB_STATS_ENABLED =
+      String(process.env.FOTMOB_STATS_ENABLED || '').trim().toLowerCase() === 'on'
     for (const hour of [4, 22]) {
       cron.schedule(
         `30 ${hour} * * *`,
         () => {
-          logger.info(`[CRON] HT + Corners extraction ${hour}h`)
+          const active = FOTMOB_STATS_ENABLED ? 'fotmob' : 'sofascore'
+          logger.info(`[CRON] HT + Corners extraction ${hour}h [${active}]`)
           try {
             const db = require('../core/database').db
-            const extractor = require('./sofascoreStatsExtractor')
-            extractor.processFinishedMatches(db, { limit: 200 }).catch((e) =>
-              logger.error(`[CRON] HT+corners extraction error: ${e.message}`)
+            const extractor = FOTMOB_STATS_ENABLED
+              ? require('./fotmobStatsExtractor')
+              : require('./sofascoreStatsExtractor')
+            extractor.processFinishedMatches(db, { limit: 200, write: true }).catch((e) =>
+              logger.error(`[CRON] HT+corners extraction (${active}) error: ${e.message}`)
             )
           } catch (e) {
             logger.error(`[CRON] HT+corners setup error: ${e.message}`)

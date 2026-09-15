@@ -258,9 +258,13 @@ function createMatchesDao(db) {
         const settledAt =
           patch.settled_at ??
           (patch.status === 'finished' || patch.scoreHome != null ? Date.now() : null)
+        // E37 : persistance du score de 1re MT (livescore Trh1/Trh2) GATEE par
+        // HT_FROM_LIVESCORE (defaut off). COALESCE(null,..) => colonne intacte
+        // quand off -> non-regression stricte.
+        const htOn = String(process.env.HT_FROM_LIVESCORE || '').trim().toLowerCase() === 'on'
         const r = db
           .prepare(
-            'UPDATE matches SET "scoreHome"=?, "scoreAway"=?, status=?, last_updated=?, settled_at=? WHERE "match_key"=?'
+            'UPDATE matches SET "scoreHome"=?, "scoreAway"=?, status=?, last_updated=?, settled_at=?, ht_score_home=COALESCE(?, ht_score_home), ht_score_away=COALESCE(?, ht_score_away) WHERE "match_key"=?'
           )
           .run(
             patch.scoreHome ?? 0,
@@ -268,6 +272,8 @@ function createMatchesDao(db) {
             patch.status || 'finished',
             Date.now(),
             settledAt,
+            htOn && patch.scoreHalfHome != null ? Number(patch.scoreHalfHome) : null,
+            htOn && patch.scoreHalfAway != null ? Number(patch.scoreHalfAway) : null,
             matchKey
           )
         return r.changes || 0

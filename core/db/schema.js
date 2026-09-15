@@ -548,6 +548,12 @@ function runMigrations(db) {
     ['historical_matches', 'expected_score', 'TEXT'],
     ['historical_matches', 'result', 'TEXT'],
     ['historical_matches', 'settled_at', 'INTEGER'],
+    // E37 : stats FotMob (liens + tirs/possession pour modèles O/U & corners)
+    ['matches', 'fotmob_id', 'TEXT'],
+    ['matches', 'shots_home', 'INTEGER'],
+    ['matches', 'shots_away', 'INTEGER'],
+    ['matches', 'possession_home', 'REAL'],
+    ['matches', 'possession_away', 'REAL'],
     ['visual_context_cache', 'briefing', 'TEXT'],
   ]
 

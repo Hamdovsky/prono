@@ -128,7 +128,22 @@ immédiat → sofascore/betexplorer jamais essayés). Ajout garde `ODDS_REJECT_S
 (env, défaut **off** = non-régression stricte) : quand ON, une cote synthétique ne fait
 plus `return` → `continue` vers une vraie cote, l'estimateur n'étant rendu qu'en **dernier
 recours** si aucune réelle trouvée. Test intégration `dataFusionSynthetic.test.js` (×3).
-**Activer** = `.env` `ODDS_REJECT_SYNTHETIC=on` + relancer, puis `node
-scripts/odds_coverage.js` pour mesurer la hausse (> 5,1 % attendu là où ultimate échoue
-mais sofascore/betexplorer réussissent). Reste (b) : whitelist étendue/configurable + CSV
+**Activer** = `.env` `ODDS_REJECT_SYNTHETIC=on` +
+relancer, puis `node scripts/odds_coverage.js` pour mesurer la hausse (> 5,1 % attendu là
+où ultimate échoue mais sofascore/betexplorer réussissent). Reste (b) : whitelist étendue/configurable + CSV
 football-data par saison (univers).
+
+## Étape 7 — Source stats via FotMob (E37) : FAITE (gated)
+Sofascore étant 403 (IP-banni, proxies morts) et FotMob répondant **sans clé/proxy**,
+bascule des stats d'équipe sur FotMob :
+- `fotmobClient.py` corrigé (routes `/api/data/*`, en-têtes `x-mocks`, **fix encodage
+  UTF-8** qui faisait échouer tout nom accentué), `fotmobService.getMatchStats`.
+- `fotmobStatsExtractor.js` + `scripts/backfill_fotmob_stats.js` (dry-run→write) :
+  lien `livescore→fotmob_id` par (date + équipes normalisées), écrit
+  `home_xg/away_xg/corners/shots/possession` (+ `xg_ht` 1re MT), COALESCE idempotent.
+- HT via **livescore** (`updateMatchResult`), gated `HT_FROM_LIVESCORE`.
+- Colonnes `fotmob_id/shots/possession` (schema + PG), `archiveMerge` préserve tout à
+  l'archive, cron `#15b` route vers FotMob si `FOTMOB_STATS_ENABLED=on`.
+- Flags **off par défaut** (non-régression), suite **96/918**.
+**Prochaine** : activer les 2 flags + relancer, laisser le cron/`backfill_fotmob_stats
+--write` peupler, puis `train_corners/train_ht/O-U` en walk-forward → **ROI** (le juge).

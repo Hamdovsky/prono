@@ -46,8 +46,13 @@ function _callPy(fn, args) {
 
     const proc = spawn(PYTHON, [SCRIPT, fn, JSON.stringify(args)], {
       cwd: BASE_DIR, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+      // stdout console Windows = cp1252 -> UnicodeEncodeError sur noms accentues ;
+      // forcer UTF-8 (E37). Le client ecrit aussi ses octets en UTF-8.
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     })
     let out = '', err = ''
+    proc.stdout.setEncoding('utf8')
+    proc.stderr.setEncoding('utf8')
     proc.stdout.on('data', c => { out += c })
     proc.stderr.on('data', c => { err += c })
     proc.on('close', code => {
@@ -74,6 +79,13 @@ async function getMatchDetails(matchId) {
   }
 }
 
+// Alias metier : les stats D'EQUIPE (xG/corners/shots/possession + 1re MT) que
+// consomment UltimateScraperOrchestrator (fetchFotmobStats) et le futur extractor.
+// get_match_details renvoie deja ce dictionnaire normalise.
+async function getMatchStats(matchId) {
+  return getMatchDetails(matchId)
+}
+
 async function getMatchScore(matchId) {
   try {
     return await _callPy('get_match_score', { match_id: String(matchId) })
@@ -93,4 +105,4 @@ async function getMatchesByDate(dateStr) {
   }
 }
 
-module.exports = { getMatchDetails, getMatchScore, getMatchesByDate }
+module.exports = { getMatchDetails, getMatchStats, getMatchScore, getMatchesByDate }

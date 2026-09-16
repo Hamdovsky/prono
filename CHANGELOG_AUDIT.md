@@ -7964,3 +7964,63 @@ limitee (~4% de la queue) sans source payante/worker. Decision de valeur a
 trancher : (a) restreindre le perimetre aux ligues couvertes (top-5) et y mesurer
 un ROI fiable ; (b) investir une source couvrante ; (c) reparer le chemin
 Sofascore distant (worker). Aucune modif de code ; aucune ecriture DB.
+
+## E45 Diagnostic option (c) - worker Sofascore distant : NON VIABLE en l'etat (2026-09-16)
+
+Mode DIAGNOSTIC seul (aucun code ecrit). Objectif : etendre la collecte de
+cotes/stats/corners au worker Sofascore deja utilise pour le reglement.
+
+ETAPE 1 - CARTOGRAPHIE DU WORKER
+- Code : services/workerBridge.js (callWorker -> POST `${SCRAPER_WORKER_URL}/${ep}`
+  header x-api-key: API_SECRET_KEY, timeout 300s). URL par defaut
+  https://pronostico.onrender.com (core/sharedConfig.js:80).
+- Infra : RENDER (render.yaml : service `prono-api`, type web, env docker, plan
+  **free**, Dockerfile.production). IP sortante = partagee (plan free).
+- Endpoints cron (5) : sync/retro, enrich, db/maintenance, sync/archive,
+  sync/openligadb (cronManager.js:243/281/499/690/739). Le reglement utilise
+  sync/archive (Sofascore scheduled-events + event/{id}/statistics via
+  services/autoArchiver.js:124/151) et le scan resilient (livescore->sofascore-py
+  ->openligadb, scraperBridge.js).
+
+ETAPE 2 - DIMENSIONNEMENT DU BESOIN DE COLLECTE
+- Queue : 300 scheduled (DB locale, snapshot 2026-09-16) ; 24 ont deja une vraie
+  cote O/U.
+- Collecte visee : ~1 appel odds + 1 stats (+ corners) par match = ~300-900
+  requetes par cycle de collecte.
+- Reglement actuel : quelques appels/jour (3 dates J-3..J-1 + 1 stats/match sur
+  l'archive). Ordre de grandeur : collecte = x10 a x30 le volume reglement.
+
+ETAPE 3 - TEST TECHNIQUE (limite honnete)
+- Impossible d'executer du code SUR l'infra Render depuis ici. Tentatives via les
+  routes PUBLIQUES du worker : /health 503 ; /api/health timeout ; /api/scraper/
+  status 503 ; cold-start retry x3 -> 503, 503, **429 (rate-limit)** ;
+  /api/scrape/odds 503. => le worker est DEJA instable (free plan cold-start +
+  rate-limit), aucune preuve de 200 Sofascore depuis lui.
+- Reference locale : Sofascore event/{id}/statistics -> **403 Forbidden**
+  (confirme, IP locale bannie). On ne peut PAS extrapoler local->worker.
+
+ETAPE 4 - RISQUE DE CONTAMINATION : **PARTAGE, PAS ISOLE**
+- Le worker est le MEME service Render qui fait deja le reglement ET qui touche
+  deja Sofascore (scan resilient sofascore-py + autoArchiver). Meme IP sortante
+  (free plan). Donc pousser le volume de collecte sur ce worker expose le
+  reglement existant au meme ban Sofascore -> un ban casserait AUSSI le reglement.
+- Isolation possible : 2e service Render (IP sortante probablement partagee par
+  region sur free, non garantie unique) ; cout = +1 slot, et le 200 Sofascore
+  depuis cette IP resterait a PROUVER.
+
+ETAPE 5 - VERDICT : **NON VIABLE tel quel.**
+Raisons chiffrees : (1) worker deja en 503/429 -> pas de marge pour x10-x30 de
+volume ; (2) contamination partagee avec le reglement qui MARCHE ; (3) aucun 200
+Sofascore prouvable depuis cette infra (403 local, worker injoignable).
+Viable SEULEMENT avec adaptation lourde : isoler la collecte sur une infra/IP
+distincte ET prouver un 200 Sofascore depuis elle AVANT tout investissement.
+Effort estime : eleve (nouveau service + tests reseau + code de collecte), pour un
+benefice non garanti (Sofascore bloque deja l'IP locale ; le 403 pourrait etre
+lie a l'ASN, pas a l'IP precise).
+
+RECOMMANDATION : ne PAS investir dans (c) sans une preuve prealable de 200
+Sofascore depuis une infra sortante distincte. Priorite plus sure : (a) perimetre
+top-5 + ROI fiable, qui utilise des donnees deja presentes et ne depend d'aucun
+scraping bloque.
+
+Aucune modif de code ; aucune ecriture DB ; probes temp supprimes.

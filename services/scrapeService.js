@@ -24,6 +24,7 @@ const { spawn } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const scraperProxy = require('./scraperProxy')
+const { isRealBookmakerSource } = require('../core/oddsSource')
 
 const SCRAPE_CACHE = new Map()
 const CACHE_TTL = 15 * 60 * 1000
@@ -383,14 +384,26 @@ async function getOdds(homeTeam, awayTeam, league, country) {
   }
 
   // 1. Try Python cloudscraper (works for BetExplorer)
+  // E40 (meme anti-pattern qu'E36, corrige ici) : le pont Python retombe sur une
+  // estimation SYNTHETIQUE (source='default' via ml_monte_carlo — cotes identiques
+  // pour tous les matchs) qui satisfaisait hasAnyMarket() et faisait return AVANT
+  // Jina -> Jina n'etait jamais tente. Garde ODDS_REJECT_SYNTHETIC (defaut OFF =
+  // non-regression stricte) : quand ON, une source synthe ne short-circuite pas ;
+  // elle est memorisee en dernier recours et la chaine continue vers Jina/Firecrawl.
+  const rejectSynth = String(process.env.ODDS_REJECT_SYNTHETIC || '').trim().toLowerCase() === 'on'
+  let synthFallback = null
   try {
     const result = await scrapeViaPython(homeTeam, awayTeam, league, country)
     if (hasAnyMarket(result)) {
       result.source = result.source || 'python'
       result.transport = 'cloudscraper'
       result.scraped_at = new Date().toISOString()
-      SCRAPE_CACHE.set(cacheKey, { ts: Date.now(), data: result })
-      return result
+      if (rejectSynth && !isRealBookmakerSource(result.source)) {
+        synthFallback = result
+      } else {
+        SCRAPE_CACHE.set(cacheKey, { ts: Date.now(), data: result })
+        return result
+      }
     }
   } catch (e) {
     // Python fallback failed, continue
@@ -445,6 +458,13 @@ async function getOdds(homeTeam, awayTeam, league, country) {
     }
   }
 
+  // E40 : aucune cote reelle sur toute la chaine -> on rend l'estimation
+  // synthetique en dernier recours (persistee honnetement ; les consommateurs
+  // l'excluent via core/oddsSource). Sinon null.
+  if (synthFallback) {
+    SCRAPE_CACHE.set(cacheKey, { ts: Date.now(), data: synthFallback })
+    return synthFallback
+  }
   return null
 }
 

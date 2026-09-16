@@ -7712,3 +7712,220 @@ Verif : pytest 16 OK ; py_compile OK ; node --check backfill OK ; --roi mesure (
 de refus). tactical.db (gitignore) enrichi home_xg/away_xg via fotmob_id ; production
 inchangee (gates off). RESTE : le volume propre ne montera reellement qu'avec le cron
 E37 (FOTMOB_STATS_ENABLED=on) ; relancer --roi quand n>~700 pour resserrer la SE.
+
+## E39 Outil de checkpoint E37 (lecture seule) + activation flags (2026-09-16)
+
+Suite E38b : au lieu d'attendre aveuglement le cron #15b (FotMob), un OUTIL de
+suivi reutilisable pour ne pas dependre de la memoire de session.
+
+- scripts/checkpoint_e37.js (NEUF, LECTURE SEULE, aucun effet de bord) :
+  (1) n du harnais ROI via load_clean_ou_rows() appele en sous-process Python
+      (.venv, PYTHONIOENCODING=utf-8) et comparaison au seuil 700 (relance --roi) ;
+  (2) comptage matches.status='finished' + matches.home_xg IS NOT NULL
+      (better-sqlite3 en readonly:true, fileMustExist) ;
+  (3) affichage des 20 dernieres lignes logs/info.log matchant
+      [CRON] HT + Corners extraction ou [FOTMOB-STATS] ;
+  (4) scan des lignes du log (fenetre 24h, tail 8 Mo par defaut, surchargeable
+      CHECKPOINT_TAIL_BYTES) pour 404/403 HTTP, Exception, level=ERROR ;
+  (5) RESUME une ligne : n=<X>/700 | finished=<X> | home_xg=<X> | erreurs: oui/non.
+  Choix de conception : le detecteur d'erreurs ne teste QUE le champ message +
+  level (pas la ligne brute), sinon les timestamps .404Z/.403Z declenchaient des
+  faux positifs (bug attrape et corrige au 1er run : 27 faux -> 14 vrais).
+  Usage : `node scripts/checkpoint_e37.js`.
+
+- Activation flags (.env, cette session) : FOTMOB_STATS_ENABLED=on (+
+  HT_FROM_LIVESCORE=on, DEJA actif et conserve - l'ecart avec le defaut .env.example
+  'off' est assume : les deux forment l'activation E37, HT pose via COALESCE donc
+  sans risque d'ecrasement). Flags lus uniquement via process.env (cronManager.js:662,
+  core/db/matches.js:264, core/pg_database.js:385) ; aucune valeur en dur ailleurs
+  (grep JS : 1 seule occurrence). Stack relancee 5/5 (3001/5173/8000/8501/30002).
+
+- Cadence cron #15b : 2x/jour a 04:30 et 22:30 Africa/Tunis (limit 200, write:true),
+  route vers fotmobStatsExtractor car flag on. Baseline capturee : n=307, finished=0,
+  home_xg=0 -> au prochain tir (04:30) le cron loggera probablement « Rien a traiter »
+  tant qu'aucun match n'est passe finished. Verdict ROI inchange (n=307, marche
+  efficient, OU_MODEL_ENABLED off).
+
+Verif : node --check OK ; eslint 0 erreur 0 warning (eol-last corrige par --fix) ;
+run reel du script OK. Aucune ecriture DB, aucun appel reseau. Non commit.
+
+## E40 Diagnostic "systeme pret ?" + levier couverture cotes (2026-09-16)
+
+Question user : « est-ce que mon systeme est pret pour une prediction precise ? »
+Reponse mesuree : NON, et le blocage n'est ni le code ni un marche, c'est la
+COUVERTURE DES COTES REELLES (cause racine commune des 3 marches).
+
+Gisement mesure (historical_matches, 9754 lignes) :
+- xG present : 2889 | cote O/U reelle : 371 | xG+O/U (harnais ROI) : 307
+- xG SANS cote O/U : 2582 (gisement mort) | corners : 8012
+- archive_football_data : 144397 lignes, corners_home 39677, MAIS
+  odds_corner_over = 0 (colonne jamais remplie -> corners invendable).
+Gates : 1X2 n=17/200 precision 23.5% (requis 42.6%) ; BTTS n=24/200 ;
+check_iso_gate bandes NON monotones (40-50->61.5% mais 50-60->46.1%) = la
+calibration est la cause du 1X2 a 23.5%, pas le volume seul.
+
+Backtest corners tente (scripts/backtest_corners.py, lecture seule) :
+modele Log-loss 0.7074 vs base 0.6904 (PIRE) ; strategie A (edge vs cote
+REELLE) = 0 pari (0 cote) ; strategie B (seuil 55/45) affiche +6.41% MAIS avec
+--flat-odds 1.90 car AUCUNE cote reelle -> artefact synthetique, PAS un edge
+(meme piege que E33). Ne pas conclure sur corners avant de stocker les cotes.
+
+Levier teste (E40) : ODDS_SWEEP_LEAGUE_WHITELIST=false pose dans .env (E36/33
+preparaient deja le terrain). Stack relance 5/5. Effet observe : le sweep
+touche maintenant des ligues non-league (DATAFUSION logs Altrincham/
+Kidderminster/Scunthorpe = equipes anglaises hors whitelist) -> le flag MARCHE.
+MAIS [ODDS-SWEEP] 7/42 (35 echecs, ~83%) et odds_source reste majoritairement
+null (647) : le goulot reel est le TAUX DE SUCCES DU SCRAPING RESEAU, pas la
+whitelist. Le flag est conserve (additif, 0 risque) mais ne suffit PAS seul.
+
+Conclusions (honnetes, pour la suite) :
+1. Ne plus tester un marche avant d'avoir des cotes REELLES dessus (O/U 371,
+   corners 0). Priorite = remonter la couverture cotes (sweep success rate +
+   brancher une source fiable pour O/U/corners).
+2. Re-fit l'isotonic 1X2 sur echantillon propre (garde E33) avant de juger 1X2.
+3. Le script scripts/checkpoint_e37.js (E39) sert a suivre n=307->700.
+Non commit (flag .env + cette doc en attente de validation).
+
+## E41 Chantier 1 - cause racine du sweep + correctif (mesure honnete : effet 0 a ce stade) (2026-09-16)
+
+Suivi de la consigne « reparer le taux de succes du sweep » (priorite 1). Rapport
+chiffre des causes d'echec PUIS premier correctif, avec mesure avant/apres HONNETE.
+
+CAUSES D'ECHEC (matches a venir, 731 lignes, colonne odds_fetch_error) :
+- 499 (null) : jamais tentes (hors fenetre/horizon ou queue epuisee)
+- 220 non_bookmaker:default  <-- CAUSE #1 (30%)
+- 12 betexplorer:no_match
+Le sweep du 2026-09-16 01:12 loggait 7/42 cotes (35 echecs, ~83%). Le flag
+ODDS_SWEEP_LEAGUE_WHITELIST=false (E40) a bien debloque des ligues (des logs
+DATAFUSION montrent Altrincham/Kidderminster/Scunthorpe = non-league anglaise),
+donc la whitelist N'ETAIT PAS la cause #1.
+
+CAUSE RACINE (tracee en direct, pas supposee) : un match en echec (Azam FC vs
+Simba SC) renvoie via le pont Python oddsFusionEngine :
+  home_win 2.5 / draw 3.2 / away_win 2.8 — VALEURS IDENTIQUES pour TOUS les
+  matchs, source='default', _tiers=['ml_monte_carlo'].
+= estimation de modele (ml_monte_carlo), PAS une cote bookmaker. Le gate
+dataFusionService.js:477-483 la rejette correctement (non_bookmaker:default).
+MAIS scrapeService.js:387 (tier 1 = pont Python) testait hasAnyMarket() et
+faisait `return` AVANT de tenter Jina (tier 2) -> Jina n'etait JAMAIS essaye.
+Meme anti-pattern qu'E36, reproduit un cran plus haut.
+
+CORRECTIF (services/scrapeService.js) : garde ODDS_REJECT_SYNTHETIC (defaut OFF
+= non-regression stricte ; meme nom que E36 dataFusion). Quand ON, un resultat
+Python de source synthe (core/oddsSource.isRealBookmakerSource=false) est
+memorise en synthFallback + la chaine CONTINUE vers Jina/Firecrawl ; rendu en
+DERNIER RECOURS seulement si aucune vraie cote n'aboutit. Import core/oddsSource.
+Test __tests__/scrapeServiceSynthetic.test.js (3, child_process+https mocks) :
+OFF court-circuite (historique) / ON laisse Jina gagner (source jina:reader) /
+ON seule-synthe -> synthe rendu en dernier recours.
+
+MESURE AVANT/APRES (25 matchs a venir reels, scrapeService.getOdds ON vs OFF) :
+  synthetiques avant=24 apres=24 | lignes changees=0.
+=> EFFET MESURE NUL sur la queue ACTUELLE. Cause de l'inertie (honnete) : le
+chemin Jina de scrapeService ne connait que 11 ligues (LEAGUE_SLUGS :
+Premier League, Serie A, LaLiga, Ligue 1, Bundesliga, MLS, Botola...). Pour
+Serie D / Kenya / AFC CL / Northern Premier League / Egypt, getBetExplorerUrl
+et getSoccerwayUrl renvoient null -> Jina n'a AUCUNE URL a essayer -> la chaine
+n'a pas d'alternative reelle a offrir. Le correctif ferme le court-circuit
+(juste, teste, non-regressif) mais ne CREE pas de source.
+
+VRAI BLOCAGE RESTANT (chantier 1-bis, a valider avant de faire) : etendre la
+couverture du chemin Jina (LEAGUE_SLUGS + resolvers betexplorer/soccerway) aux
+ligues reellement presentes dans la queue, sinon la couverture cotes reste
+plafonnee par la disponibilite de football-data (football_data / footballdata,
+qui eux reussissent : National League = football_data dans l'echantillon).
+NE PAS confondre : O/U/corners (E38b/chantier 2) dependent d'une autre source.
+
+Verif : node --check OK ; eslint 0 ; jest --forceExit **97 suites / 921 passed**
+(+1 suite scrapeServiceSynthetic +3 ; non-regression). data/tactical.db NON
+touche (mesure en memoire via getOdds sans persist). Non commit.
+
+## E42 Chantier 2 - cotes corners : PREMISSE FAUSSE, source inexistante (2026-09-16)
+
+Consigne : « identifier une source fiable donnant des cotes over/under corners
+et brancher son ingestion ». Investigation faite en LECTURE SEULE -> resultat
+NEGATIF honnete (regle d'or : ne pas produire de chiffre sans cote reelle).
+
+1. ETAT DES COLONNES (mesure) :
+   - matches : AUCUNE colonne odds_corner_over/under (PRAGMA table_info).
+   - historical_matches : idem (corner cols = stats only).
+   - archive_football_data : colonnes odds_corner_over/under/corner_line EXISTENT
+     mais 0 ligne remplie (0 non-null) malgre corners_home=39677.
+   - accuracyEngine.js lit deja odds_corner_over/under (lignes 310/343/535) ->
+     pret a mesurer, mais rien a lire.
+
+2. BUG LATENT trouve (a signaler, NON corrige sans validation) : core/
+   fetch_market_odds.py:32 suppose que les colonnes football-data `B365C>9.5`/
+   `B365C<9.5` sont des CORNERS. VERIF EN DIRECT sur mmz4281/2526/E0.csv : les
+   colonnes reelles sont `B365C>2.5`/`B365C<2.5` (= 1.36/3.2) et `B365CH/D/A`
+   (= 1.29/6.25/9.0). Le suffixe `C` de football-data = CARTONS (bookings), pas
+   corners ; la ligne est 2.5, pas 9.5. Le regex `C>` matcherait ces colonnes
+   CARTONS et ecrirait des cotes de cartons dans odds_corner_over -> corruption
+   silencieuse de la table si le script etait lance avec ce CSV. A NE PAS LANCER.
+
+3. SOURCES CORNER EXAMINEES (toutes non exploitables ici) :
+   - football-data : PAS de marche corners du tout (seulement HC/AC = resultats).
+   - Sofascore : sofascoreClient.py:400 parse bien marketId 21 (ligne 9.5) et
+     oddsService.js:185 aussi -> MAIS Sofascore = 403 IP-banni ici (E23/E27).
+   - BetExplorer (bypass curl_cffi) : ScrapingBypassScraper.getOdds ne remonte
+     QUE 1X2 + O/U2.5 + BTTS ; pas de corners dans le contrat de retour.
+   - FotMob (E37) : fournit les STATS corners, pas les COTES corners.
+
+4. CONCLUSION : il n'existe, dans cet environnement, AUCUNE source gratuite non
+   bloquee fournissant des cotes O/U corners. Le chantier 2 est donc NON FAISABLE
+   en l'etat, pas « en attente de volume ». Deux options reelles a valider :
+   (a) brancher une source payante/specifique corners (hors contrainte gratuite) ;
+   (b) exposer les cotes corners via Sofascore quand/ou il n'est pas 403 (ex.
+   worker distant, deja utilise pour le reglement — cf. E27) et les remonter
+   dans le contrat getOdds du bypass.
+   AUCUN backtest corners lance (interdit tant que couverture non mesuree).
+   AUCUN fichier de prod modifie ; aucune ecriture DB.
+
+Verif : lecture seule (aucune modif de code, aucun test impacte). Prochaine
+etape logique selon ta consigne : chantier 1-bis (etendre la couverture Jina)
+puis ce chantier 2 si tu valides une source.
+
+## E43 Chantier 1-bis - etendre la couverture Jina : INUTILE, le parser ne matche pas le format (2026-09-16)
+
+Consigne : etendre LEAGUE_SLUGS (scrapeService.js) aux ligues reelles de la queue
+(Serie D, Northern Premier, cups) pour donner a Jina des URLs a essayer. AVANT
+d'ecrire du code, test empirique (lecture seule) pour verifier que la couverture
+supplementaire produirait un gain reel.
+
+1. JINA FONCTIONNE et BetExplorer A les pages : verif en direct -> PL 51k chars
+   / 77 decimaux, National League 68k / 90, Serie D 112k / 316, Northern Premier
+   100k / 334, Serie C 112k / 316. Pas de 404 (page trouvee).
+
+2. MAIS LE PARSER NE MATCHE PAS LE FORMAT : test decisif sur la page Serie D ->
+   AUCUN des matchs reels de la queue n'y figure ("FBC Oltrepo", "ACSD Saluzzo",
+   "ASD Imperia" : absents) -> _extractOddsFromMarkdown renvoie 0 avec hints.
+   Cause : BetExplorer rend les cotes en TABLES ; Jina les convertit en markdown
+   a pipes (| 1.93 | 3.48 | 3.28 |). Or extractOddsFromMarkdown (scrapeService.js
+   :244) cherche /(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)/ = 3 decimales SEPAREES PAR
+   ESPACES sur une meme ligne. Sur la page PL (deja supportee !) : 0 ligne
+   "3-cotes consecutives" malgre les equipes presentes (Arsenal/Chelsea/...).
+   => meme les 11 ligues DEJA couvertes ne produisent aucune cote via Jina.
+   L'extraction qui "marchait" (probe Serie D, 105 matchs) venait du CARROUSEL
+   GLOBAL de BetExplorer (Columbus Crew, Ararat-Armenia...) avec des noms pollues
+   par du markdown image -> faux positifs, pas les vrais fixtures.
+
+3. CONCLUSION (honnete) : etendre LEAGUE_SLUGS produirait ZERO gain. Le blocage
+   n'est pas la liste de ligues mais le PARSER (format espace vs table markdown).
+   Le chantier 1-bis tel que specifie est donc NON FAISABLE utilement. Un vrai
+   correctif exigerait de REECRIRE extractOddsFromMarkdown pour le format table
+   markdown (| a | b | c |) + nettoyer les noms (URLs/images), + verifier que le
+   carrousel global ne pollue pas. C'est un changement plus large, a valider.
+   De plus, BetExplorer = odds 1X2 principalement (O/U et BTTS rarement) -> ne
+   resoudrait pas la couverture O/U (chantier E38b) ni corners (E42).
+
+4. AUCUNE modification de code faite (eviter un changement sans gain prouve).
+   Les probes temp ont ete supprimes. Aucune ecriture DB.
+
+SYNTHESE des 3 chantiers (cette session) : (1) sweep = fix juste mais effet 0 car
+le chemin Jina n'a pas d'alternative reelle a offrir (E41) ; (2) corners = aucune
+source gratuite non bloquee (E42) ; (1-bis) etendre Jina = inutile, parser
+incompatible (E43). CAUSE COMMUNE REELLE : la couverture de cotes sur les matchs a
+venir depend d'une source STRUCTUREE fiable (football-data/CSV), pas du scraping
+HTML generique. Le levier reel = augmenter la couverture de LA source qui marche
+(football-data, qui reussit sur National League dans l'echantillon) ou brancher un
+worker distant type Sofascore, pas etendre un scraper dont le parser est casse.

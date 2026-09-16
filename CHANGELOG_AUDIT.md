@@ -8419,3 +8419,21 @@ au fil des cycles ; c'est le 1er des deux verrous qui vient de sauter.
 
 COMMIT : CHANGELOG seul (le code E54 est deja en 0267f30). Aucune modif de code
 dans ce commit de documentation.
+
+SUITE (2e verrou E37 tente sur les 11 regles) : `node` sur
+fotmobStatsExtractor.processFinishedMatches (write) -> scanned=11, matched=2,
+written=2, noId=9. Les 2 ecrits ont recu un fotmob_id MAIS home_xg/away_xg
+restent NULL. Sonde directe de fotmobService.getMatchStats sur les 2 ids
+(6136069 FC Seoul, 6176259 Niki Volou) : corners/shots/possession bien
+renvoyes, mais **xg_home/xg_away = null**. => FotMob ne calcule le xG que
+pour les competitions couvertes (grandes ligues) ; ces matchs (AFC CL Two,
+Greece Cup, Asian Games...) n'en ont pas. C'est une LIMITE DE SOURCE, pas un
+bug de code (l'extracteur lit bien s.xg_home -> home_xg).
+
+CONSEQUENCE pour n : ces 11 matchs n'entreront PAS dans load_clean_ou_rows()
+meme regles, faute de xG (et la plupart n'ont pas non plus de cote O/U, ligues
+obscures). Le n du harnais ROI ne montera donc que quand des matchs de LIGUES
+COUVERTES (xG FotMob dispo + cote O/U reelle) passeront `finished` — ce que E54
+rend desormais possible. Les 2 verrous sont leves ; il reste a laisser le flux
+tourner (cron results-only + cron FotMob E37) et re-mesurer n au fil des jours.
+Aucune modif de code ; aucun commit de code (documentation seule).

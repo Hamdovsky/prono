@@ -8384,4 +8384,38 @@ IMPACT ATTENDU (a confirmer apres redemarrage de la stack) : les matchs passes
 pourront enfin atteindre `status='finished'` + `settled_at`, ce qui debloque le
 flux `finished` -> archives -> xG (E37) -> n du harnais ROI. C'est le pre-requis
 structurel qui manquait a E38b (n=307 fige car rien ne se reglait).
-Non commit.
+Commit/pousse : 0267f30.
+
+CONFIRMATION EN CONDITIONS REELLES (post-commit, stack relancee) :
+- Etat AVANT ce correctif : matches = 793 lignes TOUTES 0-0, finished=0,
+  settled_at=0, 104 matchs au coup d'envoi passe encore 'scheduled'.
+- Apres relance de la stack (correctif actif) : pass results-only manuel ->
+  fetched=350, updated=11, settlement {"settled":11,"total":11,"skipped":0}.
+  DB apres : finished=11, settled_at=11, score != 0-0 = 11 (ex. Jeonbuk 2-1
+  Kashiwa, Japan U23 2-0 HK U23, Kolos 2-3 Karpaty). Le reglement FONCTIONNE.
+- TEST DE NON-REGRESSION DU BUG (le point decisif) : un scan de FIXTURES complet
+  lance ensuite (fetched=332) -> DB apres = finished=11, settled=11, nonZero=11,
+  fixtures updated=0. Les 11 reglements TIENNENT (avant le fix, ils seraient
+  revenus a 'scheduled' 0-0). Le bug est bien ferme, pas juste contourne.
+  (Note : un 1er essai de ce test avait ete faussement negatif par ma faute —
+  process.env.SQLITE_DB_PATH='undefined' (chaine) avait fait ouvrir une DB vide
+  au process de test ; corrige en lancant sans cette variable.)
+
+CONSEQUENCE pour la suite : `finished` n'est plus fige a 0 -> le flux
+finished -> archives -> xG (E37) -> n du harnais ROI (E38b) peut desormais
+progresser AVEC LE TEMPS. C'etait le verrou structurel : n=307 ne montait pas
+par manque de volume mais parce que RIEN ne se reglait. A suivre via
+scripts/checkpoint_e37.js (n doit commencer a depasser 307 au fil des cycles).
+
+CHECKPOINT APRES FIX (scripts/checkpoint_e37.js) : finished=11, settled=11,
+MAIS n=307 INCHANGE et home_xg=0. Explication (pas un echec) : le harnais
+load_clean_ou_rows() exige xG + cote O/U ; les 11 matchs regles ont un SCORE
+mais pas encore de xG -> ils ne rejoignent pas n tant que le cron FotMob
+(FOTMOB_STATS_ENABLED=on, E37) ne les a pas traites (il ne prend que les
+matches `finished`, ce qui est desormais le cas -> debloque). Il faut donc
+encore 2 conditions cumulees : (1) E54 regle les matchs [FAIT], (2) E37 leur
+ajoute home_xg/away_xg [cron 2x/jour + un run manuel possible]. Le n montera
+au fil des cycles ; c'est le 1er des deux verrous qui vient de sauter.
+
+COMMIT : CHANGELOG seul (le code E54 est deja en 0267f30). Aucune modif de code
+dans ce commit de documentation.

@@ -8278,3 +8278,60 @@ le picker sur-predit le domicile et n'emet quasi jamais de nul. A confirmer sur
 fenetre recente avant toute correction du modele de probabilites.
 
 Verif : node --check 0 ; jest marketGatesSource 7/7 ; jest full 99 suites/934.
+
+CONFIRMATION RECENTE (E52, post-gel, n=138, source=prediction) : le biais PERSISTE,
+c'est un defaut ACTUEL et non un reliquat d'un ancien etat du modele.
+  verdict 1 : 94 picks (68.1%)  precision 42/94 (44.7%)
+  verdict X :  0 picks (0.0%)   precision 0/0
+  verdict 2 : 44 picks (31.9%)  precision 16/44 (36.4%)
+  globale 42.0% ; base rate fenetre H=44.9% D=18.1% A=37.0%
+  ECART predit-reel : home +23.2pts | nul -18.1pts (JAMAIS emis) | ext -5.1pts
+=> Le modele n'emet AUCUN nul (0/138) et sur-predit le domicile de +23pts. La
+   discrimination existe (home 44.7% > hasajard) mais la DISTRIBUTION des verdicts
+   est casseec (nul absent). Le decouplage picker/proba est NUL (E52 : 97.2%
+   verdict==argmax) -> la cause est bien le vecteur de probabilites (masse draw ~0),
+   pas la regle de decision. Aucune correction du modele de probabilites engagee
+   (decision operateur attendue).
+
+## E53 Regle draw-aware (option A) testee : NON VIABLE, ROI degrade (2026-09-16)
+
+Objectif (decision operateur) : corriger l'angle mort du nul (0 pick X) par une
+REGLE DE DECISION draw-aware (sans toucher au modele), validee en ROI et non en
+accuracy. Flag gated prevu. RESULTAT : la regle ne marche pas -> AUCUN code ecrit
+(eviter du code mort qui degrade le ROI s'il est active).
+
+ECHANTILLON (post-gel) : 6097 lignes historique ; 154 verdicts 1X2 exploitables
+(probas ok) ; **44 seulement ont 3 cotes reelles** (base du calcul ROI).
+
+BASELINE (argmax actuel, les 44 avec cotes) :
+  bets=44 wins=21 ROI=**-21.75%** profit=-9.57u | distribution 1=34 X=0 2=10
+
+TEST 1 - condition geometrique |p1-p2| <= gap ET p_d >= seuil :
+  AUCUN seuil ne se declenche (X=0 partout, ROI inchange -21.75%).
+  Cause : sur les lignes AVEC cotes, |p1-p2| min = 21.8 pts (p25=32.1, med=44.1,
+  max=81.4) -> la condition "match serre" n'existe jamais dans cet echantillon.
+  p_d : min=11.7 p25=18.1 med=23.7 p75=25.5 max=32.0.
+  (Sur les 154 lignes sans filtre cotes, gap min=5.9 pts, mais ces lignes n'ont
+  pas de cote -> non mesurables en ROI.)
+
+TEST 2 - condition EV (p_d * cote_X >= seuil), plus directe pour le ROI :
+  pari X SEUL quand EV>=th :  EV>=0.9: 32 bets 4 wins ROI=-42.19% | EV>=1.0:
+  25 bets 2 wins ROI=-58.04% | EV>=1.05: 21/2 ROI=-50.05% | EV>=1.1: 10/1 ROI=-55.30%.
+  COMBINEE (argmax, remplace par X si EV>=th) : -29.64% / -33.48% / -26.43% / -30.18%
+  -> TOUS les seuils sont PIRE que la baseline -21.75%.
+
+DIAGNOSTIC : max EV_X observe = 1.96 (le modele CROIT trouver de la value sur le
+nul), mais ces paris perdent (win rate ~12% vs ~28% implicite). => La p_d du modele
+n'est PAS fiable ; les nuls flagges "value" ne gagnent pas assez pour payer la cote.
+Le blocage n'est donc PAS la regle de decision (l'argmax est correct, E52) mais la
+CALIBRATION DU NUL dans le vecteur de probabilites -> renvoie a l'option B (modele),
+pas a une regle post-argmax.
+
+VERDICT : option A NON VIABLE sur les donnees actuelles. Aucune regle implementee
+(pas de flag, pas de code). Limite honnete : n=44 avec cotes -> SE elevee, mais le
+signe est negatif sur TOUS les seuils testes, pas un point isole. Prochaine piste
+si on veut saisir le nul : corriger la masse/calibration draw du modele (option B),
+pas une regle de decision.
+
+Aucune modif de code ; aucune ecriture DB ; scripts temp supprimes. CHANGELOG
+(E52 + E53) committe seul.

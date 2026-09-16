@@ -682,6 +682,41 @@ class CronManager {
       )
     }
 
+    // 15c. [ODDS] OddsPortal (Playwright sous-process) pour ligues OBSCURES (E48).
+    // Defaut OFF : tant que ODDSPORTAL_ENABLED != 'on', aucune execution (donc
+    // aucun besoin de Playwright/Chromium sur l'image de prod). 2x/jour (05:00 et
+    // 17:00 Africa/Tunis) — meme cadence que FotMob, validee en session E48.
+    const ODDSPORTAL_ENABLED =
+      String(process.env.ODDSPORTAL_ENABLED || '').trim().toLowerCase() === 'on'
+    for (const hour of [5, 17]) {
+      cron.schedule(
+        `0 ${hour} * * *`,
+        () => {
+          if (!ODDSPORTAL_ENABLED) {
+            logger.debug(`[CRON] OddsPortal ${hour}h saute (ODDSPORTAL_ENABLED=off)`)
+            return
+          }
+          logger.info(`[CRON] OddsPortal extraction ${hour}h`)
+          try {
+            const db = require('../core/database').db
+            const extractor = require('./oddsportalStatsExtractor')
+            extractor
+              .processScheduledMatches(db, { limit: 200, write: true })
+              .then((stats) => {
+                logger.info(
+                  `[CRON] OddsPortal done: scanned=${stats.scanned} leagues=${stats.leagueCalls} matched=${stats.matched} written=${stats.written} noOdds=${stats.noOddsPublished} noMatch=${stats.skippedNoMatch} err=${stats.errors}`
+                )
+                return require('./oddsportalClient').close()
+              })
+              .catch((e) => logger.error(`[CRON] OddsPortal error: ${e.message}`))
+          } catch (e) {
+            logger.error(`[CRON] OddsPortal setup error: ${e.message}`)
+          }
+        },
+        { timezone: 'Africa/Tunis' }
+      )
+    }
+
 
     // 19. Archive finished matches (Daily at 04:30) â€” via Account 2 worker
     cron.schedule(

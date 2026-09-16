@@ -8025,6 +8025,72 @@ scraping bloque.
 
 Aucune modif de code ; aucune ecriture DB ; probes temp supprimes.
 
+## E48 Extracteur OddsPortal (ligues obscures) - source complete, flag OFF (2026-09-16)
+
+Suite E47 : le sweep BetExplorer ne couvre que ~20% des ligues et 0% des
+divisions obscures (Serie D, Regionalliga, NM Cup, Liga 2...). Nouvelle source
+dediee basee sur un TEST PREALABLE reussi (OddsPortal 8/8 pages 200, 0 challenge
+Cloudflare, 7/8 avec cotes, 100 requetes sequentielles sans blocage ni derive).
+
+ARCHITECTURE (sous-process isole, pas de dep Playwright cote serveur) :
+- Playwright deja installe dans SofascoreScraping/node_modules -> l'enfant
+  (SofascoreScraping/oddsportalRunner.js) le resout depuis SON repertoire, donc
+  RIEN n'entre dans le package.json principal NI dans le Dockerfile. Isolation
+  STRUCTURELLE (pas un --omit=optional a maintenir) : Chromium ne peut pas fuiter
+  dans l'image de prod.
+- IPC : NDJSON sur pipes stdin/stdout ({"op":"fetchLeague","slug":...} /
+  {"op":"ping"} / {"op":"close"}). Pas de fichier temporaire (pas de polling,
+  fermeture propre sur close stdin).
+
+FICHIERS NEUFS :
+- SofascoreScraping/oddsportalRunner.js : 1 browser + N contextes (PagePool
+  reutilisable, defaut 3), goto /{slug}/ -> collecte a[href*="/h2h/"] -> par match
+  clic onglet Over/Under -> parse <table> (regex Over/Under +N.N) -> 1X2 + ligne
+  2.5. Parallellisation des matchs via PagePool.
+- services/oddsportalClient.js : parent spawn/kill/respawn, send() serialise,
+  _kill() imperatif sur timeout, garde expectSlug (toute reponse dont le slug
+  differe est REJETEE et le pending reste arme).
+- config/oddsportalLeagues.js : map league->slug (~35 entrees), LES 9 LIGUES DEJA
+  COUVERTES SONT ABSENTES (pas de duplication d'effort).
+- services/oddsportalStatsExtractor.js : miroir de fotmobStatsExtractor (COALESCE,
+  dry-run par defaut, odds_source='oddsportal'). selectRows : status a venir +
+  horizon + league mappee + pas deja couvert (isRealBookmakerSource). Regroupement
+  par slug -> 1 appel client par ligue. Matching label distant par normalisation +
+  fallback fuzzy. Stats : scanned, leagueCalls, matched, written, noOddsPublished,
+  skippedNoMatch, errors, avgLatencyMs.
+- scripts/oddsportal_probe.js : CLI dry-run (--write explicite pour ecrire).
+- __tests__/oddsportalExtractor.test.js : 6 tests sans Chromium (client mocke, DB
+  in-memory) : write+source, noOddsPublished != errors, skippedNoMatch, COALESCE
+  preserve, dry-run sans ecriture, filtres selectRows.
+
+MODIFS :
+- services/cronManager.js : bloc #15c (2x/jour, 05:00 + 17:00 Africa/Tunis),
+  gated ODDSPORTAL_ENABLED (defaut OFF). Tant que OFF : aucune execution, donc
+  zero besoin de Playwright en prod.
+- .env.example : bloc documente (ENABLED=off, CONCURRENCY=3, HORIZON_DAYS=3,
+  GAP_MS=1200, LEAGUE_MAX=20).
+- Pas d'odds_history (decision C, minimal d'abord comme FotMob).
+
+BUG RACE CONDITION ATTRAPE ET CORRIGE (2 runs de probe) :
+1er run : timeout NM Cup (180s, 13 matchs) -> la reponse tardive du runner a ete
+livree a la requete SUIVANTE -> regionalliga-nordost a recu les matchs NM Cup, et
+liga-2 un match Regionalliga. Cause : timeout sans kill, reponse en vol. Correctif :
+_kill() sur timeout (respawn propre a la requete suivante) + expectSlug qui rejette
+toute reponse dont result.slug != slug attendu. 2e run : 0 mismatch.
+
+MESURE PROBE (2e run, 4 ligues) :
+  serie-d-group-a : 5 matchs, 5 with1x2, 5 withOU, 0 noOdds, 0 err (34s)
+  nm-cup          : 13 matchs, 13 with1x2, 13 withOU, 0 noOdds, 0 err (76s)
+  regionalliga-nordost : 1 match, 1 withOU, 0 err (20s)
+  romania/liga-2  : 11 matchs, 11 with1x2, 11 withOU, 0 noOdds, 0 err (62s)
+Exemples de cotes reelles : Castellanzese/Oltrepo 1X2 2.30/2.98/2.96 O/U
+2.25/1.60 ; Arendal/Sandnes 2.73/3.58/2.30 O/U 1.48/2.70.
+
+VERIF : node --check 0 sur les 3 fichiers Node + runner ; eslint 0 erreur 0 warning
+(eol-last corrige par --fix, joinKey non utilise retire) ; jest --forceExit
+**98 suites / 927 passed** (+1 suite +6 vs 921, non-regression confirmee).
+Aucune ecriture DB hors --write. Non commit.
+
 ## E47 Sweep local grandeur reelle (269 matchs) - levier SEUL INSUFFISANT (2026-09-16)
 
 Lance a la demande user, flags ODDS_REJECT_SYNTHETIC=on + ODDS_SWEEP_LEAGUE_WHITELIST=false.

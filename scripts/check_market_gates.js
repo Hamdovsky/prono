@@ -72,14 +72,34 @@ function parseFd(s) {
 }
 
 // ---------------- GATE 1X2 PUR ----------------
-function gate1x2() {
-  const rows = loadSettled('id, homeTeam, awayTeam, scoreHome, scoreAway, prediction')
+// E51 : la SOURCE du verdict 1X2 depend du flag DISABLE_PURE_1X2.
+//   - off (config actuelle) : applyMarketPolicy ne convertit rien ->
+//     fullData.originalPrediction n'est JAMAIS ecrit. Le verdict 1X2 brut vit
+//     dans la colonne `prediction`. Exiger originalPrediction rendait le gate
+//     AVEUGLE (il ne voyait que les rares residus historiques ou le flag etait
+//     on a l'epoque). On lit donc `prediction`.
+//   - on : `prediction` est converti en DC ('1'->'1X', '2'->'X2', 'X'->'1X'/'X2')
+//     -> perd l'info 1/X/2. On lit `originalPrediction` STRICT, sans fallback
+//     sur `prediction` (sinon on compterait du DC comme du 1X2 = anti-pattern E50).
+function _pure1x2SourceIsOriginal() {
+  return String(process.env.DISABLE_PURE_1X2 || '').trim().toLowerCase() === 'true'
+}
+
+function _verdict1x2(r, useOriginal) {
+  if (useOriginal) {
+    const fd = parseFd(r.fullData)
+    return String(fd.originalPrediction || '').trim()
+  }
+  return String(r.prediction || '').trim()
+}
+
+// Pure (testable, sans DB) : calcule le gate 1X2 a partir de lignes deja chargees.
+function evaluate1x2(rows, useOriginal) {
   let n = 0
   let ok = 0
   const byOrig = {}
   for (const r of rows) {
-    const fd = parseFd(r.fullData)
-    const orig = String(fd.originalPrediction || '').trim()
+    const orig = _verdict1x2(r, useOriginal)
     if (!['1', 'X', '2'].includes(orig)) continue // verdicts non purs exclus
     const h = Number(r.scoreHome)
     const a = Number(r.scoreAway)
@@ -94,7 +114,12 @@ function gate1x2() {
     }
   }
   const acc = n ? (ok / n) * 100 : null
-  return { n, ok, acc, byOrig, pass: n >= N_MIN && acc != null && acc >= 42.6 }
+  return { n, ok, acc, byOrig, source: useOriginal ? 'originalPrediction' : 'prediction', pass: n >= N_MIN && acc != null && acc >= 42.6 }
+}
+
+function gate1x2() {
+  const rows = loadSettled('id, homeTeam, awayTeam, scoreHome, scoreAway, prediction')
+  return evaluate1x2(rows, _pure1x2SourceIsOriginal())
 }
 
 // ---------------- GATE BTTS ----------------
@@ -168,7 +193,16 @@ function restartStack() {
   )
 }
 
-module.exports = { gate1x2, gateBtts, N_MIN, CUTOFF }
+module.exports = {
+  gate1x2,
+  gateBtts,
+  // E51 : helpers purs exposes pour les tests (sans DB).
+  evaluate1x2,
+  _pure1x2SourceIsOriginal,
+  _verdict1x2,
+  N_MIN,
+  CUTOFF,
+}
 
 if (require.main === module) {
   process.chdir(root)

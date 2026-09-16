@@ -8234,3 +8234,47 @@ VERIF : node --check 0 (accuracyEngine, check_iso_gate) ; py syntax OK ;
 eslint 0 erreur (1 warning pre-existant `over` l.117, hors de mes hunks) ;
 jest --forceExit **98 suites / 927 passed** (non-regression) ;
 pytest test_calibration_iso_freshness **5 passed**. Non commit.
+
+## E51 CORRECTION E50-bis : le gate 1X2 mesurait sur 17 lignes au lieu de 138 (2026-09-16)
+
+Suite de l'audit E50 : le gate 1X2 (scripts/check_market_gates.js) ne comptait
+que n=17 verdicts post-gel alors qu'il y en a ~181. DEUX bugs distincts.
+
+BUG 1 — FILTRE DE DATE (corrige, commit 49fe8a1) :
+loadSettled() comparait `archived_at` (TEXTE SQLite 'YYYY-MM-DD HH:MM:SS') a
+CUTOFF_MS (nombre epoch). En SQLite, comparer texte vs nombre n'est JAMAIS faux
+-> TOUTE la table historical_matches passait, annulant la fenetre post-gel
+(meme n pour 'tout' et 'post-gel'). Corrige : conversion du cutoff au format
+texte identique, comparaison texte/texte.
+
+BUG 2 — SOURCE DU VERDICT (corrige ici) :
+Le gate exigeait `fullData.originalPrediction`, ecrit par applyMarketPolicy
+UNIQUEMENT quand DISABLE_PURE_1X2=true. Or ce flag est ABSENT de .env (= off)
+-> le champ n'est JAMAIS ecrit -> le gate ne voyait que 17 residus historiques
+et etait structurellement AVEUGLE a la precision reelle du picker 1X2.
+
+CORRECTIF (scripts/check_market_gates.js) : le choix de la source suit le flag.
+- flag OFF (config actuelle) : applyMarketPolicy ne convertit rien -> le verdict
+  1X2 brut vit dans la colonne `prediction`. Le gate lit `prediction`.
+- flag ON : `prediction` est converti en DC ('1'->'1X', '2'->'X2', 'X'->'1X'/'X2')
+  -> perd l'info 1/X/2. Le gate lit `originalPrediction` STRICT, SANS fallback
+  sur `prediction` (sinon on compterait du DC comme du 1X2 = anti-pattern E50).
+Refactor : evaluate1x2(rows, useOriginal) PUR (sans DB) + helpers exportes.
+Test __tests__/marketGatesSource.test.js (7 cas) : flag off lit prediction /
+ignore originalPrediction ; flag on lit originalPrediction strict / pas de
+fallback / exclut les non-purs.
+
+REMESURE (gate corrige, flag off) : n=**138** (vs 17), precision **42.0%**
+(verdict 1 : 42/94 ; verdict 2 : 16/44). Toujours < 42.6% requis -> PAS ENCORE.
+C'est la VRAIE mesure du picker 1X2 sur l'echantillon post-gel ; le 23.5% (n=17)
+etait un artefact du gate aveugle. Le verdict de fond ne change pas (pas d'edge
+1X2), mais la mesure est desormais honnete et perenne.
+
+NOTE : `prediction` == verdict 1X2 brut TANT QUE DISABLE_PURE_1X2 est off. Si on
+reactive un jour ce flag, le gate basculera automatiquement sur originalPrediction
+strict (deja code). Un diagnostic E51 intermediaire (mesure sur n=2103, tout
+historique) donnait : biais home 66.7% vs base rate 41.5%, nul 0.1% vs 22.4% ->
+le picker sur-predit le domicile et n'emet quasi jamais de nul. A confirmer sur
+fenetre recente avant toute correction du modele de probabilites.
+
+Verif : node --check 0 ; jest marketGatesSource 7/7 ; jest full 99 suites/934.

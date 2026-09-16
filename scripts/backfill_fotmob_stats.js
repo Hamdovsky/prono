@@ -13,6 +13,9 @@
  * Usage : node scripts/backfill_fotmob_stats.js            (DRY-RUN)
  *         node scripts/backfill_fotmob_stats.js --write
  *         ... --limit=200 [--target=matches|historical|both]
+ *         ... --has-ou-odds  (historical uniquement : lignes ayant deja une cote
+ *                             O/U 2.5 propre sans xG -> alimente l'echantillon
+ *                             ROI E38)
  */
 const path = require('path')
 const REPO = path.join(__dirname, '..')
@@ -21,6 +24,7 @@ const { normDate, joinKey } = require(REPO + '/core/fdJoin')
 const { mergeOddsIntoFullData } = require(REPO + '/core/archiveMerge')
 
 const WRITE = process.argv.includes('--write')
+const HAS_OU = process.argv.includes('--has-ou-odds')
 const TARGET = ((process.argv.find((a) => a.startsWith('--target=')) || '--target=both').split('=')[1])
 const LIMIT = Number((process.argv.find((a) => a.startsWith('--limit=')) || '--limit=200').split('=')[1])
 
@@ -41,6 +45,7 @@ const LIMIT = Number((process.argv.find((a) => a.startsWith('--limit=')) || '--l
          FROM historical_matches
          WHERE scoreHome IS NOT NULL
            AND json_extract(COALESCE(fullData,'{}'), '$.home_xg') IS NULL
+         ${HAS_OU ? "AND json_extract(COALESCE(fullData,'{}'), '$.odds_over25') IS NOT NULL" : ''}
          ORDER BY timestamp DESC LIMIT ?`
       )
       .all(LIMIT)
@@ -74,7 +79,26 @@ const LIMIT = Number((process.argv.find((a) => a.startsWith('--limit=')) || '--l
         continue
       }
       matched++
-      const merged = mergeOddsIntoFullData(fd, s)
+      // getMatchStats normalise en xg_home/... ; fullData attend home_xg/...
+      // -> renormaliser vers les cles STATS_FIELDS avant merge (COALESCE-safe).
+      const statsRow = {
+        fotmob_id: fid,
+        home_xg: s.xg_home,
+        away_xg: s.xg_away,
+        xg_ht_home: s.xg_ht_home,
+        xg_ht_away: s.xg_ht_away,
+        corners_home: s.corners_home,
+        corners_away: s.corners_away,
+        corners_ht_home: s.corners_ht_home,
+        corners_ht_away: s.corners_ht_away,
+        shots_home: s.shots_home,
+        shots_away: s.shots_away,
+        shots_on_target_home: s.shots_on_target_home,
+        shots_on_target_away: s.shots_on_target_away,
+        possession_home: s.possession_home,
+        possession_away: s.possession_away,
+      }
+      const merged = mergeOddsIntoFullData(fd, statsRow)
       merged.fotmob_id = merged.fotmob_id || fid
       if (WRITE) {
         upd.run(JSON.stringify(merged), r.id)

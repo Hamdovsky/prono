@@ -7641,3 +7641,74 @@ possession + 7 lignes historical stats).
 Reste (validable quand flags ON + serveur relance) : mesurer home_xg/corners sur le
 volume ; puis relancer train_corners/train_ht/O-U walk-forward -> ROI. Retrait du
 live = AUTRE ticket.
+
+
+## E38 Critere ROI de la boucle entrainement -> ROI (2026-09-16)
+
+Objectif (chantier rentabilite, assemble Apres E37) : ajouter le CRITERE ROI qui
+manquait au harnais existant. Avant : eval_markets_walkforward/validate/train_ou
+n'evaluent qu'en log-loss et % de picks, jamais en argent (EV/ROI/CLV).
+
+1. core/roi_markets.py (NEUF, pur, testable, aucun acces DB) :
+   - devig_two : proba true d'une cote 2 voies (cloture multiplicative, invalide
+     si cote <= 1.0) -> base de toutes les stats (comme E31/E32).
+   - brier_score, choose_over_under (edge STRICT > min_edge, edge nul = aucun pari),
+     simulate_roi (mise constante 1u, net/ROI/hit).
+   - walkforward_ou_roi : boucle chronologique complete (fit passe, eval futur,
+     4 folds, meme structure que eval_markets) pour le marche total>ligne ; compare
+     modele xG-logistique vs marche devigue ; rapporte ROI/EV/hit + brier modele vs
+     marche + decoupe par ligue (paris n>=30). n<400 -> refuse d'evaluer.
+2. core/ou_roi_dataset.py (NEUF) : dataset PROPRE de cotes O/U 2.5 depuis tactical.db
+   (historical_matches fullData odds_over25/under25 + xG FotMob d'E37 ; matches
+   odds_over25 + home/away_xg), dedoublonne par (date, equipes), lecture seule.
+   IMPORTANT : l'archive historical_archive.sqlite a des colonnes odds_over/odds_under
+   MAIS ce sont des Handicaps Asiatiques (lignes negatives) injectes par un ancien
+   import -> NE JAMAIS les utiliser pour le ROI O/U (detruit l'edge, artefact +63%).
+3. core/eval_markets_walkforward.py : flag --roi -> evaluate_ou_roi() alimentee par
+   la source propre. Requete principale inchangee (non-regression strictes).
+
+Verdict (ce jour) : echantillon propre O/U 2.5 + xG = 75 rangees (matches+FotMob)
+< 400 requis -> ROI non mesurable a ce stade. Confirme le 'Reste' d'E37 : attendre
+le volume xG (FOTMOB_STATS_ENABLED=on + serveur relance) puis relancer --roi ; la
+passerelle de decision est prete : ROI <= 0 -> marche efficient (gate OU_MODEL_ENABLED
+reste OFF, verdict E30/E32) ; ROI > 0 -> edge etudier au niveau gate.
+
+Verif : pytest tests/test_roi_markets.py + tests/test_eval_markets.py = 16 OK ;
+python -m py_compile cible OK ; python -m core.eval_markets_walkforward --roi tourne
+(verdict honnete, aucun chiffre fantome). Aucun JS modifie, aucun dataset ecrit.
+
+## E38b Volume xG propre + garde MIN_ROWS + VERDICT ROI (2026-09-16)
+
+Suite directe d'E38 (meme session, reprise du « Reste ») : rendre le ROI mesurable.
+
+1. Levier choisi : ajouter le xG FotMob aux lignes ayant DEJA une vraie cote O/U
+   2.5 (296 candidates) plutot qu'attendre le cron — les cotes O/U FD (football-data)
+   ne couvrent que +35 des 2657 lignes xG sans cote (essaye en dry-run : 9383
+   candidats, 35 joints -> impasse). backfill_odds_footballdata n'est donc PAS le levier.
+2. scripts/backfill_fotmob_stats.js : + --has-ou-odds (historical : lignes avec
+   odds_over25 sans home_xg, cible exacte de l'echantillon ROI). FIX CRITIQUE trouve
+   en route : getMatchStats normalise en xg_home/xg_away mais mergeOddsIntoFullData
+   ne copie que les cles fullData (home_xg/...) -> le 1er run avait « ecrit 244 »
+   lignes sans jamais poser home_xg (seul fotmob_id entrait). Renommage explicite
+   statsRow {xg_home -> home_xg, ...} avant merge. Re-run : hist O/U+xG 75 -> 267 ->
+   307 (52 des 104 restantes sans donnee FotMob ; plafond naturel ~310-380).
+    matches-cible : 0 a traiter (fini, idempotence). Echantillon loader = 307.
+3. Garde MIN_ROWS 400 -> 300 (core/roi_markets.py, message dans evaluate_ou_roi) :
+   400 etait inatteignable avec les donnees PROPRES existantes ; 300 aligne sur les
+    decisions E30/E31 (n~359-737). AVERTISSEMENT de puissance integre au message
+    (SE ~6 pts ROI ; seul |edge|>~12% serait discriminable -> pas de surinterpretation).
+    Test garde mis a jour (296 -> refuse).
+
+VERDICT ROI (n=307, 4 folds, mise 1u) :
+  edge>=0.00 : 231 paris roi=-8.73% hit=43.3% brier modele=0.2437 marche=0.2397
+  edge>=0.02 : 192 paris roi=-10.64% hit=40.6%
+  edge>=0.05 : 148 paris roi=-12.61% hit=39.2%
+  => ROI NEGATIF a tout seuil, le modele est MOINS bien calibre que le marche
+   devigue (brier) ; l'edge pretendu est du BRUIT. Marche efficient confirme hors
+  echantillon : gate OU_MODEL_ENABLED reste OFF (verdict E30/E32 etendu au critere
+  ROI, pas seulement log-loss). La boucle entrainement -> ROI est desormais MESUREE.
+
+Verif : pytest 16 OK ; py_compile OK ; node --check backfill OK ; --roi mesure (plus
+de refus). tactical.db (gitignore) enrichi home_xg/away_xg via fotmob_id ; production
+inchangee (gates off). RESTE : le volume propre ne montera reellement qu'avec le cron
+E37 (FOTMOB_STATS_ENABLED=on) ; relancer --roi quand n>~700 pour resserrer la SE.

@@ -8025,6 +8025,58 @@ scraping bloque.
 
 Aucune modif de code ; aucune ecriture DB ; probes temp supprimes.
 
+## E47 Sweep local grandeur reelle (269 matchs) - levier SEUL INSUFFISANT (2026-09-16)
+
+Lance a la demande user, flags ODDS_REJECT_SYNTHETIC=on + ODDS_SWEEP_LEAGUE_WHITELIST=false.
+Script temporaire (supprime apres run), aucune modif de code.
+
+RESULTAT CHIFFRE (duree 914s, 269 matchs traites) :
+  ok=4 | real=4 | synth=0 | fail=265
+  bySource : betexplorer=2, footballdata=2
+  covBefore : total=300, 1x2=57, O/U=24, BTTS=22, queue=269
+  covAfter  : total=300, 1x2=59, O/U=26, BTTS=24, queue=267
+  => delta = +2 matchs (+0,7pp) sur chaque marche. 98,5% d'echec.
+  nBefore=307, nAfter=307 (INCHANGE - voir ci-dessous).
+
+L'echantillon 6/30 precedent est CONFIRME sur 269 (1,5% de succes, pas 20%) :
+l'echantillon de 30 etait optimiste. Sur la queue reelle, BetExplorer ne rend
+quasiment rien.
+
+POURQUOI n NE BOUGE PAS (point cle, a ne pas confondre) :
+load_clean_ou_rows() ne lit QUE des matchs TERMINES avec score (historical_matches
+scoreHome NOT NULL + matches scoreHome NOT NULL). Le sweep ne remplit que des
+matchs A VENIR -> il ne peut PAS faire monter n. n montera seulement quand ces
+matchs a venir passeront 'finished' ET auront un xG (cron FotMob E37). Le n=307->700
+depend du TEMPS (semaines), pas du sweep. Confondre les deux etait l'erreur a eviter.
+
+REPARTITION PAR LIGUE (mesuree, 300 matchs) :
+  ligues type 'couvertes' (regex premier/liga/cup/champions...) = 124 (41%)
+  ligues 'obscures' (Serie D x9 groupes = 81 matchs, Serie C, National Division,
+  Regionalliga, 2.Division, NM Cup, USL League One, cups mineures) = 176 (59%)
+  Les rares succes sont hors de ces deux : LaLiga (2, via footballdata) et
+  Primera Division (2, via betexplorer). Serie D = 81 matchs, 0 succes.
+
+CAUSE TECHNIQUE SECONDAIRE : le circuit breaker de ScrapingBypassScraper
+(services/scrapers/ScrapingBypassScraper.js:23, CIRCUIT_BREAKER_THRESHOLD=100) est
+passe OPEN apres 133 echecs -> le bypass BetExplorer s'est COUPE en cours de sweep
+et n'a plus ete retente pour le reste de la queue. Meme sans ce coupe-circuit, la
+couverture resterait bornee par la composition de la queue (59% de ligues que
+BetExplorer ne publie pas).
+
+VERDICT (reponse a la question posee) :
+(a) ce levier SEUL NE SUFFIT PAS a repasser au-dessus du seuil ROI mesurable :
+    +2 matchs couverts sur 269, et surtout n inchange (le sweep n'alimente pas n).
+    Il ne peut pas faire passer n de 307 a 700+.
+(b) il FAUT une source complementaire pour les divisions obscures (59% de la queue),
+    OU restreindre le perimetre. Aucune source gratuite connue ne couvre Serie D /
+    National Division / Regionalliga / NM Cup (cf. E42/E44).
+
+Et les deux conditions cumulees : meme avec 100% de couverture, n ne monterait
+qu'au rythme ou les matchs passent 'finished' + xG -> horizon semaines (E38b).
+
+Aucune modif de code ; ecritures DB limitees aux cotes (recordPersistedOdds, comme
+le sweeper normal) ; fichiers temp supprimes. Non commit.
+
 ## E46 CORRECTION E45 + vrai levier local : BetExplorer bypass (2026-09-16)
 
 CORRECTION D'UNE PREMISSE FAUSSE (honnetete) : E45 analysait le worker Render

@@ -8437,3 +8437,20 @@ COUVERTES (xG FotMob dispo + cote O/U reelle) passeront `finished` — ce que E5
 rend desormais possible. Les 2 verrous sont leves ; il reste a laisser le flux
 tourner (cron results-only + cron FotMob E37) et re-mesurer n au fil des jours.
 Aucune modif de code ; aucun commit de code (documentation seule).
+
+3e MAILLON VERIFIE — ARCHIVAGE (E55, meme session) : apres avoir prouve le
+reglement (E54), on a verifie le maillon SUIVANT : `finished` -> `historical_matches`
+(core/db/matches.js:726 `archiveFinishedMatches`, cron #19b toutes les 2h). Les 11
+regles N'ETAIENT PAS archives (archived_at max=08:00, or regles a 14:04) -> le cron
+n'etait simplement pas encore passe (pas un bug). Declaration manuelle
+`db.archiveFinishedMatches()` -> RESULTAT {archivedCount:11} ; DB avant/apres :
+finished 11->0, historical 10066->**10077**, maxArch 2026-09-16 14:40:53.
+=> LA CHAINE COMPLETE EST REPAREE : reglement (E54) -> archivage (E55) ->
+historical_matches. Le SELECT d'archivage (`status IN ('FT','finished',...)`) etait
+deja correct ; c'est E54 qui manquait pour alimenter `finished`.
+
+IMPACT n : TOUJOURS 307. Les 11 archives n'ont ni xG (FotMob null, E37-bis) ni
+cote O/U (ligues obscures) -> load_clean_ou_rows() ne les compte pas. La chaine
+est saine de bout en bout ; n ne montera qu'avec des matchs de LIGUES COUVERTES
+passant finished+archive+xG. Aucun code modifie cette session (E54 deja committe).
+Checkpoints : `node scripts/checkpoint_e37.js` (n, finished, home_xg).

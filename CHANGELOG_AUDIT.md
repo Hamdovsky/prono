@@ -8180,3 +8180,57 @@ persistee en base', pas du bypass. Levier concret local : relancer le sweep
 accepter que les divisions obscures restent non couvertes (aucune source gratuite).
 
 Aucune modif de code ; aucune ecriture DB ; probes temp supprimes.
+
+## E50 Calibration 1X2 : courbe par marché + Platt scaling (2026-09-16)
+
+PRIORITE : corriger la non-monotonie de la calibration 1X2 identifiee en E40
+(bande 40-50 -> 61.5% puis 50-60 -> 46.1%), toujours presente en E49.
+
+DIAGNOSTIC (cause racine, PAS un sous-echantillonnage ni un bug de binning) :
+- Le fit `core/calibration_iso.py` empilait DEUX sources de perimetres
+  incompatibles : (1) les picks 1X2 de accuracy_log.json (85), (2) la courbe
+  `calibrationCurve` du rapport unifie — qui est TOUS MARCHES confondus
+  (DC 2826 picks acc 69.9%, OU 1180 acc 94.9%, BTTS 2473, 1X2 2291 acc 42.9%).
+  Une "confidence 40%" y est donc majoritairement un DC (gagne ~80%) et non un
+  1X2 (~28%). C'est l'origine de la bande 30-40 -> 82.3% (du DC) et de la
+  fausse non-monotonie que le fit lisait comme du signal.
+- Preuve par isolement : courbe 1X2-only calculee depuis accuracy_log.json ->
+  30-40:23.1% 40-50:28.6% 50-60:11.1% 70-80:100%(n=1). La non-monotonie EXISTE
+  en 1X2 pur, mais etait masquee/amplifiee par le volume DC/OU dans la courbe mixte.
+
+CORRECTIF A — courbe SEPAREE PAR MARCHE (services/accuracyEngine.js) :
+- Nouvelle accumulation `calibByMarket` (cle = marketKey(rec.pick)) a cote de
+  `calib` (globale, inchangee pour l'affichage probabilityCalibrator.js).
+- Nouveau champ de rapport `calibrationCurveByMarket: {1X2, DC, OU, BTTS, HT,...}`.
+- Consommateurs : calibration_iso.py (fit 1X2 sur SA propre courbe) et
+  scripts/check_iso_gate.js (monotonie evaluee en source 1X2-only ; repli
+  explicite sur la courbe globale si rapport pre-E50).
+
+CORRECTIF B — PLATT SCALING au lieu d'ISOTONIC (core/calibration_iso.py) :
+- IsotonicRegression etait structurellement trop flexible a n=85 picks 1X2.
+- Remplacee par une logistique 1 parametre sur logit(confidence) :
+  P(win|p) = sigmoid(A*logit(p) + B), A >= 1e-6 impose (MONOTONE PAR CONSTRUCTION).
+  Fit par L-BFGS-B sur la log-loss ponderee (scipy.optimize.minimize).
+- Classe `PlattCalibrator` pickle-compatible (interface predict([[x]])).
+- Limite ASSUMEE : Platt ne reproduit pas une courbe en escalier ; la correction
+  des bandes hautes (80-90) est perdue. Acceptable tant que le volume 1X2 reste
+  < quelques centaines ; retour a isotonic possible plus tard si le volume monte.
+
+MESURE (fit reel sur donnees actuelles, n=225 apres dedup log+brackets) :
+  Platt : A=0.31706 B=-0.403878  Brier 0.0608 -> 0.0396
+  probe : conf 50%->41.6% | 60%->44.8% | 70%->48.6% | 80%->53.6% | 90%->62.9%
+  => STRICTEMENT CROISSANT (monotone verifie sur toute la plage).
+
+COURBE 1X2-only (calibrationCurveByMarket['1X2'], rolling 30j) :
+  40-50: 41.5%(913)  50-60: 42.4%(547)  60-70: 44.9%(334)  70-80: 47.4%(230)  80-90: 50%(32)
+  => DEJA monotone croissante (le mixage DC/OU etait bien la cause).
+
+GATE (scripts/check_iso_gate.js) :
+  C1 picks post-fix settle: 5882/200 -> OK
+  C2 courbe monotone: OK (bandes utilisables=5, montee=true, pas-de-chute>3pts=true, source=1X2-only)
+  >>> GO : reactivation possible (l'activation .env n'a PAS ete declenchee - decision operateur).
+
+VERIF : node --check 0 (accuracyEngine, check_iso_gate) ; py syntax OK ;
+eslint 0 erreur (1 warning pre-existant `over` l.117, hors de mes hunks) ;
+jest --forceExit **98 suites / 927 passed** (non-regression) ;
+pytest test_calibration_iso_freshness **5 passed**. Non commit.

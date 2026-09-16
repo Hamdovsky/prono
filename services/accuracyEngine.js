@@ -795,6 +795,12 @@ function computeAccuracy(options = {}) {
   let sumOddsLosers = 0
   const oddsMissingByMarket = {}
   const calib = {}
+  // E50 (2026-09-16) : courbe de calibration SÉPARÉE PAR MARCHÉ. La courbe
+  // globale `calib` mélangeait DC (~70% de réussite) et OU (~95%) avec 1X2
+  // (~43%) : le fit isotonic 1X2 s'entraînait alors sur un objectif qui n'était
+  // pas le sien (bande 30-40 → 82.3% = du DC, pas du 1X2). Cette séparation
+  // rend le fit 1X2 honnête et rend la non-monotonie VISIBLE au gate.
+  const calibByMarket = {}
   const leagueMap = {}
   const byMarket = {} // { 1X2 | DC | OU } → réussite + cote moyenne + ROI flat
 
@@ -902,6 +908,14 @@ function computeAccuracy(options = {}) {
         if (!calib[band.band]) calib[band.band] = { count: 0, correct: 0 }
         calib[band.band].count++
         if (ok) calib[band.band].correct++
+        // E50 : même accumulation, ventilée par marché (clé = marketKey).
+        const mk = marketKey(rec.pick)
+        if (mk) {
+          if (!calibByMarket[mk]) calibByMarket[mk] = {}
+          if (!calibByMarket[mk][band.band]) calibByMarket[mk][band.band] = { count: 0, correct: 0 }
+          calibByMarket[mk][band.band].count++
+          if (ok) calibByMarket[mk][band.band].correct++
+        }
       }
     }
 
@@ -1030,6 +1044,22 @@ function computeAccuracy(options = {}) {
         correct: d.correct,
         accuracy: +((d.correct / d.count) * 100).toFixed(1),
       })),
+    // E50 : courbes par marché (1X2/DC/OU/BTTS/CORNER/HT). Consommateur :
+    // core/calibration_iso.py (fit 1X2 sur SA propre courbe) et le gate
+    // check_iso_gate.js. La courbe globale ci-dessus reste pour l'affichage.
+    calibrationCurveByMarket: Object.fromEntries(
+      Object.entries(calibByMarket).map(([mk, bands]) => [
+        mk,
+        Object.entries(bands)
+          .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+          .map(([band, d]) => ({
+            band,
+            count: d.count,
+            correct: d.correct,
+            accuracy: +((d.correct / d.count) * 100).toFixed(1),
+          })),
+      ])
+    ),
     byLeague: Object.entries(leagueMap)
       .map(([league, d]) => ({
         league,

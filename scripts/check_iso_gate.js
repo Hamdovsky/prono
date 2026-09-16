@@ -52,10 +52,19 @@ function computeC1() {
 }
 
 // ---------- C2 : monotonie ----------
+// E50 (2026-09-16) : la monotonie est évaluée sur la courbe 1X2 UNIQUEMENT
+// (calibrationCurveByMarket['1X2']). Lire la courbe GLOBALE mélangeait DC/OU
+// avec 1X2 et produisait un faux verdict : un "fit" pouvait sembler sain alors
+// qu'il s'entraînait sur du DC (~70%) et de l'OU (~95%) comptés comme 1X2.
+// Repli sur la courbe globale si la ventilation par marché n'existe pas encore
+// (rapport pré-E50) — avec marqueur explicite dans le rendu.
 function computeIsoCurve() {
   try {
     const rep = JSON.parse(fs.readFileSync(path.join(root, 'data', 'accuracy_report.json'), 'utf8'))
-    let bands = (((rep || {}).rolling || {}).last30days || {}).calibrationCurve || []
+    const rolling = (((rep || {}).rolling || {}).last30days) || {}
+    const byMarket = rolling.calibrationCurveByMarket
+    const fromMarket = byMarket && Array.isArray(byMarket['1X2'])
+    let bands = fromMarket ? byMarket['1X2'] : (rolling.calibrationCurve || [])
     bands = bands
       .map((b) => ({ ...b, lo: parseInt(String(b.band).split('-')[0], 10) || 0 }))
       .sort((a, b) => a.lo - b.lo)
@@ -65,7 +74,13 @@ function computeIsoCurve() {
       if (usable[i].accuracy < usable[i - 1].accuracy - 3) noBigDrop = false
     }
     const rising = usable.length >= 2 && usable[usable.length - 1].accuracy > usable[0].accuracy
-    const c2 = { ok: usable.length >= 4 && noBigDrop && rising, usable: usable.length, rising, noBigDrop }
+    const c2 = {
+      ok: usable.length >= 4 && noBigDrop && rising,
+      usable: usable.length,
+      rising,
+      noBigDrop,
+      source: fromMarket ? '1X2-only' : 'global(fallback)',
+    }
     return { bands, c2 }
   } catch (_) {
     return { bands: [], c2: { ok: false } }
@@ -141,7 +156,7 @@ if (require.main === module) {
   console.log('=== GATE ISO_CAL ===')
   console.log(`C1 picks post-fix settle: ${nPost}/${N_MIN} -> ${nPost >= N_MIN ? 'OK' : 'PAS ENCORE'}`)
   console.log(
-    `C2 courbe monotone: ${c2.ok ? 'OK' : 'PAS ENCORE'} (bandes utilisables=${c2.usable}, montee=${c2.rising}, pas-de-chute>3pts=${c2.noBigDrop})`
+    `C2 courbe monotone: ${c2.ok ? 'OK' : 'PAS ENCORE'} (bandes utilisables=${c2.usable}, montee=${c2.rising}, pas-de-chute>3pts=${c2.noBigDrop}, source=${c2.source || '?'})`
   )
   if (bands.length) {
     console.log('Bandes (bande, n, accuracy%):')

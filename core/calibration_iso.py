@@ -1,24 +1,31 @@
 """
-calibration_iso.py — Isotonic calibration des probabilités 1X2
+calibration_iso.py — Calibration 1X2 (Platt scaling).
 
-Corrige le sur-décalage observé (bracket 70-80% → 33% réel, 90+ → 0%).
-Platt (calibration.py) applique une carte logistique globale ; ici on
-ajuste une carte monotone confidence → taux réel de victoire via
-sklearn.isotonic.IsotonicRegression.
+E50 (2026-09-16) — DEUX changements majeurs vs la version isotonic :
 
-IMPORTANT — Données strictement 1X2 uniquement :
-  * data/accuracy_log.json, marché '1X2' (confidence = proba du pick 1/X/2,
-    is_correct = le pick a gagné). Les entrées DC/OTHER mélangent d'autres
-    échelles (un DC @ 40% gagne ~80% du temps) et écrasent le fit.
-  * data/backtest_results.json, bracketAccuracy — agrégats réels (100 matchs),
-    injectés comme points synthétiques pondérés (×0.5) pour éviter le
-    double-comptage avec les entrées per-pick du log.
+1. SOURCE PAR MARCHÉ. Le fit 1X2 lit désormais `calibrationCurveByMarket['1X2']`
+   du rapport unifié (accuracyEngine) au lieu de la courbe MIXTE tous marchés.
+   La courbe mixte contient ~70% de DC et ~95% de OU : une "confidence 40%"
+   y est en majorité un DC (gagne ~80%) et non un 1X2 (~28%). C'est ce qui
+   produisait la bande 30-40 → 82.3% (du DC, pas du 1X2) et la non-monotonie
+   en 40-50 → 61.5% / 50-60 → 46.1% que le fit interprétait comme du signal.
+
+2. MÉTHODE PLATT au lieu d'ISOTONIC. À n=85 picks 1X2 (9-49 par bande),
+   IsotonicRegression est structurellement trop flexible : elle peut produire
+   une carte non-monotone ou du bruit sur de petits échantillons. Platt
+   (régression logistique 1 paramètre sur logit(confidence)) est MONOTONE PAR
+   CONSTRUCTION (coef A > 0 imposé) et adaptée aux petits volumes.
+
+   Limite assumée : Platt ne peut pas reproduire une courbe en escalier ;
+   la correction des bandes hautes (80-90 → 65.8%) est perdue. Acceptable tant
+   que le volume 1X2 reste < quelques centaines de picks. Retour à isotonic
+   possible plus tard si le volume le justifie.
 
 En dessous de MIN_SAMPLES, isotonic_calibrate() retombe sur Platt.
 
 Fichiers produits (models/) :
-  isotonic_model.pkl   — l'IsotonicRegression (X en 0-100)
-  isotonic_params.json — fitted_at, n_samples, brier avant/après, status
+  isotonic_model.pkl   — objet PlattCalibrator (predict([[X en 0-100]]))
+  isotonic_params.json — fitted_at, n_samples, coefs A/B, brier avant/après, status
 
 Usage :
   python -m core.calibration_iso --fit      # après le backtest quotidien
@@ -45,6 +52,26 @@ MIN_SAMPLES = 30
 AGG_WEIGHT = 0.5  # poids relatif des agrégats bracket (évite double-comptage)
 PICK_MIN = 0.03
 PICK_MAX = 0.97
+
+
+class PlattCalibrator:
+    """Régression logistique 1 paramètre sur logit(confidence) — monotone par
+    construction. Interface compatible sklearn : `predict([[x]])` renvoie un
+    array de probabilités calibrées.
+
+    Modèle : P(win | p) = sigmoid(A * logit(p) + B)  avec A > 0 imposé.
+    """
+
+    def __init__(self, A, B):
+        self.A = float(A)
+        self.B = float(B)
+
+    def predict(self, X):
+        arr = np.asarray(X, dtype=np.float64).ravel()
+        p = np.clip(arr / 100.0, 1e-6, 1 - 1e-6)
+        z = np.log(p / (1.0 - p))
+        out = 1.0 / (1.0 + np.exp(-(self.A * z + self.B)))
+        return np.clip(out, 0.0, 1.0)
 
 
 def _load_json(fpath, default=None):
@@ -127,27 +154,30 @@ def _bracket_aggregates():
         yield mid, min(1.0, max(0.0, acc / 100.0)), float(count)
 
 
-def _accuracy_report_aggregates():
-    """V2-prêt (audit 2026-08-24) — source unique accuracyEngine.
+def _accuracy_report_aggregates(market='1X2'):
+    """E50 — source unique accuracyEngine, COURBE PAR MARCHÉ.
 
-    Yield (midpoint_conf, win_rate, weight) depuis la calibrationCurve du
-    rapport unifié data/accuracy_report.json (rolling 30j, snapshot au temps
-    T, tous marchés). Activée uniquement par ISO_SOURCE=accuracy_report —
-    refit effectif DIFFÉRÉ jusqu'à disposer d'échantillons post-P1 (n≥200,
-    voir CHANGELOG_AUDIT.md « Vérifications différées »).
-
-    ⚠️ Échelle : ces bins portent sur la probabilité du pick (tous marchés),
-    pas sur la confiance 1X2 pure historique — divergence de périmètre à
-    garder en tête lors de la comparaison avec les entrées per-pick du log.
+    Yield (midpoint_conf, win_rate, weight) depuis
+    `rolling.last30days.calibrationCurveByMarket[market]` (nouveau, E50) ;
+    fallback sur la courbe globale si la ventilation par marché est absente
+    (rétrocompat rapports pré-E50) — avec avertissement explicite, car la
+    courbe globale mélange DC/OU et fausserait le fit 1X2.
     """
     report = _load_json(ACCURACY_REPORT_PATH, {}) or {}
-    curve = (
-        report.get('rolling', {}).get('last30days', {}).get('calibrationCurve')
-        if isinstance(report, dict)
-        else None
-    )
+    rolling = report.get('rolling', {}).get('last30days', {}) if isinstance(report, dict) else {}
+    by_market = rolling.get('calibrationCurveByMarket') if isinstance(rolling, dict) else None
+    curve = None
+    if isinstance(by_market, dict) and isinstance(by_market.get(market), list):
+        curve = by_market[market]
+    else:
+        curve = rolling.get('calibrationCurve') if isinstance(rolling, dict) else None
+        if isinstance(curve, list):
+            sys.stderr.write(
+                f'[ISO-CAL] calibrationCurveByMarket[{market!r}] absente — repli sur la '
+                'courbe GLOBALE (mélange DC/OU/1X2, fit potentiellement biaisé)\n'
+            )
     if not isinstance(curve, list):
-        sys.stderr.write('[ISO-CAL] accuracy_report.json: calibrationCurve absente\n')
+        sys.stderr.write('[ISO-CAL] accuracy_report.json: aucune courbe exploitable\n')
         return
     for band in curve:
         if not isinstance(band, dict):
@@ -165,39 +195,52 @@ def _accuracy_report_aggregates():
         if count < MIN_SAMPLES:
             continue
         mid = (lo + hi) / 2.0
-        yield mid, min(1.0, max(0.0, acc / 100.0)), count * AGG_WEIGHT
+        yield mid, min(1.0, max(0.0, acc / 100.0)), count
+
+
+def _platt_fit(Z, Y, W):
+    """Fit Platt scaling (A, B) par minimisation de la log-loss PONDÉRÉE.
+
+    Z = logit(confidence/100). Y = issues (0/1 par pick, ou taux pour un
+    agrégat). W = poids. Contrainte A >= 1e-6 (monotone croissant en p).
+    L-BFGS-B sur 2 paramètres — stable à n=85.
+    """
+    from scipy.optimize import minimize
+
+    def nll(params):
+        A, B = params
+        z = A * Z + B
+        p = 1.0 / (1.0 + np.exp(-np.clip(z, -60.0, 60.0)))
+        p = np.clip(p, 1e-12, 1 - 1e-12)
+        return -float(np.sum(W * (Y * np.log(p) + (1.0 - Y) * np.log(1.0 - p))))
+
+    res = minimize(nll, [1.0, 0.0], method='L-BFGS-B', bounds=[(1e-6, None), (None, None)])
+    return float(res.x[0]), float(res.x[1])
 
 
 def fit():
-    """Fit the isotonic map from settled 1X2 history. Returns params dict."""
-    try:
-        from sklearn.isotonic import IsotonicRegression
-    except Exception:
-        sys.stderr.write('[ISO-CAL] sklearn unavailable - isotonic fitting skipped\n')
-        return {'status': 'unavailable'}
-
+    """Fit Platt (A, B) sur l'historique 1X2. Returns params dict."""
     X, y, w = [], [], []
     for conf, ok in _iter_accuracy_entries():
-        X.append([float(conf)])
+        X.append(float(conf))
         y.append(1.0 if ok else 0.0)
         w.append(1.0)
-    # V2-prêt : source des agrégats commutable par ISO_SOURCE.
-    #  - 'brackets' (défaut)  : backtest_results.json — UNIQUEMENT si le rapport
-    #    est un snapshot fiable (garde anti-contamination V1), sinon vide.
-    #  - 'accuracy_report'    : calibrationCurve du rapport unifié accuracyEngine
-    #    (à activer quand les données post-P1 sont suffisantes, refit différé).
-    iso_source = os.environ.get('ISO_SOURCE', 'brackets').strip().lower()
-    if iso_source == 'accuracy_report':
-        sys.stderr.write(
-            '[ISO-CAL] ISO_SOURCE=accuracy_report — agrégats depuis accuracyEngine\n'
-        )
-        aggregates = _accuracy_report_aggregates()
-    else:
+    # E50 : par défaut on lit la courbe 1X2 du rapport unifié (source unique,
+    # ventilée par marché). ISO_SOURCE=brackets force l'ancienne source
+    # (backtest_results.json), conservée pour compatibilité/diagnostic.
+    iso_source = os.environ.get('ISO_SOURCE', 'accuracy_report').strip().lower()
+    if iso_source == 'brackets':
+        sys.stderr.write('[ISO-CAL] ISO_SOURCE=brackets — agrégats legacy backtest_results\n')
         aggregates = _bracket_aggregates()
+    else:
+        sys.stderr.write(
+            '[ISO-CAL] ISO_SOURCE=accuracy_report — agrégats 1X2 depuis accuracyEngine\n'
+        )
+        aggregates = _accuracy_report_aggregates('1X2')
     for mid, rate, count in aggregates:
-        X.append([float(mid)])
+        X.append(float(mid))
         y.append(float(rate))
-        w.append(AGG_WEIGHT * count)
+        w.append(float(count) * AGG_WEIGHT)
 
     n_samples = len(y)
     if n_samples < MIN_SAMPLES:
@@ -213,16 +256,23 @@ def fit():
     y = np.array(y, dtype=np.float64)
     w = np.array(w, dtype=np.float64)
 
-    iso = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds='clip')
-    iso.fit(X, y, sample_weight=w)
+    # Logit de la confiance (clip serré pour éviter ±inf sur p→0 ou 1).
+    p = np.clip(X / 100.0, 1e-4, 1 - 1e-4)
+    Z = np.log(p / (1.0 - p))
 
-    fitted = iso.predict(X)
-    brier_before = float(np.average((y - X[:, 0] / 100.0) ** 2, weights=w))
+    A, B = _platt_fit(Z, y, w)
+    model = PlattCalibrator(A, B)
+
+    fitted = model.predict(X)
+    brier_before = float(np.average((y - X / 100.0) ** 2, weights=w))
     brier_after = float(np.average((y - fitted) ** 2, weights=w))
 
     params = {
         'fitted_at': np.datetime64('now').item().isoformat(),
+        'method': 'platt',
         'n_samples': n_samples,
+        'A': round(A, 6),
+        'B': round(B, 6),
         'min_conf': float(np.min(X)),
         'max_conf': float(np.max(X)),
         'brier_before': round(brier_before, 6),
@@ -232,13 +282,13 @@ def fit():
 
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     with open(MODEL_PATH, 'wb') as f:
-        pickle.dump(iso, f)
+        pickle.dump(model, f)
     with open(PARAMS_PATH, 'w', encoding='utf-8') as f:
         json.dump(params, f, indent=2)
 
-    print(f'[ISO-CAL] Fitted on {n_samples} 1X2 samples (log + backtest brackets)')
+    print(f'[ISO-CAL] Platt fit on {n_samples} 1X2 samples  (A={A:.4f}, B={B:.4f})')
     print(f'   Brier before={brier_before:.4f} -> after={brier_after:.4f}')
-    print(_calibration_probe(iso))
+    print(_calibration_probe(model))
     return params
 
 

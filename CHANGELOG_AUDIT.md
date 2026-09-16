@@ -8495,3 +8495,40 @@ l'heure de fin ; l'archive est le point fixe ou le match TERMINE vit pour toujou
 
 Verif : analyse statique des crons + lecture archiveMerge.js (STATS_FIELDS OK).
 Aucune modif de code ; documentation seule.
+
+## E57 Fix E56 (option a) : fotmobStatsExtractor traite AUSSI historical_matches (2026-09-16)
+
+Decision operateur : option (a) — le consommateur (FotMob) doit lire la table ou le
+match TERMINE vit pour toujours (historical_matches), pour ne JAMAIS perdre le xG
+quelle que soit l'heure de fin (course de crons E56).
+
+IMPLEMENTATION (services/fotmobStatsExtractor.js) :
+- `processFinishedMatches` lance desormais une 2e passe `_processHistorical(db,...)`
+  APRES la passe `matches` (et MEME si `matches` est vide -> sans ca, un cycle ou
+  l'archivage a deja tout vide ne ferait rien).
+- `_processHistorical` (NEUF) : selectionne les `historical_matches` avec
+  `json_extract(fullData,'$.home_xg') IS NULL` (+ scoreHome), rejoue le meme lien
+  (date + equipes normalisees -> fotmob_id via _dayMap), recupere les stats et
+  MERGE dans fullData via `mergeOddsIntoFullData` (COALESCE-safe : n'ecrase jamais).
+  Les stats sont ecrites dans `fullData` (cles home_xg/away_xg/...) car les COLONNES
+  home_xg/fotmob_id n'existent PAS sur historical_matches (verifie E55).
+  Tolerant : si la table historique est absente (DB de test), retourne 0 sans throw.
+- `mergeOddsIntoFullData` + import de `core/archiveMerge` ajoutes.
+- `_processHistorical` exporte (testable). `stats.historical` ajoute au retour.
+
+TESTS : NOUVEAU __tests__/fotmobStatsHistorical.test.js (4) : dry-run hist sans
+ecriture ; write -> home_xg/away_xg/fotmob_id dans fullData (pas de cle parasite
+xg_home) ; idempotent (deja home_xg -> exclu) ; tolerant si table absente. Le test
+E37 existant (fotmobStatsExtractor.test.js) reste vert (3) grace a la tolerance.
+
+MESURE REELLE :
+- dry-run (limit 20) : hist scanned=20 matched=8 (trouve bien des lignes a enrichir).
+- write (limit 100) : hist scanned=100 matched=23 written=23 ; home_xg historique
+  2889 -> 2902. Le xG HISTORIQUE est desormais capturable par le cron (plus besoin
+  d'attendre un backfill manuel pour les matchs archives).
+- n du harnais ROI : **307 -> 312** (+5) : le correctif alimente directement
+  load_clean_ou_rows() (il lit historical fullData home_xg + cote O/U).
+
+Verif : node --check 0 ; eslint 0 ; jest --forceExit **100 suites / 938 passed**
+(+1 suite fotmobStatsHistorical +4 vs 99/934). data/tactical.db (gitignore) enrichi.
+Aucune modif de l'emission/prod hors cron #15b (deja gate FOTMOB_STATS_ENABLED). Non commit.

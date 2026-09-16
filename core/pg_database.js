@@ -265,8 +265,22 @@ const pgDb = {
         ) ON CONFLICT (id) DO UPDATE SET
           "startTimestamp" = COALESCE(EXCLUDED."startTimestamp", matches."startTimestamp"),
           "bsd_match_id" = COALESCE(EXCLUDED."bsd_match_id", matches."bsd_match_id"),
-          "scoreHome" = EXCLUDED."scoreHome", "scoreAway" = EXCLUDED."scoreAway",
-          minute = EXCLUDED.minute, status = EXCLUDED.status,
+          "scoreHome" = CASE
+            WHEN matches.status IN ('finished','canceled')
+                 AND EXCLUDED.status NOT IN ('finished','canceled')
+            THEN matches."scoreHome" ELSE EXCLUDED."scoreHome" END,
+          "scoreAway" = CASE
+            WHEN matches.status IN ('finished','canceled')
+                 AND EXCLUDED.status NOT IN ('finished','canceled')
+            THEN matches."scoreAway" ELSE EXCLUDED."scoreAway" END,
+          minute = CASE
+            WHEN matches.status IN ('finished','canceled')
+                 AND EXCLUDED.status NOT IN ('finished','canceled')
+            THEN matches.minute ELSE EXCLUDED.minute END,
+          status = CASE
+            WHEN matches.status IN ('finished','canceled')
+                 AND EXCLUDED.status NOT IN ('finished','canceled')
+            THEN matches.status ELSE EXCLUDED.status END,
           last_updated = EXCLUDED.last_updated, "fullData" = EXCLUDED."fullData",
           prediction = COALESCE(EXCLUDED.prediction, matches.prediction),
           confidence = COALESCE(EXCLUDED.confidence, matches.confidence),

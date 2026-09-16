@@ -8335,3 +8335,53 @@ pas une regle de decision.
 
 Aucune modif de code ; aucune ecriture DB ; scripts temp supprimes. CHANGELOG
 (E52 + E53) committe seul.
+
+## E54 BUG BLOQUANT : le re-scan fixtures ecrasait le reglement (finished=0) (2026-09-16)
+
+DECOUVERTE pendant le checkpoint post-E53 : `matches` avait 793 lignes TOUTES a
+0-0, `status='finished'` = 0, `settled_at` = 0, et 20 matchs dont le coup d'envoi
+etait deja passe restaient 'scheduled'. Le reglement ne tenait pas.
+
+INVESTIGATION (lecture seule, tracee pas supposee) :
+- La source livescore REMONTE bien les resultats : fetchResults(J) = 15 lignes,
+  J-1 = 210, J-2 = 122. Sur les 15 d'aujourd'hui, 8 matchent une cle en base.
+- Pour ces 8 HIT, la source dit `status=finished score=2-1` MAIS la base dit
+  `status=scheduled score=0-0` -> le reglement EST ecrit puis DETRUIT.
+- `updateMatchResult` fonctionne (test direct : UPDATE changes=1). La cle
+  (`match_key`) est correcte (stored == computed, verifie sur 6 lignes).
+- => le coupable est l'UPSERT DE FIXTURES (core/db/matches.js `insertMatch`).
+
+CAUSE RACINE (core/db/matches.js:142-143 et core/pg_database.js:268-269) :
+l'`ON CONFLICT (id) DO UPDATE` ecrivait INCONDITIONNELLEMENT
+`scoreHome = excluded.scoreHome, scoreAway = excluded.scoreAway, status = excluded.status`.
+Le scan de fixtures livescore re-upsert les matchs A VENIR avec
+`status='scheduled'` et score 0-0 -> il ECRASE le resultat pose par le reglement
+au scan suivant. D'ou finished=0 et tous les scores a 0-0. (Le garde
+`hasOpenMatchesOnDate` voyait donc toujours des matchs "ouverts" et le cycle se
+repetait.)
+
+CORRECTIF (2 fichiers, meme regle cote SQLite et Postgres) : l'upsert PRESERVE
+l'etat TERMINAL contre tout etat non-terminal.
+  scoreHome/scoreAway/minute/status = CASE
+    WHEN matches.status IN ('finished','canceled')
+         AND excluded.status NOT IN ('finished','canceled')
+    THEN matches.<col> ELSE excluded.<col> END
+-> un resultat regle n'est plus jamais ecrase par un re-scan de fixtures ;
+   les transitions terminal->terminal restent permises (ex: FT -> AET/PEN) ;
+   les colonnes de prediction (COALESCE) restent intactes.
+
+PREUVE (test dedie, DB temporaire jetable) :
+  1. apres fixture        : {"status":"scheduled","scoreHome":0,"scoreAway":0}
+  2. apres reglement      : {"status":"finished","scoreHome":3,"scoreAway":1}
+  3. apres RE-SCAN fixture: {"status":"finished","scoreHome":3,"scoreAway":1}
+     -> PROUVE : le re-scan ne detruit plus le resultat (avant : 0-0 scheduled)
+  4. terminal->terminal   : {"status":"finished","scoreHome":4,"scoreAway":1} OK
+
+VERIF : node --check 0 ; eslint 0 erreur (warnings pre-existants hors hunks) ;
+jest --forceExit **99 suites / 934 passed** (non-regression).
+
+IMPACT ATTENDU (a confirmer apres redemarrage de la stack) : les matchs passes
+pourront enfin atteindre `status='finished'` + `settled_at`, ce qui debloque le
+flux `finished` -> archives -> xG (E37) -> n du harnais ROI. C'est le pre-requis
+structurel qui manquait a E38b (n=307 fige car rien ne se reglait).
+Non commit.

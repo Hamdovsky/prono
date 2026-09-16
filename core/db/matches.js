@@ -139,8 +139,31 @@ function createMatchesDao(db) {
                   ) ON CONFLICT (id) DO UPDATE SET 
                       match_key = COALESCE(excluded.match_key, matches.match_key),
                       bsd_match_id = COALESCE(excluded.bsd_match_id, matches.bsd_match_id),
-                      scoreHome = excluded.scoreHome, scoreAway = excluded.scoreAway,
-                      minute = excluded.minute, status = excluded.status, 
+                      -- E54 (2026-09-16) : un upsert de FIXTURES ne doit JAMAIS
+                      -- ecraser un resultat deja regle. Le scan livescore renvoie
+                      -- les matchs a venir avec status='scheduled' et score 0-0 ;
+                      -- l'upsert precedent ecrasait inconditionnellement -> le
+                      -- reglement (updateMatchResult) etait annule au scan suivant,
+                      -- d'ou matches.status='finished' = 0 et scores tous 0-0.
+                      -- On preserve l'etat TERMINAL (finished/canceled) contre tout
+                      -- etat non-terminal ; les transitions terminal->terminal
+                      -- (ex: AET/PEN) restent possibles.
+                      scoreHome = CASE
+                        WHEN matches.status IN ('finished','canceled')
+                             AND excluded.status NOT IN ('finished','canceled')
+                        THEN matches.scoreHome ELSE excluded.scoreHome END,
+                      scoreAway = CASE
+                        WHEN matches.status IN ('finished','canceled')
+                             AND excluded.status NOT IN ('finished','canceled')
+                        THEN matches.scoreAway ELSE excluded.scoreAway END,
+                      minute = CASE
+                        WHEN matches.status IN ('finished','canceled')
+                             AND excluded.status NOT IN ('finished','canceled')
+                        THEN matches.minute ELSE excluded.minute END,
+                      status = CASE
+                        WHEN matches.status IN ('finished','canceled')
+                             AND excluded.status NOT IN ('finished','canceled')
+                        THEN matches.status ELSE excluded.status END,
                       last_updated = excluded.last_updated, fullData = excluded.fullData,
                       prediction = COALESCE(excluded.prediction, matches.prediction),
                       confidence = COALESCE(excluded.confidence, matches.confidence),

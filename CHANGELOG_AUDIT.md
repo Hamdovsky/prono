@@ -8024,3 +8024,41 @@ top-5 + ROI fiable, qui utilise des donnees deja presentes et ne depend d'aucun
 scraping bloque.
 
 Aucune modif de code ; aucune ecriture DB ; probes temp supprimes.
+
+## E46 CORRECTION E45 + vrai levier local : BetExplorer bypass (2026-09-16)
+
+CORRECTION D'UNE PREMISSE FAUSSE (honnetete) : E45 analysait le worker Render
+`pronostico.onrender.com`, MAIS l'environnement reel est LOCAL : SCRAPER_WORKER_URL
+est ABSENT de .env -> workerBridge.callWorker renvoie null -> tout passe par
+runLocalScraper (scraperBridge.js). Le worker Render n'est PAS dans la boucle
+locale. E45 reste vrai pour un deploiement Render, mais NE DECRIT PAS la machine
+locale. A lire avec cette reserve.
+
+ETAT LOCAL REEL (mesure) :
+- Providers actifs : livescore (prio 1, HTTP 200 verifie, 83 stages) + openligadb
+  (prio 3). sofascore-py = DESACTIVE (opt-in PIXELRAG_FIXTURES_ENABLED). Donc le
+  scan local tourne sur livescore.
+- Sofascore direct local = 403 (confirme, IP bannie). SofascoreBypass local = 403.
+
+VRAI LEVIER LOCAL TROUVE : le BYPASS BetExplorer (curl_cffi Python) FONCTIONNE :
+  ScrapingBypassScraper.getOdds('Arsenal','Chelsea','Premier League') ->
+  1.68 / 3.83 / 4.63, O/U 1.74/2.09, BTTS 1.70/2.12, source 'betexplorer+static'.
+C'est une VRAIE source reelle (pas synthetique), deja branchee dans la chaine :
+  dataFusionService._tryUnifiedScraper -> UltimateScraperOrchestrator
+  fetchOdds_betexplorer_full (ligne 225). Donc le sweep PEUT obtenir de vraies
+  cotes via ce chemin quand la ligue est couverte par BetExplorer.
+
+COUVERTURE MESUREE (30 matchs queue aleatoires) : **6/30** (20%). OK sur ligues
+majeures/secondaires (LaLiga, Egypt PL, DBU Pokalen). KO sur Serie D, Serie C,
+petites ligues nordiques (2.Division, Regionalliga), AFC CL, USL, NM Cup. Donc le
+bypass N'EST PAS le trou : il couvre ce que BetExplorer publie ; les ligues de la
+queue non couvertes sont des divisions obscures que BetExplorer ne liste pas.
+
+SYNTHESE (revisee) : sur CETTE machine, la couverture cotes depend de la
+conjonction (a) livescore (fixtures, OK) + (b) BetExplorer bypass (cotes reelles,
+OK ~20% des ligues). Le plafond ~4% precedent venait de la mesure 'vraie cote
+persistee en base', pas du bypass. Levier concret local : relancer le sweep
+(ODDS_REJECT_SYNTHETIC=on) pour laisser BetExplorer remplir ce qu'il couvre, et
+accepter que les divisions obscures restent non couvertes (aucune source gratuite).
+
+Aucune modif de code ; aucune ecriture DB ; probes temp supprimes.

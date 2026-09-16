@@ -7929,3 +7929,38 @@ venir depend d'une source STRUCTUREE fiable (football-data/CSV), pas du scraping
 HTML generique. Le levier reel = augmenter la couverture de LA source qui marche
 (football-data, qui reussit sur National League dans l'echantillon) ou brancher un
 worker distant type Sofascore, pas etendre un scraper dont le parser est casse.
+
+## E44 Levier football-data teste - NON couvrant pour la queue (2026-09-16)
+
+Suite E43 : tester si football-data (source structuree qui MARCHE) peut couvrir la
+queue reelle. Mesure lecture seule sur les CSV locaux (data_pipeline/data/raw).
+
+1. football_data_all.csv : 25926 lignes, date_min=2023-07-28 date_max=2026-09-14,
+   rows futures (>=2026-09-16) = **0**. C'est un fichier HISTORIQUE (resultats),
+   aucun match a venir. Normal : football-data publie les resultats apres coup.
+2. football_data_fixtures.csv : 30 lignes, uniquement le jour courant, ligues
+   presentes = SP1/N1/E1/E2/SC0/SC1/SC2/UEL. AUCUNE des ligues de la queue
+   (Serie D, Northern Premier League, Kenya, NM Cup, Egypt, AFC CL...).
+3. Join queue<->index FD (fixtures+all, 24216 cles) : QUEUE=425, join=0, O/U=0.
+   Verifie : les dates sont ISO (2026-08-21...) donc ce n'est PAS un artefact de
+   format ; l'echec est reel (historique vs futur + ligues absentes).
+4. FootballDataScraper (chemin reseau, 2627) ne couvre que **10 codes** :
+   E0/E1/E2/D1/I1/SP1/F1/N1/P1/B1 (top-5 + secondaires). La queue est ~0% dans ces
+   divisions. football-data.co.uk ne PUBLIE PAS Serie D / Northern Premier /
+   non-league / Kenya / cups MENA -> etendre les codes n'y changera rien.
+
+CONCLUSION : football-data n'est PAS le levier pour la couverture de la queue. Il
+couvre les grandes divisions ; la queue est majoritairement non-league/Serie D/cups
+que football-data ne publie pas. Seule la voie scraping (blockee/cassee) ou une
+source payante/worker distant peut couvrir ces ligues.
+
+VERDICT GLOBAL de la session (4 leviers testes, tous negatifs mais chiffres) :
+- sweep (E41) : fix correct, effet 0 (pas d'alternative a offrir).
+- corners (E42) : aucune source gratuite ; premisse B365C=Cartons fausse.
+- Jina/1-bis (E43) : parser incompatible tables markdown, inutile d'etendre.
+- football-data (E44) : ne publie pas les ligues de la queue.
+CONSEQUENCE PRATIQUE : la couverture de cotes REELLES reste structurellement
+limitee (~4% de la queue) sans source payante/worker. Decision de valeur a
+trancher : (a) restreindre le perimetre aux ligues couvertes (top-5) et y mesurer
+un ROI fiable ; (b) investir une source couvrante ; (c) reparer le chemin
+Sofascore distant (worker). Aucune modif de code ; aucune ecriture DB.

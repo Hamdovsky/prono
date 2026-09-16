@@ -47,12 +47,17 @@ function loadSettled(selectCols) {
     for (const r of a) out.push(r)
   } catch (_) {}
   try {
+    // E52 : archived_at est un TEXTE SQLite ('YYYY-MM-DD HH:MM:SS'), pas un
+    // epoch ms. Comparer a CUTOFF_MS (nombre) faisait matcher TOUTES les lignes
+    // (texte vs nombre en SQLite = jamais faux), annulant la fenetre post-gel.
+    // On compare desormais en texte avec le cutoff au meme format.
+    const cutoffTxt = new Date(CUTOFF_MS).toISOString().slice(0, 19).replace('T', ' ')
     const b = db
       .prepare(
         `SELECT ${selectCols}, fullData FROM historical_matches
          WHERE archived_at >= ?`
       )
-      .all(CUTOFF_MS)
+      .all(cutoffTxt)
     for (const r of b) out.push(r)
   } catch (_) {}
   return out

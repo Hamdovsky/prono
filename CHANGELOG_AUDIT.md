@@ -8567,3 +8567,37 @@ couvertes passant finished+archive+xG, desormais possible depuis E54/E57).
 
 Checkpoint : `node scripts/checkpoint_e37.js`. Aucune modif de code dans cette
 etape (drain + mesure) ; documentation seule.
+
+## E59 Activation couverture cotes : OddsPortal + rejet synthetique (2026-09-16)
+
+Demande user (« go ») : faire monter la couverture O/U reelle, seul vrai levier de
+n depuis E58 (le xG ne borne pas, les cotes OUI). On active deux gated OFF, deja
+codes et testes, SANS toucher au code.
+
+.env (non versionne, deja gitignore : `git check-ignore .env` -> .env) :
+  + ODDS_REJECT_SYNTHETIC=on   (E36/E40/E41 : ne pas court-circuiter sur la cote
+                                synthetique du pont Python -> laisse BetExplorer/Jina
+                                remplir une VRAIE cote ; branche deja testee
+                                dataFusionSynthetic.test.js / scrapeServiceSynthetic.test.js)
+  + ODDSPORTAL_ENABLED=on      (E48 : active cron #15c, 2x/jour 05h et 17h
+                                Africa/Tunis, sous-process Playwright isole via
+                                services/oddsportalClient.js -> SofascoreScraping/
+                                oddsportalRunner.js)
+
+PRE-VOL VERIFIE (pas suppose) :
+- Playwright present SEULEMENT dans SofascoreScraping/node_modules (le client
+  spawn le runner avec son cwd, aucune dep cote serveur). Cache Chromium OK.
+- Dry-run limit 20 : scanned=20 leagues=7 matched=6 noOdds=8 noMatch=14 err=0
+  avgLatency=46,9s. 0 erreur.
+- WRITE reel limit 20 : written=6 ; matches a venir avec odds_over25 70 -> 76 ;
+  odds_source='oddsportal' 32 -> 37. Le levier fonctionne (petit lot, ~2,3 min).
+
+ETAT : n harnais ROI reste 335 (plafond stock 425, cf E58) ; le gain porte sur les
+matchs A VENIR (couverture cotes), il alimentera n quand ces matchs passeront
+finished+archive. Stack relancee (start.bat) pour charger le nouveau .env : ports
+3001/5173/8000/8501/30002 OK.
+
+Verif : jest --forceExit **100 suites / 938 passed** (aucune regression). .env non
+versionne -> aucun secret committe. Reste a faire : laisser tourner le cron 15c
+(17h) et BetExplorer avec le rejet synthetique, puis re-mesurer n dans quelques
+jours (matchs couverts passant finished).

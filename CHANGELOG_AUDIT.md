@@ -8531,4 +8531,39 @@ MESURE REELLE :
 
 Verif : node --check 0 ; eslint 0 ; jest --forceExit **100 suites / 938 passed**
 (+1 suite fotmobStatsHistorical +4 vs 99/934). data/tactical.db (gitignore) enrichi.
-Aucune modif de l'emission/prod hors cron #15b (deja gate FOTMOB_STATS_ENABLED). Non commit.
+Aucune modif de l'emission/prod hors cron #15b (deja gate FOTMOB_STATS_ENABLED).
+Commit/pousse : d013cc8.
+
+## E58 Drain FotMob historique + PLAFOND mesure de n (2026-09-16)
+
+Suite directe d'E57 : on a draine la file historique pour faire monter n.
+
+FAIT : `processFinishedMatches` en write (limit 400 puis 500 en boucle) sur les
+historical_matches sans home_xg. Resultats : 127 + 23 ecrits (home_xg hist
+2902 -> 2972) ; n du harnais ROI **307 -> 312 -> 335**. Le levier E57 fonctionne.
+
+PLAFOND MESURE (le point important, chiffre) :
+  hist total                  : 10085
+  hist avec cote O/U reelle   : 425   <- plafond absolu de n
+  hist O/U + xG (= n)         : 335
+  hist O/U SANS xG            : 90    <- gainable en theorie
+  hist xG total               : 2972
+=> n est BORNE a 425 par la couverture de cotes O/U, pas par le xG.
+
+LES 90 O/U-sans-xG SONT INATTEIGNABLES (verifie, pas suppose) :
+- run --has-ou-odds --write : scanned=90 matched=23 written=23 MAIS n reste 335.
+- Sonde croisee : les 23 lignes ecrites ont recu un `fotmob_id` (donc FotMob les
+  CONNAIT) mais **xg_home/xg_away restent null** ; OU+corners SANS xG = 89/90.
+- => FotMob renvoie corners/tirs/possession mais PAS de xG pour ces competitions
+  (memes ligues obscures qu'E37-bis : cups, Serie D, divisions mineures). C'est
+  une LIMITE DE SOURCE, deja constatee, pas un bug de code (l'extracteur lit bien
+  s.xg_home -> home_xg, cf E57).
+
+CONSEQUENCE : n est a 335, plafond dur 425. Pour depasser 425 il faut de NOUVELLES
+lignes O/U (couverture cotes, E40/E41/E47 : levier BetExplorer ~1,5%) ET que FotMob
+fournisse le xG dessus (grandes ligues). Le seuil 700 de relance --roi n'est PAS
+atteignable sur le stock actuel — il depend du flux futur (matchs de ligues
+couvertes passant finished+archive+xG, desormais possible depuis E54/E57).
+
+Checkpoint : `node scripts/checkpoint_e37.js`. Aucune modif de code dans cette
+etape (drain + mesure) ; documentation seule.

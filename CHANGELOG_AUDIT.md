@@ -8454,3 +8454,44 @@ cote O/U (ligues obscures) -> load_clean_ou_rows() ne les compte pas. La chaine
 est saine de bout en bout ; n ne montera qu'avec des matchs de LIGUES COUVERTES
 passant finished+archive+xG. Aucun code modifie cette session (E54 deja committe).
 Checkpoints : `node scripts/checkpoint_e37.js` (n, finished, home_xg).
+
+## E56 BUG STRUCTUREL : course de crons archivage vs FotMob (xG perdu) (2026-09-16)
+
+En verifiant le 4e maillon (preservation des champs a l'archive), decouverte d'une
+COURSE DE CRONS qui rend le cron FotMob (E37) LARGEMENT INEFFICACE par design.
+
+FAITS (services/cronManager.js, verifies) :
+- #19b archivage : `0 8-23,0-2 * * *` (Europe/Paris) -> toutes les 2h -> appelle
+  `database.archiveFinishedMatches()` qui INSERE dans historical_matches PUIS
+  **DELETE FROM matches** (core/db/matches.js:754).
+- #15b FotMob : `30 4 * * *` + `30 22 * * *` (Africa/Tunis) -> selectionne
+  `FROM matches WHERE status='finished' AND (home_xg IS NULL OR corners_home IS NULL)`.
+
+CONSEQUENCE (la course) : un match qui finit entre deux tirs FotMob est archive
+(toutes les 2h) AVANT que FotMob ne le voie -> il est SUPPRIME de `matches` avec
+home_xg=NULL, et le prochain tir FotMob (2x/jour) ne le trouve plus (il ne lit QUE
+`matches`). => le xG de la quasi-totalite des matchs n'est JAMAIS capture
+automatiquement. C'est POURQUOI le backfill manuel (scripts/backfill_fotmob_stats.js)
+cible AUSSI historical_matches : il compense ce que le cron rate. Confirme par le
+fait que 200 derniers historical ont home_xg=0 (E37-bis).
+
+CE N'EST PAS un bug de code isole mais un ORDONNANCEMENT incoherent : le
+consommateur (FotMob) et le destructeur (archivage) ne se parlent pas.
+`archiveMerge.js` PRESERVE correctement home_xg/away_xg/odds_over25 (verifie,
+STATS_FIELDS) — mais seulement ce qui est DEJA rempli au moment de l'archive.
+
+OPTIONS DE CORRECTION (a trancher, AUCUN code ecrit) :
+(a) FotMob lit AUSSI historical_matches (ou l'archivage est le point de passage
+    stable). Fix robuste : l'extracteur traite les deux tables. Effort : moyen
+    (selection + UPDATE historical fullData), ~40-60 lignes + tests.
+(b) L'archivage ne supprime un match que s'il a deja son xG (ou un age > N h),
+    laissant a FotMob le temps de le traiter. Risque : retarde l'archive, garde
+    des lignes dans `matches` (peut affecter les vues). Effort : faible.
+(c) Reordonner/rapprocher les crons (FotMob juste AVANT chaque archivage). Fragile
+    (2h vs 2x/j) et ne couvre pas les matchs finissant hors fenetre. Effort : faible,
+    efficacite partielle.
+Recommandation : (a) — c'est la seule qui garantit zero perte quelle que soit
+l'heure de fin ; l'archive est le point fixe ou le match TERMINE vit pour toujours.
+
+Verif : analyse statique des crons + lecture archiveMerge.js (STATS_FIELDS OK).
+Aucune modif de code ; documentation seule.

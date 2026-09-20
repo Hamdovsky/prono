@@ -204,6 +204,13 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
   const solidBadge = d.solid ? ' 🎯' : ''
 
   // E64 : parsing des libellés de pari + cotes bookmaker par marché.
+  // E68-ter : cornersLabel doit etre initialise ICI (avant cornersParsed,
+  // ligne plus bas) sinon ReferenceError dead zone au rendu de MatchCard.
+  const cornersLabel = DISABLE_CORNERS_DISPLAY
+    ? '--'
+    : cornersExactLabel
+      ? `✚ ${cornersExactLabel}`
+      : d.corners
   const bttsParsed = DISABLE_BTTS_DISPLAY ? null : parseBetText(d.btts)
   const bttsOddsVal =
     odds && !DISABLE_BTTS_DISPLAY
@@ -310,11 +317,6 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
   ) : null
 
   const hasDc = d.winnerDc && d.winnerDc !== '--'
-  const cornersLabel = DISABLE_CORNERS_DISPLAY
-    ? '--'
-    : cornersExactLabel
-      ? `✚ ${cornersExactLabel}`
-      : d.corners
 
   if (compact) {
     return (

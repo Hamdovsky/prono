@@ -4,6 +4,152 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## E68-ter Fix crash dashboard #2 : cornersLabel lu avant declaration (2026-09-20)
+
+CRITIQUE (2e crash de la meme famille qu'E68-bis, meme journee) : le dashboard
+crashait avec "ReferenceError: Cannot access 'cornersLabel' before
+initialization" au rendu de MatchCard.
+
+Cause racine : dans src/components/MatchCard.jsx, `cornersParsed =
+parseBetText(cornersLabel)` etait calcule AVANT la declaration de
+`cornersLabel` (utilise a 4 endroits : chip corners, tuile corners, pick).
+Bug introduit en E64 (tuile pari), present dans HEAD 2568daf. Meme raison de
+non-detection : les jest couvrent les fonctions pures (matchAnalysis), pas le
+rendu du composant ; le build Vite n'execute pas le composant.
+
+FIX : deplacement de la declaration `cornersLabel` (et son calcul selon
+DISABLE_CORNERS_DISPLAY / cornersExactLabel / d.corners) AVANT
+`cornersParsed`. Logique identique, aucun changement comportemental.
+
+PREVENTION (le vrai progres de cette etape) : creation de
+__tests__/deadZoneDetection.test.js (9 tests) qui verifie l'ordre
+declaration/usage dans les composants a risque :
+- test.each sur [MatchCard.jsx, Dashboard.jsx] : parse le source, exclut les
+  chaines/commentaires et le CORPS des fonctions locales (closures : un usage
+  avant declaration y est legal car execute apres le rendu), et signale toute
+  const top-level lue avant sa ligne de declaration.
+- paires CRITICAL_PAIRS nommees (cornersLabel/cornersParsed,
+  winnerDisplay/winParsed, liveFilteredList/liveFlatList,
+  allMatchesList/flatList) : assert explicite decl < use.
+- garde-fou : le detecteur doit bien signaler un cas corrompu artificiel
+  (verifie en inversant l'ordre avant restauration).
+
+Piege resolu en cours de route : __tests__/setup.js mocke `fs` globalement
+(readFileSync -> '{}'), le test lisait des fichiers vides. Contourne avec
+jest.requireActual('fs').
+
+Verif : eslint 0 erreur/0 warning ; jest --forceExit 106 suites / 996 tests,
+992 passed (les 4 echecs sont mlPredictionService.status + system.test,
+pre-existants : timeout reseau/DB down, independants du dashboard).
+
+Fichiers modifies : src/components/MatchCard.jsx (deplacement),
+__tests__/deadZoneDetection.test.js (nouveau), CHANGELOG_AUDIT.md.
+
+## E68-bis Fix crash dashboard : liveFilteredList lu avant declaration (2026-09-20)
+
+CRITIQUE : ouvrir le dashboard faisait crasher toute l'app (page d'erreur
+"Titanium System Error — ReferenceError: Cannot access 'liveFilteredList'
+before initialization").
+
+Cause racine (bug introduit en E65, present dans HEAD depuis 2568daf) :
+`liveFlatList` etait declare AVANT `liveFilteredList` (15 lignes avant) dans
+Dashboard.jsx. Le callback useMemo de liveFlatList lit liveFilteredList a
+l'execution → zone morte (temporal dead zone) → ReferenceError au rendu.
+Jamais attrape avant : les jest couvrent les fonctions pures
+(dashboardFilters/matchAnalysis), pas le rendu du composant ; le build Vite
+n'execute pas le composant non plus. Apparu des que l'utilisateur a reellement
+ouvert le dashboard.
+
+FIX : deplacement de la declaration `liveFlatList` APRES `liveFilteredList`
+(4 lignes deplacees, logique identique) + commentaire de garde.
+
+Verif : scan systematique de tous les useMemo du fichier -> AUCUNE autre
+lecture avant declaration. eslint 0 erreur ; npm run build OK (5,9 s).
+
+Fichiers modifies : src/components/Dashboard.jsx, CHANGELOG_AUDIT.md.
+
+## E68 Dashboard : 20 pronostics maximum affichés (2026-09-20)
+
+Demande user : « je veux juste 20 pronostics dans le dashboard ». La liste
+"TOUS LES MATCHS" affichait jusqu'a 188 matchs elite (+271 fallback), ce qui
+noyait les meilleurs picks.
+
+FIX (1 fichier, 3 lignes) :
+- const DASHBOARD_TOP_N = 20 (src/components/Dashboard.jsx).
+- allMatchesList (deja triee par qualite : probabilites reelles + ligues
+  majeures + cotes bookmaker, cf tri existant) est tronquee a DASHBOARD_TOP_N
+  apres le sort, dans les 2 branches (tri par defaut ET applySort quand
+  l'utilisateur trie explicitement).
+- Impact : flatList (sections horaires), navList (clavier), count affiche et
+  CSV export suivent automatiquement (ils derivent tous d'allMatchesList).
+  La vue LIVE (liveFilteredList) est VOLONTAIREMENT non limitee : les matchs
+  en direct sont un cas different (suivi temps reel, pas de "pronostics du
+  jour").
+
+Verif : eslint 0 erreur ; jest 3 suites / 48 tests passes (dashboardFilters,
+applySort, buildGroupedByTime) ; npm run build OK (6,8 s).
+
+Fichiers modifies : src/components/Dashboard.jsx, CHANGELOG_AUDIT.md.
+
+---
+
+## E67 Activation API-Football (api-sports.io v3) — 100 pronostics/jour (2026-09-20)
+
+Demande user (cle API-Football fournie) : « je veux juste 20 pronostics chaque
+jour », puis « utilise bien les 100 requetes » -> limite finale reglee a 100.
+Activation SANS toucher au code : tout est deja cable et gate.
+
+.env (gitignore, non versionne — aucun secret committe, cle jamais en clair
+ici) :
+  + API_FOOTBALL_ENABLED=true         (apiFootballService.isAvailable + quota)
+  + API_FOOTBALL_KEY=****             (masque)
+  + API_FOOTBALL_HOST=v3.football.api-sports.io
+  + API_FOOTBALL_DAILY_LIMIT=100      (sourceQuotaManager, cloudSeed.js:542-555)
+  + APIFOOTBALL_KEY=****              (variante SANS underscore lue par
+                                       sharedConfig / apiKeysValidator /
+                                       routes/matches.js — affichage de status)
+
+OU VRAIT LE QUOTA (verifie sur le code, pas suppose) :
+- services/apiFootballService.js est le SEUL a faire des appels API reels
+  (axios -> v3.football.api-sports.io, headers x-apisports-*).
+  sharedConfig.keys.apifootball n'est consomme par AUCUN appel reel (status
+  only) -> pas de contournement possible de la limite.
+- services/cloudSeed.js:542-555 : createQuotaManager('apifootball') encadre
+  upsertMatch de canProcessMatch()/registerMatch(). Au-dela de 100 matchs
+  inscrits dans la journee, les suivants sont skippes (log warn).
+- IMPORTANT — REQUETE != MATCH : 1 appel API renvoie 1 journee COMPLETE de
+  fixtures (1154 matchs, 96 retenus en ligues couvertes). Le plan 100
+  requetes/jour est donc LARGEMENT plus que necessaire : la limite
+  API_FOOTBALL_DAILY_LIMIT porte sur le nombre de MATCHS pronostiques, PAS sur
+  les requetes. Consommation reelle : ~3 dates x ~2 runs/jour = ~6 requetes/jour
+  (cloudSeed : demarrage stack + route manuelle ; cache 1h par date).
+- ORDRE : sortByPriority met le top-5 europeen (PL, LaLiga, Serie A, Bundesliga,
+  Ligue 1) en premier -> les 100 matchs viennent des meilleures ligues.
+
+PRE-VOL VERIFIE (1 requete reelle, https://v3.football.api-sports.io/fixtures) :
+- HTTP 200 ; plan : 100 requetes/jour, 99 restantes apres le test.
+- Fixtures du jour : 1154 (toutes ligues), 96 ligues couvertes par
+  ALL_LEAGUES, **20 top-5 exactement** (Fiorentina-Napoli, Bournemouth-Liverpool,
+  Auxerre-Brest, Getafe-Malaga, Frosinone-Como...).
+- Quota manager recharge avec limit=100 (passe de 20 a 100 sur 2e demande
+  user) : isEnabled=true, canProcessMatch/registerMatch OK, count/remaining
+  corrects. data/apifootball_usage.json (gitignore:114) cree par les tests
+  puis purge.
+
+NON-REGRESSION : jest --forceExit sur les 2 suites concernees
+(sourceQuotaApifootball, apiFootballService) -> 2 passed / 7 tests, 0 failed.
+Le test « default limit 100 » tient car jest ne charge pas .env (pas de dotenv
+dans setupFiles/config-isolation). Aucune modif de code, aucun secret committe.
+
+Reste a faire : laisser cloudSeed s'executer (demarrage stack + route
+system.js:478) et verifier l'insertion des ~96 matchs couverts/jour en base
+(source='apifootball', sous la limite 100), puis le passage finished+archive+xG
+pour nourrir n (plafond 425, cf E58). Si on veut consommer PLUS de requetes du
+plan, etendre datesToFetch (cloudSeed.js:545, aujourd'hui today+J1+J2) — hors
+scope, non fait.
+
+---
+
 ## E66 — Dashboard : surlignage recherche + densité commutable
 
 ### 1. Highlight de la recherche

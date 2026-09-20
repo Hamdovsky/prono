@@ -97,6 +97,11 @@ const MAJOR_LEAGUE_RE =
   /premier league|championship|champions league|europa league|ligue [12]|bundesliga|serie [ab]|la liga|liga portugal|eredivisie|mls|liga mx|j1 league|k league|scottish premiership|primera division|brasileirão/i
 const isMajorLeague = (name) => MAJOR_LEAGUE_RE.test(String(name || ''))
 
+// E68 : le dashboard n'affiche que les N meilleurs pronostics (demande user
+// "juste 20 pronostics"). La liste est deja triee par qualite (probs reelles +
+// ligues majeures + cotes) ci-dessous, on prend donc la tete de liste.
+const DASHBOARD_TOP_N = 20
+
 // Bande de confiance → précision réelle issue du backtest (bracketAccuracy).
 const bandOf = (conf) => {
   const c = Number(conf)
@@ -489,8 +494,9 @@ const Dashboard = () => {
 
   const allMatchesList = useMemo(() => {
     const filtered = applyMarketFilter(baseList, dominantFilter)
-    if (sortBy) return applySort(filtered, sortBy)
-    return filtered.sort((a, b) => {
+    if (sortBy) return applySort(filtered, sortBy).slice(0, DASHBOARD_TOP_N)
+    return filtered
+      .sort((a, b) => {
         // Onglet marché actif : la confiance du marché domine le tri (meilleurs
         // picks d'abord), les critères généraux servent de tie-break.
         if (dominantFilter !== 'ALL' && dominantFilter !== 'corners') {
@@ -537,6 +543,7 @@ const Dashboard = () => {
           : 0
         return aFin ? bTime - aTime : aTime - bTime
       })
+      .slice(0, DASHBOARD_TOP_N)
   }, [baseList, dominantFilter, sortBy])
 
   // E65 : liste aplatie avec sections par tranche horaire (pour la grille
@@ -551,8 +558,6 @@ const Dashboard = () => {
   }, [flatList])
   const activeMatchId =
     activeIndex >= 0 && allMatchesList[activeIndex] ? String(allMatchesList[activeIndex].id ?? '') : null
-  // E65 : flatList pour la vue LIVE (rendue avec la même grille virtualisée).
-  const liveFlatList = useMemo(() => buildGroupedByTime(liveFilteredList), [liveFilteredList])
 
   // Vue LIVE : mêmes filtres que la liste principale (corrigé E18 : avant,
   // recherche/ligue/onglet marché étaient ignorés sur les matchs en direct).
@@ -571,6 +576,10 @@ const Dashboard = () => {
     () => applyMarketFilter(liveBaseList, dominantFilter),
     [liveBaseList, dominantFilter]
   )
+  // E65 : flatList pour la vue LIVE (rendue avec la même grille virtualisée).
+  // DOIT etre declare APRES liveFilteredList (sinon ReferenceError dead zone,
+  // crash dashboard au rendu - fix E68-bis).
+  const liveFlatList = useMemo(() => buildGroupedByTime(liveFilteredList), [liveFilteredList])
   const liveChipCounts = useMemo(() => computeChipCounts(liveBaseList), [liveBaseList])
 
   // E62 : colonnes visibles selon la largeur RÉELLE du conteneur (ResizeObserver

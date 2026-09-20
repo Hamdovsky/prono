@@ -12,16 +12,21 @@ import {
   computeChipCounts,
   applyBaseFilters,
   applyMarketFilter,
+  applySort,
   parseFilterSearch,
   buildFilterSearch,
   leagueDisplayLabel,
   applyQualityFilters,
   computeQualitySummary,
+  relativeTime,
   buildCsv,
   norm,
+  buildGroupedByTime,
+  computeGroupedListHeight,
+  SECTION_ROW_HEIGHT,
 } from '../utils/dashboardFilters'
 import { loadFavorites, saveFavorites, matchHasFavorite } from '../utils/favorites'
-import { TABLE_COLUMNS, mcColumnsCss, MC_COLS_FALLBACK } from '../utils/tableColumns'
+import { mcColumnsCss, MC_COLS_FALLBACK, columnsForWidth, groupStarts, SORT_DEFAULT_DIRS } from '../utils/tableColumns'
 import LoadingSkeleton from './LoadingSkeleton'
 import { List } from 'react-window'
 
@@ -36,13 +41,17 @@ const FlashOddsView = lazy(() => import('./FlashOddsView'))
 
 // 🧠 [PERF] Header extrait en sous-composant mémoïsé : il ne se re-rend que si
 // son nombre de matches (compteur) ou l'état du toggle change réellement.
-const StatusHeader = React.memo(({ count, liveCount = 0, onGoLive, sidebarOpen, onToggleSidebar }) => (
+const StatusHeader = React.memo(({ count, liveCount = 0, onGoLive, sidebarOpen, onToggleSidebar, isConnected = false }) => (
   <header className="sh-bar">
     <div className="sh-left">
       <button className="sh-toggle" onClick={onToggleSidebar} aria-label="Menu">
         <span className="sh-burger">{sidebarOpen ? '✕' : '☰'}</span>
       </button>
-      <span className="sh-dot" />
+      <span
+        className={`sh-dot ${isConnected ? 'on' : 'off'}`}
+        title={isConnected ? 'Socket.IO connecté' : 'Socket.IO déconnecté — fallback polling'}
+        aria-label={isConnected ? 'Connecté' : 'Déconnecté'}
+      />
       <span className="sh-title">
         TITANIUM <span className="sh-accent">SENSOR</span>
       </span>
@@ -105,49 +114,65 @@ const bandOf = (conf) => {
 // ligue (activeLeague) était réglé par la Sidebar mais jamais appliqué, et les
 // compteurs d'onglets variaient avec l'onglet actif.
 
-const MatchRowMemo = React.memo(({ index, style, list, onClick, compact, bracketMap, activeMarket, activeIndex, favorites, onToggleFavorite }) => {
-  const m = list[index]
-  if (!m) return null
-  const ts = m.startTimestamp
-  const statusUpper = (m.status || '').toUpperCase()
-  const isLive = statusUpper === 'LIVE' || (m.minute && m.minute !== '0' && statusUpper !== 'FINISHED' && statusUpper !== 'FT')
-  const liveMinute = isLive ? m.minute : null
-  const liveScore = isLive && m.scoreHome != null && m.scoreAway != null ? `${m.scoreHome}-${m.scoreAway}` : null
-  const timeLabel = ts
-    ? new Date(ts > 1e11 ? ts : ts * 1000).toLocaleString(undefined, {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : ''
-  const raw = toRawLines(m)
-  const band = m?.confidence ? bandOf(m.confidence) : null
-  const reliability = bracketMap && band ? bracketMap[band] : undefined
-  const liveStats = m.liveStats || null
-  const goalPrediction = m.goalPrediction || null
-  return (
-    <MatchCard
-      rawData={raw}
-      onClick={onClick}
-      style={style}
-      timeLabel={isLive ? null : timeLabel}
-      compact={compact}
-      reliability={reliability}
-      isLive={isLive}
-      liveMinute={liveMinute}
-      liveScore={liveScore}
-      liveStats={liveStats}
-      goalPrediction={goalPrediction}
-      activeMarket={activeMarket}
-      contextualInfo={m.contextual}
-      divergenceInfo={m.market_divergence}
-      favoriteOn={matchHasFavorite(m, favorites)}
-      onToggleFavorite={onToggleFavorite}
-      active={index === activeIndex}
-    />
-  )
-})
+const DashboardRow = React.memo(
+  ({ index, style, flatList, onClick, compact, bracketMap, activeMarket, activeMatchId, favorites, onToggleFavorite, cols, searchQuery }) => {
+    const item = flatList[index]
+    if (!item) return null
+    if (item.type === 'section') {
+      return (
+        <div style={style} className="mc-section-head">
+          <span className="mc-section-head-label">{item.label}</span>
+          <span className="mc-section-head-count">{item.count} match{item.count > 1 ? 's' : ''}</span>
+        </div>
+      )
+    }
+    const m = item.match
+    if (!m) return null
+    const ts = m.startTimestamp
+    const statusUpper = (m.status || '').toUpperCase()
+    const isLive = statusUpper === 'LIVE' || (m.minute && m.minute !== '0' && statusUpper !== 'FINISHED' && statusUpper !== 'FT')
+    const liveMinute = isLive ? m.minute : null
+    const liveScore = isLive && m.scoreHome != null && m.scoreAway != null ? `${m.scoreHome}-${m.scoreAway}` : null
+    const timeLabel = ts
+      ? new Date(ts > 1e11 ? ts : ts * 1000).toLocaleString(undefined, {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : ''
+    const raw = toRawLines(m)
+    const band = m?.confidence ? bandOf(m.confidence) : null
+    const reliability = bracketMap && band ? bracketMap[band] : undefined
+    const liveStats = m.liveStats || null
+    const goalPrediction = m.goalPrediction || null
+    return (
+      <MatchCard
+        rawData={raw}
+        match={m}
+        onClick={onClick}
+        style={style}
+        timeLabel={isLive ? null : timeLabel}
+        compact={compact}
+        reliability={reliability}
+        isLive={isLive}
+        liveMinute={liveMinute}
+        liveScore={liveScore}
+        liveStats={liveStats}
+        goalPrediction={goalPrediction}
+        activeMarket={activeMarket}
+        contextualInfo={m.contextual}
+        divergenceInfo={m.market_divergence}
+        favoriteOn={matchHasFavorite(m, favorites)}
+        onToggleFavorite={onToggleFavorite}
+        active={activeMatchId != null && String(m.id ?? '') === activeMatchId}
+        cols={cols}
+        alt={m.id != null ? Number(String(m.id).replace(/\D/g, '').slice(-1)) % 2 === 1 : index % 2 === 1}
+        searchQuery={searchQuery}
+      />
+    )
+  }
+)
 
 const Dashboard = () => {
   const location = useLocation()
@@ -177,6 +202,25 @@ const Dashboard = () => {
   const [activeIndex, setActiveIndex] = useState(-1)
   const [liveMatches, setLiveMatches] = useState([])
   const [containerWidth, setContainerWidth] = useState(0)
+  const [sortBy, setSortBy] = useState(initialFilters?.sortBy ?? null)
+  const [lastSyncAt, setLastSyncAt] = useState(null)
+  // E66 : densité des rangées (persistance localStorage).
+  const [density, setDensity] = useState(() => {
+    if (typeof window === 'undefined') return 'comfortable'
+    try {
+      const v = window.localStorage.getItem('titanium:density')
+      return v === 'dense' || v === 'veryDense' ? v : 'comfortable'
+    } catch {
+      return 'comfortable'
+    }
+  })
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('titanium:density', density)
+    } catch {}
+  }, [density])
+  // E63 : tick pour rafraîchir le "sync il y a Xs" toutes les 15 s.
+  const [, setNowTick] = useState(0)
   const listRef = useRef(null)
   const containerRef = useRef(null)
   const searchRef = useRef(null)
@@ -226,6 +270,7 @@ const Dashboard = () => {
       hideNoBet,
       onlyFavorites,
       matchId: selectedMatch?.id ?? null,
+      sortBy,
     })
     if (window.location.search !== qs) {
       navigate({ search: qs }, { replace: true })
@@ -239,6 +284,7 @@ const Dashboard = () => {
     hideNoBet,
     onlyFavorites,
     selectedMatch,
+    sortBy,
     navigate,
   ])
 
@@ -304,12 +350,28 @@ const Dashboard = () => {
   useEffect(() => {
     const unsubUpcoming = dataService.subscribeUpcoming((data) => {
       if (Array.isArray(data)) setMatches(data)
+      setLastSyncAt(Date.now())
     })
     const unsubStatus = dataService.subscribeStatus(setStatus)
     return () => {
       unsubUpcoming()
       unsubStatus()
     }
+  }, [])
+
+  // E63 : tick pour que le "sync il y a Xs" se mette à jour sans nouvelle
+  // donnée. Démarre à la première donnée reçue.
+  useEffect(() => {
+    if (!lastSyncAt) return undefined
+    const id = setInterval(() => setNowTick((n) => n + 1), 15000)
+    return () => clearInterval(id)
+  }, [lastSyncAt])
+
+  // E65 : état de la connexion Socket.IO (pastille dans la barre de statut).
+  const [isConnected, setIsConnected] = useState(() => dataService.isSocketConnected?.() ?? false)
+  useEffect(() => {
+    const unsub = dataService.subscribeConnection?.(setIsConnected)
+    return unsub || undefined
   }, [])
 
   // Subscription live PERMANENTE (E20-D) : alimente la vue /live mais aussi
@@ -353,6 +415,22 @@ const Dashboard = () => {
 
   const handleRefresh = useCallback(() => dataService.refreshAllData(), [])
   const [scanBusy, setScanBusy] = useState(false)
+
+  // E63 : tri cliquable. Cycle default -> asc -> desc -> default (3 états).
+  const onSortClick = useCallback(
+    (key) => {
+      setSortBy((prev) => {
+        if (!prev || prev.key !== key) {
+          return { key, dir: SORT_DEFAULT_DIRS[key] || 'desc' }
+        }
+        if (prev.dir === (SORT_DEFAULT_DIRS[key] || 'desc')) {
+          return { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+        }
+        return null
+      })
+    },
+    []
+  )
   const handleForceScan = useCallback(async () => {
     if (scanBusy) return
     setScanBusy(true)
@@ -410,8 +488,9 @@ const Dashboard = () => {
   ])
 
   const allMatchesList = useMemo(() => {
-    return applyMarketFilter(baseList, dominantFilter)
-      .sort((a, b) => {
+    const filtered = applyMarketFilter(baseList, dominantFilter)
+    if (sortBy) return applySort(filtered, sortBy)
+    return filtered.sort((a, b) => {
         // Onglet marché actif : la confiance du marché domine le tri (meilleurs
         // picks d'abord), les critères généraux servent de tie-break.
         if (dominantFilter !== 'ALL' && dominantFilter !== 'corners') {
@@ -458,7 +537,22 @@ const Dashboard = () => {
           : 0
         return aFin ? bTime - aTime : aTime - bTime
       })
-  }, [baseList, dominantFilter])
+  }, [baseList, dominantFilter, sortBy])
+
+  // E65 : liste aplatie avec sections par tranche horaire (pour la grille
+  // virtualisée à hauteur variable). + map id -> index plat pour la nav clavier.
+  const flatList = useMemo(() => buildGroupedByTime(allMatchesList), [allMatchesList])
+  const idToFlatIndex = useMemo(() => {
+    const m = new Map()
+    flatList.forEach((it, i) => {
+      if (it.type === 'match' && it.match && it.match.id != null) m.set(String(it.match.id), i)
+    })
+    return m
+  }, [flatList])
+  const activeMatchId =
+    activeIndex >= 0 && allMatchesList[activeIndex] ? String(allMatchesList[activeIndex].id ?? '') : null
+  // E65 : flatList pour la vue LIVE (rendue avec la même grille virtualisée).
+  const liveFlatList = useMemo(() => buildGroupedByTime(liveFilteredList), [liveFilteredList])
 
   // Vue LIVE : mêmes filtres que la liste principale (corrigé E18 : avant,
   // recherche/ligue/onglet marché étaient ignorés sur les matchs en direct).
@@ -479,30 +573,17 @@ const Dashboard = () => {
   )
   const liveChipCounts = useMemo(() => computeChipCounts(liveBaseList), [liveBaseList])
 
+  // E62 : colonnes visibles selon la largeur RÉELLE du conteneur (ResizeObserver
+  // ci-dessus) — 2 -> 4 -> 7 -> 10 colonnes. Évite que la grille se tasse et que
+  // les cellules se chevauchent sur les largeurs intermédiaires (E61).
+  const visibleColumns = useMemo(() => columnsForWidth(containerWidth), [containerWidth])
+  const visibleCols = useMemo(() => visibleColumns.map((c) => c.key), [visibleColumns])
+  const visibleGroupStarts = useMemo(() => groupStarts(visibleColumns), [visibleColumns])
+
   // 🧠 [PERF] Props stables pour la liste virtuelle : le React.memo des rangées
   // ne re-rend que si la liste (contenu) ou le handler changent réellement.
-  const matchRowProps = useMemo(
-    () => ({
-      list: allMatchesList,
-      onClick: handleSelectMatch,
-      compact: isMobile,
-      bracketMap,
-      activeMarket: dominantFilter === 'ALL' ? null : dominantFilter,
-      activeIndex,
-      favorites,
-      onToggleFavorite: handleToggleFavorite,
-    }),
-    [
-      allMatchesList,
-      handleSelectMatch,
-      isMobile,
-      bracketMap,
-      dominantFilter,
-      activeIndex,
-      favorites,
-      handleToggleFavorite,
-    ]
-  )
+  // Construit dans renderMatchList (par vue) pour que le grouping marche aussi
+  // sur la vue LIVE (qui a sa propre liste).
 
   // Navigation clavier de la liste (E21-A) : ↑/↓ déplacent la surbrillance,
   // Entrée ouvre la modale. Désactivée modale ouverte (elle a ses ←/→) et
@@ -517,19 +598,21 @@ const Dashboard = () => {
         e.preventDefault()
         const n = Math.min(activeIndex + 1, len - 1)
         setActiveIndex(n)
-        listRef.current?.scrollToRow?.({ index: n, align: 'auto' })
+        const flatIdx = idToFlatIndex.get(String(allMatchesList[n]?.id ?? ''))
+        if (flatIdx != null) listRef.current?.scrollToRow?.({ index: flatIdx, align: 'auto' })
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
         const n = Math.max(activeIndex - 1, 0)
         setActiveIndex(n)
-        listRef.current?.scrollToRow?.({ index: n, align: 'auto' })
+        const flatIdx = idToFlatIndex.get(String(allMatchesList[n]?.id ?? ''))
+        if (flatIdx != null) listRef.current?.scrollToRow?.({ index: flatIdx, align: 'auto' })
       } else if (e.key === 'Enter' && activeIndex >= 0 && allMatchesList[activeIndex]) {
         setSelectedMatch(allMatchesList[activeIndex])
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [allMatchesList, activeIndex, selectedMatch])
+  }, [allMatchesList, activeIndex, selectedMatch, idToFlatIndex])
 
   // Changement de vue : la sélection clavier repart à zéro.
   useEffect(() => {
@@ -556,15 +639,33 @@ const Dashboard = () => {
     hideNoBet ||
     onlyFavorites
 
-  const renderMatchList = (list, counts = chipCount, title = '📊 TOUS LES MATCHS') => {
-    const ROW_H = isMobile ? 124 : 56
+  const renderMatchList = (list, counts = chipCount, title = '📊 TOUS LES MATCHS', providedFlatList = null) => {
+    const DENSITY_ROW_H = { comfortable: 64, dense: 56, veryDense: 48 }
+    const ROW_H = isMobile ? 124 : DENSITY_ROW_H[density] || 64
     const HEADER_H = isMobile ? 0 : 42
-    const listHeight = Math.min(list.length * ROW_H, 800)
-    const virtualHeight = listHeight - HEADER_H
+    // E65 : grouping par tranche horaire + hauteurs variables.
+    const localFlatList = providedFlatList || buildGroupedByTime(list)
+    const listHeight = computeGroupedListHeight(localFlatList, ROW_H, 800)
+    const virtualHeight = Math.max(0, listHeight - HEADER_H)
+    const localMatchRowProps = {
+      flatList: localFlatList,
+      onClick: handleSelectMatch,
+      compact: isMobile,
+      bracketMap,
+      activeMarket: dominantFilter === 'ALL' ? null : dominantFilter,
+      activeMatchId,
+      favorites,
+      onToggleFavorite: handleToggleFavorite,
+      cols: visibleCols,
+      searchQuery,
+    }
 
     const filters = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners']
     const filterLabels = { ALL: 'Tous', ou: 'Over/Under', win: '1X2', btts: 'BTTS', ht: '1er MT', corners: 'Corners' }
     const filterColors = { ALL: '#94a3b8', ou: '#10b981', win: '#00ffaa', btts: '#f87171', ht: '#fbbf24', corners: '#60a5fa' }
+    // E66 : labels/couleurs densité (les hauteurs sont déclarées avec ROW_H).
+    const densityLabels = { comfortable: 'Confort', dense: 'Dense', veryDense: 'T. dense' }
+    const densityColors = { comfortable: '#38bdf8', dense: '#a78bfa', veryDense: '#f59e0b' }
     const qualityPillStyle = (active, color) => ({
       fontSize: '9px',
       fontWeight: 800,
@@ -594,6 +695,13 @@ const Dashboard = () => {
           >
             · {stats.realOdds} cotes réelles · {stats.vetoed} vetés
             {stats.cacApplied > 0 ? ` · ${stats.cacApplied} CAC` : ''}
+            <span
+              className="mc-sync"
+              title="Dernière synchronisation des données (la liste se rafraîchit via Socket.IO)"
+              style={{ marginLeft: '6px', color: '#475569' }}
+            >
+              · sync {relativeTime(lastSyncAt)}
+            </span>
           </span>
           <button
             onClick={() => exportCsv(list)}
@@ -643,6 +751,18 @@ const Dashboard = () => {
             )
           })}
           <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '6px', flexShrink: 0 }}>
+            <span style={{ display: 'inline-flex', gap: '4px', paddingRight: '4px', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+              {Object.keys(DENSITY_ROW_H).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDensity(d)}
+                  title={`Densité ${densityLabels[d]} (${DENSITY_ROW_H[d]} px par rangée)`}
+                  style={qualityPillStyle(density === d, densityColors[d])}
+                >
+                  {densityLabels[d]}
+                </button>
+              ))}
+            </span>
             <button
               onClick={() => setOnlyRealOdds((v) => !v)}
               style={qualityPillStyle(onlyRealOdds, '#a78bfa')}
@@ -816,9 +936,10 @@ const Dashboard = () => {
             )}
           </div>
         )}
-        <div style={{ width: '100%', '--mc-cols': mcColumnsCss() }} ref={containerRef}>
+        <div className="mc-table-wrap" data-density={density} style={{ width: '100%', '--mc-cols': mcColumnsCss(visibleColumns) }} ref={containerRef}>
           {!isMobile && containerWidth > 0 && (
             <div
+              className="mc-table-head"
               style={{
                 display: 'grid',
                 gridTemplateColumns: `var(--mc-cols, ${MC_COLS_FALLBACK})`,
@@ -835,24 +956,53 @@ const Dashboard = () => {
                 boxSizing: 'border-box',
               }}
             >
-              {TABLE_COLUMNS.map((c) => (
-                <div key={c.key} style={{ minWidth: c.min, padding: '0 8px', boxSizing: 'border-box' }}>
-                  {c.label}
-                </div>
-              ))}
+              {visibleColumns.map((c) => {
+                const active = sortBy && sortBy.key === c.sortKey
+                const arrow = active ? (sortBy.dir === 'desc' ? ' ↓' : ' ↑') : ''
+                const headClass = `mc-col-head${visibleGroupStarts.has(c.key) ? ' mc-group-start' : ''}${c.sortKey ? ' mc-col-head-sortable' : ''}${active ? ' is-active' : ''}`
+                return (
+                  <div
+                    key={c.key}
+                    className={headClass}
+                    title={c.sortKey ? `Trier par ${c.label}` : undefined}
+                    style={{
+                      minWidth: c.min,
+                      padding: '0 8px',
+                      boxSizing: 'border-box',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {c.sortKey ? (
+                      <button
+                        type="button"
+                        className="mc-col-head-btn"
+                        onClick={() => onSortClick(c.sortKey)}
+                        aria-label={`Trier par ${c.label}${active ? ` (${sortBy.dir})` : ''}`}
+                      >
+                        <span className="mc-col-head-label">{c.label}</span>
+                        <span className="mc-col-head-arrow">{arrow || '↕'}</span>
+                      </button>
+                    ) : (
+                      <span className="mc-col-head-label">{c.label}</span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
           <div style={{ height: virtualHeight }}>
             <List
               ref={listRef}
               height={virtualHeight}
-              rowCount={list.length}
-              rowHeight={ROW_H}
-              rowProps={matchRowProps}
+              rowCount={localFlatList.length}
+              rowHeight={(index) => (localFlatList[index]?.type === 'section' ? SECTION_ROW_HEIGHT : ROW_H)}
+              rowProps={localMatchRowProps}
               width={containerWidth > 0 ? containerWidth : '100%'}
               className="titanium-virtual-list"
               style={{ overflowX: 'hidden' }}
-              rowComponent={MatchRowMemo}
+              rowComponent={DashboardRow}
             />
           </div>
         </div>
@@ -940,6 +1090,7 @@ const Dashboard = () => {
           onGoLive={() => navigate('/live')}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((s) => !s)}
+          isConnected={isConnected}
         />
 
           <div className="titanium-scroll">
@@ -956,7 +1107,7 @@ const Dashboard = () => {
                     ⚽ LIVE STATS
                   </span>
                 </div>
-                {renderMatchList(liveFilteredList, liveChipCounts, '🔴 MATCHS EN DIRECT')}
+                {renderMatchList(liveFilteredList, liveChipCounts, '🔴 MATCHS EN DIRECT', liveFlatList)}
               </div>
             )}
             {activeView === 'live' && liveMatches.length === 0 && (
@@ -1045,7 +1196,7 @@ const Dashboard = () => {
                   🔄
                 </button>
               </div>
-              {renderMatchList(allMatchesList)}
+              {renderMatchList(allMatchesList, chipCount, '📊 TOUS LES MATCHS', flatList)}
             </div>
           )}
         </div>

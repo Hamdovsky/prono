@@ -81,9 +81,122 @@
   width: 100%;
   background: rgba(10, 15, 24, 0.72);
   border-radius: 12px;
-  overflow-x: hidden;
+  overflow: clip;
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 16px 60px rgba(0, 0, 0, 0.35);
+}
+
+/* ── E62 : en-tête de colonnes sticky (reste sous la barre de statut) ──
+   `overflow: clip` ci-dessus (au lieu de hidden) n'est PAS un conteneur de
+   scroll : le sticky s'accroche donc au scroll de la page. */
+.mc-table-head {
+  position: sticky;
+  top: 45px;
+  z-index: 5;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.mc-col-head.mc-group-start {
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── E63 : en-têtes triables (clic = tri par colonne) ── */
+.mc-col-head-sortable {
+  cursor: default;
+}
+.mc-col-head-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.mc-col-head-btn:focus-visible {
+  outline: 1px solid #38bdf8;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.mc-col-head-btn .mc-col-head-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.mc-col-head-btn .mc-col-head-arrow {
+  flex-shrink: 0;
+  font-size: 10px;
+  opacity: 0.45;
+  font-family: 'JetBrains Mono', monospace;
+}
+.mc-col-head-sortable:hover .mc-col-head-arrow {
+  opacity: 0.8;
+}
+.mc-col-head.is-active .mc-col-head-label {
+  color: #38bdf8;
+}
+.mc-col-head.is-active .mc-col-head-arrow {
+  opacity: 1;
+  color: #38bdf8;
+}
+
+/* ── E65 : séparateurs de tranche horaire dans la liste ── */
+.mc-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.10), rgba(56, 189, 248, 0.02));
+  border-top: 1px solid rgba(56, 189, 248, 0.12);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.08);
+  color: #7dd3fc;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-family: 'Inter', sans-serif;
+}
+.mc-section-head-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.mc-section-head-label::before {
+  content: '▸';
+  opacity: 0.7;
+  font-size: 8px;
+}
+.mc-section-head-count {
+  font-size: 8px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.4px;
+  text-transform: none;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── E65 : pastille de connexion Socket.IO (verte / rouge) ── */
+.sh-dot.on {
+  background: #00ffaa;
+  box-shadow: 0 0 10px #00ffaa;
+  animation: sh-pulse 2s infinite;
+}
+.sh-dot.off {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+  animation: none;
+  opacity: 0.85;
 }
 
 .flash-empty {

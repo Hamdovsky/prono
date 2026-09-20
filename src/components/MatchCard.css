@@ -15,6 +15,14 @@
 .match-card:hover {
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
 }
+/* E62 : lignes alternées (lisibilité) — neutralisées au survol pour garder la
+   surbrillance de hover intacte. */
+.match-card.mc-alt:not(:hover) {
+  background: linear-gradient(135deg, rgba(22, 32, 52, 0.5) 0%, rgba(8, 12, 24, 0.85) 100%);
+}
+.match-card.mc-alt.mc-solid:not(:hover) {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(8, 12, 24, 0.85) 100%);
+}
 
 .mc-match-info {
   width: 18%;
@@ -23,6 +31,8 @@
   flex-direction: column;
   gap: 1px;
   padding-right: 8px;
+  line-height: 1.25;
+  overflow: hidden;
 }
 .mc-dominant-banner {
   display: flex;
@@ -72,6 +82,11 @@
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 1.2;
+  flex-shrink: 1;
 }
 .mc-league-name {
   white-space: nowrap;
@@ -87,11 +102,20 @@
   font-weight: 700;
   color: #e2e8f0;
   white-space: nowrap;
+  min-width: 0;
+}
+.mc-team-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mc-teams .mc-vs {
   color: #475569;
   font-weight: 400;
   font-size: 9px;
+  flex-shrink: 0;
 }
 .mc-time {
   font-size: 8px;
@@ -106,6 +130,61 @@
   text-align: center;
   font-size: 11px;
   font-weight: 700;
+}
+
+/* E64 : tuile "pari" par marché (BTTS / WIN / HT / CORNERS) — le pick et sa
+   proba sont sur la 1re ligne, la cote bookmaker (@1.75) en dessous. Pas
+   appliqué à OU (multi-lignes) ni aux cellules d'info. */
+.mc-cell.mc-bet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.1;
+  min-width: 0;
+}
+.mc-bet-pick {
+  font-weight: 800;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.mc-bet-odds {
+  font-size: 8.5px;
+  font-weight: 700;
+  opacity: 0.85;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.2px;
+  line-height: 1;
+}
+/* E66-bis : en "Très dense" (48 px) la cote est resserrée à 8 px pour rester
+   lisible et tenir dans la rangée compacte (suivi E66, Reste à faire). */
+.mc-table-wrap[data-density='veryDense'] .mc-bet-odds {
+  font-size: 8px;
+}
+/* Hero : le marché de l'onglet actif est mis en avant (anneau cyan + fond).
+   Le ring en inset (et pas un border) évite le conflit avec le border du
+   goldenCell (pick dominant = doré). */
+.mc-cell.mc-bet-hero {
+  background: rgba(56, 189, 248, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.5), 0 0 10px rgba(56, 189, 248, 0.12);
+  border-radius: 4px;
+}
+/* Dim : les autres marchés s'effacent pour laisser le hero respirer. */
+.mc-cell.mc-bet-dim {
+  opacity: 0.5;
+}
+
+/* E66 : surlignage de la recherche (ligue / équipes). */
+.mc-hl {
+  background: rgba(56, 189, 248, 0.22);
+  color: #f0f9ff;
+  padding: 0 1px;
+  border-radius: 2px;
+  font-weight: 900;
 }
 
 .mc-btts {
@@ -133,6 +212,7 @@
   flex-direction: column;
   gap: 1px;
   width: 100%;
+  min-width: 0;
 }
 .mc-ou-line {
   display: flex;
@@ -145,6 +225,7 @@
   line-height: 1.25;
   padding: 0 2px;
   border-radius: 3px;
+  white-space: nowrap;
 }
 .mc-ou-line.over {
   color: #10b981;
@@ -500,6 +581,7 @@
   vertical-align: middle;
   text-transform: uppercase;
   white-space: nowrap;
+  line-height: 1;
 }
 .mc-rel-good {
   color: #34d399;
@@ -564,14 +646,30 @@
    (.mc-compact n'a pas .mc-grid). */
 .mc-grid {
   display: grid;
-  grid-template-columns: var(--mc-cols, 17fr 13fr 8fr 10fr 13fr 10fr 8fr 7fr 7fr 7fr);
+  grid-template-columns: var(
+    --mc-cols,
+    minmax(0, 17fr) minmax(0, 13fr) minmax(0, 8fr) minmax(0, 10fr) minmax(0, 13fr) minmax(0, 10fr) minmax(0, 8fr) minmax(0, 7fr) minmax(0, 7fr) minmax(0, 7fr)
+  );
   align-items: center;
   gap: 0;
+  overflow: hidden;
 }
 .mc-grid > .mc-cell,
 .mc-grid .mc-match-info {
   width: auto;
   min-width: 0;
+}
+.mc-grid > .mc-cell {
+  overflow: hidden;
+}
+.mc-grid > .mc-cell:not(.mc-ou-cell) {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* E62 : séparateur visuel entre groupes de colonnes (match | pick | marchés |
+   infos) — évite qu'un badge de marché colle à la colonne voisine. */
+.mc-grid > .mc-cell.mc-group-start {
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
 }
 .mc-grid .mc-match-info { padding: 0 8px; }
 .mc-col-info {
@@ -580,6 +678,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: stretch;
+  overflow: hidden;
 }
 .mc-grid .mc-live-banner {
   border-bottom: 0;

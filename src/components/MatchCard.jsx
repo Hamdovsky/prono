@@ -1,7 +1,8 @@
 import React from 'react'
 import './MatchCard.css'
 import { DISABLE_BTTS_DISPLAY, DISABLE_CORNERS_DISPLAY } from '../utils/displayPolicy'
-import { marketBannerFromLines } from '../utils/matchAnalysis'
+import { marketBannerFromLines, parseBetText, highlightText } from '../utils/matchAnalysis'
+import { TABLE_COLUMNS, groupStarts } from '../utils/tableColumns'
 
 const MARKET_TITLES = {
   ou: '🎯 OVER/UNDER',
@@ -53,7 +54,32 @@ const solidGoldenStyle = (isSolid) => isSolid
     }
   : {}
 
-const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction, activeMarket, contextualInfo, divergenceInfo, active = false, favoriteOn = false, onToggleFavorite }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction, activeMarket, contextualInfo, divergenceInfo, active = false, favoriteOn = false, onToggleFavorite, cols = null, alt = false, match = null, searchQuery = '' }) => {
+  // E62 : colonnes réellement visibles (responsive). `cols=null` => toutes
+  // (rétro-compatible). Sert au rendu conditionnel + aux séparateurs de groupe.
+  const show = (key) => !cols || cols.includes(key)
+  const visibleColumns = cols
+    ? TABLE_COLUMNS.filter((c) => cols.includes(c.key))
+    : TABLE_COLUMNS
+  const groupStart = groupStarts(visibleColumns)
+  const gs = (key) => (groupStart.has(key) ? ' mc-group-start' : '')
+
+  // E64 : hero/dim selon l'onglet marché actif + cotes bookmaker par marché.
+  const heroKey = activeMarket && activeMarket !== 'ALL' ? activeMarket : null
+  const isHero = (k) => heroKey === k
+  const DIM_KEYS = ['btts', 'ou', 'win', 'ht', 'corners', 'htft', 'ah', 'tts']
+  const isDim = (k) => !!heroKey && heroKey !== k && DIM_KEYS.includes(k)
+  const odds = match
+    ? {
+        home: parseFloat(match.odds_home) || 0,
+        draw: parseFloat(match.odds_draw) || 0,
+        away: parseFloat(match.odds_away) || 0,
+        over25: parseFloat(match.odds_over25) || 0,
+        under25: parseFloat(match.odds_under25) || 0,
+        btts_yes: parseFloat(match.odds_btts_yes) || 0,
+        btts_no: parseFloat(match.odds_btts_no) || 0,
+      }
+    : null
   const parseRow = (lines) => {
     if (!lines || lines.length < 8) return null
     const domChip = lines[13] || null
@@ -177,6 +203,68 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
   const solidClass = d.solid ? ' mc-solid' : ''
   const solidBadge = d.solid ? ' 🎯' : ''
 
+  // E64 : parsing des libellés de pari + cotes bookmaker par marché.
+  const bttsParsed = DISABLE_BTTS_DISPLAY ? null : parseBetText(d.btts)
+  const bttsOddsVal =
+    odds && !DISABLE_BTTS_DISPLAY
+      ? bttsVerdict === 'yes'
+        ? odds.btts_yes
+        : bttsVerdict === 'no'
+          ? odds.btts_no
+          : 0
+      : 0
+  const winParsed = parseBetText(winnerDisplay)
+  const winOddsVal =
+    odds && winPick
+      ? winPick === '1'
+        ? odds.home
+        : winPick === 'X'
+          ? odds.draw
+          : winPick === '2'
+            ? odds.away
+            : 0
+      : 0
+  const htParsed = parseBetText(d.htGoal)
+  const cornersParsed = parseBetText(cornersLabel)
+
+  // E64 : tuile "pari" — pick + % au-dessus, cote en dessous. Surchargée en
+  // hero quand l'onglet marché correspond, dimmée sinon. mc-bet déclenche le
+  // layout flex-column (cf. MatchCard.css).
+  const BetCell = ({ marketKey, baseClass, verdictClass, pick, pct, oddsValue, cellStyle, groupStartCls }) => {
+    const hero = isHero(marketKey)
+    const dim = isDim(marketKey)
+    const cls = `mc-cell mc-bet ${baseClass}${verdictClass ? ` ${verdictClass}` : ''}${groupStartCls || ''}${hero ? ' mc-bet-hero' : ''}${dim ? ' mc-bet-dim' : ''}`
+    return (
+      <div className={cls} style={cellStyle}>
+        {pick != null && (
+          <span className="mc-bet-pick">{pct != null ? `${pick} ${pct}%` : pick}</span>
+        )}
+        {oddsValue > 0 && <span className="mc-bet-odds">@{Number(oddsValue).toFixed(2)}</span>}
+      </div>
+    )
+  }
+
+  // E66 : surlignage de la recherche. Les segments matchés sont enrobés dans
+  // <mark className="mc-hl"> ; le reste reste du texte brut. L'ellipsis du
+  // conteneur (mc-league-name / mc-team-name) continue de fonctionner car le
+  // mark est un enfant inline.
+  const Highlight = ({ text, query, className }) => {
+    const segs = highlightText(text, query)
+    return (
+      <span className={className}>
+        {segs.map((s, i) =>
+          s.match ? (
+            <mark key={i} className="mc-hl">
+              {s.text}
+            </mark>
+          ) : (
+            <span key={i}>{s.text}</span>
+          )
+        )}
+      </span>
+    )
+  }
+
   // Fiabilité honnête par bracket de confiance (précision réelle du backtest) :
   // n < 20 → insuffisant. Le libellé « réel » distingue la précision MESURÉE
   // de la confiance affichée du pick.
@@ -244,7 +332,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
             >
               {favoriteOn ? '★' : '☆'}
             </button>
-            <span className="mcc-league-name">{d.league}</span>
+            <Highlight text={d.league} query={searchQuery} className="mcc-league-name" />
             {solidBadge}
             {relBadge}
             {cacChip}
@@ -253,9 +341,9 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           {timeLabel && <div className="mcc-time">{timeLabel}</div>}
         </div>
         <div className="mcc-teams">
-          <span className="mcc-team">{shortTeam(d.home)}</span>
+          <Highlight text={shortTeam(d.home)} query={searchQuery} className="mcc-team" />
           <span className={`mcc-vs${d.score ? ' has-score' : ''}`}>{d.score ? d.score : 'vs'}</span>
-          <span className="mcc-team">{shortTeam(d.away)}</span>
+          <Highlight text={shortTeam(d.away)} query={searchQuery} className="mcc-team" />
         </div>
         {activeBanner ? (
           <div className="mcc-dominant-banner">
@@ -314,7 +402,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
   const displayScore = banner && banner.score != null && banner.score !== '--' ? String(Math.round(parseFloat(banner.score) * relFactor * 100)) : null
 
   return (
-    <div className={`match-card mc-grid${solidClass}${active ? ' mc-active' : ''}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
+    <div className={`match-card mc-grid${solidClass}${active ? ' mc-active' : ''}${alt ? ' mc-alt' : ''}`} style={{ ...style, ...solidGoldenStyle(d.solid) }} onClick={onClick}>
       <div className="mc-col-info">
         {isLive && (
           <div className="mc-live-banner">
@@ -353,18 +441,18 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
       )}
       <div className="mc-match-info">
         <div className="mc-league">
-          <span className="mc-league-name">{d.league}</span>
+          <Highlight text={d.league} query={searchQuery} className="mc-league-name" />
           {solidBadge}
           {relBadge}
           {cacChip}
           {divChip}
         </div>
         <div className="mc-teams">
-          <span>{shortTeam(d.home)}</span>
+          <Highlight text={shortTeam(d.home)} query={searchQuery} className="mc-team-name" />
           <span className={`mc-vs${isLive ? ' mc-live-score' : ''}`}>
             {liveScore ? liveScore : d.score ? d.score : 'vs'}
           </span>
-          <span>{shortTeam(d.away)}</span>
+          <Highlight text={shortTeam(d.away)} query={searchQuery} className="mc-team-name" />
         </div>
         {isLive && liveMinute ? (
           <div className="mc-time" style={{ color: '#ef4444', fontWeight: 900 }}>🔴 {liveMinute}'</div>
@@ -376,7 +464,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
 
       {/* Colonne TOP ⭐ (E20) : largeur fixe, ellipsis — le détail (score,
           marché actif, cote) passe en tooltip pour ne plus casser l'alignement. */}
-      <div className="mc-cell mc-top">
+      <div className={`mc-cell mc-top${gs('top')}`}>
         <button
           type="button"
           className={`mc-fav${favoriteOn ? ' on' : ''}`}
@@ -406,11 +494,21 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
         ) : null}
       </div>
 
-      <div className={`mc-cell mc-btts ${DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}`} style={goldenCell('btts', dominant)}>
-        {DISABLE_BTTS_DISPLAY ? '--' : d.btts}
-      </div>
+      {show('btts') && (
+        <BetCell
+          marketKey="btts"
+          baseClass="mc-btts"
+          verdictClass={DISABLE_BTTS_DISPLAY ? '' : bttsVerdict}
+          pick={DISABLE_BTTS_DISPLAY ? null : bttsParsed ? bttsParsed.pick : null}
+          pct={DISABLE_BTTS_DISPLAY ? null : (bttsParsed ? bttsParsed.pct : null)}
+          oddsValue={bttsOddsVal}
+          cellStyle={goldenCell('btts', dominant)}
+          groupStartCls={gs('btts')}
+        />
+      )}
 
-      <div className="mc-cell mc-ou-cell" style={goldenCell('ou', dominant)}>
+      {show('ou') && (
+      <div className={`mc-cell mc-ou-cell${gs('ou')}${isHero('ou') ? ' mc-bet-hero' : ''}${isDim('ou') ? ' mc-bet-dim' : ''}`} style={goldenCell('ou', dominant)}>
         {ouLines.length > 0 ? (
           <div className="mc-ou-lines">
             {ouLines.map((l) => {
@@ -439,24 +537,64 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           <span className="mc-ou-na">--</span>
         )}
       </div>
+      )}
 
-      <div className={`mc-cell mc-winner ${pickClass}`} style={goldenCell('win', dominant)}>{winnerDisplay}</div>
+      {show('win') && (
+        <BetCell
+          marketKey="win"
+          baseClass="mc-winner"
+          verdictClass={pickClass}
+          pick={winParsed ? winParsed.pick : winnerDisplay}
+          pct={winParsed ? winParsed.pct : null}
+          oddsValue={winOddsVal}
+          cellStyle={goldenCell('win', dominant)}
+          groupStartCls={gs('win')}
+        />
+      )}
 
-      <div className={`mc-cell mc-ht ${yesNo(d.htGoal)}`} style={goldenCell('ht', dominant)}>{d.htGoal}</div>
+      {show('ht') && (
+        <BetCell
+          marketKey="ht"
+          baseClass="mc-ht"
+          verdictClass={yesNo(d.htGoal)}
+          pick={htParsed ? htParsed.pick : d.htGoal}
+          pct={htParsed ? htParsed.pct : null}
+          oddsValue={0}
+          cellStyle={goldenCell('ht', dominant)}
+          groupStartCls={gs('ht')}
+        />
+      )}
 
-      <div className="mc-cell mc-corners" style={goldenCell('corners', dominant)}>{cornersLabel}</div>
+      {show('corners') && (
+        <BetCell
+          marketKey="corners"
+          baseClass="mc-corners"
+          verdictClass=""
+          pick={cornersParsed ? cornersParsed.pick : cornersLabel}
+          pct={cornersParsed ? cornersParsed.pct : null}
+          oddsValue={0}
+          cellStyle={goldenCell('corners', dominant)}
+          groupStartCls={gs('corners')}
+        />
+      )}
 
-      <div className="mc-cell mc-info-cell mc-info-htft" style={{opacity:0.45}}>
+      {show('htft') && (
+      <div className={`mc-cell mc-info-cell mc-info-htft${gs('htft')}`} style={{opacity:0.45}}>
         {d.htft ? `${d.htft.label} ${d.htft.pct}%` : '--'}
       </div>
+      )}
 
-      <div className="mc-cell mc-info-cell mc-info-ah" style={{opacity:0.45}}>
+      {show('ah') && (
+      <div className={`mc-cell mc-info-cell mc-info-ah${gs('ah')}`} style={{opacity:0.45}}>
         {d.ah ? `${d.ah.label}${d.ah.odds !== '--' ? ` @${d.ah.odds}` : ''}` : '--'}
       </div>
+      )}
 
-      <div className="mc-cell mc-info-cell mc-info-tts" style={{opacity:0.45}}>
+      {show('tts') && (
+      <div className={`mc-cell mc-info-cell mc-info-tts${gs('tts')}`} style={{opacity:0.45}}>
         {d.teamToScore ? `${d.teamToScore.label} ${d.teamToScore.pct}%` : '--'}
       </div>
+      )}
     </div>
   )
 }

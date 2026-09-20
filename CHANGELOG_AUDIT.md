@@ -1,6 +1,307 @@
-# CHANGELOG AUDIT — Titanium AI (stitch)
+﻿# CHANGELOG AUDIT — Titanium AI (stitch)
 
 Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, validé avant de passer au suivant.
+
+---
+
+## E66 — Dashboard : surlignage recherche + densité commutable
+
+### 1. Highlight de la recherche
+- `highlightText(text, query)` (matchAnalysis, **8 tests**) découpe un texte
+  en segments `{text, match}` en marquant les occurrences du terme, insensible
+  à la casse et aux accents (NFD). Vide/short-circuit propre (pas de segment
+  vide parasite).
+- Composant `Highlight` dans `MatchCard` rend les segments : `<mark
+  className="mc-hl">` autour des matchs, span brut autour du reste.
+- Appliqué au nom de ligue + noms d'équipes (desktop ET compact). Le
+  `searchQuery` descend Dashboard → DashboardRow → MatchCard via
+  `localMatchRowProps`.
+- CSS `.mc-hl` : fond cyan 22%, texte `#f0f9ff`, gras, radius 2 px. L'ellipsis
+  des `.mc-league-name` / `.mc-team-name` continue de fonctionner (mark
+  inline).
+
+### 2. Densité commutable (persistance localStorage)
+- 3 niveaux : **Confort 64 px · Dense 56 px · Très dense 48 px**.
+- État `density` initialisé depuis `localStorage:titanium:density` (fallback
+  `comfortable`), réécrit à chaque changement.
+- 3 boutons ajoutés dans la barre de filtres (qualité), à gauche des pills
+  "Cotes réelles / Sans veto / Favoris", séparés par un divider 1 px.
+- `ROW_H` dynamique (`DENSITY_ROW_H[density]`) → la liste virtualisée se
+  recompacte. Le virtualHeight suit via `computeGroupedListHeight`.
+
+### Non-régression
+- `npx eslint` : 0 erreur.
+- `npx jest --forceExit` : **102 suites / 969 tests** (8 nouveaux pour
+  highlightText ; 2 échecs pré-existants sur `system.test` / DB down, hors
+  scope dashboard).
+- `npm run build` (vite) : ✓ construit en ~14 s.
+
+Fichiers modifiés : `src/utils/matchAnalysis.js`, `src/components/MatchCard.jsx`,
+`src/components/MatchCard.css`, `src/components/Dashboard.jsx`,
+`__tests__/highlightText.test.js` (nouveau).
+
+### Suivi (E66-bis, 2026-09-20) — cote lisible en "Très dense"
+Le point de contrôle restant est traité : à 48 px la cote (@1.75) était
+serrée. `Dashboard` pose désormais `data-density={density}` sur
+`.mc-table-wrap` (une seule source, la même qui pilote ROW_H) et MatchCard.css
+réduit `.mc-bet-odds` à **8 px** pour `[data-density='veryDense']` (8.5 px
+inchangé en Confort/Dense). Impact : desktop uniquement — la rangée compacte
+mobile (124 px) n'utilise pas `.mc-bet-odds`.
+
+Verif : `npx eslint` 0 erreur ; `npx jest --forceExit` **105 suites / 987 tests
+passed**, 0 failed (aucune régression, aucun test modifié pour cette étape).
+
+Fichiers modifiés : `src/components/Dashboard.jsx`, `src/components/MatchCard.css`
+(2 lignes), `CHANGELOG_AUDIT.md`.
+
+Il ne reste aucun point de contrôle fonctionnel ouvert sur E61→E66 ; les
+autres "Reste à faire" notés sont des options hors scope (ex. `g g`, cotes O/U
+par ligne, debounce).
+
+---
+
+## E65 — Dashboard : sections par tranche horaire + pastille connexion Socket.IO
+
+### 1. Sections par tranche horaire dans la liste
+- `buildGroupedByTime(matches, now)` (dashboardFilters, **9 tests**) découpe
+  la liste en sections "Aujourd'hui · Matin / Après-midi / Soir / Nuit",
+  "Demain · …", "{date} · …", "Sans heure" et aplatit en
+  `[{type:'section'}|{type:'match'}]` pour la grille virtualisée.
+- `react-window` v2 supporte `rowHeight: (index, rowProps) => number` →
+  hauteurs variables : 32 px pour les sections, 64 px pour les matchs.
+- Nouveau composant `DashboardRow` (remplace `MatchRowMemo`) : selon
+  `flatList[index].type`, rend une section (label + count) ou un `MatchCard`.
+  `computeGroupedListHeight` plafonne la hauteur totale à 800 px.
+- `idToFlatIndex` mappe id→index plat pour la nav clavier (↑/↓ scrollent au
+  bon endroit malgré les sections intercalées). `activeMatchId` dérivé de
+  `activeIndex` (position dans `allMatchesList`) → highlight correct sur la
+  rangée match correspondante.
+- La vue LIVE bénéficie aussi du grouping (sa propre `liveFlatList`).
+
+### 2. Pastille de connexion Socket.IO
+- `dataService` : ajout `connectionSubscribers`, handlers `connect` /
+  `disconnect` / `connect_error` notifient l'état. Méthodes
+  `isSocketConnected()` et `subscribeConnection(cb)`.
+- `StatusHeader` : la pastille passe au rouge + tooltip "Socket.IO
+  déconnecté — fallback polling" en cas de coupure. Le fallback polling
+  (déjà en place) continue de rafraîchir les données.
+
+### Non-régression
+- `npx eslint` : 0 erreur (1 avertissement cosmétique sur Dashboard.css non
+  linté).
+- `npx jest --forceExit` : **101 suites / 961 tests passed** (le test
+  réseau `mlPredictionService.status` timeout — pré-existant, indépendant ;
+  aucun import dataService). 9 nouveaux tests pour `buildGroupedByTime`.
+- `npm run build` (vite) : ✓ construit en ~10 s.
+
+Fichiers modifiés : `src/utils/dashboardFilters.js`,
+`src/components/Dashboard.jsx`, `src/components/Dashboard.css`,
+`src/services/dataService.js`, `__tests__/buildGroupedByTime.test.js` (nouveau).
+
+Reste à faire : la nav clavier ↑/↓ saute par-dessus les sections
+automatiquement, mais un raccourci `g g` (vim-style) pour sauter à la
+prochaine section serait un plus — hors scope ici.
+
+---
+
+## E64 — Dashboard : tuile "pari" par marché (pick + @cote) + hero/dim
+
+Réorganisation pour que **chaque marché ait son pari en face** : au lieu de
+cellules uniformes "OUI 60%" sans cote, chaque marché expose maintenant un
+pick (équipe / OUI / OVER 2.5 …) + sa proba modèle + la **cote bookmaker
+correspondante** (@1.75 etc.). Et quand un onglet marché est actif, ce marché
+devient le **hero** (anneau cyan, fond), les autres marchés s'effacent
+(opacity 0.5).
+
+### 1. Parseur de pari
+- `parseBetText(text)` exporté de `src/utils/matchAnalysis.js` : sépare le
+  pick ("OUI", "Milan", "OVER 2.5", "1X") de la proba ("60%"). Gère
+  libellés sans % ("✚ 4" corners exact), sentinelles ("--", "—"), accents.
+  **8 tests** dans `__tests__/parseBetText.test.js`.
+
+### 2. Tuile "pari" (BetCell)
+- BTTS / GAGNANT / 1RE MT / CORNERS passent en `<BetCell>` : flex-column,
+  ligne 1 = `PICK PCT%` (gras, couleur du marché), ligne 2 = `@COTE` (mono,
+  opacité 0.85) quand la cote bookmaker est disponible.
+- Cotes extraites du match (`odds_home/draw/away/over25/under25/btts_yes/no`)
+  et mappées au pick : `1`→home, `X`→draw, `2`→away, `OUI`→btts_yes,
+  `NON`→btts_no. HT/CORNERS n'ont pas de cotes bookmaker dans le modèle de
+  données → ligne cote absente (cellule 1 ligne, recentrée).
+- O/U garde sa structure multi-lignes (toutes les lignes O/U visibles), mais
+  reçoit le hero/dim. Les cellules d'info (HT/FT, AH, QUI MARQUE) sont
+  inchangées.
+
+### 3. Hero / dim selon l'onglet marché
+- `heroKey = activeMarket` (quand != 'ALL'). La cellule dont la clé =
+  activeMarket reçoit `.mc-bet-hero` (fond cyan 10 %, ring inset 1 px, glow
+  10 px). Les autres marchés (btts/ou/win/ht/corners) reçoivent
+  `.mc-bet-dim` (opacity 0.5). La cellule TOP (qui s'adapte déjà au marché
+  actif via `activeBanner`) et les infos restent à leur niveau normal.
+- Concrètement : on clique "O/U" → chaque ligne met sa cellule O/U en
+  évidence (pick + cote) et grise les autres marchés. Le marché actif
+  "saute aux yeux" sur 50 matchs d'un coup.
+
+### 4. CSS
+- `.mc-cell.mc-bet` : flex-column centré. `.mc-bet-pick` (ellipsis),
+  `.mc-bet-odds` (mono 8.5 px). Hero = ring inset (évite le conflit avec le
+  border doré du goldenCell). Aucun changement de hauteur de rangée (les 2
+  lignes ~24 px tiennent dans le ROW_H 64 px).
+
+### Non-régression
+- `npx eslint` : 0 erreur, 0 warning.
+- `npx jest --forceExit --no-coverage` : **103 suites / 970 tests passed**
+  (dont 8 nouveaux pour `parseBetText`).
+- `npm run build` (vite) : ✓ construit en ~14 s.
+
+Fichiers modifiés : `src/utils/matchAnalysis.js`, `src/components/MatchCard.jsx`,
+`src/components/MatchCard.css`, `src/components/Dashboard.jsx`,
+`__tests__/parseBetText.test.js` (nouveau).
+
+Reste à faire : si une cote O/U par ligne (O1.5, U2.5) est demandée, il
+faudra ajouter `odds_over15/under15/...` au modèle de données — hors scope
+ici (le book ne fournit que 2.5).
+
+---
+
+## E63 — Dashboard : tri cliquable sur les en-têtes + indicateur "sync il y a Xs"
+
+### 1. Tri cliquable
+- `TABLE_COLUMNS` gagne `sortKey` (colonnes triables : info/league, top, btts, ou,
+  win, ht, corners ; null sur htft/ah/tts). `SORT_DEFAULT_DIRS` (% desc, temps
+  & ligue asc) et `VALID_SORTS` exportés.
+- `dashboardFilters.applySort(list, sortBy)` : tri stable, données manquantes
+  en fin, insensible aux accents (ligue), n'altère pas la liste d'origine.
+- `parseFilterSearch` / `buildFilterSearch` étendent la querystring avec
+  `?sort=…&dir=…` (persisté + partageable). `sortBy` ajouté au round-trip
+  (2 tests `dashboardFilters.test.js` mis à jour pour la nouvelle clé).
+- `Dashboard` : état `sortBy`, cycle 3 états par colonne (default → asc → desc
+  → default). En-têtes transformés en `<button>` avec flèche `↑/↓` et couleur
+  active (cyan), `↕` grisé sur les en-têtes triables inactifs.
+- CSS : `.mc-col-head-btn` (transparent, focus visible), `.is-active` (cyan),
+  `.mc-col-head-arrow` (mono, opacité 0.45 → 1.0 actif).
+- Quand l'utilisateur trie explicitement, le tri "opportunité" (score + heure)
+  est remplacé — choix assumé. 3 clics ramènent au tri par défaut.
+
+### 2. Indicateur de fraîcheur
+- `lastSyncAt` (Date.now) mis à jour à chaque message Socket.IO
+  `subscribeUpcoming`. Tick de 15 s pour que "il y a Xs" se rafraîchisse.
+- `relativeTime(ts)` : "à l'instant" (<5s) / "il y a Ns" / "il y a N min" /
+  "il y a N h" / "jamais". Affiché dans le bandeau de section (à côté des
+  compteurs cotes réelles / vetés / CAC).
+
+### Non-régression
+- `npx eslint` : 0 erreur, 0 warning.
+- `npx jest --forceExit --no-coverage` : **102 suites / 962 tests passed**
+  (dont nouveau `__tests__/applySort.test.js`, 15 tests : tri, données
+  manquantes, URL round-trip, `relativeTime` ; et 3 tests ajoutés à
+  `__tests__/tableColumns.test.js` pour sortKey/SORT_DEFAULT_DIRS).
+- `npm run build` (vite) : ✓ construit en ~12 s.
+
+Fichiers modifiés : `src/utils/tableColumns.js`, `src/utils/dashboardFilters.js`,
+`src/components/Dashboard.jsx`, `src/components/Dashboard.css`,
+`__tests__/applySort.test.js` (nouveau), `__tests__/tableColumns.test.js`,
+`__tests__/dashboardFilters.test.js`.
+
+Reste à faire : si une colonne est cliquée plusieurs fois très vite (debounce
+absent) le tri peut paraître saccadé — pas un bug, juste un feedback honnête.
+
+---
+
+## E62 — Dashboard : grille responsive, en-tête sticky, rangées lisibles
+
+Suite d'E61 : plutôt que de seulement tronquer 10 colonnes figées (tassées et
+donc chevauchantes sur largeurs intermédiaires), la grille s'adapte vraiment.
+
+### 1. Grille responsive (source de vérité unique)
+- `TABLE_COLUMNS` gagne `tier` (largeur mini de conteneur pour afficher la
+  colonne) et `group` (regroupement visuel). Nouveaux exports
+  `COLUMN_WIDTH_TIERS`, `columnsForWidth(width)`, `groupStarts(cols)`.
+- Paliers mesurés par le ResizeObserver existant (`containerWidth`) :
+  `< 560` : MATCH + TOP ; `560-859` : + O/U + GAGNANT ; `860-1039` : + BTTS +
+  1RE MT + CORNERS ; `>= 1040` : + HT/FT + AH + QUI MARQUE (10 colonnes).
+- En-tête ET rangées utilisent la même sélection -> alignement garanti ;
+  `MatchCard` rend conditionnellement ses cellules (`cols` prop), `MatchRowMemo`
+  transmet `cols`.
+- Test : somme des `min` de chaque palier <= largeur du palier (garantit
+  qu'aucune colonne n'est tassée sous son minimum).
+
+### 2. En-tête de colonnes sticky
+- `.mc-table-head` : `position: sticky; top: 45px` (sous la barre de statut
+  `.sh-bar` de 45px) + backdrop-blur.
+- `.onyx-list-section` passe de `overflow-x: hidden` à `overflow: clip` : ce
+  n'est plus un conteneur de scroll, le sticky s'accroche donc au scroll page
+  (sinon `hidden`/`auto` transforme l'axe Y en scroll et casse le sticky).
+
+### 3. Rangées plus lisibles
+- `ROW_H` desktop 56 -> 64 px (respire, la colonne info ne "saigne" plus).
+- Lignes alternées `.mc-alt` (index impair), neutralisées au survol via
+  `:not(:hover)` + variante `.mc-solid`.
+- Séparateurs de groupe `.mc-group-start` (border-left subtile) entre
+  MATCH | TOP | MARCHÉS | INFOS : un badge de marché ne colle plus à la colonne
+  voisine (demande explicite).
+
+### Non-régression
+- `npx eslint` (composants + util + test) : 0 erreur.
+- `npx jest --forceExit --no-coverage` : **101 suites / 945 tests passed**
+  (dont le nouveau `__tests__/tableColumns.test.js`, 7 tests).
+- `npm run build` (vite) : ✓ construit en ~10 s.
+
+Fichiers modifiés : `src/utils/tableColumns.js`, `src/components/MatchCard.jsx`,
+`src/components/MatchCard.css`, `src/components/Dashboard.jsx`,
+`src/components/Dashboard.css`, `__tests__/tableColumns.test.js` (nouveau).
+
+Reste à faire : contrôle visuel aux 4 paliers (≈500 / 700 / 950 / 1200 px de
+conteneur) ; ajuster les seuils `tier` dans `TABLE_COLUMNS` si besoin (source
+unique, aucun autre fichier à toucher).
+
+---
+
+## E61 — Dashboard : chevauchements ligne de tableau (badges / tags / libellés)
+
+### Constat (RWD, vue « TOUS LES MATCHS », desktop)
+1. COLONNES qui se chevauchent : la colonne du milieu (badges OUI/NON, style
+   « UNDER 2.5 51% / @2.48 / NON 51% ») déborde sur la colonne stats voisine
+   (O1.5/U2.5).
+2. SAIGNEMENT VERTICAL : tags « RÉEL ≈% (n) » / « ÉCH. INSUFFISANT » (et chips
+   ⚖️/⚠️ DIV/E17) empiètent sur le rang du dessous au-delà du ROW_H fixe.
+3. DEBORDEMENT TEXTE : noms d'équipe/ligue repoussent les largeurs de colonnes.
+4. ALIGNEMENT : gaps/largeurs inconstants entre cellules.
+
+### Cause racine
+Grille desktop (`--mc-cols` injecté par Dashboard via `mcColumnsCss()`) en
+pistes `17fr 13fr …` : une piste `fr` a un MIN par défaut = min-content, donc un
+libellé large force la piste à déborder sur la voisine (chevauchement) ; la
+rangée `.match-card` (ROW_H=56) n'avait aucun `overflow` -> le contenu plus haut
+« saignait » sur le rang suivant.
+
+### Fix (4 corrections alignées sur la demande)
+1. `src/utils/tableColumns.js` : `mcColumnsCss()` produit désormais
+   `minmax(0, Xfr)` (même source de vérité, en-tête + cartes alignées ; les
+   pistes peuvent rétrécir sous min-content, la cellule tronque au lieu de
+   déborder). Fallback CSS `.mc-grid` mis en concordance.
+2. `src/components/MatchCard.css` : `overflow: hidden` sur `.mc-grid`,
+   `.mc-col-info`, `.mc-match-info`, `.mc-league` et sur chaque
+   `.mc-grid > .mc-cell` ; `white-space: nowrap` + `text-overflow: ellipsis` sur
+   les cellules mono-ligne (sauf `.mc-ou-cell`, multi-lignes) ; la ligne ligue+
+   badges reste sur UNE ligne (pas de wrap -> plus de saignement vertical) ;
+   `line-height: 1` sur `.mc-rel`, `line-height: 1.25` sur `.mc-match-info`.
+3. `src/components/MatchCard.jsx` : noms d'équipes wrappés en `.mc-team-name`
+   (flex-1 + min-width:0 + ellipsis) ; `.mc-vs` en `flex-shrink: 0` → les
+   équipes tronquent proprement, le score n'est jamais écrasé.
+4. `src/components/Dashboard.jsx` : cellules d'en-tête avec
+   `overflow:hidden + nowrap + ellipsis` pour ne pas empiéter sur la piste voisine.
+
+### Non-régression
+- `npx eslint` sur les 3 fichiers modifiés : 0 erreur.
+- `npx jest --forceExit --no-coverage` : 100 suites / 938 tests passed, 0 failed.
+- `npm run build` (vite) : ✓ construit en ~9 s.
+
+Fichiers modifiés : `src/utils/tableColumns.js`, `src/components/MatchCard.css`,
+`src/components/MatchCard.jsx`, `src/components/Dashboard.jsx`.
+
+Reste à faire : contrôle visuel en prod (breakpoints desktop) ; si un libellé
+info (HT/FT, QUI MARQUE) paraît trop coupé, réduire sa fréquence dans
+`TABLE_COLUMNS` (source unique).
 
 ---
 

@@ -40,6 +40,8 @@ class DataService {
     this.healthSubscribers = []
     this.upcomingSubscribers = []
     this.statusSubscribers = [] // V33 Status Observer
+    this.connectionSubscribers = [] // E65 : état Socket.IO (connecté/déconnecté)
+    this._isSocketConnected = false
     this.liveSubscribers = []
     this.scraperStatusCache = null // Cache for scraper progress
     this.healthCache = null // Cache for health data
@@ -93,6 +95,13 @@ class DataService {
       this.socket.on('connect', () => {
         logger.info('🔌 [WS] Connected to Titanium Server')
         this.isRateLimited = false
+        this._isSocketConnected = true
+        this.connectionSubscribers.forEach((cb) => cb(true))
+      })
+
+      this.socket.on('disconnect', () => {
+        this._isSocketConnected = false
+        this.connectionSubscribers.forEach((cb) => cb(false))
       })
 
       this.socket.on('matches_update', (data) => {
@@ -129,6 +138,8 @@ class DataService {
 
       this.socket.on('connect_error', (err) => {
         logger.warn('🔌 [WS] Connection Error:', err.message)
+        this._isSocketConnected = false
+        this.connectionSubscribers.forEach((cb) => cb(false))
         // Fallback will continue via polling
       })
     } catch (e) {
@@ -589,6 +600,17 @@ class DataService {
   _notifyStatus(status) {
     this.currentStatus = status
     this.statusSubscribers.forEach((cb) => cb(status))
+  }
+
+  // --- E65 : état de la connexion Socket.IO ---
+  isSocketConnected() {
+    return !!(this.socket && this._isSocketConnected)
+  }
+  subscribeConnection(callback) {
+    this.connectionSubscribers.push(callback)
+    callback(this._isSocketConnected)
+    return () =>
+      (this.connectionSubscribers = this.connectionSubscribers.filter((sub) => sub !== callback))
   }
 
   // 🧠 [PERF] Émission diffs : on ne notifie les abonnés "upcoming" que si le

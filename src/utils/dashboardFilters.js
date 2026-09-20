@@ -138,6 +138,8 @@ export const applyQualityFilters = (list, { onlyRealOdds = false, hideNoBet = fa
   )
 
 // ── État des filtres <-> URL (E19 : partageables et résistants au refresh) ──
+import { VALID_SORTS } from './tableColumns'
+
 export const VALID_DATES = ['Today', 'Tomorrow', 'Next 3 Days', 'Next 7 Days']
 export const VALID_MARKETS = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners']
 
@@ -145,6 +147,12 @@ export function parseFilterSearch(search) {
   const p = new URLSearchParams(search || '')
   const date = p.get('date')
   const marche = p.get('marche')
+  const sort = p.get('sort')
+  const dir = p.get('dir')
+  const sortBy =
+    sort && VALID_SORTS.includes(sort) && (dir === 'asc' || dir === 'desc')
+      ? { key: sort, dir }
+      : null
   return {
     activeLeague: p.get('ligue') || 'ALL',
     activeDate: VALID_DATES.includes(date) ? date : 'Today',
@@ -154,6 +162,7 @@ export function parseFilterSearch(search) {
     hideNoBet: p.get('clean') === '1',
     onlyFavorites: p.get('fav') === '1',
     matchId: p.get('match') || null,
+    sortBy,
   }
 }
 
@@ -167,6 +176,7 @@ export function buildFilterSearch({
   hideNoBet = false,
   onlyFavorites = false,
   matchId = null,
+  sortBy = null,
 } = {}) {
   const p = new URLSearchParams()
   if (activeLeague && activeLeague !== 'ALL') p.set('ligue', activeLeague)
@@ -177,8 +187,164 @@ export function buildFilterSearch({
   if (hideNoBet) p.set('clean', '1')
   if (onlyFavorites) p.set('fav', '1')
   if (matchId) p.set('match', String(matchId))
+  if (sortBy && sortBy.key && VALID_SORTS.includes(sortBy.key)) {
+    p.set('sort', sortBy.key)
+    p.set('dir', sortBy.dir === 'desc' ? 'desc' : 'asc')
+  }
   const s = p.toString()
   return s ? `?${s}` : ''
+}
+
+// ── Tri cliquable sur les en-têtes (E63) ──
+// `sortBy = { key, dir }` ou `null` (= tri par défaut "opportunité" du Dashboard).
+// `key` ∈ VALID_SORTS. Données manquantes -> envoyées en fin de liste.
+const timeOf = (m) => {
+  const t = Number(m?.startTimestamp) || 0
+  if (!t) return NaN
+  return t > 1e11 ? t : t * 1000
+}
+const leagueOf = (m) => norm(m?.league || m?.tournament_name || '')
+const topPctOf = (m) => {
+  const raw = toRawLines(m)[14] || ''
+  const v = parseFloat(String(raw).split('|')[1])
+  return Number.isFinite(v) ? v : NaN
+}
+const marketPctOf = (m, market) => {
+  const v = marketPct(toRawLines(m), market)
+  return Number.isFinite(v) && v > 0 ? v : NaN
+}
+const sortValue = (m, key) => {
+  switch (key) {
+    case 'time': return timeOf(m)
+    case 'league': return leagueOf(m)
+    case 'top': return topPctOf(m)
+    case 'win': return marketPctOf(m, 'win')
+    case 'ou': return marketPctOf(m, 'ou')
+    case 'btts': return marketPctOf(m, 'btts')
+    case 'ht': return marketPctOf(m, 'ht')
+    case 'corners': return marketPctOf(m, 'corners')
+    default: return NaN
+  }
+}
+
+export function applySort(list, sortBy) {
+  if (!Array.isArray(list) || !sortBy || !sortBy.key) return list || []
+  const { key, dir } = sortBy
+  const mult = dir === 'desc' ? -1 : 1
+  const isStr = key === 'league'
+  const arr = [...list]
+  arr.sort((a, b) => {
+    const va = sortValue(a, key)
+    const vb = sortValue(b, key)
+    if (isStr) {
+      const sa = String(va), sb = String(vb)
+      if (sa === sb) return 0
+      return mult * sa.localeCompare(sb)
+    }
+    const aNa = !Number.isFinite(va)
+    const bNa = !Number.isFinite(vb)
+    if (aNa && bNa) return 0
+    if (aNa) return 1
+    if (bNa) return -1
+    if (va < vb) return -1 * mult
+    if (va > vb) return 1 * mult
+    return 0
+  })
+  return arr
+}
+
+// ── Regroupement par tranche horaire (E65) ──
+// Pour scannner une longue liste : on coupe par jour + moment de la journée
+// ("Aujourd'hui · Matin", "Demain · Soir"…). Renvoie une liste aplatie
+// [{type:'section',label,count} | {type:'match',match,key}] que la grille
+// virtualisée rend avec une hauteur variable (react-window v2).
+const dateKey = (d) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+const partOfDay = (hour) => {
+  if (hour < 12) return 'Matin'
+  if (hour < 18) return 'Après-midi'
+  if (hour < 22) return 'Soir'
+  return 'Nuit'
+}
+const shortDate = (d) =>
+  d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+
+export function buildGroupedByTime(matches, now = Date.now()) {
+  const list = Array.isArray(matches) ? matches : []
+  const nowDate = new Date(now)
+  const todayKey = dateKey(nowDate)
+  const tomorrowDate = new Date(now + 86400000)
+  const tomorrowKey = dateKey(tomorrowDate)
+
+  const groups = new Map()
+  const noTime = []
+
+  for (const m of list) {
+    const t = timeOf(m)
+    if (!Number.isFinite(t)) {
+      noTime.push(m)
+      continue
+    }
+    const d = new Date(t)
+    const dk = dateKey(d)
+    const part = partOfDay(d.getHours())
+    const dayLabel =
+      dk === todayKey ? "Aujourd'hui" : dk === tomorrowKey ? 'Demain' : shortDate(d)
+    const label = `${dayLabel} · ${part}`
+    const gkey = `${dk}|${part}`
+    if (!groups.has(gkey)) {
+      groups.set(gkey, { label, sortKey: t, items: [] })
+    }
+    groups.get(gkey).items.push(m)
+  }
+
+  const sortedGroups = [...groups.values()].sort((a, b) => a.sortKey - b.sortKey)
+  const flat = []
+  let i = 0
+  for (const g of sortedGroups) {
+    g.items.sort((a, b) => timeOf(a) - timeOf(b))
+    flat.push({
+      type: 'section',
+      key: `sec-${g.sortKey}-${i++}`,
+      label: g.label,
+      count: g.items.length,
+    })
+    for (const m of g.items) {
+      flat.push({ type: 'match', key: m.id != null ? `m-${m.id}` : `m-idx-${i++}`, match: m })
+    }
+  }
+  if (noTime.length > 0) {
+    flat.push({ type: 'section', key: 'sec-noTime', label: 'Sans heure', count: noTime.length })
+    for (const m of noTime) {
+      flat.push({ type: 'match', key: m.id != null ? `m-${m.id}` : `m-nt-${i++}`, match: m })
+    }
+  }
+  return flat
+}
+
+/** Hauteur de la liste virtualisée (somme des hauteurs par ligne, cap 800). */
+export const SECTION_ROW_HEIGHT = 32
+export const computeGroupedListHeight = (flatList, matchRowHeight, cap = 800) => {
+  if (!Array.isArray(flatList) || flatList.length === 0) return 0
+  let total = 0
+  for (const it of flatList) total += it.type === 'section' ? SECTION_ROW_HEIGHT : matchRowHeight
+  return Math.min(total, cap)
+}
+
+/** Temps relatif FR (utilisé pour "sync il y a Xs"). */
+export const relativeTime = (ts, now = Date.now()) => {
+  if (!ts) return 'jamais'
+  const s = Math.max(0, Math.floor((now - ts) / 1000))
+  if (s < 5) return "à l'instant"
+  if (s < 60) return `il y a ${s}s`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `il y a ${m} min`
+  const h = Math.floor(m / 60)
+  return `il y a ${h} h`
 }
 
 /** Nom joli d'une sélection de ligue (keywords[0] épinglée/MENA -> name). */

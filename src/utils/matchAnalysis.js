@@ -709,3 +709,55 @@ export function marketBannerFromLines(r, market) {
     dominant,
   }
 }
+
+// ── Parseur générique d'un libellé de pari (E64) ──
+// Sépare le "pick" (ex. "OUI", "Milan", "OVER 2.5") de la proba (ex. 60%).
+// Tolère les espaces, le % optionnel, et les libellés sans % ("✚ 4").
+// Retourne null pour les valeurs vides / sentinelles.
+export function parseBetText(text) {
+  if (text == null) return null
+  const s = String(text).trim()
+  if (!s || s === '--' || s === '—' || s === '-') return null
+  // On ne reconnaît un pourcentage que si la chaîne contient un '%' (sinon
+  // "✚ 4" (corners exact) serait éclaté en pick="✚", pct=4).
+  if (s.includes('%')) {
+    const m = /^(.*?)\s*(\d+(?:\.\d+)?)\s*%/.exec(s)
+    if (!m) return { pick: s, pct: null }
+    const pick = m[1].trim()
+    if (!pick) return null
+    return { pick, pct: parseFloat(m[2]) }
+  }
+  return { pick: s, pct: null }
+}
+
+// ── Surlignage de texte (E66) ──
+// Pour la recherche : renvoie un tableau de segments {text, match} où les
+// occurrences du terme (insensible casse/accents) sont marquées. Vide si pas
+// de query. `norm` local pour éviter un cycle avec dashboardFilters.
+const normLocal = (s) =>
+  String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+
+export function highlightText(text, query) {
+  const src = text == null ? '' : String(text)
+  const q = normLocal(query)
+  if (!q) return [{ text: src, match: false }]
+  if (src === '') return [{ text: '', match: false }]
+  const srcNorm = normLocal(src)
+  const segs = []
+  let i = 0
+  while (i <= src.length) {
+    const found = srcNorm.indexOf(q, i)
+    if (found === -1) {
+      if (i < src.length) segs.push({ text: src.slice(i), match: false })
+      break
+    }
+    if (found > i) segs.push({ text: src.slice(i, found), match: false })
+    segs.push({ text: src.slice(found, found + q.length), match: true })
+    i = found + q.length
+  }
+  return segs
+}

@@ -155,6 +155,7 @@ describe('filtres <-> URL (E19)', () => {
       hideNoBet: true,
       onlyFavorites: true,
       matchId: '15353112',
+      sortBy: null,
     }
     const qs = buildFilterSearch(state)
     expect(qs.startsWith('?')).toBe(true)
@@ -172,6 +173,7 @@ describe('filtres <-> URL (E19)', () => {
       hideNoBet: false,
       onlyFavorites: false,
       matchId: null,
+      sortBy: null,
     })
   })
 

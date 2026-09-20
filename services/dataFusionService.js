@@ -7,6 +7,18 @@ const sharedConfig = require('../core/sharedConfig')
 const CACHE_TTL = 10 * 60 * 1000
 const cache = new Map()
 
+// E60: distingue une VRAIE panne de source (transport, exception, auth) d'une
+// simple absence de donnee. Seules les premieres doivent compter comme erreur
+// et declencher un cooldown ; sinon 5 matchs hors couverture mettent la source
+// en panne artificielle et affament tout le sweep.
+const SOURCE_FAILURE_RE = /exception|timeout|econn|enotfound|socket|fetch failed|http 4\d\d|http 5\d\d|forbidden|unauthorized|auth|quota|no_teams/i
+function _isSourceFailure(err) {
+  const s = String(err || '')
+  if (!s) return false
+  if (/non_bookmaker|no_match|no_data|probability_only|not_found/i.test(s)) return false
+  return SOURCE_FAILURE_RE.test(s)
+}
+
 // ── Audit Phase 1 FD-Odds bridge (2026-08-24) ─────────────────────────────
 // Cotes RÉELLES bookmaker depuis les CSV football-data.co.uk téléchargés
 // chaque matin à 07h00 par le pipeline data (data_pipeline/data/raw/).
@@ -195,6 +207,20 @@ class DataFusionService {
     return true
   }
 
+  // E60: borne une source individuelle. Sans ca, un scraper lent (Python bypass
+  // BetExplorer, Sofascore) peut consommer tout le budget du sweep (30s/match)
+  // avant meme d'atteindre la source suivante.
+  _raceSource(promise, name, ms = Number(process.env.ODDS_SOURCE_TIMEOUT_MS || 12000)) {
+    let timer
+    const timeout = new Promise((resolve) => {
+      timer = setTimeout(() => {
+        logger.debug(`[DATAFUSION] ${name} timeout >${ms}ms (source abandonnee)`)
+        resolve(null)
+      }, ms)
+    })
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+  }
+
   recordSuccess(sourceName) {
     const s = this.sources.find((x) => x.name === sourceName)
     if (s) {
@@ -253,21 +279,29 @@ class DataFusionService {
 
     for (const source of sorted) {
       if (!this.isSourceAvailable(source)) continue
+      // E60: le client Sofascore peut etre en cooldown global (480s) sans que
+      // notre tracker local le sache -> on saute la source au lieu de la subir.
+      if (source.name === 'sofascore') {
+        try {
+          const apiClient = require('../SofascoreScraping/src/apiClient')
+          if (typeof apiClient.sofaCooldownActive === 'function' && apiClient.sofaCooldownActive()) continue
+        } catch (_) {}
+      }
 
       try {
         let odds = null
         switch (source.name) {
           case 'fbref':
-            odds = await this._tryFbref(match)
+            odds = await this._raceSource(this._tryFbref(match), 'fbref')
             break
           case 'sofascore':
-            odds = await this._trySofascore(match)
+            odds = await this._raceSource(this._trySofascore(match), 'sofascore')
             break
           case 'ultimate_orchestrator':
-            odds = await this._tryUnifiedScraper(match)
+            odds = await this._raceSource(this._tryUnifiedScraper(match), 'ultimate_orchestrator')
             break
           case 'scrapeservice':
-            odds = await this._tryScrapeService(match)
+            odds = await this._raceSource(this._tryScrapeService(match), 'scrapeservice')
             break
           case 'polymarket':
             odds = await this._tryPolymarket(match)
@@ -339,11 +373,16 @@ class DataFusionService {
           await this._persistOddsOutcome(match, withFlag)
           return withFlag
         }
-        if (source.name === 'scrapeservice') {
-          if (odds && odds._odds_fetch_error) oddsError = odds._odds_fetch_error
-          continue
+        // E60: une source qui repond "rien trouve" n'est PAS en panne. Avant,
+        // chaque match sans cote comptait comme un echec -> 5 matchs d'affilee
+        // (EFL Cup, Bresil, NPFL...) mettaient les meilleures sources en
+        // cooldown 5min et TOUT le sweep restant echouait (0/456). On ne
+        // penalise que les vraies pannes transport/exception ; l'absence de
+        // donnee et le rejet "non bookmaker" laissent la source disponible.
+        if (odds && odds._odds_fetch_error) {
+          oddsError = odds._odds_fetch_error
+          if (_isSourceFailure(odds._odds_fetch_error)) this.recordError(source.name)
         }
-        this.recordError(source.name)
       } catch (e) {
         this.recordError(source.name)
         logger.debug(`[DATAFUSION] ${source.name} failed for ${match.id}: ${e.message}`)
@@ -632,9 +671,9 @@ class DataFusionService {
   async _tryFootballDataLive(match) {
     try {
       const fd = require('./footballDataService')
-      if (!fd.isAvailable()) return null
+      if (!fd.isAvailable()) return { _odds_no_data: true }
       const odds = await fd.fetchOddsForMatch(match)
-      if (!odds) return null
+      if (!odds) return { _odds_no_data: true }
       if (odds._odds_no_data) return { _odds_no_data: true }
       return {
         home: odds.home || null,

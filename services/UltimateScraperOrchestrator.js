@@ -478,11 +478,17 @@ async function fetchOddsForMatch(match) {
   if (cached) return cached
 
   // Lancer TOUS les fetchers en parallèle (Promise.allSettled)
-  // SofascoreAPI peut dormir 480s sur 403 — on timeout tout à 8s
+  // E60: quand le client Sofascore est en cooldown global, on SAUTE ses lanes
+  // (au lieu de les lancer pour qu'elles dorment 480s et saturent le limiter).
+  let sofaDown = false
+  try {
+    const apiClient = require('../SofascoreScraping/src/apiClient')
+    sofaDown = typeof apiClient.sofaCooldownActive === 'function' && apiClient.sofaCooldownActive()
+  } catch (_) {}
   const promises = [
     fetchOdds_football_data_live(match).catch(() => null),
-    withTimeout(fetchOdds_sofascore_api(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
-    withTimeout(fetchOdds_sofascore_bypass(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
+    sofaDown ? Promise.resolve(null) : withTimeout(fetchOdds_sofascore_api(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
+    sofaDown ? Promise.resolve(null) : withTimeout(fetchOdds_sofascore_bypass(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
     withTimeout(fetchOdds_betexplorer_1x2(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
     withTimeout(fetchOdds_betexplorer_full(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),
     withTimeout(fetchOdds_flashscore_feed(match).catch(() => null), FETCH_TIMEOUT_MS).catch(() => null),

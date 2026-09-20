@@ -50,12 +50,13 @@ function _triggerCooldown() {
 }
 
 async function _enforceCooldown() {
-  if (sofaDisabled()) return
+  if (sofaDisabled()) return false
   const remaining = cooldownUntil - Date.now()
   if (remaining > 0) {
-    console.warn(`🛡️ [apiClient] Cooldown active, sleeping ${Math.ceil(remaining / 1000)}s...`)
-    await new Promise((r) => setTimeout(r, remaining))
+    console.warn(`🛡️ [apiClient] Cooldown active (${Math.ceil(remaining / 1000)}s left) — fast-fail`)
+    return true
   }
+  return false
 }
 
 // Exposé pour que les chemins de fallback (ex. Flashscore dans attachRealOdds)
@@ -366,9 +367,8 @@ async function fetchWithPuppeteer(url) {
       globalBrowser = null
       pagePool.length = 0
     } else if (error.message.includes('HTTP 403') || error.message.includes('HTTP 429')) {
-      // 🚨 [TITANIUM STEALTH] Detection Triggered — global cooldown
+      // 🚨 [TITANIUM STEALTH] Detection Triggered — global cooldown (fast-fail)
       _triggerCooldown()
-      await _enforceCooldown()
     } else if (error.message.includes('timed out') && entry) {
       // 🔄 Non-fatal timeout: recycle only the hung page
       console.warn(
@@ -402,6 +402,10 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
       json: async () => ({ events: [], statistics: null }),
     }
   }
+
+  // E60: cooldown = fast-fail, pas de sleep. Sinon le sleep de 480s occupe les
+  // slots Bottleneck (maxConcurrent:2) et affame tout le pipeline d'odds.
+  if (await _enforceCooldown()) return null
 
   return limiter.schedule(async () => {
     let lastError = null
@@ -510,10 +514,9 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
           }
 
           console.warn(
-            `🚨 [apiClient] ${status} on ${url}. Global cooldown, then Puppeteer bypass...`
+            `🚨 [apiClient] ${status} on ${url}. Global cooldown (fast-fail, no sleep) + Puppeteer bypass.`
           )
           _triggerCooldown()
-          await _enforceCooldown()
           try {
             return await fetchWithPuppeteer(url)
           } catch (puppeteerErr) {
@@ -672,6 +675,8 @@ module.exports = {
   fetchWithRetry,
   sofaDisabled,
   sofaCooldownActive,
+  _triggerCooldown,
+  _enforceCooldown,
   getRandomUserAgent,
   getSecChUa,
   getSecChUaPlatform,

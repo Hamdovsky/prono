@@ -1,4 +1,4 @@
-﻿# CHANGELOG AUDIT — Titanium AI (stitch)
+# CHANGELOG AUDIT — Titanium AI (stitch)
 
 Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, validé avant de passer au suivant.
 
@@ -7713,6 +7713,21 @@ de refus). tactical.db (gitignore) enrichi home_xg/away_xg via fotmob_id ; produ
 inchangee (gates off). RESTE : le volume propre ne montera reellement qu'avec le cron
 E37 (FOTMOB_STATS_ENABLED=on) ; relancer --roi quand n>~700 pour resserrer la SE.
 
+## E38c Re-observation ROI (2026-09-16, meme session)
+
+Backfill matches --write (E37 extractor hors cron, ech. seuls) +11 rangees matches
+finished avec cote O/U 2.5 unique (18 sans id FotMob : petites ligues) + 5 historical
+au passage. Echantillon loader 307 -> 342. Re-mesure --roi :
+
+  edge>=0.00 : 257 paris roi=-10,04% hit=42,8% brier modele=0,2460 marche=0,2346
+  edge>=0.02 : 213 paris roi=-12,54% hit=40,4%
+  edge>=0.05 : 156 paris roi=-13,31% hit=38,5%
+
+Verdict INCHANGE, renforce : ROI <= 0 a tout seuil, marge modele-marche au brier
+0,246 vs 0,235 (legerement creusee) -> marche efficient, gates IA restent OFF.
+La croissance du volume (cron E37 actif) ne servira qu'a resserrer l'intervalle ;
+seuil de reconsonersion : reevaluer au-dela de n~700.
+
 ## E39 Outil de checkpoint E37 (lecture seule) + activation flags (2026-09-16)
 
 Suite E38b : au lieu d'attendre aveuglement le cron #15b (FotMob), un OUTIL de
@@ -8601,3 +8616,50 @@ Verif : jest --forceExit **100 suites / 938 passed** (aucune regression). .env n
 versionne -> aucun secret committe. Reste a faire : laisser tourner le cron 15c
 (17h) et BetExplorer avec le rejet synthetique, puis re-mesurer n dans quelques
 jours (matchs couverts passant finished).
+
+## E60 Borne par source + panne reelle vs absence de donnee (2026-09-17)
+
+Demande user (suite E59) : le sweep de cotes restait bloque a 0/456 matchs malgre
+des sources marquees saines. Diagnostic sur le code reel (pas suppose) :
+
+DEUX BUGS REELS DANS services/dataFusionService.js :
+
+1. CONFUSION "pas de donnee" / "source en panne". Chaque match sans cote comptait
+   comme un echec (this.recordError a chaque iteration). 5 matchs d'affilee hors
+   couverture (EFL Cup, Bresil, NPFL...) -> source desactivee 5 min. Comme le
+   sweep enchaine les matchs, TOUTES les bonnes sources tombaient en cooldown des
+   les premiers matchs sans cote, et le reste du sweep echouait (0/456).
+   FIX : helper _isSourceFailure(err) -> ne penalise que les vraies pannes
+   (exception/timeout/econn/http 4xx-5xx/auth/quota). Les reponses
+   no_data / no_match / non_bookmaker / probability_only ne comptent plus comme
+   erreur : la source reste disponible pour le match suivant.
+
+2. ABSENCE DE BORNE PAR SOURCE. Un seul scraper lent (bypass Python BetExplorer,
+   Sofascore) pouvait consommer tout le budget du match (30s) avant d'atteindre la
+   source suivante. FIX : _raceSource(promise, name, ms) borne chaque source a
+   ODDS_SOURCE_TIMEOUT_MS (defaut 12000 ms), timeout => resolve(null), on passe a
+   la suivante. Applique a fbref, sofascore, ultimate_orchestrator, scrapeservice.
+   Plus : sofascore est saute si le client Sofascore est en cooldown global (480s)
+   meme si le tracker local de dataFusionService le croit sain.
+
+MESURES (faites, pas supposees) :
+- Avant : 0/12 matchs hors top-ligues -> 0 cote ; sources deja en cooldown.
+- Apres : sources restent saines (err=0, cd=off sur les 5 sources).
+- Echantillon whitelist (30 matchs, 8 testes) : LaLiga (Atletico, Deportivo,
+  Barcelona) + USL -> src=ultimate:2-sources bk=true, 4/8 bookmaker reels.
+  Les 4 echecs sont des ligues NON couvertes (Tanzanie, Egypte, Northern Premier),
+  comportement attendu, plus de cooldown artificiel.
+- COVERAGE stock : total=581, with1x2=78, withOu=60, withBtts=27, queue=455.
+  (n harnais ROI inchange : plafond 425, cf E58 ; le gain porte sur les matchs a
+  venir comme en E59.)
+
+NON-REGRESSION : jest --forceExit -> 100 suites / 938 passed, 0 failed.
+  node --check services/dataFusionService.js -> 0. ESLint sans erreur.
+  Les 2 echecs vus en cours de route etaient un artefact d'ordre d'execution
+  (DB partagee entre suites), confirmes verts en run complet ET en isolation.
+
+Fichiers modifies : services/dataFusionService.js uniquement (E60). Aucun secret
+committe (tmp_*.js supprimes, .env non versionne).
+
+Reste a faire : laisser tourner le sweep complet (455 matchs en queue) et le cron
+15c OddsPortal, puis re-mesurer la couverture O/U sur les matchs a venir.

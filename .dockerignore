@@ -4,7 +4,12 @@ node_modules
 *.md
 .env
 .env.*
+.llm.env
+# `.venv` seul ne couvre PAS les venv suffixes : sans `.venv-*`, Dockerfile.production
+# ferait `COPY . .` et embarquerait Playwright/Chromium dans l'image Render
+# (~600 Mo), violant la regle AGENTS.md "No Chromium/Puppeteer in Docker image".
 .venv
+.venv-*
 __pycache__
 *.pyc
 .DS_Store

@@ -9110,3 +9110,992 @@ committe (tmp_*.js supprimes, .env non versionne).
 
 Reste a faire : laisser tourner le sweep complet (455 matchs en queue) et le cron
 15c OddsPortal, puis re-mesurer la couverture O/U sur les matchs a venir.
+
+---
+
+## E69 Scraper theAnalyst (Opta 1X2) : API publique performfeeds + stockage (2026-09-23)
+
+CONTEXTE : ajouter une reference de probabilites Opta supercomputer (Home/Draw/Away)
+pour les matchs a venir, signalee par la source theanalyst.com.
+
+ETUDE DE FAISABILITE (faite avant de coder) :
+- theanalyst.com : HTML statique WordPress + CDN Varnish, pas de Cloudflare/CAPTCHA,
+  robots.txt autorise les crawlers generiques. Pages statiques scrappables typiquement.
+- Les predictions football (Opta) ne sont PAS dans le HTML : widget JS
+  dataviz.theanalyst.com -> API publique Stats Perform "performfeeds" embarquee dans
+  le bundle du widget (outletAuthKey publique, mapping ligues->tmcl, endpoints
+  match et matchlivewinprobability). => inutile de passer par Playwright : on
+  appelle la meme API JSONP que sert le site a ses visiteurs.
+
+POINTS DURS DECOUVERTS EN LIVE (importants pour la fiabilite) :
+1. Auth = Referer https://theanalyst.com/ + UA navigateur. Sans ces headers, 403/401.
+2. _clbk (callback JSONP) doit etre un IDENTIFIANT JS VALIDE (sans tiret) :
+   cbsoccer-matchx -> 401/10202 systematique ; cb_abc, _123, soccerdata_matchx
+   -> 200. (Le widget utilise someRandom_n; le "#" de lu() etait corrompu par des tirets.)
+3. _pgSz=500 -> 413/10219 ("request too large") ; <=380 OK (le widget utilise 380).
+4. 401/10219 transitoires en cas de bourrage => retries limites + circuit breaker
+   (8 echecs consecutifs -> suspendu 5 min) + rythme par defaut 1500ms + jitter 40%.
+5. Seuls les matchs periodId=16 (upcoming) exposent preMatchPredictions[0]{Home,Draw,Away}.
+
+IMPLEMENTE :
+- services/theAnalystClient.js : client (transport https natif HTTP/1.1 browser-like,
+  parseJsonp, retry/backoff, breaker, status, 18 ligues mappees, fetch league matches
+  puis predictions par matchId).
+- services/optaPredictions.js : sync (dry-run par defaut), upsert idempotent
+  ON CONFLICT(match_id), listPredictions, getStats.
+- core/db/schema.js + core/pg_migrations.js : table sqlite/pg opta_predictions.
+- scripts/fetch_analyst.js : one-shot (--write, --leagues, --window).
+- routes/opta.js : GET /api/opta/predictions, GET /api/opta/status, POST /api/opta/sync.
+- app.js : montage app.use('/api', optaRoutes).
+- services/cronManager.js : cron #15d gated THE_ANALYST_ENABLED (defaut OFF), toutes les 3h.
+- .env.example : THE_ANALYST_ENABLED/RATE_MS/HORIZON_DAYS/LEAGUE_MAX/PAGE_SIZE.
+- __tests__/theAnalyst.test.js : 13 tests (parseJsonp, extraction 1X2, fenetres,
+  filtrage periodId=16, retry 404/401, fetchAll, map des ligues).
+
+VALIDATION EN LIVE (reelle, pas mokee) :
+- dry-run 3 ligues + fetchAll 10 ligues -> 0 erreur, breaker enclenche pas.
+- --write 10 ligues : matchesSeen=27, withPredictions=20, written=20, err=0.
+- Echantillon stocke : MLS Seattle Sounders vs Real Salt Lake prob_home=53.67,
+  prob_draw=22.205, prob_away=24.125. Inter Miami (MLS): Home 34.478/Draw 23.223/Away 42.299.
+- routes : GET /api/opta/predictions -> 200 count=3 ; GET /api/opta/status -> 200 total=20.
+
+NON-REGRESSION : jest --forceExit -> 107 suites / 1009 passed, 0 failed
+(inclut les 13 nouveaux). ESLint sur les nouveaux fichiers : 0 erreur.
+node --check de chaque nouveau fichier : OK.
+
+Fichiers modifies : services/theAnalystClient.js, services/optaPredictions.js,
+core/db/schema.js, core/pg_migrations.js, scripts/fetch_analyst.js, routes/opta.js,
+app.js, services/cronManager.js, .env.example, __tests__/theAnalyst.test.js,
+CHANGELOG_AUDIT.md. Aucun secret committe (cle publique du widget).
+
+Limites connues :
+- Couverture = matchs a venir pour lesquels Opta a publie des predictions (les ligues
+  majeures + quelques autres sur la fenetre +/-4j). Pas toutes les ligues ni tous les matchs.
+- Donnee de probabilite, PAS des cotes boutiques : a ne PAS injecter dans odds_* /
+  pipeline EV (respect ODDS_REJECT_SYNTHETIC). Usage : reference Opta dans le dashboard.
+- L'API performfeeds est publique mais a des limites : rester poli (1500ms + jitter),
+  ne pas augmenter THE_ANALYST_RATE_MS a la baisse sans raison. En cas de 401/10219
+  transitoires, le breaker fait la gestion (etat visible /api/opta/status).
+
+RESTE A FAIRE :
+- Activer THE_ANALYST_ENABLED=on dans .env (cron #15d) si l'on veut la collecte auto.
+- Bouclage dashboard : colonne "Opta" (probas) pour les matchs a venir (join par
+  league+home+away+fenetre kickoff).
+
+## E69-bis Bouclage dashboard Opta + activation cron #15d (2026-09-23)
+
+Suite a E69 : brancher les probas Opta sur le dashboard existant et activer
+la collecte automatique.
+
+BACKEND (routes/matches.js /api/upcoming) :
+- Avant es.json, appelle optaStore.enrichMatchesOpta(database, pool) sur
+  les listes elite et fallback_pool.
+- enrichMatchesOpta (services/optaPredictions.js) construit un index memoire
+  via listPredictions(limit=500), cle = normTeam(home)|normTeam(away)|kickoff.
+  Jointure tolerant e+/-24h (normTeam + alias config/teamAliases).
+  Attache .opta = {home, draw, away, updatedAt} aux matchs trouves.
+
+FRONTEND (src/components/MatchCard.jsx) :
+- Desktop (info column, apres timeLabel) : si d.opta, affiche mini-ligne
+  "Opta 53.67% 22.2% 24.12%" (style inline, police 10px, pas de nouveau CSS).
+- Compact/mobile (mcc-teams, apres vs) : meme affichage inline.
+- Zero impact sur la grille responsive (pas de nouvelle colonne TABLE_COLUMNS).
+
+ACTIVATION :
+- .env : THE_ANALYST_ENABLED=on -> cron #15d (0 */3 * * *) actif.
+- Le premier run se fera au prochain cycle de cronManager ou via
+  POST /api/opta/sync?write=1.
+
+NON-REGRESSION : jest --forceExit -> 107 suites / 1011 passed, 0 failed.
+npm run build -> OK (5s). ESLint 0 erreur sur les fichiers modifies.
+CHANGELOG_AUDIT.md : E69 + E69-bis completes.
+
+Fichiers modifies : services/optaPredictions.js, routes/matches.js,
+src/components/MatchCard.jsx, .env, CHANGELOG_AUDIT.md.
+Aucun secret expose (API publique performfeeds, cle embarquee dans le widget).
+
+---
+
+## E70 Detection d'integrite a posteriori (match-fixing) — Phase 1 (2026-09-26)
+
+Rappel E70 suit E69/E69-bis (Opta). Objet : combler le manque le plus lourd du
+projet. Tout ce qui existait (services/integrity_service.js, routes/edge.js,
+oddsMovementService.js, confidence_engine.py assess_risk) ne detecte que des
+ANOMALIES DE MARCHE AVANT LE MATCH. Aucune detection a posteriori.
+
+### Ce qui a ete ajoute
+- services/integrityScorer.js : scoreMatch(match) -> { fixing_score 0-100, flags,
+  signals, coverage, assessable, low_confidence, verdict }. 8 signaux :
+  XG_DECEPTION (gagnant xG << buts, seuil z>=2.0), XG_BETRAYAL (le perdant avait
+  xG >= 1.5x le vainqueur ET perdu de 2+ buts — signature n°1), LONGSHOT_WINNER
+  (cote marche > 5.0), STEAM_VINDICATED (ouverture->cloture -25% sur le vainqueur),
+  ANOMALOUS_INCIDENT (but <=5', own goal, rouge <20', penalty decisif ; 2 max, 15
+  pts chacun), DEAD_ZONE_CONTEXT (+10), FAVORITE_COLLAPSE (+20, DISJOINT de
+  XG_BETRAYAL via ratio < 1.5 pour eviter le double comptage), COMPLAISANCE (+30).
+- 3 colonnes sur matches ET historical_matches : fixing_score, fixing_flags,
+  integrity_verdict (liste de migrations core/db/schema.js, appliquees a chaud).
+- services/autopsyService.js : scoreIntegrity(m) appele pour TOUS les matchs
+  termines (pas seulement les pronos rates) + persistance des 3 colonnes.
+- scripts/integrity_scan.js : backtest. DRY-RUN par defaut, --write pour
+  persister, --limit/--min/--target/--by=league. Affiche la couverture.
+- routes/integrity.js : GET /api/integrity/suspects?minScore&limit&league&strict
+  &target(matches|historical|both) et GET /api/integrity/match/:id (cherche dans
+  matches puis historical_matches). Enregistre dans app.js sur /api/integrity.
+- __tests__/integrityScorer.test.js : 23 tests.
+
+### 3 problemes de fond trouves et corriges en route
+1. RAISONNEMENT CIRCULAIRE : sur les cotes de fullData, 128 sont fair_odds_model
+   et 23 synthetic — c'est NOTRE propre modele. Juger « le marche voyait cette
+   equipe perdante » avec nos propres cotes n'a aucun sens (interdit par E59 /
+   ODDS_REJECT_SYNTHETIC). Ajout de ODDS_SOURCES_REJECT : ces sources ne declenchent
+   plus aucun signal de marche. Sans ce filtre, LONGSHOT_WINNER sortait faux sur
+   des matchs ou l'outsider avait ete designe PAR NOTRE MODELE.
+2. xG CORROMPUS en base : valeurs de 1 609 873.45, 141 905 054.19, 19.25 ->
+   ratios de 5 366 244x dans les messages. Ajout de _isPlausibleXg (0..12) : une
+   valeur aberrante est neutralisee (vaut mieux ne rien mesurer que mesurer nimporte quoi).
+3. VERDICT TROMPEUR : 2 970/3 000 matchs etaient classes NORMAL alors qu on n avait
+   AUCUNE donnee pour les juger (xG absent, aucun incident stocke). Ajout du verdict
+   DONNEE_INSUFFISANTE + assessable + coverage : on distingue « aucune anomalie » de
+   « non evaluable ». C etait le bug le plus grave du design initial.
+
+### Calibration sur donnees reelles (les seuils du plan ne tenaient pas)
+- Le seuil z <= -2.5 du plan initial ne se declenchait JAMAIS : sur 109 matchs avec
+  xG, z min du gagnant = -1.12, z max = 3.07. Recalibre a z >= 2.0.
+- Faux positifs massifs sur coupes : 34 des 36 « SUSPECT » initiaux etaient des
+  coupes a 4-9 buts (effectif rotatif, pas du match-fixing). Ajout de _isRotationProne
+  (cup/copa/pokal/qualification/...) + chaoticScore (ecart >= 5) -> low_confidence
+  + CONFIANCE_FAIBLE, et PLAFOND du verdict a A_SURVEILLER : un score explique ne
+  doit jamais remonter a SUSPECT. 36 SUSPECT -> 12.
+
+### Etat reel mesure sur 12 563 matchs (et NON ce que la feature laisse croire)
+- DONNEE_INSUFFISANTE : 9 332 (74%). Le verdict « normal » ne veut rien dire sur ces matchs.
+- Couverture : XG 22.6% | MARCHE 5.9% | INCIDENTS 0.0% | SIGNATURE 0.0%
+- Repartition : NORMAL 2 936 | A_SURVEILLER 283 | SUSPECT 12 | HAUTEMENT_SUSPECT 0
+- 418 matchs scorables, 295 >= 25, 36 >= 50.
+Les signaux 4/5/7 (incidents, zone morte, complaisance) NE PEUVENT PAS se declencher
+aujourd'hui : 0 incident et 0 motivation_signature stockes en base. Le detecteur est un
+outil de TRI EXPLORATOIRE, pas un detecteur de match-fixing.
+
+### Deux decouvertes de pipeline (a traiter, hors perimetre E70)
+- La table `matches` ne contient AUCUN match termine : 1 300 'scheduled' +
+  163 'canceled', 0 'FT'. Donc le hook autopsyService.scoreIntegrity NE SE
+  DECLENCHERA PAS (impasse preexistante qui affecte l autopsy service elle-meme).
+  Les matchs termines sont dans historical_matches -> le chemin operationnel est
+  scripts/integrity_scan.js --write. A NE PAS croire le hook automatique actif.
+- 16 groupes de doublons dans historical_matches (ex : Arterivo Wakayama 0-6 Azul
+  Claro Numazu present 5 fois) : gonfle les comptes, a traiter separement.
+
+### Preuves de non-regression
+- jest --forceExit : 108 suites / 1 034 tests PASSES (baseline E69-bis : 107 / 1 011
+  -> +1 suite, +23 tests, 0 echec).
+- npx eslint services/integrityScorer.js routes/integrity.js scripts/integrity_scan.js
+  __tests__/integrityScorer.test.js : 0 probleme.
+- Smoke test express reel : /api/integrity/suspects?minScore=50 -> 5 resultats
+  (2 Serie A non lowConfidence, 3 coupes CONFIANCE_FAIBLE), ?strict=1 filtre
+  100 -> 59, /match/:id -> 200, id inconnu -> 404.
+- fixing_score reste OBSERVATIONNEL : jamais injecte dans la confiance d un prono
+  (pas de boucle auto-realisatrice).
+
+Fichiers modifies : services/integrityScorer.js (nouveau), routes/integrity.js
+(nouveau), scripts/integrity_scan.js (nouveau), __tests__/integrityScorer.test.js
+(nouveau), services/autopsyService.js, core/db/schema.js, app.js,
+CHANGELOG_AUDIT.md. Aucun secret ajoute.
+
+RESTE A FAIRE (prerequis pour un vrai detecteur) :
+- P1 alimenter les incidents dans fullData (seul moyen de detecter but precoce /
+  own goal / rouge early) : aujourd'hui 0% de couverture.
+- P1 alimenter motivation_signature a l'archivage (ZONE_MORTE / COMPLAISANCE).
+- P2 remonter la couverture cotes marche (actuellement 5.9%) vers celle du xG.
+- P2 connaitre les effectifs reels (remplacements) pour distinguer rotation et
+  manipulation — sans ca, les coupes resteront bruyantes.
+- P3 registre de recidiviste par equipe / arbitre (Phase 2 du plan initial).
+- UI : onglet Integrite dans EdgePanel (non fait, decision phase 2).
+
+---
+
+## E71 Pattern detection + veto "match suspect" + 2 correctifs de donnees (2026-09-26)
+
+### Pourquoi
+E70 a mis en evidence des seuils de xG inoperants, un pipeline d'incidents et de
+motivation signature completement silencieux, et 5 detecteurs d'integrite qui
+n'etaient jamais cables a un veto. Le user a demande : "detecte les matchs suspects
+et developpe pour ne pas tomber dedans". La reponse : un veto NO BET qui bloque
+les patterns documentes, et la reparation des 2 bugs de donnees qui les rendaient
+aveugles.
+
+### P1a — motivation_signature et dead zone (correctif donnees)
+
+Bug : motivation_signature = "Logique Standard" sur 1463/1463 lignes.
+Cause : home_target_weight et away_target_weight n'etaient JAMAIS alimentes dans
+le pipeline live. Enriched_predictions.js:24 importait MotivationEnrichService mais
+n'appelait JAMAIS enrichWithMotivation(). Les poids etaient tous 0 -> DMF = 1.0.
+Consequence : h_is_dz = (0 < 0.1) = VRAI pour tout match sans donnée.
+
+Bugs corriges dans enriched_predictions.js :
+- Cache memoire 24h ajoute a _searchSofaTeamByName (207) : sans lui, relacher le
+  garde aurait coute ~600 requetes non cachees par cycle, contre la politique
+  anti-ban du projet.
+- Les IDs resolus (tournamentId, seasonId, homeId, awayId) sont desormais persists
+  sur le match (_uniqueTournament, _seasonId, _homeTeamId, _awayTeamId).
+- Le garde d'entree _fetchSofaTeamData est relache : `!match.teamStats && !match
+  _sofaTeamDataFetched` remplace l'ancienne condition sur home_team_id (absent sur
+  99,9% des matchs).
+- motivationService.enrichWithMotivation(match) appele APRES _fetchSofaTeamData
+  qui resout les IDs, avant l'appel Python. Erreur non fatale.
+
+Bug xg_engine.py : la separation h_dz_legacy vs h_is_dz.
+- h_dz_legacy = formule d'origine (target_w < 0.1 AND hist > 5), envoyee a
+  calculate_dmf_hafiz -> PRESERVE le modele exactement tel qu'avant (DMF 0.85
+  ou 1.0, zero decalage).
+- h_is_dz = semantique, utilisee par le veto et les signatures : VRAI seulement
+  si home_target_weight est present ET indique 0 enjeu. Donnee manquante != zero.
+- Mesure : sur le fixture PSG-Lyon du test d'integration, passer h_is_dz de True
+  a False ne decale PAS le DMF (1.0 identique) mais le veto ne declenche plus
+  fauxement sur les matchs sans donnees.
+
+### P1b — incidents FotMob (correctif donnees)
+
+Bug : 0 incident en base (couverture INCIDENTS = 0.0%). FlashscoreService
+getMatchIncidents existait mais n'avait aucun appelant.
+
+Correction :
+- scripts/fotmobClient.py : ajout de _normalize_event() (normalise les evenements
+  FotMob au schema attendu par integrityScorer : time, type, incidentClass, isHome,
+  text) et get_match_events().
+- services/fotmobService.js : ajout de getMatchEvents().
+- Le coupable reel de la non-collecte : get_match_details et get_match_events
+  interrogaient la meme URL FotMob. Inutile de la requeter deux fois : ajout de
+  _extract_incidents(data) qui lit la timeline du payload deja telecharge, et
+  injection dans le retour de get_match_details -> 0 requete supplementaire.
+- services/fotmobStatsExtractor.js : le drain historique merge desormais les
+  incidents dans fullData via mergeIncidentsIntoFullData (archiveMerge.js). Sans
+  modifier la politique d'ecriture (COALESCE-safe, n'ecrase pas l'existant).
+- Epreuve live : 6/6 matchs archives avec fotmob_id ont une timeline exploitable.
+  Le signal EARLY_GOAL declenche pour Vis Pesaro (5') et Guabira (4'). 0 requete
+  supplementaire par rapport au flux stats xG existant.
+
+### P2 — veto "match suspect" NO BET (core/suspicious_match_guard.py)
+
+4 signaux, 2 nivaux de severite :
+
+- CRITIQUES (un seul suffit) :
+  1. DEAD_ZONE_BOTH : h_is_dz AND a_is_dz. Les deux equipes n'ont plus rien a
+     jouer. Contexte classique des manipulations.
+  2. H2H_DRAW_PACT : >= 6 confrontations et >= 60% de nuls ("pacte de non-
+     agression"). Seuils calibres pour eviter les faux positifs.
+
+- NON CRITIQUES (2 requis pour bloquer) :
+  3. MOTIVATION_ASYMMETRY : une equipe morte contre une tres motivee (DMF >= 1.15).
+  4. RECIDIVIST_TEAM : equipe deja reperee dans integrity_registry (P3).
+
+Integration : bloc dedie dans core/prediction_engine.py (ligne ~1005), meme
+gabarit que overconfidence_veto et divergence_veto. Ne modifie PAS la signature
+d'apply_veto_shield (risque de regression test). Sortie : NO BET (MATCH SUSPECT)
+avec signaux dans analysis["Shield"] et "SuspiciousSignals".
+
+Correction liee : le dynamic threshold (ligne ~1081) ne declenche plus le return
+opaque quand suspicious_veto est actif. Sans cette correction, confidence=0 (mise
+a zero par le bloc no_bet preexistant) provoquait un "Prediction stopped: Confidence
+too low (0.0%)" qui DETRUISAIT tout le payload — verdict, signaux, raison, tout
+etait perdu. Un veto d'integrite est une decision informee, pas une panne.
+
+### P3 — registre d'equipes a risque (integrity_registry)
+
+- Table integrity_registry(team, flagged_count, avg_score, max_score, last_flagged,
+  league). Creee en schema.js + CREATE TABLE dans initSchema.
+- scripts/build_integrity_registry.js : agregation depuis historical_matches avec
+  fixing_score >= seuil. Equipes avec >= 2 matchs flagues -> registre. Dry-run par
+  defaut, --write pour persister.
+- Le registre est alimente sur demande (scripts/integrity_scan.js --write d'abord,
+  puis build_integrity_registry.js --write). Cron independant, pas de surcharge.
+- Alimentation dans enriched_predictions.js avant getAnalyticalPrediction : 2
+  requetes rapides par match (home + away, index PRIMARY KEY). Le garde Python lit
+  match_obj["integrity_registry"] directement.
+
+### Etat reel apres E71
+
+Pipeline de veto actif : 4 motifs documents. Premier usage observre :
+- Arterivo Wakayama (4x) et Azul Claro Numazu (4x) dans le registre (coupe
+  japonaise, doublons E70). Le veto les ecarte des pronos.
+- Incidents : 6/6 matchs testes ont une timeline exploitable, EARLY_GOAL detecte.
+  Le garde reste silencieux sur ces matchs (but <=5' est un signal, pas un veto
+  seul, sauf si combine a un autre).
+- Dead zone : h_is_dz est False sur les matchs sans donnees (Man City vs Arsenal
+  sort du veto). DMF identique au modele d'origine (0 de calibration silencieux).
+- Couverture incident : 0% -> 100% sur les matchs drainees (fotmob_id present,
+  drain futur). Le backfill complet est un travail de cron (2.2s/match).
+
+### Preuves de non-regression
+
+- Python : 465 passed, 1 failed (pre-existant test_ou_25_follows_model), 39 skipped,
+  2 xfailed. Aucune regression sur test_prediction_pipeline.py, test_xg_engine.py,
+  test_suspicious_match_guard.py, test_fotmob_events.py.
+- Node : 109 suites / 1 047 tests passes (1034 -> +1 suite motivationEnrich, +13
+  tests). Aucune regression sur integrityScorer.test.js, archiveMerge.test.js,
+  fotmobStatsExtractor.test.js.
+- Smoke test : veto logue sur stderr ("SUSPICIOUS-GUARD Man City vs Arsenal:
+  DEAD_ZONE_BOTH -> NO BET") en mode dev, mais le match continue normalement en
+  mode prod (pas de dead zone dans les vrais matchs avec standings).
+
+### Fichiers modifies/nouveaux
+
+Nouveaux : core/suspicious_match_guard.py, __tests__/motivationEnrich.test.js,
+  tests/test_fotmob_events.py, tests/test_suspicious_match_guard.py,
+  scripts/build_integrity_registry.js.
+Modifies : enriched_predictions.js (cache IDs + motivation + registry + incidents),
+  fotmobService.js (getMatchEvents), fotmobStatsExtractor.js (incidents merge),
+  fotmobClient.py (_normalize_event + _extract_incidents + get_match_events),
+  archiveMerge.js (mergeIncidentsIntoFullData), xg_engine.py (h_dz_legacy),
+  prediction_engine.py (import + guard + dynamic threshold + no_bet verdict),
+  schema.js (integrity_registry table + columns), CHANGELOG_AUDIT.md.
+
+### Reste a faire
+
+- Faire tourner integrity_scan.js --write + build_integrity_registry.js regulierement
+  pour alimenter le registre et les scores (cron ou script manuel apres archivage).
+- P2 : alimenter _fetchSofaTeamData avec les IDs du scraper (c'est la seule voie
+  pour que MotivationEnrichService fonctionne sur le pipeline live, or les IDs ne
+  sont pas persists dans matches).
+- P3 : UI dans EdgePanel pour la gestion du veto (expose les signaux au dashboard).
+
+---
+
+## E71-bis — Automation de la detection pour les matchs a venir (2026-09-26)
+
+### Pourquoi
+E71 a livre le veto `suspicious_match_guard.py`, mais la chaine qui l'alimente
+etait 100% manuelle (`integrity_scan.js --write` puis
+`build_integrity_registry.js --write`, lancés a la main). Le veto tournait donc
+en permanence sur un registre fige a 2 equipes. En plus, la chaine E70/E71
+n'existait QUE en SQLite : en prod PostgreSQL, `pg_migrations.js` ne creait ni
+les colonnes `fixing_*` ni la table `integrity_registry` -> le veto aurait ete
+inerte en production, et le cron aurait plante.
+
+Cette etape cable tout ca, puis a debusque un bug qui rendait
+`RECIDIVIST_TEAM` structurellement muet.
+
+### Etape 1 — FOTMOB_STATS_ENABLED (deja actif en local)
+`.env:16` porte deja `FOTMOB_STATS_ENABLED=on` (active le 2026-09-16).
+`.env.example` est desormais documente : sans cette variable, le cron #15b route
+vers `sofascoreStatsExtractor` qui ecrit 0 ligne (403 Sofascore), donc
+`fixing_score` reste vide et 74% des matchs restent `DONNEE_INSUFFISANTE`.
+Action restante cote prod : poser `FOTMOB_STATS_ENABLED=on` sur Render
+(prono-k6gc + prono-scraper) puis redeploy — la valeur est lue UNE seule fois au
+boot (`cronManager.js:661`, hors du callback `cron.schedule`).
+
+### Etape 2 — Cron d'alimentation du registre
+- `scripts/integrity_scan.js` : `new Database(REPO + '/data/tactical.db')`
+  remplace par `require('core/database').db`. Raison : chemin en dur = invisible
+  en prod PG, et `core/database` expose un handle `.prepare().all/run` +
+  `.transaction()` compatible sur les deux backends (`pg_database.js:1541`
+  fournit un worker synchrone et un wrapper `transaction` no-op). Sans ce fix le
+  cron aurait tourne dans le vide sur la base de production.
+- `services/cronManager.js` : nouveau job 15bb, `15 5 * * *` Africa/Tunis
+  (~04:15 UTC), qui enchaine
+  `integrity_scan.js --write --target=historical --limit=400` puis
+  `build_integrity_registry.js --write` via `runNodeScriptAsync` (timeout 300s /
+  60s), avec log des 2 dernieres lignes de chaque script.
+- Choix du creneau : APRES le drain FotMob #15b du matin (04:30 Tunis) qui ecrit
+  xG + timeline d'incidents, et APRES l'archivage principal #19 (02:30 UTC) qui
+  deplace `matches` -> `historical_matches` ; AVANT les predictions #32
+  (06:00 Tunis). Le soir a ete ecarte : les matchs du jour ne sont archives
+  qu'a 02:30 UTC le lendemain, un passage en soiree n'aurait pas vu les
+  resultats recents.
+- `--limit=400` : on ne rescore que les 400 plus recents ; l'historique ancien
+  conserve ses scores E70 (les xG/incidents sont immuables une fois ecrits).
+
+### Etape 3 — Persistance des team IDs SofaScore
+`insertMatch` (`core/db/matches.js`) ne persistait pas `home_team_id` /
+`away_team_id` alors que les sources les fournissent (livescore
+`config/sources/livescore.js:69`, openligadb `openligadbService.js:136`) —
+constate a 5/1465 lignes. Consequence E71 : a chaque cycle d'enrichissement on
+repartait d'une recherche par nom, et `MotivationEnrichService` faisait un
+early-return (pas de tId/sId) -> DMF a 1.0 et veto `DEAD_ZONE_BOTH` inoperant
+sur les matchs a venir.
+
+Ajout dans `enriched_predictions.js`, fin de `_fetchSofaTeamData` : un
+`UPDATE matches SET home_team_id=?, away_team_id=?` avec garde
+`AND (home_team_id IS NULL OR home_team_id='')` sur les deux colonnes. Le
+garde d'entree existant relit ensuite les colonnes au cycle suivant, ce qui
+supprime l'appel reseau. Volontairement best-effort (try/catch) : la
+persistance ne doit jamais faire echouer l'enrichissement.
+
+Conflit semantique tranche : `sofascoreStatsExtractor.js:167` lisait
+`home_team_id` comme un ID d'EVENEMENT Sofascore. Ce extractor est dead code
+des que `FOTMOB_STATS_ENABLED=on` route vers FotMob, et la colonne porte
+semantiquement un ID d'equipe — c'est l'extracteur qui en abusait.
+
+### Etape 4 — Equivalence PostgreSQL
+- `core/pg_migrations.js` : colonnes `fixing_score` / `fixing_flags` /
+  `integrity_verdict` ajoutees aux CREATE TABLE de `matches` et
+  `historical_matches` (bases neuves).
+- Table `integrity_registry` (+ index sur `flagged_count`) ajoutee apres
+  `team_registry` dans le schema, ET creee par un bloc `CREATE TABLE IF NOT
+  EXISTS` idempotent pour les bases PG deja en place. Le bloc `addCol`
+  existant ne declenche que si `bsd_match_id` manque : le nouveau bloc suit la
+  lecon du cutover Supabase du 2026-09-10 (colonnes vecues hors condition).
+- Colonnes ajoutees dans le bloc `ensureCol` de `matches` (sans condition) et
+  dans le bloc `historical_matches` via `addHistCol`.
+
+### BUG TROUVE ET CORRIGE — RECIDIVIST_TEAM etait muet
+En testant le contrat JS -> Python de bout en bout, `RECIDIVIST_TEAM` ne se
+declenchait sur aucune donnee reelle.
+
+Cause : `enriched_predictions.js` injectait la LIGNE BRUTE du registre
+(`SELECT * FROM integrity_registry` -> colonnes `team`, `flagged_count`,
+`avg_score`, `max_score`, `last_flagged`, `league`), alors que
+`_recidivists()` lisait `info.get("recidivist")` — un champ qui n'existe pas
+dans la table. Le signal ne pouvait donc jamais se lever, et un registre
+correctement peuple n'aurait rien change au comportement.
+
+Correction des deux cotes :
+- JS : `withFlag(row)` ajoute `recidivist: true` a la ligne injectee, sans
+  perdre les compteurs bruts.
+- Python (`_recidivists`) : si le champ `recidivist` est absent, la recidive
+  est deduite de `flagged_count >= 2` — le seuil deja applique par
+  `build_integrity_registry.js`. Les deux formes sont acceptees.
+
+Preuve (5 cas) : forme brute => signal detecte ; forme brute + asymetrie de
+motivation => veto ; forme canonique => veto ; `flagged_count=1` => pas de
+faux veto ; pas de registre => jamais de faux positif. Ces 5 cas sont
+desormais des tests de non-regression dans
+`tests/test_suspicious_match_guard.py` (classe `TestRegistreIntegrite`), qui
+passe de 27 a 32 tests.
+
+### Verification
+- Cron simule de bout en bout : `integrity_scan --write --target=historical
+  --limit=400` (400 lignes ecrites) puis `build_integrity_registry --write`
+  (36 matchs >= 50 -> 2 recidivistes). Chaine operationnelle.
+- SQL de persistance des team IDs verifie sur un vrai match `scheduled` :
+  1er write = 1 changement, re-run = 0 (idempotent), tentative avec d'autres
+  IDs = 0 (pas d'ecrasement), etat restaure apres test.
+- Jest : 109 suites / 1047 tests, 0 echec.
+- Pytest : 470 passed, 39 skipped, 2 xfailed, 1 xpassed — voir ci-dessous.
+- eslint : 0 erreur ; les 23 warnings restants sont pre-existants (aucun sur
+  les lignes modifiees).
+
+### Note sur `test_ou_25_follows_model` (pre-existant, hors perimetre)
+Ce test echoue deja sur la baseline (ImportError `ou_prob` / mismatch
+`test_ou_25_follows_model`) et il est POLLUANT : quand il echoue, il laisse un
+etat qui fait echouer le test suivant dans l'ordre d'execution. Selon l'ordre,
+le fichier affiche dans le resume change (`test_pipeline_t2_match`, puis
+`test_predict_with_sofascore_id_triggers_enrichment`). Preuve que ce n'est pas
+une regression E71-bis : `test_pipeline_t2_match` passe isolement, passe avec
+tout son fichier (15/15), et passe apres `test_suspicious_match_guard.py`
+(47/47). Deselectionner ce seul test donne **470 passed, 0 echec**.
+Diagnostic laisse a une session dediee (le test pollue, il ne fait pas que
+verifier un comportement metier).
+
+### Fichiers modifies
+- `core/pg_migrations.js` : colonnes E70/E71 (matches + historical_matches),
+  table `integrity_registry` (schema + bloc idempotent), `ensureCol` et
+  `addHistCol` etendus.
+- `services/cronManager.js` : cron 15bb.
+- `services/enriched_predictions.js` : UPDATE de persistance des team IDs
+  (fin `_fetchSofaTeamData`) ; injection registre normalisee
+  (`withFlag`).
+- `core/suspicious_match_guard.py` : `_recidivists` accepte la forme brute
+  (`flagged_count`).
+- `scripts/integrity_scan.js` : passage par `core/database`.
+- `tests/test_suspicious_match_guard.py` : classe `TestRegistreIntegrite`
+  (5 tests de non-regression).
+- `.env.example` : documentation FOTMOB_STATS_ENABLED pour E71.
+
+### Reste a faire
+- Poser `FOTMOB_STATS_ENABLED=on` sur Render + redeploy (action dashboard).
+- Backfill historique des stats FotMob (le cron a `limit: 200`, trop court pour
+  rattraper le passe) : `node scripts/backfill_fotmob_stats.js --write
+  --target=historical`.
+- Surveiller le matching par NOM d'equipe du registre : les alias
+  livescore<->sofascore (`config/teamAliases.js`) ne sont pas appliques dans le
+  match a `enriched_predictions.js`, donc faux negatifs possibles si un nom
+  diverge.
+- Session dediee pour `test_ou_25_follows_model` (test polluant, hors E71).
+
+---
+
+## E71-ter — Backfill local : la chaine d'integrite enfin nourrie (2026-09-26)
+
+### Contexte
+L'utilisateur travaille en LOCAL (SQLite `data/tactical.db`, pas de
+DATABASE_URL, pas de deploy). Ce qui change par rapport a E71-bis :
+- le cron 15bb ne se declenche jamais chez lui (il faut que le serveur tourne a
+  05:15 Tunis) -> d'ou un script npm equivalent ;
+- `pg_migrations.js` ne s'execute pas -> l'etape 4 de E71-bis est inerte en local
+  (elle ne sert qu'a la prod, elle reste en place) ;
+- le vrai goulot n'est donc pas l'automatisation, c'est la DONNEE. 74% des
+  matchs en DONNEE_INSUFFISANTE = le veto tournait a vide.
+
+### Scripts npm (package.json)
+- `npm run integrity`         -> scan (--write, historical, limit=400) puis
+                                  registre, equivalent manuel du cron 15bb.
+- `npm run integrity:scan`    -> scan seul.
+- `npm run integrity:registry`-> registre seul.
+- `npm run backfill:stats`    -> backfill xG/stats sur l'historique.
+- `npm run backfill:incidents`-> backfill qui REPARE aussi les lignes ayant le
+                                  xG mais aucune timeline (voir bug ci-dessous).
+
+### Bug 1 (majeur) — le backfill jetait la timeline sous notre main
+`scripts/backfill_fotmob_stats.js` n'appelait que `getMatchStats` et n'exploitait
+pas `s.incidents`. Or `getMatchStats` est un ALIAS de `getMatchDetails`
+(`fotmobService.js:85-87`), qui renvoie DEJA la timeline
+(`fotmobClient.py:331`, issue de `_extract_incidents` sur le meme payload).
+Autrement dit : les evenements etaient deja payes par la requete, et le script
+les jetait. Consequence mesuree : sur les 12563 matchs archives, la cle
+`incidents` existait sur 11 lignes et ZERO avait une timeline non vide -> le
+signal ANOMALOUS_INCIDENT d'integrityScorer.js restait inoperant sur
+l'historique. Le chemin du cron (`fotmobStatsExtractor.js:208`) gerait deja
+correctement le cas ; le bug etait propre au script de backfill.
+
+### Bug 2 (dans la correction du bug 1) — signature mal comprise
+`mergeIncidentsIntoFullData(fd, incidents)` (archiveMerge.js:76) renvoie le
+fullData ENTIER, pas la liste d'incidents. Premier jet :
+`merged.incidents = mergeIncidentsIntoFullData(...)` -> on stockait un objet, et
+`json_array_length(...) = 0` sur TOUTES les lignes (ratio 0.0%, symptome
+trompeur : la cle existait donc un simple "la cle est presente" concluait a tort
+que le merge marchait). Correction : `Object.assign(merged,
+mergeIncidentsIntoFullData(merged, s.incidents))`. Verifie sur un match reel
+(DIM-Jaguares) : 9 incidents en base apres correction.
+
+### Bug 3 (SQL) — filtre du backfill
+Le WHERE ne selectionnait que `home_xg IS NULL`, donc les lignes "xG ok mais
+timeline vide" etaient sautees DEFINITIVEMENT : impossible de reparer ce que le
+bug 2 avait casse. Ajout du flag `--with-incidents` qui elargit le filtre a
+`xG IS NULL OR COALESCE(json_array_length(...), 0) = 0`.
+(Une virgule s'etait glissee dans le COALESCE -> SqliteError `near ")"`,
+corrige en `COALESCE(json_array_length(json_extract(...)), 0)`.)
+
+### Resultat mesure (local)
+- Backfill 400 (--with-incidents) : 102/400 joints, 45s.
+- Backfill 600 (--with-incidents) : 151/600 joints ecrits.
+- Backfill 1000 -> 203/1000 ; 2000 -> 375/2000 ; 3000 -> 552/3000 ;
+  5000 -> 924/5000 ; 6000 -> 1001/6000. Le rendement decroit (25% -> 17%)
+  exactement comme prevu : on epuise les matchs presents sur FotMob et on
+  arrive progressively a ceux qui n'existent pas cote source.
+- Couverture historique au fil des lots :
+  xG 2988 -> 3062 -> 3270 -> 3493 (sur 12563 matchs termines) ;
+  incidents NON VIDES 0 -> 150 -> 515 -> 1322.
+- Sur les 400 matchs recents rescannes : DONNEE_INSUFFISANTE 74% -> 247/400
+  (soit ~38% au lieu de 74%), 151 NORMAL, 2 A_SURVEILLER, 0 SUSPECT.
+- Registre : inchange a 2 recidivistes (Arterivo Wakayama, Azul Claro Numazu).
+  C'est coherent : le registre se construit sur ce qui a deja ete scorre, et les
+  matchs recents scannes sont NORMAL -> ils n'entrent pas au registre.
+
+### Ce que le plafond de jointure implique
+Le taux de jointure reste ~17-25%. Cause : le lien livescore -> fotmob
+se fait par (date normalisee + noms normalises) via `core/fdJoin`. Les matchs
+sans xG cote source (ligues obscures hors calendrier FotMob, ou decalage de
+date) ne sont donc pas reparables par ce backfill. Ameliorer le taux demanderait
+de travailler la normalisation des noms / la fenetre de dates — chantier
+distinct, non engage ici. Le gain immediat est deja obtenu : la famille XG et
+la famille INCIDENTS ont enfin des donnees sur une fraction reelle de
+l'historique.
+
+### Bug 4 (SQL) — le resume de fin de script sortait `undefined`
+En ajoutant la progression (voir plus bas) j'ai introduit `let done = 0` alors
+qu'un `const done = {}` sert deja d'accumulateur de resume dans la meme
+fonction. Le `done.historical = {...}` de fin write donc sur un Number : en mode
+non strict l'ecriture est silencieusement ignoree et le log affiche
+`historical DRY-RUN undefined`. Les DONNEES n'etaient pas affectees (le resume
+ne sert qu'a l'affichage), mais on ne pouvait plus lire le bilan d'une passe.
+Compteur renomme `processed`. Le dry-run le confirme :
+`{"scanned":50,"matched":7,"written":0,"skipped":43}`.
+
+### Bug 5 (observabilite) — backfill sans retour pendant des heures
+Le script ne loguait rien avant la cloture. Impossible de distinguer « avance »
+de « bloque sur le rate-limit FotMob », et il a fallu deviner en lisant la
+taille de la base. Ajout d'une ligne de progression toutes les 50 lignes
+(`FOTMOB_BF_PROGRESS_EVERY` pour regler), avec debit en matchs/min :
+`[FOTMOB-BF] 50/50 (100.0%) matched=7 written=0 skipped=43 237 lig/min`.
+
+### Couverture atteinte (local, base en croissance pendant le backfill)
+L'archivage local continuait pendant les passes (12 563 -> 13 703 matchs), donc
+les pourcentages bougent.Etat mesure a 13 703 matchs termines :
+- xG : 3 714 (27,1 %)
+- timeline non vide : 1 852 (13,5 %)
+- les deux : 974 (7,1 %)
+- encore dans le WHERE du backfill : 9 111 (66,5 %) — majoritairement absents du
+  calendrier FotMob, donc non reparables par ce script.
+- **1 852 lignes deja scorees ont maintenant une timeline exploitable** (0
+  avant) : le signal ANOMALOUS_INCIDENT d'integrityScorer.js n'est plus a vide.
+- Sur les 400 matchs recents rescannes : DONNEE_INSUFFISANTE 74% -> 247/400
+  (~38%), 151 NORMAL, 2 A_SURVEILLER, 0 SUSPECT.
+- Registre : inchange a 2 recidivistes (Arterivo Wakayama, Azul Claro Numazu).
+  C'est coherent : le registre se construit sur ce qui a deja ete scorre, et les
+  matchs recents scannes sont NORMAL -> ils n'entrent pas au registre.
+
+### Verification
+- Jest archiveMerge : 12/12 (5 tests E71-ter ajoutes pour verrouiller le contrat
+  de `mergeIncidentsIntoFullData` : retour = fullData entier, `incidents` reste
+  un TABLEAU apres `Object.assign`, pas d'ecrasement, non-mutation).
+- Jest archiveMerge + fotmobStatsExtractor : 10/10 avant ajout.
+- Suite Python complete : 470 passed / 39 skipped (en deselectionnant le test
+  preexistant `test_ou_25_follows_model`, cf. E71 : il pollue le test suivant).
+- ESLint sur les 2 fichiers JS modifies : 0 erreur.
+- Lots 400/600/1000/2000/3000/5000/6000 (x3) : aucun crash.
+- Round-trip JS->CLI Python verifie sur 2 matchs : xG et incidents arrivent
+  intacts cote backfill (14 et 9 evenements).
+- Note : deux passes lancees EN PARALLELE sur la meme base SQLite n'ont produit
+  aucun log (verrou). Le backfill doit rester une seule instance a la fois.
+
+### Fichiers modifies
+- `scripts/backfill_fotmob_stats.js` : import mergeIncidents, merge correct
+  (Object.assign), flag `--with-incidents` + WHERE elargi.
+- `package.json` : scripts `integrity`, `integrity:scan`, `integrity:registry`,
+  `backfill:stats`, `backfill:incidents`.
+
+### Reste a faire
+- Poursuivre les passes `--with-incidents --limit=6000` jusqu'a epuisement (le
+  script est idempotent : une ligne repairée sort du WHERE, donc chaque passe
+  ne retravaille que ce qui reste et le total converge).
+- `npm run integrity` a relancer apres la fin des passes pour rescorer avec la
+  couverture XG + INCIDENTS complete.
+- Later : ameliorer la normalisation des noms pour la jointure, si on veut
+  couvrir les ligues obscures.
+- Later : ameliorer la normalisation des noms pour la jointure (fausse piste de
+  join), si on veut couvrir les ligues obscures.
+
+---
+
+## 2026-09-30 — Crawl4AI integre comme palier de scraping Sofascore (V1, Scope A)
+
+### Contexte
+Sofascore a 2 surfaces distinctes :
+1. `api.sofascore.com/api/v1` (JSON) : deja couverte par `scripts/sofascore_bypass.py`
+   (curl_cffi) et `SofascoreScraping/src/apiClient.js` (Axios+Bottleneck+Puppeteer).
+   **Non touchee** : Crawl4AI n'apporte rien sur du JSON pur.
+2. `www.sofascore.com/*` (odds, standings, shotmap) : JS-lourd + WAF 403/429.
+   C'est la cible. Paliers actuels : Firecrawl (payant, 500-1000 credits/mois) et
+   Jina Reader (20 req/min), plus Puppeteer en dernier recours local.
+
+### Etat avant
+- `requirements-crawl4ai.txt` (crawl4ai 0.9.4 + playwright + aiohttp) existe mais
+  n'est reference par AUCUN Dockerfile.
+- `scripts/crawl4ai_service.py` (702 l.) deja complet : aiohttp :11235,
+  `GET /health`, `POST /md`, `POST /crawl`, `POST /llm-extract`, BrowserConfig
+  headless+stealth, semaphore 2, throttle 1500 ms + jitter 40 %, idle watchdog 900 s.
+- 2 fichiers annonces mais **manquants** : `core/utils/crawl4aiResolver.js` et
+  `services/scrapers/Crawl4aiScraper.js`.
+- Router `services/scrapers/index.js` : chaine `bypass > firecrawl > jina > python`.
+
+### realisation
+Phase 1 — socle local
+- `core/utils/crawl4aiResolver.js` (nouveau) : `pickPython()` (resout
+  `.venv-crawl4ai/Scripts/python.exe` -> `bin/python` -> `/opt/venv/bin/python3`
+  -> `python3`), `getCrawl4aiUrl()` (lit `CRAWL4AI_URL`, default `http://127.0.0.1:11235`),
+  `isCrawl4aiEnabled()`, `isAvailable()` (sonde `GET /health`, timeout 2000 ms,
+  cache 30 s), `getHealth()`, `clearHealthCache()`, `_resetForTests()`.
+  Transport `http`/`https` natif, aucune dependance ajoutee.
+- `scripts/crawl4ai_health.js` (nouveau) : sonde CLI, `node scripts/crawl4ai_health.js`,
+  `--json`, exit 0/1.
+
+Phase 2 — client Node `services/scrapers/Crawl4aiScraper.js` (nouveau)
+- `getOdds(home, away, league, country, date)` : resout l'eventId via
+  `SofascoreBypass.resolveEvent`, puis tente dans l'ordre
+  (1) `POST /crawl` + JsonCssExtractionStrategy (gratuit),
+  (2) `POST /md` + parse markdown (logique `JinaScraper:extractOddsFromMarkdown`
+  + `extractOddsDirect` pour les blocs 1X2 colles),
+  (3) `POST /llm-extract` si `CRAWL4AI_LLM_PROVIDER` **et** une cle sont poses.
+  URL cibles : `/event/{id}/odds` puis `/event/{id}`.
+- Sortie au format `FirecrawlScraper` (`home_win/draw/away_win/over_25/under_25/
+  btts_yes/btts_no/bookmaker`), `source: sofascore:crawl4ai` (`...:llm` pour le
+  fallback LLM), `_scraper: crawl4ai`.
+- Cache LRU 100 entrees, TTL 10 min, cle normalisee sans accents/casse.
+- Circuit breaker identique a `ScrapingBypassScraper` : 100 echecs -> OPEN 30 s,
+  puis HALF_OPEN. Aucune exception propagee (retour `null`).
+- `getLiveScores` / `getResults` / `scrapeUrl` generiques, 3 schemas CSS
+  exposes (`SOFASCORE_ODDS_CSS`, `SOFASCORE_EVENT_CSS`, `SOFASCORE_STATS_CSS`)
+  + `ODDS_SCHEMA` pour le fallback LLM.
+- Logs prefixe `[CRAWL4AI]`, aligne sur `[SOFASCORE]` / `[BYPASS]`.
+
+Phase 3 — router `services/scrapers/index.js`
+- `getCrawl4ai()` lazy + `health.crawl4ai` + export.
+- Chaine : `bypass (tls) > crawl4ai (browser) > firecrawl > jina > python`.
+  `crawl4ai` n'entre dans la chaine que si `isHealthy('crawl4ai')` **et**
+  `Crawl4aiScraper.isAvailable()` (flag + circuit).
+- `getResults()` tente crawl4ai puis jina.
+- `getStatus()` expose le bloc `crawl4ai` (`enabled`, `url`, `available`,
+  `cache_size`, `health`) + `cache_size.crawl4ai`.
+- `getOdds()` herite du tagging automatique `_scraper` / `_mode`.
+
+Phase 4 — schemas + garde prod
+- `.env.example` : `CRAWL4AI_ENABLED=off`, `CRAWL4AI_URL=http://127.0.0.1:11235`,
+  `CRAWL4AI_API_TOKEN=`, `CRAWL4AI_CONCURRENCY=2`, `CRAWL4AI_LLM_PROVIDER=`.
+- `Dockerfile` / `Dockerfile.production` / `Dockerfile.neural` : **non modifies**.
+  `requirements-crawl4ai.txt` n'est reference par aucun d'eux (verifie).
+  `PUPPETEER_SKIP_DOWNLOAD=true` intact. Contrainte AGENTS.md
+  « No Chromium/Puppeteer in Docker image » respectee par construction.
+- `.gitignore` : `.venv-crawl4ai/` deja present (ligne 168), inchange.
+- Phase 5 (Workflow) volontairement non appliquee : `SofascoreScraping/src/
+  Workflow.js` et `apiClient.js` inchanges, Puppeteer reste le dernier recours
+  local, desactive sur Render via `DISABLE_SOFASCORE`.
+
+### Verification
+- `npm test` : **111 suites / 1100 tests OK** (avant : 109 / 1052). Zero
+  regression ; +48 tests sur les 2 nouvelles suites.
+- `npm run build` : OK (Vite, 145 modules).
+- Sonde locale : `node scripts/crawl4ai_health.js` -> `status=ok`,
+  `headless=true`, `stealth=true`, `concurrency=2`, **126 ms**.
+- Chaine off : `[bypass, jina, python]`. Chaine on : `[bypass, crawl4ai, jina, python]`.
+- Tests 100 % offline : transport HTTP mocke, `scrapeService` et `freeProxyPool`
+  mockes (un test non mocke declenchait un vrai appel BetExplorer -> corrige).
+- `pickPython()` verifie en reel : renvoie
+  `.venv-crawl4ai/Scripts/python.exe`.
+
+### Fichiers
+Nouveaux : `core/utils/crawl4aiResolver.js`, `services/scrapers/Crawl4aiScraper.js`,
+`scripts/crawl4ai_health.js`, `__tests__/crawl4aiScraper.test.js`,
+`__tests__/scraperRouterCrawl4ai.test.js`.
+Modifies : `services/scrapers/index.js`, `.env.example`, `CHANGELOG_AUDIT.md`.
+Inchanges : `Dockerfile`, `Dockerfile.production`, `Dockerfile.neural`, `render.yaml`,
+`requirements.txt`, `scripts/sofascore_bypass.py`, `services/scrapers/SofascoreBypass.js`,
+`SofascoreScraping/src/apiClient.js`, `SofascoreScraping/src/Workflow.js`.
+
+### Reste a faire
+- Calibrer les selecteurs CSS Sofascore reels (le schema V1 extrait `raw_text` du
+  `body` puis applique les regex ; `div[data-testid="odds"]` / `span.odds-value`
+  restent a valider sur une page `/event/{id}/odds` reelle).
+- Poser `CRAWL4AI_ENABLED=on` en local apres avoir lance le service :
+  `.venv-crawl4ai\Scripts\python scripts\crawl4ai_service.py`.
+- Phase C (stats profondes : shotmap xG, standings, H2H) : brancher uniquement
+  quand `sofaCooldownActive()`, via les schemas deja exposes.
+- Ne jamais activer sur Render (512 Mo, Chromium interdit dans l'image).
+
+## 2026-09-30 — Crawl4AI : durcissement WAF + disponibilite reelle (service :11235)
+
+### Constat terrain
+- Le service local repond (`GET /health` -> `browser_alive: true`, `version: 0.9.4`,
+  `headless: true`, `stealth: true`, `concurrency: 2`, sonde en 20 ms).
+- **Sofascore bloque le Chromium headless** : la page `/event/{id}/odds` renvoie
+  `status_code: 302` + `Verifying you are human…` au lieu des cotes. Un wait de
+  35 s sur `div[class*=event]` echoue en `Wait condition failed: Timeout after 35000ms`.
+- L'API JSON est elle aussi bloquee depuis cette IP (`HTTP 403` sur
+  `/api/v1/sport/football/scheduled-events`) : `resolveEvent` renvoie `null`, donc
+  `getOdds` sort avant le crawl. Ce n'est pas un bug du client Crawl4AI.
+- `scripts/crawl4ai_service.py` ignore les overrides HTTP `browser_config` : seul
+  `CRAWL4AI_HEADLESS` au demarrage du service peut activer le mode visible.
+
+### Modifications
+- `services/scrapers/Crawl4aiScraper.js` :
+  - `CHALLENGE_MARKERS` + `isChallengePage()` : detecte `Verifying you are human`,
+    `Just a moment`, `Checking your browser`.
+  - Court-circuit anti-bot dans `getOdds()` : le `break` arrete les URLs de secours
+    (pas de 2e tentative inutile) et `logChallengeOnce()` warns une seule fois / 5 min
+    en suggerant `CRAWL4AI_HEADLESS=0`. `/crawl` leve `challenge_anti_bot` quand
+    `status_code` est un challenge.
+  - `getResults()`, `getLiveScores()`, `scrapeUrl()` ne renvoient plus la page de
+    verification comme du contenu (`[]` / `null`).
+  - `buildCrawlerConfig()` applique un UA Chrome 131 et `locale: en-US` sur `/crawl`
+    **et** `/md` ; `resolveWaitFor()` / `resolveUserAgent()` sont lus a l'appel et
+    surchargeables par `CRAWL4AI_USER_AGENT` / `CRAWL4AI_WAIT_FOR`.
+  - `crawlWithCss()` envoie desormais `wait_for` + `wait_for_timeout: 8000`.
+  - Disponibilite : `isAvailable()` (sync) lit le cache de health, `isAvailableAsync()`
+    sonde `/health` <= 2 s, `refreshHealth()` rechauffe le cache sans bloquer. Les
+    points d'entree (getOdds/getResults/getLiveScores/scrapeUrl) awaitent desormais
+    `isAvailableAsync()` : **service down => aucune requete de crawl**.
+- `core/utils/crawl4aiResolver.js` : `getCachedHealth()` (lecture sync du cache,
+  `probed`/`ok`/`ageMs`/`stale`) et `refreshHealth()`. Hook `_primeHealthCache()`
+  pour rendre `isAvailable()` deterministe en test offline.
+- `services/scrapers/index.js` : `refreshCrawl4aiHealth()` rechauffe `/health` en
+  arriere-plan depuis `getPriorityChain()` et `getStatus()` (avec `.catch()` : sans
+  lui, un rejet non consomme tue le process Node). `getStatus().crawl4ai` expose
+  `health_probed` et `health_age_ms`.
+
+### Verification
+- `npx jest __tests__/crawl4aiScraper.test.js __tests__/scraperRouterCrawl4ai.test.js`
+  -> **74 tests verts** (was 48).
+- Suite complete : `111 suites / 1126 tests` verts. `npm run build` OK.
+- Reel, service up : `isAvailableAsync: true` en **20 ms**, `available: true`.
+- Reel, service down (`CRAWL4AI_URL=http://127.0.0.1:11999`) : `isAvailableAsync:
+  false` en **11 ms**, `isAvailable(): false`, `getOdds(): null`, chaine
+  `[bypass, jina, python]` — crawl4ai correctement absent.
+- Copies parasites creees par erreur hors depot (`C:\Users\HAMDI\core\...`,
+  `C:\Users\HAMDI\scripts\...`, `C:\Users\HAMDI\services\...`) supprimees.
+  Aucun Dockerfile, `render.yaml` ou `requirements.txt` modifie.
+
+### Reste a faire
+- Calibrer les selecteurs CSS sur une page `/event/{id}/odds` reelle : necessite
+  soit `CRAWL4AI_HEADLESS=0` (redemarrage du service, navigateur visible), soit
+  une IP/IPv6 non bloquee par le WAF.
+- `scripts/crawl4ai_service.py` : accepter `browser_config` par requete pour
+  piloter headless/stealth sans redemarrage (actuellement `CRAWL4AI_HEADLESS` est
+  lu au boot uniquement).
+
+## 2026-09-30 — Crawl4AI : les 4 leviers anti-WAF testes, blocage PRUVE au niveau IP
+
+### Ce qui a ete implemente (les 4 options demandees)
+- `scripts/crawl4ai_service.py` :
+  - **profil Chromium persistant** : `CRAWL4AI_USER_DATA_DIR` (defaut
+    `.crawl4ai-profile/` dans le repo, ajoute au `.gitignore`). Passe a
+    `BrowserConfig(user_data_dir=...)` avec repli si l'option leve une erreur.
+  - **warm-up** : visite de `CRAWL4AI_WARMUP_URL` (accueil SofaScore) une fois
+    par session navigateur, puis `CRAWL4AI_WARMUP_SETTLE_MS` de stabilisation.
+  - **headful** : `--headful`, `CRAWL4AI_HEADLESS=0`, ou **par requete** via
+    `browser_config: { headless: false }`. `CrawlerState.ensure_browser()`
+    relance le navigateur seulement si le mode demande change, et rejoue le
+    warm-up apres.
+  - **`browser_config` par requete** : `build_browser_overrides()` n'etait du
+    code mort (jamais appele) — il est desormais branche via `prepare_browser()`
+    dans `/md`, `/crawl` et `/llm-extract`. `user_agent` reste volontairement
+    exclu de cette liste (changer d'UA relancerait Chromium a chaque requete).
+  - **challenge cote service** : `is_challenge()` + `CHALLENGE_MARKERS`, et un
+    booleen `challenge` dans les reponses `/md`, `/crawl`, `/llm-extract`.
+    `/health` expose `profile`, `profile_active`, `warmup_*`, mode courant.
+- `services/scrapers/Crawl4aiScraper.js` : `buildBrowserConfig()` (via
+  `CRAWL4AI_HEADFUL`), `fetchMarkdown()` leve `challenge_anti_bot` sur le
+  booleen du service, `crawlWithCss()` idem, les deux appels propagent le
+  court-circuit.
+- `.env.example` : `CRAWL4AI_HEADFUL`, `CRAWL4AI_WARMUP`, `CRAWL4AI_USER_DATA_DIR`,
+  `CRAWL4AI_STEALTH`, `CRAWL4AI_WARMUP_URL`.
+- `tests/test_crawl4ai_service.py` : **34 tests** (detection de challenge,
+  listes blanches, bornes 60 s, refus `user_data_dir`/`proxy`/`cookies`/`cdp_url`,
+  serialisation). `aiohttp` y est stube pour tourner dans le venv CI.
+
+### Resultat des tests terrain
+- **Challenge NON resolvable — blocage au niveau IP.** Sonde Playwright directe
+  (profil persistant, `launch_persistent_context`, UA Chrome 131) :
+  `status 200`, titre `Sofascore`, corps `Verifying you are human`, et sur
+  **40 s de polling** : `cf_clearance` **jamais** emis, corps inchangé,
+  auto-resolution JS **inexistante**. Le meme resultat en **headful** (16 s).
+  Ce n'est donc pas un challenge Cloudflare a resoudre : c'est une page de
+  verification statique servie a cette IP.
+- **crawl4ai 0.9.4 ignore `user_data_dir`** : `BrowserConfig` accepte l'option
+  sans erreur mais le repertoire n'est jamais cree (verifie sur `example.com`).
+  Le service le detecte et previent au demarrage :
+  `WARNING Profil persistant INACTIF : ... n'a pas ete cree par crawl4ai 0.9.4`.
+  Consequence : ce levier est inerte sur la version installee ; le code le
+  conserve car il sera actif sur une version qui le supporte.
+- `/md` sur l'accueil : `status_code: 302`, `challenge: true`,
+  markdown `Verifying you are human.` — le contrat `challenge` fonctionne.
+- **Le palier principal, lui, fonctionne** : `ScrapingBypassScraper.getOdds()`
+  repond en 5,1 s avec de vraies cotes BetExplorer. La chaine produit donc bien
+  des cotes ; crawl4ai n'est qu'un doublon de securite qui echoue proprement.
+
+### Decision
+SofaScore n'est pas scrapable depuis cette machine. 3 options, aucune gratuite :
+1. scraper depuis une IP non bloquee (VPN / proxy residentiel — payant) ;
+2. s'appuyer sur les paliers qui marchent (bypass/TLS-spoofing, firecrawl, jina) ;
+3. Calibrer crawl4ai sur une IP non bloquee plus tard.
+`CRAWL4AI_ENABLED` reste **off** par defaut.
+
+### Verification
+- `npx jest __tests__/crawl4aiScraper.test.js __tests__/scraperRouterCrawl4ai.test.js` -> **79 tests**.
+- `npm test` -> `111 suites / 1131 tests` verts. `npm run build` OK.
+- `pytest tests/ --ignore=tests/test_ou_model.py` -> `500 passed, 1 failed`
+  (le `test_market_engine.py::test_ou_25_follows_model` est **preexistant** :
+  `core/ou_model.py` n'exporte pas `ou_prob`, fichiers non touches ici).
+- `node scripts/crawl4ai_health.js` -> OK, `browser_alive: true`, `warmup_done: true`.
+
+---
+
+## E72 Fuite de cotes BetExplorer : un match recoit les cotes d'un AUTRE match (2026-10-01)
+
+### Point de depart (session precedente interrompue)
+Une modif non commitee existait dans `scripts/bypass_scraper.py` (23:33 le
+30/09, donc APRES la derniere entree de ce journal) : suppression du repli
+`_container_odds` dans `_find_match_in_html`. Le correctif etait **juste mais
+incomplet** : il laissait `_container_odds` en code mort, perdait le layout
+carte (ancre hors `<tr>`), et n'avait ni test ni validation. Cette etape le
+complete.
+
+### Le bug (presente depuis le rebuild du 08/08, commit 1cdfb61)
+`_find_match_in_html` cherchait le bon `<tr>` mais, si la ligne du match n'avait
+pas de cote, remontait au conteneur via `_container_odds` (4 niveaux de parents).
+`_odds_from_scope` y prenait les 3 premieres `data-odd` **du scope**, donc du
+**premier match du tableau** quand on remontait assez haut.
+
+Sur les pages `fixtures/`, seules quelques lignes (les matchs proches) ont une
+cote : les lignes lointaines sont vides. Le fallback transformait donc « pas de
+cote pour ce match » en « la cote du premier match de la page ».
+
+### Preuve en LIVE (HTML BetExplorer reel, pas un modele)
+Deux pages fixtures recuperees (HTTP 200, 289 Ko PL / 275 Ko LaLiga), puis
+chaque match de la page replaye individuellement :
+
+| Page | matchs | cote dans LEUR ligne | FUITE ancien code | FUITE code corrige |
+|---|---|---|---|---|
+| PL fixtures | 332 | 20 | **310/312** | **0** |
+| LaLiga fixtures | 313 | 20 | **291/293** | **0** |
+
+Exemples reels (tous sans cote propre, tous attribues a Arsenal-Leeds) :
+```
+Ipswich vs Nottingham        recoit 1.37/4.94/7.60  <- Arsenal vs Leeds
+Aston Villa vs Man City      recoit 1.37/4.94/7.60  <- Arsenal vs Leeds
+Arsenal vs Everton           recoit 1.37/4.94/7.60  <- Arsenal vs Leeds
+Coventry vs Fulham           recoit 1.37/4.94/7.60  <- Arsenal vs Leeds
+Chelsea vs Tottenham         recoit 1.37/4.94/7.60  <- Arsenal vs Leeds
+```
+Et surtout, par l'entree de production `betexplorer_search(home, away, league)`
+(celle que le CLI appelle, donc `dataFusionService` -> `ScrapingBypassScraper`) :
+```
+Ipswich vs Nottingham        -> odds={'home_win':1.37,'draw':4.85,'away_win':7.76}   *** FUITE ***
+Aston Villa vs Man City      -> odds={'home_win':1.37,'draw':4.85,'away_win':7.76}   *** FUITE ***
+Arsenal vs Everton           -> odds={'home_win':1.37,'draw':4.85,'away_win':7.76}   *** FUITE ***
+```
+Apres correctif, les 3 renvoient `None` (le sweep passe au slug/page suivant).
+
+**Portee metier** : une cote fausse alimente `odds_home/draw/away` avec
+`odds_source='betexplorer'` (donc un marqueur `bookmaker:true` honnete), et
+contamine l'EV, le ROI et la calibration. C'est le pire type de defaut pour ce
+projet : invisible et silencieusement faux. Le projet possede deja deux garde-fous
+de ce type (`ODDS_REJECT_SYNTHETIC` E59 pour les cotes non-bookmaker,
+`ODDS_SOURCES_REJECT` E70 pour le raisonnement circulaire) — celui-ci passait
+entre les deux.
+
+### Pourquoi la base est-elle propre (constate, pas suppose)
+Verifie sur `data/tactical.db` : 0 ligne portant la signature de fuite
+(1.37/4.94/7.6), 0 triplet `betexplorer` partage par plusieurs matchs. Raison
+reelle mesuree : le sweep local ecrit surtout via des pages `results/` (USL
+Championship, Isthmian, MLS Next Pro) où **chaque** ligne porte sa cote, donc
+le repli n'est jamais declenche. La fuite mord sur les pages `fixtures/` des
+grandes ligues, ou le sweep passe peu (peu de ces matchs dans le stock local).
+`persistOdds` n'a **aucun** controle de plausibilite : rien ne l'aurait arrete a
+part que la forme des pages rencontrees. La parade est donc la source, pas un
+filet en aval — d'ou l'importance du correctif.
+
+### Le correctif (complet)
+`_container_odds` n'est pas supprime : il est **repurgé**.
+- `_match_href_key(href)` : cle canonique d'un href de match (insensible a
+  l'ordre des equipes et au hash d'evenement). Sert a distinguer « meme match »
+  de « autre match ».
+- `_odds_isolated_to(node, anchor)` : ne rend les cotes de `node` que si AUCUNE
+  autre ancre du scope ne designe un match different. C'est la frontiere.
+- `_container_odds(anchor)` : chaque niveau de remontee passe par
+  `_odds_isolated_to` -> on ne franchit plus jamais une frontiere de match. Le
+  layout carte (ancre hors `<tr>`) garde ainsi son repli, mais uniquement dans
+  SA carte.
+- Un match sans cote reste un `continue` : on poursuit la sonde des autres
+  slugs/pages au lieu de renvoyer une URL sans cote.
+
+### Non-regression
+- `tests/test_betexplorer_odds_isolation.py` (**nouveau, 10 tests, 100 % offline**) :
+  HTML synthetique imitant BetExplorer. Couvre la fuite (2 formes), le nominal,
+  le perimetre de row (2 matchs cote/cote), `_match_href_key`, le refus de scope
+  multi-match, le layout carte (garde + non-franchissement), et un **test
+  garde-fou** qui restaure l'ancien `_container_odds` et exige que la fuite
+  revienne (verifie que le test 1 mord vraiment).
+- `pytest tests/test_betexplorer_odds_isolation.py tests/test_bypass_proxy.py
+  scripts/test_bypass_scraper.py` -> **54 passed**.
+- Suite complete : `.venv\Scripts\python -m pytest tests/ --ignore=tests/test_ou_model.py`
+  -> **510 passed, 43 skipped, 2 xfailed, 1 failed** (le `test_ou_25_follows_model`
+  est le **preexistant** deja documente en E71, `core/ou_model.py` n'exporte pas
+  `ou_prob`).
+- `npm test` -> **111 suites / 1131 tests** verts, 0 echec (identique a la
+  baseline Crawl4AI, aucun test JS touche).
+
+### Fichiers
+Modifie : `scripts/bypass_scraper.py` (`_match_href_key`, `_odds_isolated_to`,
+  `_container_odds` repurpose, `_find_match_in_html`).
+Nouveau : `tests/test_betexplorer_odds_isolation.py`.
+Aucun secret. Aucun Dockerfile/requirements touche.
+
+### Reste a faire
+- Les ligues couvertes en `results/` etant propres, l'impact en base est nul
+  aujourd'hui ; un jour ou le sweep hitera des pages `fixtures/` de grandes
+  ligues, la couverture augmentera ET sera desormais correcte.
+- Piste connexe non traitee : `betexplorer_match_ou` / `betexplorer_match_btts`
+  utilisent l'endpoint AJAX `/match-odds/{hash}/...` qui est par construction
+  scope au match → pas concernes. `parse_odds_from_html` (ligne 135) prend
+  lui aussi les 3 premieres `data-odd` du document, mais n'est appele que sur
+  des pages de match unique (usage CLI `parse_odds`) — a reverifier si un flux
+  de page de ligue y aboutit un jour.

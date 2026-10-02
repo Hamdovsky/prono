@@ -523,13 +523,46 @@ def _odds_from_scope(node):
     return None
 
 
-def _container_odds(node):
-    cur = node
-    for _ in range(4):
+def _match_href_key(href):
+    """Cle canonique d'un href de match BetExplorer (insensible a l'ordre des
+    equipes et au hash d'evenement). Sert a savoir si deux ancres designent le
+    MEME match, ou deux matchs differents."""
+    seg = (href or '').split('?')[0].split('#')[0].rstrip('/').rsplit('/', 1)[-1]
+    if not seg:
+        return None
+    toks = [t for t in seg.split('-') if t]
+    if len(toks) >= 3 and re.fullmatch(r'[A-Za-z0-9]{6,10}', toks[-1]):
+        toks = toks[:-1]
+    return '|'.join(sorted(t.lower() for t in toks))
+
+
+def _odds_isolated_to(node, anchor):
+    """Cotes de `node` UNIQUEMENT si elles appartiennent au match de `anchor`.
+
+    Un scope qui contient les ancres d'un AUTRE match (tableau de fixtures,
+    section de journee) agrege les cotes du premier match trouve : les attribuer
+    au match cherche est une fuite de cotes (Arsenal-Liverpool heritant des
+    cotes d'Arsenal-Leeds, cf. E72). On refuse donc tout scope non isole."""
+    target = _match_href_key(anchor.get('href'))
+    for a2 in node.find_all('a', href=True):
+        if a2 is anchor:
+            continue
+        key = _match_href_key(a2.get('href'))
+        if key and target and key != target:
+            return None
+    return _odds_from_scope(node)
+
+
+def _container_odds(anchor, max_up=4):
+    """Remonte la hierarchie depuis l'ancre pour trouver les cotes (layout carte,
+    pas de <tr>). Chaque niveau passe par _odds_isolated_to : on ne franchit donc
+    jamais une frontiere de match."""
+    cur = anchor
+    for _ in range(max_up):
         cur = cur.parent
         if cur is None:
             break
-        odds = _odds_from_scope(cur)
+        odds = _odds_isolated_to(cur, anchor)
         if odds:
             return odds
     return None
@@ -573,9 +606,19 @@ def _find_match_in_html(html, home, away, date=None):
             ctx = {'date': date, 'row_date': row_date}
             if not (_teams_match(hp, home, ctx) and _teams_match(ap, away, ctx)):
                 continue
-            row_odds = _odds_from_scope(tr) if tr is not None else None
+            # Les cotes appartiennent a la MEME ligne que le match. Ne jamais
+            # remonter au tableau/div : sur les pages fixtures les cellules de
+            # la ligne sont vides et le fallback ramassait les cotes du premier
+            # match du tableau (ex: Arsenal-Leeds 1.38) pour un tout autre match
+            # sans cote (ex: Arsenal-Liverpool -> fuite 1.38/7.73).
+            # Seul repli : l'ancre n'est dans aucun <tr> (layout carte), ou le
+            # scope monoligne, la ou _odds_isolated_to refuse de traverser une
+            # frontiere de match.
+            row_odds = _odds_isolated_to(tr, a) if tr is not None else None
             if not row_odds:
                 row_odds = _container_odds(a)
+            # Un match sans cote n'est pas un resultat : on poursuit la sonde des
+            # autres slugs/pages plutot que de renvoyer une URL sans cote.
             if not row_odds:
                 continue
             match_url = urljoin(BASE_URL + '/', href)

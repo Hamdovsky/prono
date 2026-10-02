@@ -87,6 +87,12 @@ from confidence_engine import (
     overconfidence_veto,
 )
 try:
+    from suspicious_match_guard import assess_suspicious_match
+except Exception:  # pragma: no cover
+    # Le garde-fou ne doit jamais faire tomber le pipeline de prediction.
+    def assess_suspicious_match(*_a, **_k):
+        return {"is_suspicious": False, "signals": [], "reason": "", "details": {}}
+try:
     from meta_refiner import refine_prediction as _meta_refine
 except Exception:
     _meta_refine = None
@@ -999,6 +1005,30 @@ def process_prediction(match_obj: dict) -> dict:
         analysis["Shield"] = f"🛡️ {overconf_reason}"
         status_code = "NO_BET_OVERCONFIDENT"
 
+    # GARDE "MATCH SUSPECT" (E71) : zone morte bilaterale, pacte de nuls H2H,
+    # asymetrie de motivation, equipe recidiviste -> NO BET. Bloc dedie (comme
+    # overconfidence_veto) pour ne pas modifier la signature d'apply_veto_shield.
+    # Seuls les signaux PRUDENTS sont retenus : un veto dur sur un match sain
+    # tuerait un vrai value bet. force_predict reste le seul bypass.
+    suspicious_veto = False
+    _susp = assess_suspicious_match(
+        match_obj, h_is_dz=h_is_dz, a_is_dz=a_is_dz, h_dmf=h_dmf, a_dmf=a_dmf
+    )
+    if _susp and _susp.get("is_suspicious") and not match_obj.get("force_predict"):
+        no_bet = True
+        suspicious_veto = True
+        verdict = "NO BET (MATCH SUSPECT)"
+        selection = "No Bet"
+        selection_label = "No Bet"
+        precision_bets = []
+        analysis["Shield"] = "🚨 " + _susp.get("reason", "Signaux d'integrite detectes")
+        analysis["SuspiciousSignals"] = _susp.get("signals", [])
+        status_code = "NO_BET_SUSPICIOUS_MATCH"
+        sys.stderr.write(
+            f"🚨 [SUSPICIOUS-GUARD] {home_name} vs {away_name}: "
+            f"{', '.join(_susp.get('signals', []))} -> NO BET\n"
+        )
+
     # GARDE-DINGE DIVERGENCE MARCHÉ (E17) : |modèle - book dévigguée| > 12 pp
     # sur un des 3 signes 1X2 avec cotes réelles -> NO BET. Attrape à la fois
     # le biais J1 (modèle sur-note home) et les cotes périmées (Chelsea -47).
@@ -1027,7 +1057,10 @@ def process_prediction(match_obj: dict) -> dict:
         analysis["Shield"] = f"🛡️ VETO ALPHA: Confiance < 50%."
 
     if no_bet:
-        if divergence_veto:
+        if suspicious_veto:
+            # E71 : le motif d'integrite prime sur le libelle generique.
+            verdict = "NO BET (MATCH SUSPECT)"
+        elif divergence_veto:
             verdict = "NO BET (DIVERGENCE MARCHE)"
         elif 'overconf_veto' in locals() and overconf_veto:
             verdict = "NO BET (OVERCONFIDENT)"
@@ -1048,8 +1081,15 @@ def process_prediction(match_obj: dict) -> dict:
 
     # Dynamic Threshold
     dynamic_threshold = 15.0
-    if confidence < dynamic_threshold:
-        sys.stderr.write(f"🛑 REJECTED [{league_tier}]: Extreme Low Confidence ({confidence:.1f}% < {dynamic_threshold:.1f}%).\n")
+    # E71 : un match bloque pour INTEGRITE doit pouvoir sortir un vrai payload
+    # (verdict + signaux + raison). Sans cette exception, le `confidence = 0`
+    # pose plus haut par le bloc `if no_bet:` retombait ici et renvoyait un
+    # "Prediction stopped: Confidence too low (0.0%)" opaque : on perdait le
+    # motif du blocage, donc l'operateur ne pouvait meme pas savoir POURQUOI le
+    # match avait ete ecarte. Un veto d'integrite est une decision informee,
+    # pas une panne de prediction.
+    if confidence < dynamic_threshold and not suspicious_veto:
+        sys.stderr.write(f"?? REJECTED [{league_tier}]: Extreme Low Confidence ({confidence:.1f}% < {dynamic_threshold:.1f}%).\n")
         return {"success": False, "error": f"Prediction stopped: Confidence too low ({confidence:.1f}%)."}
 
     # Twin Match DNA
@@ -1133,8 +1173,8 @@ def process_prediction(match_obj: dict) -> dict:
         "xgboost_probs_a": float(p_a_xgb),
         "ou_25_prob": float(sim['ou_25_prob']),
         "btts_prob": float(sim['btts_prob']),
-        "verdict": str("NO BET" if no_bet else selection_label),
-        "status": str("NO_BET_DIVERGENCE" if no_bet and divergence_veto else ("NO_BET_OVERCONFIDENT" if no_bet and 'overconf_veto' in locals() and overconf_veto else ("NO BET" if no_bet else status_code))),
+        "verdict": str("NO BET (MATCH SUSPECT)" if suspicious_veto else ("NO BET" if no_bet else selection_label)),
+        "status": str("NO_BET_DIVERGENCE" if no_bet and divergence_veto else ("NO_BET_OVERCONFIDENT" if no_bet and 'overconf_veto' in locals() and overconf_veto else ("NO_BET_SUSPICIOUS_MATCH" if no_bet and suspicious_veto else ("NO BET" if no_bet else status_code)))),
         "power_score": float(power_score),
         "chaos_level": float(0.0),
         "main_predictions": main_four,

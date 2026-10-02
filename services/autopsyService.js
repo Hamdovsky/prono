@@ -1,10 +1,11 @@
-/**
+﻿/**
  * V95 Post-Match Autopsy Engine
  * -----------------------------
  * Analyzes finished matches to determine WHY a prediction failed.
  * Root causes: Red Card Anomaly, xG Underperformance, Late Goal Heartbreak, GK Masterclass.
  */
 const database = require('../core/database')
+const integrityScorer = require('./integrityScorer')
 
 class AutopsyService {
   constructor() {
@@ -92,6 +93,10 @@ class AutopsyService {
 
           const scoreH = parseInt(m.scoreHome) || 0
           const scoreA = parseInt(m.scoreAway) || 0
+
+          // E70 : score d'intégrité a posteriori — pour TOUS les matchs terminés,
+          // indépendamment du succès du prono (un match arrangé peut être "prédictible").
+          await this.scoreIntegrity(m)
           const totalGoals = scoreH + scoreA
           const actualWinner = scoreH > scoreA ? 'H' : scoreH < scoreA ? 'A' : 'D'
 
@@ -168,6 +173,39 @@ class AutopsyService {
         .run(JSON.stringify(result), matchId)
     } catch (e) {
       console.error(`❌ [AUTOPSY] DB Save error: ${e.message}`)
+    }
+  }
+
+  /**
+   * E70 : score d'intégrité a posteriori via IntegrityScorer.
+   * Persiste fixing_score / fixing_flags / integrity_verdict sur la ligne du match.
+   * Volontairement ISOLÉ de la chaîne de pronostic : ce score n'entre jamais
+   * dans la confiance d'un prono (évite la boucle auto-réalisatrice).
+   * @param {object} m - ligne matches (SELECT *)
+   * @returns {Promise<object|null>} résultat du scorer, ou null en cas d'échec
+   */
+  async scoreIntegrity(m) {
+    try {
+      const result = integrityScorer.scoreMatch(m)
+      await database
+        .prepare(
+          `
+                UPDATE matches
+                SET fixing_score = ?, fixing_flags = ?, integrity_verdict = ?
+                WHERE id = ?
+            `
+        )
+        .run(result.fixing_score, JSON.stringify(result.flags), result.verdict, m.id)
+
+      if (result.fixing_score >= 50) {
+        console.log(
+          `🚨 [INTEGRITY] ${result.verdict} (${result.fixing_score}) : ${m.homeTeam} vs ${m.awayTeam} [${result.flags.join(', ')}]`
+        )
+      }
+      return result
+    } catch (e) {
+      console.error(`❌ [INTEGRITY] scoreIntegrity error on ${m.id}: ${e.message}`)
+      return null
     }
   }
 

@@ -682,6 +682,43 @@ class CronManager {
       )
     }
 
+    // 15bb. [INTEGRITE E71] Score d'integrite a posteriori + registre de
+    // recidive par equipe. 1x/jour a 05:15 Africa/Tunis (~04:15 UTC).
+    // Placement delibere : APRES le drain FotMob #15b du matin (04:30 Tunis) qui
+    // ecrit xG + timeline d'incidents, et APRES l'archivage principal #19 (02:30
+    // UTC) qui deplace matches -> historical_matches ; AVANT les predictions
+    // quotidiennes #32 (06:00 Tunis). Le soir a ete ecarte : les matchs du jour ne
+    // sont archives qu'a 02:30 UTC le lendemain, donc un passage en soiree ne
+    // verrait pas les resultats recents.
+    // Sans ce cron, fixing_score et integrity_registry restaient a 0/ecrits a la
+    // main : le veto suspicious_match_guard.py tournait sur un registre fige.
+    cron.schedule(
+      '15 5 * * *',
+      async () => {
+        logger.info('[CRON] Integrite E71 : scan + registre')
+        const scriptsDir = path.join(__dirname, '..', 'scripts')
+        try {
+          const scan = await runNodeScriptAsync(
+            path.join(scriptsDir, 'integrity_scan.js'),
+            ['--write', '--target=historical', '--limit=400'],
+            300000
+          )
+          const reg = await runNodeScriptAsync(
+            path.join(scriptsDir, 'build_integrity_registry.js'),
+            ['--write'],
+            60000
+          )
+          // On ne log que les lignes utiles (les 2 scripts verbolisent bcp).
+          const tail = (s) => (s || '').trim().split('\n').slice(-2).join(' | ')
+          logger.info(`[INTEGRITE E71] scan: ${tail(scan)}`)
+          logger.info(`[INTEGRITE E71] registre: ${tail(reg)}`)
+        } catch (e) {
+          logger.warn(`[CRON] Integrite E71 echec: ${e.message}`)
+        }
+      },
+      { timezone: 'Africa/Tunis' }
+    )
+
     // 15c. [ODDS] OddsPortal (Playwright sous-process) pour ligues OBSCURES (E48).
     // Defaut OFF : tant que ODDSPORTAL_ENABLED != 'on', aucune execution (donc
     // aucun besoin de Playwright/Chromium sur l'image de prod). 2x/jour (05:00 et
@@ -716,6 +753,36 @@ class CronManager {
         { timezone: 'Africa/Tunis' }
       )
     }
+
+    // 15d. [OPTA] theAnalyst (Opta 1X2, API publique performfeeds) (E69).
+    // Defaut OFF : gate THE_ANALYST_ENABLED=on. Toutes les 3h.
+    const THE_ANALYST_ENABLED =
+      String(process.env.THE_ANALYST_ENABLED || '').trim().toLowerCase() === 'on'
+    cron.schedule(
+      '0 */3 * * *',
+      () => {
+        if (!THE_ANALYST_ENABLED) {
+          logger.debug(`[CRON] theAnalyst saute (THE_ANALYST_ENABLED=off)`)
+          return
+        }
+        logger.info('[CRON] theAnalyst Opta sync (E69)')
+        try {
+          const db = require('../core/database')
+          const store = require('./optaPredictions')
+          store
+            .sync(db, { write: true })
+            .then((stats) =>
+              logger.info(
+                `[CRON] theAnalyst done: matches=${stats.matchesSeen} withPred=${stats.withPredictions} written=${stats.written} err=${stats.errors}`
+              )
+            )
+            .catch((e) => logger.error(`[CRON] theAnalyst error: ${e.message}`))
+        } catch (e) {
+          logger.error(`[CRON] theAnalyst setup error: ${e.message}`)
+        }
+      },
+      { timezone: 'Africa/Tunis' }
+    )
 
 
     // 19. Archive finished matches (Daily at 04:30) â€” via Account 2 worker

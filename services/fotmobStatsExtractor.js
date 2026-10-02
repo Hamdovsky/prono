@@ -17,7 +17,7 @@
  * (node CLI / dry-run) n'est pas gated (juste lecture / --write explicite).
  */
 const { normDate, joinKey } = require('../core/fdJoin')
-const { mergeOddsIntoFullData } = require('../core/archiveMerge')
+const { mergeOddsIntoFullData, mergeIncidentsIntoFullData } = require('../core/archiveMerge')
 const logger = require('../core/logger')
 
 const DAY_MAP_TTL = 20 * 60 * 60 * 1000
@@ -180,7 +180,8 @@ async function _processHistorical(db, { limit = 200, write = false, log = null, 
       }
       if (!fid) continue
       const s = await svc.getMatchStats(fid)
-      if (!s || (s.xg_home == null && s.corners_home == null)) continue
+      const hasIncidents = s && Array.isArray(s.incidents) && s.incidents.length > 0
+      if (!s || (s.xg_home == null && s.corners_home == null && !hasIncidents)) continue
       stats.matched++
       const statsRow = {
         fotmob_id: fid,
@@ -201,8 +202,12 @@ async function _processHistorical(db, { limit = 200, write = false, log = null, 
       }
       const merged = mergeOddsIntoFullData(fd, statsRow)
       if (!merged.fotmob_id) merged.fotmob_id = fid
+      // E71 : timeline (buts/penalty/own goal/cartes) pour le signal
+      // ANOMALOUS_INCIDENT de l'integrite. Arrive avec le meme payload
+      // FotMob que les stats -> aucune requete reseau supplementaire.
+      const final = mergeIncidentsIntoFullData(merged, s.incidents)
       if (write) {
-        upd.run(JSON.stringify(merged), r.id)
+        upd.run(JSON.stringify(final), r.id)
         stats.written++
       }
       await sleep(REQUEST_GAP)

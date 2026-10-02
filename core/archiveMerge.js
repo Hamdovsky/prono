@@ -64,4 +64,28 @@ function mergeOddsIntoFullData(fd, row) {
   return out
 }
 
-module.exports = { mergeOddsIntoFullData, ODD_FIELDS, STATS_FIELDS, ALL_FIELDS }
+/**
+ * E71 : injecte la timeline d'un match (buts, penalties, own goals, cartes) dans
+ * le fullData archive, pour debloquer le signal ANOMALOUS_INCIDENT de
+ * services/integrityScorer.js. Meme regle que mergeOddsIntoFullData : n'ecrase
+ * JAMAIS une valeur deja presente.
+ * @param {object} fd fullData courant
+ * @param {Array}  incidents incidents normalises (cf. fotmobClient.get_match_events)
+ * @returns {object} fullData copie + incidents
+ */
+function mergeIncidentsIntoFullData(fd, incidents) {
+  const out = fd && typeof fd === 'object' ? { ...fd } : {}
+  if (!Array.isArray(incidents) || incidents.length === 0) return out
+  const dejaLa = Array.isArray(out.incidents) ? out.incidents : []
+  if (dejaLa.length > 0) return out
+  out.incidents = incidents
+  return out
+}
+
+module.exports = {
+  mergeOddsIntoFullData,
+  mergeIncidentsIntoFullData,
+  ODD_FIELDS,
+  STATS_FIELDS,
+  ALL_FIELDS,
+}

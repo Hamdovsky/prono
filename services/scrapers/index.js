@@ -19,6 +19,7 @@ let _firecrawl = null
 let _jina = null
 let _pythonBridge = null
 let _freeProxy = null
+let _crawl4ai = null
 
 function getBypass() {
   if (!_bypass) {
@@ -82,6 +83,17 @@ function getFreeProxy() {
   return _freeProxy
 }
 
+function getCrawl4ai() {
+  if (!_crawl4ai) {
+    try {
+      _crawl4ai = require('./Crawl4aiScraper')
+    } catch {
+      _crawl4ai = null
+    }
+  }
+  return _crawl4ai
+}
+
 // ── Health tracking ────────────────────────────────────────────
 const health = {
   bypass: { failures: 0, lastFailure: null, disabled: false },
@@ -89,6 +101,7 @@ const health = {
   jina: { failures: 0, lastFailure: null, disabled: false },
   python: { failures: 0, lastFailure: null, disabled: false },
   free_proxy: { failures: 0, lastFailure: null, disabled: false },
+  crawl4ai: { failures: 0, lastFailure: null, disabled: false },
 }
 const MAX_FAILURES = 3
 const COOLDOWN_MS = 5 * 60 * 1000 // 5 min before re-trying a failed scraper
@@ -141,6 +154,18 @@ function getMode() {
   return 'jina_primary'
 }
 
+/**
+ * Rechauffe le cache /health de Crawl4AI sans bloquer l'appelant sync.
+ * Le .catch est indispensable : une promesse rejetee non consommee
+ * declenche un unhandledRejection qui tue le process Node.
+ */
+function refreshCrawl4aiHealth(c4a) {
+  try {
+    const p = c4a && c4a.refreshHealth ? c4a.refreshHealth() : null
+    if (p && typeof p.catch === 'function') p.catch(() => {})
+  } catch (_) {}
+}
+
 // ── Priority chain ──────────────────────────────────────────────
 
 function getPriorityChain() {
@@ -149,6 +174,16 @@ function getPriorityChain() {
 
   // bypass (curl_cffi TLS fingerprint spoofing) is always top priority
   if (isHealthy('bypass')) chain.push({ name: 'bypass', scraper: getBypass(), type: 'tls_bypass' })
+  // Crawl4AI browser (www.sofascore.com JS-lourd) — only when enabled + healthy, before Firecrawl/Jina
+  if (isHealthy('crawl4ai')) {
+    const c4a = getCrawl4ai()
+    if (c4a && c4a.isAvailable()) {
+      // getPriorityChain est sync : on rechauffe le cache /health en arriere-plan
+      // pour que le prochain appel (et getStatus) reflete l'etat reel du service.
+      refreshCrawl4aiHealth(c4a)
+      chain.push({ name: 'crawl4ai', scraper: c4a, type: 'browser' })
+    }
+  }
   if (isHealthy('firecrawl'))
     chain.push({ name: 'firecrawl', scraper: getFirecrawl(), type: 'dynamic' })
   if (isHealthy('jina')) chain.push({ name: 'jina', scraper: getJina(), type: 'static' })
@@ -276,9 +311,16 @@ async function getLiveScores(league) {
 }
 
 /**
- * Get match results via Jina (Soccerway).
+ * Get match results via Crawl4AI then Jina.
  */
 async function getResults(league) {
+  const c4a = getCrawl4ai()
+  if (c4a && c4a.isAvailable() && c4a.getResults) {
+    try {
+      const res = await c4a.getResults(league)
+      if (res && res.length > 0) return res
+    } catch (_) {}
+  }
   const jina = getJina()
   if (jina) {
     try {
@@ -293,6 +335,24 @@ async function getResults(league) {
  */
 function getStatus() {
   const pool = getFreeProxy()
+  let crawl4aiInfo = null
+  try {
+    const resolver = require('../../core/utils/crawl4aiResolver')
+    const c4a = getCrawl4ai()
+    const healthCache = resolver.getCachedHealth()
+    refreshCrawl4aiHealth(c4a)
+    crawl4aiInfo = {
+      enabled: resolver.isCrawl4aiEnabled(),
+      url: resolver.getCrawl4aiUrl(),
+      available: !!(c4a && c4a.isAvailable()),
+      health_probed: healthCache.probed,
+      health_age_ms: healthCache.probed ? healthCache.ageMs : null,
+      cache_size: c4a ? c4a.getCacheSize() : 0,
+      health: health.crawl4ai,
+    }
+  } catch (_) {
+    crawl4aiInfo = { enabled: false, url: null, available: false, cache_size: 0, health: health.crawl4ai }
+  }
   return {
     mode: getMode(),
     firecrawl_key_set: !!process.env.FIRECRAWL_API_KEY,
@@ -302,10 +362,12 @@ function getStatus() {
       Object.entries(health).map(([k, v]) => [k, { disabled: v.disabled, failures: v.failures }])
     ),
     free_proxy: pool ? pool.getStatus() : null,
+    crawl4ai: crawl4aiInfo,
     cache_size: {
       bypass: getBypass()?.getCacheSize?.() || 0,
       firecrawl: getFirecrawl()?.getCacheSize?.() || 0,
       jina: getJina()?.getCacheSize?.() || 0,
+      crawl4ai: getCrawl4ai()?.getCacheSize?.() || 0,
     },
   }
 }
@@ -331,6 +393,7 @@ module.exports = {
   setMode,
   getMode,
   isHealthy,
+  getCrawl4ai,
   resetHealth: () => {
     Object.values(health).forEach((h) => {
       h.failures = 0

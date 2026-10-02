@@ -347,6 +347,11 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           <span className={`mcc-vs${d.score ? ' has-score' : ''}`}>{d.score ? d.score : 'vs'}</span>
           <Highlight text={shortTeam(d.away)} query={searchQuery} className="mcc-team" />
         </div>
+        {d.opta && (
+          <div className="mcc-opta" style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            <span style={{ color: '#60a5fa' }}>Opta</span> {d.opta.home}% {d.opta.draw}% {d.opta.away}%
+          </div>
+        )}
         {activeBanner ? (
           <div className="mcc-dominant-banner">
             {MARKET_TITLES[activeMarket] || '⭐'} {activeBanner.label}
@@ -461,6 +466,14 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
         ) : timeLabel ? (
           <div className="mc-time">{timeLabel}</div>
         ) : null}
+        {d.opta && (
+          <div className="mc-opta" style={{ display: 'flex', gap: '4px', marginTop: '4px', fontSize: '10px', color: '#94a3b8', fontWeight: 700, letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>
+            <span style={{ color: '#60a5fa' }}>Opta</span>
+            <span>{d.opta.home}%</span>
+            <span style={{ color: '#94a3b8' }}>{d.opta.draw}%</span>
+            <span>{d.opta.away}%</span>
+          </div>
+        )}
         </div>
       </div>
 

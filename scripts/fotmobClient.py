@@ -296,9 +296,11 @@ def get_match_details(match_id):
     try:
         periods = ((data.get("content") or {}).get("stats") or {}).get("Periods") or {}
     except AttributeError:
-        return None
+        periods = None
     if not periods:
-        return None
+        # E71 : pas de stats d'equipe, mais la timeline peut etre presente.
+        incidents_only = _extract_incidents(data)
+        return {"incidents": incidents_only} if incidents_only else None
 
     all_items = _period_items(periods, "All")
     fh_items = _period_items(periods, "FirstHalf")
@@ -325,7 +327,116 @@ def get_match_details(match_id):
         "corners_ht_away": None if fh_cor_a is None else int(fh_cor_a),
         "ht_score_home": None, "ht_score_away": None,  # via livescore, pas FotMob
         "lineup_home": None, "lineup_away": None,
+        # E71 : timeline offerte avec les stats (0 requete supplementaire).
+        "incidents": _extract_incidents(data),
     }
+
+
+def _normalize_event(ev):
+    """E71 : un evenement FotMob -> incident normalise pour integrityScorer.
+
+    Schema de sortie (celui qu'attend services/integrityScorer.js) :
+      { time:int, type, incidentClass, isHome:bool, text, player }
+    """
+    if not isinstance(ev, dict):
+        return None
+
+    t = ev.get("time")
+    if not isinstance(t, int):
+        ts = ev.get("timeStr") or ""
+        digits = "".join(ch for ch in str(ts) if ch.isdigit())
+        t = int(digits) if digits else None
+
+    ev_type = str(ev.get("type") or "").strip()
+    is_home = bool(ev.get("isHome"))
+    player = ""
+    p = ev.get("player")
+    if isinstance(p, dict):
+        player = p.get("name") or ""
+    elif isinstance(p, str):
+        player = p
+
+    own_goal = bool(ev.get("isOwnGoal"))
+    card = str(ev.get("card") or "").lower()
+
+    incident_class = "regular"
+    if ev_type.lower() == "card":
+        if card == "red" or card == "yellowred":
+            incident_class = "red"
+        elif card == "yellow":
+            incident_class = "yellow"
+        else:
+            incident_class = "card"
+    elif ev_type.lower() == "goal":
+        shot = str(ev.get("shotType") or "").lower()
+        if own_goal:
+            incident_class = "own goal"
+        elif "penalty" in shot or ev.get("isPenalty"):
+            incident_class = "penalty"
+    else:
+        # Substitutions / Blessures / intervals : sans valeur pour l'integrite
+        return None
+
+    label = "Own goal" if incident_class == "own goal" else (
+        "Penalty" if incident_class == "penalty" else (
+            "Red card" if incident_class == "red" else (
+                "Yellow card" if incident_class == "yellow" else "Goal"
+            )
+        )
+    )
+    return {
+        "time": t,
+        "type": "goal" if incident_class in ("regular", "penalty", "own goal") else "card",
+        "incidentClass": incident_class,
+        "isHome": is_home,
+        "text": f"{label} - {player}" if player else label,
+        "player": player,
+    }
+
+
+def _extract_incidents(data):
+    """E71 : lit la timeline dans une reponse matchDetails deja telechargee.
+
+    Preferer cette fonction a un 2e appel reseau : get_match_details et
+    get_match_events interrogent la MEME URL, et la politique anti-ban du
+    projet impose 1 requete / 2 s. On extrait donc les incidents du payload
+    que l'on a deja paye.
+    Renvoie la liste normalisee, ou [] si absente.
+    """
+    raw = None
+    if isinstance(data, dict):
+        try:
+            raw = (((data.get("content") or {}).get("matchFacts") or {}).get("events") or {}).get("events")
+        except AttributeError:
+            raw = None
+        if not raw:
+            try:
+                raw = (data.get("header") or {}).get("events")
+            except AttributeError:
+                raw = None
+    if not raw or not isinstance(raw, list):
+        return []
+    incidents = [n for n in (_normalize_event(e) for e in raw) if n]
+    # Tri par minute : le scorer raisonne sur time <= 5 (but precoce) et < 20.
+    incidents.sort(key=lambda e: (e["time"] is None, e["time"] or 0))
+    return incidents
+
+
+def get_match_events(match_id):
+    """
+    E71 : timeline d'un match (buts, penalties, own goals, cartes).
+    But : donner enfin des donnees au signal ANOMALOUS_INCIDENT de
+    services/integrityScorer.js, qui etait a 0% de couverture faute de
+    source branchee. Renvoie {"incidents": [...]} ou None.
+    """
+    url = f"{FEED_BASE}/api/data/matchDetails?matchId={match_id}"
+    data = _http_get(url, match_id=match_id)
+    if not data:
+        return None
+    incidents = _extract_incidents(data)
+    if not incidents:
+        return None
+    return {"incidents": incidents}
 
 
 def _extract_from_next_data(nd):
@@ -423,6 +534,8 @@ if __name__ == '__main__':
             result = get_match_score(args.get('match_id', ''))
         elif fn == 'get_match_details':
             result = get_match_details(args.get('match_id', ''))
+        elif fn == 'get_match_events':
+            result = get_match_events(args.get('match_id', ''))
         else:
             result = {"error": f"Unknown function: {fn}"}
     except Exception as e:

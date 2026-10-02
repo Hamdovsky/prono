@@ -1,4 +1,4 @@
-// schema.js — schéma SQLite, auto-migrations colonnes, seed leagues.
+﻿// schema.js — schéma SQLite, auto-migrations colonnes, seed leagues.
 // Extrait de core/database.js (split 2026-09-07) ; le handle db est passé en paramètre.
 const logger = require('../logger')
 
@@ -289,6 +289,16 @@ function initSchema(db) {
             CREATE INDEX IF NOT EXISTS idx_team_registry_normalized ON team_registry(normalized);
             CREATE INDEX IF NOT EXISTS idx_team_registry_name ON team_registry(name);
 
+            CREATE TABLE IF NOT EXISTS integrity_registry (
+                team            TEXT PRIMARY KEY,
+                flagged_count   INTEGER DEFAULT 0,
+                avg_score       INTEGER DEFAULT 0,
+                max_score       INTEGER DEFAULT 0,
+                last_flagged    TEXT,
+                league          TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_integrity_registry_count ON integrity_registry(flagged_count);
+
             CREATE TABLE IF NOT EXISTS player_stats (
                 player_id   INTEGER PRIMARY KEY,
                 name        TEXT NOT NULL,
@@ -424,6 +434,21 @@ function initSchema(db) {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_login DATETIME
             );
+
+            CREATE TABLE IF NOT EXISTS opta_predictions (
+                match_id TEXT PRIMARY KEY,
+                kickoff INTEGER,
+                league TEXT,
+                home_team TEXT,
+                away_team TEXT,
+                prob_home REAL,
+                prob_draw REAL,
+                prob_away REAL,
+                source TEXT DEFAULT 'opta',
+                updated_at INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS idx_opta_predictions_kickoff ON opta_predictions(kickoff);
+            CREATE INDEX IF NOT EXISTS idx_opta_predictions_league ON opta_predictions(league);
         `)
     logger.info('🛡️ [DB] Tactical Schema validated with INDICES (SQLite)')
   } catch (e) {
@@ -555,6 +580,20 @@ function runMigrations(db) {
     ['matches', 'possession_home', 'REAL'],
     ['matches', 'possession_away', 'REAL'],
     ['visual_context_cache', 'briefing', 'TEXT'],
+    // E70 : intégrité a posteriori (services/integrityScorer.js)
+    ['matches', 'fixing_score', 'INTEGER DEFAULT 0'],
+    ['matches', 'fixing_flags', 'TEXT'],
+    ['matches', 'integrity_verdict', 'TEXT'],
+    ['historical_matches', 'fixing_score', 'INTEGER DEFAULT 0'],
+    ['historical_matches', 'fixing_flags', 'TEXT'],
+    ['historical_matches', 'integrity_verdict', 'TEXT'],
+    // E71 : registre d'integrite par equipe (scripts/build_integrity_registry.js)
+    ['integrity_registry', 'team', 'TEXT PRIMARY KEY'],
+    ['integrity_registry', 'flagged_count', 'INTEGER DEFAULT 0'],
+    ['integrity_registry', 'avg_score', 'INTEGER DEFAULT 0'],
+    ['integrity_registry', 'max_score', 'INTEGER DEFAULT 0'],
+    ['integrity_registry', 'last_flagged', 'TEXT'],
+    ['integrity_registry', 'league', 'TEXT'],
   ]
 
   let added = 0

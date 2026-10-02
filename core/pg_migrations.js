@@ -113,7 +113,11 @@ CREATE TABLE IF NOT EXISTS matches (
     bsd_away_win_prob REAL DEFAULT 0,
     bsd_confidence REAL DEFAULT 0,
     result TEXT,
-    settled_at BIGINT
+    settled_at BIGINT,
+    -- E70/E71 : score d'integrite a posteriori + verdict (veto match suspect)
+    fixing_score INTEGER DEFAULT 0,
+    fixing_flags TEXT,
+    integrity_verdict TEXT
 );
 
 CREATE TABLE IF NOT EXISTS prediction_history (
@@ -242,7 +246,11 @@ CREATE TABLE IF NOT EXISTS historical_matches (
     away_win_probability REAL,
     expected_score TEXT,
     result TEXT,
-    settled_at BIGINT
+    settled_at BIGINT,
+    -- E70/E71 : score d'integrite a posteriori + verdict (veto match suspect)
+    fixing_score INTEGER DEFAULT 0,
+    fixing_flags TEXT,
+    integrity_verdict TEXT
 );
 
 CREATE TABLE IF NOT EXISTS winning_patterns (
@@ -265,6 +273,20 @@ CREATE TABLE IF NOT EXISTS team_registry (
     league TEXT,
     last_seen BIGINT
 );
+
+-- E71 : registre de recurrence par equipe (alimente par le cron 15bb, qui
+-- enchaîne integrity_scan.js --write puis build_integrity_registry.js --write).
+-- Consomme par suspicious_match_guard.py (signal RECIDIVIST_TEAM) via
+-- match.integrity_registry, injecte par enriched_predictions.js.
+CREATE TABLE IF NOT EXISTS integrity_registry (
+    team TEXT PRIMARY KEY,
+    flagged_count INTEGER DEFAULT 0,
+    avg_score INTEGER DEFAULT 0,
+    max_score INTEGER DEFAULT 0,
+    last_flagged TEXT,
+    league TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_integrity_registry_count ON integrity_registry(flagged_count);
 CREATE TABLE IF NOT EXISTS player_stats (
     player_id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -511,6 +533,10 @@ async function runMigrations() {
         await ensureCol('shots_away', 'INTEGER')
         await ensureCol('possession_home', 'REAL')
         await ensureCol('possession_away', 'REAL')
+        // E70/E71 : score d'integrite a posteriori + verdict (veto match suspect)
+        await ensureCol('fixing_score', 'INTEGER DEFAULT 0')
+        await ensureCol('fixing_flags', 'TEXT')
+        await ensureCol('integrity_verdict', 'TEXT')
       } catch (e) {
         logger.warn(`[PG MIGRATIONS] ensure vécues skipped: ${e.message}`)
     }
@@ -536,8 +562,37 @@ async function runMigrations() {
       if (!histNames.includes('expected_score')) await addHistCol('expected_score', 'TEXT')
       if (!histNames.includes('result')) await addHistCol('result', 'TEXT')
       if (!histNames.includes('settled_at')) await addHistCol('settled_at', 'BIGINT')
+      // E70/E71 : same 3 colonnes que sur matches (le scan ecrit les deux tables)
+      if (!histNames.includes('fixing_score'))
+        await addHistCol('fixing_score', 'INTEGER DEFAULT 0')
+      if (!histNames.includes('fixing_flags')) await addHistCol('fixing_flags', 'TEXT')
+      if (!histNames.includes('integrity_verdict'))
+        await addHistCol('integrity_verdict', 'TEXT')
     } catch (e) {
       logger.warn(`[PG MIGRATIONS] historical_matches column check skipped: ${e.message}`)
+    }
+
+    // E71 : table du registre de recurrence par equipe. Sans elle en PG, le cron
+    // 15bb (integrity_scan -> build_integrity_registry) echouerait et le veto
+    // suspicious_match_guard.py tournerait sur un registre vide en prod.
+    // (Le CREATE TABLE du schema en tete ne couvre que les bases neuves ; ce bloc
+    // est idempotent et couvre les bases PG deja en place.)
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS integrity_registry (
+          team TEXT PRIMARY KEY,
+          flagged_count INTEGER DEFAULT 0,
+          avg_score INTEGER DEFAULT 0,
+          max_score INTEGER DEFAULT 0,
+          last_flagged TEXT,
+          league TEXT
+        )
+      `)
+      await query(
+        `CREATE INDEX IF NOT EXISTS idx_integrity_registry_count ON integrity_registry(flagged_count)`
+      )
+    } catch (e) {
+      logger.warn(`[PG MIGRATIONS] integrity_registry creation skipped: ${e.message}`)
     }
 
     // legacy tables lues par thetaOptimizer/calibrate/backtestEngine/auto_retrain
@@ -924,6 +979,23 @@ async function runMigrations() {
     // PixelRAG : briefing visuel (lecteur Groq) sur le cache visuel (idempotent).
     try {
       await query('ALTER TABLE visual_context_cache ADD COLUMN IF NOT EXISTS briefing TEXT')
+    } catch (_) {}
+
+    // theAnalyst/Opta : table des probas 1X2 Opta par match (idempotente).
+    try {
+      await query(`CREATE TABLE IF NOT EXISTS opta_predictions (
+        match_id TEXT PRIMARY KEY,
+        kickoff BIGINT,
+        league TEXT,
+        home_team TEXT,
+        away_team TEXT,
+        prob_home DOUBLE PRECISION,
+        prob_draw DOUBLE PRECISION,
+        prob_away DOUBLE PRECISION,
+        source TEXT DEFAULT 'opta',
+        updated_at BIGINT
+      )`)
+      await query(`CREATE INDEX IF NOT EXISTS idx_opta_predictions_kickoff ON opta_predictions(kickoff)`)
     } catch (_) {}
 
     // Track migration version

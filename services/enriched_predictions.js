@@ -116,6 +116,8 @@ async function _mapLimit(items, concurrency, mapper) {
 }
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
+// E71 : TTL du cache nom -> id équipe SofaScore
+const SOFA_TEAM_ID_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const SOFA_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -185,6 +187,9 @@ class EnrichedPredictionService {
   constructor() {
     this.pythonService = pythonService
     this._adaptiveEngine = null
+    // E71 : cache name -> SofaScore team id (24h). Évite de marteler
+    // l'API SofaScore quand on résout les IDs d'un match sans team_id.
+    this._sofaTeamIdCache = new Map()
   }
 
   setAdaptiveEngine(engine) {
@@ -203,9 +208,17 @@ class EnrichedPredictionService {
   /**
    * Search SofaScore by team name to get SofaScore team ID.
    * Used when LiveScore IDs don't match SofaScore IDs.
+   * E71 : cache mémoire par nom (24h) — sans lui, résoudre les IDs sur des
+   * matchs sans team_id coûtait 2 requêtes non cachées par équipe et par cycle
+   * (jusqu'à ~600 requêtes SofaScore), ce que la politique de politesse
+   * du projet interdit explicitement.
    */
   async _searchSofaTeamByName(teamName) {
     if (!teamName) return null
+    const key = String(teamName).toLowerCase().trim()
+    const hit = this._sofaTeamIdCache.get(key)
+    if (hit && Date.now() - hit.ts < SOFA_TEAM_ID_CACHE_TTL_MS) return hit.id
+
     try {
       const url = `${SOFA_API}/search/teams?q=${encodeURIComponent(teamName)}`
       const resp = await axiosModule.get(url, { headers: SOFA_HEADERS, timeout: 6000 })
@@ -214,7 +227,9 @@ class EnrichedPredictionService {
       // Prefer exact name match, then first result
       const exact = results.find((r) => r.name?.toLowerCase() === teamName.toLowerCase())
       const best = exact || results[0]
-      return best?.id || null
+      const id = best?.id || null
+      if (id) this._sofaTeamIdCache.set(key, { id, ts: Date.now() })
+      return id
     } catch (_) {
       return null
     }
@@ -306,6 +321,48 @@ class EnrichedPredictionService {
               }
             } catch (_) {}
           }
+        }
+      }
+
+      // E71 : exposer les IDs résolus sur le match. Sans cela, rien en aval ne
+      // pouvait les utiliser : MotivationEnrichService.enrichWithMotivation
+      // faisait un early-return (pas de tId/sId) et le DMF restait à 1.0 sur
+      // tous les matchs — d'où motivation_signature = "Logique Standard" partout
+      // (constaté : 1463/1463 lignes).
+      if (tournamentId && !match._uniqueTournament) match._uniqueTournament = tournamentId
+      if (seasonId && !match._seasonId) match._seasonId = seasonId
+      if (homeId && !match._homeTeamId) match._homeTeamId = String(homeId)
+      if (awayId && !match._awayTeamId) match._awayTeamId = String(awayId)
+
+      // E71 : persister les IDs SofaScore resolus en base (approche b — colonnes
+      // home_team_id/away_team_id). Les sources (livescore, openligadb) les
+      // fournissent deja mais core/db/matches.js:insertMatch ne les persistant pas
+      // (5/1465 lignes). Sans cet UPDATE, chaque cycle d'enrichissement repartait
+      // d'une recherche par nom (_searchSofaTeamByName) : c'est ce qui laissait le
+      // DMF a 1.0 et motivation_signature a "Logique Standard" (veto
+      // DEAD_ZONE_BOTH inoperant sur les matchs a venir). Une fois en base, le
+      // garde d'entree relit les colonnes (ligne ~240) et evite l'appel reseau.
+      // On n'ecrit que si la colonne est vide (WHERE ... IS NULL OR ='') pour ne
+      // jamais ecraser un ID deja resolu. Note conflit semantique :
+      // sofascoreStatsExtractor lisait home_team_id comme un ID d'evenement
+      // Sofascore, mais ce extractor est neutralise par FOTMOB_STATS_ENABLED=on
+      // (route fotmob) — la colonne porte bien un ID d'equipe ici.
+      if (match.id) {
+        try {
+          const database = require('../core/database')
+          const hId = String(match._homeTeamId || homeId || '')
+          const aId = String(match._awayTeamId || awayId || '')
+          if (hId && aId) {
+            database
+              .prepare(
+                `UPDATE matches SET home_team_id=?, away_team_id=?
+                 WHERE id=? AND (home_team_id IS NULL OR home_team_id='')
+                   AND (away_team_id IS NULL OR away_team_id='')`
+              )
+              .run(hId, aId, match.id)
+          }
+        } catch (_) {
+          /* persistance best-effort : ne doit jamais faire echouer l'enrichissement */
         }
       }
 
@@ -454,9 +511,22 @@ class EnrichedPredictionService {
       trace.step('Normalization')
 
       // 0.2 Fetch SofaScore team data (form, H2H) for ML features
-      if (!match.teamStats && (match.home_team_id || match._homeTeamId)) {
+      if (!match.teamStats && !match._sofaTeamDataFetched) {
         await this._fetchSofaTeamData(match)
         trace.step('SofaTeamData')
+      }
+
+      // 0.25 E71 : DMF / motivation (dead zone, enjeu).
+      // motivationService était importé mais JAMAIS appelé (import mort) : le
+      // module est câblé ici pour la première fois. Sans lui, h_target_w reste
+      // 0 -> calculate_dmf_hafiz renvoie 1.0 -> la zone morte ne se déclenche
+      // jamais et les signatures de motivation ne sont jamais produites.
+      // Non bloquant : en cas d'échec, le prono continue sans DMF.
+      if (!match.home_target_weight) {
+        await motivationService
+          .enrichWithMotivation(match)
+          .catch((e) => trace.error('Motivation', e.message))
+        trace.step('Motivation')
       }
 
       // 0.1 Weather Enrichment (if missing) — OpenWeatherMap (key) then open-meteo (free, no key)
@@ -563,6 +633,25 @@ class EnrichedPredictionService {
       }
 
       // 2. Market Intelligence and Python Prediction
+      // E71 : injecter le registre d'integrite avant le parcours Python.
+      // Le garde suspicious_match_guard.py lit match.integrity_registry pour le
+      // signal RECIDIVIST_TEAM : une equipe qui apparait sur >= 2 matchs a
+      // fixing_score >= 50 est consideree a risque.
+      // On envoie la ligne SQL brute ET le champ `recidivist` normalise : la
+      // table n'a pas de colonne `recidivist`, donc la seule ligne rendait le
+      // signal muet cote Python (trouve et corrige pendant la verification).
+      try {
+        const database = require('../core/database')
+        const regStmt = database.prepare('SELECT * FROM integrity_registry WHERE team = ?')
+        const withFlag = (row) => (row ? { ...row, recidivist: true } : null)
+        match.integrity_registry = {
+          home: withFlag(regStmt.get(match.homeTeam)),
+          away: withFlag(regStmt.get(match.awayTeam)),
+        }
+      } catch (e) {
+        trace.error('IntegrityRegistry', e.message)
+      }
+
       const pythonResult = await this.getAnalyticalPrediction(match, timeoutMs)
       trace.step('Python Prediction', { success: pythonResult?.success })
 
@@ -836,6 +925,9 @@ class EnrichedPredictionService {
           h2h_data: match.h2h_data || null,
           news_data: match.news_data || null,
           news_sentiment: match.news_sentiment || 0,
+          // E71 : registre d'integrite d'equipe. Sans lui, RECIDIVIST_TEAM ne
+          // peut pas se declencher dans suspicious_match_guard.py.
+          integrity_registry: match.integrity_registry || null,
           stats_blob: match.stats_blob || null,
           player_ratings_home: match.player_ratings_home || null,
           player_ratings_away: match.player_ratings_away || null,

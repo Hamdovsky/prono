@@ -1,0 +1,40 @@
+# ============================================================================
+#  requirements-crawl4ai.txt — OPTIONNEL, OUTILLAGE LOCAL UNIQUEMENT
+# ============================================================================
+#  Crawl4AI remplace le palier Firecrawl (payant) + Jina Reader du pipeline de
+#  scraping (services/scrapers/Crawl4aiScraper.js).
+#
+#  *** CE FICHIER N'EST REFERENCE PAR AUCUN Dockerfile. ***
+#  -> requirements.txt          : utilise par Dockerfile.production (Render)
+#  -> requirements-fastapi.txt  : utilise par Dockerfile.neural
+#  -> requirements-crawl4ai.txt: utilise uniquement par .venv-crawl4ai/ en local
+#
+#  Conséquence : Playwright + Chromium n'entrent JAMAIS dans les images Docker
+#  de production. Contrainte AGENTS.md respectee par construction, pas par
+#  convention :
+#      "No Chromium/Puppeteer in Docker image" (Render gratuit, 512 Mo RAM)
+#
+#  Le venv est resolu par core/utils/crawl4aiResolver.js -> .venv-crawl4ai/
+#
+#  Installation :
+#      python -m venv .venv-crawl4ai
+#      .venv-crawl4ai\Scripts\python -m pip install -r requirements-crawl4ai.txt
+#      .venv-crawl4ai\Scripts\python -m playwright install chromium
+#
+#  Le service local est ensuite lance par scripts/crawl4ai_service.py (:11235).
+#  Node n'a besoin que de CRAWL4AI_URL — le backend (ce service, le conteneur
+#  Docker unclecode/crawl4ai, ou une instance distante) est interchangeable.
+# ============================================================================
+
+# --- Crawl4AI (moteur) ---
+crawl4ai==0.9.4
+
+# --- Navigateur ---
+# Playwright est tire transitivement par crawl4ai ; on le fige pour que le
+# telechargement du Chromium soit reproductible.
+playwright>=1.49.0
+
+# --- Service HTTP local ---
+# aiohttp : serveur async leger, meme famille que uvicorn deja utilise par
+# core/fastapi_server.py. Evite d'ajouter Flask (synchrone) au venv.
+aiohttp>=3.10.0

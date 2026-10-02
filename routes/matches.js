@@ -743,6 +743,12 @@ try {
       logger.warn(`[UPCOMING] Finished pool fetch failed: ${e.message}`)
     }
 
+    const optaStore = require('../services/optaPredictions')
+    // 16. Attach Opta 1X2 predictions from theAnalyst (E69) to elite + fallback pools.
+    try {
+      optaStore.enrichMatchesOpta(database, responseElite)
+      optaStore.enrichMatchesOpta(database, fallback_pool)
+    } catch (_) {}
     logger.info(
       `📊 [UPCOMING] ${responseElite.length} elite + ${fallback_pool.length} fallback (${vip.length} VIP locked) + ${finished_pool.length} finished`
     )

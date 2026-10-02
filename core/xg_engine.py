@@ -165,14 +165,36 @@ def compute_dmf_fatigue(match_obj, features, h_hist, a_hist, h_att_mod, h_def_mo
     Returns: (xg_h, xg_a, h_dmf, a_dmf, h_fatigue, a_fatigue, h_is_dz, a_is_dz,
               motivation_signature, h_att_mod, h_def_mod, a_att_mod, a_def_mod)
     """
-    h_target_w = float(match_obj.get('home_target_weight', 0))
-    a_target_w = float(match_obj.get('away_target_weight', 0))
+    # E71 : zone morte semantique vs zone morte "legacy" du DMF — deux notions
+    # qu'il ne faut PAS confondre.
+    #
+    # 1) h_is_dz (semantique, retour + veto E71 + signature) : VRAI seulement si
+    #    la donnee le dit. Avant : `float(match_obj.get('home_target_weight', 0))`
+    #    faisait 0.0 < 0.1 -> VRAI des que le champ manquait, donc virtually tout
+    #    match sortait "zone morte" ; observe : DEAD_ZONE_BOTH declenchait sur
+    #    Man City vs Arsenal. Donnee manquante != zero enjeu.
+    #
+    # 2) h_dz_legacy : la formule d'origine, non modifiee, celle que reçoit
+    #    calculate_dmf_hafiz. Elle n'est PAS « un bug » : c'est la definition
+    #    historique du modele, et la changer decale les probabilites. Mesure :
+    #    sur le fixture Ligue 1 du test d'integration, passer le DMF de 1.0 a
+    #    0.85 fait tomber p_home sous le seuil du garde divergence (13.0pp) et
+    #    transforme un prono ACTIVE en NO BET. On touche donc le modele nulle
+    #    part : seul le veto gagne en justesse.
+    h_tw_raw = match_obj.get('home_target_weight')
+    a_tw_raw = match_obj.get('away_target_weight')
+    h_target_w = _safe_float(h_tw_raw, 0.0)
+    a_target_w = _safe_float(a_tw_raw, 0.0)
+    h_tw_known = h_tw_raw is not None and h_tw_raw != ''
+    a_tw_known = a_tw_raw is not None and a_tw_raw != ''
 
-    h_is_dz = (h_target_w < 0.1) and (len(h_hist) > 5)
-    a_is_dz = (a_target_w < 0.1) and (len(a_hist) > 5)
+    h_dz_legacy = (h_target_w < 0.1) and (len(h_hist) > 5)
+    a_dz_legacy = (a_target_w < 0.1) and (len(a_hist) > 5)
+    h_is_dz = h_tw_known and h_dz_legacy
+    a_is_dz = a_tw_known and a_dz_legacy
 
-    h_dmf = calculate_dmf_hafiz(h_target_w, _f_feat('home_distance_target', match_obj, 0), _f_feat('home_matches_remaining', match_obj, 10), len(h_hist), is_dead_zone=h_is_dz)
-    a_dmf = calculate_dmf_hafiz(a_target_w, _f_feat('away_distance_target', match_obj, 0), _f_feat('away_matches_remaining', match_obj, 10), len(a_hist), is_dead_zone=a_is_dz)
+    h_dmf = calculate_dmf_hafiz(h_target_w, _f_feat('home_distance_target', match_obj, 0), _f_feat('home_matches_remaining', match_obj, 10), len(h_hist), is_dead_zone=h_dz_legacy)
+    a_dmf = calculate_dmf_hafiz(a_target_w, _f_feat('away_distance_target', match_obj, 0), _f_feat('away_matches_remaining', match_obj, 10), len(a_hist), is_dead_zone=a_dz_legacy)
 
     h_fatigue = calculate_fatigue_mod(_f_feat('rest_h', features, 7))
     a_fatigue = calculate_fatigue_mod(_f_feat('rest_a', features, 7))

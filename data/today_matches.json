@@ -1,1712 +1,272 @@
 [
   {
-    "id": "darmstadt-bielefeld-2026-09-11",
-    "home": "Darmstadt",
-    "away": "Bielefeld",
-    "league": "d2",
-    "country": "D2",
-    "date": "2026-09-11",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "nurnberg-hannover-2026-09-11",
-    "home": "Nurnberg",
-    "away": "Hannover",
-    "league": "d2",
-    "country": "D2",
-    "date": "2026-09-11",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "empoli-arezzo-2026-09-11",
-    "home": "Empoli",
-    "away": "Arezzo",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-11",
-    "kickoff_time": "18:00"
-  },
-  {
-    "id": "besiktas-erzurumspor-2026-09-11",
-    "home": "Besiktas",
-    "away": "Erzurumspor",
-    "league": "t1",
-    "country": "T1",
-    "date": "2026-09-11",
-    "kickoff_time": "18:00"
-  },
-  {
-    "id": "clermont-boulogne-2026-09-11",
-    "home": "Clermont",
-    "away": "Boulogne",
-    "league": "f2",
-    "country": "F2",
-    "date": "2026-09-11",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "dijon-laval-2026-09-11",
-    "home": "Dijon",
-    "away": "Laval",
-    "league": "f2",
-    "country": "F2",
-    "date": "2026-09-11",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "montpellier-pau-fc-2026-09-11",
-    "home": "Montpellier",
-    "away": "Pau FC",
-    "league": "f2",
-    "country": "F2",
-    "date": "2026-09-11",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "nancy-reims-2026-09-11",
-    "home": "Nancy",
-    "away": "Reims",
-    "league": "f2",
-    "country": "F2",
-    "date": "2026-09-11",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "rodez-grenoble-2026-09-11",
-    "home": "Rodez",
-    "away": "Grenoble",
-    "league": "f2",
-    "country": "F2",
-    "date": "2026-09-11",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "az-alkmaar-willem-ii-2026-09-11",
-    "home": "AZ Alkmaar",
-    "away": "Willem II",
-    "league": "n1",
-    "country": "N1",
-    "date": "2026-09-11",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "union-berlin-schalke-04-2026-09-11",
-    "home": "Union Berlin",
-    "away": "Schalke 04",
-    "league": "d1",
-    "country": "D1",
-    "date": "2026-09-11",
-    "kickoff_time": "19:30"
-  },
-  {
-    "id": "morton-livingston-2026-09-11",
-    "home": "Morton",
-    "away": "Livingston",
-    "league": "sc1",
-    "country": "SC1",
-    "date": "2026-09-11",
-    "kickoff_time": "19:30"
-  },
-  {
-    "id": "burgos-ceuta-2026-09-11",
-    "home": "Burgos",
-    "away": "Ceuta",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-11",
-    "kickoff_time": "19:30"
-  },
-  {
-    "id": "mechelen-anderlecht-2026-09-11",
-    "home": "Mechelen",
-    "away": "Anderlecht",
-    "league": "b1",
-    "country": "B1",
-    "date": "2026-09-11",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "kidderminster-hartlepool-2026-09-11",
-    "home": "Kidderminster",
-    "away": "Hartlepool",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-11",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "rennes-marseille-2026-09-11",
-    "home": "Rennes",
-    "away": "Marseille",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-09-11",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "venezia-fiorentina-2026-09-11",
-    "home": "Venezia",
-    "away": "Fiorentina",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-11",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "west-ham-wrexham-2026-09-11",
-    "home": "West Ham",
-    "away": "Wrexham",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-11",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "benevento-verona-2026-09-11",
-    "home": "Benevento",
-    "away": "Verona",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-11",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "pisa-virtus-entella-2026-09-11",
-    "home": "Pisa",
-    "away": "Virtus Entella",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-11",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "sevilla-valencia-2026-09-11",
-    "home": "Sevilla",
-    "away": "Valencia",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-09-11",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "bochum-greuther-furth-2026-09-12",
-    "home": "Bochum",
-    "away": "Greuther Furth",
-    "league": "d2",
-    "country": "D2",
-    "date": "2026-09-12",
-    "kickoff_time": "12:00"
-  },
-  {
-    "id": "braunschweig-dresden-2026-09-12",
-    "home": "Braunschweig",
-    "away": "Dresden",
-    "league": "d2",
-    "country": "D2",
-    "date": "2026-09-12",
-    "kickoff_time": "12:00"
-  },
-  {
-    "id": "magdeburg-kaiserslautern-2026-09-12",
-    "home": "Magdeburg",
-    "away": "Kaiserslautern",
-    "league": "d2",
-    "country": "D2",
-    "date": "2026-09-12",
-    "kickoff_time": "12:00"
-  },
-  {
-    "id": "bolton-cardiff-2026-09-12",
-    "home": "Bolton",
-    "away": "Cardiff",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "derby-birmingham-2026-09-12",
-    "home": "Derby",
-    "away": "Birmingham",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "west-brom-qpr-2026-09-12",
-    "home": "West Brom",
-    "away": "QPR",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "leyton-orient-wycombe-2026-09-12",
-    "home": "Leyton Orient",
-    "away": "Wycombe",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "notts-county-bradford-2026-09-12",
-    "home": "Notts County",
-    "away": "Bradford",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "crawley-town-cheltenham-2026-09-12",
-    "home": "Crawley Town",
-    "away": "Cheltenham",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "grimsby-bristol-rvs-2026-09-12",
-    "home": "Grimsby",
-    "away": "Bristol Rvs",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "harrogate-tamworth-2026-09-12",
-    "home": "Harrogate",
-    "away": "Tamworth",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "worthing-barrow-2026-09-12",
-    "home": "Worthing",
-    "away": "Barrow",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "guingamp-annecy-2026-09-12",
-    "home": "Guingamp",
-    "away": "Annecy",
-    "league": "f2",
-    "country": "F2",
-    "date": "2026-09-12",
-    "kickoff_time": "13:00"
-  },
-  {
-    "id": "sochaux-nantes-2026-09-12",
-    "home": "Sochaux",
-    "away": "Nantes",
-    "league": "f2",
-    "country": "F2",
-    "date": "2026-09-12",
-    "kickoff_time": "13:00"
-  },
-  {
-    "id": "santander-alaves-2026-09-12",
-    "home": "Santander",
-    "away": "Alaves",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-09-12",
-    "kickoff_time": "13:00"
-  },
-  {
-    "id": "andorra-sociedad-b-2026-09-12",
-    "home": "Andorra",
-    "away": "Sociedad B",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-12",
-    "kickoff_time": "13:00"
-  },
-  {
-    "id": "genoa-frosinone-2026-09-12",
-    "home": "Genoa",
-    "away": "Frosinone",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-12",
-    "kickoff_time": "14:00"
-  },
-  {
-    "id": "padova-ascoli-2026-09-12",
-    "home": "Padova",
-    "away": "Ascoli",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-12",
-    "kickoff_time": "14:00"
-  },
-  {
-    "id": "sudtirol-modena-2026-09-12",
-    "home": "Sudtirol",
-    "away": "Modena",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-12",
-    "kickoff_time": "14:00"
-  },
-  {
-    "id": "vicenza-juve-stabia-2026-09-12",
-    "home": "Vicenza",
-    "away": "Juve Stabia",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-12",
-    "kickoff_time": "14:00"
-  },
-  {
-    "id": "augsburg-leverkusen-2026-09-12",
-    "home": "Augsburg",
-    "away": "Leverkusen",
-    "league": "d1",
-    "country": "D1",
-    "date": "2026-09-12",
-    "kickoff_time": "14:30"
-  },
-  {
-    "id": "dortmund-paderborn-2026-09-12",
-    "home": "Dortmund",
-    "away": "Paderborn",
-    "league": "d1",
-    "country": "D1",
-    "date": "2026-09-12",
-    "kickoff_time": "14:30"
-  },
-  {
-    "id": "freiburg-mgladbach-2026-09-12",
-    "home": "Freiburg",
-    "away": "M'gladbach",
-    "league": "d1",
-    "country": "D1",
-    "date": "2026-09-12",
-    "kickoff_time": "14:30"
-  },
-  {
-    "id": "hoffenheim-stuttgart-2026-09-12",
-    "home": "Hoffenheim",
-    "away": "Stuttgart",
-    "league": "d1",
-    "country": "D1",
-    "date": "2026-09-12",
-    "kickoff_time": "14:30"
-  },
-  {
-    "id": "mainz-ein-frankfurt-2026-09-12",
-    "home": "Mainz",
-    "away": "Ein Frankfurt",
-    "league": "d1",
-    "country": "D1",
-    "date": "2026-09-12",
-    "kickoff_time": "14:30"
-  },
-  {
-    "id": "beveren-st-truiden-2026-09-12",
-    "home": "Beveren",
-    "away": "St Truiden",
-    "league": "b1",
-    "country": "B1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "aston-villa-nottm-forest-2026-09-12",
-    "home": "Aston Villa",
-    "away": "Nott'm Forest",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "bournemouth-brentford-2026-09-12",
-    "home": "Bournemouth",
-    "away": "Brentford",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "chelsea-hull-2026-09-12",
-    "home": "Chelsea",
-    "away": "Hull",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "crystal-palace-ipswich-2026-09-12",
-    "home": "Crystal Palace",
-    "away": "Ipswich",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "liverpool-fulham-2026-09-12",
-    "home": "Liverpool",
-    "away": "Fulham",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "blackburn-millwall-2026-09-12",
-    "home": "Blackburn",
-    "away": "Millwall",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "charlton-portsmouth-2026-09-12",
-    "home": "Charlton",
-    "away": "Portsmouth",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "middlesbrough-norwich-2026-09-12",
-    "home": "Middlesbrough",
-    "away": "Norwich",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "preston-lincoln-2026-09-12",
-    "home": "Preston",
-    "away": "Lincoln",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "southampton-bristol-city-2026-09-12",
-    "home": "Southampton",
-    "away": "Bristol City",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "swansea-burnley-2026-09-12",
-    "home": "Swansea",
-    "away": "Burnley",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "watford-stoke-2026-09-12",
-    "home": "Watford",
-    "away": "Stoke",
-    "league": "e1",
-    "country": "E1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "afc-wimbledon-doncaster-2026-09-12",
-    "home": "AFC Wimbledon",
-    "away": "Doncaster",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "blackpool-bromley-2026-09-12",
-    "home": "Blackpool",
-    "away": "Bromley",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "cambridge-reading-2026-09-12",
-    "home": "Cambridge",
-    "away": "Reading",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "mansfield-huddersfield-2026-09-12",
-    "home": "Mansfield",
-    "away": "Huddersfield",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "milton-keynes-dons-peterboro-2026-09-12",
-    "home": "Milton Keynes Dons",
-    "away": "Peterboro",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "oxford-burton-2026-09-12",
-    "home": "Oxford",
-    "away": "Burton",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "plymouth-barnsley-2026-09-12",
-    "home": "Plymouth",
-    "away": "Barnsley",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "sheffield-weds-wigan-2026-09-12",
-    "home": "Sheffield Weds",
-    "away": "Wigan",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "stockport-leicester-2026-09-12",
-    "home": "Stockport",
-    "away": "Leicester",
-    "league": "e2",
-    "country": "E2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "barnet-accrington-2026-09-12",
-    "home": "Barnet",
-    "away": "Accrington",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "colchester-crewe-2026-09-12",
-    "home": "Colchester",
-    "away": "Crewe",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "gillingham-tranmere-2026-09-12",
-    "home": "Gillingham",
-    "away": "Tranmere",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "newport-county-fleetwood-town-2026-09-12",
-    "home": "Newport County",
-    "away": "Fleetwood Town",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "oldham-chesterfield-2026-09-12",
-    "home": "Oldham",
-    "away": "Chesterfield",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "port-vale-exeter-2026-09-12",
-    "home": "Port Vale",
-    "away": "Exeter",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "rotherham-salford-2026-09-12",
-    "home": "Rotherham",
-    "away": "Salford",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "shrewsbury-northampton-2026-09-12",
-    "home": "Shrewsbury",
-    "away": "Northampton",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "walsall-rochdale-2026-09-12",
-    "home": "Walsall",
-    "away": "Rochdale",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "york-swindon-2026-09-12",
-    "home": "York",
-    "away": "Swindon",
-    "league": "e3",
-    "country": "E3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "boston-utd-wealdstone-2026-09-12",
-    "home": "Boston Utd",
-    "away": "Wealdstone",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "eastleigh-boreham-wood-2026-09-12",
-    "home": "Eastleigh",
-    "away": "Boreham Wood",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "forest-green-gateshead-2026-09-12",
-    "home": "Forest Green",
-    "away": "Gateshead",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "halifax-hornchurch-2026-09-12",
-    "home": "Halifax",
-    "away": "Hornchurch",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "solihull-aldershot-2026-09-12",
-    "home": "Solihull",
-    "away": "Aldershot",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "sutton-scunthorpe-2026-09-12",
-    "home": "Sutton",
-    "away": "Scunthorpe",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "woking-altrincham-2026-09-12",
-    "home": "Woking",
-    "away": "Altrincham",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "yeovil-fylde-2026-09-12",
-    "home": "Yeovil",
-    "away": "Fylde",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "ayr-inverness-c-2026-09-12",
-    "home": "Ayr",
-    "away": "Inverness C",
-    "league": "sc1",
-    "country": "SC1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "dunfermline-queens-park-2026-09-12",
-    "home": "Dunfermline",
-    "away": "Queens Park",
-    "league": "sc1",
-    "country": "SC1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "raith-rvs-arbroath-2026-09-12",
-    "home": "Raith Rvs",
-    "away": "Arbroath",
-    "league": "sc1",
-    "country": "SC1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "airdrie-utd-alloa-2026-09-12",
-    "home": "Airdrie Utd",
-    "away": "Alloa",
-    "league": "sc2",
-    "country": "SC2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "east-kilbride-peterhead-2026-09-12",
-    "home": "East Kilbride",
-    "away": "Peterhead",
-    "league": "sc2",
-    "country": "SC2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "montrose-cove-rangers-2026-09-12",
-    "home": "Montrose",
-    "away": "Cove Rangers",
-    "league": "sc2",
-    "country": "SC2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "queen-of-sth-east-fife-2026-09-12",
-    "home": "Queen of Sth",
-    "away": "East Fife",
-    "league": "sc2",
-    "country": "SC2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "annan-athletic-elgin-2026-09-12",
-    "home": "Annan Athletic",
-    "away": "Elgin",
-    "league": "sc3",
-    "country": "SC3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "clyde-kelty-hearts-2026-09-12",
-    "home": "Clyde",
-    "away": "Kelty Hearts",
-    "league": "sc3",
-    "country": "SC3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "edinburgh-city-stirling-2026-09-12",
-    "home": "Edinburgh City",
-    "away": "Stirling",
-    "league": "sc3",
-    "country": "SC3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "spartans-forfar-2026-09-12",
-    "home": "Spartans",
-    "away": "Forfar",
-    "league": "sc3",
-    "country": "SC3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "stranraer-dumbarton-2026-09-12",
-    "home": "Stranraer",
-    "away": "Dumbarton",
-    "league": "sc3",
-    "country": "SC3",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "eyupspor-rizespor-2026-09-12",
-    "home": "Eyupspor",
-    "away": "Rizespor",
-    "league": "t1",
-    "country": "T1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "samsunspor-corum-2026-09-12",
-    "home": "Samsunspor",
-    "away": "Corum",
-    "league": "t1",
-    "country": "T1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "osasuna-espanol-2026-09-12",
-    "home": "Osasuna",
+    "id": "vallecano-espanol-2026-09-15",
+    "home": "Vallecano",
     "away": "Espanol",
     "league": "sp1",
     "country": "SP1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:15"
+    "date": "2026-09-15",
+    "kickoff_time": "18:00"
   },
   {
-    "id": "cadiz-las-palmas-2026-09-12",
-    "home": "Cadiz",
-    "away": "Las Palmas",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-12",
-    "kickoff_time": "15:15"
-  },
-  {
-    "id": "twente-den-haag-2026-09-12",
-    "home": "Twente",
-    "away": "Den Haag",
+    "id": "ajax-willem-ii-2026-09-15",
+    "home": "Ajax",
+    "away": "Willem II",
     "league": "n1",
     "country": "N1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:30"
+    "date": "2026-09-15",
+    "kickoff_time": "19:00"
   },
   {
-    "id": "nacional-alverca-2026-09-12",
-    "home": "Nacional",
-    "away": "Alverca",
-    "league": "p1",
-    "country": "P1",
-    "date": "2026-09-12",
-    "kickoff_time": "15:30"
-  },
-  {
-    "id": "strasbourg-monaco-2026-09-12",
-    "home": "Strasbourg",
-    "away": "Monaco",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-09-12",
-    "kickoff_time": "16:15"
-  },
-  {
-    "id": "catanzaro-carrarese-2026-09-12",
-    "home": "Catanzaro",
-    "away": "Carrarese",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-12",
-    "kickoff_time": "16:15"
-  },
-  {
-    "id": "olympiakos-ofi-crete-2026-09-12",
-    "home": "Olympiakos",
-    "away": "OFI Crete",
-    "league": "g1",
-    "country": "G1",
-    "date": "2026-09-12",
-    "kickoff_time": "17:00"
-  },
-  {
-    "id": "lazio-milan-2026-09-12",
-    "home": "Lazio",
-    "away": "Milan",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-12",
-    "kickoff_time": "17:00"
-  },
-  {
-    "id": "westerlo-standard-2026-09-12",
-    "home": "Westerlo",
-    "away": "Standard",
-    "league": "b1",
-    "country": "B1",
-    "date": "2026-09-12",
-    "kickoff_time": "17:15"
-  },
-  {
-    "id": "fc-koln-werder-bremen-2026-09-12",
-    "home": "FC Koln",
-    "away": "Werder Bremen",
-    "league": "d1",
-    "country": "D1",
-    "date": "2026-09-12",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "tottenham-everton-2026-09-12",
-    "home": "Tottenham",
-    "away": "Everton",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-12",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "carlisle-southend-2026-09-12",
-    "home": "Carlisle",
-    "away": "Southend",
-    "league": "uel",
-    "country": "UEL",
-    "date": "2026-09-12",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "ath-bilbao-elche-2026-09-12",
-    "home": "Ath Bilbao",
-    "away": "Elche",
+    "id": "alaves-valencia-2026-09-15",
+    "home": "Alaves",
+    "away": "Valencia",
     "league": "sp1",
     "country": "SP1",
-    "date": "2026-09-12",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "girona-castellon-2026-09-12",
-    "home": "Girona",
-    "away": "Castellon",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-12",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "granada-albacete-2026-09-12",
-    "home": "Granada",
-    "away": "Albacete",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-12",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "go-ahead-eagles-groningen-2026-09-12",
-    "home": "Go Ahead Eagles",
-    "away": "Groningen",
-    "league": "n1",
-    "country": "N1",
-    "date": "2026-09-12",
-    "kickoff_time": "17:45"
-  },
-  {
-    "id": "casa-pia-porto-2026-09-12",
-    "home": "Casa Pia",
-    "away": "Porto",
-    "league": "p1",
-    "country": "P1",
-    "date": "2026-09-12",
-    "kickoff_time": "18:00"
-  },
-  {
-    "id": "alanyaspor-goztep-2026-09-12",
-    "home": "Alanyaspor",
-    "away": "Goztep",
-    "league": "t1",
-    "country": "T1",
-    "date": "2026-09-12",
-    "kickoff_time": "18:00"
-  },
-  {
-    "id": "konyaspor-trabzonspor-2026-09-12",
-    "home": "Konyaspor",
-    "away": "Trabzonspor",
-    "league": "t1",
-    "country": "T1",
-    "date": "2026-09-12",
-    "kickoff_time": "18:00"
-  },
-  {
-    "id": "cesena-cremonese-2026-09-12",
-    "home": "Cesena",
-    "away": "Cremonese",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-12",
-    "kickoff_time": "18:30"
-  },
-  {
-    "id": "dunkerque-st-etienne-2026-09-12",
-    "home": "Dunkerque",
-    "away": "St Etienne",
-    "league": "f2",
-    "country": "F2",
-    "date": "2026-09-12",
+    "date": "2026-09-15",
     "kickoff_time": "19:00"
   },
   {
-    "id": "iraklis-atromitos-2026-09-12",
-    "home": "Iraklis",
-    "away": "Atromitos",
-    "league": "g1",
-    "country": "G1",
-    "date": "2026-09-12",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "for-sittard-ajax-2026-09-12",
-    "home": "For Sittard",
-    "away": "Ajax",
-    "league": "n1",
-    "country": "N1",
-    "date": "2026-09-12",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "st-pauli-wolfsburg-2026-09-12",
-    "home": "St Pauli",
-    "away": "Wolfsburg",
-    "league": "d2",
-    "country": "D2",
-    "date": "2026-09-12",
-    "kickoff_time": "19:30"
-  },
-  {
-    "id": "oud-heverlee-leuven-cercle-brugge-2026-09-12",
-    "home": "Oud-Heverlee Leuven",
-    "away": "Cercle Brugge",
-    "league": "b1",
-    "country": "B1",
-    "date": "2026-09-12",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "st.-gilloise-lommel-sk-2026-09-12",
-    "home": "St. Gilloise",
-    "away": "Lommel SK",
-    "league": "b1",
-    "country": "B1",
-    "date": "2026-09-12",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "auxerre-nice-2026-09-12",
-    "home": "Auxerre",
-    "away": "Nice",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-09-12",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "le-havre-angers-2026-09-12",
-    "home": "Le Havre",
-    "away": "Angers",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-09-12",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "lorient-toulouse-2026-09-12",
-    "home": "Lorient",
-    "away": "Toulouse",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-09-12",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "paris-fc-lyon-2026-09-12",
-    "home": "Paris FC",
-    "away": "Lyon",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-09-12",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "atalanta-cagliari-2026-09-12",
-    "home": "Atalanta",
-    "away": "Cagliari",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-12",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "sunderland-arsenal-2026-09-12",
-    "home": "Sunderland",
-    "away": "Arsenal",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-12",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "cambuur-nijmegen-2026-09-12",
-    "home": "Cambuur",
-    "away": "Nijmegen",
-    "league": "n1",
-    "country": "N1",
-    "date": "2026-09-12",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "real-madrid-vallecano-2026-09-12",
-    "home": "Real Madrid",
-    "away": "Vallecano",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-09-12",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "cordoba-almeria-2026-09-12",
-    "home": "Cordoba",
-    "away": "Almeria",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-12",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "academico-viseu-guimaraes-2026-09-12",
-    "home": "Academico Viseu",
-    "away": "Guimaraes",
-    "league": "p1",
-    "country": "P1",
-    "date": "2026-09-12",
-    "kickoff_time": "20:30"
-  },
-  {
-    "id": "excelsior-utrecht-2026-09-13",
-    "home": "Excelsior",
-    "away": "Utrecht",
-    "league": "n1",
-    "country": "N1",
-    "date": "2026-09-13",
-    "kickoff_time": "11:15"
-  },
-  {
-    "id": "sheffield-united-wolves-2026-09-13",
-    "home": "Sheffield United",
-    "away": "Wolves",
+    "id": "bristol-city-lincoln-2026-09-15",
+    "home": "Bristol City",
+    "away": "Lincoln",
     "league": "e1",
     "country": "E1",
-    "date": "2026-09-13",
-    "kickoff_time": "12:00"
-  },
-  {
-    "id": "club-brugge-antwerp-2026-09-13",
-    "home": "Club Brugge",
-    "away": "Antwerp",
-    "league": "b1",
-    "country": "B1",
-    "date": "2026-09-13",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "heidenheim-holstein-kiel-2026-09-13",
-    "home": "Heidenheim",
-    "away": "Holstein Kiel",
-    "league": "d2",
-    "country": "D2",
-    "date": "2026-09-13",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "karlsruhe-cottbus-2026-09-13",
-    "home": "Karlsruhe",
-    "away": "Cottbus",
-    "league": "d2",
-    "country": "D2",
-    "date": "2026-09-13",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "osnabruck-hertha-2026-09-13",
-    "home": "Osnabruck",
-    "away": "Hertha",
-    "league": "d2",
-    "country": "D2",
-    "date": "2026-09-13",
-    "kickoff_time": "12:30"
-  },
-  {
-    "id": "celta-malaga-2026-09-13",
-    "home": "Celta",
-    "away": "Malaga",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-09-13",
-    "kickoff_time": "13:00"
-  },
-  {
-    "id": "sp-gijon-eldense-2026-09-13",
-    "home": "Sp Gijon",
-    "away": "Eldense",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-13",
-    "kickoff_time": "13:00"
-  },
-  {
-    "id": "heerenveen-telstar-2026-09-13",
-    "home": "Heerenveen",
-    "away": "Telstar",
-    "league": "n1",
-    "country": "N1",
-    "date": "2026-09-13",
-    "kickoff_time": "13:30"
-  },
-  {
-    "id": "coventry-brighton-2026-09-13",
-    "home": "Coventry",
-    "away": "Brighton",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-13",
-    "kickoff_time": "14:00"
-  },
-  {
-    "id": "lille-troyes-2026-09-13",
-    "home": "Lille",
-    "away": "Troyes",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-09-13",
-    "kickoff_time": "14:00"
-  },
-  {
-    "id": "lecce-monza-2026-09-13",
-    "home": "Lecce",
-    "away": "Monza",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-13",
-    "kickoff_time": "14:00"
-  },
-  {
-    "id": "rb-leipzig-hamburg-2026-09-13",
-    "home": "RB Leipzig",
-    "away": "Hamburg",
-    "league": "d1",
-    "country": "D1",
-    "date": "2026-09-13",
-    "kickoff_time": "14:30"
-  },
-  {
-    "id": "genk-gent-2026-09-13",
-    "home": "Genk",
-    "away": "Gent",
-    "league": "b1",
-    "country": "B1",
-    "date": "2026-09-13",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "genclerbirligi-kasimpasa-2026-09-13",
-    "home": "Genclerbirligi",
-    "away": "Kasimpasa",
-    "league": "t1",
-    "country": "T1",
-    "date": "2026-09-13",
-    "kickoff_time": "15:00"
-  },
-  {
-    "id": "levante-barcelona-2026-09-13",
-    "home": "Levante",
-    "away": "Barcelona",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-09-13",
-    "kickoff_time": "15:15"
-  },
-  {
-    "id": "valladolid-oviedo-2026-09-13",
-    "home": "Valladolid",
-    "away": "Oviedo",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-13",
-    "kickoff_time": "15:15"
-  },
-  {
-    "id": "zwolle-feyenoord-2026-09-13",
-    "home": "Zwolle",
-    "away": "Feyenoord",
-    "league": "n1",
-    "country": "N1",
-    "date": "2026-09-13",
-    "kickoff_time": "15:45"
-  },
-  {
-    "id": "kalamata-volos-nfc-2026-09-13",
-    "home": "Kalamata",
-    "away": "Volos NFC",
-    "league": "g1",
-    "country": "G1",
-    "date": "2026-09-13",
-    "kickoff_time": "16:00"
-  },
-  {
-    "id": "le-mans-lens-2026-09-13",
-    "home": "Le Mans",
-    "away": "Lens",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-09-13",
-    "kickoff_time": "16:15"
-  },
-  {
-    "id": "avellino-palermo-2026-09-13",
-    "home": "Avellino",
-    "away": "Palermo",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-13",
-    "kickoff_time": "16:15"
-  },
-  {
-    "id": "mantova-sampdoria-2026-09-13",
-    "home": "Mantova",
-    "away": "Sampdoria",
-    "league": "i2",
-    "country": "I2",
-    "date": "2026-09-13",
-    "kickoff_time": "16:15"
-  },
-  {
-    "id": "elversberg-bayern-munich-2026-09-13",
-    "home": "Elversberg",
-    "away": "Bayern Munich",
-    "league": "d1",
-    "country": "D1",
-    "date": "2026-09-13",
-    "kickoff_time": "16:30"
-  },
-  {
-    "id": "man-united-man-city-2026-09-13",
-    "home": "Man United",
-    "away": "Man City",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-13",
-    "kickoff_time": "16:30"
-  },
-  {
-    "id": "asteras-tripolis-aek-2026-09-13",
-    "home": "Asteras Tripolis",
-    "away": "AEK",
-    "league": "g1",
-    "country": "G1",
-    "date": "2026-09-13",
-    "kickoff_time": "17:00"
-  },
-  {
-    "id": "napoli-bologna-2026-09-13",
-    "home": "Napoli",
-    "away": "Bologna",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-13",
-    "kickoff_time": "17:00"
-  },
-  {
-    "id": "waregem-charleroi-2026-09-13",
-    "home": "Waregem",
-    "away": "Charleroi",
-    "league": "b1",
-    "country": "B1",
-    "date": "2026-09-13",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "getafe-la-coruna-2026-09-13",
-    "home": "Getafe",
-    "away": "La Coruna",
-    "league": "sp1",
-    "country": "SP1",
-    "date": "2026-09-13",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "mallorca-sabadell-2026-09-13",
-    "home": "Mallorca",
-    "away": "Sabadell",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-13",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "arouca-santa-clara-2026-09-13",
-    "home": "Arouca",
-    "away": "Santa Clara",
-    "league": "p1",
-    "country": "P1",
-    "date": "2026-09-13",
-    "kickoff_time": "18:00"
-  },
-  {
-    "id": "benfica-gil-vicente-2026-09-13",
-    "home": "Benfica",
-    "away": "Gil Vicente",
-    "league": "p1",
-    "country": "P1",
-    "date": "2026-09-13",
-    "kickoff_time": "18:00"
-  },
-  {
-    "id": "amedspor-buyuksehyr-2026-09-13",
-    "home": "Amedspor",
-    "away": "Buyuksehyr",
-    "league": "t1",
-    "country": "T1",
-    "date": "2026-09-13",
-    "kickoff_time": "18:00"
-  },
-  {
-    "id": "galatasaray-kocaelispor-2026-09-13",
-    "home": "Galatasaray",
-    "away": "Kocaelispor",
-    "league": "t1",
-    "country": "T1",
-    "date": "2026-09-13",
-    "kickoff_time": "18:00"
-  },
-  {
-    "id": "raal-la-louviere-kortrijk-2026-09-13",
-    "home": "RAAL La Louviere",
-    "away": "Kortrijk",
-    "league": "b1",
-    "country": "B1",
-    "date": "2026-09-13",
-    "kickoff_time": "18:15"
-  },
-  {
-    "id": "kifisia-levadeiakos-2026-09-13",
-    "home": "Kifisia",
-    "away": "Levadeiakos",
-    "league": "g1",
-    "country": "G1",
-    "date": "2026-09-13",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "paok-aris-2026-09-13",
-    "home": "PAOK",
-    "away": "Aris",
-    "league": "g1",
-    "country": "G1",
-    "date": "2026-09-13",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "psv-eindhoven-sparta-rotterdam-2026-09-13",
-    "home": "PSV Eindhoven",
-    "away": "Sparta Rotterdam",
-    "league": "n1",
-    "country": "N1",
-    "date": "2026-09-13",
-    "kickoff_time": "19:00"
-  },
-  {
-    "id": "panathinaikos-panetolikos-2026-09-13",
-    "home": "Panathinaikos",
-    "away": "Panetolikos",
-    "league": "g1",
-    "country": "G1",
-    "date": "2026-09-13",
-    "kickoff_time": "19:30"
-  },
-  {
-    "id": "brest-paris-sg-2026-09-13",
-    "home": "Brest",
-    "away": "Paris SG",
-    "league": "f1",
-    "country": "F1",
-    "date": "2026-09-13",
+    "date": "2026-09-15",
     "kickoff_time": "19:45"
   },
   {
-    "id": "sassuolo-juventus-2026-09-13",
-    "home": "Sassuolo",
-    "away": "Juventus",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-13",
+    "id": "middlesbrough-millwall-2026-09-15",
+    "home": "Middlesbrough",
+    "away": "Millwall",
+    "league": "e1",
+    "country": "E1",
+    "date": "2026-09-15",
     "kickoff_time": "19:45"
   },
   {
-    "id": "sociedad-ath-madrid-2026-09-13",
-    "home": "Sociedad",
-    "away": "Ath Madrid",
+    "id": "aldershot-yeovil-2026-09-15",
+    "home": "Aldershot",
+    "away": "Yeovil",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "boston-utd-woking-2026-09-15",
+    "home": "Boston Utd",
+    "away": "Woking",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "carlisle-forest-green-2026-09-15",
+    "home": "Carlisle",
+    "away": "Forest Green",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "harrogate-fylde-2026-09-15",
+    "home": "Harrogate",
+    "away": "Fylde",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "solihull-barrow-2026-09-15",
+    "home": "Solihull",
+    "away": "Barrow",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "southend-tamworth-2026-09-15",
+    "home": "Southend",
+    "away": "Tamworth",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "sutton-eastleigh-2026-09-15",
+    "home": "Sutton",
+    "away": "Eastleigh",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "wealdstone-halifax-2026-09-15",
+    "home": "Wealdstone",
+    "away": "Halifax",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "worthing-hornchurch-2026-09-15",
+    "home": "Worthing",
+    "away": "Hornchurch",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "falkirk-hearts-2026-09-15",
+    "home": "Falkirk",
+    "away": "Hearts",
+    "league": "sc0",
+    "country": "SC0",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "hibernian-kilmarnock-2026-09-15",
+    "home": "Hibernian",
+    "away": "Kilmarnock",
+    "league": "sc0",
+    "country": "SC0",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "motherwell-aberdeen-2026-09-15",
+    "home": "Motherwell",
+    "away": "Aberdeen",
+    "league": "sc0",
+    "country": "SC0",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "stenhousemuir-partick-2026-09-15",
+    "home": "Stenhousemuir",
+    "away": "Partick",
+    "league": "sc1",
+    "country": "SC1",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "ross-county-queen-of-sth-2026-09-15",
+    "home": "Ross County",
+    "away": "Queen of Sth",
+    "league": "sc2",
+    "country": "SC2",
+    "date": "2026-09-15",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "elche-real-madrid-2026-09-15",
+    "home": "Elche",
+    "away": "Real Madrid",
     "league": "sp1",
     "country": "SP1",
-    "date": "2026-09-13",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "tenerife-leganes-2026-09-13",
-    "home": "Tenerife",
-    "away": "Leganes",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-13",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "famalicao-sp-lisbon-2026-09-13",
-    "home": "Famalicao",
-    "away": "Sp Lisbon",
-    "league": "p1",
-    "country": "P1",
-    "date": "2026-09-13",
+    "date": "2026-09-15",
     "kickoff_time": "20:30"
   },
   {
-    "id": "como-parma-2026-09-14",
-    "home": "Como",
-    "away": "Parma",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-14",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "torino-roma-2026-09-14",
-    "home": "Torino",
-    "away": "Roma",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-14",
-    "kickoff_time": "17:30"
-  },
-  {
-    "id": "gaziantep-fenerbahce-2026-09-14",
-    "home": "Gaziantep",
-    "away": "Fenerbahce",
-    "league": "t1",
-    "country": "T1",
-    "date": "2026-09-14",
+    "id": "ath-madrid-osasuna-2026-09-16",
+    "home": "Ath Madrid",
+    "away": "Osasuna",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-09-16",
     "kickoff_time": "18:00"
   },
   {
-    "id": "rio-ave-estrela-2026-09-14",
-    "home": "Rio Ave",
-    "away": "Estrela",
-    "league": "p1",
-    "country": "P1",
-    "date": "2026-09-14",
-    "kickoff_time": "18:45"
-  },
-  {
-    "id": "celta-b-eibar-2026-09-14",
-    "home": "Celta B",
-    "away": "Eibar",
-    "league": "sp2",
-    "country": "SP2",
-    "date": "2026-09-14",
-    "kickoff_time": "19:30"
-  },
-  {
-    "id": "red-star-metz-2026-09-14",
-    "home": "Red Star",
-    "away": "Metz",
-    "league": "f2",
-    "country": "F2",
-    "date": "2026-09-14",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "inter-udinese-2026-09-14",
-    "home": "Inter",
-    "away": "Udinese",
-    "league": "i1",
-    "country": "I1",
-    "date": "2026-09-14",
-    "kickoff_time": "19:45"
-  },
-  {
-    "id": "leeds-newcastle-2026-09-14",
-    "home": "Leeds",
-    "away": "Newcastle",
-    "league": "e0",
-    "country": "E0",
-    "date": "2026-09-14",
-    "kickoff_time": "20:00"
-  },
-  {
-    "id": "villarreal-betis-2026-09-14",
-    "home": "Villarreal",
-    "away": "Betis",
+    "id": "la-coruna-sevilla-2026-09-16",
+    "home": "La Coruna",
+    "away": "Sevilla",
     "league": "sp1",
     "country": "SP1",
-    "date": "2026-09-14",
+    "date": "2026-09-16",
+    "kickoff_time": "18:00"
+  },
+  {
+    "id": "altrincham-hartlepool-2026-09-16",
+    "home": "Altrincham",
+    "away": "Hartlepool",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-16",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "kidderminster-gateshead-2026-09-16",
+    "home": "Kidderminster",
+    "away": "Gateshead",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-16",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "scunthorpe-boreham-wood-2026-09-16",
+    "home": "Scunthorpe",
+    "away": "Boreham Wood",
+    "league": "uel",
+    "country": "UEL",
+    "date": "2026-09-16",
+    "kickoff_time": "19:45"
+  },
+  {
+    "id": "barcelona-santander-2026-09-16",
+    "home": "Barcelona",
+    "away": "Santander",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-09-16",
+    "kickoff_time": "20:30"
+  },
+  {
+    "id": "levante-ath-bilbao-2026-09-16",
+    "home": "Levante",
+    "away": "Ath Bilbao",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-09-16",
+    "kickoff_time": "20:30"
+  },
+  {
+    "id": "betis-getafe-2026-09-17",
+    "home": "Betis",
+    "away": "Getafe",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-09-17",
+    "kickoff_time": "18:00"
+  },
+  {
+    "id": "afc-wimbledon-milton-keynes-dons-2026-09-17",
+    "home": "AFC Wimbledon",
+    "away": "Milton Keynes Dons",
+    "league": "e2",
+    "country": "E2",
+    "date": "2026-09-17",
     "kickoff_time": "20:00"
   },
   {
-    "id": "moreirense-maritimo-2026-09-14",
-    "home": "Moreirense",
-    "away": "Maritimo",
-    "league": "p1",
-    "country": "P1",
-    "date": "2026-09-14",
-    "kickoff_time": "20:15"
-  },
-  {
-    "id": "sp-braga-estoril-2026-09-14",
-    "home": "Sp Braga",
-    "away": "Estoril",
-    "league": "p1",
-    "country": "P1",
-    "date": "2026-09-14",
-    "kickoff_time": "20:45"
+    "id": "malaga-villarreal-2026-09-17",
+    "home": "Malaga",
+    "away": "Villarreal",
+    "league": "sp1",
+    "country": "SP1",
+    "date": "2026-09-17",
+    "kickoff_time": "20:30"
   }
 ]

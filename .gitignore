@@ -163,6 +163,18 @@ src/data/news_cache.json
 # Python virtual environment
 .venv/
 venv/
+# Venv local crawl4ai (Playwright + Chromium, ~1 Go) — toolage optionnel,
+# requirements-crawl4ai.txt n'est reference par aucun Dockerfile.
+.venv-crawl4ai/
+# Profil Chromium persistant du service crawl4ai (:11235). Contient les cookies
+# du challenge WAF Sofascore : jamais versionne.
+.crawl4ai-profile/
+# Variante du meme profil, creee par la sonde anti-WAF (E72, 20 Mo de cookies).
+.crawl4ai-probe-profile/
+# Logs rotates (*.log.1) : `*.log` ne couvre pas la rotation.
+*.log.*
+# Fichier parasite vide cree par une redirection shell (`> null` sur PowerShell).
+/null
 
 # Runtime artifacts (downloaded data, Redis dump, stray logs)
 downloaded_files/

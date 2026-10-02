@@ -86,6 +86,23 @@ async function getMatchStats(matchId) {
   return getMatchDetails(matchId)
 }
 
+/**
+ * E71 : timeline du match (buts, penalties, own goals, cartes).
+ * Alimente le signal ANOMALOUS_INCIDENT de services/integrityScorer.js, qui
+ * n'avait aucune source branchee (0 incident stocke en base avant E71).
+ * Renvoie { incidents: [...] } ou null.
+ */
+async function getMatchEvents(matchId) {
+  try {
+    const out = await _callPy('get_match_events', { match_id: String(matchId) })
+    if (out && Array.isArray(out.incidents)) return out
+    return null
+  } catch (e) {
+    console.error(`[FOTMOB] getMatchEvents(${matchId}) failed: ${e.message}`)
+    return null
+  }
+}
+
 async function getMatchScore(matchId) {
   try {
     return await _callPy('get_match_score', { match_id: String(matchId) })
@@ -105,4 +122,4 @@ async function getMatchesByDate(dateStr) {
   }
 }
 
-module.exports = { getMatchDetails, getMatchStats, getMatchScore, getMatchesByDate }
+module.exports = { getMatchDetails, getMatchStats, getMatchScore, getMatchEvents, getMatchesByDate }

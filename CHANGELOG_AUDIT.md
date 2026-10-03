@@ -155,6 +155,76 @@ reste à 9,6 % pour trancher.
 
 ---
 
+## E78 : modèle contre marché, et l'essentiel du problème est dans le modèle (2026-10-03)
+
+E77 concluait « le pick ne bat pas la fréquence de base ». C'était **une
+erreur de lecture** : un écart de 1,4 point sur 883 matchs est du bruit. Cette
+entrée fait la mesure correctement et cherche le vrai maillon faible.
+
+### Ce que E77 a dit de trop, et de juste
+
+Test de McNemar (apparié) sur les 883 prédictions 1X2 :
+
+| | |
+|---|---:|
+| pick du modèle | 43,8 % |
+| « toujours le domicile » | 45,2 % |
+| modèle seul / référence seule | 117 / 129 |
+| **McNemar** | **p = 0,483** |
+
+L'écart n'est **pas significatif** : le modèle ne perd pas face à la règle sans
+information, il **fait égal**. Le disqualifier là-dessus était un faux verdict.
+
+En revanche son information de classement est réelle : AUC 0,579, z de **+3,0 à
++4,2 σ** selon l'issue, p = 0,0001 par permutation (10 000 mélanges).
+
+### La comparaison qui manquait : modèle contre marché
+
+Sur les **56 matchs** où modèle et marché sont cotés, probabilités implicites
+**dés-margées** (sans quoi le marché paraîtrait meilleur qu'il ne l'est) :
+
+| issue | modèle (AUC) | marché (AUC) | écart |
+|---|---:|---:|---:|
+| victoire domicile | 0,529 | 0,762 | +0,233 |
+| nul | 0,610 | 0,615 | +0,005 |
+| victoire extérieur | 0,661 | 0,786 | +0,125 |
+| **moyenne** | **0,600** | **0,721** | **+0,121** |
+
+Exactitude 1X2 : modèle **41,1 %**, marché **57,1 %**. Cohérent avec E74
+(log-loss 1,1124 contre 0,9809 sur 247 matchs).
+
+### Pourquoi la couverture des cotes n'était pas le verrou actionnable
+
+Hypothèse testée : le blocage venait de trop peu de cotes. Faux, ou plutôt
+irrelevant : les 883 prédictions sont **réparties sur 193 ligues** (4,6 par
+ligue), mêlant Premier League, Serie C groupe C, Coupe d'Allemagne, divisions
+féminines régionales et Ligi tanzaniennes. Aucun backfill n'y peut grand-chose,
+les sources gratuites ne couvrant ni les coupes ni les 3e divisions — le projet
+possède déjà 6 scripts football-data.co.uk qui n'y peuvent rien.
+
+Et surtout, restreindre le périmètre **n'améliore rien** :
+
+| cohorte | n | AUC | pick | base | écart |
+|---|---:|---:|---:|---:|---:|
+| haut de spectre (≥20 préd./ligue) | 87 | 0,585 | 41,4 % | 44,8 % | −3,4 |
+| longue queue | 796 | 0,578 | 44,1 % | 45,2 % | −1,1 |
+
+Le classement est aussi fort sur les 3 ligues les mieux couvertes que dans la
+longue queue. Ce n'est donc **ni un problème de périmètre, ni un problème de
+calibration, ni un problème de données manquantes** : le modèle classe un peu
+(0,58) et le marché classe beaucoup mieux (0,72).
+
+### Ce qu'il faut en faire
+
+Les trois causes qu'on pouvait traiter gratuitement sont écartées. Restent deux
+voies qui coûtent cher et rapportent peu : mieux modéliser, ou ne pas parier.
+C'est une décision de gestion, pas une tâche technique.
+
+`scripts/eval_pick_quality.py` regroupé en quatre tests (calibration, AUC + σ,
+McNemar, modèle contre marché), sort en erreur quand le marché est disqualifié.
+
+---
+
 ## E68-ter Fix crash dashboard #2 : cornersLabel lu avant declaration (2026-09-20)
 
 CRITIQUE (2e crash de la meme famille qu'E68-bis, meme journee) : le dashboard

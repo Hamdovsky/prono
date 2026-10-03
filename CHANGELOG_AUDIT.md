@@ -225,6 +225,71 @@ McNemar, modèle contre marché), sort en erreur quand le marché est disqualifi
 
 ---
 
+## E79 : le verdict E78 était un biais d'échantillon (2026-10-03)
+
+E78 concluait « le modèle classe un peu » sur une AUC de 0,579 mesurée avec
+z = +3 à +4,2 σ. Cette mesure portait sur **883 lignes**. Il existait une base
+quinze fois plus grande que personne n'avait utilisée.
+
+### Ce qui a été trouvé
+
+`historical_matches` contient **13 474 matchs** avec score ET les trois
+probabilités. Sur 13 413 exploitables (issues dérivées du **score**, pas du champ
+`result` qui note le sort du pick et non l'issue du match) :
+
+| mesure | 883 lignes (E78) | 13 413 lignes (E79) |
+|---|---:|---:|
+| AUC domicile | 0,576 | **0,508** |
+| AUC nul | 0,571 | 0,525 |
+| AUC extérieur | 0,589 | **0,509** |
+| pick | 43,8 % | **41,7 %** |
+| référence | 45,2 % | 44,2 % |
+| McNemar | p = 0,483 | **p < 0,0001** |
+
+Les trois AUC sont **au niveau du hasard**, deux d'entre elles sans aucun
+significativité (z = +1,5 et +1,8). Sur septembre, le mois le mieux peuplé
+(n = 7 267), les trois tombent à 0,499 / 0,512 / 0,499 — c'est-à-dire pile la
+diagonale. Le pick n'est plus « égal » à la règle sans information : il est
+**significativement moins bon** qu'elle.
+
+Biais systématique conservé : nuls sur-prédits (+2,8 points), extérieur
+sous-prédit (−3,6 points). Log-loss 1,1088, Brier 0,6712.
+
+### Vérification préalable, sinon la comparaison n'aurait rien valu
+
+Avant de substituer 883 par 13 413, il fallait prouver que les deux tables
+mesurent le même modèle. Résultat : les 2 605 matchs de `learning_memory` sont **tous**
+présents dans `historical_matches`, et leurs probabilités concordent au point
+près (**écart médian 0,0 point de %**, p90 0,0). L'écart entre les deux
+évaluations est donc bien un biais d'échantillon, pas deux pipelines
+différents.
+
+### Ce qu'il reste impossible à faire, et pourquoi
+
+Un découpage temporel strict. La base entière couvre **2026-08-13 → 2026-10-01**
+et le modèle a été actif sur toute cette période : août et septembre sont
+consécutifs, le modèle les a vus tous les deux. La dérive entre mois grands
+est de −0,020 d'AUC (0,523 → 0,503), ce qui indique une stabilité entre
+périodes proches — pas une généralisation.
+
+Il n'existe donc **aucun test hors échantillon** dans ce projet, et aucun
+backtest ne peut en créer un à partir des données actuelles : il faudrait des
+mois antérieurs, que la base ne contient pas.
+
+### Bilan
+
+Le modèle est calibré (écarts de 0,9 à 3,6 points) et son pouvoir discriminant
+est celui du hasard. Ce n'est pas un problème d'échelle de probabilités, pas un
+problème de périmètre de ligues, pas un problème de cotes manquantes : **il
+n'y a pas d'information à extraire de ses probabilités**.
+
+`scripts/eval_pick_quality.py` bascule désormais sur `historical_matches` et
+affiche les trois tests (calibration, AUC ± σ, McNemar) plus la dérive
+mensuelle. Mesurer le pouvoir discriminant d'un modèle sur 883 lignes et en
+tirer une conclusion est une erreur ; le diagnostic le rend visible désormais.
+
+---
+
 ## E68-ter Fix crash dashboard #2 : cornersLabel lu avant declaration (2026-09-20)
 
 CRITIQUE (2e crash de la meme famille qu'E68-bis, meme journee) : le dashboard

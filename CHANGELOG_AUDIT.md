@@ -95,6 +95,66 @@ et doit être roté** : il a été affiché en clair dans cette session.
 
 ---
 
+## E77 : le modèle est-il prêt à choisir ? (2026-10-03)
+
+E76 laissait un arbitrage ouvert sur la 1X2 (ré-calibrer ou laisser filtré).
+Cette tentative a produit plus qu'un arbitrage : elle a locate le vrai défaut.
+
+### Trois mesures, parce qu'aucune ne suffit
+
+Ajouté : `scripts/eval_pick_quality.py`, reproductible, sortie non nulle si le
+marché est disqualifié. Sur 883 prédictions 1X2 exploitables :
+
+**1. Calibration — correcte.** Moyenne annoncée contre fréquence réelle :
+
+| issue | annoncé | réel | écart |
+|---|---:|---:|---:|
+| victoire domicile | 43,4 % | 45,2 % | −1,8 pt |
+| nul | 21,1 % | 23,1 % | −2,0 pt |
+| victoire extérieur | 35,5 % | 31,7 % | +3,8 pt |
+
+**2. Discrimination — réelle mais faible.** AUC one-vs-rest : 0,576 / 0,571 /
+0,589, moyenne **0,579**. Le classement porte donc de l'information, au-dessus
+du 0,5 du hasard.
+
+**3. Pick — perd.** Le pick du modèle réussit **43,8 %**, contre **45,2 %** pour
+la règle sans information « toujours parier le domicile ». −1,4 point.
+
+### Deux hypothèses testées et invalidées
+
+- *« Le modèle sous-pondère les nuls. »* **Faux.** Il ne fait un nul que sur
+  0,1 % des matchs alors que les nuls arrivent 23,1 % du temps, ce qui semblait
+  être un biais structurel. En réalité `p_draw` n'est en moyenne que 21,1 %,
+  et pour être l'issue la plus probable face à deux autres, un nul doit dépasser
+  1/3 : l'argmax à 0,1 % est une conséquence arithmétique, pas un bug.
+- *« Aucune calibration ne peut rattraper ce classement. »* **Trop fort.** Avec
+  un AUC de 0,579, le modèle classe mieux que le hasard. Ce qui est faible, c'est
+  le choix du **premier** : avoir un bon classement ne garantit pas de bien
+  identifier le gagnant quand les trois issues sont proches.
+
+Un rétrécissement scalaire vers le taux de base a aussi été testé (n = 883
+suffit pour un paramètre, même pas pour 20 bandes) : il bat l'identité hors
+échantillon (−0,0196 de log-loss) mais `alpha` n'est pas stable (0,10 ajusté sur
+la moitié A, 0,31 sur la moitié B), il ne bat pas la courbe plate (+0,0003), et
+toute valeur d'`alpha` transforme une annonce de 55,0 % en 49–50 %, donc
+**rejetée par `PROB_MIN = 55`**. Les seules transformations qui « améliorent »
+la 1X2 sont celles qui font tout passer sous le seuil : l'amélioration vient de
+la suppression, pas d'un meilleur classement.
+
+### Ce que ça change
+
+Le blocage n'est plus la calibration, qui est saine. Il est dans le **choix** :
+`topPicksEngine` transforme ces probabilités en une recommandation unique, et
+cette unique décision est moins bonne que « pariez le domicile ». Un marché 1X2
+généré par ce modèle n'a donc aucune valeur, quel que soit le réglage de
+calibration — ce que confirme l'absence d'edge mesurée par E74.
+
+Les doubles chances vont dans le sens contraire : 72,1 % de réussite sur 1 157
+picks. C'est là que se trouve la matière, mais l'échantillon de cotes réelles
+reste à 9,6 % pour trancher.
+
+---
+
 ## E68-ter Fix crash dashboard #2 : cornersLabel lu avant declaration (2026-09-20)
 
 CRITIQUE (2e crash de la meme famille qu'E68-bis, meme journee) : le dashboard

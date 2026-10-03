@@ -57,6 +57,20 @@ async function syncLearning() {
         scoreHome: m.scoreHome || 0,
         scoreAway: m.scoreAway || 0,
         matchDate: m.timestamp,
+        // E73 : probabilites 1X2 et cotes. La requete fait SELECT *, elles sont
+        // donc bien dans la ligne -- mais elles n'etaient pas transmises, si bien
+        // que learning_memory s'enregistrait sans signal mesurable. C'est
+        // exactement ce qui rendait p_home/p_away/odds_* vides en prod alors que
+        // le modele les calculait. Les transmettre rend la mesure de
+        // performance et de rentabilite operationnelle.
+        home_win_probability: m.home_win_probability,
+        draw_probability: m.draw_probability,
+        away_win_probability: m.away_win_probability,
+        odds_home: m.odds_home ?? m.best_odds_home,
+        odds_draw: m.odds_draw ?? m.best_odds_draw,
+        odds_away: m.odds_away ?? m.best_odds_away,
+        odds_source: m.odds_source,
+        fullData: m.fullData,
         matchStats: {
           xg_home: m.xg_home || 0,
           xg_away: m.xg_away || 0,

@@ -145,6 +145,13 @@ class AdaptiveLearningEngine {
                         new_rule    TEXT,
                         match_date  DATETIME,
                         root_causes_stack TEXT,
+                        p_home REAL,
+                        p_draw REAL,
+                        p_away REAL,
+                        odds_home REAL,
+                        odds_draw REAL,
+                        odds_away REAL,
+                        actual_1x2 TEXT,
                         processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE(match_id)
                     );
@@ -286,6 +293,11 @@ class AdaptiveLearningEngine {
       // ── STEP 6: Tagging & Memory ──────────────────────────────────────
       const tags = this._generateTags(errorAnalysis, rootCause, context, confidence, oddsData)
 
+      // E73 : probabilites 1X2 + verite terrain, pour rendre la performance
+      // mesurable (Brier / log-loss). Sans ces colonnes, learning_memory ne
+      // conserve que le pick et on ne peut pas evaluer le modele.
+      const outcomeSignals = this._extractOutcomeSignals(input, scoreHome, scoreAway)
+
       await this._saveMemory({
         matchId,
         league,
@@ -303,6 +315,7 @@ class AdaptiveLearningEngine {
         newRule: null,
         matchDate: matchDate || new Date().toISOString(),
         causesStack: JSON.stringify(causesStack),
+        ...outcomeSignals,
       })
 
       // ── STEP 7: Rule Extraction ───────────────────────────────────────
@@ -1073,6 +1086,79 @@ class AdaptiveLearningEngine {
 
   // ─── PERSISTENCE HELPERS ──────────────────────────────────────────────────
 
+  /**
+   * E73 : extrait les probabilites 1X2 et les cotes reelles du match.
+   *
+   * Deux pieges traites ici :
+   *  1. `matches.*_probability` est stocke en POURCENTAGE (0-100), pas en [0,1].
+   *     prediction_engine.py produit des %, et autoBacktestService.js /
+   *     accuracyEngine.js divisent par 100 en lecture. On normalise une seule
+   *     fois ici, a l'ecriture, pour que la colonne soit enfin exploitable.
+   *  2. Les colonnes peuvent vivre dans `fullData` (JSON) plutot qu'en colonne
+   *     dediee : on tolere les deux.
+   *
+   * Retourne null si les probabilites sont absentes ou incoherententes, plutot
+   * que d'ecrire des zéros qui pollueraient la mesure (cf. les 8 matchs a
+   * away_win_probability == 0 rencontres plus tot).
+   */
+  _extractOutcomeSignals(input, scoreHome, scoreAway) {
+    const fd = this._safeParse(input.fullData)
+    const pick = (key) => input[key] ?? fd?.[key]
+
+    const raw = [
+      pick('home_win_probability'),
+      pick('draw_probability'),
+      pick('away_win_probability'),
+    ].map((v) => (v === null || v === undefined || v === '' ? null : parseFloat(v)))
+
+    // Some producers already emit [0,1]. Detect by the total, not by a flag.
+    let probs = null
+    const present = raw.filter((v) => v !== null && Number.isFinite(v))
+    if (present.length === 3) {
+      const sum = raw.reduce((a, b) => a + b, 0)
+      if (sum > 1.5) {
+        // percent -> [0,1]
+        probs = raw.map((v) => v / sum)
+      } else if (sum > 0) {
+        probs = raw.slice()
+      }
+    }
+
+    // Verite terrain : H / D / A. Distincte de `actual`, qui note le sort du PICK
+    // (c'est cette confusion qui rendait prediction_history circulaire en E72).
+    let actual1x2 = null
+    const sh = parseInt(scoreHome, 10)
+    const sa = parseInt(scoreAway, 10)
+    if (Number.isFinite(sh) && Number.isFinite(sa)) {
+      actual1x2 = sh > sa ? 'H' : sh < sa ? 'A' : 'D'
+    }
+
+    const num = (key) => {
+      const v = parseFloat(pick(key))
+      return Number.isFinite(v) && v > 1 ? v : Number.isFinite(v) ? v : null
+    }
+
+    return {
+      pHome: probs ? probs[0] : null,
+      pDraw: probs ? probs[1] : null,
+      pAway: probs ? probs[2] : null,
+      oddsHome: num('odds_home'),
+      oddsDraw: num('odds_draw'),
+      oddsAway: num('odds_away'),
+      actual1x2,
+    }
+  }
+
+  _safeParse(json) {
+    if (!json) return null
+    if (typeof json === 'object') return json
+    try {
+      return JSON.parse(json)
+    } catch (_) {
+      return null
+    }
+  }
+
   async _saveMemory(data) {
     try {
       const db = database.db
@@ -1081,8 +1167,10 @@ class AdaptiveLearningEngine {
                 INSERT INTO learning_memory
                     (match_id, league, home_team, away_team, score, prediction,
                      confidence, actual, error_type, root_cause, context,
-                     tags, adjustments, new_rule, match_date, root_causes_stack)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                     tags, adjustments, new_rule, match_date, root_causes_stack,
+                     p_home, p_draw, p_away, odds_home, odds_draw, odds_away,
+                     actual_1x2)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT (match_id) DO UPDATE SET
                     league = EXCLUDED.league,
                     home_team = EXCLUDED.home_team,
@@ -1099,7 +1187,14 @@ class AdaptiveLearningEngine {
                     new_rule = EXCLUDED.new_rule,
                     match_date = EXCLUDED.match_date,
                     root_causes_stack = EXCLUDED.root_causes_stack,
-                    processed_at = datetime('now')
+                    p_home = EXCLUDED.p_home,
+                    p_draw = EXCLUDED.p_draw,
+                    p_away = EXCLUDED.p_away,
+                    odds_home = EXCLUDED.odds_home,
+                    odds_draw = EXCLUDED.odds_draw,
+                    odds_away = EXCLUDED.odds_away,
+                    actual_1x2 = EXCLUDED.actual_1x2,
+                    processed_at = CURRENT_TIMESTAMP
             `
       ).run(
         data.matchId,
@@ -1117,10 +1212,21 @@ class AdaptiveLearningEngine {
         JSON.stringify(data.adjustments),
         JSON.stringify(data.newRule),
         data.matchDate,
-        data.causesStack || '[]'
+        data.causesStack || '[]',
+        data.pHome,
+        data.pDraw,
+        data.pAway,
+        data.oddsHome,
+        data.oddsDraw,
+        data.oddsAway,
+        data.actual1x2
       )
     } catch (err) {
-      logger.warn(`[LEARN V2] Memory save failed: ${err.message}`)
+      // E73 : ce warn etait le seul signe du defaut du cron (match_id
+      // undefined -> INSERT refuse). Il passait sous le logger et rien ne
+      // remontait. On le propage pour que la panne soit visible.
+      logger.error(`[LEARN V2] Memory save failed for match ${data.matchId}: ${err.message}`)
+      throw err
     }
   }
 

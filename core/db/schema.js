@@ -594,6 +594,17 @@ function runMigrations(db) {
     ['integrity_registry', 'max_score', 'INTEGER DEFAULT 0'],
     ['integrity_registry', 'last_flagged', 'TEXT'],
     ['integrity_registry', 'league', 'TEXT'],
+    // E73 : instrumentation de la performance. learning_memory ne gardait que
+    // le pick (`prediction`) et son sort ; impossible de mesurer Brier/log-loss
+    // sur le modele. On conserve les probabilites 1X2 ET le resultat reel du
+    // match (`actual_1x2`, distinct de `actual` = sort du pick).
+    ['learning_memory', 'p_home', 'REAL'],
+    ['learning_memory', 'p_draw', 'REAL'],
+    ['learning_memory', 'p_away', 'REAL'],
+    ['learning_memory', 'odds_home', 'REAL'],
+    ['learning_memory', 'odds_draw', 'REAL'],
+    ['learning_memory', 'odds_away', 'REAL'],
+    ['learning_memory', 'actual_1x2', 'TEXT'],
   ]
 
   let added = 0

@@ -1515,7 +1515,58 @@ print(f'international: {len(df) if df is not None else 0} rows')
       const rows = db
         .prepare("SELECT * FROM matches WHERE status IN ('FT','Finished') LIMIT 200")
         .all()
-      if (rows.length > 0) await adaptiveLearning.processBatch(rows)
+
+      // Les lignes brutes de `matches` ne sont PAS le contrat de learn() : la
+      // table expose `id` et non `matchId`, et ne porte ni actualResult ni
+      // matchStats ni matchDate. Envoyer les lignes telles quelles faisait
+      //echouer l'INSERT sur learning_memory.match_id (NOT NULL), erreur absorbee
+      // par le try/catch de _saveMemory : ce cron n'apprenait donc rien, en
+      // silence. On construit donc le mapping explicitement.
+      const batch = rows.map((m) => {
+        let actualResult = 'D'
+        if (m.scoreHome > m.scoreAway) actualResult = 'H'
+        else if (m.scoreAway > m.scoreHome) actualResult = 'A'
+
+        return {
+          matchId: m.id,
+          league: m.league,
+          homeTeam: m.homeTeam,
+          awayTeam: m.awayTeam,
+          prediction: m.prediction,
+          confidence: m.confidence || 65,
+          actualResult,
+          scoreHome: m.scoreHome || 0,
+          scoreAway: m.scoreAway || 0,
+          matchDate: m.timestamp,
+          // E73 : sans ces transmissions, learning_memory s'enregistrait sans
+          // probabilites ni cotes, donc sans rien de mesurable.
+          home_win_probability: m.home_win_probability,
+          draw_probability: m.draw_probability,
+          away_win_probability: m.away_win_probability,
+          odds_home: m.odds_home ?? m.best_odds_home,
+          odds_draw: m.odds_draw ?? m.best_odds_draw,
+          odds_away: m.odds_away ?? m.best_odds_away,
+          odds_source: m.odds_source,
+          fullData: m.fullData,
+          oddsData: {
+            home: m.odds_home ?? m.best_odds_home,
+            draw: m.odds_draw ?? m.best_odds_draw,
+            away: m.odds_away ?? m.best_odds_away,
+          },
+          matchStats: {
+            xg_home: m.home_xg || 0,
+            xg_away: m.away_xg || 0,
+            possession_home: m.possession_home || 50,
+            shots_on_target_home: m.shots_on_target_home || 3,
+            shots_on_target_away: m.shots_on_target_away || 3,
+          },
+        }
+      })
+
+      if (batch.length > 0) {
+        logger.info(`🧠 [CRON] Learning batch: ${batch.length} finished matches`)
+        await adaptiveLearning.processBatch(batch)
+      }
     } catch (e) {
       logger.error(`❌ [CRON] Learning Error: ${e.message}`)
     }

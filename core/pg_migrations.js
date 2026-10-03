@@ -774,9 +774,36 @@ async function runMigrations() {
             new_rule    TEXT,
             match_date  TIMESTAMPTZ,
             root_causes_stack TEXT,
+            p_home REAL,
+            p_draw REAL,
+            p_away REAL,
+            odds_home REAL,
+            odds_draw REAL,
+            odds_away REAL,
+            actual_1x2 TEXT,
             processed_at TIMESTAMPTZ DEFAULT NOW()
         )
       `)
+      // E73 : les colonnes ci-dessus n'existent que sur les tables creees apres
+      // ce deploiement. Sur une base PG deja en service, CREATE TABLE IF NOT
+      // EXISTS est un no-op : il faut ALTER. Sans cela la mesure de performance
+      // resterait inerte en prod alors qu'elle fonctionne en local.
+      for (const col of [
+        'p_home REAL',
+        'p_draw REAL',
+        'p_away REAL',
+        'odds_home REAL',
+        'odds_draw REAL',
+        'odds_away REAL',
+        'actual_1x2 TEXT',
+      ]) {
+        const name = col.split(' ')[0]
+        try {
+          await query(`ALTER TABLE learning_memory ADD COLUMN IF NOT EXISTS ${col}`)
+        } catch (e) {
+          logger.warn(`[PG MIGRATIONS] learning_memory.${name}: ${e.message}`)
+        }
+      }
       await query(`
         CREATE TABLE IF NOT EXISTS league_weights (
             id            SERIAL PRIMARY KEY,

@@ -144,15 +144,20 @@ async function processFinishedMatches(db, { limit = 200, write = false, log = nu
 async function _processHistorical(db, { limit = 200, write = false, log = null, fotmob = null } = {}) {
   const lg = log || logger
   const svc = fotmob || require('./fotmobService')
-  const stats = { scanned: 0, matched: 0, written: 0 }
+  const stats = { scanned: 0, matched: 0, written: 0, noStats: 0 }
   let rows = []
   try {
+    // E73b : on exclut les matchs deja interroges SANS stats. Ils portent
+    // `_fotmob_no_stats=1` : les laisser ici faisait reboucler le backfill sur
+    // les memes lignes de petites ligues, indefiniment, en "ecrivant" a chaque
+    // passage sans jamais augmenter la couverture.
     rows = db
       .prepare(
         `SELECT id, timestamp, homeTeam, awayTeam, fullData
          FROM historical_matches
          WHERE scoreHome IS NOT NULL
            AND json_extract(COALESCE(fullData,'{}'), '$.home_xg') IS NULL
+           AND COALESCE(json_extract(COALESCE(fullData,'{}'), '$._fotmob_no_stats'), 0) = 0
          ORDER BY timestamp DESC LIMIT ?`
       )
       .all(limit)
@@ -182,9 +187,20 @@ async function _processHistorical(db, { limit = 200, write = false, log = null, 
       const s = await svc.getMatchStats(fid)
       const hasIncidents = s && Array.isArray(s.incidents) && s.incidents.length > 0
       if (!s || (s.xg_home == null && s.corners_home == null && !hasIncidents)) continue
+      // E73b : marquer la tentative meme quand la source n'a QUE la timeline.
+      // Sans ce marqueur, un match sans stats FotMob (ligues mineures : Palestine,
+      // CD Recoleta...) est re-selectionne a chaque passe par le filtre
+      // `home_xg IS NULL` du SELECT, meme apres avoir ete ecrit : le backfill
+      // reboucle indefiniment sur les memes lignes et n'avance jamais. On
+      // distingue donc "stats recuperees" de "source sans donnees".
+      if (s.xg_home == null && s.corners_home == null) stats.noStats++
       stats.matched++
       const statsRow = {
         fotmob_id: fid,
+        // E73b : `_fotmob_no_stats` = la source a bien ete interrogee mais
+        // n'expose ni xG ni corners (timeline seule). Sert de rideau pour le
+        // filtre de reprise, qui ne doit pas reboucler sur ces matchs.
+        _fotmob_no_stats: s.xg_home == null && s.corners_home == null ? 1 : 0,
         home_xg: s.xg_home,
         away_xg: s.xg_away,
         xg_ht_home: s.xg_ht_home,

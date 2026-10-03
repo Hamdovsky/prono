@@ -1,4 +1,4 @@
-﻿# CHANGELOG AUDIT — Titanium AI (stitch)
+# CHANGELOG AUDIT — Titanium AI (stitch)
 
 Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, validé avant de passer au suivant.
 
@@ -10099,3 +10099,318 @@ Aucun secret. Aucun Dockerfile/requirements touche.
   lui aussi les 3 premieres `data-odd` du document, mais n'est appele que sur
   des pages de match unique (usage CLI `parse_odds`) — a reverifier si un flux
   de page de ligue y aboutit un jour.
+
+// E73 — instrumentation de la performance (chantier 1+2 de l'audit "prete pour une bonne pronostic ?")
+//
+//Constat : impossible de repondre a "le systeme predit-il bien". Trois tables et
+// rien ne les reliait :
+//   - `matches` porte les probabilites du modele, mais scoreHome/scoreAway a
+//     0-0 sur les 599 matchs qui en ont, et startTimestamp = epoch : rien
+//     d'apariable a l'archive.
+//   - `archive_football_data` (144 397 lignes) a les scores REELS, aucun lien
+//     avec les predictions.
+//   - `learning_memory` (2 605) a score + verite, mais ni probabilites ni cotes :
+//     aucun Brier ni log-loss calculable.
+//
+// Deux pieges deja rencontres, qu'il ne faut pas reproduire :
+//
+// (1) LES PROBABILITES SONT EN POURCENTAGE. `matches.home_win_probability` vaut
+//     51.3, pas 0.513 — `prediction_engine.py:1168` produit des % et
+//     `autoBacktestService.js:143`, `accuracyEngine.js:292`,
+//     `enriched_predictions.js:696` divisent par 100 en lecture. Ce n'est donc
+//     PAS un bug a corriger, c'est le schema. Ecrire la valeur brute en base
+//     rendrait toute mesure 100x trop petite et le modele semblerait parfait.
+//     -> normalisation par la somme, une fois, a l'ecriture.
+//
+// (2) `prediction_history.result` ('won'/'lost') DECRIT LE PICK, PAS LE MATCH.
+//     Recoupement : le match livescore_15 porte 'won' sur une ligne et 'lost'
+//     sur une autre, alors que learning_memory donne score=3-3, actual=D pour ce
+//     meme match. 6 917 matchs sur 7 405 se contredisent eux-memes. Cette table
+//     ne peut donc mesurer aucune performance : elle est circulaire par
+//     construction.
+//     -> `actual_1x2` derive du SCORE, jamais de `actual`.
+//
+// Trois defauts reels trouves en chemin :
+//
+// (a) Le SQL de _saveMemory comptait 24 valeurs pour 23 colonnes. Le INSERT
+//     echouait sur TOUT appel. Il etait masque parce que _saveMemory attrapait
+//     l'erreur en `logger.warn` : le systeme n'enregistrait rien depuis
+//     l'ajout des colonnes, silencieusement. Attrape par le test E73 (11 cas).
+//     -> le `catch` relance desormais, et le test verrouille le comportement.
+//
+// (b) `cronManager.runAdaptiveLearning()` (02:30) passait les lignes BRUTES de
+//     `matches` a learn(), qui deconstructure `matchId`/`actualResult`/
+//     `matchStats`/`matchDate`. `matches` expose `id`, pas `matchId` : le champ
+//     arrivait `undefined`, l'INSERT echouait sur `match_id NOT NULL`, et
+//     l'erreur etait absorbee par le meme `catch` silencieux. Ce cron
+//     n'apprenait donc rien depuis toujours, et renvoyait "succes".
+//     -> mapping explicite des 4 champs + transmission des probas et cotes.
+//
+// (c) `scripts/adaptive_learning_sync.js` faisait `SELECT *` puis reconstruisait
+//     un objet sans les probabilites ni les cotes, alors que la ligne les
+//     contient. Meme symptome, meme cause.
+//
+// Colonnes ajoutees a learning_memory (SQLite via core/db/schema.js, PG via
+// pg_migrations avec ALTER ... IF NOT EXISTS — sans quoi la mesure resterait
+// inerte en prod) :
+//     p_home, p_draw, p_away REAL   probabilites du modele, normalisees [0,1]
+//     odds_home, odds_draw, odds_away REAL
+//     actual_1x2 TEXT              verite terrain H/D/A, derivee du score
+//
+// Recuperation de l'existant : 2 605/2 605 entrees, via
+// scripts/backfill_learning_signals.py (dry-run par defaut). `actual_1x2` depuis
+// `score`, les probabilites par jointure sur `prediction_history` (qui porte deja
+// les 3 probabilites par match, en [0,1]). `odds_*` reste vide : les cotes ne
+// sont pas dans learning_memory.context, donc la rentabilite n'est pas encore
+// mesurable.
+//
+// PREMIERE MESURE HONNETE (scripts/measure_performance.py, 2 605 matchs) :
+//     Brier moyen        0.2205   (hasard 0.3333)
+//     Log-loss moyen     1.0935   (hasard 1.0986)   -> bat le hasard de 0.5%
+//     Exactitude argmax  42.8%
+// Legerement meilleur que le hasard, et ce n'est pas suffisant :
+//     - baseline "toujours le favori a domicile" : 45.2% > 42.8% du modele.
+//       Une regle bete fait MIEUX que le modele.
+//     - P(reelle) - P(predite) sur le pick : mediane -0.093, et le resultat
+//       reel n'etait plus probable que le pick dans 0.0% des cas. Le modele
+//       classe juste mais ses VALEURS sont mal calibrees : le nul, resultat le
+//       plus frequent, est sous-estime.
+//     - Calibration degradee avec la confiance : 0.55 -> reel 0.465 (-0.085),
+//       0.65 -> 0.475 (-0.175), 0.75 -> 0.523 (-0.227). Surconfiance croissante.
+//     - Stable dans le temps (brier 0.2186 puis 0.2223 sur les deux moities
+//       temporelles), donc ce n'est pas un accident de periode.
+//     - Seul sous-ensemble ou le modele bat le hasard : Premier League
+//       (n=45, log-loss 0.9781, acc 51.1%). Serie B (n=47, acc 25.5%) et
+//       FA Cup (n=80, log-loss 1.1111) sont PIRES que le hasard.
+//     - Echantillon : 339 ligues dont 35 de coupe, 7 semaines. Majorite de
+//       coupe et de deuxieme division : la lettre elite est minoritaire.
+//     - `odds_*` vide => aucune mesure de ROI pour l'instant.
+//
+// Conclusion honnete : le systeme n'est PAS encore pret pour une bonne
+// pronostic. Il est desormais MESURABLE, ce qui etait le point bloquant.
+// L'ecart prioritaire est la surconfiance (defaut directement actionnable par
+// recalibration isotonique), mais le fond reste que 42.8% ne depasse pas la
+// baseline naive : tant que ce chiffre ne depasse pas nettement 50%, recalibrer
+// ne fera qu'embellir une prediction qui ne sait pas predire.
+//
+// Verification :
+//   jest __tests__/learningSignals.test.js  11/11
+//   jest (suite complete)  111 suites / 1141 tests verts. 1 echec dans
+//     theAnalyst.test.js:182, PREEXISTANT : verifie en remisant mes
+//     modifications, il echoue a l'identique (depends de core/database).
+//   pytest (hors test_market_engine et test_ou_model, 2 echecs de collection
+//     preexistants et hors perimetre)  480 passed, 39 skipped, 1 xfailed,
+//     1 xpassed.
+//
+// Reste ouvert :
+//   - RENTABILITE : alimenter odds_* (les cotes ne sont pas dans context).
+//   - RECALIBRATION isotonique sur models/isotonic_params.json, aujourd'hui
+//     fitted sur 324 samples seulement : 2 605 mesures disponibles.
+//   - BACKFILL xG via FotMob : 26% de couverture, 9 237 DONNEE_INSUFFISANTE.
+
+// -----------------------------------------------------------------------------
+// E73b — backfill xG FotMob, et pourquoi les cotes ont ete ecartees
+//
+// CONTEXTE : la mesure E73 a montre que le modele classe mal (42.8% d'exactitude
+// argmax contre 45.2% pour une baseline "toujours le favori a domicile"). La
+// recalibration des sorties ne peut pas arranger un classement : on a donc
+// mesure si elle aiderait avant de toucher quoi que ce soit.
+//
+// 1. LA RECALIBRATION NE SAUVE PAS. Sur les 2 605 matchs, en reproduisant
+//    exactement `isotonic_calibrate()` (core/calibration_iso.py:340) :
+//        brut              log-loss 1.0935   acc 42.80%
+//        PROD A=0.3667     log-loss 1.0753   acc 42.96%   (n=324)
+//        refit A=0.4547    log-loss 1.0741   acc 42.92%   (n=2605)
+//    Out-of-sample (fit 1re moitie, mesure 2e non vue) : PROD 1.0856, refit
+//    1.0858 — le refit n'est meme pas legerement mieux que ce qui tourne deja.
+//    Verdict : NE PAS REFITER. models/isotonic_params.json reste intact.
+//    La calibration aide un peu (-0.018) mais ne change ni le classement ni
+//    l'exactitude : c'est de l'eau dans un seau perce.
+//
+// 2. LES COTES SONT INJOINNABLES EN LOCAL. Pour mesurer une rentabilite il
+//    faut des cotes sur les memes matchs que les predictions. Mesure :
+//        learning_memory -> matches          0/2605   (match_id livescore_*)
+//        learning_memory -> top_picks        1/2605
+//        learning_memory -> matches (noms)   1/2605
+//    Les 2 605 viennent de la source livescore_*, `matches` d'une autre source :
+//    aucune cle commune. Pire, `archive_football_data` — qui porte 42 221 cotes
+//    — est dans NEON POSTGRESQL, pas dans data/tactical.db, et DATABASE_URL est
+//    absente de .env. Impossible de chiffrer le ROI sans acces a cette base.
+//    -> les cotes restent `odds_*` vides, ce n'est pas un oubli mais un bloque
+//       d'infrastructure. A traiter depuis Render ou en exportant l'archive.
+//
+// 3. LE BACKFILL xG EST DONC LE BON CHEMIN : c'est la seule voie qui ajoute de
+//    l'INFORMATION au modele au lieu de retoucher sa sortie.
+//
+// Etat avant : 3 715/13 915 matchs joues avec xG (26.7%), 10 200 sans.
+// Rendement reel mesure sur un lot de 60 : 53/60 = 88%. Cadence 2.51 s/match
+// (REQUEST_GAP 2200 ms + 1 appel /details), soit ~7 h pour le backlog complet.
+//
+// Premier lot REEL ecrit : 300 scans -> 181 ecrits (60%), 514 s.
+// Couverture 26.7% -> 26.8%. Le backlog est RePRENABLE : le SELECT cible
+// `json_extract(fullData, '$.home_xg') IS NULL`, donc relancer reprend la ou on
+// s'est arrete.
+//
+// Verification des donnees ecrites (pas seulement "181 lignes ecrites") :
+//    JSON invalide                      0
+//    xG total moyen                     2.91  (attendu ~2.7, coherent)
+//    mediane / min / max                2.77 / 0.54 / 8.72
+//    aberrants (>4 buts mais xG<1)      0
+//    le meme payload apporte aussi      shots, shots_on_target, possession,
+//                                       corners, xG HT, incidents (timeline)
+// 2122 lignes ont desormais un fotmob_id ; 1077 avec xG effectif. Les 1045
+// autres sont des matchs de petites ligues (Palestine, Haugesund, CD Recoleta,
+// Haugesund 2) ou FotMob n'a tout simplement pas de stats : ce n'est pas un
+// echec d'ecriture mais une absence de donnee source. Le matcher retourne 60%
+// et non 88% sur les lots melanges, parce qu'inclure ces petites ligues fait
+// baisser le rendement apparent.
+//
+// E76 hors perimetre, signale pour memoire :
+//   - `ISO_RUNTIME_APPLY` : le docstring de isotonic_calibrate() dit que le
+//     gate est a `false`, et .env.example met bien `false`, mais le code lit
+//     `os.environ.get('ISO_RUNTIME_APPLY', 'true')` et la variable n'est definie
+//     ni dans .env ni dans .env.example de prod. La calibration est donc
+//     APPLIQUEE par defaut, contrairement a ce qu'annonce la doc. Verifie sans
+//     effet mesurable nefaste (-0.0182), donc non modifie : c'est une decision
+//     de deploiement, poser la variable explicitement plutot que de changer un
+//     defaut en dur.
+//   - `services/autopsyService.js:61-76` ecrit encore `probability: maxProb`
+//     ou maxProv vient des colonnes en POURCENTAGE : hors [0,1]. Non lie a
+//     learning_memory, donc sans effet sur la mesure, mais a corriger.
+//
+// Verification : jest 111 suites / 1141 tests (1 echec preexistant dans
+// theAnalyst.test.js:182), les 11 tests E73 inclus.
+
+// -----------------------------------------------------------------------------
+// E73c — le backfill xG FotMob plafonne a ~27%, et pourquoi
+//
+// CE QUI A ETE TENTE : vider le backlog de 10 200 matchs sans xG. Le premier
+// lot ecrit (181/300) laissait croire que le rendement etait de 60%. En
+// relancant, le backlog ne baissait PLUS, et le pilote concluait qu'il
+// progressait a 0.00 m/s. Trois bugs et une limite de fond, dans l'ordre.
+//
+// BUG 1 — BOUCLE INFINIE SUR LES MATCHS SANS STATS.
+//   `_processHistorical` accepte un match si la source renvoie des `incidents`
+//   meme sans xG ni corners (ligne 184 : `|| hasIncidents`). Il l'ecrit, mais
+//   le SELECT de reprise filtre sur `home_xg IS NULL` : ce match y retombe au
+//   tour suivant, pour toujours. Les 181 "ecritures" du lot 1 etaient donc en
+//   grande partie des matchs sans stats re-ecrits en boucle.
+//   -> marqueur `_fotmob_no_stats` ecrit dans fullData quand la source a ete
+//      interrogee sans rien fournir, et exclu du SELECT de reprise.
+//      `stats.noStats` compte ces cas.
+//
+// BUG 2 — LE PILOTE CONFONDAIT PROGRESSION ET ECHEC.
+//   Deux defauts dans le rapport : (a) l'affichage `(+${after-before})` sortait
+//   "(+-20)" au lieu de "-20", (b) la duree restante etait figee sur la
+//   constante 2.51 s au lieu de la cadence reelle du lot.
+//   -> les deux corriges ; la duree restante se derive de la cadence observee.
+//
+// BUG 3 — LE BACKLOG ANNONCAIT DES MATCHS INACCESSIBLES.
+//   Le `--stats` comptait 10 200 "restants" alors que 1 045 avaient deja ete
+//   interroges sans succes et n'etaient plus traitables. Backlog reel : 9 135.
+//   Rattrapage applique (marquage des 1 045 lignes existantes).
+//
+// BUG 4 — L'ECHEC ETAIT SILENCIEUX.
+//   Sur 5 matchs selectionnes, `scanned:5, matched:0` sans un seul log :
+//   les exceptions de resolution d'id sont absorbees par le catch par-match.
+//   Impossible de distinguer "absent du flux" de "erreur reseau" — c'est ce qui
+//   a fait perdre plusieurs passes avant de tracer. Un compteur d'erreurs
+//   distinct de `noStats` serait a ajouter.
+//
+// LA LIMITE DE FOND, mesuree sur 40 matchs tires au hasard du backlog :
+//   resolution date+equipes sur le flux FotMob du jour : 11/40 = 27%
+// Autrement dit, exactement la couverture deja atteinte (26.8%). FotMob ne
+// publie pas ces matchs : Botswana vs Mozambique, Alessandria vs ASD Imperia,
+// Workington vs Guiseley, Atalanta U20 vs Roma U20, Bandirmaspor vs
+// Antalyaspor. Ce sont des divisions que FotMob ne couvre pas. Le 88% mesure
+// sur les premiers lots etait unbiais d'ORDRE : le SELECT prend
+// `ORDER BY timestamp DESC` et la periode la plus recente est justement la
+// mieux couverte.
+//
+// DECISION : le backfill par FotMob est plafonne. Le terminer coûterait ~6 h
+// pour ~1 ecriture sur 4, sans jamais vider le backlog. `run_xg_backfill.js`
+// s'arrete donc sur rendement faible (regle a < 20% apres 2 lots), avec
+// `--force` pour passer outre. Cette limite est inscrite dans le script pour
+// que personne ne relance 6 h pour rien.
+//
+// Pour couvrir les 9 135 matchs restants il faut une AUTRE source :
+//   - API-Football, deja configuree dans .env (API_FOOTBALL_ENABLED/KEY), et
+//     qui expose le xG sur les divisions que FotMob ignore ;
+//   - ou l'archive Neon (`archive_football_data`, 144 397 lignes), qui contient
+//     deja 38 673 xG — mais DATABASE_URL est absente de .env.
+//
+// ETAT REEL A CET INSTANT : couverture xG 3 735/13 915 = 26.8%, inchangee
+// depuis le debut de ce chantier. Aucun gain de donnees malgre ~465 appels
+// FotMob. Les 1 045 matchs marques `_fotmob_no_stats` ne le sont plus : ils ne
+// reboucleront plus, ce qui est le seul gain reel de cette sequence.
+//
+// A NE PAS CONFONDRE : lesTimeline E71 sont intactes et exploitables
+// (`incidents` present sur 2 020 lignes) — le gain de E71 est conserve.
+//
+// Verification : jest 111 suites / 1141 tests, 1 echec preexistant inchangé
+// (theAnalyst.test.js:182). Aucune regression du patch fotmobStatsExtractor.
+
+// -----------------------------------------------------------------------------
+// E73d — ce plafond de couverture xG AVAIT deja ete etabli en E58 (redecouverte)
+//
+// En cherchant une source pour les 9 135 matchs sans xG, je n'ai pas pense a
+// relire l'historique : le commit E58 (330bc63 / docs E59) concluait deja que
+// "n" est borne par la COUVERTURE COTES O/U, pas par le xG, et que les matchs
+// FotMob sans xG sont INATTEIGNABLES parce que la source ne le calcule pas sur
+// ces competitions. C'est exactement ce que j'ai re-mesure cette fois :
+//   - resolution date+equipes sur le flux FotMob du jour : 27% (40 matchs)
+//   - les 1 045 matchs sans stats sont des divisions que FotMob ne couvre pas
+// Le seuil n'est donc pas atteignable sur le stock actuel, et les 6 h de calls
+// restantes n'auraient produit ~1 ecriture sur 4.
+//
+// A FAIRE : avant toute nouvelle piste de densification, lire `git log
+// --grep="plafond"` et `CHANGELOG_AUDIT.md` (E56/E57/E58/E59). Les bornes de
+// source sont deja documentees ; ce n'est pas une question ouverte.
+//
+// E73e — API-Football est ecartee (mesure, ~6 requetes consommees sur 100/jour)
+//
+//   plan Free, cle valide, `/status` repond. Mais :
+//     /fixtures?league=39&season=2025|2026
+//       -> "Free plans do not have access to this season, try from 2022 to 2024."
+//   Les saisons 2022-2024 repondent bien (380 fixtures Premier League pour
+//   2024), MAIS `/fixtures/events?fixture=...` ne renvoie QUE les evenements :
+//   16 evenements, ZERO statistique. Pas de xG, pas de possession, pas de
+//   shots. Le plan Free ne donne pas les stats de match — c'est la raison
+//   d'etre de l'API, donc cette source est hors de portee gratuit.
+//   Le quota de 100/jour Interdit de toute facon de Cover 9 135 matchs.
+//
+// Il ne reste donc qu'une source de xG sous la main : l'archive Neon
+// (`archive_football_data`, 144 397 lignes dont 38 673 avec xG). DATABASE_URL
+// est absente de .env -> inaccessible en local. C'est le SEUL levier restant.
+//
+// E73f — ANOMALIE REPEREE : `models/isotonic_params.json` est modifie par un cron
+//
+// Observe deux fois dans la meme session, sans modification de ma part :
+//   fitted_at  2026-09-30T22:10:10 -> 2026-10-02T22:10:10 -> 2026-10-03T06:35:13
+//   n_samples  324 -> 323
+//   A/B        0.366732/-0.398518 -> 0.355271/-0.395564
+// Origine : cron #23 « Weekly Platt Calibration + XGBoost Retrain » du dimanche
+// 03:00 UTC (services/cronManager.js:895) + `check_iso_gate.js:140` qui LIT le
+// fichier. Le fit est refait chaque semaine sur la fenetre glissante, donc ses
+// coefficients DERIVENT du commit au fil du temps : tout `git diff` touched par
+// ces lignes est un faux positif, et un commit peut embarquer par megarde un
+// modele de calibration remets.
+//
+// Trois options, non implementees (decision de deploiement, pas de mon ressort) :
+//   1. `.gitignore` models/isotonic_params.json + artefact au runtime (le mieux :
+//      un modele n'a pas sa place dans le versionnement) ;
+//   2. `git update-index --assume-unchanged` / `skip-worktree` sur ce fichier ;
+//   3.rien, en documentant que ce diff est attendu apres un passage du cron.
+//
+// A noter : le fit du dimanchederive aussi pendant le travail de cette session,
+// donc il faudra une decision AVANT le prochain commit de modeles.
+//
+// Verification finale avant commit E73 :
+//   syntaxe JS 8/8 (adaptiveLearningEngine, core/db/schema, pg_migrations,
+//     cronManager, fotmobStatsExtractor, adaptive_learning_sync,
+//     backfill_xg_fotmob, run_xg_backfill)
+//   syntaxe Python 3/3 (measure_performance, backfill_learning_signals,
+//     readiness_audit)
+//   jest 111 suites / 1141 tests ; 11/11 sur __tests__/learningSignals.test.js
+//   1 echec : theAnalyst.test.js:182, PREEXISTANT (verifie par stash, il echoue
+//   a l'identique sans mes modifications ; depend de core/database)

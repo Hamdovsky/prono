@@ -10414,3 +10414,102 @@ Aucun secret. Aucun Dockerfile/requirements touche.
 //   jest 111 suites / 1141 tests ; 11/11 sur __tests__/learningSignals.test.js
 //   1 echec : theAnalyst.test.js:182, PREEXISTANT (verifie par stash, il echoue
 //   a l'identique sans mes modifications ; depend de core/database)
+
+
+// -----------------------------------------------------------------------------
+// E74 — le ROI est enfin mesurable, et la reponse est NON
+//
+// Le token football-data.org (v4) recu par mail a ete teste avant d'etre
+//还以为 utile. Verdict : l'API est fermee au plan gratuit.
+//   /competitions                    -> 190 comps, saisons 2026-2027 lisibles
+//   /competitions/FL1/matches        -> HTTP 403
+//     "The resource you are looking for is restricted and apparently not
+//      within your subscription"
+//   /matches?dateFrom=...            -> 0 match, 6 variantes de parametres
+//   /status                          -> 404
+// Le plan gratuit lit le CALENDRIER des competitions mais aucun match. Meme
+// limite de fond qu'API-Football (E73e) : gratuit = calendrier, pas donnees.
+//
+// EN REVANCHE la piste etait juste au fond : le projet a deja une source de
+// cotes gratuite et non bloquee, les CSV football-data.co.uk, cablee dans
+// core/fdJoin.js + scripts/backfill_odds_footballdata.js. Mesure :
+//   31 508 resultats charges (6 saisons x 22 divisions), 103 joints sur
+//   13 331 candidats, 0 conflit de score final, 103 ecritures.
+//
+// TROIS BUGS REELS TROUVES EN CHEMIN :
+//
+// (1) `backfill_odds_footballdata.js` n'ecrit JAMAIS dans `learning_memory`.
+//     Il ne touche que `matches` et `historical_matches`. Or c'est
+//     learning_memory qui porte les probabilites ET la verite terrain. Les
+//     2 605 matchs mesurables restaient donc sans cote, et le ROI restait
+//     literally incalculable. -> scripts/backfill_odds_learning_memory.py.
+//
+// (2) LA JOINTURE PAR NOMS EST INSUFFISANTE : nom+date ne trouvait que
+//     298/1171. Les deux tables ont le MEME identifiant (`livescore_*`), donc
+//     la jointure se fait sur `match_id`, pas sur les noms. On passe a 1 327
+//     matchs avec cote exploitable.
+//
+// (3) 284 COTES ETAIENT SYNTHETIQUES ou Sorties de modele (`synthetic`,
+//     `fair_odds_model`). Les compter comme des cotes de marche fausse le
+//     ROI. Le projet a deja la regle pour ca (ODDS_REJECT_SYNTHETIC=on dans
+//     .env, appliquee par scrapeService.js:390) mais ce script ne la
+//     respectait pas. -> filtre ajoute, 284 ecartees.
+//
+// Resultat : 249/2605 matchs mesurables ont desormais une cote 1X2 reelle
+// (9,6%), sauvegardee avant ecriture dans %TEMP%\tactical_backup_pre_odds.db.
+//
+// LA MESURE — et il faut lire les DEUX questions, pas une.
+//
+// (A) LE MODEE BAT-IL LE MARCHE ?
+//     log-loss modele 1.1124  vs  cotes 0.9809
+//     ecart +0.1302 nats, 95% CI [+0.070 ; +0.195] -> FIABLE
+//     Le modele est SIGNIFICATIVEMENT PIRE que le marche. 39% de ses picks
+//     contredisent le favorite du marche. Il n'apporte rien que le marche
+//     n'ait deja.
+//
+// (B) EXISTE-T-IL UNE STRATEGIE DE VALEUR ? (edge = proba_modele > proba_implicite)
+//     marge   paris  winrate      ROI   edge moy   95% CI
+//        0%     352    26.1%  -36.45%    +11.9pt   [-50.6 ; -21.1]  FIABLE
+//        2%     282    23.4%  -40.42%    +14.6pt   [-57.5 ; -20.6]  FIABLE
+//        5%     222    24.3%  -35.91%    +17.7pt   [-55.2 ; -12.1]  FIABLE
+//       10%     159    24.5%  -39.67%    +21.7pt   [-58.9 ; -19.5]  FIABLE
+//       15%     120    26.7%  -31.94%    +24.8pt   [-54.1 ;  -6.1]  FIABLE
+//     Negative a TOUTES les marges, et l'intervalle de confiance ne croise
+//     JAMAIS zero. Ce n'est donc pas du bruit : c'est un resultat solide et
+//     defavorable. Repeter n_help : a chaque seuil de confiance, le modele se
+//     trompe davantage qu'il ne trouve de valeur.
+//
+// (C) LE ROI "PARIER LE PICK" (mesure par defaut dans E73)
+//     ROI = -50.58% sur 247 matchs.
+//
+// AVERTISSEMENT DE METHODE, important : ce -50% NE PROUVE PAS que le modele
+// est mauvais. C'eter le favorite (cote 1.3-1.9) pour gagner 40% du temps est
+// negatif PAR CONSTRUCTION. Controle : le ROI du pick du MARCHE (la cote la
+// plus basse) est de -58.96% sur le meme echantillon. C'etre le favori ne
+// rapporte pas non plus — la donnee ne contient pas d'arbitrage gratuit.
+// Un ROI negatif sur ce critere mesure l'ABSENCE de strategie, pas la
+// qualite du modele. (B) est la seule mesure qui compte.
+//
+// Deux pieges corriges en route :
+//   - les probas implicites des cotes ne somment PAS a 1 (mediane 1.0746 =
+//     marge bookmaker). Sans renormalisation, `1/cote` n'est pas une
+//     probabilite et le log-loss du marche sort NEGATIF (-0.908), ce qui
+//     donne une comparaison absurde. Les deux cotes sont desormais
+//     renormalisees avant toute comparaison.
+//   - 2 matchs sur 247 ont une somme < 0.98 (arbitrage impossible sur ce
+//     marche = donnee erronee) : ecartes plutot que normalises en faux.
+//
+// VERDICT FINAL, sans complaisance :
+//   Le systeme n'est PAS pret pour une bonne pronostic. Ce n'est plus une
+//   estimation : le pipeline sait desormais le dire tout seul. La chaine est
+//   entiere (collecte -> modele -> verite -> cote -> mesure) et elle
+//   fonctionne, mais ce qu'elle mesure est negatif : le modele est moins bon
+//   que le marche et ne detecte aucune strategie de rentabilite, a tous les
+//   seuils de confiance.
+//
+// GOULET D'ETRANGLEMENT RESTANT : 249 matchs avec cotes sur 2 605 (9,6%).
+// Sur les 50 matchs ou le marche est tres confiant (>60% implicite), il se
+// trompe 10 fois. C'est trop peu pour construire quoi que ce soit. La
+// couverture des cotes, et non le calcul, est ce qui bloque la suite.
+// A_FAIRE : laisser tourner les crons de cotes (BetExplorer/FotMob live) pour
+// faire monter la couverture sur les matchs deja joues, puis re-mesurer.

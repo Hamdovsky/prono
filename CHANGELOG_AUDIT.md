@@ -4,6 +4,132 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## E81 : cause racine trouvée — un modèle à AUC 0,73 dort sur le disque, câblé mort (2026-10-03)
+
+E79 et E80 ont établi que les probabilités **servies** valent AUC ≈ 0,514 avec
+un pick de 41,8 % contre 43,4 % en référence. La question suivante était
+« pourquoi » — et non « quel modèle essayer ». Réponse : il ne manque pas de
+modèle, il manque du câblage.
+
+### Ce que mesures les données d'entraînement
+
+`models/baseline_metadata.json` déclare 41 variables pour 1X2 et
+`data_pipeline/data/processed/master_dataset.csv` en compte 18 477 lignes.
+Couverture réelle des 41 variables :
+
+- Elo `elo_home` / `elo_away` : **100 %**
+- formes L5/L10 (buts, xG, points, tirs) : **99 %**
+- cotes de marché `odds_h_avg` / `odds_d_avg` / `odds_a_avg` : **100 %**
+- famille xG : **28–29 %** seulement
+
+L'archive de sortie (`historical_matches.fullData`) ne porte, elle, **aucune**
+de ces variables : ni Elo, ni formes, ni cotes. C'est cette archive, et non
+`master_dataset`, qui a été mesurée en E79/E80. Les deux corpus n'ont rien en
+commun côté variables.
+
+### Les trois défauts du chemin d'appel
+
+1. **`core/prediction_engine.py` : `date` utilisé avant affectation.**
+   `ctx` lisait `date` (ligne 123) avant que la variable ne soit assignée
+   (ligne 132), le tout dans un `except Exception: return None`. Le hook
+   levait donc `UnboundLocalError` à chaque appel et renvoyait `None` **en
+   silence**. Vérifié : `predict_for_match` n'était jamais appelé.
+   Même famille de bug que le crash `cornersLabel` d'E68-ter — et même
+   conséquence : un chemin mort, invisible, parce que l'exception est avalée.
+
+2. **`core/baseline_fallback.py` : valeurs manquantes remplies à `0.0`.**
+   Les bundles contiennent `SimpleImputer(médiane)` + `StandardScaler`.
+   Remplir à `0.0` **neutralise l'imputer** et place des valeurs hors
+   distribution (`elo = 0` au lieu de ~1500). Sur le lot ancien de
+   `master_dataset` (n = 13 176) :
+
+   | remplissage | AUC moy | pick | McNemar vs réf. |
+   |---|---|---|---|
+   | `0.0` (avant) | 0,717 | 40,7 % | **−357** (p = 7,2e-05, *pire* que la référence) |
+   | médiane / `NaN` (après) | 0,731 | 52,5 % | **+1197** (p = 5,7e-100) |
+
+   **11,8 points de précision** perdus par cette seule ligne.
+
+3. **`except Exception: return None`** : aucune trace, aucun log. Corrigé —
+   l'échec reste non bloquant mais est désormais journalisé en `WARNING`.
+
+### Ce que vaut le modèle, une fois correctement alimenté
+
+Sur 13 176 matchs hors échantillon, avec ses 41 variables réelles :
+
+- AUC H **0,723** / AUC A **0,740** ; pick **52,5 %** contre 43,5 % de
+  référence, gain net **+1191 matchs**, McNemar p = 3,5e-97
+- log-loss 0,9696 contre 1,0748 pour une constante calibrée
+- stabilité : 2025 seul → AUC 0,722 / pick 52,0 % ; 2026 seul → 0,721 / 51,8 %
+  (aucun surapprentissage)
+- encodage `y_1x2 = {H:0, D:1, A:2}` (`core/backtest_walkforward.py:75`)
+
+**Ce n'est pas un clone du marché.** Les deux plus forts coefficients sont
+`away_xg` (0,377) et `home_xg` (0,362) ; les 8 variables de marché ne portent
+que 24,8 % de la masse de coefficients, le reste (Elo + formes + xG) 75,2 %.
+Accord avec le marché dés-margé : 79,6 % seulement.
+
+Il fait même mieux que le marché dés-margé : AUC 0,731 contre 0,710, pick
+52,5 % contre 51,7 %, McNemar p = 0,019. L'écart est mince et à surveiller,
+mais il est dans le bon sens.
+
+### Ce qui n'est PAS corrigé, et pourquoi
+
+`baseline_fallback` reste un **canal d'observation**. `core/prediction_engine.py:1226`
+l'attache sous cette clé dans la charge utile, et ni Python ni Node ne la
+consomment (`rg baseline_fallback` : définition, appel, tests, documentation —
+aucun lecteur). Les probabilités servies viennent de l'ensemble V2/V4/XGBoost.
+
+Conséquence à assumer : **corriger ces défauts ne changera pas les
+probabilités produites.** Le kill-switch `BASELINE_FALLBACK` reste `off` par
+défaut, et l'activer ne brancherait toujours rien sur la sortie.
+
+C'est la prochaine décision de fond, pas un correctif : faut-il,(a) remplacer
+l'ensemble servi par ce modèle, (b) le fusionner, ou (c) le garder en ombre
+jusqu'à accumulation d'un hors échantillon sur la fenêtre live ? Elle n'est
+pas tranchée ici. Elle demande aussi de traiter le point ci-dessous.
+
+### Risque ouvert : versions scikit-learn non alignées
+
+Les bundles ont été sérialisés avec **scikit-learn 1.9.0** alors que
+`requirements.txt:12` épingle **1.8.0**. sklearn émet
+`InconsistentVersionWarning` et prévient que le résultat peut être invalide.
+Les mesures ci-dessus ont été refaites sous 1.8.0 et valent donc pour le
+runtime épinglé — mais les artefacts doivent être réentraînés sous 1.8.0
+avant toute exploitation en production. Rappel : le repiquage des bundles
+n'est pas reproductible tant que ce point est ouvert.
+
+### Ce qui a été corrigé dans cette entrée
+
+- `core/prediction_engine.py` : `date` affectée avant `ctx` ; journalisation de
+  l'échec ; `import traceback`.
+- `core/baseline_fallback.py` : helper `_feature_vector()` qui **préserve les
+  `NaN`** au lieu de remplir à `0.0`, utilisé par `_predict_from_rows()` et
+  `predict_from_features()` ; docstring d'état (canal d'observation + versions).
+- `tests/test_baseline_fallback.py` : 3 tests de régression — le hook appelle
+  bien `predict_for_match` et transmet `date` (c'est le test qui aurait dû
+  attraper le bug E81 et qui manquait), le hook journalise ses exceptions,
+  `_feature_vector` préserve les `NaN`. 7 → 10 tests.
+- `scripts/eval_markets_readiness.py` : l'en-tête annonçait encore un filtre
+  `status='finished'` et un score non nul, alors que le chargeur lit
+  `historical_matches.fullData` et dérive l'issue du score réel. Docstring
+  alignée sur le code.
+
+### Ce qui reste ouvert
+
+- **Décision de fond** : brancher ou non ce modèle sur la sortie (voir ci-dessus).
+- **Hors échantillon live** : `master_dataset` s'arrête au 2026-08-27, donc les
+  13 176 matchs sont antérieurs aux dernières semaines. Le même blocage que
+  E79/E80 subsiste sur la fenêtre réellement servie (août → octobre 2026).
+- **xG à 28 %** : c'est pourtant la variable la plus forte du modèle. La
+  couverture xG en live doit être vérifiée avant tout branchement, faute de
+  quoi le modèle sera nourri à la médiane sur ~72 % des matchs.
+- **Réentraînement sous 1.8.0** pour aligner les artefacts sur le runtime.
+- **Cohérence UI** : `DISABLE_PURE_1X2` ne couvre pas
+  `services/topPicksEngine.js`, qui peut encore afficher du 1X2 pur.
+
+---
+
 ## E76 : origine des cotes dans `bets` + suppression du marché 1X2 fantôme (2026-10-03)
 
 Décisions utilisateur : marquer l'historique sans le purger, ne plus fabriquer de

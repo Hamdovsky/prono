@@ -9,8 +9,8 @@ Marches mesures, et sur quoi :
 
   1X2      prediction_history, 13 915 matchs, les 3 issues, verite terrain
   DC        derive des memes probabilites (1X = P(H)+P(D), etc.)
-  OU 2.5    matches.ou_25_prob, matchs termines seulement
-  BTTS      matches.btts_prob, matchs termines seulement
+  OU 2.5    historical_matches.fullData, probabilites + issue reelle au score
+  BTTS      historical_matches.fullData, probabilites + issue reelle au score
 
 Un marche n'est « pret » que si les trois conditions sont reunies :
 
@@ -18,7 +18,7 @@ Un marche n'est « pret » que si les trois conditions sont reunies :
   B. DISCRIMINATION  AUC >= 0,55
   C. PICK            le pick bat la regle sans information, au sens de McNemar
 
-Sans C, un marche « performant » ne fait queencaisser la cote : une double
+Sans C, un marche « performant » ne fait qu'encaisser la cote : une double
 chance gagne ~66 % des fois par sa seule structure de paris, sans aucune
 prevision. C'est le piege classique, et c'est exactement ce que DC doit
 subir.
@@ -28,9 +28,11 @@ mesurable, donc non declare pret.
 
 ⚠️ Piège déjà payé une fois dans ce diagnostic : la table `matches` contient
 1 575 lignes de score 0-0 sur 1 813, dont 1 397 matchs encore `scheduled`.
-Évaluer OU 2.5 ou BTTS dessus donne 92 % de « sous 2,5 buts » et 92,8 % de
-« BTTS non », qui sont des scores placeholder, pas du football. D'ou le filtre
-`status='finished'` ET score non nul, applique plus bas.
+Evaluer OU 2.5 ou BTTS dessus donne 92 % de « sous 2,5 buts » et 92,8 % de
+« BTTS non », qui sont des scores placeholder, pas du football. D'ou la
+lecture de OU 2.5 / BTTS dans `historical_matches.fullData`, ou l'issue est
+toujours derivee du score reel du match (et non d'un `status` ou d'un score
+non nul, qui ne viennent pas).
 
 Usage : .venv/Scripts/python.exe scripts/eval_markets_readiness.py
 Sortie : 0 si au moins un marche est pret, 1 sinon.

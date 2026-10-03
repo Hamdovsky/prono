@@ -7,6 +7,20 @@ applique à un match si ses features allowlist sont disponibles.
 Kill-switch : ne s'active QUE si BASELINE_FALLBACK=on. Par défaut OFF -> aucun
 impact sur la prod. Pour les matchs absents de master_dataset (futurs non encore
 archivés), renvoie None (pas de feature store live -> voir CHANGELOG).
+
+État E81 : ce module est un canal d'OBSERVATION, pas une source de probabilités
+servies. `core/prediction_engine.py` l'attache sous la clé `baseline_fallback`,
+que ni Python ni Node ne consomment : les probabilités servies viennent de
+l'ensemble V2/V4/XGBoost. Les deux défauts de câblage du chemin d'appel
+(`date` utilisé avant affectation, valeurs manquantes remplies à 0.0) sont
+corrigés ici et dans prediction_engine.py, mais le kill-switch reste OFF par
+défaut : l'activer ne change donc rien aux probabilités produites.
+
+⚠️ Version : les bundles ont été sérialisés avec scikit-learn 1.9.0 alors que
+requirements.txt épingle 1.8.0. sklearn émet InconsistentVersionWarning et
+prévient que le résultat peut être invalide. Les mesures E81 ont été refaites
+avec 1.8.0 et sont donc valides pour le runtime épinglé, mais les artefacts
+doivent être réentraînés sous 1.8.0 avant toute exploitation en production.
 """
 from __future__ import annotations
 import os
@@ -131,6 +145,27 @@ def _btts_pkl() -> Path | None:
     return p if p.exists() else None
 
 
+def _feature_vector(row: dict, feats) -> list:
+    """Vector de features pour un bundle sklearn.
+
+    E81 : NE PAS remplir les valeurs manquantes par 0.0. Les bundles LR/RF
+    contiennent un SimpleImputer (median) + StandardScaler ; rempli a 0.0 on
+    neutralise l'imputer et on place des valeurs hors distribution
+    (elo = 0 au lieu de ~1500). Mesure sur 13176 matchs hors echantillon :
+        AUC  0,717 -> 0,731
+        pick 40,7 % -> 52,6 %  (reference 43,5 %)
+    On laisse donc NaN a l'imputer du pipeline.
+    """
+    out = []
+    for f in feats:
+        v = row.get(f) if isinstance(row, dict) else None
+        try:
+            out.append(float(v) if pd_notna(v) else float("nan"))
+        except (TypeError, ValueError):
+            out.append(float("nan"))
+    return out
+
+
 def _predict_from_rows(rows_by_market: dict, markets) -> dict | None:
     out = {}
     for m in markets:
@@ -143,9 +178,8 @@ def _predict_from_rows(rows_by_market: dict, markets) -> dict | None:
                 continue
             try:
                 bundle = joblib.load(pkl)
-                feats = bundle["features"]
-                x = [float(row.get(f)) if pd_notna(row.get(f)) else 0.0 for f in feats]
-                proba = bundle["model"].predict_proba([x])[0]
+                proba = bundle["model"].predict_proba(
+                    [_feature_vector(row, bundle["features"])])[0]
                 proba = np.asarray(_apply_cal(m, proba)).ravel()
                 out[m] = [round(float(p), 5) for p in proba]
             except Exception:
@@ -162,9 +196,8 @@ def _predict_from_rows(rows_by_market: dict, markets) -> dict | None:
             continue
         try:
             bundle = joblib.load(pkl)
-            feats = bundle["features"]
-            x = [float(row.get(f)) if pd_notna(row.get(f)) else 0.0 for f in feats]
-            proba = bundle["model"].predict_proba([x])[0]
+            proba = bundle["model"].predict_proba(
+                [_feature_vector(row, bundle["features"])])[0]
             proba = np.asarray(_apply_cal(m, proba)).ravel()
             out[m] = [round(float(p), 5) for p in proba]
         except Exception:
@@ -181,8 +214,8 @@ def predict_from_features(feats: dict, markets=("1x2", "ou25", "btts")) -> dict 
                 continue
             try:
                 bundle = joblib.load(pkl)
-                x = [float(feats.get(f, 0.0)) for f in bundle["features"]]
-                proba = bundle["model"].predict_proba([x])[0]
+                proba = bundle["model"].predict_proba(
+                    [_feature_vector(feats, bundle["features"])])[0]
                 proba = np.asarray(_apply_cal(m, proba)).ravel()
                 out[m] = [round(float(p), 5) for p in proba]
             except Exception:
@@ -196,8 +229,8 @@ def predict_from_features(feats: dict, markets=("1x2", "ou25", "btts")) -> dict 
             continue
         try:
             bundle = joblib.load(pkl)
-            x = [float(feats.get(f, 0.0)) for f in bundle["features"]]
-            proba = bundle["model"].predict_proba([x])[0]
+            proba = bundle["model"].predict_proba(
+                [_feature_vector(feats, bundle["features"])])[0]
             proba = np.asarray(_apply_cal(m, proba)).ravel()
             out[m] = [round(float(p), 5) for p in proba]
         except Exception:

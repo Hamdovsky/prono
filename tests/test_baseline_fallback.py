@@ -155,3 +155,106 @@ def test_nested_calibration_report_honnete():
         # ECE honnete (calibrateur jamais sur eval) borne dans un range realiste.
         assert 0.0 <= rep[market]["ece_honest"] <= 0.3
         assert rep[market]["n_eval"] > 100
+
+
+def test_hook_prediction_engine_appelle_bien_le_fallback():
+    """E81 : le hook de prediction_engine nelevait jamais.
+
+    `ctx` utilisait `date` (core/prediction_engine.py) avant que la variable ne
+    soit assignee -> UnboundLocalError avale par `except Exception: return None`.
+    Resultat : `predict_for_match` n'etait JAMAIS appele, et le champ
+    `baseline_fallback` valait toujours None, sans trace. Ce test verrouille
+    le fait que le hook appelle reellement le fallback et lui transmet `date`.
+    """
+    sys.path.insert(0, str(ROOT / "core"))
+    import core.prediction_engine as pe
+
+    os.environ["BASELINE_FALLBACK"] = "on"
+    appel = {}
+
+    def faux(key, ctx, markets=("1x2", "ou25", "btts")):
+        appel["key"] = key
+        appel["ctx"] = ctx
+        return {"1x2": [0.4, 0.3, 0.3]}
+
+    original = bf.predict_for_match
+    bf.predict_for_match = faux
+    try:
+        out = pe._attach_baseline_fallback(
+            {
+                "homeTeam": "Arsenal", "awayTeam": "Chelsea",
+                "league": "E0", "date": "2026-09-01",
+                "odds_home_open": 2.1, "odds_draw_open": 3.4, "odds_away_open": 3.6,
+            },
+            xg_h=1.8, xg_a=1.2,
+        )
+    finally:
+        bf.predict_for_match = original
+        os.environ["BASELINE_FALLBACK"] = "off"
+
+    assert out == {"1x2": [0.4, 0.3, 0.3]}, "le hook doit propager la sortie"
+    assert appel, "predict_for_match n'a pas ete appele"
+    # `date` doit etre resolue (bug E81) et presente dans le ctx ET dans la cle.
+    assert appel["ctx"]["date"] == "2026-09-01"
+    assert appel["key"]["date"] == "2026-09-01"
+    assert appel["ctx"]["elo_h"] == 1500 and appel["ctx"]["elo_a"] == 1500
+
+
+def test_hook_prediction_engine_logue_les_erreurs():
+    """E81 : le hook ne doit plus avaler ses exceptions en silence."""
+    sys.path.insert(0, str(ROOT / "core"))
+    import logging
+
+    import core.prediction_engine as pe
+
+    os.environ["BASELINE_FALLBACK"] = "on"
+
+    def boom(key, ctx, markets=("1x2", "ou25", "btts")):
+        raise ValueError("poubelle")
+
+    original = bf.predict_for_match
+    bf.predict_for_match = boom
+    logger = logging.getLogger("core.prediction_engine")
+    captured = []
+    handler = logging.Handler()
+    handler.emit = lambda rec: captured.append(rec)
+    logger.addHandler(handler)
+    prev = logger.level
+    logger.setLevel(logging.WARNING)
+    try:
+        out = pe._attach_baseline_fallback(
+            {"homeTeam": "Arsenal", "awayTeam": "Chelsea",
+             "league": "E0", "date": "2026-09-01"},
+            xg_h=1.8, xg_a=1.2,
+        )
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(prev)
+        bf.predict_for_match = original
+        os.environ["BASELINE_FALLBACK"] = "off"
+
+    assert out is None, "un echec doit rester non bloquant"
+    assert any("poubelle" in r.getMessage() for r in captured), \
+        "l'exception doit etre tracee, pas silencieuse"
+
+
+def test_feature_vector_preserve_les_valeurs_manquantes():
+    """E81 : ne pas remplir a 0.0.
+
+    Les bundles LR/RF contiennent un SimpleImputer (median) + StandardScaler.
+    Remplir a 0.0 neutralise l'imputer et place des valeurs hors distribution
+    (elo=0 au lieu de ~1500). Mesure sur 13176 matchs hors echantillon :
+    AUC 0,717 -> 0,731 et pick 40,7 % -> 52,6 %. Ce test verrouille la
+    preservation des NaN.
+    """
+    import math
+
+    feats = ["elo_home", "home_xg", "H_pts_L5"]
+    row = {"elo_home": 1700.0, "home_xg": None, "H_pts_L5": float("nan")}
+    vec = bf._feature_vector(row, feats)
+    assert vec[0] == 1700.0
+    assert math.isnan(vec[1]), "None doit devenir NaN (pas 0.0)"
+    assert math.isnan(vec[2]), "NaN doit rester NaN (pas 0.0)"
+    # Une cle absente est aussi NaN, jamais 0.0.
+    assert math.isnan(bf._feature_vector({}, feats)[0])
+

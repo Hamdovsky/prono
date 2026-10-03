@@ -17,6 +17,7 @@ import json
 import sys
 import math
 import os
+import traceback
 import numpy as np
 from datetime import datetime, timezone
 
@@ -116,6 +117,7 @@ def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
 
         home = match_obj.get("homeTeam") or match_obj.get("home_team")
         away = match_obj.get("awayTeam") or match_obj.get("away_team")
+        date = match_obj.get("date") or match_obj.get("kickoff")
         elo_h = ELO_DATA.get(home, 1500) if ELO_DATA else 1500
         elo_a = ELO_DATA.get(away, 1500) if ELO_DATA else 1500
         ctx = {
@@ -129,7 +131,6 @@ def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
             "odds_a": match_obj.get("odds_away_open") or match_obj.get("odds_away"),
             "absence_impact": match_obj.get("absence_impact_pondéré"),
         }
-        date = match_obj.get("date") or match_obj.get("kickoff")
         key = {
             "league": match_obj.get("league"),
             "home_team": home,
@@ -138,6 +139,15 @@ def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
         }
         return predict_for_match(key, ctx)
     except Exception:
+        # E81 : ne plus avaler silencieusement. Un `date` utilise avant
+        # etat assigne faisait echouer ce chemin en silence (retour None
+        # systematique), invisible pendant des mois. On log, on reste non bloquant.
+        logging.getLogger(__name__).warning(
+            "baseline_fallback indisponible pour %s-%s : %s",
+            match_obj.get("homeTeam") or match_obj.get("home_team"),
+            match_obj.get("awayTeam") or match_obj.get("away_team"),
+            traceback.format_exc(limit=3),
+        )
         return None
 
 

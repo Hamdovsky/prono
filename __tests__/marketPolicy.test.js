@@ -70,3 +70,76 @@ describe('deriveHTPick — HT_MODEL flag (E24 Phase 4a)', () => {
     expect(deriveHTPick({ quant: { markets: { ht: { goal_yes: 0.72 } } }, expected_score: '0-0' }).htPick).toBe('HT OVER 0.5')
   })
 })
+
+/**
+ * E79 : applyMarketPolicy était le garde-fou qui empêchait le 1X2 pur
+ * d'atteindre la base, et il n'était testé dans AUCUN sens — ni activé, ni
+ * désactivé. Une régression ici est silencieuse : les picks 1X2 reviennent
+ * sans qu'aucun test ne bronche.
+ *
+ * DISABLE_PURE_1X2 est lu au chargement du module : il faut donc recharger le
+ * module après avoir posé la variable.
+ */
+describe('applyMarketPolicy — masquage du 1X2 pur (E79)', () => {
+  const P = {
+    home_win_probability: 0.55,
+    away_win_probability: 0.25,
+  }
+
+  function load(flag) {
+    jest.resetModules()
+    if (flag === undefined) delete process.env.DISABLE_PURE_1X2
+    else process.env.DISABLE_PURE_1X2 = flag
+    return require('../core/marketPolicy')
+  }
+
+  const prev = process.env.DISABLE_PURE_1X2
+  afterAll(() => {
+    if (prev === undefined) delete process.env.DISABLE_PURE_1X2
+    else process.env.DISABLE_PURE_1X2 = prev
+  })
+
+  test('flag absent : le verdict 1X2 passe untouched (comportement historique)', () => {
+    const { applyMarketPolicy, isPure1x2Disabled } = load(undefined)
+    expect(isPure1x2Disabled()).toBe(false)
+    for (const p of ['1', 'X', '2', '1x', ' 2 ']) {
+      expect(applyMarketPolicy(p, P)).toEqual({ prediction: p, converted: false })
+    }
+  })
+
+  test('flag OFF explicite : idem, la conversion ne doit rien changer', () => {
+    const { applyMarketPolicy, isPure1x2Disabled } = load('false')
+    expect(isPure1x2Disabled()).toBe(false)
+    expect(applyMarketPolicy('1', P).converted).toBe(false)
+  })
+
+  test('flag ON : 1 -> 1X et 2 -> X2, originalPrediction conservé', () => {
+    const { applyMarketPolicy, isPure1x2Disabled } = load('true')
+    expect(isPure1x2Disabled()).toBe(true)
+    expect(applyMarketPolicy('1', P)).toEqual({
+      prediction: '1X',
+      originalPrediction: '1',
+      converted: true,
+    })
+    expect(applyMarketPolicy('2', P)).toEqual({
+      prediction: 'X2',
+      originalPrediction: '2',
+      converted: true,
+    })
+  })
+
+  test('flag ON : le nul part du côté le plus probable, jamais un « X » seul', () => {
+    const { applyMarketPolicy } = load('true')
+    // il n'existe pas de double chance « nul seul » : on prend le flanc dominant
+    expect(applyMarketPolicy('X', P).prediction).toBe('1X')
+    expect(applyMarketPolicy('X', { home_win_probability: 0.2, away_win_probability: 0.5 }).prediction)
+      .toBe('X2')
+  })
+
+  test('flag ON : les marchés autres que 1X2 ne sont jamais touchés', () => {
+    const { applyMarketPolicy } = load('true')
+    for (const p of ['1X', 'X2', '12', 'BTTS YES', 'OVER 2.5']) {
+      expect(applyMarketPolicy(p, P).converted).toBe(false)
+    }
+  })
+})

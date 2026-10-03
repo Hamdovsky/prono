@@ -9,8 +9,20 @@
  *
  * Activation : DISABLE_PURE_1X2=true (.env). La prédiction d'origine est
  * conservée dans originalPrediction (fullData) pour l'audit et la réactivation.
- * Critère de réactivation : précision calibrée ≥ 42,6 % sur un échantillon
- * n ≥ 200 (voir scripts/diagnose_1x2.js et CHANGELOG_AUDIT.md).
+ *
+ * ⚠️ E79 : le critère de réactivation « précision ≥ 42,6 % sur n ≥ 200 » est
+ * ABANDONNÉ, il ne testing plus rien. Mesuré sur 13 413 matchs
+ * (scripts/eval_pick_quality.py) :
+ *   - précision du pick 41,7 %, soit SOUS le seuil de 42,6 % ;
+ *   - mais surtout le pick est SIGNIFICATIVEMENT moins bon que la règle sans
+ *     information (« toujours domicile », 44,2 %) : McNemar p < 0,0001.
+ * Atteindre 42,6 % de précision n'a donc aucun sens si 44,2 % s'obtiennent
+ * sans modèle. Réactiver exige désormais de battre la référence, pas seulement
+ * une barre absolue :
+ *   1. AUC 1X2 ≥ 0,55 sur n ≥ 2 000 (aujourd'hui 0,508 / 0,525 / 0,509) ;
+ *   2. pick ≥ référence, avec p > 0,05 sur le test de McNemar ;
+ *   3. et un vrai test hors échantillon, sur des mois antérieurs à l'activation
+ *      du modèle — la base 2026-08-13 → 2026-10-01 n'en contient aucun.
  */
 const DISABLE_PURE_1X2 =
   String(process.env.DISABLE_PURE_1X2 || '')

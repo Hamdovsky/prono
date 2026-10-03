@@ -288,6 +288,42 @@ affiche les trois tests (calibration, AUC ± σ, McNemar) plus la dérive
 mensuelle. Mesurer le pouvoir discriminant d'un modèle sur 883 lignes et en
 tirer une conclusion est une erreur ; le diagnostic le rend visible désormais.
 
+### Conséquence : le 1X2 pur est masqué
+
+Un modèle au hasard pouvait encore produire des picks 1X2 recommandés, dont
+l'« edge » est calculé par comparaison à un marché qui, lui, classe à 0,721.
+Afficher un edge calculé depuis une information absente est une invention.
+
+Le garde-fou existait déjà : `core/marketPolicy.js` convertit tout verdict 1/X/2
+pur en son équivalent double chance au moment de la persistance
+(`core/db/predictions.js`, `core/db/matches.js`), réversible, l'original étant
+conservé dans `originalPrediction`. Il n'était simplement **pas activé**.
+
+`DISABLE_PURE_1X2=true` est maintenant posé dans `.env`, sur la base de la
+mesure E79 :
+
+- le seuil historique de réactivation était « précision ≥ 42,6 % sur n ≥ 200 ».
+  E79 mesure **41,7 %** : le critère échoue. Mais l'ajouter est insuffisant —
+  44,2 % s'obtiennent sans aucun modèle ;
+- `applyMarketPolicy` n'était testée **dans aucun sens**, ni activée ni
+  désactivée. Une régression aurait fait revenir les picks 1X2 sans qu'aucun
+  test ne bronche. 5 tests ajoutés (`__tests__/marketPolicy.test.js`) ;
+- le critère de réactivation est réécrit dans `core/marketPolicy.js` : AUC
+  ≥ 0,55 sur n ≥ 2 000, pick ≥ référence au sens de McNemar, **et** un vrai
+  test hors échantillon.
+
+Vérifié de bout en bout : `'1'` → `'1X'`, `'X'` → côté dominant, `'1X'`
+intouché.
+
+⚠️ `.env` est ignoré par git : `DISABLE_PURE_1X2=true` doit aussi être posé
+dans Render (Dashboard → Environment → `prono-k6gc`), sinon la production
+continue d'émettre du 1X2 pur.
+
+Limite à connaître : la politique s'applique à la persistance des prédictions,
+pas aux candidats produits par `topPicksEngine`. Les picks 1X2 peuvent donc
+encore apparaître dans la liste de recommandations même si la base n'enregistre
+que du double chance.
+
 ---
 
 ## E68-ter Fix crash dashboard #2 : cornersLabel lu avant declaration (2026-09-20)

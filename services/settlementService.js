@@ -659,8 +659,15 @@ function _matchDate(row) {
 /**
  * Build the bet row that mirrors a settled outcome into the `bets` table.
  * Pure: returns null when there is no pick or when the match+pick is already
- * tracked (idempotency). Stake = 1 flat unit; odds fall back to 2.0 when none
- * are stored (e.g. O/U picks).
+ * tracked (idempotency). Stake = 1 flat unit.
+ *
+ * E76 — plus de prix de repli. Avant, une cote absente devenait 2.0 et le
+ * profit était calculé dessus : sur les 13 156 lignes de la table, 91,2% portaient
+ * un prix inventé, et c'est de là que venait le ROI +11,10% affiché sur /bets.
+ * Un prix de marché est une information : si on ne l'a pas, il reste inconnu.
+ *   - prix trouvé  -> odds = prix,     odds_source = 'reelle', profit calculé
+ *   - prix absent  -> odds = NULL,    odds_source = 'absente', profit = NULL
+ * Le profit est NULL et non 0 : « pas de prix » n'est pas « zéro gain ».
  */
 function buildBetRecord(row, pick, result, scoreHome, scoreAway) {
   if (!pick) return null
@@ -670,10 +677,13 @@ function buildBetRecord(row, pick, result, scoreHome, scoreAway) {
     .get(label, pick)
   if (existing) return null
 
-  const odds = Math.round(_getPickOdds(row, pick) * 100) / 100 || 2
+  const raw = _getPickOdds(row, pick)
+  const hasRealOdds = raw > 1
+  const odds = hasRealOdds ? Math.round(raw * 100) / 100 : null
   const betResult = result === 'WON' ? 'won' : result === 'LOST' ? 'lost' : 'pending'
-  const profit =
-    betResult === 'won'
+  const profit = !hasRealOdds
+    ? null
+    : betResult === 'won'
       ? Math.round((odds - 1) * 100) / 100
       : betResult === 'lost'
         ? -1
@@ -687,6 +697,7 @@ function buildBetRecord(row, pick, result, scoreHome, scoreAway) {
     stake: 1,
     result: betResult,
     profit,
+    odds_source: hasRealOdds ? 'reelle' : 'absente',
     note: `${scoreHome}-${scoreAway}`,
     date: _matchDate(row),
   }
@@ -703,7 +714,7 @@ function syncBetToTracker(row, pick, result, scoreHome, scoreAway, opts = {}) {
 
   if (!opts.dryRun) {
     db.prepare(
-      'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, note, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, odds_source, note, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       record.match_label,
       record.league,
@@ -712,12 +723,13 @@ function syncBetToTracker(row, pick, result, scoreHome, scoreAway, opts = {}) {
       record.stake,
       record.result,
       record.profit,
+      record.odds_source,
       record.note,
       record.date
     )
   }
   logger.info(
-    `[SETTLEMENT] ${opts.dryRun ? '[DRY-RUN] ' : ''}📈 Bet tracked: ${record.match_label} ${record.note} → ${record.result} (${record.pick} @ ${record.odds})`
+    `[SETTLEMENT] ${opts.dryRun ? '[DRY-RUN] ' : ''}📈 Bet tracked: ${record.match_label} ${record.note} → ${record.result} (${record.pick} @ ${record.odds === null ? 'aucun prix' : record.odds})`
   )
   return record
 }
@@ -773,18 +785,19 @@ async function backfillBets({ dryRun = false, limit = 1000 } = {}) {
     }
     try {
       db.prepare(
-        'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, note, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ).run(
-        record.match_label,
-        record.league,
-        record.pick,
-        record.odds,
-        record.stake,
-        record.result,
-        record.profit,
-        record.note,
-        record.date
-      )
+'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, odds_source, note, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+    record.match_label,
+    record.league,
+    record.pick,
+    record.odds,
+    record.stake,
+    record.result,
+    record.profit,
+    record.odds_source,
+    record.note,
+    record.date
+    )
       summary.inserted++
     } catch (e) {
       summary.errors++

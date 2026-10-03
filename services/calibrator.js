@@ -129,7 +129,25 @@ function buildCurve(db, minIsoTs) {
       }
       items.push({ min: i * BAND_WIDTH, max: i * BAND_WIDTH + BAND_WIDTH, n, w, rate })
     }
-    markets[market] = { bands: items, base, n: acc.n, builtAt: Date.now() }
+    markets[market] = {
+      bands: items,
+      base,
+      n: acc.n,
+      // E76 : AUCUNE bande de ce marché n'atteint MIN_CALIB_BAND_N.Toutes les
+      // bandes sont donc retombées sur `base` ci-dessus, et la courbe est PLATE.
+      // Appliquée à un triplet, elle rend les trois jambes IDENTIQUES, puis la
+      // renormalisation donne 33,3/33,3/33,3. Mesuré sur data/tactical.db pour
+      // le marché 1X2 : les 7 bandes ont n = 22, 26, 25, 17, 19, 7, 4 — toutes
+      // sous le seuil de 50. Conséquence en production : topPicksEngine filtre
+      // sur PROB_MIN = 55 (ligne 509), donc AUCUN pick 1X2 ne survit. Le
+      // calibrateur ne calibrait pas le marché 1X2, il le supprimait.
+      //
+      // La garde.MIN_MARKET_SAMPLES ne le voyait pas : elle ne regarde que le
+      // total du marché (n = 120 >= 40). Il fautjuger sur la qualité des
+      // BANDES, pas sur l'effectif global.
+      hasReliableBands: items.some((b) => b.n >= MIN_CALIB_BAND_N),
+      builtAt: Date.now(),
+    }
   }
   return markets
 }
@@ -186,12 +204,17 @@ function getCurve(force = false) {
 
 /**
  * Proba calibrée d'un pick. Marché inconnu ou sans données → identité.
+ * E76 : marché dont AUCUNE bande n'atteint MIN_CALIB_BAND_N → identité également.
+ * Une courbe sans bande fiable est plate : elle ne calibrerait rien, elle
+ * écraserait toutes les probabilités du marché sur la base globale.
  */
 function calibrateProb(prob, market) {
   const p = Number(prob) || 0
   if (p <= 0 || p >= 100) return p
   const m = getCurve()[market]
   if (!m || !m.bands || m.bands.length === 0) return Math.min(Math.max(p, 0), 100)
+  // Pas une seule bande exploitable : la courbe est plate, on ne l'applique pas.
+  if (m.hasReliableBands === false) return Math.min(Math.max(p, 0), 100)
   const idx = Math.min(NUM_BANDS - 1, Math.floor(p / BAND_WIDTH))
   const band = m.bands[idx]
   if (!band) return Math.min(Math.max(p, 0), 100)
@@ -222,6 +245,16 @@ function calibrate1x2({ p1, px, p2 }) {
   // Pas de courbe 1X2 du tout (environnement sans données réelles) → identité
   // pure : on préserve exactement les probas du modèle.
   if (!curve) return { p1: +(a).toFixed(2), px: +(b).toFixed(2), p2: +(c).toFixed(2) }
+  // E76 : courbe 1X2 PLATE (aucune bande n'atteint MIN_CALIB_BAND_N). Mesuré :
+  // les 7 bandes ont n = 22/26/25/17/19/7/4, toutes < 50, donc toutes les
+  // bandes valent `base` = 48,3 %. Appliqué au triplet, les trois jambes
+  // deviennent égales et la renormalisation donne 33,3/33,3/33,3 — sous
+  // PROB_MIN = 55, donc TOUS les picks 1X2 sont rejetés en amont de l'edge.
+  // Une courbe qui supprime le marché ne calibre pas : on rend l'identité.
+  // La garde MIN_MARKET_SAMPLES (n >= 40) ne le voyait pas, car elle ne
+  // regarde que l'effectif global du marché, pas la qualité des bandes.
+  if (curve.hasReliableBands === false)
+    return { p1: +(a).toFixed(2), px: +(b).toFixed(2), p2: +(c).toFixed(2) }
   // Courbe présente mais échantillon insuffisant → identité douce : on garde la
   // répartition du modèle, mix relaxé 85/15 vers l'équiprobable (évite d'écraser
   // TOUT pick 50-70 % à ~33 %, source de l'élimination massive des 1X2 pre-match).

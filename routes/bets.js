@@ -73,6 +73,26 @@ function isSyntheticOdds(row) {
   return o === 1.0 || o === 1.2 || o === 2.0
 }
 
+// E76 : `odds_source` devient la source de vérité, la détection par valeur ne
+// sert plus que de repli pour les lignes d'avant le backfill.
+//   'reelle' / 'manuel' -> prix réellement payé, exploitable pour un ROI
+//   'repli'             -> prix inventé par le code
+//   'absente' / NULL    -> aucun prix
+// Distinguer « pas de prix » de « prix inventé » compte : une ligne sans cote
+// n'est pas une ligne qui a rapporté de l'argent, et l'agréger aux cotes
+// fabriquées ferait croire à des pertes réelles.
+function betOddsClass(row) {
+  const src = (row.odds_source || '').toString().trim().toLowerCase()
+  if (src) {
+    if (src === 'reelle' || src === 'manuel') return 'exploitable'
+    if (src === 'repli') return 'repli'
+    return 'absente'
+  }
+  const o = parseFloat(row.odds)
+  if (!Number.isFinite(o)) return 'absente'
+  return isSyntheticOdds(row) ? 'repli' : 'exploitable'
+}
+
 function computeStats(rows) {
   const total = rows.length
   const won = rows.filter((r) => r.result === 'won').length
@@ -89,7 +109,7 @@ function computeStats(rows) {
   const winRate = won + lost > 0 ? Math.round((won / (won + lost)) * 10000) / 100 : 0
 
   // Sous-ensemble à cote RÉELLE : le seul sur lequel un ROI financier a un sens.
-  const real = rows.filter((r) => !isSyntheticOdds(r))
+  const real = rows.filter((r) => betOddsClass(r) === 'exploitable')
   const realStaked = real.reduce((s, r) => s + (r.stake || 0), 0)
   const realReturned = real.reduce(
     (s, r) => (r.result === 'won' ? s + (r.stake || 0) * (r.odds || 1) : s),
@@ -115,7 +135,12 @@ function computeStats(rows) {
     // ils mélangent des cotes réelles et des cotes inventées : ils ne doivent
     // pas être présentés comme une performance financière sans le contexte ci-
     // dessous. `realRoi` est le chiffre à afficher en premier.
-    syntheticOddsCount: rows.length - real.length,
+    syntheticOddsCount: rows.filter((r) => betOddsClass(r) === 'repli').length,
+    missingOddsCount: rows.filter((r) => betOddsClass(r) === 'absente').length,
+    // Prix saisis à la main : exploitables, mais non vérifiés sur un marché.
+    manualOddsCount: rows.filter(
+      (r) => (r.odds_source || '').toString().trim().toLowerCase() === 'manuel'
+    ).length,
     realOddsCount: real.length,
     realTotalStaked: Math.round(realStaked * 100) / 100,
     realNetProfit: Math.round(realNet * 100) / 100,
@@ -157,7 +182,7 @@ router.post('/', (req, res) => {
           : 0
     const info = db
       .prepare(
-        'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, note, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, odds_source, note, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       )
       .run(
         match_label,
@@ -167,6 +192,10 @@ router.post('/', (req, res) => {
         stake,
         result,
         profit,
+        // E76 : prix saisi à la main. Ce n'est pas une cote de marché
+        // vérifiée, mais ce n'est pas un prix inventé non plus : le parieur a
+        // payé ce prix-là. Compté dans le ROI, tracé à part.
+        'manuel',
         note || '',
         date || new Date().toISOString().split('T')[0]
       )
@@ -188,6 +217,13 @@ router.put('/:id', (req, res) => {
     const finalResult = result !== undefined ? result : existing.result
     const finalStake = stake !== undefined ? stake : existing.stake
     const finalOdds = odds !== undefined ? odds : existing.odds
+    // E76 : si la cote a été modifiée, elle vient maintenant de l'utilisateur.
+    // Sinon on conserve l'origine déjà connue, et on ne devine que si elle est
+    // absente (lignes d'avant le backfill).
+    const finalOddsSource =
+      odds !== undefined
+        ? 'manuel'
+        : existing.odds_source || betOddsClass({ odds: finalOdds })
     const profit =
       finalResult === 'won'
         ? Math.round((finalStake * finalOdds - finalStake) * 100) / 100
@@ -195,7 +231,7 @@ router.put('/:id', (req, res) => {
           ? -finalStake
           : 0
     db.prepare(
-      'UPDATE bets SET match_label=?, league=?, pick=?, odds=?, stake=?, result=?, profit=?, note=?, date=? WHERE id=?'
+      'UPDATE bets SET match_label=?, league=?, pick=?, odds=?, stake=?, result=?, profit=?, odds_source=?, note=?, date=? WHERE id=?'
     ).run(
       match_label || existing.match_label,
       league !== undefined ? league : existing.league,
@@ -204,6 +240,7 @@ router.put('/:id', (req, res) => {
       finalStake,
       finalResult,
       profit,
+      finalOddsSource,
       note !== undefined ? note : existing.note,
       date || existing.date,
       id
@@ -261,7 +298,7 @@ router.post('/import', (req, res) => {
       const stake = 1
       const profit = won ? Math.round((odds - 1) * 100) / 100 : -1
       db.prepare(
-        'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO bets (match_label, league, pick, odds, stake, result, profit, odds_source, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(
         `${row.homeTeam} vs ${row.awayTeam}`,
         row.league || '',
@@ -270,6 +307,10 @@ router.post('/import', (req, res) => {
         stake,
         won ? 'won' : 'lost',
         profit,
+        // E76 : `getOddsForPick` ne fabrique plus de prix depuis E75 (il
+        // renvoie 0 et la ligne est ignorée si aucun prix réel n'existe), donc
+        // une ligne acceptée porte bien une cote relevée, pas une inventions.
+        'reelle',
         row.timestamp ? row.timestamp.split('T')[0] : new Date().toISOString().split('T')[0]
       )
       imported++
@@ -282,3 +323,9 @@ router.post('/import', (req, res) => {
 })
 
 module.exports = router
+
+// Exports pour __tests__/betsOddsSource.test.js : le classement par origine et
+// le calcul des stats sont internes au module, or c'est exactement ce qui
+// décide si une ligne entre dans un ROI affiché ou en reste dehors.
+module.exports.__test_betOddsClass = betOddsClass
+module.exports.__test_computeStats = computeStats

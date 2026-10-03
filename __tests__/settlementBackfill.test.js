@@ -22,6 +22,9 @@ jest.mock('../core/database', () => ({
     if (q.startsWith('INSERT INTO bets')) {
       return {
         run: (...args) => {
+          // E76 : l'INSERT porte maintenant `odds_source` entre `profit` et
+          // `note`. Le mapping est positionnel, il doit suivre l'ordre des
+          // colonnes réel, sinon le test valide un enregistrement fantôme.
           mockDbState.bets.push({
             match_label: args[0],
             league: args[1],
@@ -30,8 +33,9 @@ jest.mock('../core/database', () => ({
             stake: args[4],
             result: args[5],
             profit: args[6],
-            note: args[7],
-            date: args[8],
+            odds_source: args[7],
+            note: args[8],
+            date: args[9],
           })
         },
       }
@@ -79,18 +83,56 @@ describe('buildBetRecord', () => {
       stake: 1,
       result: 'won',
       profit: 0.85,
+      odds_source: 'reelle',
       note: '2-1',
       date: '2026-08-12',
     })
   })
 
-  test('falls back to odds 2.0 with profit -1 for a lost pick without odds', () => {
+  // E76 : ce test verrouillait le repli `|| 2`. Le comportement inverse est
+  // désormais le bon : sans prix de marché connu, on n'invente pas de prix.
+  // Raison : 11 994 lignes sur 13 156 (91,2%) de la table `bets` portaient un
+  // prix de repli, et le ROI +11,10% affiché sur /bets en Provenait. Un prix de
+  // marché est une information, pas une valeur par défaut.
+  test('stores a NULL price (not 2.0) for a pick without a market price', () => {
     const row = { homeTeam: 'Real', awayTeam: 'Bar', league: '', startTimestamp: 0 }
     const record = settlementService.buildBetRecord(row, 'OVER 2.5', 'LOST', 1, 3)
-    expect(record.odds).toBe(2)
+    expect(record.odds).toBeNull()
+    expect(record.odds_source).toBe('absente')
     expect(record.result).toBe('lost')
-    expect(record.profit).toBe(-1)
+    // Pas de prix -> pas de P&L calculable. NULL et non 0 : « pas de prix »
+    // n'est pas « zéro gain ».
+    expect(record.profit).toBeNull()
     expect(record.note).toBe('1-3')
+  })
+
+  test('resolves a real price for OVER 2.5 when one is stored', () => {
+    const row = {
+      homeTeam: 'Real',
+      awayTeam: 'Bar',
+      league: '',
+      startTimestamp: 0,
+      odds_over25: 1.92,
+    }
+    const record = settlementService.buildBetRecord(row, 'OVER 2.5', 'WON', 2, 1)
+    expect(record.odds).toBe(1.92)
+    expect(record.odds_source).toBe('reelle')
+    expect(record.profit).toBe(0.92)
+  })
+
+  test('does not price an OVER 0.5 pick with the OVER 2.5 line', () => {
+    const row = {
+      homeTeam: 'Ath',
+      awayTeam: 'Bil',
+      league: '',
+      startTimestamp: 0,
+      odds_over25: 2.0,
+    }
+    // Over 0.5 vaut ~1.05, Over 2.5 ~2.00 : deux marchés distincts. Résoudre
+    // l'un avec le prix de l'autre fausserait le profit d'un facteur 2.
+    const record = settlementService.buildBetRecord(row, 'O0.5', 'WON', 1, 0)
+    expect(record.odds).toBeNull()
+    expect(record.odds_source).toBe('absente')
   })
 
   test('returns null when there is no pick', () => {
@@ -198,13 +240,17 @@ describe('backfillBets', () => {
     ]
     const summary = await settlementService.backfillBets({ limit: 100 })
     expect(summary.inserted).toBe(1)
+    // E76 : ce match historique n'a AUCUNE cote stockée. Le test attendait
+    // odds 2 / profit 1, c'est-à-dire un prix inventé et un gain correspondant
+    // sans base. On enregistre maintenant l'absence de prix, pas un prix.
     expect(mockDbState.bets[0]).toMatchObject({
       match_label: 'Lyon vs Nice',
       pick: '2',
       result: 'won',
       note: '0-2',
-      odds: 2,
-      profit: 1,
+      odds: null,
+      profit: null,
+      odds_source: 'absente',
       date: '2026-08-12',
     })
   })

@@ -4,6 +4,97 @@ Suivi des correctifs issus de l'audit pronostics. Un correctif à la fois, valid
 
 ---
 
+## E76 : origine des cotes dans `bets` + suppression du marché 1X2 fantôme (2026-10-03)
+
+Décisions utilisateur : marquer l'historique sans le purger, ne plus fabriquer de
+prix pour les nouveaux paris, et couper `MARKET_CALIB_AUTO`.
+
+### 1. Une colonne, pas une convention : `bets.odds_source`
+
+`odds` ne disait pas d'où il venait. Interprétée seule, la valeur 2.00 ne
+distingue pas un vrai prix de marché d'un repli `|| 2`. Rappel mesuré (E76) :
+
+| origine   |   lignes | part | ROI (paris réglés) |
+|-----------|---------:|-----:|-------------------:|
+| `repli`   |   11 994 | 91,2 % |          **+12,53 %** |
+| `reelle`  |    1 162 |  8,8 % |          **−3,65 %**  |
+
+Le ledger artifiellement « rentable » est celui dont les cotes ont été
+inventées ; le seul ledger sur des prix réels perd de l'argent. C'est
+précisément ce qu'E75 cachait derrière un unique chiffre de ROI.
+
+Implémentation :
+- `core/db/schema.js` : `bets.odds_source TEXT` **sans DEFAULT**, plus la
+  migration `ALTER` dans la liste existante. Sans DEFAULT, un INSERT qui oublie
+  la colonne laisse `NULL` (origine inconnue, donc exclue des stats) au lieu de
+  se faire passer pour un prix de marché vérifié. Avec `DEFAULT 'reelle'`, les
+  11 994 lignes de repli auraient été étiquetées « marché » dès l'ajout.
+- `scripts/backfill_bets_odds_source.py` : dry-run + `--apply`, sauvegarde dans
+  `%TEMP%`, ajout de colonne si absente, marquage par valeur
+  (`1.00`/`1.20`/`2.00` ⇒ `repli`), idempotent (seconde exécution : 0 ligne).
+  Résultat vérifié : 13 156 / 13 156 marquées.
+- `routes/bets.js` : les 3 writers qui n renseignaient pas la colonne le font
+  maintenant — POST ⇒ `manuel` (prix payé, non vérifié), PUT ⇒ `manuel` si la
+  cote change, sinon conservation de l'origine connue, import ⇒ `reelle`
+  (`getOddsForPick` ne fabrique plus rien depuis E75).
+- `betOddsClass()` remplace la devinette `isSyntheticOdds` pour les stats, avec
+  repli sur l'ancienne détection quand `odds_source` est vide.
+  Nouvelle statistique `missingOddsCount` : « pas de prix » n'est plus compté
+  dans `syntheticOddsCount`, sinon des lignes sans cote auraient été agrégées à
+  des pertes réelles.
+
+### 2. Le calibrateur ne calibrait pas 1X2 : il le supprimait
+
+Décision utilisateur : couper `MARKET_CALIB_AUTO`. Mesure faite avant de couper,
+et elle change le diagnostic.
+
+Courbe 1X2 reconstruite sur `data/tactical.db` : les 7 bandes ont
+n = 22, 26, 25, 17, 19, 7, 4 — **toutes sous `MIN_CALIB_BAND_N = 50`**. Chaque
+bande retombe donc sur le taux global (48,3 %) et la courbe est **plate**.
+Appliquée à un triplet, elle rend les trois jambes **identiques**, puis la
+renormalisation donne 33,3 / 33,3 / 33,3. Or `topPicksEngine` filtre sur
+`PROB_MIN = 55` (`services/topPicksEngine.js:509`) : **aucun pick 1X2 ne peut
+survivre**. Le calibrateur ne calmait pas une surconfiance, il effaçait le
+marché en silence.
+
+La garde `MIN_MARKET_SAMPLES` ne le voyait pas : elle compare l'effectif
+**global** du marché (n = 120 ≥ 40), alors que la décision doit porter sur la
+qualité des **bandes**.
+
+Le log-loss mesuré sur les picks históricos (883 en 1X2, 1 157 en DC) est
+meilleur avec calibration (−0,019 et −0,029) : le modèle est bien en
+surconfiance (1X2 : 55,3 % annoncés pour 43,8 % réels ; DC : 78,1 % pour
+72,1 %). Mais ce gain vient de l'écrasement, pas d'un classement utile — d'où
+le choix de garder la courbe DC et de neutraliser celle de 1X2.
+
+Correctif : `hasReliableBands` dans `buildCurve` ; `calibrateProb` et
+`calibrate1x2` rendent l'identité quand un marché n'a aucune bande exploitable.
+La courbe DC, elle, a 4 bandes au-dessus du seuil et reste appliquée.
+
+`MARKET_CALIB_AUTO` n'a pas été coupé globalement : la mesure montre que la
+courbe DC est utile. Couper tout aurait supprimé le seul calibrage qui tient.
+
+### 3. Vérifications
+- `__tests__/betsOddsSource.test.js` (nouveau) : précédence de `odds_source`,
+  repli sur la détection par valeur, séparation repli/absente, cotes manuelles.
+- `__tests__/calibratorFlatCurve.test.js` (nouveau) : 5 tests, dont « bande non
+  fiable ⇒ identité ». Ces tests passent par la base mockée et non par un spy
+  sur `getCurve`, car `calibrate1x2` l'appelle en interne : un spy serait resté
+  sans effet et les tests auraient vert pour la mauvaise raison.
+- `__tests__/betsOddsIntegrity.test.js` (E75) inchange : 8/8.
+- ESLint propre sur les 8 fichiers touchés.
+- Jest complet : **115 suites, 1 162 tests, 1 161 verts**. Seul échec :
+  `__tests__/theAnalyst.test.js`, préexistant et sans rapport.
+
+### 4. Sécurité
+Le token football-data.org retiré du fallback en dur de `scratch/_fdo.py` et
+`scratch/_fdo2.py` (`os.environ['FDO_TOKEN']`, plus de valeur par défaut).
+Ces fichiers sont dans `scratch/` (ignoré, non suivi), mais un secret ne vit
+pas dans un script, même ignoré. **Le token reste à considerer comme compromis
+et doit être roté** : il a été affiché en clair dans cette session.
+
+---
+
 ## E68-ter Fix crash dashboard #2 : cornersLabel lu avant declaration (2026-09-20)
 
 CRITIQUE (2e crash de la meme famille qu'E68-bis, meme journee) : le dashboard

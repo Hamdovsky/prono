@@ -178,6 +178,16 @@ function initSchema(db) {
                 profit REAL DEFAULT 0,
                 note TEXT,
                 date TEXT,
+                -- E76 : distingue un prix de marché d'un prix de repli.
+                -- 'reelle'  = odds vient du marché (utilisable pour un ROI)
+                -- 'repli'   = odds a été inventé par le code (1.00 / 1.20 / 2.00)
+                -- 'absente' = aucun prix connu, odds est NULL
+                -- 'manuel'  = saisi à la main par l'utilisateur
+                -- NULL      = origine inconnue (exclu des stats financières)
+                -- PAS de DEFAULT : une origine inconnue doit rester invisible,
+                -- pas être comptée comme un prix de marché vérifié.
+                -- Historique : backfill par scripts/backfill_bets_odds_source.py
+                odds_source TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -605,6 +615,13 @@ function runMigrations(db) {
     ['learning_memory', 'odds_draw', 'REAL'],
     ['learning_memory', 'odds_away', 'REAL'],
     ['learning_memory', 'actual_1x2', 'TEXT'],
+    // E76 : origine du prix dans `bets`. SANS DEFAULT, volontairement : une
+    // colonne sans valeur doit rester NULL (= origine inconnue, donc exclue
+    // des stats financières) plutot que d'etre hermetiquement etiquetee prix
+    // de marche. Avec DEFAULT 'reelle', un INSERT qui oublie la colonne — et
+    // les 11 994 lignes historiques a cote de repli — seraient comptabilisees
+    // comme des cotes verifiees. Valeurs : reelle | repli | absente | manuel.
+    ['bets', 'odds_source', 'TEXT'],
   ]
 
   let added = 0

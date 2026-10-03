@@ -225,6 +225,94 @@ McNemar, modèle contre marché), sort en erreur quand le marché est disqualifi
 
 ---
 
+## E80 : « mon programme est-il prêt pour les bons pronostics ? » — non, aucun marché
+
+E79 avait tranché pour le 1X2. La question de l'utilisateur est plus large, et
+y répondre honnêtement exigeait le même examen sur les autres marchés : conclure
+« non » uniquement pour le 1X2 n'aurait pas répondu.
+
+Un marché n'est déclaré **prêt** que si trois conditions sont réunies :
+
+- **A. calibration** — la fréquence réelle suit la proba annoncée (5 pts max) ;
+- **B. discrimination** — AUC ≥ 0,55 ;
+- **C. pick** — le pick bat la règle sans information, test de McNemar.
+
+### Résultat
+
+| marché | n | AUC moyenne | pick | référence | McNemar | verdict |
+|---|---:|---:|---:|---:|---|---|
+| 1X2 | 13 915 | 0,514 | 41,8 % | 44,2 % | p < 0,0001 | **PRET NON** |
+| DC 1X | 13 915 | 0,510 | 64,8 % | 66,0 % | p < 0,0001 | **PRET NON** |
+| DC 12 | 13 915 | 0,522 | 78,2 % | 78,2 % | 0/0 | **PRET NON** |
+| DC X2 | 13 915 | 0,508 | 51,9 % | 55,8 % | p < 0,0001 | **PRET NON** |
+| OU 2.5 | 13 516 | 0,505 | 55,6 % | 58,0 % | p < 0,0001 | **PRET NON** |
+| BTTS | 13 516 | 0,506 | 53,4 % | 55,1 % | p < 0,0001 | **PRET NON** |
+| Corners | — | — | — | — | — | non mesurable |
+
+**Aucun marché ne passe.** Tous les AUC sont entre 0,505 et 0,522 sur plus de
+13 500 matchs chacun : le modèle ne classe rien, sur aucun marché. BTTS est
+même mal calibré (+5,6 points sur le OUI).
+
+### Le piège de la double chance
+
+`DC 12` gagne 78,2 % des matchs, ce qui ressemble à un marché qui marche. Non :
+la référence « toujours 12 » obtient **exactement** 78,2 %, McNemar 0/0. Ce
+taux vient de la structure du marché, pas d'une prévision. C'est le piège
+classique des double chances, et il justifiait à lui seul une vérification
+séparée.
+
+Conséquence directe pour E79 : convertir le 1X2 en double chance
+(`DISABLE_PURE_1X2`) ne remplace pas un marché vide par un marché plein, il
+change de marché vide. La conversion reste justifiée — elle réduit la variance
+et le taux de réussite minimal, donc le risque de perte unitaire — mais elle
+ne crée aucun edge, et il ne faut pas la présenter comme une amelioration du
+modèle.
+
+### Un piège de données, payé et corrigé dans la mesure
+
+Première version du diagnostic : `matches` donnait 92 % de « sous 2,5 buts » et
+92,8 % de « BTTS non ». Ces chiffres ne sont pas du football. Vérification :
+
+- `matches` : **1 575 lignes de score 0-0 sur 1 813**, dont **1 397 matchs
+  encore `scheduled`** (256 `finished`) ;
+- `historical_matches` : distribution de buts réaliste (pic à 2-3 buts).
+
+Le 0-0 est un placeholder, pas un résultat. La première mesure portait donc sur
+une base fausse, et concluait à tort que le modèle était « catastrophique » sur
+les buts. Les probabilités OU/BTTS vivent dans `historical_matches.fullData`
+(13 516 matchs) et non dans une colonne : en les utilisant, OU 2.5 et BTTS
+deviennent mesurables sur le gros corpus, avec la vraie vérité terrain.
+
+Le diagnostic applique désormais en dur la garde `status='finished'` ET score
+non nul, et documente le piège dans son en-tête.
+
+### Corners : non mesurable
+
+1 790 lignes de corners réels, mais **aucune probabilité de corners stockée**.
+Rien à évaluer, donc rien à déclarer prêt. C'est une lacune d'instrumentation,
+pas un résultat.
+
+### Ce que dit cet audit
+
+Les probabilités sont correctement calibrées (écarts de 0,8 à 3,6 points sur
+1X2 et OU 2.5) mais ne discriminent rien. Un modèle calibré sans pouvoir
+discriminant produit des phrases correctes et sans valeur : c'est exactement la
+situation la plus dangereuse, parce que l'affichage paraît sérieux.
+
+Ce n'est pas un problème de réglage, de seuil ou de périmètre de ligues. Sur
+trois marchés indépendants et 40 000 matchs, l'information nécessaire n'est pas
+dans les données d'entrée. La seule voie vers des pronostics « bons » est
+d'ajouter des variables qui portent réellement du signal (blessures, compositions, forme récente par joueur, xG réel, contexte
+calendrier) et de les revalider sur
+des mois antérieurs — ce que la base ne contient pas encore.
+
+Scripts durables : `scripts/eval_markets_readiness.py` (tous marchés, sortie 1
+si aucun n'est prêt), `scripts/eval_prediction_history.py` (contre-vérification
+indépendante d'E79), `scripts/eval_pick_quality.py` (1X2 détaillé, corpus
+complet).
+
+---
+
 ## E79 : le verdict E78 était un biais d'échantillon (2026-10-03)
 
 E78 concluait « le modèle classe un peu » sur une AUC de 0,579 mesurée avec

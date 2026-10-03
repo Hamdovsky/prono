@@ -19,6 +19,13 @@ function pickWon(pick, sh, sa) {
   return false
 }
 
+// Résout la cote d'un pick à partir des données d'un match, ou 0 si elle est
+// inconnue. Ne FABRIQUE pas de prix : les doubles chances 1X/X2/12 exigeaient
+// les deux cotes simples réellement stockées, sinon on renvoie 0 et l'appelant
+// (`/import`, ligne ~260) saute la ligne. Constantes h=2/a=2/d=3 retirées : elles
+// donnaient 1.20 / 1.20 / 1.00, dont 1.00 est impossible sur un marché à marge
+// (1/somme des probs implicites < 1). Même règle que _getPickOdds côté
+// settlementService.js, pour que les deux chemins ne divergent plus.
 function getOddsForPick(match, pick) {
   const p = (pick || '').toString().trim().toUpperCase()
   if (p === '1' || p === 'HOME')
@@ -27,25 +34,43 @@ function getOddsForPick(match, pick) {
     return parseFloat(match.odds_away || match.best_odds_away || match.display_odds_away || 0)
   if (p === 'X' || p === 'DRAW') return parseFloat(match.odds_draw || 0)
   if (p === '1X' || p === 'X2' || p === '12') {
-    const h =
-      parseFloat(match.odds_home || match.best_odds_home || match.display_odds_home || 2) || 2
-    const a =
-      parseFloat(match.odds_away || match.best_odds_away || match.display_odds_away || 2) || 2
-    const d = parseFloat(match.odds_draw || 3) || 3
-    if (p === '1X') {
-      const prob = 1 / h + 1 / d
-      return prob > 0 ? 1 / prob : 0
-    }
-    if (p === 'X2') {
-      const prob = 1 / a + 1 / d
-      return prob > 0 ? 1 / prob : 0
-    }
-    if (p === '12') {
-      const prob = 1 / h + 1 / a
-      return prob > 0 ? 1 / prob : 0
-    }
+    const h = parseFloat(match.odds_home || match.best_odds_home || match.display_odds_home || 0)
+    const a = parseFloat(match.odds_away || match.best_odds_away || match.display_odds_away || 0)
+    const d = parseFloat(match.odds_draw || 0)
+    let need
+    if (p === '1X') need = [h, d]
+    else if (p === 'X2') need = [a, d]
+    else need = [h, a]
+    if (!need.every((x) => Number.isFinite(x) && x > 1)) return 0
+    const prob = p === '1X' ? 1 / h + 1 / d : p === 'X2' ? 1 / a + 1 / d : 1 / h + 1 / a
+    return prob > 0 ? 1 / prob : 0
   }
   return 0
+}
+
+// Détecte une cote FABRIQUÉE par les fallbacks de _getPickOdds (lignes 22-49)
+// et de settlementService.js:562-564 / :598.
+//
+// Ce n'est pas une optimisation : ces fallbacks sont le défaut, et tant qu'ils
+// existent, la table `bets` est majoritairement remplie de cotes imaginaires.
+// Mesuré sur data/tactical.db : 11 994 lignes sur 13 156 (91,2%) portent une
+// cote de repli, et le ROI affiché (+11,10%) vient presque entièrement de
+// celles-là. Sur les seules lignes à cote réelle, le ROI est de -3,65%.
+//
+// Les valeurs de repli sont dérivées des constantes h=2, a=2, d=3 :
+//   pick 12 -> 1/(1/2+1/2) = 1.00   (une vraie cote 1.00 est impossible)
+//   pick 1X -> 1/(1/2+1/3) = 1.20
+//   pick X2 -> 1/(1/2+1/3) = 1.20
+//   sinon   -> || 2        = 2.00
+// Si de vraies cotes avaient été stockées, le résultat serait un nombre non
+// rond : la signature 1.00/1.20 est donc une détection fiable pour 1X/X2/12.
+// Pour 2.00 la signature est ambiguë avec un vrai prix rond, mais le repli est
+// la cause dominante et un prix exactement 2.00 resterait inexploitable pour un
+// ROI fin. On le classe donc comme synthétique et c'est documenté ici.
+function isSyntheticOdds(row) {
+  const o = parseFloat(row.odds)
+  if (!Number.isFinite(o)) return true
+  return o === 1.0 || o === 1.2 || o === 2.0
 }
 
 function computeStats(rows) {
@@ -62,6 +87,18 @@ function computeStats(rows) {
   const netProfit = totalReturned - totalStaked
   const roi = totalStaked > 0 ? Math.round((netProfit / totalStaked) * 10000) / 100 : 0
   const winRate = won + lost > 0 ? Math.round((won / (won + lost)) * 10000) / 100 : 0
+
+  // Sous-ensemble à cote RÉELLE : le seul sur lequel un ROI financier a un sens.
+  const real = rows.filter((r) => !isSyntheticOdds(r))
+  const realStaked = real.reduce((s, r) => s + (r.stake || 0), 0)
+  const realReturned = real.reduce(
+    (s, r) => (r.result === 'won' ? s + (r.stake || 0) * (r.odds || 1) : s),
+    0
+  )
+  const realNet = realReturned - realStaked
+  const realWon = real.filter((r) => r.result === 'won').length
+  const realLost = real.filter((r) => r.result === 'lost').length
+
   return {
     total,
     won,
@@ -73,6 +110,22 @@ function computeStats(rows) {
     netProfit: Math.round(netProfit * 100) / 100,
     roi,
     winRate,
+    // --- honnêteté du calcul financier (E75) ---
+    // `roi`/`netProfit` ci-dessus restent inchangés pour compatibilité, mais
+    // ils mélangent des cotes réelles et des cotes inventées : ils ne doivent
+    // pas être présentés comme une performance financière sans le contexte ci-
+    // dessous. `realRoi` est le chiffre à afficher en premier.
+    syntheticOddsCount: rows.length - real.length,
+    realOddsCount: real.length,
+    realTotalStaked: Math.round(realStaked * 100) / 100,
+    realNetProfit: Math.round(realNet * 100) / 100,
+    realRoi:
+      realStaked > 0 ? Math.round((realNet / realStaked) * 10000) / 100 : null,
+    realWinRate:
+      realWon + realLost > 0
+        ? Math.round((realWon / (realWon + realLost)) * 10000) / 100
+        : null,
+    oddsPartlySynthetic: real.length < rows.length,
   }
 }
 

@@ -10513,3 +10513,137 @@ Aucun secret. Aucun Dockerfile/requirements touche.
 // couverture des cotes, et non le calcul, est ce qui bloque la suite.
 // A_FAIRE : laisser tourner les crons de cotes (BetExplorer/FotMob live) pour
 // faire monter la couverture sur les matchs deja joues, puis re-mesurer.
+
+// E75 - le ROI affiche etait une FABRICATION, et elle touchait le modele
+//
+// En cherchant pourquoi les cotes ne couvraient que 9,6% du backlog (E74), je
+// suis tombe sur la table `bets` : 13 156 lignes. Elle ressemble a un journal de
+// paris, et c'est un piege : ses cotes sont FABRIQUEES.
+//
+// LA MESURE, sur data/tactical.db :
+//   lignes avec cote de repli (1.00 / 1.20 / 2.00) : 11 994 / 13 156 = 91,2%
+//   lignes avec une vraie cote                      :    1 162 =  8,8%
+//   et ZERO ligne ne se recoupe avec un match reellement mesure (jointure
+//   (date, ligue) sur learning_memory : 0/13 156). Le ledger est deconnecte du
+//   reel, en plus d'etre fabrique.
+//
+// CE QUE L'UTILISATEUR VOIT SUR /bets (BetTracker.jsx, route GET /api/bets) :
+//   Win Rate 76,68%   Profit +1460,41u   ROI +11,10%
+// CE QUE DIT LE MEME CALCUL SUR LES SEULES LIGNES A COTE REELLE :
+//   Win Rate 68,76%   Profit   -42,39u   ROI  -3,65%
+// L'ecart ne vient pas d'une marge de mesure : il vient de la fabrication des
+// cotes. Le cas le plus net est O0.5 : 3 725 paris a 94,6% de reussite, +3323u.
+// Over 0.5 but se gagne reels ~99% du temps, mais a une cote REELLE d'environ
+// 1.05. Inscrit a 2.00, chaque gain vaut +1u au lieu de +0,05u : 3 323 unites
+// de profit inventees, soit plus que le profit total affiche.
+//
+// ET LE DASHBOARD PRINCIPAL ETAIT PIRE (services/settlementService.js:360) :
+//   // ROI computation (flat stake 1 unit, average odds 2.0 for simplicity)
+//   profitUnits += (r.result === 'WON' ? 0.85 : -1)
+// La cote n'est meme pas lue. Resultat affiche sur / : ROI +45,3%, win rate
+// 78,5%, sur 256 matchs regles — dont 11 seulement ont une vraie cote. Ce
+// n'est pas un ROI, c'est un taux de reussite monnaye en unites, presente
+// comme un gain financier.
+//
+// ORIGINE : deux fonctions identiques de fabrication de prix.
+//   services/settlementService.js:_getPickOdds (lignes 562-564)
+//       h=2, a=2, d=3 -> 1X = 1/(1/2+1/3) = 1.20 ; X2 = 1.20 ; 12 = 1.00
+//   services/settlementService.js:buildBetRecord (~ligne 628)
+//       Math.round(_getPickOdds(row, pick) * 100) / 100 || 2   // repli 2.00
+//   routes/bets.js:getOddsForPick (lignes 29-47) : memes constantes en double.
+// Le commentaire du code l'assumait (« fall back to 2.0 when none are stored »),
+// et __tests__/settlementBackfill.test.js:87-94 VERROUAILLE ce comportement. Une
+// cote de marche est une information, pas une valeur par defaut.
+//
+// CE QUI EST CORRIGE (sans reecrire l'historique) :
+//
+//  1. _getPickOdds ne fabrique plus rien (3e parametre `allowSynthetic`, defaut
+//     false, laisse en echappatoire documentee). Double chance : les DEUX cotes
+//     simples doivent etre reellement stockees, sinon 0. O/U : seul un pick
+//     designant la ligne stockee est resolu. BTTS oui/non ne sont plus
+//     intervertis.
+//     Preuve que 1.00 est necessairement synthetique : sur un marche a marge la
+//     somme des probabilities implicites depasse 1, donc un prix de double
+//     chance « 12 » vaut 1/somme < 1. Un 1.00 exact ne peut venir que de h=a=2.
+//
+//  2. computeStats (routes/bets.js) separe les deux populations et renvoie
+//     realRoi / realNetProfit / realWinRate / realOddsCount /
+//     syntheticOddsCount / oddsPartlySynthetic. Les champs existants sont
+//     inchanges (compatibilite), mais ils ne doivent plus etre lus comme une
+//     performance financière.
+//
+//  3. BetTracker.jsx : bandeau ambre explicite (« X paris sur Y n'ont aucune
+//     cote reelle »), ROI/profit/winrate a cotes reelles en tete, et l'ancien
+//     chiffre « tous paris » grise avec un title qui le dit non fiable.
+//
+//  4. getPerformance() expose desormais le ROI financier reel, calcule sur les
+//     seuls matchs regles ayant un VRAI prix pour le pick joue. AccuracyDashboard
+//     renomme « Profit » en « Profit (u. plates, hors cote) » et affiche
+//     « ROI (cotes reelles) » a cote, avec « — » quand l'echantillon est vide.
+//
+//  5. __tests__/betsOddsIntegrity.test.js : 8 cas qui verrouillent la regle
+//     (pick simple sans cote -> 0, double chance a une jambe -> 0, signature
+//     1.20 absente, 12 reel < 1, O0.5 != O2.5, BTTS oui != non, fullData lu).
+//
+// Un piege evite en route : ma premiere version resolait « O0.5 » avec
+// odds_over25. Over 0.5 vaut ~1,05 et Over 2,5 ~2,00 : ce sont deux marches
+// distincts, le profit etait fausse d'un facteur 2 avant que le test ne le
+// prouve. La resolution est desormais stricte sur la ligne.
+//
+// VERIFICATION :
+//   node --check services/settlementService.js, routes/bets.js : OK
+//   eslint (5 fichiers) : 0 probleme
+//   jest betsOddsIntegrity 8/8 ; settlementBackfill 9/9
+//   jest complet : 113 suites, 1150 tests, 1149 verts
+//     1 echec : theAnalyst.test.js, PREEXISTANT (identique a E73/E74)
+//   verification sur la vraie base : getPerformance() renvoie
+//     roi_percent 45,3% (unites plates) / settled_with_odds 11
+//     -> le decalage entre les deux est bien visible.
+//
+// DECISIONS LAISSEES A L'UTILISATEUR (rien de tout cela n'a ete fait) :
+//
+//  A. Les 13 156 lignes de `bets` contiennent toujours leurs cotes fabriquees.
+//     Je ne les ai pas reecrites : c'est un jugement de fond. Options :
+//       - table migree vers un schema ou `odds_source` distingue reel/repli, et
+//         les lignes sans vrai prix passent hors du calcul financier ;
+//       - ou purge des lignes sans prix, puisque 0/13 156 ne se rattache a un
+//         match reel : elles ne mesurent rien.
+//     La deuxieme option est la plus honnete mais fait disparaitre le journal.
+//
+//  B. services/calibrator.js:72 lit `bets` (pick, result) pour recalibrer les
+//     probabilites DC du modele EN PRODUCTION, via topPicksEngine.js:209/631.
+//     Mesure : ~2 214 lignes exploitables, taux reel ~69,7%, au-dessus du
+//     REBUILD_MIN_SAMPLES=150, donc la porte d'identite laisse passer la courbe.
+//     La courbe elle-meme utilise pick/result (des donnees reelles), MAIS la
+//     SELECTION des lignes retenues dependait d'une edge calculee sur des cotes
+//     de repli : l'echantillon est biaise vers les matchs que de fausses cotes
+//     faisaient paraitre abordables. A verifier avant de lui faire confiance.
+//
+//  C. `quant_performance` (taken_odds, closing_odds, clv) est ecrite par
+//     proPlanBankroll.js:209 et quantRiskService.js:102 mais n'est lue par
+//     PERSONNE. C'est pourtant la table qui devrait porter le vrai P&L et le
+//     CLV. La table `bets` est le mauvais support pour une historique
+//     financiere ; `quant_performance` est le support vide. Corriger l'un ou
+//     l'autre, pas les deux.
+//
+//  D. buildBetRecord (~ligne 628) conserve `|| 2` : un pari sans cote est
+//     toujours enregistre a 2.0. La desactivation complete du repli necessite de
+//     mettre a jour __tests__/settlementBackfill.test.js:87-94 qui fige ce
+//     comportement. Non fait ici : le stockage est une decision de fond, l'ecran
+//     etait le mensonge visible.
+//
+//  E. scripts/today_analysis.js:233/238 calcule un `cumulativeRoi` avec +1/-1
+//     par hit/miss, affiche comme « Evolution du ROI cumule » (AccuracyDashboard
+//     .jsx:385/481). Ce n'est pas un ROI financier, c'est un taux de reussite.
+//     Pas touche.
+//
+//  F. La requete du calibrateur est un LIKE '%'||homeTeam||'%' sans index sur
+//     9 878 x 13 156 lignes : elle a depasse 120 s et rejoue toutes les 6 h.
+//     A indexer si le calibrateur est conserve (cf. B).
+//
+// NOTE : cette entree ne corrige pas le resultat de l'audit E74. Le modele est
+// toujours moins bon que le marche et sans strategie de valeur. Elle corrige
+// quelque chose de plus grave : on affichait un gain financier qui n'existait
+// pas. Mauvais chiffre sur une page, c'est trompeur ; bon chiffre sur une
+// mauvaise methode, c'est seulement ennuyeux, et le deuxieme se voit. Le
+// premier ne se voyait pas.

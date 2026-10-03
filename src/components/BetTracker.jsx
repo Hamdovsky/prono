@@ -211,61 +211,136 @@ export default function BetTracker() {
       )}
 
       {stats && (
-        <div className="bt-stats">
-          <div className="bt-stat-card">
-            <span className="bt-stat-label">Total</span>
-            <span className="bt-stat-value">{stats.total}</span>
+        <>
+          {stats.oddsPartlySynthetic && (
+            <div className="bt-warn">
+              <strong>
+                ⚠ {stats.syntheticOddsCount} paris sur {stats.total} (
+                {Math.round((100 * stats.syntheticOddsCount) / stats.total)}%) n'ont
+                aucune cote réelle
+              </strong>
+              <p>
+                Le profit et le ROI calculés ici mélangent des cotes de marché et
+                des cotes de repli inventées par le code quand la vraie cote est
+                absente (1.00 pour un pick « 12 », 1.20 pour « 1X »/« X2 », 2.00
+                par défaut). Sur ces lignes, un gain vaut +1u au lieu de +0,05u
+                réel : le profit affiché est un artefact, pas une performance.
+                Seuls les {stats.realOddsCount} paris à cote réelle sont
+                interprétables.
+              </p>
+            </div>
+          )}
+
+          <div className="bt-stats">
+            <div className="bt-stat-card">
+              <span className="bt-stat-label">Total</span>
+              <span className="bt-stat-value">{stats.total}</span>
+            </div>
+            <div className="bt-stat-card won">
+              <span className="bt-stat-label">Gagnés</span>
+              <span className="bt-stat-value">{stats.won}</span>
+            </div>
+            <div className="bt-stat-card lost">
+              <span className="bt-stat-label">Perdus</span>
+              <span className="bt-stat-value">{stats.lost}</span>
+            </div>
+            <div className="bt-stat-card pending">
+              <span className="bt-stat-label">En attente</span>
+              <span className="bt-stat-value">{stats.pending}</span>
+            </div>
+            {stats.oddsPartlySynthetic ? (
+              <>
+                <div className="bt-stat-card" title={`Sur les ${stats.realOddsCount} paris à cote réelle uniquement`}>
+                  <span className="bt-stat-label">ROI (cotes réelles)</span>
+                  <span
+                    className="bt-stat-value"
+                    style={{
+                      color:
+                        stats.realRoi >= 0 ? '#3fb950' : '#f85149',
+                    }}
+                  >
+                    {stats.realRoi === null
+                      ? '—'
+                      : `${stats.realRoi >= 0 ? '+' : ''}${stats.realRoi}%`}
+                  </span>
+                </div>
+                <div className="bt-stat-card" title={`Sur les ${stats.realOddsCount} paris à cote réelle uniquement`}>
+                  <span className="bt-stat-label">Profit (cotes réelles)</span>
+                  <span
+                    className="bt-stat-value"
+                    style={{
+                      color:
+                        stats.realNetProfit >= 0 ? '#3fb950' : '#f85149',
+                    }}
+                  >
+                    {stats.realNetProfit >= 0 ? '+' : ''}
+                    {stats.realNetProfit}u
+                  </span>
+                </div>
+                <div className="bt-stat-card" title={`Win rate sur ${stats.realOddsCount} paris à cote réelle`}>
+                  <span className="bt-stat-label">Win Rate (cotes réelles)</span>
+                  <span
+                    className="bt-stat-value"
+                    style={{
+                      color:
+                        stats.realWinRate >= 50 ? '#3fb950' : '#f85149',
+                    }}
+                  >
+                    {stats.realWinRate === null ? '—' : `${stats.realWinRate}%`}
+                  </span>
+                </div>
+                <div className="bt-stat-card muted" title="Mélange cotes réelles et cotes de repli : valeur non fiable">
+                  <span className="bt-stat-label">
+                    ROI (tous paris, non fiable)
+                  </span>
+                  <span className="bt-stat-value">{stats.roi}%</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bt-stat-card">
+                  <span className="bt-stat-label">Win Rate</span>
+                  <span
+                    className="bt-stat-value"
+                    style={{ color: stats.winRate >= 50 ? '#3fb950' : '#f85149' }}
+                  >
+                    {stats.winRate}%
+                  </span>
+                </div>
+                <div className="bt-stat-card">
+                  <span className="bt-stat-label">Profit</span>
+                  <span
+                    className="bt-stat-value"
+                    style={{
+                      color: stats.netProfit >= 0 ? '#3fb950' : '#f85149',
+                    }}
+                  >
+                    {stats.netProfit >= 0 ? '+' : ''}
+                    {stats.netProfit}u
+                  </span>
+                </div>
+                <div className="bt-stat-card">
+                  <span className="bt-stat-label">ROI</span>
+                  <span
+                    className="bt-stat-value"
+                    style={{ color: stats.roi >= 0 ? '#3fb950' : '#f85149' }}
+                  >
+                    {stats.roi >= 0 ? '+' : ''}
+                    {stats.roi}%
+                  </span>
+                </div>
+              </>
+            )}
+            <div className="bt-stat-card">
+              <span className="bt-stat-label">Mise totale</span>
+              <span className="bt-stat-value">{stats.totalStaked}u</span>
+            </div>
+            <div className="bt-stat-card">
+              <span className="bt-stat-label">Retour total</span>
+              <span className="bt-stat-value">{stats.totalReturned}u</span>
+            </div>
           </div>
-          <div className="bt-stat-card won">
-            <span className="bt-stat-label">Gagnés</span>
-            <span className="bt-stat-value">{stats.won}</span>
-          </div>
-          <div className="bt-stat-card lost">
-            <span className="bt-stat-label">Perdus</span>
-            <span className="bt-stat-value">{stats.lost}</span>
-          </div>
-          <div className="bt-stat-card pending">
-            <span className="bt-stat-label">En attente</span>
-            <span className="bt-stat-value">{stats.pending}</span>
-          </div>
-          <div className="bt-stat-card">
-            <span className="bt-stat-label">Win Rate</span>
-            <span
-              className="bt-stat-value"
-              style={{ color: stats.winRate >= 50 ? '#3fb950' : '#f85149' }}
-            >
-              {stats.winRate}%
-            </span>
-          </div>
-          <div className="bt-stat-card">
-            <span className="bt-stat-label">Profit</span>
-            <span
-              className="bt-stat-value"
-              style={{ color: stats.netProfit >= 0 ? '#3fb950' : '#f85149' }}
-            >
-              {stats.netProfit >= 0 ? '+' : ''}
-              {stats.netProfit}u
-            </span>
-          </div>
-          <div className="bt-stat-card">
-            <span className="bt-stat-label">ROI</span>
-            <span
-              className="bt-stat-value"
-              style={{ color: stats.roi >= 0 ? '#3fb950' : '#f85149' }}
-            >
-              {stats.roi >= 0 ? '+' : ''}
-              {stats.roi}%
-            </span>
-          </div>
-          <div className="bt-stat-card">
-            <span className="bt-stat-label">Mise totale</span>
-            <span className="bt-stat-value">{stats.totalStaked}u</span>
-          </div>
-          <div className="bt-stat-card">
-            <span className="bt-stat-label">Retour total</span>
-            <span className="bt-stat-value">{stats.totalReturned}u</span>
-          </div>
-        </div>
+        </>
       )}
 
       {showForm && (

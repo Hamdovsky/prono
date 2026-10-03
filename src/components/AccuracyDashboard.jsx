@@ -257,14 +257,43 @@ export default function AccuracyDashboard() {
               color={getAccColor(perf?.win_rate)}
             />
             <KpiCard
-              label="ROI"
-              value={`${perf?.roi_percent >= 0 ? '+' : ''}${perf?.roi_percent || 0}%`}
-              color={perf?.roi_percent >= 0 ? '#10b981' : '#ef4444'}
+              label="Win Rate"
+              value={`${perf?.win_rate || 0}%`}
+              color={getAccColor(perf?.win_rate)}
             />
+            {/* ROI / Profit : deux mesures DIFFÉRENTES, et il ne faut pas les
+                confondre (E75).
+                  - « Profit (u. plates) » = +0,85 par victoire, -1 par défaite,
+                    sans lire la cote. C'est un taux de réussite monnayé en
+                    unités, PAS un résultat financier.
+                  - « ROI (cotes réelles) » = le seul calcul en euros, sur les
+                    matchs réglés disposant d'un vrai prix de marché.
+                La page n'affiche le ROI financier que s'il porte sur un
+                échantillon non trivial : 11 paris à +11,1% ne veulent rien
+                dire, et présenter ça serait un nouveau leurre. */}
             <KpiCard
-              label="Profit"
+              label={
+                perf?.odds_partly_synthetic
+                  ? 'Profit (u. plates, hors cote)'
+                  : 'Profit'
+              }
               value={`${perf?.profit_units >= 0 ? '+' : ''}${perf?.profit_units || 0}u`}
               color={perf?.profit_units >= 0 ? '#10b981' : '#ef4444'}
+            />
+            <KpiCard
+              label="ROI (cotes réelles)"
+              value={
+                perf?.odds_based_roi_percent == null
+                  ? '—'
+                  : `${perf.odds_based_roi_percent >= 0 ? '+' : ''}${perf.odds_based_roi_percent}%`
+              }
+              color={
+                perf?.odds_based_roi_percent == null
+                  ? '#6366f1'
+                  : perf.odds_based_roi_percent >= 0
+                    ? '#10b981'
+                    : '#ef4444'
+              }
             />
             <KpiCard
               label="Précision globale"

@@ -345,7 +345,7 @@ function getPerformance() {
     .prepare(
       `
         SELECT "result", prediction, "ou_25_prob", "home_win_probability", "scoreHome", "scoreAway",
-               "fullData"
+               "fullData", "odds_home", "odds_draw", "odds_away", "odds_over25", "odds_under25"
         FROM matches
         WHERE "result" IN ('WON', 'LOST')
     `
@@ -357,11 +357,32 @@ function getPerformance() {
   const lost = settled.filter((r) => r.result === 'LOST').length
   const winRate = total > 0 ? Math.round((won / total) * 1000) / 10 : 0
 
-  // ROI computation (flat stake 1 unit, average odds 2.0 for simplicity)
+  // ROI par unité plate : +0,85 par victoire, -1 par défaite, SANS lire la cote.
+  // Ce n'est PAS un ROI financier, c'est un taux de réussite monnayé en unités.
+  // On ne le supprime pas (le tableau de bord et l'AccuracyDashboard l'affichent),
+  // mais il ne doit plus être présenté comme un ROI : voir `odds_based_*` ci-dessous.
   const profitUnits = settled.reduce((sum, r) => {
     return sum + (r.result === 'WON' ? 0.85 : -1)
   }, 0)
   const roiPercent = total > 0 ? Math.round((profitUnits / total) * 1000) / 10 : 0
+
+  // ROI RÉELLEMENT FINANCIER : uniquement sur les matchs réglés pour lesquels une
+  // VRAI prix de marché existe pour le pick joué. `_getPickOdds` retourne 0 quand
+  // aucune cote n'est stockée : ces lignes sont exclues plutôt queFallback sur une
+  // cote inventée, sinon on retombe dans l'artefact des cotes de repli.
+  let stakedReal = 0
+  let returnedReal = 0
+  let realSettled = 0
+  for (const r of settled) {
+    const odds = _getPickOdds(r, r.prediction)
+    if (!(odds > 1)) continue
+    realSettled++
+    stakedReal += 1
+    if (r.result === 'WON') returnedReal += odds
+  }
+  const netReal = returnedReal - stakedReal
+  const roiRealPercent =
+    stakedReal > 0 ? Math.round((netReal / stakedReal) * 1000) / 10 : null
 
   // By confidence bracket (from home_win_probability or ou_25_prob)
   const brackets = {
@@ -495,8 +516,17 @@ function getPerformance() {
     won,
     lost,
     win_rate: winRate,
+    // `roi_percent` / `profit_units` = unités plates, hors cote. Conservés pour
+    // compatibilité mais ce ne sont pas des euros : ne pas les lire comme un ROI.
     roi_percent: roiPercent,
     profit_units: Math.round(profitUnits * 100) / 100,
+    // --- ROI financier, cotes de marché réelles uniquement (E75) ---
+    settled_with_odds: realSettled,
+    odds_based_roi_percent: roiRealPercent,
+    odds_based_profit_units: Math.round(netReal * 100) / 100,
+    // true quand une partie des lignes réglées n'a aucune cote : les chiffres en
+    // unités plates ci-dessus ne sont alors pas homogènes avec le reste.
+    odds_partly_synthetic: realSettled < total,
     by_confidence: byConfidence,
     by_market: byMarket,
     trend,
@@ -538,7 +568,22 @@ function _appendToAccuracyLog(row, evalPick, result, scoreHome, scoreAway) {
 
 // ── Suivi des Paris (bets) mirror ─────────────────────────────────
 
-function _getPickOdds(row, pick) {
+// Résout la cote d'un pick. `allowSynthetic` = false (défaut) : ne renvoie un prix
+// que s'il est RÉELLEMENT stocké, et 0 sinon.
+//
+// AVANT (E74), les doubles chances 1X/X2/12 retombaient sur des constantes
+// inventées (h=2, a=2, d=3), donnant 1.20 / 1.20 / 1.00, et `buildBetRecord`
+// (ligne ~628) remplaçait tout le reste par 2.00. Conséquence mesurée sur
+// data/tactical.db : 11 994 lignes sur 13 156 (91,2%) de la table `bets` portaient
+// une cote fabriquée, et c'est de là que venait l'intégralité du ROI +11,10%
+// affiché sur /bets. Un prix de marché est une information, pas une valeur par
+// défaut : si on ne l'a pas, on renvoie 0 et l'appelant décide (exclure la ligne,
+// ou l'afficher comme non couverte) — jamais la fabrication silencieuse d'un prix.
+//
+// Pourquoi 1.00 est nécessairement synthétique : la somme des probabilités
+// implicites d'un marché à marge est > 1, donc un prix de double chance « 12 »
+// vaut 1/somme < 1. Une cote de 1.00 exacte ne peut venir que de h=a=2.
+function _getPickOdds(row, pick, allowSynthetic = false) {
   const fd = (() => {
     try {
       return typeof row.fullData === 'string' ? JSON.parse(row.fullData) : row.fullData || {}
@@ -559,15 +604,45 @@ function _getPickOdds(row, pick) {
     return parseFloat(first('odds_away', 'best_odds_away', 'display_odds_away') || 0)
   if (p === 'X' || p === 'DRAW') return parseFloat(first('odds_draw') || 0)
   if (p === '1X' || p === 'X2' || p === '12') {
-    const h = parseFloat(first('odds_home', 'best_odds_home', 'display_odds_home') || 2) || 2
-    const a = parseFloat(first('odds_away', 'best_odds_away', 'display_odds_away') || 2) || 2
-    const d = parseFloat(first('odds_draw') || 3) || 3
-    let prob = 0
-    if (p === '1X') prob = 1 / h + 1 / d
-    else if (p === 'X2') prob = 1 / a + 1 / d
-    else prob = 1 / h + 1 / a
+    // Un double chance se déduit de deux cotes SIMPLES. Si l'une des deux
+    // manque, il n'y a pas de prix réel : on ne comble pas.
+    const hRaw = first('odds_home', 'best_odds_home', 'display_odds_home')
+    const aRaw = first('odds_away', 'best_odds_away', 'display_odds_away')
+    const dRaw = first('odds_draw')
+    const h = parseFloat(hRaw || 0)
+    const a = parseFloat(aRaw || 0)
+    const d = parseFloat(dRaw || 0)
+    let need
+    if (p === '1X') need = [h, d]
+    else if (p === 'X2') need = [a, d]
+    else need = [h, a]
+    const complete = need.every((x) => Number.isFinite(x) && x > 1)
+    if (!complete) {
+      if (!allowSynthetic) return 0
+      const hh = h > 1 ? h : 2
+      const aa = a > 1 ? a : 2
+      const dd = d > 1 ? d : 3
+      if (p === '1X') return 1 / (1 / hh + 1 / dd)
+      if (p === 'X2') return 1 / (1 / aa + 1 / dd)
+      return 1 / (1 / hh + 1 / aa)
+    }
+    const prob = p === '1X' ? 1 / h + 1 / d : p === 'X2' ? 1 / a + 1 / d : 1 / h + 1 / a
     return prob > 0 ? 1 / prob : 0
   }
+  // Marchés O/U et BTTS : une cote simple, réelle ou rien.
+  // ATTENTION à ne pas confondre les lignes : le pick « O0.5 » (au moins un but)
+  // et « OVER 2.5 » ne sont pas le même marché — un prix de ~1,05 contre ~2,0.
+  // On ne résout donc que si la ligne demandée est bien celle qui est stockée,
+  // sinon 0 (aucun prix réel pour ce marché), pas un prix d'une autre ligne.
+  const up = p.replace(/[\s_.-]/g, '')
+  if (up === 'OVER25' || up === 'O25' || up === 'O2.5')
+    return parseFloat(first('odds_over25', 'odds_over') || 0)
+  if (up === 'UNDER25' || up === 'U25' || up === 'U2.5')
+    return parseFloat(first('odds_under25', 'odds_under') || 0)
+  if (up === 'BTTSYES' || up === 'BTTS')
+    return parseFloat(first('odds_btts_yes') || 0)
+  if (up === 'BTTSNO')
+    return parseFloat(first('odds_btts_no') || 0)
   return 0
 }
 
@@ -811,4 +886,8 @@ module.exports = {
   syncBetToTracker,
   backfillBets,
   purgeStaleScheduled,
+  // Exporté pour __tests__/betsOddsIntegrity.test.js : la résolution de cote est
+  // interne, mais c'est elle qui fabrique les prix. Doit rester verrouillée par
+  // des tests, sinon le défaut revient.
+  __test_getPickOdds: _getPickOdds,
 }

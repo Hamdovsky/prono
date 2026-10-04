@@ -78,6 +78,70 @@ def _num(v):
         return None
 
 
+def teams_known(ctx: dict | None) -> bool:
+    """Les DEUX equipes ont-elles un historique reel dans master_dataset ?
+
+    E82 : c'est la condition qui manque pour rendre le branchement garde
+    honnete. Si une equipe est inconnue, `_team_rolling` renvoie None et 30
+    variables de forme + Total_xG + Form_Diff restent a la mediane. Le vecteur
+    garde alors ~1/41 d'information reelle : la sortie degrade vers les taux de
+    base (verifie : des cotes reelles 2,15 / 3,34 / 3,03 donnaient
+    p_home = 0,344 au lieu de 0,425 des-viges, soit presque uniforme).
+
+    Autrement dit, sans cette condition, le "modele fort" du replay (AUC 0,731
+    sur 13 176 matchs ou les equipes sont TOUJOURS connues) ne dit rien du tout
+    du comportement en live sur les equipes absentes. On ne laisse donc pas le
+    garde appliquer le modele dans ce cas.
+    """
+    if not ctx:
+        return False
+    ht = ctx.get("home_team")
+    at = ctx.get("away_team")
+    dt = ctx.get("date")
+    if not (ht and at):
+        return False
+    as_of = pd.to_datetime(dt) if dt else pd.Timestamp.utcnow()
+    if getattr(as_of, "tzinfo", None) is not None:
+        as_of = as_of.tz_convert(None)
+    try:
+        df = _master_df()
+    except Exception:
+        return False
+    try:
+        return (_team_rolling(ht, as_of, df) is not None
+                and _team_rolling(at, as_of, df) is not None)
+    except Exception:
+        return False
+
+
+def _devig(odds_map: dict) -> dict:
+    """Cotes -> probabilites des-vigees (somme = 1).
+
+    E82 : `master_dataset` stocke P1_open_avg / PX_open_avg / P2_open_avg sous
+    forme de PROBABILITES (mediane 0,425 / 0,266 / 0,291, plage [0,03 ; 0,92]),
+    pas de cotes. `build()` y injectait les cotes brutes (2,15 / 3,34 / 3,03),
+    soit 5 a 10 fois le domaine d'entrainement. Le modele lisait donc une
+    "probabilite" de 3,03 et sortait une confiance de 0,9998.
+
+    Verification du domaine : mediane d'entrainement odds_h_avg = 2,21 ->
+    1/2,21 = 0,4525 ; des-vige (~1,05) -> 0,431 ; observe 0,425. Cohérent.
+    """
+    vals = {}
+    for k in ("P1_open", "PX_open", "P2_open"):
+        try:
+            v = float(odds_map.get(k))
+        except (TypeError, ValueError):
+            return {}
+        if not (v > 1.0) or v != v or v in (float("inf"),):
+            return {}
+        vals[k] = v
+    inv = {k: 1.0 / v for k, v in vals.items()}
+    s = sum(inv.values())
+    if s <= 0:
+        return {}
+    return {k: v / s for k, v in inv.items()}
+
+
 def build(ctx: dict | None) -> dict:
     """Renvoie un dict feature->valeur aligné sur FEATURE_ALLOWLIST.
 
@@ -100,12 +164,24 @@ def build(ctx: dict | None) -> dict:
         feats["home_xg"] = float(ctx["xg_h"])
     if ctx.get("xg_a") is not None:
         feats["away_xg"] = float(ctx["xg_a"])
+    # E82 : P*_open sont des COTES cote comme cote, mais le modele a ete
+    # entraine sur des PROBABILITES des-vigees. On convertit, sinon le vecteur
+    # sort du domaine d'entrainement d'un facteur 5 a 10.
+    probs = _devig({"P1_open": ctx.get("P1_open"),
+                   "PX_open": ctx.get("PX_open"),
+                   "P2_open": ctx.get("P2_open")})
+    for src, dst in (("P1_open", "P1_open_avg"), ("PX_open", "PX_open_avg"),
+                     ("P2_open", "P2_open_avg")):
+        if src in probs:
+            feats[dst] = probs[src]
     for src, dst in (
-        ("P1_open", "P1_open_avg"), ("PX_open", "PX_open_avg"), ("P2_open", "P2_open_avg"),
         ("odds_h", "odds_h_avg"), ("odds_d", "odds_d_avg"), ("odds_a", "odds_a_avg"),
     ):
         if ctx.get(src) is not None:
-            feats[dst] = float(ctx[src])
+            try:
+                feats[dst] = float(ctx[src])
+            except (TypeError, ValueError):
+                pass
     # Absences (Phase 9) : valeur live si fournie, sinon mediane (=0 historique).
     # Gated : aucun effet tant que le scraping live ne fournit pas la donnee.
     if ctx.get("absence_impact") is not None:
@@ -115,6 +191,12 @@ def build(ctx: dict | None) -> dict:
     ht, at, dt = ctx.get("home_team"), ctx.get("away_team"), ctx.get("date")
     if ht and at:
         as_of = pd.to_datetime(dt) if dt else pd.Timestamp.utcnow()
+        # E82 : `master_dataset.date` est tz-naive. Une date de match tz-aware
+        # (ISO "...+00:00", cas de tous les matchs stockes en base) rendait la
+        # comparaison `df["date"] < as_of` impossible et faisait echouer tout le
+        # chemin ctx sur une TypeError. On aligne sur la reference naive.
+        if getattr(as_of, "tzinfo", None) is not None:
+            as_of = as_of.tz_convert(None)
         df = _master_df()
         h, a = _team_rolling(ht, as_of, df), _team_rolling(at, as_of, df)
         if h and a:

@@ -258,3 +258,163 @@ def test_feature_vector_preserve_les_valeurs_manquantes():
     # Une cle absente est aussi NaN, jamais 0.0.
     assert math.isnan(bf._feature_vector({}, feats)[0])
 
+
+# --------------------------------------------------------------------------
+# E82 : le branchement gar�� du fallback 1X2 sur les probabilites servies
+# --------------------------------------------------------------------------
+
+def test_odds_source_python_miroite_le_js():
+    """Le predicat Python doit reproduire core/oddsSource.js exactement.
+
+    Les deux langages doivent pouvoir servir les memes matchs : si le JS
+    refuse une source que le Python accepte, le garde laisse passer une cote
+    synthetique et on retombe dans la confiance absurde mesuree en E82.
+    """
+    from core.odds_source import is_real_bookmaker_source as py
+
+    faux = [None, "", "  ", "fair_odds_model", "default", "synthetic",
+            "model_league", "historical", "historical+elo", "none",
+            "non_bookmaker", "non_bookmaker:default", "FAIR_ODDS_MODEL",
+            "non_bookmaker:x", "model_anything"]
+    for s in faux:
+        assert py(s) is False, "%r doit etre rejete" % (s,)
+    for s in ["betexplorer", "footballdata", "football_data", "ultimate:2-sources",
+              "ultimate:1-sources", "local", "oddsapiio"]:
+        assert py(s) is True, "%r doit etre accepte" % (s,)
+
+
+def test_devig_convertit_les_cotes_en_probabilites():
+    """E82 : P*_open_avg est une PROBABILITE a l'entrainement (mediane 0,425),
+    pas une cote. Injecter la cote brute sortait le vecteur du domaine d'un
+    facteur 5 a 10 et le modele sortait 0,9998 de confiance."""
+    from core.baseline_features import _devig
+
+    p = _devig({"P1_open": 2.15, "PX_open": 3.34, "P2_open": 3.03})
+    assert abs(sum(p.values()) - 1.0) < 1e-9
+    # Ordre respecte : 2.15 < 3.34 -> domicile le plus probable.
+    assert p["P1_open"] > p["P2_open"] > p["PX_open"]
+    # Ordre de grandeur coherent avec l'entrainement (mediane 0,425 / 0,266 / 0,291).
+    assert 0.30 < p["P1_open"] < 0.55
+    assert 0.20 < p["PX_open"] < 0.40
+    # Entrees invalides -> aucun mapping (les valeurs restent a la mediane).
+    assert _devig({"P1_open": 2.0}) == {}
+    assert _devig({"P1_open": 1.0, "PX_open": 3.3, "P2_open": 3.0}) == {}
+    assert _devig({"P1_open": None, "PX_open": 3.3, "P2_open": 3.0}) == {}
+
+
+def test_build_accepte_une_date_avec_fuseau():
+    """E82 : master_dataset.date est tz-naive. Une date de match tz-aware
+    (ISO '...+00:00', cas de tous les matchs stockes en base) faisait echouer
+    le chemin ctx sur une TypeError -> le chemin ctx n'a jamais fonctionne."""
+    from core import baseline_features as bfs
+
+    ctx = {
+        "home_team": "Arsenal", "away_team": "Chelsea",
+        "date": "2026-09-01T15:00:00.000Z",
+        "elo_h": 1850, "elo_a": 1800, "xg_h": 1.8, "xg_a": 1.2,
+        "P1_open": 2.1, "PX_open": 3.4, "P2_open": 3.6,
+    }
+    feats = bfs.build(ctx)
+    assert 0 < feats["P1_open_avg"] < 1, "P*_open_avg est une probabilite"
+    assert 0 < feats["H_pts_L5"] <= 3
+    assert bfs.teams_known(ctx) is True
+
+
+def test_teams_known_rejette_les_equipes_absentes():
+    from core import baseline_features as bfs
+
+    assert bfs.teams_known(None) is False
+    assert bfs.teams_known({"home_team": "X", "away_team": None}) is False
+    ctx = {"home_team": "ZZ Unknown Home", "away_team": "ZZ Unknown Away",
+           "date": "2026-09-01T15:00:00.000Z"}
+    assert bfs.teams_known(ctx) is False
+
+
+def _wire(m, base=(0.44, 0.28, 0.28)):
+    sys.path.insert(0, str(ROOT / "core"))
+    import core.prediction_engine as pe
+
+    return pe.apply_baseline_1x2_wire(base[0], base[1], base[2], m, None, None)
+
+
+def _assert_intact(out, base=(0.44, 0.28, 0.28)):
+    assert out[3]["applied"] is False
+    assert all(abs(a - b) < 1e-12 for a, b in zip(out[:3], base))
+
+
+def test_wire_desactive_par_defaut():
+    os.environ["BASELINE_1X2_WIRE"] = "off"
+    out = _wire({"homeTeam": "Arsenal", "awayTeam": "Chelsea",
+                 "date": "2026-09-01", "odds_source": "betexplorer",
+                 "odds_home": 2.1, "odds_draw": 3.4, "odds_away": 3.6})
+    assert out[3]["reason"] == "kill_switch_off"
+    _assert_intact(out)
+    os.environ.pop("BASELINE_1X2_WIRE", None)
+
+
+def test_wire_rejette_les_cotes_synthetiques():
+    """Une cote `fair_odds_model` vaut 2.1 > 1.0 : le test `> 1.0` seul ne
+    protegeait rien. Le modele nourri de sa propre sortie sortait 0,9998."""
+    os.environ["BASELINE_1X2_WIRE"] = "on"
+    for src in ("fair_odds_model", "non_bookmaker:default", "default", None):
+        out = _wire({"homeTeam": "Arsenal", "awayTeam": "Chelsea",
+                     "date": "2026-09-01", "odds_source": src,
+                     "odds_home": 2.1, "odds_draw": 3.4, "odds_away": 3.6})
+        assert out[3]["reason"] == "source_de_cotes_non_reelle", src
+        _assert_intact(out)
+    os.environ["BASELINE_1X2_WIRE"] = "off"
+
+
+def test_wire_rejette_les_equipes_inconnues():
+    os.environ["BASELINE_1X2_WIRE"] = "on"
+    out = _wire({"homeTeam": "ZZ Inconnus A", "awayTeam": "ZZ Inconnus B",
+                 "date": "2026-09-01", "odds_source": "betexplorer",
+                 "odds_home": 2.1, "odds_draw": 3.4, "odds_away": 3.6})
+    assert out[3]["reason"] == "equipes_inconnues_du_master"
+    _assert_intact(out)
+    os.environ["BASELINE_1X2_WIRE"] = "off"
+
+
+def test_wire_rejette_les_cotes_completes_manquantes():
+    os.environ["BASELINE_1X2_WIRE"] = "on"
+    out = _wire({"homeTeam": "Arsenal", "awayTeam": "Chelsea",
+                 "date": "2026-09-01", "odds_source": "betexplorer",
+                 "odds_home": 2.1, "odds_draw": None, "odds_away": 3.6})
+    assert out[3]["reason"] == "pas_de_cotes_reelles"
+    _assert_intact(out)
+    os.environ["BASELINE_1X2_WIRE"] = "off"
+
+
+def test_wire_applique_et_sort_un_triplet_valide():
+    """Match eligible : cotes reelles + equipes connues du master."""
+    os.environ["BASELINE_1X2_WIRE"] = "on"
+    os.environ["BASELINE_1X2_WEIGHT"] = "1.0"
+    out = _wire({"homeTeam": "Arsenal", "awayTeam": "Chelsea",
+                 "date": "2026-09-01", "odds_source": "betexplorer",
+                 "odds_home": 2.1, "odds_draw": 3.4, "odds_away": 3.6})
+    assert out[3]["applied"] is True, out[3]
+    p = out[:3]
+    assert abs(sum(p) - 1) < 1e-6
+    assert all(0 <= x <= 1 for x in p)
+    assert out[3]["weight"] == 1.0
+    # Confiance raisonnable : le modele ne doit pas produire 0,999 sur un
+    # simple 2.1 / 3.4 / 3.6 (symptome des variables hors domaine, E82).
+    assert max(p) < 0.95, "confiance aberrante : %s" % (p,)
+    os.environ["BASELINE_1X2_WIRE"] = "off"
+
+
+def test_wire_poids_partiel_melange_les_deux_triplets():
+    os.environ["BASELINE_1X2_WIRE"] = "on"
+    os.environ["BASELINE_1X2_WEIGHT"] = "0.5"
+    base = (0.44, 0.28, 0.28)
+    out = _wire({"homeTeam": "Arsenal", "awayTeam": "Chelsea",
+                 "date": "2026-09-01", "odds_source": "betexplorer",
+                 "odds_home": 2.1, "odds_draw": 3.4, "odds_away": 3.6}, base=base)
+    assert out[3]["applied"] is True
+    assert abs(sum(out[:3]) - 1) < 1e-6
+    # A poids 0.5 on doit retrouver la moyenne des deux.
+    for got, old, new in zip(out[:3], base, out[3]["probs"]):
+        assert abs(got - (0.5 * old + 0.5 * new)) < 2e-3
+    os.environ["BASELINE_1X2_WIRE"] = "off"
+    os.environ["BASELINE_1X2_WEIGHT"] = "1.0"
+

@@ -247,5 +247,18 @@ def pd_notna(v):
         return v is not None
 
 
+def build_features(ctx: dict) -> dict:
+    """Features alignees sur FEATURE_ALLOWLIST pour un match vivant.
+
+    Exposée pour que le branchement garde (prediction_engine
+    .apply_baseline_1x2_wire) consomme exactement le meme vecteur que le canal
+    d'observation : deux chemins de construction de variables et la mesure E82a
+    ne vaudrait plus rien pour ce qui est reellement servi.
+    """
+    from core import baseline_features
+
+    return baseline_features.build(ctx)
+
+
 def is_enabled() -> bool:
     return os.environ.get("BASELINE_FALLBACK", "off").lower() == "on"

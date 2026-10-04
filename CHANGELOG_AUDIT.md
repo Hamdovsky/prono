@@ -130,6 +130,148 @@ n'est pas reproductible tant que ce point est ouvert.
 
 ---
 
+## E82 : branchement du modèle 1X2 — 3 bugs de plus trouvés en le faisant (2026-10-03)
+
+E81 avait réparé un chemin mort sans le brancher. E82 le branche — et le
+faire a révélé trois défauts supplémentaires, tous dans le chemin `ctx`
+(= celui qu'un match live emprunte réellement). Aucun n'aurait pu être vu sans
+tourner le modèle.
+
+### Ce que vaut le modèle selon le chemin d'alimentation
+
+Lot hors échantillon de `master_dataset`, n = 2 636 :
+
+| chemin | AUC | pick |
+|---|---|---|
+| replay (toutes variables) | 0,739 | 52,8 % |
+| serving, `ctx` complet | 0,731 | 47,3 % |
+| serving **sans xG** | 0,699 | 48,1 % |
+| serving **sans xG ni cotes** | **0,458** | 33,2 % |
+
+La dernière ligne est sous le hasard. **Les cotes sont porteuses**, et sans
+elles ce modèle est pire que l'ensemble servi (0,514). Or la couverture des
+cotes au service est de **2,7 %** sur 7 jours, 8,6 % sur 30 jours, et **1,0 %
+** en cote d'ouverture (`odds_home_open`). C'est un remplacement franc qui
+aurait rendu la production **pire** sur ~95 % des matchs.
+
+### Bug 4 : `P*_open_avg` recevait des cotes au lieu de probabilités
+
+`core/baseline_features.py` assignait `ctx["P1_open"]` (une cote) dans
+`P1_open_avg`. Or `master_dataset` y stocke une **probabilité** : médiane
+train 0,425 / 0,266 / 0,291, plage [0,03 ; 0,92]. Le vecteur sortait du
+domaine d'un facteur 5 à 10 — `P2_open_avg = 3,03` là où le modèle avait
+appris 0,29 — d'où des sorties à **0,9998 de confiance**. Le tout masqué par
+la gate `> 1.0`, qui acceptait 2.15 sans poser de question.
+
+Correction : `_devig()` convertit les trois cotes en probabilités dés-vigées
+avant assignation. Contrôle : médiane train `odds_h_avg` 2,21 → 1/2,21 =
+0,4525 → dés-vigé ~0,431 ; observé 0,425. Cohérent. Après correctif, **zéro
+variable hors domaine** sur un match réel.
+
+### Bug 5 : le chemin `ctx` n'a jamais fonctionné (fuseau horaire)
+
+`master_dataset.date` est tz-naive. Toute date de match stockée en base est
+une ISO tz-aware (`2026-10-04T19:00:00.000Z`). La comparaison
+`df["date"] < as_of` levait `InvalidComparison` / `TypeError` à chaque appel.
+Comme le chemin relevait l'exception, **aucun match n'a jamais obtenu de
+prédiction par cette voie**. Même famille que le crash `cornersLabel`
+d'E68-ter : une exception avalée qui rend un chemin mort invisible.
+
+Correction : alignement de `as_of` sur la référence naive.
+
+### Bug 6 : `cote > 1.0` n'est pas une garantie de cote réelle
+
+`matches` contient des cotes marquées `fair_odds_model` (86 lignes) et
+`non_bookmaker:default` (317) : ce sont le modèle renormalisé en « cotes ».
+Le nourrir de sa propre sortie est un EV circulaire. `core/oddsSource.js` knew
+already how to reject them, but **c'est du JS**, donc inaccessible au chemin
+Python.
+
+Correction : `core/odds_source.py`, équivalent Python de `oddsSource.js`,
+préfixes compris, pour que les deux langages ne puissent pas diverger.
+
+### Le garde appliqué au lieu d'un remplacement
+
+`apply_baseline_1x2_wire()` (dans `process_prediction`, après
+`build_engine_staircase`, avant le calcul de confiance) n'applique le modèle que
+si **toutes** les conditions tiennent :
+
+1. `BASELINE_1X2_WIRE=on` (défaut **off**)
+2. les 3 cotes 1X2 présentes **et** de source bookmaker réelle
+3. **les deux équipes existent dans `master_dataset`**
+
+La condition 3 est celle qui manquait. Si une équipe est inconnue, 30 variables
+de forme + `Total_xG_L5` + `Form_Diff_L5` restent à la médiane, le vecteur ne
+garde que ~1/41 d'information réelle, et la sortie dégénère vers les taux de
+base : vérifié, des cotes réelles 2,15 / 3,34 / 3,03 donnaient `p_home = 0,344`
+au lieu de 0,425 dés-vigé, soit quasi uniforme. **L'AUC de 0,731 a été mesuré
+sur des matchs où les équipes sont toujours connues** — il ne dit rien du
+comportement sur les équipes absentes.
+
+### Effet mesuré sur 400 matchs servis
+
+| verdict | effectif | part |
+|---|---|---|
+| `source_de_cotes_non_reelle` | 392 | 98,0 % |
+| `equipes_inconnues_du_master` | 6 | 1,5 % |
+| **appliqué** | **2** | **0,5 %** |
+
+Le garde est donc **extrêmement conservateur et aujourd'hui presque inerte** :
+il est correct, borné, et il ne fera presque rien tant que la couverture des
+cotes n'aura pas été réparée. C'est le comportement voulu — mieux vaut un
+garde à 0,5 % qu'un remplacement qui dégrade 95 % des matchs — mais cela veut
+dire que **corriger le câblage n'améliore pas encore la production**.
+
+### Le vrai blocage reste la couverture des cotes (E41, non résolu)
+
+`odds_fetch_error` sur les matchs à venir : `non_bookmaker:default` (317),
+`no_data` (44), `betexplorer:no_match` (12). E41 avait déjà tranché la cause
+racine : `services/scrapeService.js` teste `hasAnyMarket()` sur le pont Python
+et retourne **avant** d'essayer Jina (tier 2). Le garde `ODDS_REJECT_SYNTHETIC`
+corrige ce court-circuit mais **ne crée pas de source** : le chemin Jina ne
+connaît que 11 ligues (`LEAGUE_SLUGS`), donc pour Serie D, Kenya, AFC CL,
+Northern Premier League ou Egypt, `getBetExplorerUrl` et `getSoccerwayUrl`
+renvoient null et la chaîne n'a aucune alternative réelle.
+
+**Conclusion honnête : le modèle est prêt, le câblage est fait, et le système
+reste improductif parce qu'il ne sait pas trouver les cotes.** C'est le
+prochain chantier, et c'est un chantier de scraping, pas de modèle.
+
+### Fichiers touchés
+
+- `core/prediction_engine.py` : `_baseline_ctx()` factorisé (le canal
+  d'observation et le branchement mangent le même vecteur, sinon la mesure
+  E82 ne vaut rien pour ce qui est servi), `apply_baseline_1x2_wire()`,
+  appel dans `process_prediction`, clé `baseline_1x2_wire` dans la sortie.
+- `core/baseline_fallback.py` : `build_features()` exposé (vecteur partagé).
+- `core/baseline_features.py` : `_devig()`, `teams_known()`, correction du
+  fuseau horaire, `P*_open` désormais dés-vigés.
+- `core/odds_source.py` : **nouveau** — prédicat de source bookmaker, miroir
+  de `core/oddsSource.js`.
+- `tests/test_baseline_fallback.py` : 10 → 20 tests. Les 10 nouveaux couvrent
+  le miroir JS/Python, `_devig`, la date tz-aware, `teams_known`, et les
+  quatre issues du garde (kill-switch, source synthétique, équipes inconnues,
+  cotes incomplètes), plus le poids partiel et la validité des sorties.
+
+Suite : **523 passed**, 43 skipped, 2 xfailed. Inchangement : 513 → 523.
+Échecs préexistants et non liés (`test_ou_model.py` ImportError `ou_prob`,
+`test_market_engine.py` ImportError ligne 14) — vérifiés identiques sans ce
+changement.
+
+### Reste ouvert
+
+- **Coverage des cotes** : le blocage de fond (E41 1-bis).
+- **`BASELINE_1X2_WIRE` reste `off`** : à basculer sur Render quand la
+  couverture le justifiera, pas avant.
+- **scikit-learn 1.9.0 vs 1.8.0** (E81) : toujours à réentraîner.
+- **`DISABLE_PURE_1X2` absent de Render** et `services/topPicksEngine.js` non
+  couvert par la politique.
+- **Telemetry** : `baseline_1x2_wire` est renvoyé dans la sortie mais n'est
+  pas encore persisté ; à brancher sur l'archive pour pouvoir mesurer le
+  nouveau chemin sur la fenêtre live.
+
+---
+
 ## E76 : origine des cotes dans `bets` + suppression du marché 1X2 fantôme (2026-10-03)
 
 Décisions utilisateur : marquer l'historique sans le purger, ne plus fabriquer de

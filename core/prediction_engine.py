@@ -106,6 +106,140 @@ ELO_DATA = get_elo_data()
 PROB_BOOSTS_ON = os.environ.get('PROB_BOOSTS', 'on') != 'off'
 
 
+def _baseline_ctx(match_obj: dict, xg_h=None, xg_a=None) -> dict:
+    """Construit le contexte de variables du fallback (E82).
+
+    Facteurise ici pour que le canal d'observation et le branchement garde
+    mangent EXACTEMENT le meme vecteur de variables : une divergence entre les
+    deux rendrait la mesure E82a sans valeur pour ce qui est servi.
+    """
+    home = match_obj.get("homeTeam") or match_obj.get("home_team")
+    away = match_obj.get("awayTeam") or match_obj.get("away_team")
+    date = match_obj.get("date") or match_obj.get("kickoff")
+    elo_h = ELO_DATA.get(home, 1500) if ELO_DATA else 1500
+    elo_a = ELO_DATA.get(away, 1500) if ELO_DATA else 1500
+    return {
+        "elo_h": elo_h, "elo_a": elo_a, "xg_h": xg_h, "xg_a": xg_a,
+        "home_team": home, "away_team": away, "date": date,
+        "P1_open": match_obj.get("P1_open_avg") or match_obj.get("odds_home_open"),
+        "PX_open": match_obj.get("PX_open_avg") or match_obj.get("odds_draw_open"),
+        "P2_open": match_obj.get("P2_open_avg") or match_obj.get("odds_away_open"),
+        "odds_h": match_obj.get("odds_home_open") or match_obj.get("odds_home"),
+        "odds_d": match_obj.get("odds_draw_open") or match_obj.get("odds_draw"),
+        "odds_a": match_obj.get("odds_away_open") or match_obj.get("odds_away"),
+        "absence_impact": match_obj.get("absence_impact_pondéré"),
+    }
+
+
+def apply_baseline_1x2_wire(p_h, p_d, p_a, match_obj: dict,
+                            xg_h=None, xg_a=None):
+    """E82 — branchement GARDE du modele fallback 1X2 sur les probabilites servies.
+
+    Pourquoi un garde et pas un remplacement franc (mesures E82a, lot hors
+    echantillon de master_dataset, n = 2 636) :
+
+        chemin replay (toutes variables)   AUC 0,739  pick 52,8 %
+        chemin serving, ctx complet        AUC 0,731  pick 47,3 %
+        chemin serving SANS xG              AUC 0,699  pick 48,1 %
+        chemin serving SANS xG NI COTES     AUC 0,458  pick 33,2 %   <-- sous le hasard
+
+    Les cotes sont porteuses : sans elles le modele est moins pire que le
+    modele servi aujourd'hui (AUC 0,514). Or la couverture des cotes au service
+    n'est que de 2,7 % sur 7 jours et 1,0 % en cote d'ouverture (E82c). Un
+    remplacement franc rendrait donc la production WORSE sur ~95 % des matchs.
+
+    Le garde n'applique le modele QUE si les 3 cotes 1X2 reelles sont presentes,
+    la ou la mesure vaut 0,699-0,739. En dessous, on ne touche a rien. Le
+    risque est ainsi borne par construction, et non par un espoir.
+
+    Kill-switch BASELINE_1X2_WIRE (defaut off) et BASELINE_1X2_WEIGHT
+    (defaut 1.0 = remplacement complet du triplet sur les matchs eligibles).
+    """
+    info = {"applied": False, "reason": "", "probs": None, "weight": None}
+    if os.environ.get("BASELINE_1X2_WIRE", "off").lower() != "on":
+        info["reason"] = "kill_switch_off"
+        return p_h, p_d, p_a, info
+    try:
+        ctx = _baseline_ctx(match_obj, xg_h, xg_a)
+        # Garde 1 : les 3 cotes 1X2 doivent etre presentes ET reelles.
+        # `> 1.0` seul ne suffit pas : `matches` contient des cotes marquees
+        # fair_odds_model / non_bookmaker:default, qui sont le modele renormalise
+        # en "cotes". Les federe au fallback, elles donnaient une confiance
+        # absurde ([0.0001, 0.0001, 0.9998] en E82) et un EV circulaire.
+        from core.odds_source import is_real_bookmaker_source, odds_source_of
+
+        src = odds_source_of(match_obj)
+        if not is_real_bookmaker_source(src):
+            info["reason"] = "source_de_cotes_non_reelle"
+            return p_h, p_d, p_a, info
+        ok = True
+        for k in ("odds_h", "odds_d", "odds_a"):
+            v = ctx.get(k)
+            try:
+                if v is None or float(v) <= 1.0:
+                    ok = False
+                    break
+            except (TypeError, ValueError):
+                ok = False
+                break
+        if not ok:
+            info["reason"] = "pas_de_cotes_reelles"
+            return p_h, p_d, p_a, info
+
+        # Garde 2 : les deux equipes doivent exister dans master_dataset.
+        # Sinon 30 variables de forme restent a la mediane, le vecteur garde
+        # ~1/41 d'information reelle et la sortie degrade vers les taux de base
+        # (verifie E82 : cotes reelles 2,15/3,34/3,03 -> p_home 0,344 au lieu
+        # de 0,425 des-viges, soit quasi uniforme). Le resultat mesure en
+        # replay (AUC 0,731) porte sur des matchs ou les equipes sont
+        # toujours connues : il ne vaut rien pour les equipes absentes.
+        from core.baseline_features import teams_known
+
+        if not teams_known(ctx):
+            info["reason"] = "equipes_inconnues_du_master"
+            return p_h, p_d, p_a, info
+
+        from core.baseline_fallback import predict_from_features, build_features
+
+        feats = build_features(ctx)
+        out = predict_from_features(feats, markets=("1x2",))
+        probs = (out or {}).get("1x2")
+        if not probs or len(probs) != 3:
+            info["reason"] = "prediction_indisponible"
+            return p_h, p_d, p_a, info
+        s = float(sum(probs))
+        if s <= 0:
+            info["reason"] = "somme_invalide"
+            return p_h, p_d, p_a, info
+        probs = [float(x) / s for x in probs]
+
+        try:
+            w = float(os.environ.get("BASELINE_1X2_WEIGHT", "1.0"))
+        except (TypeError, ValueError):
+            w = 1.0
+        w = min(max(w, 0.0), 1.0)
+        new = [(1 - w) * old + w * pr for old, pr in zip((p_h, p_d, p_a), probs)]
+        t = sum(new)
+        if t <= 0:
+            info["reason"] = "somme_invalide"
+            return p_h, p_d, p_a, info
+        new = [x / t for x in new]
+
+        info["applied"] = True
+        info["reason"] = "applique"
+        info["source"] = src
+        info["probs"] = [round(x, 5) for x in probs]
+        info["weight"] = w
+        return new[0], new[1], new[2], info
+    except Exception:
+        # Jamais bloquant : une erreur ici doit laisser les probabilites
+        # du moteur intactes, pas casser la prediction.
+        logging.getLogger(__name__).warning(
+            "baseline 1X2 wire indisponible : %s", traceback.format_exc(limit=3))
+        info["reason"] = "erreur"
+        return p_h, p_d, p_a, info
+
+
 def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
     """Phase 10 suite : A/B des baselines walk-forward (LR/RF retenus), sous
     kill-switch BASELINE_FALLBACK=on. Feature store live (Elo/xG/cotes open)
@@ -116,25 +250,12 @@ def _attach_baseline_fallback(match_obj: dict, xg_h=None, xg_a=None):
         from core.baseline_fallback import predict_for_match
 
         home = match_obj.get("homeTeam") or match_obj.get("home_team")
-        away = match_obj.get("awayTeam") or match_obj.get("away_team")
         date = match_obj.get("date") or match_obj.get("kickoff")
-        elo_h = ELO_DATA.get(home, 1500) if ELO_DATA else 1500
-        elo_a = ELO_DATA.get(away, 1500) if ELO_DATA else 1500
-        ctx = {
-            "elo_h": elo_h, "elo_a": elo_a, "xg_h": xg_h, "xg_a": xg_a,
-            "home_team": home, "away_team": away, "date": date,
-            "P1_open": match_obj.get("P1_open_avg") or match_obj.get("odds_home_open"),
-            "PX_open": match_obj.get("PX_open_avg") or match_obj.get("odds_draw_open"),
-            "P2_open": match_obj.get("P2_open_avg") or match_obj.get("odds_away_open"),
-            "odds_h": match_obj.get("odds_home_open") or match_obj.get("odds_home"),
-            "odds_d": match_obj.get("odds_draw_open") or match_obj.get("odds_draw"),
-            "odds_a": match_obj.get("odds_away_open") or match_obj.get("odds_away"),
-            "absence_impact": match_obj.get("absence_impact_pondéré"),
-        }
+        ctx = _baseline_ctx(match_obj, xg_h, xg_a)
         key = {
             "league": match_obj.get("league"),
             "home_team": home,
-            "away_team": away,
+            "away_team": match_obj.get("awayTeam") or match_obj.get("away_team"),
             "date": date,
         }
         return predict_for_match(key, ctx)
@@ -756,6 +877,14 @@ def process_prediction(match_obj: dict) -> dict:
     # detection anti-crowd-trap. Kill-switches via env (voir .env).
     p_h, p_d, p_a, ai_source = build_engine_staircase(p_h, p_d, p_a, match_obj, analysis, ai_source, base_probs=base_probs)
 
+    # E82 : branchement GARDE du modele fallback 1X2 (CHANGELOG E81/E82).
+    # N'agit que si les 3 cotes 1X2 reelles sont presentes : sans elles le
+    # modele mesure AUC 0,458, soit PIRE que l'ensemble servi (0,514), et la
+    # couverture des cotes au service n'est que de 2,7 % sur 7 jours.
+    p_h, p_d, p_a, baseline_wire = apply_baseline_1x2_wire(p_h, p_d, p_a, match_obj, xg_h, xg_a)
+    if baseline_wire.get("applied"):
+        analysis["Baseline1X2"] = "applique (cotes reelles presentes)"
+
     # Composite Confidence
     lineups_active = bool(match_obj.get('lineups_confirmed') or match_obj.get('lineups'))
     data_comp = features.get('data_completeness', 100.0)
@@ -1234,6 +1363,7 @@ def process_prediction(match_obj: dict) -> dict:
         "twin_match_dna": twin_dna,
         "twin_match_verdict": twin_verdict,
         "baseline_fallback": _attach_baseline_fallback(match_obj, xg_h, xg_a),
+        "baseline_1x2_wire": baseline_wire,
         "kelly_stake": float(round(max(0, (((confidence/100) * (temp_odds-1)) - (1-(confidence/100))) / (temp_odds-1) * 0.25 * 100), 1)) if (temp_odds > 1 and confidence > 0) else 0
     }
 

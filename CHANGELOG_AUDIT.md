@@ -272,6 +272,144 @@ changement.
 
 ---
 
+## E83 : couverture des cotes — pourquoi 2,7 %, et ce que ça vaut vraiment (2026-10-04)
+
+E82 a laissé un blocage de fond : le modèle 1X2 est bon mais il ne trouve pas
+ses cotes. E83 mesure ce blocage au lieu de le supposer. Résultat : ce n'est
+**pas** un bug de scraping, et ce n'est pas réparable par du scraping.
+
+### La file servie est hors de portée des sources gratuites
+
+507 matchs à venir sur **141 ligues** distinctes. Le top : FA Cup Qualification
+(40), amicaux (37), Scottish Cup R1 (29), Primera Nacional (17), puis Isthmian
+League, Northern Premier League, Southern League, NPFL, Martinique Ligue 2…
+
+Ce sont des divisions anglaises non-league, des coupes de qualification et des
+liguesafricaines/américaines de troisième niveau. **Les bookmakers ne les cotent
+pas.** Ce n'est pas une limite technique : il n'y a rien à récupérer.
+
+### Plafond BetExplorer mesuré sur le top 40 de la file : 16,2 %
+
+Sonde réelle sur 22 slugs (soft-404 distingué par le titre, voir plus bas) :
+
+| ligue | page | cotes |
+|---|---|---|
+| `argentina/primera-nacional` | réelle | 18 |
+| `argentina/primera-c` | réelle | 20 |
+| `england/fa-cup` | réelle | 15 |
+| `iran/azadegan-league` | réelle | 9 |
+| `denmark/superliga` | réelle | 18 |
+| `england/northern-premier-league` | **inexistante** | — |
+| `england/isthmian-league[-premier]` | **inexistante** | — |
+| `italy/serie-d` | **inexistante** | — |
+| `spain/segunda-division[-rfef]` | **inexistante** | — |
+| `argentina/primera-b-metropolitana` | **inexistante** | — |
+| `scottish-cup`, `npfl`, `wsl-2`, `liga-profesional` | réelle | **0** |
+
+45/278 matchs du top 40 ont une page BetExplorer (16,2 %), et seules 4 de ces
+ligues portent des cotes. **Le plafond réaliste est de l'ordre de 8 à 15 %**,
+pas 100 %.
+
+### Sofascore, la source large, est bloquée par IP
+
+Sofascore coterait largement plus de ligues. Testé depuis cette infrastructure :
+
+```
+API directe                        -> HTTP 403
+curl_cffi firefox133 (propre bypass) -> HTTP 403   (scripts/sofascore_bypass.py)
+```
+
+Les 3 empreintes TLS du projet (`chrome124`, `safari17_0`, `firefox133`) se
+font refuser. C'est un blocage d'IP datacenter, pas de code. Lever cela suppose
+un proxy résidentiel — donc un coût, ce qui sort du périmètre « gratuit ».
+
+### Le vrai trou, lui, est dans notre ciblage
+
+`oddsSweeper.js:240` saute tout match dont la ligue ne matche pas une liste
+figée de ~50 noms. Mesuré sur la file réelle :
+
+- **72 matchs tentés (14,2 %)**, 435 ignorés (85,8 %) ;
+- parmi les 72 : surtout des ligues féminines et Ghana/Jamaica/Benin/Burkina,
+  pour lesquelles BetExplorer n'a **aucune** page ;
+- hors liste alors qu'elles sont cotées : **FA Cup (40 matchs, 15 cotes)**,
+  **Primera Nacional (11, 18)**, **Primera C (6, 20)**, **Azadegan (8, 9)**.
+
+La liste repose sur un commentaire devenu faux (« couvertes par
+football-data.co.uk + Sofascore API + BetExplorer ») : Sofascore est 403, et les
+4 ligues cotées ci-dessus n'y sont pas.
+
+### Trois corrections appliquées
+
+1. **Soft-404 BetExplorer.** Le site ne répond pas 404 sur une ligue
+   inexistante : il renvoie HTTP 200 + la page d'accueil (~509 Ko, 330
+   `data-odd`). Vérifié : `england/zzz-league-qui-nexiste-pas` renvoie la même
+   page que `italy/serie-d`. Impossible de distinguer une ligue absente d'une
+   ligue qui n'a pas encore de cotes. → `_is_soft404()` classe sur le titre.
+
+2. **Le slug exact suffit, et le budget.** `"Northern Premier League"` matchait
+   `'premier league'` dans **10 ligues pays** (bahrain, kazakhstan, azerbaïdjan,
+   ukraine, arménie…) → 30 requêtes par match pour un match qui n'y est jamais.
+   Le mapping est fait pour être autoritatif : s'il donne un slug, on ne sonde
+   que lui. → **30 requêtes réduites à 1**, 6,5 s → 0,4 s, et le cas « ligue
+   absente » devient un `league_unavailable` explicite au lieu d'un silence
+   indiscernable d'un « pas encore côté ».
+
+3. **Mémoire des slugs morts persistée.** Le scraper tourne en sous-processus
+   (un par match) : un cache mémoire serait vide à chaque appel. →
+   `data/betexplorer_dead_slugs.json`, même pattern que `sofa_not_found.json`.
+
+Plus les 4 slugs vérifiés ajoutés au mapping, et les 4 ligues ajoutées à la
+whitelist du sweeper.
+
+### Effet mesuré, bout en bout
+
+| match | avant | après |
+|---|---|---|
+| Chacarita Juniors – Patronato (Primera Nacional) | jamais scrapé | **1,96 / 2,93 / 4,22** |
+| Central Cordoba – Yupanqui (Primera C) | jamais scrapé | **1,93 / 2,92 / 3,96** |
+| Tampa Bay – Miami (USL Championship) | 1,40 / 4,45 / 6,29 | 1,40 / 4,47 / 6,49 |
+| Grays Athletic – Witham (Northern Premier) | 30 req, 6,5 s, silence | 1 req, 0,4 s, `league_unavailable` |
+
+Aucune régression : USL Championship, Primera Nacional et Primera C répondent
+toujours, `Isthmian League: North Division` reste instantané en `no_league_slug`.
+
+### Ce que ça ne change pas
+
+**Le produit reste improductif.** On passe d'une couverture réelle de 2,7 % à
+une couverture *possible* de l'ordre de 8–15 %. Le modèle 1X2 reste inutilisable
+sur les ~85 % de matchs sans cote (AUC 0,458 sans cote, E82).
+
+La vraie décision n'est pas technique :
+- **(a)** restreindre la file aux ligues cotées — le produit marche sur une
+  ardoise plus petite mais réelle ;
+- **(b)** payer un proxy résidentiel pour débloquer Sofascore ;
+- **(c)** accepter que la couverture reste faible et ceases de promettre du 1X2.
+
+Aucune de ces trois options n'est un correctif de code. Tant qu'aucune n'est
+arbitrée, ajouter des ligues à la whitelist a un effet marginal.
+
+### Tests
+
+Nouveau `tests/test_betexplorer_league_resolution.py` (10 tests, offline) :
+détection soft-404 et ses limites prudentes, non-explosion des slugs, arrêt après
+`fixtures/` sur page d'accueil, `league_unavailable` explicite, persistance disque
+entre processus, `no_league_slug` sans requête, propagation de l'erreur dans
+`betexplorer_full`, et verrouillage des 4 nouveaux slugs vérifiés.
+
+Suite Python : **537 passed** (523 → 537). Échec préexistant inchangé
+(`test_market_engine.py`, ImportError `ou_prob`). Jest ciblé : 18 passed.
+
+### Fichiers touchés
+
+- `scripts/bypass_scraper.py` : `_is_soft404()`, caches `_SLUG_DEAD`/`_LEAGUE_DEAD`
+  persistés, slug exact prioritaire, 4 slugs vérifiés, `error` propagé par
+  `betexplorer_full`.
+- `services/oddsSweeper.js` : 4 ligues cotées ajoutées à la whitelist.
+- `tests/test_betexplorer_league_resolution.py` : **nouveau**.
+- `data/betexplorer_dead_slugs.json` : cache généré (non versionné).
+
+---
+
 ## E76 : origine des cotes dans `bets` + suppression du marché 1X2 fantôme (2026-10-03)
 
 Décisions utilisateur : marquer l'historique sans le purger, ne plus fabriquer de

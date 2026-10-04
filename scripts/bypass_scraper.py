@@ -328,7 +328,90 @@ def _teams_match(a, b, ctx=None):
     return False
 
 
+# ── E83 : soft-404 BetExplorer + cache des slugs morts ──────────────────
+# BetExplorer ne repond PAS 404 sur une ligue inexistante : il renvoie HTTP 200
+# avec la page d'accueil (titre "Football Stats, Results, Tables & H2H stats |
+# BetExplorer", ~509 Ko, 330 data-odd). Verifie le 2026-10-04 : un slug
+# volontairement faux (`england/zzz-league-qui-nexiste-pas`) renvoie exactement
+# la meme page que `england/isthmian-league` ou `italy/serie-d`.
+#
+# Consequence avant correctif : chaque match d'une ligue non cotee coute jusqu'a
+# 3 URL x 18s, et la file servie compte 141 ligues -> le sweep n'a jamais le
+# temps d'aboutir. On detecte le soft-404 et on memorise les slugs morts pour
+# ne plus re-sonder la meme ligue match apres match.
+_SOFT404_MARKERS = ("football stats, results, tables",)
+
+# Le scraper est appele en sous-processus (un processus par match), donc un
+# cache en memoire serait vide a chaque appel et ne servirait a rien. On
+# persiste sur disque, comme services/sofascoreOddsService.js (sofa_not_found).
+DEAD_SLUG_CACHE_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    'data', 'betexplorer_dead_slugs.json'
+)
+
+
+def _load_dead_slugs():
+    """Recharge les slugs morts d'une session precedente."""
+    try:
+        with open(DEAD_SLUG_CACHE_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return set(data.get('slugs') or [])
+    except Exception:
+        pass
+    return set()
+
+
+def _save_dead_slugs(slugs):
+    """Persiste les slugs morts (best effort : jamais bloquant)."""
+    try:
+        os.makedirs(os.path.dirname(DEAD_SLUG_CACHE_FILE), exist_ok=True)
+        with open(DEAD_SLUG_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'slugs': sorted(slugs), 'checked_at': int(time.time())}, f)
+    except Exception:
+        log.debug('save dead slugs failed')
+
+
+_SLUG_DEAD = _load_dead_slugs()  # slug -> absent de BetExplorer (soft-404)
+_LEAGUE_DEAD = set()  # ligues dont TOUS les slugs candidats sont morts
+
+
+def _mark_slug_dead(slug):
+    if slug in _SLUG_DEAD:
+        return
+    _SLUG_DEAD.add(slug)
+    _save_dead_slugs(_SLUG_DEAD)
+
+
+def _is_soft404(html):
+    """Vrai si la page HTML est la page d'accueil servie en guise de ligue.
+
+    Prudence : une page sans <title> n'est PAS classee soft-404 (on ne
+    blackliste pas sur une ambiguite), on conserve le comportement historique.
+    """
+    if not html:
+        return False
+    m = re.search(r'<title>(.*?)</title>', html, re.S | re.I)
+    if not m:
+        return False
+    titre = re.sub(r'\s+', ' ', m.group(1)).lower()
+    return any(mark in titre for mark in _SOFT404_MARKERS)
+
+
+def _reset_dead_slug_cache():
+    """Purge les caches (tests / changement de la carte des ligues)."""
+    _SLUG_DEAD.clear()
+    _LEAGUE_DEAD.clear()
+
+
 LEAGUE_SLUG_MAPPING = {
+    # E83 : slugs verifies reellement cotes le 2026-10-04 (cotes > 0 sur la page
+    # fixtures). Les ligues ci-dessous sont dans la file servie mais etaient
+    # bloquees par ODDS_LEAGUE_WHITELIST, donc jamais scrapees.
+    'Primera Nacional': '/football/argentina/primera-nacional/',      # 18 cotes
+    'Primera C': '/football/argentina/primera-c/',                 # 20 cotes
+    'FA Cup': '/football/england/fa-cup/',                         # 15 cotes
+    'Azadegan League': '/football/iran/azadegan-league/',           #  9 cotes
     'Northern Premier League': '/football/england/northern-premier-league/',
     'Southern League Premier: South': '/football/england/southern-league-premier-south/',
     'Southern League Premier: Central': '/football/england/southern-league-premier-central/',
@@ -665,14 +748,28 @@ def betexplorer_search(home, away, league=None, date=None, country=None, proxy=N
     Pour une ligue inconnue (None/'Promosport'/...), sonde les compétitions majeures."""
     league_l = (league or '').strip().lower()
     unknown = league_l in ('', 'promosport', 'inconnu', 'unknown')
+    # E83 : ligue deja prouvee absente de BetExplorer -> aucun appel HTTP.
+    lkey = f"{league_l}|{(country or '').strip().lower()}"
+    if lkey in _LEAGUE_DEAD:
+        return {"odds": None, "match_url": None, "match_hash": None,
+                "error": "league_unavailable"}
     if unknown:
         slugs = GRACE_SLUGS
     else:
-        slugs = _alternative_slugs(league, country)
+        # E83 : si le mapping fournit un slug EXACT pour cette ligue, on ne
+        # sonde QUE lui. Sans cela, un nom generique ("Northern Premier
+        # League") produit 10 slugs pays differents (bahrain, kazakhstan,
+        # azerbaijan, ukraine, armenie...) -> 30 requetes par match pour un
+        # match qui n'y est jamais. Le mapping est fait pour etre autoritatif :
+        # un soft-404 dessus signifie que la competition n'existe pas.
+        exact = _league_to_betexplorer_slug(league, country)
+        slugs = [exact] if exact else _alternative_slugs(league, country)
         if not slugs:
             return {"odds": None, "match_url": None, "match_hash": None, "error": "no_league_slug"}
 
     for slug in slugs:
+        if slug in _SLUG_DEAD:
+            continue
         candidate_urls = [
             f'{BASE_URL}{slug}fixtures/',
             f'{BASE_URL}{slug}results/',
@@ -685,10 +782,23 @@ def betexplorer_search(home, away, league=None, date=None, country=None, proxy=N
             result = scrape_url(url, opts)
             if result.get('error') or result.get('status', 0) != 200:
                 continue
-            match = _find_match_in_html(result.get("body", ""), home, away, date=date)
+            body = result.get("body", "")
+            # E83 : page d'accueil servie en guise de page de ligue -> ce slug
+            # n'existe pas. Inutile de sonder results/ et l'URL nue : on passe
+            # au slug suivant (et on retient le slug mort pour la Ligue entiere).
+            if _is_soft404(body):
+                _mark_slug_dead(slug)
+                break
+            match = _find_match_in_html(body, home, away, date=date)
             if match:
                 match["url_probe"] = url
                 return match
+
+    # Tous les slugs candidats sont morts -> cette ligue ne sera jamais trouvee.
+    if slugs and all(s in _SLUG_DEAD for s in slugs):
+        _LEAGUE_DEAD.add(lkey)
+        return {"odds": None, "match_url": None, "match_hash": None,
+                "error": "league_unavailable"}
     return {"odds": None, "match_url": None, "match_hash": None}
 
 
@@ -874,6 +984,9 @@ def betexplorer_full(home, away, league=None, use_firecrawl=True, date=None, cou
         "btts_yes": None,
         "btts_no": None,
         "source": None,
+        # E83 : 'league_unavailable' = la ligue n'existe pas sur BetExplorer
+        # (soft-404). Distinct de 'no_match' : inutile de retenter ce match.
+        "error": search.get("error"),
         "match_url": search.get("match_url"),
         "match_hash": search.get("match_hash"),
     }

@@ -77,6 +77,14 @@ const ODDS_LEAGUE_WHITELIST = new Set([
   // Asia
   'J1 League',
   'K-League 1',
+  // E83 (2026-10-04) : ligues de la file servie reellement cotees par
+  // BetExplorer (slug + nombre de cotes verifies en direct le 2026-10-04).
+  // Elles etaient hors liste donc JAMAIS scrapees, alors que la file en
+  // contient en volume : FA Cup = 40 matchs sur 24 h, 15 cotes sur la page.
+  'FA Cup', // 40 matchs / 15 cotes
+  'Primera Nacional', // 11 matchs / 18 cotes
+  'Primera C', //  6 matchs / 20 cotes
+  'Azadegan League', //  8 matchs /  9 cotes
   // Autres ligues populaires
   'Super Lig',
   'Premiership',

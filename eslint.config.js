@@ -101,6 +101,21 @@ module.exports = [
     },
   },
   {
+    // Extension Chrome MV3 (extensions/sofascore-collector) : globals du
+    // navigateur, jamais disponibles dans le backend Node.
+    files: ['extensions/**/*.js'],
+    languageOptions: {
+      globals: {
+        chrome: 'readonly',
+        localStorage: 'readonly',
+        document: 'readonly',
+        window: 'readonly',
+        Image: 'readonly',
+        getComputedStyle: 'readonly',
+      },
+    },
+  },
+  {
     ignores: [
       'node_modules/',
       '.kilo/',

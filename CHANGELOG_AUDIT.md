@@ -410,6 +410,130 @@ Suite Python : **537 passed** (523 → 537). Échec préexistant inchangé
 
 ---
 
+## E85 : l'extension Sofascore — journée complète collectée, système qui ingère (2026-10-08)
+
+E83 a laissé le problème ouvert : BetExplorer ne couvre que ~16 % de ce qui est
+joué, et la question restait « comment récupérer les cotes de Sofascore alors
+que l'API répond 403 ? ». E85 y répond par la bonne solution — un vrai
+navigateur — et la matérialise en extension Chrome + endpoint d'ingestion.
+
+### Cause racine du 403 : un challenge JS, pas une IP
+
+Diagnostic mené avant tout code (`curl_cffi` vs `puppeteer-extra + stealth`,
+déjà présent dans `node_modules` via `scripts/betexplorerLive.js`) :
+
+| Méthode | Résultat |
+|---|---|
+| `curl_cffi`, 3 empreintes TLS (`chrome124`, `safari17_0`, `firefox133`) | **403** `{"reason":"challenge"}` |
+| `GET /` en curl (cookies de la page) | 200 mais **aucun cookie** — page bootstrap JS de 5 305 o |
+| Vrai Chrome (`puppeteer-extra` + stealth) | **API 200**, données réelles |
+
+Le défi est exécuté par le moteur JS : sans navigateur, il n'est jamais résolu,
+et aucune empreinte TLS ne le remplace. Deuxième constat : Sofascore **a des
+cotes que BetExplorer n'a pas** — `Chatham Town – Brentwood Town` (Isthmian
+League Premier) ressort en 1X2 réel, là où BetExplorer ne renvoie que sa page
+d'accueil.
+
+### Architecture retenue : l'extension scrape, le système collecte
+
+L'extension ne décide de rien — elle transporte. Toute la décision métier
+(matching, écriture) reste côté serveur, ce qui la rend testable hors
+navigateur.
+
+1. **Extension** (`extensions/sofascore-collector/`, MV3) — `content.js`
+   s'exécute sur `sofascore.com` : les fetch sont same-origin et le cookie du
+   challenge suit tout seul. Séquence = ce que fait le site lui-même :
+   - `sport/football/scheduled-tournaments/J/page/N` (paginé) → ids de tournois ;
+   - `unique-tournament/{id}/scheduled-events/J` (concurrence 3 + jitter) →
+     fixtures de la journée ;
+   - `event/{id}/odds/{1,5,6}/featured` pour les seuls matchs voulus.
+2. **`POST /api/scraper/sofascore/collect`** — trace les fixtures sur disque
+   (`data/sofascore_fixtures_JJJJ-MM-JJ.json`, ignoré par git) et renvoie
+   **la liste des matchs présents en base**. Sans ce renvoi, l'extension
+   coucherait des milliers de matchs hors périmètre pour rien.
+3. **`POST /api/scraper/sofascore/ingest`** — les payloads `/featured` bruts
+   sont parsés **côté serveur** par `parseFeaturedOdds` / `parseOverUnder25` /
+   `parseBtts` déjà exportés par `services/sofascoreOddsService.js`, puis
+   écrits par `database.persistOdds(..., { odds_source: 'sofascore' })`.
+   **Zéro logique dupliquée dans le navigateur.** Les deux routes sont sous
+   `localOrAuth` : l'extension vise `127.0.0.1`, le garde passe d'office.
+
+### Vérification bout-en-bout réelle (pas simulée)
+
+Harnais : mini-API locale montant `routes/scraper.js` + vrai navigateur +
+vrai SQLite. Résultat d'une seule exécution :
+
+```
+tournois programmés : 613   fixtures collectées : 2331
+[SOFA_DAY] 2026-10-08 : 2331 fixtures reçues, 310 matchs DB, 79 appariés
+COLLECT   fixtures=2331 dbCandidates=310 matched=79 unmatched=2252 saved=true
+INGEST    {"received":3,"persisted":3,"unknown":0,"noOdds":0,"failed":0}
+DB        livescore_1708681 : —/—/— (—)  ->  4.5/3.75/1.71 (sofascore)
+```
+
+**79 des 310 matchs du jour en base trouvent leur contrepartie Sofascore** —
+c'est déjà loin devant la couverture BetExplorer mesurée en E83.
+
+### Deux découvertes qui changent le comportement
+
+- **Les ids de marchés ne sont pas universels.** Sur `Santos – Flamengo`,
+  `/odds/5/featured` renvoie… un 1X2 (3,1 / 2,65 / 0,83) et pas de l'O/U ;
+  `/odds/6/featured` est en 404. Un parseur naïf aurait écrasé les cotes 1X2
+  avec un second bookmaker. `parseOverUnder25` exige « 2.5 » dans le nom des
+  choix et `parseBtts` « yes/no » : les deux retournent `null` ici. **C'est
+  cette exigence qui a sauvé la donnée** — vérifié en E2E, `O2.5` est resté à
+  `—` au lieu d'être corrompu. Conséquence honnête : le 1X2 est systématique,
+  l'O/U 2.5 et le BTTS le sont seulement quand Sofascore les expose.
+- **Le matching d'équipes devait être relaxé.** Une égalité stricte de tokens
+  (la logique de `getMatchByTeams`) refuse `Club Atlético Chacarita Juniors`
+  vs `Chacarita Juniors` — donc la moitié des fixtures réelles. Retenu :
+  chevauchement significatif (≥ 1 token commun de 4+ caractères, ou listes
+  strictement égales pour les noms courts type « PSG ») **puis** containment
+  dans un seul sens, ce qui tolère les qualificatifs que Sofascore ajoute.
+
+### Tests
+
+Nouveau `__tests__/sofascoreDayCollector.test.js` : **18 tests offline** —
+matching (accents, préfixes FC/CA/Club, journée retour, contre-exemples),
+parsing des payloads bruts (fractions → décimal, marchés 5/6 absents sans
+erreur), `collect` (cibles, éciture tracée) et `ingest` (source `sofascore`,
+cote incomplète → `noOdds`, recherche par noms, inconnu).
+
+Point de méthode : la trace disque se vérifie sur l'appel à
+`fs.writeFileSync`, **pas** sur le fichier — `__tests__/setup.js` mock `fs`
+globalement (`readFileSync → '{}'`, `writeFileSync → no-op`) pour qu'aucun test
+ne touche aux données de prod. Un test lisant le fichier aurait échoué à
+`{}` sans que le code soit fautif.
+
+Jest ciblé : **27 passed** (`sofascoreDayCollector` + `sofascoreOddsService`),
+plus 23 sur `dataFusionSynthetic` / `chantier3p3*`. ESLint : 0 erreur sur les
+fichiers touchés (avertissement `securityEngine` préexistant dans
+`routes/scraper.js`, non modifié). `node --check` OK sur les 3 fichiers JS de
+l'extension. Suite complète non relancée : `npm test` dépasse l'heure.
+
+### Fichiers touchés
+
+- `services/sofascoreDayCollector.js` : **nouveau** — `collect()`, `ingest()`,
+  `fixturesMatch()`, `parseMarkets()`.
+- `routes/scraper.js` : +2 routes (`/sofascore/collect`, `/sofascore/ingest`).
+- `extensions/sofascore-collector/` : **nouveau** — `manifest.json`,
+  `content.js`, `background.js`, `popup.html`, `popup.js`.
+- `__tests__/sofascoreDayCollector.test.js` : **nouveau** (18 tests).
+- `eslint.config.js` : bloc `extensions/**/*.js` (globals `chrome`) — sans lui,
+  `eslint .` casse sur `no-undef`.
+- `.gitignore` : `data/sofascore_fixtures_*.json`.
+
+### Ce que ça ne résout pas
+
+- **Le cron reste absent.** L'extension ne tourne que si le navigateur est
+  ouvert : c'est un feeder local, pas un remplaçant de Render (IP datacenter,
+  le challenge y serait de retour).
+- **L'O/U et le BTTS restent partiels** par la nature de l'API featured.
+- La décision (a)/(b)/(c) d'E83 n'est toujours pas arbitrée : 79 appariements
+  sur 310 mesurent la couverture *possible*, pas un produit exploitable.
+
+---
+
 ## E76 : origine des cotes dans `bets` + suppression du marché 1X2 fantôme (2026-10-03)
 
 Décisions utilisateur : marquer l'historique sans le purger, ne plus fabriquer de

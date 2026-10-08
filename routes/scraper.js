@@ -38,6 +38,48 @@ router.post('/odds/sweep', localOrAuth, async (req, res) => {
   }
 })
 
+/**
+ * POST /api/scraper/sofascore/collect — E85
+ * Reçoit les fixtures de la journée scrapées par l'extension Chrome, les trace
+ * sur disque (data/sofascore_fixtures_JJJJ-MM-JJ.json) et renvoie la liste des
+ * rencontres effectivement présentes dans notre base : l'extension ne fetch
+ * ensuite QUE les marchés de ces rencontres-là (évite des milliers d'appels
+ * inutiles sur l'API Sofascore).
+ * Body : { day: 'YYYY-MM-DD', fixtures: [{ eventId, homeTeam, awayTeam,
+ *         league, startTimestamp }] }
+ */
+router.post('/sofascore/collect', localOrAuth, async (req, res) => {
+  try {
+    const { day, fixtures } = req.body || {}
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(day || '') ? day : new Date().toISOString().slice(0, 10)
+    const result = await require('../services/sofascoreDayCollector').collect(d, fixtures)
+    res.json({ success: true, ...result })
+  } catch (e) {
+    logger.error(`[SOFA_DAY] collect error: ${e.message}`)
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
+/**
+ * POST /api/scraper/sofascore/ingest — E85
+ * Reçoit les fixtures enrichies des cotes 1X2 / O2.5 / BTTS collectées par
+ * l'extension et les écrit dans matches via database.persistOdds
+ * (odds_source = 'sofascore' — identifié comme bookmaker par core/oddsSource).
+ * Body : { day, rows: [{ eventId, matchId?, homeTeam, awayTeam,
+ *         odds: { home, draw, away, over25, under25, bttsYes, bttsNo } }] }
+ */
+router.post('/sofascore/ingest', localOrAuth, async (req, res) => {
+  try {
+    const { day, rows } = req.body || {}
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(day || '') ? day : new Date().toISOString().slice(0, 10)
+    const result = await require('../services/sofascoreDayCollector').ingest(d, rows)
+    res.json({ success: true, ...result })
+  } catch (e) {
+    logger.error(`[SOFA_DAY] ingest error: ${e.message}`)
+    res.status(500).json({ success: false, error: e.message })
+  }
+})
+
 const userAgents = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',

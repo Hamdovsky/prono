@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Sofascore Day Collector",
+  "version": "1.0.0",
+  "description": "Collecte la journée Sofascore (fixtures + cotes 1X2 / O2.5 / BTTS) et les pousse vers l'API locale du projet Titan.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://www.sofascore.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.sofascore.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Sofascore Day Collector"
+  }
+}

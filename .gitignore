@@ -68,6 +68,7 @@ coverage/
 *.html
 !index.html
 !public/offline.html
+!extensions/**/*.html
 
 # package managers
 bun.lock
@@ -83,6 +84,7 @@ scratch
 data/accuracy_log.json
 data/sofa_not_found.json
 data/betexplorer_dead_slugs.json
+data/sofascore_fixtures_*.json
 data/deepseek_usage.json
 data/footballdata_usage.json
 data/rapidapi_usage.json

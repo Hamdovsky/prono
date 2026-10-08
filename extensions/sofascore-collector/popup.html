@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sofascore Day Collector</title>
+    <style>
+      body {
+        width: 320px;
+        margin: 0;
+        padding: 12px;
+        font: 13px/1.45 system-ui, -apple-system, Segoe UI, sans-serif;
+        color: #e8ecf1;
+        background: #14181f;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        color: #8b96a5;
+        margin-top: 8px;
+      }
+      input[type='text'] {
+        width: 100%;
+        padding: 6px;
+        margin-top: 3px;
+        border: 1px solid #2b3442;
+        border-radius: 6px;
+        background: #0e1218;
+        color: #e8ecf1;
+        box-sizing: border-box;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        font-size: 12px;
+      }
+      button {
+        width: 100%;
+        margin-top: 10px;
+        padding: 8px;
+        border: 0;
+        border-radius: 6px;
+        background: #2f6fed;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #232b36;
+        margin-top: 6px;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      #status {
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 6px;
+        background: #0e1218;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 190px;
+        overflow-y: auto;
+      }
+      .ok {
+        color: #4ade80;
+      }
+      .err {
+        color: #f87171;
+      }
+      .muted {
+        color: #8b96a5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sofascore Day Collector</h1>
+
+    <label for="api">API locale</label>
+    <input id="api" type="text" placeholder="http://127.0.0.1:3001" />
+
+    <div class="row">
+      <input id="auto" type="checkbox" />
+      <label for="auto" style="margin: 0">Auto : une fois par jour à l'ouverture</label>
+    </div>
+
+    <button id="run">Collecter la journée</button>
+    <button id="ping" class="secondary">Tester l'API locale</button>
+
+    <div id="status" class="muted">Prêt.</div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

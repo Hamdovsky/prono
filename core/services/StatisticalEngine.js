@@ -8,6 +8,17 @@ const MomentumEngine = require('./MomentumEngine')
 const thetaOptimizer = require('../../services/thetaOptimizer')
 const eloService = require('../../services/eloRatingService')
 
+// Audit 2026-10-10 : cache des 20 dernières lignes historiques par équipe.
+// Sans ce cache, getMatchXG relançait jusqu'à 6 scans de historical_matches
+// (~16k lignes, non indexé) par match ; sur ~450 matchs /api/upcoming cela
+// faisait ~2700 scans synchrones better-sqlite3 -> CPU 100 %, event loop
+// affamée, dashboard « 0 match ». Le cache ramène ça au nombre d'équipes
+// distinctes. TTL court pour absorber les nouveaux archivages.
+const _teamRowsCache = new Map()
+const TEAM_ROWS_TTL_MS = parseInt(process.env.TEAM_STATS_CACHE_MS || '600000', 10) // 10 min
+const TEAM_ROWS_QUERY =
+  'SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp FROM historical_matches WHERE (homeTeam = ? OR awayTeam = ?) AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY timestamp DESC LIMIT 20'
+
 class StatisticalEngine {
   _deterministicHash(str, seed = 0) {
     let h = seed
@@ -663,16 +674,27 @@ class StatisticalEngine {
     return { h: 1.5, a: 1.15 }
   }
 
+  _getTeamRecentRows(teamName) {
+    if (!teamName) return []
+    const cached = _teamRowsCache.get(teamName)
+    if (cached && Date.now() - cached.ts < TEAM_ROWS_TTL_MS) return cached.rows
+    const db = require('../database')
+    if (!db || !db.db) return cached ? cached.rows : []
+    let rows
+    try {
+      rows = db.db.prepare(TEAM_ROWS_QUERY).all(teamName, teamName)
+    } catch (_) {
+      // Requête en échec : ne PAS empoisonner le cache, retenter au prochain appel.
+      return cached ? cached.rows : []
+    }
+    _teamRowsCache.set(teamName, { ts: Date.now(), rows })
+    return rows
+  }
+
   computeWeightedForm(teamName, lambda = 0.008) {
     if (!teamName) return 0
     try {
-      const db = require('../database')
-      if (!db || !db.db) return 0
-      const rows = db.db
-        .prepare(
-          'SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp FROM historical_matches WHERE (homeTeam = ? OR awayTeam = ?) AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY timestamp DESC LIMIT 20'
-        )
-        .all(teamName, teamName)
+      const rows = this._getTeamRecentRows(teamName)
       if (!rows || rows.length === 0) return 0
       const now = Date.now()
       let totalWeight = 0,
@@ -699,13 +721,7 @@ class StatisticalEngine {
   getTeamAttackDefense(teamName, lambda = 0.008) {
     if (!teamName) return { attack: 0, defense: 0, matchCount: 0 }
     try {
-      const db = require('../database')
-      if (!db || !db.db) return { attack: 0, defense: 0, matchCount: 0 }
-      const rows = db.db
-        .prepare(
-          'SELECT homeTeam, awayTeam, scoreHome, scoreAway, timestamp FROM historical_matches WHERE (homeTeam = ? OR awayTeam = ?) AND scoreHome IS NOT NULL AND scoreAway IS NOT NULL ORDER BY timestamp DESC LIMIT 20'
-        )
-        .all(teamName, teamName)
+      const rows = this._getTeamRecentRows(teamName)
       if (!rows || rows.length === 0) return { attack: 0, defense: 0, matchCount: 0 }
       const now = Date.now()
       let totalWeight = 0,

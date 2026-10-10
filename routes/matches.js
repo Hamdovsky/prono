@@ -526,6 +526,13 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
     {
       const openMeteo = require('../services/openMeteoService')
       const _weatherCache = _weatherCacheRef.get()
+      // Audit 2026-10-10 : réseau dégradé (proxies morts / open-meteo lent), la
+      // boucle météo séquentielle sur des dizaines de villes GEOFFERAIT chaque
+      // /api/upcoming pendant des minutes (geocode 8s + forecast 10s par ville).
+      // Budget-temps dur : au-delà, on abandonne le reste (best-effort) — le
+      // StatisticalEngine/weekday a déjà un plancher stats sans météo.
+      const _weatherStarted = Date.now()
+      const WEATHER_BUDGET_MS = 4000
       const countryMap = {
         EN: 'London',
         ES: 'Madrid',
@@ -541,6 +548,7 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
         SA: 'Riyadh',
       }
       for (const m of rawMatches) {
+        if (Date.now() - _weatherStarted > WEATHER_BUDGET_MS) break
         if (m.weather_temp && m.weather_desc) continue
         const iso = (m.country_iso || '').toUpperCase()
         const city = countryMap[iso] || m.category_name || m.league || ''

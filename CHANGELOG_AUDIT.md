@@ -11587,3 +11587,104 @@ Aucun secret. Aucun Dockerfile/requirements touche.
 // pas. Mauvais chiffre sur une page, c'est trompeur ; bon chiffre sur une
 // mauvaise methode, c'est seulement ennuyeux, et le deuxieme se voit. Le
 // premier ne se voyait pas.
+
+---
+
+## E86 : « 0 matchs / aucune ligue active » — le serveur n'écoutait jamais (2026-10-10)
+
+### Symptôme
+Le dashboard affiche « 0 matchs » et `Sidebar.jsx:502` « Aucune ligue active
+pour cette date. ». La base `data/tactical.db` est pourtant peuplée (500 matchs
+`scheduled` + 2032 lignes au total). Le problème est donc côté serveur, pas
+côté données.
+
+### Diagnostic
+1. **La couche HTTP du port 3001 ne répond plus** — même `GET /` timeout.
+   `curl.exe` confirme que ce n'est pas PowerShell. Le socket écoute dès t=0
+   (`Health check listener ready`), mais aucune connexion n'est servie →
+   starvation de l'event loop.
+2. **Processus API à ~100 % d'un cœur** de façon persistante (mesuré via
+   `KernelModeTime+UserModeTime` : ~5000 ms consommés par tranche de 5 s).
+3. **Profilage V8 depuis l'intérieur du process** (`require('inspector')`,
+   échantillonnage 1 ms) — la connexion inspector externe étant elle-même
+   affamée, le profil est écrit sur disque par le process lui-même. Résultat sur
+   128 544 échantillons :
+   - **84 % du CPU dans une frame native `all`** = `Statement#all` de
+     `better-sqlite3` (SQLite C++ **synchrone**).
+   - Chaîne d'appel :
+     `routes/matches.js:319` (`/api/upcoming`) → `StatisticalEngine.getMatchXG`
+     (`core/services/StatisticalEngine.js:327`) →
+       - `getTeamAttackDefense` (`:699`) → 55,7 % des échantillons
+       - `computeWeightedForm` (`:666`) → 27,8 %
+       - `MomentumEngine.getTrend` (`core/services/MomentumEngine.js:10`) → 0,6 %
+4. **Cause exacte** : `getMatchXG(m)` est appelé **par match** (~450 matchs) par
+   `/api/upcoming`, et chaque appel relance jusqu'à 6 fois la requête
+   `SELECT … FROM historical_matches WHERE (homeTeam = ? OR awayTeam = ?) …`
+   (via `getTeamAttackDefense` ×2, `computeWeightedForm` ×2, `getTrend` ×2).
+   Sur `historical_matches` = **15 769 lignes, aucun index utile** (seul
+   l'autoindex de la PK), le `OR` force un scan complet : ~85 ms/requête × ~2700
+   requêtes ≈ **230 s de SQLite synchrone par requête `/api/upcoming`**. Chaque
+   appel gèle donc l'event loop pendant des minutes → dashboard « 0 match ».
+   (`_getTeamRecentRows` : mesuré `1 query = 129 ms`, `20 queries = 1706 ms`.)
+5. **Boucles d'enrichissement sans fin de vie** (secondaires, mais réelles) :
+   - AUTO-ENRICH (`server.js` ~232-310) re-enrichissait les mêmes 35 matchs en
+     `force:true` toutes les 10 s, indéfiniment.
+   - INDEPENDENT-ENRICH (`server.js` ~471-540) considérait « non enrichis » à
+     jamais 5 matchs `TITANIUM_QUANT_V4` dont les valeurs *légitimes* échouent le
+     filtre (`btts=34/34/34/44/33 < 35`, `hw≈70`, `aw≈8`).
+6. **Conflits de port induits** pendant l'investigation : le relancement
+   `concurrently` de `start.bat` et des lancements manuels se disputaient le port
+   3001 (`[PORT] Port 3001 occupied by PID(s) [...] Releasing...`), ajoutant des
+   boots concurrents — c'est un artefact de debug, pas la cause.
+
+### Cause racine
+`/api/upcoming` exécutait ~2700 scans synchrones non indexés de
+`historical_matches` (via `getMatchXG`), soit ~230 s de CPU bloquant l'event loop
+par appel. Le serveur « écoutait » mais ne pouvait jamais répondre.
+
+### Correctifs appliqués (non commités)
+- **`core/db/schema.js`** : 3 index sur `historical_matches`
+  (`idx_history_home_team`, `idx_history_away_team`, `idx_history_timestamp`),
+  créés par `CREATE INDEX IF NOT EXISTS` au boot. SQLite passe d'un scan complet
+  à `MULTI-INDEX OR`. Vérifié : `EXPLAIN QUERY PLAN` → `MULTI-INDEX OR` +
+  `SEARCH … USING INDEX idx_history_home_team/away_team`. **~85 ms → ~0,04 ms
+  par requête (~2000×).**
+- **`core/services/StatisticalEngine.js`** : cache module-level
+  `_teamRowsCache` (TTL `TEAM_STATS_CACHE_MS`, défaut 10 min) + helper partagé
+  `_getTeamRecentRows(teamName)`. `computeWeightedForm` et `getTeamAttackDefense`
+  l'utilisent (une seule requête par équipe au lieu de 2, + mémoïsation). Pas de
+  mise en cache sur erreur (pas de résultat vide « gelé »).
+- **`core/services/MomentumEngine.js`** : cache `_trendCache` (même TTL) sur
+  `getTrend`.
+- **`server.js`** AUTO-ENRICH : helper `needsEnrichment(m)` + garde de
+  progression dans `runEnrichBatches` (`before === 0` → « All matches enriched,
+  stopping. » ; `after >= before` → « No progress … stopping loop to protect
+  CPU. »).
+- **`server.js`** INDEPENDENT-ENRICH : cooldown par match
+  `REENRICH_COOLDOWN_MS` (défaut `900000`, 15 min) via `Map _lastReenrich`.
+- **`routes/matches.js`** : la boucle météo séquentielle de `/api/upcoming` est
+  bornée par un budget-temps (`WEATHER_BUDGET_MS = 4000`).
+- **`src/services/dataService.js:58`** : l'endpoint par défaut n'impose plus
+  `force=true` (qui by-passait `speedCache('upcoming', 15000)` à chaque poll) ;
+  le rafraîchissement explicite reste possible via
+  `fetchUpcomingPredictions(true)`.
+
+### Vérification
+- `getMatchXG` × 450 matchs réels : **655 ms** (contre ~230 s avant) — bench
+  `core/services/StatisticalEngine.js` sur la base réelle.
+- `node --check` : `StatisticalEngine.js`, `MomentumEngine.js`, `schema.js`,
+  `routes/matches.js`, `server.js` → OK.
+- `npx jest` (StatisticalEngine + matches + enrichedPredictions + anticorrEngine) :
+  **3 suites, 29 tests, tous verts**.
+- `npx eslint` (6 fichiers modifiés) : **0 erreur** (6 warnings préexistants).
+- **Test d'intégration serveur** (instance propre sur 3001) :
+  - boot → `API GATEWAY ACTIVE` en **50 s** (avant : >10 min / jamais) ;
+  - `GET /api/upcoming?days=3` → **HTTP 200 en 5949 ms**, 5,87 Mo de réponse ;
+  - **CPU au repos après la requête : 0 ms/5 s (0 %)** — plus de wedge.
+
+### Reste à faire (optionnel, non bloquant)
+- Les 6 warnings eslint préexistants (`logger` inutilisé, etc.).
+- Fail-fast réseau global (Sofascore `403 → cooldown → retry`), cosmétique pour
+  le bug « 0 match » désormais.
+- Nettoyage des process de debug `concurrently`/script résiduels avant un
+  redémarrage propre via `start.bat`.

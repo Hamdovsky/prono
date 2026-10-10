@@ -234,6 +234,20 @@ setTimeout(async () => {
         const ENRICH_BATCH = parseInt(process.env.ENRICH_BATCH_SIZE || '35', 10)
         const ENRICH_DELAY = parseInt(process.env.ENRICH_BATCH_DELAY_MS || '10000', 10) // 10s
 
+        // A match still "needs" enrichment when it has no usable probabilities or a
+        // placeholder source. Once nothing needs work the background loop MUST stop:
+        // avec force:true il re-enrichissait les mêmes 35 matchs toutes les 10 s
+        // pour toujours → CPU saturé, couche HTTP affamée, dashboard « 0 match »
+        // (audit 2026-10-10).
+        const needsEnrichment = (m) => {
+          const hw = parseFloat(m.home_win_probability || 0)
+          const aw = parseFloat(m.away_win_probability || 0)
+          if (!m.ai_source || m.ai_source === 'RESPONSE_FLOOR' || m.ai_source === 'NONE') {
+            return true
+          }
+          return !hw || hw <= 0 || isNaN(hw) || !aw || aw <= 0 || isNaN(aw)
+        }
+
         async function enrichBatch(batchSize) {
           const enrichedPredictions = require('./services/enriched_predictions')
           const matches = await database.getMatchesByStatuses(
@@ -294,7 +308,19 @@ setTimeout(async () => {
                 logger.info(`[AUTO-ENRICH] All matches enriched, stopping.`)
                 return
               }
+              const before = remaining.filter(needsEnrichment).length
+              if (before === 0) {
+                logger.info(`[AUTO-ENRICH] All matches enriched, stopping.`)
+                return
+              }
               await enrichBatch(ENRICH_BATCH)
+              const after = remaining.filter(needsEnrichment).length
+              if (after >= before) {
+                logger.info(
+                  `[AUTO-ENRICH] No progress (${after}/${before} still needing work) — stopping loop to protect CPU.`
+                )
+                return
+              }
               trackTimer(setTimeout(runEnrichBatches, ENRICH_DELAY))
             } catch (e) {
               logger.warn(`[AUTO-ENRICH] Error: ${e.message}`)
@@ -472,6 +498,14 @@ setTimeout(() => {
   const database = require('./core/database')
   const { enrichOne } = require('./core/enrichOne')
 
+  // Audit 2026-10-10 : un match TITANIUM_QUANT_V4 à BTTS faible / 1X2 extrême
+  // (ex: hw=70, aw=8, btts=34) re-passe le filtre « à ré-enrichir » à l'infini,
+  // enrichOne recalculant toujours la même valeur → boucle toutes les 5 s =
+  // CPU saturé, HTTP affamé, dashboard « 0 match ». Cooldown par match : une
+  // passe max toutes les 15 min, fim de la boucle spin.
+  const REENRICH_COOLDOWN_MS = parseInt(process.env.REENRICH_COOLDOWN_MS || '900000', 10)
+  const _lastReenrich = new Map()
+
   async function runLoop() {
     try {
       const matches = await database.getMatchesByStatuses([
@@ -481,6 +515,9 @@ setTimeout(() => {
         'NS',
       ])
       const unenriched = matches.filter((m) => {
+        if (_lastReenrich.get(m.id) && Date.now() - _lastReenrich.get(m.id) < REENRICH_COOLDOWN_MS) {
+          return false
+        }
         const hw = parseFloat(m.home_win_probability || 0)
         const aw = parseFloat(m.away_win_probability || 0)
         // Re-enrich matches that were enriched with old dispersion (ai_source === 'TITANIUM_QUANT_V4' but BTTS < 35 or extreme probs)
@@ -504,6 +541,7 @@ setTimeout(() => {
         try {
           const enriched = await enrichOne(m)
           await database.updatePredictions(m.id, { ...m, ...enriched })
+          _lastReenrich.set(m.id, Date.now())
           saved++
         } catch (e) {
           logger.debug(`[INDEPENDENT-ENRICH] save failed for ${m.id}: ${e.message}`)

@@ -263,6 +263,13 @@ function initSchema(db) {
                 result TEXT,
                 settled_at INTEGER
             );
+            -- Audit 2026-10-10 : getTeamAttackDefense / computeWeightedForm scannent
+            -- historical_matches (homeTeam=? OR awayTeam=?) sur ~16k lignes, 6x par
+            -- match x ~450 matchs = ~2700 scans synchrones -> CPU 100%, event loop
+            -- affamée, dashboard « 0 match ». Ces index rendent le lookup O(log n).
+            CREATE INDEX IF NOT EXISTS idx_history_home_team ON historical_matches(homeTeam);
+            CREATE INDEX IF NOT EXISTS idx_history_away_team ON historical_matches(awayTeam);
+            CREATE INDEX IF NOT EXISTS idx_history_timestamp ON historical_matches(timestamp);
 
             CREATE TABLE IF NOT EXISTS winning_patterns (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

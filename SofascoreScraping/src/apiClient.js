@@ -30,9 +30,17 @@ function sofaDisabled() {
 }
 
 // Rate Limiter: HUMAN MODE (Indetectable)
+// Politique anti-flag (configurable via env) : 1 requête à la fois, 5–10 s entre
+// requêtes. `minTime` est le plancher ; le jitter aléatoire (0–SOFA_MAX_JITTER_MS)
+// ajouté avant chaque requête porte le pas réel à 5–10 s.
+const SOFA_MIN_TIME_MS = parseInt(process.env.SOFASCORE_MIN_TIME_MS, 10) || 5000
+const SOFA_MAX_JITTER_MS = parseInt(process.env.SOFASCORE_MAX_JITTER_MS, 10) || 5000
+const SOFA_MAX_CONCURRENT = parseInt(process.env.SOFASCORE_MAX_CONCURRENT, 10) || 1
+const SOFA_RETRY_BASE_MS = parseInt(process.env.SOFASCORE_RETRY_BASE_MS, 10) || 2000
+const SOFA_RETRY_MAX_MS = parseInt(process.env.SOFASCORE_RETRY_MAX_MS, 10) || 30000
 const limiter = new Bottleneck({
-  minTime: 1800, // 🛡️ Floor: per-request jitter adds 0–1700ms → 1800–3500ms spacing
-  maxConcurrent: 2, // 🛡️ Reduced concurrency to avoid IP flags
+  minTime: SOFA_MIN_TIME_MS, // plancher 5 s ; + jitter 0–5 s → 5–10 s
+  maxConcurrent: SOFA_MAX_CONCURRENT, // 1 requête simultanée (évite le flag IP)
 })
 
 // Global cooldown after a Sofascore block (403/429). Configurable via
@@ -437,9 +445,9 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
 
     for (let i = 0; i < retries; i++) {
       try {
-        // 🛡️ [TITANIUM STEALTH] Dynamic Jitter (0–1700ms, on top of the 1800ms
-        // limiter floor) → 1800–3500ms of human-like spacing between requests.
-        const jitter = Math.floor(Math.random() * 1700)
+        // 🛡️ [TITANIUM STEALTH] Jitter (0–SOFA_MAX_JITTER_MS) en plus du plancher
+        // du limiter (SOFA_MIN_TIME_MS) → 5–10 s d'espacement humain.
+        const jitter = Math.floor(Math.random() * SOFA_MAX_JITTER_MS)
         await new Promise((r) => setTimeout(r, jitter))
 
         const currentProxy = shieldEngine.getProxy()
@@ -513,21 +521,32 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
             return null
           }
 
+          // 🛑 [ANTI-STORM] 403/429 = signal d'IP flaggée. On coupe globalement
+          // (cooldown fast-fail) et on NE relance PAS la requête en boucle. Une
+          // seule tentative de bypass navigateur ; si elle échoue, on arrête.
           console.warn(
-            `🚨 [apiClient] ${status} on ${url}. Global cooldown (fast-fail, no sleep) + Puppeteer bypass.`
+            `🛑 [apiClient] ${status} on ${url}. Arrêt + cooldown global (fast-fail) + 1 tentative Puppeteer.`
           )
           _triggerCooldown()
           try {
             return await fetchWithPuppeteer(url)
           } catch (puppeteerErr) {
-            const wait = (i + 1) * 5000 + Math.floor(Math.random() * 3000)
-            console.warn(`🚨 [apiClient] Puppeteer also failed. Retrying in ${wait}ms...`)
-            await new Promise((r) => setTimeout(r, wait))
+            console.warn(
+              `🛑 [apiClient] Bypass Puppeteer échoué (${puppeteerErr.message}). Arrêt (pas de storm de retries).`
+            )
+            return null
           }
         } else if (status === 404) {
           return null
         } else {
-          await new Promise((r) => setTimeout(r, 1500))
+          // Erreur transitoire : backoff progressif (2 s, 4 s, 8 s…), plafonné.
+          if (i < retries - 1) {
+            const delay = Math.min(SOFA_RETRY_MAX_MS, SOFA_RETRY_BASE_MS * Math.pow(2, i))
+            console.warn(
+              `⚠️ [apiClient] ${status || e.code || 'network'} — retry ${i + 1}/${retries} dans ${delay}ms`
+            )
+            await new Promise((r) => setTimeout(r, delay))
+          }
         }
       }
     }

@@ -11739,3 +11739,58 @@ et se faisait refuser son origine par le CORS.
   `app.js`, `core/securityEngine.js`.
 - Routes sous `localOrAuth` : l'ouverture CORS n'élargit pas la surface réseau
   (socket loopback obligatoire).
+
+---
+
+## E87 : client Sofascore — politique anti-storm (5–10 s, 1 concurrent, backoff, stop sur 403/429) (2026-10-10)
+
+### Symptôme
+Les logs API_CORE montraient une tempête de retries quand Sofascore renvoie 403 :
+`403 on …/search/teams` → cooldown 480 s → `Puppeteer also failed. Retrying in
+Xms…` en rafale (X = 5 000–18 000 ms), plusieurs requêtes en vol, circuit
+`[ScrapingBypass]` qui oscille OPEN/HALF-OPEN. Ce n'est pas un échec isolé mais
+une boucle qui s'auto-alimente.
+
+### Cause racine
+Dans `SofascoreScraping/src/apiClient.js`, sur 403/429 le code :
+1. déclenchait le cooldown global **puis** tentait Puppeteer,
+2. en cas d'échec de Puppeteer, **dormait puis `continue`** la boucle `for`
+   (`retries = 3`) — donc jusqu'à 3 nouveaux 403 → 3 cooldowns → 3 bypass.
+3. Le tout avec `Bottleneck { minTime: 1800, maxConcurrent: 2 }` + jitter
+   0–1700 ms → espacement réel ~1,8–3,5 s et 2 requêtes simultanées.
+
+Rien n'arrêtait vraiment la requête : chaque 403 en relançait une.
+
+### Correctif (env-configurable, défauts = spec « point de départ »)
+- **`limiter`** : `minTime` 5 000 ms (plancher) + jitter 0–5 000 ms → **5–10 s**
+  entre requêtes ; **`maxConcurrent: 1`**. Constantes
+  `SOFASCORE_MIN_TIME_MS`, `SOFASCORE_MAX_JITTER_MS`, `SOFASCORE_MAX_CONCURRENT`.
+- **Stop sur 403/429** : cooldown global (fast-fail) + **une seule** tentative
+  Puppeteer ; si elle échoue → `return null` immédiat. Plus de `sleep`+`continue`.
+- **Backoff progressif** sur les erreurs transitoires (réseau/timeout) :
+  `2 s, 4 s, 8 s…` plafonné (`SOFASCORE_RETRY_BASE_MS`, `SOFASCORE_RETRY_MAX_MS`),
+  au lieu du `1500 ms` fixe.
+- **404** : `return null` (inchangé).
+- Le cooldown global (`SOFASCORE_COOLDOWN_MS`, 8 min) reste : une fois déclenché,
+  toute nouvelle requête est `fast-fail` sans toucher au réseau.
+
+### Ce qui était déjà conforme à la spec
+- **Cache anti-doublons** : déjà en place côté `SofascoreScraping/src/Workflow.js`
+  (`getCache/setCache` Redis, TTL 12–24 h sur stats / H2H / forme / classement).
+- **Collecte périodique plutôt que continue** : la boucle d'enrichissement
+  `server.js` (INDEPENDENT-ENRICH) ne traite que `scheduled/upcoming` et porte un
+  cooldown par match de 15 min (E86) — elle ne re-interroge pas les matchs
+  terminés en continu.
+
+### Vérification
+- `node --check SofascoreScraping/src/apiClient.js` : OK.
+- `npx eslint SofascoreScraping/src/apiClient.js` : **0 erreur** (5 warnings
+  préexistants : `http`, `https`, `getCache`, `setCache`, `lastError` inutilisés).
+- `npx jest` (motivationEnrich + oddsServiceCorners + sofascoreDayCollector +
+  sourceRateLimiter) : **4 suites, 42 tests, tous verts**.
+
+### Fichiers touchés
+- `SofascoreScraping/src/apiClient.js` : limiter (5–10 s, concurrence 1), jitter,
+  catch 403/429 (stop, 1 bypass), backoff transitoire.
+- `SofascoreScraping/src/apiClient.js` : import `getCache/setCache` et `http/https`
+  restent morts (nettoyage possible plus tard, hors périmètre).

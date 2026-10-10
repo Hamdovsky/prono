@@ -126,10 +126,17 @@ async function collect(day, fixtures) {
 
   const wanted = []
   const matchedIds = new Set()
+  let alreadyDone = 0
   for (const fx of list) {
     const db = candidates.find((m) => !matchedIds.has(m.id) && fixturesMatch(fx, m))
     if (db) {
       matchedIds.add(db.id)
+      // Reprise : un match déjà alimenté par Sofascore n'est pas re-demandé,
+      // ce qui rend un run interrompu reprenable sans tout refetcher.
+      if (db.odds_source === 'sofascore' && db.odds_home) {
+        alreadyDone++
+        continue
+      }
       wanted.push({
         eventId: fx.eventId,
         matchId: db.id,
@@ -143,15 +150,17 @@ async function collect(day, fixtures) {
 
   const saved = saveFixtures(day, list)
   logger.info(
-    `[SOFA_DAY] ${day} : ${list.length} fixtures reçues, ${candidates.length} matchs DB, ${wanted.length} appariés`
+    `[SOFA_DAY] ${day} : ${list.length} fixtures reçues, ${candidates.length} matchs DB, ` +
+      `${matchedIds.size} appariés (${alreadyDone} déjà faits, ${wanted.length} à fetcher)`
   )
   return {
     day,
     saved,
     fixtures: list.length,
     dbCandidates: candidates.length,
-    matched: wanted.length,
-    unmatched: list.length - wanted.length,
+    matched: matchedIds.size,
+    alreadyDone,
+    unmatched: list.length - matchedIds.size,
     wanted,
   }
 }

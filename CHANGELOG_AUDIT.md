@@ -11642,7 +11642,7 @@ côté données.
 `historical_matches` (via `getMatchXG`), soit ~230 s de CPU bloquant l'event loop
 par appel. Le serveur « écoutait » mais ne pouvait jamais répondre.
 
-### Correctifs appliqués (non commités)
+### Correctifs appliqués (commit `bd70003`)
 - **`core/db/schema.js`** : 3 index sur `historical_matches`
   (`idx_history_home_team`, `idx_history_away_team`, `idx_history_timestamp`),
   créés par `CREATE INDEX IF NOT EXISTS` au boot. SQLite passe d'un scan complet
@@ -11688,3 +11688,54 @@ par appel. Le serveur « écoutait » mais ne pouvait jamais répondre.
   le bug « 0 match » désormais.
 - Nettoyage des process de debug `concurrently`/script résiduels avant un
   redémarrage propre via `start.bat`.
+
+---
+
+## E85b : l'extension postait sur un endpoint inexistant (404) + CORS service worker (2026-10-10)
+
+Suite directe d'E85, restée non commitée dans l'arbre de travail. L'architecture
+E85 (l'extension transporte, le serveur décide) était correcte, mais le
+branchement réel ne pouvait pas fonctionner : l'extension visait une URL fausse
+et se faisait refuser son origine par le CORS.
+
+### Deux bugs de branchement, mesurés en live
+
+- **Endpoint inexistant.** L'extension postait sur
+  `/api/scraper/sofascore/collect|ingest`, alors que `routes/scraper.js` définit
+  `/sofascore/collect` et `/sofascore/ingest` montés à `app.use('/api', …)`
+  (`app.js:677`) → le vrai chemin est **`/api/sofascore/*`**. Preuve live :
+  `POST /api/sofascore/collect` → **200**, `POST /api/scraper/sofascore/collect`
+  → **404**. Les commentaires du CHANGELOG E85 (l.450/454) reprenaient le chemin
+  périmé ; le code, lui, était déjà bon (l.518).
+- **Origine refusée.** Le service worker MV3 poste depuis
+  `chrome-extension://<id>`, absente des listes CORS (`app.js`) et
+  `core/securityEngine.js` → 403 même avec la bonne URL.
+
+### Correctifs
+
+- **`extensions/sofascore-collector/background.js`** : 3 occurrences de
+  `/api/scraper/sofascore/*` → `/api/sofascore/*` (`COLLECT`, `INGEST`, et
+  l'appel de repli hors popup).
+- **`extensions/sofascore-collector/content.js`** : mêmes URL dans l'en-tête de
+  séquence ; ingestion **par lots (25)** avec jusqu'à 3 réessais, lot sauté au
+  lieu de tout perdre en cas d'échec définitif, compteurs cumulés sur la
+  journée → un run interrompu est **reprenable**.
+- **`app.js`** + **`core/securityEngine.js`** : autoriser l'origine
+  `chrome-extension://`. Ce n'est pas une porte CSRF : les routes
+  `/sofascore/*` restent sous `localOrAuth`, qui exige un socket `127.0.0.1`
+  (l'origine, elle, n'est pas forgeable par un site).
+- **`extensions/sofascore-collector/manifest.json`** : `+alarms` (auto-run
+  toutes les 30 min) ; `background.js` garde `if (chrome.alarms)` pour ne pas
+  planter si l'API manque.
+- **`services/sofascoreDayCollector.js`** : `collect()` saute les matchs déjà
+  alimentés par Sofascore (`odds_source === 'sofascore' && odds_home`) et
+  rapporte `matched = matchedIds.size` (tous les appariés, pas seulement les
+  « à fetcher ») + `alreadyDone` → un run interrompu ne refetche pas.
+
+### Vérification
+
+- Live : `POST /api/sofascore/collect` → **200** ; chemin périmé → **404**.
+- `node --check` OK sur `background.js`, `content.js`, `services/sofascoreDayCollector.js`,
+  `app.js`, `core/securityEngine.js`.
+- Routes sous `localOrAuth` : l'ouverture CORS n'élargit pas la surface réseau
+  (socket loopback obligatoire).

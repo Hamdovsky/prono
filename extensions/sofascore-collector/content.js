@@ -6,9 +6,9 @@
 // Séquence (message SOFA_RUN reçu du background) :
 //   1. tournois programmés du jour   -> /sport/football/scheduled-tournaments/J/page/N
 //   2. fixtures de chaque tournoi    -> /unique-tournament/{id}/scheduled-events/J
-//   3. POST vers l'API locale        -> /api/scraper/sofascore/collect  (répond 'wanted')
+//   3. POST vers l'API locale        -> /api/sofascore/collect  (répond 'wanted')
 //   4. cotes UNIQUEMENT des 'wanted' -> /event/{id}/odds/{1,5,6}/featured
-//   5. POST vers l'API locale        -> /api/scraper/sofascore/ingest   (persistOdds)
+//   5. POST vers l'API locale        -> /api/sofascore/ingest   (persistOdds)
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
 const MARKET_IDS = [1, 5, 6] // 1X2 / Over-Under 2.5 / BTTS (mêmes ids que SofascoreOddsService)
@@ -126,19 +126,47 @@ async function run(day) {
   }
   const wanted = collect.wanted || []
 
-  // 4) Cotes uniquement pour les matchs de notre base.
-  const rows = []
+  // 4) Cotes uniquement pour les matchs de notre base. Ingestion par lots :
+  //    un run interrompu (navigateur fermé) conserve les lots déjà écrits, et
+  //    un run suivant reprend là où on s'est arrêté (le serveur saute les
+  //    matchs déjà alimentés par Sofascore).
+  const BATCH = 25
+  let buffer = []
+  let persistes = 0
+  let sansCote = 0
+  let inconnus = 0
+  const flush = async () => {
+    if (!buffer.length) return
+    let lastErr = null
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const ingest = await chrome.runtime.sendMessage({ type: 'SOFA_INGEST', day, rows: buffer })
+        if (ingest && ingest.ok) {
+          persistes += ingest.persisted || 0
+          sansCote += ingest.noOdds || 0
+          inconnus += ingest.unknown || 0
+          buffer = []
+          return
+        }
+        lastErr = (ingest && ingest.error) || 'ingestion refusée'
+      } catch (err) {
+        lastErr = err && err.message
+      }
+      // Erreur réseau ponctuelle : on attend et on réessaie (le lot est
+      // conservé) au lieu de tout perdre.
+      await sleep(800 * attempt)
+    }
+    // Lot définitivement non écrit : on le saute plutôt que d'abandonner.
+    progress('cotes', `lot sauté (${lastErr})`)
+    buffer = []
+  }
   for (let i = 0; i < wanted.length; i++) {
     const w = wanted[i]
-    rows.push({ ...w, markets: await fetchMarkets(w.eventId) })
-    progress('cotes', `${i + 1}/${wanted.length}`)
+    buffer.push({ ...w, markets: await fetchMarkets(w.eventId) })
+    progress('cotes', `${i + 1}/${wanted.length} (${persistes} écrites)`)
+    if (buffer.length >= BATCH) await flush()
   }
-
-  // 5) Ecriture (database.persistOdds, odds_source = 'sofascore').
-  const ingest = await chrome.runtime.sendMessage({ type: 'SOFA_INGEST', day, rows })
-  if (!ingest || !ingest.ok) {
-    throw new Error((ingest && ingest.error) || 'ingestion refusée par l’API locale')
-  }
+  await flush()
 
   const summary = {
     ok: true,
@@ -146,9 +174,9 @@ async function run(day) {
     tournois: tournamentIds.length,
     fixtures: fixtures.length,
     voulus: wanted.length,
-    persistes: ingest.persisted || 0,
-    sansCote: ingest.noOdds || 0,
-    inconnus: ingest.unknown || 0,
+    persistes,
+    sansCote,
+    inconnus,
   }
   progress('termine', JSON.stringify(summary))
   return summary

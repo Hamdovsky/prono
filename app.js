@@ -130,6 +130,11 @@ const corsOptions = {
       origin.startsWith('http://localhost:') ||
       origin.startsWith('https://localhost:') ||
       origin.startsWith('http://127.0.0.1:') ||
+      // extension Sofascore Day Collector (E85) : le collecteur local poste
+      // depuis un service worker chrome-extension://. Le CORS n'est pas la
+      // barriere de securite ici (les routes /sofascore/* sont sous localOrAuth,
+      // qui exige un socket 127.0.0.1) ; on autorise donc ces origines.
+      origin.startsWith('chrome-extension://') ||
       // bypass origines-toutes : flag explicite AUTH_DEV_BYPASS=1 (start.bat),
       // plus NODE_ENV accidentel absent d'un déploiement (audit 2026-09-10 É7)
       process.env.AUTH_DEV_BYPASS === '1'

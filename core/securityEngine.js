@@ -67,7 +67,11 @@ class SecurityEngine {
       'http://localhost:5173',
       'capacitor://',
     ]
-    if (origin && !allowed.some((a) => origin.startsWith(a))) {
+    // extension Sofascore Day Collector (E85) : origine chrome-extension://,
+    // non forgeable par un site web. La route reste sous localOrAuth (socket
+    // 127.0.0.1 obligatoire), donc l'autoriser n'ouvre pas de faille CSRF.
+    const isExtension = origin.startsWith('chrome-extension://')
+    if (origin && !isExtension && !allowed.some((a) => origin.startsWith(a))) {
       logger.warn(`[SECURITY] Origin refusée: ${origin}`)
       return res.status(403).json({ error: 'Origin not allowed' })
     }

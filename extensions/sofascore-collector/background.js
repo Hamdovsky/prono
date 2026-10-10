@@ -69,18 +69,20 @@ chrome.runtime.onInstalled.addListener(async () => {
 })
 async function scheduleAutoRun() {
   try {
-    chrome.alarms.create('sofa-daily', { periodInMinutes: 30 })
+    if (chrome.alarms) chrome.alarms.create('sofa-daily', { periodInMinutes: 30 })
   } catch (_) {}
 }
-chrome.alarms.onAlarm.addListener(async (a) => {
-  if (a.name !== 'sofa-daily') return
-  const s = await getSettings()
-  if (!s.autoRun) return
-  const day = new Date().toISOString().slice(0, 10)
-  if (s.lastRunDay === day) return
-  pendingDay = day
-  kickPendingRun()
-})
+if (chrome.alarms) {
+  chrome.alarms.onAlarm.addListener(async (a) => {
+    if (a.name !== 'sofa-daily') return
+    const s = await getSettings()
+    if (!s.autoRun) return
+    const day = new Date().toISOString().slice(0, 10)
+    if (s.lastRunDay === day) return
+    pendingDay = day
+    kickPendingRun()
+  })
+}
 
 // ── Messages ───────────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -95,7 +97,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // Phase 1 : fixtures -> API locale -> liste voulue.
   if (msg.type === 'SOFA_COLLECT') {
-    postLocal('/api/scraper/sofascore/collect', { day: msg.day, fixtures: msg.fixtures })
+    postLocal('/api/sofascore/collect', { day: msg.day, fixtures: msg.fixtures })
       .then((j) =>
         sendResponse({
           ok: !!(j && j.success),
@@ -111,7 +113,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // Phase 3 : fixtures + cotes brutes -> API locale -> persistOdds.
   if (msg.type === 'SOFA_INGEST') {
-    postLocal('/api/scraper/sofascore/ingest', { day: msg.day, rows: msg.rows })
+    postLocal('/api/sofascore/ingest', { day: msg.day, rows: msg.rows })
       .then((j) => sendResponse({ ...j, ok: !!(j && j.success) }))
       .catch((e) => sendResponse({ ok: false, error: e.message }))
     return true
@@ -131,7 +133,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       try {
         const { apiBase: base } = await getSettings()
         const res = await fetch(
-          `${(base || DEFAULT_API).replace(/\/+$/, '')}/api/scraper/sofascore/collect`,
+          `${(base || DEFAULT_API).replace(/\/+$/, '')}/api/sofascore/collect`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

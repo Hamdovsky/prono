@@ -123,6 +123,7 @@ module.exports = [
       'tools/',
       '.agents/',
       '.venv/',
+      '.venv-crawl4ai/',
       'data_pipeline/.venv/',
       'data_pipeline/data/',
       'dist/',

@@ -156,11 +156,15 @@ test('LEAGUES embarque les 18 ligues du widget', () => {
 
 describe('enrichMatchesOpta', () => {
   const sample = require('../services/optaPredictions').runUpsert
+  // Timestamp relatif (E89) : la valeur en dur (1790213400000 ≈ 23/09/2026)
+  // sortait de la fenêtre de listPredictions (kickoff >= now-8j) => test périmé
+  // selon la date système.
+  const KICKOFF_MS = Date.now() + 2 * 3600 * 1000
   // Insère un match connu dans la DB (idempotent) pour tester l'enrichissement.
   beforeAll(() => {
     sample(database, {
       matchId: 'test_enrich_e2e',
-      kickoffMs: 1790213400000,
+      kickoffMs: KICKOFF_MS,
       league: 'MLS',
       home: 'Seattle Sounders',
       away: 'Real Salt Lake',
@@ -175,7 +179,7 @@ describe('enrichMatchesOpta', () => {
         id: 'm1',
         homeTeam: 'Seattle Sounders',
         awayTeam: 'Real Salt Lake',
-        startTimestamp: 1790213400000,
+        startTimestamp: KICKOFF_MS,
       },
     ]
     enrichMatchesOpta(database, matches)
@@ -185,7 +189,7 @@ describe('enrichMatchesOpta', () => {
   })
   test('ne modifie pas les matchs non trouvés', () => {
     const matches = [
-      { id: 'm2', homeTeam: 'Totally Unknown FC', awayTeam: 'Xyz AB', startTimestamp: 1790213400000 },
+      { id: 'm2', homeTeam: 'Totally Unknown FC', awayTeam: 'Xyz AB', startTimestamp: KICKOFF_MS },
     ]
     enrichMatchesOpta(database, matches)
     expect(matches[0].opta).toBeUndefined()

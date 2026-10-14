@@ -11794,3 +11794,123 @@ Rien n'arrêtait vraiment la requête : chaque 403 en relançait une.
   catch 403/429 (stop, 1 bypass), backoff transitoire.
 - `SofascoreScraping/src/apiClient.js` : import `getCache/setCache` et `http/https`
   restent morts (nettoyage possible plus tard, hors périmètre).
+
+---
+
+## E88 : SofaScore — cause racine du 403 (host + profil TLS + headers) et remise en état du client curl_cffi (2026-10-14)
+
+### Symptôme
+Toute la chaîne SofaScore (source live `services/sofascoreClient.py`, pont
+`services/scrapers/SofascoreBypass.js` → `scripts/sofascore_bypass.py`,
+enrichissement PixelRAG `core/visual_server.py`) renvoyait `403 {"reason":"challenge"}`
+ou `null`, comme si l'IP était bannie (le doute portait sur le datacenter Render).
+
+### Cause racine (reproduite, mesurée, locale — pas l'IP)
+Deux bugs **côté client**, pas une sanction WAF :
+1. **Mauvais host.** `https://api.sofascore.com/api/v1` renvoie **403 même avec le
+   bon profil TLS**. Le host qui répond est **`https://www.sofascore.com/api/v1`**
+   (same-origin). `sofascoreClient.py` était déjà sur `www` ; `sofascore_bypass.py`
+   et `core/visual_server.py` étaient sur `api.` → 403 systématique.
+2. **Profil TLS + en-têtes contradictoires.** Mesure locale : `safari17_0` /
+   `safari18_0` passent le challenge (**200**) ; `chrome120/124/131`, `firefox133` →
+   **403 "challenge"** (5/5 safari OK vs 10/10 chrome KO). Pire, poser un
+   `User-Agent` Chrome + `sec-ch-ua*` sur une session impersonée safari = **mismatch
+   fingerprint/UA → 403**. Il faut laisser curl_cffi poser ses propres en-têtes.
+3. `X-Requested-With` dynamique (sha256 de `int(time.time())//1800`[:6]) **non
+   requis** (200 sans).
+
+### Correctifs
+- **`scripts/sofascore_bypass.py`** : `BASE` → `https://www.sofascore.com/api/v1` ;
+  `IMPERSONATES` → `["safari17_0", "safari18_0", "chrome124"]` ; `api_get` log +
+  jitter anti-rafale et **court-circuit 404** (plus de repli trompeur vers un 403
+  chrome).
+- **`services/sofascoreClient.py`** : `TLS_PROFILES` → safari d'abord
+  (`safari17_0, safari18_0, chrome124`) ; `_init_session` **supprime** `user-agent`
+  et `sec-ch-ua*` (ne garde que accept / accept-language / referer / origin /
+  sec-fetch) ; `_get` **fait tourner le profil immédiatement** sur 403/429 et ne
+  déclenche le cooldown global (8 min, fast-fail) **qu'après épuisement des profils**
+  (avant : cooldown posé dès le 1er 403 puis `sleep(8 min)` avant le retry).
+- **`core/visual_server.py`** : `_sofascore_get_json` → host `www.sofascore.com`,
+  `impersonate='safari17_0'`, `User-Agent` manuel retiré.
+- Docstrings `SofascoreBypass.js` / `sofascoreClient.py` mises à jour (host + ordre
+  des profils).
+
+### Vérification (live, locale)
+- `sofascore_bypass.py` : `team --name Arsenal` → id **42** ;
+  `odds --event 11366885` → **1.73 / 3.75 / 3.80** ; `stats` → `c_ft 8/4` ;
+  `lineups` → 18 + 14 joueurs réels ; `live` → events réellement en cours avec cotes.
+  `odds --event 16363846` → **404** légitime (match futur sans cotes postées).
+- `services/sofascoreClient.py` : profil `safari17_0`, `resolve_event_id('Arsenal',
+  'Chelsea')` → **16363846**, `fetch_match_full('11366885')` → 1X2 + xG
+  (1.55/1.37) + tirs (11/10).
+- Pont Node réel : `SofascoreBypass.resolveEvent('PSG','Marseille')` → **16311088**,
+  `searchTeam('Arsenal')` → `{id:42}`.
+- `node --check SofascoreBypass.js` OK ; `py_compile` OK sur les 3 fichiers Python.
+- Jest `sofascore*` : **4 suites, 42 tests verts**. Jest
+  `oddsServiceCorners/enrichedPredictions/motivationEnrich/oddsSource/sourceRateLimiter`
+  : **6 suites, 41 tests verts**. pytest `test_sofascore_lineups`,
+  `test_sofascore_helpers`, `test_bypass_proxy` : **15 tests verts**.
+
+### Limites connues (inchangées)
+- La découverte de fixtures **par date** reste `404` côté SofaScore
+  (`sport/football/scheduled-events/{date}`, `unique-tournament/{id}/scheduled-events/{date}`
+  pour aujourd'hui/futur) ; la voie qui marche est `search/all` → `team/{id}` →
+  `team/{id}/events/next|last/0` (utilisée par `resolve`), et
+  `scheduled-tournaments/{date}/page/{n≥1}` pour lister les tournois du jour.
+- Non re-testé depuis une IP datacenter (Render) : le fix est **client**, donc
+  indépendant de l'IP, mais à confirmer en prod.
+
+### Fichiers touchés
+- `scripts/sofascore_bypass.py`, `services/sofascoreClient.py`,
+  `core/visual_server.py`, `services/scrapers/SofascoreBypass.js` (docstring).
+
+---
+
+## E89 : audit général — `ou_prob` disparue, config ESLint, test time-bomb (2026-10-14)
+
+### Méthode
+Scan automatisé : `node --check` (823 `.js`), `py_compile`, `eslint .` (JSON),
+`pytest --collect-only`, suites Jest/pytest complètes, build Vite, contrôle git
+(secrets/artefacts).
+
+### 🔴 Cause racine — `ou_prob` supprimée mais toujours importée
+Le commit `dd74059` (E30, diagnostic Poisson « ne pas déployer ») a **écrasé**
+`core/ou_model.py` par un script de diagnostic, retirant la fonction
+`ou_prob` (logistique calibrée, gated `OU_MODEL_ENABLED`). Or elle restait
+importée par :
+- `core/market_engine.py:67` → **ImportError avalée** par un `except` → le modèle
+  O/U n'était **jamais** utilisé (repli silencieux sur Monte Carlo, `OU_MODEL_ENABLED`
+  pourtant `true` par défaut).
+- `core/validate_markets.py:22` → import **au niveau module** → script cassé.
+- `tests/test_ou_model.py:10` → **erreur de collecte pytest** (bloquait la suite).
+- `tests/test_market_engine.py` → 1 test rouge.
+
+**Correctif** : ré-ajout de l'API production (`ou_prob`, `_load`, `_sigmoid`,
+`has_model`) dans `core/ou_model.py`, **sans supprimer** le diagnostic E30
+(conservé sous `__main__`). Aucune ligne de code préexistante retirée.
+
+### 🟠 ESLint — config incomplète
+`eslint.config.js` ignorait `.venv/` mais **pas `.venv-crawl4ai/`** (pourtant dans
+`.gitignore`). `npm run lint` remontait **99 821 erreurs** de JS tiers
+(playwright/litellm/swagger). Ajout de `.venv-crawl4ai/` aux `ignores` →
+**0 erreur** (357 warnings).
+
+### 🟡 Divers
+- `scripts/backfill_ht_footballdata.js:35` : 3 erreurs `prefer-const` corrigées.
+- `__tests__/theAnalyst.test.js` : timestamp **codé en dur** (`1790213400000`
+  ≈ 23/09/2026) hors de la fenêtre `listPredictions` (`kickoff >= now-8j`) selon la
+  date système → **test time-bomb**. Remplacé par `KICKOFF_MS = Date.now() + 2h`.
+- Artefact `null` (0 o, racine) supprimé. `.kilo/` (worktree git interne) laissé
+  intact volontairement.
+
+### Vérification
+- Jest complet : **116 suites, 1185 tests, tous verts** (avant : 1 suite / 1 test rouge).
+- pytest : **536 passed, 34 skipped, 2 xfailed, 0 failed, 0 erreur de collecte**
+  (avant : 531 passed + 1 module non collecté + 1 test rouge).
+- `import core.validate_markets` OK ; `ou_prob(2.7, 2.5)=0.2672`, `has_model()=True`.
+- `eslint .` : 0 erreur. `node --check` backfill OK. Build Vite OK.
+
+### Fichiers touchés
+- `core/ou_model.py` (API `ou_prob` restaurée), `eslint.config.js`,
+  `scripts/backfill_ht_footballdata.js`, `__tests__/theAnalyst.test.js`.
+- `null` supprimé.

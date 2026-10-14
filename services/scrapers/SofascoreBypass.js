@@ -2,14 +2,15 @@
  * SofascoreBypass — accès à l'API publique Sofascore via curl_cffi
  * (contournement du ban TLS/IP par fingerprints navigateur, 100 % gratuit).
  *
- * Chaîne : Node -> scripts/sofascore_bypass.py (venv curl_cffi) -> api.sofascore.com
+ * Chaîne : Node -> scripts/sofascore_bypass.py (venv curl_cffi) -> www.sofascore.com/api/v1
+ * (host www.sofascore.com requis : api.sofascore.com renvoie 403 même avec le bon TLS)
  * resolve : /search/all -> team id -> /team/{id}/events/{next,last}/0 -> event id
  * odds    : /event/{id}/odds/1/all (fractionnel -> decimal)
  *
  * 2026-09-09 — Pont PixelRAG (services/pixelragService.enrichMatch) :
  *   si PIXELRAG_BRIDGE=on (défaut), SofascoreBypass délègue l'agrégation
  *   lineups+injuries+stats+H2H+embedding à PixelRAG-lite (1 round-trip HTTP
- *   vers :30002 au lieu de 4-5 vers api.sofascore.com). Fallback Python
+ *   vers :30002 au lieu de 4-5 vers www.sofascore.com). Fallback Python
  *   conservé si PixelRAG down. Kill-switch : DISABLE_SOFASCORE=true.
  */
 const { execFile } = require('child_process')

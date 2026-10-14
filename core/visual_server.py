@@ -360,19 +360,24 @@ if _HAS_FASTAPI:
     _SOFASCORE_LIVE_TTL = 30  # 30s pour les matchs en direct
 
     def _sofascore_get_json(path, timeout=10):
-        """Fetch api.sofascore.com via curl_cffi (fingerprints Chrome) — 100% local."""
+        """Fetch sofascore via curl_cffi (fingerprint Safari) — 100% local.
+
+        Fix 2026-10-14 : host `www.sofascore.com/api/v1` (et non `api.sofascore.com`,
+        qui renvoie 403 même avec le bon profil) + profil `safari17_0` (les profils
+        chrome* prennent 403 "challenge"). Aucun User-Agent manuel : un UA Chrome sur
+        un fingerprint Safari = mismatch => 403.
+        """
         try:
             from curl_cffi import requests as cc_requests
         except Exception:
             return None
-        url = f'https://api.sofascore.com/api/v1{path}'
+        url = f'https://www.sofascore.com/api/v1{path}'
         try:
             r = cc_requests.get(
                 url,
-                impersonate='chrome124',
+                impersonate='safari17_0',
                 timeout=timeout,
                 headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                     'Accept': '*/*',
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Origin': 'https://www.sofascore.com',

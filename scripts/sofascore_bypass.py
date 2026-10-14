@@ -7,10 +7,21 @@ Usage:
   python sofascore_bypass.py odds --event 16287064
 
 Sortie : UN objet JSON unique sur stdout. Les logs vont sur stderr.
+
+2026-10-14 — Fix racine : deux erreurs côté client, pas le WAF.
+  (1) HOST : `api.sofascore.com` renvoie 403 meme avec le bon profil ; l'edge
+      qui repond est `www.sofascore.com/api/v1` (same-origin, comme le site).
+  (2) PROFIL TLS : `safari17_0` / `safari18_0` passent le challenge Cloudflare,
+      les profils `chrome*` et `firefox*` prennent 403 "challenge" (mesure
+      5/5 safari OK, 10/10 chrome KO). On met donc Safari en tete ; Chrome en
+      secours. Aucun header custom requis (curl_cffi pose les siens).
+  Ne PAS ajouter de User-Agent/sec-ch-ua manuels : un UA Chrome sur un
+  fingerprint Safari = mismatch detecte -> 403 (cause racine historique).
 """
 import argparse
 import json
 import os
+import random
 import re
 import sys
 import time
@@ -24,8 +35,8 @@ import unicodedata
 
 from curl_cffi import requests
 
-BASE = "https://api.sofascore.com/api/v1"
-IMPERSONATES = ["chrome124", "safari17_0", "firefox133"]
+BASE = "https://www.sofascore.com/api/v1"
+IMPERSONATES = ["safari17_0", "safari18_0", "chrome124"]
 TIMEOUT = 20
 
 
@@ -45,7 +56,7 @@ def norm(s):
 
 def api_get(path, params=None):
     last_err = None
-    for imp in IMPERSONATES:
+    for i, imp in enumerate(IMPERSONATES):
         try:
             r = requests.get(
                 BASE + path,
@@ -55,9 +66,20 @@ def api_get(path, params=None):
             )
             if r.status_code == 200:
                 return r.json()
+            if r.status_code == 404:
+                # Ressource absente : inutile d'essayer d'autres profils, sinon le
+                # 403 du profil suivant masque la vraie cause (cf. E87).
+                raise RuntimeError("api_get %s: HTTP 404 (not found)" % path)
             last_err = "HTTP %s (%s)" % (r.status_code, imp)
+            log("api_get %s: %s" % (path, last_err))
+        except RuntimeError:
+            raise
         except Exception as e:  # noqa: BLE001
             last_err = "%s (%s)" % (e, imp)
+            log("api_get %s: %s" % (path, last_err))
+        # Anti-storm (cf. E87) : petit jitter avant de changer de profil.
+        if i < len(IMPERSONATES) - 1:
+            time.sleep(0.3 + random.random() * 0.5)
     raise RuntimeError("api_get %s a echoue: %s" % (path, last_err))
 
 

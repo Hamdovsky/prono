@@ -4,8 +4,9 @@ SofascoreClient — source LIVE primaire 100% gratuite, sans clé API.
 Utilise curl_cffi (TLS fingerprint impersonation) pour contourner la
 protection Cloudflare de www.sofascore.com. Stratégie anti-ban locale :
   - Session curl_cffi persistante (cookies entre requêtes)
-  - Rotation automatique du profil TLS (chrome124 -> safari17_0 -> chrome120)
-    si un 403/429 est détecté
+  - Rotation automatique du profil TLS (safari17_0 -> safari18_0 -> chrome124)
+    si un 403/429 est détecté (les profils chrome* prennent 403 "challenge"
+    sur www.sofascore.com ; safari passe — cf. fix 2026-10-14)
   - Délai 1.5s + jitter entre chaque requête
 
 Données exposées (best-effort) :
@@ -42,9 +43,12 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 logging.basicConfig(level=logging.INFO, format='[SOFASCORE] %(message)s')
 log = logging.getLogger('SofascoreClient')
 
-TLS_PROFILES = ["chrome124", "safari17_0", "chrome120"]
+TLS_PROFILES = ["safari17_0", "safari18_0", "chrome124"]
 
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+# Ne PAS poser de User-Agent / sec-ch-ua manuels : un UA Chrome sur un fingerprint
+# TLS Safari = mismatch détecté par Cloudflare => 403 "challenge" (cause racine
+# historique). On laisse curl_cffi poser les en-têtes cohérents avec `impersonate`.
+UA = None
 
 
 class SofascoreClient:
@@ -64,19 +68,16 @@ class SofascoreClient:
 
     def _init_session(self):
         self.session = cffi_requests.Session(impersonate=TLS_PROFILES[self._profile_idx])
+        # En-têtes neutres uniquement : pas de user-agent ni sec-ch-ua (cf. TLS_PROFILES).
         self.session.headers.update({
             "accept": "application/json, text/plain, */*",
             "accept-language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
             "cache-control": "max-age=0",
             "referer": "https://www.sofascore.com/",
             "origin": "https://www.sofascore.com",
-            "sec-ch-ua": '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
-            "user-agent": UA,
         })
 
     def _rotate_profile(self):
@@ -92,33 +93,42 @@ class SofascoreClient:
     def _sleep(self):
         time.sleep(1.5 + random.random() * 1.0)
 
-    def _get(self, url, retries=3):
+    def _get(self, url, retries=None):
         if not self.enabled or self.session is None:
             return None
+        if retries is None:
+            retries = len(TLS_PROFILES)
+        # Fast-fail anti-storm (cf. E87) : si le cooldown global est actif, on ne
+        # touche pas au réseau du tout.
+        if time.time() * 1000 < self._cooldown_until:
+            wait = (self._cooldown_until - time.time() * 1000) / 1000.0
+            log.warning(f"Cooldown actif ({wait:.0f}s), requête ignorée: {url}")
+            return None
+        blocked = False
         for attempt in range(retries):
-            if time.time() * 1000 < self._cooldown_until:
-                wait = (self._cooldown_until - time.time() * 1000) / 1000.0
-                log.warning(f"Cooldown actif, attente {wait:.0f}s")
-                time.sleep(max(wait, 1))
             try:
                 self._sleep()
                 r = self.session.get(url, timeout=15)
-                if r.status_code == 403 or r.status_code == 429:
-                    log.warning(f"Blocage {r.status_code} sur {url} (tentative {attempt+1})")
-                    self._cooldown_until = time.time() * 1000 + self._cooldown_ms
+                if r.status_code == 200:
+                    return r.json()
+                if r.status_code == 404:
+                    return None
+                if r.status_code in (403, 429):
+                    # Rotation IMMÉDIATE du profil (pas de cooldown avant d'avoir
+                    # essayé les autres) : c'est le profil TLS qui débloque.
+                    log.warning(f"Blocage {r.status_code} sur {url} (profil {TLS_PROFILES[self._profile_idx]}, tentative {attempt+1})")
+                    blocked = True
                     self._rotate_profile()
                     continue
-                if r.status_code != 200:
-                    log.warning(f"HTTP {r.status_code} sur {url}")
-                    if r.status_code == 404:
-                        return None
-                    continue
-                return r.json()
+                log.warning(f"HTTP {r.status_code} sur {url}")
+                continue
             except Exception as e:
                 log.warning(f"Erreur requête {url}: {e}")
-                if attempt == retries - 1:
-                    return None
                 self._rotate_profile()
+                continue
+        # Tous les profils bloqués -> cooldown global (on ne martèle pas SofaScore).
+        if blocked:
+            self._cooldown_until = time.time() * 1000 + self._cooldown_ms
         return None
 
     # ── Fixtures : toutes les ligues d'une date ────────────────

@@ -32,8 +32,8 @@ function normTeam(name) {
 }
 function normDate(v) {
   const s = String(v || '').trim()
-  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
-  if (m) { let [, d, mo, y] = m; y = y.length === 4 ? y : '20' + y
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/)
+  if (m) { const [, d, mo] = m; let y = m[3]; y = y.length === 4 ? y : '20' + y
     return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}` }
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
   return null

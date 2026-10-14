@@ -12247,3 +12247,69 @@ nouveau dump : plus de 403 `events/live` ni de `Global cooldown 480s` déclench�
 alertes live. Vérifier en prod l'affichage du combo (e2e precision_bets Poisson + cotes
 réelles via le registry). Traiter éventuellement le circuit breaker `ScrapingBypass` et la
 rotation de proxies.
+
+---
+
+## E94 — Analyse de patterns + déblocage calibration 1X2 (2026-10-14)
+
+### Contexte
+Demande utilisateur : « connaître d'après le XGBoost quand le favori perd / l'outdog gagne,
+quand c'est Over/Under, et les patterns pour améliorer la précision ». Audit statistique des
+bases labellisées (lecture seule) → 3 scripts d'analyse créés (non commités) :
+`scripts/analyze_patterns.py`, `scripts/analyze_model_patterns.py`, `scripts/analyze_production.py`.
+
+### Constats mesurés
+- **Modèle 1X2 sur-confiant** (`historical_matches`, n=16 903) : confiance annoncée 70-80 %
+  → justesse réelle 47.4 % ; 80 %+ → 48.6 %. Accuracy argmax = **41.7 %** < baseline
+  « toujours domicile » 44.4 %. Biais domicile extrême (prédit H 71.6 %, jamais le nul).
+- **Marché bien calibré** (`archive_football_data`, n=42 221) : favori (cote min) gagne
+  *plus* que l'implicite (+0.8 → +3.5 pts) ; favori domicile 54 % / extérieur 50 %.
+- **Over/Under** : `Total_xG_L5` est le meilleur prédicteur (<2.0 → 43.6 % Over ; >4.0 →
+  66.8 % Over).
+- **Gate ISO** (`node scripts/check_iso_gate.js`) : **GO** (C1 = 13 056 picks post-gel ;
+  C2 = courbe 1X2 monotone).
+
+### Cause racine — la calibration était morte à DEUX portes
+1. `_backtest_is_fresh()` lisait `backtest_results.json.updated`, or le rapport réel expose
+   `timestamp` (aucun champ `updated`) → fraîcheur **faussement négative en permanence** →
+   `isotonic_calibrate()` retournait l'**identité** même sur des données du jour.
+2. `_load_model()` : le fit tourne en `__main__` → `isotonic_model.pkl` référence
+   `__main__.PlattCalibrator` → `pickle.load` levait `AttributeError` depuis un import
+   (FastAPI) → `_load_model()` retournait `None` → repli silencieux sur le Platt v54 figé.
+   **Le fit frais (brier 0.0748 → 0.0547) n'était JAMAIS appliqué.**
+
+Conséquence : `check_iso_gate.js --activate` seul n'aurait rien réactivé (les deux défauts
+persistaient). Les probs 1X2 servies (via `enriched_predictions.js:741` ← Python
+`/predict` ← `confidence_engine.calibrate_confidence` ← `isotonic_calibrate`) restaient
+gonflées.
+
+### Correctif (`core/calibration_iso.py`)
+- `_backtest_is_fresh()` : accepte `updated` **ou** `timestamp`.
+- `_load_model()` : alias `PlattCalibrator` dans `sys.modules['__main__']` avant
+  `pickle.load` (décharge les artefacts `__main__` sans refit).
+- Effet mesuré : `isotonic_calibrate(0.75,0.13,0.12)` → `(0.4987, 0.2607, 0.2406)`
+  (confiance honnête ≈ justesse réelle, somme = 1, argmax préservé).
+
+### Tests
+- `tests/test_calibration_iso_freshness.py` : +5 (fraîcheur via `timestamp`, stale via
+  `timestamp`, unpickle `__main__`, fichier absent → None, application quand frais) → **10 passed**.
+- pytest racine : **551 passed, 3 failed** (les 3 `test_general_integration.py` exigent
+  FastAPI `127.0.0.1:8000` → 503, **pré-existants**), 39 skipped, 1 xfailed, 1 xpassed.
+
+### Fichiers touchés
+- `core/calibration_iso.py` (2 correctifs), `tests/test_calibration_iso_freshness.py`.
+
+### Reste à faire / points de contrôle
+- Redémarrer FastAPI pour charger le correctif ; vérifier que les probs servies d'un match
+  à forte confiance sont désormais shrinkées (~+confiance 75 → ~50).
+- Décider d'un **refit** (`python core/calibration_iso.py --fit`) pour rafraîchir
+  `models/isotonic_params.json` (fitted_at 2026-10-06, 8 j) — optionnel, modèle encore valide.
+- Levier n°2 (non traité) : l'accuracy 1X2 reste ~42 % — la calibration rend la confiance
+  honnête mais ne change pas le pick ; l'amélioration du pick = travail features/modèle.
+- `models/isotonic_params.json` est **tracké** (churn cron possible, E73f) : à `.gitignore`
+  si on veut éviter du bruit de commit.
+
+<Prochaine étape> Vérifier en runtime (FastAPI relancé) que la calibration 1X2 s'applique
+effectivement aux probs servies, puis mesurer l'évolution du Brier/accuracy après quelques
+jours de settles. Envisager l'intégration du seuil Over/Under par `Total_xG_L5` comme règle
+de marché secondaire.

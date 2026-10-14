@@ -307,6 +307,17 @@ def _load_model():
     if not os.path.exists(MODEL_PATH):
         return None
     try:
+        # E94 : le fit tourne toujours en `__main__`
+        # (python core/calibration_iso.py --fit, -m ..., ou le cron via
+        # execFileSync), donc la classe est picklée comme
+        # `__main__.PlattCalibrator`. Depuis un import (FastAPI,
+        # confidence_engine), `__main__` est UN AUTRE module : pickle.load
+        # levait AttributeError, _load_model() retournait None, et la
+        # calibration tombait silencieusement sur le Platt v54 figé — le fit
+        # frais (brier_before 0.0748 -> 0.0547) n'était JAMAIS appliqué.
+        main = sys.modules.get('__main__')
+        if main is not None and not hasattr(main, 'PlattCalibrator'):
+            main.PlattCalibrator = PlattCalibrator
         with open(MODEL_PATH, 'rb') as f:
             return pickle.load(f)
     except Exception:
@@ -317,14 +328,19 @@ BACKTEST_MAX_AGE_DAYS = int(os.environ.get('ISO_BACKTEST_MAX_AGE_DAYS', '7'))
 
 
 def _backtest_is_fresh():
-    """True if data/backtest_results.json exists, has an 'updated' timestamp,
-    and is at most ISO_BACKTEST_MAX_AGE_DAYS old. A stale backtest means the
-    isotonic map was fit on outdated observations -> calibration must be
-    neutralized to avoid miscalibrating served probabilities."""
+    """True if data/backtest_results.json exists, has a timestamp, and is at
+    most ISO_BACKTEST_MAX_AGE_DAYS old. A stale backtest means the isotonic
+    map was fit on outdated observations -> calibration must be neutralized
+    to avoid miscalibrating served probabilities.
+
+    E94 : le rapport réel expose `timestamp` (jamais `updated`). Lire la seule
+    clé `updated` rendait la fraîcheur FAUSSEMENT négative en permanence :
+    `isotonic_calibrate()` retournait l'identité même sur des données du jour,
+    gelant la calibration à vie malgré un gate GO."""
     data = _load_json(BACKTEST_PATH)
     if not data:
         return False
-    updated = data.get('updated')
+    updated = data.get('updated') or data.get('timestamp')
     if not updated:
         return False
     try:

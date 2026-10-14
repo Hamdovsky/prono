@@ -627,6 +627,13 @@ router.get('/upcoming', speedCache('upcoming', 15000, 0), async (req, res) => {
       if (m.quant && m.quant.markets && m.quant.markets.over_under) {
         marketAnalysis.ensureOuLines(m.quant.markets, parseFloat(m.home_xg) || 0, parseFloat(m.away_xg) || 0)
       }
+
+      // 🎯 [COMBO HYDRATE] btts_over25 (GG + Over 2.5) absent d'un fullData stale :
+      // recalculé depuis l'xG (même moteur) pour l'afficher sans ré-enrichir tout le
+      // parc. Idempotent — ne touche jamais une valeur déjà persistée.
+      if (m.quant) {
+        marketAnalysis.ensureComboProb(m.quant, m.home_xg, m.away_xg, m)
+      }
     }
 
     // 🧠 [NEURAL-X FILTER] Split elite matches from fallback pool

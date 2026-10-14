@@ -12157,8 +12157,8 @@ Seuil d'affichage `_COMBO_GG_O25_MIN = 0.40` (override env `COMBO_GG_O25_MIN`) �
 
 ### Vérification
 - Pytest ciblé : `tests/test_market_engine.py` **42 passed**.
-- Jest complet : **123 suites / 1227 tests, 0 échec** (baseline E92 : 120/1203 →
-  +3 suites, +24 tests ; suivi accuracy +5 tests, affichage +12 tests).
+- Jest complet : **123 suites / 1231 tests, 0 échec** (baseline E92 : 120/1203 →
+  +3 suites, +28 tests ; suivi accuracy +5, affichage +12, hydratation serve-time +4).
 - pytest complet (racine) : **554 passed, 31 skipped, 2 xfailed** ; les **3 échecs**
   `tests/test_general_integration.py` sont **pré-existants** (serveur FastAPI
   `127.0.0.1:8000` absent → HTTP 503, reproduits à l'identique sur l'arbre propre
@@ -12209,6 +12209,13 @@ utilisateur : afficher **colonne dashboard ET chip**, calcul côté **moteur Nod
   (onglet `combo` : `filters`/`filterLabels` GG+O2.5/`filterColors`).
 - Filtre onglet combo : `hasMarketPrediction` au seuil 40 % (proba combo), pas la simple
   présence de cellule.
+- **Correctif d'affichage (fullData stale)** : sur localhost, la liste est servie depuis
+  la DB (`fullData.quant` persisté) et la boucle de ré-enrichissement ne retraite que les
+  matchs « anciens » → la majorité gardaient un `quant.probs` sans `btts_over25` (onglet
+  GG+O2.5 à 0). Ajout d'une **hydratation au moment de servir** : `marketAnalysisService.ensureComboProb(quant, xgH, xgA)`
+  recalcule `btts_over25` depuis l'xG (même moteur `StatisticalEngine.calculateMarketProbs`),
+  idempotent (n'écrase jamais une valeur persistée). Appelé dans `routes/matches.js` à côté
+  de `ensureOuLines` pour chaque match (xG dispo via `getMatchXG`).
 
 ### Fichiers touchés
 - `core/market_engine.py`, `core/prediction_engine.py`, `core/market/registry.js`,
@@ -12223,6 +12230,8 @@ utilisateur : afficher **colonne dashboard ET chip**, calcul côté **moteur Nod
   `src/components/MatchCard.css`, `src/components/Dashboard.jsx`,
   `__tests__/comboDisplay.test.js` (nouveau), `__tests__/engineCombo.test.js` (nouveau),
   `__tests__/enrichOne.test.js`, `__tests__/matchAnalysis.test.js`, `__tests__/tableColumns.test.js`.
+- Hydratation serve-time : `services/marketAnalysisService.js` (`ensureComboProb`),
+  `routes/matches.js`, `__tests__/marketAnalysisService.test.js`.
 
 ### Reste à faire
 - **Pré-existant** : `test_fetch_fixtures_filtre_top5` (cf. E90) ;

@@ -116,3 +116,33 @@ describe('marketAnalysisService legacy corners', () => {
     expect(typeof c[0].expectedTotal).toBe('number')
   })
 })
+
+describe('marketAnalysisService.ensureComboProb (E93 hydrate)', () => {
+  test('pose btts_over25 (entier %) quand absent et xG connu', () => {
+    const quant = { probs: { btts: 55, over25: 60 } }
+    const v = marketAnalysis.ensureComboProb(quant, 1.6, 1.3)
+    expect(Number.isInteger(v)).toBe(true)
+    expect(v).toBeGreaterThanOrEqual(0)
+    expect(v).toBeLessThanOrEqual(100)
+    expect(quant.probs.btts_over25).toBe(v)
+  })
+
+  test('crée quant.probs si absent', () => {
+    const quant = {}
+    const v = marketAnalysis.ensureComboProb(quant, 1.6, 1.3)
+    expect(quant.probs).toBeDefined()
+    expect(quant.probs.btts_over25).toBe(v)
+  })
+
+  test('idempotent : ne remplace jamais une valeur déjà présente', () => {
+    const quant = { probs: { btts_over25: 42 } }
+    expect(marketAnalysis.ensureComboProb(quant, 1.6, 1.3)).toBe(42)
+    expect(quant.probs.btts_over25).toBe(42)
+  })
+
+  test('xG manquant -> null, rien posé', () => {
+    const quant = { probs: {} }
+    expect(marketAnalysis.ensureComboProb(quant, 0, 0)).toBeNull()
+    expect(quant.probs.btts_over25).toBeUndefined()
+  })
+})

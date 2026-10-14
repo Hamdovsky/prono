@@ -295,6 +295,30 @@ function ensureOuLines(markets, xgH, xgA) {
   return markets
 }
 
+// E93 — Hydrate btts_over25 (GG + Over 2.5) sur un fullData stale : si la valeur
+// manque mais que l'xG est connu, on la recalcule via le même moteur que
+// l'enrichissement (StatisticalEngine.calculateMarketProbs). Idempotent : ne
+// écrase jamais une valeur déjà présente. Retourne la valeur posée ou null.
+function ensureComboProb(quant, xgH, xgA, match = {}) {
+  if (!quant || typeof quant !== 'object') return null
+  const xh = parseFloat(xgH) || 0
+  const xa = parseFloat(xgA) || 0
+  if (xh <= 0 || xa <= 0) return null
+  if (!quant.probs) quant.probs = {}
+  if (quant.probs.btts_over25 !== undefined) return quant.probs.btts_over25
+  try {
+    const StatisticalEngine = require('../core/services/StatisticalEngine')
+    const c = StatisticalEngine.calculateMarketProbs(xh, xa, match).btts_over25
+    if (Number.isFinite(c)) {
+      quant.probs.btts_over25 = Math.round(c * 100)
+      return quant.probs.btts_over25
+    }
+  } catch (e) {
+    logger.debug(`[MARKET] ensureComboProb skipped: ${e.message}`)
+  }
+  return null
+}
+
 function analyzeAll(match, model) {
   const xgH = model?.xgH ?? model?.homeXG ?? 1.2
   const xgA = model?.xgA ?? model?.awayXG ?? 1.0
@@ -316,6 +340,7 @@ function analyzeAll(match, model) {
 module.exports = {
   analyzeAll,
   ensureOuLines,
+  ensureComboProb,
   overUnder,
   btts,
   doubleChance,

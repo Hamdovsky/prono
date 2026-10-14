@@ -669,9 +669,25 @@ const Dashboard = () => {
       searchQuery,
     }
 
-    const filters = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners']
-    const filterLabels = { ALL: 'Tous', ou: 'Over/Under', win: '1X2', btts: 'BTTS', ht: '1er MT', corners: 'Corners' }
-    const filterColors = { ALL: '#94a3b8', ou: '#10b981', win: '#00ffaa', btts: '#f87171', ht: '#fbbf24', corners: '#60a5fa' }
+    const filters = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners', 'combo']
+    const filterLabels = {
+      ALL: 'Tous',
+      ou: 'Over/Under',
+      win: '1X2',
+      btts: 'BTTS',
+      ht: '1er MT',
+      corners: 'Corners',
+      combo: 'GG+O2.5',
+    }
+    const filterColors = {
+      ALL: '#94a3b8',
+      ou: '#10b981',
+      win: '#00ffaa',
+      btts: '#f87171',
+      ht: '#fbbf24',
+      corners: '#60a5fa',
+      combo: '#e879f9',
+    }
     // E66 : labels/couleurs densité (les hauteurs sont déclarées avec ROW_H).
     const densityLabels = { comfortable: 'Confort', dense: 'Dense', veryDense: 'T. dense' }
     const densityColors = { comfortable: '#38bdf8', dense: '#a78bfa', veryDense: '#f59e0b' }

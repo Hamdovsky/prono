@@ -24,6 +24,43 @@ _CORNER_LINE = 9.5
 # (core/eval_markets_walkforward.py, 4 folds chronologiques, fit sur passe).
 _BTTS_MODEL_ENABLED = os.environ.get("BTTS_MODEL_ENABLED", "true").lower() == "true"
 _OU_MODEL_ENABLED = os.environ.get("OU_MODEL_ENABLED", "true").lower() == "true"
+# E93 : seuil d'affichage du marche combine GG + Over 2.5. Hybride : 40% peut
+# deja etre fiable (deux attaques productives + xG total eleve). Overridable.
+_COMBO_GG_O25_MIN = float(os.environ.get("COMBO_GG_O25_MIN", "0.40"))
+
+
+def combo_gg_over25_prob(xg_h, xg_a, p_btts=None, p_over25=None):
+    """P(GG ∩ Over 2.5) = P(les deux marquent ET total >= 3 buts).
+
+    Joint Poisson independant depuis xG :
+        P(GG)          = (1-e^-xh)(1-e^-xa)
+        P(GG ∩ tot<3)  = P(1,1) = (xh e^-xh)(xa e^-xa)   # seul cas GG avec 2 buts
+        combo          = P(GG) - P(1,1)
+    Borne par les marginales calibrees (inégalité de Frechet) quand elles sont
+    fournies, pour rester coherent avec les marches BTTS / O/U affiches.
+    Retourne une proba dans [0,1] ou None si xG invalide.
+    """
+    try:
+        xh = max(0.0, float(xg_h))
+        xa = max(0.0, float(xg_a))
+    except (TypeError, ValueError):
+        return None
+    eh = math.exp(-xh)
+    ea = math.exp(-xa)
+    p_gg = (1.0 - eh) * (1.0 - ea)
+    p_1_1 = (xh * eh) * (xa * ea)
+    p = p_gg - p_1_1
+    if p < 0.0:
+        p = 0.0
+    # Bornes de Frechet vs marginales calibrees (coherence hybride)
+    if p_btts is not None and p_over25 is not None:
+        try:
+            lo = max(0.0, float(p_btts) + float(p_over25) - 1.0)
+            hi = min(float(p_btts), float(p_over25))
+            p = min(max(p, lo), hi)
+        except (TypeError, ValueError):
+            pass
+    return p
 
 
 def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15,
@@ -118,6 +155,25 @@ def generate_precision_bets(xg_h, xg_a, p_h, p_d, p_a, mc_ou25, mc_ou35, mc_ou15
             "probability": int(round(_pb * 100)),
             "reason": "Les deux équipes génèrent des occasions nettes"
             + (" [modele BTTS calibre]" if _BTTS_MODEL_ENABLED else ""),
+        })
+
+    # Combo GG + Over 2.5 (E93) : P(les deux marquent ET total >= 3 buts).
+    # Joint Poisson depuis xG, borne par les marginales calibrees BTTS/OU
+    # (Frechet) -> coherence hybride. Seuil 40% (voir _COMBO_GG_O25_MIN).
+    _pbt = None
+    if _BTTS_MODEL_ENABLED:
+        try:
+            from btts_model import btts_prob as _btts_prob_c
+            _pbt = _btts_prob_c(xg_h, xg_a)
+        except Exception:
+            _pbt = None
+    _p_ou25 = p25 if p25 is not None else (mc_ou25 / 100.0 if mc_ou25 is not None else None)
+    _combo = combo_gg_over25_prob(xg_h, xg_a, _pbt, _p_ou25)
+    if _combo is not None and _combo >= _COMBO_GG_O25_MIN:
+        precision_bets.append({
+            "market": "Combo GG + Over 2.5",
+            "probability": int(round(_combo * 100)),
+            "reason": f"P(les 2 marquent & 3+ buts)={_combo*100:.0f}% (xG {xg_h:.2f}-{xg_a:.2f}, joint Poisson borne Frechet)",
         })
 
     # Clean Sheet
@@ -491,6 +547,8 @@ def _model_prob_for_market(market_id, selection, line, model_probs):
     try:
         if market_id == 'btts':
             key = 'btts'
+        elif market_id == 'btts_over25':
+            key = 'btts_over25'
         elif market_id == 'total_goals':
             # map ligne -> cle ou_XX (cohérent avec prediction_engine: ou_25/ou_35/ou_15)
             if line is None:
@@ -526,6 +584,8 @@ def _human_market_label(market_id, selection, line):
         return f"{ov} {line} Corners" if line is not None else f"{ov} 9.5 Corners"
     if market_id == 'btts':
         return 'BTTS - Oui' if sel_str == 'yes' else 'BTTS - Non'
+    if market_id == 'btts_over25':
+        return 'Combo GG + Over 2.5'
     if market_id == 'asian_handicap':
         return f"AH {sel_str} ({line})" if line is not None else f"AH {sel_str}"
     if market_id == 'double_chance':

@@ -793,7 +793,11 @@ def _corners_from_statistics(stats, period):
 
 
 def cmd_stats(args):
-    """HT score + corners FT/HT d'un événement TERMINÉ (incidents + statistics)."""
+    """HT score + corners FT/HT + xG/possession/tirs d'un événement (incidents + statistics).
+
+    Le xG (expectedGoalsHome/Away) provient du même endpoint /statistics que les
+    corners : on le réutilise via _parse_live_stats pour éviter un 2e appel réseau.
+    """
     out = {"found": False}
     try:
         inc = api_get("/event/%d/incidents" % int(args.event))
@@ -810,9 +814,13 @@ def cmd_stats(args):
         ch_h, ch_a = _corners_from_statistics(stats, "1ST")
         if ch_h is not None:
             out["c_ht_h"], out["c_ht_a"] = ch_h, ch_a
+        extras = _parse_live_stats(stats)
+        if extras:
+            for k, v in extras.items():
+                out.setdefault(k, v)
     except Exception as e:  # noqa: BLE001
         out["statistics_error"] = str(e)
-    out["found"] = any(k in out for k in ("ht_h", "c_ft_h", "c_ht_h"))
+    out["found"] = any(k in out for k in ("ht_h", "c_ft_h", "c_ht_h", "expectedGoalsHome"))
     print(json.dumps(out, ensure_ascii=False))
 
 

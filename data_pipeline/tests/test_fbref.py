@@ -177,3 +177,68 @@ def test_soccerdata_current_season(monkeypatch) -> None:
     start, _ = current_season_years(datetime(2026, 8, 18))
     assert start == 2026
     assert soccerdata_current_season() == [2026]
+
+
+# ── E90 : couverture xG (coalesce multi-sources + supplément) ─────────────────
+
+
+def _xg_frame(date, home, away, hxg, axg, **extra) -> pd.DataFrame:
+    row = {
+        "date": pd.to_datetime([date]), "home_team": [home], "away_team": [away],
+        "home_xg": [hxg], "away_xg": [axg],
+    }
+    row.update({k: [v] for k, v in extra.items()})
+    return pd.DataFrame(row)
+
+
+def test_coalesce_xg_priorite_et_remplissage() -> None:
+    primary = _xg_frame("2026-08-15", "Arsenal", "Man United", 1.8, 0.9)
+    secondary = _xg_frame("2026-08-15", "Arsenal", "Man United", 9.9, 9.9, home_xa=2.0, away_xa=1.0)
+    secondary = pd.concat(
+        [secondary, _xg_frame("2026-08-16", "Chelsea", "Liverpool", 0.7, 2.1, home_xa=1.1, away_xa=0.5)],
+        ignore_index=True,
+    )
+    out = fbref._coalesce_xg([primary, secondary])
+    assert len(out) == 2
+    row1 = out[(out["home_team"] == "Arsenal")].iloc[0]
+    assert row1["home_xg"] == 1.8 and row1["away_xg"] == 0.9
+    assert row1["home_xa"] == 2.0 and row1["away_xa"] == 1.0
+    row2 = out[(out["home_team"] == "Chelsea")].iloc[0]
+    assert row2["home_xg"] == 0.7 and row2["away_xg"] == 2.1
+
+
+def test_coalesce_xg_vide() -> None:
+    assert fbref._coalesce_xg([]).empty
+    assert fbref._coalesce_xg([None, pd.DataFrame()]).empty
+
+
+def test_load_xg_supplement_absent_et_invalide(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(fbref, "RAW_DIR", tmp_path)
+    assert fbref._load_xg_supplement().empty
+    (tmp_path / "xg_supplement.csv").write_text("foo,bar\n1,2\n", encoding="utf-8")
+    assert fbref._load_xg_supplement().empty
+
+
+def test_fetch_ajoute_le_supplement_xg(monkeypatch, tmp_path) -> None:
+    def _fake_understat(names, seasons, limiter, force):
+        return pd.DataFrame({
+            "date": pd.to_datetime(["2026-08-15"]),
+            "home_team": ["Arsenal"], "away_team": ["Man United"],
+            "home_xg": [1.8], "away_xg": [0.9],
+            "home_xa": [2.0], "away_xa": [1.0],
+        })
+
+    monkeypatch.setattr(fbref, "_try_fbref", lambda *a, **k: None)
+    monkeypatch.setattr(fbref, "_fetch_understat", _fake_understat)
+    monkeypatch.setattr(fbref, "_patch_understat_rosters", lambda: None)
+    monkeypatch.setattr(fbref, "ADVANCED_CSV", tmp_path / "advanced_stats.csv")
+    monkeypatch.setattr(fbref, "RAW_DIR", tmp_path)
+    (tmp_path / "xg_supplement.csv").write_text(
+        "date,home_team,away_team,home_xg,away_xg\n2026-08-16,Chelsea,Liverpool,0.7,2.1\n",
+        encoding="utf-8",
+    )
+
+    out = fbref.fetch()
+    assert len(out) == 2
+    assert set(out["home_team"]) == {"Arsenal", "Chelsea"}
+    assert fbref._read_stats_source() == "understat"

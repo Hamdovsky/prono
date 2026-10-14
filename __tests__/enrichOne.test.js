@@ -120,3 +120,21 @@ test('Market Engine : enrichOne lit real_markets depuis fullData si absent du ma
   expect(out.real_markets).toBe(markets)
   expect(out.enriched.real_markets).toBe(markets)
 })
+
+test('E93 : enrichOne propage btts_over25_prob et engine_exit.btts_over25', async () => {
+  mockAnalyze.mockImplementation(() => ({
+    markets: {
+      match_result: { '1': { prob: 0.5 }, X: { prob: 0.25 }, '2': { prob: 0.25 } },
+    },
+    probs: { btts: 0.55, over25: 0.6, btts_over25: 42 },
+    main_pick: '1',
+    risk_label: 'BALANCED',
+    confidence: 60,
+    expected_score: [1.5, 1.2],
+    ev_score: '0.50',
+  }))
+  const out = await enrichOne({ homeTeam: 'A', awayTeam: 'B', league: 'E0' })
+  expect(out.btts_over25_prob).toBe(42)
+  expect(out.engine_exit.btts_over25).toBe(42)
+  expect(out.enriched.engine_exit.btts_over25).toBe(42)
+})

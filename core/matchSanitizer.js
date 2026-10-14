@@ -44,6 +44,9 @@ const LEAGUE_COUNTRY_MAP = {
 const PLACEHOLDER_TEAMS = /^(home|away|tbd|tba|equipo a|equipo b|team 1|team 2|local|visitante)$/i
 const GARBLED_NAME_RE = /^[^\w\s]{3,}|[\x00-\x08\x0e-\x1f]{2,}/ // control chars or emoji-only
 const SHORT_NAME_RE = /^.{1,2}$/ // 1-2 char team names are almost always garbage
+// ...sauf clubs dont le nom officiel ne fait que 1-2 caractères (faux positifs
+// réels : « AB » = Akademisk Boldklub, « KB » = Kjøbenhavns Boldklub, Danemark).
+const ALLOWED_SHORT_NAMES = new Set(['ab', 'kb', 'fc', 'sc', 'ac', 'if', 'bk'])
 
 // ─── CORE SANITIZER ──────────────────────────────────────────────────────────
 
@@ -94,7 +97,9 @@ function validateTeamNames(match) {
   if (GARBLED_NAME_RE.test(home) || GARBLED_NAME_RE.test(away)) {
     return { valid: false, reason: 'GARBLED_TEAM_NAME' }
   }
-  if (SHORT_NAME_RE.test(home) || SHORT_NAME_RE.test(away)) {
+  const homeShort = SHORT_NAME_RE.test(home) && !ALLOWED_SHORT_NAMES.has(home.toLowerCase())
+  const awayShort = SHORT_NAME_RE.test(away) && !ALLOWED_SHORT_NAMES.has(away.toLowerCase())
+  if (homeShort || awayShort) {
     return { valid: false, reason: 'TEAM_NAME_TOO_SHORT' }
   }
 
@@ -284,4 +289,5 @@ module.exports = {
   validateMatchFreshness,
   validateScore,
   isFrozenConfidence,
+  ALLOWED_SHORT_NAMES,
 }

@@ -79,6 +79,7 @@ from market_engine import (
     get_best_surgical_market, generate_pro_insights,
     calculate_poisson_scores, ensure_expected_score_in_cs,
     build_main_four,     real_markets_to_precision_bets,
+    combo_gg_over25_prob,
 )
 from confidence_engine import (
     evaluate_confluence, calibrate_confidence,
@@ -942,6 +943,13 @@ def process_prediction(match_obj: dict) -> dict:
     mc_ou25 = _f_feat('ou_25_prob', sim, 0.5) * 100
     mc_ou35 = _f_feat('ou_35_prob', sim, 0.3) * 100
     mc_ou15 = _f_feat('ou_15_prob', sim, 0.7) * 100
+    # E93 : proba du marche combine GG + Over 2.5 (fraction), bornee Frechet
+    # par les marginales BTTS/O2.5. Reutilisee pour l'edge gate et persistee.
+    _combo_frac = combo_gg_over25_prob(
+        xg_h, xg_a,
+        float(sim.get('btts_prob', 0.0) or 0.0),
+        _f_feat('ou_25_prob', sim, 0.5),
+    )
 
     h_dominance = (h_shot_eff * 1.2) + (h_composite_attack * 0.8)
     a_dominance = (a_shot_eff * 1.2) + (a_composite_attack * 0.8)
@@ -969,6 +977,7 @@ def process_prediction(match_obj: dict) -> dict:
                 'draw': p_draw,
                 'away': p_away,
                 'btts': float(sim.get('btts_prob', 0.0) or 0.0) * 100,
+                'btts_over25': (_combo_frac or 0.0) * 100,
                 'ou_25': mc_ou25,
                 'ou_35': mc_ou35,
                 'ou_15': mc_ou15,
@@ -1312,6 +1321,7 @@ def process_prediction(match_obj: dict) -> dict:
         "xgboost_probs_a": float(p_a_xgb),
         "ou_25_prob": float(sim['ou_25_prob']),
         "btts_prob": float(sim['btts_prob']),
+        "btts_over25_prob": float(_combo_frac or 0.0),
         "verdict": str("NO BET (MATCH SUSPECT)" if suspicious_veto else ("NO BET" if no_bet else selection_label)),
         "status": str("NO_BET_DIVERGENCE" if no_bet and divergence_veto else ("NO_BET_OVERCONFIDENT" if no_bet and 'overconf_veto' in locals() and overconf_veto else ("NO_BET_SUSPICIOUS_MATCH" if no_bet and suspicious_veto else ("NO BET" if no_bet else status_code)))),
         "power_score": float(power_score),

@@ -107,6 +107,7 @@ async function enrichOne(m, deps = {}) {
     p2: aPct,
     btts: quantResult.probs.btts,
     over25: quantResult.probs.over25,
+    btts_over25: quantResult.probs.btts_over25,
   }
 
   return {
@@ -115,6 +116,7 @@ async function enrichOne(m, deps = {}) {
     away_win_probability: aPct,
     btts_prob: quantResult.probs.btts,
     ou_25_prob: quantResult.probs.over25,
+    btts_over25_prob: quantResult.probs.btts_over25,
     ai_source: 'TITANIUM_QUANT_V4',
     insufficient_data: isLowData ? 1 : 0,
     zero_data_rescue: isLowData,

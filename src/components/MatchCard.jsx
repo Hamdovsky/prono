@@ -10,6 +10,7 @@ const MARKET_TITLES = {
   btts: '🎯 BTTS',
   ht: '🎯 1ER MT',
   corners: '🎯 CORNERS',
+  combo: '🎯 COMBO GG+O2.5',
 }
 
 const isGolden = (chipKey, dominant) => dominant && dominant.chip === chipKey
@@ -67,7 +68,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
   // E64 : hero/dim selon l'onglet marché actif + cotes bookmaker par marché.
   const heroKey = activeMarket && activeMarket !== 'ALL' ? activeMarket : null
   const isHero = (k) => heroKey === k
-  const DIM_KEYS = ['btts', 'ou', 'win', 'ht', 'corners', 'htft', 'ah', 'tts']
+  const DIM_KEYS = ['btts', 'ou', 'win', 'ht', 'corners', 'combo', 'htft', 'ah', 'tts']
   const isDim = (k) => !!heroKey && heroKey !== k && DIM_KEYS.includes(k)
   const odds = match
     ? {
@@ -125,6 +126,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
       htFirstHalf: parseInfoCell(lines[18]),
       bttsAndWin: parseInfoCell(lines[19]),
       bttsAndOu: parseInfoCell(lines[20]),
+      combo: lines[21] || null,
     }
   }
 
@@ -233,6 +235,9 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
       : 0
   const htParsed = parseBetText(d.htGoal)
   const cornersParsed = parseBetText(cornersLabel)
+  const comboParsed = parseBetText(d.combo)
+  const comboPct =
+    d.combo && d.combo !== '--' ? parseFloat((d.combo.match(/(\d+(?:\.\d+)?)\s*%/) || [])[1]) || 0 : 0
 
   // E64 : tuile "pari" — pick + % au-dessus, cote en dessous. Surchargée en
   // hero quand l'onglet marché correspond, dimmée sinon. mc-bet déclenche le
@@ -379,6 +384,14 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           {hasDc && <span className="mcc-chip mcc-dc" style={goldenChip('dc', dominant)}>DC {d.winnerDc}</span>}
           <span className={`mcc-chip mcc-ht ${yesNo(d.htGoal)}`} style={goldenChip('ht', dominant)}>1er MT {d.htGoal}</span>
           <span className="mcc-chip mcc-corners" style={goldenChip('corners', dominant)}>{cornersLabel}</span>
+          {comboPct > 0 && (
+            <span
+              className={`mcc-chip mcc-combo ${comboPct >= 50 ? 'yes' : 'no'}`}
+              style={goldenChip('combo', dominant)}
+            >
+              {d.combo}
+            </span>
+          )}
           {d.htft && <span className="mcc-chip mcc-info" style={{opacity:0.45}}>HT/FT {d.htft.label}</span>}
           {d.ah && <span className="mcc-chip mcc-info" style={{opacity:0.45}}>AH {d.ah.label}</span>}
           {d.teamToScore && <span className="mcc-chip mcc-info" style={{opacity:0.45}}>QM {d.teamToScore.label}</span>}
@@ -590,6 +603,19 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           oddsValue={0}
           cellStyle={goldenCell('corners', dominant)}
           groupStartCls={gs('corners')}
+        />
+      )}
+
+      {show('combo') && (
+        <BetCell
+          marketKey="combo"
+          baseClass="mc-combo"
+          verdictClass=""
+          pick={comboParsed ? comboParsed.pick : '--'}
+          pct={comboParsed ? comboParsed.pct : null}
+          oddsValue={0}
+          cellStyle={goldenCell('combo', dominant)}
+          groupStartCls={gs('combo')}
         />
       )}
 

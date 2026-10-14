@@ -125,6 +125,20 @@ let requestsInCurrentBrowser = 0
 const RESTART_THRESHOLD = 100 // 🔄 Restart after 100 requests
 const RAM_THRESHOLD_MB = 1500 // 🔄 Restart if RAM > 1.5GB
 
+// 🩺 Compat navigateur : Puppeteer >= v23 a retiré Browser.isConnected() au profit
+// du getter Browser.connected. On supporte les deux (sinon crash "isConnected is
+// not a function" qui faisait échouer tout le bypass Puppeteer).
+function isBrowserAlive(browser) {
+  if (!browser) return false
+  try {
+    if (typeof browser.isConnected === 'function') return browser.isConnected()
+    if (typeof browser.connected === 'boolean') return browser.connected
+  } catch {
+    return false
+  }
+  return false
+}
+
 async function getBrowser() {
   // 🛡️ Skip Puppeteer when DISABLE_SOFASCORE is set (Render/cloud env without Chrome)
   if (process.env.DISABLE_SOFASCORE === 'true') {
@@ -143,7 +157,7 @@ async function getBrowser() {
     await closeBrowser()
   }
 
-  if (globalBrowser && globalBrowser.isConnected()) return globalBrowser
+  if (globalBrowser && isBrowserAlive(globalBrowser)) return globalBrowser
 
   if (isInitializingBrowser) {
     while (isInitializingBrowser) await new Promise((r) => setTimeout(r, 500))

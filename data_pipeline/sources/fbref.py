@@ -21,6 +21,11 @@ pour les affiches à venir).
 
 Le débit est limité à ~15-20 requêtes/min (intervalle 3,5 s) conformément à la
 spécification.
+
+Couverture (E90) : si ``data/raw/xg_supplement.csv`` existe (date, home_team,
+away_team, home_xg, away_xg), ses lignes comblent les matchs absents de FBref/
+Understat — point d'injection pour une source tierce (FotMob/SofaScore) sur les
+ligues non couvertes. No-op si le fichier est absent.
 """
 from __future__ import annotations
 
@@ -39,9 +44,61 @@ log = get_logger("fbref")
 
 XG_COLS = ["home_xg", "away_xg", "home_np_xg", "away_np_xg", "home_goals", "away_goals"]
 
+# Clé d'identification d'un match dans les tables xG avancées.
+_KEY = ["date", "home_team", "away_team"]
+
 
 def _stats_source_file() -> Path:
     return RAW_DIR / "stats_source.txt"
+
+
+def _supplement_file() -> Path:
+    """Fichier xG complémentaire optionnel (alimenté par une source tierce)."""
+    return RAW_DIR / "xg_supplement.csv"
+
+
+def _coalesce_xg(frames: list[pd.DataFrame]) -> pd.DataFrame:
+    """Union de plusieurs tables xG par match (clé date/dom/ext).
+
+    Priorité = ordre des frames : pour chaque colonne, la 1re valeur non nulle
+    l'emporte (``groupby.first`` ignore les NaN). Sert à combler les trous d'une
+    source xG avec une autre sans jamais écraser la donnée fraîche.
+    """
+    frames = [f for f in frames if f is not None and not f.empty]
+    if not frames:
+        return pd.DataFrame()
+    out = pd.concat([f.copy() for f in frames], ignore_index=True, sort=False)
+    if not set(_KEY).issubset(out.columns):
+        return pd.DataFrame()
+    out["date"] = pd.to_datetime(out["date"], errors="coerce").dt.floor("D")
+    out["home_team"] = out["home_team"].fillna("").astype(str).str.strip()
+    out["away_team"] = out["away_team"].fillna("").astype(str).str.strip()
+    out = out[out["date"].notna() & out["home_team"].ne("") & out["away_team"].ne("")]
+    if out.empty:
+        return out
+    return out.groupby(_KEY, as_index=False, sort=False).first()
+
+
+def _load_xg_supplement() -> pd.DataFrame:
+    """xG complémentaire (date, home_team, away_team, home_xg, away_xg[, xa]).
+
+    Fichier ``data/raw/xg_supplement.csv`` optionnel, alimenté hors pipeline par
+    une source tierce (FotMob/SofaScore via backfill) pour couvrir les ligues que
+    FBref/Understat n'exposent pas. Renvoie un DataFrame vide si absent/invalide.
+    """
+    path = _supplement_file()
+    if not path.exists():
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(path)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Supplément xG illisible (%s)", exc)
+        return pd.DataFrame()
+    need = {"date", "home_team", "away_team", "home_xg", "away_xg"}
+    if not need.issubset(df.columns):
+        log.warning("Supplément xG : colonnes manquantes (attendu %s)", sorted(need))
+        return pd.DataFrame()
+    return df
 
 
 def _write_stats_source(source: str) -> None:
@@ -326,7 +383,7 @@ def fetch(leagues=None, seasons=None, limiter: RateLimiter | None = None, force:
         log.info("Stats avancées : xG via FBref (%d matchs)", len(base))
         xa = _load_cached_xa()
         if xa is not None and len(xa):
-            base = base.merge(xa, on=["date", "home_team", "away_team"], how="left")
+            base = base.merge(xa, on=_KEY, how="left")
         for col in ("home_xa", "away_xa"):
             if col not in base.columns:
                 base[col] = float("nan")
@@ -335,11 +392,19 @@ def fetch(leagues=None, seasons=None, limiter: RateLimiter | None = None, force:
         provider = "understat"
         log.info("Stats avancées : repli Understat (%d matchs)", len(base))
 
+    # Couverture : complète les trous avec l'éventuel supplément xG (FotMob/
+    # SofaScore via backfill) pour les ligues hors FBref/Understat. No-op si absent.
+    supplement = _load_xg_supplement()
+    if not supplement.empty:
+        before = len(base)
+        base = _coalesce_xg([base, supplement])
+        log.info("Stats avancées : +supplément xG (%d matchs, %d avant)", len(base), before)
+
     base["date"] = pd.to_datetime(base["date"], errors="coerce").dt.floor("D")
     base["home_team"] = base["home_team"].fillna("").astype(str).str.strip()
     base["away_team"] = base["away_team"].fillna("").astype(str).str.strip()
     base = base[base["date"].notna() & base["home_team"].ne("") & base["away_team"].ne("")]
-    base = base.drop_duplicates(["date", "home_team", "away_team"])
+    base = base.drop_duplicates(_KEY)
 
     ADVANCED_CSV.parent.mkdir(parents=True, exist_ok=True)
     base.to_csv(ADVANCED_CSV, index=False)

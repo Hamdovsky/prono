@@ -1,7 +1,7 @@
 /**
  * marketPolicy — picks au temps T (BTTS / Corners / HT)
  */
-const { deriveBttsPick, deriveCornerPick, deriveHTPick, _expectedTotalGoals } = require('../core/marketPolicy')
+const { deriveBttsPick, deriveCornerPick, deriveHTPick, deriveComboPick, _expectedTotalGoals } = require('../core/marketPolicy')
 
 describe('marketPolicy picks', () => {
   test('deriveBttsPick : YES si proba >= 50', () => {
@@ -33,6 +33,19 @@ describe('marketPolicy picks', () => {
   test('deriveHTPick : null si aucune source ET pas de prior', () => {
     // force un prior inexistant : league inconnu mais global dispo -> OVER quand meme
     expect(deriveHTPick({}).htPick).toBe('HT OVER 0.5')
+  })
+
+  test('deriveComboPick : YES si proba combo >= seuil (defaut 40%)', () => {
+    expect(deriveComboPick({ btts_over25_prob: 0.64 }).comboPick).toBe('BTTS OVER 2.5 YES')
+    expect(deriveComboPick({ btts_over25_prob: 64 }).comboPick).toBe('BTTS OVER 2.5 YES')
+    expect(deriveComboPick({ btts_over25_prob: 0.30 }).comboPick).toBe('BTTS OVER 2.5 NO')
+    expect(deriveComboPick({}).comboPick).toBeNull()
+  })
+
+  test('deriveComboPick : lit quant.markets.combo en priorite', () => {
+    const r = deriveComboPick({ quant: { markets: { combo: { gg_over25: 0.55 } } } })
+    expect(r.comboPick).toBe('BTTS OVER 2.5 YES')
+    expect(r.comboProb).toBeCloseTo(55, 1)
   })
 })
 

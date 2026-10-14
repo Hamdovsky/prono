@@ -189,12 +189,38 @@ function deriveHTPick(src) {
   return { htPick: htProb >= 50 ? 'HT OVER 0.5' : 'HT UNDER 0.5', htProb }
 }
 
+/**
+ * E93 — dérivation du pick « Combo GG + Over 2.5 » (les deux marquent ET 3+ buts)
+ * au temps T. Source prioritaire : quant.markets.combo (proba), sinon champ
+ * btts_over25_prob calculé côté Python (fraction ou %). Le pick est YES si la
+ * proba atteint le seuil d'affichage (COMBO_GG_O25_MIN, défaut 0.40), NO sinon.
+ * Null si aucune donnée exploitable (jamais d'invention).
+ */
+function deriveComboPick(src) {
+  let p = null
+  const q = src?.quant?.markets?.combo ?? src?.enriched?.quant?.markets?.combo
+  if (q) {
+    const raw = q.gg_over25 ?? q.yes ?? q.prob
+    const v = Number(raw)
+    if (Number.isFinite(v) && v > 0) p = v <= 1 ? v * 100 : v
+  }
+  if (p == null && src?.btts_over25_prob != null) {
+    const v = Number(src.btts_over25_prob)
+    if (Number.isFinite(v) && v > 0) p = v <= 1 ? v * 100 : v
+  }
+  if (p == null || !Number.isFinite(p)) return { comboPick: null, comboProb: null }
+  const comboProb = +Math.min(99.9, Math.max(0.1, p)).toFixed(1)
+  const min = Number(process.env.COMBO_GG_O25_MIN || '0.40') * 100
+  return { comboPick: comboProb >= min ? 'BTTS OVER 2.5 YES' : 'BTTS OVER 2.5 NO', comboProb }
+}
+
 module.exports = {
   applyMarketPolicy,
   isPure1x2Disabled: () => DISABLE_PURE_1X2,
   deriveBttsPick,
   deriveCornerPick,
   deriveHTPick,
+  deriveComboPick,
   isHtModelOn,
   _expectedTotalGoals,
 }

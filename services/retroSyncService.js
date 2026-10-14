@@ -1,6 +1,26 @@
 const db = require('../core/database')
-const { SofaAPI } = require('../SofascoreScraping/src/apiClient')
+const sofa = require('./scrapers/SofascoreBypass')
 const logger = require('../core/logger')
+
+/**
+ * Convertit les stats SofaScore (objet plat curl_cffi) en items exploitables par
+ * autopsyService._normalizeStats (Case 2 : [{ name, home, away }]).
+ */
+function statsToItems(s) {
+  if (!s || !s.found) return null
+  const num = (v) => (v == null || isNaN(parseFloat(v)) ? 0 : parseFloat(v))
+  const items = []
+  const push = (name, hk, ak) => {
+    if (s[hk] == null && s[ak] == null) return
+    items.push({ name, home: num(s[hk]), away: num(s[ak]) })
+  }
+  push('Expected goals', 'expectedGoalsHome', 'expectedGoalsAway')
+  push('Ball possession', 'possessionHome', 'possessionAway')
+  push('Total shots', 'shotsHome', 'shotsAway')
+  push('Shots on target', 'shotsOnTargetHome', 'shotsOnTargetAway')
+  push('Corner kicks', 'cornersHome', 'cornersAway')
+  return items.length ? items : null
+}
 
 class RetroSyncService {
   /**
@@ -63,40 +83,57 @@ class RetroSyncService {
             `🔍 [RETRO-SYNC] Fetching final data for: ${match.homeTeam} vs ${match.awayTeam} (${matchId})`
           )
 
-          const [details, stats] = await Promise.all([
-            SofaAPI.getMatchDetails(matchId),
-            SofaAPI.getMatchStats(matchId),
-          ])
-
-          if (!details || !details.event) {
-            logger.warn(`⚠️ [RETRO-SYNC] Match details not found for ${matchId}`)
+          // E91 : SofaScore via le pont curl_cffi. L'ancien SofaAPI Node recevait
+          // l'id interne "livescore_xxxx" -> GET /event/livescore_xxxx = 403, qui
+          // déclenchait le cooldown global 480s et affamait TOUT SofaScore
+          // (LEARN, live, enrichissement). On résout d'abord le vrai id numérique.
+          let startTimestamp = null
+          try {
+            startTimestamp = JSON.parse(match.fullData || '{}').startTimestamp || null
+          } catch {
+            startTimestamp = null
+          }
+          const eventId = await sofa.resolveEvent(
+            match.homeTeam,
+            match.awayTeam,
+            startTimestamp
+          )
+          if (!eventId) {
+            logger.warn(`⚠️ [RETRO-SYNC] No SofaScore event resolved for ${matchId} — skipped`)
+            await new Promise((r) => setTimeout(r, 1000))
             continue
           }
 
-          const event = details.event
-          const status = event.status?.type || 'finished'
+          const [status, stats] = await Promise.all([
+            sofa.getEventStatus(eventId),
+            sofa.getEventStats(eventId).catch(() => null),
+          ])
+          if (!status || !status.found) {
+            logger.warn(`⚠️ [RETRO-SYNC] Match details not found for ${matchId} (event ${eventId})`)
+            await new Promise((r) => setTimeout(r, 1000))
+            continue
+          }
 
           // Proceed only if match is truly finished
-          if (status !== 'finished' && event.status?.code !== 100) {
-            logger.info(
-              `⏳ [RETRO-SYNC] Match ${matchId} still in progress or postponed (${status})`
-            )
+          if (!status.finished) {
+            logger.info(`⏳ [RETRO-SYNC] Match ${matchId} still in progress (${status.status})`)
+            await new Promise((r) => setTimeout(r, 1000))
             continue
           }
+
+          const homeScore = status.home ?? 0
+          const awayScore = status.away ?? 0
 
           // Update fullData with stats and final results
           const currentFullData = JSON.parse(match.fullData || '{}')
 
-          // Basic normalization
-          const homeScore = event.homeScore?.current ?? event.homeScore?.normaltime ?? 0
-          const awayScore = event.awayScore?.current ?? event.awayScore?.normaltime ?? 0
-
           const updatedFullData = {
             ...currentFullData,
-            stats: stats?.statistics || [],
+            stats: statsToItems(stats) || currentFullData.stats || [],
             status: 'finished',
             score: { home: homeScore, away: awayScore },
-            incidents: event.incidents || [],
+            incidents: currentFullData.incidents || [],
+            _sofaEventId: eventId,
           }
 
           // Update database

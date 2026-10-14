@@ -752,6 +752,7 @@ class EnrichedPredictionService {
         backup_market: pythonResult?.backup_market || match.backup_market || null,
         btts_prob: pythonResult?.btts_prob || match.btts_prob || null,
         ou_25_prob: pythonResult?.ou_25_prob || match.ou_25_prob || null,
+        btts_over25_prob: pythonResult?.btts_over25_prob || match.btts_over25_prob || null,
         contextual: pythonResult?.contextual || match.contextual || null,
         market_divergence: pythonResult?.market_divergence || null,
         power_score: pythonResult?.power_score || 70,
@@ -982,6 +983,8 @@ class EnrichedPredictionService {
             ai_source: py.ai_source || 'V553_PREMIUM',
             ou_25_prob: py.ou_25_prob ? Math.round(py.ou_25_prob * 100) : undefined,
             btts_prob: py.btts_prob ? Math.round(py.btts_prob * 100) : undefined,
+            btts_over25_prob:
+              py.btts_over25_prob != null ? Math.round(py.btts_over25_prob * 100) : undefined,
             surgical_market: py.surgical_market,
             surgical_confidence: py.surgical_confidence,
             backup_market: py.backup_market,
@@ -1673,6 +1676,7 @@ class EnrichedPredictionService {
         away_win_probability: probs.a * 100,
         btts_prob: quantResult.probs.btts,
         ou_25_prob: quantResult.probs.over25,
+        btts_over25_prob: quantResult.probs.btts_over25,
         ou_market: (() => {
           const op = quantResult.probs.over25 || 0
           const ovPct = parseFloat(op)
@@ -1824,6 +1828,7 @@ class EnrichedPredictionService {
       probs: {
         btts: probs ? Math.round(probs.btts.yes * 100) : 40,
         over25: probs ? Math.round(probs.over25 * 100) : 40,
+        btts_over25: probs ? Math.round((probs.btts_over25 || 0) * 100) : 0,
         ht_goal: probs ? Math.round(probs.ht_goal * 100) : 50,
       },
     }
@@ -1840,6 +1845,7 @@ class EnrichedPredictionService {
       power_score: Math.round(mainProb),
       ou_25_prob: probs ? Math.round(probs.over25 * 100) : 40,
       btts_prob: probs ? Math.round(probs.btts.yes * 100) : 40,
+      btts_over25_prob: probs ? Math.round((probs.btts_over25 || 0) * 100) : 0,
       insufficient_data: 1,
       confidence: Math.round(mainProb * 0.6),
       ev_score: 0,

@@ -11914,3 +11914,327 @@ importée par :
 - `core/ou_model.py` (API `ou_prob` restaurée), `eslint.config.js`,
   `scripts/backfill_ht_footballdata.js`, `__tests__/theAnalyst.test.js`.
 - `null` supprimé.
+
+## E90 : xG — fin du 403 SofaScore (Volet A) + couverture multi-sources du pipeline (Volet B) (2026-10-14)
+
+### Contexte
+Le xG est un input du modèle (`h_xg`, `xg_diff`, `xG_overperformance`, `xpts`, …
+cf. E73b) mais deux maillons étaient cassés/aléatoires :
+- **runtime** : `services/sofascoreXgService.js` faisait un `fetch` Node direct sur
+  `api.sofascore.com/api/v1/event/{id}/statistics` → **403 Forbidden** systématique
+  (même cause qu'E88 : host + profil TLS). Seul FotMob alimentait le xG live.
+- **entraînement** : `data_pipeline/sources/fbref.py` n'a qu'un point de
+  branchement (FBref → repli Understat) ; or Understat ne couvre que le Top-5 +
+  RFPL alors que `config.py` déclare 60+ ligues.
+
+### Volet A — SofaScore xG rétabli (runtime)
+- `scripts/sofascore_bypass.py` (`cmd_stats`) : en plus des corners/HT, expose
+  désormais le xG et les stats de tir issus de `_parse_live_stats` (`setdefault`,
+  sans écraser l'existant) ; `found` inclut `expectedGoalsHome`.
+- `services/sofascoreXgService.js` : réécrit pour router via
+  `SofascoreBypass.getEventStats(id)` (curl_cffi / E88) au lieu du `fetch` Node
+  mort. Contrat inchangé `{ home_xg, away_xg, source:'SOFASCORE' }` ou `null`.
+  Cache mémoire (TTL 15 min), `isAvailable()`, aucun `this` (sûr en destructuring).
+- `services/scrapers/SofascoreBypass.js` : JSDoc de `getEventStats` documente les
+  clés xG.
+- Appelants inchangés : `enriched_predictions.js:1426`,
+  `UltimateScraperOrchestrator.js:407`, `FairOddsEstimator.js:114`.
+
+Vérification live (event 11366885) :
+- CLI : `stats --event 11366885` → `expectedGoalsHome:1.55, expectedGoalsAway:1.37`
+  (+ possession/shots/corners, `found:true`).
+- Node bout-en-bout : `sofascoreXgService.fetchMatchXg(11366885)` →
+  `{"home_xg":1.55,"away_xg":1.37,"source":"SOFASCORE"}` (**avant : null / 403**).
+
+### Volet B — couverture xG du pipeline (entraînement)
+`data_pipeline/sources/fbref.py` :
+- `_coalesce_xg(frames)` : union de plusieurs tables xG par match (clé
+  `date/home_team/away_team`, `groupby.first` = 1re valeur non nulle, priorité =
+  ordre des frames). Ne surcharge jamais la source prioritaire.
+- `_load_xg_supplement()` : lit le fichier optionnel `data/raw/xg_supplement.csv`
+  (`date, home_team, away_team, home_xg, away_xg`), **point d'injection** pour une
+  source tierce (FotMob/SofaScore via backfill) sur les ligues hors FBref/Understat.
+  No-op (DataFrame vide) si absent/invalide.
+- `fetch()` : après FBref/Understat, merge du supplément si présent. Provenance
+  (`fbref`|`understat`) **inchangée** → aucun consommateur cassé
+  (`run_scheduled.py:59`, `FbrefSource._fetch`).
+- Docstring module mise à jour.
+
+### Tests
+- `data_pipeline/tests/test_fbref.py` : **+4** (coalesce priorité/remplissage,
+  coalesce vide, supplément absent/invalide, fetch avec supplément → 2 matchs et
+  provenance `understat`). Fichier : **17 passed** (13 → +4).
+- `__tests__/sofascoreXgService.test.js` (nouveau) : **6** tests (mapping, coercion
+  string, null sans xG, null si introuvable, null sans id, cache).
+
+### Vérification
+- Jest complet : **117 suites / 1191 tests, 0 échec** (baseline E89 : 116/1185 →
+  +1 suite, +6 tests).
+- pytest data_pipeline : **126 passed, 1 failed** — l'échec
+  (`test_football_data.py::test_fetch_fixtures_filtre_top5`) est **pré-existant** :
+  reproduit à l'identique avec mes changements retirés (`git stash`). Hors périmètre E90.
+- eslint sur les fichiers JS touchés : 0 erreur.
+- Live : CLI + Node bout-en-bout vérifiés (cf. Volet A).
+
+### Fichiers touchés
+- `scripts/sofascore_bypass.py`, `services/sofascoreXgService.js`,
+  `services/scrapers/SofascoreBypass.js` (Volet A).
+- `data_pipeline/sources/fbref.py`, `data_pipeline/tests/test_fbref.py` (Volet B).
+- `__tests__/sofascoreXgService.test.js` (nouveau), `CHANGELOG_AUDIT.md`.
+
+### Reste à faire
+- **Peupler `data/raw/xg_supplement.csv`** : backfill FotMob
+  (`scripts/fotmobClient.py` : `get_matches_by_date` + `get_match_details`
+  → `xg_home/xg_away`) + mapping des noms d'équipes sur les 60+ ligues. Chantier à
+  part : le hook est en place, mais sans données réelles il reste vide.
+- **Pré-existant** : corriger `test_fetch_fixtures_filtre_top5` (le filtre Top-5 de
+  `football_data.fetch_fixtures` laisse passer `B1`) — session dédiée.
+
+## E91 : bugs runtime du dump de logs — id SofaScore, Puppeteer 25, sanitizer (2026-10-14)
+
+### Contexte
+Un dump de logs runtime a révélé 4 anomalies. Diagnostic : 3 bugs réels + 1 faux
+positif de diagnostic. Trois corrections retenues (#1, #2, #4).
+
+### #1 — id SofaScore invalide (`livescore_xxxx` envoyé à `/event/{id}`)
+`retroSyncService` et `settlementService` passaient l'**id interne** de la base
+(`livescore_1885253`) comme id d'événement SofaScore → `GET
+/event/livescore_1885253/statistics` = **403**, ce qui déclenchait le cooldown
+global 480s (cascade : LEARN V2, alertes live, enrichissement tous en fast-fail).
+- `services/retroSyncService.js` : remplace `SofaAPI` (Node) par le bypass
+  `SofascoreBypass` (curl_cffi / E88). Nouveau flux par match : parse
+  `fullData.startTimestamp` → `resolveEvent(home, away, ts)` (numérique, **skip si
+  non résolu, aucun id bidon envoyé**) → `getEventStatus` + `getEventStats` (via
+  `Promise.all`) → écrit score / `status='FT'` / `fullData.stats` / `_sofaEventId`.
+  Helper `statsToItems()` mappe les stats bypass au format attendu par
+  `autopsyService._normalizeStats` (Case 2 : `[{name, home, away}]`). Pause 1000 ms.
+- `services/settlementService.js` : même remplacement dans `fetchMissingScores` ;
+  garde `resolveEvent`, `getEventStatus`, écrit `_sofaEventId`.
+
+### #2 — API Puppeteer obsolète (`globalBrowser.isConnected is not a function`)
+`SofascoreScraping/src/apiClient.js:146` appelait `globalBrowser.isConnected()`,
+retiré dans Puppeteer 25 (remplacé par le getter `browser.connected`). Le bypass
+Puppeteer échouait systématiquement.
+- Ajout du helper `isBrowserAlive(browser)` (supporte `isConnected()` ET
+  `connected`, `try/catch` → false) et remplacement de l'appel.
+
+### #3 — `Avec xG: 0` (faux positif, aucun changement)
+Le compteur agrège les matchs **à venir** (`matches`), où le xG n'existe pas par
+construction ; le xG atterrit sur les matchs **terminés** (`historical_matches`).
+Comportement attendu. Aucun code modifié.
+
+### #4 — faux positif du sanitizer sur les clubs courts
+`core/matchSanitizer.js` `SHORT_NAME_RE = /^.{1,2}$/` rejetait `HB Koege vs AB`
+(`TEAM_NAME_TOO_SHORT`) alors que « AB » (Akademisk Boldklub) est un club réel.
+- Ajout de `ALLOWED_SHORT_NAMES` (`ab, kb, fc, sc, ac, if, bk`) ; un nom de 1-2
+  caractères n'est rejeté que s'il n'est pas dans la liste. Exporté pour les tests.
+
+### Tests
+- `__tests__/matchSanitizer.test.js` (nouveau) : **5** tests (AB/KB acceptés, 1
+  caractère rejeté, 2 caractères non listés rejetés, `sanitizeMatches` conserve/
+  rejette).
+- `__tests__/retroSyncService.test.js` (nouveau) : **4** tests (aucun match, id non
+  résolu → skip sans appel, résolution + score → update `fullData`, match non
+  terminé → pas d'update). SofascoreBypass + core/database mockés.
+
+### Vérification
+- Jest complet : **119 suites / 1200 tests, 0 échec** (baseline E90 : 117/1191 →
+  +2 suites, +9 tests).
+- eslint sur fichiers touchés : 0 erreur (warnings `apiClient.js` pré-existants).
+- `node --check` OK ; require de `retroSyncService` et `settlementService` OK
+  (chargement + require du bypass vérifiés).
+
+### Fichiers touchés
+- `services/retroSyncService.js`, `services/settlementService.js` (#1).
+- `SofascoreScraping/src/apiClient.js` (#2).
+- `core/matchSanitizer.js` (#4).
+- `__tests__/matchSanitizer.test.js`, `__tests__/retroSyncService.test.js` (nouveaux),
+  `CHANGELOG_AUDIT.md`.
+
+### Reste à faire
+- Vérifier en runtime que le cooldown 480s disparaît (plus de 403 sur `/event/`) :
+  dépend d'un nouveau dump de logs après déploiement.
+- **Pré-existant** : `test_fetch_fixtures_filtre_top5` (cf. E90).
+
+---
+<Prochaine étape> Vérifier via un nouveau dump de logs que : (a) plus de 403
+`/event/livescore_*`, (b) plus de `isConnected is not a function`, (c) plus de
+`TEAM_NAME_TOO_SHORT` sur AB/KB. Sinon corriger les régressions résiduelles.
+
+## E92 : alertes live via le bypass SofaScore — fin du 403 `events/live` + cooldown global (2026-10-14)
+
+### Contexte
+Le dump de logs post-E91 confirme les 3 correctifs (plus de 403 `/event/livescore_*`,
+plus de `isConnected is not a function`, plus de `TEAM_NAME_TOO_SHORT`). Mais il
+expose un **autre** 403 restant, à fort impact :
+```
+[LIVE_ALERTS] 🛑 403 on https://www.sofascore.com/api/v1/sport/football/events/live
+[LIVE_ALERTS] 🚨 Detection (403/429). Global cooldown 480s...
+```
+`scripts/live_value_alerts.js` appelait encore le **client Node** `SofaAPI.getLiveEvents()`
+(HTTP simple → 403). Ce 403 positionne le **cooldown global 480s**, qui met ensuite
+en fast-fail LEARN V2, API_CORE et LIVE_ALERTS eux-mêmes.
+
+### Correctif
+`scripts/live_value_alerts.js` route désormais par `SofascoreBypass` (curl_cffi, E88) :
+- import : `SofaAPI` (Node) → `Bypass = require('../services/scrapers/SofascoreBypass')`.
+- `Bypass.getLiveEvents()` renvoie une forme **plate** (`homeTeam` string,
+  `homeScore` number, `statusType`, `odds:{home,draw,away,…}`), différente de la forme
+  imbriquée historique. Ajout d'un adaptateur `toSofaShape(ev)` qui re-mappe vers
+  `{homeTeam:{name}, homeScore:{display,current}, status:{type,description}, odds}`
+  → **logique métier inchangée**.
+- Les cotes live (ex-`SofaAPI.getOddsFeatured`, qui 403ait aussi) proviennent
+  désormais des cotes **déjà pré-récupérées** par le bypass (`event.odds.home|away`,
+  décimales) : plus d'appel supplémentaire, plus de `fractionToDecimal`.
+- `require.main === module` ajouté autour du dispatch CLI (le script est `spawn` avec
+  `--once` par `cronManager.js:855`, jamais `require`) + export de `toSofaShape`.
+
+### Tests
+- `__tests__/liveValueAlerts.test.js` (nouveau) : **3** tests sur `toSofaShape`
+  (mapping complet, minute dérivée de `liveMinute`, scores nuls).
+
+### Vérification
+- Jest complet : **120 suites / 1203 tests, 0 échec** (baseline E91 : 119/1200 →
+  +1 suite, +3 tests).
+- eslint : 0 erreur (warning `matchStates` pré-existant, utilisé seulement dans le
+  bloc PART A commenté). `node --check` OK.
+- Note : le cooldown 480s ne devrait plus être déclenché par les alertes live
+  (`events/live` passe par curl_cffi). Confirmation attendue au prochain dump.
+
+### Fichiers touchés
+- `scripts/live_value_alerts.js`.
+- `__tests__/liveValueAlerts.test.js` (nouveau), `CHANGELOG_AUDIT.md`.
+
+### Reste à faire
+- **Pré-existant** : `test_fetch_fixtures_filtre_top5` (cf. E90).
+- Observé (non traité) : `[ScrapingBypass] Circuit OPEN after 100+ failures`, proxies
+  rotatifs en échec de health-check, `[RETROSYNC] Error: TIMEOUT` isolé.
+  Chantiers séparés.
+
+---
+<Prochaine étape> Confirmer sur un nouveau dump : plus de 403 `events/live` ni de
+`Global cooldown 480s` déclenché par les alertes live. Puis éventuellement traiter
+le circuit breaker `ScrapingBypass` et la rotation de proxies.
+
+## E93 : marché combiné « GG + Over 2.5 » (BTTS Oui ET 3+ buts) (2026-10-14)
+
+### Contexte
+Demande utilisateur : ajouter le marché combiné **GG + Over 2.5** (les deux équipes
+marquent ET total ≥ 3 buts). Same-game combo distinct des paris combinés multi-matchs
+(`comboService`). Périmètre retenu : **complet** (modèle + cotes réelles + règlement).
+
+### Définition & probabilité
+`P(GG ∩ O2.5) = P(h≥1, a≥1, h+a≥3)`. Joint Poisson indépendant depuis xG :
+- `P(GG) = (1-e^-xh)(1-e^-xa)`
+- `P(GG ∩ tot<3) = P(1,1)` (seul cas GG à 2 buts)
+- `combo = P(GG) − P(1,1)`
+
+Borné par l'inégalité de **Fréchet** vs les marginales calibrées BTTS/O2.5 → cohérence
+« hybride » avec les marchés affichés (`lo = max(0, btts+ou-1)`, `hi = min(btts, ou)`).
+Seuil d'affichage `_COMBO_GG_O25_MIN = 0.40` (override env `COMBO_GG_O25_MIN`) —
+40 % peut déjà être fiable (deux attaques productives + xG total élevé).
+
+### Correctif
+- `core/market_engine.py` :
+  - nouveau helper `combo_gg_over25_prob(xg_h, xg_a, p_btts=None, p_over25=None)`.
+  - `generate_precision_bets()` émet `Combo GG + Over 2.5` (precision_bet Poisson, seuil 40 %).
+  - `_model_prob_for_market` : `btts_over25 → model_probs['btts_over25']` (edge gate cotes réelles).
+  - `_human_market_label` : `btts_over25 → 'Combo GG + Over 2.5'`.
+- `core/prediction_engine.py` : calcule le combo et l'injecte dans `model_probs['btts_over25']`.
+- `core/market/registry.js` : entrée `btts_over25` (cat./type `combo`) placée **avant**
+  `total_goals`/`btts` (sinon « GG & Over 2.5 » est capté par `total_goals` via son
+  « over 2.5 »). Aliases : `GG|BTTS|both teams to score + over 2.5` dans les deux ordres.
+- `core/ab_backtest_real_markets.py` : `_bet_won` règle le combo (les 2 marquent ET
+  total > 2.5), branche placée **avant** le bloc Over/Under (le libellé contient « Over »).
+
+### Tests
+- `tests/test_market_engine.py::TestComboGgOver25` (**7**) : formule fermée, borne
+  Fréchet, xG invalide→None, émission xG élevé, non-émission xG faible, libellé +
+  edge gate, règlement 2-1/1-1/2-0/4-2.
+- `__tests__/marketRegistryCombo.test.js` (nouveau, **7**) : lookup, classification
+  « GG + Over 2.5 »/« Both Teams To Score & Over 2.5 »/« Over 2.5 & BTTS » →
+  `btts_over25`, non-régression `total_goals`/`btts`, `validateAndBuild` usable.
+
+### Vérification
+- Pytest ciblé : `tests/test_market_engine.py` **42 passed**.
+- Jest complet : **123 suites / 1227 tests, 0 échec** (baseline E92 : 120/1203 →
+  +3 suites, +24 tests ; suivi accuracy +5 tests, affichage +12 tests).
+- pytest complet (racine) : **554 passed, 31 skipped, 2 xfailed** ; les **3 échecs**
+  `tests/test_general_integration.py` sont **pré-existants** (serveur FastAPI
+  `127.0.0.1:8000` absent → HTTP 503, reproduits à l'identique sur l'arbre propre
+  via `git stash`). Hors périmètre E93.
+- eslint : 0 erreur sur les fichiers touchés.
+- `npx vite build` : **OK** (145 modules, build ~4 s).
+
+### Suivi d'accuracy du combo (E93 suite)
+Le combo est désormais **mesuré** par `services/accuracyEngine.js` comme marché à part
+entière (catégorie `COMBO`), sur le même modèle que BTTS / Corners / HT.
+- `core/marketPolicy.js` : `deriveComboPick(src)` (dérivé au temps T). Lit en priorité
+  `quant.markets.combo.gg_over25|yes|prob`, sinon `btts_over25_prob` (fraction ou %) ;
+  `YES` si ≥ seuil `COMBO_GG_O25_MIN` (défaut 0.40), `NO` sinon ; `null` sinon.
+- `core/db/predictions.js`, `core/db/matches.js`, `core/pg_database.js` : persistance du
+  pick `combo_pick` + `combo_pick_prob` au temps T (snapshot, jamais recalculé au règlement).
+- `services/accuracyEngine.js` : `COMBO_RE=/^BTTSOVER2\.5(YES|NO)$/`, `isCombo`,
+  `marketKey → 'COMBO'`, `isAllowed` (filtre `combo`), `isCorrect` (YES = 2 marquent ET
+  total > 2.5 ; NO = complément), `pickProbability` (via `pCombo`), enregistrements
+  secondaires `matches|COMBO` et `historical_matches|COMBO`. Pas de cote combo archivée →
+  exclu du ROI, compté dans l'accuracy (raison whitelist mise à jour).
+- **Corrigé au passage** : `core/marketPolicy.js` avait un bloc `module.exports` tronqué
+  (fichier se terminant sur `module.exports = {`) → restauré depuis `HEAD` + `deriveComboPick`.
+
+### Affichage du combo dans le dashboard (E93 suite)
+Constat : sur localhost le combo n'apparaissait nulle part (« gg+over2,5 n'est pas
+affiché »). Cause racine : les probs `m.quant` servies par le dashboard viennent du
+moteur **Node** (`core/enrichOne.js` → `QuantumQuantEngine`), qui ne produisait que
+`probs:{btts,over25,ht_goal}` ; le front n'a jamais lu `precision_bets`. Décisions
+utilisateur : afficher **colonne dashboard ET chip**, calcul côté **moteur Node**.
+- Moteur Node : `core/services/StatisticalEngine.js::calculateMarketProbs` calcule le
+  joint `pBttsOver25` (boucle Poisson : `h>0 && a>0 && total>2.5`) puis borne Fréchet
+  (`bttsOver25 = min(min(btts,ou), max(max(0,btts+ou-1), pBttsOver25))`) ; exposé dans
+  le retour (`btts_over25`) et propagé par `calculatePoissonProbs` (`...full`).
+  `core/QuantumQuantEngine.js::analyze().probs.btts_over25` (entier %, comme ses voisins).
+  `core/enrichOne.js` : `engine_exit.btts_over25` + `btts_over25_prob` (top-level).
+- Second chemin d'enrichissement `services/enriched_predictions.js` : `btts_over25_prob`
+  ajouté à `enrichMatch`, au résultat `fastEnrichMatch`, au fallback `_buildOfflineState`
+  (`quant.probs.btts_over25` + top-level) et au bridge `_tryV553` (`py.btts_over25_prob*100`).
+- Front `src/utils/matchAnalysis.js` : `out.combo` (depuis `quant.probs.btts_over25`,
+  fallback `m.btts_over25_prob`/`enriched`, `normalizePct`) ; cellule brute **index 21**
+  (`GG+O2.5 xx%`) ; `marketBannerFromLines('combo')`. Colonne ajoutée **après CORNERS**
+  (ordre grille = ordre DOM) → `src/utils/tableColumns.js` (`TABLE_COLUMNS` combo tier 860,
+  `SORT_DEFAULT_DIRS.combo='desc'`).
+- UI : `src/components/MatchCard.jsx` (`MARKET_TITLES.combo`, `DIM_KEYS`, parse `lines[21]`,
+  `BetCell` après corners, chip compacte) + `MatchCard.css` (`.mc-combo`, `.mcc-chip.mcc-combo`,
+  masqué en mobile comme corners) ; `src/utils/dashboardFilters.js` (`MARKET_MIN_PCT.combo=40`,
+  `MARKET_TABS`/`VALID_MARKETS` + `combo`, tri, CSV) ; `src/components/Dashboard.jsx`
+  (onglet `combo` : `filters`/`filterLabels` GG+O2.5/`filterColors`).
+- Filtre onglet combo : `hasMarketPrediction` au seuil 40 % (proba combo), pas la simple
+  présence de cellule.
+
+### Fichiers touchés
+- `core/market_engine.py`, `core/prediction_engine.py`, `core/market/registry.js`,
+  `core/ab_backtest_real_markets.py`, `tests/test_market_engine.py`,
+  `__tests__/marketRegistryCombo.test.js` (nouveau), `CHANGELOG_AUDIT.md`.
+- Suivi accuracy : `core/marketPolicy.js`, `core/db/predictions.js`, `core/db/matches.js`,
+  `core/pg_database.js`, `services/accuracyEngine.js`, `__tests__/marketPolicy.test.js`,
+  `__tests__/accuracyEngine.test.js`.
+- Affichage : `core/services/StatisticalEngine.js`, `core/QuantumQuantEngine.js`,
+  `core/enrichOne.js`, `services/enriched_predictions.js`, `src/utils/matchAnalysis.js`,
+  `src/utils/tableColumns.js`, `src/utils/dashboardFilters.js`, `src/components/MatchCard.jsx`,
+  `src/components/MatchCard.css`, `src/components/Dashboard.jsx`,
+  `__tests__/comboDisplay.test.js` (nouveau), `__tests__/engineCombo.test.js` (nouveau),
+  `__tests__/enrichOne.test.js`, `__tests__/matchAnalysis.test.js`, `__tests__/tableColumns.test.js`.
+
+### Reste à faire
+- **Pré-existant** : `test_fetch_fixtures_filtre_top5` (cf. E90) ;
+  `test_general_integration.py` (serveur FastAPI requis).
+- Observé (non traité) : `[ScrapingBypass] Circuit OPEN`, proxies rotatifs,
+  `[RETROSYNC] TIMEOUT` isolé.
+
+---
+<Prochaine étape> Affichage combo implémenté et vérifié en local (colonne COMBO + chip +
+onglet, moteur Node). Le combo apparaît désormais dans le dashboard localhost : valider
+visuellement (colonne après CORNERS, onglet GG+O2.5, chip compacte). Confirmer sur un
+nouveau dump : plus de 403 `events/live` ni de `Global cooldown 480s` déclenché par les
+alertes live. Vérifier en prod l'affichage du combo (e2e precision_bets Poisson + cotes
+réelles via le registry). Traiter éventuellement le circuit breaker `ScrapingBypass` et la
+rotation de proxies.

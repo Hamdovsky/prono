@@ -2,7 +2,7 @@ const path = require('path')
 const fs = require('fs')
 const { usingPostgres, query } = require('./pg_connector')
 const logger = require('./logger')
-const { applyMarketPolicy, deriveBttsPick, deriveCornerPick, deriveHTPick } = require('./marketPolicy')
+const { applyMarketPolicy, deriveBttsPick, deriveCornerPick, deriveHTPick, deriveComboPick } = require('./marketPolicy')
 const { applyLeaguePolicy } = require('./leaguePolicy')
 const { mergeOddsIntoFullData } = require('./archiveMerge')
 
@@ -223,6 +223,15 @@ const pgDb = {
       if (__ht.htPick) {
         m.ht_pick = __ht.htPick
         m.ht_pick_prob = __ht.htProb
+      }
+      // E93 : dérivation + persistance du pick Combo GG + Over 2.5
+      const __combo = deriveComboPick({
+        quant: m.fullData?.quant,
+        btts_over25_prob: m.btts_over25_prob ?? m.fullData?.btts_over25_prob,
+      })
+      if (__combo.comboPick) {
+        m.combo_pick = __combo.comboPick
+        m.combo_pick_prob = __combo.comboProb
       }
 
       // Audit étape 1 : politique ligues — désambiguïsation Top-5 par pays
@@ -623,6 +632,17 @@ return {
         data.ht_pick = htDerivPg.htPick
         fullData.ht_pick = htDerivPg.htPick
         fullData.ht_pick_prob = htDerivPg.htProb
+      }
+      // E93 : dérivation + persistance du pick Combo GG + Over 2.5
+      const comboDerivPg = deriveComboPick({
+        quant: fullData.quant || enriched?.quant || null,
+        btts_over25_prob:
+          data.btts_over25_prob ?? enriched?.btts_over25_prob ?? fullData.btts_over25_prob ?? null,
+      })
+      if (comboDerivPg.comboPick) {
+        data.combo_pick = comboDerivPg.comboPick
+        fullData.combo_pick = comboDerivPg.comboPick
+        fullData.combo_pick_prob = comboDerivPg.comboProb
       }
       const toNull = (v) =>
         v === null || v === undefined || (typeof v === 'number' && (isNaN(v) || !isFinite(v)))

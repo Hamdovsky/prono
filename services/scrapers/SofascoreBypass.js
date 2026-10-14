@@ -244,8 +244,10 @@ const statsCache = new Map() // eventId -> { data, expiresAt }
 const CACHE_TTL_STATS = 7 * 24 * 3600 * 1000
 
 /**
- * HT score + corners (FT et 1ère MT) d'un événement terminé.
- * @returns {Promise<{ht_h?,ht_a?,c_ft_h?,c_ft_a?,c_ht_h?,c_ht_a?}|null>} null si rien trouvé
+ * HT score + corners (FT et 1ère MT) + xG/possession/tirs d'un événement.
+ * Depuis E90, inclut expectedGoalsHome/expectedGoalsAway (source du xG
+ * sofascoreXgService — évite un fetch Node direct qui se fait bloquer en 403).
+ * @returns {Promise<{ht_h?,ht_a?,c_ft_h?,c_ft_a?,c_ht_h?,c_ht_a?,expectedGoalsHome?,expectedGoalsAway?,possessionHome?,shotsHome?,shotsAway?}|null>} null si rien trouvé
  */
 async function getEventStats(eventId) {
   if (eventId == null) return null

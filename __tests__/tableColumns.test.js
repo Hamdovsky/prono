@@ -11,11 +11,20 @@ const {
 } = require('../src/utils/tableColumns')
 
 describe('tableColumns — responsive (E62)', () => {
-  test('columnsForWidth : paliers 2 -> 4 -> 7 -> 10 colonnes', () => {
+  test('columnsForWidth : paliers 2 -> 4 -> 8 -> 11 colonnes', () => {
     const keys = (w) => columnsForWidth(w).map((c) => c.key)
     expect(keys(400)).toEqual(['info', 'top'])
     expect(keys(560)).toEqual(['info', 'top', 'ou', 'win'])
-    expect(keys(860)).toEqual(['info', 'top', 'btts', 'ou', 'win', 'ht', 'corners'])
+    expect(keys(860)).toEqual([
+      'info',
+      'top',
+      'btts',
+      'ou',
+      'win',
+      'ht',
+      'corners',
+      'combo',
+    ])
     expect(keys(1040)).toEqual([
       'info',
       'top',
@@ -24,6 +33,7 @@ describe('tableColumns — responsive (E62)', () => {
       'win',
       'ht',
       'corners',
+      'combo',
       'htft',
       'ah',
       'tts',
@@ -72,7 +82,7 @@ describe('tableColumns — tri (E63)', () => {
     VALID_SORTS,
   } = require('../src/utils/tableColumns')
   test('sortKey présent sur les colonnes triables, null sur les autres', () => {
-    const sortable = ['info', 'top', 'btts', 'ou', 'win', 'ht', 'corners']
+    const sortable = ['info', 'top', 'btts', 'ou', 'win', 'ht', 'corners', 'combo']
     const notSortable = ['htft', 'ah', 'tts']
     for (const k of sortable) {
       expect(T.find((c) => c.key === k).sortKey).toBeTruthy()
@@ -84,7 +94,7 @@ describe('tableColumns — tri (E63)', () => {
   test('% triés desc par défaut, temps et ligue asc', () => {
     expect(SORT_DEFAULT_DIRS.time).toBe('asc')
     expect(SORT_DEFAULT_DIRS.league).toBe('asc')
-    for (const k of ['top', 'win', 'ou', 'btts', 'ht', 'corners']) {
+    for (const k of ['top', 'win', 'ou', 'btts', 'ht', 'corners', 'combo']) {
       expect(SORT_DEFAULT_DIRS[k]).toBe('desc')
     }
   })

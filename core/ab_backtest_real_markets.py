@@ -60,6 +60,11 @@ def _bet_won(market, selection_label, sh, sa):
     """Determine si un pari de marche gagne selon le score final."""
     over_under = None
     m = market or ''
+    # Combo GG + Over 2.5 (E93) : les deux marquent ET total >= 3 buts.
+    # Doit passer AVANT le bloc Over/Under (le libelle contient "Over").
+    if 'Combo' in m or ('GG' in m and 'Over' in m):
+        both = sh > 0 and sa > 0
+        return bool(both and (sh + sa) > 2.5)
     if 'Over' in m or 'Under' in m:
         # extrait la ligne (ex 'Over 2.5 Buts')
         try:

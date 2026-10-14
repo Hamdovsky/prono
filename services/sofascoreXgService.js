@@ -1,34 +1,24 @@
-const {
-  getRandomUserAgent,
-  getSecChUa,
-  getSecChUaPlatform,
-  getSecChUaMobile,
-} = require('../SofascoreScraping/src/apiClient')
+/**
+ * Sofascore xG — routé via SofascoreBypass (curl_cffi, fingerprint TLS navigateur).
+ *
+ * E88 : www.sofascore.com impose un fingerprint TLS navigateur ; un `fetch` Node
+ * direct sur /event/{id}/statistics renvoie 403 {"reason":"Forbidden"} (vérifié).
+ * Ce service délègue donc au pont Python SofascoreBypass → scripts/sofascore_bypass.py
+ * (`stats --event`), qui expose expectedGoalsHome/Away en plus des corners/HT.
+ *
+ * Contrat de retour inchangé : { home_xg, away_xg, source:'SOFASCORE' } ou null.
+ */
 const logger = require('../core/logger')
-
-const SOFA_API = 'https://www.sofascore.com/api/v1'
-const SOFA_HEADERS = {
-  Accept: 'application/json, text/plain, */*',
-  'Accept-Language': 'en-US,en;q=0.9',
-  Referer: 'https://www.sofascore.com/',
-  Origin: 'https://www.sofascore.com',
-  'Cache-Control': 'no-cache',
-  Pragma: 'no-cache',
-  'Sec-Fetch-Dest': 'empty',
-  'Sec-Fetch-Mode': 'cors',
-  'Sec-Fetch-Site': 'same-site',
-}
+const SofascoreBypass = require('./scrapers/SofascoreBypass')
 
 const cache = new Map()
 const CACHE_TTL = 15 * 60 * 1000
 const SOFA_DISABLED =
   process.env.DISABLE_SOFASCORE !== undefined && process.env.DISABLE_SOFASCORE !== 'false'
 
-// Soft spacing: 1800–3500ms between raw Sofascore fetches (same policy as the
-// odds client) so xG enrichment never outpaces the rate limiter.
-function softDelay() {
-  const ms = 1800 + Math.floor(Math.random() * 1700)
-  return new Promise((r) => setTimeout(r, ms))
+function _num(v) {
+  const n = parseFloat(v)
+  return Number.isFinite(n) ? n : null
 }
 
 class SofascoreXgService {
@@ -41,75 +31,28 @@ class SofascoreXgService {
   }
 
   async fetchMatchXg(sofascoreId) {
-    if (!sofascoreId) return null
+    if (!sofascoreId || SOFA_DISABLED) return null
 
-    const cached = cache.get(String(sofascoreId))
+    const key = String(sofascoreId)
+    const cached = cache.get(key)
     if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
 
     try {
-      await softDelay()
-      const url = `${SOFA_API}/event/${sofascoreId}/statistics`
-      const ua = getRandomUserAgent()
-      const res = await fetch(url, {
-        headers: {
-          ...SOFA_HEADERS,
-          'User-Agent': ua,
-          'sec-ch-ua': getSecChUa(ua),
-          'sec-ch-ua-mobile': getSecChUaMobile(ua),
-          'sec-ch-ua-platform': getSecChUaPlatform(ua),
-        },
-        method: 'GET',
-        signal: AbortSignal.timeout(10000),
-      })
+      const stats = await SofascoreBypass.getEventStats(sofascoreId)
+      if (!stats || !stats.found) return null
 
-      if (!res.ok) {
-        logger.warn(`[SOFASCORE] xG fetch failed for ${sofascoreId}: HTTP ${res.status}`)
-        return null
-      }
-
-      const body = await res.json()
-      if (!body || !body.statistics) return null
-
-      // Find "Expected goals" in the ALL period statistics items
-      let xgH = null,
-        xgA = null
-
-      if (Array.isArray(body.statistics)) {
-        for (const period of body.statistics) {
-          if (!period.groups) continue
-          for (const group of period.groups) {
-            if (!group.statisticsItems) continue
-            for (const item of group.statisticsItems) {
-              if (!item || !item.name) continue
-              const name = item.name.toLowerCase()
-              if (name.includes('expected goals') || name.includes('xg') || name.includes('xG')) {
-                const h = parseFloat(item.home)
-                const a = parseFloat(item.away)
-                if (!isNaN(h)) xgH = h
-                if (!isNaN(a)) xgA = a
-                break
-              }
-            }
-            if (xgH !== null || xgA !== null) break
-          }
-          if (xgH !== null || xgA !== null) break
-        }
-      }
-
+      const xgH = _num(stats.expectedGoalsHome)
+      const xgA = _num(stats.expectedGoalsAway)
       if (xgH === null && xgA === null) {
         logger.warn(`[SOFASCORE] No xG found in statistics for ${sofascoreId}`)
         return null
       }
 
       const result = { home_xg: xgH, away_xg: xgA, source: 'SOFASCORE' }
-      cache.set(String(sofascoreId), { data: result, ts: Date.now() })
+      cache.set(key, { data: result, ts: Date.now() })
       return result
     } catch (err) {
-      if (err.name === 'TimeoutError' || err.code === 'UND_ERR_CONNECT_TIMEOUT') {
-        logger.warn(`[SOFASCORE] xG timeout for ${sofascoreId}`)
-      } else {
-        logger.warn(`[SOFASCORE] xG error for ${sofascoreId}: ${err.message}`)
-      }
+      logger.warn(`[SOFASCORE] xG error for ${sofascoreId}: ${err.message}`)
       return null
     }
   }

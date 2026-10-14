@@ -36,7 +36,7 @@ describe('computeRawLines — structure de base', () => {
     const m = baseMatch()
     const r = computeRawLines(m)
     expect(Array.isArray(r)).toBe(true)
-    expect(r.length).toBe(21)
+    expect(r.length).toBe(22)
   })
 
   it('indice 13 = domChip (nom du marché dominant)', () => {
@@ -76,7 +76,7 @@ describe('computeRawLines — match sans cornersVerdict', () => {
     const m = baseMatch()
     delete m.enriched?.cornersVerdict
     const r = computeRawLines(m)
-    expect(r.length).toBe(21)
+    expect(r.length).toBe(22)
     expect(r[13]).not.toBe('--')
   })
 })
@@ -100,7 +100,7 @@ describe('computeRawLines — match sans cotes bookmaker', () => {
     m.odds_over25 = null
     m.odds_btts_yes = null
     const r = computeRawLines(m)
-    expect(r.length).toBe(21)
+    expect(r.length).toBe(22)
   })
 
   it('domChip reste un marché valide sans odds', () => {
@@ -122,7 +122,7 @@ describe('computeRawLines — match finished', () => {
     m.scoreHome = '2'
     m.scoreAway = '1'
     const r = computeRawLines(m)
-    expect(r.length).toBe(21)
+    expect(r.length).toBe(22)
   })
 
   it('domChip est \'--\' pour un match finished', () => {
@@ -202,7 +202,7 @@ describe('computeRawLines — O/U coherence', () => {
     m.odds_over25 = '1.90'
     m.quant = { probs: { over25: 65 } }
     const r = computeRawLines(m)
-    expect(r.length).toBe(21)
+    expect(r.length).toBe(22)
   })
 })
 
@@ -275,7 +275,7 @@ describe('computeRawLines / analyzeMatch — real_markets info (HT/FT, AH, Team 
     m.real_markets = []
     expect(() => analyzeMatch(m)).not.toThrow()
     const r = computeRawLines(m)
-    expect(r.length).toBe(21)
+    expect(r.length).toBe(22)
   })
 })
 

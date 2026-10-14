@@ -2,7 +2,7 @@
  * settlementService.js — Automated Match Settlement Engine
  *
  * Periodically settles finished matches:
- * 1. Fetches missing scores from SofaAPI for finished matches
+ * 1. Fetches missing scores via the SofaScore bypass (curl_cffi) for finished matches
  * 2. Compares actual result with stored prediction (1/X/2, O/U)
  * 3. Writes WON/LOST to matches.result + prediction_history
  */
@@ -12,13 +12,10 @@ const logger = require('../core/logger')
 const confidenceScorer = require('../core/confidenceScorer')
 const accuracyStore = require('../core/accuracyStore')
 
-const SofaAPI = (() => {
-  try {
-    return require('../SofascoreScraping/src/apiClient').SofaAPI
-  } catch {
-    return null
-  }
-})()
+// E91 : SofaScore via le pont curl_cffi (scripts/sofascore_bypass.py).
+// L'ancien SofaAPI Node recevait l'id interne "livescore_xxxx" en tant qu'id
+// d'événement -> GET /event/livescore_xxxx = 403 + cooldown global 480s.
+const sofa = require('./scrapers/SofascoreBypass')
 
 // ── Market evaluation ─────────────────────────────────────────────
 
@@ -269,8 +266,8 @@ async function settleFinishedMatches(force = false) {
 async function fetchMissingScores() {
   logger.info('[SETTLEMENT] Fetching missing scores for finished matches...')
 
-  if (!SofaAPI) {
-    logger.warn('[SETTLEMENT] SofaAPI not available — cannot fetch missing scores.')
+  if (!sofa || typeof sofa.resolveEvent !== 'function') {
+    logger.warn('[SETTLEMENT] SofaScore bypass not available — cannot fetch missing scores.')
     return { fetched: 0 }
   }
 
@@ -298,20 +295,28 @@ async function fetchMissingScores() {
 
     for (const row of rows) {
       try {
-        const details = await SofaAPI.getMatchDetails(row.id)
-        if (!details || !details.event) continue
+        // E91 : résoudre le vrai id SofaScore (numérique) avant tout appel.
+        let startTimestamp = null
+        try {
+          startTimestamp = JSON.parse(row.fullData || '{}').startTimestamp || null
+        } catch {
+          startTimestamp = null
+        }
+        const eventId = await sofa.resolveEvent(row.homeTeam, row.awayTeam, startTimestamp)
+        if (!eventId) continue
 
-        const event = details.event
-        if (event.status?.type !== 'finished' && event.status?.code !== 100) continue
+        const status = await sofa.getEventStatus(eventId)
+        if (!status || !status.found || !status.finished) continue
 
-        const homeScore = event.homeScore?.current ?? event.homeScore?.normaltime ?? null
-        const awayScore = event.awayScore?.current ?? event.awayScore?.normaltime ?? null
-
-        if (homeScore === null || awayScore === null) continue
+        const homeScore = status.home
+        const awayScore = status.away
+        if (homeScore === null || homeScore === undefined) continue
+        if (awayScore === null || awayScore === undefined) continue
 
         const currentFullData = JSON.parse(row.fullData || '{}')
         currentFullData.status = 'finished'
         currentFullData.score = { home: homeScore, away: awayScore }
+        currentFullData._sofaEventId = eventId
 
         db.prepare(
           `
@@ -328,7 +333,7 @@ async function fetchMissingScores() {
 
         await new Promise((r) => setTimeout(r, 1200))
       } catch (e) {
-        logger.debug(`[SETTLEMENT] SofaAPI error for ${row.id}: ${e.message}`)
+        logger.debug(`[SETTLEMENT] SofaScore error for ${row.id}: ${e.message}`)
       }
     }
   } catch (e) {

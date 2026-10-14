@@ -351,6 +351,18 @@
   color: #94a3b8;
 }
 
+.mc-combo {
+  width: 10%;
+  min-width: 78px;
+  color: #e879f9;
+}
+.mc-combo.mc-yes {
+  color: #22c55e;
+}
+.mc-combo.mc-no {
+  color: #94a3b8;
+}
+
 .mc-info-htft {
   width: 9%;
   min-width: 70px;
@@ -391,7 +403,8 @@
   }
   .mc-btts,
   .mc-ht,
-  .mc-corners {
+  .mc-corners,
+  .mc-combo {
     display: none;
   }
 }
@@ -520,6 +533,17 @@
   color: #f87171;
   border-color: rgba(248, 113, 113, 0.35);
   background: rgba(248, 113, 113, 0.1);
+}
+
+.mcc-chip.mcc-combo.yes {
+  color: #22d3ee;
+  border-color: rgba(34, 211, 238, 0.35);
+  background: rgba(34, 211, 238, 0.1);
+}
+.mcc-chip.mcc-combo.no {
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.35);
+  background: rgba(192, 132, 252, 0.1);
 }
 
 .mcc-chip.mcc-ou.over {

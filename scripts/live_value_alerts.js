@@ -2,7 +2,7 @@ const Database = require('better-sqlite3')
 const path = require('path')
 const axios = require('axios')
 const fs = require('fs')
-const { SofaAPI } = require('../SofascoreScraping/src/apiClient')
+const Bypass = require('../services/scrapers/SofascoreBypass')
 
 // 🛡️ CONFIGURATION TITANIUM
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
@@ -19,17 +19,24 @@ function log(msg) {
   } catch (e) {}
 }
 
-function fractionToDecimal(fractionalString) {
-  if (!fractionalString) return 1.0
-  const parts = fractionalString.split('/')
-  if (parts.length === 2) {
-    const num = parseFloat(parts[0])
-    const den = parseFloat(parts[1])
-    if (den > 0) {
-      return num / den + 1.0
-    }
+// E92 : le bypass SofaScore (curl_cffi, E88) renvoie une forme « plate »
+// ({homeTeam:string, homeScore:number, statusType, odds:{home,draw,away,...}}).
+// On la re-mappe vers la forme imbriquée historique attendue par le moteur
+// d'alertes, afin de ne pas modifier la logique métier ci-dessous.
+function toSofaShape(ev) {
+  const hs = ev.homeScore
+  const as = ev.awayScore
+  const minuteDesc = ev.minute || (ev.liveMinute != null ? `${Math.floor(ev.liveMinute)}'` : '')
+  return {
+    id: ev.id,
+    homeTeam: { name: ev.homeTeam },
+    awayTeam: { name: ev.awayTeam },
+    tournament: { name: ev.tournament },
+    homeScore: { display: hs, current: hs },
+    awayScore: { display: as, current: as },
+    status: { type: ev.statusType, description: minuteDesc },
+    odds: ev.odds || {},
   }
-  return parseFloat(fractionalString) || 1.0
 }
 
 async function sendTelegram(text) {
@@ -259,9 +266,9 @@ async function runAudit() {
   }
 
   try {
-    // 1. Fetch live events from Sofascore API
-    const liveData = await SofaAPI.getLiveEvents()
-    const liveEvents = liveData?.events || []
+    // 1. Matchs en direct via le bypass SofaScore (curl_cffi) — plus de 403/cooldown
+    const rawLive = await Bypass.getLiveEvents()
+    const liveEvents = (Array.isArray(rawLive) ? rawLive : []).map(toSofaShape)
     log(`ℹ️ Detected ${liveEvents.length} live matches currently playing in the world.`)
 
     // Résolution auto des scores finaux (hook autrefois porté par SofascoreBypass)
@@ -390,89 +397,67 @@ async function runAudit() {
       const isCandidateAway = pA >= 60 && currentAway <= currentHome
 
       if (isCandidateHome && !alertedValueBets.has(alertedKeyHome)) {
-        log(
-          `🔍 Home favorite candidate drawing/losing: ${homeTeam} vs ${awayTeam}. Querying live odds...`
-        )
-        const oddsData = await SofaAPI.getOddsFeatured(eventId)
-        const fullTimeOdds = oddsData?.featured?.fullTime
+        const liveOddsHome = event.odds?.home
+        if (liveOddsHome > 1.3) {
+          const ev = (pH / 100) * liveOddsHome - 1
+          log(
+            `📊 ${homeTeam} win live odds: @${liveOddsHome.toFixed(2)} | Calculated EV: +${(ev * 100).toFixed(1)}%`
+          )
 
-        if (fullTimeOdds && fullTimeOdds.choices) {
-          const homeChoice = fullTimeOdds.choices.find((c) => c.name === '1')
-          if (homeChoice && !fullTimeOdds.suspended) {
-            const liveOddsHome = fractionToDecimal(homeChoice.fractionalValue)
-            if (liveOddsHome > 1.3) {
-              const ev = (pH / 100) * liveOddsHome - 1
-              log(
-                `📊 ${homeTeam} win live odds: @${liveOddsHome.toFixed(2)} | Calculated EV: +${(ev * 100).toFixed(1)}%`
-              )
+          if (ev >= 0.12) {
+            const kelly = ev / (liveOddsHome - 1)
+            const stake = Math.round(Math.max(1.0, Math.min(8.0, kelly * 0.25 * 100)))
+            const confidence = dbM.xgboost_confidence
+              ? (dbM.xgboost_confidence * 100).toFixed(0)
+              : '85'
 
-              if (ev >= 0.12) {
-                const kelly = ev / (liveOddsHome - 1)
-                const stake = Math.round(Math.max(1.0, Math.min(8.0, kelly * 0.25 * 100)))
-                const confidence = dbM.xgboost_confidence
-                  ? (dbM.xgboost_confidence * 100).toFixed(0)
-                  : '85'
+            let valueMsg = `🚨 *TITANIUM LIVE VALUE BET DETECTED* 🚨\n\n`
+            valueMsg += `🏆 *${tournament}*\n`
+            valueMsg += `⚽ *${homeTeam} ${currentHome} - ${currentAway} ${awayTeam}*\n`
+            valueMsg += `⏰ *Minute :* ${minute}' | *Score Actuel :* ${currentHome}-${currentAway}\n\n`
+            valueMsg += `🔥 *PRONOSTIC LIVE : Victoire de ${homeTeam}* 🏠\n`
+            valueMsg += `📈 *Côte Actuelle :* \`@${liveOddsHome.toFixed(2)}\` 🚀\n`
+            valueMsg += `🧠 *Avantage Mathématique (EV) :* \`+${(ev * 100).toFixed(1)}%\`\n`
+            valueMsg += `📊 *Confiance Pré-Match IA V17 :* \`${confidence}%\`\n`
+            valueMsg += `💰 *Mise Conseillée :* \`${stake}% de la Bankroll\` (Kelly 1/4)\n\n`
 
-                let valueMsg = `🚨 *TITANIUM LIVE VALUE BET DETECTED* 🚨\n\n`
-                valueMsg += `🏆 *${tournament}*\n`
-                valueMsg += `⚽ *${homeTeam} ${currentHome} - ${currentAway} ${awayTeam}*\n`
-                valueMsg += `⏰ *Minute :* ${minute}' | *Score Actuel :* ${currentHome}-${currentAway}\n\n`
-                valueMsg += `🔥 *PRONOSTIC LIVE : Victoire de ${homeTeam}* 🏠\n`
-                valueMsg += `📈 *Côte Actuelle :* \`@${liveOddsHome.toFixed(2)}\` 🚀\n`
-                valueMsg += `🧠 *Avantage Mathématique (EV) :* \`+${(ev * 100).toFixed(1)}%\`\n`
-                valueMsg += `📊 *Confiance Pré-Match IA V17 :* \`${confidence}%\`\n`
-                valueMsg += `💰 *Mise Conseillée :* \`${stake}% de la Bankroll\` (Kelly 1/4)\n\n`
+            valueMsg += `🤖 _Généré automatiquement par Titanium V17 Live Engine_`
 
-                valueMsg += `🤖 _Généré automatiquement par Titanium V17 Live Engine_`
-
-                await sendTelegram(valueMsg)
-                alertedValueBets.add(alertedKeyHome)
-              }
-            }
+            await sendTelegram(valueMsg)
+            alertedValueBets.add(alertedKeyHome)
           }
         }
       }
 
       if (isCandidateAway && !alertedValueBets.has(alertedKeyAway)) {
-        log(
-          `🔍 Away favorite candidate drawing/losing: ${homeTeam} vs ${awayTeam}. Querying live odds...`
-        )
-        const oddsData = await SofaAPI.getOddsFeatured(eventId)
-        const fullTimeOdds = oddsData?.featured?.fullTime
+        const liveOddsAway = event.odds?.away
+        if (liveOddsAway > 1.3) {
+          const ev = (pA / 100) * liveOddsAway - 1
+          log(
+            `📊 ${awayTeam} win live odds: @${liveOddsAway.toFixed(2)} | Calculated EV: +${(ev * 100).toFixed(1)}%`
+          )
 
-        if (fullTimeOdds && fullTimeOdds.choices) {
-          const awayChoice = fullTimeOdds.choices.find((c) => c.name === '2')
-          if (awayChoice && !fullTimeOdds.suspended) {
-            const liveOddsAway = fractionToDecimal(awayChoice.fractionalValue)
-            if (liveOddsAway > 1.3) {
-              const ev = (pA / 100) * liveOddsAway - 1
-              log(
-                `📊 ${awayTeam} win live odds: @${liveOddsAway.toFixed(2)} | Calculated EV: +${(ev * 100).toFixed(1)}%`
-              )
+          if (ev >= 0.12) {
+            const kelly = ev / (liveOddsAway - 1)
+            const stake = Math.round(Math.max(1.0, Math.min(8.0, kelly * 0.25 * 100)))
+            const confidence = dbM.xgboost_confidence
+              ? (dbM.xgboost_confidence * 100).toFixed(0)
+              : '85'
 
-              if (ev >= 0.12) {
-                const kelly = ev / (liveOddsAway - 1)
-                const stake = Math.round(Math.max(1.0, Math.min(8.0, kelly * 0.25 * 100)))
-                const confidence = dbM.xgboost_confidence
-                  ? (dbM.xgboost_confidence * 100).toFixed(0)
-                  : '85'
+            let valueMsg = `🚨 *TITANIUM LIVE VALUE BET DETECTED* 🚨\n\n`
+            valueMsg += `🏆 *${tournament}*\n`
+            valueMsg += `⚽ *${homeTeam} ${currentHome} - ${currentAway} ${awayTeam}*\n`
+            valueMsg += `⏰ *Minute :* ${minute}' | *Score Actuel :* ${currentHome}-${currentAway}\n\n`
+            valueMsg += `🔥 *PRONOSTIC LIVE : Victoire de ${awayTeam}* ✈️\n`
+            valueMsg += `📈 *Côte Actuelle :* \`@${liveOddsAway.toFixed(2)}\` 🚀\n`
+            valueMsg += `🧠 *Avantage Mathématique (EV) :* \`+${(ev * 100).toFixed(1)}%\`\n`
+            valueMsg += `📊 *Confiance Pré-Match IA V17 :* \`${confidence}%\`\n`
+            valueMsg += `💰 *Mise Conseillée :* \`${stake}% de la Bankroll\` (Kelly 1/4)\n\n`
 
-                let valueMsg = `🚨 *TITANIUM LIVE VALUE BET DETECTED* 🚨\n\n`
-                valueMsg += `🏆 *${tournament}*\n`
-                valueMsg += `⚽ *${homeTeam} ${currentHome} - ${currentAway} ${awayTeam}*\n`
-                valueMsg += `⏰ *Minute :* ${minute}' | *Score Actuel :* ${currentHome}-${currentAway}\n\n`
-                valueMsg += `🔥 *PRONOSTIC LIVE : Victoire de ${awayTeam}* ✈️\n`
-                valueMsg += `📈 *Côte Actuelle :* \`@${liveOddsAway.toFixed(2)}\` 🚀\n`
-                valueMsg += `🧠 *Avantage Mathématique (EV) :* \`+${(ev * 100).toFixed(1)}%\`\n`
-                valueMsg += `📊 *Confiance Pré-Match IA V17 :* \`${confidence}%\`\n`
-                valueMsg += `💰 *Mise Conseillée :* \`${stake}% de la Bankroll\` (Kelly 1/4)\n\n`
+            valueMsg += `🤖 _Généré automatiquement par Titanium V17 Live Engine_`
 
-                valueMsg += `🤖 _Généré automatiquement par Titanium V17 Live Engine_`
-
-                await sendTelegram(valueMsg)
-                alertedValueBets.add(alertedKeyAway)
-              }
-            }
+            await sendTelegram(valueMsg)
+            alertedValueBets.add(alertedKeyAway)
           }
         }
       }
@@ -501,13 +486,18 @@ async function loop() {
   }
 }
 
-// Support both single-run (cron) and continuous (standalone) modes
-if (process.argv.includes('--once')) {
-  log('🔁 Running single audit cycle (--once mode)...')
-  runAudit().finally(() => {
-    log('🏁 Single audit cycle complete.')
-    process.exit(0)
-  })
-} else {
-  loop()
+// Support both single-run (cron) and continuous (standalone) modes.
+// Garde require.main : le module peut être importé (tests) sans lancer la boucle.
+if (require.main === module) {
+  if (process.argv.includes('--once')) {
+    log('🔁 Running single audit cycle (--once mode)...')
+    runAudit().finally(() => {
+      log('🏁 Single audit cycle complete.')
+      process.exit(0)
+    })
+  } else {
+    loop()
+  }
 }
+
+module.exports = { toSofaShape }

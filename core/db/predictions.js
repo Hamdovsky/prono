@@ -7,6 +7,7 @@ const {
   deriveBttsPick,
   deriveCornerPick,
   deriveHTPick,
+  deriveComboPick,
 } = require('../marketPolicy')
 const { applyLeaguePolicy } = require('../leaguePolicy')
 
@@ -152,6 +153,20 @@ function createPredictionsDao(db) {
           data.ht_pick = htDeriv.htPick
           fullData.ht_pick = htDeriv.htPick
           fullData.ht_pick_prob = htDeriv.htProb
+        }
+        // E93 : dérivation + persistance du pick Combo GG + Over 2.5 au temps T
+        const comboDeriv = deriveComboPick({
+          quant: fullData.quant || enriched?.quant || null,
+          btts_over25_prob:
+            data.btts_over25_prob ??
+            enriched?.btts_over25_prob ??
+            fullData.btts_over25_prob ??
+            null,
+        })
+        if (comboDeriv.comboPick) {
+          data.combo_pick = comboDeriv.comboPick
+          fullData.combo_pick = comboDeriv.comboPick
+          fullData.combo_pick_prob = comboDeriv.comboProb
         }
         const expScr =
           data.expected_score || enriched?.expected_score || fullData.expected_score || null

@@ -32,6 +32,9 @@ const OU_RE = /^[OU](\d+(?:\.\d+)?)$/
 // Audit Q1 : marchés Corners (O/U ligne, défaut 9.5) et HT (O/U 0.5).
 const CORNER_RE = /^CORNERS(OVER|UNDER)(\d+(?:\.\d+)?)$/
 const HT_RE = /^HT(OVER|UNDER)0\.5$/
+// E93 : marché combiné GG + Over 2.5 (les deux marquent ET 3+ buts). Émis par
+// deriveComboPick() et persisté en fullData.combo_pick au temps T.
+const COMBO_RE = /^BTTSOVER2\.5(YES|NO)$/
 // Quarter-Kelly : cap explicite à 2 % du bankroll (évite les stakes gonflés).
 const KELLY_FRAC = 0.25
 const KELLY_CAP_PCT = 2.0
@@ -71,10 +74,15 @@ function isHT(label) {
   return HT_RE.test(label)
 }
 
+function isCombo(label) {
+  return COMBO_RE.test(label)
+}
+
 // Marché d'un pick : '1X2' (simple), 'DC' (double chance), 'OU' (over/under).
 function marketKey(label) {
   const p = normalizeLabel(label)
   if (!p) return null
+  if (isCombo(p)) return 'COMBO'
   if (p === '1' || p === 'X' || p === '2') return '1X2'
   if (p === '1X' || p === 'X2' || p === '12') return 'DC'
   if (isBTTS(p)) return 'BTTS'
@@ -86,6 +94,7 @@ function marketKey(label) {
 
 function isAllowed(label, marketFilter) {
   if (is1x2(label)) return marketFilter === 'all' || marketFilter === '1x2'
+  if (isCombo(label)) return marketFilter === 'all' || marketFilter === 'combo'
   if (isBTTS(label)) return marketFilter === 'all' || marketFilter === 'btts'
   if (isOU(label)) return marketFilter === 'all' || marketFilter === 'over_under'
   if (isCorner(label)) return marketFilter === 'all' || marketFilter === 'corners'
@@ -127,6 +136,12 @@ function isCorrect(pick, actual, scoreHome, scoreAway, ctx) {
     const actualHT = total > 0.5 ? 'HTOVER0.5' : 'HTUNDER0.5'
     return pick === actualHT
   }
+  if (isCombo(pick)) {
+    // E93 : réel = les deux marquent ET total > 2.5 buts.
+    if (scoreHome == null || scoreAway == null) return null
+    const hit = scoreHome > 0 && scoreAway > 0 && scoreHome + scoreAway > 2.5
+    return pick === (hit ? 'BTTSOVER2.5YES' : 'BTTSOVER2.5NO')
+  }
   if (isBTTS(pick)) {
     // Audit BT2 : réel BTTS dérivé des scores finaux (les deux équipes marquent)
     if (scoreHome == null || scoreAway == null) return null
@@ -152,7 +167,10 @@ function isCorrect(pick, actual, scoreHome, scoreAway, ctx) {
  */
 function pickProbability(pick, probs) {
   if (!probs) return null
-  const { p1, px, p2, pBtts, pCorner, pHT } = probs
+  const { p1, px, p2, pBtts, pCorner, pHT, pCombo } = probs
+  if (isCombo(pick)) {
+    return pCombo != null && Number.isFinite(pCombo) ? pCombo * 100 : null
+  }
   if (isBTTS(pick)) {
     return pBtts != null && Number.isFinite(pBtts) ? pBtts * 100 : null
   }
@@ -461,6 +479,38 @@ function recordsFromMatches(r, options) {
     if (hrec) out.push(hrec)
   }
 
+  // ── Record Combo GG + Over 2.5 secondaire (E93) ──
+  const comboPick = normalizeLabel(r.combo_pick ?? fd.combo_pick ?? null)
+  if (comboPick && isCombo(comboPick)) {
+    const pComboRaw = r.combo_pick_prob ?? fd.combo_pick_prob ?? null
+    const pCombo =
+      pComboRaw != null && Number.isFinite(Number(pComboRaw)) && Number(pComboRaw) > 0
+        ? Number(pComboRaw) / 100
+        : null
+    const cbrec = buildRecord(
+      {
+        matchId: r.id + '|COMBO',
+        league: r.league || 'Unknown',
+        pick: comboPick,
+        actual,
+        scoreHome: r.scoreHome,
+        scoreAway: r.scoreAway,
+        confidence: pCombo != null ? +(pCombo * 100).toFixed(1) : null,
+        probs: { p1: null, px: null, p2: null, pCombo },
+        odds: { home: null, draw: null, away: null, bttsYes: null, bttsNo: null },
+        kellyStakePct: null,
+        source: 'matches|COMBO',
+        ts: r.startTimestamp || parseDateTs(r.timestamp),
+        cornersHome: r.corners_home,
+        cornersAway: r.corners_away,
+        htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+        htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
+      },
+      options
+    )
+    if (cbrec) out.push(cbrec)
+  }
+
   return out
 }
 
@@ -657,6 +707,40 @@ function recordsFromHistorical(r, options) {
       options
     )
     if (hrec) out.push(hrec)
+  }
+
+  // ── Record Combo GG + Over 2.5 secondaire (E93) ──
+  const comboPick = normalizeLabel(fd.combo_pick ?? null)
+  if (comboPick && isCombo(comboPick)) {
+    const pComboRaw = fd.combo_pick_prob ?? null
+    const pCombo =
+      pComboRaw != null && Number.isFinite(Number(pComboRaw)) && Number(pComboRaw) > 0
+        ? Number(pComboRaw) <= 1
+          ? Number(pComboRaw)
+          : Number(pComboRaw) / 100
+        : null
+    const cbrec = buildRecord(
+      {
+        matchId: r.id + '|COMBO',
+        league: r.league || 'Unknown',
+        pick: comboPick,
+        actual,
+        scoreHome: r.scoreHome,
+        scoreAway: r.scoreAway,
+        confidence: pCombo != null ? +(pCombo * 100).toFixed(1) : null,
+        probs: { p1: null, px: null, p2: null, pCombo },
+        odds: { home: null, draw: null, away: null, bttsYes: null, bttsNo: null },
+        kellyStakePct: null,
+        source: 'historical_matches|COMBO',
+        ts: parseDateTs(r.timestamp) || parseDateTs(r.archived_at),
+        cornersHome: r.corners_home,
+        cornersAway: r.corners_away,
+        htHome: r.ht_score_home ?? r.score_home_ht ?? fd.ht_score_home ?? fd.ht_home ?? null,
+        htAway: r.ht_score_away ?? r.score_away_ht ?? fd.ht_score_away ?? fd.ht_away ?? null,
+      },
+      options
+    )
+    if (cbrec) out.push(cbrec)
   }
 
   return out
@@ -1084,7 +1168,7 @@ function computeAccuracy(options = {}) {
       .sort((a, b) => b.total - a.total),
     excludedLabels: Object.entries(excludedLabels).map(([label, count]) => ({
       label,
-        reason: `Label hors whitelist (valides: 1, X, 2, 1X, X2, 12, O/U+seuil, BTTS YES/NO) — exclu du calcul d'accuracy`,
+        reason: `Label hors whitelist (valides: 1, X, 2, 1X, X2, 12, O/U+seuil, BTTS YES/NO, COMBO GG+O2.5 YES/NO) — exclu du calcul d'accuracy`,
       count,
     })),
   }
@@ -1095,6 +1179,7 @@ module.exports = {
   normalizeLabel,
   marketKey,
   isCorrect,
+  isCombo,
   pickProbability,
   pickOdds,
   recordsFromHistorical,

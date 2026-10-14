@@ -60,7 +60,7 @@ export const toRawLines = (m) => {
 }
 
 // ── Onglets marchés : pick jouable = confiance >= seuil par marché ──
-export const MARKET_MIN_PCT = { win: 55, ou: 55, btts: 55, ht: 70 }
+export const MARKET_MIN_PCT = { win: 55, ou: 55, btts: 55, ht: 70, combo: 40 }
 export const MARKET_CELLS = {
   ou: [4, 11],
   win: [5, 10],
@@ -74,7 +74,7 @@ export const hasMarketPrediction = (r, market) => {
   if (market === 'corners') return MARKET_CELLS.corners.some((i) => r[i] && r[i] !== '--')
   return marketPct(r, market) >= (MARKET_MIN_PCT[market] ?? 55)
 }
-export const MARKET_TABS = ['ou', 'win', 'btts', 'ht', 'corners']
+export const MARKET_TABS = ['ou', 'win', 'btts', 'ht', 'corners', 'combo']
 
 /**
  * Compteurs d'onglets sur la liste de BASE (sans filtre marché) — fixes quand
@@ -141,7 +141,7 @@ export const applyQualityFilters = (list, { onlyRealOdds = false, hideNoBet = fa
 import { VALID_SORTS } from './tableColumns'
 
 export const VALID_DATES = ['Today', 'Tomorrow', 'Next 3 Days', 'Next 7 Days']
-export const VALID_MARKETS = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners']
+export const VALID_MARKETS = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners', 'combo']
 
 export function parseFilterSearch(search) {
   const p = new URLSearchParams(search || '')
@@ -223,6 +223,7 @@ const sortValue = (m, key) => {
     case 'btts': return marketPctOf(m, 'btts')
     case 'ht': return marketPctOf(m, 'ht')
     case 'corners': return marketPctOf(m, 'corners')
+    case 'combo': return marketPctOf(m, 'combo')
     default: return NaN
   }
 }
@@ -376,7 +377,7 @@ const csvCell = (v) => {
 
 export const CSV_HEADER = [
   'Ligue', 'Date', 'Domicile', 'Exterieur', 'TOP',
-  'BTTS', 'O/U', '1X2', '1er MT', 'Corners',
+  'BTTS', 'O/U', '1X2', '1er MT', 'Corners', 'Combo',
   'Cote 1', 'Cote X', 'Cote 2', 'Veto', 'CAC dom', 'CAC ext',
 ]
 
@@ -405,6 +406,7 @@ export function buildCsv(list) {
         r[5] || '',
         r[6] || '',
         r[7] || '',
+        r[21] || '',
         m?.odds_home || '',
         m?.odds_draw || '',
         m?.odds_away || '',

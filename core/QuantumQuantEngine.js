@@ -92,6 +92,7 @@ class QuantumQuantEngine {
       probs: {
         btts: Math.round(probs.btts.yes * 100),
         over25: Math.round(probs.over25 * 100),
+        btts_over25: Math.round((probs.btts_over25 || 0) * 100),
         ht_goal: Math.round(probs.ht_goal * 100),
       },
       league_profile: profile,

@@ -7,6 +7,7 @@ const {
   deriveBttsPick,
   deriveCornerPick,
   deriveHTPick,
+  deriveComboPick,
 } = require('../marketPolicy')
 const { applyLeaguePolicy } = require('../leaguePolicy')
 const { mergeOddsIntoFullData } = require('../archiveMerge')
@@ -72,6 +73,15 @@ function createMatchesDao(db) {
         if (__ht.htPick) {
           m.ht_pick = __ht.htPick
           m.ht_pick_prob = __ht.htProb
+        }
+        // E93 : dérivation + persistance du pick Combo GG + Over 2.5 au temps T
+        const __combo = deriveComboPick({
+          quant: m.fullData?.quant ?? m.quant,
+          btts_over25_prob: m.btts_over25_prob ?? m.fullData?.btts_over25_prob,
+        })
+        if (__combo.comboPick) {
+          m.combo_pick = __combo.comboPick
+          m.combo_pick_prob = __combo.comboProb
         }
 
         // Audit étape 1 : politique ligues — désambiguïsation Top-5 par pays

@@ -19,15 +19,16 @@ export const TABLE_COLUMNS = [
   { key: 'win', label: 'GAGNANT', fr: 13, min: 96, tier: 560, group: 'odds', sortKey: 'win' },
   { key: 'ht', label: '1RE MT', fr: 9, min: 70, tier: 860, group: 'odds', sortKey: 'ht' },
   { key: 'corners', label: 'CORNERS', fr: 8, min: 62, tier: 860, group: 'odds', sortKey: 'corners' },
+  { key: 'combo', label: 'COMBO', fr: 8, min: 62, tier: 860, group: 'odds', sortKey: 'combo' },
   { key: 'htft', label: 'HT/FT', fr: 7, min: 64, tier: 1040, group: 'info', sortKey: null },
   { key: 'ah', label: 'AH', fr: 7, min: 64, tier: 1040, group: 'info', sortKey: null },
   { key: 'tts', label: 'QUI MARQUE', fr: 7, min: 60, tier: 1040, group: 'info', sortKey: null },
 ]
 
-// Paliers responsive (px de conteneur) : 2 -> 4 -> 7 -> 10 colonnes.
+// Paliers responsive (px de conteneur) : 2 -> 4 -> 8 -> 11 colonnes.
 //  < 560  : info + top
 // 560-859 : + ou + win
-// 860-1039: + btts + ht + corners
+// 860-1039: + btts + ht + corners + combo
 //  >= 1040: + htft + ah + tts (tout)
 export const COLUMN_WIDTH_TIERS = [0, 560, 860, 1040]
 
@@ -41,6 +42,7 @@ export const SORT_DEFAULT_DIRS = {
   btts: 'desc',
   ht: 'desc',
   corners: 'desc',
+  combo: 'desc',
 }
 export const VALID_SORTS = Object.keys(SORT_DEFAULT_DIRS)
 

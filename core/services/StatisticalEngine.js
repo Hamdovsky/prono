@@ -803,6 +803,8 @@ class StatisticalEngine {
     let p1XAndO15 = 0
     let p1XAndBTTS = 0
     let pX2AndU35 = 0
+    // E93 : combo GG + Over 2.5 (les 2 marquent ET total > 2.5 buts)
+    let pBttsOver25 = 0
 
     const distFn = useNB
       ? (l, k) => this.getNegBinomProb(l, k, theta)
@@ -857,6 +859,8 @@ class StatisticalEngine {
         if (h >= a && total > 1.5) p1XAndO15 += prob
         if (h >= a && h > 0 && a > 0) p1XAndBTTS += prob
         if (a >= h && total < 3.5) pX2AndU35 += prob
+        // E93 : GG + Over 2.5
+        if (h > 0 && a > 0 && total > 2.5) pBttsOver25 += prob
       }
     }
 
@@ -880,10 +884,18 @@ class StatisticalEngine {
     finalBTTS = Math.min(0.95, Math.max(0.05, finalBTTS))
     const finalBTTS_NO = 1 - finalBTTS
 
+    // E93 : combo « GG + Over 2.5 » borné par l'inégalité de Fréchet vs les
+    // marginales affichées (BTTS boosté + O2.5) → cohérence avec l'UI.
+    const pOver25 = pOU[2.5]
+    const comboLo = Math.max(0, finalBTTS + pOver25 - 1)
+    const comboHi = Math.min(finalBTTS, pOver25)
+    const bttsOver25 = Math.min(comboHi, Math.max(comboLo, pBttsOver25))
+
     return {
       win: { home: pH, draw: pD, away: pA },
       dc: { '1X': pH + pD, X2: pA + pD, 12: pH + pA },
       btts: { yes: finalBTTS, no: finalBTTS_NO },
+      btts_over25: bttsOver25,
       ou: pOU,
       u: pU,
       cs: { home: pCleanSheetH, away: pCleanSheetA },
@@ -895,6 +907,7 @@ class StatisticalEngine {
         '1X_O15': p1XAndO15,
         '1X_BTTS': p1XAndBTTS,
         X2_U35: pX2AndU35,
+        BTTS_O25: bttsOver25,
       },
     }
   }

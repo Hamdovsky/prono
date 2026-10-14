@@ -88,6 +88,7 @@ export function analyzeMatch(m) {
     score: null,
     btts: { label: '--', pct: 0, verdict: '' },
     ou: { label: '--', pct: 0, direction: '' },
+    combo: { label: '--', pct: 0, verdict: '' },
     corners: { label: '--', line: null, pct: 0, verdict: '' },
     handicap: { label: '--', pct: 0 },
     winner: { pick: '--', prob: 0, label: '--', solid: false },
@@ -150,6 +151,17 @@ export function analyzeMatch(m) {
           : { label: `NON ${100 - bttsPct}%`, pct: 100 - bttsPct, verdict: 'NON' }
         : { label: '--', pct: 0, verdict: '' }
   }
+
+  // ── COMBO GG + Over 2.5 (E93) : les 2 marquent ET 3+ buts ──
+  // Source : moteur Node (quant.probs.btts_over25, %) sinon champ persisté
+  // btts_over25_prob (fraction ou %, normalisé).
+  const comboPct = normalizePct(
+    quant.probs?.btts_over25 ?? m.btts_over25_prob ?? enriched?.btts_over25_prob ?? 0
+  )
+  out.combo =
+    comboPct > 0
+      ? { label: `GG+O2.5 ${comboPct}%`, pct: comboPct, verdict: comboPct >= 50 ? 'OUI' : 'NON' }
+      : { label: '--', pct: 0, verdict: '' }
 
   // ── O/U : les 4 lignes (O1.5 / O2.5 / O3.5 / O4.5) ──
   // Chaque ligne = proba Over (P(total buts > line)), direction O si > 50 sinon U.
@@ -570,6 +582,7 @@ export function computeRawLines(m) {
       '--',
       '--',
       '--',
+      '--',
     ]
   }
   const mode = a.honesty.mode
@@ -617,6 +630,7 @@ export function computeRawLines(m) {
   const btoCell = a.bttsAndOu.pct > 0
     ? `${a.bttsAndOu.label}|${a.bttsAndOu.pct}|${a.bttsAndOu.odds.toFixed(2)}`
     : '--'
+  const comboCell = a.combo.pct > 0 ? a.combo.label : '--'
   return [
     leagueLabel,
     a.homeTeam,
@@ -639,6 +653,7 @@ export function computeRawLines(m) {
     htahCell,
     btwCell,
     btoCell,
+    comboCell,
   ]
 }
 
@@ -670,6 +685,10 @@ export function marketBannerFromLines(r, market) {
       break
     case 'btts':
       label = cell(3)
+      pct = label ? cellPct(label) : 0
+      break
+    case 'combo':
+      label = cell(21)
       pct = label ? cellPct(label) : 0
       break
     case 'ht':

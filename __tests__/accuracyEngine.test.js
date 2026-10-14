@@ -26,6 +26,7 @@ function makeDb(rows) {
       odds_btts_yes REAL, odds_btts_no REAL,
       odds_over25 REAL, odds_under25 REAL,
       corner_pick TEXT, corner_pick_prob REAL, ht_pick TEXT, ht_pick_prob REAL,
+      combo_pick TEXT, combo_pick_prob REAL,
       corners_home INTEGER, corners_away INTEGER, score_home_ht INTEGER, score_away_ht INTEGER,
       timestamp TEXT, startTimestamp INTEGER, insufficient_data INTEGER
     );
@@ -43,6 +44,7 @@ function makeDb(rows) {
       btts_prob, btts_pick, btts_pick_prob, odds_btts_yes, odds_btts_no,
       odds_over25, odds_under25,
       corner_pick, corner_pick_prob, ht_pick, ht_pick_prob,
+      combo_pick, combo_pick_prob,
       corners_home, corners_away, score_home_ht, score_away_ht,
       timestamp, startTimestamp, insufficient_data)
      VALUES (@id, @homeTeam, @awayTeam, @league, @scoreHome, @scoreAway, @status, @prediction, @confidence,
@@ -51,6 +53,7 @@ function makeDb(rows) {
       @btts_prob, @btts_pick, @btts_pick_prob, @odds_btts_yes, @odds_btts_no,
       @odds_over25, @odds_under25,
       @corner_pick, @corner_pick_prob, @ht_pick, @ht_pick_prob,
+      @combo_pick, @combo_pick_prob,
       @corners_home, @corners_away, @score_home_ht, @score_away_ht,
       @timestamp, @startTimestamp, @insufficient_data)`
   )
@@ -80,6 +83,8 @@ function makeDb(rows) {
       corner_pick_prob: r.corner_pick_prob ?? null,
       ht_pick: r.ht_pick ?? null,
       ht_pick_prob: r.ht_pick_prob ?? null,
+      combo_pick: r.combo_pick ?? null,
+      combo_pick_prob: r.combo_pick_prob ?? null,
       corners_home: r.corners_home ?? null,
       corners_away: r.corners_away ?? null,
       score_home_ht: r.score_home_ht ?? null,
@@ -732,5 +737,66 @@ describe('accuracyEngine — Q1 marchés Corners / HT', () => {
     expect(b['90+'].count).toBe(1)
     expect(b['90+'].accuracy).toBe(1)
     expect(b['50-60'].count).toBe(1)
+  })
+})
+
+// ── E93 (2026-10-14) — marché Combo GG + Over 2.5 émis via fullData.combo_pick ──
+describe('accuracyEngine — E93 marché Combo GG + Over 2.5', () => {
+  test('record Combo secondaire settle sur "les 2 marquent ET 3+ buts"', () => {
+    const db = makeDb({
+      matches: [
+        {
+          id: 'm1', homeTeam: 'A', awayTeam: 'B', league: 'E0',
+          scoreHome: 2, scoreAway: 1, status: 'FT', prediction: '1', confidence: 70,
+          combo_pick: 'BTTS OVER 2.5 YES', combo_pick_prob: 64,
+          timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+        {
+          id: 'm2', homeTeam: 'C', awayTeam: 'D', league: 'E0',
+          scoreHome: 1, scoreAway: 1, status: 'FT', prediction: 'X', confidence: 70,
+          combo_pick: 'BTTS OVER 2.5 YES', combo_pick_prob: 55,
+          timestamp: new Date(TS.base).toISOString(), startTimestamp: TS.base,
+        },
+      ],
+    })
+    const res = computeAccuracy({ db, marketFilter: 'combo' })
+    expect(res.summary.total).toBe(2)
+    expect(res.summary.correct).toBe(1) // m1 (2-1) gagné, m2 (1-1) perdu
+    expect(res.byMarket[0].market).toBe('COMBO')
+    expect(res.byMarket[0].accuracy).toBe(50)
+  })
+
+  test('historical_matches : combo_pick depuis fullData archivé (snapshot T)', () => {
+    const db = makeDb({
+      historical: [
+        {
+          id: 'h1', homeTeam: 'AA', awayTeam: 'BB', league: 'Liga', scoreHome: 0, scoreAway: 2,
+          timestamp: new Date(TS.base).toISOString(),
+          archived_at: new Date(TS.base + 3600).toISOString(),
+          fullData: JSON.stringify({
+            prediction: 'X',
+            confidence: 60,
+            combo_pick: 'BTTS OVER 2.5 YES',
+            combo_pick_prob: 70,
+          }),
+        },
+      ],
+    })
+    const res = computeAccuracy({ db, marketFilter: 'combo' })
+    // 0-2 : un seul camp marque → Combo YES perdu
+    expect(res.summary.total).toBe(1)
+    expect(res.summary.correct).toBe(0)
+  })
+
+  test('isCorrect / marketKey / pickProbability combo', () => {
+    const { isCorrect, marketKey, pickProbability, isCombo } = require('../services/accuracyEngine')
+    expect(marketKey('BTTS OVER 2.5 YES')).toBe('COMBO')
+    expect(isCombo('BTTSOVER2.5YES')).toBe(true)
+    expect(isCorrect('BTTSOVER2.5YES', '1', 2, 1)).toBe(true)
+    expect(isCorrect('BTTSOVER2.5YES', 'X', 1, 1)).toBe(false)
+    expect(isCorrect('BTTSOVER2.5NO', 'X', 1, 1)).toBe(true)
+    expect(isCorrect('BTTSOVER2.5NO', '1', 3, 1)).toBe(false)
+    expect(pickProbability('BTTSOVER2.5YES', { pCombo: 0.6 })).toBe(60)
+    expect(pickProbability('BTTSOVER2.5YES', {})).toBeNull()
   })
 })

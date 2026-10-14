@@ -284,3 +284,61 @@ class TestRealMarketsToPrecisionBets:
         bets = real_markets_to_precision_bets(rm, model_probs={"home": 75.0})
         assert bets[0]["value"] is True
         assert bets[0]["market"].startswith("1X2")
+
+
+class TestComboGgOver25:
+    """E93 : marche combine GG + Over 2.5 (P(les 2 marquent ET 3+ buts))."""
+
+    def test_prob_closed_form(self):
+        from market_engine import combo_gg_over25_prob
+        p = combo_gg_over25_prob(2.0, 1.8)
+        assert p == pytest.approx(0.6413, abs=0.005)
+
+    def test_prob_bounded_by_calibrated_marginals(self):
+        from market_engine import combo_gg_over25_prob
+        # marginales calibrees -> borne de Frechet haute = min(btts, ou25)
+        p = combo_gg_over25_prob(2.0, 1.8, p_btts=0.55, p_over25=0.90)
+        assert p == pytest.approx(0.55, abs=1e-6)
+
+    def test_prob_invalid_xg_returns_none(self):
+        from market_engine import combo_gg_over25_prob
+        assert combo_gg_over25_prob(None, 1.0) is None
+
+    def test_emitted_when_high_xg(self):
+        from market_engine import generate_precision_bets
+        bets = generate_precision_bets(
+            2.0, 1.8, 55, 25, 20, 70, 45, 80, 10.0, 3.5, 'H', 'A', True, {}
+        )
+        markets = [b['market'] for b in bets]
+        assert 'Combo GG + Over 2.5' in markets
+        bet = next(b for b in bets if b['market'] == 'Combo GG + Over 2.5')
+        assert bet['probability'] >= 40
+
+    def test_not_emitted_when_low_xg(self):
+        from market_engine import generate_precision_bets
+        bets = generate_precision_bets(
+            0.8, 0.6, 40, 35, 25, 35, 20, 70, 9.0, 3.5, 'H', 'A', True, {}
+        )
+        markets = [b['market'] for b in bets]
+        assert 'Combo GG + Over 2.5' not in markets
+
+    def test_real_market_label_and_edge(self):
+        from market_engine import real_markets_to_precision_bets
+        rm = [
+            {"source": "sofascore", "market_id": "btts_over25", "selection": "yes",
+             "line": 2.5, "odds": 1.9, "usable": True},
+        ]
+        bets = real_markets_to_precision_bets(rm, model_probs={"btts_over25": 60.0})
+        assert len(bets) == 1
+        assert bets[0]["market"] == "Combo GG + Over 2.5"
+        assert bets[0]["value"] is True
+        assert bets[0]["model_probability"] == 60
+
+    def test_settlement_both_score_and_three_goals(self):
+        from ab_backtest_real_markets import _bet_won
+        label = 'Combo GG + Over 2.5'
+        assert _bet_won(label, label, 2, 1) is True   # les 2 marquent, 3 buts
+        assert _bet_won(label, label, 1, 1) is False  # les 2 marquent, 2 buts
+        assert _bet_won(label, label, 2, 0) is False  # un seul marque
+        assert _bet_won(label, label, 4, 2) is True
+

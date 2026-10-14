@@ -5,10 +5,26 @@
  * hardcodee par nom de bookmaker (pas de if "over 1.5").
  */
 
-// Categories: goals | corners | cards | btts | handicap | team_goals | result | ht_ft
-// ORDRE IMPORTANT : team_goals avant total_goals (sinon "Home Team Total Goals"
-// est capte par total_goals).
+// Categories: goals | corners | cards | btts | combo | handicap | team_goals | result | ht_ft
+// ORDRE IMPORTANT : le combo btts_over25 DOIT preceder total_goals et btts
+// (sinon "GG & Over 2.5" est capte par total_goals via son "over 2.5").
 const MARKET_REGISTRY = {
+  btts_over25: {
+    category: 'combo',
+    type: 'combo',
+    period: 'full_time',
+    aliases: [
+      /(?:gg|btts|both\s*teams\s*to\s*score|les\s*2\s*marquent|les\s*deux\s*marquent)[\s&+\/|-]*(?:over|plus|\+)?\s*2[.,]5/i,
+      /2[.,]5[\s&+\/|-]*(?:gg|btts|both\s*teams\s*to\s*score)/i,
+      /over\s*2[.,]5[\s&+\/|-]*(?:gg|btts|both\s*teams\s*to\s*score)/i,
+    ],
+    selections: {
+      yes: [/.*/i],
+    },
+    defaultLine: 2.5,
+  },
+  // ORDRE IMPORTANT : team_goals avant total_goals (sinon "Home Team Total Goals"
+  // est capte par total_goals).
   total_goals: {
     category: 'goals',
     type: 'over_under',

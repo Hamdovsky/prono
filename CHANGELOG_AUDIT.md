@@ -12652,3 +12652,56 @@ mieux que celle du modèle servi (eta=0.3, qui early-stoppe à l'itération 18 =
 - `scripts/train_v55_honest.py` (nouveau), `models/stitch_v55_optimized.json` (REMPLACÉ par le
   modèle honnête), `models/archive/stitch_v55_optimized_preE100.json` (backup de l'ancien),
   `data/v55_honest_retrain_report.json` (nouveau).
+
+---
+
+## E101 : SofascoreBypass — bug d'unités du `--ts` (ms supposées vs secondes réelles) qui faisait échouer tout `resolveEvent` avec timestamp (2026-10-15)
+
+### Symptôme
+`⚠️ [RETRO-SYNC] No SofaScore event resolved for livescore_1884464 — skipped {}`
+(puis même message pour tout match concernant settlement / cotes). La résolution
+d'événement Sofascore échouait silencieusement dès qu'un `startTimestamp` était fourni.
+
+### Cause racine (reproduite, mesurée, locale)
+`SofascoreBypass.resolveEvent()` faisait `Math.floor(startTimestamp / 1000)` en
+supposant des **millisecondes**, alors que toutes les sources réelles passent des
+**secondes** (colonne `startTimestamp` de la DB et `fullData.startTimestamp` —
+l'API Sofascore renvoie nativement des secondes) :
+- cas réel `livescore_1884464` (Mafra vs Tirsense, Taça de Portugal) :
+  ts `1789837200` → divisé → `--ts 1789837` (= 1970-01-21) → le filtre ±7 jours de
+  `sofascore_bypass.py` rejetait les 43 candidats → `{"found":false}` → skip.
+- Vérification live : `resolve --home Mafra --away Tirsense --ts 1789837200` →
+  **✅ event 16988026** ; avec `--ts 1789837` → **❌ found:false**. Bug 100 % reproductible.
+- Unités mélangées chez les appelants : `retroSyncService`/`settlementService`/
+  `getOddsForMatch` (secondes, DB), `Crawl4aiScraper` (ms via `Date.parse`, ou
+  format `AAAAMMJJ` numerique) — seul un input en ms « chanceux » fonctionnait.
+
+### Correctif
+- **`services/scrapers/SofascoreBypass.js`** : nouvelle fonction
+  `normalizeTsToSeconds(ts)` — epoch ms (> 1e12) → /1000 ; `AAAAMMJJ` (< 1e8) →
+  minuit UTC ; epoch s → tel quel ; valeur inutilisable → `null` (**`--ts` omis**,
+  jamais de 1970). `resolveEvent()` l'utilise au lieu de la division aveugle.
+  Exportée pour les tests.
+- Tous les appelants (retro-sync, settlement, cotes, absences, crawl4ai) sont
+  corrigés sans changer leur code — la normalisation est centralisée dans le pont.
+
+### Vérification
+- Live (local) : `SofascoreBypass.resolveEvent('Mafra','Tirsense',1789837200)` →
+  **16988026** (avant : `null`) ; `resolveEvent('PSG','Marseille')` sans ts →
+  **16311088** (inchangé).
+- **`__tests__/sofascoreBypassTs.test.js`** (nouveau, 10 tests offline, `execFile`
+  mocké) : secondes intactes, ms → s, `AAAAMMJJ` → UTC, omision de `--ts` sur
+  valeur inutilisable, strings numériques. **10/10 verts**.
+- Jest ciblé anti-régression : `retroSyncService` + `crawl4aiScraper` +
+  `sofascore_absences` + `sofascoreXgService` → **4 suites, 78 tests verts**.
+- `node --check` OK ; `npx eslint` sur les 2 fichiers : **0 erreur**.
+
+### Impact attendu
+- RETRO-SYNC rattrapera les matchs bloqués en `scheduled` (dont `livescore_1884464`).
+- Le settlement et la récupération de cotes ne rateront plus les matchs pourvu
+  qu'un timestamp soit présent — auparavant ils dégradaient silencieusement vers
+  « résolution sans ts » (probabilité de mauvais match) ou échec total.
+
+### Fichiers touchés
+- `services/scrapers/SofascoreBypass.js` (normalisation + export), 
+  `__tests__/sofascoreBypassTs.test.js` (nouveau, 10 tests).

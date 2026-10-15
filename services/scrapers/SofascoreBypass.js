@@ -91,12 +91,41 @@ async function searchTeam(name) {
   return null
 }
 
+/**
+ * Normalise un timestamp quelconque en epoch SECONDS — unité native de
+ * l'API Sofascore et de la colonne "startTimestamp" de la DB.
+ *
+ * Historique du bug (2026-10-15) : resolveEvent divisait aveuglément par 1000
+ * en supposant des millisecondes, alors que la DB / fullData stockent des
+ * SECONDES. Résultat : --ts 1789837 (1970-01-21) → filtre ±7j du Python
+ * rejetait tout → "event_not_found" → RETRO-SYNC/settlement ignoraient les matchs.
+ *
+ * Formats acceptés :
+ * - epoch ms  (Date.parse, > 1e12)  -> / 1000
+ * - AAAAMMJJ  (20260915, < 1e8)     -> minuit UTC de cette date
+ * - epoch s   (DB / fullData / Sofascore) -> tel quel
+ * Renvoie null si la valeur est inutilisable (le --ts est alors omis).
+ */
+function normalizeTsToSeconds(ts) {
+  const n = Number(ts)
+  if (!Number.isFinite(n) || n <= 0) return null
+  if (n > 1e12) return Math.floor(n / 1000) // epoch ms
+  if (n < 1e8) {
+    // format AAAAMMJJ -> minuit UTC
+    const s = String(Math.floor(n)).padStart(8, '0')
+    const d = Date.parse(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T00:00:00Z`)
+    return Number.isFinite(d) ? Math.floor(d / 1000) : null
+  }
+  return Math.floor(n) // epoch s
+}
+
 async function resolveEvent(homeTeam, awayTeam, startTimestamp) {
   const key = `${normKey(homeTeam)}|${normKey(awayTeam)}`
   const hit = eventCache.get(key)
   if (hit && Date.now() < hit.expiresAt) return hit.eventId
   const args = ['resolve', '--home', String(homeTeam || ''), '--away', String(awayTeam || '')]
-  if (startTimestamp) args.push('--ts', String(Math.floor(startTimestamp / 1000)))
+  const tsSec = normalizeTsToSeconds(startTimestamp)
+  if (tsSec) args.push('--ts', String(tsSec))
   const res = await callPy(args)
   if (res && res.found && res.event_id) {
     eventCache.set(key, {
@@ -464,6 +493,7 @@ async function getAbsencesForMatch(match) {
 module.exports = {
   getOddsForMatch,
   resolveEvent,
+  normalizeTsToSeconds,
   searchTeam,
   getOdds,
   getLiveEvents,

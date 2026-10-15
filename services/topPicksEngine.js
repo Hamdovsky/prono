@@ -213,11 +213,40 @@ function buildCandidates(m, markets = null) {
   }
 
   // ── 1X2 (via ValueBetEngine : de-vig + edge + EV + Kelly) ──
+  // E95 : ancrage marché des probas 1X2 AVANT l'edge. La carte de calibration
+  // mesurée compresse une confiance annoncée de 70 % vers ~48 % réel et le
+  // marché dé-vig est mieux calibré que le modèle (52 % vs 42 % de justesse).
+  // Les probas servies n'étant pas calibrées en prod (ISO_RUNTIME_APPLY=false),
+  // l'edge/EV 1X2 reste gonflé par la sur-confiance. On mélange le modèle vers le
+  // marché. VALUE_MARKET_ANCHOR_WEIGHT = poids du marché (0 = off, identité).
+  const anchorWeight = (() => {
+    const raw = process.env.VALUE_MARKET_ANCHOR_WEIGHT
+    const w = raw == null ? 0.5 : parseFloat(raw)
+    return isNaN(w) ? 0.5 : Math.min(1, Math.max(0, w))
+  })()
   if (odds.has1x2 && allow('1X2')) {
+    let modelHome = mh || 33
+    let modelDraw = md || 33
+    let modelAway = ma || 33
+    if (anchorWeight > 0) {
+      const fair = ValueBetEngine.deVig(odds.home, odds.draw, odds.away)
+      const anchored = ValueBetEngine.anchorModelToMarket({
+        modelHome,
+        modelDraw,
+        modelAway,
+        marketHome: fair.home,
+        marketDraw: fair.draw,
+        marketAway: fair.away,
+        weight: anchorWeight,
+      })
+      modelHome = anchored.home
+      modelDraw = anchored.draw
+      modelAway = anchored.away
+    }
     const v = ValueBetEngine.analyzeValue({
-      modelHome: mh || 33,
-      modelDraw: md || 33,
-      modelAway: ma || 33,
+      modelHome,
+      modelDraw,
+      modelAway,
       homeOdds: odds.home,
       drawOdds: odds.draw,
       awayOdds: odds.away,
@@ -231,10 +260,13 @@ function buildCandidates(m, markets = null) {
         pickKey: b.selection,
         odds: b.odds,
         modelProb: b.modelProb,
+        rawModelProb: keyMap[b.selection] === '1' ? mh : keyMap[b.selection] === 'X' ? md : ma,
         fairProb: b.fairProb,
         edge: b.edge,
         ev: b.ev,
         kelly: b.kelly,
+        anchored: anchorWeight > 0,
+        anchorWeight: anchorWeight > 0 ? anchorWeight : 0,
         match: m,
       })
     }

@@ -162,10 +162,68 @@ function calculateEV(probability, odds) {
   return parseFloat(((probability / 100) * odds - 1).toFixed(3))
 }
 
+/**
+ * anchorModelToMarket({ modelHome, modelDraw, modelAway,
+ *                       marketHome, marketDraw, marketAway, weight })
+ *
+ * Mélange (pooling linéaire) des probabilités du modèle et des probabilités
+ * dé-vigées du marché, pour contrer la sur-confiance 1X2 mesurée du modèle.
+ *
+ * Audit E94/E95 : la carte de calibration mesurée compresse une confiance
+ * annoncée de 70 % vers ~48 % de justesse réelle, et le marché dé-vig est mieux
+ * calibré que le modèle (52 % vs 42 % de justesse observée). Or les probabilités
+ * servies ne sont PAS calibrées en production (ISO_RUNTIME_APPLY=false), donc
+ * l'edge/EV de la voie « value » reste gonflé. On ancre donc la probabilité du
+ * modèle sur le marché AVANT le calcul d'edge/EV.
+ *
+ * @param {number} weight  poids du MARCHÉ dans le mélange, borné [0,1].
+ *                         0 = identité (modèle brut), 1 = marché pur.
+ * @returns {{home:number, draw:number, away:number}} probabilités 0-100,
+ *          renormalisées (somme = 100).
+ */
+function anchorModelToMarket({
+  modelHome,
+  modelDraw,
+  modelAway,
+  marketHome,
+  marketDraw,
+  marketAway,
+  weight,
+}) {
+  const m = [parseFloat(modelHome) || 0, parseFloat(modelDraw) || 0, parseFloat(modelAway) || 0]
+  const k = [parseFloat(marketHome) || 0, parseFloat(marketDraw) || 0, parseFloat(marketAway) || 0]
+  const modelSum = m[0] + m[1] + m[2]
+  const marketSum = k[0] + k[1] + k[2]
+  const w = Math.min(1, Math.max(0, parseFloat(weight) || 0))
+
+  if (modelSum <= 0) {
+    const base = marketSum > 0 ? marketSum : 3
+    return {
+      home: ((marketSum > 0 ? k[0] : 1) / base) * 100,
+      draw: ((marketSum > 0 ? k[1] : 1) / base) * 100,
+      away: ((marketSum > 0 ? k[2] : 1) / base) * 100,
+    }
+  }
+
+  const out = [0, 1, 2].map((i) => {
+    const mp = m[i] / modelSum
+    if (w <= 0 || marketSum <= 0) return mp
+    return mp * (1 - w) + (k[i] / marketSum) * w
+  })
+  const s = out[0] + out[1] + out[2]
+  if (s <= 0) return { home: 33.3, draw: 33.3, away: 33.4 }
+  return {
+    home: parseFloat(((out[0] / s) * 100).toFixed(2)),
+    draw: parseFloat(((out[1] / s) * 100).toFixed(2)),
+    away: parseFloat(((out[2] / s) * 100).toFixed(2)),
+  }
+}
+
 module.exports = {
   analyzeValue,
   calculateValue,
   calculateEV,
+  anchorModelToMarket,
   deVig,
   kellyStake,
   valueTier,

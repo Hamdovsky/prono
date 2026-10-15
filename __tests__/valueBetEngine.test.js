@@ -144,4 +144,53 @@ describe('ValueBetEngine', () => {
       expect(kelly).toBeLessThan(10) // capped at 10%
     })
   })
+
+  describe('anchorModelToMarket()', () => {
+    const model = { modelHome: 60, modelDraw: 25, modelAway: 15 }
+    const market = { marketHome: 50, marketDraw: 28, marketAway: 22 }
+
+    it('weight 0 → identité (probas modèle renormalisées)', () => {
+      const r = ValueBetEngine.anchorModelToMarket({ ...model, ...market, weight: 0 })
+      expect(r.home).toBeCloseTo(60, 0)
+      expect(r.draw).toBeCloseTo(25, 0)
+      expect(r.away).toBeCloseTo(15, 0)
+    })
+
+    it('weight 1 → marché pur', () => {
+      const r = ValueBetEngine.anchorModelToMarket({ ...model, ...market, weight: 1 })
+      expect(r.home).toBeCloseTo(50, 0)
+      expect(r.draw).toBeCloseTo(28, 0)
+      expect(r.away).toBeCloseTo(22, 0)
+    })
+
+    it('weight 0.5 → mélange modèle/marché, somme = 100', () => {
+      const r = ValueBetEngine.anchorModelToMarket({ ...model, ...market, weight: 0.5 })
+      expect(r.home).toBeCloseTo(55, 0)
+      expect(r.home + r.draw + r.away).toBeCloseTo(100, 0)
+    })
+
+    it('doit renormaliser des entrées non normalisées', () => {
+      const r = ValueBetEngine.anchorModelToMarket({
+        modelHome: 1.2,
+        modelDraw: 0.5,
+        modelAway: 0.3,
+        marketHome: 0.5,
+        marketDraw: 0.28,
+        marketAway: 0.22,
+        weight: 0,
+      })
+      expect(r.home + r.draw + r.away).toBeCloseTo(100, 0)
+      expect(r.home).toBeCloseTo(60, 0)
+    })
+
+    it('marché absent → retourne le modèle renormalisé', () => {
+      const r = ValueBetEngine.anchorModelToMarket({
+        modelHome: 60,
+        modelDraw: 25,
+        modelAway: 15,
+        weight: 0.5,
+      })
+      expect(r.home).toBeCloseTo(60, 0)
+    })
+  })
 })

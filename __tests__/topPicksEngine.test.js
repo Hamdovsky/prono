@@ -2,6 +2,14 @@ const { _internal } = require('../services/topPicksEngine')
 const { buildCandidates, noBetOverconfident, computeQualityScore } = _internal
 
 describe('topPicksEngine — buildCandidates', () => {
+  beforeAll(() => {
+    // Voie brute (sans ancrage marché) pour tester la forme du candidat 1X2.
+    process.env.VALUE_MARKET_ANCHOR_WEIGHT = '0'
+  })
+  afterAll(() => {
+    delete process.env.VALUE_MARKET_ANCHOR_WEIGHT
+  })
+
   it('construit un candidat 1X2 quand les cotes réelles existent', () => {
     const m = {
       id: 1,
@@ -26,6 +34,37 @@ describe('topPicksEngine — buildCandidates', () => {
     expect(c.edge).toBeGreaterThanOrEqual(5)
     expect(c.ev).toBeGreaterThanOrEqual(0.05)
     expect(c.kelly).toBeGreaterThan(0)
+  })
+
+  it('E95 — ancrage marché : la proba 1X2 du candidat recule vers le dé-vig', () => {
+    process.env.VALUE_MARKET_ANCHOR_WEIGHT = '0.5'
+    try {
+      const m = {
+        id: 11,
+        homeTeam: 'Lyon',
+        awayTeam: 'Nantes',
+        league: 'Ligue 1',
+        home_win_probability: 70,
+        draw_probability: 20,
+        away_win_probability: 10,
+        odds_home: 1.9,
+        odds_draw: 3.5,
+        odds_away: 4.2,
+        insufficient_data: 0,
+      }
+      const candidates = buildCandidates(m)
+      const c = candidates.find((x) => x.marketType === '1X2')
+      expect(c).toBeDefined()
+      expect(c.anchored).toBe(true)
+      expect(c.rawModelProb).toBe(70)
+      // Autant de marché que de modèle : la proba ancrée est < proba brute car
+      // le marché (dé-vig) sous-évalue le home favori par rapport au modèle.
+      expect(c.modelProb).toBeLessThan(70)
+      expect(c.modelProb).toBeGreaterThan(c.fairProb)
+      expect(c.edge).toBeCloseTo(c.modelProb - c.fairProb, 0)
+    } finally {
+      delete process.env.VALUE_MARKET_ANCHOR_WEIGHT
+    }
   })
 
   it('construit un candidat Over 2.5 depuis quant.markets', () => {

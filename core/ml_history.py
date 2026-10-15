@@ -27,6 +27,27 @@ except Exception:
     def get_league_params(*a, **k):
         return {}
 
+def _normalize_ts(current_match_ts):
+    """Normalise un timestamp de match en SECONDES (int) ou None.
+
+    `process_row` (train_v55) convertit toujours le timestamp en millisecondes
+    (ligne 438), mais `datetime.fromtimestamp` attend des secondes ; un timestamp
+    en ms levait `OSError`/`ValueError` dans les 3 backends d'historique (PG,
+    master.db, archive) -> historique equipe silencieusement vide. On retablit ici
+    une convention unique en secondes, toleree pour ms/s/float/str."""
+    if current_match_ts is None:
+        return None
+    try:
+        v = float(current_match_ts)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    if v > 1e11:
+        v = v / 1000.0
+    return int(v)
+
+
 def load_json(path):
     if os.path.exists(path):
         try:
@@ -224,7 +245,7 @@ def _get_team_history_pg(team_name, limit=10, current_match_ts=None):
     try:
         clean_name = team_name.strip().lower()
         import time
-        cutoff_ts = int(current_match_ts) if current_match_ts else int(time.time())
+        cutoff_ts = _normalize_ts(current_match_ts) or int(time.time())
         from datetime import datetime
         cutoff_dt = datetime.fromtimestamp(cutoff_ts)
         cutoff_date = cutoff_dt.strftime('%Y-%m-%d')
@@ -305,7 +326,7 @@ def _get_team_history_master(team_name, limit=10, current_match_ts=None):
 
         import time
         from datetime import datetime
-        cutoff_ts = int(current_match_ts) if current_match_ts else int(time.time())
+        cutoff_ts = _normalize_ts(current_match_ts) or int(time.time())
         cutoff_date = datetime.fromtimestamp(cutoff_ts).strftime('%Y-%m-%d')
 
         rows = conn.execute("""
@@ -397,7 +418,7 @@ def get_team_history(team_name, limit=10, current_match_ts=None):
         clean_name = team_name.strip()
 
         import time
-        cutoff_ts = int(current_match_ts) if current_match_ts else int(time.time())
+        cutoff_ts = _normalize_ts(current_match_ts) or int(time.time())
 
         # Query archive_matches (existing — tennis/other sports)
         query = """
@@ -799,7 +820,7 @@ def get_h2h_advanced(home_team, away_team, current_match_ts=None):
         h = home_team.strip()
         a = away_team.strip()
         import time
-        cutoff_ts = int(current_match_ts) if current_match_ts else int(time.time())
+        cutoff_ts = _normalize_ts(current_match_ts) or int(time.time())
         rows = conn.execute("""
             SELECT stats_blob, homeTeam, awayTeam, scoreHome, scoreAway
             FROM archive_matches

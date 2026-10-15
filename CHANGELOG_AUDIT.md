@@ -12705,3 +12705,29 @@ l'API Sofascore renvoie nativement des secondes) :
 ### Fichiers touchés
 - `services/scrapers/SofascoreBypass.js` (normalisation + export), 
   `__tests__/sofascoreBypassTs.test.js` (nouveau, 10 tests).
+
+---
+
+## E102 : Dashboard — limite des 20 pronostics retirée (2026-10-15)
+
+### Contexte
+E68 avait plafonné le dashboard à `DASHBOARD_TOP_N = 20` (demande user à
+l'époque : « juste 20 pronostics »). Demande inverse aujourd'hui : **supprimer
+la limite** et laisser passer tous les matchs qualifiés — le tri de qualité
+existant (probs réelles + ligues majeures + cotes réelles en tête) met déjà
+les meilleurs pronostics devant.
+
+### Correctif
+- **`src/components/Dashboard.jsx`** : constante `DASHBOARD_TOP_N` supprimée ;
+  les deux `.slice(0, DASHBOARD_TOP_N)` retirés (`allMatchesList`, branche
+  `sortBy`). La liste triée est intégralement rendue par la grille virtualisée
+  (hauteur variable) — pas d'impact perf (virtualisation déjà en place).
+- Commentaire de site mis à jour (E68 → E102, historique conservé).
+
+### Vérification
+- `npx eslint src/components/Dashboard.jsx` : 0 erreur.
+- Jest `dashboardViewRouting` : **2/2 verts** (routage live + tri sur copie).
+- `npm run build` : **OK (14.2 s)**.
+
+### Fichiers touchés
+- `src/components/Dashboard.jsx` (suppression de la troncature).

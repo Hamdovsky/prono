@@ -97,10 +97,10 @@ const MAJOR_LEAGUE_RE =
   /premier league|championship|champions league|europa league|ligue [12]|bundesliga|serie [ab]|la liga|liga portugal|eredivisie|mls|liga mx|j1 league|k league|scottish premiership|primera division|brasileirão/i
 const isMajorLeague = (name) => MAJOR_LEAGUE_RE.test(String(name || ''))
 
-// E68 : le dashboard n'affiche que les N meilleurs pronostics (demande user
-// "juste 20 pronostics"). La liste est deja triee par qualite (probs reelles +
-// ligues majeures + cotes) ci-dessous, on prend donc la tete de liste.
-const DASHBOARD_TOP_N = 20
+// E68 : limitait le dashboard aux 20 meilleurs pronostics (demande user
+// "juste 20 pronostics"). E102 : limite RETIRÉE à la demande user — la liste
+// est deja triee par qualite (probs reelles + ligues majeures + cotes), les
+// meilleurs restent en tete et la grille virtualisée supporte la longue liste.
 
 // Bande de confiance → précision réelle issue du backtest (bracketAccuracy).
 const bandOf = (conf) => {
@@ -507,7 +507,7 @@ const Dashboard = () => {
 
   const allMatchesList = useMemo(() => {
     const filtered = applyMarketFilter(baseList, dominantFilter)
-    if (sortBy) return applySort(filtered, sortBy).slice(0, DASHBOARD_TOP_N)
+    if (sortBy) return applySort(filtered, sortBy)
     return [...filtered]
       .sort((a, b) => {
         // Onglet marché actif : la confiance du marché domine le tri (meilleurs
@@ -556,7 +556,6 @@ const Dashboard = () => {
           : 0
         return aFin ? bTime - aTime : aTime - bTime
       })
-      .slice(0, DASHBOARD_TOP_N)
   }, [baseList, dominantFilter, sortBy])
 
   // E65 : liste aplatie avec sections par tranche horaire (pour la grille

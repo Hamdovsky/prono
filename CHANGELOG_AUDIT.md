@@ -12598,3 +12598,57 @@ sur le test (0.8427) ⇒ sa « validation » était en pratique la fenêtre de t
   → tester un `eta` plus bas + davantage de rounds peut améliorer l'OOS.
 - Décider : garder le modèle actuel (surévalué d'env. 3 pts) ou le remplacer par un modèle
   « honnête » visant ~56-57 % OOS sur la période récente.
+
+---
+
+## E100 : réentraînement HONNÊTE de V55 (holdout futur) → candidat NON déployé (2026-10-15)
+
+### Contexte
+Suite d'E99 (fuite confirmée sur le modèle servi). Objectif : produire un modèle V55 **propre** —
+entraîné avec l'historique équipe corrigé (E97), validé sur un **holdout chronologique FUTUR**,
+puis décider (voir « Décision ») de le promouvoir ou non en production.
+
+### Méthode (`scripts/train_v55_honest.py`, nouveau)
+- `load_data(limit=15000, feature_names=FEATURE_NAMES_V55)` ; colonnes closing-dérivées mises à 0
+  (aligné sur l'inférence réelle : `core/ml_ensemble.py:243` construit le vecteur via
+  `float(features.get(f, 0))` → closing absent ⇒ 0 pour un match futur).
+- Tri chronologique ; **test = 15 % les plus récents** (jamais vus) ; **val = 12 % du reste**
+  (early-stopping, donc aucune fuite).
+- Deux configs comparées : `deployed` (eta=0.3, reproduction du booster servi) vs `gentle`
+  (lr=0.05, subsample/colsample=0.8). Vainqueur choisi sur la **logloss de VAL** ; son score
+  TEST = OOS honnête.
+- Refit du vainqueur sur **TOUTES** les données (rounds = 1,1 × best_iteration) → modèle candidat.
+
+### Résultats
+Test = **2025-03-08 → 2026-05-24**, n = 2 250 :
+- config `deployed` : TEST acc **0.5556**, ll 0.9132 (early-stop iter **18** ; VAL 0.5863 / 0.8843)
+- config `gentle`   : TEST acc **0.5618**, ll **0.8955**, brier 0.5320, ece 0.0383 (early-stop
+  iter **155** ; VAL 0.5935 / 0.8697)
+- **Vainqueur = `gentle`** (meilleure logloss VAL). Baseline toujours-domicile = 0.4338.
+- Refit : **171 rounds** sur 15 000 lignes → `models/stitch_v55_candidate.json`
+  (223 features, 513 arbres, 3,09 Mo).
+
+**Conclusion** : ~**56,2 % OOS honnête**, > marché (51,4 % mesuré E96) et > prior (43,4 %),
+cohérent avec le pli 4 du walk-forward E99 (56,7 %). La config `gentle` généralise nettement
+mieux que celle du modèle servi (eta=0.3, qui early-stoppe à l'itération 18 = sur-apprentissage).
+
+### Décision / statut
+- **PROMOTION EFFECTUÉE** (décision « bon choix ») : `models/stitch_v55_optimized.json` a été
+  remplacé par le candidat honnête. Sauvegarde de l'ancien modèle servial →
+  `models/archive/stitch_v55_optimized_preE100.json` (récupérable aussi via l'historique git).
+- **Justification** : (1) le modèle servi a très probablement été entraîné AVEC le bug E97
+  (historique équipe vide) → depuis le correctif, l'inférence lit l'historique non-vide
+  ⇒ **mismatch train/serve** (risque de dégradation live) ; (2) le candidat est cohérent avec
+  l'inférence (closing = 0, historique corrigé) ; (3) il généralise mieux (VAL et TEST > config
+  servie). Risque faible, gain clair.
+- Après push : auto-deploy Render (le modèle est chargé par le service FastAPI). En local,
+  **redémarrer FastAPI + Node** pour tester.
+
+### Tests
+- Fonctions de métriques réutilisées depuis E99 (`tests/test_wf_retrain_metrics.py`, 5 passés).
+- Rapport : `data/v55_honest_retrain_report.json`.
+
+### Fichiers touchés
+- `scripts/train_v55_honest.py` (nouveau), `models/stitch_v55_optimized.json` (REMPLACÉ par le
+  modèle honnête), `models/archive/stitch_v55_optimized_preE100.json` (backup de l'ancien),
+  `data/v55_honest_retrain_report.json` (nouveau).

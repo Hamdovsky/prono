@@ -12543,3 +12543,58 @@ dans la lignée d'E18. Faiblesses identifiées puis corrigées :
 ### Fichiers touchés
 - `src/components/Dashboard.jsx` (routage live, tri sur copie, bouton clear, cleanup
   minuteurs), `__tests__/dashboardViewRouting.test.js` (nouveau).
+
+---
+
+## E99 : walk-forward 1X2 AVEC réentraînement — la fuite est CONFIRMÉE (~59-60 % = in-sample) (2026-10-15)
+
+### Contexte
+Suite directe d'E97 (réserve non levée). Le modèle déployé `stitch_v55_optimized.json`
+(écrit le 2026-08-25, données jusqu'à 2026-05) affiche ~59-60 % sur le test « récent » —
+mais ce test recoupe probablement son propre ensemble d'entraînement. Objectif : trancher,
+**sans toucher au modèle de prod**, via un vrai walk-forward **avec réentraînement par pli**.
+
+### Méthode
+- `scripts/eval_v55_walkforward_retrain.py` (nouveau) : `load_data(limit=15000)` (223 features,
+  223 colonnes demandées) → tri chronologique → `TimeSeriesSplit(n_splits=5)` (expanding) ;
+  un XGB **neuf** est réentraîné par pli (early-stopping sur le tail 12 % du train, donc
+  aucune donnée future), prédit le bloc suivant, puis agrégation des prédictions OOS.
+- Hyperparamètres repris du booster déployé (`save_config`) : `eta=0.3, max_depth=6,
+  subsample=1, colsample_bytree=1, reg_lambda=1, reg_alpha=0, min_child_weight=1, gamma=0`
+  (défauts XGBoost + depth 6 — **pas** le fallback `lr 0.05`). Booster déployé : 714 arbres,
+  best_iteration 187, best_score (logloss) **0.8416**.
+- Métriques : acc, logloss, brier, ECE, rappel par classe ; baseline toujours-domicile.
+
+### Résultats (walk-forward avec réentraînement)
+Fenêtre 2018-01 → 2026-05 ; n OOS = 12 500 (5 plis × 2 500).
+- **Modèle DÉPLOYÉ sur tout (in-sample, fuite possible)** : acc **0.5743**, logloss 0.8927.
+- **Walk-forward OOS poolé** : acc **0.5363**, logloss **0.9399**, brier **0.5601**,
+  ECE **0.0276** ; rappel H/D/A = 0.616 / 0.362 / 0.567.
+- Baseline toujours-domicile OOS : 0.4311.
+- Par pli : 0.4952 / 0.5336 / 0.5276 / 0.5584 / **0.5668** (pli 4 = 2025-02→2026-05).
+- Sur la fenêtre EXACTE du test E97 (2025-02 → 2026-05) : déployé (fuite) **0.5979** vs
+  réentraîné **0.5668** ⇒ écart ≈ **3,1 pts**.
+
+### Conclusion — RÉSERVE LEVÉE
+Le ~59-60 % était **gonflé par la fuite**. En walk-forward honnête : **~53,6 % poolé**,
+~**56,7 %** sur la période récente. Le modèle reste **au-dessus du marché** (devig 1X2 =
+0.5143 mesuré en E96) et du prior (0.43), mais l'écart revendiqué était surestimé de ~3-6 pts.
+Indice corroborant : `best_score` (logloss) du booster déployé = **0.8416** ≈ logloss mesurée
+sur le test (0.8427) ⇒ sa « validation » était en pratique la fenêtre de test.
+
+### Tests
+- `tests/test_wf_retrain_metrics.py` (nouveau, 5 tests) : `brier_score` (parfait = 0,
+  uniforme = 2/3), `strength` (parfait + normalisation des lignes), `ece_score` détecte la
+  mauvaise calibration. **5 passés**.
+- Rapport JSON : `data/v55_walkforward_retrain_report.json`.
+
+### Fichiers touchés
+- `scripts/eval_v55_walkforward_retrain.py` (nouveau), `tests/test_wf_retrain_metrics.py`
+  (nouveau).
+
+### Reste à faire / décision
+- **Réentraîner V55 pour de vrai** (écrase `stitch_v55_optimized.json`) avec un holdout
+  chronologique EXCLUANT le futur ; le réentraînement rapide ici utilise `eta=0.3` (agressif)
+  → tester un `eta` plus bas + davantage de rounds peut améliorer l'OOS.
+- Décider : garder le modèle actuel (surévalué d'env. 3 pts) ou le remplacer par un modèle
+  « honnête » visant ~56-57 % OOS sur la période récente.

@@ -229,6 +229,7 @@ const Dashboard = () => {
   const listRef = useRef(null)
   const containerRef = useRef(null)
   const searchRef = useRef(null)
+  const scanTimersRef = useRef([])
 
   // Étoile « Mes équipes » (E21-B) : suit les DEUX équipes du match (ajoute
   // ou retire les deux ensemble) — persistée en localStorage.
@@ -421,6 +422,16 @@ const Dashboard = () => {
   const handleRefresh = useCallback(() => dataService.refreshAllData(), [])
   const [scanBusy, setScanBusy] = useState(false)
 
+  // Nettoyage des minuteurs du scan forcé au démontage (évite un setState
+  // après unmount et laisse des refs fantômes).
+  useEffect(
+    () => () => {
+      scanTimersRef.current.forEach((id) => clearTimeout(id))
+      scanTimersRef.current = []
+    },
+    []
+  )
+
   // E63 : tri cliquable. Cycle default -> asc -> desc -> default (3 états).
   const onSortClick = useCallback(
     (key) => {
@@ -441,11 +452,13 @@ const Dashboard = () => {
     setScanBusy(true)
     try {
       await dataService.triggerScanToday()
-      setTimeout(() => dataService.refreshAllData(), 30000)
-      setTimeout(() => {
-        dataService.refreshAllData()
-        setScanBusy(false)
-      }, 70000)
+      scanTimersRef.current.push(setTimeout(() => dataService.refreshAllData(), 30000))
+      scanTimersRef.current.push(
+        setTimeout(() => {
+          dataService.refreshAllData()
+          setScanBusy(false)
+        }, 70000)
+      )
     } catch {
       setScanBusy(false)
     }
@@ -495,7 +508,7 @@ const Dashboard = () => {
   const allMatchesList = useMemo(() => {
     const filtered = applyMarketFilter(baseList, dominantFilter)
     if (sortBy) return applySort(filtered, sortBy).slice(0, DASHBOARD_TOP_N)
-    return filtered
+    return [...filtered]
       .sort((a, b) => {
         // Onglet marché actif : la confiance du marché domine le tri (meilleurs
         // picks d'abord), les critères généraux servent de tie-break.
@@ -1155,7 +1168,7 @@ const Dashboard = () => {
             <Suspense fallback={<LoadingSkeleton type="table" label="Flash Odds..." />}>
               <FlashOddsView />
             </Suspense>
-          ) : (
+          ) : activeView === 'live' ? null : (
             <div className="onyx-grid-container" style={{ padding: '16px 18px' }}>
               <div
                 style={{
@@ -1188,8 +1201,11 @@ const Dashboard = () => {
                     }}
                   />
                   {searchQuery && (
-                    <span
+                    <button
+                      type="button"
                       onClick={() => setSearchQuery('')}
+                      aria-label="Effacer la recherche"
+                      title="Effacer la recherche"
                       style={{
                         position: 'absolute',
                         right: '6px',
@@ -1199,10 +1215,14 @@ const Dashboard = () => {
                         color: '#64748b',
                         fontSize: '14px',
                         fontWeight: '700',
+                        background: 'transparent',
+                        border: 'none',
+                        padding: 0,
+                        lineHeight: 1,
                       }}
                     >
                       ✕
-                    </span>
+                    </button>
                   )}
                 </div>
                 <button

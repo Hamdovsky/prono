@@ -12313,3 +12313,233 @@ gonflées.
 effectivement aux probs servies, puis mesurer l'évolution du Brier/accuracy après quelques
 jours de settles. Envisager l'intégration du seuil Over/Under par `Total_xG_L5` comme règle
 de marché secondaire.
+
+---
+
+## E95 — Ancrage marché des probas 1X2 pour la détection de value (2026-10-14)
+
+### Contexte
+Décision utilisateur (priorité « Value vs marché »). Audit E94 : la calibration 1X2
+débloquée (`calibration_iso.py`) reste **inopérante sur les probs servies** car :
+- `confidence_engine.calibrate_confidence` applique l'isotonic aux `p_h,p_d,p_a` **locaux**
+  puis **les jette** (ne renvoie que confidence/reliability/value_index/analysis) ;
+- la proba servie = `float(p_h)` (`prediction_engine.py:1316`) = **pré-isotonic** ;
+- seul chemin réel : `ml_ensemble.blend_final_probabilities` (`ml_ensemble.py:758-761`),
+  gardé par `ENABLE_ISO_CALIBRATION=1` (**défaut `'0'` = OFF**, désactivé volontairement).
+
+⇒ Les probs 1X2 servies restent **non calibrées** (sur-confiantes) et la voie « value »
+calcule edge/EV/Kelly sur ces probs gonflées. Carte de calibration mesurée (agressive) :
+70 % annoncé → ~47.6 % réel ; 80 % → ~52.4 % ; marché dé-vig mieux calibré (52 % vs 42 %).
+
+### Correctif (Node, voie value servie)
+Ancrage du modèle sur le marché dé-vigé **avant** le calcul d'edge/EV :
+- `services/ValueBetEngine.js` : nouvelle fonction pure `anchorModelToMarket()`
+  (pooling linéaire modèle/marché, renormalisation, bornée [0,1] ; 0 = identité,
+  1 = marché pur). Exportée.
+- `services/topPicksEngine.js` (`buildCandidates`, branche 1X2) : calcul du fair dé-vig
+  (`ValueBetEngine.deVig`), puis ancrage avec `VALUE_MARKET_ANCHOR_WEIGHT`
+  (**défaut 0.5**, `0` = désactive = comportement E94). Les probs ancrées alimentent
+  `analyzeValue`. Nouveaux champs candidat : `rawModelProb`, `anchored`, `anchorWeight`.
+- Effet : l'edge/EV 1X2 reflète la confiance honnête ; les picks dont l'edge n'existe
+  qu'à cause de la sur-confiance disparaissent (filtre `MIN_EV_THRESHOLD=0.1`).
+
+### Tests
+- `__tests__/valueBetEngine.test.js` : +5 (`anchorModelToMarket` : weight 0 = identité,
+  1 = marché pur, 0.5 = mélange + somme 100, renormalisation, marché absent).
+- `__tests__/topPicksEngine.test.js` : voie brute mise en `VALUE_MARKET_ANCHOR_WEIGHT=0`
+  (comportement historique préservé) ; +1 (ancrage : `modelProb < brut`, `> fairProb`,
+  `edge ≈ modelProb - fairProb`).
+- Jest : **123 suites / 1237 tests, 0 échec** (base E94 = 1231 → +6). eslint : 0 erreur.
+
+### Fichiers touchés
+- `services/ValueBetEngine.js`, `services/topPicksEngine.js`,
+  `__tests__/valueBetEngine.test.js`, `__tests__/topPicksEngine.test.js`.
+
+### Reste à faire / points de contrôle
+- **Redémarrer Node backend** pour charger l'ancrage (env `VALUE_MARKET_ANCHOR_WEIGHT`
+  optionnel, défaut 0.5).
+- Mesurer en prod l'évolution du taux de réussite des picks « value » 1X2 vs E94
+  (attendu : moins de picks, mais mieux calibrés).
+- Levier complémentaire non traité : correction du `value_index` Python
+  (`confidence_engine.py:219-226`) — mismatch sélection↔cotes (`temp_odds` prend les cotes
+  du nul pour un favori domicile ~45 %) et plage de cotes trop stricte [1.45,2.30].
+- L'accuracy 1X2 du pick reste ~42 % : la vraie amélioration = features/modèle
+  (`Total_xG_L5` indisponible en JS : absent de `historical_matches`).
+
+---
+
+## E96 — Harnais d'évaluation offline reproductible + vérité sur l'accuracy (2026-10-14)
+
+### Contexte
+Question utilisateur : « le projet est-il prêt pour un bon pronostic ? ». Constat : **3
+systèmes 1X2 parallèles** coexistent et se contredisent —
+(A) production `core/` V55 (le seul servi), (B) `data_pipeline/` (features xG),
+(C) `core/backtest_walkforward.py` baselines. Mesures incohérentes : `stacker_report.json`
+(B, OOF n=1751) donne **acc 0.540** ; `v55_walkforward_report.json` (A) annonce 0.690 avec
+un split suspect (train finit 2009, test commence 2026) ; audit E94 citait 0.417 sur les
+probs **legacy** de `historical_matches`. Impossible de trancher sans un harnais fiable.
+
+Contrainte : `core/train_v55.py::load_data` appelle une « master history » **PostgreSQL**
+indisponible localement → `[PG] master history error` en boucle → l'éval prod n'est **pas
+reproductible hors prod**.
+
+### Correctif / livrable
+Nouveau harnais **offline, sans PG ni réseau** : `scripts/eval_harness.py`.
+- Source unique : `data_pipeline/data/processed/master.db :: master_matches`
+  (18 478 matchs, 17 ligues, 2023-07-28 → 2026-08-27, features xG incluses).
+- Walk-forward **strictement chronologique** (expanding + embargo 14 lignes), pas de fuite.
+- 4 jeux de features isolant l'apport des xG : `BASE`, `BASE+ODDS`, `FULL(xG)`,
+  `FULL(xG)+ODDS`. Modèles `lr` (référence rapide) et `xgb` (config shallow du tuning).
+- Baselines : `baseline_prior` (fréquences de classes) et `baseline_market_devig`
+  (cotes d'ouverture dé-vigées) → **la référence à battre**.
+- Métriques : acc / logloss / brier / ece, par marché (`1x2`, `ou25`, `btts`).
+
+### Résultats mesurés (walk-forward, n=15 837 évalués)
+
+| Marché | baseline prior | baseline marché (dé-vig) | LR BASE | LR BASE+ODDS | LR FULL(xG)+ODDS |
+|---|---|---|---|---|---|
+| **1X2** | 0.4345 | **0.5143** (ll 0.9907) | 0.4891 | 0.5105 | 0.5104 |
+| **OU2.5** | 0.5212 | **0.5727** (ll 0.6753) | 0.5447 | 0.5705 | 0.5690 |
+| **BTTS** | ~0.52 | n/d | 0.5346 | 0.5474 | 0.5471 |
+
+### Conclusions (honnêtes)
+1. **Le modèle NE bat PAS le marché** sur aucun marché : meilleur modèle ≈ cotes dé-vigées.
+2. **Les features xG n'apportent quasi rien** à l'accuracy 1X2 (+0.002) ni OU2.5 (+0.002).
+   → l'hypothèse « ajouter `Total_xG_L5` pour remonter l'accuracy » est **INFIRMÉE**.
+3. Les **cotes** (ouverture) sont le principal signal ; les features de force seules (BASE)
+   font à peine mieux que la classe majoritaire (0.489 vs 0.4345 en 1X2).
+4. **OU2.5** est le marché le plus prévisible (marché 0.573, modèle 0.571 ≈ marché) —
+   cohérent avec la pertinence du combo GG+O2.5 (E90-E93).
+5. Les anciens chiffres (54 %, 60 %, 69 %, 42 %) provenaient de **sous-ensembles/legacy**
+   et ne sont pas comparables ; la vérité sur données complètes est **~49-51 % en 1X2**.
+
+### Tests
+- `tests/test_eval_harness.py` (nouveau, 5 tests) : `metrics` (parfait + cas connu),
+  `label_for` (1x2/ou25/btts), `walk_forward` (probas normalisées, pas de NaN). **5 passed**.
+
+### Fichiers touchés
+- `scripts/eval_harness.py` (nouveau), `tests/test_eval_harness.py` (nouveau).
+
+### Reste à faire / décision
+- **NE PAS** investir dans des features xG pour l'accuracy 1X2 (mesuré sans effet).
+- La valeur exploitable est côté **marché** (écart modèle/marché = E95) et **OU2.5/combo**.
+- Prochaine étape possible : brancher le harnais sur le **modèle réellement servi**
+  (V55) en cassant la dépendance PG de `load_data` (charger les features offline) pour
+  mesurer l'écart prod vs harness — c'est le seul moyen de valider une amélioration prod.
+
+---
+
+## E97 : bug de timestamp (ms vs s) qui VIDait l'historique équipe + mesure offline du modèle servi (V55) (2026-10-14)
+
+### Contexte (P1, suite d'E96)
+Objectif P1 : mesurer le **modèle réellement servi** (V55) hors prod, pour comparer au
+harnais E96. Blocage : `core/train_v55.py::load_data` → `extract_ml_features(fetch_history=True)`
+→ `core/ml_history.py` → `[PG] master history error` en boucle (15 min, timeout).
+
+### Cause racine trouvée (vrai bug, pas seulement PG)
+`core/train_v55.py:437-438` normalise TOUJOURS le timestamp en **millisecondes** :
+```python
+ts = row_dict.get('startTimestamp', 0)
+if ts: ts = ts if ts > 1e11 else ts * 1000   # -> toujours en ms
+```
+…puis le passe à `extract_ml_features(..., current_match_ts=ts)` (L508), qui le transmet
+tel quel à `get_team_history` (`ml_extract.py:63-64`). Or les **trois** backends
+d'historique de `core/ml_history.py` faisaient `datetime.fromtimestamp(cutoff_ts)` avec
+ce timestamp supposé en **secondes** :
+- `_get_team_history_pg` (L248-250), `_get_team_history_master` (L329-330),
+  bloc archive de `get_team_history` (L421/473), `get_h2h_advanced` (L823).
+
+Avec un timestamp en **ms** (1.7e12), `datetime.fromtimestamp` lève
+`OSError [Errno 22]` (année hors plage) → exception avalée → **historique équipe
+silencieusement vide** (`get_team_history` → `[]`/`None`) + flood `[PG] master history error`.
+Preuve reproduite : `_get_team_history_master("Arsenal", ts=1700000000)` → 3 ; `ts=1700000000000`
+→ `None`. Impact : toutes les features d'historique (forme L5/L10, xG roulant, h2h, style)
+pouvaient être **nulles** dès que le timestamp était en ms (chemin `process_row`).
+
+### Correctif
+- `core/ml_history.py` : nouvel helper `_normalize_ts(current_match_ts)` → **secondes** (int)
+  ou `None`, tolérant ms/s/float/str ; utilisé aux 4 points de coupe (pg, master, archive,
+  h2h). Convention unique rétablie pour entraînement ET service.
+
+### Mesure offline du modèle servi (prod_v55_optimized)
+Reproduction du chemin d'inférence prod (sans réentraînement) :
+`load_data(limit)` → `extract_ml_features` → `models/stitch_v55_optimized.json`,
+split **chronologique** (train = 80 %, test = 20 % récent), features `CLOSING_DERIVED` remises à 0.
+
+| limit | rows | train end | n test | TEST acc | logloss | brier | recall H/D/A |
+|---|---|---|---|---|---|---|---|
+| 6 000 | 7 096 | 2025-11-22 | 1 200 | **0.5908** | 0.8470 | 0.5039 | 0.749/0.377/0.707 |
+| 12 000 | 13 096 | 2025-02-15 | 2 400 | **0.5979** | 0.8427 | 0.5007 | 0.751/0.384/0.711 |
+
+Train acc ≈ test acc (0.570/0.598) → **pas de surapprentissage** détecté.
+
+### Conclusion — CORRECTION d'E96
+- E96 (LR nu) : 1X2 ≈ 0.49-0.51, ne bat pas le marché (0.5143). **Toujours vrai pour le LR nu.**
+- **Le modèle réellement servi (V55, 223 features + XGBoost) atteint ~0.59-0.60 OOS**,
+  nettement AU-DESSUS du marché dé-vigé (0.5143), du LR nu (0.51) et de la classe
+  majoritaire (0.44). Le projet **est** donc capable de ~59-60 % en 1X2 — l'écart venait
+  de la richesse des features (cotes + Elo + formes + ingéniérie), pas des xG seuls (E96).
+- Réserve : n test 1 200-2 400, history cutoff = date du match (`< cutoff_date`, léger
+  risque de co-matches même date) ; à confirmer sur un split walk-forward complet.
+
+### Tests
+- `tests/test_ml_history_ts.py` (nouveau, 5 tests) : `_normalize_ts` (None/0, s inchangé,
+  ms→s, str/invalide) + intégration `_get_team_history_master` ms == s. **5 passed**.
+
+### Fichiers touchés
+- `core/ml_history.py` (helper `_normalize_ts` + 4 points de coupe).
+- `tests/test_ml_history_ts.py` (nouveau).
+
+### Reste à faire / décision
+- **Conséquence importante** : le modèle déployé a été entraîné AVEC le bug (historique
+  partiellement/totalement vide sur les lignes à timestamp ms) → après ce correctif,
+  l'entraînement ET le service lisent le même historique corrigé ⇒ **réentraîner V55**
+  pour bénéficier pleinement du signal (train/serve cohérents une fois réentraîné).
+- Étendre la mesure à un walk-forward complet (pas un simple split 80/20) pour confirmer
+  le ~59-60 % et le comparer marché-vs-modèle sur chaque pli.
+- Committer E95 (ancrage marché) et E96 (harnais) — toujours non commités.
+- ⚠️ RÉSERVE NON LEVÉE : `stitch_v55_optimized.json` a été écrit le **2026-08-25** alors que
+  sa fenêtre de données va jusqu'à **2026-05** → le test 80/20 (2025-11→2026-05) est
+  probablement DANS l'ensemble d'entraînement du modèle déployé ⇒ le ~59-60 % est peut-être
+  IN-SAMPLE (fuite). Seul un vrai walk-forward **avec réentraînement par pli** peut trancher.
+
+---
+
+## E98 : Dashboard — 4 faiblesses corrigées (routage /live, mutation, a11y, fuite de minuteurs) (2026-10-14)
+
+### Contexte
+Demande user : « corrige les faiblesses du dashboard ». Audit UX/logique de
+`src/components/Dashboard.jsx` (1251 l.) + `dashboardFilters.js` + `MatchCard.jsx`,
+dans la lignée d'E18. Faiblesses identifiées puis corrigées :
+
+### Correctifs
+1. **[HAUTE] Vue /live dupliquait TOUTE la table « TOUS LES MATCHS ».** Les blocs live
+   (`activeView === 'live' && …`) étaient séparés du ternaire de vue ; pour
+   `activeView === 'live'`, le `else` final (`onyx-grid-container` + barre recherche +
+   bouton refresh + table complète) s'exécutait AUSSI → /live affichait la liste live PUIS
+   la table complète. `App.jsx` route `/live` vers `Dashboard` (via `*`). Fix : branche
+   `activeView === 'live' ? null : (…)` ajoutée avant le rendu par défaut — la vue live ne
+   rend plus que ses propres blocs.
+2. **[MOYENNE] Mutation en place de `baseList`.** `applyMarketFilter(list, 'ALL')` renvoie la
+   **même référence** ; `allMatchesList` faisait ensuite `filtered.sort(...)` → tri EN PLACE
+   d'un `useMemo` partagé (aussi lu par `computeChipCounts`). Fix : `return [...filtered]
+   .sort(...)` (tri sur copie). Comportement inchangé, mutation supprimée.
+3. **[FAIBLE/a11y] Croix d'effacement de la recherche = `<span>` cliquable** (non focusable,
+   invisible au clavier/lecteur d'écran). Fix : `<button type="button" aria-label="Effacer
+   la recherche">`.
+4. **[FAIBLE] `handleForceScan` : les `setTimeout` (30 s / 70 s) n'étaient pas nettoyés au
+   démontage** → `setState` après unmount + minuteurs fantômes. Fix : `scanTimersRef` +
+   `useEffect` de nettoyage qui `clearTimeout` au démontage.
+
+### Tests
+- `__tests__/dashboardViewRouting.test.js` (nouveau, 2 tests) : garde-fous **source** —
+  (1) la vue /live est exclue de la branche par défaut (`activeView === 'live' ? null : (`)
+  et les blocs live restent présents ; (2) le tri par défaut se fait sur copie
+  (`return [...filtered].sort(`) et plus sur `filtered.sort(`.
+- Suite complète : **124 suites / 1239 tests passés** (+1 suite / +2 tests ; 0 régression).
+- `npx eslint src/components/Dashboard.jsx src/components/MatchCard.jsx` : **0 erreur /
+  0 avertissement**. `npm run build` : **OK (5.28 s)**.
+
+### Fichiers touchés
+- `src/components/Dashboard.jsx` (routage live, tri sur copie, bouton clear, cleanup
+  minuteurs), `__tests__/dashboardViewRouting.test.js` (nouveau).

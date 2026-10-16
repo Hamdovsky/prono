@@ -54,7 +54,7 @@ function runAudit() {
   return new Promise((resolve) => {
     const pythonExe = resolvePython()
     const proc = spawn(pythonExe, [AUDIT_SCRIPT, '--last', '50'], {
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
       windowsHide: true,
     })
     proc.on('error', (e) => {
@@ -120,7 +120,7 @@ except ImportError as e:
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'stitch_v24_hybrid.json')
 data_path = sys.argv[1]
-with open(data_path) as f:
+with open(data_path, encoding='utf-8') as f:
     matches = json.load(f)
 
 data, labels = [], []
@@ -157,7 +157,7 @@ else:
 
     const pyProcess = spawn(pythonExe, [scriptPath, dataPath], {
       cwd: path.join(__dirname, '..'),
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })

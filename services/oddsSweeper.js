@@ -28,7 +28,8 @@
 
 const logger = require('../core/logger')
 const database = require('../core/database')
-const redisCache = require('./redisCache')
+const redisCache = require('./redisCache')
+const { isEnabled } = require('../core/utils/envFlag')
 
 const HORIZON_DAYS = parseInt(process.env.ODDS_SWEEP_HORIZON_DAYS || '3', 10)
 const BUDGET_MS = parseInt(process.env.ODDS_SWEEP_BUDGET_MS || String(30 * 60 * 1000), 10)
@@ -116,7 +117,7 @@ const ODDS_LEAGUE_WHITELIST = new Set([
   'Yemen League',
 ])
 
-const ODDS_LEAGUE_WHITELIST_ACTIVE = process.env.ODDS_SWEEP_LEAGUE_WHITELIST !== 'false'
+const ODDS_LEAGUE_WHITELIST_ACTIVE = isEnabled('ODDS_SWEEP_LEAGUE_WHITELIST')
 
 let _attemptedAt = new Map()
 let _running = false

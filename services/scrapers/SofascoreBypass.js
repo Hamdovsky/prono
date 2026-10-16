@@ -158,7 +158,7 @@ let liveCache = { ts: 0, events: [] }
 // 'livescore_' ; JAMAIS bloquant — le journal accepte un contexte absent.
 const ctxCache = new Map()
 async function hydrateContext(events) {
-  const database = require('../core/database')
+  const database = require('../../core/database')
   for (const ev of events || []) {
     if (!ev || ev.id == null || ev.context || ev.contextual) continue
     const key = String(ev.id)

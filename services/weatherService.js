@@ -1,11 +1,12 @@
 const axios = require('axios')
 const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 class WeatherService {
   constructor() {
     this.apiKey = process.env.OPENWEATHER_KEY || ''
     this.baseUrl = 'https://api.openweathermap.org/data/2.5'
-    this.enabled = process.env.OPENWEATHER_ENABLED !== 'false'
+    this.enabled = isEnabled('OPENWEATHER_ENABLED')
 
     if (!this.apiKey || this.apiKey.startsWith('CHANGER_MOI')) {
       logger.warn('⚠️ [WEATHER] No API key configured — service disabled')

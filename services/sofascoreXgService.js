@@ -9,12 +9,13 @@
  * Contrat de retour inchangé : { home_xg, away_xg, source:'SOFASCORE' } ou null.
  */
 const logger = require('../core/logger')
+const { isDisabled: envDisabled } = require('../core/utils/envFlag')
 const SofascoreBypass = require('./scrapers/SofascoreBypass')
 
 const cache = new Map()
 const CACHE_TTL = 15 * 60 * 1000
 const SOFA_DISABLED =
-  process.env.DISABLE_SOFASCORE !== undefined && process.env.DISABLE_SOFASCORE !== 'false'
+  envDisabled('DISABLE_SOFASCORE')
 
 function _num(v) {
   const n = parseFloat(v)

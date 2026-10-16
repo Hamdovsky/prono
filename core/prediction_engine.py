@@ -945,6 +945,11 @@ def process_prediction(match_obj: dict) -> dict:
     mc_ou15 = _f_feat('ou_15_prob', sim, 0.7) * 100
     # E93 : proba du marche combine GG + Over 2.5 (fraction), bornee Frechet
     # par les marginales BTTS/O2.5. Reutilisee pour l'edge gate et persistee.
+    # E112-mesure : les marginales MC d'origine sont conservees. Les
+    # marginales calibrees E111, mesurees moins bonnes dans le joint
+    # (exp_combo.py : joint_cal 0.2591 > joint pur 0.2142), ne sont PAS
+    # injectees ici. Le joint pur, meilleur en Brier, briserait la coherence
+    # d'affichage (combo > marginales affichees) : statu quo volontaire.
     _combo_frac = combo_gg_over25_prob(
         xg_h, xg_a,
         float(sim.get('btts_prob', 0.0) or 0.0),

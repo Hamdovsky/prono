@@ -1,11 +1,12 @@
 const axios = require('axios')
 const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 class SportSrcService {
   constructor() {
     this.apiKey = process.env.SPORTSRC_API_KEY || ''
     this.baseUrl = 'https://api.sportsrc.org/v2'
-    this.enabled = process.env.SPORTSRC_ENABLED !== 'false' && !!this.apiKey
+    this.enabled = isEnabled('SPORTSRC_ENABLED') && !!this.apiKey
     this._lastError = null
 
     if (!this.apiKey) {

@@ -1,6 +1,7 @@
 // Shared configuration for all microservices (Node.js API, Scraper Worker, etc.)
 // Load this FIRST in each service: require('./core/sharedConfig')
 require('dotenv').config()
+const { isEnabled, isOptedIn } = require('./utils/envFlag')
 
 const config = {
   // Environment
@@ -49,7 +50,7 @@ const config = {
 
   // Supabase
   supabase: {
-    enabled: process.env.SUPABASE_ENABLED === 'true',
+    enabled: isOptedIn('SUPABASE_ENABLED'),
     url: process.env.SUPABASE_URL || '',
     anonKey: process.env.SUPABASE_ANON_KEY || '',
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
@@ -82,12 +83,12 @@ const config = {
 
   // Feature flags
   features: {
-    predictionEnrichment: process.env.ENABLE_PREDICTION_ENRICHMENT !== 'false',
-    livePredictions: process.env.ENABLE_LIVE_PREDICTIONS !== 'false',
-    autoLearning: process.env.ENABLE_AUTO_LEARNING !== 'false',
-    httpScraper: process.env.HTTP_SCRAPER_ENABLED !== 'false',
-    openligadb: process.env.OPENLIGADB_ENABLED === 'true',
-    supabase: process.env.SUPABASE_ENABLED === 'true',
+    predictionEnrichment: isEnabled('ENABLE_PREDICTION_ENRICHMENT'),
+    livePredictions: isEnabled('ENABLE_LIVE_PREDICTIONS'),
+    autoLearning: isEnabled('ENABLE_AUTO_LEARNING'),
+    httpScraper: isEnabled('HTTP_SCRAPER_ENABLED'),
+    openligadb: isOptedIn('OPENLIGADB_ENABLED'),
+    supabase: isOptedIn('SUPABASE_ENABLED'),
   },
 
   // Memory

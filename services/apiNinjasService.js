@@ -1,11 +1,12 @@
 const axios = require('axios')
 const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 class ApiNinjasService {
   constructor() {
     this.apiKey = process.env.APININJAS_KEY || ''
     this.baseUrl = 'https://api.api-ninjas.com/v1'
-    this.enabled = process.env.APININJAS_ENABLED !== 'false'
+    this.enabled = isEnabled('APININJAS_ENABLED')
     this._lastError = null
     this._quotaExhausted = false
 

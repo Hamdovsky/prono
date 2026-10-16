@@ -1,10 +1,11 @@
 require('dotenv').config()
+const { isOptedIn, isNotTrueLiteral } = require('./core/utils/envFlag')
 
 // Production guard: JWT_SECRET is required on Render to keep sessions stable
 // across redeploys. Without it authService.js silently falls back to a random
 // value at boot, invalidating every token on restart. Keyed on the real
 // platform marker so a stray NODE_ENV=production never blocks local dev.
-const isRenderProduction = process.env.RENDER === 'true' || process.env.RENDER === '1'
+const isRenderProduction = isOptedIn('RENDER')
 if (isRenderProduction && !process.env.JWT_SECRET) {
   console.error(
     '[FATAL] JWT_SECRET is not set in production. Add it via Render Dashboard -> Environment -> JWT_SECRET then redeploy.'
@@ -146,7 +147,7 @@ setTimeout(async () => {
         memoryManager.startPeriodicCheck(60000)
 
         // ── Services startup ──
-        if (process.env.DISABLE_BACKUP !== 'true') backupService.startAutomatedBackups()
+        if (isNotTrueLiteral('DISABLE_BACKUP')) backupService.startAutomatedBackups()
         const ensurePromosportArchive = require('./core/ensurePromosportArchive')
         ensurePromosportArchive.ensurePromosportArchive()
         if (process.env.TELEGRAM_BOT_TOKEN) {

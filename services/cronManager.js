@@ -14,7 +14,8 @@ const adaptiveLearning = require('./adaptiveLearningEngine')
 const autoBacktestService = require('./autoBacktestService')
 const enrichedPredictions = require('../services/enriched_predictions')
 const { runAutoRetrain, runV56Retrain } = require('../scripts/auto_retrain_worker')
-const { invalidateCache } = require('../core/speedCache')
+const { invalidateCache } = require('../core/speedCache')
+const { isOptedIn } = require('../core/utils/envFlag')
 
 /**
  * Exécute un script node en asynchrone (non bloquant) via spawn.
@@ -1594,7 +1595,7 @@ print(f'international: {len(df) if df is not None else 0} rows')
         .slice(0, 300) // 🚀 Increased from 50 to 300 to fulfill the "minimum 50" requirement across all markets
 
       let filteredNeedsEnrichment = needsEnrichment
-      if (process.env.RAPIDAPI_ENABLED === 'true') {
+      if (isOptedIn('RAPIDAPI_ENABLED')) {
         const rapidApiQuotaManager = require('./rapidApiQuotaManager')
         const quotaStatus = rapidApiQuotaManager.getQuotaStatus()
 

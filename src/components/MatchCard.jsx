@@ -55,7 +55,7 @@ const solidGoldenStyle = (isSolid) => isSolid
     }
   : {}
 
-const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, isLive, liveMinute, liveScore, liveStats, goalPrediction, activeMarket, contextualInfo, divergenceInfo, active = false, favoriteOn = false, onToggleFavorite, cols = null, alt = false, match = null, searchQuery = '' }) => {
+const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, leagueWinRate = null, isLive, liveMinute, liveScore, liveStats, goalPrediction, activeMarket, contextualInfo, divergenceInfo, active = false, favoriteOn = false, onToggleFavorite, cols = null, alt = false, match = null, searchQuery = '' }) => {
   // E62 : colonnes réellement visibles (responsive). `cols=null` => toutes
   // (rétro-compatible). Sert au rendu conditionnel + aux séparateurs de groupe.
   const show = (key) => !cols || cols.includes(key)
@@ -299,6 +299,22 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
     )
   })()
 
+  // Précision réelle de la ligue (E118, /api/accuracy/tracker) : n < 10 → masqué.
+  // Même honnêteté que relBadge : le chiffre MESURÉ, pas une promesse.
+  const leagueBadge = (() => {
+    if (!leagueWinRate || !(leagueWinRate.total >= 10)) return null
+    const pct = Math.round(leagueWinRate.winRate)
+    const cls = pct >= 50 ? 'mc-rel-good' : pct >= 40 ? '' : 'mc-rel-low'
+    return (
+      <span
+        className={`mc-rel ${cls}`}
+        title={`Précision réelle 1X2 sur cette ligue : ${leagueWinRate.winRate}% (${leagueWinRate.total} matchs notés)`}
+      >
+        ligue ≈{pct}%
+      </span>
+    )
+  })()
+
   const cac = contextualInfo && contextualInfo.enabled ? contextualInfo : null
   const cacChip = cac ? (
     <span
@@ -342,6 +358,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
             <Highlight text={d.league} query={searchQuery} className="mcc-league-name" />
             {solidBadge}
             {relBadge}
+            {leagueBadge}
             {cacChip}
             {divChip}
           </div>
@@ -464,6 +481,7 @@ const MatchCard = ({ rawData, style, onClick, timeLabel, compact, reliability, i
           <Highlight text={d.league} query={searchQuery} className="mc-league-name" />
           {solidBadge}
           {relBadge}
+          {leagueBadge}
           {cacChip}
           {divChip}
         </div>

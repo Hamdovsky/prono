@@ -50,7 +50,7 @@ if "%SCRAPER_STANDALONE%"=="1" (
 ) else (
     set "SCRAPER_SERVICE=node scripts\noop_service.js scraper"
 )
-call npx concurrently "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\ensure_redis.ps1" "%SCRAPER_SERVICE%" "streamlit run core/command_center.py" "node --max-old-space-size=512 server.js" "npm run learn" "npx vite" "node scripts/live_value_alerts.js" ".venv\Scripts\python.exe -m uvicorn core.fastapi_server:app --host 127.0.0.1 --port 8000 --workers 1" ".venv\Scripts\python.exe core\visual_server.py" --names "REDIS,SCRAPER,COMMAND,API_CORE,LEARN,UI_DASH,LIVE_ALERTS,ML_CORE,PIXELRAG" --prefix-colors "blue.bold,yellow.bold,red.bold,green.bold,magenta.bold,cyan.bold,yellow.dim,white.bold,blue.dim" --kill-others --restart-tries 10 --restart-after 10000
+call npx concurrently "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\ensure_redis.ps1" "%SCRAPER_SERVICE%" "streamlit run core/command_center.py" "node --max-old-space-size=512 server.js" "npm run learn" "npx vite" "node scripts/live_value_alerts.js" ".venv\Scripts\python.exe -m uvicorn core.fastapi_server:app --host 127.0.0.1 --port 8000 --workers 1" ".venv\Scripts\python.exe core\visual_server.py" "node scripts\watchdog.js" --names "REDIS,SCRAPER,COMMAND,API_CORE,LEARN,UI_DASH,LIVE_ALERTS,ML_CORE,PIXELRAG,WATCHDOG" --prefix-colors "blue.bold,yellow.bold,red.bold,green.bold,magenta.bold,cyan.bold,yellow.dim,white.bold,blue.dim,cyan.dim" --kill-others --restart-tries 10 --restart-after 10000
 
 echo.
 echo [%time%] Titanium Services have been gracefully shut down.

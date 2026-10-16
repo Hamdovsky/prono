@@ -19,6 +19,7 @@
 //   via les absences officielles (Sofascore/Transfermarkt) déjà en DB.
 
 const logger = require('../core/logger')
+const { isOptedIn } = require('../core/utils/envFlag')
 
 const ABSENCE_PATTERNS = {
   Injury:
@@ -91,7 +92,7 @@ function normalizeName(name) {
 }
 
 function isEnabled() {
-  return process.env.STRUCTURED_NEWS_ENABLED === 'true'
+  return isOptedIn('STRUCTURED_NEWS_ENABLED')
 }
 
 function emptyResult(teamName) {

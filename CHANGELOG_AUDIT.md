@@ -12730,4 +12730,1677 @@ les meilleurs pronostics devant.
 - `npm run build` : **OK (14.2 s)**.
 
 ### Fichiers touchés
-- `src/components/Dashboard.jsx` (suppression de la troncature).
+- `src/components/Dashboard.jsx` (suppression de la troncature).---
+
+## E103 — Reconstruction depuis le log de démarrage (2026-10-15)
+
+Le log de `start.bat` montrait 38 lignes `'xxx' n'est pas reconnu en tant que commande
+interne`. Diagnostic, du plus grave au moins grave.
+
+### 1. `start.bat` et 5 autres .bat en **LF-only** (cause racine)
+
+`cmd.exe` ne reconnaît pas LF comme fin de ligne : il lisait chaque fichier **comme une
+seule commande** et découpait sur espaces / `(` / `)`. Toutes les lignes du batch
+étaient donc exécutées comme des fragments de commande.
+
+Preuve dans le log : les fragments correspondent mot pour mot à `start.bat` —
+`'elRAG-lite'` (l.35), `'hboard'` / `'Core'` (l.33-34), `-NoProfile` (l.10),
+`'INFO]'` (l.15), `'archive'` (l.45), `'I_ALLOW_UNAUTH'` / `'UTH_DEV_BYPASS'`
+(l.42/44), `'3.'` / `'4.'` / `'EM'` (l.22/29).
+
+**Conséquence en cascade** : `set FASTAPI_ALLOW_UNAUTH=1` (l.42) n'a jamais été posé
+→ `/predict` → `optional_auth` → `_auth_unavailable()` → **HTTP 503 sur chaque
+prédiction**. Ce 503 n'était donc pas un crash.
+
+| Fichier | LF avant | CRLF avant | LF après | CRLF après |
+|---|---|---|---|---|
+| `start.bat` | 58 | 0 | 58 | 58 |
+| `titanium.bat` | 130 | 0 | 130 | 130 |
+| `pronos-server.bat` | 29 | 0 | 29 | 29 |
+| `pronos-test.bat` | 55 | 0 | 55 | 55 |
+| `scripts/retrain_model.bat` | 5 | 0 | 5 | 5 |
+| `scripts/run_daily_predictions.bat` | 6 | 0 | 6 | 6 |
+
+Conversion **au niveau octet** (`write` / `edit` réécrivent en LF) : aucun encodage
+touché, les accents de `start.bat` (`ARCHIVÉ`) sont préservés.
+
+### 2. `UnicodeDecodeError` cp1252 sur l'online learning
+
+`scripts/online_learning_update.js` génère un script Python qui fait
+`open(data_path)` **sans encoding**. `PYTHONIOENCODING` ne couvre que stdout/stderr,
+pas le `open()` qui utilise `locale.getpreferredencoding()` = **cp1252** sous Windows,
+alors que `JSON.stringify` écrit de l'UTF-8.
+
+Repro exacte du log (octet `0x81`, non défini en cp1252) :
+
+    UnicodeDecodeError: 'charmap' codec can't decode byte 0x81 ...
+
+→ `Update failed with code 1` à chaque run, V54 jamais mise à jour.
+
+- `online_update_*.py` : `open(data_path, encoding='utf-8')`
+- `PYTHONUTF8: '1'` ajouté aux 8 spawns Python du projet (`online_learning_update.js`
+  x2, `auto_retrain_worker.js` x5, `checkpoint_e37.js`) → `locale.getpreferredencoding()`
+  renvoie `utf-8`.
+
+### 3. Double supervision → port 8000 disputé (AUTOHEAL vs concurrently)
+
+État observé sur la machine : **2 piles FastAPI** + **2 piles PixelRAG** en même temps.
+
+| PID | Parent | Commande | écoute :8000 |
+|---|---|---|---|
+| 19536 → 11584 | concurrently (ML_CORE) | `python -m uvicorn` | **non** (vivant, wedgé) |
+| 18840 → 1980 | 19036 (API_CORE) | `python core/fastapi_server.py` | **oui** |
+
+`services/autoHealRemedies.js:83` fait un `spawn(...)` **detached** d'un second
+uvicorn, alors que `start.bat` supervise déjà le service via
+`--restart-tries 10 --restart-after 10000`. Effet aggravant : `.venv\Scripts\python.exe`
+est un shim qui lance `Python312\python.exe` comme **enfant** → `taskkill /f /pid`
+sans `/t` laisse des orphelins (8 processus python pour 4 services). C'est aussi
+l'origine du `[Errno 10048]` sur le port 30002 (PixelRAG).
+
+**Diagnostic arrêté ici, correctif proposé non appliqué** (voir points de contrôle).
+
+### 4. Circuit breaker `ScrapingBypass` inefficace
+
+`services/scrapers/ScrapingBypassScraper.js` :
+
+- seuil `100` → 100 matchs x 5 fingerprints x 3 tentatives x 25 s avant de
+  s'ouvrir (~1500 spawns Python par panne) ;
+- timeout **plat** de 30 s → boucle infinie `HALF-OPEN` puis `OPEN after N+1`
+  (visible des centaines de fois dans le log) ;
+- `HALF_OPEN` laissait passer autant de sondes que de concurrents ;
+- `resetCircuitBreaker()` recréait l'ancien objet et perdait les nouveaux champs.
+
+Correctif : seuil `5`, **backoff exponentiel** 30 s → 60 → 120 → 240 → 480 →
+plafond 900 s, **sonde unique** en `HALF_OPEN`, et `resetCircuitBreaker` aligné.
+Surchargeable : `BYPASS_CIRCUIT_THRESHOLD`, `BYPASS_CIRCUIT_BASE_MS`,
+`BYPASS_CIRCUIT_MAX_MS`.
+
+### 5. Kill-switch Sofascore jamais activé
+
+`SofascoreScraping/src/apiClient.js:22-30` prévoit `DISABLE_SOFASCORE` (court-circuit
+complet : plus de HTTP, plus de cooldown 480 s, plus de Puppeteer). **Absent du `.env`**,
+donc inactif. Or le log prouve qu'il faut l'armer : Puppeteer (vrai Chromium stealth)
+rencontre aussi 403 → blocage au niveau IP, pas corrigeable par les headers ;
+`RETRO-SYNC` a résolu **0 match sur 50** ; `SHIELD` a 1/23 proxy disponible.
+
+### Vérification
+- 6 `.bat` : LF == CRLF, contenu vérifié (`@echo off` en tête, accents intacts).
+- Repro cp1252 reproduit puis résolu après correctif.
+- `node --check` OK sur les 4 JS modifiés ; module chargé sans erreur.
+- Jest `scraperRouterCrawl4ai` + `autoHealRemedies` : **20/20 verts**.
+- Simulation du breaker : seuil 5, backoff 240/480/900 s plafonné, sonde unique OK.
+
+### Points de contrôle (non appliqués)
+1. `services/autoHealRemedies.js` : `taskkill /f /t`, re-vérif du port libre
+   avant spawn, et ne pas respawner si concurrently possède le service.
+2. Activer `DISABLE_SOFASCORE=1` dans `.env` (perte : résolution Sofascore déjà à 0).
+3. Proxies : 1/23 disponible → réapprovisionner ou basculer sur DIRECT.
+
+### Fichiers touchés
+- `start.bat`, `titanium.bat`, `pronos-server.bat`, `pronos-test.bat`
+- `scripts/retrain_model.bat`, `scripts/run_daily_predictions.bat`
+- `scripts/online_learning_update.js`, `scripts/auto_retrain_worker.js`, `scripts/checkpoint_e37.js`
+- `services/scrapers/ScrapingBypassScraper.js`### Correctifs appliques (validation utilisateur)
+
+#### 3. Double supervision AUTOHEAL / concurrently — `services/autoHealRemedies.js`
+
+Le remedy `python_service_down` ne spawn plus un uvicorn en aveugle. Nouvelle sequence :
+
+1. **`freePort(8000)`** — tue les PIDs qui ecoutent **avec leur arbre**
+   (`taskkill /f /t /pid`) : supprime les orphelins `.venv` shim (enfant Python312).
+   Refait jusqu'a 5 fois, verifie la liberation a chaque tour.
+2. **Delegation a concurrently** (`AUTOHEAL_DELEGATE_MS`, defaut 15000 ms) — le
+   service est deja supervise par `start.bat` (`--restart-tries 10
+   --restart-after 10000`). AUTOHEAL attend son restart au lieu de le doubler.
+3. **Filet de securite** — si concurrently n'a rien fait, spawn du uvicorn detached.
+
+Helpers ajoutes : `portListening`, `pidsOnPort`, `killTree`, `freePort`,
+`probeHealth`, `execSafe`.
+
+Bugs reels rencontres en ecrivant ce correctif :
+
+- **`exec()` sans timeout** pouvait `hang()` indefiniment (netstat bloque) et
+  bloquer tout le watchdog. `execSafe()` impose un delai dur de 5 s.
+- **Piege du `||` sur zero** : `parseInt(process.env.AUTOHEAL_DELEGATE_MS, 10) || 15000`
+  renvoyait `15000` meme avec `AUTOHEAL_DELEGATE_MS=0` (0 est falsy). Corrige par
+  un test `Number.isNaN(...)` explicite.
+- `portListening` re-appele apres `freePort` alors que ce dernier avait deja
+  confirme la liberation — appel redondant supprime.
+
+`__tests__/autoHealRemedies.test.js` : le cas « spawn conserve » pose
+`AUTOHEAL_DELEGATE_MS=0` pour cibler explicitement le chemin fallback.
+
+#### 5. Kill-switch Sofascore active — `.env`
+
+```
+DISABLE_SOFASCORE = true
+```
+
+**Valeur `true` et NON `1`** : la semantique est divergente dans le code.
+
+| Test | Fichiers |
+|---|---|
+| `!== undefined && !== 'false'` | `apiClient.js:26`, `autoArchiver.js:21`, `sofascoreXgService.js:17` |
+| `=== 'true'` | `routes/scraper.js:244`, `scrapeVisualBatch.js:31`, `dataFusionService.js:447`, `sofascoreOddsService.js:140` |
+
+`DISABLE_SOFASCORE=1` n'aurait desactive que 3 subsystems sur 7. Seul `true`
+active les 7. Reactivation : `DISABLE_SOFASCORE = false`.
+
+Benefice de bord non evident : `sofaCooldownActive()` repasse a `false`, donc
+`dataFusionService.js:287`, `fallback_enricher.js:421/773` et
+`UltimateScraperOrchestrator.js:486` **cessent de faire `continue`** (sauter le
+match entier). Ils appellent Sofascore qui repond en ~1 ms avec un payload vide,
+puis passent aux sources qui repondent.
+
+### Verification globale
+- `node --check` OK sur tous les JS modifies.
+- **`npx jest` complet : 125/125 suites, 1249/1249 tests verts.**
+- Court-circuit Sofascore mesure avec axios/dns bloques :
+  - avant (`DISABLE_SOFASCORE` absent) : **3 requetes reseau emises** (3 retries) -> `null`
+  - apres (`=true`) : **0 requete reseau**, retour `{ok:true,status:200}` en **1 ms**
+
+### Proxies (point de controle 3) — NON TRAITE
+`SHIELD` a 1/23 proxy disponible : le blocage Sofascore etant desactive, la
+rotation n'est plus sur le chemin critique. Reapprovisionner la liste reste
+utile pour les autres sources scrapees.
+
+### Fichiers touches (suite)
+- `services/autoHealRemedies.js`
+- `__tests__/autoHealRemedies.test.js`
+- `.env`### E104 — Améliorations ciblées (2026-10-15)
+
+Suite de l'analyse du log de démarrage. 4 chantiers, tous vérifiés.
+
+---
+
+## 1. AUTO-OPT : le modèle se corrompait en continu
+
+`config/model_weights.json` était **saturé aux deux plafonds** :
+
+    "bsm_threshold": 40,    <- plafond dur (autoOptimizer.js:112)
+    "draw_bias":     1.6    <- plafond dur (DRAW_BIAS_MAX)
+
+### Causes structurelles
+
+| Défaut | Symptôme |
+|---|---|
+| **Zones mortes** — `bsm_threshold` ne descend qu'au-dessus de 85 % de winrate ; entre 70 et 85 % aucune action. Winrate à 0 % => rampe +5 par cycle jusqu'au plafond. | Log : `Raising BSM Threshold to 25%` puis 30, 35, 40 en ~20 min. |
+| **`draw_bias` jamais décrémentable** — le retour à la neutre exige `missedDraws <= 2`, or le log en compte 31-34 en continu. Seuils comparés au total, donc non invariants d'échelle. | Plafond 1.60 atteint et jamais quitté : +60 % permanent sur la probabilité de nul. |
+| **Aucun test d'acceptation** — la métrique est calculée sur des prédictions produites par les poids que l'on est en train de muter, sur des données que le backtest déclare non-snapshot. | *Reward hacking* : 0 % et 42 % sont des artefacts de la boucle. |
+| **Deux mutations par cycle** — `bsm` et `draw_bias` pouvaient bouger ensemble, rendant l'analyse du résultat ambiguë. | `config/model_weights.json` réécrit à chaque cycle (visible dans `git status`). |
+
+### Correctif (`core/autoOptimizer.js`)
+
+- **Test d'acceptation** (hill-climb) : toute mutation est mise en essai ; au cycle suivant, si la métrique n'a pas bougé dans le sens attendu (marge de 2 points), les poids sont **REVERT** et le paramètre **verrouillé** 3 cycles. Sans dépendance à l'horloge => déterministe et testable.
+- **Verrou expliqué dans la décision, pas seulement dans le test** : `_canAct(param)` est consulté avant chaque mutation. Sans cela, un paramètre verrouillé sans essai en cours continuait à muter (constaté : `draw_bias` atteignait 1.6 malgré les reverts).
+- **Taille minimale d'échantillon** : `MIN_SOLID_SAMPLE = 30` sur la métrique « solid » (un winrate calculé sur 12 matchs n'est pas exploitable), `MIN_SAMPLE = 20` sur les matchs filtrés.
+- **Zéro match solid ≠ 100 % de winrate** : la métrique vaut désormais `null` et le signal est neutralisé (avant : `totalSolidMatches === 0 ? 100`, ce qui faisait redescendre le seuil sur une absence de données).
+- **Seuils relatifs** pour `draw_bias` (> 15 % de nuls manqués => monte, < 7 % => redescend) au lieu d'un compte absolu.
+- **Une seule mutation par cycle.**
+- **Alerte de saturation** 🚨 explicite quand le signal agit sur un paramètre déjà au plafond (avant : le `if` échouait en silence).
+
+### 3 bugs révélés par les tests écrits
+
+1. **`_beginTrial` capturait les poids APRÈS mutation** => le revert restaurait la mauvaise valeur et la rampe vers 1.6 continuait.
+2. **`1.15 + 0.15 = 1.2999999999999998`** => `draw_bias` accumulait les flottants dans le JSON. Ajout de `_roundBias()`.
+3. **`_isLocked` n'était consulté que si l'essai en cours portait le même nom de paramètre** => un paramètre verrouillé mutait quand même.
+
+### `__tests__/autoOptimizer.test.js`
+
+Réécrit : les 3 tests historiques encodaient le comportement buggy (la rampe). Conservés en invariants de bornes, complétés par 9 tests de régression (non-rampe, revert, verrouillage, acceptation d'une mutation efficace, saturation, une seule mutation par cycle, échantillon minimal, neutralisation du signal).
+
+**Résultat : 12/12 verts.** Suite complète **125/125 suites, 1258/1258 tests**.
+
+---
+
+## 2. Verrou anti-régression LF des `.bat`
+
+`scripts/check_batch_eol.js` — analyse **au niveau octet** (aucun décodage, donc les accents sont préservés), exclut `node_modules`, `.venv`, `.kilo`, `.opencode`, `dist`, `coverage`.
+
+- `npm run check:eol` — exit 1 + diagnostic si un `.bat`/`.cmd` est LF-only.
+- `npm run fix:eol` — conversion LF→CRLF **au niveau octet**, puis re-vérification (succès déclaré uniquement si tout est réellement propre).
+- `pretest` câblé : **`npm test` échoue désormais si un `.bat` régresse en LF.**
+
+Testé en plantant volontairement un `.bat` LF-only : détection (exit 1) -> `--fix` (69→75 o, +1 octet par LF) -> re-détection propre (exit 0).
+
+---
+
+## 3. Bruit de log : -96 %
+
+`core/shieldEngine.js` journalisait **1 ligne par proxy KO et par cycle**. Avec 22 proxies morts sur 23, le log de démarrage était majoritairement composé de doublons `[SHIELD]`, ce qui a masqué les anomalies réelles (503 sur `/predict`, port 8000, 403 Sofascore).
+
+- `proxyHealth` : on journalise les **transitions** d'état, plus l'état courant. Les nouveaux KO sont regroupés sur une seule ligne, les retours en rotation aussi.
+- `rotateProxy` : ne signale que le **changement réel** de proxy actif, au plus une fois par fenêtre de 5 min.
+
+Mesuré sur 40 health checks avec 22 proxies KO : **920 lignes -> 41 (-96 %)**.
+
+---
+
+## 4. Sémantique des drapeaux d'environnement
+
+`core/utils/envFlag.js` — un seul point de vérité :
+
+| Famille | Usage | Sémantique |
+|---|---|---|
+| `DISABLE_*` | `isDisabled(name)` | actif sauf si explicitement désactivé |
+| `*_ENABLED` | `isEnabled(name)` | **complément strict** de `isDisabled` |
+
+`isEnabled` a été vérifié comme l'inverse de `isDisabled` sur **toutes** les colonnes (`undef`, `false`, `true`, `1`, `0`, `maybe`).
+
+**Divergence corrigée** : `DISABLE_SOFASCORE` avait les deux sémantiques selon le fichier — `!== 'false'` dans `apiClient.js`/`autoArchiver.js`/`sofascoreXgService.js`, `=== 'true'` dans `routes/scraper.js`/`scrapeVisualBatch.js`/`dataFusionService.js`/`sofascoreOddsService.js`. Les 7 sites passent maintenant par `envFlag`. Plus aucune expression brute.
+
+**Écart documenté** : historiquement `X !== 'false'` désactivait sur *toute* valeur non vide, y compris une coquille (`DISABLE_SOFASCORE=maybe`). Cette permissivité est retirée — seule une valeur explicitement vraie agit. L'état de production est identique (`.env` porte `DISABLE_SOFASCORE=true`).
+
+**Non migré volontairement** : les ~28 autres drapeaux (`*_ENABLED` des services, `DISABLE_BACKUP`, `MARKET_CALIB_IDENTITY`...) restent en accès direct pour ne pas risquer de changer le défaut d'un service actif. Ils sont listés par l'inventaire et devront être migrés progressivement vers `envFlag`.
+
+---
+
+### Fichiers touchés
+- `core/autoOptimizer.js`, `__tests__/autoOptimizer.test.js`
+- `scripts/check_batch_eol.js`, `package.json`
+- `core/shieldEngine.js`
+- `core/utils/envFlag.js`
+- `services/autoArchiver.js`, `services/sofascoreXgService.js`, `services/sofascoreOddsService.js`,
+  `services/dataFusionService.js`, `routes/scraper.js`, `scripts/scrapeVisualBatch.js`,
+  `SofascoreScraping/src/apiClient.js`
+
+### Point de contrôle ouvert
+`config/model_weights.json` est toujours à `bsm_threshold: 40` / `draw_bias: 1.6` (valeurs **gelées par le bug corrigé**). AUTO-OPT va désormais tenter de les faire redescendre, mais une reprise manuelle depuis une valeur saine (25 / 1.0) est préférable : les seuils ont été calibrés sur des données non-snapshot.### E104 (suite) — Migration des drapeaux d'environnement + reset du modèle
+
+#### Reset de `config/model_weights.json`
+
+L'historique git a corrigé ma lecture initiale :
+
+| Date | `draw_bias` | `bsm_threshold` |
+|---|---|---|
+| 31/08 → 10/09 | 46 → **65.65** | 20 |
+| 10/09 (`abc882b`) | 65.65 → **1.0** (« reset ») | 20 |
+| 10/09 → 14/09 | 1.0 → 1.15 → **1.6** | 20 |
+| 14/09 → HEAD | 1.6 (figé) | 20 |
+| non committé | 1.6 | **40** (rampe de cette session) |
+
+`bsm_threshold` est resté à **20 dans tout l'historique** : le 40 venait bien de la
+rampe de cette session. `draw_bias` avait déjà été corrigé une fois (`65.65→1.0`)
+puis avait **re-dérivé** vers 1.6 en 4 jours par le même bug.
+
+Remise à `bsm_threshold: 20` / `draw_bias: 1.0` (valeurs saines documentées),
+laissent AUTO-OPT les ré-derivera sur signal réel.
+
+---
+
+### Migration des 44 sites de drapeaux
+
+Toutes les expressions `process.env.X === 'true'` / `!== 'false'` etc. passent par
+`core/utils/envFlag.js`. **Aucune expression brute ne subsiste.**
+
+#### 2 bugs que j'ai introduits puis corrigés
+
+**1. Inversion des deux familles.** J'avais écrit `isEnabled = !isDisabled`. Or
+`OPEN_METEO_ENABLED=true` aurait alors désactivé le service. **Les 1258 tests
+passaient pourtant** : en test la variable est absente, et les deux formes
+renvoient alors la même valeur. Détecté par un test d'équivalence
+automatisé dérivé de `git show HEAD`, pas par la suite Jest.
+
+Les deux familles ne sont pas complémentaires et ne doivent jamais l'être :
+elles portent sur des **noms de drapeaux différents** et n'ont pas le même défaut
+(`DISABLE_*` absent ⇒ non désactivé ; `*_ENABLED` absent ⇒ actif).
+`isEnabled` est désormais équivalent à `X !== 'false'`, défaut actif inclus.
+
+**2. Confusion entre sémantiques littérales et familles.** J'avais mappé
+`VISUAL_WARM_ENABLED === 'false'` → `!isEnabled(...)`, ce qui **désactivait** le
+préchauffage quand la variable valait `true`. Celui-ci a, lui, été rattrapé par
+la suite Jest (2 échecs sur `sofascorePySource`) — par chance, parce que ce test
+pose la variable.
+
+Ajout de `isTrueLiteral` / `isNotTrueLiteral` / `isFalseLiteral` qui reproduisent
+**exactement** les comparaisons historiques, pour les 7 sites qui s'en servaient.
+
+#### Preuve d'équivalence
+
+Comparaison automatique ancien→nouveau sur 8 valeurs (`absent`, `true`, `false`,
+`1`, `0`, `yes`, `on`, `maybe`) pour chaque site, expressions originales
+extraites de `git show HEAD` :
+
+```
+416 comparaisons sur 50 fichiers modifiés
+  399 strictement identiques
+  16 = élargissement assumé de `=== 'true'` (accepte aussi 1/yes/on)
+   1 = faux positif du vérificateur (PIXELRAG_FIXTURES_ENABLED a deux sites)
+   0 divergence réelle
+```
+
+`routes/scraper.js` conserve bien deux expressions distinctes pour le même
+drapeau : `available: isOptedIn(...)` et `disabled: isNotTrueLiteral(...)`.
+
+#### `__tests__/envFlag.test.js` — 14 tests
+
+Le test qui manquait : il pose **explicitement** des valeurs non absentes, ce que
+la suite ne faisait pas. C'est précisément ce qui avait laissé passer l'inversion.
+
+---
+
+### 4 bugs latents de `require()` trouvés par scan
+
+Le scan de tous les `require()` relatifs a révélé du code mort :
+
+| Fichier | Require cassé | Effet |
+|---|---|---|
+| `services/remedies/ramUsageMonitor.js` | `../core/logger` | **Le remède AUTOHEAL de nettoyage RAM ne pouvait jamais être chargé.** Aucun test ne le révélait : il n'est `require()` nulle part. |
+| `services/remedies/ramUsageMonitor.js` | `../core/speedCache` | Idem, dans un `try/catch` → échec **silencieux**, le cache n'était jamais purgé. |
+| `services/scrapers/SofascoreBypass.js` | `../core/database` | `hydrateContext()` levait une exception à chaque appel (26 fichiers dépendent de ce module). La ligne 482 du même fichier utilisait déjà le bon chemin. |
+| `core/services/FeatureEngineer.js` | `./services/StatisticalEngine` | `ensemblePredict()` inopérant. |
+
+Les 3 corrigeables l'ont été (la cible existe au chemin évident). Vérifié : les
+modules se chargent et `ramUsageMonitor` expose enfin son registre de remèdes.
+
+**Non corrigé volontairement** : `services/backtestService.js` fait
+`require('./liveLabService')` et **`liveLabService.js` n'existe nulle part** dans
+le dépôt. Le module est requis par 9 fichiers. Je n'invente pas de cible : il faut
+décider s'il faut restaurer le fichier ou retirer la dépendance.
+
+---
+
+### Vérifications finales
+- Syntaxe : **502 fichiers, 0 erreur**.
+- Lint : **0 problème** sur tous les fichiers touchés.
+- `npm run check:eol` : 9 `.bat`/`.cmd` en CRLF.
+- **`npm test` : 126/126 suites, 1272/1272 tests** (14 nouveaux).
+
+### Fichiers touchés
+- `core/utils/envFlag.js` (nouveau), `__tests__/envFlag.test.js` (nouveau)
+- `server.js`, `core/sharedConfig.js`, `core/configEngine.js`
+- `services/` (24 fichiers), `routes/scraper.js`, `routes/system.js`
+- `scripts/scrapeVisualBatch.js`, `SofascoreScraping/src/apiClient.js`, `Workflow.js`
+- `config/model_weights.json`### E104 (fin) — `liveLabService` et remise en état du health check
+
+#### `backtestService.js` : le « require de 9 fichiers » était faux
+
+Vérification au mot entier : `services/backtestService.js` n'est `require()` **par
+aucun fichier**. Mon comptage précédent came de `autoBacktestService` (un autre
+fichier, qui existe) matché par sous-chaîne.
+
+`liveLabService` **n'a jamais existé** — absent de `b208883`, `5119fdb`,
+`4954add` et `HEAD`. Et l'import n'était appelé nulle part (aucun
+`liveLabService.xxx` dans le fichier) : son seul effet était de faire échouer le
+chargement à la ligne suivante.
+
+Import mort retiré. Le module se charge et `runHistoricalBacktest()` s'exécute.
+Le fichier n'est **pas supprimé** : il contient une vraie logique, et le câbler
+ou le supprimer est une décision qui vous revient.
+
+---
+
+#### `scripts/titanium_health_check.js` : 3 défauts de chemin + 3 références périmées
+
+Ce script.autonome (jamais appelé par npm ni par un autre script) était
+**fournissant des diagnostics faux**. Corrigé :
+
+| Défaut | Effet observé |
+|---|---|
+| Listes de cibles relatives à la racine, résolues depuis `scripts/` (`require()` et `existsSync()` résolvent relativement au FICHIER, pas au CWD) | **20 faux négatifs** en section 3, section 1 ne testait rien |
+| `path.join(__dirname, 'models', ...)` | `stitch_v24_hybrid.json` signalé absent alors qu'il existe (4,7 Mo) |
+| `../stitch/core/database` (2 occurrences) | checks DB et enrichissement en échec |
+| Testait `python` du PATH (3.11 système, **sans fastapi**) | « FastAPI MISSING » alors que le `.venv` a fastapi 0.135.3 |
+| `vite.config.js` | le fichier s'appelle `vite.config.mjs` |
+| Ports 3000 et 5001 | n'écoutent rien ; l'API est sur `PORT=3001` (`start.bat`) |
+
+Correction structurelle plutôt que 20 éditions de chaînes : déclaration d'un
+`ROOT = path.join(__dirname, '..')` et résolution de toutes les listes contre
+`ROOT`. L'interpréteur Python est résolu vers `.venv\Scripts\python.exe`, et
+`sys.path` reçoit le chemin absolu de `core/`.
+
+**Conséquence à noter** : une fois les chemins corrigés, les 20 services sont
+réellement chargés (DB, Redis, crons, timers) et maintiennent la boucle
+d'événements ouverte — le script imprimait son rapport puis **restait bloqué
+indéfiniment**. Ajout d'un `process.exit(failed === 0 ? 0 : 1)`, qui permet au
+faut et l'usage en CI.
+
+#### Avant / après
+
+```
+AVANT : 59 PASSED | 8 WARNINGS | 5 FAILED | CRITICAL   puis blocage infini
+APRÈS : 62 PASSED | 8 WARNINGS | 0 FAILED | HEALTHY    29 s, exit 0
+```
+
+Contrôles Python, enfin evaluated sur le bon interpreteur :
+
+```
+✔ Python: XGBoost OK: 2.1.0
+✔ Python: FastAPI OK: 0.135.3
+✔ Python: NumPy OK: 1.26.4
+✔ Python: Pandas OK: 3.0.2
+```
+
+Il n'y a **aucune panne** dans ces 5 échecs : c'était le diagnostic lui-même qui
+était périmé.
+
+---
+
+### Vérifications finales
+- Syntaxe : **512 fichiers, 0 erreur**.
+- Scan `require()` relatifs : **512 fichiers, aucun require cassé** (commentaires exclus).
+- Lint : 0 problème.
+- **`npm test` : 126/126 suites, 1272/1272 tests.**
+- `node scripts/titanium_health_check.js` : exit 0, HEALTHY, 29 s.
+
+### Points laissés ouverts (décision requise)
+1. `services/backtestService.js` : importer la logique quelque part, ou supprimer ?
+2. `scripts/titanium_health_check.js` : standalone et non branché — à exposer dans
+   le Command Center (`npm run health` + `package.json`) ?### E104 (fin 2) — Suppression du backtest mort, health check exposé
+
+#### `services/backtestService.js` — supprimé
+
+Il existe **trois** implémentations de backtest dans le projet :
+
+| Implémentation | Usage |
+|---|---|
+| `services/backtestEngine.js` | ✅ `GET /api/backtest` — `routes/system.js:696` |
+| `services/autoBacktestService.js` | ✅ démarrage + cron — `server.js:349` |
+| `services/backtestService.js` | ❌ **personne** |
+
+Vérification exhaustive (hors `autoBacktestService`, y compris `.bat`, `.py`,
+`.json`, `config/`, `src/`) : **zéro référence**. Le fichier contenait en outre
+des chaînes de sortie corrompues (`` `??? ${totalMatchTests} ?????? ???????.` ``),
+témoin d'un code non maintenu. Supprimé.
+
+**Récupérable** : `git show HEAD:services/backtestService.js` (intact dans HEAD).
+
+---
+
+#### `scripts/titanium_health_check.js` — dernier oubli corrigé
+
+`optionalFiles` (l. 96) utilisait encore `path.join(__dirname, f)` alors que
+`criticalFiles` (l. 88) venait d'être corrigé : même bug, **6 faux warnings**.
+`models/stitch_v24_hybrid.json`, `.env`, `core/logger.js`, `core/speedCache.js`,
+`core/shieldEngine.js` et `services/redisCache.js` étaient tous signalés
+« not found » alors qu'ils existent — le modèle était d'ailleurs trouvé4805 Ko
+en section 9, deux sections plus bas.
+
+Vérifié : `path.join(__dirname` n'apparaît plus que sur la déclaration de `ROOT`.
+
+#### Progression du diagnostic
+
+| | PASSED | WARNINGS | FAILED | STATUS | Durée |
+|---|---|---|---|---|---|
+| État initial | 59 | 8 | **5** | **CRITICAL** | blocage infini |
+| Après chemins + `.mjs` + ports + Python `.venv` | 62 | 8 | 0 | HEALTHY | 29 s |
+| Après `optionalFiles` | **68** | **2** | **0** | **HEALTHY** | 30 s |
+
+Les 2 warnings restants sont de **vrais signaux de qualité de données**, pas des
+bugs de l'outil :
+
+- `8 matches still marked UNDER ANALYSIS`
+- `1073 matches have default expected_score '1 - 1'`
+
+#### `npm run health`
+
+Le script était orphelin (jamais appelé). Ajouté aux scripts npm avec un **code
+de retour** (`0` si healthy, `1` sinon), ce qui le rend utilisable en CI.
+
+---
+
+### Vérifications finales
+- Backend CJS : **511 fichiers, 0 erreur** de syntaxe.
+- Frontend : `npm run build` → **✓ built in 6.80 s**.
+  *(Les 22 fichiers de `src/` sont des modules ESM : `node --check` les rejette
+  car il suppose CommonJS. C'est l'architecture voulue — backend CJS, frontend
+  Vite. Le build est le validateur correct pour `src/`.)*
+- Scan `require()` relatifs : aucun cassé.
+- Lint : 0 problème.
+- `npm test` : **126/126 suites, 1272/1272 tests**.
+- `npm run health` : **exit 0, HEALTHY, 68 passed / 0 failed**.
+- `npm run check:eol` : 9 `.bat`/`.cmd` en CRLF.
+
+### Restant ouvert
+Exposer `npm run health` dans le Command Center (Streamlit, port 8501) n'a pas été
+fait : cela touche à l'UI et sort du périmètre de ces correctifs.
+
+Les 2 warnings de qualité de données (8 matchs UNDER ANALYSIS, 1073
+`expected_score` par défaut) sont des pistes de travail, pas des défauts de code.### E105 — Le verdict des matchs était detruit silencieusement
+
+Poursuite de l'analyse des 2 warnings du health check. Ils ont conduit a une
+decouverte plus grave qu'un simple libelle de diagnostic errone.
+
+#### Les 2 warnings etaient eux-memes faux
+
+| Warning annonce | Realite |
+|---|---|
+| `8 matches still marked UNDER ANALYSIS` | La valeur `'UNDER ANALYSIS'` **n'existe pas** dans la colonne. Le `COUNT` portait sur `prediction IS NULL`. Libelle errone. |
+| `1073 matches have default expected_score '1 - 1'` | Repartition : **984 `scheduled`** (a venir, placeholder normal) + **89 `canceled`** (jamais joues, placeholder normal) + **0 reellement joues**. Bruit pur. |
+
+#### Le vrai probleme : 8 matchs enrichis mais sans verdict
+
+Les 8 matchs sans `prediction` avaient pourtant `fullData.prediction` renseigne
+(`1X`, `O0.5`, `12`) et une confiance de 70 a 87 % : ils etaient enrichis
+(probabilites, cotes Flashscore, O/U, BTTS) mais la **couche verdict n'avait
+jamais ete ecrite en colonne**.
+
+Cause : `core/db/predictions.js:51`
+
+    const rawVerdict = data.prediction || data.enriched?.prediction || data.verdict || null
+
+Le pipeline d'enrichissement (`INDEPENDENT-ENRICH`, marche Flashscore, contexte)
+appelle `updatePredictions()` en ne passant **que des probabilites**. `rawVerdict`
+valait donc `null`, et l'`UPDATE` ecrivait `prediction = NULL` — **detruisant un
+verdict deja enregistre**. L'invariant « set-if-absent » applique quelques lignes
+plus bas a `originalPrediction` n'existait pas pour `prediction`.
+
+Effet : matchs invisibles du dashboard et non pariables.
+
+Correctif : capture de `previousVerdict` **avant** la fusion du fullData
+(ligne 30-35), puis repli dans `rawVerdict`.
+
+> Le bug etait **actif en direct** : apres reparation, un match a reperdu son
+> verdict en quelques minutes, ecrit par le serveur en cours d'execution
+> (code pre-fix). Le correctif ne s'applique qu'au redemarrage.
+
+Verification sur une copie de la base, en rejouant l'appel exact :
+
+```
+avant : prediction = '1X'
+updatePredictions(probabilites seules) -> true
+apres : prediction = '1X' | proba = 51.3     => VERDICT PRESERVE
+```
+
+**Donnees reparees** : les 8 matchs ont recu leur verdict depuis `fullData`
+(avant sauvegarde : `%TEMP%\tactical_before_e105.db`).
+
+#### `__tests__/predictionsVerdict.test.js` — 5 tests
+
+Test de neutralisation effectue : **sans le correctif 3 tests echouent, avec
+lui 5/5 passent**. Le test est donc un vrai garde-fou, pas un test decoratif.
+
+Couvre : conservation du precedent, primite du verdict explicite, absence de
+fabrication quand aucun verdict n'existe, `fullData` stocke en chaine JSON,
+verdict porte par `main_pick`.
+
+#### Health check : timeout et libelles
+
+- `httpGet()` accepte un timeout parametrable ; l'AI Predictor passe de **3 s a
+  15 s**. Le probe par defaut de 3 s etait trop court : le script vient de
+  charger 20 services + base + Redis juste avant, le processus est donc sature au
+  moment du probe. Constat : « Timeout (3s) » alors que `/health` repondait
+  **HTTP 200** (verifie).
+- Libelles des 2 controles DB corriges, et le controle `expected_score` ne
+  compte plus que les matchs **joues**.
+
+---
+
+### Verifications finales
+- Syntaxe backend : **512 fichiers, 0 erreur**.
+- Lint : 0 probleme.
+- `npm test` : **127/127 suites, 1277/1277 tests**.
+
+### Action requise
+Le serveur en cours (API_CORE, PID 19036) tourne encore le code **pre-fix** et
+continue d'ecraser `prediction` par NULL sur tout appel d'enrichissement.
+**Un redemarrage est indispensable** avant que la correction ne prenne effet.
+
+### Fichiers touches
+- `core/db/predictions.js`
+- `__tests__/predictionsVerdict.test.js` (nouveau)
+- `scripts/titanium_health_check.js`### E105 (suite) — Reconstruction des xG manquants
+
+#### Constat
+11 des 22 matchs réglés (la moitié) n'avaient **aucun xG** (`home_xg`/`away_xg` à
+NULL). Or `expected_score` est dérivé des xG par `analyze_over_under_and_cs`, donc
+leur score attendu restait le défaut Python `'1 - 1'` — **un score jamais
+calculé**.
+
+#### Chaîne causale
+1. Le moteur d'inférence Python (:8000) est indisponible ou trop peu confiant →
+   `fallback_enricher.js:202` (`if (xgbConf < 0.4 || pDraw > 50) return null`)
+   renvoie `null`.
+2. Une autre voie écrit malgré tout les probabilités 1X2, la confiance et le
+   verdict — **mais pas de xG**.
+3. `predictions.js` n'écrit l'`expected_score` que s'il est non nul
+   (`CASE WHEN ? IS NOT NULL`) → le placeholder du schéma survit.
+4. Les 11 portent `xgboost_confidence = 0.0`, ce qui confirme qu'ils ne sont
+   pas passés par la voie XGBoost/FastAPI (qui exige `> 0.4`).
+
+C'est du **dommage collatéral de la panne du port 8000** (E103), qui a laissé une
+trou de couverture : rien ne régénérait le xG manquant.
+
+#### Correctif
+Les probabilités 1X2 **sont** une information suffisante : sous Poisson
+indépendante à deux paramètres, (λh, λa) est déterminé par le triplet 1X2.
+
+- `core/utils/deriveXgFrom1X2.js` — inversion par balayage sur grille fine
+  (pas 0.05, λ ∈ [0 ; 4.5]). **Erreur de reconstruction mesurée ~1e-5** sur les
+  probabilités réelles de la base.
+- `expectedScoreFromXg()` refuse de fabriquer un score sans xG exploitable :
+  ne produit **jamais** un `'1 - 1'` par défaut — c'est exactement le placeholder
+  que le correctif élimine.
+- Arrondi à 2 décimales dans la boucle : sans cela la grille accumule
+  l'erreur de virgule flottante et stockait `1.2000000000000002`. Les 7 lignes
+  déjà écrites ont été normalisées en base.
+
+#### `scripts/backfill_xg.js` — dry-run par défaut
+Écrit **uniquement** les lignes où le match est réglé, `expected_score` vaut
+encore `'1 - 1'`, un xG est NULL, et les 3 probabilités sont présentes. Ne
+touche jamais un match déjà pourvu en xG. **Idempotent** (0 au second passage).
+
+```
+npm run backfill:xg          # aperçu
+npm run backfill:xg:apply    # écriture
+```
+
+#### Point d'honnêteté
+9 des 11 reconstructions produisent un score attendu `"1 - 1"` — mais **calculé**,
+indiscernable textuellement du placeholder. Ce qui change réellement, c'est que
+`home_xg`/`away_xg` ne sont plus NULL. C'est pourquoi le contrôle du health check
+distingue désormais sur `xg IS NULL` et non sur `expected_score = '1 - 1'` :
+`analyze_over_under_and_cs(1.6, 1.1)` retourne légitimement `1 - 1`, donc
+tester la seule chaîne produirait des faux positifs (constaté puis corrigé).
+
+---
+
+#### API_CORE tombée en cours de session
+Le processus `node server.js` (PID 19036) s'est arrêté et `concurrently` ne l'a
+**pas relancé** — `--restart-tries 10` épuisé, ou mort sans sortie détectable.
+Base vérifiée intacte : `integrity_check: ok`, WAL, 1643 matchs, 17641 archives,
+lecture et écriture OK. **La base n'était pas en cause.**
+
+API relancée manuellement → `/api/health` **HTTP 200** en 5 s. Ce démarrage
+valide au passage que **les 60+ fichiers modifiés chargent réellement**.
+
+> Conséquence : l'API tourne maintenant **hors supervision de concurrently**.
+> Un redémarrage complet la remettra sous supervision.
+
+---
+
+### Verifications finales
+- Syntaxe backend : 0 erreur · lint : 0 probleme
+- `npm test` : **128/128 suites, 1290/1290 tests**
+- `npm run health` : **70 PASSED / 0 WARNINGS / 0 FAILED / HEALTHY**
+- `npm run backfill:xg` : 0 correspondance (idempotent)
+- Base : 0 match sans prediction, 0 match joue sans xG
+
+### Fichiers touches
+- `core/utils/deriveXgFrom1X2.js` (nouveau)
+- `scripts/backfill_xg.js` (nouveau)
+- `__tests__/deriveXgFrom1X2.test.js` (nouveau, 13 tests)
+- `scripts/titanium_health_check.js`
+- `package.json`### E105 (fin) — Watchdog de supervision des services
+
+#### Constat
+Le 2026-10-15, API_CORE (`node server.js`, port 3001) s'est arrêté.
+`concurrently` tournait toujours avec `--restart-tries 10` mais **ne l'a pas
+relancé** — alors que Vite, Streamlit et PixelRAG ont, eux, redémarré à la même
+seconde (23:02:49). L'API est restée morte en silence, sans qu'aucun contrôle ne
+le signale.
+
+Un serveur mort ne peut pas se surveiller lui-même : il faut un tiers.
+
+#### `scripts/watchdog.js`
+Sonde API_CORE (3001), ML_CORE (8000) et UI_DASH (5173), et ne relance un service
+que s'il est **réellement** mort.
+
+Règle anti-doublon, alignée sur le remède AUTOHEAL (E103) :
+1. rien tant que le service répond ;
+2. il faut N sondes consécutives en échec (anti-flap : une micro-coupure ne
+   relance pas) ;
+3. **on vérifie que le port est libre avant d'agir** — si concurrently est en
+   train de le remonter, le watchdog s'efface.
+
+`decide()` et `tick()` sont purs et testables sans réseau ni processus.
+
+#### Deux bugs trouvés en vérifiant le watchdog contre la pile réelle
+
+**1. Famille d'adresse.** Vite n'écoute que sur `::1` (IPv6), l'API sur
+`0.0.0.0`. Sonder `127.0.0.1` seulement déclarait le dashboard mort et l'aurait
+relancé **en boucle indéfiniment**. Les sondes testent désormais `127.0.0.1`,
+`::1` et `localhost`.
+
+**2. `Promise.any` masquant les succès.** `Promise.any` retourne la première
+promesse *résolue* : un échec rapide sur `localhost` résolvait avec `false` et
+gagnait la course contre un succès lent sur `127.0.0.1` — le service paraissait
+mort alors qu'il répondait. Remplacé par `anySucceeds()`, qui ne résout `false`
+qu'après le **dernier** échec.
+
+Les deux sont verrouillés par `__tests__/watchdog.test.js` (19 tests).
+
+#### Choix de conception : pas de `detached`, pas de `unref`
+Les services relancés restent dans l'arbre de processus du watchdog, donc
+`taskkill /f /t` les atteint lors d'un arrêt. Avec `detached: true` ils
+survivraient à `stop_local_services` et on rebâtirait les piles en double —
+exactement le défaut AUTOHEAL corrigé en E103 (deux FastAPI / deux PixelRAG).
+
+Vérifié empiriquement : parent réel de l'enfant = watchdog, et
+`taskkill /f /t` sur le watchdog tue bien l'enfant.
+
+> Première tentative de ce test **invalide** : l'enfant était lancé depuis le
+> script de test et non depuis le watchdog, et le verdict « FUITE » lisait à
+> l'envers un `taskkill` réussi. Refait correctement.
+
+#### Intégration
+Inscrit dans `start.bat` comme 10ᵉ service concurrently (`WATCHDOG`).
+`start.bat` conserve ses CRLF (58/58) — vérifié par `npm run check:eol`.
+
+```
+npm run watchdog        # supervision
+npm run watchdog:dry    # observation seule, ne relance rien
+```
+
+#### Portée assumée
+`COMMAND` (8501) et `PIXELRAG` (30002) ne sont pas supervisés : Streamlit est
+lent au premier démarrage et PixelRAG est piloté par AUTOHEAL. Les couvrir
+imposerait des seuils distincts ; à traiter si l'un d'eux tombe en pratique.
+
+---
+
+### Verifications finales
+- Syntaxe backend : 0 erreur · lint : 0 probleme
+- `npm test` : **129/129 suites, 1309/1309 tests**
+- `npm run health` : **70 PASSED / 0 WARNINGS / 0 FAILED / HEALTHY**
+- `npm run check:eol` : 9/9 `.bat` en CRLF
+- Watchdog réel 14 s sur pile saine : **aucune relance** (zéro faux positif)
+- Sondes réelles : API_CORE ALIVE (127.0.0.1), ML_CORE ALIVE (127.0.0.1),
+  UI_DASH ALIVE (::1), port fermé → DOWN
+
+> L'avertissement Jest « a worker process has failed to exit gracefully » est
+> **préexistant** : il n'apparaît ni sur `watchdog.test.js` ni sur
+> `deriveXgFrom1X2.test.js` testés isolément avec `--detectOpenHandles`.
+> Provenance exacte non établie.
+
+### Fichiers touches
+- `scripts/watchdog.js` (nouveau)
+- `__tests__/watchdog.test.js` (nouveau, 19 tests)
+- `start.bat` (10ᵉ service concurrently)
+- `package.json` (`watchdog`, `watchdog:dry`)### E105 (fin-2) — Command Center : page Sante reelle
+
+#### Constat
+La page "System Health" du Command Center pingait `localhost:5000/health`,
+ou **rien n'ecoute** (l'API est sur 3001, `API_BASE` perime). Elle affichait
+donc "API hors-ligne" en permanence, meme saine — une alarme toujours rouge
+qu'on finit par ignorer. C'est ainsi que l'arret d'API_CORE est reste
+invisible. Le reste de la page etait des "Actif" en dur, sans mesure.
+
+> `API_BASE = "...:5000"` sert aussi a `fetch_from_api()` (l.51) : le chemin
+> live de l'Intelligence Hub est donc sourd lui aussi, tout passe par le
+> fallback DB. **Non touche** : changer la source de donnees du Hub depasse
+> ce correctif, a trancher separement.
+
+#### `core/health_panel.py` (nouveau)
+Pont entre Streamlit et les outils Node, fonctions pures testees
+(`tests/test_health_panel.py`, 12 tests) :
+- `service_status()` : sonde TCP reelle des 5 services, **deux familles**
+  d'adresses (lecon watchdog : Vite n'ecoute que sur ::1).
+- `run_health_check()` : lance `npm run health` (~30 s), parse
+  PASSED / WARNINGS / FAILED / SYSTEM STATUS. `None` si ligne absente :
+  jamais de chiffre invente.
+- `run_backfill_preview()` (dry-run, n'ecrit jamais) / `run_backfill_apply()`
+  (idempotent, E105). Boutons separes, l'apercu d'abord.
+
+#### Page System Health
+- 5 voyants mesures (plus de 5000), ping API corrige sur **3001**.
+- "Uptime: 0s" permanent corrige : `/api/health` renvoie `{"status":"ok"}`
+  sans `uptime`, on affiche "repond (statut ok)" au lieu d'un 0 trompeur.
+- Bouton diagnostic (~30 s, spinner) + apercu/apply backfill, sorties
+  completes en `st.expander` (ANSI strippe).
+- Import defensif en `try/except` + chemin resolu depuis `__file__` : la page
+  ne casse jamais si le module manque.
+
+#### Le smoke test a attrape un vrai bug
+`import health_panel` nu dependait du sys.path injecte par Streamlit —
+invisible en prod, casse hors `streamlit run`. Explicite desormais
+(`sys.path.insert` depuis `__file__`), prouve par le smoke test avec
+`core/` **volontairement absent** du path.
+
+#### ML_CORE tombe en plein travail — le voyant dit vrai
+Pendant la validation, ML_CORE (8000) est passe de ALIVE a 0/10 : six
+processus uvicorn, **aucun sur le port** — concurrently a epuise ses 10
+restart-tries sur un crash-loop (tentatives concurrentes sur port encore
+tenu, pas un bug du code : relance manuelle OK en 5 s, 4 moteurs charges).
+Relance manuelle + **watchdog demarre en actif** (PID 17708) en attendant
+le prochain start.bat.
+
+> API_CORE (23:07) et ML_CORE : relances manuelles, **hors concurrently**.
+> Le watchdog actif couvre les 3 critiques cette nuit.
+
+---
+
+### Verifications finales
+- pytest `tests/test_health_panel.py` : **12/12**
+- Smoke test page Sante (vrai code, `st` facture, boutons reels) :
+  13 metrics, "5 services repondent", diagnostic HEALTHY, preview a 0
+- Jest suites touchees : **32/32** (watchdog 19 + deriveXg 13)
+- `npm run health` : **70 / 0 / 0 / HEALTHY**
+- 5/5 ports ecoutent, watchdog actif et silencieux
+
+### Fichiers touches
+- `core/health_panel.py` (nouveau)
+- `tests/test_health_panel.py` (nouveau, 12 tests)
+- `core/command_center.py` (page System Health : sondes, ping 3001, uptime,
+  diagnostic, backfill)
+
+### E106 — Watchdog : soigner le hung, pas seulement la mort (2026-10-16)
+
+#### Constat
+`npm run health` retombe **DEGRADED (69/0/2)** : les 2 FAILED sont
+`[AI Predictor /health]` (timeout 15 s + socket hang up,
+`scripts/titanium_health_check.js:270`). Le port 8000 est LISTENING
+(PID 21120, parent 19612, sous concurrently 30580) mais le HTTP ne repond
+plus (`curl` exit 28), avec une pile de connexions CLOSE_WAIT : **uvicorn
+hung, pas mort**. Le TCP accepte encore, en pointilles.
+
+Deux angles morts combines, verifies empiriquement :
+1. `core/health_panel.py:71-85` (`service_status()`) ne sonde que le TCP :
+   le voyant ML_CORE restait **vert** pendant le hung. (Non touche : choix
+   affiche un avertissement plutot qu'inventer ; a traiter separement,
+   p. ex. sonde HTTP pour API/ML.)
+2. `scripts/watchdog.js:247-257` detectait le DOWN HTTP (sondes 3, 4, 5 en
+   dry-run) mais rendait `skip` + **reset du streak** tant que le port etait
+   occupe : boucle infinie de skips, le hung n'est jamais soigne. Pire : le
+   TCP reussissant par intermittence, un cycle peut voir le port "libre" et
+   spawner un **doublon** — exactement le defaut E103.
+
+Le hung s'est resorbe seul avant le correctif (`/health` HTTP 200 en 4 ms) :
+episode transitoire (boucle evenementielle coincee), pas de kill necessaire.
+
+#### Correctif (`scripts/watchdog.js`)
+- Compteur `hungStreak` par service (HTTP muet + port occupe). Fini le reset
+  du streak sur skip : on compte, on attend, puis on soigne.
+- `hungVerdict()` pure (testable) + `hungThresholdFor()` : defaut
+  `downThreshold x WATCHDOG_HUNG_MULT` (3, soit 9 cycles ≈ 4,5 min pour
+  ML_CORE). `Number.isNaN`, pas de `||` (piege E103 sur 0).
+- Au seuil : `freePort()` (kill arbre `/t`, miroir du remede AUTOHEAL E103 —
+  le shim `.venv` exige l'arbre), **verification port libre**, puis spawn
+  seulement si libre. Jamais de doublon. `spawnService()` factorise le spawn
+  (toujours pas de `detached`/`unref`, E105).
+- `execSafe()` avec timeout dur 5 s (lecon E103 : `exec` sans garde-fou hang).
+- `dry-run` ne tue jamais : il se contente de compter.
+
+#### Verifications
+- `node --check` OK (watchdog + test).
+- `__tests__/watchdog.test.js` : **25/25** (19 historiques intacts — la regle
+  anti-doublon `decide(false,99,3,false)='skip'` est inchangee — + 6 E106).
+- Full `npx jest` : **130/130 suites, 1321/1321 tests** (x2). Un run
+  intermediaire a montre 1 echec transitoire non reproduit (suite non
+  identifiee, sortie tronquee) : flaky presume, a surveiller, pas bloque.
+- pytest `.venv` : **589 passed, 31 skipped, 1 xfailed, 1 xpassed**.
+- `npm run check:eol` : 9/9 `.bat` en CRLF.
+- Dry-run 45 s sur pile revenue saine : **silencieux** (les 3 HTTP repondent,
+  aucun faux positif).
+- Backfill dry-run : **10 matchs regles sans xG** (nouveaux regles depuis le
+  backfill E105, p. ex. `livescore_1808959`), reconstructibles via 1X2.
+  `--apply` non lance (ecriture base : decision utilisateur).
+
+### Fichiers touches (E106)
+- `scripts/watchdog.js` (hungStreak, hungVerdict, freePort/killTree, spawnService)
+- `__tests__/watchdog.test.js` (+ 6 tests E106)
+
+### Points laisses ouverts
+1. `npm run backfill:xg:apply` : ecrire les 10 xG reconstruits (idempotent).
+2. Voyant Sante ML_CORE : sonde HTTP (et non TCP seule) dans `health_panel.py`.
+3. L'epreuve Jest flaky isolee (1/1321, non reproduite) : identifier si recurrence.
+
+### E107 — Dashboard perf : diff d'emission du live (2026-10-16)
+
+#### Constat
+Demande user « ameliorer le dashboard », axe performance. Mesure d'abord :
+build 6,9 s OK, bundle sain (vendor 485 Ko/138 gzip, index 136 Ko/42 gzip),
+et le pipeline a deja les gros wins (liste virtualisee react-window,
+DashboardRow + MatchCard memoises, code-splitting des widgets lourds,
+diff par signature sur l'upcoming, polling adaptatif 10/60 s, pas de flash
+loading au poll). Pas de probleme invente : le seul trou verifie est le
+live — `fetchLive()` (toutes les 10 s) et `live:update` poussaient un
+NOUVEAU tableau aux abonnes a chaque fois, meme identique, alors que
+l'upcoming a son garde-fou (`_setUpcomingPredictions`). Cout par poll
+inutile : `setLiveMatches` → rebuild des 4 memos live
+(`liveBaseList/liveFilteredList/liveFlatList/liveChipCounts`, dont
+`computeChipCounts` = `toRawLines` x matchs x 6 marches) + re-render des
+lignes, sur TOUTES les vues (la subscription live est permanente, E20-D).
+
+#### Correctif
+- `src/services/dataService.js` : `_liveSignature()` (id + statut + minute +
+  scores + prediction, liste entiere — les listes live sont petites) et
+  `_setLiveMatches()` (notifie seulement si la signature change, reference
+  stable sinon). Branches sur `fetchLive()` et le handler `live:update`.
+  Le vide reste une info (transition vers 0 live notifiee), seule sa
+  repetition est ignoree.
+- `src/components/Dashboard.jsx` : constantes d'affichage de la liste
+  (`DENSITY_ROW_H`, filtres/labels/couleurs, `qualityPillStyle`) hoistees au
+  niveau module — c'etaient des litteraux reconstruits a chaque render.
+- Non fait volontairement : extraire `renderMatchList` en composant memoise.
+  Gain non mesure (les lignes sont deja protegees par memo, le reconciliateur
+  ne touche que le sous-arbre statique au tick 15 s) et risque de regression
+  visuelle sans navigateur pour verifier. A faire avec un profiling React.
+
+#### Verifications
+- `__tests__/liveDiff.test.js` (nouveau) : **8/8** (stabilite a identite
+  pres, minute/score/statut/arrivee-depart, 1 notify pour N polls
+  identiques, transition vers vide, `fetchLive` dedupe).
+- Full `npx jest` : **131/131 suites, 1329/1329 tests**.
+- `npm run build` : **OK (6,95 s)**, index 136,52 Ko (+0,4 Ko).
+
+### Fichiers touches (E107)
+- `src/services/dataService.js` (`_liveSignature`, `_setLiveMatches`)
+- `src/components/Dashboard.jsx` (hoist constantes liste)
+- `__tests__/liveDiff.test.js` (nouveau, 8 tests)
+
+### E108 — Retour au vert : backfill resorbe, HEALTHY 70/0/0 (2026-10-16)
+
+#### Constat
+Le point ouvert E106 n°1 (`backfill:xg:apply`, 10 matchs sans xG) s'est
+**resorbe seul** : le preview affiche `0 match(s) sans xG — Rien a faire`
+(l'API en cours, avec le correctif E105, a traite les lignes entre-temps).
+Aucune ecriture manuelle necessaire, aucune sauvegarde requise.
+
+#### Verification
+- `npm run backfill:xg` : 0 correspondance (idempotent, comme concu).
+- `npm run health` : **70 PASSED / 0 WARNINGS / 0 FAILED / HEALTHY** (x2) —
+  le FAILED `Placeholder scores` a disparu avec les 10 matchs, et le FAILED
+  `AI Predictor` avec la fin de l'episode hung E106.
+
+### Points laisses ouverts
+1. Voyant Sante ML_CORE : sonde HTTP (et non TCP seule) dans
+   `core/health_panel.py` (`service_status()`, `core/health_panel.py:71`).
+2. L'epreuve Jest flaky isolee (1/1321, non reproduite) : identifier si
+   recurrence.
+
+### E109 — Voyant Sante : le hung affiche HUNG, plus UP (2026-10-16)
+#### Constat
+Le voyant TCP seul de E105 a rate le hung E106 en direct : pendant la
+validation, ML_CORE est repasse en `TCP ok + HTTP muet` (meme PID 21120,
+curl 12 s en timeout, CPU 131 s). L'ancien voyant serait reste vert.
+
+#### Correctif
+- `core/health_panel.py` : `SERVICES` gagne `http_path` (API `/api/health`,
+  ML `/health`, None ailleurs), `probe_http()` (stdlib `http.client`, deux
+  familles d'adresses, `< 500` = vivant), `service_status()` renvoie
+  `http` (True/False/None) + `state` (`up`/`hung`/`down`).
+- `core/command_center.py` (page System Health) : voyants a 3 etats
+  (UP/HUNG/DOWN) + bandeau `warning` dedie au hung (rappelle le reclaim
+  E106) ; le `success` n'apparait que si ni down ni hung.
+- Le nouveau voyant a attrape le hung reel des sa premiere execution, puis
+  le retour au vert apres relance : l'alarme est prouvee dans les deux sens.
+
+#### Incident soigne au passage (precedent E105 : relance manuelle)
+Le hung a mute en port mort (processus vivant, plus de LISTENING,
+superviseurs inactifs : concurrently epuise, watchdog E105 sans reclaim) :
+kill arbre `/t` du zombie (19612 + enfants 21120/3484), relance manuelle
+avec la commande exacte de `start.bat`, `/health` HTTP 200 en ~25 s
+(4 moteurs charges), **un seul** LISTENING (pas de doublon).
+
+#### Verifications
+- pytest `tests/test_health_panel.py` : **16/16** (+4 : HTTP vrai/faux sur
+  serveur local, `http_path`, matrice up/hung/down par monkeypatch).
+- Smoke page reelle (vraies lignes, `st` factice) : **5 UP + succes** sur
+  pile saine ; scenario hung simule : **HUNG + warning + error, sans
+  succes**. (`SMOKE_OK`, `SMOKE_HUNG_OK`)
+- `service_status()` reel : 5/5 `up` (API + ML en `http: true`).
+
+### Fichiers touches (E109)
+- `core/health_panel.py` (`http_path`, `probe_http`, `state`)
+- `tests/test_health_panel.py` (+4 tests)
+- `core/command_center.py` (voyants UP/HUNG/DOWN, bandeau hung)
+
+### Points laisses ouverts
+1. L'epreuve Jest flaky isolee (1/1321, non reproduite) : identifier si
+   recurrence.
+2. Redemarrer le watchdog avec le code E106 (reclaim) : celui en cours
+   (PID 17708) est la version E105 sans reclaim — necessite un restart de
+   la pile (`start.bat`), pas fait (pile saine, pas d'intervention).
+
+### E110 — Fiabilite par marche : reponse chiffree (analyse, 2026-10-16)
+
+Question user : quel marche est le plus fiable (1X2, BTTS, but 1re MT,
+GG+Over2.5, corners) ? Mesure sur `historical_matches` (17682 regles),
+probas archivees vs outcome reel, regle >= 50 %.
+
+| Marche | Modele | Naif (majorite) | Edge | n |
+|---|---|---|---|---|
+| 1X2 argmax | 41,6 % | 44,3 % (toujours domicile) | -2,7 | 17241 |
+| Over/Under 2.5 | 55,2 % | 57,8 % (toujours over) | -2,6 | 17283 |
+| BTTS | 53,1 % | 55,0 % (toujours oui) | -1,9 | 17283 |
+| But 1re MT | 71,3 % | 73,7 % (toujours oui) | -2,4 | 174 |
+| GG+Over2.5 (regle derivee) | 47,5 % | 54,8 % (toujours non) | -7,3 | 17283 |
+| Corners | — | — | non pronostique, inevaluable | — |
+
+Lecture honnete (2 reserves) :
+1. Ce sont des probas ARCHIVEES (vintage heterogene, pre-E94/E95) — pas le
+   pipeline servi actuel. La seule mesure honnete fraiche reste 1X2 E100
+   (55,6 % vs 43,4 % prior, soit +12,2).
+2. OU/BTTS/HT/combo n'ont JAMAIS eu d'evaluation honnete fraiche : aucun
+   vainqueur declarable. Le HT (n=174) et le combo (regle ad hoc, pas un
+   output modele) sont les moins solides.
+3. Corners : aucun pronostic stocke → inevaluable, et aveu utile.
+
+Rapport : `data/market_reliability_report.json`. Scripts ad hoc dans
+`%TEMP%/opencode/mkt_*.py` (non commites, relancables).
+
+### Points laisses ouverts
+1. Vrai SIGNAL OU/BTTS (pas juste calibration) : refit des poids
+   logistiques sur xG a l'echelle actuelle, ou features supplementaires.
+   La calibration E111 a supprime le mal (pire-que-constante), pas cree l'edge.
+2. Seuil de nuls 1X2 (`scripts/exp_draw_threshold.py`, plan B pret) si l'axe
+   est reactive.
+3. L'epreuve Jest flaky isolee : identifier si recurrence.
+4. Watchdog E106 (reclaim) : actif au prochain restart de pile.
+
+### E111 — OU/BTTS : calibration Platt deployed, le brut etait pire que la constante (2026-10-16)
+
+#### Constat (honnête, protocole miroir de `ou_model:main`, split 75/25, n=3823 avec xG)
+- OU TEST brut : Brier **0.2788** (plancher 0.2466, +13 %), acc 50,9 %
+  (< majorite 55,9 %). BTTS brut : Brier 0.2567 (plancher 0.2457), acc 54,5 %.
+- Cause probable : desaccord d'echelle xG — logistiques fittees sur xG totaux
+  moyens mu=4.6 (n=38673) mais servies avec xG actuels ~2.9 (ex. xg=2.9 →
+  P(over)=0.29 brut, systematiquement sous-evalue).
+- Le modele team-strength Poisson ne generalise pas non plus (TEST +1,5 %
+  au-dessus du plancher, `ou_model.py` natif).
+
+#### Correctif (repare le mal, ne cree pas du signal)
+- `scripts/exp_ou_btts_calib.py` : fit Platt (a,b) sur TRAIN, UNE SEULE mesure
+  sur TEST. OU calibre : Brier **0.2437** (< plancher), acc 55,9 %.
+  BTTS calibre : Brier 0.2468 (≈ plancher), acc 56,6 %. Pentes ≈ 0
+  (OU a=0.05, BTTS a=-0.01) : les bruts ne discriminent presque pas, la
+  calibration les ramene a la constante — c'est le gain, ni plus ni moins.
+- `core/ou_model.py` (`apply_recal`, cable dans `ou_prob`) +
+  `core/btts_model.py` (idem dans `btts_prob`) + `data/ou_calib.json` /
+  `data/btts_calib.json` (params TRAIN, sans fuite test). Sans fichier :
+  identite, comportement inchange. Servi : xg=2.9 → OU **0.57** (vs 0.29),
+  BTTS(1.4/1.1) → 0.537.
+- Landmine documentee : `ou_model.py --train` reecrit `ou_model.json`
+  au format `teams` que `ou_prob()` ne sait pas lire (→ None → fallback MC
+  silencieux). NE JAMAIS lancer `--train` sans adapter le lecteur.
+
+#### Incidents de seance
+- `scripts/exp_draw_threshold.py` (plan A, axe 1X2) : `xgb.train` +
+  EarlyStopping plantent (`XGBoostError preds.Size()==0`, bug version) ;
+  rebascule en plan B, tue par le restart serveur avant sa fin — threshold
+  1X2 TOUJOURS OUVERT (reprendre si l'axe est reactive).
+- Zombie pre-restart (uvicorn manuel 20484 + shim 11816, non-listening)
+  nettoye au `/t`. ML servi par 13012 (spawn watchdog, demarre APRES les
+  fichiers calib → calibration active, lazy-load). Un seul LISTENING.
+- Backfill routine : 1 regle sans xG (Sydney FC 0-0, xG 1.20/1.20
+  reconstruits), idempotence verifiee (0 au 2e passage).
+
+#### Verifications
+- `tests/test_ou_btts_calib.py` (nouveau) : **6/6** (identite sans fichier,
+  ordre/bornes, shrink, probas valides, fichier manquant).
+- `py_compile` OK (ou_model, btts_model, exp, test).
+- `npm run health` : **70/0/0 HEALTHY** (apres backfill ; 69/1 avant).
+
+#### Fichiers touches (E111)
+- `core/ou_model.py` (`apply_recal`, cable dans `ou_prob`)
+- `core/btts_model.py` (`apply_recal`, cable dans `btts_prob`)
+- `data/ou_calib.json`, `data/btts_calib.json` (nouveaux)
+- `scripts/exp_ou_btts_calib.py`, `scripts/exp_draw_threshold.py` (nouveaux)
+- `tests/test_ou_btts_calib.py` (nouveau, 6 tests)
+- `data/exp_ou_btts_calib_report.json`, `data/market_reliability_report.json`
+
+### E112 — Combo GG+Over2.5 : mesure honnête, serving inchangé (2026-10-16)
+
+But user : augmenter le taux de réussite du combo (47,5 % E110).
+
+#### Mesure (`scripts/exp_combo.py`, split 75/25, xG sains, TEST n=914)
+| Candidat | Brier TEST | vs plancher 0.2479 |
+|---|---|---|
+| joint pur Poisson (sans bornes) | 0.2142 | -13,6 % |
+| joint + marginales archivees | 0.2246 | -9,4 % |
+| logistique directe | 0.2414 | -2,6 % |
+| joint + marginales fraiches brutes | 0.2466 | -0,5 % |
+| joint + marginales E111 | 0.2591 | +4,5 % (pire) |
+| produit (independance) | 0.3386 | très pire |
+| Platt sur joint pur | 0.2358 | dégrade (déjà calibré) |
+
+Courbe YES : train plate (~45-47 % partout), test pentue mais petits n
+(t=0.45 : 73,9 % sur 21 % de volume ; train dit 46,6 %). Le seuil ne
+généralise pas → E93 0.40 CONSERVÉ, aucun relèvement promis.
+Filtre d'accord marché : n=102 (couverture cotes archive trop maigre),
+61,0 % vs 59,8 % — non probant, abandonné.
+
+#### Décision serving : INCHANGÉ (discipline mesure-avant-code)
+- Le câblage E111-marginales dans `prediction_engine.py`, écrit puis
+  MESURÉ à 0.2591, a été REVERTÉ (commentaire de traçabilité laissé).
+- Le joint pur, meilleur en Brier, briserait la cohérence d'affichage
+  (combo > marginales affichées possibles) : statu quo MC volontaire.
+- Déployé quand même (robustesse prouvée, données pourries avérées) :
+  clips xG dans `ou_prob` ([0,12], invalide→None), `btts_prob`
+  ([0,8], invalide→0.5) et `combo_gg_over25_prob` ([0,8]) — l'archive
+  contient ~4 % de xG insensés (jusqu'à 5e8, ex. 7487.81, 37128.85).
+
+#### Correction E111 (contamination par les xG pourris)
+Le premier fit Platt incluait les ~4 % de lignes pourries (a≈0,
+sur-shrinkage qui a cassé `test_under_25_when_low_mc` / `test_emitted…`) :
+refit en `SANE_XG=1` (0≤xG≤8, n=2740) → OU a=1.1965/b=-0.0575 (gain
+conservé : 0.2433→0.2427, bat le plancher), BTTS quasi-identité (a=0.96).
+Fichiers `ou_calib.json`/`btts_calib.json` réécrits. Test combo mis à jour
+vers l'attente calibrée (xg 2.4/2.2 émis, 2.0/1.8 non-émis à 0.369).
+
+#### Réponse honnête au but
+Pas de levier prouvé pour monter le taux de YES au-delà de ~45-60 %
+(selon période/seuil). Livré : marginales honnêtes (E111 corrigé),
+robustesse garbage-xG, joint mesuré (pur = meilleur estimateur, non
+déployable tel quel). Vrai levier restant : signal joint supérieur
+(forces équipes côté combo, forme, coins si couverture) — futur chantier.
+
+#### Vérifications
+- `tests/test_market_engine.py` + `tests/test_ou_btts_calib.py` : **52/52**
+  (3 tests combo nouveaux + test frontière recalibré).
+- `py_compile` OK (prediction_engine, market_engine, ou/btts_model).
+- Full pytest : tue par 2 restarts serveur, À RELANCER.
+- Pile retrouvée à terre après restart (5/5 down) → `start.bat` relancé,
+  À VÉRIFIER au prochain tour.
+- Post-E112 : 3e restart, API (3001) + COMMAND (8501) down sans superviseur
+  (concurrently mort, pas de reprise auto). Relance CHIRURGICALE (pas de
+  `start.bat` complet : les survivants ML/UI/PIXELRAG occupent leurs ports,
+  un concurrently frais ferait des doublons — E103) : `node
+  --max-old-space-size=512 server.js` + `streamlit run core/command_center.py`
+  manuels, 5/5 up vérifié. Comme E105 : hors supervision jusqu'au prochain
+  `start.bat` complet.
+
+#### Fichiers touchés (E112)
+- `core/ou_model.py`, `core/btts_model.py` (clips xG)
+- `core/market_engine.py` (clip xG dans le joint)
+- `core/prediction_engine.py` (commentaire de traçabilité uniquement)
+- `scripts/exp_combo.py` (nouveau), `scripts/exp_ou_btts_calib.py` (SANE_XG)
+- `tests/test_market_engine.py` (+4 tests combo)
+- `data/exp_combo_report.json` (nouveau)
+
+### E113 — Moteur HT : mesure honnête, brut déjà au-dessus du plancher (2026-10-16)
+
+Revue des moteurs (mandat user) : le HT n'avait jamais été évalué honnêtement.
+`scripts/exp_ht_calib.py`, même protocole (split 75/25, xG sains, n=3048) :
+- brut : Brier **0.1965** (plancher 0.2002 ✓), acc 72,4 % ;
+- Platt TRAIN : Brier 0.1979 (**dégrade**) → NON déployée (discipline
+  mesure-avant-code, comme le revert combo E112).
+- Déployé : garde-fou xG dans `ht_prob` ([0,8], invalide→None), parité E112.
+
+Constat global moteurs marginaux (OU/BTTS/HT/combo) : tous ≈ plancher, la
+calibration supprime le mal sans créer d'edge. Vrai levier restant : refit
+des poids sur xG à l'échelle actuelle (archives d'entraînement μ=4.6 vs
+~3.1 courant) — futur chantier, pas improvisé ici.
+
+#### Vérifications
+- `tests/test_ht_model.py` + calib + market_engine : **58/58** (+2 tests clip).
+
+#### Fichiers touchés (E113)
+- `core/ht_model.py` (clip xG)
+- `tests/test_ht_model.py` (+2 tests)
+- `scripts/exp_ht_calib.py`, `data/exp_ht_calib_report.json` (nouveaux)
+
+### E116 — Cause racine des hangs ML : les restarts sandbox tuent les sockets (2026-10-16)
+
+4e hung ML (zombie vivant sans listener, port mort). Logs du processus
+défunt : `OSError: [WinError 64] Le nom réseau spécifié n'est plus
+disponible` sur `accept()` (IOCP proactor) → la socket d'écoute meurt
+quand le sandbox restarte le réseau, le processus survit en CPU churn.
+ENVIRONNEMENTAL, pas un bug applicatif : le remède est procédural —
+après chaque restart sandbox, vérifier 5/5 + relancer ML en manuel
+(précédent E109/E113), en attendant le watchdog E106 (reclaim) actif.
+ML relancé + vérifié up. La validation pytest de fond, qui tournait
+pendant le hung, a des résultats `/predict` invalides → À REJOUER
+(test_general_integration.py seul suffit).
+- Rejoué sur ML sain : **19 passed, 2 failed** — les 3 `/predict` VERTS ;
+  restent les 2 PixelRAG (cause externe Sofascore, E113). Full : jest
+  **131/131** vert, pytest 599 passed hors ces 2 environnementaux.
+- Preuve forensique (logs du défunt PID 3816) : centaines de 200 servies
+  puis `OSError WinError 64` sur `accept()` pile au restart — le processus
+  survit sans listener. Mécanisme E116 confirmé, pas une hypothèse.
+  Nettoyage du double spawn manuel (3668+3816) + respawn unique vérifié
+  (1 seul LISTENING), 5/5 up.
+
+### E114 — Over/Under : refit sur xG à l'échelle actuelle (2026-10-16)
+
+#### Cause racine prouvée
+Poids OU fittés sur xG moyens μ=4.6 (`historical_archive.sqlite`, n=38673)
+mais servis avec xG ~3.1 (médiane archive saine) : sous-évaluation
+systématique (ex. xg=2.9 → P(over)=0.29).
+
+#### Mesure (`scripts/exp_ou_refit.py`, split 75/25, xG sains, TEST n=914)
+| | L2.5 Brier | L2.5 acc | L3.5 Brier |
+|---|---|---|---|
+| courant | 0.3008 | 50,0 % | 0.2365 |
+| refit | **0.2330** | **58,6 %** | **0.2115** |
+| refit+Platt | 0.2327 | 58,4 % | 0.2112 |
+Plancher L2.5 : 0.2462. Nouveaux μ=3.42, pentes 0.156/0.163 (signal faible
+mais réel ; le modèle ne descend jamais sous ~0.45 — honnête neutralité).
+
+#### Déployé
+- Backup `data/ou_model.preE114.json`, nouveaux poids L2.5+L3.5,
+  `ou_calib.json` mis à jour (Platt post-refit a≈1.02, quasi-identité).
+- Servi : xg=2.9 → OU **0.555** (vs 0.29), xg=1.4 → 0.501 (neutre, plus de
+  faux Under confiant).
+- 2 tests frontières réalignés sur le comportement mesuré-meilleur
+  (low-xG → pas de pick O/U ; combo 2.0/1.8 émis à 0.501, non-émis à
+  0.7/0.5). ML relancé en manuel (nouveau process = nouveaux poids ;
+  recal mis en cache par process → restart obligatoire).
+- Backfill routine : 5 réglés sans xG appliqués, idempotence OK.
+
+#### Vérifications
+- Ciblés market/ou-btts/ht : **58/58**. `/predict` serveur : 200.
+- `npm run health` : **70/0/0 HEALTHY**.
+
+#### Fichiers touchés (E114)
+- `data/ou_model.json` (refit), `data/ou_model.preE114.json` (backup),
+  `data/ou_calib.json` (Platt post-refit)
+- `scripts/exp_ou_refit.py`, `data/exp_ou_refit_report.json` (nouveaux)
+- `tests/test_market_engine.py` (2 attentes réalignées)
+
+### E115 — BTTS : refit à parité serving après un déploiement empoisonné (2026-10-16)
+
+#### Faute avouée puis corrigée
+Premier refit avec coins imputés à la moyenne train (8.44, σ=0.29) alors
+que le serving envoie coins=None→0 : mismatch d'échelle → fichier déployé
+POISON (Brier TEST rejoué à parité : 0.3469, acc 43 %, pire que tout).
+Détecté par spot-check servi (BTTS(1.4,1.1)=0.242 absurde).
+
+#### Refit corrigé (`scripts/exp_ou_refit.py`→`exp_btts_refit.py`, coins=0.0
+comme au serving, split 75/25, TEST n=915)
+- courant : Brier 0.3469, acc 43,1 % (le poison — pas l'ancien modèle
+  d'archive, qui était à 0.2567) ;
+- refit : Brier **0.2436** (< plancher ~0.2457), acc **58,1 %** ;
+- refit+Platt : 0.2436, a=0.983 ≈ identité (Platt quasi inutile, fichier
+  mis à jour par uniformité).
+- Poids : μ=[1.81,1.61] (échelle actuelle ✓), coins quasi-inutile
+  (couverture 1 % — assumé).
+
+#### Déployé
+- Backup `data/btts_model.preE115.json`, nouveaux poids + base_rate
+  recalculé (0.5357), `btts_calib.json` à jour. Servi vérifié :
+  BTTS(1.4,1.1)=0.524, (2.2,1.8)=0.547, (0.5,0.4)=0.498 — sains.
+- Pas de restart ML : poids relus à chaque appel, cache recal
+  négligeable (Δa=0.001).
+
+#### Vérifications
+- Ciblés market/ou-btts/ht : **58/58** (le test combo high-xg repasse
+  au vert avec des btts sains).
+- Full pytest+jest : lancés en fond, tués/sans retour — À RELANCER au calme.
+
+### E113-bis — Incident /predict 500 : zombie, pas le code (2026-10-16)
+(Renommé : le numéro E113 était déjà pris par « Moteur HT » plus haut —
+seul vrai doublon de numérotation du journal, corrigé le 2026-10-17.)
+
+Full pytest : 597 passed, 6 failed, tous dans `test_general_integration.py`.
+Enquête (repro locale + serveur, logs superviseurs, pstree) :
+- 3× `/predict` 500 : processus ML zombie (PID 6824, python SYSTEM, vivant
+  sans listener après les restarts). Le chemin endpoint complet rejoue OK
+  en local (clean_data→enrich→visual→prediction→convert_numpy→json).
+  Après kill `/t` + respawn `.venv` AVEC l'env `start.bat`
+  (`FASTAPI_ALLOW_UNAUTH=1`, sinon 503 « API_SECRET_KEY not set » — leçon :
+  un spawn manuel sans env donne 503, cf E103) : **/predict HTTP 200**,
+  payload complet. Les 3 tests rejoués : **3 passed**.
+- 3× PixelRAG : `/search` 500 interne + `/enrich` success=false
+  (« Sofascore down ou event inconnu ») — cause EXTERNE documentée E103
+  (kill-switch + blocage IP), `visual_server.py` non touché par E111/E112.
+  Environnemental, hors scope, à ne pas poursuivre en aveugle.
+- Leçon : un 500 transitoire post-restart = suspecter le processus avant
+  le code (vérifié par repro locale du chemin exact).
+
+#### Vérifications
+- `/predict` serveur : 200 + payload complet (Zero-Data rescue OK).
+- 3 tests predict rejoués : verts. 2 tests pixelrag restants : rouges pour
+  cause externe (Sofascore), pas de régression de code.
+
+### E117 — Couverture ligues : MENA + Afrique du Sud + D2 vérifiées via API (2026-10-16)
+
+Demande user : tout couvrir (faibles, Afrique N/S, D2). Mesuré d'abord :
+D2 déjà là via livescore, MENA upcoming quasi-vide (TN 0, EG 0), ZA absente.
+
+#### IDs vérifiés par appel API (pas devinés), saisons 2025/2026 actives
+TN L1 **202** (+L2 828), DZ L1 **186** (+L2 187), MA Botola **200** (+D2 201),
+EG PL **233**, EG Second 887, ZA PSL **288** (+1st Div 289),
+ITA Serie B **136**, ESP Segunda **141**.
+Corrections : **203 = Turquie** (était mappé Égypte → tirait la Süper Lig),
+**3831 inexistant**, **1243 = foot féminin SA** (était mappé Syrie) — retirés.
+
+#### Coût quota : 0 requête/jour supplémentaire
+Le fetch est par date (`/fixtures?date=`, ~3 req/jour, cache 1 h), filtre
+côté client : +12 ligues = même consommation (~4 req utilisées du quota 100).
+
+#### Honnêteté par construction
+`mapEventToMatch` : `verdict PENDING + insufficient_data=1` — les nouveaux
+matchs ne produisent jamais de pick inventé (honestyGate en aval).
+Smoke live jour J : **31 fixtures, dont 13 nouvelles ligues** (EG D2 ×5,
+TN L1 ×4, ZA D1 ×2, Segunda ×1, Serie B ×1), toutes PENDING.
+
+#### Vérifications
+- Jest ciblés : **11/11** (+4 tests E117 : présence IDs, exclusion des
+  faux IDs, unicité, PENDING/insufficient sur match TN).
+
+#### Fichiers touchés (E117)
+- `services/apiFootballService.js` (MENA/AFRICA/D2_LEAGUES, exports, fix 203)
+- `__tests__/apiFootballService.test.js` (+4 tests)
+
+### E118 — Tracker : la précision par ligue utilise enfin l'historique (2026-10-16)
+
+Trou : `/api/accuracy/tracker` ne lisait que `matches` (100 % scheduled →
+0 ligne notée → onglet « Précision par ligue » toujours vide
+« Aucune donnée »).
+Correctif `routes/analytics.js` : UNION ALL `historical_matches` (17682
+réglés, mêmes colonnes), agrégation extraite en `aggregateTracker()`
+pure/exportée (argmax insensible à l'échelle 0-1/0-100).
+Live vérifié : **TOTAL 19534, par ligue peuplée** (ex. Championship 79/215,
+Serie B 64/185, League 1 43/141).
+Réserve honnête : ce sont des probas ARCHIVÉES (pré-calibration) — la
+métrique fraîche reste E100 (55,6 %). Le tableau donne le relatif par
+ligue, pas le niveau absolu du pipeline servi.
+Infra de séance : pile à terre post-restart → `start.bat` complet
+(concurrently supervise tout, watchdog E106 actif), 5/5 up vérifié.
+
+#### Vérifications
+- `__tests__/accuracyTracker.test.js` (nouveau) : **4/4** (juste/faux,
+  insensibilité d'échelle, lignes sans signal, nul).
+- Endpoint live : 200, 19534 notés, triés par volume.
+
+#### Fichiers touchés (E118)
+- `routes/analytics.js` (UNION historique, `aggregateTracker` exportée)
+- `__tests__/accuracyTracker.test.js` (nouveau, 4 tests)
+
+### E119 — Historique des entraîneurs Transfermarkt (2026-10-16)
+
+Demande user : le mercato des coachs (new-manager bounce invisible aux modèles).
+Implémenté (option 1) : `transfermarktService.getManagerHistory()` scrape
+`/{slug}/mitarbeiterhistorie/verein/{id}` (nom, nomination ISO, fin, matchs,
+PPG, `current` = sans date de fin), cache 7 j, parser pur `parseManagerHistory`
+défensif (null si structure change, parasites/doublons écartés).
+Stockage : table `coach_history` (migration `schema.js`, UNIQUE
+team_id/manager/appointed) + `scripts/sync_coaches.js` (toutes équipes ou
+1 slug, 2 s de politesse, idempotent).
+Preuve live : Manchester City → **46 coachs, actuel détecté**, 46 lignes en base.
+`TEAM_SLUGS` exporté (23 équipes top-5 ; pas de MENA — extension ultérieure).
+Usage pronostic (phase 2, non fait) : flag « nouveau coach < 5 matchs » +
+mesure honnête du bounce avant tout boost.
+
+#### Vérifications
+- `__tests__/coachHistory.test.js` : **4/4** (parse, null sans table, dates).
+- `node --check` OK (service, sync, schema). Sync live 1 équipe OK.
+
+#### Fichiers touchés (E119)
+- `services/transfermarktService.js` (getManagerHistory, parseManagerHistory, parseDmY, cache 7j)
+- `core/db/schema.js` (table coach_history)
+- `services/valueBetEnricher.js` (export TEAM_SLUGS)
+- `scripts/sync_coaches.js` (nouveau)
+- `__tests__/coachHistory.test.js` (nouveau, 4 tests)
+
+### E120 — Coachs phase 2 : 34 équipes, bounce non mesurable, flag prêt (2026-10-16)
+
+- Sync complet : 18/18 top-5 + 16 MENA/ZA (slugs vérifiés un par un ;
+  Étoile du Sahel introuvable proprement — trou documenté, pas inventé).
+  Man Utd : aucun `current` (tous les mandats ont une fin — cas limite du
+  parseur, non bloquant).
+- Mesure bounce : INFRAISABLE — matchs réglés sur ~2 mois (08-10/2026),
+  2-4 tenures exploitables. Résultat négatif assumé, pas de boost inventé.
+- Livré à la place : `core/coachFlag.js` — `getCoachInfo` + `isNewCoach`
+  (nommé < 90 j → prudence informative). AUCUN effet parié (discipline
+  mesure-avant-code) ; le boost viendra quand les données cumulées
+  permettront la mesure (re-mesurer quand la fenêtre dépassera 6 mois).
+
+#### Vérifications
+- `__tests__/coachFlag.test.js` + coachHistory : **7/7**.
+
+#### Fichiers touchés (E120)
+- `services/valueBetEnricher.js` (+16 équipes MENA/ZA dans TEAM_SLUGS)
+- `core/coachFlag.js` (nouveau), `__tests__/coachFlag.test.js` (nouveau, 3 tests)
+- `data/coach_bounce_report.json` (vide assumé : 0 tenure — preuve du manque)
+
+### E121 — Valeurs d'effectifs : feed prêt, 2 bugs de parse corrigés (2026-10-16)
+
+Phase 1 transferts : `team_values` (snapshots horodatés pour deltas),
+`scripts/sync_squads.js` (toutes équipes ou 1 slug, idempotent).
+Deux vrais bugs trouvés par les tests et le live :
+1. Unité `bn` ignorée (seul `Mrd` géré) : €1.50bn lu comme €1.5M !
+   `parseMarketValue` pur réécrit (k/m/bn/b/Mrd, null si inconnu).
+2. Nouveau markup sans `.marktwert` (ex. Raja : wrapper
+   `data-header__market-value-wrapper`) + parse d'unité gloutonne qui
+   avalait le label (`mTotal`). Parse sur la STRUCTURE HTML désormais.
+Gating Transfermarkt : **HTTP 405** après ~50 requêtes du jour → back-off
+volontaire, cadence hebdo + cache 6h déjà en place ; sync live des valeurs
+en attente de levée (les 34 syncs coachs sont passés avant).
+Prochaine étape : deltas fin-mercato vs courant → flag prudence (mesuré).
+
+#### Vérifications
+- `__tests__/squadValues.test.js` : **6/6** (m/Mrd/bn/k, wrapper, null).
+
+#### Fichiers touchés (E121)
+- `services/transfermarktService.js` (parseMarketValue, fallback wrapper)
+- `core/db/schema.js` (table team_values)
+- `scripts/sync_squads.js` (nouveau)
+- `__tests__/squadValues.test.js` (nouveau, 6 tests)
+
+### E122 — Validation complète : tout vert hors Sofascore (2026-10-16)
+- pytest : **603 passed**, 2 failed = les 2 PixelRAG (cause externe
+  Sofascore, E113 — inchangés, non régression).
+- jest : **135/135 suites, 1350/1350 tests** (+4 suites E118-E121).
+
+### E123 — Dashboard : épuré du décoratif + pastille précision ligue (2026-10-16)
+
+Demande user : retirer l'inutile, ajouter de l'important (choix user).
+Retiré :
+- Header : bloc `MOTEUR: NEURAL-X` + compteur `Capteurs Actifs` (décoratif,
+  zéro valeur décisionnelle). Gardés : menu, pastille connexion, badge live.
+- 3 pills de densité toujours visibles → un `<select>` compact (état +
+  persistance localStorage inchangés).
+Ajouté :
+- Pastille `ligue ≈X%` sur chaque ligne (2 layouts), depuis
+  `/api/accuracy/tracker` (E118) : précision 1X2 MESURÉE de la ligue,
+  masquée si n<10 (même honnêteté que `relBadge`). Prop drilling
+  mémo-safe (`leagueMap` stable, lookup dans la rangée).
+
+#### Vérifications
+- `npm run build` : **OK (9,32 s)**. ESLint : 0 problème. Références
+  mortes : aucune (CSS `.sh-center` orphelin conservé, inoffensif).
+
+#### Fichiers touchés (E123)
+- `src/components/Dashboard.jsx` (header, select densité, leagueMap)
+- `src/components/MatchCard.jsx` (prop + badge `leagueBadge` ×2 layouts)
+
+### E124 — Dashboard : suppression des doublons d'actions (2026-10-16)
+
+Deuxième passe (doublons avérés, même action deux fois) :
+- Gros bouton « ↺ Réinitialiser les filtres » (état vide) supprimé : la
+  pastille « ↺ tout » fait déjà ça, visible au même moment.
+- ✕ intégré au champ recherche supprimé : la pastille « 🔍 … ✕ » des
+  FILTRES ACTIFS efface déjà (un seul chemin d'effacement).
+
+#### Vérifications
+- `npm run build` : **OK (3,10 s)**. ESLint : 0 problème.
+
+#### Fichiers touchés (E124)
+- `src/components/Dashboard.jsx` (2 suppressions)
+
+### E125 — HT : le path low-data émet enfin ht_goal_prob (2026-10-16)
+
+Trou mesuré : 0 % de `ht_goal_prob` sur les enrichissements <24h (vs 24 %
+sur vieux) — le path Zero-Data rescue (majoritaire sur ligues faibles)
+retournait sans HT alors qu'il a les xG. Correctif `low_data_handler.py` :
+`ht_goal_prob` via le même `ht_model` (best-effort), vérifié live (0.62).
+Note : combo à 78 % sur le même path — chantier séparé, non touché.
+
+#### Vérifications
+- `tests/test_lowdata_ht.py` (nouveau) + ht_model : **8/8**.
+
+#### Fichiers touchés (E125)
+- `core/low_data_handler.py` (ht_goal_prob dans le rescue)
+- `tests/test_lowdata_ht.py` (nouveau, 2 tests)
+
+### E126 — Sidebar : recherche + affichage progressif des 300 ligues (2026-10-16)
+
+Avec 324 ligues actives, la liste brute était innavigable. Ajouté : champ
+filtre (insensible à la casse, compteur remis à 30 à chaque frappe) +
+bouton « + Afficher plus (N restantes) » par tranches de 30. Sections
+épinglées/MENA inchangées.
+
+#### Vérifications
+- `npm run build` : **OK (3,20 s)**. ESLint : 0 erreur (4 warnings
+  préexistants, aucun nouveau).
+
+#### Fichiers touchés (E126)
+- `src/components/Sidebar.jsx` (filtre + pagination locale)
+
+### E127 — AUTO-OPT : soupape anti-saturation + reset (2026-10-16)
+
+Diagnostic : 30 cycles plaqués à 40/1.6 sans jamais revert — NORMAL, la
+saturation est une impasse par construction (aucun trial ne démarre au
+plafond). Pire : le levier ne peut pas marcher (draw_bias ne change que
+l'AFFICHAGE confiance, pas le pick ; les nuls manqués viennent du recall
+33 % du XGB). En attendant : -6 pts sur tous les picks H/A + bonus BSM
+mort + alertes en boucle.
+Correctif `core/autoOptimizer.js` : compteur `sat` par paramètre ; après
+SAT_LIMIT=3 cycles saturés d'affilée → retour aux planchers neutres
+(20/1.0) + log SOUPAPE ; compteur effacé dès que le signal retombe.
+Reset prod appliqué (20/1.0, sat vidé). Vrai remède = seuil de nuls côté
+serving (exp_draw_threshold, plan B prêt).
+
+#### Vérifications
+- `__tests__/autoOptimizer.test.js` : **17/17** (+5 soupape : reset ×2,
+  remise à zéro, pas-avant-limite, compat ancien état).
+
+#### Compléments "tous"
+- Secret API-Football : `.env` jamais commité (vérifié git) — rotation =
+  action manuelle côté compte API-Sports (non faisable d'ici).
+- BTTS display : ROI inévaluable en archive (0 cote stockée) — reste
+  bloqué jusqu'au cumul live C3/C7. Pas de backtest bidon lancé.
+- V55 gentle : retrain relancé en fond (LIMIT=15000, même protocole E100).
+
+#### Fichiers touchés (E127)
+- `core/autoOptimizer.js` (soupape `_saturated`, `_clearSaturation`)
+- `config/model_weights.json` (reset 20/1.0), `config/auto_opt_state.json`
+- `__tests__/autoOptimizer.test.js` (+5 tests)
+
+### E128 — V55 gentle promu en production (2026-10-16)
+
+Retrain honnête reproduit à l'identique (LIMIT=15000) : gentle 56,18 %
+TEST (logloss 0.8955, brier 0.5320) vs deployed 55,56 %. Cette fois le
+fichier candidat EXISTE (E100 l'avait perdu).
+Promotion : backup `models/archive/stitch_v55_optimized_preE128.json`,
+candidat → `models/stitch_v55_optimized.json` (223 features, load OK).
+ML redémarré : course perdue contre un superviseur (EADDRINUSE sur mon
+spawn manuel) — tant mieux, instance supervisée saine, **un seul**
+LISTENING (4744), /predict 200.
+Backfill routine : 30 réglés sans xG appliqués (dont Diyala 2-0 —
+couverture MENA via livescore).
+
+#### Vérifications
+- Retrain : vainqueur gentle confirmé 2×. `/predict` 200 + health
+  **70/0/0 HEALTHY**.
+
+#### Fichiers touchés (E128)
+- `models/stitch_v55_optimized.json` (promu), `models/archive/...preE128`
+  (backup), `models/stitch_v55_candidate.json` (nouveau)
+
+### E129 — Seuil de nuls : +2.4 pts mesurés, non déployé (discipline) (2026-10-16)
+
+`scripts/exp_draw_threshold.py` (val tune → test confirme, UNE fois) :
+règle « D si p_d ≥ t sinon meilleur de (H,A) ».
+- argmax : 74,67 % TEST (recall nuls 33 %) ; no-draw : 64,8 % ;
+- t=0.40 (plateau 0.38-0.42, pas un pic fragile) : **77,11 %**,
+  précision nuls 70 %, recall nuls **74,7 %**.
+Réserve : booster évalué IN-SAMPLE (refit E128 sur ces périodes) — le
+niveau absolu est optimiste, mais le DELTA et le plateau se transfèrent
+en règle.
+NON déployé : le pick argmax V55 n'est pas un artefact servi (le serving
+blende + gate déjà les nuls à p_d > 0.40 via DRAW TRAP dans
+`determine_verdict` — convergence qui VALIDE le 0.40 existant, pas qui le
+change). Transférer le seuil au blend exige le harnais d'inférence blend
+— futur chantier, pas d'extrapolation.
+
+#### Fichiers touchés (E129)
+- `scripts/exp_draw_threshold.py`, `data/exp_draw_threshold_report.json`
+
+### E130 — Exploitation max : inventaire + flag nouveau-coach servi (2026-10-16)
+
+Audit user « tout exploiter » sur le booster 223 features :
+DÉJÀ EXPLOITÉ : blessures (2 feats + veto 2+), arbitre (3), météo (2),
+news/sentiment (3), motivation (3), repos/voyages (3), cotes+steam (12),
+corners (5), H2H (8), streaks (6), Elo (4), forme/xG/tirs (38+), compos
+(flag), valeur TA.
+NON EXPLOITÉ : coach (collecté, 0 feat), transferts/valeurs (pas de feed),
+is_missing_* (colonnes, veto seul.), ref_home_win_rate (colonne, pas feat),
+rank FIFA (boost confiance seul.).
+Déployé (sans retrain, effet prudence uniquement) : `coachNewForMatch`
+(slugs + variantes MENA/ZA) → `computeConfidence(coachNew)` plafonne à 70
+(même pattern que baseSolidMargin) + breakdown tracé ; `m.coach_new_info`
+quand déclenché. Aucun boost inventé (bounce non mesurable, E120).
+Vrai chantier restant : V56 avec features coach/valeurs/arbitre (retrain +
+éval honnête requis — changement de features = nouveau modèle).
+
+#### Vérifications
+- Ciblés : **11/11** (coachFlag 5, coachHistory 4, confidenceScorer 2) +
+  enrichedPredictions **8/8** (non-régression du câblage).
+
+#### Fichiers touchés (E130)
+- `core/coachFlag.js` (slugs, variantes, coachNewForMatch)
+- `core/confidenceScorer.js` (opt coachNew, plafond 70, breakdown)
+- `services/enriched_predictions.js` (calcul + passage du flag)
+- `__tests__/coachFlag.test.js` (+2), `__tests__/confidenceScorer.test.js` (nouveau)
+
+### E131 — V554 coach-feature : abandonné, couverture 1 % (2026-10-16)
+
+Idée : `coach_tenure_h/a` en features XGB (V554 = V55+2 ; V56 existe déjà,
+autre sens). Mesure de couverture sur 144397 lignes d'archive : 1,0 % les
+deux équipes mappées, 13,2 % une seule (34 équipes vs 2686 noms distincts).
+Feature à -1 dans 99 % des cas = aucun signal apprenable → PAS de retrain
+(économie ~1 h de compute + risque de déploiement pour rien).
+Décision : le flag prudence E130 (actif exactement sur les équipes
+mappées) reste le bon scope. Rouvrir si les slugs dépassent ~200 clubs
+(bloqué : gating Transfermarkt 405 + matching exact anti-collision :
+'Al Ahly' ×4 clubs, 'El Raja' ambigu — écartés volontairement).
+
+### E132 — Bruit odds micro-ligues + soupape prouvée en prod (2026-10-16)
+
+Logs du serveur défunt : ~150 `No odds source available` par cycle
+(Bulgarie D2, Chypre D3, Bosnie…) — absence NOMINALE déjà persistée via
+`odds_fetch_error`, le warn ne servait qu'à noyer le log. Downgrade en
+`debug` (précédent E104 shieldEngine -96 %), comportement inchangé.
+Surtout : **soupape E127 prouvée en production** — `Mutation draw_bias
+up sans effet (22.0 -> 24.0). REVERT 1 -> 1.15 puis blocage 3 cycles.`
+Exactement le comportement conçu (poids reset 20/1.0 actifs).
+
+#### Vérifications
+- Ciblés dataFusion : **11/11**.
+
+#### Fichiers touchés (E132)
+- `services/dataFusionService.js` (warn → debug, 1 ligne)
+
+### E133 — Ablation par famille : seules forme et corners portent (2026-10-16)
+(Numéroté E133 car E132 existe déjà — bruit odds micro-ligues.)
+
+Protocole : `load_data` V55 (15000), split temporel strict (core 11220 /
+val 1530 / test 2250, test 2025-03/2026-05), config deployed + seed 42,
+13 fits (référence + 12 ablations), métriques TEST. Référence reproduit
+E100 au 4e décimale (55,56 % / 0,9132 / 0,5414) — protocole valide.
+
+| Famille (n) | Δlogloss | Δacc | Remplissage | Verdict |
+|---|---|---|---|---|
+| forme_xg_tirs (129) | +0,0432 | -2,98 pts | 100 % | **PORTEUR — garder** |
+| corners (5) | +0,0117 | -0,72 pt | 100 % | **utile — garder** |
+| contexte (15) | +0,0047 | +0,04 pt | 100 % | marginal, garder (pas cher) |
+| elo (4) | +0,0009 | -0,36 pt | 100 % | quasi-nul (redondant forme ?) |
+| repos_voyages (3) | +0,0016 | +0,13 pt | 100 % | bruit |
+| h2h (8) | -0,0006 | -0,05 pt | 100 % | bruit |
+| cotes (20) | -0,0024 | -0,09 pt | 100 % | bruit (retirer ? à confirmer) |
+| streaks (7) | -0,0007 | +0,48 pt | 96 % | bruit |
+| top_analyst (19) | -0,0054 | +0,26 pt | 100 % | bruit (19 feats pour rien ?) |
+| arbitre (3) | 0,0000 | 0,00 pt | 100 % | **ZÉRO — candidate suppression** |
+| météo (2) | 0,0000 | 0,00 pt | 100 % | **ZÉRO — candidate suppression** |
+| motivation (6) | 0,0000 | 0,00 pt | 100 % | **ZÉRO — candidate suppression** |
+| blessures (2) | 0,0000 | 0,00 pt | **0 %** | **ZÉRO + jamais remplies** |
+
+Alertes :
+- `blessures` : 0 % remplies au train (jamais apprises) — si le serving
+  les remplit, effet imprévisible (skew train/serve, pattern audit F1).
+  Soit on les peuple au train, soit on les retire du serving.
+- `top_analyst` (19 feats) et `cotes` (20) : contribution nulle à
+  légèrement négative — 39 features de bruit potentiel.
+Recommandation : **garder** forme/corners/contexte/elo ;
+**retirer** arbitre/météo/motivation/blessures après UN fit de
+confirmation sans ces 13 features (test unique, pas cher) ;
+**statu quo prudent** sur cotes/h2h/streaks/top_analyst/repos (deltas
+dans le bruit — demander une 2e seed avant de couper).
+**Enrichir** : rien — l'étude ne révèle aucun manque, seulement du gras.
+
+Scripts + rapport : `AppData/Local/Temp/opencode/ablation_familles.py`,
+`ablation_report.json`, `feat223.txt` (aucun fichier prod touché).
+
+### E134 — Prune confirmé : sans-13 = référence à l'identique (2026-10-17)
+
+Fit de confirmation (13 features mortes retirées, même protocole) :
+**55,56 % / 0,9132 / 0,5414 — identiques au 4e décimale**. Le prune est sûr.
+NON déployé (nouvel artefact = risque sans gain d'accuracy) — et inutile
+côté skew : une feature constante au train ne splitte jamais (gain nul),
+donc les 13 mortes sont inertes, pas nocives. Rapport :
+`AppData/Local/Temp/opencode/prune_report.json`.

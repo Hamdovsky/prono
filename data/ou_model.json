@@ -1,34 +1,38 @@
 {
   "L2.5": {
     "w": [
-      0.6679,
-      0.0416
+      0.1558,
+      0.2874
     ],
     "mu": [
-      4.5957
+      3.4223
     ],
     "sigma": [
-      1.2052
+      1.0836
     ],
-    "n": 38673,
-    "base_rate": 0.5081,
-    "logloss_model": 0.6409,
-    "logloss_baseline": 0.693
+    "n": 2740,
+    "base_rate": 0.5737,
+    "logloss_model": 0.6792,
+    "logloss_baseline": 0.6822,
+    "fitted_at": "2026-10-16",
+    "note": "refit E114 echelle xG actuelle"
   },
   "L3.5": {
     "w": [
-      0.6825,
-      -0.93
+      0.1627,
+      -0.5399
     ],
     "mu": [
-      4.5957
+      3.4223
     ],
     "sigma": [
-      1.2052
+      1.0836
     ],
-    "n": 38673,
-    "base_rate": 0.2901,
-    "logloss_model": 0.5524,
-    "logloss_baseline": 0.6023
+    "n": 2740,
+    "base_rate": 0.3635,
+    "logloss_model": 0.652,
+    "logloss_baseline": 0.6554,
+    "fitted_at": "2026-10-16",
+    "note": "refit E114 echelle xG actuelle"
   }
 }

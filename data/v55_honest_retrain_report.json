@@ -85,6 +85,6 @@
     "always_home": 0.43377777777777776,
     "prior_class_max": 0.43377777777777776
   },
-  "candidate_path": "models/stitch_v55_candidate.json",
+  "candidate_path": "C:\\Users\\HAMDI\\Desktop\\HamdiProno\\stitch\\models\\stitch_v55_candidate.json",
   "refit_rounds": 171
 }

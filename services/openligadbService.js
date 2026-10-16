@@ -1,5 +1,6 @@
 const axios = require('axios')
-const logger = require('../core/logger')
+const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 const OPENLIGADB_BASE = 'https://api.openligadb.de'
 const REQUEST_TIMEOUT_MS = 12000
@@ -60,7 +61,7 @@ function halfTimeResult(match) {
 
 class OpenLigaDBService {
   constructor() {
-    this.enabled = process.env.OPENLIGADB_ENABLED !== 'false'
+    this.enabled = isEnabled('OPENLIGADB_ENABLED')
     this._groupCache = new Map() // shortcut -> { ts, group }
     this._matchdayCache = new Map() // shortcut|season|group -> { ts, data }
     logger.info(

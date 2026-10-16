@@ -1,5 +1,6 @@
 const axios = require('axios')
-const logger = require('../core/logger')
+const logger = require('../core/logger')
+const { isFalseLiteral } = require('../core/utils/envFlag')
 
 const workerUrl = process.env.SCRAPER_WORKER_URL || ''
 const apiKey = process.env.API_SECRET_KEY || ''
@@ -130,7 +131,7 @@ async function runResilientScan() {
 // (40 max) reste réservé aux vrais clics ; le warm ne fait que la recherche RAG.
 // Détaché (jamais await), best-effort, VISUAL_WARM_ENABLED=false pour désactiver.
 async function warmVisualCache({ limit = 15 } = {}) {
-  if (process.env.VISUAL_WARM_ENABLED === 'false') return { warmed: 0, skipped: true }
+  if (isFalseLiteral('VISUAL_WARM_ENABLED')) return { warmed: 0, skipped: true }
   try {
     const db = require('../core/database')
     const { isMena } = require('./sourceOrchestrator')

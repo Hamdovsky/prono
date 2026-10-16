@@ -36,3 +36,20 @@ def test_ht_prob_fallback_without_calib(monkeypatch):
     import core.ht_model as hm
     monkeypatch.setattr(hm, "_load", lambda *a, **k: None)
     assert hm.ht_prob(1.5, 1.3, 10.0) is None
+
+
+def test_ht_prob_clipe_xg_pourris():
+    # E113 : xG d'archive insenses (ex. 7487, 5e8) -> clip, pas de saturation.
+    import core.ht_model as hm
+    p_ok = hm.ht_prob(1.5, 1.3, 10.0)
+    p_clip = hm.ht_prob(7487.81, 0.29, 10.0)
+    assert p_ok is not None and 0.0 < p_ok < 1.0
+    assert p_clip is not None and 0.0 < p_clip < 1.0
+    assert p_clip == hm.ht_prob(8.0, 0.29, 10.0)
+
+
+def test_ht_prob_entrees_invalides():
+    import core.ht_model as hm
+    assert hm.ht_prob('x', 'y', 10.0) is None
+    p = hm.ht_prob(None, None, 10.0)
+    assert p is not None and 0.0 < p < 1.0

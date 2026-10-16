@@ -255,6 +255,42 @@ def _load(path=None):
         return None
 
 
+def _load_recal(path=None):
+    """Parametres Platt (a,b) par ligne, fittes sur TRAIN honnete
+    (scripts/exp_ou_btts_calib.py). None si absents : comportement inchange."""
+    if path is None:
+        path = os.path.join(os.path.dirname(__file__), "..", "data", "ou_calib.json")
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+_RECAL = None
+_RECAL_LOADED = False
+
+
+def _recal_params():
+    global _RECAL, _RECAL_LOADED
+    if not _RECAL_LOADED:
+        _RECAL = _load_recal()
+        _RECAL_LOADED = True
+    return _RECAL
+
+
+def apply_recal(p, line=2.5, recal=None):
+    """Recalibration Platt : p -> sigmoid(a*logit(p)+b). Pure et testee.
+    Sans parametres (fichier absent) : identite."""
+    if recal is None:
+        recal = _recal_params()
+    blk = (recal or {}).get(f"L{line}")
+    if not blk or "a" not in blk or "b" not in blk:
+        return p
+    pc = min(1 - 1e-4, max(1e-4, p))
+    return _sigmoid(blk["a"] * math.log(pc / (1 - pc)) + blk["b"])
+
+
 def _sigmoid(z):
     if z >= 0:
         return 1.0 / (1.0 + math.exp(-z))
@@ -272,13 +308,23 @@ def ou_prob(total_xg, line=2.5, calib=None):
     w = blk["w"]
     mu = blk.get("mu")
     sigma = blk.get("sigma")
-    raw = [float(total_xg or 0)]
+    # E112 : garde-fou d'echelle — l'archive contient des xG pourris
+    # (timestamps/ids, jusqu'a 5e8). Sans clip, le sigmoid sature en
+    # certitude absurde. Le vrai xG total depasse rarement 8.
+    try:
+        total = min(12.0, max(0.0, float(total_xg if total_xg is not None else 0)))
+    except (TypeError, ValueError):
+        return None
+    raw = [total]
     if mu and sigma:
         x = [(raw[0] - mu[0]) / sigma[0], 1.0]
     else:
         x = [raw[0], 1.0]
     z = sum(wi * xi for wi, xi in zip(w, x))
-    return _sigmoid(z)
+    raw = _sigmoid(z)
+    # E111 : recalibration Platt (shrink vers le taux de base). Sans fichier
+    # calib : identite, comportement inchange.
+    return apply_recal(raw, line)
 
 
 def has_model():

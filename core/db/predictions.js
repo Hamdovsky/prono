@@ -24,6 +24,17 @@ function createPredictionsDao(db) {
             : row.fullData
           : {}
 
+        // E105 : verdict deja enregistre pour ce match, capture AVANT la
+        // fusion ci-dessous. Un appel qui ne fournit QUE des probabilites
+        // (pipeline d'enrichissement : INDEPENDENT-ENRICH, Flashscore markets,
+        // etc.) ne passe aucun `prediction` — et l'ecrasait donc par NULL.
+        // Constat : 8 matchs sur 1643 avaient fullData.prediction = '1X' /
+        // 'O0.5' / '12' mais la colonne `prediction` a NULL, donc invisible
+        // du dashboard et non pariable. Memes invariant « set-if-absent » que
+        // `originalPrediction` quelques lignes plus bas.
+        const previousVerdict =
+          fullData.prediction || fullData.verdict || fullData.main_pick || null
+
         // Ensure we have a clean enriched object
         const enriched = data.enriched || (data.home_win_probability ? data : null)
 
@@ -49,7 +60,13 @@ function createPredictionsDao(db) {
         if (fullData.enriched && fullData.enriched.enriched) delete fullData.enriched.enriched
 
         const rawVerdict =
-          data.prediction || (data.enriched && data.enriched.prediction) || data.verdict || null
+          data.prediction ||
+          (data.enriched && data.enriched.prediction) ||
+          data.verdict ||
+          // E105 : aucun verdict fourni par l'appelant -> on conserve celui
+          // deja enregistre plutot que d'ecraser la colonne par NULL.
+          previousVerdict ||
+          null
         // Audit P4 : politique marchés (masquage réversible du 1X2 pur)
         const verdictPolicy = applyMarketPolicy(rawVerdict, {
           home_win_probability:

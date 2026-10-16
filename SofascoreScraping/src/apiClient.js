@@ -2,6 +2,7 @@ const axios = require('axios')
 const http = require('http')
 const https = require('https')
 const { pooledConfig } = require('../../core/networkConfig')
+const { isDisabled: envDisabled, isOptedIn } = require('../../core/utils/envFlag')
 const shieldEngine = require('../../core/shieldEngine')
 const Bottleneck = require('bottleneck')
 const { redis, getCache, setCache } = require('../../core/redisClient')
@@ -23,7 +24,7 @@ const USER_AGENTS = [
 // When DISABLE_SOFASCORE != 'false', the whole API client short-circuits and
 // returns empty/null payloads without touching www.sofascore.com, without
 // sleeping on the 403/429 cooldown and without launching Puppeteer.
-const SOFA_DISABLED = process.env.DISABLE_SOFASCORE !== undefined && process.env.DISABLE_SOFASCORE !== 'false'
+const SOFA_DISABLED = envDisabled('DISABLE_SOFASCORE')
 
 function sofaDisabled() {
   return SOFA_DISABLED
@@ -141,7 +142,7 @@ function isBrowserAlive(browser) {
 
 async function getBrowser() {
   // 🛡️ Skip Puppeteer when DISABLE_SOFASCORE is set (Render/cloud env without Chrome)
-  if (process.env.DISABLE_SOFASCORE === 'true') {
+  if (SOFA_DISABLED) {
     console.warn('[apiClient] Puppeteer disabled (DISABLE_SOFASCORE) — SofaScore handled by Python/curl_cffi. Skipping browser launch.');
     return null;
   }
@@ -433,7 +434,7 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
     let lastError = null
 
     // 🚀 [RAPIDAPI REWRITE] Proxy requests through RapidAPI if enabled
-    if (process.env.RAPIDAPI_ENABLED === 'true' && process.env.RAPIDAPI_KEY) {
+    if (isOptedIn('RAPIDAPI_ENABLED') && process.env.RAPIDAPI_KEY) {
       const rapidHost = process.env.RAPIDAPI_HOST || 'sportapi7.p.rapidapi.com'
       const rapidKey = process.env.RAPIDAPI_KEY
       url = url.replace('https://www.sofascore.com/api/v1', `https://${rapidHost}/api/v1`)
@@ -522,7 +523,7 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
 
         if (status === 403 || status === 429) {
           // Check if it's RapidAPI telling us we are out of quota
-          if (process.env.RAPIDAPI_ENABLED === 'true') {
+          if (isOptedIn('RAPIDAPI_ENABLED')) {
             console.error(`🚨 [apiClient] RapidAPI returned ${status}. Quota might be exhausted!`)
             throw new Error('RAPIDAPI_EXHAUSTED')
           }

@@ -1,12 +1,12 @@
 {
-  "fitted_at": "2026-10-06T19:50:58",
+  "fitted_at": "2026-10-14T22:10:07",
   "method": "platt",
-  "n_samples": 323,
-  "A": 0.355271,
-  "B": -0.395564,
+  "n_samples": 312,
+  "A": 0.362596,
+  "B": -0.393379,
   "min_conf": 34.1,
   "max_conf": 85.0,
-  "brier_before": 0.074805,
-  "brier_after": 0.054678,
+  "brier_before": 0.073162,
+  "brier_after": 0.053261,
   "status": "fitted"
 }

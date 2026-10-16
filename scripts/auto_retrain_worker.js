@@ -30,7 +30,7 @@ function runBacktestFeedback() {
     logger.info('[FEEDBACK] Running backtest feedback to generate training weights...')
     const pythonPath = _findPython()
     const proc = spawn(pythonPath, [FEEDBACK_SCRIPT], {
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
       windowsHide: true,
     })
     let stdout = ''
@@ -66,7 +66,7 @@ function runCalibrationFeedback() {
     logger.info('[CALIBRATION] Running calibration feedback (Brier/LogLoss)...')
     const pythonPath = _findPython()
     const proc = spawn(pythonPath, [CALIBRATION_SCRIPT], {
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
       windowsHide: true,
     })
     let stdout = ''
@@ -122,7 +122,7 @@ function runAutoRetrain() {
       pythonPath = venvPythonPath
     }
 
-    const env = { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    const env = { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
 
     const pythonProcess = spawn(pythonPath, [TRAIN_SCRIPT], { env, windowsHide: true })
     pythonProcess.on('error', (e) => logger.error(`[AUTO-RETRAIN] Spawn error: ${e.message}`))
@@ -204,7 +204,7 @@ function runLiveModelRetrain() {
     const pythonPath = _findPython()
 
     const pythonProcess = spawn(pythonPath, [LIVE_TRAIN_SCRIPT], {
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
       windowsHide: true,
     })
     pythonProcess.on('error', (e) =>
@@ -270,7 +270,7 @@ function runV56Retrain() {
 
     const script = path.join(__dirname, 'auto_retrain.py')
     const proc = spawn(pythonPath, [script], {
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
       windowsHide: true,
       timeout: 600000,
     })

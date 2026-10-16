@@ -1,11 +1,12 @@
 const axios = require('axios')
 const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 class OddsPapiService {
   constructor() {
     this.apiKey = process.env.ODDSPAPI_KEY || ''
     this.baseUrl = 'https://api.oddspapi.io/v4'
-    this.enabled = process.env.ODDSPAPI_ENABLED !== 'false'
+    this.enabled = isEnabled('ODDSPAPI_ENABLED')
     this._authFailed = false
     this._quotaExhausted = false
 

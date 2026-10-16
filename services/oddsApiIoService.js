@@ -1,5 +1,6 @@
 const axios = require('axios')
-const logger = require('../core/logger')
+const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 const BASE_URL = 'https://api.odds-api.io/v3'
 
@@ -39,7 +40,7 @@ const NEGATIVE_TTL_MS = 2 * 60 * 60 * 1000
 class OddsApiIoService {
   constructor() {
     this.apiKey = process.env.ODDSAPI_IO_KEY || ''
-    this.enabled = process.env.ODDSAPI_IO_ENABLED !== 'false'
+    this.enabled = isEnabled('ODDSAPI_IO_ENABLED')
     this._quotaExhaustedUntil = 0
     this._searchCache = new Map()
     // Negative cache: matches we have already queried but found no bookmaker

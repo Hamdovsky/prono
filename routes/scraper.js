@@ -3,6 +3,7 @@ const router = express.Router()
 const path = require('path')
 const fs = require('fs')
 const securityEngine = require('../core/securityEngine')
+const { isDisabled: envDisabled, isEnabled, isOptedIn, isNotTrueLiteral } = require('../core/utils/envFlag')
 const { readScraperProgress } = require('../core/utils')
 const enrichNewsProcessor = require('../core/_enrich_news')
 const logger = require('../core/logger')
@@ -208,7 +209,7 @@ function freeSourcesDiagnostic() {
       return false
     }
   })()
-  const betexplorerEnabled = process.env.BETEXPLORER_ENABLED !== 'false'
+  const betexplorerEnabled = isEnabled('BETEXPLORER_ENABLED')
 
   const blockedUntil = sofastate.cooldownRemainingMs > 0 ? new Date(Date.now() + sofastate.cooldownRemainingMs).toISOString() : null
 
@@ -234,14 +235,14 @@ function freeSourcesDiagnostic() {
   const pyState = (state && state.sources && state.sources['sofascore-py']) || {}
   return {
     pixelragFixtures: {
-      available: process.env.PIXELRAG_FIXTURES_ENABLED === 'true',
-      disabled: process.env.PIXELRAG_FIXTURES_ENABLED !== 'true',
+      available: isOptedIn('PIXELRAG_FIXTURES_ENABLED'),
+      disabled: isNotTrueLiteral('PIXELRAG_FIXTURES_ENABLED'),
       error: pyState.error || null,
       detail: `PixelRAG ${process.env.PIXELRAG_URL || 'http://127.0.0.1:30002'} — fixtures dernier scan: ${pyState.fetched != null ? pyState.fetched : '?'}`,
     },
     sofascore: {
       available: true,
-      disabled: sofastate.disabled === true || process.env.DISABLE_SOFASCORE === 'true',
+      disabled: sofastate.disabled === true || envDisabled('DISABLE_SOFASCORE'),
       blocked: !!blockedUntil,
       blockedUntil,
       error: sofastate.lastErrorType || null,

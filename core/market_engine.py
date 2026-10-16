@@ -41,8 +41,8 @@ def combo_gg_over25_prob(xg_h, xg_a, p_btts=None, p_over25=None):
     Retourne une proba dans [0,1] ou None si xG invalide.
     """
     try:
-        xh = max(0.0, float(xg_h))
-        xa = max(0.0, float(xg_a))
+        xh = min(8.0, max(0.0, float(xg_h)))
+        xa = min(8.0, max(0.0, float(xg_a)))
     except (TypeError, ValueError):
         return None
     eh = math.exp(-xh)

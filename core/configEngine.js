@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const logger = require('./logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 const CONFIG_FILE = process.env.STITCH_CONFIG_FILE || path.join(__dirname, '..', 'data', 'config.json')
 const ENV_FILE = path.join(__dirname, '..', '.env')
@@ -17,7 +18,7 @@ class ConfigEngine {
       SMART_SCAN_ENABLED: true,
       WEBHOOK_ENABLED: true,
       SYNC_PRIORITY: 'HIGH',
-      DEEP_NEWS_ENABLED: process.env.DEEP_NEWS_ENABLED !== 'false',
+      DEEP_NEWS_ENABLED: isEnabled('DEEP_NEWS_ENABLED'),
     }
     this.load()
   }

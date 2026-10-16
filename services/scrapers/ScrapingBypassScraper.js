@@ -20,8 +20,18 @@ const CACHE_TTL = 10 * 60 * 1000
 const MAX_RETRIES = 2
 const RETRY_BASE_DELAY = 2000
 const PROCESS_TIMEOUT = 30000
-const CIRCUIT_BREAKER_THRESHOLD = 100
-const CIRCUIT_BREAKER_TIMEOUT = 30000
+// ── Circuit breaker ───────────────────────────────────────────────────────────
+// Audit 2026-10-15 : threshold=100 + timeout plat de 30 s.
+//   (a) 100 échecs = 100 matchs x 5 fingerprints x 3 tentatives x 25 s de
+//       timeout avant de s'ouvrir -> ~1500 spawns Python gaspilles par panne.
+//   (b) timeout plat -> le circuit repasse HALF-OPEN toutes les 30 s, laisse
+//       passer une sonde qui échoue, rouvre : boucle infinie (visible dans les
+//       logs "HALF-OPEN" puis "Circuit OPEN after N+1" en boucle).
+//   (c) HALF-OPEN laissait passer autant de sondes que de concurents.
+// Defaults corrigés + backoff exponentiel, surchargeables par env.
+const CIRCUIT_BREAKER_THRESHOLD = parseInt(process.env.BYPASS_CIRCUIT_THRESHOLD, 10) || 5
+const CIRCUIT_BREAKER_BASE_MS = parseInt(process.env.BYPASS_CIRCUIT_BASE_MS, 10) || 30000
+const CIRCUIT_BREAKER_MAX_MS = parseInt(process.env.BYPASS_CIRCUIT_MAX_MS, 10) || 15 * 60 * 1000
 
 const BASE_DIR = path.resolve(__dirname, '..', '..')
 const PYTHON_SCRIPT = path.join(BASE_DIR, 'scripts', 'bypass_scraper.py')
@@ -33,25 +43,52 @@ const VENV_PYTHON = isWin
 const BROWSER_FINGERPRINTS = ['chrome124', 'chrome120', 'chrome116', 'safari17_0', 'firefox133']
 
 // ─── Circuit Breaker ───────────────────────────────────────────────────────────
-let circuitState = { failures: 0, lastFailure: 0, state: 'CLOSED' }
+let circuitState = { failures: 0, lastFailure: 0, state: 'CLOSED', openCount: 0, probeInFlight: false }
+
+// Backoff exponentiel : 30s -> 60s -> 120s ... plafonne a CIRCUIT_BREAKER_MAX_MS.
+// Un compteur d'ouvertures successives evite de sonder une cible banee
+// indefiniment a intervalle fixe.
+function currentCooldownMs() {
+  const exponent = Math.min(circuitState.openCount, 10)
+  return Math.min(CIRCUIT_BREAKER_BASE_MS * Math.pow(2, exponent), CIRCUIT_BREAKER_MAX_MS)
+}
 
 function isCircuitOpen() {
   if (circuitState.state === 'CLOSED') return false
-  if (circuitState.state === 'HALF_OPEN') return false
-  if (Date.now() - circuitState.lastFailure > CIRCUIT_BREAKER_TIMEOUT) {
+  if (Date.now() - circuitState.lastFailure > currentCooldownMs()) {
+    // Fenetre de sonde expiree : on passe HALF-OPEN, mais UNE seule sonde
+    // concurrente a la fois (sinon tous les appels en attente repartent ensemble).
+    if (circuitState.probeInFlight) return true
     circuitState.state = 'HALF_OPEN'
-    console.warn('[ScrapingBypass] Circuit breaker HALF-OPEN')
+    circuitState.probeInFlight = true
+    console.warn(
+      `[ScrapingBypass] Circuit breaker HALF-OPEN (sonde unique, backoff ${Math.round(currentCooldownMs() / 1000)}s)`
+    )
     return false
   }
   return true
 }
 
 function recordFailure() {
+  circuitState.probeInFlight = false
   circuitState.failures++
   circuitState.lastFailure = Date.now()
+  if (circuitState.state === 'HALF_OPEN') {
+    // La sonde a echoue : on prolonge le backoff au lieu de revenir a OPEN
+    // au meme delai (c'etait la source de la boucle HALF-OPEN/OPEN).
+    circuitState.openCount++
+    circuitState.state = 'OPEN'
+    console.error(
+      `[ScrapingBypass] Sonde HALF-OPEN echouee — circuit OPEN, prochain essai dans ${Math.round(currentCooldownMs() / 1000)}s (${circuitState.failures} echecs)`
+    )
+    return
+  }
   if (circuitState.failures >= CIRCUIT_BREAKER_THRESHOLD) {
     circuitState.state = 'OPEN'
-    console.error(`[ScrapingBypass] Circuit OPEN after ${circuitState.failures} failures`)
+    circuitState.openCount++
+    console.error(
+      `[ScrapingBypass] Circuit OPEN after ${circuitState.failures} failures — pause ${Math.round(currentCooldownMs() / 1000)}s`
+    )
   }
 }
 
@@ -60,6 +97,8 @@ function recordSuccess() {
     console.warn('[ScrapingBypass] Circuit CLOSED')
   }
   circuitState.failures = 0
+  circuitState.openCount = 0
+  circuitState.probeInFlight = false
   circuitState.state = 'CLOSED'
 }
 
@@ -318,7 +357,7 @@ function clearCache() {
 }
 
 function resetCircuitBreaker() {
-  circuitState = { failures: 0, lastFailure: 0, state: 'CLOSED' }
+  circuitState = { failures: 0, lastFailure: 0, state: 'CLOSED', openCount: 0, probeInFlight: false }
 }
 
 module.exports = {

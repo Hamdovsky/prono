@@ -1,0 +1,106 @@
+{
+  "n_train": 2740,
+  "n_test": 914,
+  "lines": {
+    "2.5": {
+      "current": {
+        "n": 914,
+        "base": 0.5613,
+        "brier": 0.3008,
+        "logloss": 0.8226,
+        "floor": 0.2462,
+        "acc": 0.5,
+        "majority": 0.5613
+      },
+      "refit": {
+        "n": 914,
+        "base": 0.5613,
+        "brier": 0.233,
+        "logloss": 0.6585,
+        "floor": 0.2462,
+        "acc": 0.5864,
+        "majority": 0.5613
+      },
+      "refit_platt": {
+        "n": 914,
+        "base": 0.5613,
+        "brier": 0.2327,
+        "logloss": 0.6579,
+        "floor": 0.2462,
+        "acc": 0.5842,
+        "majority": 0.5613
+      },
+      "refit_weights": {
+        "w": [
+          0.1558,
+          0.2874
+        ],
+        "mu": [
+          3.4223
+        ],
+        "sigma": [
+          1.0836
+        ],
+        "n": 2740,
+        "base_rate": 0.5737,
+        "logloss_model": 0.6792,
+        "logloss_baseline": 0.6822
+      },
+      "platt": {
+        "a": 1.0211945982984967,
+        "b": 0.005896934670297702,
+        "n": 2740
+      }
+    },
+    "3.5": {
+      "current": {
+        "n": 914,
+        "base": 0.3425,
+        "brier": 0.2365,
+        "logloss": 0.6865,
+        "floor": 0.2252,
+        "acc": 0.663,
+        "majority": 0.6575
+      },
+      "refit": {
+        "n": 914,
+        "base": 0.3425,
+        "brier": 0.2115,
+        "logloss": 0.6129,
+        "floor": 0.2252,
+        "acc": 0.6586,
+        "majority": 0.6575
+      },
+      "refit_platt": {
+        "n": 914,
+        "base": 0.3425,
+        "brier": 0.2112,
+        "logloss": 0.6121,
+        "floor": 0.2252,
+        "acc": 0.6597,
+        "majority": 0.6575
+      },
+      "refit_weights": {
+        "w": [
+          0.1627,
+          -0.5399
+        ],
+        "mu": [
+          3.4223
+        ],
+        "sigma": [
+          1.0836
+        ],
+        "n": 2740,
+        "base_rate": 0.3635,
+        "logloss_model": 0.652,
+        "logloss_baseline": 0.6554
+      },
+      "platt": {
+        "a": 1.024733065294944,
+        "b": -0.010265075729806552,
+        "n": 2740
+      }
+    }
+  }
+}

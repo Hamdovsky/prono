@@ -1,4 +1,4 @@
-const { mapStatus, mapEventToMatch, sortByPriority } = require('../services/apiFootballService')
+const { mapStatus, mapEventToMatch, sortByPriority, ALL_LEAGUES, MENA_LEAGUES, AFRICA_LEAGUES, D2_LEAGUES } = require('../services/apiFootballService')
 
 describe('apiFootballService mapping', () => {
   it('maps scheduled + finished statuses correctly', () => {
@@ -58,5 +58,45 @@ describe('apiFootballService mapping', () => {
     }
     const sorted = sortByPriority([small, big5])
     expect(sorted[0].tournament_id).toBe(39)
+  })
+})
+
+describe('apiFootballService leagues E117 (verifies API-Sports)', () => {
+  it('couvre Tunisie, Algerie, Maroc, Egypte, Afrique du Sud + D2', () => {
+    for (const id of [202, 828, 186, 187, 200, 201, 233, 887, 288, 289, 136, 141]) {
+      expect(ALL_LEAGUES).toContain(id)
+    }
+    expect(MENA_LEAGUES).toEqual(expect.arrayContaining([202, 186, 200, 233]))
+    expect(AFRICA_LEAGUES).toEqual(expect.arrayContaining([288, 289]))
+    expect(D2_LEAGUES).toEqual(expect.arrayContaining([136, 141]))
+  })
+
+  it('Egypte = 233, pas 203 (Turquie) ; IDs morts exclus', () => {
+    // 203 = Super Lig turque (etait mappee Egypte par erreur),
+    // 3831 = ID inexistant, 1243 = foot feminin SA (etait mappe Syrie).
+    expect(ALL_LEAGUES).not.toContain(203)
+    expect(ALL_LEAGUES).not.toContain(3831)
+    expect(ALL_LEAGUES).not.toContain(1243)
+  })
+
+  it('aucun doublon entre groupes', () => {
+    const set = new Set(ALL_LEAGUES)
+    expect(set.size).toBe(ALL_LEAGUES.length)
+  })
+
+  it('un match de ligue faible arrive PENDING + insufficient_data', () => {
+    const { mapEventToMatch: map } = require('../services/apiFootballService')
+    const event = {
+      fixture: { id: 999, timestamp: 1788547500, date: '2026-09-04T18:45:00+00:00' },
+      league: { id: 202, name: 'Ligue 1', country: 'Tunisia' },
+      teams: { home: { id: 1, name: 'EST' }, away: { id: 2, name: 'ESS' } },
+      status: { short: 'NS' },
+      goals: { home: null, away: null },
+      score: { fulltime: { home: null, away: null } },
+    }
+    const m = map(event)
+    expect(m.verdict).toBe('PENDING')
+    expect(m.insufficient_data).toBe(1)
+    expect(m.prediction).toBeNull()
   })
 })

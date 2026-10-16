@@ -1,6 +1,7 @@
 const { Server: SocketIOServer } = require('socket.io')
 const logger = require('../core/logger')
 const ComboService = require('./comboService')
+const { isOptedIn } = require('../core/utils/envFlag')
 
 class SocketService {
   constructor() {
@@ -53,7 +54,7 @@ class SocketService {
   }
 
   _initPgListener() {
-    if (process.env.SOCKET_LIVE_DISABLED === 'true') {
+    if (isOptedIn('SOCKET_LIVE_DISABLED')) {
       logger.info('⚡ [SOCKET] Live listener disabled via SOCKET_LIVE_DISABLED env var.')
       return
     }

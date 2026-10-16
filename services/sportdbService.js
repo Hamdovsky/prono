@@ -3,6 +3,7 @@ const path = require('path')
 const Database = require('better-sqlite3')
 const Bottleneck = require('bottleneck')
 const logger = require('../core/logger')
+const { isFalseLiteral } = require('../core/utils/envFlag')
 
 const ARCHIVE_PATH = path.join(__dirname, '..', 'data', 'historical_archive.sqlite')
 
@@ -24,7 +25,7 @@ function getArchiveDb() {
 
 class SportdbService {
   async _fetch(endpoint) {
-    if (process.env.SPORTDB_ENABLED === 'false') return null
+    if (isFalseLiteral('SPORTDB_ENABLED')) return null
     const key = process.env.SPORTDB_API_KEY
     if (!key) {
       logger.warn('[SPORTDB] No API key')

@@ -20,6 +20,7 @@ const apifootballService = new Proxy({}, {
 });
 const fsmod = require('fs');
 const pathmod = require('path');
+
 const fdQuotaManager = (0, _sourceQuotaManager.createQuotaManager)('footballdata');
 const TIER1_TOURNAMENT_IDS = new Set([17, 8, 23, 35, 7, 37, 679, 329, 34, 44, 238, 45, 203, 574]);
 
@@ -156,7 +157,7 @@ const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || 'sportapi7.p.rapidapi.com';
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
 const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/api/v1`;
 async function fetchRapidApiEvents(date) {
-  if (!RAPIDAPI_KEY || process.env.RAPIDAPI_ENABLED !== 'true') return [];
+  if (!RAPIDAPI_KEY || isNotTrueLiteral('RAPIDAPI_ENABLED')) return [];
   try {
     const {
       data
@@ -218,7 +219,7 @@ const FD_HOST = process.env.FOOTBALLDATA_HOST || 'api.football-data.org';
 const FD_IS_FDORG = FD_HOST === 'api.football-data.org';
 const FD_BASE = FD_IS_FDORG ? `https://${FD_HOST}/v4` : `https://${FD_HOST}/api/v1`;
 async function fetchFDFixtures(endpoint, dateStr) {
-  if (!FD_KEY || process.env.FOOTBALLDATA_ENABLED !== 'true') return [];
+  if (!FD_KEY || isNotTrueLiteral('FOOTBALLDATA_ENABLED')) return [];
   try {
     const headers = {
       Accept: 'application/json'
@@ -653,7 +654,7 @@ async function runCloudSeed() {
   }
 
   // Backfill des cotes sur les matchs LiveScore (opt-in, non-bloquant)
-  if (process.env.ODDS_BACKFILL_ENABLED === 'true') {
+  if (isOptedIn('ODDS_BACKFILL_ENABLED')) {
     try {
       const {
         backfillOdds

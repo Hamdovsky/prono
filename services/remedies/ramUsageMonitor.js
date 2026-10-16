@@ -3,7 +3,12 @@
  * Detects high memory usage and triggers cleanup
  */
 
-const logger = require('../core/logger')
+// E104 : ce chemin etait '../core/logger' — resolue vers services/core/logger
+// qui n'existe pas. Le module ne pouvait donc JAMAIS etre charge, et ce remede
+// AUTOHEAL (nettoyage RAM) etait mort depuis son introduction sans qu'aucun
+// test ne le revele : il n'etait jamais require() au demarrage.
+const logger = require('../../core/logger')
+const { isOptedIn } = require('../../core/utils/envFlag')
 
 const RAM_WARNING_THRESHOLD = 400 // MB
 const RAM_CRITICAL_THRESHOLD = 450 // MB
@@ -57,7 +62,7 @@ module.exports = {
 
       // Clear speed cache
       try {
-        const { invalidateAll } = require('../core/speedCache')
+        const { invalidateAll } = require('../../core/speedCache')
         invalidateAll()
         logger.info('🧹 [AUTOHEAL] Speed cache cleared')
       } catch (e) {
@@ -65,7 +70,7 @@ module.exports = {
       }
 
       // Clear Python model cache if model_manager is enabled
-      const useModelManager = process.env.USE_MODEL_MANAGER === 'true'
+      const useModelManager = isOptedIn('USE_MODEL_MANAGER')
       if (useModelManager) {
         logger.info('🧹 [AUTOHEAL] Model manager cache cleared (will reload on next prediction)')
         // Note: Actual cache clear would require Python bridge

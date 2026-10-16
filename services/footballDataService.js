@@ -13,7 +13,8 @@
 const axios = require('axios')
 const logger = require('../core/logger')
 const path = require('path')
-const fs = require('fs')
+const fs = require('fs')
+const { isOptedIn } = require('../core/utils/envFlag')
 
 const FIXTURES_URL = 'https://www.football-data.co.uk/fixtures.csv'
 const CACHE_TTL_MS = 10 * 60 * 1000 // 10 min entre deux téléchargements
@@ -43,7 +44,7 @@ class FootballDataService {
     this._cache = null // Map<key, entry>
     this._fetchedAt = 0
     this._fetching = null
-    this._enabled = process.env.DISABLE_FOOTBALLDATA !== 'true'
+    this._enabled = isNotTrueLiteral('DISABLE_FOOTBALLDATA')
     this._errors = 0
     this._cooldownUntil = 0
   }

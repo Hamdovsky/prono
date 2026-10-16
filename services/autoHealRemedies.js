@@ -1,9 +1,88 @@
-const { exec, spawn } = require('child_process')
+const { exec, spawn, execSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 const logger = require('../core/logger')
 const { resolvePython } = require('../core/utils/pythonResolver')
 const PYTHON = resolvePython()
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// exec() peut ne jamais rappeler (blocage netstat, saturation) : sans garde-fou
+// le remedy hang() et le watchdog AUTOHEAL se bloque avec. Timeout dur.
+const EXEC_TIMEOUT_MS = 5000
+function execSafe(cmd) {
+  return new Promise((resolve) => {
+    let done = false
+    const finish = (out) => {
+      if (done) return
+      done = true
+      resolve(out)
+    }
+    const t = setTimeout(() => finish(''), EXEC_TIMEOUT_MS)
+    exec(cmd, { windowsHide: true, timeout: EXEC_TIMEOUT_MS }, (err, stdout) => {
+      clearTimeout(t)
+      finish(stdout || '')
+    })
+  })
+}
+
+// ─── Port helpers (audit E103) ────────────────────────────────────────────────
+// Un service supervisé par concurrently NE DOIT PAS être respawné en parallèle :
+// deux uvicorn sur :8000 = un qui écoute, l'autre wedgé, plus des orphelins
+// (.venv\Scripts\python.exe est un shim qui crée un enfant Python312).
+// Ces helpers servent à libérer le port COMPLÈTEMENT (arbre de processus) et à
+// laisser concurrently restarted en priorité.
+function portListening(port) {
+  if (process.platform !== 'win32') {
+    return execSafe(`lsof -ti tcp:${port} 2>/dev/null`).then((o) => !!o.trim())
+  }
+  return execSafe(`netstat -ano | findstr ":${port}" | findstr "LISTENING"`).then(
+    (o) => !!o.trim()
+  )
+}
+
+function pidsOnPort(port) {
+  return execSafe(`netstat -ano | findstr ":${port}" | findstr "LISTENING"`).then((stdout) => {
+    if (!stdout) return []
+    const pids = new Set()
+    for (const line of stdout.trim().split('\n')) {
+      const parts = line.trim().split(/\s+/)
+      const pid = parseInt(parts[parts.length - 1], 10)
+      if (!isNaN(pid) && pid > 0) pids.add(pid)
+    }
+    return [...pids]
+  })
+}
+
+function killTree(pid) {
+  // /t = tuer l'arbre : sans lui le vrai python (enfant du shim .venv) survit.
+  return execSafe(`taskkill /f /t /pid ${pid}`)
+}
+
+// Libère le port : tue les PIDs qui l'écoutent (avec leur arbre) PUIS vérifie
+// qu'il est vraiment libre. Résout true si le port a été libéré.
+async function freePort(port, maxRounds = 5) {
+  for (let round = 1; round <= maxRounds; round++) {
+    const pids = await pidsOnPort(port)
+    if (pids.length === 0) return true
+    for (const pid of pids) {
+      logger.warn(`[AUTOHEAL] Freeing port ${port} — killing PID ${pid} (tree)`)
+      await killTree(pid)
+    }
+    await sleep(1200)
+    if (!(await portListening(port))) return true
+  }
+  return !(await portListening(port))
+}
+
+async function probeHealth(base, ms) {
+  try {
+    const res = await fetch(base + '/health', { signal: AbortSignal.timeout(ms) })
+    return res.ok
+  } catch (_) {
+    return false
+  }
+}
 
 class AutoHealRemedies {
   constructor() {
@@ -55,7 +134,6 @@ class AutoHealRemedies {
               return { success: false, detail: `Remote inference unreachable: ${e.message}` }
             }
           }
-          const { execSync } = require('child_process')
           const pythonScript = path.join(__dirname, '..', 'core', 'fastapi_server.py')
           if (!fs.existsSync(pythonScript))
             return { success: false, detail: 'fastapi_server.py not found' }
@@ -65,21 +143,40 @@ class AutoHealRemedies {
             } catch (_) {
               return { success: false, detail: `Python not available: ${PYTHON}` }
             }
-            if (process.platform === 'win32') {
-              exec('netstat -ano | findstr ":8000" | findstr "LISTENING"', (err, stdout) => {
-                if (stdout) {
-                  const lines = stdout.trim().split('\n')
-                  for (const line of lines) {
-                    const parts = line.trim().split(/\s+/)
-                    const pid = parts[parts.length - 1]
-                    if (pid && !isNaN(parseInt(pid))) {
-                      exec(`taskkill /f /pid ${pid} 2>nul || echo no process`)
-                    }
+
+            const local = 'http://127.0.0.1:8000'
+            const port = 8000
+
+            // 1. Libère le port (arbre complet) — supprime les orphelins .venv shim.
+            const freed = await freePort(port)
+            if (!freed) {
+              return { success: false, detail: `Port ${port} still busy after cleanup` }
+            }
+
+            // 2. DONNE LA PRIORITÉ À concurrently. En local le service est
+            //    supervisé par start.bat (--restart-tries 10 --restart-after
+            //    10000) : respawner ici créait un second uvicorn concurrent,
+            //    dont un wedgé sans listening socket. On attend son restart.
+            //    parseInt('0') || 15000 renverrait 15000 (0 est falsy) : on
+            //    teste NaN explicitement pour que 0 désactive réellement.
+            const delegateRaw = parseInt(process.env.AUTOHEAL_DELEGATE_MS, 10)
+            const delegateMs = Number.isNaN(delegateRaw) ? 15000 : delegateRaw
+            if (delegateMs > 0) {
+              const deadline = Date.now() + delegateMs
+              while (Date.now() < deadline) {
+                if (await probeHealth(local, 2000)) {
+                  return {
+                    success: true,
+                    detail: 'FastAPI recovered by concurrently (AUTOHEAL did not duplicate it)',
                   }
                 }
-              })
-              await new Promise((r) => setTimeout(r, 2000))
+                await sleep(2000)
+              }
             }
+
+            // 3. Filet de sécurité : concurrently n'a rien fait -> on prend le relais.
+            // freePort() a deja confirme que le port est libre, pas besoin de re-check.
+            logger.warn('[AUTOHEAL] concurrently did not restore :8000 — taking over with a detached uvicorn')
             const proc = spawn(PYTHON, [pythonScript], {
               cwd: path.join(__dirname, '..'),
               windowsHide: true,
@@ -88,11 +185,10 @@ class AutoHealRemedies {
             })
             proc.on('error', (e) => logger.error(`[AUTOHEAL] Python spawn error: ${e.message}`))
             proc.unref()
-            await new Promise((r) => setTimeout(r, 10000))
-            const res = await fetch('http://127.0.0.1:8000/health', {
-              signal: AbortSignal.timeout(5000),
-            })
-            if (res.ok) return { success: true, detail: 'FastAPI restarted successfully' }
+            await sleep(10000)
+            if (await probeHealth(local, 5000)) {
+              return { success: true, detail: 'FastAPI restarted successfully (AUTOHEAL fallback)' }
+            }
             return { success: false, detail: 'FastAPI still unreachable after restart' }
           } catch (e) {
             return { success: false, detail: e.message }

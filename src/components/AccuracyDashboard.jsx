@@ -162,6 +162,10 @@ export default function AccuracyDashboard() {
     try {
       const [accRes, perfRes, trackerRes, autopsyRes, honestRes] = await Promise.all([
         fetch(getApiUrl('/api/accuracy')),
+        // E106 (annule) : /api/analytics/performance existe bel et bien
+        // (app.get direct, app.js:879) et retourne exactement les cles
+        // consommees (by_confidence, by_market, odds_based_roi_percent).
+        // /api/ds/performance a une autre forme et aurait tout vide.
         fetch(getApiUrl('/api/analytics/performance')),
         fetch(getApiUrl('/api/accuracy/tracker')),
         fetch(getApiUrl('/api/autopsy/report')).catch(() => null),

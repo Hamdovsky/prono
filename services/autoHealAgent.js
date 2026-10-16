@@ -3,12 +3,13 @@ const path = require('path')
 const logger = require('../core/logger')
 const remedies = require('./autoHealRemedies')
 const notificationService = require('./notificationService')
+const { isEnabled } = require('../core/utils/envFlag')
 
 const STATE_FILE = path.join(__dirname, '..', 'data', 'autoheal_state.json')
 
 class AutoHealAgent {
   constructor() {
-    this.enabled = process.env.AUTOHEAL_ENABLED !== 'false'
+    this.enabled = isEnabled('AUTOHEAL_ENABLED')
     this.active = false
     this.lastCheck = null
     this.consecutiveFailures = {}

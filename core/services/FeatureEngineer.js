@@ -242,7 +242,7 @@ class FeatureEngineer {
    */
   ensemblePredict(match, xgH, xgA) {
     // 1. Poisson baseline (already calculated)
-    const StatisticalEngine = require('./services/StatisticalEngine')
+    const StatisticalEngine = require('./StatisticalEngine')
     const poissonProbs = StatisticalEngine.calculatePoissonProbs(xgH, xgA, match)
 
     // 2. Elo adjustment

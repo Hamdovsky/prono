@@ -1,28 +1,31 @@
 {
   "w": [
-    0.3524,
-    0.469,
-    -0.0775,
-    0.0948
+    0.0693,
+    0.0224,
+    -0.0643,
+    0.1427
   ],
   "mu": [
-    2.6019,
-    1.9938,
-    9.983
+    1.8149,
+    1.6074,
+    0.0831
   ],
   "sigma": [
-    1.0323,
-    0.8775,
-    3.6174
+    0.7321,
+    0.7856,
+    0.8813
   ],
-  "n": 38673,
-  "base_rate": 0.5223,
-  "logloss_model": 0.6594,
-  "logloss_baseline": 0.6921,
+  "n": 2744,
+  "base_rate": 0.5357,
+  "logloss_model": 0.6894,
+  "logloss_baseline": 0.6906,
   "features": [
     "xg_home",
     "xg_away",
     "corners_total",
     "intercept"
-  ]
+  ],
+  "corners_encoding": "0.0-if-missing (serving parity)",
+  "fitted_at": "2026-10-16",
+  "note": "refit E115 corrige echelle xG + parite serving"
 }

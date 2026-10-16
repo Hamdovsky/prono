@@ -1,0 +1,58 @@
+{
+  "n_train": 2744,
+  "n_test": 915,
+  "corners_cov": 0.0098,
+  "corners_encoding": "0.0-if-missing (serving parity)",
+  "current": {
+    "n": 915,
+    "base": 0.5694,
+    "brier": 0.3469,
+    "logloss": 0.913,
+    "floor": 0.2452,
+    "acc": 0.4306,
+    "majority": 0.5694
+  },
+  "refit": {
+    "n": 915,
+    "base": 0.5694,
+    "brier": 0.2436,
+    "logloss": 0.6803,
+    "floor": 0.2452,
+    "acc": 0.5781,
+    "majority": 0.5694
+  },
+  "refit_platt": {
+    "n": 915,
+    "base": 0.5694,
+    "brier": 0.2436,
+    "logloss": 0.6803,
+    "floor": 0.2452,
+    "acc": 0.5792,
+    "majority": 0.5694
+  },
+  "refit_weights": {
+    "w": [
+      0.0693,
+      0.0224,
+      -0.0643,
+      0.1427
+    ],
+    "mu": [
+      1.8149,
+      1.6074,
+      0.0831
+    ],
+    "sigma": [
+      0.7321,
+      0.7856,
+      0.8813
+    ],
+    "n": 2744,
+    "logloss_model": 0.6894
+  },
+  "platt": {
+    "a": 0.9831427001756947,
+    "b": 0.00291897339028421,
+    "n": 2744
+  }
+}

@@ -1,11 +1,12 @@
 const axios = require('axios')
 const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 class TheRundownService {
   constructor() {
     this.apiKey = process.env.THERUNDOWN_KEY || ''
     this.baseUrl = 'https://therundown.io/api/v2'
-    this.enabled = process.env.THERUNDOWN_ENABLED !== 'false'
+    this.enabled = isEnabled('THERUNDOWN_ENABLED')
     this._quotaExhausted = false
     this._authFailed = false
 

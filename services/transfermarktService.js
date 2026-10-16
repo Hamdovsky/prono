@@ -3,7 +3,8 @@ const cheerio = require('cheerio')
 const logger = require('../core/logger')
 
 const CACHE_TTL = 6 * 60 * 60 * 1000
-const cache = { teamValue: new Map(), injuries: new Map(), form: new Map() }
+const cache = { teamValue: new Map(), injuries: new Map(), form: new Map(), coaches: new Map() }
+const COACH_CACHE_TTL = 7 * 24 * 60 * 60 * 1000
 const BASE = 'https://www.transfermarkt.com'
 
 const HEADERS = {
@@ -48,15 +49,26 @@ class TransfermarktService {
     const url = `${BASE}/${teamSlug}/startseite/verein/${teamId}`
     const $ = await this.fetchPage(url)
 
-    let value = null
-    // Extract from the market value widget
-    const valueEl = $('.marktwert').first()
-    if (valueEl.length) {
-      const raw = valueEl.text().trim()
-      const num = raw.replace(/[^0-9,.]/g, '').replace(',', '.')
-      value = parseFloat(num) * 1_000_000
-      if (raw.includes('Mrd')) value *= 1000
+    // E121 : deux markups observes — `.marktwert` (gros clubs) et
+    // `a[class*=market-value-wrapper]` (ex. Raja : "€15.82m" + label).
+    let raw = $('.marktwert').first().text().trim()
+    if (!raw) {
+      // E121-bis : le texte plat colle l'unite au label ("€15.82mTotal..."),
+      // ce qui fausse le parse d'unite -> on lit la STRUCTURE :
+      // <span>€</span>15.82<span>m</span>.
+      const wrapHtml = $('[class*="market-value-wrapper"]').first().html() || ''
+      let m = /<span[^>]*>€<\/span>\s*([\d.,]+)\s*<span[^>]*>([a-zA-Z]+)<\/span>/.exec(wrapHtml)
+      if (m) {
+        raw = `€${m[1]}${m[2]}`
+      } else {
+        const wrap = $('[class*="market-value-wrapper"]').first().text().replace(/\s+/g, ' ').trim()
+        const m2 = /€\s*([\d.,]+)\s*([a-zA-Z]{1,3})(?![a-zA-Z])/.exec(wrap)
+        if (m2) raw = `€${m2[1]}${m2[2]}`
+      }
     }
+    const value = parseMarketValue(raw)
+
+    // Form guide (last 5 matches)
 
     // Form guide (last 5 matches)
     const form = []
@@ -104,6 +116,27 @@ class TransfermarktService {
     return injuries
   }
 
+  /**
+   * Historique des entraîneurs (`mitarbeiterhistorie`) : [{ name, appointed
+   * (ISO|null), ended (ISO|null), current (bool), matches, ppg }], le plus
+   * récent affiché en premier. Défensif : null si la structure change.
+   * Cache 7 jours (un coach change rarement).
+   */
+  async getManagerHistory(teamSlug, teamId) {
+    const cacheKey = `coaches:${teamId}`
+    const cached = cache.coaches.get(cacheKey)
+    if (cached && Date.now() - cached.ts < COACH_CACHE_TTL) return cached.data
+
+    const url = `${BASE}/${teamSlug}/mitarbeiterhistorie/verein/${teamId}`
+    const $ = await this.fetchPage(url)
+    const data = parseManagerHistory($)
+    if (data) {
+      cache.coaches.set(cacheKey, { ts: Date.now(), data })
+      logger.info(`[TRANSFERMARKT] ${data.length} coach(es) for ${teamSlug}`)
+    }
+    return data
+  }
+
   async getFormGuide(teamSlug, teamId) {
     const cacheKey = `form:${teamId}`
     const cached = this._getCached(cacheKey, cache.form)
@@ -125,5 +158,77 @@ class TransfermarktService {
     return form
   }
 }
+/**
+ * Parse pur (testable) de la table staff Transfermarkt. Colonnes attendues :
+ * Name | Nat. | Appointed | End of time in post | Time in post | Matches | PPG.
+ * Lignes parasites (sans nom ou < 3 cellules) ignorées ; doublons
+ * nom+nomination dédupliqués ; `current` = pas de date de fin.
+ */
+function parseManagerHistory($) {
+  const tables = $('table.items')
+  if (!tables.length) return null
+  let table = null
+  tables.each((_, t) => {
+    if (table) return
+    const heads = []
+    $(t).find('thead th').each((_, th) => heads.push($(th).text().trim()))
+    if (heads.some((h) => /appointed/i.test(h))) table = $(t)
+  })
+  if (!table) return null
+  const out = []
+  const seen = new Set()
+  table.find('tbody tr').each((_, tr) => {
+    const $tr = $(tr)
+    const name = $tr.find('td.hauptlink').first().text().trim().split('\n')[0].trim()
+    const cells = []
+    $tr.find('td.zentriert').each((_, td) => cells.push($(td).text().trim()))
+    if (!name || cells.length < 3) return
+    const appointed = parseDmY(cells[1])
+    const ended = parseDmY(cells[2])
+    const key = `${name}|${appointed || cells[1] || ''}`
+    if (seen.has(key)) return
+    seen.add(key)
+    const matches = parseInt((cells[cells.length - 2] || '').replace(/\D/g, ''), 10)
+    const ppg = parseFloat((cells[cells.length - 1] || '').replace(',', '.'))
+    out.push({
+      name,
+      appointed,
+      ended,
+      current: !ended,
+      matches: Number.isFinite(matches) ? matches : null,
+      ppg: Number.isFinite(ppg) ? ppg : null,
+    })
+  })
+  return out
+}
+
+/** JJ/MM/AAAA -> AAAA-MM-JJ, null si absent/invalide (tirets, futurs vides). */
+function parseDmY(s) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((s || '').trim())
+  if (!m) return null
+  const [, dd, mm, yyyy] = m
+  if (+mm < 1 || +mm > 12 || +dd < 1 || +dd > 31) return null
+  return `${yyyy}-${mm}-${dd}`
+}
+
+/**
+ * "€15.82m" / "€1.50bn" / "€2,30Mrd" -> euros (number) ou null.
+ * Unites : k=1e3, m=1e6, bn|b|Mrd=1e9. Jamais d'invention : null si illisible.
+ */
+function parseMarketValue(raw) {
+  const m = /€\s*([\d.,]+)\s*([a-zA-Z]*)/.exec(String(raw || ''))
+  if (!m) return null
+  const num = parseFloat(m[1].replace(',', '.'))
+  if (!Number.isFinite(num)) return null
+  const unit = (m[2] || '').toLowerCase()
+  if (unit === '') return num * 1e6 // format historique sans unite explicite
+  if (unit.startsWith('k')) return num * 1e3
+  if (unit === 'm') return num * 1e6
+  if (unit === 'b' || unit.startsWith('bn') || unit.startsWith('mrd')) return num * 1e9
+  return null // unite inconnue : pas d'invention
+}
 
 module.exports = new TransfermarktService()
+module.exports.parseManagerHistory = parseManagerHistory
+module.exports.parseDmY = parseDmY
+module.exports.parseMarketValue = parseMarketValue

@@ -1,4 +1,5 @@
 const logger = require('../core/logger')
+const { isDisabled: envDisabled } = require('../core/utils/envFlag')
 const axios = require('axios')
 const fs = require('fs')
 const path = require('path')
@@ -400,7 +401,10 @@ class DataFusionService {
       return synthFallback
     }
     await this._persistOddsOutcome(match, null, oddsError)
-    logger.warn(
+    // E132 : warn -> debug. Sur les micro-ligues sans couverture (~150
+    // matchs/cycle : Bulgarie D2, Chypre D3...), ce warn spammait le log
+    // alors que l'absence est NOMINALE (persistee via odds_fetch_error).
+    logger.debug(
       `[DATAFUSION] No odds source available for ${match.id} (${match.homeTeam} vs ${match.awayTeam})`
     )
     return null
@@ -444,7 +448,7 @@ class DataFusionService {
   }
 
   async _trySofascore(match) {
-    if (process.env.DISABLE_SOFASCORE === 'true') return null
+    if (envDisabled('DISABLE_SOFASCORE')) return null
     // Audit Phase 2 : accès via curl_cffi (scripts/sofascore_bypass.py) —
     // contournement du ban TLS/IP ; resolve auto de l'event id si absent.
     const sofaId = await this._getSofaId(match)

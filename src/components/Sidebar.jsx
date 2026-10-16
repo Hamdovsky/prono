@@ -31,6 +31,11 @@ const Sidebar = ({
   }
 
   const [scanBusy, setScanBusy] = useState(false)
+  // E-UX : avec 300+ ligues actives, la liste brute est innavigable.
+  // Filtre texte + affichage progressif (30 par 30), requête remise à zéro
+  // du compteur à chaque frappe.
+  const [leagueQuery, setLeagueQuery] = useState('')
+  const [leagueShown, setLeagueShown] = useState(30)
   const handleForceScan = async () => {
     if (scanBusy) return
     setScanBusy(true)
@@ -428,8 +433,37 @@ const Sidebar = ({
             </button>
           ))}
 
-        {/* 2. All other active leagues sorted alphabetically */}
-        {otherLeagues.map((league) => (
+        {/* 2. Toutes les autres ligues actives, filtrables (300+ : innavigable sinon) */}
+        <input
+          type="text"
+          value={leagueQuery}
+          onChange={(e) => {
+            setLeagueQuery(e.target.value)
+            setLeagueShown(30)
+          }}
+          placeholder="🔍 Filtrer les ligues…"
+          aria-label="Filtrer les ligues"
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            margin: '4px 0 6px',
+            padding: '6px 10px',
+            fontSize: '11px',
+            background: 'rgba(15,23,42,0.8)',
+            border: '1px solid #334155',
+            borderRadius: '6px',
+            color: '#f1f5f9',
+            outline: 'none',
+          }}
+        />
+        {otherLeagues
+          .filter((league) =>
+            leagueQuery
+              ? league.name.toLowerCase().includes(leagueQuery.trim().toLowerCase())
+              : true
+          )
+          .slice(0, leagueShown)
+          .map((league) => (
           <button
             key={league.id}
             className={`flash-nav-item ${activeLeague === league.id ? 'active' : ''}`}
@@ -443,6 +477,33 @@ const Sidebar = ({
             <span className="flash-count">{league.count}</span>
           </button>
         ))}
+        {(() => {
+          const total = otherLeagues.filter((league) =>
+            leagueQuery
+              ? league.name.toLowerCase().includes(leagueQuery.trim().toLowerCase())
+              : true
+          ).length
+          return total > leagueShown ? (
+            <button
+              type="button"
+              onClick={() => setLeagueShown((n) => n + 30)}
+              style={{
+                width: '100%',
+                marginTop: '4px',
+                fontSize: '10px',
+                fontWeight: 800,
+                padding: '6px 10px',
+                borderRadius: '6px',
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'transparent',
+                color: '#94a3b8',
+                cursor: 'pointer',
+              }}
+            >
+              + Afficher plus ({total - leagueShown} restantes)
+            </button>
+          ) : null
+        })()}
       </div>
 
       {menaWithCounts.some((l) => l.count > 0) && (

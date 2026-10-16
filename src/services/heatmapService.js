@@ -1,3 +1,5 @@
+import { fetchWithTimeout, FETCH_TIMEOUTS } from '../utils/fetchWithTimeout.js'
+
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
 export async function fetchEvolutionData(params = {}) {
@@ -9,7 +11,12 @@ export async function fetchEvolutionData(params = {}) {
   })
 
   try {
-    const response = await fetch(`${API_BASE}/api/evolution/heatmap?${queryParams}`)
+    // E106 : delai maximal + _demo_ explicite (voir plus bas).
+    const response = await fetchWithTimeout(
+      `${API_BASE}/api/evolution/heatmap?${queryParams}`,
+      {},
+      FETCH_TIMEOUTS.read
+    )
 
     if (!response.ok) {
       throw new Error(`Erreur API: ${response.status}`)
@@ -24,9 +31,13 @@ export async function fetchEvolutionData(params = {}) {
   } catch (error) {
     console.error('Erreur fetchEvolutionData:', error)
 
-    // Fallback: données factices pour le demo
+    // E106 : ces donnees sont FACTICES (demo). Elles ne sont retournees que
+    // pour garder une page presentable hors-ligne, et le composant DOIT
+    // afficher le bandeau DEMO via le champ `demo: true` — jamais les
+    // presenter comme des resultats calcules (principe E105).
     return {
       success: false,
+      demo: true,
       error: error.message,
       data: getFallbackData(),
     }

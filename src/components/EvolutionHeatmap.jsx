@@ -6,6 +6,9 @@ function EvolutionHeatmap() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  // E106 : vrai quand l'API est injoignable et que le service renvoie des
+  // donnees FACTICES (demo). Affichees avec bandeau, jamais comme du reel.
+  const [isDemo, setIsDemo] = useState(false)
   const [timeRange, setTimeRange] = useState('30') // days
   const [selectedLeague, setSelectedLeague] = useState('all')
 
@@ -22,6 +25,9 @@ function EvolutionHeatmap() {
         league: selectedLeague,
       })
       setData(result.data || [])
+      // E106 : donnees FACTICES si l'API est injoignable — le bandeau DEMO
+      // (plus bas) l'indique, jamais presentees comme du reel (E105).
+      setIsDemo(result.success === false)
     } catch (e) {
       setError(e.message || 'Erreur de chargement')
     } finally {
@@ -84,6 +90,23 @@ function EvolutionHeatmap() {
   return (
     <div className="heatmap-container">
       <h2 className="heatmap-title">📊 Heatmap Évolution Concours Tunisie</h2>
+      {/* E106 : bandeau DEMO — style inline pour ne dependre d'aucun CSS. */}
+      {isDemo && (
+        <div
+          style={{
+            background: '#451a03',
+            border: '1px solid #f59e0b',
+            color: '#fcd34d',
+            borderRadius: 6,
+            padding: '8px 12px',
+            marginBottom: 10,
+            fontSize: 13,
+            fontWeight: 700,
+          }}
+        >
+          DEMO — API injoignable : donnees factices, pas des resultats calcules.
+        </div>
+      )}
 
       <div className="heatmap-controls">
         <select

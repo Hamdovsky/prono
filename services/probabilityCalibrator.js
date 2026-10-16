@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 /**
  * ProbabilityCalibrator — P1 audit 2026-08
@@ -89,7 +90,7 @@ class ProbabilityCalibrator {
     // que la fenêtre glissante contient du pré-fix. Réactivation par
     // check_iso_gate.js --activate (PROBA_CALIB_IDENTITY=false) + garde
     // monotone permanente dans loadCalibration().
-    if (process.env.PROBA_CALIB_IDENTITY !== 'false') return prob
+    if (isEnabled('PROBA_CALIB_IDENTITY')) return prob
     this.loadCalibration()
     if (!this.calibrationCurve) return prob // identité
     for (const bin of this.calibrationCurve) {

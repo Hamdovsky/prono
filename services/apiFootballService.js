@@ -1,6 +1,7 @@
 const axios = require('axios')
 const fs = require('fs')
 const path = require('path')
+const { isOptedIn } = require('../core/utils/envFlag')
 
 const BASE_DIR = path.resolve(__dirname, '..')
 const CACHE_DIR = path.join(BASE_DIR, 'data')
@@ -34,16 +35,31 @@ const SECONDARY_LEAGUES = [
 ]
 
 const MENA_LEAGUES = [
-  203,   // Egyptian Premier League
+  233,   // Egyptian Premier League (E117 : etait 203 = Turquie, corrige)
   307,   // Saudi Pro League
   296,   // UAE Arabian Gulf League
   300,   // Qatar Stars League
   294,   // Kuwait Premier League
   229,   // Bahrain Premier League
   297,   // Oman Professional League
-  3831,  // Lebanese Premier League
-  1243,  // Syrian Premier League
   410,   // Jordan Pro League
+  202,   // Tunisia Ligue 1 (E117)
+  828,   // Tunisia Ligue 2 (E117)
+  186,   // Algeria Ligue 1 (E117)
+  187,   // Algeria Ligue 2 (E117)
+  200,   // Morocco Botola Pro (E117)
+  201,   // Morocco Botola 2 (E117)
+  887,   // Egypt Second League (E117)
+]
+
+const AFRICA_LEAGUES = [
+  288,   // South Africa Premier Soccer League (E117)
+  289,   // South Africa 1st Division (E117)
+]
+
+const D2_LEAGUES = [
+  136,   // Italy Serie B (E117)
+  141,   // Spain Segunda Division (E117)
 ]
 
 const AMERICAS_LEAGUES = [
@@ -58,6 +74,8 @@ const ALL_LEAGUES = [
   ...PRIORITY_LEAGUES,
   ...SECONDARY_LEAGUES,
   ...MENA_LEAGUES,
+  ...AFRICA_LEAGUES,
+  ...D2_LEAGUES,
   ...AMERICAS_LEAGUES,
 ]
 
@@ -98,7 +116,7 @@ function getCache() {
 }
 
 function isAvailable() {
-  return API_KEY && process.env.API_FOOTBALL_ENABLED === 'true'
+  return API_KEY && isOptedIn('API_FOOTBALL_ENABLED')
 }
 
 function mapStatus(short) {
@@ -254,4 +272,7 @@ module.exports = {
   mapEventToMatch,
   ALL_LEAGUES,
   PRIORITY_LEAGUES,
+  MENA_LEAGUES,
+  AFRICA_LEAGUES,
+  D2_LEAGUES,
 }

@@ -733,16 +733,115 @@ elif menu == "🏥 System Health":
     c3.metric("Modèle IA", "V17 Ultra")
     c4.metric("Monte Carlo", "10,000 iter")
     
-    st.markdown("### 🔗 Connexions API")
+    st.markdown("### 🔗 Services supervisés (mesuré, pas déclaré)")
+    # E105 : cette page pingait localhost:5000, ou rien n'ecoute (l'API est
+    # sur 3001) — elle affichait "hors-ligne" en permanence. Desormais chaque
+    # voyant est une sonde TCP reelle (health_panel), sur les deux familles
+    # d'adresses (Vite n'ecoute que sur ::1).
+    # Le chemin est resolu depuis __file__ : on ne depend pas du sys.path
+    # injecte par le lanceur (fragile hors `streamlit run`).
     try:
-        r = requests.get(f"{API_BASE}/health", timeout=3)
+        import sys as _sys
+        _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import health_panel as _hp
+        _hp_error = None
+    except Exception as exc:
+        _hp = None
+        _hp_error = exc
+    if _hp is None:
+        st.error(f"❌ Module de sante indisponible : {_hp_error}. Le reste de la page reste utilisable.")
+    else:
+        _STATE_LABEL = {"up": "🟢 UP", "hung": "🟡 HUNG", "down": "🔴 DOWN"}
+        _services = _hp.service_status()
+        _cols = st.columns(len(_services))
+        for _col, _svc in zip(_cols, _services):
+            _col.metric(
+                f"{_svc['name']} :{_svc['port']}",
+                _STATE_LABEL.get(_svc.get("state"), "🟢 UP" if _svc["alive"] else "🔴 DOWN"),
+            )
+            _col.caption(_svc["kind"])
+        _down = [s for s in _services if not s["alive"]]
+        _hung = [s for s in _services if s.get("state") == "hung"]
+        if _down:
+            st.error(
+                "❌ Hors-ligne : "
+                + ", ".join(f"{s['name']} (:{s['port']})" for s in _down)
+                + ". Le watchdog (start.bat) remonte les 3 critiques ; sinon relancez start.bat."
+            )
+        if _hung:
+            st.warning(
+                "🟡 Hung (port occupé mais HTTP muet) : "
+                + ", ".join(f"{s['name']} (:{s['port']})" for s in _hung)
+                + ". Le watchdog E106 soigne après ~4,5 min ; diagnostic pour forcer."
+            )
+        if not _down and not _hung:
+            st.success("✅ Les 5 services répondent.")
+
+    st.markdown("### 🖥️ API Node.js (port réel : 3001)")
+    try:
+        r = requests.get("http://localhost:3001/api/health", timeout=3)
         if r.status_code == 200:
             data = r.json()
-            st.success(f"✅ Serveur Node.js — Uptime: {data.get('uptime', 0):.0f}s")
+            # /api/health renvoie {"status":"ok"} sans uptime : ne pas
+            # afficher un "Uptime: 0s" permanent et trompeur.
+            _up = data.get("uptime")
+            if _up is None:
+                st.success("✅ Serveur Node.js — répond (statut ok)")
+            else:
+                st.success(f"✅ Serveur Node.js — Uptime: {_up:.0f}s")
         else:
             st.error(f"⚠️ API Node répond: {r.status_code}")
-    except:
+    except Exception:
         st.error("❌ API Node.js hors-ligne. Vérifier start.bat.")
+
+    if _hp is not None:
+        st.markdown("### 🩺 Diagnostic complet (~30 s)")
+        st.caption("Lance `npm run health` : 70 contrôles (ports, base, xG, placeholders, EOL).")
+        if st.button("🩺 Lancer le diagnostic"):
+            with st.spinner("Diagnostic en cours... (~30 s)"):
+                _diag = _hp.run_health_check()
+            if not _diag.get("ok"):
+                st.error(f"❌ {_diag.get('error')}")
+            else:
+                _sum = _diag["summary"]
+                _d1, _d2, _d3, _d4 = st.columns(4)
+                _d1.metric("PASSED", _sum["passed"] if _sum["passed"] is not None else "?")
+                _d2.metric("WARNINGS", _sum["warnings"] if _sum["warnings"] is not None else "?")
+                _d3.metric("FAILED", _sum["failed"] if _sum["failed"] is not None else "?")
+                _d4.metric("STATUT", _sum["status"] or "?")
+                if _sum["failed"]:
+                    st.error(f"❌ {_sum['failed']} contrôle(s) en échec — voir le détail.")
+                elif _sum["status"] == "HEALTHY":
+                    st.success("✅ Système sain.")
+                with st.expander("Voir la sortie complète"):
+                    st.code(_diag["output"][-6000:], language="text")
+
+        st.markdown("### 🧬 Backfill xG")
+        st.caption("Reconstruit les xG manquants depuis le 1X2 (E105). L'aperçu n'écrit jamais.")
+        if st.button("🔍 Aperçu backfill (dry-run)"):
+            with st.spinner("Analyse..."):
+                _prev = _hp.run_backfill_preview()
+            if not _prev.get("ok"):
+                st.error(f"❌ {_prev.get('error')}")
+            else:
+                _n = _prev["preview"]["count"]
+                if _n is None:
+                    st.warning("⚠️ Sortie inattendue — voir le détail.")
+                elif _n == 0:
+                    st.success("✅ Aucun match sans xG. Rien à faire.")
+                else:
+                    st.warning(f"⚠️ {_n} match(s) sans xG seraient reconstruits.")
+                with st.expander("Voir la sortie complète"):
+                    st.code(_prev["output"][-4000:], language="text")
+        if st.button("⚠️ Appliquer le backfill (écrit en base)"):
+            with st.spinner("Écriture..."):
+                _appl = _hp.run_backfill_apply()
+            if not _appl.get("ok"):
+                st.error(f"❌ {_appl.get('error', 'échec')}")
+            else:
+                st.success("✅ Backfill appliqué (idempotent : 0 au second passage).")
+            with st.expander("Voir la sortie complète"):
+                st.code(_appl["output"][-4000:], language="text")
     
     scrapers_running = any(os.path.exists(os.path.join(
         os.path.dirname(os.path.dirname(__file__)), 'SofascoreScraping', 'scraper_progress.json'

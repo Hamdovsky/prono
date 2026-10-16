@@ -374,6 +374,34 @@ function initSchema(db) {
             );
             CREATE INDEX IF NOT EXISTS idx_player_absences_event_id ON player_absences(event_id);
 
+            -- E119 : historique des entraineurs (Transfermarkt mitarbeiterhistorie)
+            CREATE TABLE IF NOT EXISTS coach_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                team_slug TEXT NOT NULL,
+                team_id TEXT NOT NULL,
+                manager TEXT NOT NULL,
+                appointed TEXT,
+                ended TEXT,
+                matches INTEGER,
+                ppg REAL,
+                checked_at BIGINT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(team_id, manager, appointed)
+            );
+            CREATE INDEX IF NOT EXISTS idx_coach_history_team ON coach_history(team_id);
+
+            -- E121 : snapshots de valeurs d'effectifs (Transfermarkt, proxy
+            -- de chamboulement mercato : delta fin-mercato vs courant).
+            CREATE TABLE IF NOT EXISTS team_values (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                team_slug TEXT NOT NULL,
+                team_id TEXT NOT NULL,
+                value_eur REAL,
+                checked_at BIGINT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_team_values_team ON team_values(team_id, checked_at);
+
             CREATE TABLE IF NOT EXISTS odds_patterns (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 pattern_hash TEXT UNIQUE NOT NULL,

@@ -1,4 +1,5 @@
 const logger = require('../core/logger')
+const { isDisabled: envDisabled, isEnabled } = require('../core/utils/envFlag')
 const path = require('path')
 const fs = require('fs')
 const { SofaAPI, fetchWithRetry, getSofaHeaders } = require('../SofascoreScraping/src/apiClient')
@@ -136,8 +137,8 @@ function parseBtts(data) {
 
 class SofascoreOddsService {
   constructor() {
-    this.enabled = process.env.SOFASCORE_ODDS_ENABLED !== 'false'
-    this.disabledByFlag = process.env.DISABLE_SOFASCORE === 'true'
+    this.enabled = isEnabled('SOFASCORE_ODDS_ENABLED')
+    this.disabledByFlag = envDisabled('DISABLE_SOFASCORE')
     this._notFound = _loadNotFoundCache()
     this._eventIdCache = new Map()
     if (this.disabledByFlag) {

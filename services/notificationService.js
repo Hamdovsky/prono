@@ -6,12 +6,13 @@
 const notifier = require('node-notifier')
 const logger = require('../core/logger')
 const botService = require('./botService')
+const { isEnabled, isOptedIn } = require('../core/utils/envFlag')
 
 class NotificationService {
   constructor() {
-    this.enabled = process.env.ENABLE_NOTIFICATIONS !== 'false'
-    this.telegramEnabled = process.env.NOTIFICATION_TELEGRAM === 'true'
-    this.systemEnabled = process.env.NOTIFICATION_SYSTEM !== 'false'
+    this.enabled = isEnabled('ENABLE_NOTIFICATIONS')
+    this.telegramEnabled = isOptedIn('NOTIFICATION_TELEGRAM')
+    this.systemEnabled = isEnabled('NOTIFICATION_SYSTEM')
     this.lastNotifications = new Map() // Prevent spam
     this.cooldown = 5 * 60 * 1000 // 5 minutes cooldown
   }

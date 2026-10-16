@@ -1,5 +1,6 @@
 const axios = require('axios')
-const logger = require('../core/logger')
+const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 const WMO_CODES = {
   0: 'Clear sky',
@@ -35,7 +36,7 @@ const WMO_CODES = {
 class OpenMeteoService {
   constructor() {
     this.baseUrl = 'https://api.open-meteo.com/v1/forecast'
-    this.enabled = process.env.OPEN_METEO_ENABLED !== 'false'
+    this.enabled = isEnabled('OPEN_METEO_ENABLED')
     if (this.enabled) {
       logger.info('✅ [OPEN-METEO] Free weather service ready (no API key required)')
     }

@@ -5,6 +5,7 @@
  */
 
 import { getApiUrl } from '../config/apiConfig.js'
+import { fetchWithTimeout, FETCH_TIMEOUTS } from '../utils/fetchWithTimeout.js'
 import { io } from 'socket.io-client'
 import {
   normalizeTeamName,
@@ -127,8 +128,7 @@ class DataService {
 
       this.socket.on('live:update', (matches) => {
         if (Array.isArray(matches)) {
-          this.liveMatches = matches
-          this.liveSubscribers.forEach((cb) => cb(matches))
+          this._setLiveMatches(matches)
         }
       })
 
@@ -234,7 +234,9 @@ class DataService {
     const fetchPromise = (async () => {
       try {
         const startTime = Date.now()
-        const response = await fetch(url)
+        // E106 : delai maximal. Sans cela, un service muet (API/ML down)
+        // laissait la page en "Chargement..." indefiniment.
+        const response = await fetchWithTimeout(url, {}, FETCH_TIMEOUTS.read)
         const fetchTime = Date.now() - startTime
 
         if (response.status === 429) {
@@ -276,14 +278,19 @@ class DataService {
   // Helper to handle both Web and Native HTTP (POST)
   async _post(url, body) {
     const token = localStorage.getItem('admin_token')
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+    // E106 : meme protection que _get (ecritures : scans, toggles, settles).
+    const response = await fetchWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    })
+      FETCH_TIMEOUTS.write
+    )
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
     return await response.json()
   }
@@ -564,17 +571,60 @@ class DataService {
       if (!res.ok) return
       const data = await res.json()
       if (Array.isArray(data)) {
-        this.liveMatches = data
-        this.liveSubscribers.forEach((cb) => cb(data))
+        this._setLiveMatches(data)
       }
     } catch {}
+  }
+
+  // 🧠 [PERF] Émission diffs du live — miroir de _setUpcomingPredictions :
+  // le poll live (10 s) et 'live:update' poussaient un NOUVEAU tableau à
+  // chaque fois, même sans changement → setLiveMatches → rebuild des 4 mémos
+  // (liveBaseList/liveFilteredList/liveFlatList/liveChipCounts) + re-render
+  // des lignes à chaque poll. On ne notifie que si le contenu a réellement
+  // changé ; la référence stable garde les mémos et le memo des rangées.
+  // Un tableau vide reste une info (0 live → badge éteint) : seule la
+  // répétition du même vide est ignorée.
+  _liveSignature(list) {
+    if (!list) return 'null'
+    let sig = String(list.length)
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i]
+      if (!m) continue
+      sig +=
+        '|' +
+        (m.id ?? i) +
+        ':' +
+        (m.status || '') +
+        ':' +
+        (m.minute ?? '') +
+        ':' +
+        (m.scoreHome ?? '') +
+        (m.scoreAway ?? '') +
+        ':' +
+        (m.prediction || '')
+    }
+    return sig
+  }
+
+  _setLiveMatches(normalized) {
+    const sig = this._liveSignature(normalized)
+    if (this.liveMatches && sig === this._liveSignatureCache) {
+      return false
+    }
+    this._liveSignatureCache = sig
+    this.liveMatches = normalized
+    this.liveSubscribers.forEach((cb) => cb(this.liveMatches))
+    return true
   }
 
   // Contexte visuel PixelRAG d'un match (briefing lecteur + signaux structurés).
   async fetchVisualContext(matchId) {
     if (!matchId) return null
     try {
-      const res = await fetch(getApiUrl(`/api/matches/${encodeURIComponent(matchId)}/visual`))
+      // E106 : matchesRoutes est monte sur /api (app.js:679), donc le chemin
+      // reel est /api/:id/visual. L'ancien /api/matches/:id/visual rendait
+      // 404 et tuait silencieusement le contexte visuel du MatchCenter.
+      const res = await fetch(getApiUrl(`/api/${encodeURIComponent(matchId)}/visual`))
       if (!res.ok) return null
       const data = await res.json()
       return data && data.found ? data : null

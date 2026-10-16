@@ -1,12 +1,13 @@
 const { getPool, query: pgQuery } = require('../core/pg_connector')
 const { resolve4 } = require('dns/promises')
 const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 const SYNC_INTERVAL = 5 * 60 * 1000
 
 class SupabaseService {
   constructor() {
-    this.enabled = process.env.SUPABASE_ENABLED !== 'false'
+    this.enabled = isEnabled('SUPABASE_ENABLED')
     this.connected = false
     this._syncTimer = null
     this._lastError = null

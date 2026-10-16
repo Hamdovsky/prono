@@ -24,10 +24,13 @@ class TestGeneratePrecisionBets:
             assert not any('2.5 Buts' in m for m in markets)
 
     def test_under_25_when_low_mc(self):
+        # E114 (refit echelle xG actuelle) : le modele refit ne descend
+        # jamais sous ~0.45 (signal faible, pente 0.156) -> neutre, pas de
+        # pick O/U sur xG faibles. Comportement mesure honnete, pas un bug.
         from market_engine import generate_precision_bets
         bets = generate_precision_bets(0.8, 0.6, 40, 35, 25, 35, 20, 70, 9.0, 3.5, 'H', 'A', True, {})
         markets = [b['market'] for b in bets]
-        assert 'Under 2.5 Buts' in markets
+        assert not any('2.5 Buts' in m for m in markets)
 
     def test_btts_when_both_xg_high(self):
         from market_engine import generate_precision_bets
@@ -306,13 +309,25 @@ class TestComboGgOver25:
 
     def test_emitted_when_high_xg(self):
         from market_engine import generate_precision_bets
+        # xG 2.4/2.2 : le joint calibre depasse le seuil 40 %.
         bets = generate_precision_bets(
-            2.0, 1.8, 55, 25, 20, 70, 45, 80, 10.0, 3.5, 'H', 'A', True, {}
+            2.4, 2.2, 55, 25, 20, 75, 50, 85, 10.0, 3.5, 'H', 'A', True, {}
         )
         markets = [b['market'] for b in bets]
         assert 'Combo GG + Over 2.5' in markets
         bet = next(b for b in bets if b['market'] == 'Combo GG + Over 2.5')
         assert bet['probability'] >= 40
+
+    def test_not_emitted_when_calibrated_below_threshold(self):
+        # E114 (refit) : xG 2.0/1.8 -> combo 0.501, EMIS (le seuil 0.40 est
+        # depasse franchement avec les poids refittes). Le cas NON-emis est
+        # xG 0.7/0.5 (joint ~0.09 < 0.40).
+        from market_engine import generate_precision_bets
+        bets = generate_precision_bets(
+            0.7, 0.5, 55, 25, 20, 40, 25, 60, 10.0, 3.5, 'H', 'A', True, {}
+        )
+        markets = [b['market'] for b in bets]
+        assert 'Combo GG + Over 2.5' not in markets
 
     def test_not_emitted_when_low_xg(self):
         from market_engine import generate_precision_bets
@@ -342,3 +357,32 @@ class TestComboGgOver25:
         assert _bet_won(label, label, 2, 0) is False  # un seul marque
         assert _bet_won(label, label, 4, 2) is True
 
+
+class TestComboJointCalibre:
+    """E112 — le joint servi utilise les marginales calibrees E111."""
+
+    def test_bornes_frechet_avec_marginales_calibrees(self):
+        from market_engine import combo_gg_over25_prob
+        from ou_model import ou_prob
+        from btts_model import btts_prob
+        xg_h, xg_a = 1.6, 1.4
+        pb, po = btts_prob(xg_h, xg_a), ou_prob(xg_h + xg_a, 2.5)
+        p = combo_gg_over25_prob(xg_h, xg_a, pb, po)
+        assert p is not None
+        assert max(0.0, pb + po - 1.0) - 1e-9 <= p <= min(pb, po) + 1e-9
+
+    def test_croissant_avec_xg_total(self):
+        from market_engine import combo_gg_over25_prob
+        from ou_model import ou_prob
+        from btts_model import btts_prob
+        lo = combo_gg_over25_prob(1.0, 0.8, btts_prob(1.0, 0.8),
+                                  ou_prob(1.8, 2.5))
+        hi = combo_gg_over25_prob(1.8, 1.6, btts_prob(1.8, 1.6),
+                                  ou_prob(3.4, 2.5))
+        assert lo is not None and hi is not None
+        assert hi > lo
+
+    def test_none_si_xg_invalide(self):
+        from market_engine import combo_gg_over25_prob
+        assert combo_gg_over25_prob(None, 1.2, 0.5, 0.5) is None
+        assert combo_gg_over25_prob('x', 'y', 0.5, 0.5) is None

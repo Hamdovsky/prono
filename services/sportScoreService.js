@@ -1,10 +1,11 @@
 const axios = require('axios')
 const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 class SportScoreService {
   constructor() {
     this.baseUrl = 'https://sportscore.com'
-    this.enabled = process.env.SPORTSCORE_ENABLED !== 'false'
+    this.enabled = isEnabled('SPORTSCORE_ENABLED')
     this._lastError = null
 
     logger.info('[SPORTSCORE] Service prêt — gratuit, sans clé, 10k req/jour')

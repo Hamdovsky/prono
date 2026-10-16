@@ -1654,6 +1654,23 @@ class EnrichedPredictionService {
         insufficientData: hasRealOdds ? 0 : 1,
         league: m.league || '',
         marketType,
+        // E130 : nouveau coach (< 90 j) d'un cote -> plafond 70. Best-effort :
+        // jamais bloquant (coachFlag catch tout en interne).
+        coachNew: (() => {
+          try {
+            const database = require('../core/database')
+            const { coachNewForMatch } = require('../core/coachFlag')
+            const flag = coachNewForMatch(
+              database,
+              m.homeTeam || m.home_team || '',
+              m.awayTeam || m.away_team || ''
+            )
+            if (flag.isNew) m.coach_new_info = flag
+            return flag.isNew
+          } catch (_) {
+            return false
+          }
+        })(),
       })
 
       // override raw quant confidence with calibrated score

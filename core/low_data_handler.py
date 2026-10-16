@@ -84,7 +84,7 @@ def predict_low_data(match_obj):
     if not result.get('success'):
         return None
 
-    return {
+    out = {
         'success': True,
         'home_win': result['home_win'],
         'draw': result['draw'],
@@ -120,3 +120,14 @@ def predict_low_data(match_obj):
             'zero_data_rescue': True,
         },
     }
+    # E124 : le path low-data n'emettait jamais ht_goal_prob (0 % en base
+    # <24h) alors que les xG sont disponibles — meme modele HT que le path
+    # principal (ht_model, best-effort : None si indisponible).
+    try:
+        from ht_model import ht_prob as _htp
+        _ht = _htp(result['home_xg'], result['away_xg'])
+        if _ht is not None:
+            out['ht_goal_prob'] = float(_ht)
+    except Exception:
+        pass
+    return out

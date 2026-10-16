@@ -360,7 +360,8 @@ function computeFormAverages(events, teamId) {
 
 const { ELITE_CLUBS_SEARCH } = require('../../config/eliteClubs')
 
-const AliasResolver = require('./AliasResolver')
+const AliasResolver = require('./AliasResolver')
+const { isOptedIn } = require('../../core/utils/envFlag')
 
 class Workflow {
   constructor(leagues) {
@@ -702,7 +703,7 @@ class Workflow {
       }
 
       // 🚀 [PREMIUM PRIORITIZATION] Sort by Tier (TIER1 > TIER2 > TIER3) and timestamp
-      if (process.env.RAPIDAPI_ENABLED === 'true') {
+      if (isOptedIn('RAPIDAPI_ENABLED')) {
         console.log(
           '🏆 [PRIORITY] Sorting matches by League Tier and Start Time to optimize RapidAPI quota...'
         )
@@ -1398,7 +1399,7 @@ class Workflow {
             const match = targetMatches[matchIdx]
 
             // 🛡️ [RAPIDAPI BUDGET] Pre-check quota before scraping Sofascore
-            if (process.env.RAPIDAPI_ENABLED === 'true') {
+            if (isOptedIn('RAPIDAPI_ENABLED')) {
               const rapidApiQuotaManager = require('../../services/rapidApiQuotaManager')
               if (!rapidApiQuotaManager.canProcessMatch(match.id)) {
                 console.log(

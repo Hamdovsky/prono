@@ -24,7 +24,7 @@ function roiN() {
       const r = spawnSync(exe, ['-c', code], {
         cwd: REPO,
         encoding: 'utf8',
-        env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
         timeout: 60000,
       })
       if (r.status === 0 && r.stdout) {

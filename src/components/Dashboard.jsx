@@ -4,6 +4,7 @@ import Sidebar from './Sidebar'
 import MatchCard from './MatchCard'
 import dataService from '../services/dataService'
 import { PATH_TO_VIEW } from '../config/routes'
+import { getApiUrl } from '../config/apiConfig'
 import { selectEligibleMatches } from '../utils/timeFilter'
 import { isFinishedMatch } from '../utils/matchAnalysis'
 import {
@@ -40,8 +41,10 @@ const UltimateMatchCenter = lazy(() => import('./UltimateMatchCenter/UltimateMat
 const FlashOddsView = lazy(() => import('./FlashOddsView'))
 
 // 🧠 [PERF] Header extrait en sous-composant mémoïsé : il ne se re-rend que si
-// son nombre de matches (compteur) ou l'état du toggle change réellement.
-const StatusHeader = React.memo(({ count, liveCount = 0, onGoLive, sidebarOpen, onToggleSidebar, isConnected = false }) => (
+// son nombre de matchs en direct ou l'état de connexion change réellement.
+// E-UX : le décoratif a été retiré (label moteur, compteur capteurs) —
+// le header ne garde que l'utile : menu, état connexion, badge live.
+const StatusHeader = React.memo(({ liveCount = 0, onGoLive, sidebarOpen, onToggleSidebar, isConnected = false }) => (
   <header className="sh-bar">
     <div className="sh-left">
       <button className="sh-toggle" onClick={onToggleSidebar} aria-label="Menu">
@@ -55,11 +58,6 @@ const StatusHeader = React.memo(({ count, liveCount = 0, onGoLive, sidebarOpen, 
       <span className="sh-title">
         TITANIUM <span className="sh-accent">SENSOR</span>
       </span>
-    </div>
-
-    <div className="sh-center">
-      <span className="sh-mute">MOTEUR:</span>
-      <span className="sh-engine">NEURAL-X</span>
     </div>
 
     <div className="sh-right">
@@ -84,8 +82,6 @@ const StatusHeader = React.memo(({ count, liveCount = 0, onGoLive, sidebarOpen, 
           🔴 {liveCount} LIVE
         </button>
       )}
-      <span className="sh-cap-label">Capteurs Actifs</span>
-      <span className="sh-cap-count">{count}</span>
     </div>
   </header>
 ))
@@ -120,7 +116,7 @@ const bandOf = (conf) => {
 // compteurs d'onglets variaient avec l'onglet actif.
 
 const DashboardRow = React.memo(
-  ({ index, style, flatList, onClick, compact, bracketMap, activeMarket, activeMatchId, favorites, onToggleFavorite, cols, searchQuery }) => {
+  ({ index, style, flatList, onClick, compact, bracketMap, leagueMap, activeMarket, activeMatchId, favorites, onToggleFavorite, cols, searchQuery }) => {
     const item = flatList[index]
     if (!item) return null
     if (item.type === 'section') {
@@ -149,6 +145,7 @@ const DashboardRow = React.memo(
     const raw = toRawLines(m)
     const band = m?.confidence ? bandOf(m.confidence) : null
     const reliability = bracketMap && band ? bracketMap[band] : undefined
+    const leagueWinRate = leagueMap ? leagueMap[m?.league] ?? null : null
     const liveStats = m.liveStats || null
     const goalPrediction = m.goalPrediction || null
     return (
@@ -160,6 +157,7 @@ const DashboardRow = React.memo(
         timeLabel={isLive ? null : timeLabel}
         compact={compact}
         reliability={reliability}
+        leagueWinRate={leagueWinRate}
         isLive={isLive}
         liveMinute={liveMinute}
         liveScore={liveScore}
@@ -178,6 +176,45 @@ const DashboardRow = React.memo(
     )
   }
 )
+
+// Constantes d'affichage de la liste (hoistées hors renderMatchList : ce sont
+// des littéraux, les reconstruire à chaque render du Dashboard est du gaspi
+// pur — E-perf).
+const DENSITY_ROW_H = { comfortable: 64, dense: 56, veryDense: 48 }
+const MARKET_FILTERS = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners', 'combo']
+const MARKET_FILTER_LABELS = {
+  ALL: 'Tous',
+  ou: 'Over/Under',
+  win: '1X2',
+  btts: 'BTTS',
+  ht: '1er MT',
+  corners: 'Corners',
+  combo: 'GG+O2.5',
+}
+const MARKET_FILTER_COLORS = {
+  ALL: '#94a3b8',
+  ou: '#10b981',
+  win: '#00ffaa',
+  btts: '#f87171',
+  ht: '#fbbf24',
+  corners: '#60a5fa',
+  combo: '#e879f9',
+}
+// E66 : labels/couleurs densité (les hauteurs sont déclarées avec ROW_H).
+const DENSITY_LABELS = { comfortable: 'Confort', dense: 'Dense', veryDense: 'T. dense' }
+const qualityPillStyle = (active, color) => ({
+  fontSize: '9px',
+  fontWeight: 800,
+  padding: '3px 8px',
+  borderRadius: '12px',
+  border: `1px solid ${active ? color : 'rgba(255,255,255,0.1)'}`,
+  background: active ? `${color}18` : 'rgba(255,255,255,0.03)',
+  color: active ? color : '#64748b',
+  cursor: 'pointer',
+  letterSpacing: '0.4px',
+  textTransform: 'uppercase',
+  flexShrink: 0,
+})
 
 const Dashboard = () => {
   const location = useLocation()
@@ -412,6 +449,28 @@ const Dashboard = () => {
           }
         }
         setBracketMap(map)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Précision réelle par ligue (E118, /api/accuracy/tracker) : { ligue: { winRate, total } }.
+  // Honnête : une ligue à 30 % affiche 30 %, même si le pick est confiant.
+  const [leagueMap, setLeagueMap] = useState({})
+  useEffect(() => {
+    let cancelled = false
+    fetch(getApiUrl('/api/accuracy/tracker'))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data || !Array.isArray(data.leagues)) return
+        const map = {}
+        for (const l of data.leagues) {
+          if (!l || !l.league) continue
+          map[l.league] = { winRate: l.winRate ?? null, total: l.total ?? 0 }
+        }
+        setLeagueMap(map)
       })
       .catch(() => {})
     return () => {
@@ -661,7 +720,6 @@ const Dashboard = () => {
     onlyFavorites
 
   const renderMatchList = (list, counts = chipCount, title = '📊 TOUS LES MATCHS', providedFlatList = null) => {
-    const DENSITY_ROW_H = { comfortable: 64, dense: 56, veryDense: 48 }
     const ROW_H = isMobile ? 124 : DENSITY_ROW_H[density] || 64
     const HEADER_H = isMobile ? 0 : 42
     // E65 : grouping par tranche horaire + hauteurs variables.
@@ -673,6 +731,7 @@ const Dashboard = () => {
       onClick: handleSelectMatch,
       compact: isMobile,
       bracketMap,
+      leagueMap,
       activeMarket: dominantFilter === 'ALL' ? null : dominantFilter,
       activeMatchId,
       favorites,
@@ -681,41 +740,10 @@ const Dashboard = () => {
       searchQuery,
     }
 
-    const filters = ['ALL', 'ou', 'win', 'btts', 'ht', 'corners', 'combo']
-    const filterLabels = {
-      ALL: 'Tous',
-      ou: 'Over/Under',
-      win: '1X2',
-      btts: 'BTTS',
-      ht: '1er MT',
-      corners: 'Corners',
-      combo: 'GG+O2.5',
-    }
-    const filterColors = {
-      ALL: '#94a3b8',
-      ou: '#10b981',
-      win: '#00ffaa',
-      btts: '#f87171',
-      ht: '#fbbf24',
-      corners: '#60a5fa',
-      combo: '#e879f9',
-    }
-    // E66 : labels/couleurs densité (les hauteurs sont déclarées avec ROW_H).
-    const densityLabels = { comfortable: 'Confort', dense: 'Dense', veryDense: 'T. dense' }
-    const densityColors = { comfortable: '#38bdf8', dense: '#a78bfa', veryDense: '#f59e0b' }
-    const qualityPillStyle = (active, color) => ({
-      fontSize: '9px',
-      fontWeight: 800,
-      padding: '3px 8px',
-      borderRadius: '12px',
-      border: `1px solid ${active ? color : 'rgba(255,255,255,0.1)'}`,
-      background: active ? `${color}18` : 'rgba(255,255,255,0.03)',
-      color: active ? color : '#64748b',
-      cursor: 'pointer',
-      letterSpacing: '0.4px',
-      textTransform: 'uppercase',
-      flexShrink: 0,
-    })
+    const filters = MARKET_FILTERS
+    const filterLabels = MARKET_FILTER_LABELS
+    const filterColors = MARKET_FILTER_COLORS
+    const densityLabels = DENSITY_LABELS
 
     const stats = computeQualitySummary(list)
 
@@ -788,18 +816,31 @@ const Dashboard = () => {
             )
           })}
           <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: '6px', flexShrink: 0 }}>
-            <span style={{ display: 'inline-flex', gap: '4px', paddingRight: '4px', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+            <select
+              value={density}
+              onChange={(e) => setDensity(e.target.value)}
+              title="Densité des rangées"
+              aria-label="Densité des rangées"
+              style={{
+                fontSize: '9px',
+                fontWeight: 800,
+                padding: '3px 6px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.03)',
+                color: '#64748b',
+                cursor: 'pointer',
+                letterSpacing: '0.4px',
+                textTransform: 'uppercase',
+                flexShrink: 0,
+              }}
+            >
               {Object.keys(DENSITY_ROW_H).map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setDensity(d)}
-                  title={`Densité ${densityLabels[d]} (${DENSITY_ROW_H[d]} px par rangée)`}
-                  style={qualityPillStyle(density === d, densityColors[d])}
-                >
+                <option key={d} value={d}>
                   {densityLabels[d]}
-                </button>
+                </option>
               ))}
-            </span>
+            </select>
             <button
               onClick={() => setOnlyRealOdds((v) => !v)}
               style={qualityPillStyle(onlyRealOdds, '#a78bfa')}
@@ -931,23 +972,8 @@ const Dashboard = () => {
                     ? 'Les matchs reçus sont déjà joués — aucun match à venir en base. Lancez un scan pour rafraîchir.'
                     : 'Aucune donnée de match reçue du serveur.'}
             {anyFilterActive && (
-              <div style={{ marginTop: 12 }}>
-                <button
-                  onClick={resetAllFilters}
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '6px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid #38bdf8',
-                    background: 'rgba(56,189,248,0.12)',
-                    color: '#38bdf8',
-                    cursor: 'pointer',
-                    letterSpacing: '0.4px',
-                  }}
-                >
-                  ↺ Réinitialiser les filtres
-                </button>
+              <div style={{ marginTop: 12, fontSize: '11px', color: '#475569' }}>
+                Retirez un filtre ci-dessus (↺ tout) pour élargir.
               </div>
             )}
             {!anyFilterActive && (
@@ -1122,7 +1148,6 @@ const Dashboard = () => {
 
       <main className="titanium-main">
         <StatusHeader
-          count={allMatchesList.length}
           liveCount={liveMatches.length}
           onGoLive={() => navigate('/live')}
           sidebarOpen={sidebarOpen}
@@ -1199,30 +1224,8 @@ const Dashboard = () => {
                       boxSizing: 'border-box',
                     }}
                   />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      aria-label="Effacer la recherche"
-                      title="Effacer la recherche"
-                      style={{
-                        position: 'absolute',
-                        right: '6px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        cursor: 'pointer',
-                        color: '#64748b',
-                        fontSize: '14px',
-                        fontWeight: '700',
-                        background: 'transparent',
-                        border: 'none',
-                        padding: 0,
-                        lineHeight: 1,
-                      }}
-                    >
-                      ✕
-                    </button>
-                  )}
+                  {/* E-UX : pas de ✕ dedans — la pastille "🔍 … ✕" des
+                      FILTRES ACTIFS efface déjà la recherche (un seul chemin). */}
                 </div>
                 <button
                   onClick={handleRefresh}

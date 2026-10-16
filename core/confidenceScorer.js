@@ -26,6 +26,9 @@ function loadWeights() {
  * @param {number}  [opts.insufficientData] — 0 | 1
  * @param {string}  [opts.league]        — league name for historical lookup
  * @param {string}  [opts.marketType]    — '1X2' | 'DC' | 'OU' | 'BTTS'
+ * @param {boolean} [opts.coachNew]      — nouveau coach (< 90 j) d'un côté :
+ *                                          prudence, plafond 70 (E130, même
+ *                                          pattern que baseSolidMargin).
  *
  * @returns {{ confidence: number, breakdown: Object }}
  */
@@ -38,6 +41,7 @@ function computeConfidence(opts) {
     insufficientData = 0,
     league = '',
     marketType = '1X2',
+    coachNew = false,
   } = opts
 
   if (topProb == null || secondProb == null) {
@@ -91,6 +95,16 @@ function computeConfidence(opts) {
   if (!baseSolidMargin || baseSolidMargin <= 0) {
     total = Math.min(total, 75) // no edge → never exceed 75
   }
+  let coachCapped = false
+  if (coachNew) {
+    // Nouveau coach : effectif en transition, la confiance affichee ne doit
+    // pas depasser 70 (E130). Heuristique de prudence en attendant la mesure
+    // du bounce — meme pattern que le garde-fou baseSolidMargin.
+    if (total > 70) {
+      total = 70
+      coachCapped = true
+    }
+  }
   if (total >= 98) total = 95 + Math.round((total - 98) / 2) // 98→95, 99→95, 100→96
   if (total > 95) total = 95 // hard ceiling
 
@@ -106,6 +120,8 @@ function computeConfidence(opts) {
       drawBiasUsed: drawBias,
       bsmThresholdUsed: bsmThreshold,
       finalMarginPct: marginPct,
+      coachNew: !!coachNew,
+      coachCapped,
     },
   }
 }

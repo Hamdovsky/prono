@@ -31,7 +31,8 @@ router.get('/ping', (req, res) => res.send('API_PONG'))
 /**
  * GET /api/bot-debug - Debug bot env variables in production safely
  */
-const localOrAuth = require('../core/authGuards').localOrAuth
+const localOrAuth = require('../core/authGuards').localOrAuth
+const { isEnabled, isOptedIn } = require('../core/utils/envFlag')
 
 router.get('/bot-debug', localOrAuth, (req, res) => {
   res.json({
@@ -111,7 +112,7 @@ router.get('/system/intel', async (req, res) => {
       {
         name: 'FootballData',
         key: process.env.FOOTBALLDATA_KEY,
-        check: process.env.FOOTBALLDATA_ENABLED === 'true',
+        check: isOptedIn('FOOTBALLDATA_ENABLED'),
       },
       {
         name: 'DeepSeek/Groq',
@@ -121,7 +122,7 @@ router.get('/system/intel', async (req, res) => {
       {
         name: 'RapidAPI',
         key: process.env.RAPIDAPI_KEY,
-        check: !!process.env.RAPIDAPI_KEY && process.env.RAPIDAPI_ENABLED === 'true',
+        check: !!process.env.RAPIDAPI_KEY && isOptedIn('RAPIDAPI_ENABLED'),
       },
       { name: 'SofaScore', key: null, check: true },
       { name: 'Promosport', key: null, check: true },
@@ -203,7 +204,7 @@ router.get('/rapidapi/status', (req, res) => {
       success: true,
       rapidapi: rapidApiQuotaManager.getQuotaStatus(),
       footballdata: {
-        enabled: process.env.FOOTBALLDATA_ENABLED === 'true',
+        enabled: isOptedIn('FOOTBALLDATA_ENABLED'),
         host: process.env.FOOTBALLDATA_HOST || 'footballdata.io',
         quota: fdQuotaManager.getQuotaStatus(),
       },
@@ -235,7 +236,7 @@ router.get('/health', async (req, res) => {
     // Add model_manager stats if available (Python via child process or ENV flag)
     try {
       // Default to true for production RAM optimization
-      const useModelManager = process.env.USE_MODEL_MANAGER !== 'false'
+      const useModelManager = isEnabled('USE_MODEL_MANAGER')
       if (useModelManager) {
         health.model_manager = {
           enabled: true,

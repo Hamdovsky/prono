@@ -29,6 +29,12 @@ def _sigmoid(z):
 
 def ht_prob(xg_h, xg_a, corners_total=None, weights=None):
     """P(HT > 0.5) logistique. Si poids absents -> None (appelant utilise le prior)."""
+    # E113 : garde-fou d'echelle (xG pourris en archive, cf ou_model E112).
+    try:
+        xg_h = min(8.0, max(0.0, float(xg_h if xg_h is not None else 0)))
+        xg_a = min(8.0, max(0.0, float(xg_a if xg_a is not None else 0)))
+    except (TypeError, ValueError):
+        return None
     if weights is None:
         weights = _load()
     if not weights or "w" not in weights:

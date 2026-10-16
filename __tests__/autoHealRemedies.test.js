@@ -83,6 +83,10 @@ it('fix distant injoignable => success:false (pas de fallback spawn)', async () 
 
 it('fix LOCAL (dev): INFERENCE_URL localhost => spawn conservé', async () => {
   process.env.INFERENCE_URL = 'http://127.0.0.1:8000'
+  // E103 : le remedy delegue d'abord a concurrently (restart-tries de start.bat)
+  // et ne spawn qu'en dernier recours. AUTOHEAL_DELEGATE_MS=0 force ce chemin
+  // pour que le test verifie bien le spawn conserve.
+  process.env.AUTOHEAL_DELEGATE_MS = '0'
   // setup.js mocke fs.existsSync false partout : autoriser fastapi_server.py
   require('fs').existsSync.mockReturnValue(true)
   global.fetch = okFetch

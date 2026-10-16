@@ -21,6 +21,7 @@
  */
 
 const logger = require('../core/logger')
+const { isEnabled } = require('../core/utils/envFlag')
 
 // ── Constantes ───────────────────────────────────────────────────
 // Audit précision (2026-09-02) : bandes de calibration fines (pas de 5 pts au
@@ -166,7 +167,7 @@ const CLEAN_CUTOFF_ISO = '2026-08-24T19:00:00.000Z'
 const REBUILD_MIN_SAMPLES = 150
 
 function getCurve(force = false) {
-  const identity = process.env.MARKET_CALIB_IDENTITY !== 'false'
+  const identity = isEnabled('MARKET_CALIB_IDENTITY')
   if (!force && _curve && Date.now() - _builtAt < TTL_MS) return _curve
   try {
     const db = require('../core/database').db
@@ -175,7 +176,7 @@ function getCurve(force = false) {
     const nClean = Object.values(markets).reduce((s, m) => s + m.n, 0)
     if (
       identity &&
-      !(nClean >= REBUILD_MIN_SAMPLES && process.env.MARKET_CALIB_AUTO !== 'false')
+      !(nClean >= REBUILD_MIN_SAMPLES && isEnabled('MARKET_CALIB_AUTO'))
     ) {
       logger.info(
         `[CALIBRATOR] identité imposée (gel données pré-fix) — échantillon propre: ${nClean}/${REBUILD_MIN_SAMPLES}`

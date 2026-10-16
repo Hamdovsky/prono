@@ -31,6 +31,23 @@ const TEAM_SLUGS = {
   'Inter Milan': { slug: 'inter-mailand', id: 46 },
   'AC Milan': { slug: 'ac-mailand', id: 5 },
   Juventus: { slug: 'juventus', id: 506 },
+  // E119-bis : MENA + Afrique du Sud (slugs/IDs verifies via recherche TM).
+  'Esperance Tunis': { slug: 'esperance-tunis', id: 3342 },
+  'Club Africain': { slug: 'club-africain-tunis', id: 819 },
+  'CS Sfaxien': { slug: 'club-sportif-sfaxien', id: 581 },
+  'Wydad Casablanca': { slug: 'wydad-casablanca', id: 6603 },
+  'Raja Casablanca': { slug: 'raja-casablanca', id: 2068 },
+  'FAR Rabat': { slug: 'far-rabat', id: 9099 },
+  'RS Berkane': { slug: 'renaissance-de-berkane', id: 37176 },
+  'Al Ahly': { slug: 'el-ahly-kairo', id: 7 },
+  Zamalek: { slug: 'zamalek-sc', id: 664 },
+  'Pyramids FC': { slug: 'pyramids-fc', id: 44664 },
+  'Mamelodi Sundowns': { slug: 'mamelodi-sundowns-fc', id: 6356 },
+  'Orlando Pirates': { slug: 'orlando-pirates', id: 2557 },
+  'Kaizer Chiefs': { slug: 'kaizer-chiefs', id: 568 },
+  'CR Belouizdad': { slug: 'cr-belouizdad', id: 13365 },
+  'MC Alger': { slug: 'mc-algier', id: 8850 },
+  'USM Alger': { slug: 'usm-algier', id: 6772 },
 }
 
 class ValueBetEnricher {
@@ -284,3 +301,4 @@ class ValueBetEnricher {
 }
 
 module.exports = new ValueBetEnricher()
+module.exports.TEAM_SLUGS = TEAM_SLUGS

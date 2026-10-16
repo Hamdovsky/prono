@@ -28,7 +28,7 @@ const logger = require('../core/logger')
 
 const STITCH_ROOT = path.join(__dirname, '..')
 const VISUAL_DIR = path.join(STITCH_ROOT, 'data', 'visual')
-const DISABLED = process.env.DISABLE_SOFASCORE === 'true'
+const DISABLED = require('../core/utils/envFlag').isDisabled('DISABLE_SOFASCORE')
 const VISION_URL = process.env.PIXELRAG_URL || 'http://127.0.0.1:30002'
 const SEARCH_API = 'https://www.sofascore.com/api/v1/search/all'
 const TEAM_PAGE = (id) => `https://www.sofascore.com/team/football/team/${id}`

@@ -16,9 +16,10 @@ const axios = require('axios')
 const Database = require('better-sqlite3')
 const path = require('path')
 const logger = require('../core/logger')
+const { isDisabled: envDisabled } = require('../core/utils/envFlag')
 
 const SOFA_API = 'https://www.sofascore.com/api/v1'
-const SOFA_DISABLED = process.env.DISABLE_SOFASCORE !== undefined && process.env.DISABLE_SOFASCORE !== 'false'
+const SOFA_DISABLED = envDisabled('DISABLE_SOFASCORE')
 const SOFA_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

@@ -1,3 +1,5 @@
+import { fetchWithTimeout, FETCH_TIMEOUTS } from '../utils/fetchWithTimeout.js'
+
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
 export async function fetchHotGrids(params = {}) {
@@ -8,7 +10,12 @@ export async function fetchHotGrids(params = {}) {
   })
 
   try {
-    const response = await fetch(`${API_BASE}/api/grids/hot?${queryParams}`)
+    // E106 : delai maximal + _demo_ explicite (voir plus bas).
+    const response = await fetchWithTimeout(
+      `${API_BASE}/api/grids/hot?${queryParams}`,
+      {},
+      FETCH_TIMEOUTS.read
+    )
     if (!response.ok) {
       throw new Error(`Erreur API: ${response.status}`)
     }
@@ -19,8 +26,11 @@ export async function fetchHotGrids(params = {}) {
     }
   } catch (error) {
     console.error('Erreur fetchHotGrids:', error)
+    // E106 : donnees FACTICES (demo) — voir heatmapService : le composant
+    // DOIT afficher le bandeau DEMO via `demo: true`.
     return {
       success: false,
+      demo: true,
       error: error.message,
       data: getFallbackGrids(),
     }
